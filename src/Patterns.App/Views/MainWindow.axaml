@@ -6,6 +6,7 @@
         x:Class="Patterns.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Patterns — show test pattern suite"
+        Icon="/Assets/patterns-256.png"
         Width="1420" Height="900" MinWidth="1180" MinHeight="720"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource AppBgBrush}">
