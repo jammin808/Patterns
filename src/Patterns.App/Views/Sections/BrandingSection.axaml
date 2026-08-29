@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.BrandingSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Branding" />
+
+    <TextBlock Classes="h2" Text="COMPANY" />
+    <TextBox Watermark="Company / event name" Text="{Binding State.Brand.CompanyName}" />
+
+    <TextBlock Classes="h2" Text="COLOURS" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Primary" />
+      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.PrimaryColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Secondary" />
+      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.SecondaryColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Accent" />
+      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.AccentColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Background" />
+      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.BackgroundColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Text" />
+      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.TextColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    </Grid>
+    <CheckBox Content="Apply brand colours to patterns"
+              IsChecked="{Binding State.Brand.ApplyToPatterns}" />
+    <TextBlock Classes="hint"
+               Text="Accents, checkerboards, colour cycles, particles and overlay text pick up the brand kit. Measurement lines stay neutral so patterns remain accurate." />
+
+    <TextBlock Classes="h2" Text="LOGO" />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" Watermark="Logo file (PNG with alpha recommended)" Text="{Binding State.Brand.LogoPath}" />
+      <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseLogoCommand}" />
+    </Grid>
+    <TextBlock Classes="hint" Text="Use it as a watermark (Clock &amp; overlays tab) or as a particle sprite (Logo shape)." />
+
+    <TextBlock Classes="h2" Text="BRAND KITS" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="chip" Content="Save kit" Command="{Binding SaveBrandKitCommand}" />
+      <Button Classes="chip" Content="Load kit…" Command="{Binding LoadBrandKitCommand}" />
+    </StackPanel>
+    <TextBlock Classes="hint" Text="Kits are JSON files in the portable 'brandkits' folder — keep one per client." />
+  </StackPanel>
+</UserControl>

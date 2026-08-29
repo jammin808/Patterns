@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.NdiSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="NDI output" />
+
+    <CheckBox Content="Send the program as an NDI source" IsChecked="{Binding State.Ndi.Enabled}" />
+    <TextBlock Classes="hint" Text="{Binding NdiRuntimeNote}" />
+
+    <TextBlock Classes="h2" Text="SENDER" />
+    <TextBox Watermark="Sender name on the network" Text="{Binding State.Ndi.SenderName}" />
+
+    <TextBlock Classes="h2" Text="FORMAT" />
+    <Grid ColumnDefinitions="*,8,*">
+      <NumericUpDown Grid.Column="0" Minimum="16" Maximum="8192" Increment="16" FormatString="0"
+                     Value="{Binding State.Ndi.Width, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="Width" />
+      <NumericUpDown Grid.Column="2" Minimum="16" Maximum="8192" Increment="16" FormatString="0"
+                     Value="{Binding State.Ndi.Height, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="Height" />
+    </Grid>
+    <ComboBox PlaceholderText="Frame rate…" ItemsSource="{Binding NdiRates}"
+              SelectedItem="{Binding SelectedNdiRate, Mode=TwoWay}" />
+
+    <TextBlock Classes="h2" Text="STATUS" />
+    <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10">
+      <TextBlock Text="{Binding NdiStatus}" TextWrapping="Wrap" />
+    </Border>
+
+    <TextBlock Classes="hint" Margin="0,8,0,0"
+               Text="The NDI feed mirrors the program pattern (with overlays and countdown) at its own resolution and frame rate — independent of physical outputs. Blackout affects NDI too." />
+  </StackPanel>
+</UserControl>

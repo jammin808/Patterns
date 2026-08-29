@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.HelpSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Help" />
+
+    <TextBlock Classes="h2" Text="KEYS" />
+    <TextBlock TextWrapping="Wrap" LineHeight="22" xml:space="preserve">F5   GO — open outputs
+F6   STOP — close outputs
+F7   IDENTIFY — flash screen numbers
+F8 / Space   BLACKOUT toggle
+On outputs:  Esc close · Space/B blackout · I identify</TextBlock>
+
+    <TextBlock Classes="h2" Text="WORKFLOW" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="1) Pick screens and a mode in Outputs.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
+
+    <TextBlock Classes="h2" Text="PORTABLE FILES" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Settings, presets, brand kits and the log live beside Patterns.exe — copy the folder and everything travels with it. Show files (.patshow.json) capture the whole setup for a gig." />
+
+    <TextBlock Classes="h2" Text="EXTRAS" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="NDI: install the free NDI runtime (ndi.video) or drop Processing.NDI.Lib.x64.dll beside the exe. Video: install 64-bit VLC or provide a 'libvlc' folder. Both are optional — the app runs without them." />
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.OutputsSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Outputs" />
+
+    <TextBlock Classes="h2" Text="MODE" />
+    <ComboBox ItemsSource="{Binding OutputModes}"
+              SelectedValue="{Binding State.Output.Mode, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    <TextBlock Classes="hint"
+               Text="Duplicate mirrors the program pattern. Independent gives each screen its own pattern (pick the editing target in the Pattern tab). Span joins the selected screens into one pixel canvas." />
+
+    <TextBlock Classes="h2" Text="SCREENS" />
+    <ItemsControl ItemsSource="{Binding ScreenRows}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ScreenRow">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,8" Margin="0,3">
+            <Grid ColumnDefinitions="Auto,*">
+              <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                <TextBlock Classes="hint" Text="{Binding Detail}" />
+              </StackPanel>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Classes="chip" Content="Identify screens" Command="{Binding IdentifyCommand}" />
+
+    <TextBlock Classes="h2" Text="WINDOW BEHAVIOUR" />
+    <CheckBox Content="Always on top" IsChecked="{Binding State.Output.Topmost}" />
+    <CheckBox Content="Hide mouse cursor on outputs" IsChecked="{Binding State.Output.HideCursor}" />
+
+    <TextBlock Classes="h2" Text="LIVE" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="go" Content="GO" Command="{Binding GoCommand}" />
+      <Button Classes="stop" Content="STOP" Command="{Binding StopCommand}" />
+    </StackPanel>
+    <TextBlock Classes="hint"
+               Text="On an output window: Esc closes outputs · Space/B blackout · I identify. Changes apply live." />
+  </StackPanel>
+</UserControl>

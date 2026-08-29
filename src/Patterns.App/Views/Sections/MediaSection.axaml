@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.MediaSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Media" />
+    <TextBlock Classes="hint" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI too." />
+
+    <TextBlock Classes="h2" Text="SOURCE" />
+    <ComboBox ItemsSource="{Binding MediaSources}"
+              SelectedValue="{Binding ActivePattern.Media.Source, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+
+    <TextBlock Classes="h2" Text="IMAGE" />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" Watermark="PNG, JPEG, BMP, WebP…" Text="{Binding ActivePattern.Media.ImagePath}" />
+      <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseImageCommand}" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="VIDEO" />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" Watermark="MP4, MOV, MKV…" Text="{Binding ActivePattern.Media.VideoPath}" />
+      <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseVideoCommand}" />
+    </Grid>
+    <CheckBox Content="Loop" IsChecked="{Binding ActivePattern.Media.Loop}" />
+    <CheckBox Content="Mute" IsChecked="{Binding ActivePattern.Media.Mute}" />
+    <TextBlock Classes="hint"
+               Text="Video decoding uses libVLC when available: install 64-bit VLC, or put a 'libvlc' folder beside Patterns.exe. Images always work." />
+
+    <TextBlock Classes="h2" Text="FIT" />
+    <ComboBox ItemsSource="{Binding FitModes}"
+              SelectedValue="{Binding ActivePattern.Media.Fit, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Background" />
+      <ColorPicker Grid.Column="1" Color="{Binding ActivePattern.Media.BackgroundColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    </Grid>
+  </StackPanel>
+</UserControl>

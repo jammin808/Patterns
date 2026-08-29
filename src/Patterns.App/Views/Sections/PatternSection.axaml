@@ -1,0 +1,334 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.PatternSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Pattern" />
+
+    <StackPanel IsVisible="{Binding IsIndependent}">
+      <TextBlock Classes="h2" Text="EDITING TARGET" />
+      <ComboBox ItemsSource="{Binding EditTargets}" SelectedItem="{Binding EditTarget, Mode=TwoWay}" />
+      <TextBlock Classes="hint" Text="Independent mode: choose which screen you are editing. The preview follows." />
+    </StackPanel>
+
+    <TextBlock Classes="h2" Text="TYPE" />
+    <ComboBox ItemsSource="{Binding PatternKinds}"
+              SelectedValue="{Binding ActivePattern.Kind, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+
+    <!-- Canvas (non-wall patterns) -->
+    <StackPanel IsVisible="{Binding ShowCanvasPanel}">
+      <TextBlock Classes="h2" Text="CANVAS" />
+      <CheckBox Content="Follow output size (1:1 pixels)" IsChecked="{Binding ActivePattern.Canvas.FollowOutput}" />
+      <StackPanel IsEnabled="{Binding !ActivePattern.Canvas.FollowOutput}">
+        <ComboBox PlaceholderText="Standard resolutions…"
+                  ItemsSource="{Binding Resolutions}"
+                  SelectedItem="{Binding SelectedResolution, Mode=TwoWay}" />
+        <Grid ColumnDefinitions="*,8,*" Margin="0,3">
+          <NumericUpDown Grid.Column="0" Minimum="16" Maximum="16384" Increment="16" FormatString="0"
+                         Value="{Binding ActivePattern.Canvas.Width, Mode=TwoWay, Converter={StaticResource Num}}" />
+          <NumericUpDown Grid.Column="2" Minimum="16" Maximum="16384" Increment="16" FormatString="0"
+                         Value="{Binding ActivePattern.Canvas.Height, Mode=TwoWay, Converter={StaticResource Num}}" />
+        </Grid>
+        <ComboBox ItemsSource="{Binding ScaleModes}"
+                  SelectedValue="{Binding ActivePattern.Canvas.ScaleMode, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Grid -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Grid}}">
+      <TextBlock Classes="h2" Text="GRID" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Cell size (px)" />
+        <NumericUpDown Grid.Column="1" Minimum="2" Maximum="4096" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Grid.CellSize, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Subdivisions" />
+        <NumericUpDown Grid.Column="1" Minimum="0" Maximum="16" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Grid.Subdivisions, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Line width (px)" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="8" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Grid.LineWidth, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Center cross" IsChecked="{Binding ActivePattern.Grid.ShowCenterCross}" />
+      <CheckBox Content="Border" IsChecked="{Binding ActivePattern.Grid.ShowBorder}" />
+      <CheckBox Content="Diagonals" IsChecked="{Binding ActivePattern.Grid.ShowDiagonals}" />
+      <CheckBox Content="Resolution label" IsChecked="{Binding ActivePattern.Grid.ShowLabel}" />
+    </StackPanel>
+
+    <!-- Checkerboard -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Checkerboard}}">
+      <TextBlock Classes="h2" Text="CHECKERBOARD" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Cell size (px)" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="4096" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Checker.CellSize, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Animate (swap colours)" IsChecked="{Binding ActivePattern.Checker.Animate}" />
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding ActivePattern.Checker.Animate}">
+        <TextBlock Classes="label" Text="Interval (s)" />
+        <NumericUpDown Grid.Column="1" Minimum="0.05" Maximum="60" Increment="0.25" FormatString="0.##"
+                       Value="{Binding ActivePattern.Checker.IntervalSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <TextBlock Classes="hint" Text="1 px cells verify pixel-perfect signal paths. Branding colours apply when enabled in Branding." />
+    </StackPanel>
+
+    <!-- Colour bars -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.ColorBars}}">
+      <TextBlock Classes="h2" Text="COLOUR BARS" />
+      <ComboBox ItemsSource="{Binding BarsVariants}"
+                SelectedValue="{Binding ActivePattern.Bars.Variant, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <CheckBox Content="Full range (stretch 16–235 → 0–255)" IsChecked="{Binding ActivePattern.Bars.FullRange}" />
+      <TextBlock Classes="hint" Text="SMPTE layout uses BT.709 legal levels; full range suits graphics/LED pipelines." />
+    </StackPanel>
+
+    <!-- Ramp -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Ramp}}">
+      <TextBlock Classes="h2" Text="RAMPS &amp; STEPS" />
+      <ComboBox ItemsSource="{Binding RampVariants}"
+                SelectedValue="{Binding ActivePattern.Ramp.Variant, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Steps" />
+        <NumericUpDown Grid.Column="1" Minimum="2" Maximum="256" Increment="2" FormatString="0"
+                       Value="{Binding ActivePattern.Ramp.Steps, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Percent markers" IsChecked="{Binding ActivePattern.Ramp.ShowMarkers}" />
+    </StackPanel>
+
+    <!-- Focus -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Focus}}">
+      <TextBlock Classes="h2" Text="FOCUS CHART" />
+      <CheckBox Content="Siemens star" IsChecked="{Binding ActivePattern.Focus.ShowStar}" />
+      <CheckBox Content="Line pairs" IsChecked="{Binding ActivePattern.Focus.ShowLinePairs}" />
+      <CheckBox Content="Type samples" IsChecked="{Binding ActivePattern.Focus.ShowText}" />
+    </StackPanel>
+
+    <!-- Geometry -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Geometry}}">
+      <TextBlock Classes="h2" Text="GEOMETRY &amp; SAFE AREAS" />
+      <CheckBox Content="Circles" IsChecked="{Binding ActivePattern.Geometry.ShowCircles}" />
+      <CheckBox Content="Crosshair" IsChecked="{Binding ActivePattern.Geometry.ShowCrosshair}" />
+      <CheckBox Content="Diagonals" IsChecked="{Binding ActivePattern.Geometry.ShowDiagonals}" />
+      <CheckBox Content="Safe areas" IsChecked="{Binding ActivePattern.Geometry.ShowSafeAreas}" />
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding ActivePattern.Geometry.ShowSafeAreas}">
+        <TextBlock Classes="label" Text="Action safe %" />
+        <NumericUpDown Grid.Column="1" Minimum="50" Maximum="100" Increment="0.5" FormatString="0.#"
+                       Value="{Binding ActivePattern.Geometry.ActionSafePct, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding ActivePattern.Geometry.ShowSafeAreas}">
+        <TextBlock Classes="label" Text="Title safe %" />
+        <NumericUpDown Grid.Column="1" Minimum="50" Maximum="100" Increment="0.5" FormatString="0.#"
+                       Value="{Binding ActivePattern.Geometry.TitleSafePct, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Aspect markers (4:3 · 1:1 · 2.39)" IsChecked="{Binding ActivePattern.Geometry.ShowAspectMarkers}" />
+    </StackPanel>
+
+    <!-- Flat field -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.FlatField}}">
+      <TextBlock Classes="h2" Text="FLAT FIELD" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Colour" />
+        <ColorPicker Grid.Column="1" Color="{Binding ActivePattern.FlatField.Color, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Level %" />
+        <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+                Value="{Binding ActivePattern.FlatField.LevelPct, Mode=TwoWay}" />
+      </Grid>
+      <CheckBox Content="Label chip" IsChecked="{Binding ActivePattern.FlatField.ShowLabel}" />
+      <CheckBox Content="1 px border" IsChecked="{Binding ActivePattern.FlatField.ShowBorder}" />
+    </StackPanel>
+
+    <!-- LED wall -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.LedWall}}">
+      <TextBlock Classes="h2" Text="LED WALL — PANEL" />
+      <ComboBox PlaceholderText="Common panel sizes…" ItemsSource="{Binding TileSizes}"
+                SelectedItem="{Binding SelectedTileSize, Mode=TwoWay}" />
+      <Grid ColumnDefinitions="*,8,*">
+        <NumericUpDown Grid.Column="0" Minimum="8" Maximum="1024" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.LedWall.TileWidth, Mode=TwoWay, Converter={StaticResource Num}}" />
+        <NumericUpDown Grid.Column="2" Minimum="8" Maximum="1024" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.LedWall.TileHeight, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+
+      <TextBlock Classes="h2" Text="LED WALL — SIZE" />
+      <CheckBox Content="Define by canvas resolution (edge tiles may be partial)"
+                IsChecked="{Binding ActivePattern.LedWall.DefineByCanvas}" />
+      <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding !ActivePattern.LedWall.DefineByCanvas}">
+        <NumericUpDown Grid.Column="0" Minimum="1" Maximum="512" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.LedWall.Columns, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="Columns" />
+        <NumericUpDown Grid.Column="2" Minimum="1" Maximum="512" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.LedWall.Rows, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="Rows" />
+      </Grid>
+      <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding ActivePattern.LedWall.DefineByCanvas}">
+        <NumericUpDown Grid.Column="0" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.LedWall.CanvasWidth, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="Canvas width" />
+        <NumericUpDown Grid.Column="2" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.LedWall.CanvasHeight, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="Canvas height" />
+      </Grid>
+
+      <TextBlock Classes="h2" Text="LED WALL — MARKINGS" />
+      <ComboBox ItemsSource="{Binding TileNumberings}"
+                SelectedValue="{Binding ActivePattern.LedWall.Numbering, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <CheckBox Content="Tile borders" IsChecked="{Binding ActivePattern.LedWall.ShowTileBorders}" />
+      <CheckBox Content="Alternate tile tint" IsChecked="{Binding ActivePattern.LedWall.AlternateTint}" />
+      <CheckBox Content="Tile diagonals" IsChecked="{Binding ActivePattern.LedWall.ShowTileDiagonals}" />
+      <CheckBox Content="Center cross" IsChecked="{Binding ActivePattern.LedWall.ShowCenterCross}" />
+      <CheckBox Content="Info chip" IsChecked="{Binding ActivePattern.LedWall.ShowInfo}" />
+      <CheckBox Content="Pixel grid" IsChecked="{Binding ActivePattern.LedWall.ShowPixelGrid}" />
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding ActivePattern.LedWall.ShowPixelGrid}">
+        <TextBlock Classes="label" Text="Pixel grid step" />
+        <NumericUpDown Grid.Column="1" Minimum="2" Maximum="256" Increment="2" FormatString="0"
+                       Value="{Binding ActivePattern.LedWall.PixelGridStep, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+    </StackPanel>
+
+    <!-- Video wall -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.VideoWall}}">
+      <TextBlock Classes="h2" Text="VIDEO WALL — ELEMENT" />
+      <ComboBox PlaceholderText="Standard resolutions…" ItemsSource="{Binding Resolutions}"
+                SelectedItem="{Binding SelectedVideoWallResolution, Mode=TwoWay}" />
+      <Grid ColumnDefinitions="*,8,*">
+        <NumericUpDown Grid.Column="0" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.VideoWall.ElementWidth, Mode=TwoWay, Converter={StaticResource Num}}" />
+        <NumericUpDown Grid.Column="2" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.VideoWall.ElementHeight, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Portrait elements" IsChecked="{Binding ActivePattern.VideoWall.Portrait}" />
+
+      <TextBlock Classes="h2" Text="VIDEO WALL — LAYOUT" />
+      <Grid ColumnDefinitions="*,8,*">
+        <NumericUpDown Grid.Column="0" Minimum="1" Maximum="64" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.VideoWall.Columns, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="Columns" />
+        <NumericUpDown Grid.Column="2" Minimum="1" Maximum="64" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.VideoWall.Rows, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="Rows" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Bezel (px)" />
+        <NumericUpDown Grid.Column="1" Minimum="0" Maximum="512" Increment="2" FormatString="0"
+                       Value="{Binding ActivePattern.VideoWall.BezelPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Numbers" IsChecked="{Binding ActivePattern.VideoWall.ShowNumbers}" />
+      <CheckBox Content="Borders" IsChecked="{Binding ActivePattern.VideoWall.ShowBorders}" />
+      <CheckBox Content="Diagonals" IsChecked="{Binding ActivePattern.VideoWall.ShowDiagonals}" />
+      <CheckBox Content="Center circles" IsChecked="{Binding ActivePattern.VideoWall.ShowCenters}" />
+      <CheckBox Content="Info chip" IsChecked="{Binding ActivePattern.VideoWall.ShowInfo}" />
+    </StackPanel>
+
+    <!-- Projection blend -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.ProjectionBlend}}">
+      <TextBlock Classes="h2" Text="PROJECTION BLEND" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Projectors" />
+        <NumericUpDown Grid.Column="1" Minimum="2" Maximum="12" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Blend.Projectors, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <TextBlock Classes="label" Text="Native resolution per projector" Margin="0,4,0,0" />
+      <Grid ColumnDefinitions="*,8,*">
+        <NumericUpDown Grid.Column="0" Minimum="320" Maximum="8192" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Blend.NativeWidth, Mode=TwoWay, Converter={StaticResource Num}}" />
+        <NumericUpDown Grid.Column="2" Minimum="240" Maximum="8192" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Blend.NativeHeight, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Overlap (px)" />
+        <NumericUpDown Grid.Column="1" Minimum="8" Maximum="4096" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Blend.OverlapPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <ComboBox ItemsSource="{Binding BlendOrientations}"
+                SelectedValue="{Binding ActivePattern.Blend.Orientation, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <ComboBox ItemsSource="{Binding BlendCurves}"
+                SelectedValue="{Binding ActivePattern.Blend.Curve, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <CheckBox Content="Alignment grid" IsChecked="{Binding ActivePattern.Blend.ShowGrids}" />
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding ActivePattern.Blend.ShowGrids}">
+        <TextBlock Classes="label" Text="Grid size (px)" />
+        <NumericUpDown Grid.Column="1" Minimum="8" Maximum="1024" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Blend.GridSize, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Blend-curve ramps in zones" IsChecked="{Binding ActivePattern.Blend.ShowRamps}" />
+      <CheckBox Content="Zone edge markers + centerline" IsChecked="{Binding ActivePattern.Blend.ShowMarkers}" />
+      <CheckBox Content="Hue-code projectors" IsChecked="{Binding ActivePattern.Blend.HueCode}" />
+      <CheckBox Content="Info chip" IsChecked="{Binding ActivePattern.Blend.ShowInfo}" />
+      <CheckBox Content="50% grey double-stack check" IsChecked="{Binding ActivePattern.Blend.GrayCheck}" />
+    </StackPanel>
+
+    <!-- Motion -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Motion}}">
+      <TextBlock Classes="h2" Text="MOTION" />
+      <ComboBox ItemsSource="{Binding MotionVariants}"
+                SelectedValue="{Binding ActivePattern.Motion.Variant, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Speed (px/s)" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="20000" Increment="20" FormatString="0"
+                       Value="{Binding ActivePattern.Motion.SpeedPxPerSec, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="px/frame (judder)" />
+        <NumericUpDown Grid.Column="1" Minimum="0" Maximum="512" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Motion.PxPerFrame, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="0 = smooth time-based speed; >0 steps exactly N px per rendered frame" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Bar thickness" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="2048" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Motion.BarThickness, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Vertical travel" IsChecked="{Binding ActivePattern.Motion.Vertical}" />
+      <CheckBox Content="FPS readout" IsChecked="{Binding ActivePattern.Motion.ShowFps}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Zone plate scale" />
+        <NumericUpDown Grid.Column="1" Minimum="0.05" Maximum="20" Increment="0.1" FormatString="0.##"
+                       Value="{Binding ActivePattern.Motion.ZonePlateScale, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+    </StackPanel>
+
+    <!-- Colour cycle -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.ColorCycle}}">
+      <TextBlock Classes="h2" Text="COLOUR CYCLE" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Interval (s)" />
+        <NumericUpDown Grid.Column="1" Minimum="0.1" Maximum="600" Increment="0.5" FormatString="0.##"
+                       Value="{Binding ActivePattern.ColorCycle.IntervalSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Cross-fade" IsChecked="{Binding ActivePattern.ColorCycle.Fade}" />
+      <CheckBox Content="Use brand colours" IsChecked="{Binding ActivePattern.ColorCycle.UseBrandColors}" />
+      <TextBox Watermark="#FF0000,#00FF00,#0000FF,#FFFFFF,#000000"
+               Text="{Binding ActivePattern.ColorCycle.ColorsCsv}"
+               IsEnabled="{Binding !ActivePattern.ColorCycle.UseBrandColors}" />
+      <CheckBox Content="Label chip" IsChecked="{Binding ActivePattern.ColorCycle.ShowLabel}" />
+    </StackPanel>
+
+    <!-- Media / Particles pointers -->
+    <TextBlock Classes="hint" Margin="0,10,0,0"
+               IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Media}}"
+               Text="Configure the file and fit in the Media tab." />
+    <TextBlock Classes="hint" Margin="0,10,0,0"
+               IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Particles}}"
+               Text="Design the animation in the Particles tab (mini studio)." />
+
+    <TextBlock Classes="h2" Text="SAVE AS PRESET" />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" Watermark="Preset name…" Text="{Binding NewPresetName}" />
+      <Button Grid.Column="2" Classes="chip" Content="Save" Command="{Binding SavePresetCommand}" />
+    </Grid>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.OverlaysSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Clock &amp; overlays" />
+
+    <TextBlock Classes="h2" Text="TIME &amp; DATE" />
+    <CheckBox Content="Show clock" IsChecked="{Binding State.Overlays.Clock.Enabled}" />
+    <StackPanel IsEnabled="{Binding State.Overlays.Clock.Enabled}">
+      <CheckBox Content="24-hour" IsChecked="{Binding State.Overlays.Clock.TwentyFourHour}" />
+      <CheckBox Content="Seconds" IsChecked="{Binding State.Overlays.Clock.ShowSeconds}" />
+      <CheckBox Content="Date" IsChecked="{Binding State.Overlays.Clock.ShowDate}" />
+      <CheckBox Content="Pill background" IsChecked="{Binding State.Overlays.Clock.Pill}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Position" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
+                  SelectedValue="{Binding State.Overlays.Clock.Anchor, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Size (% height)" />
+        <Slider Grid.Column="1" Minimum="2" Maximum="40" Value="{Binding State.Overlays.Clock.SizePct, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Opacity" />
+        <Slider Grid.Column="1" Minimum="0.05" Maximum="1" Value="{Binding State.Overlays.Clock.Opacity, Mode=TwoWay}" />
+      </Grid>
+    </StackPanel>
+
+    <TextBlock Classes="h2" Text="LOGO WATERMARK" />
+    <CheckBox Content="Show logo (set the file in Branding)" IsChecked="{Binding State.Overlays.Logo.Enabled}" />
+    <StackPanel IsEnabled="{Binding State.Overlays.Logo.Enabled}">
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Position" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
+                  SelectedValue="{Binding State.Overlays.Logo.Anchor, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Height (%)" />
+        <Slider Grid.Column="1" Minimum="2" Maximum="100" Value="{Binding State.Overlays.Logo.HeightPct, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Opacity" />
+        <Slider Grid.Column="1" Minimum="0.05" Maximum="1" Value="{Binding State.Overlays.Logo.Opacity, Mode=TwoWay}" />
+      </Grid>
+    </StackPanel>
+
+    <TextBlock Classes="h2" Text="MESSAGE" />
+    <CheckBox Content="Show message" IsChecked="{Binding State.Overlays.Message.Enabled}" />
+    <StackPanel IsEnabled="{Binding State.Overlays.Message.Enabled}">
+      <TextBox Watermark="WELCOME" Text="{Binding State.Overlays.Message.Text}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Position" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
+                  SelectedValue="{Binding State.Overlays.Message.Anchor, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Size (% height)" />
+        <Slider Grid.Column="1" Minimum="2" Maximum="30" Value="{Binding State.Overlays.Message.SizePct, Mode=TwoWay}" />
+      </Grid>
+      <CheckBox Content="Scroll (ticker)" IsChecked="{Binding State.Overlays.Message.Scroll}" />
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding State.Overlays.Message.Scroll}">
+        <TextBlock Classes="label" Text="Speed (px/s)" />
+        <NumericUpDown Grid.Column="1" Minimum="10" Maximum="4000" Increment="10" FormatString="0"
+                       Value="{Binding State.Overlays.Message.ScrollPxPerSec, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+    </StackPanel>
+
+    <TextBlock Classes="h2" Text="TECH INFO CHIP" />
+    <CheckBox Content="Show sink name, pattern and FPS" IsChecked="{Binding State.Overlays.Info.Enabled}" />
+    <StackPanel IsEnabled="{Binding State.Overlays.Info.Enabled}">
+      <CheckBox Content="Include FPS" IsChecked="{Binding State.Overlays.Info.ShowFps}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Position" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
+                  SelectedValue="{Binding State.Overlays.Info.Anchor, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

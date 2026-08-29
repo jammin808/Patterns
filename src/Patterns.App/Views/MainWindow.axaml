@@ -1,0 +1,104 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Patterns.App.ViewModels"
+        xmlns:v="using:Patterns.App.Views.Sections"
+        xmlns:r="using:Patterns.App.Rendering"
+        x:Class="Patterns.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Patterns — show test pattern suite"
+        Width="1420" Height="900" MinWidth="1180" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource AppBgBrush}">
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="F5" Command="{Binding GoCommand}" />
+    <KeyBinding Gesture="F6" Command="{Binding StopCommand}" />
+    <KeyBinding Gesture="F7" Command="{Binding IdentifyCommand}" />
+    <KeyBinding Gesture="F8" Command="{Binding BlackoutCommand}" />
+  </Window.KeyBindings>
+
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- Header / transport -->
+    <Border Grid.Row="0" Background="{StaticResource PanelBgBrush}"
+            BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1" Padding="16,10">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <TextBlock Text="◧" FontSize="22" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+          <StackPanel>
+            <TextBlock Text="PATTERNS" FontSize="16" FontWeight="Bold" LetterSpacing="2" />
+            <TextBlock Text="{Binding OutputsStatus}" Classes="hint" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <TextBlock Text="{Binding HeaderClock}" FontSize="18" FontWeight="SemiBold"
+                     VerticalAlignment="Center" Margin="0,0,10,0" />
+          <Button Classes="go" Content="GO  (F5)" Command="{Binding GoCommand}"
+                  ToolTip.Tip="Open pattern outputs on the selected screens" />
+          <Button Classes="stop" Content="STOP (F6)" Command="{Binding StopCommand}"
+                  ToolTip.Tip="Close all output windows" />
+          <Button Classes="stop" Content="IDENTIFY (F7)" Command="{Binding IdentifyCommand}"
+                  ToolTip.Tip="Flash screen numbers on every output" />
+          <ToggleButton Classes="blackout" Content="BLACKOUT (F8)" IsChecked="{Binding State.Blackout}"
+                        ToolTip.Tip="Instant black on all outputs and NDI" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- Body -->
+    <Grid Grid.Row="1" ColumnDefinitions="470,*" Margin="12">
+
+      <TabControl Grid.Column="0" TabStripPlacement="Left" Padding="8,0,0,0">
+        <TabItem Header="Pattern">
+          <ScrollViewer><v:PatternSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Outputs">
+          <ScrollViewer><v:OutputsSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Clock">
+          <ScrollViewer><v:OverlaysSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Countdown">
+          <ScrollViewer><v:CountdownSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Particles">
+          <ScrollViewer><v:ParticlesSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Branding">
+          <ScrollViewer><v:BrandingSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Media">
+          <ScrollViewer><v:MediaSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="NDI">
+          <ScrollViewer><v:NdiSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Library">
+          <v:LibrarySection />
+        </TabItem>
+        <TabItem Header="Help">
+          <ScrollViewer><v:HelpSection /></ScrollViewer>
+        </TabItem>
+      </TabControl>
+
+      <!-- Preview column -->
+      <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="12,0,0,0">
+        <Border Grid.Row="0" Classes="panel" Padding="6" ClipToBounds="True">
+          <r:SkiaCanvasControl x:Name="PreviewCanvas" />
+        </Border>
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="2,10,2,0">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <TextBlock Classes="label" Text="{Binding CanvasInfo}" />
+            <TextBlock Classes="label" Text="{Binding NdiStatus, StringFormat='NDI: {0}'}" />
+            <TextBlock Classes="label" Foreground="{StaticResource AccentBrush}" Text="{Binding StatusMessage}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <Button Classes="chip" Content="Save show…" Command="{Binding SaveShowCommand}" />
+            <Button Classes="chip" Content="Load show…" Command="{Binding LoadShowCommand}" />
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

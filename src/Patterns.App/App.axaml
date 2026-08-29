@@ -1,0 +1,37 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Patterns.App.Converters"
+             x:Class="Patterns.App.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <conv:NumberConverter x:Key="Num" />
+    <conv:HexColorConverter x:Key="HexColor" />
+    <conv:BoolToTextConverter x:Key="BoolText" />
+    <conv:EnumEqualsConverter x:Key="EnumEq" />
+
+    <!-- Palette -->
+    <Color x:Key="AppBg">#0E0F13</Color>
+    <Color x:Key="PanelBg">#15171D</Color>
+    <Color x:Key="PanelBg2">#1A1D24</Color>
+    <Color x:Key="HairlineColor">#2A2E38</Color>
+    <Color x:Key="AccentColor">#3EC1F3</Color>
+    <Color x:Key="AccentDim">#1E5A70</Color>
+    <Color x:Key="TextDim">#8A93A3</Color>
+    <Color x:Key="DangerColor">#E0472E</Color>
+
+    <SolidColorBrush x:Key="AppBgBrush" Color="{StaticResource AppBg}" />
+    <SolidColorBrush x:Key="PanelBgBrush" Color="{StaticResource PanelBg}" />
+    <SolidColorBrush x:Key="PanelBg2Brush" Color="{StaticResource PanelBg2}" />
+    <SolidColorBrush x:Key="HairlineBrush" Color="{StaticResource HairlineColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="TextDimBrush" Color="{StaticResource TextDim}" />
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="/Styles/AppStyles.axaml" />
+  </Application.Styles>
+
+</Application>

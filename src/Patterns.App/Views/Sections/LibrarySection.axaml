@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.LibrarySection"
+             x:DataType="vm:MainViewModel">
+
+  <Grid RowDefinitions="Auto,*" Margin="4,8,4,4">
+    <StackPanel Grid.Row="0">
+      <TextBlock Classes="h1" Text="Pattern library" />
+      <TextBlock Classes="hint" Margin="0,0,0,8"
+                 Text="Factory presets for every standard use — click to apply to the current editing target. Your saved presets appear under 'My presets'." />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1">
+      <ItemsControl ItemsSource="{Binding Library}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PresetItem">
+            <Button Margin="0,0,8,8" Padding="0" CornerRadius="8" Background="{StaticResource PanelBg2Brush}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyPresetCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Width="128">
+                <Border CornerRadius="8,8,0,0" ClipToBounds="True" Height="72" Background="#0A0A0E">
+                  <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                </Border>
+                <StackPanel Margin="8,6,8,8">
+                  <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                             TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                  <TextBlock Text="{Binding Category}" Classes="hint" />
+                </StackPanel>
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

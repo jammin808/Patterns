@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.ParticlesSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Particle studio" />
+    <TextBlock Classes="hint" Text="Select the Particles pattern type to see this live. Presets are starting points — everything below is yours to shape." />
+
+    <TextBlock Classes="h2" Text="PRESETS" />
+    <ItemsControl ItemsSource="{Binding ParticlePresetNames}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <Button Classes="chip" Margin="0,2,6,2" Content="{Binding}"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyParticlePresetCommand}"
+                  CommandParameter="{Binding}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="EMITTER" />
+    <ComboBox ItemsSource="{Binding ParticleEmitters}"
+              SelectedValue="{Binding ActivePattern.Particles.Emitter, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Count" />
+      <NumericUpDown Grid.Column="1" Minimum="1" Maximum="20000" Increment="50" FormatString="0"
+                     Value="{Binding ActivePattern.Particles.Count, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Direction (°)" />
+      <NumericUpDown Grid.Column="1" Minimum="-360" Maximum="360" Increment="5" FormatString="0"
+                     Value="{Binding ActivePattern.Particles.DirectionDeg, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Spread (°)" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="360" Value="{Binding ActivePattern.Particles.SpreadDeg, Mode=TwoWay}" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="SHAPE &amp; SIZE" />
+    <ComboBox ItemsSource="{Binding ParticleShapes}"
+              SelectedValue="{Binding ActivePattern.Particles.Shape, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    <Grid ColumnDefinitions="*,8,*">
+      <NumericUpDown Grid.Column="0" Minimum="0.5" Maximum="512" Increment="0.5" FormatString="0.#"
+                     Value="{Binding ActivePattern.Particles.SizeMin, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="Min size (px)" />
+      <NumericUpDown Grid.Column="2" Minimum="0.5" Maximum="512" Increment="0.5" FormatString="0.#"
+                     Value="{Binding ActivePattern.Particles.SizeMax, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="Max size (px)" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Spin (turns/s)" />
+      <NumericUpDown Grid.Column="1" Minimum="-10" Maximum="10" Increment="0.2" FormatString="0.##"
+                     Value="{Binding ActivePattern.Particles.RotationSpeed, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="MOTION" />
+    <Grid ColumnDefinitions="*,8,*">
+      <NumericUpDown Grid.Column="0" Minimum="0" Maximum="5000" Increment="10" FormatString="0"
+                     Value="{Binding ActivePattern.Particles.SpeedMin, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="Min speed (px/s)" />
+      <NumericUpDown Grid.Column="2" Minimum="0" Maximum="5000" Increment="10" FormatString="0"
+                     Value="{Binding ActivePattern.Particles.SpeedMax, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="Max speed (px/s)" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Gravity (px/s²)" />
+      <NumericUpDown Grid.Column="1" Minimum="-3000" Maximum="3000" Increment="10" FormatString="0"
+                     Value="{Binding ActivePattern.Particles.GravityY, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Wind (px/s)" />
+      <NumericUpDown Grid.Column="1" Minimum="-3000" Maximum="3000" Increment="10" FormatString="0"
+                     Value="{Binding ActivePattern.Particles.WindX, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Wobble" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ActivePattern.Particles.Wobble, Mode=TwoWay}" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="COLOUR" />
+    <CheckBox Content="Use brand colours" IsChecked="{Binding ActivePattern.Particles.UseBrandColors}" />
+    <TextBox Watermark="#FFFFFF,#3EC1F3"
+             Text="{Binding ActivePattern.Particles.ColorsCsv}"
+             IsEnabled="{Binding !ActivePattern.Particles.UseBrandColors}" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Background" />
+      <ColorPicker Grid.Column="1" Color="{Binding ActivePattern.Particles.BackgroundColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    </Grid>
+    <CheckBox Content="Glow (additive — great on LED)" IsChecked="{Binding ActivePattern.Particles.Glow}" />
+
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Random seed" />
+      <NumericUpDown Grid.Column="1" Minimum="0" Maximum="99999999" Increment="1" FormatString="0"
+                     Value="{Binding ActivePattern.Particles.Seed, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <TextBlock Classes="hint" Text="The Logo shape uses the brand logo as the particle sprite. The same seed gives the same animation on every output." />
+  </StackPanel>
+</UserControl>
