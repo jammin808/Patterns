@@ -1,0 +1,159 @@
+# Patterns — Research & Architecture Plan
+
+A portable Windows application that generates test patterns for corporate events, shows, and
+festivals: LED walls, video walls, blended projection, broadcast screens, and NDI networks.
+
+This document records the research, the decisions taken, and the architecture the code follows.
+It is written before implementation and kept in sync with it.
+
+---
+
+## 1. Who uses this, and what actually matters
+
+Field research context (LED techs, projectionists, screens operators at live events):
+
+- **Setup time is compressed.** The app must open instantly from a USB stick on a rented media
+  server, with zero installation, zero registry writes, and zero prerequisites. Everything lives
+  next to the `.exe`.
+- **Pixel accuracy is the whole point.** A 1‑px grid that lands "between" LED pixels is worse
+  than no grid. Rendering must be device-pixel exact, DPI-scaling proof, with antialiasing off
+  for alignment content.
+- **It must never crash during a show.** Operators leave a pattern (or countdown) on screen for
+  hours. Render loops must be allocation-free, exceptions must be contained per-frame, and a
+  corrupt settings file must never prevent startup.
+- **Screens teams think in walls, not monitors.** LED walls are described as *panels of W×H px,
+  arranged C columns × R rows*; video walls as *N standard displays*; projection as *overlapping
+  projectors with a blend width*. The UI speaks that language directly.
+- **Everything ends up on a network now.** NDI output lets the pattern generator feed vision
+  mixers, media servers and monitoring without a physical output.
+
+## 2. Technology selection
+
+| Option | Verdict |
+|---|---|
+| C++ / raw DirectX | Fastest possible, but development and stability cost is unjustified for 2D pattern rendering. |
+| Electron / web | Fails the brief: heavy, GC jank, poor multi-screen fullscreen control, large memory. |
+| WPF (.NET) | Viable, but pixel-exact rendering fights the WPF layout/DPI system; retained-mode is a poor fit for a per-frame engine; cannot be built or tested on Linux CI easily. |
+| **Avalonia 11 + SkiaSharp** | **Chosen.** GPU-accelerated Skia compositor, immediate-mode custom drawing (pixel-exact, AA off where needed), first-class multi-window/multi-screen API, single-file self-contained portable exe, compile-time-checked (compiled) bindings, and the rendering core is testable headlessly on CI. |
+
+Version pins: **Avalonia 11.3.x** (mature LTS line; deliberately not the newer 12.x — this tool
+values proven stability over new API surface), **SkiaSharp 3.116.x** (the exact version Avalonia
+resolves, so a single native `libSkiaSharp` ships), **.NET 8** (LTS).
+
+External integrations, both **feature-detected and optional at runtime** so the portable exe has
+no hard native prerequisites:
+
+- **NDI** — P/Invoke against `Processing.NDI.Lib.x64.dll`. Looked up next to the exe, via
+  `NDI_RUNTIME_DIR_V6`/`V5`, and in the standard NDI Runtime install folders. If not found the
+  NDI page explains how to enable it (install the free NDI runtime, or drop the DLL beside the
+  exe). The app never crashes for lack of NDI.
+- **Video decode** — LibVLCSharp with *callback rendering* (frames decoded into a shared BGRA
+  buffer that the engine composites like any other layer — so video also reaches NDI and spanned
+  outputs). Enabled when a `libvlc` directory sits next to the exe or VLC is installed; images
+  work natively without it.
+
+## 3. Architecture — one engine, many sinks
+
+The heart of the app is a UI-toolkit-independent rendering core (`Patterns.Core`, depends only on
+SkiaSharp):
+
+```
+                 ┌────────────────────────────┐
+   ShowState ───▶│  Snapshot (immutable-ish)  │───┐  published on change (version counter)
+ (UI thread,     └────────────────────────────┘   │
+  observable)                                     ▼
+                                      ┌──────────────────────┐
+                                      │     PatternEngine    │  Render(SKCanvas, ctx)
+                                      │  pattern renderers   │
+                                      │  overlays, particles │
+                                      └──────────────────────┘
+                                        ▲       ▲        ▲
+                          UI preview ───┘   output ──────┘└────── NDI sender thread
+                          (fit-scaled)      windows               (raster surface,
+                                            (1:1 device px,       paced BGRA frames)
+                                            span offsets)
+```
+
+- **`ShowState`** is the single mutable model the UI edits (observable POCOs, JSON-serializable).
+  Any change bumps a version; each sink clones a **snapshot** when it notices a new version, so
+  render threads never read a model mid-edit.
+- **`PatternEngine`** renders a snapshot to any `SKCanvas` given a `RenderContext` (canvas size,
+  time, frame index, viewport offset for spanning, fit scale, sink kind). The same code draws the
+  preview, every fullscreen output, preset thumbnails, and NDI frames — one implementation to
+  test, one visual truth everywhere.
+- **Sinks** own their per-thread mutable state (paint caches, particle simulations seeded
+  identically for visual consistency, FPS meters). Nothing Skia-stateful crosses threads.
+
+### Pixel exactness
+
+Output windows render at **1:1 device pixels**: the Skia canvas transform is reset to identity
+(undoing DPI scaling), sizes come from the screen's pixel bounds, alignment patterns draw with
+antialiasing off on integer coordinates. Spanned mode computes the union pixel rect of the
+selected screens; each window translates by its screen's offset within that union.
+
+### Smoothness & efficiency
+
+- Redraw is driven by the compositor (`RequestAnimationFrame`) only while the current snapshot
+  **is animated** (motion patterns, particles, seconds-bearing clock, countdown, video). Static
+  patterns render once and then cost ~0 CPU/GPU.
+- The per-frame path performs **no heap allocation**: paints/fonts are cached per sink, particle
+  pools are pre-allocated arrays of structs, text uses cached buffers with fixed digit advances
+  (no jitter, no shaping cost).
+- NDI runs on its own thread with a raster surface at the configured resolution; the NDI SDK's
+  clocked send paces the frame rate exactly.
+
+### Stability engineering
+
+- Per-frame exception containment: a renderer that throws is disabled for the session and the
+  sink paints an unmissable error card instead of crashing; the show goes on.
+- Settings are written atomically (temp file + rename) with a `.bak` generation; a corrupt file
+  is quarantined and defaults load. The app always starts.
+- Blackout (Space) is honoured before any pattern code runs — it cannot be broken by a pattern bug.
+- Screen hot-plug re-syncs output windows; a vanished screen closes its window gracefully.
+- Global `UnhandledException`/`UnobservedTaskException` handlers log to `patterns.log` beside the
+  exe (portable) and attempt graceful continuation.
+
+## 4. Feature plan (mapped to requirements)
+
+| Requirement | Design |
+|---|---|
+| Multi-screen: duplicate / independent / span | Output modes over enumerated screens; independent mode gives each screen its own pattern config; span treats selected screens as one pixel canvas via union-rect viewports. |
+| LED wall setting | Tile W×H px (free input + common panel presets), wall defined either as columns×rows or by target canvas (derives the grid), per-tile borders, tile numbering (row/col, linear, or serpentine data-run order), row/column indices, center cross, dimension readouts. |
+| Video wall setting | Element = standard display resolution (presets + custom) landscape/portrait, C×R elements, optional bezel/gap px, numbering and alignment marks; canvas = element grid. |
+| Projection blend | N projectors in a row (or column), native res per projector, overlap px, blend-zone hatching with centerline, selectable blend curve (linear/cosine/S-curve/gamma) drawn as ramps in the zones, per-projector hue-coded grids, 50%-grey double-stack check mode. |
+| Time & date | Overlay layer on any pattern: 12/24 h, seconds, date formats, 9-position anchor, size, pill background. |
+| Countdown | Target-time or duration; labels (Lunch/Dinner/Rehearsal/Doors/Show/custom); end behaviours (hold zero, flash, message); optional progress bar; drawn by the same overlay layer. |
+| Pattern library up to 4K | Parametric patterns × resolution presets (720p→DCI 4K, portrait variants, common LED processor rasters); preset gallery with live-rendered thumbnails; built-in + user presets. |
+| Motion setting | Moving bar (px/s or px/frame judder mode), bouncing box with FPS/frametime readout, frame-flash (drop detector), animated zone plate, scrolling grid, colour cycle. |
+| Particle generator / mini studio | Pooled CPU sim (up to ~20k particles), emitter shape/rate/velocity/spread, gravity/wind/drag, size & alpha over life, shapes (circle/square/star/streak/logo sprite), brand palette; presets: snow, confetti, starfield, rain, bokeh, embers; parameters editable live = the "mini studio". |
+| Sleek UI | Dark professional theme (Fluent + custom styles, Inter font), left nav rail, live preview center, parameter panel right, transport bar (GO / BLACKOUT / IDENTIFY), keyboard shortcuts. |
+| Brand colour schemes | Brand kit: primary/secondary/accent/background + logo; patterns and particles consume the palette; kits save/load as JSON for repeat clients. |
+| User graphics & videos | Media pattern: images (PNG/JPEG/BMP/WebP) with fit modes; video via optional libVLC (loop, fit modes) composited through the engine (reaches outputs + NDI). |
+| Company logo | Brand kit logo (PNG w/ alpha) usable as overlay watermark (position/scale/opacity) and as particle sprite. |
+| NDI feeds | Sender with configurable name/resolution/rate rendering the program; feature-detected runtime; independent of physical outputs. |
+
+## 5. Testing strategy
+
+`Patterns.Core` never touches Avalonia, so the real renderer runs on CI against raster surfaces:
+
+- **Pixel tests**: SMPTE/EBU bar values at sample points, grid line positions, LED tile border
+  pixels, checkerboard phase, blend-zone widths, span viewport stitching (rendering the full
+  canvas must equal rendering each screen viewport side by side).
+- **Math tests**: LED wall derivation (canvas ⇄ grid), blend canvas width, countdown arithmetic
+  across midnight, snapshot versioning, settings round-trip & corruption recovery, particle
+  determinism for a fixed seed.
+- **Interop tests**: NDI struct sizes/offsets on x64 asserted so a marshalling regression cannot
+  silently corrupt frames.
+
+## 6. Delivery
+
+- `build/publish-win-x64.(sh|cmd)` → single-file, self-contained, portable `Patterns.exe`
+  (no trimming — reflection-free start-up speed is fine and stability wins).
+- GitHub Actions: restore, build, test on every push; portable exe artifact from a Windows runner.
+- README: operator-focused quick start, hotkeys, NDI/VLC enablement, LED/blend recipes.
+
+## 7. Out of scope for v1 (kept in mind by the architecture)
+
+Audio test signals, NDI receive, DMX/Art-Net triggers, genlock, 10-bit output paths, multiple
+simultaneous NDI senders (the sender abstraction already allows N), macOS/Linux builds (Avalonia
+makes them near-free later).
