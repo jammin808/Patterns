@@ -1,0 +1,109 @@
+using System.Collections.Concurrent;
+using Patterns.Core.Model;
+using SkiaSharp;
+
+namespace Patterns.Core.Services;
+
+/// <summary>
+/// An immutable-by-convention copy of the show state, safe to read from any render thread.
+/// Also memoises colour parsing so renderers never parse hex strings per frame.
+/// </summary>
+public sealed class ShowSnapshot
+{
+    private readonly ConcurrentDictionary<string, SKColor> _colorCache = new();
+
+    public required ShowState State { get; init; }
+    public required long Version { get; init; }
+
+    public SKColor Color(string? hex, SKColor fallback)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return fallback;
+        return _colorCache.GetOrAdd(hex, static (h, fb) => ColorUtil.TryParse(h, out var c) ? c : fb, fallback);
+    }
+
+    /// <summary>The pattern a given sink should draw (independent screens may override the program).</summary>
+    public PatternConfig PatternFor(string? screenId)
+    {
+        if (State.Output.Mode == OutputMode.Independent && screenId is not null)
+        {
+            foreach (var a in State.Independent)
+            {
+                if (a.ScreenId == screenId) return a.Pattern;
+            }
+        }
+        return State.Pattern;
+    }
+}
+
+public static class ColorUtil
+{
+    public static bool TryParse(string? hex, out SKColor color)
+    {
+        color = SKColors.Black;
+        if (string.IsNullOrWhiteSpace(hex)) return false;
+        var s = hex.Trim();
+        if (s.StartsWith('#')) s = s[1..];
+        // Accept RGB, RRGGBB, AARRGGBB.
+        if (s.Length == 3)
+        {
+            s = new string(new[] { s[0], s[0], s[1], s[1], s[2], s[2] });
+        }
+        if (s.Length == 6)
+        {
+            if (!uint.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out var rgb)) return false;
+            color = new SKColor((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+            return true;
+        }
+        if (s.Length == 8)
+        {
+            if (!uint.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out var argb)) return false;
+            color = new SKColor((byte)(argb >> 16), (byte)(argb >> 8), (byte)argb, (byte)(argb >> 24));
+            return true;
+        }
+        return false;
+    }
+
+    public static SKColor Parse(string? hex, SKColor fallback) => TryParse(hex, out var c) ? c : fallback;
+
+    /// <summary>Splits a comma/space separated hex list; guarantees at least one colour.</summary>
+    public static SKColor[] ParseList(string? csv, SKColor fallback)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return new[] { fallback };
+        var parts = csv.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var list = new List<SKColor>(parts.Length);
+        foreach (var p in parts)
+        {
+            if (TryParse(p, out var c)) list.Add(c);
+        }
+        if (list.Count == 0) list.Add(fallback);
+        return list.ToArray();
+    }
+}
+
+/// <summary>
+/// Publishes show-state snapshots to render sinks. The UI thread mutates <see cref="ShowState"/>;
+/// every change publishes a fresh deep-cloned snapshot that render threads pick up via
+/// a single volatile read — no locks anywhere on the render path.
+/// </summary>
+public sealed class SnapshotBus
+{
+    private volatile ShowSnapshot _current;
+    private long _version;
+
+    public SnapshotBus(ShowState initial)
+    {
+        _current = new ShowSnapshot { State = JsonUtil.Clone(initial), Version = 0 };
+    }
+
+    public ShowSnapshot Current => _current;
+
+    /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
+    public event Action? Changed;
+
+    public void Publish(ShowState state)
+    {
+        var snap = new ShowSnapshot { State = JsonUtil.Clone(state), Version = ++_version };
+        _current = snap;
+        Changed?.Invoke();
+    }
+}

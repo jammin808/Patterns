@@ -1,0 +1,166 @@
+namespace Patterns.Core.Model;
+
+/// <summary>Which pattern family is being rendered.</summary>
+public enum PatternKind
+{
+    Grid,
+    Checkerboard,
+    ColorBars,
+    Ramp,
+    Focus,
+    Geometry,
+    FlatField,
+    LedWall,
+    VideoWall,
+    ProjectionBlend,
+    Motion,
+    ColorCycle,
+    Media,
+    Particles,
+}
+
+/// <summary>How the physical screens are used.</summary>
+public enum OutputMode
+{
+    /// <summary>Every selected screen shows the same pattern.</summary>
+    Duplicate,
+    /// <summary>Each selected screen has its own pattern configuration.</summary>
+    Independent,
+    /// <summary>All selected screens form one large pixel canvas.</summary>
+    Span,
+}
+
+/// <summary>How a pattern canvas maps onto a differently sized sink.</summary>
+public enum CanvasScaleMode
+{
+    /// <summary>Scale preserving aspect, letterboxed.</summary>
+    Fit,
+    /// <summary>Centred, unscaled, 1:1 device pixels (cropped or bordered).</summary>
+    OneToOne,
+}
+
+public enum BarsVariant
+{
+    /// <summary>SMPTE RP 219‑style HD bars (three bands with PLUGE).</summary>
+    Smpte,
+    /// <summary>EBU 100% full-height bars.</summary>
+    Ebu100,
+    /// <summary>75% amplitude full-height bars.</summary>
+    Bars75,
+    /// <summary>100% amplitude full-height bars.</summary>
+    Bars100,
+}
+
+public enum RampVariant
+{
+    GrayHorizontal,
+    GrayVertical,
+    Rgb,
+    Steps,
+}
+
+public enum MotionVariant
+{
+    MovingBar,
+    BouncingBox,
+    FrameFlash,
+    ZonePlate,
+    ScrollingGrid,
+}
+
+public enum BlendCurve
+{
+    Linear,
+    Cosine,
+    SCurve,
+    Gamma22,
+}
+
+public enum BlendOrientation
+{
+    Horizontal,
+    Vertical,
+}
+
+public enum TileNumbering
+{
+    /// <summary>row-column, e.g. “3-7”.</summary>
+    RowCol,
+    /// <summary>Left-to-right, top-to-bottom counting from 1.</summary>
+    Linear,
+    /// <summary>Column-major snake (typical LED data run order).</summary>
+    Serpentine,
+}
+
+public enum FitMode
+{
+    Fit,
+    Fill,
+    Stretch,
+    Center,
+    Tile,
+}
+
+public enum MediaSource
+{
+    Image,
+    Video,
+}
+
+public enum Anchor9
+{
+    TopLeft,
+    TopCenter,
+    TopRight,
+    MiddleLeft,
+    Center,
+    MiddleRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
+public enum CountdownEndBehavior
+{
+    /// <summary>Stay at 00:00.</summary>
+    HoldZero,
+    /// <summary>Flash 00:00.</summary>
+    Flash,
+    /// <summary>Show the configured end message.</summary>
+    Message,
+}
+
+public enum CountdownTargetKind
+{
+    /// <summary>Count down to a wall-clock time (HH:mm).</summary>
+    TimeOfDay,
+    /// <summary>Count down a duration from the moment it is armed.</summary>
+    Duration,
+}
+
+public enum ParticleShape
+{
+    Circle,
+    Square,
+    Star,
+    Streak,
+    Bokeh,
+    Logo,
+}
+
+public enum ParticleEmitter
+{
+    TopEdge,
+    BottomEdge,
+    Center,
+    FullArea,
+}
+
+/// <summary>Which kind of consumer is rendering right now.</summary>
+public enum SinkKind
+{
+    Preview,
+    Output,
+    Ndi,
+    Thumbnail,
+}

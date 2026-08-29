@@ -11,4 +11,11 @@
     <PackageReference Include="SkiaSharp" Version="3.116.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Inter (SIL OFL 1.1) embedded so overlay text renders identically on any machine. -->
+    <EmbeddedResource Include="Assets\Inter-Regular.ttf" />
+    <EmbeddedResource Include="Assets\Inter-SemiBold.ttf" />
+    <None Include="Assets\Inter-LICENSE-OFL.txt" />
+  </ItemGroup>
+
 </Project>
