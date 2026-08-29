@@ -131,10 +131,8 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("#123456", loaded.Brand.PrimaryColor);
         Assert.Equal("18:45", loaded.Countdown.TargetTime);
         Assert.Single(loaded.Output.SelectedScreenIds);
-        Assert.True(loaded.Blackout); // Blackout persists in the file (state field)…
-
-        // …but the app resets it at startup; the identify timestamp must not persist at all.
-        Assert.Null(loaded.IdentifyUntilUtc);
+        // Blackout persists in the file; the app deliberately resets it at startup.
+        Assert.True(loaded.Blackout);
     }
 
     [Fact]
@@ -194,7 +192,6 @@ public class ModelCopierTests
         var dst = new ShowState();
         var patternRef = dst.Pattern;
         var brandRef = dst.Brand;
-        dst.IdentifyUntilUtc = new DateTime(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         ModelCopier.Copy(src, dst);
 
@@ -205,8 +202,6 @@ public class ModelCopierTests
         Assert.Equal("ACME", dst.Brand.CompanyName);
         Assert.Single(dst.Independent);
         Assert.NotSame(src.Independent[0], dst.Independent[0]);
-        // Runtime-only fields are untouched.
-        Assert.NotNull(dst.IdentifyUntilUtc);
     }
 
     [Fact]

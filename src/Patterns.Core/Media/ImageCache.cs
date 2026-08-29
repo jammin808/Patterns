@@ -23,6 +23,30 @@ public static class ImageCache
 
     private static long _useCounter;
 
+    // Replaced/evicted images are retired, not disposed: another render thread may still be
+    // mid-draw with the reference it fetched a moment ago. Retired images are disposed once
+    // they are comfortably older than any in-flight frame.
+    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Graveyard = new();
+    private static readonly TimeSpan GraveyardHold = TimeSpan.FromSeconds(5);
+
+    private static void Retire(SKImage? image)
+    {
+        if (image is not null) Graveyard.Add((image, DateTime.UtcNow));
+    }
+
+    private static void SweepGraveyard()
+    {
+        var cutoff = DateTime.UtcNow - GraveyardHold;
+        for (var i = Graveyard.Count - 1; i >= 0; i--)
+        {
+            if (Graveyard[i].RetiredUtc < cutoff)
+            {
+                Graveyard[i].Image.Dispose();
+                Graveyard.RemoveAt(i);
+            }
+        }
+    }
+
     public static SKImage? Get(string? path)
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
@@ -41,6 +65,8 @@ public static class ImageCache
 
         lock (Gate)
         {
+            SweepGraveyard();
+
             if (Entries.TryGetValue(path, out var e) && e.WriteTimeUtc == writeTime)
             {
                 e.LastUse = ++_useCounter;
@@ -73,7 +99,7 @@ public static class ImageCache
             }
 
             Entries.TryGetValue(path, out var old);
-            old?.Image?.Dispose();
+            Retire(old?.Image);
             Entries[path] = new Entry { Image = image, WriteTimeUtc = writeTime, LastUse = ++_useCounter };
             EvictIfNeeded();
             return image;
@@ -95,7 +121,7 @@ public static class ImageCache
                 }
             }
             if (lruKey is null) return;
-            Entries[lruKey].Image?.Dispose();
+            Retire(Entries[lruKey].Image);
             Entries.Remove(lruKey);
         }
     }

@@ -8,7 +8,10 @@ namespace Patterns.Core.Tests;
 /// <summary>Renders show snapshots through the real engine into raster surfaces for pixel asserts.</summary>
 public static class RenderTestHarness
 {
-    public static ShowSnapshot Snap(ShowState state, long version = 1) => new() { State = state, Version = version };
+    public static readonly DateTime FixedUtcNow = new(2026, 8, 29, 10, 0, 0, DateTimeKind.Utc);
+
+    public static ShowSnapshot Snap(ShowState state, long version = 1, DateTime? identifyUntil = null)
+        => new() { State = state, Version = version, IdentifyUntilUtc = identifyUntil };
 
     public static SKBitmap Render(
         ShowState state,
@@ -18,10 +21,11 @@ public static class RenderTestHarness
         SKSizeI? reference = null,
         SKPointI origin = default,
         string? screenId = null,
-        long frame = 0)
+        long frame = 0,
+        SinkKind sinkKind = SinkKind.Output)
     {
         var snap = Snap(state);
-        return Render(snap, width, height, time, reference, origin, screenId, frame);
+        return Render(snap, width, height, time, reference, origin, screenId, frame, sinkKind);
     }
 
     public static SKBitmap Render(
@@ -32,7 +36,8 @@ public static class RenderTestHarness
         SKSizeI? reference = null,
         SKPointI origin = default,
         string? screenId = null,
-        long frame = 0)
+        long frame = 0,
+        SinkKind sinkKind = SinkKind.Output)
     {
         var engine = new PatternEngine();
         using var sink = new SinkState();
@@ -45,9 +50,9 @@ public static class RenderTestHarness
             ViewportOrigin = origin,
             Time = time,
             Now = new DateTime(2026, 8, 29, 12, 0, 0),
-            UtcNow = new DateTime(2026, 8, 29, 10, 0, 0, DateTimeKind.Utc),
+            UtcNow = FixedUtcNow,
             Frame = frame,
-            Sink = SinkKind.Output,
+            Sink = sinkKind,
             SinkIndex = 1,
             SinkLabel = "test",
             ScreenId = screenId,

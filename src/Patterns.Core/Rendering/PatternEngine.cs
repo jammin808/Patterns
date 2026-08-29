@@ -116,7 +116,7 @@ public sealed class PatternEngine
     public static RedrawCadence CadenceOf(ShowSnapshot snap, string? screenId, DateTime utcNow)
     {
         var s = snap.State;
-        if (s.IdentifyUntilUtc is { } until && until > utcNow) return RedrawCadence.Continuous;
+        if (snap.IdentifyUntilUtc is { } until && until > utcNow) return RedrawCadence.Continuous;
         if (s.Blackout)
         {
             return RedrawCadence.Static;

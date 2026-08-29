@@ -34,9 +34,22 @@ public sealed class ParticleSim : IDisposable
     private Random _rng = new(1);
     private string _configKey = "";
     private int _count;
-    private double _lastTime = double.NaN;
+    private long _doneSteps = -1;
     private float _w = 1920, _h = 1080;
     private ParticleOptions _o = new();
+
+    /// <summary>
+    /// Fixed integration step. Every sink quantizes the shared show clock to this grid and
+    /// executes the identical step sequence, so identically-seeded sims stay bit-exact across
+    /// preview, span halves and NDI regardless of their individual frame timing.
+    /// </summary>
+    public const float StepSeconds = 1f / 120f;
+
+    /// <summary>Baselines snap to this many steps (~4.3 s) so sinks configured within the same
+    /// window start from the same absolute step index.</summary>
+    private const long BaselineQuantum = 512;
+
+    private const long MaxCatchUpSteps = 2048;
 
     /// <summary>Re-seeds and rebuilds when anything relevant changed; cheap no-op otherwise.</summary>
     public void Configure(ParticleOptions o, ShowSnapshot snap, SKSizeI canvas)
@@ -83,7 +96,7 @@ public sealed class ParticleSim : IDisposable
         {
             Spawn(ref _pool[i], preWarm: true);
         }
-        _lastTime = double.NaN;
+        _doneSteps = -1;
 
         // Settle the field so it never starts empty on screen.
         for (var i = 0; i < 90; i++) StepFixed(1f / 30f);
@@ -91,10 +104,17 @@ public sealed class ParticleSim : IDisposable
 
     public void Advance(double time)
     {
-        if (double.IsNaN(_lastTime)) { _lastTime = time; return; }
-        var dt = (float)Math.Clamp(time - _lastTime, 0, 0.1);
-        _lastTime = time;
-        if (dt > 0) StepFixed(dt);
+        var target = (long)(time / StepSeconds);
+        if (_doneSteps < 0 || target - _doneSteps > MaxCatchUpSteps)
+        {
+            // Fresh sim, or a sink that stalled far behind (e.g. hidden preview): re-anchor on
+            // the shared quantized grid instead of grinding through thousands of catch-up steps.
+            _doneSteps = Math.Max(0, (target / BaselineQuantum) * BaselineQuantum);
+        }
+        for (; _doneSteps < target; _doneSteps++)
+        {
+            StepFixed(StepSeconds);
+        }
     }
 
     /// <summary>One deterministic simulation step (also used directly by tests).</summary>

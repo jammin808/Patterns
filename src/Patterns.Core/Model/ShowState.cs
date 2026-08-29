@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.Json.Serialization;
 
 namespace Patterns.Core.Model;
 
@@ -172,14 +171,9 @@ public sealed class NdiConfig : Observable
 public sealed class ShowState : Observable
 {
     private bool _blackout = false;
-    private DateTime? _identifyUntilUtc;
 
     /// <summary>Instant black on every sink. Checked before any pattern code runs.</summary>
     public bool Blackout { get => _blackout; set => Set(ref _blackout, value); }
-
-    /// <summary>Runtime-only: outputs draw their screen number until this time.</summary>
-    [JsonIgnore]
-    public DateTime? IdentifyUntilUtc { get => _identifyUntilUtc; set => Set(ref _identifyUntilUtc, value); }
 
     public OutputConfig Output { get; init; } = new();
     /// <summary>The program pattern (Duplicate/Span modes, preview, NDI).</summary>

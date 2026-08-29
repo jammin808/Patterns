@@ -87,10 +87,6 @@ public sealed class CheckerboardPattern : IPatternRenderer
 
         var a = f.Palette.Branded ? f.Palette.Accent : SKColors.White;
         var b = f.Palette.Branded ? f.Palette.Secondary : SKColors.Black;
-        if (!f.Palette.Branded)
-        {
-            b = f.Palette.Bg == SKColors.Black ? SKColors.Black : f.Palette.Bg;
-        }
 
         var phase = o.Animate && ((long)(f.Ctx.Time / Math.Max(0.05, o.IntervalSeconds)) & 1) == 1;
         if (phase) (a, b) = (b, a);

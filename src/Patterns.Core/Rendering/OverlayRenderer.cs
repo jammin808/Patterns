@@ -196,13 +196,20 @@ public static class OverlayRenderer
         {
             var y = DrawUtil.Anchored(f.Canvas, f.W, size * 1.6f, o.Anchor, Math.Max(10f, f.H * 0.03f)).MidY;
             var period = textW + f.W * 0.25f;
-            var offset = (float)(f.Ctx.Time * o.ScrollPxPerSec % period);
+            // Travel spans the whole canvas plus one full copy, so the text enters from the
+            // right edge and leaves completely off the left before wrapping.
+            var travel = f.W + period;
+            var offset = (float)(f.Ctx.Time * o.ScrollPxPerSec % travel);
+            var lead = f.W - offset; // left edge of the lead copy, sweeping right → left
             var m = font.Metrics;
             var baseline = y - (m.Ascent + m.Descent) / 2;
-            for (var x = f.W - offset; x < f.W + period; x += period)
+            for (var x = lead; x + textW > 0; x -= period)
             {
                 c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(f.Palette.Text));
-                if (x + textW < 0) break;
+            }
+            for (var x = lead + period; x < f.W; x += period)
+            {
+                c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(f.Palette.Text));
             }
             return;
         }
@@ -215,10 +222,10 @@ public static class OverlayRenderer
         SKCanvas c, ShowSnapshot snap, in RenderContext ctx, SinkState sink, Palette palette,
         bool blackout, PatternConfig? cfg = null)
     {
-        var identify = snap.State.IdentifyUntilUtc is { } until && until > ctx.UtcNow;
-        if (identify && ctx.Sink is SinkKind.Output or SinkKind.Preview)
+        // Badges only on real outputs — a "screen 0" badge on the preview would just confuse.
+        if (ctx.Sink == SinkKind.Output && snap.IdentifyUntilUtc is { } until && until > ctx.UtcNow)
         {
-            DrawIdentify(c, snap, in ctx, sink, palette, until: snap.State.IdentifyUntilUtc!.Value);
+            DrawIdentify(c, snap, in ctx, sink, palette, until);
         }
 
         if (blackout) return;

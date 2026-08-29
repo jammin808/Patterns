@@ -24,6 +24,7 @@ public static class ThumbnailRenderer
             state.Overlays.Clock.Enabled = false;
             state.Overlays.Info.Enabled = false;
             state.Overlays.Message.Enabled = false;
+            state.Overlays.Logo.Enabled = false;
             state.Countdown.Enabled = false;
 
             var snap = new ShowSnapshot { State = state, Version = 1 };

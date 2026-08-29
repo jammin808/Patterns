@@ -39,9 +39,10 @@ public sealed class AppServices
         Log.Init(Store.BaseDirectory);
 
         // Second instance on the same folder: run, but leave saving to the first one.
+        // (string.GetHashCode is randomized per process — a stable hash is required here.)
         try
         {
-            _instanceMutex = new Mutex(true, "PatternsApp-" + Math.Abs(Store.BaseDirectory.GetHashCode()), out var first);
+            _instanceMutex = new Mutex(true, "PatternsApp-" + StableFolderKey(Store.BaseDirectory), out var first);
             if (!first)
             {
                 _autosave = false;
@@ -55,7 +56,6 @@ public sealed class AppServices
 
         State = Store.Load();
         State.Blackout = false;
-        State.IdentifyUntilUtc = null;
 
         Bus = new SnapshotBus(State);
         Ndi = new NdiSender(Bus);
@@ -140,9 +140,18 @@ public sealed class AppServices
         Video.Reconcile(Bus.Current);
     }
 
+    /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
+    public static string StableFolderKey(string path)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(path.ToUpperInvariant());
+        var hash = System.Security.Cryptography.SHA256.HashData(bytes);
+        return Convert.ToHexString(hash.AsSpan(0, 12));
+    }
+
     public void Identify()
     {
-        State.IdentifyUntilUtc = DateTime.UtcNow.AddSeconds(4);
+        Bus.IdentifyUntilUtc = DateTime.UtcNow.AddSeconds(4);
+        OnStateChanged();
     }
 
     public void SaveNow()

@@ -58,6 +58,18 @@ public static class NdiInterop
         }
     }
 
+    /// <summary>
+    /// Forget a failed probe so enabling NDI again rechecks the disk — the runtime may have
+    /// been installed (or the DLL dropped beside the exe) since startup, without a restart.
+    /// </summary>
+    public static void ReprobeIfUnavailable()
+    {
+        lock (InitGate)
+        {
+            if (_available == false) _available = null;
+        }
+    }
+
     private static void InstallResolver()
     {
         if (_resolverInstalled) return;

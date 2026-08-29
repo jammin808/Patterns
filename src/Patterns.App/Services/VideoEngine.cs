@@ -44,6 +44,8 @@ public sealed class VideoEngine : IDisposable
         {
             Log.Error($"Video open failed for '{media.VideoPath}'.", ex);
             VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
+            // Forget the key so the next state change retries (the file may just not be ready yet).
+            _activeKey = "";
         }
     }
 
@@ -132,11 +134,35 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
 
     private IntPtr _native;
     private int _nativePitch;
-    private SKBitmap? _front;
-    private bool _hasFrame;
+    private SKImage? _latest;
     private int _width;
     private int _height;
     private bool _disposed;
+
+    // Frames handed to render sinks may be recorded into GPU-deferred canvases that read the
+    // pixels at flush time — so each decoded frame becomes its own immutable SKImage, and
+    // superseded frames are retired for a grace period instead of disposed immediately.
+    // Static so a successor source still sweeps a disposed predecessor's leftovers.
+    private static readonly object RetiredGate = new();
+    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Retired = new();
+    private static readonly TimeSpan RetireHold = TimeSpan.FromSeconds(2);
+
+    private static void RetireImage(SKImage? image)
+    {
+        lock (RetiredGate)
+        {
+            if (image is not null) Retired.Add((image, DateTime.UtcNow));
+            var cutoff = DateTime.UtcNow - RetireHold;
+            for (var i = Retired.Count - 1; i >= 0; i--)
+            {
+                if (Retired[i].RetiredUtc < cutoff)
+                {
+                    Retired[i].Image.Dispose();
+                    Retired.RemoveAt(i);
+                }
+            }
+        }
+    }
 
     public VlcFrameSource(LibVLC vlc, string path, bool loop, bool mute)
     {
@@ -164,7 +190,7 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
         {
             lock (_gate)
             {
-                return _hasFrame ? new SKSizeI(_width, _height) : null;
+                return _latest is { } img ? new SKSizeI(img.Width, img.Height) : null;
             }
         }
     }
@@ -183,17 +209,15 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
     {
+        SKImage? image;
         lock (_gate)
         {
-            if (!_hasFrame || _front is null) return false;
-            // Zero-copy wrap of the bitmap pixels; the lock keeps the decoder from writing meanwhile.
-            using var pixmap = _front.PeekPixels();
-            if (pixmap is null) return false;
-            using var image = SKImage.FromPixels(pixmap);
-            if (image is null) return false;
-            canvas.DrawImage(image, dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
-            return true;
+            image = _latest;
         }
+        if (image is null) return false;
+        // The image is immutable and outlives any deferred flush via the retire hold.
+        canvas.DrawImage(image, dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
+        return true;
     }
 
     private uint OnFormat(ref IntPtr opaque, IntPtr chroma, ref uint width, ref uint height, ref uint pitches, ref uint lines)
@@ -211,8 +235,6 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
             _height = (int)height;
             _nativePitch = (int)pitch;
             _native = Marshal.AllocHGlobal(_nativePitch * _height);
-            _front = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Opaque));
-            _hasFrame = false;
         }
         return 1;
     }
@@ -235,16 +257,25 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
     {
         lock (_gate)
         {
-            if (_front is null || _native == IntPtr.Zero) return;
-            var dst = (byte*)_front.GetPixels();
+            if (_native == IntPtr.Zero || _width <= 0) return;
+
+            // Every displayed frame becomes its own immutable image (native-heap copy, no GC
+            // pressure); renderers can hold/record it safely while VLC decodes the next one.
+            var bmp = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Opaque));
+            var dst = (byte*)bmp.GetPixels();
             var src = (byte*)_native;
             var rowBytes = _width * 4;
-            var dstPitch = _front.RowBytes;
+            var dstPitch = bmp.RowBytes;
             for (var y = 0; y < _height; y++)
             {
                 Buffer.MemoryCopy(src + (long)y * _nativePitch, dst + (long)y * dstPitch, rowBytes, rowBytes);
             }
-            _hasFrame = true;
+            bmp.SetImmutable();
+            var image = SKImage.FromBitmap(bmp);
+            bmp.Dispose(); // the image keeps the (immutable) pixel ref alive
+
+            RetireImage(_latest);
+            _latest = image;
         }
     }
 
@@ -255,9 +286,8 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
             Marshal.FreeHGlobal(_native);
             _native = IntPtr.Zero;
         }
-        _front?.Dispose();
-        _front = null;
-        _hasFrame = false;
+        RetireImage(_latest);
+        _latest = null;
     }
 
     public void Dispose()

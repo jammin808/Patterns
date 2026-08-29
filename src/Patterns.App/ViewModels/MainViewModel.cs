@@ -203,6 +203,9 @@ public sealed class MainViewModel : Observable
         {
             ScreenRows.Add(new ScreenRow(this, s, selected.Count == 0 || selected.Contains(s.Id)));
         }
+        // Hot-plugged screens need their Independent assignment before they become edit targets,
+        // otherwise editing them would silently edit the program pattern.
+        EnsureIndependentAssignments();
         RebuildEditTargets();
         RefreshOutputsStatus();
     }
@@ -250,11 +253,15 @@ public sealed class MainViewModel : Observable
         get => _selectedResolution;
         set
         {
+            // Apply-style combo: applying resets the selection, so the same preset can be
+            // re-applied after switching edit targets.
             if (Set(ref _selectedResolution, value) && value is not null)
             {
                 ActivePattern.Canvas.FollowOutput = false;
                 ActivePattern.Canvas.Width = value.W;
                 ActivePattern.Canvas.Height = value.H;
+                _selectedResolution = null;
+                Raise();
             }
         }
     }
@@ -283,6 +290,8 @@ public sealed class MainViewModel : Observable
             {
                 ActivePattern.LedWall.TileWidth = value;
                 ActivePattern.LedWall.TileHeight = value;
+                _selectedTileSize = 0;
+                Raise();
             }
         }
     }
@@ -298,6 +307,8 @@ public sealed class MainViewModel : Observable
             {
                 ActivePattern.VideoWall.ElementWidth = value.W;
                 ActivePattern.VideoWall.ElementHeight = value.H;
+                _selectedVideoWallResolution = null;
+                Raise();
             }
         }
     }

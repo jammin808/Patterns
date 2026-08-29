@@ -82,7 +82,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 87 tests: pixel-exact rendering, layout math, headless UI
+dotnet test                      # 92 tests: pixel-exact rendering, layout math, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 ```
 

@@ -155,6 +155,20 @@ public class HeadlessUiTests
         }
     }
 
+    [Fact]
+    public void StableFolderKeyIsDeterministicAndCaseInsensitive()
+    {
+        // string.GetHashCode is randomized per process; the single-instance mutex needs a
+        // stable name or the second-instance autosave guard never engages.
+        var a = AppServices.StableFolderKey(@"C:\Shows\Patterns");
+        var b = AppServices.StableFolderKey(@"c:\shows\patterns");
+        var c = AppServices.StableFolderKey(@"D:\Other");
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, c);
+        Assert.Equal(24, a.Length);
+        Assert.Matches("^[0-9A-F]+$", a);
+    }
+
     [AvaloniaFact]
     public void LibraryPresetsApplyToState()
     {

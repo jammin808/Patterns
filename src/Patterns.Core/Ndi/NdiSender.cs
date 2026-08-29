@@ -40,6 +40,7 @@ public sealed class NdiSender : IDisposable
     public void Start()
     {
         if (_run) return;
+        NdiInterop.ReprobeIfUnavailable();
         if (!NdiInterop.Available)
         {
             _status = RuntimeHelp;

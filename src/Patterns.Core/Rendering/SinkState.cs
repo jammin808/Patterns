@@ -16,6 +16,11 @@ public sealed class SinkState : IDisposable
     /// <summary>Per-sink particle simulation (created on first use).</summary>
     public ParticleSim? Particles { get; set; }
 
+    /// <summary>Snapshot version/canvas the particle sim was last configured for (hot-path gate).</summary>
+    public long ParticlesConfiguredVersion { get; set; } = -1;
+
+    public SKSizeI ParticlesConfiguredCanvas { get; set; }
+
     /// <summary>Checkerboard shader cache (rebuilt only when colours/cell change).</summary>
     public Patterns.CheckerShaderCache Checker { get; } = new();
 

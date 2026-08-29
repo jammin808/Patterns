@@ -15,6 +15,13 @@ public sealed class ShowSnapshot
     public required ShowState State { get; init; }
     public required long Version { get; init; }
 
+    /// <summary>
+    /// Runtime-only: outputs draw their screen-number badge until this UTC time. Carried on
+    /// the snapshot (not the serialized model) so it survives the clone to render threads
+    /// without ever landing in settings files.
+    /// </summary>
+    public DateTime? IdentifyUntilUtc { get; init; }
+
     public SKColor Color(string? hex, SKColor fallback)
     {
         if (string.IsNullOrWhiteSpace(hex)) return fallback;
@@ -97,12 +104,20 @@ public sealed class SnapshotBus
 
     public ShowSnapshot Current => _current;
 
+    /// <summary>Set by the publisher before <see cref="Publish"/> to flash screen badges.</summary>
+    public DateTime? IdentifyUntilUtc { get; set; }
+
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
     public void Publish(ShowState state)
     {
-        var snap = new ShowSnapshot { State = JsonUtil.Clone(state), Version = ++_version };
+        var snap = new ShowSnapshot
+        {
+            State = JsonUtil.Clone(state),
+            Version = ++_version,
+            IdentifyUntilUtc = IdentifyUntilUtc,
+        };
         _current = snap;
         Changed?.Invoke();
     }

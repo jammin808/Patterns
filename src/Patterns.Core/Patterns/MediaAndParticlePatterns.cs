@@ -94,7 +94,13 @@ public sealed class ParticlePattern : IPatternRenderer
             : f.Color(o.BackgroundColor, SKColors.Black));
 
         var sim = f.Sink.Particles ??= new ParticleSim();
-        sim.Configure(o, f.Snapshot, f.Canvas);
+        // Configure only when something could have changed — keeps the 60 fps path allocation-free.
+        if (f.Sink.ParticlesConfiguredVersion != f.Snapshot.Version || f.Sink.ParticlesConfiguredCanvas != f.Canvas)
+        {
+            sim.Configure(o, f.Snapshot, f.Canvas);
+            f.Sink.ParticlesConfiguredVersion = f.Snapshot.Version;
+            f.Sink.ParticlesConfiguredCanvas = f.Canvas;
+        }
         sim.Advance(f.Ctx.Time);
         sim.Render(c, f.Paints);
     }

@@ -126,13 +126,13 @@ public class NdiInteropLayoutTests
 
 public class CadenceTests
 {
-    private static ShowSnapshot Snap(Action<ShowState> mutate)
+    private static ShowSnapshot Snap(Action<ShowState> mutate, DateTime? identifyUntil = null)
     {
         var s = new ShowState();
         s.Overlays.Clock.Enabled = false;
         s.Countdown.Enabled = false;
         mutate(s);
-        return new ShowSnapshot { State = s, Version = 1 };
+        return new ShowSnapshot { State = s, Version = 1, IdentifyUntilUtc = identifyUntil };
     }
 
     [Fact]
@@ -161,11 +161,9 @@ public class CadenceTests
 
     [Fact]
     public void IdentifyForcesContinuous()
-        => Assert.Equal(RedrawCadence.Continuous, PatternEngine.CadenceOf(Snap(s =>
-        {
-            s.Pattern.Kind = PatternKind.Grid;
-            s.IdentifyUntilUtc = DateTime.UtcNow.AddSeconds(3);
-        }), null, DateTime.UtcNow));
+        => Assert.Equal(RedrawCadence.Continuous, PatternEngine.CadenceOf(
+            Snap(s => s.Pattern.Kind = PatternKind.Grid, identifyUntil: DateTime.UtcNow.AddSeconds(3)),
+            null, DateTime.UtcNow));
 
     [Fact]
     public void BlackoutIsStaticEvenWithMotion()
