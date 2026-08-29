@@ -11,6 +11,10 @@
 
 ---
 
+<p align="center">
+  <img src="docs/media/shot-ui.png" alt="Patterns main window — LED wall editing with live preview" width="820"/>
+</p>
+
 **Patterns** is a single portable `Patterns.exe` you keep on a USB stick. It opens instantly on
 any Windows 10/11 x64 machine — no install, no admin rights, no registry — and puts accurate,
 pixel-exact test patterns on every screen, wall and NDI receiver in the room. It is built to run
@@ -51,6 +55,19 @@ fault containment, and settings that can never brick startup.
   libVLC. Media renders through the engine, so it reaches spans and NDI too.
 - **NDI® output** — advertise the program as an NDI source at its own resolution and frame rate,
   feature-detected at runtime (nothing crashes without it).
+
+<table>
+  <tr>
+    <td><img src="docs/media/shot-ledwall.png" alt="LED wall pattern, serpentine numbering"/></td>
+    <td><img src="docs/media/shot-blend.png" alt="3-projector blend with S-curve ramps"/></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/shot-smpte.png" alt="SMPTE RP 219-style bars with clock overlay"/></td>
+    <td><img src="docs/media/shot-countdown.png" alt="Show countdown over branded bokeh particles"/></td>
+  </tr>
+</table>
+
+*All four rendered by the engine exactly as outputs and NDI receive them.*
 
 ## Quick start
 
