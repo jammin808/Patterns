@@ -33,9 +33,9 @@ public sealed class AppServices
     private bool _autosave = true;
     private Mutex? _instanceMutex;
 
-    public AppServices()
+    public AppServices(SettingsStore? store = null)
     {
-        Store = new SettingsStore();
+        Store = store ?? new SettingsStore();
         Log.Init(Store.BaseDirectory);
 
         // Second instance on the same folder: run, but leave saving to the first one.

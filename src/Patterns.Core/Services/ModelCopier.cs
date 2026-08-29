@@ -2,9 +2,8 @@ using System.Collections;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using Patterns.Core.Model;
-using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Core.Services;
 
 /// <summary>
 /// Copies one model graph onto another in place, so UI bindings (which hold object
