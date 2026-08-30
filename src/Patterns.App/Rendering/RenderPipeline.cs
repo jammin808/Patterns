@@ -19,6 +19,20 @@ public sealed record PipelineViewport(
     /// <summary>Physical rotation applied when blitting to the window (content stays upright).</summary>
     public OutputRotation Rotation { get; init; } = OutputRotation.None;
 
+    /// <summary>4-corner warp offsets in physical pixels (all zero = no warp).</summary>
+    public int WarpTlx { get; init; }
+    public int WarpTly { get; init; }
+    public int WarpTrx { get; init; }
+    public int WarpTry { get; init; }
+    public int WarpBlx { get; init; }
+    public int WarpBly { get; init; }
+    public int WarpBrx { get; init; }
+    public int WarpBry { get; init; }
+
+    public bool HasWarp =>
+        WarpTlx != 0 || WarpTly != 0 || WarpTrx != 0 || WarpTry != 0 ||
+        WarpBlx != 0 || WarpBly != 0 || WarpBrx != 0 || WarpBry != 0;
+
     /// <summary>Per-output colour trims (100/1.0/100/100/100 = neutral).</summary>
     public double BrightnessPct { get; init; } = 100;
     public double Gamma { get; init; } = 1.0;
@@ -64,6 +78,8 @@ public sealed class RenderPipeline : IDisposable
     {
         get
         {
+            // A running crossfade needs vsync redraw whatever the content would need.
+            if (_sink.TransitionEndClock > ShowClock.Seconds) return RedrawCadence.Continuous;
             var vp = _viewport;
             var screenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId;
             return PatternEngine.CadenceOf(_bus.Current, screenId, DateTime.UtcNow);
@@ -137,23 +153,30 @@ public sealed class RenderPipeline : IDisposable
                 layered = true;
             }
 
-            switch (vp.Rotation)
+            if (vp.HasWarp)
             {
-                case OutputRotation.Rot90:
-                    canvas.Translate(physicalPx.Width, 0);
-                    canvas.RotateDegrees(90);
-                    break;
-                case OutputRotation.Rot180:
-                    canvas.Translate(physicalPx.Width, physicalPx.Height);
-                    canvas.RotateDegrees(180);
-                    break;
-                case OutputRotation.Rot270:
-                    canvas.Translate(0, physicalPx.Height);
-                    canvas.RotateDegrees(270);
-                    break;
-            }
+                // Keystone path: content renders to an offscreen surface at the effective
+                // size, then blits through warp ∘ rotation as one perspective image draw.
+                var surface = EnsureOffscreen(effectivePx);
+                _engine.Render(surface.Canvas, _bus.Current, in ctx, _sink);
+                surface.Canvas.Flush();
+                using var image = surface.Snapshot();
 
-            _engine.Render(canvas, _bus.Current, in ctx, _sink);
+                var warp = WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
+                    new SKPoint(vp.WarpTlx, vp.WarpTly),
+                    new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
+                    new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
+                    new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry));
+                canvas.Clear(SKColors.Black);
+                canvas.Concat(in warp);
+                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
+                canvas.DrawImage(image, 0, 0, Patterns.Core.Rendering.DrawUtil.Smooth, _warpPaint);
+            }
+            else
+            {
+                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
+                _engine.Render(canvas, _bus.Current, in ctx, _sink);
+            }
 
             if (layered)
             {
@@ -171,10 +194,35 @@ public sealed class RenderPipeline : IDisposable
         }
     }
 
+    private SKSurface? _offscreen;
+    private SKSizeI _offscreenSize;
+    private readonly SKPaint _warpPaint = new() { IsAntialias = true };
+
+    private SKSurface EnsureOffscreen(SKSizeI size)
+    {
+        if (_offscreen is null || _offscreenSize != size)
+        {
+            _offscreen?.Dispose();
+            _offscreen = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            _offscreenSize = size;
+        }
+        return _offscreen!;
+    }
+
+    private static SKMatrix RotationMatrix(OutputRotation rotation, SKSizeI physicalPx) => rotation switch
+    {
+        OutputRotation.Rot90 => SKMatrix.CreateRotationDegrees(90).PostConcat(SKMatrix.CreateTranslation(physicalPx.Width, 0)),
+        OutputRotation.Rot180 => SKMatrix.CreateRotationDegrees(180).PostConcat(SKMatrix.CreateTranslation(physicalPx.Width, physicalPx.Height)),
+        OutputRotation.Rot270 => SKMatrix.CreateRotationDegrees(270).PostConcat(SKMatrix.CreateTranslation(0, physicalPx.Height)),
+        _ => SKMatrix.Identity,
+    };
+
     public void Dispose()
     {
         _trimFilter?.Dispose();
         _trimPaint.Dispose();
+        _warpPaint.Dispose();
+        _offscreen?.Dispose();
         _sink.Dispose();
     }
 }

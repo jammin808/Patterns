@@ -4,7 +4,7 @@ using SkiaSharp;
 namespace Patterns.Core.Rendering;
 
 /// <summary>Everything a sink hands the engine for one frame.</summary>
-public readonly struct RenderContext
+public readonly record struct RenderContext
 {
     /// <summary>This sink's pixel size (the area actually being drawn).</summary>
     public required SKSizeI ViewportSize { get; init; }
@@ -40,6 +40,9 @@ public readonly struct RenderContext
     public string? ScreenId { get; init; }
 
     public double MeasuredFps { get; init; }
+
+    /// <summary>True while re-rendering the previous snapshot as the fading-out half of a crossfade.</summary>
+    public bool IsFadeSource { get; init; }
 }
 
 /// <summary>How often a sink needs to redraw for the current snapshot.</summary>

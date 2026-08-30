@@ -40,6 +40,31 @@ public sealed class RelayCommand<T> : ICommand
     public void Execute(object? parameter) => _execute(parameter is T t ? t : default);
 }
 
+/// <summary>One audio output device row with a live selection checkbox.</summary>
+public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
+{
+    private readonly MainViewModel _vm;
+    private bool _isSelected;
+
+    public AudioDeviceChoice(MainViewModel vm, string name, bool selected)
+    {
+        _vm = vm;
+        Name = name;
+        _isSelected = selected;
+    }
+
+    public string Name { get; }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (Set(ref _isSelected, value)) _vm.AudioDeviceChanged(this);
+        }
+    }
+}
+
 /// <summary>A labelled enum value for combo boxes.</summary>
 public sealed record EnumItem(object Value, string Label)
 {
@@ -161,6 +186,12 @@ public static class Lists
         new(ToneChannels.Both, "Left + Right"),
         new(ToneChannels.Left, "Left only"),
         new(ToneChannels.Right, "Right only"),
+    };
+
+    public static readonly EnumItem[] PipSources =
+    {
+        new(PipSource.NdiFeed, "NDI feed (network)"),
+        new(PipSource.Capture, "Capture device (HDMI / SDI / webcam)"),
     };
 
     public static readonly EnumItem[] FeedKinds =

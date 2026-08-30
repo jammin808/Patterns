@@ -58,6 +58,24 @@ public sealed class ScreenPlacement : Observable
     public bool HasTrims =>
         Math.Abs(_brightnessPct - 100) > 0.01 || Math.Abs(_gamma - 1.0) > 0.001 ||
         Math.Abs(_trimRPct - 100) > 0.01 || Math.Abs(_trimGPct - 100) > 0.01 || Math.Abs(_trimBPct - 100) > 0.01;
+
+    // 4-corner warp: pixel offsets applied to each corner of the physical output
+    // (a light keystone for casually placed projectors — not a full warp engine).
+    private int _warpTlx; private int _warpTly; private int _warpTrx; private int _warpTry;
+    private int _warpBlx; private int _warpBly; private int _warpBrx; private int _warpBry;
+
+    public int WarpTlx { get => _warpTlx; set => Set(ref _warpTlx, Math.Clamp(value, -4096, 4096)); }
+    public int WarpTly { get => _warpTly; set => Set(ref _warpTly, Math.Clamp(value, -4096, 4096)); }
+    public int WarpTrx { get => _warpTrx; set => Set(ref _warpTrx, Math.Clamp(value, -4096, 4096)); }
+    public int WarpTry { get => _warpTry; set => Set(ref _warpTry, Math.Clamp(value, -4096, 4096)); }
+    public int WarpBlx { get => _warpBlx; set => Set(ref _warpBlx, Math.Clamp(value, -4096, 4096)); }
+    public int WarpBly { get => _warpBly; set => Set(ref _warpBly, Math.Clamp(value, -4096, 4096)); }
+    public int WarpBrx { get => _warpBrx; set => Set(ref _warpBrx, Math.Clamp(value, -4096, 4096)); }
+    public int WarpBry { get => _warpBry; set => Set(ref _warpBry, Math.Clamp(value, -4096, 4096)); }
+
+    public bool HasWarp =>
+        _warpTlx != 0 || _warpTly != 0 || _warpTrx != 0 || _warpTry != 0 ||
+        _warpBlx != 0 || _warpBly != 0 || _warpBrx != 0 || _warpBry != 0;
 }
 
 /// <summary>Per-screen pattern in Independent mode.</summary>
@@ -162,6 +180,30 @@ public sealed class OverlaySet : Observable
     public LogoOverlay Logo { get; init; } = new();
     public InfoOverlay Info { get; init; } = new();
     public MessageOverlay Message { get; init; } = new();
+    public PipOverlay Pip { get; init; } = new();
+}
+
+/// <summary>Picture-in-picture inset: a second live input composited over whatever is showing.</summary>
+public sealed class PipOverlay : Observable
+{
+    private bool _enabled;
+    private PipSource _source = PipSource.NdiFeed;
+    private string _ndiSourceName = "";
+    private string _captureDevice = "";
+    private Anchor9 _anchor = Anchor9.BottomRight;
+    private double _widthPct = 25;
+    private double _opacity = 1.0;
+    private bool _showBorder = true;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public PipSource Source { get => _source; set => Set(ref _source, value); }
+    public string NdiSourceName { get => _ndiSourceName; set => Set(ref _ndiSourceName, value); }
+    public string CaptureDevice { get => _captureDevice; set => Set(ref _captureDevice, value); }
+    public Anchor9 Anchor { get => _anchor; set => Set(ref _anchor, value); }
+    /// <summary>Inset width as a percentage of the viewport width.</summary>
+    public double WidthPct { get => _widthPct; set => Set(ref _widthPct, Math.Clamp(value, 10, 50)); }
+    public double Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0.1, 1.0)); }
+    public bool ShowBorder { get => _showBorder; set => Set(ref _showBorder, value); }
 }
 
 public sealed class CountdownConfig : Observable
@@ -318,6 +360,83 @@ public sealed class LooksConfig : Observable
     public ObservableCollection<CueConfig> Cues { get; init; } = new();
 }
 
+/// <summary>Crossfade between content changes on every sink (looks, playlist advances, blackout).</summary>
+public sealed class TransitionConfig : Observable
+{
+    private bool _enabled = true;
+    private double _durationMs = 400;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public double DurationMs { get => _durationMs; set => Set(ref _durationMs, Math.Clamp(value, 100, 3000)); }
+}
+
+/// <summary>One presenter step: a look recalled by a clicker press.</summary>
+public sealed class PresenterStepConfig : Observable
+{
+    private string _lookName = "";
+    private string _label = "";
+
+    public string LookName { get => _lookName; set => Set(ref _lookName, value); }
+    /// <summary>Optional note shown to the operator ("Sponsor stings", "Q&amp;A slide").</summary>
+    public string Label { get => _label; set => Set(ref _label, value); }
+}
+
+/// <summary>
+/// Presenter click-through: an ordered list of looks a presenter advances with a clicker
+/// (Page Down / Page Up — the keys USB presentation remotes send).
+/// </summary>
+public sealed class PresenterConfig : Observable
+{
+    private bool _armed;
+    private bool _loop;
+    private int _currentIndex = -1;
+
+    /// <summary>When armed, clicker keys (and remote NEXT/PREV) drive the steps.</summary>
+    public bool Armed { get => _armed; set => Set(ref _armed, value); }
+    public bool Loop { get => _loop; set => Set(ref _loop, value); }
+
+    public ObservableCollection<PresenterStepConfig> Steps { get; init; } = new();
+
+    /// <summary>Runtime-only: the step currently applied (-1 = not started).</summary>
+    [JsonIgnore]
+    public int CurrentIndex { get => _currentIndex; set => Set(ref _currentIndex, value); }
+}
+
+/// <summary>
+/// Independent audio track player — plays regardless of what is on screen, to the default
+/// device or any set of Windows audio outputs (HDMI screens are audio devices too).
+/// </summary>
+public sealed class AudioPlayerConfig : Observable
+{
+    private string _path = "";
+    private bool _loop = true;
+    private double _volumePct = 100;
+    private bool _playing;
+
+    public string Path { get => _path; set => Set(ref _path, value); }
+    public bool Loop { get => _loop; set => Set(ref _loop, value); }
+    public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
+
+    /// <summary>Output device names to play on; empty = the default device.</summary>
+    public ObservableCollection<string> Devices { get; init; } = new();
+
+    /// <summary>Runtime-only: playback never auto-starts with the app.</summary>
+    [JsonIgnore]
+    public bool Playing { get => _playing; set => Set(ref _playing, value); }
+}
+
+/// <summary>Remote control server: web remote + TCP line protocol (Companion).</summary>
+public sealed class ControlConfig : Observable
+{
+    private bool _enabled = true;
+    private int _httpPort = 9696;
+    private int _tcpPort = 9697;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public int HttpPort { get => _httpPort; set => Set(ref _httpPort, Math.Clamp(value, 1024, 65535)); }
+    public int TcpPort { get => _tcpPort; set => Set(ref _tcpPort, Math.Clamp(value, 1024, 65535)); }
+}
+
 /// <summary>Web pages opened on outputs (managed browser windows, not engine-composited).</summary>
 public sealed class WebConfig : Observable
 {
@@ -359,6 +478,10 @@ public sealed class ShowState : Observable
     public ToneConfig Tone { get; init; } = new();
     public LooksConfig LooksAndCues { get; init; } = new();
     public WebConfig Web { get; init; } = new();
+    public TransitionConfig Transition { get; init; } = new();
+    public PresenterConfig Presenter { get; init; } = new();
+    public AudioPlayerConfig AudioPlayer { get; init; } = new();
+    public ControlConfig Control { get; init; } = new();
 
     /// <summary>Media the operator has loaded — surfaces in the Library under "My media".</summary>
     public ObservableCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();

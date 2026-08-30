@@ -37,6 +37,26 @@ public sealed class ShowSnapshot
         return _colorCache.GetOrAdd(hex, static (h, fb) => ColorUtil.TryParse(h, out var c) ? c : fb, fallback);
     }
 
+    private readonly ConcurrentDictionary<string, int> _transitionKeys = new();
+
+    /// <summary>
+    /// Identity of the content a sink shows — changes when a crossfade should run (pattern
+    /// or media identity, blackout, playlist item), stays put across per-frame animation.
+    /// Memoised per snapshot; compared only within this process.
+    /// </summary>
+    public int TransitionKeyFor(string? screenId)
+    {
+        return _transitionKeys.GetOrAdd(screenId ?? "", _ =>
+        {
+            var cfg = PatternFor(screenId);
+            var json = JsonUtil.Serialize(cfg);
+            var playlist = cfg.Kind == PatternKind.Media && cfg.Media.Source == MediaSource.Playlist
+                ? PlaylistNow?.Path ?? ""
+                : "";
+            return HashCode.Combine(State.Blackout, json, playlist);
+        });
+    }
+
     /// <summary>
     /// The pattern a given sink should draw: a screen with "custom pattern" enabled uses its
     /// own assignment; everything else (grouped canvases included) shows the program.

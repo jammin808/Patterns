@@ -22,10 +22,13 @@ public sealed class AppServices
     public OutputWindowManager Outputs { get; }
     public VideoEngine Video { get; }
     public NdiInputEngine NdiIn { get; }
+    public PipEngine Pip { get; }
     public WebService Web { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
     public AudioService Audio { get; }
+    public AudioPlayerService AudioPlayer { get; }
+    public ControlService Control { get; }
 
     public MainWindow? MainWindow { get; private set; }
 
@@ -67,12 +70,15 @@ public sealed class AppServices
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
         NdiIn = new NdiInputEngine();
+        Pip = new PipEngine(Video);
         Web = new WebService();
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);
         Feeds = new FeedService(this);
         Audio = new AudioService(this);
+        AudioPlayer = new AudioPlayerService(this);
+        Control = new ControlService(this);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
         _saveTimer.Tick += (_, _) =>
@@ -146,9 +152,13 @@ public sealed class AppServices
         // NDI sender set follows the config.
         Ndi.Reconcile(Bus.Current);
 
-        // Video decoder and NDI receiver lifecycles.
+        // Video decoder, NDI receiver and PiP lifecycles.
         Video.Reconcile(Bus.Current);
         NdiIn.Reconcile(Bus.Current);
+        Pip.Reconcile(Bus.Current);
+
+        // Remote control server follows its config.
+        Control.Reconcile();
     }
 
     /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
@@ -195,10 +205,13 @@ public sealed class AppServices
         try
         {
             Outputs.CloseAll();
+            Control.Dispose();
             Web.Dispose();
             Ndi.StopAll();
+            Pip.Dispose();
             NdiIn.Dispose();
             Audio.Dispose();
+            AudioPlayer.Dispose();
             Playlist.Dispose();
             Feeds.Dispose();
             Video.Dispose();

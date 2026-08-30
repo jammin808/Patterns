@@ -17,6 +17,72 @@ public sealed class PatternEngine
 
     public void Render(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
     {
+        // Crossfade on content changes: when this sink's content identity changes, the
+        // previous snapshot keeps rendering on top, fading out over the configured time.
+        // Thumbnails and fade-source re-renders themselves are excluded.
+        if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail && snap.State.Transition.Enabled)
+        {
+            var key = snap.TransitionKeyFor(ctx.ScreenId);
+            if (sink.TransitionKey is { } lastKey && lastKey != key && sink.LastSnapshot is { } prev)
+            {
+                sink.TransitionFrom = prev;
+                sink.TransitionStartClock = ctx.Time;
+                sink.TransitionEndClock = ctx.Time + snap.State.Transition.DurationMs / 1000.0;
+            }
+            sink.TransitionKey = key;
+            sink.LastSnapshot = snap;
+
+            if (sink.TransitionFrom is { } from)
+            {
+                var duration = Math.Max(0.05, snap.State.Transition.DurationMs / 1000.0);
+                var t = (ctx.Time - sink.TransitionStartClock) / duration;
+                if (t >= 1)
+                {
+                    sink.TransitionFrom = null;
+                    sink.TransitionEndClock = 0;
+                }
+                else
+                {
+                    RenderContent(canvas, snap, in ctx, sink);
+
+                    // Smoothstep fade-out of the old content on top of the new.
+                    var eased = 1 - (t * t * (3 - 2 * t));
+                    var alpha = (byte)Math.Clamp(eased * 255, 0, 255);
+                    using var fade = new SKPaint { Color = new SKColor(255, 255, 255, alpha) };
+                    var bounds = SKRect.Create(0, 0, ctx.ViewportSize.Width, ctx.ViewportSize.Height);
+                    canvas.SaveLayer(bounds, fade);
+                    var fadeCtx = ctx with { IsFadeSource = true };
+                    try
+                    {
+                        RenderContent(canvas, from, in fadeCtx, sink);
+                    }
+                    catch (Exception ex)
+                    {
+                        // A fade must never take the show down — drop it and carry on.
+                        Log.Warn("Transition fade-source render failed.", ex);
+                        sink.TransitionFrom = null;
+                        sink.TransitionEndClock = 0;
+                    }
+                    canvas.Restore();
+                    return;
+                }
+            }
+        }
+        else if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail)
+        {
+            // Transitions off: keep tracking identity so enabling them later never fades
+            // from long-stale content.
+            sink.TransitionKey = snap.TransitionKeyFor(ctx.ScreenId);
+            sink.LastSnapshot = snap;
+            sink.TransitionFrom = null;
+            sink.TransitionEndClock = 0;
+        }
+
+        RenderContent(canvas, snap, in ctx, sink);
+    }
+
+    private void RenderContent(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
+    {
         if (sink.LastSnapshotVersion != snap.Version)
         {
             // A config change may well have fixed whatever made a renderer throw.

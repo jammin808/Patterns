@@ -19,10 +19,13 @@ public sealed class VideoEngine : IDisposable
     private bool _vlcInitFailed;
     private VlcFrameSource? _source;
     private string _activeKey = "";
+    private (VlcFrameSource Source, DateTime RetiredUtc)? _retired;
 
     /// <summary>Reconciles the running decoder with the current snapshot (UI thread).</summary>
     public void Reconcile(ShowSnapshot snap)
     {
+        SweepRetired();
+
         var media = MediaLocator.FindActiveVideo(snap);
 
         // Mute/volume apply live to the running player — they never restart the media.
@@ -35,8 +38,7 @@ public sealed class VideoEngine : IDisposable
         _activeKey = key;
 
         VideoService.Current = null;
-        _source?.Dispose();
-        _source = null;
+        RetireSource();
 
         if (media is null) return;
 
@@ -57,8 +59,44 @@ public sealed class VideoEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// The old source keeps decoding briefly as <see cref="VideoService.Previous"/> so a
+    /// crossfade fades out real frames instead of a placeholder; muted so two soundtracks
+    /// never overlap; swept a couple of seconds later.
+    /// </summary>
+    private void RetireSource()
+    {
+        if (_retired is { } r)
+        {
+            r.Source.Dispose();
+            _retired = null;
+        }
+        VideoService.Previous = null;
+        if (_source is not null)
+        {
+            _source.SetAudio(mute: true, volumePct: 0);
+            VideoService.Previous = _source;
+            _retired = (_source, DateTime.UtcNow);
+            _source = null;
+        }
+    }
+
+    /// <summary>Also called from the app's 1 s poll so a retired decoder never lingers.</summary>
+    public void SweepRetired()
+    {
+        if (_retired is { } r && DateTime.UtcNow - r.RetiredUtc > TimeSpan.FromSeconds(4))
+        {
+            VideoService.Previous = null;
+            r.Source.Dispose();
+            _retired = null;
+        }
+    }
+
     /// <summary>Whether video decode is available (initialises libVLC on first ask).</summary>
     public bool EnsureAvailable() => EnsureVlc();
+
+    /// <summary>The shared libVLC instance for secondary players (PiP); null when unavailable.</summary>
+    public LibVLC? SharedVlc => EnsureVlc() ? _vlc : null;
 
     private bool EnsureVlc()
     {
@@ -105,8 +143,14 @@ public sealed class VideoEngine : IDisposable
     public void Dispose()
     {
         VideoService.Current = null;
+        VideoService.Previous = null;
         _source?.Dispose();
         _source = null;
+        if (_retired is { } r)
+        {
+            r.Source.Dispose();
+            _retired = null;
+        }
         _vlc?.Dispose();
         _vlc = null;
     }

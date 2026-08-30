@@ -1,0 +1,21 @@
+{
+  "id": "jammin808-patterns",
+  "name": "jammin808-patterns",
+  "shortname": "patterns",
+  "description": "Control the Patterns show display suite (looks, presenter steps, transport, screens, audio)",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": "https://github.com/jammin808/Patterns",
+  "bugs": "https://github.com/jammin808/Patterns/issues",
+  "maintainers": [{ "name": "jammin808" }],
+  "legacyIds": [],
+  "runtime": {
+    "type": "node18",
+    "api": "nodejs-ipc",
+    "apiVersion": "0.0.0",
+    "entrypoint": "../main.js"
+  },
+  "manufacturer": "jammin808",
+  "products": ["Patterns"],
+  "keywords": ["patterns", "display", "led", "test pattern", "show"]
+}

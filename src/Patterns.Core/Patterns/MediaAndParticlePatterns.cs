@@ -33,7 +33,7 @@ public sealed class MediaPattern : IPatternRenderer
                     AudioCard(c, in f, now.Path);
                     return;
                 }
-                var video = VideoService.Current;
+                var video = f.Ctx.IsFadeSource ? VideoService.Previous ?? VideoService.Current : VideoService.Current;
                 var vsize = video?.FrameSize;
                 var vdest = vsize is { } vs ? DrawUtil.Fit(vs, bounds, o.Fit) : bounds;
                 if (video is null || !video.DrawFrame(c, vdest, pc.FillAA(SKColors.White)))
@@ -64,7 +64,7 @@ public sealed class MediaPattern : IPatternRenderer
                 AudioCard(c, in f, o.VideoPath);
                 return;
             }
-            var video = VideoService.Current;
+            var video = f.Ctx.IsFadeSource ? VideoService.Previous ?? VideoService.Current : VideoService.Current;
             if (video is null)
             {
                 var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)
@@ -85,7 +85,7 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Source == MediaSource.NdiFeed)
         {
-            var feed = NdiInput.Current;
+            var feed = f.Ctx.IsFadeSource ? NdiInput.Previous ?? NdiInput.Current : NdiInput.Current;
             if (feed is null)
             {
                 var note = string.IsNullOrEmpty(NdiInput.AvailabilityNote)
@@ -105,7 +105,7 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Source == MediaSource.Capture)
         {
-            var cap = VideoService.Current;
+            var cap = f.Ctx.IsFadeSource ? VideoService.Previous ?? VideoService.Current : VideoService.Current;
             if (cap is null)
             {
                 var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)

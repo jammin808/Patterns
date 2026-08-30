@@ -6,6 +6,41 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1" Text="Audio" />
+
+    <TextBlock Classes="h2" Text="AUDIO TRACK" />
+    <TextBlock Classes="hint"
+               Text="An independent music/announcement track — plays whatever is on screen, to the default output or any set of devices (each HDMI screen is an audio device, so a track can follow all screens, one, or a group)." />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" Watermark="MP3, WAV, FLAC…" Text="{Binding State.AudioPlayer.Path}" />
+      <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseAudioTrackCommand}" />
+    </Grid>
+    <Grid ColumnDefinitions="Auto,8,Auto,16,Auto,*">
+      <Button Grid.Column="0" Classes="go" Content="▶ PLAY" Command="{Binding PlayAudioCommand}" />
+      <Button Grid.Column="2" Classes="stop" Content="■ STOP" Command="{Binding StopAudioCommand}" />
+      <CheckBox Grid.Column="4" Content="Loop" IsChecked="{Binding State.AudioPlayer.Loop}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,44">
+      <TextBlock Classes="label" Text="Volume" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="125" TickFrequency="5"
+              Value="{Binding State.AudioPlayer.VolumePct, Mode=TwoWay}" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.AudioPlayer.VolumePct, StringFormat={}{0:0}%}" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding AudioPlayerStatus}" TextWrapping="Wrap" />
+
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBlock Classes="label" Text="Play on these outputs (none ticked = default device)" VerticalAlignment="Center" />
+      <Button Grid.Column="2" Classes="mini" Content="Refresh devices" Command="{Binding RefreshAudioDevicesCommand}" />
+    </Grid>
+    <ItemsControl ItemsSource="{Binding AudioDevices}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:AudioDeviceChoice">
+          <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,1" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint"
+               Text="Multi-device playback starts the outputs together; over very long tracks separate devices can drift a little. Device changes apply on the next play." />
     <TextBlock Classes="hint"
                Text="Soundcheck signal for the audio engineer: a reference tone, or a channel ident — one pip LEFT, two pips RIGHT — with a matching on-screen indicator on every output, so what you see is what they hear." />
 

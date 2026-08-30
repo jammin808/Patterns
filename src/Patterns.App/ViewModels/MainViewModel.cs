@@ -122,6 +122,66 @@ public sealed class MainViewModel : Observable
             if (url is not null) State.Web.SavedUrls.Remove(url);
         });
 
+        // Presenter click-through
+        AddPresenterStepCommand = new RelayCommand(() =>
+        {
+            var name = SelectedPresenterLook;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                name = State.LooksAndCues.Looks.FirstOrDefault()?.Name ?? "";
+            }
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                StatusMessage = "Save a look first — presenter steps recall looks.";
+                return;
+            }
+            State.Presenter.Steps.Add(new PresenterStepConfig { LookName = name });
+            Raise(nameof(PresenterStepText));
+        });
+        RemovePresenterStepCommand = new RelayCommand<PresenterStepConfig>(step =>
+        {
+            if (step is not null) State.Presenter.Steps.Remove(step);
+            Raise(nameof(PresenterStepText));
+        });
+        MovePresenterStepUpCommand = new RelayCommand<PresenterStepConfig>(step =>
+        {
+            if (step is not null) MovePresenterStep(step, -1);
+        });
+        MovePresenterStepDownCommand = new RelayCommand<PresenterStepConfig>(step =>
+        {
+            if (step is not null) MovePresenterStep(step, +1);
+        });
+        PresenterNextCommand = new RelayCommand(() => PresenterAdvance(+1));
+        PresenterPrevCommand = new RelayCommand(() => PresenterAdvance(-1));
+        PresenterResetCommand = new RelayCommand(() =>
+        {
+            State.Presenter.CurrentIndex = -1;
+            Raise(nameof(PresenterStepText));
+        });
+
+        // Audio track player
+        BrowseAudioTrackCommand = new RelayCommand(() => _ = PickFileAsync("Choose audio track", AudioTypes, p =>
+        {
+            State.AudioPlayer.Path = p;
+            AddToMediaLibrary(p, isVideo: true);
+        }));
+        PlayAudioCommand = new RelayCommand(() =>
+        {
+            if (AudioDevices.Count == 0) RefreshAudioDevices();
+            State.AudioPlayer.Playing = true;
+        });
+        StopAudioCommand = new RelayCommand(() => State.AudioPlayer.Playing = false);
+        RefreshAudioDevicesCommand = new RelayCommand(RefreshAudioDevices);
+        ResetWarpCommand = new RelayCommand(() =>
+        {
+            if (_selectedPlacement is null) return;
+            _selectedPlacement.WarpTlx = 0; _selectedPlacement.WarpTly = 0;
+            _selectedPlacement.WarpTrx = 0; _selectedPlacement.WarpTry = 0;
+            _selectedPlacement.WarpBlx = 0; _selectedPlacement.WarpBly = 0;
+            _selectedPlacement.WarpBrx = 0; _selectedPlacement.WarpBry = 0;
+            RaiseSelection();
+        });
+
         // Looks & cues
         SaveLookCommand = new RelayCommand(SaveLook);
         ApplyLookCommand = new RelayCommand<LookConfig>(look =>
@@ -642,6 +702,161 @@ public sealed class MainViewModel : Observable
         State.Web.TargetScreenId = current;
     }
 
+    // ---- presenter click-through -------------------------------------------
+
+    /// <summary>Advances the presenter steps and applies the step's look. False = no move.</summary>
+    public bool PresenterAdvance(int delta)
+    {
+        var p = State.Presenter;
+        if (PresenterLogic.Advance(p.CurrentIndex, p.Steps.Count, delta, p.Loop) is not { } idx) return false;
+        var step = p.Steps[idx];
+        p.CurrentIndex = idx;
+        var look = State.LooksAndCues.Looks.FirstOrDefault(
+            l => string.Equals(l.Name, step.LookName, StringComparison.OrdinalIgnoreCase));
+        if (look is null)
+        {
+            StatusMessage = $"Presenter step {idx + 1}: look '{step.LookName}' not found.";
+            return false;
+        }
+        ApplyLook(look);
+        StatusMessage = $"Presenter {idx + 1}/{p.Steps.Count}: {(step.Label.Length > 0 ? step.Label : look.Name)}";
+        Raise(nameof(PresenterStepText));
+        return true;
+    }
+
+    public string PresenterStepText
+    {
+        get
+        {
+            var p = State.Presenter;
+            if (p.Steps.Count == 0) return "No presenter steps yet.";
+            return p.CurrentIndex < 0
+                ? $"Ready — {p.Steps.Count} step{(p.Steps.Count == 1 ? "" : "s")}, click to start."
+                : $"Step {p.CurrentIndex + 1} of {p.Steps.Count}";
+        }
+    }
+
+    /// <summary>Moves a presenter step (drag/arrows in the list).</summary>
+    public void MovePresenterStep(PresenterStepConfig step, int delta)
+    {
+        var steps = State.Presenter.Steps;
+        var index = steps.IndexOf(step);
+        var target = index + delta;
+        if (index < 0 || target < 0 || target >= steps.Count) return;
+        steps.Move(index, target);
+    }
+
+    // ---- remote screen/group switching --------------------------------------
+
+    private List<(ScreenPlacement Placement, ScreenInfo Info)> OrderedLivePlacements(IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        var known = screens ?? _services.Screens.All;
+        return State.Output.Placements
+            .Select(p => (Placement: p, Info: known.FirstOrDefault(s => s.Id == p.ScreenId)))
+            .Where(x => x.Info is not null)
+            .Select(x => (x.Placement, Info: x.Info!))
+            .OrderBy(x => x.Placement.X).ThenBy(x => x.Placement.Y)
+            .ToList();
+    }
+
+    /// <summary>Remote: screen by its overview number → enabled/disabled/toggled.</summary>
+    public bool SetScreenEnabled(int number, bool? target, IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        var ordered = OrderedLivePlacements(screens);
+        if (number < 1 || number > ordered.Count) return false;
+        var placement = ordered[number - 1].Placement;
+        placement.Enabled = target ?? !placement.Enabled;
+        placement.UserPinned = true;
+        return true;
+    }
+
+    /// <summary>Joined-canvas letters (A, B, …) → their member placements, arrangement order.</summary>
+    private List<List<ScreenPlacement>> CanvasGroups(IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        var live = OrderedLivePlacements(screens);
+        var arranged = live
+            .Select(x => new ArrangedScreen(x.Placement.ScreenId,
+                SkiaSharp.SKRectI.Create(x.Placement.X, x.Placement.Y,
+                    OutputWindowManager.EffectiveSize(x.Placement, x.Info).Width,
+                    OutputWindowManager.EffectiveSize(x.Placement, x.Info).Height)))
+            .ToList();
+        var byId = live.ToDictionary(x => x.Placement.ScreenId, x => x.Placement);
+        return ScreenLayout.Groups(arranged)
+            .Where(g => g.Count > 1)
+            .OrderBy(g => ScreenLayout.Union(g).Left).ThenBy(g => ScreenLayout.Union(g).Top)
+            .Select(g => g.Select(m => byId[m.Id]).ToList())
+            .ToList();
+    }
+
+    /// <summary>Remote: every screen of canvas 'A'/'B'… on or off at once.</summary>
+    public bool SetGroupEnabled(string letter, bool enabled, IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        if (letter.Length != 1) return false;
+        var groups = CanvasGroups(screens);
+        var index = letter[0] - 'A';
+        if (index < 0 || index >= groups.Count) return false;
+        foreach (var placement in groups[index])
+        {
+            placement.Enabled = enabled;
+            placement.UserPinned = true;
+        }
+        return true;
+    }
+
+    /// <summary>Screen rows for the remote-state JSON. UI thread.</summary>
+    public object[] RemoteScreens(IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        var groups = CanvasGroups(screens);
+        string? LetterOf(ScreenPlacement p)
+        {
+            for (var i = 0; i < groups.Count; i++)
+            {
+                if (groups[i].Contains(p)) return ((char)('A' + i)).ToString();
+            }
+            return null;
+        }
+
+        return OrderedLivePlacements(screens)
+            .Select((x, i) => (object)new
+            {
+                n = i + 1,
+                label = x.Info.Label,
+                enabled = x.Placement.Enabled,
+                group = LetterOf(x.Placement),
+            })
+            .ToArray();
+    }
+
+    // ---- audio track player -------------------------------------------------
+
+    public ObservableCollection<AudioDeviceChoice> AudioDevices { get; } = new();
+
+    private string _audioPlayerStatus = "";
+    public string AudioPlayerStatus { get => _audioPlayerStatus; private set => Set(ref _audioPlayerStatus, value); }
+
+    private string _remoteStatus = "";
+    public string RemoteStatus { get => _remoteStatus; private set => Set(ref _remoteStatus, value); }
+
+    public string RemoteUrlsText => string.Join("\n", _services.Control.RemoteUrls());
+
+    private void RefreshAudioDevices()
+    {
+        var selected = State.AudioPlayer.Devices;
+        AudioDevices.Clear();
+        foreach (var name in AudioPlayerService.OutputDevices())
+        {
+            AudioDevices.Add(new AudioDeviceChoice(this, name, selected.Contains(name)));
+        }
+    }
+
+    /// <summary>Device checkbox changes → the model's device list (empty = default device).</summary>
+    internal void AudioDeviceChanged(AudioDeviceChoice choice)
+    {
+        var devices = State.AudioPlayer.Devices;
+        if (choice.IsSelected && !devices.Contains(choice.Name)) devices.Add(choice.Name);
+        if (!choice.IsSelected) devices.Remove(choice.Name);
+    }
+
     private void OpenWeb(bool kiosk)
     {
         var screens = _services.Screens.All;
@@ -753,6 +968,7 @@ public sealed class MainViewModel : Observable
     public EnumItem[] ToneChannelsList => Lists.ToneChannelsList;
     public EnumItem[] FeedKinds => Lists.FeedKinds;
     public EnumItem[] Rotations => Lists.Rotations;
+    public EnumItem[] PipSources => Lists.PipSources;
 
     private string _toneStatus = "Off";
     public string ToneStatus { get => _toneStatus; private set => Set(ref _toneStatus, value); }
@@ -1036,6 +1252,26 @@ public sealed class MainViewModel : Observable
     public RelayCommand CloseWebCommand { get; }
     public RelayCommand<string> LoadWebUrlCommand { get; }
     public RelayCommand<string> RemoveWebUrlCommand { get; }
+    public RelayCommand AddPresenterStepCommand { get; }
+    public RelayCommand<PresenterStepConfig> RemovePresenterStepCommand { get; }
+    public RelayCommand<PresenterStepConfig> MovePresenterStepUpCommand { get; }
+    public RelayCommand<PresenterStepConfig> MovePresenterStepDownCommand { get; }
+    public RelayCommand PresenterNextCommand { get; }
+    public RelayCommand PresenterPrevCommand { get; }
+    public RelayCommand PresenterResetCommand { get; }
+    public RelayCommand BrowseAudioTrackCommand { get; }
+    public RelayCommand PlayAudioCommand { get; }
+    public RelayCommand StopAudioCommand { get; }
+    public RelayCommand RefreshAudioDevicesCommand { get; }
+    public RelayCommand ResetWarpCommand { get; }
+
+    private string _selectedPresenterLook = "";
+    public string SelectedPresenterLook { get => _selectedPresenterLook; set => Set(ref _selectedPresenterLook, value); }
+
+    private static readonly FilePickerFileType AudioTypes = new("Audio")
+    {
+        Patterns = Glob(PlaylistSequencer.AudioExtensions),
+    };
 
     // ---- status -------------------------------------------------------------
 
@@ -1098,6 +1334,12 @@ public sealed class MainViewModel : Observable
         ToneStatus = _services.Audio.Status;
         FeedStatus = _services.Feeds.Status;
         WebStatus = _services.Web.Status;
+        AudioPlayerStatus = _services.AudioPlayer.Status;
+        RemoteStatus = State.Control.Enabled
+            ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
+            : "Remote control off.";
+        _services.Video.SweepRetired();
+        _services.NdiIn.SweepRetired();
         CheckCues();
 
         // Now-playing marker on explicit playlist rows.

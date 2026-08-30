@@ -245,6 +245,8 @@ public static class OverlayRenderer
 
         if (blackout) return;
 
+        DrawPip(c, snap, in ctx, sink, palette);
+
         var info = snap.State.Overlays.Info;
         if (info.Enabled && cfg is not null && ctx.Sink != SinkKind.Thumbnail)
         {
@@ -253,6 +255,47 @@ public static class OverlayRenderer
             var text = $"{ctx.SinkLabel} · {cfg.Kind}{fps}";
             var size = Math.Clamp(ctx.ViewportSize.Height * 0.02f, 10, 22);
             DrawUtil.Chip(c, text, ctx.ViewportSize, info.Anchor, size, pc, palette.Text, palette.ChipBg);
+        }
+    }
+
+    /// <summary>Picture-in-picture live inset — drawn per viewport so every screen carries it.</summary>
+    private static void DrawPip(SKCanvas c, ShowSnapshot snap, in RenderContext ctx, SinkState sink, Palette palette)
+    {
+        var pip = snap.State.Overlays.Pip;
+        if (!pip.Enabled || ctx.Sink == SinkKind.Thumbnail) return;
+
+        var source = Media.PipInput.Current;
+        var pc = sink.Paints;
+        int vw = ctx.ViewportSize.Width, vh = ctx.ViewportSize.Height;
+
+        var w = (float)(vw * pip.WidthPct / 100.0);
+        var aspect = source?.FrameSize is { } fs && fs.Height > 0 ? (float)fs.Width / fs.Height : 16f / 9f;
+        var h = w / aspect;
+        var margin = Math.Max(8f, vh * 0.02f);
+
+        // Anchor9 grid: 0..8 → left/centre/right × top/middle/bottom.
+        var col = (int)pip.Anchor % 3;
+        var row = (int)pip.Anchor / 3;
+        var x = col switch { 0 => margin, 1 => (vw - w) / 2, _ => vw - w - margin };
+        var y = row switch { 0 => margin, 1 => (vh - h) / 2, _ => vh - h - margin };
+        var rect = SKRect.Create(x, y, w, h);
+
+        var alpha = (byte)Math.Clamp(pip.Opacity * 255, 0, 255);
+        using var paint = new SKPaint { Color = new SKColor(255, 255, 255, alpha), IsAntialias = true };
+
+        if (source is null || !source.DrawFrame(c, rect, paint))
+        {
+            // No frames yet — a quiet slate so the operator sees where the inset will be.
+            c.DrawRoundRect(rect, 6, 6, pc.FillAA(new SKColor(0x10, 0x12, 0x18, alpha)));
+            var f = pc.FontRegular;
+            f.Size = Math.Clamp(h * 0.12f, 10, 26);
+            var label = source?.StatusText ?? (pip.Source == PipSource.NdiFeed ? "PiP: choose an NDI source" : "PiP: choose a capture device");
+            DrawUtil.TextCentered(c, label, rect.MidX, rect.MidY, f, pc.Text(new SKColor(0x8A, 0x93, 0xA3, alpha)));
+        }
+
+        if (pip.ShowBorder)
+        {
+            c.DrawRoundRect(rect, 6, 6, pc.StrokeAA(palette.Accent.WithAlpha(alpha), Math.Max(1.5f, vh * 0.002f)));
         }
     }
 

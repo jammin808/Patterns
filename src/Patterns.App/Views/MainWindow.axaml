@@ -52,6 +52,9 @@
     <Grid Grid.Row="1" ColumnDefinitions="470,*" Margin="12">
 
       <TabControl Grid.Column="0" TabStripPlacement="Left" Padding="8,0,0,0">
+        <TabItem Header="Show">
+          <ScrollViewer><v:ShowSection /></ScrollViewer>
+        </TabItem>
         <TabItem Header="Pattern">
           <ScrollViewer><v:PatternSection /></ScrollViewer>
         </TabItem>
@@ -79,7 +82,7 @@
         <TabItem Header="Audio">
           <ScrollViewer><v:AudioSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="Web">
+        <TabItem Header="Remote">
           <ScrollViewer><v:WebSection /></ScrollViewer>
         </TabItem>
         <TabItem Header="NDI">

@@ -69,6 +69,16 @@ public sealed class OutputWindow : Window
             return;
         }
 
+        // Presenter clicker on the output too — presenters click at the screen they see.
+        if (_services.State.Presenter.Armed && e.KeyModifiers == KeyModifiers.None &&
+            e.Key is Key.PageDown or Key.PageUp or Key.Right or Key.Left &&
+            _services.MainWindow?.DataContext is ViewModels.MainViewModel presenterVm)
+        {
+            var forward = e.Key is Key.PageDown or Key.Right;
+            if (presenterVm.PresenterAdvance(forward ? +1 : -1)) e.Handled = true;
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Escape:

@@ -13,11 +13,16 @@
 ⇧F6   STOP — close outputs
 ⇧F7   IDENTIFY — flash screen numbers
 ⇧F8 / Space   BLACKOUT toggle
-On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks</TextBlock>
+Page Down / Page Up   presenter click-through next / back (armed in Looks or Show)
+On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · PgDn/PgUp presenter</TextBlock>
 
     <TextBlock Classes="h2" Text="WORKFLOW" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  4) Save the state as a look (Looks tab) and put it on an F-key or the daily schedule.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
+               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, nudge its corners (warp) for a keystoned projector, or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  4) Save the state as a look (Looks tab) and put it on an F-key, the daily schedule, or the presenter click-through order.  5) Run the evening from the Show tab.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
+
+    <TextBlock Classes="h2" Text="REMOTE CONTROL" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Switch it on in the Remote tab, then open the shown address on any phone or tablet on this network for the big-button web remote. Stream Decks: load the Bitfocus Companion module from integrations/companion-module-patterns (presets for transport, looks, screens, groups, presenter and audio, with live feedback) — or use Companion's Generic TCP with the one-line commands in docs/REMOTE.md. There is no password: anyone on the network can drive the show while remote control is on." />
 
     <TextBlock Classes="h2" Text="PORTABLE FILES" />
     <TextBlock Classes="hint" TextWrapping="Wrap"

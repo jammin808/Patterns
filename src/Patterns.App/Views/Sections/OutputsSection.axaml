@@ -68,6 +68,35 @@
         </StackPanel>
         <TextBlock Classes="hint"
                    Text="Per-screen brightness / gamma / RGB balance for matching mismatched house displays. Applies to this output only — NDI and other screens are untouched." />
+
+        <TextBlock Classes="label" Text="Corner warp (keystone) — px offsets" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="76,*,6,*,12,76,*,6,*" RowDefinitions="Auto,4,Auto">
+          <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Top-left" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="0" Grid.Column="1" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpTlx, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="X" />
+          <NumericUpDown Grid.Row="0" Grid.Column="3" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpTly, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Y" />
+          <TextBlock Grid.Row="0" Grid.Column="5" Classes="label" Text="Top-right" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="0" Grid.Column="6" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpTrx, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="X" />
+          <NumericUpDown Grid.Row="0" Grid.Column="8" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpTry, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Y" />
+          <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Bottom-left" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="2" Grid.Column="1" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpBlx, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="X" />
+          <NumericUpDown Grid.Row="2" Grid.Column="3" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpBly, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Y" />
+          <TextBlock Grid.Row="2" Grid.Column="5" Classes="label" Text="Bottom-right" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="2" Grid.Column="6" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpBrx, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="X" />
+          <NumericUpDown Grid.Row="2" Grid.Column="8" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedPlacement.WarpBry, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Y" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="chip" Content="Reset warp" Command="{Binding ResetWarpCommand}" />
+        </StackPanel>
+        <TextBlock Classes="hint"
+                   Text="Pulls each corner of this output by the given pixels — a light keystone for casually placed projectors, not a full warp engine. Positive X moves right, positive Y moves down." />
       </StackPanel>
     </Border>
     <TextBlock Classes="hint" IsVisible="{Binding !HasSelection}" Text="Click a screen tile to select it." />

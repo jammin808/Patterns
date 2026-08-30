@@ -48,10 +48,26 @@ public partial class MainWindow : Window
             return;
         }
 
+        var typing = FocusManager?.GetFocusedElement() is TextBox or NumericUpDown or ComboBox or AutoCompleteBox;
+
+        // Presenter clicker: USB presentation remotes send Page Down / Page Up (and often
+        // the arrow keys — those only count when the operator isn't in a control).
+        if (vm.State.Presenter.Armed && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (e.Key is Key.PageDown || (!typing && e.Key is Key.Right))
+            {
+                if (vm.PresenterAdvance(+1)) e.Handled = true;
+                return;
+            }
+            if (e.Key is Key.PageUp || (!typing && e.Key is Key.Left))
+            {
+                if (vm.PresenterAdvance(-1)) e.Handled = true;
+                return;
+            }
+        }
+
         // Space toggles blackout — operator muscle memory — but never while typing.
-        if (e.Key != Key.Space) return;
-        var focused = FocusManager?.GetFocusedElement();
-        if (focused is TextBox or NumericUpDown or ComboBox or AutoCompleteBox) return;
+        if (e.Key != Key.Space || typing) return;
         vm.State.Blackout = !vm.State.Blackout;
         e.Handled = true;
     }

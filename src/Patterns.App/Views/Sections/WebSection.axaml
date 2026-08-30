@@ -5,7 +5,25 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Web pages" />
+    <TextBlock Classes="h1" Text="Remote &amp; web" />
+
+    <TextBlock Classes="h2" Text="REMOTE CONTROL" />
+    <CheckBox Content="Remote control on (web remote + Companion)" IsChecked="{Binding State.Control.Enabled}" />
+    <StackPanel IsEnabled="{Binding State.Control.Enabled}">
+      <Grid ColumnDefinitions="130,*,16,Auto,8,90">
+        <TextBlock Classes="label" Text="Web remote port" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Minimum="1024" Maximum="65535" Increment="1" FormatString="0"
+                       Value="{Binding State.Control.HttpPort, Mode=TwoWay, Converter={StaticResource Num}}" />
+        <TextBlock Grid.Column="3" Classes="label" Text="Companion (TCP)" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="5" Minimum="1024" Maximum="65535" Increment="1" FormatString="0"
+                       Value="{Binding State.Control.TcpPort, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <TextBlock Classes="label" Text="Open on a phone or tablet on this network:" Margin="0,4,0,0" />
+      <TextBox Text="{Binding RemoteUrlsText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+               FontFamily="Consolas,monospace" />
+      <TextBlock Classes="hint"
+                 Text="The web remote drives presenter next/back, looks, transport, blackout, screens and the audio track — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens and canvas groups map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
+    </StackPanel>
     <TextBlock Classes="hint"
                Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Pages open as managed browser windows (Edge or Chrome, private profile), so they never touch your own browser and close from here with one click." />
 

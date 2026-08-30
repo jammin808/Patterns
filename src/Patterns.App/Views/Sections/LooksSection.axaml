@@ -80,6 +80,56 @@
     <TextBlock Classes="hint"
                Text="Each armed cue applies its look daily at the set time (24 h) while the app is running — e.g. Walk-in 18:00 · Countdown 18:45 · Blackout 19:00. Times are checked every second; a cue fires once per day." />
 
+    <TextBlock Classes="h2" Text="PRESENTER CLICK-THROUGH" />
+    <TextBlock Classes="hint"
+               Text="Programme looks in a click order and hand the presenter a clicker: Page Down = next, Page Up = back (what USB presentation remotes send). Arrow keys work too when you're not typing. The remote and Companion NEXT/PREV drive the same steps." />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <ComboBox Grid.Column="0" ItemsSource="{Binding LookNames}"
+                SelectedItem="{Binding SelectedPresenterLook, Mode=TwoWay}"
+                PlaceholderText="Look to add as a step…" />
+      <Button Grid.Column="2" Classes="chip" Content="+ Add step" Command="{Binding AddPresenterStepCommand}" />
+    </Grid>
+    <ItemsControl ItemsSource="{Binding State.Presenter.Steps}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:PresenterStepConfig">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
+            <Grid ColumnDefinitions="Auto,6,*,6,Auto,Auto,Auto">
+              <TextBlock Grid.Column="0" Text="{Binding LookName}" FontWeight="SemiBold" MaxWidth="150"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <TextBox Grid.Column="2" Watermark="Note (optional)" Text="{Binding Label}" MinWidth="70" />
+              <Button Grid.Column="4" Classes="mini" Content="↑"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePresenterStepUpCommand}"
+                      CommandParameter="{Binding}" />
+              <Button Grid.Column="5" Classes="mini" Content="↓"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePresenterStepDownCommand}"
+                      CommandParameter="{Binding}" />
+              <Button Grid.Column="6" Classes="mini" Content="✕"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePresenterStepCommand}"
+                      CommandParameter="{Binding}" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Grid ColumnDefinitions="Auto,16,Auto,16,Auto,*,Auto">
+      <CheckBox Grid.Column="0" Content="Clicker armed" IsChecked="{Binding State.Presenter.Armed}" />
+      <CheckBox Grid.Column="2" Content="Loop at the end" IsChecked="{Binding State.Presenter.Loop}" />
+      <Button Grid.Column="4" Classes="mini" Content="Reset to start" Command="{Binding PresenterResetCommand}" />
+      <TextBlock Grid.Column="6" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="TRANSITIONS" />
+    <CheckBox Content="Crossfade content changes" IsChecked="{Binding State.Transition.Enabled}" />
+    <Grid ColumnDefinitions="130,*,52" IsEnabled="{Binding State.Transition.Enabled}">
+      <TextBlock Classes="label" Text="Fade time (ms)" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="100" Maximum="3000" TickFrequency="50"
+              Value="{Binding State.Transition.DurationMs, Mode=TwoWay}" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Transition.DurationMs, StringFormat={}{0:0}}" />
+    </Grid>
+    <TextBlock Classes="hint"
+               Text="Look recalls, presenter steps, playlist advances, source changes and blackout all crossfade on every screen and NDI output — synchronised across spans. Setting tweaks stay instant." />
+
     <TextBlock Classes="h2" Text="KEYS" />
     <TextBlock Classes="hint"
                Text="F1–F12 apply looks from anywhere in the app (and on output windows). Transport moved to ⇧F5 GO · ⇧F6 STOP · ⇧F7 blackout · ⇧F8 identify; Space still toggles blackout when you're not typing." />

@@ -101,6 +101,13 @@ public enum MediaSource
     Capture,
 }
 
+/// <summary>What a picture-in-picture inset shows.</summary>
+public enum PipSource
+{
+    NdiFeed,
+    Capture,
+}
+
 /// <summary>Physical output rotation (content is pre-rotated so viewers see it upright).</summary>
 public enum OutputRotation
 {

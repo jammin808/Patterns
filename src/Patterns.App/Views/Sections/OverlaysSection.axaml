@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:c="using:Patterns.App.Views.Controls"
+             xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.OverlaysSection"
              x:DataType="vm:MainViewModel">
 
@@ -111,6 +112,50 @@
         <TextBlock Classes="hint"
                    Text="RSS/Atom shows headlines; CSV/plain text shows one entry per line; an ICS calendar shows the next 24 h as 'HH:mm  Event'. Turn on Scroll for a ticker. The message text above is ignored while the feed is on." />
       </StackPanel>
+    </StackPanel>
+
+    <TextBlock Classes="h2" Text="PICTURE-IN-PICTURE (LIVE INSET)" />
+    <CheckBox Content="Show a live inset over the content" IsChecked="{Binding State.Overlays.Pip.Enabled}" />
+    <StackPanel IsEnabled="{Binding State.Overlays.Pip.Enabled}">
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Source" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding PipSources}"
+                  SelectedValue="{Binding State.Overlays.Pip.Source, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,Auto"
+            IsVisible="{Binding State.Overlays.Pip.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PipSource.NdiFeed}}">
+        <TextBlock Classes="label" Text="NDI source" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding NdiSourceOptions}"
+                  SelectedItem="{Binding State.Overlays.Pip.NdiSourceName, Mode=TwoWay}"
+                  PlaceholderText="NDI sources…" />
+        <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding RefreshNdiSourcesCommand}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,Auto"
+            IsVisible="{Binding State.Overlays.Pip.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PipSource.Capture}}">
+        <TextBlock Classes="label" Text="Device" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding CaptureDeviceOptions}"
+                  SelectedItem="{Binding State.Overlays.Pip.CaptureDevice, Mode=TwoWay}"
+                  PlaceholderText="Capture devices…" />
+        <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding RefreshCaptureDevicesCommand}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Position" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
+                  SelectedValue="{Binding State.Overlays.Pip.Anchor, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Width (%)" />
+        <Slider Grid.Column="1" Minimum="10" Maximum="50" Value="{Binding State.Overlays.Pip.WidthPct, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Opacity" />
+        <Slider Grid.Column="1" Minimum="0.1" Maximum="1" Value="{Binding State.Overlays.Pip.Opacity, Mode=TwoWay}" />
+      </Grid>
+      <CheckBox Content="Accent border" IsChecked="{Binding State.Overlays.Pip.ShowBorder}" />
+      <TextBlock Classes="hint"
+                 Text="A second live input (camera, remote feed) in the corner of whatever is showing — its own receiver/decoder, independent of the Media source, on every screen and NDI output. Inset audio is not played." />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="TECH INFO CHIP" />

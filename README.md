@@ -91,6 +91,30 @@ fault containment, and settings that can never brick startup.
   source (program or a specific screen) and bit depth — including **10-bit P216** with a
   BT.709 limited-range pipeline for serious ramp/banding checks. Feature-detected at runtime
   (nothing crashes without the NDI runtime).
+- **A Show page** — once the rig is built, run the evening from one screen: GO/STOP/BLACKOUT,
+  presenter next/back, every look as a big button, the audio track, and live status. The
+  other tabs stay out of the way.
+- **Remote control** — a **web remote** (big-button page for any phone/tablet on the network),
+  a one-command-per-line **TCP protocol** with live state feedback, and a ready-made
+  **Bitfocus Companion module** (`integrations/companion-module-patterns/`) with presets for
+  transport, looks `F1`–`F12`, individual screens and screen groups, presenter steps and
+  audio — plus feedbacks and variables for Stream Deck keys. See [`docs/REMOTE.md`](docs/REMOTE.md).
+- **Presenter click-through** — programme looks in a click order and hand the presenter a
+  USB clicker: `Page Down` advances, `Page Up` goes back (exactly what presentation remotes
+  send), and each click can change any screen's content — patterns, media, blackout, the lot.
+  The remote and Companion `NEXT`/`PREV` drive the same steps.
+- **Crossfade transitions** — content changes glide instead of cut (100 ms–3 s, engine-level,
+  so they work on spans, rotated outputs and NDI alike — even between videos and live inputs).
+  Turn them off and everything cuts clean like a test-pattern box should.
+- **Picture-in-picture** — a second live input (another NDI feed or a capture device) as a
+  corner overlay over the program on every output: anchor, size, opacity and border are live.
+  Confidence-monitor the camera while the walls show content.
+- **Independent audio track** — play a music/VO file to **any set of audio outputs** (front
+  of house, a Dante/USB interface, HDMI screen audio — several at once), with loop and live
+  volume, regardless of what's on screen. Video sound and the tone generator stay separate.
+- **4-corner warp** — nudge each output's corners (keystone/skew) so a slightly-off projector
+  lands straight on the surface — composed with rotation and per-screen trims, applied to
+  patterns, media and live inputs alike.
 
 <table>
   <tr>
@@ -103,12 +127,16 @@ fault containment, and settings that can never brick startup.
   </tr>
   <tr>
     <td><img src="docs/media/shot-ledmap.png" alt="Irregular LED map editor with live preview"/></td>
-    <td><img src="docs/media/shot-looks.png" alt="Looks on F-keys with an evening cue schedule"/></td>
+    <td><img src="docs/media/shot-looks.png" alt="Looks on F-keys, cue schedule and presenter click-through"/></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/shot-show.png" alt="Show page — transport, presenter, looks and audio on one screen"/></td>
+    <td><img src="docs/media/shot-playlist.png" alt="Playlist with drag-to-reorder and per-item timing"/></td>
   </tr>
 </table>
 
 *Patterns rendered by the engine exactly as outputs and NDI receive them; the irregular-map
-editor and the looks/cue schedule drive them live.*
+editor, looks/cues/presenter steps and the Show page drive them live.*
 
 ## Quick start
 
@@ -119,6 +147,8 @@ editor and the looks/cue schedule drive them live.*
 3. Choose a pattern (or click one in the **Library**), tune it, press **GO** (`Shift+F5`).
 4. Everything — wall geometry, blend overlap, colours, countdowns — updates live on the outputs.
 5. Save the state as a **look** and put it on an F-key or the daily cue schedule (**Looks** tab).
+6. Run the evening from the **Show** tab — or from a phone, tablet or Stream Deck via the
+   **Remote** tab (web remote, TCP protocol, Bitfocus Companion module).
 
 | Key | Action |
 |---|---|
@@ -127,8 +157,9 @@ editor and the looks/cue schedule drive them live.*
 | `Shift+F6` | STOP — close outputs |
 | `Shift+F7` | IDENTIFY — flash screen numbers |
 | `Shift+F8` / `Space` | BLACKOUT toggle |
+| `Page Down` / `Page Up` | presenter click-through next / back (when armed) |
 | on outputs: `Esc` | close outputs |
-| on outputs: `Space` / `B`, `I`, `F1`–`F12` | blackout, identify, looks |
+| on outputs: `Space` / `B`, `I`, `F1`–`F12`, `Page Down`/`Up` | blackout, identify, looks, presenter |
 
 Settings autosave beside the exe (`patterns.settings.json`, atomic with backup); whole rigs save
 as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders next to the exe.
@@ -141,11 +172,16 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
   `build\publish-win-x64-full.cmd`), which bundles libVLC — or with the lean exe, install
   64-bit [VLC](https://videolan.org) / place a `libvlc` folder next to `Patterns.exe`.
   Images work without any of this.
+- **Remote control**: switch it on in the **Remote** tab — the web remote and TCP protocol
+  need nothing installed anywhere. For Stream Decks, load the Companion module from
+  `integrations/companion-module-patterns/` (or use Companion's Generic TCP with the
+  commands in [`docs/REMOTE.md`](docs/REMOTE.md)). *No password — anyone on the network can
+  drive the show while it's enabled, so switch it off when you don't need it.*
 
 ## Building
 
 ```bash
-dotnet test                      # 215 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, headless UI
+dotnet test                      # 251 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

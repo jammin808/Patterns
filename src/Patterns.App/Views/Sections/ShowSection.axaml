@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.ShowSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Show" />
+    <TextBlock Classes="hint" Text="Everything for show time on one page — the other tabs are for building." />
+
+    <TextBlock Classes="h2" Text="TRANSPORT" />
+    <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto">
+      <Button Grid.Column="0" Classes="go" Content="GO" HorizontalAlignment="Stretch" Height="52"
+              HorizontalContentAlignment="Center" Command="{Binding GoCommand}" />
+      <Button Grid.Column="2" Classes="stop" Content="STOP" HorizontalAlignment="Stretch" Height="52"
+              HorizontalContentAlignment="Center" Command="{Binding StopCommand}" />
+      <ToggleButton Grid.Row="2" Grid.ColumnSpan="3" Classes="blackout" Content="BLACKOUT"
+                    Height="52" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    IsChecked="{Binding State.Blackout}" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="PRESENTER" />
+    <Grid ColumnDefinitions="*,8,*">
+      <Button Grid.Column="0" Classes="chip" Content="⟨  Back" Height="46" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center" Command="{Binding PresenterPrevCommand}" />
+      <Button Grid.Column="2" Classes="go" Content="Next  ⟩" Height="46" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center" Command="{Binding PresenterNextCommand}" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
+      <CheckBox Grid.Column="1" Content="Clicker armed" IsChecked="{Binding State.Presenter.Armed}"
+                ToolTip.Tip="Page Down / Page Up (USB clickers) advance the steps — set them up in the Looks tab" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="LOOKS" />
+    <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <UniformGrid Columns="3" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:LookConfig">
+          <Button Classes="chip" Margin="0,0,6,6" Height="52" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
+                  CommandParameter="{Binding}">
+            <StackPanel>
+              <TextBlock Text="{Binding Hotkey, Converter={StaticResource HotkeyLabel}}" FontSize="10"
+                         Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center"
+                         IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}" />
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint" Text="Save looks in the Looks tab — F1–F12 recall them from anywhere." />
+
+    <TextBlock Classes="h2" Text="AUDIO TRACK" />
+    <Grid ColumnDefinitions="*,8,Auto,Auto">
+      <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center" TextWrapping="Wrap"
+                 Text="{Binding AudioPlayerStatus}" />
+      <Button Grid.Column="2" Classes="mini" Content="▶ Play" Command="{Binding PlayAudioCommand}" />
+      <Button Grid.Column="3" Classes="mini" Content="■ Stop" Command="{Binding StopAudioCommand}" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="STATUS" />
+    <TextBlock Classes="label" Text="{Binding OutputsStatus}" />
+    <TextBlock Classes="label" Text="{Binding NextCueText}" />
+    <TextBlock Classes="label" Text="{Binding PlaylistStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding RemoteStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint"
+               Text="Phone remote: open the web address above on any device on this network (Remote tab for settings and Companion)." />
+  </StackPanel>
+</UserControl>

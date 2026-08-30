@@ -42,6 +42,18 @@ public static class VideoService
 
     /// <summary>Availability text when no engine is present at all (e.g. libVLC missing).</summary>
     public static volatile string AvailabilityNote = "";
+
+    /// <summary>
+    /// The just-replaced source, kept alive briefly so crossfades can keep drawing the old
+    /// content while it fades out (the app layer retires and disposes it after the fade).
+    /// </summary>
+    private static volatile IVideoFrameSource? _previous;
+
+    public static IVideoFrameSource? Previous
+    {
+        get => _previous;
+        set => _previous = value;
+    }
 }
 
 /// <summary>
@@ -51,6 +63,7 @@ public static class VideoService
 public static class NdiInput
 {
     private static volatile IVideoFrameSource? _current;
+    private static volatile IVideoFrameSource? _previous;
 
     public static IVideoFrameSource? Current
     {
@@ -58,6 +71,25 @@ public static class NdiInput
         set => _current = value;
     }
 
+    /// <summary>See <see cref="VideoService.Previous"/> — the fade-out source.</summary>
+    public static IVideoFrameSource? Previous
+    {
+        get => _previous;
+        set => _previous = value;
+    }
+
     /// <summary>Availability text when receive isn't possible (NDI runtime missing).</summary>
     public static volatile string AvailabilityNote = "";
+}
+
+/// <summary>Mount point for the picture-in-picture live input (independent of the main media).</summary>
+public static class PipInput
+{
+    private static volatile IVideoFrameSource? _current;
+
+    public static IVideoFrameSource? Current
+    {
+        get => _current;
+        set => _current = value;
+    }
 }

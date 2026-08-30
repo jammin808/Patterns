@@ -129,6 +129,10 @@ public sealed class OutputWindowManager
                     TrimRPct = placement.TrimRPct,
                     TrimGPct = placement.TrimGPct,
                     TrimBPct = placement.TrimBPct,
+                    WarpTlx = placement.WarpTlx, WarpTly = placement.WarpTly,
+                    WarpTrx = placement.WarpTrx, WarpTry = placement.WarpTry,
+                    WarpBlx = placement.WarpBlx, WarpBly = placement.WarpBly,
+                    WarpBrx = placement.WarpBrx, WarpBry = placement.WarpBry,
                 };
                 result.Add((info, viewport));
             }
