@@ -7,7 +7,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Media" />
+    <TextBlock Classes="h1 neon-media" Text="Media" />
     <TextBlock Classes="hint" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too." />
 
     <TextBlock Classes="h2" Text="SOURCE" />
@@ -43,6 +43,11 @@
                   PlaceholderText="NDI sources on the network…" />
         <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshNdiSourcesCommand}" />
       </Grid>
+      <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Watermark="e.g. Camera 1 (shown in the multiview and status)"
+                 Text="{Binding InputNickname, Mode=TwoWay}" />
+      </Grid>
       <TextBlock Classes="hint"
                  Text="Receives a live NDI® video feed and composites it like any pattern — it reaches spans, trims and NDI outputs. The list refreshes itself while this panel is active; senders appear a few seconds after they start. Needs the NDI runtime (see the NDI tab). Video only — feed audio is not passed through." />
     </StackPanel>
@@ -55,6 +60,11 @@
                   SelectedItem="{Binding ActivePattern.Media.CaptureDevice, Mode=TwoWay}"
                   PlaceholderText="Video capture devices…" />
         <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshCaptureDevicesCommand}" />
+      </Grid>
+      <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Watermark="e.g. Podium cam (shown in the multiview and status)"
+                 Text="{Binding InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint"
                  Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through." />

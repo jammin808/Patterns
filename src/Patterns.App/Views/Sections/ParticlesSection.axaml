@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Particle studio" />
+    <TextBlock Classes="h1 neon-time" Text="Particle studio" />
     <TextBlock Classes="hint" Text="Select the Particles pattern type to see this live. Presets are starting points — everything below is yours to shape." />
 
     <TextBlock Classes="h2" Text="PRESETS" />

@@ -70,27 +70,71 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
     }
 }
 
-/// <summary>A screen chip in the sandbox send bar.</summary>
-public sealed class SandboxScreenChoice : Patterns.Core.Model.Observable
+/// <summary>
+/// One tile in the switcher strip between the program and preview panes: the program
+/// itself, a joined canvas, or a single screen — with its label, live on/off toggle,
+/// edit-target highlight, and (while the sandbox is open) a send-target tick.
+/// </summary>
+public sealed class SwitcherTile : Patterns.Core.Model.Observable
 {
-    private bool _isSelected;
+    private readonly MainViewModel _vm;
+    private bool _enabled;
+    private bool _isEditTarget;
+    private bool _isSendTarget;
 
-    public SandboxScreenChoice(int number, string label, string screenId)
+    public SwitcherTile(MainViewModel vm, string title, string? editScreenId, IReadOnlyList<string> memberIds, bool enabled, bool isEditTarget)
     {
-        Number = number;
-        Label = label;
-        ScreenId = screenId;
+        _vm = vm;
+        Title = title;
+        EditScreenId = editScreenId;
+        MemberIds = memberIds;
+        _enabled = enabled;
+        _isEditTarget = isEditTarget;
     }
 
-    public int Number { get; }
-    public string Label { get; }
-    public string ScreenId { get; }
-    public string Chip => $"{Number} · {Label}";
+    /// <summary>"PGM · Program", "A · Main wall" or "2 · Stage left".</summary>
+    public string Title { get; }
 
-    public bool IsSelected
+    /// <summary>Screen this tile edits when clicked; null = the program.</summary>
+    public string? EditScreenId { get; }
+
+    /// <summary>Screens this tile stands for ("send selected" targets; empty for the program tile).</summary>
+    public IReadOnlyList<string> MemberIds { get; }
+
+    public bool IsProgramTile => MemberIds.Count == 0;
+
+    public bool Enabled
     {
-        get => _isSelected;
-        set => Set(ref _isSelected, value);
+        get => _enabled;
+        set
+        {
+            if (Set(ref _enabled, value)) _vm.SetTileEnabled(this, value);
+        }
+    }
+
+    /// <summary>Highlight: the editor panels currently work on this tile's content.</summary>
+    public bool IsEditTarget
+    {
+        get => _isEditTarget;
+        set => Set(ref _isEditTarget, value);
+    }
+
+    /// <summary>Sandbox send target tick (visible only while the sandbox is open).</summary>
+    public bool IsSendTarget
+    {
+        get => _isSendTarget;
+        set => Set(ref _isSendTarget, value);
+    }
+
+    /// <summary>Refreshes live state without rebuilding the strip (keeps focus and ticks).</summary>
+    public void RefreshExternal(bool enabled, bool isEditTarget)
+    {
+        if (_enabled != enabled)
+        {
+            _enabled = enabled;
+            Raise(nameof(Enabled)); // no SetTileEnabled echo — this reflects, not commands
+        }
+        IsEditTarget = isEditTarget;
     }
 }
 

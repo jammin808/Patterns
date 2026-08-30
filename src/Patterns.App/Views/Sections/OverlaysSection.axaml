@@ -7,7 +7,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Clock &amp; overlays" />
+    <TextBlock Classes="h1 neon-time" Text="Clock &amp; overlays" />
 
     <TextBlock Classes="h2" Text="TIME &amp; DATE" />
     <CheckBox Content="Show clock" IsChecked="{Binding State.Overlays.Clock.Enabled}" />

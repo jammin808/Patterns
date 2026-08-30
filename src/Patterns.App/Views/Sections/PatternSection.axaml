@@ -7,7 +7,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Pattern" />
+    <TextBlock Classes="h1 neon-pattern" Text="Pattern" />
 
     <StackPanel IsVisible="{Binding ShowEditTargets}">
       <TextBlock Classes="h2" Text="EDITING TARGET" />

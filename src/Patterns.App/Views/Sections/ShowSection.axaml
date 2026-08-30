@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Show" />
+    <TextBlock Classes="h1 neon-show" Text="Show" />
     <TextBlock Classes="hint" Text="Everything for show time on one page — the other tabs are for building." />
 
     <TextBlock Classes="h2" Text="TRANSPORT" />

@@ -16,6 +16,37 @@
     <Setter Property="Margin" Value="0,0,0,10" />
   </Style>
 
+  <!-- Subtle neon section identity: tab dots and tinted h1 headings -->
+  <Style Selector="Ellipse.dot">
+    <Setter Property="Width" Value="7" />
+    <Setter Property="Height" Value="7" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.h1.neon-show"><Setter Property="Foreground" Value="#2EE68A" /></Style>
+  <Style Selector="TextBlock.h1.neon-pattern"><Setter Property="Foreground" Value="#3EC1F3" /></Style>
+  <Style Selector="TextBlock.h1.neon-media"><Setter Property="Foreground" Value="#FF6EC7" /></Style>
+  <Style Selector="TextBlock.h1.neon-looks"><Setter Property="Foreground" Value="#6E9BFF" /></Style>
+  <Style Selector="TextBlock.h1.neon-outputs"><Setter Property="Foreground" Value="#B18CFF" /></Style>
+  <Style Selector="TextBlock.h1.neon-audio"><Setter Property="Foreground" Value="#FF9E58" /></Style>
+  <Style Selector="TextBlock.h1.neon-time"><Setter Property="Foreground" Value="#FFC24D" /></Style>
+  <Style Selector="TextBlock.h1.neon-remote"><Setter Property="Foreground" Value="#35E0D0" /></Style>
+  <Style Selector="TextBlock.h1.neon-ndi"><Setter Property="Foreground" Value="#8FA5FF" /></Style>
+  <Style Selector="TextBlock.h1.neon-stream"><Setter Property="Foreground" Value="#FF5C7A" /></Style>
+
+  <!-- Switcher strip tiles -->
+  <Style Selector="Border.tile">
+    <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="8,2" />
+  </Style>
+  <Style Selector="Border.tile.tileActive">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+    <Setter Property="Background" Value="#14232E" />
+  </Style>
+
   <Style Selector="TextBlock.h2">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />

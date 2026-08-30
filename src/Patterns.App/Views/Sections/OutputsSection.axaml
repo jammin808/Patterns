@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Screens" />
+    <TextBlock Classes="h1 neon-outputs" Text="Screens" />
 
     <Border Background="#0B0C10" CornerRadius="10" BorderBrush="{StaticResource HairlineBrush}"
             BorderThickness="1" Height="320" ClipToBounds="True">
@@ -20,6 +20,18 @@
     <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" IsVisible="{Binding HasSelection}">
       <StackPanel>
         <TextBlock Text="{Binding SelectedScreenTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+        <Grid ColumnDefinitions="86,*" Margin="0,6,0,0">
+          <TextBlock Classes="label" Text="Label" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Watermark="e.g. Stage left LED (shown everywhere)"
+                   Text="{Binding SelectedScreenLabel, Mode=TwoWay}" />
+        </Grid>
+        <Grid ColumnDefinitions="86,*" Margin="0,4,0,0" IsVisible="{Binding SelectedIsInCanvas}">
+          <TextBlock Classes="label" Text="Canvas name" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Watermark="e.g. Main wall (names the joined canvas)"
+                   Text="{Binding SelectedCanvasName, Mode=TwoWay}" />
+        </Grid>
+
         <CheckBox Margin="0,6,0,0" Content="Output enabled"
                   IsChecked="{Binding SelectedEnabled, Mode=TwoWay}" />
         <CheckBox Content="Custom pattern for this screen"

@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="NDI outputs" />
+    <TextBlock Classes="h1 neon-ndi" Text="NDI outputs" />
     <TextBlock Classes="hint" Text="{Binding NdiRuntimeNote}" />
 
     <ItemsControl ItemsSource="{Binding State.Ndi.Senders}">

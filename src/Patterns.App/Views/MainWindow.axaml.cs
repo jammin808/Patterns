@@ -10,6 +10,7 @@ namespace Patterns.App.Views;
 public partial class MainWindow : Window
 {
     private RenderPipeline? _previewPipeline;
+    private RenderPipeline? _programPipeline;
 
     public MainWindow()
     {
@@ -24,14 +25,30 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm) return;
 
         var services = vm.Services;
+
+        // PREVIEW (bottom): follows the edit target, and the sandbox while it is open.
         _previewPipeline = new RenderPipeline(services.Bus, PipelineViewport.Preview)
         {
             ScreenIdOverride = () => services.PreviewScreenId,
         };
         PreviewCanvas.Pipeline = _previewPipeline;
-        services.SnapshotPublished += () => PreviewCanvas.NotifyChanged();
 
-        Closed += (_, _) => _previewPipeline?.Dispose();
+        // PROGRAM (top): always what the audience sees — never the sandbox.
+        _programPipeline = new RenderPipeline(services.Bus,
+            new PipelineViewport(Patterns.Core.Model.SinkKind.Output, default, default, null, 0, "PGM"));
+        PgmCanvas.Pipeline = _programPipeline;
+
+        services.SnapshotPublished += () =>
+        {
+            PreviewCanvas.NotifyChanged();
+            PgmCanvas.NotifyChanged();
+        };
+
+        Closed += (_, _) =>
+        {
+            _previewPipeline?.Dispose();
+            _programPipeline?.Dispose();
+        };
     }
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)

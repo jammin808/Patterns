@@ -40,12 +40,18 @@ public sealed class SandboxService
         _services.Bus.PublishSandbox(_services.State);
     }
 
-    /// <summary>The sandbox becomes the program — every screen takes it (with the crossfade).</summary>
-    public void SendAll()
+    /// <summary>
+    /// The sandbox becomes the program on every screen. TAKE uses the configured crossfade;
+    /// CUT switches instantly whatever the transition setting says.
+    /// </summary>
+    public void SendAll(bool cut = false)
     {
         if (!Active) return;
+        var fade = _services.State.Transition.Enabled;
+        if (cut) _services.State.Transition.Enabled = false;
         Exit();
-        Log.Info("Sandbox sent to program (all screens).");
+        if (cut) _services.State.Transition.Enabled = fade; // republish carries the same content — no late fade
+        Log.Info($"Sandbox {(cut ? "cut" : "taken")} to program (all screens).");
     }
 
     /// <summary>

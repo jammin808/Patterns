@@ -5,7 +5,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Remote &amp; web" />
+    <TextBlock Classes="h1 neon-remote" Text="Remote &amp; web" />
 
     <TextBlock Classes="h2" Text="REMOTE CONTROL" />
     <CheckBox Content="Remote control on (web remote + Companion)" IsChecked="{Binding State.Control.Enabled}" />

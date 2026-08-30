@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Looks &amp; cues" />
+    <TextBlock Classes="h1 neon-looks" Text="Looks &amp; cues" />
     <TextBlock Classes="hint"
                Text="A look is the whole screen state — pattern, per-screen patterns, overlays, countdown, blackout — saved under a name. Recall a look instantly with F1–F12 or fire it from the schedule below." />
 

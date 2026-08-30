@@ -51,96 +51,151 @@
     <!-- Body -->
     <Grid Grid.Row="1" ColumnDefinitions="470,*" Margin="12">
 
-      <TabControl Grid.Column="0" TabStripPlacement="Left" Padding="8,0,0,0">
-        <TabItem Header="Show">
+      <!-- Editor column: what-am-I-editing banner + build tabs (neon dots group them) -->
+      <Grid Grid.Column="0" RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Background="#14232E" BorderBrush="{StaticResource AccentBrush}"
+                BorderThickness="0,0,0,2" CornerRadius="8,8,0,0" Padding="12,6" Margin="0,0,0,6">
+          <TextBlock Text="{Binding EditTargetBanner}" FontWeight="SemiBold" FontSize="12"
+                     Foreground="{StaticResource AccentBrush}" TextTrimming="CharacterEllipsis" />
+        </Border>
+        <TabControl Grid.Row="1" TabStripPlacement="Left" Padding="8,0,0,0">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#2EE68A"/><TextBlock Text="Show"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:ShowSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="Pattern">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#3EC1F3"/><TextBlock Text="Pattern"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:PatternSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="Outputs">
-          <ScrollViewer><v:OutputsSection /></ScrollViewer>
-        </TabItem>
-        <TabItem Header="Clock">
-          <ScrollViewer><v:OverlaysSection /></ScrollViewer>
-        </TabItem>
-        <TabItem Header="Countdown">
-          <ScrollViewer><v:CountdownSection /></ScrollViewer>
-        </TabItem>
-        <TabItem Header="Particles">
-          <ScrollViewer><v:ParticlesSection /></ScrollViewer>
-        </TabItem>
-        <TabItem Header="Branding">
-          <ScrollViewer><v:BrandingSection /></ScrollViewer>
-        </TabItem>
-        <TabItem Header="Media">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FF6EC7"/><TextBlock Text="Media"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:MediaSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="Looks">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#6E9BFF"/><TextBlock Text="Looks"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:LooksSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="Audio">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#B18CFF"/><TextBlock Text="Outputs"/></StackPanel></TabItem.Header>
+          <ScrollViewer><v:OutputsSection /></ScrollViewer>
+        </TabItem>
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FF9E58"/><TextBlock Text="Audio"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:AudioSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="Remote">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Clock"/></StackPanel></TabItem.Header>
+          <ScrollViewer><v:OverlaysSection /></ScrollViewer>
+        </TabItem>
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Countdown"/></StackPanel></TabItem.Header>
+          <ScrollViewer><v:CountdownSection /></ScrollViewer>
+        </TabItem>
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Particles"/></StackPanel></TabItem.Header>
+          <ScrollViewer><v:ParticlesSection /></ScrollViewer>
+        </TabItem>
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Branding"/></StackPanel></TabItem.Header>
+          <ScrollViewer><v:BrandingSection /></ScrollViewer>
+        </TabItem>
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#35E0D0"/><TextBlock Text="Remote"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:WebSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="NDI">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#8FA5FF"/><TextBlock Text="NDI"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:NdiSection /></ScrollViewer>
         </TabItem>
-        <TabItem Header="Library">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#C0CBDB"/><TextBlock Text="Library"/></StackPanel></TabItem.Header>
           <v:LibrarySection />
         </TabItem>
-        <TabItem Header="Help">
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#C0CBDB"/><TextBlock Text="Help"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:HelpSection /></ScrollViewer>
         </TabItem>
-      </TabControl>
+        </TabControl>
+      </Grid>
 
-      <!-- Preview column -->
-      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="12,0,0,0">
+      <!-- Switcher column: PROGRAM (air) on top, strip + CUT/TAKE, PREVIEW (work) below -->
+      <Grid Grid.Column="1" RowDefinitions="Auto,2*,Auto,Auto,3*,Auto" Margin="12,0,0,0">
 
-        <!-- Sandbox: build a look here while the outputs hold the program -->
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,8,*" Margin="0,0,0,8">
-          <ToggleButton Grid.Column="0" Content="SANDBOX" FontWeight="SemiBold" Padding="14,7"
-                        IsChecked="{Binding IsSandboxActive, Mode=TwoWay}"
-                        ToolTip.Tip="Programme a look without it going live: edits show only in this preview while every screen and NDI feed holds the current program. Then send it to all screens, to ticked screens, save it as a look (Looks tab), or switch off to discard. Blackout and GO/STOP stay live; cues hold while open." />
-          <Border Grid.Column="2" Background="#1C2E1F" BorderBrush="#2EE68A" BorderThickness="1"
-                  CornerRadius="8" Padding="8,4" IsVisible="{Binding IsSandboxActive}">
-            <Grid ColumnDefinitions="*,8,Auto,Auto">
-              <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                  <TextBlock Classes="label" Text="To:" VerticalAlignment="Center" />
-                  <ItemsControl ItemsSource="{Binding SandboxScreens}">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="4" />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:SandboxScreenChoice">
-                        <ToggleButton Classes="mini" Content="{Binding Chip}"
-                                      IsChecked="{Binding IsSelected, Mode=TwoWay}" />
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </StackPanel>
-              </ScrollViewer>
-              <Button Grid.Column="2" Classes="mini" Content="SEND SELECTED" Margin="0,0,6,0"
-                      Command="{Binding SandboxSendSelectedCommand}"
-                      ToolTip.Tip="The sandbox becomes the ticked screens' own pattern; everything else stays as it was" />
-              <Button Grid.Column="3" Classes="go" Content="SEND ALL" Padding="12,5"
-                      Command="{Binding SandboxSendAllCommand}"
-                      ToolTip.Tip="The sandbox becomes the program on every screen (crossfades in)" />
-            </Grid>
-          </Border>
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,8,*,Auto" Margin="2,0,2,4">
+          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+            <Ellipse Classes="dot" Fill="#FF5C7A" />
+            <TextBlock Text="PROGRAM" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" Foreground="#FF9EB0" />
+          </StackPanel>
+          <TextBlock Grid.Column="2" Classes="hint" Text="what the audience sees" VerticalAlignment="Center" Margin="4,0,0,0" />
+          <TextBlock Grid.Column="3" Classes="label" Text="{Binding OutputsStatus}" VerticalAlignment="Center" />
+        </Grid>
+        <Border Grid.Row="1" Classes="panel" Padding="4" ClipToBounds="True"
+                BorderBrush="#59FF5C7A" BorderThickness="1">
+          <r:SkiaCanvasControl x:Name="PgmCanvas" />
+        </Border>
+
+        <!-- Strip: PGM / canvases / screens — click = edit target, switch = live on/off,
+             tick (sandbox open) = send target -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,8,Auto,Auto" Margin="0,6,0,6">
+          <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding SwitcherTiles}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SwitcherTile">
+                  <Border Classes="tile" Classes.tileActive="{Binding IsEditTarget}">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                      <Panel IsVisible="{Binding !IsProgramTile}">
+                        <CheckBox IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Padding="0" MinWidth="0"
+                                  IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsSandboxActive}"
+                                  ToolTip.Tip="Send the sandbox to this tile" />
+                      </Panel>
+                      <Button Background="Transparent" BorderThickness="0" Padding="2,4" Cursor="Hand"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectTileCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="Click: edit this tile's content (the preview follows it)">
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" />
+                      </Button>
+                      <ToggleSwitch IsChecked="{Binding Enabled, Mode=TwoWay}" OnContent="" OffContent=""
+                                    MinWidth="0" Margin="0,-4" IsVisible="{Binding !IsProgramTile}"
+                                    ToolTip.Tip="Screen output on / off (live)" />
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Button Grid.Column="2" Classes="chip" Content="CUT" FontWeight="Bold" Margin="0,0,6,0"
+                  Command="{Binding CutCommand}" IsEnabled="{Binding IsSandboxActive}"
+                  ToolTip.Tip="Preview becomes program instantly (no fade)" />
+          <Button Grid.Column="3" Classes="go" Content="TAKE" FontWeight="Bold" Padding="16,6"
+                  Command="{Binding TakeCommand}" IsEnabled="{Binding IsSandboxActive}"
+                  ToolTip.Tip="Preview fades up as the program (uses the transition time)" />
         </Grid>
 
-        <Border Grid.Row="1" Classes="panel" Padding="6" ClipToBounds="True"
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,8,Auto,8,*,Auto,Auto" Margin="2,0,2,4">
+          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+            <Ellipse Classes="dot" Fill="#2EE68A" />
+            <TextBlock Text="PREVIEW" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" Foreground="#8FE8B8" />
+          </StackPanel>
+          <ToggleButton Grid.Column="2" Classes="mini" Content="EDIT SAFE (sandbox)"
+                        IsChecked="{Binding IsSandboxActive, Mode=TwoWay}"
+                        ToolTip.Tip="On: edits build here without going live — outputs and NDI hold the program (blackout stays live, cues hold). Then CUT/TAKE to all screens, SEND to ticked tiles, save as a look, or switch off to discard. Off: edits go straight to air, classic test-pattern style." />
+          <TextBlock Grid.Column="4" Classes="hint" VerticalAlignment="Center" Margin="8,0,0,0"
+                     Text="{Binding IsSandboxActive, Converter={StaticResource BoolText}, ConverterParameter='sandboxed — nothing reaches the screens|mirrors the program (edits are live)'}" />
+          <Button Grid.Column="5" Classes="mini" Content="SEND TO TICKED" Margin="0,0,6,0"
+                  Command="{Binding SandboxSendSelectedCommand}" IsVisible="{Binding IsSandboxActive}"
+                  ToolTip.Tip="The sandbox becomes the ticked tiles' own pattern; everything else stays as it was" />
+          <TextBlock Grid.Column="6" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
+        </Grid>
+        <Border Grid.Row="4" Classes="panel" Padding="4" ClipToBounds="True"
                 BorderBrush="#2EE68A"
                 BorderThickness="{Binding IsSandboxActive, Converter={StaticResource SandboxBorder}}">
           <r:SkiaCanvasControl x:Name="PreviewCanvas" />
         </Border>
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="2,10,2,0">
+
+        <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="2,8,2,0">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
             <TextBlock Classes="label" Text="{Binding CanvasInfo}" />
             <TextBlock Classes="label" Text="{Binding NdiStatus, StringFormat='NDI: {0}'}" />

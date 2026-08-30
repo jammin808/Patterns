@@ -17,12 +17,30 @@ public sealed class OutputConfig : Observable
     /// are in arrangement space (device pixels), unrelated to the OS desktop layout.
     /// </summary>
     public ObservableCollection<ScreenPlacement> Placements { get; init; } = new();
+
+    /// <summary>Operator names for joined canvases ("Main wall"), keyed by their member set.</summary>
+    public ObservableCollection<CanvasNameConfig> CanvasNames { get; init; } = new();
+}
+
+/// <summary>A custom name for one joined canvas. The key survives letters shifting as screens rearrange.</summary>
+public sealed class CanvasNameConfig : Observable
+{
+    private string _memberKey = "";
+    private string _name = "";
+
+    /// <summary>Sorted member screen ids joined with '+' — stable identity for a given set of screens.</summary>
+    public string MemberKey { get => _memberKey; set => Set(ref _memberKey, value); }
+    public string Name { get => _name; set => Set(ref _name, value); }
+
+    public static string KeyFor(IEnumerable<string> memberScreenIds)
+        => string.Join('+', memberScreenIds.OrderBy(id => id, StringComparer.Ordinal));
 }
 
 /// <summary>One physical screen's place in the arrangement.</summary>
 public sealed class ScreenPlacement : Observable
 {
     private string _screenId = "";
+    private string _customLabel = "";
     private int _x;
     private int _y;
     private bool _enabled = true;
@@ -36,6 +54,10 @@ public sealed class ScreenPlacement : Observable
     private double _trimBPct = 100;
 
     public string ScreenId { get => _screenId; set => Set(ref _screenId, value); }
+
+    /// <summary>Operator label ("Stage left LED"); empty = the OS display name.</summary>
+    public string CustomLabel { get => _customLabel; set => Set(ref _customLabel, value); }
+
     /// <summary>Arranged position in device pixels (top-left).</summary>
     public int X { get => _x; set => Set(ref _x, value); }
     public int Y { get => _y; set => Set(ref _y, value); }
@@ -486,6 +508,16 @@ public sealed class StingerConfig : Observable
     public string PlayingName { get => _playingName; set => Set(ref _playingName, value); }
 }
 
+/// <summary>An operator nickname for a live input ("Camera 1" for an NDI source or capture card).</summary>
+public sealed class InputLabelConfig : Observable
+{
+    private string _key = "";
+    private string _label = "";
+
+    public string Key { get => _key; set => Set(ref _key, value); }
+    public string Label { get => _label; set => Set(ref _label, value); }
+}
+
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>
 public sealed class WatchdogConfig : Observable
 {
@@ -557,6 +589,19 @@ public sealed class ShowState : Observable
     public ControlConfig Control { get; init; } = new();
     public StingerConfig Stingers { get; init; } = new();
     public WatchdogConfig Watchdog { get; init; } = new();
+
+    /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
+    public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();
+
+    /// <summary>The nickname for an input key, or the fallback when none is set.</summary>
+    public string InputLabel(string key, string fallback)
+    {
+        foreach (var l in InputLabels)
+        {
+            if (l.Key == key && l.Label.Length > 0) return l.Label;
+        }
+        return fallback;
+    }
 
     /// <summary>Media the operator has loaded — surfaces in the Library under "My media".</summary>
     public ObservableCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();

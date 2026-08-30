@@ -36,10 +36,18 @@ public class ColorEditingTests
     private static void SelectTab(MainWindow window, string header)
     {
         var tabs = window.GetVisualDescendants().OfType<TabControl>().First();
-        var item = tabs.Items.OfType<TabItem>().First(t => (string?)t.Header == header);
+        var item = tabs.Items.OfType<TabItem>().First(t => HeaderText(t) == header);
         tabs.SelectedItem = item;
         Dispatcher.UIThread.RunJobs();
     }
+
+    /// <summary>Headers are a neon dot + text panel; older ones were plain strings.</summary>
+    private static string? HeaderText(TabItem tab) => tab.Header switch
+    {
+        string s => s,
+        StackPanel p => p.Children.OfType<TextBlock>().FirstOrDefault()?.Text,
+        _ => null,
+    };
 
     [AvaloniaFact]
     public void BrandingColorPickersHaveTemplatesAndWriteBackToTheModel()

@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Countdown" />
+    <TextBlock Classes="h1 neon-time" Text="Countdown" />
 
     <CheckBox Content="Countdown on" IsChecked="{Binding State.Countdown.Enabled}" />
     <TextBlock Classes="hint" Text="{Binding CountdownPreview}" />

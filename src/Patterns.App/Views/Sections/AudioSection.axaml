@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Audio" />
+    <TextBlock Classes="h1 neon-audio" Text="Audio" />
 
     <TextBlock Classes="h2" Text="AUDIO TRACK" />
     <TextBlock Classes="hint"

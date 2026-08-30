@@ -6,7 +6,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Branding" />
+    <TextBlock Classes="h1 neon-time" Text="Branding" />
 
     <TextBlock Classes="h2" Text="COMPANY" />
     <TextBox Watermark="Company / event name" Text="{Binding State.Brand.CompanyName}" />
