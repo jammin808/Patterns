@@ -25,9 +25,10 @@
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="LibVLCSharp" Version="3.10.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
-    <!-- Opt-in libVLC bundling for the "full" build (build/publish-win-x64-full.*):
-         video plays out of the box, at the cost of a much larger install footprint.
-         NOTE: the package's copy targets only work fully on a Windows build host. -->
+    <!-- Restore vehicle for the "full" build (build/publish-win-x64-full.*): the scripts
+         restore with BundleVlc=true and copy the libvlc payload from this package into
+         the publish folder themselves — its build-time copy items don't survive a
+         single-file publish, so nothing here relies on them. -->
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" Condition="'$(BundleVlc)' == 'true'" />
   </ItemGroup>
 

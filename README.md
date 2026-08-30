@@ -137,7 +137,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ```bash
 dotnet test                      # 182 tests: pixel-exact rendering, arrangement math, playlists, DSP, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
-build/publish-win-x64-full.cmd   # → dist/win-x64-full/  (exe + bundled libVLC; Windows host)
+build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```
 
 Requires the .NET 8 SDK. The exe is self-contained — end users need nothing installed.

@@ -2,10 +2,9 @@
 # Builds the portable Windows app WITH libVLC bundled (video plays out of the box)
 # into dist/win-x64-full: Patterns.exe + a libvlc folder beside it.
 #
-# NOTE: the VideoLAN.LibVLC.Windows package only copies libvlc.dll/plugins correctly on a
-# WINDOWS build host (its targets use Windows path globs). Use publish-win-x64-full.cmd on
-# Windows, or take the "Patterns-portable-win-x64-full" artifact from CI. On other hosts this
-# script produces an incomplete libvlc folder and says so.
+# The exe is the same lean single-file publish; the libvlc payload is copied straight
+# from the restored VideoLAN.LibVLC.Windows package (its build-time copy items don't
+# survive a single-file publish). Works from Linux/macOS cross-publish hosts too.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,12 +16,28 @@ dotnet publish src/Patterns.App/Patterns.App.csproj \
   -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:EnableCompressionInSingleFile=true \
   -p:DebugType=embedded \
-  -p:BundleVlc=true \
   -o dist/win-x64-full
 
-echo
-if [ -f dist/win-x64-full/libvlc/win-x64/libvlc.dll ] && [ -d dist/win-x64-full/libvlc/win-x64/plugins ]; then
-  echo "Portable app with video support: dist/win-x64-full/ (keep Patterns.exe and the libvlc folder together)"
-else
-  echo "WARNING: libvlc.dll/plugins missing — build the full variant on Windows (publish-win-x64-full.cmd) or use the CI artifact."
+dotnet restore src/Patterns.App/Patterns.App.csproj -p:BundleVlc=true
+
+root=$(dotnet nuget locals global-packages --list | sed 's/^[[:space:]]*global-packages:[[:space:]]*//')
+pkg=$(find "$root/videolan.libvlc.windows" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1)
+if [ -z "$pkg" ]; then
+  echo "ERROR: VideoLAN.LibVLC.Windows not found in the NuGet cache after restore." >&2
+  exit 1
 fi
+
+dest=dist/win-x64-full/libvlc/win-x64
+echo "Copying libvlc from package $pkg..."
+mkdir -p "$dest"
+cp -r "$pkg/build/x64/." "$dest/"
+rm -rf "$dest/include"
+rm -f "$dest"/*.lib
+
+if [ ! -f "$dest/libvlc.dll" ] || [ ! -d "$dest/plugins" ]; then
+  echo "ERROR: libvlc.dll/plugins missing from $dest" >&2
+  exit 1
+fi
+
+echo
+echo "Portable app with video support: dist/win-x64-full/ (keep Patterns.exe and the libvlc folder together)"

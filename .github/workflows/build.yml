@@ -50,21 +50,36 @@ jobs:
           name: Patterns-portable-win-x64
           path: dist/win-x64/Patterns.exe
 
-      - name: Publish portable win-x64 with bundled libVLC
-        run: >
-          dotnet publish src/Patterns.App/Patterns.App.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
-          -p:DebugType=embedded
-          -p:BundleVlc=true
-          -o dist/win-x64-full
+      # The full bundle is the same exe plus a loose libvlc folder beside it (the app
+      # loads libVLC from exeDir/libvlc/win-x64). The libvlc payload is taken straight
+      # from the restored VideoLAN package — its build-time copy items don't survive a
+      # single-file publish, so the package tree is the one dependable source.
+      - name: Assemble full bundle with libVLC
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/win-x64-full | Out-Null
+          Copy-Item dist/win-x64/Patterns.exe dist/win-x64-full/
+          dotnet restore src/Patterns.App/Patterns.App.csproj -p:BundleVlc=true
+          $root = ((dotnet nuget locals global-packages --list) -join ' ') -replace '^\s*global-packages:\s*', ''
+          $cache = Join-Path $root.Trim() "videolan.libvlc.windows"
+          $pkg = Get-ChildItem $cache -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          Write-Host "Copying libvlc from package $($pkg.FullName)"
+          $dest = "dist/win-x64-full/libvlc/win-x64"
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          Copy-Item "$($pkg.FullName)/build/x64/*" $dest -Recurse -Force
+          Remove-Item "$dest/include" -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item "$dest/*.lib" -Force -ErrorAction SilentlyContinue
       - name: Verify libVLC bundle
         shell: pwsh
         run: |
-          if (-not (Test-Path dist/win-x64-full/libvlc/win-x64/libvlc.dll)) { throw "libvlc.dll missing from full bundle" }
-          if (-not (Test-Path dist/win-x64-full/libvlc/win-x64/plugins)) { throw "libvlc plugins missing from full bundle" }
+          if ((Test-Path dist/win-x64-full/libvlc/win-x64/libvlc.dll) -and
+              (Test-Path dist/win-x64-full/libvlc/win-x64/plugins)) {
+            Write-Host "libVLC bundle verified."
+            exit 0
+          }
+          Write-Host "--- dist/win-x64-full ---"
+          Get-ChildItem -Recurse -Depth 2 dist/win-x64-full | Select-Object -ExpandProperty FullName
+          throw "libvlc.dll or plugins missing from full bundle"
       - name: Upload portable app with video
         uses: actions/upload-artifact@v4
         with:
