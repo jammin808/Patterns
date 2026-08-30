@@ -108,6 +108,10 @@
           <ScrollViewer><v:NdiSection /></ScrollViewer>
         </TabItem>
         <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FF5C7A"/><TextBlock Text="Stream"/></StackPanel></TabItem.Header>
+          <ScrollViewer><v:StreamSection /></ScrollViewer>
+        </TabItem>
+        <TabItem>
           <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#C0CBDB"/><TextBlock Text="Library"/></StackPanel></TabItem.Header>
           <v:LibrarySection />
         </TabItem>

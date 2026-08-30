@@ -151,6 +151,13 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok();
             }
 
+            case RemoteCommandKind.StreamOn:
+                state.Stream.Active = true;
+                return ControlProtocol.Ok();
+            case RemoteCommandKind.StreamOff:
+                state.Stream.Active = false;
+                return ControlProtocol.Ok();
+
             case RemoteCommandKind.Status:
                 return ControlProtocol.Ok(StateJson());
 
@@ -189,6 +196,7 @@ public sealed class CommandRouter
             sections = SectionRows(s),
             playlist = _services.Playlist.Status,
             nextCue = vm?.NextCueText ?? "",
+            stream = new { active = s.Stream.Active, status = _services.Stream.Status },
             health = HealthMonitor.Summary(DateTime.UtcNow),
         };
         return JsonSerializer.Serialize(payload);

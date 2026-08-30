@@ -231,6 +231,30 @@ public sealed class MainViewModel : Observable
             StatusMessage = _services.Stingers.Status;
         });
 
+        // Streaming
+        while (State.Stream.Destinations.Count < 2)
+        {
+            State.Stream.Destinations.Add(new StreamDestinationConfig());
+        }
+        StartStreamCommand = new RelayCommand(() =>
+        {
+            State.Stream.Active = true;
+            StatusMessage = "Stream starting…";
+        });
+        StopStreamCommand = new RelayCommand(() =>
+        {
+            State.Stream.Active = false;
+            StatusMessage = "Stream stopped.";
+        });
+
+        // Multiview
+        AddMultiviewTileCommand = new RelayCommand(() =>
+            ActivePattern.Multiview.Tiles.Add(new MultiviewTileConfig()));
+        RemoveMultiviewTileCommand = new RelayCommand<MultiviewTileConfig>(tile =>
+        {
+            if (tile is not null) ActivePattern.Multiview.Tiles.Remove(tile);
+        });
+
         // Switcher: sandbox sends, CUT/TAKE, tile selection
         TakeCommand = new RelayCommand(() => SendAllFromSandbox(cut: false));
         CutCommand = new RelayCommand(() => SendAllFromSandbox(cut: true));
@@ -914,7 +938,18 @@ public sealed class MainViewModel : Observable
             WebScreens.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
         }
         State.Web.TargetScreenId = current;
+
+        MultiviewScreens.Clear();
+        foreach (var x in OrderedLivePlacements())
+        {
+            MultiviewScreens.Add(new EditTarget($"{MultiviewScreens.Count + 1} — {LabelFor(x.Placement, x.Info)}", x.Placement.ScreenId));
+        }
     }
+
+    // ---- multiview ----------------------------------------------------------
+
+    /// <summary>Screen choices for multiview tiles (arrangement order, custom labels).</summary>
+    public ObservableCollection<EditTarget> MultiviewScreens { get; } = new();
 
     // ---- presenter click-through -------------------------------------------
 
@@ -1192,6 +1227,9 @@ public sealed class MainViewModel : Observable
 
     private string _healthText = "";
     public string HealthText { get => _healthText; private set => Set(ref _healthText, value); }
+
+    private string _streamStatus = "";
+    public string StreamStatus { get => _streamStatus; private set => Set(ref _streamStatus, value); }
 
     public string RemoteUrlsText => string.Join("\n", _services.Control.RemoteUrls());
 
@@ -1503,6 +1541,7 @@ public sealed class MainViewModel : Observable
     // ---- lists for the views ------------------------------------------------
 
     public EnumItem[] PatternKinds => Lists.PatternKinds;
+    public EnumItem[] MultiviewSourceKinds => Lists.MultiviewSources;
     public EnumItem[] Anchors => Lists.Anchors;
     public EnumItem[] FitModes => Lists.FitModes;
     public EnumItem[] BarsVariants => Lists.BarsVariants;
@@ -1643,6 +1682,10 @@ public sealed class MainViewModel : Observable
     public RelayCommand TakeCommand { get; }
     public RelayCommand CutCommand { get; }
     public RelayCommand<SwitcherTile> SelectTileCommand { get; }
+    public RelayCommand AddMultiviewTileCommand { get; }
+    public RelayCommand<MultiviewTileConfig> RemoveMultiviewTileCommand { get; }
+    public RelayCommand StartStreamCommand { get; }
+    public RelayCommand StopStreamCommand { get; }
 
     /// <summary>TAKE (crossfade) / CUT (instant) — the sandbox becomes the program.</summary>
     private void SendAllFromSandbox(bool cut)
@@ -1732,6 +1775,7 @@ public sealed class MainViewModel : Observable
         AudioPlayerStatus = _services.AudioPlayer.Status;
         StingerStatus = _services.Stingers.Status;
         HealthText = HealthMonitor.Summary(DateTime.UtcNow);
+        StreamStatus = _services.Stream.Status;
         RefreshSwitcherTiles();
         RemoteStatus = State.Control.Enabled
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"

@@ -173,6 +173,16 @@ public static class Lists
         new(PatternKind.ColorCycle, "Colour cycle"),
         new(PatternKind.Media, "Media (image / video)"),
         new(PatternKind.Particles, "Particles"),
+        new(PatternKind.Multiview, "Multiview (monitor wall)"),
+    };
+
+    public static readonly EnumItem[] MultiviewSources =
+    {
+        new(MultiviewSource.Program, "Program"),
+        new(MultiviewSource.Screen, "A screen's content"),
+        new(MultiviewSource.NdiFeed, "NDI feed (Media tab)"),
+        new(MultiviewSource.Pip, "PiP input"),
+        new(MultiviewSource.Clock, "Clock"),
     };
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();

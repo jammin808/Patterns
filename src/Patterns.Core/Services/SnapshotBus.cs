@@ -31,6 +31,9 @@ public sealed class ShowSnapshot
     /// <summary>Runtime-only: live ticker text from the configured feed (empty = use static text).</summary>
     public string FeedText { get; init; } = "";
 
+    /// <summary>Runtime-only: output windows are open (drives multiview tally).</summary>
+    public bool OutputsLive { get; init; }
+
     public SKColor Color(string? hex, SKColor fallback)
     {
         if (string.IsNullOrWhiteSpace(hex)) return fallback;
@@ -160,6 +163,9 @@ public sealed class SnapshotBus
     /// <summary>Set by the feed service; carried on every snapshot.</summary>
     public string FeedText { get; set; } = "";
 
+    /// <summary>Set by the output manager; carried on every snapshot (multiview tally).</summary>
+    public bool OutputsLive { get; set; }
+
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
@@ -193,6 +199,7 @@ public sealed class SnapshotBus
         PlaylistNow = PlaylistNow,
         ToneIndicator = ToneIndicator,
         FeedText = FeedText,
+        OutputsLive = OutputsLive,
     };
 }
 

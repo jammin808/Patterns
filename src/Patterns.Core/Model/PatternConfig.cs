@@ -444,6 +444,42 @@ public sealed class ParticleOptions : Observable
     public int Seed { get => _seed; set => Set(ref _seed, value); }
 }
 
+/// <summary>One multiview tile: a source plus an optional label override.</summary>
+public sealed class MultiviewTileConfig : Observable
+{
+    private MultiviewSource _source = MultiviewSource.Program;
+    private string _screenId = "";
+    private string _label = "";
+
+    public MultiviewSource Source { get => _source; set => Set(ref _source, value); }
+
+    /// <summary>Which screen, when <see cref="Source"/> is Screen.</summary>
+    public string ScreenId { get => _screenId; set => Set(ref _screenId, value); }
+
+    /// <summary>Label override; empty = automatic (screen label, input nickname, source name).</summary>
+    public string Label { get => _label; set => Set(ref _label, value); }
+}
+
+/// <summary>
+/// The customisable multiview: a tiled monitor wall — program, per-screen content, live
+/// inputs and a clock — rendered by the engine, so it goes anywhere a pattern goes
+/// (an operator screen, an NDI sender) and to the remote /multiview page.
+/// </summary>
+public sealed class MultiviewOptions : Observable
+{
+    private int _columns;
+    private bool _showLabels = true;
+    private bool _showTally = true;
+
+    public ObservableCollection<MultiviewTileConfig> Tiles { get; init; } = new();
+
+    /// <summary>Grid columns; 0 = automatic (square-ish).</summary>
+    public int Columns { get => _columns; set => Set(ref _columns, Math.Clamp(value, 0, 8)); }
+    public bool ShowLabels { get => _showLabels; set => Set(ref _showLabels, value); }
+    /// <summary>Red border on tiles that are on air (outputs live and screen enabled).</summary>
+    public bool ShowTally { get => _showTally; set => Set(ref _showTally, value); }
+}
+
 /// <summary>Everything that describes what is drawn on the canvas (minus overlays).</summary>
 public sealed class PatternConfig : Observable
 {
@@ -466,4 +502,5 @@ public sealed class PatternConfig : Observable
     public ColorCycleOptions ColorCycle { get; init; } = new();
     public MediaOptions Media { get; init; } = new();
     public ParticleOptions Particles { get; init; } = new();
+    public MultiviewOptions Multiview { get; init; } = new();
 }

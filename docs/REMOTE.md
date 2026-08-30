@@ -30,12 +30,22 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `TONE ON` / `OFF` | Soundcheck tone generator |
 | `STINGER <n>` / `STINGER <name>` | Fire stinger *n* (Audio-tab order) or by name |
 | `STINGER STOP` | Stop the stinger (a clip reverts to the previous content) |
+| `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-tab order) on air |
+| `STREAM ON` / `OFF` | Start/stop the streaming output (Stream tab config) |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
 
 State JSON carries: `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
-`screens[{n,label,enabled,group}]`, `audio{playing,track}`, `tone`, `stingers[{n,name}]`,
-`stingerPlaying`, `playlist`, `nextCue`, `health`.
+`screens[{n,label,enabled,group}]` (labels honour operator names), `audio{playing,track}`, `tone`,
+`stingers[{n,name}]`, `stingerPlaying`, `sections[{n,name,active}]`, `playlist`, `nextCue`,
+`stream{active,status}`, `health`.
+
+## Remote multiview
+
+`http://<machine-ip>:9696/multiview` shows the configured multiview (Pattern tab →
+Multiview) as a live picture refreshing about once a second — program, screens, inputs and
+clock with labels and on-air tally. `GET /mv.jpg` returns the current frame for anything
+else (tally lights, dashboards).
 
 ## Bitfocus Companion
 

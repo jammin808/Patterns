@@ -24,6 +24,8 @@ public enum RemoteCommandKind
     Stinger,     // by number (IntArg 1-based) or name (TextArg)
     StingerStop,
     PlaylistSection, // by number (IntArg 1-based) or name (TextArg)
+    StreamOn,
+    StreamOff,
     Status,
     Ping,
 }
@@ -109,6 +111,14 @@ public static class ControlProtocol
                 {
                     "ON" => new(RemoteCommandKind.ToneOn, 0, ""),
                     "OFF" => new(RemoteCommandKind.ToneOff, 0, ""),
+                    _ => new(RemoteCommandKind.Unknown, 0, s),
+                };
+
+            case "STREAM":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" => new(RemoteCommandKind.StreamOn, 0, ""),
+                    "OFF" => new(RemoteCommandKind.StreamOff, 0, ""),
                     _ => new(RemoteCommandKind.Unknown, 0, s),
                 };
 

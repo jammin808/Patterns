@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.StreamSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-stream" Text="Stream" />
+    <TextBlock Classes="hint"
+               Text="Send a screen to the internet: captured, encoded once (one resolution, one frame rate), and duplicated to up to two destinations — YouTube/Twitch/Restream (RTMP), SRT or UDP. Needs the full build (bundled libVLC) on Windows." />
+
+    <TextBlock Classes="h2" Text="ON AIR" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="go" Content="START STREAM" Padding="16,8" Command="{Binding StartStreamCommand}" />
+      <Button Classes="stop" Content="STOP" Padding="16,8" Command="{Binding StopStreamCommand}" />
+    </StackPanel>
+    <TextBlock Classes="label" Text="{Binding StreamStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint"
+               Text="Streaming never auto-starts with the app. Stopping is instant; platforms show their usual few seconds of delay." />
+
+    <TextBlock Classes="h2" Text="SOURCE &amp; QUALITY" />
+    <Grid ColumnDefinitions="110,*">
+      <TextBlock Classes="label" Text="Screen" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding WebScreens}"
+                SelectedValue="{Binding State.Stream.SourceScreenId, Mode=TwoWay}"
+                SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}" />
+    </Grid>
+    <Grid ColumnDefinitions="110,86,8,86" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Size (px)" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="320" Maximum="3840" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Stream.Width, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <NumericUpDown Grid.Column="3" Minimum="180" Maximum="2160" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Stream.Height, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="110,86" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Frame rate" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="10" Maximum="60" Increment="5" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Stream.Fps, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="110,86" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Video kbps" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="500" Maximum="20000" Increment="250" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Stream.VideoKbps, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <TextBlock Classes="hint" Text="720p30 ≈ 3500–5000 kbps · 1080p30 ≈ 5000–8000 kbps." />
+    <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Audio device" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Watermark="DirectShow audio device — empty = video only"
+               Text="{Binding State.Stream.AudioDevice}" />
+    </Grid>
+    <TextBlock Classes="hint"
+               Text="Audio comes from a capture device (a mixer/interface input, or a virtual cable like VB-Audio carrying the computer's sound). Leave empty to stream video only." />
+
+    <TextBlock Classes="h2" Text="DESTINATIONS (UP TO 2, SAME ENCODE)" />
+    <ItemsControl ItemsSource="{Binding State.Stream.Destinations}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:StreamDestinationConfig">
+          <Grid ColumnDefinitions="Auto,8,*" Margin="0,3">
+            <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" ToolTip.Tip="Send to this destination" />
+            <TextBox Grid.Column="2" Text="{Binding Url}"
+                     Watermark="rtmp://a.rtmp.youtube.com/live2/STREAM-KEY  ·  srt://host:9000  ·  udp://239.1.1.1:5000" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint"
+               Text="Both destinations carry the identical encode — one encoder's CPU cost, two sends. The URL includes the stream key; treat show files as sensitive when keys are saved." />
+  </StackPanel>
+</UserControl>

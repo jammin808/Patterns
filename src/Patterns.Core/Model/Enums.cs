@@ -17,6 +17,17 @@ public enum PatternKind
     ColorCycle,
     Media,
     Particles,
+    Multiview,
+}
+
+/// <summary>What one multiview tile shows.</summary>
+public enum MultiviewSource
+{
+    Program,
+    Screen,
+    NdiFeed,
+    Pip,
+    Clock,
 }
 
 /// <summary>How a pattern canvas maps onto a differently sized sink.</summary>

@@ -31,6 +31,7 @@ public sealed class AppServices
     public ControlService Control { get; }
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
+    public StreamService Stream { get; }
     public RecoveryStore Recovery { get; }
 
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
@@ -87,6 +88,7 @@ public sealed class AppServices
         Control = new ControlService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
+        Stream = new StreamService(this);
         Recovery = new RecoveryStore(Store.BaseDirectory);
         PendingRecovery = Recovery.Read();
 
@@ -172,6 +174,13 @@ public sealed class AppServices
     /// <summary>Keeps the recovery sidecar current: present while something is live, gone otherwise.</summary>
     private void UpdateRecovery()
     {
+        if (Bus.OutputsLive != Outputs.IsLive)
+        {
+            // GO/STOP don't touch the model, so push the tally change to sinks ourselves.
+            Bus.OutputsLive = Outputs.IsLive;
+            PublishRuntime();
+        }
+
         var current = (Outputs.IsLive, State.AudioPlayer.Playing);
         if (_recoveryWritten == current) return;
         _recoveryWritten = current;
@@ -269,6 +278,7 @@ public sealed class AppServices
         try
         {
             Outputs.CloseAll();
+            Stream.Dispose();
             Stingers.Dispose();
             Control.Dispose();
             Web.Dispose();

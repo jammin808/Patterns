@@ -1,0 +1,146 @@
+using Avalonia.Threading;
+using LibVLCSharp.Shared;
+using Patterns.Core.Services;
+using SkiaSharp;
+
+namespace Patterns.App.Services;
+
+/// <summary>
+/// Streaming output: captures the chosen screen through libVLC's screen input, encodes
+/// h264 once at the configured resolution/frame rate, and duplicates the same encode to
+/// up to two destinations (RTMP/SRT/UDP). Fully isolated — an encoder or network failure
+/// changes a status line, never the show. Windows + libVLC (full build) only.
+/// </summary>
+public sealed class StreamService : IDisposable
+{
+    private readonly AppServices _services;
+    private readonly DispatcherTimer _timer;
+    private MediaPlayer? _player;
+    private Media? _media;
+    private string _activeKey = "";
+    private DateTime _startedUtc;
+    private int _destinations;
+    private string _status = "Not streaming.";
+
+    public StreamService(AppServices services)
+    {
+        _services = services;
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+        _timer.Tick += (_, _) => Tick();
+        _timer.Start();
+    }
+
+    public string Status => _status;
+
+    /// <summary>The timer body, callable directly (tests drive it without waiting on the clock).</summary>
+    public void Poll() => Tick();
+
+    private void Tick()
+    {
+        var cfg = _services.State.Stream;
+        try
+        {
+            var urls = cfg.Destinations.Where(d => d.Enabled && !string.IsNullOrWhiteSpace(d.Url))
+                .Select(d => d.Url.Trim()).Take(2).ToList();
+
+            if (!cfg.Active || urls.Count == 0)
+            {
+                Stop();
+                _status = !cfg.Active
+                    ? "Not streaming."
+                    : "No destination enabled — add an RTMP/SRT/UDP URL below.";
+                return;
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                _status = "Streaming runs on Windows.";
+                return;
+            }
+
+            if (!_services.Video.EnsureAvailable() || _services.Video.SharedVlc is not { } vlc)
+            {
+                _status = "Streaming needs libVLC — use the full build (or install VLC).";
+                return;
+            }
+
+            var rect = SourceRect(cfg.SourceScreenId);
+            var key = $"{rect}|{cfg.Width}x{cfg.Height}@{cfg.Fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{string.Join(";", urls)}";
+            if (key != _activeKey)
+            {
+                Stop();
+                if (StreamMrl.Build(cfg, rect, urls) is not { } plan) return;
+                _media = new Media(vlc, plan.Mrl, FromType.FromLocation, plan.Options);
+                _player = new MediaPlayer(_media);
+                if (!_player.Play())
+                {
+                    _status = "Encoder failed to start — check the destination URLs.";
+                    Stop();
+                    return;
+                }
+                _activeKey = key;
+                _startedUtc = DateTime.UtcNow;
+                _destinations = urls.Count;
+                Log.Info($"Streaming started: {cfg.Width}x{cfg.Height}@{cfg.Fps}, {cfg.VideoKbps} kbps, {urls.Count} destination(s).");
+            }
+
+            if (_player is { } player)
+            {
+                if (player.State == VLCState.Error)
+                {
+                    _status = "Stream error — check URL/key and bandwidth, then start again.";
+                    cfg.Active = false;
+                    Stop();
+                    return;
+                }
+                var up = DateTime.UtcNow - _startedUtc;
+                _status = $"LIVE · {_destinations} destination{(_destinations == 1 ? "" : "s")} · " +
+                          $"{cfg.Width}×{cfg.Height}@{cfg.Fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Streaming failed.", ex);
+            _status = $"Stream error: {ex.Message}";
+            cfg.Active = false;
+            Stop();
+        }
+    }
+
+    /// <summary>Pixel rect of the streamed screen on the OS desktop (screen:// crops to it).</summary>
+    private SKRectI SourceRect(string screenId)
+    {
+        var screens = _services.Screens.All;
+        var chosen = screens.FirstOrDefault(s => s.Id == screenId)
+                     ?? screens.FirstOrDefault(s =>
+                         _services.State.Output.Placements.FirstOrDefault(p => p.ScreenId == s.Id)?.Enabled == true)
+                     ?? screens.FirstOrDefault();
+        if (chosen is null) return SKRectI.Create(0, 0, 1920, 1080);
+        var b = chosen.Bounds;
+        return SKRectI.Create(b.X, b.Y, b.Width, b.Height);
+    }
+
+    private void Stop()
+    {
+        if (_player is null && _media is null) return;
+        try
+        {
+            _player?.Stop();
+            _player?.Dispose();
+            _media?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Stream stop issue.", ex);
+        }
+        _player = null;
+        _media = null;
+        _activeKey = "";
+    }
+
+    public void Dispose()
+    {
+        _timer.Stop();
+        Stop();
+    }
+}

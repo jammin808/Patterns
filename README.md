@@ -117,12 +117,29 @@ fault containment, and settings that can never brick startup.
 - **4-corner warp** — nudge each output's corners (keystone/skew) so a slightly-off projector
   lands straight on the surface — composed with rotation and per-screen trims, applied to
   patterns, media and live inputs alike.
-- **Sandbox look programming** — flip on **SANDBOX** above the preview and build the next
-  look mid-show without it going live: every editor works as normal, the preview follows
-  your edits, but **all screens and NDI feeds hold the current program**. Then send it —
-  to **all screens** (crossfades in), to **ticked screens** as their own pattern, save it
-  as a look for later, or discard it. Blackout and GO/STOP stay live through the freeze,
-  and scheduled cues hold until the sandbox closes.
+- **A switcher workspace** — the right side of the window works like a vision mixer:
+  **PROGRAM on top** (always what the audience sees), **PREVIEW below**, and a strip of
+  tiles between them — the program, every joined canvas and every screen, each with its
+  **custom label**, a live on/off switch, and one click to make it what the editors work
+  on (a bold banner above the tabs always says what you're editing). Flip **EDIT SAFE
+  (sandbox)** and the preview detaches from air: build the next look with every editor
+  as normal, then **CUT** (instant) or **TAKE** (crossfade) it to every screen, or send
+  it to ticked tiles as their own pattern — or save it as a look, or discard. Blackout
+  and GO/STOP stay live through the freeze; scheduled cues hold until it closes. Subtle
+  neon hues mark every section and tab, so the right page is one glance away.
+- **Playlist show parts** — split the playlist into named parts of the show (*Walk-in ·
+  Main · Break*): one part plays at a time, clicked on air from chips (or `SECTION 2`
+  from the remote/Companion), or **starting daily at a set time**. Old flat playlists
+  migrate into a first part untouched.
+- **Streaming output** — send a chosen screen to the internet through the bundled libVLC:
+  encoded **once** at your resolution/frame rate/bitrate, duplicated to **up to two
+  destinations** (RTMP for YouTube/Twitch/Restream, SRT, UDP) at no extra encoding cost.
+  Optional audio from a capture device; never auto-starts; an encoder or network failure
+  changes a status line, never the show.
+- **Customisable multiview** — a monitor wall as a pattern: program, any screen's content,
+  live inputs and a clock, with labels (your custom names) and **red on-air tally**. Being
+  engine-rendered it goes anywhere — an operator screen, an NDI sender — and it's
+  **available remotely** at `/multiview` on the web-remote address (live JPEG refresh).
 - **Stingers** — one-press sounds and clips, no audio engineer needed: *"Take your seats,
   the show is about to begin."* A sound plays over everything on the audio-track outputs
   while the music ducks underneath (and comes back by itself); a **video clip takes over
@@ -154,8 +171,12 @@ fault containment, and settings that can never brick startup.
     <td><img src="docs/media/shot-playlist.png" alt="Playlist with drag-to-reorder and per-item timing"/></td>
   </tr>
   <tr>
-    <td><img src="docs/media/shot-sandbox.png" alt="Sandbox — building the next look while outputs hold the program"/></td>
+    <td><img src="docs/media/shot-sandbox.png" alt="The switcher — program on air on top, the next look building in the sandboxed preview"/></td>
     <td><img src="docs/media/shot-audio.png" alt="Audio — track, stingers and per-output device routing"/></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/shot-multiview.png" alt="Multiview — program, screens, inputs and clock with tally"/></td>
+    <td><img src="docs/media/shot-playlist.png" alt="Playlist show parts with per-part files and daily start times"/></td>
   </tr>
 </table>
 
@@ -205,7 +226,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 283 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, sandbox, headless UI
+dotnet test                      # 311 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, switcher, playlist parts, multiview pixels, stream MRLs, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

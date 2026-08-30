@@ -362,6 +362,48 @@
                IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Particles}}"
                Text="Design the animation in the Particles tab (mini studio)." />
 
+    <!-- Multiview -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Multiview}}">
+      <TextBlock Classes="h2" Text="MULTIVIEW TILES" />
+      <TextBlock Classes="hint"
+                 Text="A monitor wall: program, any screen's content, live inputs and a clock, with labels and red on-air tally. Send it to any screen (its own pattern), an NDI sender, or watch it remotely at the web remote address + /multiview. No tiles = automatic (program + every screen + clock)." />
+      <ItemsControl ItemsSource="{Binding ActivePattern.Multiview.Tiles}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:MultiviewTileConfig">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
+              <Grid ColumnDefinitions="150,8,*,6,Auto" RowDefinitions="Auto,4,Auto">
+                <ComboBox Grid.Column="0" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewSourceKinds}"
+                          SelectedValue="{Binding Source, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                <TextBox Grid.Column="2" Watermark="Label (optional)" Text="{Binding Label}" MinWidth="60" />
+                <Button Grid.Column="4" Classes="mini" Content="✕"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveMultiviewTileCommand}"
+                        CommandParameter="{Binding}" />
+                <ComboBox Grid.Row="2" Grid.ColumnSpan="5"
+                          IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.Screen}}"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewScreens}"
+                          SelectedValue="{Binding ScreenId, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                          PlaceholderText="Which screen…" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="chip" Content="+ Add tile" Command="{Binding AddMultiviewTileCommand}" />
+      </StackPanel>
+      <Grid ColumnDefinitions="130,90,*">
+        <TextBlock Classes="label" Text="Columns (0 = auto)" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Minimum="0" Maximum="8" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Multiview.Columns, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <CheckBox Content="Labels" IsChecked="{Binding ActivePattern.Multiview.ShowLabels}" />
+        <CheckBox Content="On-air tally borders" IsChecked="{Binding ActivePattern.Multiview.ShowTally}" />
+      </StackPanel>
+    </StackPanel>
+
     <TextBlock Classes="h2" Text="SAVE AS PRESET" />
     <Grid ColumnDefinitions="*,8,Auto">
       <TextBox Grid.Column="0" Watermark="Preset name…" Text="{Binding NewPresetName}" />

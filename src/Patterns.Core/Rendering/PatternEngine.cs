@@ -1,3 +1,4 @@
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Patterns;
 using Patterns.Core.Services;
@@ -126,6 +127,19 @@ public sealed class PatternEngine
         {
             DrawErrorCard(canvas, frame, null);
         }
+        else if (cfg.Kind == PatternKind.Multiview)
+        {
+            try
+            {
+                RenderMultiview(canvas, in frame, sink, cfg.Multiview);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Multiview renderer threw — disabled until settings change.", ex);
+                sink.Failed.Add(cfg.Kind);
+                DrawErrorCard(canvas, frame, ex.Message);
+            }
+        }
         else if (_renderers.TryGetValue(cfg.Kind, out var renderer))
         {
             try
@@ -153,6 +167,206 @@ public sealed class PatternEngine
         canvas.RestoreToCount(save);
 
         OverlayRenderer.RenderViewportOverlays(canvas, snap, ctx, sink, palette, blackout: false, cfg);
+    }
+
+    // ---- multiview ----------------------------------------------------------
+
+    private static readonly SKColor MultiviewBg = new(0x06, 0x07, 0x0A);
+    private static readonly SKColor TallyRed = new(0xE0, 0x34, 0x2E);
+    private static readonly SKColor TallyIdle = new(0x2A, 0x31, 0x3E);
+
+    /// <summary>
+    /// The monitor wall: each tile re-renders program/per-screen content through this same
+    /// engine (live inputs and a clock draw directly), with tally borders and labels.
+    /// Public so the remote /multiview endpoint can render the same picture standalone.
+    /// </summary>
+    public void RenderMultiview(SKCanvas canvas, in PatternFrame f, SinkState sink, MultiviewOptions opts)
+    {
+        if (f.Ctx.InMultiview)
+        {
+            DrawTileSlate(canvas, f, SKRect.Create(0, 0, f.W, f.H), "MULTIVIEW");
+            return;
+        }
+
+        var tiles = opts.Tiles.Count > 0 ? opts.Tiles.ToList() : DefaultTiles(f.Snapshot);
+        canvas.Clear(MultiviewBg);
+        if (tiles.Count == 0)
+        {
+            DrawTileSlate(canvas, f, SKRect.Create(0, 0, f.W, f.H), "Add multiview tiles in the Pattern tab");
+            return;
+        }
+
+        var cols = opts.Columns > 0 ? opts.Columns : (int)Math.Ceiling(Math.Sqrt(tiles.Count));
+        var rows = (int)Math.Ceiling(tiles.Count / (double)cols);
+        var gap = Math.Max(2f, f.W * 0.004f);
+        var cellW = (f.W - gap * (cols + 1)) / cols;
+        var cellH = (f.H - gap * (rows + 1)) / rows;
+        var labelH = opts.ShowLabels ? Math.Clamp(cellH * 0.14f, 13f, 30f) : 0f;
+
+        for (var i = 0; i < tiles.Count; i++)
+        {
+            var tile = tiles[i];
+            var col = i % cols;
+            var row = i / cols;
+            var cell = SKRect.Create(gap + col * (cellW + gap), gap + row * (cellH + gap), cellW, cellH);
+            var content = SKRect.Create(cell.Left, cell.Top, cell.Width, cell.Height - labelH);
+
+            // 16:9 letterbox inside the content area keeps every source undistorted.
+            var video = FitRect(content, 16f / 9f);
+            DrawTileContent(canvas, in f, sink, tile, video);
+
+            if (opts.ShowTally)
+            {
+                var on = TileOnAir(f.Snapshot, tile);
+                canvas.DrawRect(video, f.Paints.StrokeAA(on ? TallyRed : TallyIdle, on ? 3 : 1.5f));
+            }
+
+            if (opts.ShowLabels)
+            {
+                var label = TileLabel(f.Snapshot, tile);
+                var bar = SKRect.Create(video.Left, cell.Bottom - labelH, video.Width, labelH);
+                canvas.DrawRect(bar, f.Paints.Fill(new SKColor(0x10, 0x12, 0x18)));
+                var font = f.Paints.FontBold;
+                font.Size = labelH * 0.62f;
+                DrawUtil.TextCentered(canvas, label, bar.MidX, bar.MidY + font.Size * 0.35f,
+                    font, f.Paints.Text(new SKColor(0xD8, 0xDE, 0xE8)));
+            }
+        }
+    }
+
+    private static SKRect FitRect(SKRect outer, float aspect)
+    {
+        var w = outer.Width;
+        var h = w / aspect;
+        if (h > outer.Height)
+        {
+            h = outer.Height;
+            w = h * aspect;
+        }
+        return SKRect.Create(outer.Left + (outer.Width - w) / 2, outer.Top + (outer.Height - h) / 2, w, h);
+    }
+
+    private void DrawTileContent(SKCanvas canvas, in PatternFrame f, SinkState sink, MultiviewTileConfig tile, SKRect rect)
+    {
+        switch (tile.Source)
+        {
+            case MultiviewSource.Program:
+            case MultiviewSource.Screen:
+            {
+                var size = new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height));
+                var sub = f.Ctx with
+                {
+                    ViewportSize = size,
+                    ReferenceSize = size,
+                    ViewportOrigin = default,
+                    ScreenId = tile.Source == MultiviewSource.Screen ? tile.ScreenId : null,
+                    InMultiview = true,
+                };
+                var save = canvas.Save();
+                canvas.Translate(rect.Left, rect.Top);
+                canvas.ClipRect(SKRect.Create(0, 0, size.Width, size.Height));
+                RenderContent(canvas, f.Snapshot, in sub, sink);
+                canvas.RestoreToCount(save);
+                break;
+            }
+
+            case MultiviewSource.NdiFeed:
+                if (NdiInput.Current is { } ndi)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    if (!ndi.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "NDI — waiting for frames");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, "NDI — no feed received");
+                }
+                break;
+
+            case MultiviewSource.Pip:
+                if (PipInput.Current is { } pip)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    if (!pip.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "PiP — waiting for frames");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, "PiP input off");
+                }
+                break;
+
+            default:
+            {
+                canvas.DrawRect(rect, f.Paints.Fill(new SKColor(0x0C, 0x0E, 0x14)));
+                var font = f.Paints.FontBold;
+                font.Size = rect.Height * 0.3f;
+                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("HH:mm:ss"), rect.MidX, rect.MidY + font.Size * 0.1f,
+                    font, f.Paints.Text(new SKColor(0xE8, 0xEC, 0xF2)));
+                var small = f.Paints.FontRegular;
+                small.Size = rect.Height * 0.1f;
+                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("ddd d MMM"), rect.MidX, rect.MidY + rect.Height * 0.28f,
+                    small, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
+                break;
+            }
+        }
+    }
+
+    private static void DrawTileSlate(SKCanvas canvas, in PatternFrame f, SKRect rect, string text)
+    {
+        canvas.DrawRect(rect, f.Paints.Fill(new SKColor(0x11, 0x13, 0x1A)));
+        var font = f.Paints.FontRegular;
+        font.Size = Math.Max(10, rect.Height * 0.09f);
+        DrawUtil.TextCentered(canvas, text, rect.MidX, rect.MidY + font.Size * 0.35f,
+            font, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
+    }
+
+    private static List<MultiviewTileConfig> DefaultTiles(ShowSnapshot snap)
+    {
+        // No tiles configured: program + every arranged screen + a clock.
+        var tiles = new List<MultiviewTileConfig> { new() { Source = MultiviewSource.Program } };
+        foreach (var p in snap.State.Output.Placements.OrderBy(p => p.X).ThenBy(p => p.Y))
+        {
+            tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = p.ScreenId });
+        }
+        tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Clock });
+        return tiles;
+    }
+
+    private static bool TileOnAir(ShowSnapshot snap, MultiviewTileConfig tile)
+    {
+        if (snap.State.Blackout || !snap.OutputsLive) return false;
+        return tile.Source switch
+        {
+            MultiviewSource.Program => true,
+            MultiviewSource.Screen => snap.State.Output.Placements.FirstOrDefault(p => p.ScreenId == tile.ScreenId)?.Enabled == true,
+            _ => false,
+        };
+    }
+
+    private static string TileLabel(ShowSnapshot snap, MultiviewTileConfig tile)
+    {
+        if (tile.Label.Length > 0) return tile.Label;
+        switch (tile.Source)
+        {
+            case MultiviewSource.Program:
+                return "PROGRAM";
+            case MultiviewSource.Screen:
+            {
+                var ordered = snap.State.Output.Placements.OrderBy(p => p.X).ThenBy(p => p.Y).ToList();
+                var placement = ordered.FirstOrDefault(p => p.ScreenId == tile.ScreenId);
+                if (placement is null) return "SCREEN";
+                var n = ordered.IndexOf(placement) + 1;
+                return placement.CustomLabel.Length > 0 ? $"{n} · {placement.CustomLabel}" : $"SCREEN {n}";
+            }
+            case MultiviewSource.NdiFeed:
+            {
+                var name = snap.State.Pattern.Media.NdiSourceName;
+                return name.Length > 0 ? snap.State.InputLabel("ndi:" + name, name) : "NDI FEED";
+            }
+            case MultiviewSource.Pip:
+                return "PIP";
+            default:
+                return "CLOCK";
+        }
     }
 
     private static void DrawErrorCard(SKCanvas c, in PatternFrame f, string? message)
@@ -189,7 +403,7 @@ public sealed class PatternEngine
         }
 
         var p = snap.PatternFor(screenId);
-        var continuous = p.Kind is PatternKind.Motion or PatternKind.ColorCycle or PatternKind.Particles
+        var continuous = p.Kind is PatternKind.Motion or PatternKind.ColorCycle or PatternKind.Particles or PatternKind.Multiview
             || (p.Kind == PatternKind.Checkerboard && p.Checker.Animate)
             || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture)
             || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)

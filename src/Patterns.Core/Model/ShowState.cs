@@ -518,6 +518,49 @@ public sealed class InputLabelConfig : Observable
     public string Label { get => _label; set => Set(ref _label, value); }
 }
 
+/// <summary>One streaming destination (RTMP/RTMPS URL with key, srt://host:port, udp://host:port).</summary>
+public sealed class StreamDestinationConfig : Observable
+{
+    private bool _enabled;
+    private string _url = "";
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public string Url { get => _url; set => Set(ref _url, value); }
+}
+
+/// <summary>
+/// Streaming output: one screen captured and encoded once (shared resolution/frame rate),
+/// duplicated to up to two destinations through the bundled libVLC.
+/// </summary>
+public sealed class StreamConfig : Observable
+{
+    private string _sourceScreenId = "";
+    private int _width = 1280;
+    private int _height = 720;
+    private int _fps = 30;
+    private int _videoKbps = 4500;
+    private int _audioKbps = 160;
+    private string _audioDevice = "";
+    private bool _active;
+
+    /// <summary>Screen whose output is streamed ("" = the first enabled screen).</summary>
+    public string SourceScreenId { get => _sourceScreenId; set => Set(ref _sourceScreenId, value); }
+    public int Width { get => _width; set => Set(ref _width, Math.Clamp(value, 320, 3840)); }
+    public int Height { get => _height; set => Set(ref _height, Math.Clamp(value, 180, 2160)); }
+    public int Fps { get => _fps; set => Set(ref _fps, Math.Clamp(value, 10, 60)); }
+    public int VideoKbps { get => _videoKbps; set => Set(ref _videoKbps, Math.Clamp(value, 500, 20000)); }
+    public int AudioKbps { get => _audioKbps; set => Set(ref _audioKbps, Math.Clamp(value, 64, 320)); }
+
+    /// <summary>Optional DirectShow audio capture device name ("" = video only).</summary>
+    public string AudioDevice { get => _audioDevice; set => Set(ref _audioDevice, value); }
+
+    public ObservableCollection<StreamDestinationConfig> Destinations { get; init; } = new();
+
+    /// <summary>Runtime-only: streaming never auto-starts with the app.</summary>
+    [JsonIgnore]
+    public bool Active { get => _active; set => Set(ref _active, value); }
+}
+
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>
 public sealed class WatchdogConfig : Observable
 {
@@ -589,6 +632,7 @@ public sealed class ShowState : Observable
     public ControlConfig Control { get; init; } = new();
     public StingerConfig Stingers { get; init; } = new();
     public WatchdogConfig Watchdog { get; init; } = new();
+    public StreamConfig Stream { get; init; } = new();
 
     /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
     public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();

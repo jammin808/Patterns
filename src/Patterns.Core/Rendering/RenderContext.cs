@@ -43,6 +43,9 @@ public readonly record struct RenderContext
 
     /// <summary>True while re-rendering the previous snapshot as the fading-out half of a crossfade.</summary>
     public bool IsFadeSource { get; init; }
+
+    /// <summary>True while rendering inside a multiview tile — nested multiviews draw a slate instead.</summary>
+    public bool InMultiview { get; init; }
 }
 
 /// <summary>How often a sink needs to redraw for the current snapshot.</summary>

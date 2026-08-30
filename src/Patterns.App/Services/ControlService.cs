@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Avalonia.Threading;
+using Patterns.Core.Rendering;
 using Patterns.Core.Services;
+using SkiaSharp;
 
 namespace Patterns.App.Services;
 
@@ -246,10 +248,22 @@ public sealed class ControlService : IDisposable
                 body = new string(buffer, 0, read);
             }
 
-            string status = "200 OK", contentType = "text/html; charset=utf-8", payload;
+            string status = "200 OK", contentType = "text/html; charset=utf-8";
+            string payload;
+            byte[]? binary = null;
             if (method == "GET" && (path == "/" || path == "/index.html"))
             {
                 payload = RemotePage;
+            }
+            else if (method == "GET" && (path == "/multiview" || path == "/mv"))
+            {
+                payload = MultiviewPage;
+            }
+            else if (method == "GET" && path.StartsWith("/mv.jpg"))
+            {
+                contentType = "image/jpeg";
+                payload = "";
+                binary = RenderMultiviewJpeg();
             }
             else if (method == "GET" && path == "/api/state")
             {
@@ -270,7 +284,7 @@ public sealed class ControlService : IDisposable
                 payload = "Not found";
             }
 
-            var bytes = Encoding.UTF8.GetBytes(payload);
+            var bytes = binary ?? Encoding.UTF8.GetBytes(payload);
             var head = $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\nContent-Length: {bytes.Length}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
             await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
             await stream.WriteAsync(bytes, ct);
@@ -307,7 +321,87 @@ public sealed class ControlService : IDisposable
     {
         _pushTimer.Stop();
         StopListeners();
+        lock (_mvGate)
+        {
+            _mvSink.Dispose();
+        }
     }
+
+    // ---- remote multiview ---------------------------------------------------
+
+    private readonly PatternEngine _mvEngine = new();
+    private readonly SinkState _mvSink = new();
+    private readonly object _mvGate = new();
+
+    /// <summary>
+    /// Renders the configured multiview (Pattern tab) to a JPEG for /mv.jpg — the engine is
+    /// thread-safe over immutable snapshots, so this runs on the socket task, ~1 fps/viewer.
+    /// </summary>
+    private byte[] RenderMultiviewJpeg()
+    {
+        lock (_mvGate)
+        {
+            var snap = _services.Bus.Current;
+            const int w = 1024;
+            const int h = w * 9 / 16;
+            var info = new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            var ctx = new RenderContext
+            {
+                ViewportSize = new SKSizeI(w, h),
+                ReferenceSize = new SKSizeI(w, h),
+                Time = ShowClock.Seconds,
+                Now = DateTime.Now,
+                UtcNow = DateTime.UtcNow,
+                Sink = Patterns.Core.Model.SinkKind.Thumbnail,
+                SinkIndex = 0,
+                SinkLabel = "mv-remote",
+            };
+            var frame = new PatternFrame
+            {
+                Snapshot = snap,
+                Config = snap.State.Pattern,
+                Ctx = ctx,
+                Sink = _mvSink,
+                Canvas = new SKSizeI(w, h),
+                Palette = Palette.Resolve(snap),
+            };
+            _mvEngine.RenderMultiview(surface.Canvas, in frame, _mvSink, snap.State.Pattern.Multiview);
+            surface.Canvas.Flush();
+            using var image = surface.Snapshot();
+            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 72);
+            return data.ToArray();
+        }
+    }
+
+    private const string MultiviewPage = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patterns Multiview</title>
+<style>
+  body { margin:0; background:#000; }
+  img { width:100vw; height:auto; display:block; }
+  #err { color:#F0524D; font:13px system-ui; text-align:center; padding:8px; }
+</style>
+</head>
+<body>
+<img id="mv" src="/mv.jpg" alt="multiview">
+<div id="err"></div>
+<script>
+var img = document.getElementById('mv');
+setInterval(function () {
+  var next = new Image();
+  next.onload = function(){ img.src = next.src; document.getElementById('err').textContent=''; };
+  next.onerror = function(){ document.getElementById('err').textContent = 'Connection lost — retrying…'; };
+  next.src = '/mv.jpg?t=' + Date.now();
+}, 1000);
+</script>
+</body>
+</html>
+""";
 
     // ---- the phone/tablet remote (embedded, no files to lose) ---------------
 
@@ -346,7 +440,7 @@ public sealed class ControlService : IDisposable
 </style>
 </head>
 <body>
-<h1><b>PATTERNS</b> REMOTE</h1>
+<h1><b>PATTERNS</b> REMOTE <a href="/multiview" style="float:right;color:var(--acc);font-size:12px;text-decoration:none">MULTIVIEW ⟩</a></h1>
 
 <div class="sec">PRESENTER</div>
 <div class="grid row2">

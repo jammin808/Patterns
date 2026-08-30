@@ -108,12 +108,15 @@
                   VerticalAlignment="Center" />
         </StackPanel>
       </ScrollViewer>
-      <Grid ColumnDefinitions="Auto,8,*,8,Auto,8,90" Margin="0,4,0,0">
+      <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Part name" VerticalAlignment="Center" />
-        <TextBox Grid.Column="2" Text="{Binding ActivePlaylistSection.Name, Mode=TwoWay}" />
-        <TextBlock Grid.Column="4" Classes="label" Text="Starts daily at" VerticalAlignment="Center" />
-        <TextBox Grid.Column="6" Watermark="HH:mm" Text="{Binding ActivePlaylistSection.StartTime, Mode=TwoWay}"
-                 ToolTip.Tip="Optional: this part takes over every day at this time (24 h). Leave empty for manual only." />
+        <TextBox Grid.Column="1" Text="{Binding ActivePlaylistSection.Name, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="86,90,8,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Starts daily" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Watermark="HH:mm" Text="{Binding ActivePlaylistSection.StartTime, Mode=TwoWay}" />
+        <TextBlock Grid.Column="3" Classes="hint" VerticalAlignment="Center"
+                   Text="optional — takes over at this time (24 h)" />
       </Grid>
 
       <TextBlock Classes="h2" Text="FILES IN THIS PART" />
