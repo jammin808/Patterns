@@ -84,6 +84,14 @@ public sealed class SettingsStore
                 a.Pattern.Media.Mute = false;
             }
         }
+
+        // v3: playlists gained sections — flat item/folder lists become the first section.
+        PlaylistSequencer.Normalize(state.Pattern.Media.Playlist);
+        foreach (var a in state.Independent)
+        {
+            PlaylistSequencer.Normalize(a.Pattern.Media.Playlist);
+        }
+
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }
 

@@ -53,6 +53,13 @@ public static class LookService
         ModelCopier.Copy(data.Overlays, state.Overlays);
         ModelCopier.Copy(data.Countdown, state.Countdown);
         state.Blackout = data.Blackout;
+
+        // Looks captured before playlist sections existed carry flat lists — lift them.
+        PlaylistSequencer.Normalize(state.Pattern.Media.Playlist);
+        foreach (var a in state.Independent)
+        {
+            PlaylistSequencer.Normalize(a.Pattern.Media.Playlist);
+        }
         return true;
     }
 

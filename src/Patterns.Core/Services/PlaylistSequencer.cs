@@ -46,18 +46,69 @@ public sealed class PlaylistSequencer
         return ImageExtensions.Contains(ext) || VideoExtensions.Contains(ext) || AudioExtensions.Contains(ext);
     }
 
+    /// <summary>Moves legacy flat items/folders into a first section; guarantees at least one section.</summary>
+    public static void Normalize(PlaylistOptions options)
+    {
+        if (options.Sections.Count == 0)
+        {
+            var section = new PlaylistSectionConfig
+            {
+                Name = options.Items.Count > 0 || options.Folders.Count > 0 ? "Main" : "Part 1",
+            };
+            foreach (var item in options.Items) section.Items.Add(item);
+            foreach (var folder in options.Folders) section.Folders.Add(folder);
+            options.Sections.Add(section);
+            options.Items.Clear();
+            options.Folders.Clear();
+        }
+        if (options.ActiveSection >= options.Sections.Count)
+        {
+            options.ActiveSection = options.Sections.Count - 1;
+        }
+    }
+
+    /// <summary>The section on air (normalizing legacy lists on the way).</summary>
+    public static PlaylistSectionConfig ActiveSectionOf(PlaylistOptions options)
+    {
+        Normalize(options);
+        return options.Sections[Math.Clamp(options.ActiveSection, 0, options.Sections.Count - 1)];
+    }
+
+    /// <summary>Every item across every section (scheduled interruptions fire from any part).</summary>
+    public static IEnumerable<PlaylistItemConfig> AllItems(PlaylistOptions options)
+        => options.Sections.SelectMany(s => s.Items).Concat(options.Items);
+
+    private readonly Dictionary<int, DateTime> _sectionStartFired = new();
+
+    /// <summary>Section due to take over at this minute (once per day each), or null.</summary>
+    public int? SectionDue(PlaylistOptions options, DateTime localNow)
+    {
+        for (var i = 0; i < options.Sections.Count; i++)
+        {
+            var section = options.Sections[i];
+            if (string.IsNullOrWhiteSpace(section.StartTime)) continue;
+            if (!CountdownService.TryParseTime(section.StartTime, out var tod)) continue;
+            if (localNow.Hour != tod.Hours || localNow.Minute != tod.Minutes) continue;
+            if (_sectionStartFired.TryGetValue(i, out var fired) && fired.Date == localNow.Date) continue;
+            _sectionStartFired[i] = localNow;
+            return i;
+        }
+        return null;
+    }
+
     /// <summary>
-    /// Builds the play order: explicit items first (custom order preserved), then folder files
-    /// name-sorted; shuffle permutes everything deterministically by seed. Filters by kind and
-    /// drops videos entirely when video playback is unavailable.
+    /// Builds the play order for one section: explicit items first (custom order preserved),
+    /// then folder files name-sorted; shuffle permutes everything deterministically by seed.
+    /// Filters by kind and drops videos entirely when video playback is unavailable.
     /// </summary>
     public static List<PlaylistEntry> BuildOrder(
-        PlaylistOptions options, IReadOnlyList<string> folderFiles, bool videoPlaybackAvailable)
+        PlaylistOptions options, IReadOnlyList<PlaylistItemConfig> items,
+        IReadOnlyList<string> folderFiles, bool videoPlaybackAvailable)
     {
         var entries = new List<PlaylistEntry>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var item in options.Items)
+        foreach (var item in items)
         {
             if (string.IsNullOrWhiteSpace(item.Path) || !seen.Add(item.Path)) continue;
             entries.Add(new PlaylistEntry(item.Path, IsDecodedPath(item.Path), item.DurationSeconds,
@@ -118,8 +169,8 @@ public sealed class PlaylistSequencer
     {
         var changed = false;
 
-        // Scheduled interruptions fire once per day at their minute.
-        foreach (var item in options.Items)
+        // Scheduled interruptions fire once per day at their minute — from any section.
+        foreach (var item in AllItems(options))
         {
             if (string.IsNullOrWhiteSpace(item.ScheduledTime) || string.IsNullOrWhiteSpace(item.Path)) continue;
             if (!CountdownService.TryParseTime(item.ScheduledTime, out var tod)) continue;

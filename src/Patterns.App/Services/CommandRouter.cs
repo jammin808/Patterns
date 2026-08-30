@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Avalonia.Threading;
 using Patterns.App.ViewModels;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -134,6 +135,22 @@ public sealed class CommandRouter
                 _services.Stingers.Stop();
                 return ControlProtocol.Ok();
 
+            case RemoteCommandKind.PlaylistSection:
+            {
+                var options = MediaLocator.FindActivePlaylist(state)?.Playlist ?? state.Pattern.Media.Playlist;
+                PlaylistSequencer.Normalize(options);
+                var index = cmd.IntArg > 0
+                    ? cmd.IntArg - 1
+                    : options.Sections.ToList().FindIndex(x =>
+                        string.Equals(x.Name, cmd.TextArg, StringComparison.OrdinalIgnoreCase));
+                if (index < 0 || index >= options.Sections.Count)
+                {
+                    return ControlProtocol.Err(cmd.IntArg > 0 ? $"no playlist part {cmd.IntArg}" : $"no playlist part named '{cmd.TextArg}'");
+                }
+                options.ActiveSection = index;
+                return ControlProtocol.Ok();
+            }
+
             case RemoteCommandKind.Status:
                 return ControlProtocol.Ok(StateJson());
 
@@ -169,11 +186,23 @@ public sealed class CommandRouter
             tone = s.Tone.Enabled,
             stingers = s.Stingers.Items.Select((i, n) => new { n = n + 1, name = i.DisplayName }).ToArray(),
             stingerPlaying = s.Stingers.PlayingName,
+            sections = SectionRows(s),
             playlist = _services.Playlist.Status,
             nextCue = vm?.NextCueText ?? "",
             health = HealthMonitor.Summary(DateTime.UtcNow),
         };
         return JsonSerializer.Serialize(payload);
+    }
+
+    /// <summary>Playlist parts for remotes; empty when the playlist has a single unnamed flow.</summary>
+    private object[] SectionRows(ShowState s)
+    {
+        var options = MediaLocator.FindActivePlaylist(s)?.Playlist ?? s.Pattern.Media.Playlist;
+        if (options.Sections.Count <= 1) return Array.Empty<object>();
+        var active = Math.Clamp(options.ActiveSection, 0, options.Sections.Count - 1);
+        return options.Sections
+            .Select((x, i) => (object)new { n = i + 1, name = x.Name, active = i == active })
+            .ToArray();
     }
 
     /// <summary>Builds StateJson from any thread.</summary>

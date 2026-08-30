@@ -72,14 +72,58 @@
 
     <!-- Playlist -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Playlist}}">
-      <TextBlock Classes="h2" Text="PLAYLIST" />
+      <TextBlock Classes="h2" Text="SHOW PARTS" />
+      <TextBlock Classes="hint"
+                 Text="Split the playlist into parts of the show — Walk-in, Main, Break… One part plays at a time: click ▶ to put it on air (also from the remote/Companion: SECTION 2), or give it a daily start time. Files and folders below belong to the highlighted part." />
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <ItemsControl ItemsSource="{Binding ActivePattern.Media.Playlist.Sections}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="m:PlaylistSectionConfig">
+                <Border Classes="tile" Classes.tileActive="{Binding IsOnAir}">
+                  <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Background="Transparent" BorderThickness="0" Padding="2,3" Cursor="Hand"
+                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SetPlaylistSectionCommand}"
+                            CommandParameter="{Binding}" ToolTip.Tip="Put this part on air (and edit it below)">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="▶" FontSize="10" Foreground="#2EE68A" VerticalAlignment="Center"
+                                   IsVisible="{Binding IsOnAir}" />
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding StartTime}" FontSize="10" Foreground="#8A93A3" VerticalAlignment="Center"
+                                   IsVisible="{Binding StartTime, Converter={StaticResource NotEmpty}}" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="mini" Content="✕" ToolTip.Tip="Delete this part (its files stay on disk)"
+                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistSectionCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <Button Classes="chip" Content="+ Part" Command="{Binding AddPlaylistSectionCommand}"
+                  VerticalAlignment="Center" />
+        </StackPanel>
+      </ScrollViewer>
+      <Grid ColumnDefinitions="Auto,8,*,8,Auto,8,90" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Part name" VerticalAlignment="Center" />
+        <TextBox Grid.Column="2" Text="{Binding ActivePlaylistSection.Name, Mode=TwoWay}" />
+        <TextBlock Grid.Column="4" Classes="label" Text="Starts daily at" VerticalAlignment="Center" />
+        <TextBox Grid.Column="6" Watermark="HH:mm" Text="{Binding ActivePlaylistSection.StartTime, Mode=TwoWay}"
+                 ToolTip.Tip="Optional: this part takes over every day at this time (24 h). Leave empty for manual only." />
+      </Grid>
+
+      <TextBlock Classes="h2" Text="FILES IN THIS PART" />
       <Grid ColumnDefinitions="Auto,8,Auto,*">
         <Button Grid.Column="0" Classes="chip" Content="+ Add files…" Command="{Binding AddPlaylistFilesCommand}" />
         <Button Grid.Column="2" Classes="chip" Content="+ Add folder…" Command="{Binding AddPlaylistFolderCommand}" />
       </Grid>
       <TextBlock Classes="label" Text="{Binding PlaylistStatus}" Margin="0,4,0,2" TextWrapping="Wrap" />
 
-      <ItemsControl x:Name="PlaylistList" ItemsSource="{Binding ActivePattern.Media.Playlist.Items}">
+      <ItemsControl x:Name="PlaylistList" ItemsSource="{Binding ActivePlaylistSection.Items}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:PlaylistItemConfig">
             <Border Classes="plrow" Background="{StaticResource PanelBg2Brush}" CornerRadius="8"
@@ -140,7 +184,7 @@
       </Border>
 
       <TextBlock Classes="h2" Text="PLAYLIST — FOLDERS" />
-      <ItemsControl ItemsSource="{Binding ActivePattern.Media.Playlist.Folders}">
+      <ItemsControl ItemsSource="{Binding ActivePlaylistSection.Folders}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="x:String">
             <Grid ColumnDefinitions="*,6,Auto" Margin="0,2">

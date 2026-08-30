@@ -160,6 +160,11 @@ class PatternsInstance extends InstanceBase {
 				callback: (a) => send(`STINGER ${a.options.name}`),
 			},
 			stinger_stop: { name: 'Stop stinger', options: [], callback: () => send('STINGER STOP') },
+			section: {
+				name: 'Playlist — show part on air',
+				options: [{ type: 'number', id: 'n', label: 'Part number (Media tab order)', default: 1, min: 1, max: 32 }],
+				callback: (a) => send(`SECTION ${a.options.n}`),
+			},
 		}
 	}
 

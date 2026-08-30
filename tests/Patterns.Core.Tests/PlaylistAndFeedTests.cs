@@ -25,7 +25,7 @@ public class PlaylistSequencerTests
         var o = Options(@"C:\media\zeta.png", @"C:\media\alpha.mp4");
         var folder = new[] { @"C:\scan\b.png", @"C:\scan\A.png", @"C:\media\zeta.png", @"C:\scan\readme.txt" };
 
-        var order = PlaylistSequencer.BuildOrder(o, folder, videoPlaybackAvailable: true);
+        var order = PlaylistSequencer.BuildOrder(o, o.Items, folder, videoPlaybackAvailable: true);
 
         Assert.Equal(new[]
         {
@@ -44,13 +44,13 @@ public class PlaylistSequencerTests
         var o = Options(@"a.png", @"b.mp4");
 
         o.IncludeVideos = false;
-        Assert.Equal(new[] { "a.png" }, PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true).Select(e => e.Path));
+        Assert.Equal(new[] { "a.png" }, PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true).Select(e => e.Path));
 
         o.IncludeVideos = true;
-        Assert.Equal(new[] { "a.png" }, PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), videoPlaybackAvailable: false).Select(e => e.Path));
+        Assert.Equal(new[] { "a.png" }, PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), videoPlaybackAvailable: false).Select(e => e.Path));
 
         o.IncludeImages = false;
-        Assert.Equal(new[] { "b.mp4" }, PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true).Select(e => e.Path));
+        Assert.Equal(new[] { "b.mp4" }, PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true).Select(e => e.Path));
     }
 
     [Fact]
@@ -60,12 +60,12 @@ public class PlaylistSequencerTests
         o.Shuffle = true;
         o.ShuffleSeed = 7;
 
-        var one = PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true).Select(e => e.Path).ToList();
-        var two = PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true).Select(e => e.Path).ToList();
+        var one = PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true).Select(e => e.Path).ToList();
+        var two = PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true).Select(e => e.Path).ToList();
         Assert.Equal(one, two);
 
         o.ShuffleSeed = 8;
-        var other = PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true).Select(e => e.Path).ToList();
+        var other = PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true).Select(e => e.Path).ToList();
         Assert.Equal(one.OrderBy(x => x), other.OrderBy(x => x)); // same set…
         Assert.True(one.Count == 8 && other.Count == 8);
     }
@@ -76,7 +76,7 @@ public class PlaylistSequencerTests
         var o = Options("a.png", "b.png");
         o.ImageDwellSeconds = 8;
         var seq = new PlaylistSequencer();
-        seq.SetOrder(PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true), Utc0);
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
         Assert.Equal("a.png", seq.Current!.Path); // first item comes up on SetOrder
 
         Assert.False(seq.Tick(o, Local0, Utc0.AddSeconds(7.5), false, 0));
@@ -95,7 +95,7 @@ public class PlaylistSequencerTests
         var o = Options("v.mp4", "a.png");
         o.VideoFullLength = true;
         var seq = new PlaylistSequencer();
-        seq.SetOrder(PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true), Utc0);
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
         seq.Tick(o, Local0, Utc0, false, 0);
         Assert.Equal("v.mp4", seq.Current!.Path);
 
@@ -111,7 +111,7 @@ public class PlaylistSequencerTests
         var o = Options("v.mp4");
         o.Items[0].DurationSeconds = 5;
         var seq = new PlaylistSequencer();
-        seq.SetOrder(PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true), Utc0);
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
         seq.Tick(o, Local0, Utc0, false, 0);
 
         Assert.False(seq.Tick(o, Local0, Utc0.AddSeconds(4), false, 0));
@@ -127,7 +127,7 @@ public class PlaylistSequencerTests
         o.Items[2].ScheduledDurationSeconds = 10;
 
         var seq = new PlaylistSequencer();
-        seq.SetOrder(PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true), Utc0);
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
         seq.Tick(o, Local0, Utc0, false, 0);
         Assert.Equal("a.png", seq.Current!.Path);
 
@@ -156,13 +156,13 @@ public class PlaylistSequencerTests
         var o = Options("a.png", "b.png", "c.png");
         o.ImageDwellSeconds = 8;
         var seq = new PlaylistSequencer();
-        seq.SetOrder(PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), true), Utc0);
+        seq.SetOrder(PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), true), Utc0);
         seq.Tick(o, Local0, Utc0, false, 0);
         seq.Tick(o, Local0, Utc0.AddSeconds(9), false, 0);
         Assert.Equal("b.png", seq.Current!.Path);
 
         // A folder rescan reorders the list — the on-screen item must not jump.
-        var rebuilt = PlaylistSequencer.BuildOrder(o, new[] { @"C:\x\new.png" }, true);
+        var rebuilt = PlaylistSequencer.BuildOrder(o, o.Items, new[] { @"C:\x\new.png" }, true);
         seq.SetOrder(rebuilt, Utc0.AddSeconds(10));
         Assert.Equal("b.png", seq.Current!.Path);
     }

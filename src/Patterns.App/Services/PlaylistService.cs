@@ -47,21 +47,30 @@ public sealed class PlaylistService : IDisposable
             var utcNow = DateTime.UtcNow;
             var localNow = DateTime.Now;
 
-            // Rescan folders when the folder set changes or every 30 s (files may be dropped in live).
-            var folderKey = string.Join('|', options.Folders);
+            // A section with a start time takes over daily at its minute.
+            if (_sequencer.SectionDue(options, localNow) is { } dueSection && options.ActiveSection != dueSection)
+            {
+                options.ActiveSection = dueSection;
+                Log.Info($"Playlist section '{options.Sections[dueSection].Name}' took over ({options.Sections[dueSection].StartTime}).");
+            }
+
+            var section = PlaylistSequencer.ActiveSectionOf(options);
+
+            // Rescan folders when the active set changes or every 30 s (files may be dropped in live).
+            var folderKey = $"{options.ActiveSection}|{string.Join('|', section.Folders)}";
             if (folderKey != _folderKey || (utcNow - _lastScanUtc).TotalSeconds > 30)
             {
                 _folderKey = folderKey;
                 _lastScanUtc = utcNow;
-                _folderFiles = ScanFolders(options.Folders);
+                _folderFiles = ScanFolders(section.Folders);
             }
 
             var videoAvailable = !options.IncludeVideos || _services.Video.EnsureAvailable();
-            var orderKey = $"{folderKey}#{string.Join('|', options.Items.Select(i => i.Path))}#{options.Shuffle}#{options.ShuffleSeed}#{options.IncludeImages}#{options.IncludeVideos}#{videoAvailable}#{_folderFiles.Count}";
+            var orderKey = $"{folderKey}#{string.Join('|', section.Items.Select(i => i.Path))}#{options.Shuffle}#{options.ShuffleSeed}#{options.IncludeImages}#{options.IncludeVideos}#{videoAvailable}#{_folderFiles.Count}";
             if (orderKey != _orderKey)
             {
                 _orderKey = orderKey;
-                _sequencer.SetOrder(PlaylistSequencer.BuildOrder(options, _folderFiles, videoAvailable), utcNow);
+                _sequencer.SetOrder(PlaylistSequencer.BuildOrder(options, section.Items, _folderFiles, videoAvailable), utcNow);
             }
 
             var video = VideoService.Current;
@@ -126,7 +135,11 @@ public sealed class PlaylistService : IDisposable
             var pos = now.Index >= 0 ? $"{now.Index + 1}/{now.Count}" : "scheduled";
             var held = (DateTime.UtcNow - now.StartedUtc).TotalSeconds;
             var dur = now.DurationSeconds > 0 ? $" · {Math.Max(0, now.DurationSeconds - held):0}s left" : "";
-            return $"Playing {pos}: {name}{dur}";
+            var options = MediaLocator.FindActivePlaylist(_services.State)?.Playlist;
+            var part = options is not null && options.Sections.Count > 1
+                ? $"[{PlaylistSequencer.ActiveSectionOf(options).Name}] "
+                : "";
+            return $"{part}Playing {pos}: {name}{dur}";
         }
     }
 

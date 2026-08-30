@@ -41,8 +41,8 @@ public class NewFeatureUiTests
         {
             // Put the state into the new-feature shapes first.
             vm.ActivePattern.Media.Source = MediaSource.Playlist;
-            vm.ActivePattern.Media.Playlist.Items.Add(new PlaylistItemConfig { Path = @"C:\media\a.png", ScheduledTime = "12:30" });
-            vm.ActivePattern.Media.Playlist.Folders.Add(@"C:\media\walkin");
+            vm.ActivePlaylistSection.Items.Add(new PlaylistItemConfig { Path = @"C:\media\a.png", ScheduledTime = "12:30" });
+            vm.ActivePlaylistSection.Folders.Add(@"C:\media\walkin");
             vm.ActivePattern.Kind = PatternKind.LedWall;
             vm.ActivePattern.LedWall.UseCustomMap = true;
             vm.ActivePattern.LedWall.CustomTiles.Add(new LedTileConfig { X = 0, Y = 0, Width = 128, Height = 128 });
@@ -145,7 +145,7 @@ public class NewFeatureUiTests
         var (services, vm, window) = Boot();
         try
         {
-            var items = vm.ActivePattern.Media.Playlist.Items;
+            var items = vm.ActivePlaylistSection.Items;
             items.Add(new PlaylistItemConfig { Path = "a.png" });
             items.Add(new PlaylistItemConfig { Path = "b.png" });
             items.Add(new PlaylistItemConfig { Path = "c.png" });
@@ -162,9 +162,9 @@ public class NewFeatureUiTests
             vm.RemovePlaylistItemCommand.Execute(items[1]);
             Assert.Equal(new[] { "b.png", "a.png" }, items.Select(i => i.Path));
 
-            vm.ActivePattern.Media.Playlist.Folders.Add(@"C:\shows\loop");
+            vm.ActivePlaylistSection.Folders.Add(@"C:\shows\loop");
             vm.RemovePlaylistFolderCommand.Execute(@"C:\shows\loop");
-            Assert.Empty(vm.ActivePattern.Media.Playlist.Folders);
+            Assert.Empty(vm.ActivePlaylistSection.Folders);
         }
         finally
         {

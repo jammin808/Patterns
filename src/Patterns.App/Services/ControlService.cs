@@ -371,6 +371,9 @@ public sealed class ControlService : IDisposable
 <div class="sec">SCREENS</div>
 <div id="screens" class="grid row3"></div>
 
+<div class="sec" id="secsec" hidden>SHOW PARTS (PLAYLIST)</div>
+<div id="sections" class="grid row3"></div>
+
 <div class="sec">STINGERS</div>
 <div id="stingers" class="grid row2"></div>
 <div id="stingnow" class="grid" style="margin-top:10px"></div>
@@ -418,6 +421,17 @@ function render(s) {
     b.innerHTML = esc(x.n + ' · ' + x.label) + (x.group ? ' <span class="k">[' + x.group + ']</span>' : '');
     b.onclick = function(){ cmd('SCREEN ' + x.n + ' TOGGLE'); };
     sc.appendChild(b);
+  });
+
+  var se = document.getElementById('sections'); se.innerHTML = '';
+  var hasSections = s.sections && s.sections.length > 0;
+  document.getElementById('secsec').hidden = !hasSections;
+  (s.sections || []).forEach(function(x){
+    var b = document.createElement('button');
+    b.textContent = x.name;
+    if (x.active) { b.style.borderColor = 'var(--good)'; b.style.color = 'var(--good)'; }
+    b.onclick = function(){ cmd('SECTION ' + x.n); };
+    se.appendChild(b);
   });
 
   var st = document.getElementById('stingers'); st.innerHTML = '';

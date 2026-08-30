@@ -90,13 +90,13 @@ public class AudioDefaultsTests
         o.Items.Add(new PlaylistItemConfig { Path = "walkin.mp3" });
         o.Items.Add(new PlaylistItemConfig { Path = "still.png" });
 
-        var order = PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), videoPlaybackAvailable: true);
+        var order = PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), videoPlaybackAvailable: true);
         Assert.Equal(2, order.Count);
         Assert.True(order[0].IsVideo);  // decoder-bound: plays to its natural end
         Assert.False(order[1].IsVideo);
 
         // No decoder → audio drops with the videos rather than jamming the cycle.
-        var withoutVlc = PlaylistSequencer.BuildOrder(o, Array.Empty<string>(), videoPlaybackAvailable: false);
+        var withoutVlc = PlaylistSequencer.BuildOrder(o, o.Items, Array.Empty<string>(), videoPlaybackAvailable: false);
         Assert.Equal(new[] { "still.png" }, withoutVlc.Select(e => e.Path));
     }
 }

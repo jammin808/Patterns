@@ -312,7 +312,27 @@ public sealed class PlaylistItemConfig : Observable
     public double ScheduledDurationSeconds { get => _scheduledDurationSeconds; set => Set(ref _scheduledDurationSeconds, Math.Clamp(value, 1, 24 * 3600)); }
 }
 
-/// <summary>Media playlist: explicit items (in custom order) plus scanned folders, looped.</summary>
+/// <summary>One named part of the show ("Walk-in", "Break") with its own files and folders.</summary>
+public sealed class PlaylistSectionConfig : Observable
+{
+    private string _name = "Part 1";
+    private string _startTime = "";
+    private bool _isOnAir;
+
+    public string Name { get => _name; set => Set(ref _name, value); }
+
+    /// <summary>"HH:mm" — when set, this section takes over daily at that time.</summary>
+    public string StartTime { get => _startTime; set => Set(ref _startTime, value); }
+
+    /// <summary>Runtime-only: this is the section playing right now (drives the chip highlight).</summary>
+    [JsonIgnore]
+    public bool IsOnAir { get => _isOnAir; set => Set(ref _isOnAir, value); }
+
+    public ObservableCollection<PlaylistItemConfig> Items { get; init; } = new();
+    public ObservableCollection<string> Folders { get; init; } = new();
+}
+
+/// <summary>Media playlist: named sections for parts of the show; the active one loops.</summary>
 public sealed class PlaylistOptions : Observable
 {
     private double _imageDwellSeconds = 8;
@@ -321,9 +341,17 @@ public sealed class PlaylistOptions : Observable
     private int _shuffleSeed = 1;
     private bool _includeImages = true;
     private bool _includeVideos = true;
+    private int _activeSection;
 
+    /// <summary>The show's parts; exactly one plays at a time (see <see cref="ActiveSection"/>).</summary>
+    public ObservableCollection<PlaylistSectionConfig> Sections { get; init; } = new();
+
+    /// <summary>Index of the section on air (clamped by readers; persists across restarts).</summary>
+    public int ActiveSection { get => _activeSection; set => Set(ref _activeSection, Math.Max(0, value)); }
+
+    /// <summary>Legacy flat list (pre-sections) — migrated into the first section on load.</summary>
     public ObservableCollection<PlaylistItemConfig> Items { get; init; } = new();
-    /// <summary>Folders scanned (recursively) for media; results play after the explicit items, name-sorted.</summary>
+    /// <summary>Legacy folder list (pre-sections) — migrated into the first section on load.</summary>
     public ObservableCollection<string> Folders { get; init; } = new();
 
     public double ImageDwellSeconds { get => _imageDwellSeconds; set => Set(ref _imageDwellSeconds, Math.Clamp(value, 1, 3600)); }

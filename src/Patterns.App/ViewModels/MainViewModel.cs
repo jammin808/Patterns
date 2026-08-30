@@ -94,13 +94,44 @@ public sealed class MainViewModel : Observable
         AddPlaylistFolderCommand = new RelayCommand(() => _ = AddPlaylistFolderAsync());
         RemovePlaylistItemCommand = new RelayCommand<PlaylistItemConfig>(item =>
         {
-            if (item is not null) ActivePattern.Media.Playlist.Items.Remove(item);
+            if (item is not null) ActivePlaylistSection.Items.Remove(item);
         });
         MovePlaylistItemUpCommand = new RelayCommand<PlaylistItemConfig>(item => MovePlaylistItem(item, -1));
         MovePlaylistItemDownCommand = new RelayCommand<PlaylistItemConfig>(item => MovePlaylistItem(item, +1));
         RemovePlaylistFolderCommand = new RelayCommand<string>(folder =>
         {
-            if (folder is not null) ActivePattern.Media.Playlist.Folders.Remove(folder);
+            if (folder is not null) ActivePlaylistSection.Folders.Remove(folder);
+        });
+        AddPlaylistSectionCommand = new RelayCommand(() =>
+        {
+            var playlist = ActivePattern.Media.Playlist;
+            PlaylistSequencer.Normalize(playlist);
+            playlist.Sections.Add(new PlaylistSectionConfig { Name = $"Part {playlist.Sections.Count + 1}" });
+            playlist.ActiveSection = playlist.Sections.Count - 1;
+            RaisePlaylistSection();
+        });
+        RemovePlaylistSectionCommand = new RelayCommand<PlaylistSectionConfig>(section =>
+        {
+            var playlist = ActivePattern.Media.Playlist;
+            if (section is null || !playlist.Sections.Contains(section)) return;
+            if (playlist.Sections.Count <= 1)
+            {
+                StatusMessage = "The playlist needs at least one part — clear its files instead.";
+                return;
+            }
+            var index = playlist.Sections.IndexOf(section);
+            playlist.Sections.Remove(section);
+            if (playlist.ActiveSection >= index && playlist.ActiveSection > 0) playlist.ActiveSection--;
+            RaisePlaylistSection();
+        });
+        SetPlaylistSectionCommand = new RelayCommand<PlaylistSectionConfig>(section =>
+        {
+            var playlist = ActivePattern.Media.Playlist;
+            var index = section is null ? -1 : playlist.Sections.IndexOf(section);
+            if (index < 0) return;
+            playlist.ActiveSection = index;
+            RaisePlaylistSection();
+            StatusMessage = $"Playlist part '{section!.Name}' is on air.";
         });
 
         // Live inputs & web pages
@@ -602,6 +633,7 @@ public sealed class MainViewModel : Observable
                 Raise(nameof(EditTargetBanner));
                 _services.PreviewScreenId = value.ScreenId;
                 RefreshSwitcherTiles();
+                RaisePlaylistSection();
             }
         }
     }
@@ -691,7 +723,7 @@ public sealed class MainViewModel : Observable
             {
                 var path = file.TryGetLocalPath();
                 if (path is null) continue;
-                ActivePattern.Media.Playlist.Items.Add(new PlaylistItemConfig { Path = path });
+                ActivePlaylistSection.Items.Add(new PlaylistItemConfig { Path = path });
                 AddToMediaLibrary(path, PlaylistSequencer.IsDecodedPath(path));
             }
         }
@@ -748,9 +780,9 @@ public sealed class MainViewModel : Observable
             foreach (var folder in folders)
             {
                 var path = folder.TryGetLocalPath();
-                if (path is not null && !ActivePattern.Media.Playlist.Folders.Contains(path))
+                if (path is not null && !ActivePlaylistSection.Folders.Contains(path))
                 {
-                    ActivePattern.Media.Playlist.Folders.Add(path);
+                    ActivePlaylistSection.Folders.Add(path);
                 }
             }
         }
@@ -763,11 +795,29 @@ public sealed class MainViewModel : Observable
     private void MovePlaylistItem(PlaylistItemConfig? item, int delta)
     {
         if (item is null) return;
-        var items = ActivePattern.Media.Playlist.Items;
+        var items = ActivePlaylistSection.Items;
         var index = items.IndexOf(item);
         var target = index + delta;
         if (index < 0 || target < 0 || target >= items.Count) return;
         items.Move(index, target);
+    }
+
+    /// <summary>The playlist part the editor shows and files land in (normalizes legacy lists).</summary>
+    public PlaylistSectionConfig ActivePlaylistSection => PlaylistSequencer.ActiveSectionOf(ActivePattern.Media.Playlist);
+
+    private PlaylistSectionConfig? _lastRaisedSection;
+
+    /// <summary>Re-binds the section editor when the on-air part actually changes; keeps chips lit.</summary>
+    private void RaisePlaylistSection(bool onlyOnChange = false)
+    {
+        var current = ActivePlaylistSection;
+        foreach (var section in ActivePattern.Media.Playlist.Sections)
+        {
+            section.IsOnAir = ReferenceEquals(section, current);
+        }
+        if (onlyOnChange && ReferenceEquals(current, _lastRaisedSection)) return;
+        _lastRaisedSection = current;
+        Raise(nameof(ActivePlaylistSection));
     }
 
     private PlaylistItemConfig? _selectedPlaylistItem;
@@ -785,7 +835,7 @@ public sealed class MainViewModel : Observable
     /// <summary>Drag-reorder target from the playlist list (index clamped; no-ops in place).</summary>
     public void MovePlaylistItemTo(PlaylistItemConfig item, int targetIndex)
     {
-        var items = ActivePattern.Media.Playlist.Items;
+        var items = ActivePlaylistSection.Items;
         var index = items.IndexOf(item);
         if (index < 0) return;
         targetIndex = Math.Clamp(targetIndex, 0, items.Count - 1);
@@ -1550,6 +1600,9 @@ public sealed class MainViewModel : Observable
     public RelayCommand<PlaylistItemConfig> MovePlaylistItemUpCommand { get; }
     public RelayCommand<PlaylistItemConfig> MovePlaylistItemDownCommand { get; }
     public RelayCommand<string> RemovePlaylistFolderCommand { get; }
+    public RelayCommand AddPlaylistSectionCommand { get; }
+    public RelayCommand<PlaylistSectionConfig> RemovePlaylistSectionCommand { get; }
+    public RelayCommand<PlaylistSectionConfig> SetPlaylistSectionCommand { get; }
     public RelayCommand SaveLookCommand { get; }
     public RelayCommand<LookConfig> ApplyLookCommand { get; }
     public RelayCommand<LookConfig> UpdateLookCommand { get; }
@@ -1689,10 +1742,11 @@ public sealed class MainViewModel : Observable
 
         // Now-playing marker on explicit playlist rows.
         var nowPath = _services.Bus.PlaylistNow?.Path;
-        foreach (var item in ActivePattern.Media.Playlist.Items)
+        foreach (var item in PlaylistSequencer.AllItems(ActivePattern.Media.Playlist))
         {
             item.IsNowPlaying = nowPath is not null && string.Equals(item.Path, nowPath, StringComparison.OrdinalIgnoreCase);
         }
+        RaisePlaylistSection(onlyOnChange: true);
 
         // Keep pick lists warm while their panels are in use (NDI discovery is push-based
         // and cheap to read; capture enumeration is COM, so on demand + first need only).

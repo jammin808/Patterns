@@ -98,7 +98,7 @@ public class InputsWebViewModelTests
         var (services, vm, window) = Boot();
         try
         {
-            var items = vm.ActivePattern.Media.Playlist.Items;
+            var items = vm.ActivePlaylistSection.Items;
             items.Add(new PlaylistItemConfig { Path = "a.png" });
             items.Add(new PlaylistItemConfig { Path = "b.png" });
             items.Add(new PlaylistItemConfig { Path = "c.png" });

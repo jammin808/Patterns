@@ -560,7 +560,7 @@ public sealed class WebConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run
