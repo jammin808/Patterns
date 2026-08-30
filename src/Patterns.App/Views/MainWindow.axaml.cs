@@ -36,14 +36,23 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
+        if (DataContext is not MainViewModel vm) return;
+
+        // Plain F1–F12 recall looks (transport lives on Shift+F5–F8).
+        if (e.Key is >= Key.F1 and <= Key.F12 && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (vm.ApplyLookHotkey(e.Key - Key.F1 + 1))
+            {
+                e.Handled = true;
+            }
+            return;
+        }
+
         // Space toggles blackout — operator muscle memory — but never while typing.
         if (e.Key != Key.Space) return;
         var focused = FocusManager?.GetFocusedElement();
         if (focused is TextBox or NumericUpDown or ComboBox or AutoCompleteBox) return;
-        if (DataContext is MainViewModel vm)
-        {
-            vm.State.Blackout = !vm.State.Blackout;
-            e.Handled = true;
-        }
+        vm.State.Blackout = !vm.State.Blackout;
+        e.Handled = true;
     }
 }

@@ -31,7 +31,9 @@ fault containment, and settings that can never brick startup.
 - **LED wall mode** — describe the wall the way LED techs do: panel pixel size (any custom size,
   presets for 64–256 px), then either columns × rows or a target canvas (edge panels go partial,
   like the real thing). Tile borders, row-column / linear / serpentine data-run numbering,
-  pixel grid, center cross, dimension readouts.
+  pixel grid, center cross, dimension readouts. **Irregular walls too**: switch to the map
+  editor and drag mixed-size panels, offset blocks and gaps into place (they snap flush) —
+  or seed the map from the grid and edit the exceptions.
 - **Video wall mode** — standard-resolution display elements (landscape or portrait), any grid,
   bezel-loss hatching, per-element numbering, diagonals and center circles.
 - **Projection blend mode** — 2–12 projectors in a row or column, native resolution and overlap
@@ -53,10 +55,28 @@ fault containment, and settings that can never brick startup.
 - **Corporate branding** — brand kit (primary/secondary/accent/background/text + logo) that
   drives accents, checkerboards, colour cycles, particles and overlay text. Measurement lines
   stay neutral so patterns remain accurate. Kits save/load per client.
-- **User media** — your images (PNG/JPEG/BMP/WebP) with fit modes; your videos via libVLC
-  (bundled in the *full* download, optional otherwise). Everything you load lands in the
-  Library under *My media* for one-click recall. Media renders through the engine, so it
-  reaches spans and NDI too.
+- **User media & playlists** — your images (PNG/JPEG/BMP/WebP) with fit modes; your videos via
+  libVLC (bundled in the *full* download, optional otherwise). Everything you load lands in the
+  Library under *My media* for one-click recall — and the **playlist** source cycles files
+  and whole folders (rescanned live) in custom order or seeded shuffle, images on a dwell
+  timer, videos to their end, with per-item overrides and daily *play at HH:mm for N seconds*
+  scheduling. Media renders through the engine, so it reaches spans and NDI too.
+- **Looks & cues** — save the entire content state (pattern, per-screen patterns, overlays,
+  countdown, blackout) as a named look on `F1`–`F12`, then run the evening from a simple
+  schedule: *Walk-in 18:00 · Countdown 18:45 · Blackout 19:00*. Screen arrangement and NDI
+  infrastructure deliberately stay put when a look recalls.
+- **Portrait & mismatched house displays** — per-screen output rotation (90°/180°/270°,
+  content stays upright, the overview shows the rotated footprint) plus per-screen
+  brightness / gamma / RGB trims as exact 256-entry LUTs — match that one warm hotel plasma
+  without touching the rest of the rig.
+- **Soundcheck audio** — a click-free tone generator (20 Hz–20 kHz, dBFS level) and a channel
+  ident (one pip LEFT, two pips RIGHT) with a matching on-screen indicator on every output,
+  so front-of-house can confirm routing at a glance. Never auto-starts with the app.
+- **Ticker data feeds** — point the message ticker at an RSS/Atom feed, a CSV/text file of
+  lines, or an ICS calendar (next 24 h as `HH:mm Event`) — session schedules and wayfinding
+  straight onto the screens, refreshed on your interval.
+- **System fonts** — overlay text (clock, countdown, messages, chips) in any font installed
+  on the machine, with the bundled Inter as a travelling fallback.
 - **NDI® outputs** — any number of senders, each with its own name, resolution, frame rate,
   source (program or a specific screen) and bit depth — including **10-bit P216** with a
   BT.709 limited-range pipeline for serious ramp/banding checks. Feature-detected at runtime
@@ -71,9 +91,14 @@ fault containment, and settings that can never brick startup.
     <td><img src="docs/media/shot-smpte.png" alt="SMPTE RP 219-style bars with clock overlay"/></td>
     <td><img src="docs/media/shot-countdown.png" alt="Show countdown over branded bokeh particles"/></td>
   </tr>
+  <tr>
+    <td><img src="docs/media/shot-ledmap.png" alt="Irregular LED map editor with live preview"/></td>
+    <td><img src="docs/media/shot-looks.png" alt="Looks on F-keys with an evening cue schedule"/></td>
+  </tr>
 </table>
 
-*All four rendered by the engine exactly as outputs and NDI receive them.*
+*Patterns rendered by the engine exactly as outputs and NDI receive them; the irregular-map
+editor and the looks/cue schedule drive them live.*
 
 ## Quick start
 
@@ -81,17 +106,19 @@ fault containment, and settings that can never brick startup.
    put it in a folder you can write to (USB stick, desktop — anywhere).
 2. Run it. Arrange your screens on the **Outputs** page — drag them together for one big
    canvas, click a tile to enable/disable it or give it its own pattern.
-3. Choose a pattern (or click one in the **Library**), tune it, press **GO** (`F5`).
+3. Choose a pattern (or click one in the **Library**), tune it, press **GO** (`Shift+F5`).
 4. Everything — wall geometry, blend overlap, colours, countdowns — updates live on the outputs.
+5. Save the state as a **look** and put it on an F-key or the daily cue schedule (**Looks** tab).
 
 | Key | Action |
 |---|---|
-| `F5` | GO — open outputs |
-| `F6` | STOP — close outputs |
-| `F7` | IDENTIFY — flash screen numbers |
-| `F8` / `Space` | BLACKOUT toggle |
+| `F1`–`F12` | apply saved looks |
+| `Shift+F5` | GO — open outputs |
+| `Shift+F6` | STOP — close outputs |
+| `Shift+F7` | IDENTIFY — flash screen numbers |
+| `Shift+F8` / `Space` | BLACKOUT toggle |
 | on outputs: `Esc` | close outputs |
-| on outputs: `Space` / `B`, `I` | blackout, identify |
+| on outputs: `Space` / `B`, `I`, `F1`–`F12` | blackout, identify, looks |
 
 Settings autosave beside the exe (`patterns.settings.json`, atomic with backup); whole rigs save
 as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders next to the exe.
@@ -108,7 +135,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 113 tests: pixel-exact rendering, arrangement math, headless UI
+dotnet test                      # 182 tests: pixel-exact rendering, arrangement math, playlists, DSP, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.cmd   # → dist/win-x64-full/  (exe + bundled libVLC; Windows host)
 ```

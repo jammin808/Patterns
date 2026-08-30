@@ -87,10 +87,15 @@ public sealed class OutputWindowManager
             }
         }
 
+        var byPlacement = live.ToDictionary(x => x.Placement.ScreenId, x => x.Placement);
         var arranged = live
-            .Select(x => new ArrangedScreen(
-                x.Placement.ScreenId,
-                SKRectI.Create(x.Placement.X, x.Placement.Y, x.Info.Bounds.Width, x.Info.Bounds.Height)))
+            .Select(x =>
+            {
+                var size = EffectiveSize(x.Placement, x.Info);
+                return new ArrangedScreen(
+                    x.Placement.ScreenId,
+                    SKRectI.Create(x.Placement.X, x.Placement.Y, size.Width, size.Height));
+            })
             .ToList();
         var groups = ScreenLayout.Groups(arranged);
 
@@ -105,6 +110,7 @@ public sealed class OutputWindowManager
             foreach (var member in group)
             {
                 var info = byId[member.Id];
+                var placement = byPlacement[member.Id];
                 var viewport = group.Count > 1
                     ? new PipelineViewport(
                         SinkKind.Output,
@@ -115,11 +121,26 @@ public sealed class OutputWindowManager
                         info.Label)
                     : new PipelineViewport(
                         SinkKind.Output, SKSizeI.Empty, default, member.Id, indexOf[member.Id], info.Label);
+                viewport = viewport with
+                {
+                    Rotation = placement.Rotation,
+                    BrightnessPct = placement.BrightnessPct,
+                    Gamma = placement.Gamma,
+                    TrimRPct = placement.TrimRPct,
+                    TrimGPct = placement.TrimGPct,
+                    TrimBPct = placement.TrimBPct,
+                };
                 result.Add((info, viewport));
             }
         }
         return result;
     }
+
+    /// <summary>The size a screen occupies in arrangement space (swapped for portrait rotations).</summary>
+    public static SKSizeI EffectiveSize(ScreenPlacement placement, ScreenInfo info)
+        => placement.Rotation is OutputRotation.Rot90 or OutputRotation.Rot270
+            ? new SKSizeI(info.Bounds.Height, info.Bounds.Width)
+            : new SKSizeI(info.Bounds.Width, info.Bounds.Height);
 
     public void CloseAll()
     {

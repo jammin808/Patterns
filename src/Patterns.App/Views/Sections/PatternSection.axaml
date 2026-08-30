@@ -162,24 +162,60 @@
       </Grid>
 
       <TextBlock Classes="h2" Text="LED WALL — SIZE" />
-      <CheckBox Content="Define by canvas resolution (edge tiles may be partial)"
-                IsChecked="{Binding ActivePattern.LedWall.DefineByCanvas}" />
-      <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding !ActivePattern.LedWall.DefineByCanvas}">
-        <NumericUpDown Grid.Column="0" Minimum="1" Maximum="512" Increment="1" FormatString="0"
-                       Value="{Binding ActivePattern.LedWall.Columns, Mode=TwoWay, Converter={StaticResource Num}}"
-                       ToolTip.Tip="Columns" />
-        <NumericUpDown Grid.Column="2" Minimum="1" Maximum="512" Increment="1" FormatString="0"
-                       Value="{Binding ActivePattern.LedWall.Rows, Mode=TwoWay, Converter={StaticResource Num}}"
-                       ToolTip.Tip="Rows" />
-      </Grid>
-      <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding ActivePattern.LedWall.DefineByCanvas}">
-        <NumericUpDown Grid.Column="0" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
-                       Value="{Binding ActivePattern.LedWall.CanvasWidth, Mode=TwoWay, Converter={StaticResource Num}}"
-                       ToolTip.Tip="Canvas width" />
-        <NumericUpDown Grid.Column="2" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
-                       Value="{Binding ActivePattern.LedWall.CanvasHeight, Mode=TwoWay, Converter={StaticResource Num}}"
-                       ToolTip.Tip="Canvas height" />
-      </Grid>
+      <CheckBox Content="Irregular map (mixed panels, offsets, gaps)"
+                IsChecked="{Binding ActivePattern.LedWall.UseCustomMap}" />
+      <StackPanel IsVisible="{Binding !ActivePattern.LedWall.UseCustomMap}">
+        <CheckBox Content="Define by canvas resolution (edge tiles may be partial)"
+                  IsChecked="{Binding ActivePattern.LedWall.DefineByCanvas}" />
+        <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding !ActivePattern.LedWall.DefineByCanvas}">
+          <NumericUpDown Grid.Column="0" Minimum="1" Maximum="512" Increment="1" FormatString="0"
+                         Value="{Binding ActivePattern.LedWall.Columns, Mode=TwoWay, Converter={StaticResource Num}}"
+                         ToolTip.Tip="Columns" />
+          <NumericUpDown Grid.Column="2" Minimum="1" Maximum="512" Increment="1" FormatString="0"
+                         Value="{Binding ActivePattern.LedWall.Rows, Mode=TwoWay, Converter={StaticResource Num}}"
+                         ToolTip.Tip="Rows" />
+        </Grid>
+        <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding ActivePattern.LedWall.DefineByCanvas}">
+          <NumericUpDown Grid.Column="0" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
+                         Value="{Binding ActivePattern.LedWall.CanvasWidth, Mode=TwoWay, Converter={StaticResource Num}}"
+                         ToolTip.Tip="Canvas width" />
+          <NumericUpDown Grid.Column="2" Minimum="16" Maximum="16384" Increment="8" FormatString="0"
+                         Value="{Binding ActivePattern.LedWall.CanvasHeight, Mode=TwoWay, Converter={StaticResource Num}}"
+                         ToolTip.Tip="Canvas height" />
+        </Grid>
+      </StackPanel>
+
+      <!-- Irregular map editor -->
+      <StackPanel IsVisible="{Binding ActivePattern.LedWall.UseCustomMap}">
+        <Border Background="#0B0C10" CornerRadius="10" BorderBrush="{StaticResource HairlineBrush}"
+                BorderThickness="1" Height="240" ClipToBounds="True" Margin="0,4,0,2">
+          <c:LedMapEditorControl />
+        </Border>
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+          <Button Classes="chip" Content="+ Add panel" Command="{Binding AddLedTileCommand}" />
+          <Button Classes="chip" Content="Import grid" Command="{Binding ImportGridToMapCommand}"
+                  ToolTip.Tip="Seed the map from the rows × columns grid, then edit the exceptions" />
+          <Button Classes="chip" Content="Remove" Command="{Binding RemoveLedTileCommand}"
+                  IsEnabled="{Binding HasLedTileSelection}" />
+        </StackPanel>
+        <StackPanel IsVisible="{Binding HasLedTileSelection}">
+          <TextBlock Classes="label" Text="Selected panel (wall px): X · Y · W · H" Margin="0,6,0,0" />
+          <Grid ColumnDefinitions="*,6,*,6,*,6,*">
+            <NumericUpDown Grid.Column="0" Minimum="0" Maximum="32768" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                           Value="{Binding SelectedLedTile.X, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="X" />
+            <NumericUpDown Grid.Column="2" Minimum="0" Maximum="32768" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                           Value="{Binding SelectedLedTile.Y, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Y" />
+            <NumericUpDown Grid.Column="4" Minimum="8" Maximum="4096" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                           Value="{Binding SelectedLedTile.Width, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=128}" ToolTip.Tip="Width" />
+            <NumericUpDown Grid.Column="6" Minimum="8" Maximum="4096" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                           Value="{Binding SelectedLedTile.Height, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=128}" ToolTip.Tip="Height" />
+          </Grid>
+          <TextBox Watermark="Panel label (optional — blank = automatic number)"
+                   Text="{Binding SelectedLedTile.Label, FallbackValue=''}" />
+        </StackPanel>
+        <TextBlock Classes="hint"
+                   Text="Drag panels into place — they snap flush to neighbours. Gaps and mixed sizes are fine; the wall canvas is the bounding box of all panels." />
+      </StackPanel>
 
       <TextBlock Classes="h2" Text="LED WALL — MARKINGS" />
       <ComboBox ItemsSource="{Binding TileNumberings}"

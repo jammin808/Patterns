@@ -126,6 +126,7 @@ public sealed class PatternEngine
         var continuous = p.Kind is PatternKind.Motion or PatternKind.ColorCycle or PatternKind.Particles
             || (p.Kind == PatternKind.Checkerboard && p.Checker.Animate)
             || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Video)
+            || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)
             || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll);
 
         if (!continuous && s.Countdown.Enabled && s.Countdown.EndBehavior == CountdownEndBehavior.Flash)

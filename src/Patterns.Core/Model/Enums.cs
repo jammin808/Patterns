@@ -94,6 +94,42 @@ public enum MediaSource
 {
     Image,
     Video,
+    Playlist,
+}
+
+/// <summary>Physical output rotation (content is pre-rotated so viewers see it upright).</summary>
+public enum OutputRotation
+{
+    None,
+    /// <summary>90° clockwise — portrait, cable on the bottom-left.</summary>
+    Rot90,
+    /// <summary>Upside down (ceiling mount).</summary>
+    Rot180,
+    /// <summary>270° clockwise — portrait, cable on the top-right.</summary>
+    Rot270,
+}
+
+public enum ToneMode
+{
+    /// <summary>Steady sine on the selected channels.</summary>
+    Continuous,
+    /// <summary>Channel ident: one pip LEFT, two pips RIGHT, repeating — with on-screen indicator.</summary>
+    ChannelIdent,
+}
+
+public enum ToneChannels
+{
+    Both,
+    Left,
+    Right,
+}
+
+public enum FeedKind
+{
+    Auto,
+    Rss,
+    Csv,
+    Ics,
 }
 
 public enum Anchor9

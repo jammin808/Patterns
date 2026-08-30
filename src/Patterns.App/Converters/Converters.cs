@@ -68,6 +68,46 @@ public sealed class EnumEqualsConverter : IValueConverter
         => BindingOperations.DoNothing;
 }
 
+/// <summary>Full path → file name, for compact playlist rows. Null/blank-safe.</summary>
+public sealed class FileNameConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not string s || string.IsNullOrWhiteSpace(s)) return "";
+        try
+        {
+            return Path.GetFileName(s.TrimEnd('/', '\\')) is { Length: > 0 } name ? name : s;
+        }
+        catch
+        {
+            return s;
+        }
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}
+
+/// <summary>Hotkey slot number → key label: 0 → "No key", n → "Fn".</summary>
+public sealed class HotkeyLabelConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is int i && i > 0 ? $"F{i}" : "No key";
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}
+
+/// <summary>Number → true when &gt; 0 (badge/panel visibility for optional slots).</summary>
+public sealed class PositiveConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value switch { int i => i > 0, double d => d > 0, _ => false };
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}
+
 /// <summary>true/false → "On|Off"-style labels; parameter "A|B".</summary>
 public sealed class BoolToTextConverter : IValueConverter
 {

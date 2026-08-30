@@ -18,6 +18,19 @@ public readonly record struct BlendLayout(int Projectors, int NativeW, int Nativ
 /// <summary>Pure layout math shared by renderers, the UI (readouts) and tests.</summary>
 public static class CanvasResolver
 {
+    /// <summary>Canvas of an irregular map: the extents of its tiles.</summary>
+    public static SKSizeI LedCustomCanvas(LedWallOptions o)
+    {
+        var w = 0;
+        var h = 0;
+        foreach (var t in o.CustomTiles)
+        {
+            w = Math.Max(w, t.X + t.Width);
+            h = Math.Max(h, t.Y + t.Height);
+        }
+        return w > 0 && h > 0 ? new SKSizeI(w, h) : new SKSizeI(256, 256);
+    }
+
     public static LedLayout Led(LedWallOptions o)
     {
         if (o.DefineByCanvas)
@@ -53,7 +66,9 @@ public static class CanvasResolver
     {
         return p.Kind switch
         {
-            PatternKind.LedWall => Led(p.LedWall).Canvas,
+            PatternKind.LedWall => p.LedWall.UseCustomMap && p.LedWall.CustomTiles.Count > 0
+                ? LedCustomCanvas(p.LedWall)
+                : Led(p.LedWall).Canvas,
             PatternKind.VideoWall => VideoWall(p.VideoWall),
             PatternKind.ProjectionBlend => Blend(p.Blend).Canvas,
             _ => p.Canvas.FollowOutput || p.Canvas.Width <= 0 || p.Canvas.Height <= 0

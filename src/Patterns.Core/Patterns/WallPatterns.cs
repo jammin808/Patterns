@@ -14,6 +14,12 @@ public sealed class LedWallPattern : IPatternRenderer
     public void Render(SKCanvas c, in PatternFrame f)
     {
         var o = f.Config.LedWall;
+        if (o.UseCustomMap && o.CustomTiles.Count > 0)
+        {
+            RenderCustomMap(c, in f, o);
+            return;
+        }
+
         var layout = CanvasResolver.Led(o);
         var pc = f.Paints;
         int w = f.W, h = f.H;
@@ -112,6 +118,66 @@ public sealed class LedWallPattern : IPatternRenderer
             var info = $"{layout.Columns} × {layout.Rows} tiles · {layout.TileWidth}×{layout.TileHeight} px · {w}×{h}{(partial ? " · partial edge tiles" : "")}";
             DrawUtil.Chip(c, info, f.Canvas, Anchor9.BottomCenter, GridPattern.ChipText(f), pc,
                 f.Palette.Text, f.Palette.ChipBg);
+        }
+    }
+
+    /// <summary>Irregular wall: explicit tiles with mixed sizes, offsets and gaps.</summary>
+    private static void RenderCustomMap(SKCanvas c, in PatternFrame f, LedWallOptions o)
+    {
+        var pc = f.Paints;
+        c.Clear(f.Palette.Bg);
+
+        var tintA = f.Palette.Branded ? f.Palette.Accent.WithAlpha(0x24) : new SKColor(0x3E, 0xC1, 0xF3, 0x1E);
+        var tintB = f.Palette.Branded ? f.Palette.Secondary.WithAlpha(0x24) : new SKColor(0xF0, 0x3E, 0xAE, 0x1E);
+        var line = pc.Fill(f.Palette.Line);
+
+        for (var i = 0; i < o.CustomTiles.Count; i++)
+        {
+            var t = o.CustomTiles[i];
+            var rect = new SKRectI(t.X, t.Y, t.X + t.Width, t.Y + t.Height);
+
+            if (o.AlternateTint)
+            {
+                c.DrawRect(SKRect.Create(rect.Left, rect.Top, rect.Width, rect.Height),
+                    pc.Fill((i & 1) == 0 ? tintA : tintB));
+            }
+
+            if (o.ShowTileDiagonals)
+            {
+                var diag = pc.StrokeAA(new SKColor(0xFF, 0xFF, 0xFF, 0x50), 1);
+                c.DrawLine(rect.Left, rect.Top, rect.Right, rect.Bottom, diag);
+                c.DrawLine(rect.Right, rect.Top, rect.Left, rect.Bottom, diag);
+            }
+
+            if (o.ShowTileBorders)
+            {
+                DrawUtil.BorderInside(c, rect, 1, line);
+            }
+
+            if (t.Width >= 24 && t.Height >= 16)
+            {
+                var label = string.IsNullOrWhiteSpace(t.Label) ? (i + 1).ToString() : t.Label;
+                var font = pc.FontBold;
+                font.Size = Math.Clamp(Math.Min(t.Width, t.Height) * 0.3f, 7, 64);
+                DrawUtil.TextCentered(c, label, rect.MidX + 1, rect.MidY + 1, font, pc.Text(SKColors.Black));
+                DrawUtil.TextCentered(c, label, rect.MidX, rect.MidY, font, pc.Text(f.Palette.Text));
+
+                var sub = pc.FontRegular;
+                sub.Size = Math.Clamp(Math.Min(t.Width, t.Height) * 0.12f, 6, 22);
+                DrawUtil.TextCentered(c, $"{t.Width}×{t.Height}", rect.MidX, rect.MidY + font.Size * 0.75f, sub,
+                    pc.Text(new SKColor(0xFF, 0xFF, 0xFF, 0xA0)));
+            }
+        }
+
+        if (o.ShowCenterCross)
+        {
+            DrawUtil.Cross(c, f.W / 2, f.H / 2, Math.Min(f.W, f.H) / 6, 3, pc.Fill(f.Palette.Accent));
+        }
+
+        if (o.ShowInfo)
+        {
+            DrawUtil.Chip(c, $"{o.CustomTiles.Count} tiles · irregular map · {f.W}×{f.H}",
+                f.Canvas, Anchor9.BottomCenter, GridPattern.ChipText(f), pc, f.Palette.Text, f.Palette.ChipBg);
         }
     }
 

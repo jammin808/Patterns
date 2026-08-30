@@ -9,6 +9,9 @@
     <conv:HexColorConverter x:Key="HexColor" />
     <conv:BoolToTextConverter x:Key="BoolText" />
     <conv:EnumEqualsConverter x:Key="EnumEq" />
+    <conv:FileNameConverter x:Key="FileName" />
+    <conv:HotkeyLabelConverter x:Key="HotkeyLabel" />
+    <conv:PositiveConverter x:Key="Positive" />
 
     <!-- Palette -->
     <Color x:Key="AppBg">#0E0F13</Color>

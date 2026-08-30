@@ -22,8 +22,8 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Reconciles the running decoder with the current snapshot (UI thread).</summary>
     public void Reconcile(ShowSnapshot snap)
     {
-        var media = FindActiveVideo(snap.State);
-        var key = media is null ? "" : $"{media.VideoPath}|{media.Loop}|{media.Mute}";
+        var media = MediaLocator.FindActiveVideo(snap);
+        var key = media is null ? "" : $"{media.Value.Path}|{media.Value.Loop}|{media.Value.Mute}";
         if (key == _activeKey) return;
         _activeKey = key;
 
@@ -37,34 +37,20 @@ public sealed class VideoEngine : IDisposable
 
         try
         {
-            _source = new VlcFrameSource(_vlc!, media.VideoPath, media.Loop, media.Mute);
+            _source = new VlcFrameSource(_vlc!, media.Value.Path, media.Value.Loop, media.Value.Mute);
             VideoService.Current = _source;
         }
         catch (Exception ex)
         {
-            Log.Error($"Video open failed for '{media.VideoPath}'.", ex);
+            Log.Error($"Video open failed for '{media.Value.Path}'.", ex);
             VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
             // Forget the key so the next state change retries (the file may just not be ready yet).
             _activeKey = "";
         }
     }
 
-    /// <summary>The media options that should be playing (program first, then custom screens).</summary>
-    private static MediaOptions? FindActiveVideo(ShowState state)
-    {
-        static bool Wants(PatternConfig p) =>
-            p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Video &&
-            !string.IsNullOrWhiteSpace(p.Media.VideoPath);
-
-        if (Wants(state.Pattern)) return state.Pattern.Media;
-        foreach (var placement in state.Output.Placements)
-        {
-            if (!placement.UseCustomPattern || !placement.Enabled) continue;
-            var a = state.Independent.FirstOrDefault(x => x.ScreenId == placement.ScreenId);
-            if (a is not null && Wants(a.Pattern)) return a.Pattern.Media;
-        }
-        return null;
-    }
+    /// <summary>Whether video decode is available (initialises libVLC on first ask).</summary>
+    public bool EnsureAvailable() => EnsureVlc();
 
     private bool EnsureVlc()
     {
@@ -195,6 +181,17 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
     }
 
     public bool IsPlaying => _player.IsPlaying;
+
+    public bool IsEnded => _player.State == VLCState.Ended;
+
+    public double DurationSeconds
+    {
+        get
+        {
+            var ms = _player.Length;
+            return ms > 0 ? ms / 1000.0 : 0;
+        }
+    }
 
     public string StatusText => _player.State switch
     {

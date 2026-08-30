@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.AudioSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Audio" />
+    <TextBlock Classes="hint"
+               Text="Soundcheck signal for the audio engineer: a reference tone, or a channel ident — one pip LEFT, two pips RIGHT — with a matching on-screen indicator on every output, so what you see is what they hear." />
+
+    <TextBlock Classes="h2" Text="TONE GENERATOR" />
+    <ToggleButton Classes="blackout" Content="TONE ON / OFF" IsChecked="{Binding State.Tone.Enabled}"
+                  HorizontalAlignment="Left" Padding="16,8" />
+    <TextBlock Classes="label" Text="{Binding ToneStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint" Text="The tone never auto-starts with the app — it always comes up off." />
+
+    <StackPanel IsEnabled="{Binding State.Tone.Enabled}">
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Mode" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding ToneModes}"
+                  SelectedValue="{Binding State.Tone.Mode, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Channels" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding ToneChannelsList}"
+                  SelectedValue="{Binding State.Tone.Channels, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Frequency (Hz)" />
+        <NumericUpDown Grid.Column="1" Minimum="20" Maximum="20000" Increment="10" FormatString="0"
+                       Value="{Binding State.Tone.FrequencyHz, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Classes="mini" Content="100" Command="{Binding ToneFrequencyCommand}" CommandParameter="100" />
+        <Button Classes="mini" Content="440" Command="{Binding ToneFrequencyCommand}" CommandParameter="440" />
+        <Button Classes="mini" Content="1 k" Command="{Binding ToneFrequencyCommand}" CommandParameter="1000" />
+        <Button Classes="mini" Content="10 k" Command="{Binding ToneFrequencyCommand}" CommandParameter="10000" />
+      </StackPanel>
+      <Grid ColumnDefinitions="130,*,52">
+        <TextBlock Classes="label" Text="Level (dBFS)" />
+        <Slider Grid.Column="1" Minimum="-60" Maximum="0" TickFrequency="1"
+                Value="{Binding State.Tone.LevelDb, Mode=TwoWay}" />
+        <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Tone.LevelDb, StringFormat={}{0:0} dB}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="-18 dBFS is a common line-up level. The tone plays on the default Windows audio device; channel ident shows LEFT / RIGHT on screen in time with the pips." />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

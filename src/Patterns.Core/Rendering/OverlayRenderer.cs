@@ -31,9 +31,11 @@ public static class OverlayRenderer
             DrawCountdown(c, in f, cd);
         }
 
-        if (overlays.Message.Enabled && !string.IsNullOrWhiteSpace(overlays.Message.Text))
+        var msg = overlays.Message;
+        if (msg.Enabled &&
+            (!string.IsNullOrWhiteSpace(msg.Text) || (msg.UseFeed && f.Snapshot.FeedText.Length > 0)))
         {
-            DrawMessage(c, in f, overlays.Message);
+            DrawMessage(c, in f, msg);
         }
     }
 
@@ -54,6 +56,7 @@ public static class OverlayRenderer
     private static void DrawClock(SKCanvas c, in PatternFrame f, ClockOverlay o)
     {
         var pc = f.Paints;
+        var brandFamily = f.Snapshot.State.Brand.FontFamily;
         var now = f.Ctx.Now;
 
         var time = (o.TwentyFourHour, o.ShowSeconds) switch
@@ -65,7 +68,7 @@ public static class OverlayRenderer
         };
 
         var size = (float)(f.H * o.SizePct / 100);
-        var font = pc.FontBold;
+        var font = pc.FontFor(brandFamily, bold: true);
         font.Size = size;
         var timeW = DrawUtil.MeasureFixedDigits(time, font);
 
@@ -74,7 +77,7 @@ public static class OverlayRenderer
         float dateW = 0;
         if (date is not null)
         {
-            var df = pc.FontRegular;
+            var df = pc.FontFor(brandFamily, bold: false);
             df.Size = dateFontSize;
             dateW = df.MeasureText(date);
         }
@@ -99,7 +102,7 @@ public static class OverlayRenderer
 
         if (date is not null)
         {
-            var df = pc.FontRegular;
+            var df = pc.FontFor(brandFamily, bold: false);
             df.Size = dateFontSize;
             DrawUtil.TextCentered(c, date, rect.MidX, rect.Bottom - padY * 0.5f - dateFontSize * 0.55f,
                 df, pc.Text(textColor.WithAlpha((byte)(alpha * 0.82))));
@@ -122,8 +125,9 @@ public static class OverlayRenderer
         var showMessage = over && cd.EndBehavior == CountdownEndBehavior.Message && !string.IsNullOrWhiteSpace(cd.EndMessage);
         var digits = showMessage ? cd.EndMessage : CountdownService.Format(status.Remaining);
 
+        var brandFamily = f.Snapshot.State.Brand.FontFamily;
         var size = (float)(f.H * cd.SizePct / 100);
-        var font = pc.FontBold;
+        var font = pc.FontFor(brandFamily, bold: true);
         font.Size = size;
         var mainW = showMessage ? font.MeasureText(digits) : DrawUtil.MeasureFixedDigits(digits, font);
 
@@ -132,7 +136,7 @@ public static class OverlayRenderer
         float labelW = 0;
         if (label.Length > 0)
         {
-            var lf = pc.FontRegular;
+            var lf = pc.FontFor(brandFamily, bold: false);
             lf.Size = labelSize;
             labelW = lf.MeasureText(label);
         }
@@ -151,7 +155,7 @@ public static class OverlayRenderer
         var y = rect.Top + padY;
         if (label.Length > 0)
         {
-            var lf = pc.FontRegular;
+            var lf = pc.FontFor(brandFamily, bold: false);
             lf.Size = labelSize;
             DrawUtil.TextCentered(c, label, rect.MidX, y + labelSize * 0.6f, lf, pc.Text(f.Palette.Accent));
             y += labelSize * 1.7f;
@@ -188,9 +192,10 @@ public static class OverlayRenderer
     {
         var pc = f.Paints;
         var size = (float)(f.H * o.SizePct / 100);
-        var font = pc.FontBold;
+        var font = pc.FontFor(f.Snapshot.State.Brand.FontFamily, bold: true);
         font.Size = size;
-        var text = o.Text;
+        // A live feed replaces the static text when configured and delivering.
+        var text = o.UseFeed && f.Snapshot.FeedText.Length > 0 ? f.Snapshot.FeedText : o.Text;
         var textW = font.MeasureText(text);
         var messageColor = f.Color(o.TextColor, f.Palette.Text);
 
@@ -216,7 +221,7 @@ public static class OverlayRenderer
             return;
         }
 
-        DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, f.Palette.ChipBg);
+        DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, f.Palette.ChipBg, fontOverride: font);
     }
 
     /// <summary>Viewport-space overlays: crisp per-sink info chip and the identify badge.</summary>
@@ -228,6 +233,14 @@ public static class OverlayRenderer
         if (ctx.Sink == SinkKind.Output && snap.IdentifyUntilUtc is { } until && until > ctx.UtcNow)
         {
             DrawIdentify(c, snap, in ctx, sink, palette, until);
+        }
+
+        // Soundcheck channel indicator — deliberately visible during blackout too.
+        if (snap.ToneIndicator.Length > 0 && ctx.Sink != SinkKind.Thumbnail)
+        {
+            var toneSize = Math.Clamp(ctx.ViewportSize.Height * 0.035f, 12, 44);
+            DrawUtil.Chip(c, $"♪ {snap.State.Tone.FrequencyHz:0} Hz — {snap.ToneIndicator}",
+                ctx.ViewportSize, Anchor9.TopCenter, toneSize, sink.Paints, palette.Accent, palette.ChipBg);
         }
 
         if (blackout) return;

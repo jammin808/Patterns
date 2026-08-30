@@ -115,9 +115,10 @@ public sealed class ScreenArrangeControl : Control
         {
             var info = screens.FirstOrDefault(s => s.Id == p.ScreenId);
             if (info is null) continue;
+            var size = OutputWindowManager.EffectiveSize(p, info);
             var rect = p == _dragPlacement && _dragging
                 ? _dragPreview
-                : SKRectI.Create(p.X, p.Y, info.Bounds.Width, info.Bounds.Height);
+                : SKRectI.Create(p.X, p.Y, size.Width, size.Height);
             entries.Add((p, info, rect));
         }
         if (entries.Count == 0) return null;

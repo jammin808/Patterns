@@ -22,6 +22,15 @@ public sealed class ShowSnapshot
     /// </summary>
     public DateTime? IdentifyUntilUtc { get; init; }
 
+    /// <summary>Runtime-only: what the playlist is showing right now (null = none).</summary>
+    public PlaylistNow? PlaylistNow { get; init; }
+
+    /// <summary>Runtime-only: on-screen channel-ident indicator ("LEFT", "RIGHT", "L+R"; empty = none).</summary>
+    public string ToneIndicator { get; init; } = "";
+
+    /// <summary>Runtime-only: live ticker text from the configured feed (empty = use static text).</summary>
+    public string FeedText { get; init; } = "";
+
     public SKColor Color(string? hex, SKColor fallback)
     {
         if (string.IsNullOrWhiteSpace(hex)) return fallback;
@@ -122,6 +131,15 @@ public sealed class SnapshotBus
     /// <summary>Set by the publisher before <see cref="Publish"/> to flash screen badges.</summary>
     public DateTime? IdentifyUntilUtc { get; set; }
 
+    /// <summary>Set by the playlist service; carried on every snapshot.</summary>
+    public PlaylistNow? PlaylistNow { get; set; }
+
+    /// <summary>Set by the audio service while channel ident runs.</summary>
+    public string ToneIndicator { get; set; } = "";
+
+    /// <summary>Set by the feed service; carried on every snapshot.</summary>
+    public string FeedText { get; set; } = "";
+
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
@@ -132,8 +150,14 @@ public sealed class SnapshotBus
             State = JsonUtil.Clone(state),
             Version = ++_version,
             IdentifyUntilUtc = IdentifyUntilUtc,
+            PlaylistNow = PlaylistNow,
+            ToneIndicator = ToneIndicator,
+            FeedText = FeedText,
         };
         _current = snap;
         Changed?.Invoke();
     }
 }
+
+/// <summary>The playlist item currently on screen (immutable; carried on snapshots).</summary>
+public sealed record PlaylistNow(string Path, bool IsVideo, int Index, int Count, DateTime StartedUtc, double DurationSeconds);

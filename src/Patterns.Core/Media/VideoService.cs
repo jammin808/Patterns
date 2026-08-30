@@ -16,6 +16,12 @@ public interface IVideoFrameSource
 
     bool IsPlaying { get; }
 
+    /// <summary>True when the media reached its natural end (drives playlist advance).</summary>
+    bool IsEnded { get; }
+
+    /// <summary>Decoder-reported length in seconds; 0 when unknown.</summary>
+    double DurationSeconds { get; }
+
     /// <summary>Human-readable state for the placeholder card ("opening…", "libVLC not found", …).</summary>
     string StatusText { get; }
 }

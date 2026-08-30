@@ -21,6 +21,9 @@ public sealed class AppServices
     public ScreenService Screens { get; }
     public OutputWindowManager Outputs { get; }
     public VideoEngine Video { get; }
+    public PlaylistService Playlist { get; }
+    public FeedService Feeds { get; }
+    public AudioService Audio { get; }
 
     public MainWindow? MainWindow { get; private set; }
 
@@ -56,12 +59,16 @@ public sealed class AppServices
 
         State = Store.Load();
         State.Blackout = false;
+        State.Tone.Enabled = false; // a tone must never auto-start with the app
 
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
+        Playlist = new PlaylistService(this);
+        Feeds = new FeedService(this);
+        Audio = new AudioService(this);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
         _saveTimer.Tick += (_, _) =>
@@ -153,6 +160,18 @@ public sealed class AppServices
         OnStateChanged();
     }
 
+    /// <summary>
+    /// Publishes a snapshot for a runtime-only change (playlist item, tone indicator, feed
+    /// text) — sinks refresh, but the settings save timer is left alone.
+    /// </summary>
+    public void PublishRuntime()
+    {
+        if (_bulkDepth > 0) return;
+        Bus.Publish(State);
+        Outputs.NotifySnapshot();
+        SnapshotPublished?.Invoke();
+    }
+
     public void SaveNow()
     {
         if (!_autosave) return;
@@ -172,6 +191,9 @@ public sealed class AppServices
         {
             Outputs.CloseAll();
             Ndi.StopAll();
+            Audio.Dispose();
+            Playlist.Dispose();
+            Feeds.Dispose();
             Video.Dispose();
             SaveNow();
             _instanceMutex?.Dispose();

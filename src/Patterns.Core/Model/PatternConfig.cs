@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
 namespace Patterns.Core.Model;
@@ -120,6 +121,23 @@ public sealed class FlatFieldOptions : Observable
     public bool ShowBorder { get => _showBorder; set => Set(ref _showBorder, value); }
 }
 
+/// <summary>One panel in an irregular LED map (canvas-space pixels).</summary>
+public sealed class LedTileConfig : Observable
+{
+    private int _x;
+    private int _y;
+    private int _width = 128;
+    private int _height = 128;
+    private string _label = "";
+
+    public int X { get => _x; set => Set(ref _x, Math.Clamp(value, 0, 32768)); }
+    public int Y { get => _y; set => Set(ref _y, Math.Clamp(value, 0, 32768)); }
+    public int Width { get => _width; set => Set(ref _width, Math.Clamp(value, 8, 4096)); }
+    public int Height { get => _height; set => Set(ref _height, Math.Clamp(value, 8, 4096)); }
+    /// <summary>Optional label; empty = automatic number in list order.</summary>
+    public string Label { get => _label; set => Set(ref _label, value); }
+}
+
 /// <summary>Defines an LED wall as tiles (panels/cabinets) of a fixed pixel size.</summary>
 public sealed class LedWallOptions : Observable
 {
@@ -138,6 +156,12 @@ public sealed class LedWallOptions : Observable
     private bool _showCenterCross = true;
     private bool _showInfo = true;
     private bool _showTileDiagonals = false;
+    private bool _useCustomMap;
+
+    /// <summary>Irregular wall: use <see cref="CustomTiles"/> (mixed sizes, offsets, gaps) instead of the grid.</summary>
+    public bool UseCustomMap { get => _useCustomMap; set => Set(ref _useCustomMap, value); }
+
+    public ObservableCollection<LedTileConfig> CustomTiles { get; init; } = new();
 
     /// <summary>Pixel width of one LED panel/cabinet (free input; presets offered by the UI).</summary>
     public int TileWidth { get => _tileWidth; set => Set(ref _tileWidth, Math.Clamp(value, 8, 1024)); }
@@ -266,6 +290,46 @@ public sealed class ColorCycleOptions : Observable
     public bool ShowLabel { get => _showLabel; set => Set(ref _showLabel, value); }
 }
 
+/// <summary>One entry in a media playlist.</summary>
+public sealed class PlaylistItemConfig : Observable
+{
+    private string _path = "";
+    private double _durationSeconds;
+    private string _scheduledTime = "";
+    private double _scheduledDurationSeconds = 60;
+
+    public string Path { get => _path; set => Set(ref _path, value); }
+    /// <summary>Seconds to hold this item; 0 = default (image dwell, or the video's natural length).</summary>
+    public double DurationSeconds { get => _durationSeconds; set => Set(ref _durationSeconds, Math.Clamp(value, 0, 24 * 3600)); }
+    /// <summary>"HH:mm" — when set, this item interrupts the cycle daily at that time.</summary>
+    public string ScheduledTime { get => _scheduledTime; set => Set(ref _scheduledTime, value); }
+    /// <summary>How long a scheduled interruption holds before the cycle resumes.</summary>
+    public double ScheduledDurationSeconds { get => _scheduledDurationSeconds; set => Set(ref _scheduledDurationSeconds, Math.Clamp(value, 1, 24 * 3600)); }
+}
+
+/// <summary>Media playlist: explicit items (in custom order) plus scanned folders, looped.</summary>
+public sealed class PlaylistOptions : Observable
+{
+    private double _imageDwellSeconds = 8;
+    private bool _videoFullLength = true;
+    private bool _shuffle;
+    private int _shuffleSeed = 1;
+    private bool _includeImages = true;
+    private bool _includeVideos = true;
+
+    public ObservableCollection<PlaylistItemConfig> Items { get; init; } = new();
+    /// <summary>Folders scanned (recursively) for media; results play after the explicit items, name-sorted.</summary>
+    public ObservableCollection<string> Folders { get; init; } = new();
+
+    public double ImageDwellSeconds { get => _imageDwellSeconds; set => Set(ref _imageDwellSeconds, Math.Clamp(value, 1, 3600)); }
+    /// <summary>Play videos to their end (needs libVLC); off = videos get the image dwell time.</summary>
+    public bool VideoFullLength { get => _videoFullLength; set => Set(ref _videoFullLength, value); }
+    public bool Shuffle { get => _shuffle; set => Set(ref _shuffle, value); }
+    public int ShuffleSeed { get => _shuffleSeed; set => Set(ref _shuffleSeed, value); }
+    public bool IncludeImages { get => _includeImages; set => Set(ref _includeImages, value); }
+    public bool IncludeVideos { get => _includeVideos; set => Set(ref _includeVideos, value); }
+}
+
 public sealed class MediaOptions : Observable
 {
     private MediaSource _source = MediaSource.Image;
@@ -283,6 +347,8 @@ public sealed class MediaOptions : Observable
     public bool Loop { get => _loop; set => Set(ref _loop, value); }
     public bool Mute { get => _mute; set => Set(ref _mute, value); }
     public string BackgroundColor { get => _backgroundColor; set => Set(ref _backgroundColor, value); }
+
+    public PlaylistOptions Playlist { get; init; } = new();
 }
 
 /// <summary>The particle mini-studio parameters.</summary>

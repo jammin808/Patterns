@@ -28,6 +28,12 @@ public sealed class ScreenPlacement : Observable
     private bool _enabled = true;
     private bool _useCustomPattern;
     private bool _userPinned;
+    private OutputRotation _rotation = OutputRotation.None;
+    private double _brightnessPct = 100;
+    private double _gamma = 1.0;
+    private double _trimRPct = 100;
+    private double _trimGPct = 100;
+    private double _trimBPct = 100;
 
     public string ScreenId { get => _screenId; set => Set(ref _screenId, value); }
     /// <summary>Arranged position in device pixels (top-left).</summary>
@@ -39,6 +45,19 @@ public sealed class ScreenPlacement : Observable
     public bool UseCustomPattern { get => _useCustomPattern; set => Set(ref _useCustomPattern, value); }
     /// <summary>Set once the user chose Enabled manually — stops automatic defaults overriding them.</summary>
     public bool UserPinned { get => _userPinned; set => Set(ref _userPinned, value); }
+
+    /// <summary>Physical rotation — content is pre-rotated so a rotated display reads upright.</summary>
+    public OutputRotation Rotation { get => _rotation; set => Set(ref _rotation, value); }
+    public double BrightnessPct { get => _brightnessPct; set => Set(ref _brightnessPct, Math.Clamp(value, 10, 200)); }
+    /// <summary>Midtone gamma trim; 1.0 = neutral, above darkens mids, below lifts them.</summary>
+    public double Gamma { get => _gamma; set => Set(ref _gamma, Math.Clamp(value, 0.4, 2.5)); }
+    public double TrimRPct { get => _trimRPct; set => Set(ref _trimRPct, Math.Clamp(value, 25, 175)); }
+    public double TrimGPct { get => _trimGPct; set => Set(ref _trimGPct, Math.Clamp(value, 25, 175)); }
+    public double TrimBPct { get => _trimBPct; set => Set(ref _trimBPct, Math.Clamp(value, 25, 175)); }
+
+    public bool HasTrims =>
+        Math.Abs(_brightnessPct - 100) > 0.01 || Math.Abs(_gamma - 1.0) > 0.001 ||
+        Math.Abs(_trimRPct - 100) > 0.01 || Math.Abs(_trimGPct - 100) > 0.01 || Math.Abs(_trimBPct - 100) > 0.01;
 }
 
 /// <summary>Per-screen pattern in Independent mode.</summary>
@@ -110,9 +129,24 @@ public sealed class MessageOverlay : Observable
     private bool _scroll = false;
     private double _scrollPxPerSec = 120;
     private string _textColor = "";
+    private bool _useFeed;
+    private string _feedSource = "";
+    private FeedKind _feedKind = FeedKind.Auto;
+    private double _feedRefreshMinutes = 10;
+    private string _feedSeparator = "   •   ";
+    private int _feedMaxItems = 30;
 
     /// <summary>Message text colour; empty = brand/theme text colour.</summary>
     public string TextColor { get => _textColor; set => Set(ref _textColor, value); }
+
+    /// <summary>Replace the static text with a live feed (RSS/Atom, CSV lines, or ICS calendar).</summary>
+    public bool UseFeed { get => _useFeed; set => Set(ref _useFeed, value); }
+    /// <summary>http(s) URL or a local file path.</summary>
+    public string FeedSource { get => _feedSource; set => Set(ref _feedSource, value); }
+    public FeedKind FeedKind { get => _feedKind; set => Set(ref _feedKind, value); }
+    public double FeedRefreshMinutes { get => _feedRefreshMinutes; set => Set(ref _feedRefreshMinutes, Math.Clamp(value, 0.5, 24 * 60)); }
+    public string FeedSeparator { get => _feedSeparator; set => Set(ref _feedSeparator, value); }
+    public int FeedMaxItems { get => _feedMaxItems; set => Set(ref _feedMaxItems, Math.Clamp(value, 1, 200)); }
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public string Text { get => _text; set => Set(ref _text, value); }
@@ -175,6 +209,10 @@ public sealed class BrandKit : Observable
     private string _textColor = "#FFFFFF";
     private string _logoPath = "";
     private bool _applyToPatterns = false;
+    private string _fontFamily = "";
+
+    /// <summary>System font family for overlay text (clock, countdown, message); empty = built-in Inter.</summary>
+    public string FontFamily { get => _fontFamily; set => Set(ref _fontFamily, value); }
 
     public string CompanyName { get => _companyName; set => Set(ref _companyName, value); }
     public string PrimaryColor { get => _primaryColor; set => Set(ref _primaryColor, value); }
@@ -223,6 +261,63 @@ public sealed class NdiConfig : Observable
     public ObservableCollection<NdiSenderConfig> Senders { get; init; } = new();
 }
 
+/// <summary>Soundcheck tone generator (Windows audio device).</summary>
+public sealed class ToneConfig : Observable
+{
+    private bool _enabled;
+    private double _frequencyHz = 1000;
+    private double _levelDb = -18;
+    private ToneMode _mode = ToneMode.ChannelIdent;
+    private ToneChannels _channels = ToneChannels.Both;
+
+    /// <summary>Reset to off at startup — a tone must never auto-start with the app.</summary>
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public double FrequencyHz { get => _frequencyHz; set => Set(ref _frequencyHz, Math.Clamp(value, 20, 20000)); }
+    /// <summary>Output level in dBFS.</summary>
+    public double LevelDb { get => _levelDb; set => Set(ref _levelDb, Math.Clamp(value, -60, 0)); }
+    public ToneMode Mode { get => _mode; set => Set(ref _mode, value); }
+    /// <summary>Channel routing for continuous mode (ident alternates L/R by itself).</summary>
+    public ToneChannels Channels { get => _channels; set => Set(ref _channels, value); }
+}
+
+/// <summary>A saved content state ("look"): pattern, per-screen patterns, overlays, countdown, blackout.</summary>
+public sealed class LookConfig : Observable
+{
+    private string _name = "Look";
+    private int _hotkey;
+    private string _json = "";
+
+    public string Name { get => _name; set => Set(ref _name, value); }
+    /// <summary>1–12 → F1–F12; 0 = no hotkey.</summary>
+    public int Hotkey { get => _hotkey; set => Set(ref _hotkey, Math.Clamp(value, 0, 12)); }
+    /// <summary>The captured state, stored as an opaque JSON blob (LookData).</summary>
+    public string Json { get => _json; set => Set(ref _json, value); }
+}
+
+/// <summary>A scheduled recall: apply a look at a time of day, daily.</summary>
+public sealed class CueConfig : Observable
+{
+    private bool _enabled = true;
+    private string _time = "18:00";
+    private string _lookName = "";
+    private DateTime? _lastFiredDate;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    /// <summary>"HH:mm" local.</summary>
+    public string Time { get => _time; set => Set(ref _time, value); }
+    public string LookName { get => _lookName; set => Set(ref _lookName, value); }
+
+    /// <summary>Runtime-only: the date this cue last fired (fires once per day).</summary>
+    [JsonIgnore]
+    public DateTime? LastFiredDate { get => _lastFiredDate; set => Set(ref _lastFiredDate, value); }
+}
+
+public sealed class LooksConfig : Observable
+{
+    public ObservableCollection<LookConfig> Looks { get; init; } = new();
+    public ObservableCollection<CueConfig> Cues { get; init; } = new();
+}
+
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
@@ -240,6 +335,8 @@ public sealed class ShowState : Observable
     public CountdownConfig Countdown { get; init; } = new();
     public BrandKit Brand { get; init; } = new();
     public NdiConfig Ndi { get; init; } = new();
+    public ToneConfig Tone { get; init; } = new();
+    public LooksConfig LooksAndCues { get; init; } = new();
 
     /// <summary>Media the operator has loaded — surfaces in the Library under "My media".</summary>
     public ObservableCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();

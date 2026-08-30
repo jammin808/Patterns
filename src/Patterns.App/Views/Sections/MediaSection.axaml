@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:c="using:Patterns.App.Views.Controls"
+             xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.MediaSection"
              x:DataType="vm:MainViewModel">
 
@@ -14,21 +15,111 @@
               SelectedValue="{Binding ActivePattern.Media.Source, Mode=TwoWay}"
               SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
 
-    <TextBlock Classes="h2" Text="IMAGE" />
-    <Grid ColumnDefinitions="*,8,Auto">
-      <TextBox Grid.Column="0" Watermark="PNG, JPEG, BMP, WebP…" Text="{Binding ActivePattern.Media.ImagePath}" />
-      <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseImageCommand}" />
-    </Grid>
+    <!-- Single image -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Image}}">
+      <TextBlock Classes="h2" Text="IMAGE" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <TextBox Grid.Column="0" Watermark="PNG, JPEG, BMP, WebP…" Text="{Binding ActivePattern.Media.ImagePath}" />
+        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseImageCommand}" />
+      </Grid>
+    </StackPanel>
 
-    <TextBlock Classes="h2" Text="VIDEO" />
-    <Grid ColumnDefinitions="*,8,Auto">
-      <TextBox Grid.Column="0" Watermark="MP4, MOV, MKV…" Text="{Binding ActivePattern.Media.VideoPath}" />
-      <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseVideoCommand}" />
-    </Grid>
-    <CheckBox Content="Loop" IsChecked="{Binding ActivePattern.Media.Loop}" />
-    <CheckBox Content="Mute" IsChecked="{Binding ActivePattern.Media.Mute}" />
+    <!-- Single video -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Video}}">
+      <TextBlock Classes="h2" Text="VIDEO" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <TextBox Grid.Column="0" Watermark="MP4, MOV, MKV…" Text="{Binding ActivePattern.Media.VideoPath}" />
+        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseVideoCommand}" />
+      </Grid>
+      <CheckBox Content="Loop" IsChecked="{Binding ActivePattern.Media.Loop}" />
+      <CheckBox Content="Mute audio" IsChecked="{Binding ActivePattern.Media.Mute}" />
+    </StackPanel>
+
+    <!-- Playlist -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Playlist}}">
+      <TextBlock Classes="h2" Text="PLAYLIST" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="chip" Content="+ Add files…" Command="{Binding AddPlaylistFilesCommand}" />
+        <Button Classes="chip" Content="+ Add folder…" Command="{Binding AddPlaylistFolderCommand}" />
+      </StackPanel>
+      <TextBlock Classes="label" Text="{Binding PlaylistStatus}" Margin="0,4,0,2" TextWrapping="Wrap" />
+
+      <ItemsControl ItemsSource="{Binding ActivePattern.Media.Playlist.Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:PlaylistItemConfig">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,3">
+              <StackPanel>
+                <Grid ColumnDefinitions="*,4,Auto,Auto,Auto">
+                  <TextBlock Grid.Column="0" Text="{Binding Path, Converter={StaticResource FileName}}"
+                             FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                             ToolTip.Tip="{Binding Path}" />
+                  <Button Grid.Column="2" Classes="mini" Content="↑"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePlaylistItemUpCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Grid.Column="3" Classes="mini" Content="↓"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePlaylistItemDownCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Grid.Column="4" Classes="mini" Content="✕"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistItemCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,4,52,10,Auto,4,58,4,Auto,4,*" Margin="0,4,0,0">
+                  <TextBlock Grid.Column="0" Classes="label" Text="Hold (s)" VerticalAlignment="Center"
+                             ToolTip.Tip="Seconds to show this item; 0 = default (image dwell / full video)" />
+                  <NumericUpDown Grid.Column="2" Minimum="0" Maximum="86400" Increment="5" FormatString="0" ShowButtonSpinner="False"
+                                 Value="{Binding DurationSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <TextBlock Grid.Column="4" Classes="label" Text="At" VerticalAlignment="Center"
+                             ToolTip.Tip="Daily play time (24 h HH:mm) — interrupts the cycle; blank = plays in turn" />
+                  <TextBox Grid.Column="6" Watermark="HH:mm" Text="{Binding ScheduledTime}" />
+                  <TextBlock Grid.Column="8" Classes="label" Text="for (s)" VerticalAlignment="Center" />
+                  <NumericUpDown Grid.Column="10" Minimum="1" Maximum="86400" Increment="10" FormatString="0" ShowButtonSpinner="False"
+                                 Value="{Binding ScheduledDurationSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Classes="h2" Text="PLAYLIST — FOLDERS" />
+      <ItemsControl ItemsSource="{Binding ActivePattern.Media.Playlist.Folders}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <Grid ColumnDefinitions="*,6,Auto" Margin="0,2">
+              <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}" />
+              <Button Grid.Column="2" Classes="mini" Content="✕"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistFolderCommand}"
+                      CommandParameter="{Binding}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Classes="hint"
+                 Text="Folder media (scanned with subfolders) plays after the items above, sorted by name. New files are picked up automatically." />
+
+      <TextBlock Classes="h2" Text="PLAYLIST — PLAYBACK" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Image dwell (s)" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="3600" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Media.Playlist.ImageDwellSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Play videos to their end" IsChecked="{Binding ActivePattern.Media.Playlist.VideoFullLength}" />
+      <CheckBox Content="Shuffle (seeded — same order until reshuffled)" IsChecked="{Binding ActivePattern.Media.Playlist.Shuffle}" />
+      <Grid ColumnDefinitions="130,*" IsVisible="{Binding ActivePattern.Media.Playlist.Shuffle}">
+        <TextBlock Classes="label" Text="Shuffle seed" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="99999" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Media.Playlist.ShuffleSeed, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <CheckBox Content="Include images" IsChecked="{Binding ActivePattern.Media.Playlist.IncludeImages}" />
+      <CheckBox Content="Include videos" IsChecked="{Binding ActivePattern.Media.Playlist.IncludeVideos}" />
+      <CheckBox Content="Mute video audio" IsChecked="{Binding ActivePattern.Media.Mute}" />
+      <TextBlock Classes="hint"
+                 Text="The playlist loops continuously while this pattern is live. Items play in list order (use ↑ ↓ for a custom order) or shuffled; 'At HH:mm' items interrupt daily at that time, then the cycle resumes." />
+    </StackPanel>
+
     <TextBlock Classes="hint"
-               Text="Video decoding uses libVLC when available: install 64-bit VLC, or put a 'libvlc' folder beside Patterns.exe. Images always work." />
+               Text="Video decoding uses libVLC when available: install 64-bit VLC, or put a 'libvlc' folder beside Patterns.exe (the 'full' build ships it). Images always work." />
 
     <TextBlock Classes="h2" Text="FIT" />
     <ComboBox ItemsSource="{Binding FitModes}"

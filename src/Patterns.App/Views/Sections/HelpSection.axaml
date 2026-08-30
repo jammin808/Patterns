@@ -8,15 +8,16 @@
     <TextBlock Classes="h1" Text="Help" />
 
     <TextBlock Classes="h2" Text="KEYS" />
-    <TextBlock TextWrapping="Wrap" LineHeight="22" xml:space="preserve">F5   GO — open outputs
-F6   STOP — close outputs
-F7   IDENTIFY — flash screen numbers
-F8 / Space   BLACKOUT toggle
-On outputs:  Esc close · Space/B blackout · I identify</TextBlock>
+    <TextBlock TextWrapping="Wrap" LineHeight="22" xml:space="preserve">F1–F12   apply saved looks (Looks tab)
+⇧F5   GO — open outputs
+⇧F6   STOP — close outputs
+⇧F7   IDENTIFY — flash screen numbers
+⇧F8 / Space   BLACKOUT toggle
+On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks</TextBlock>
 
     <TextBlock Classes="h2" Text="WORKFLOW" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
+               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  4) Save the state as a look (Looks tab) and put it on an F-key or the daily schedule.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
 
     <TextBlock Classes="h2" Text="PORTABLE FILES" />
     <TextBlock Classes="hint" TextWrapping="Wrap"

@@ -58,6 +58,17 @@ public sealed class OutputWindow : Window
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        // Look hotkeys work here too — the operator may be standing at an output screen.
+        if (e.Key is >= Key.F1 and <= Key.F12 && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (_services.MainWindow?.DataContext is ViewModels.MainViewModel vm &&
+                vm.ApplyLookHotkey(e.Key - Key.F1 + 1))
+            {
+                e.Handled = true;
+            }
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Escape:

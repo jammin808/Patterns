@@ -135,6 +135,35 @@ public static class Lists
         new(CanvasScaleMode.OneToOne, "1:1 pixels (centre)"),
     };
 
+    public static readonly EnumItem[] Rotations =
+    {
+        new(OutputRotation.None, "Landscape (no rotation)"),
+        new(OutputRotation.Rot90, "Portrait — rotate 90°"),
+        new(OutputRotation.Rot270, "Portrait — rotate 270°"),
+        new(OutputRotation.Rot180, "Upside down (180°)"),
+    };
+
+    public static readonly EnumItem[] ToneModes =
+    {
+        new(ToneMode.ChannelIdent, "Channel ident (L pip · R pip-pip)"),
+        new(ToneMode.Continuous, "Continuous tone"),
+    };
+
+    public static readonly EnumItem[] ToneChannelsList =
+    {
+        new(ToneChannels.Both, "Left + Right"),
+        new(ToneChannels.Left, "Left only"),
+        new(ToneChannels.Right, "Right only"),
+    };
+
+    public static readonly EnumItem[] FeedKinds =
+    {
+        new(FeedKind.Auto, "Auto-detect"),
+        new(FeedKind.Rss, "RSS / Atom"),
+        new(FeedKind.Csv, "CSV / plain lines"),
+        new(FeedKind.Ics, "ICS calendar"),
+    };
+
     public static readonly ResolutionPreset[] Resolutions =
     {
         new("HD 720p — 1280×720", 1280, 720),

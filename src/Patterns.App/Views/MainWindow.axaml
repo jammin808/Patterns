@@ -11,11 +11,12 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource AppBgBrush}">
 
+  <!-- Plain F1–F12 are look hotkeys (handled in code-behind); transport sits on Shift+F5–F8. -->
   <Window.KeyBindings>
-    <KeyBinding Gesture="F5" Command="{Binding GoCommand}" />
-    <KeyBinding Gesture="F6" Command="{Binding StopCommand}" />
-    <KeyBinding Gesture="F7" Command="{Binding IdentifyCommand}" />
-    <KeyBinding Gesture="F8" Command="{Binding BlackoutCommand}" />
+    <KeyBinding Gesture="Shift+F5" Command="{Binding GoCommand}" />
+    <KeyBinding Gesture="Shift+F6" Command="{Binding StopCommand}" />
+    <KeyBinding Gesture="Shift+F7" Command="{Binding IdentifyCommand}" />
+    <KeyBinding Gesture="Shift+F8" Command="{Binding BlackoutCommand}" />
   </Window.KeyBindings>
 
   <Grid RowDefinitions="Auto,*">
@@ -35,14 +36,14 @@
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <TextBlock Text="{Binding HeaderClock}" FontSize="18" FontWeight="SemiBold"
                      VerticalAlignment="Center" Margin="0,0,10,0" />
-          <Button Classes="go" Content="GO  (F5)" Command="{Binding GoCommand}"
-                  ToolTip.Tip="Open pattern outputs on the selected screens" />
-          <Button Classes="stop" Content="STOP (F6)" Command="{Binding StopCommand}"
-                  ToolTip.Tip="Close all output windows" />
-          <Button Classes="stop" Content="IDENTIFY (F7)" Command="{Binding IdentifyCommand}"
-                  ToolTip.Tip="Flash screen numbers on every output" />
-          <ToggleButton Classes="blackout" Content="BLACKOUT (F8)" IsChecked="{Binding State.Blackout}"
-                        ToolTip.Tip="Instant black on all outputs and NDI" />
+          <Button Classes="go" Content="GO  (⇧F5)" Command="{Binding GoCommand}"
+                  ToolTip.Tip="Open pattern outputs on the selected screens (Shift+F5)" />
+          <Button Classes="stop" Content="STOP (⇧F6)" Command="{Binding StopCommand}"
+                  ToolTip.Tip="Close all output windows (Shift+F6)" />
+          <Button Classes="stop" Content="IDENTIFY (⇧F7)" Command="{Binding IdentifyCommand}"
+                  ToolTip.Tip="Flash screen numbers on every output (Shift+F7)" />
+          <ToggleButton Classes="blackout" Content="BLACKOUT (⇧F8)" IsChecked="{Binding State.Blackout}"
+                        ToolTip.Tip="Instant black on all outputs and NDI (Shift+F8) — F1–F12 recall looks" />
         </StackPanel>
       </Grid>
     </Border>
@@ -71,6 +72,12 @@
         </TabItem>
         <TabItem Header="Media">
           <ScrollViewer><v:MediaSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Looks">
+          <ScrollViewer><v:LooksSection /></ScrollViewer>
+        </TabItem>
+        <TabItem Header="Audio">
+          <ScrollViewer><v:AudioSection /></ScrollViewer>
         </TabItem>
         <TabItem Header="NDI">
           <ScrollViewer><v:NdiSection /></ScrollViewer>

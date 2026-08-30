@@ -16,6 +16,42 @@ public sealed class MediaPattern : IPatternRenderer
         c.Clear(f.Color(o.BackgroundColor, SKColors.Black));
         var bounds = SKRect.Create(0, 0, f.W, f.H);
 
+        if (o.Source == MediaSource.Playlist)
+        {
+            var now = f.Snapshot.PlaylistNow;
+            if (now is null)
+            {
+                PlaceholderCard(c, in f, "Playlist",
+                    "Add media files or folders in the Media panel — they cycle and loop automatically.");
+                return;
+            }
+
+            if (now.IsVideo)
+            {
+                var video = VideoService.Current;
+                var vsize = video?.FrameSize;
+                var vdest = vsize is { } vs ? DrawUtil.Fit(vs, bounds, o.Fit) : bounds;
+                if (video is null || !video.DrawFrame(c, vdest, pc.FillAA(SKColors.White)))
+                {
+                    PlaceholderCard(c, in f, System.IO.Path.GetFileName(now.Path), video?.StatusText ?? "Starting video…");
+                }
+            }
+            else
+            {
+                var img = ImageCache.Get(now.Path);
+                if (img is null)
+                {
+                    PlaceholderCard(c, in f, "Missing media", now.Path);
+                }
+                else
+                {
+                    var dest = DrawUtil.Fit(new SKSizeI(img.Width, img.Height), bounds, o.Fit);
+                    c.DrawImage(img, dest, DrawUtil.Smooth, pc.FillAA(SKColors.White));
+                }
+            }
+            return;
+        }
+
         if (o.Source == MediaSource.Video)
         {
             var video = VideoService.Current;

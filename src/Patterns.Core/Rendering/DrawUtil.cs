@@ -179,9 +179,9 @@ public static class DrawUtil
     /// <summary>Rounded translucent chip with centered text; returns the chip rect.</summary>
     public static SKRect Chip(
         SKCanvas c, string text, SKSizeI canvas, Anchor9 anchor, float textSize,
-        PaintCache pc, SKColor textColor, SKColor bg, float margin = -1)
+        PaintCache pc, SKColor textColor, SKColor bg, float margin = -1, SKFont? fontOverride = null)
     {
-        var font = pc.FontBold;
+        var font = fontOverride ?? pc.FontBold;
         font.Size = textSize;
         var w = font.MeasureText(text);
         var padX = textSize * 0.7f;

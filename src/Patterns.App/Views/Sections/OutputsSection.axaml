@@ -27,6 +27,47 @@
                   IsEnabled="{Binding !SelectedIsGrouped}" />
         <TextBlock Classes="hint" IsVisible="{Binding SelectedIsGrouped}"
                    Text="This screen is part of a joined canvas — the canvas shows the program pattern. Drag it away to give it its own pattern." />
+
+        <TextBlock Classes="label" Text="Orientation" Margin="0,8,0,0" />
+        <ComboBox ItemsSource="{Binding Rotations}"
+                  SelectedValue="{Binding SelectedRotation, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+        <TextBlock Classes="hint"
+                   Text="For displays mounted in portrait or upside down: content is rendered upright and rotated at output. The overview above shows the rotated shape." />
+
+        <TextBlock Classes="label" Text="Output trims" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="86,*,44" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+          <TextBlock Grid.Row="0" Classes="label" Text="Brightness" VerticalAlignment="Center" />
+          <Slider Grid.Row="0" Grid.Column="1" Minimum="10" Maximum="150" TickFrequency="5"
+                  Value="{Binding SelectedBrightness, Mode=TwoWay}" />
+          <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                     Text="{Binding SelectedBrightness, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="1" Classes="label" Text="Gamma" VerticalAlignment="Center" />
+          <Slider Grid.Row="1" Grid.Column="1" Minimum="0.4" Maximum="2.5" TickFrequency="0.05"
+                  Value="{Binding SelectedGamma, Mode=TwoWay}" />
+          <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                     Text="{Binding SelectedGamma, StringFormat={}{0:0.00}}" />
+          <TextBlock Grid.Row="2" Classes="label" Text="Red" VerticalAlignment="Center" />
+          <Slider Grid.Row="2" Grid.Column="1" Minimum="25" Maximum="175" TickFrequency="5"
+                  Value="{Binding SelectedTrimR, Mode=TwoWay}" />
+          <TextBlock Grid.Row="2" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                     Text="{Binding SelectedTrimR, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="3" Classes="label" Text="Green" VerticalAlignment="Center" />
+          <Slider Grid.Row="3" Grid.Column="1" Minimum="25" Maximum="175" TickFrequency="5"
+                  Value="{Binding SelectedTrimG, Mode=TwoWay}" />
+          <TextBlock Grid.Row="3" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                     Text="{Binding SelectedTrimG, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="4" Classes="label" Text="Blue" VerticalAlignment="Center" />
+          <Slider Grid.Row="4" Grid.Column="1" Minimum="25" Maximum="175" TickFrequency="5"
+                  Value="{Binding SelectedTrimB, Mode=TwoWay}" />
+          <TextBlock Grid.Row="4" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                     Text="{Binding SelectedTrimB, StringFormat={}{0:0}%}" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="chip" Content="Reset trims" Command="{Binding ResetTrimsCommand}" />
+        </StackPanel>
+        <TextBlock Classes="hint"
+                   Text="Per-screen brightness / gamma / RGB balance for matching mismatched house displays. Applies to this output only — NDI and other screens are untouched." />
       </StackPanel>
     </Border>
     <TextBlock Classes="hint" IsVisible="{Binding !HasSelection}" Text="Click a screen tile to select it." />

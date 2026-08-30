@@ -37,6 +37,12 @@
     <TextBlock Classes="hint"
                Text="Accents, checkerboards, colour cycles, particles and overlay text pick up the brand kit. Measurement lines stay neutral so patterns remain accurate." />
 
+    <TextBlock Classes="h2" Text="TYPE" />
+    <ComboBox ItemsSource="{Binding FontFamilies}"
+              SelectedItem="{Binding SelectedFontFamily, Mode=TwoWay}" />
+    <TextBlock Classes="hint"
+               Text="Font for clock, countdown, messages and pattern chips — any font installed on this machine. The built-in Inter always works and travels with the app." />
+
     <TextBlock Classes="h2" Text="LOGO" />
     <Grid ColumnDefinitions="*,8,Auto">
       <TextBox Grid.Column="0" Watermark="Logo file (PNG with alpha recommended)" Text="{Binding State.Brand.LogoPath}" />

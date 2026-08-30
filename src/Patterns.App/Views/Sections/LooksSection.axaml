@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.LooksSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Looks &amp; cues" />
+    <TextBlock Classes="hint"
+               Text="A look is the whole screen state — pattern, per-screen patterns, overlays, countdown, blackout — saved under a name. Recall a look instantly with F1–F12 or fire it from the schedule below." />
+
+    <TextBlock Classes="h2" Text="SAVE THE CURRENT STATE AS A LOOK" />
+    <Grid ColumnDefinitions="*,8,110,8,Auto">
+      <TextBox Grid.Column="0" Watermark="Look name — e.g. Walk-in" Text="{Binding NewLookName}" />
+      <ComboBox Grid.Column="2" ItemsSource="{Binding HotkeySlots}"
+                SelectedItem="{Binding NewLookHotkey, Mode=TwoWay}"
+                ToolTip.Tip="Hotkey slot: F1–F12, or no key">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="x:Int32">
+            <TextBlock Text="{Binding, Converter={StaticResource HotkeyLabel}}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <Button Grid.Column="4" Classes="chip" Content="Save look" Command="{Binding SaveLookCommand}" />
+    </Grid>
+    <TextBlock Classes="hint" Text="Saving with an existing name updates that look. A hotkey slot in use moves to the new look." />
+
+    <TextBlock Classes="h2" Text="LOOKS" />
+    <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:LookConfig">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,7" Margin="0,3">
+            <Grid ColumnDefinitions="Auto,10,*,8,Auto,Auto,Auto">
+              <Border Grid.Column="0" Background="#20242E" CornerRadius="7" Padding="8,3" MinWidth="38"
+                      IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}">
+                <TextBlock Text="{Binding Hotkey, Converter={StaticResource HotkeyLabel}}" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" Foreground="{StaticResource AccentBrush}" />
+              </Border>
+              <TextBlock Grid.Column="2" Text="{Binding Name}" FontWeight="SemiBold"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <Button Grid.Column="4" Classes="mini" Content="Apply"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
+                      CommandParameter="{Binding}" />
+              <Button Grid.Column="5" Classes="mini" Content="⟳"
+                      ToolTip.Tip="Overwrite this look with the current screen state"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UpdateLookCommand}"
+                      CommandParameter="{Binding}" />
+              <Button Grid.Column="6" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteLookCommand}"
+                      CommandParameter="{Binding}" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="SCHEDULE (CUES)" />
+    <TextBlock Classes="label" Text="{Binding NextCueText}" />
+    <ItemsControl ItemsSource="{Binding State.LooksAndCues.Cues}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:CueConfig">
+          <Grid ColumnDefinitions="Auto,8,74,8,*,6,Auto" Margin="0,3">
+            <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" ToolTip.Tip="Cue armed" />
+            <TextBox Grid.Column="2" Watermark="HH:mm" Text="{Binding Time}" />
+            <ComboBox Grid.Column="4"
+                      ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LookNames}"
+                      SelectedItem="{Binding LookName, Mode=TwoWay}"
+                      PlaceholderText="Look to fire…" />
+            <Button Grid.Column="6" Classes="mini" Content="✕"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveCueCommand}"
+                    CommandParameter="{Binding}" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="chip" Content="+ Add cue" Command="{Binding AddCueCommand}" />
+    </StackPanel>
+    <TextBlock Classes="hint"
+               Text="Each armed cue applies its look daily at the set time (24 h) while the app is running — e.g. Walk-in 18:00 · Countdown 18:45 · Blackout 19:00. Times are checked every second; a cue fires once per day." />
+
+    <TextBlock Classes="h2" Text="KEYS" />
+    <TextBlock Classes="hint"
+               Text="F1–F12 apply looks from anywhere in the app (and on output windows). Transport moved to ⇧F5 GO · ⇧F6 STOP · ⇧F7 blackout · ⇧F8 identify; Space still toggles blackout when you're not typing." />
+  </StackPanel>
+</UserControl>

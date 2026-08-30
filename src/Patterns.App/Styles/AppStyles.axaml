@@ -116,4 +116,12 @@
     <Setter Property="FontSize" Value="12" />
     <Setter Property="Background" Value="#20242E" />
   </Style>
+
+  <Style Selector="Button.mini">
+    <Setter Property="Padding" Value="7,3" />
+    <Setter Property="Margin" Value="2,0,0,0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Background" Value="#20242E" />
+  </Style>
 </Styles>

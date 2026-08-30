@@ -21,6 +21,36 @@ public sealed class PaintCache : IDisposable
 
     public SKPath ScratchPath { get; } = new();
 
+    private readonly Dictionary<(string Family, bool Bold), SKFont> _familyFonts = new();
+
+    /// <summary>
+    /// Font for a system family name (overlay text); empty/unknown falls back to the built-in
+    /// Inter so text never disappears. Cached per sink.
+    /// </summary>
+    public SKFont FontFor(string? family, bool bold)
+    {
+        if (string.IsNullOrWhiteSpace(family))
+        {
+            return bold ? FontBold : FontRegular;
+        }
+        var key = (family, bold);
+        if (_familyFonts.TryGetValue(key, out var cached)) return cached;
+
+        SKTypeface? tf = null;
+        try
+        {
+            tf = SKFontManager.Default.MatchFamily(family, bold ? SKFontStyle.Bold : SKFontStyle.Normal);
+        }
+        catch
+        {
+            // Fall through to the embedded face.
+        }
+        tf ??= bold ? Typefaces.SemiBold : Typefaces.Regular;
+        var font = new SKFont(tf, 16) { Subpixel = true, Edging = SKFontEdging.SubpixelAntialias };
+        _familyFonts[key] = font;
+        return font;
+    }
+
     /// <summary>Aliased fill — for pixel-exact rects.</summary>
     public SKPaint Fill(SKColor color)
     {
@@ -70,6 +100,11 @@ public sealed class PaintCache : IDisposable
         _text.Dispose();
         FontRegular.Dispose();
         FontBold.Dispose();
+        foreach (var f in _familyFonts.Values)
+        {
+            f.Dispose();
+        }
+        _familyFonts.Clear();
         ScratchPath.Dispose();
     }
 }

@@ -89,6 +89,77 @@ public sealed class MainViewModel : Observable
             if (cfg is not null) State.Ndi.Senders.Remove(cfg);
         });
 
+        // Playlist
+        AddPlaylistFilesCommand = new RelayCommand(() => _ = AddPlaylistFilesAsync());
+        AddPlaylistFolderCommand = new RelayCommand(() => _ = AddPlaylistFolderAsync());
+        RemovePlaylistItemCommand = new RelayCommand<PlaylistItemConfig>(item =>
+        {
+            if (item is not null) ActivePattern.Media.Playlist.Items.Remove(item);
+        });
+        MovePlaylistItemUpCommand = new RelayCommand<PlaylistItemConfig>(item => MovePlaylistItem(item, -1));
+        MovePlaylistItemDownCommand = new RelayCommand<PlaylistItemConfig>(item => MovePlaylistItem(item, +1));
+        RemovePlaylistFolderCommand = new RelayCommand<string>(folder =>
+        {
+            if (folder is not null) ActivePattern.Media.Playlist.Folders.Remove(folder);
+        });
+
+        // Looks & cues
+        SaveLookCommand = new RelayCommand(SaveLook);
+        ApplyLookCommand = new RelayCommand<LookConfig>(look =>
+        {
+            if (look is not null) ApplyLook(look);
+        });
+        UpdateLookCommand = new RelayCommand<LookConfig>(look =>
+        {
+            if (look is null) return;
+            look.Json = LookService.Capture(State);
+            StatusMessage = $"Look '{look.Name}' updated with the current state.";
+        });
+        DeleteLookCommand = new RelayCommand<LookConfig>(look =>
+        {
+            if (look is not null) State.LooksAndCues.Looks.Remove(look);
+        });
+        AddCueCommand = new RelayCommand(() =>
+        {
+            State.LooksAndCues.Cues.Add(new CueConfig
+            {
+                LookName = State.LooksAndCues.Looks.FirstOrDefault()?.Name ?? "",
+            });
+        });
+        RemoveCueCommand = new RelayCommand<CueConfig>(cue =>
+        {
+            if (cue is not null) State.LooksAndCues.Cues.Remove(cue);
+        });
+
+        // Audio, feed, trims
+        ToneFrequencyCommand = new RelayCommand<string>(f =>
+        {
+            if (double.TryParse(f, out var hz)) State.Tone.FrequencyHz = hz;
+        });
+        RefreshFeedCommand = new RelayCommand(() => _services.Feeds.RefreshNow());
+        ResetTrimsCommand = new RelayCommand(() =>
+        {
+            if (_selectedPlacement is null) return;
+            _selectedPlacement.BrightnessPct = 100;
+            _selectedPlacement.Gamma = 1.0;
+            _selectedPlacement.TrimRPct = 100;
+            _selectedPlacement.TrimGPct = 100;
+            _selectedPlacement.TrimBPct = 100;
+            RaiseSelection();
+        });
+
+        // LED map
+        AddLedTileCommand = new RelayCommand(AddLedTile);
+        RemoveLedTileCommand = new RelayCommand(() =>
+        {
+            if (SelectedLedTile is { } tile)
+            {
+                ActivePattern.LedWall.CustomTiles.Remove(tile);
+                SelectedLedTile = ActivePattern.LedWall.CustomTiles.LastOrDefault();
+            }
+        });
+        ImportGridToMapCommand = new RelayCommand(ImportGridToMap);
+
         _services.SnapshotPublished += OnSnapshotPublished;
         _services.Outputs.LiveChanged += RefreshOutputsStatus;
         _services.Screens.Changed += OnScreensChanged;
@@ -248,7 +319,8 @@ public sealed class MainViewModel : Observable
             var info = LiveInfo(p);
             if (info is not null && p.Enabled)
             {
-                result.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, info.Bounds.Width, info.Bounds.Height)));
+                var size = OutputWindowManager.EffectiveSize(p, info);
+                result.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, size.Width, size.Height)));
             }
         }
         return result;
@@ -299,6 +371,12 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedUseCustom));
         Raise(nameof(SelectedIsGrouped));
         Raise(nameof(GroupSummary));
+        Raise(nameof(SelectedRotation));
+        Raise(nameof(SelectedBrightness));
+        Raise(nameof(SelectedGamma));
+        Raise(nameof(SelectedTrimR));
+        Raise(nameof(SelectedTrimG));
+        Raise(nameof(SelectedTrimB));
     }
 
     // ---- pattern editing target ---------------------------------------------
@@ -379,6 +457,306 @@ public sealed class MainViewModel : Observable
         }
         State.MediaLibrary.Add(new MediaLibraryEntry { Path = path, IsVideo = isVideo });
         BuildLibrary();
+    }
+
+    // ---- playlist -----------------------------------------------------------
+
+    private string _playlistStatus = "";
+    public string PlaylistStatus { get => _playlistStatus; private set => Set(ref _playlistStatus, value); }
+
+    private async Task AddPlaylistFilesAsync()
+    {
+        var window = _services.MainWindow;
+        if (window is null) return;
+        try
+        {
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Add media to playlist",
+                AllowMultiple = true,
+                FileTypeFilter = new[] { MediaTypes, FilePickerFileTypes.All },
+            });
+            foreach (var file in files)
+            {
+                var path = file.TryGetLocalPath();
+                if (path is null) continue;
+                ActivePattern.Media.Playlist.Items.Add(new PlaylistItemConfig { Path = path });
+                AddToMediaLibrary(path, PlaylistSequencer.IsVideoPath(path));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Playlist file picker failed.", ex);
+        }
+    }
+
+    private async Task AddPlaylistFolderAsync()
+    {
+        var window = _services.MainWindow;
+        if (window is null) return;
+        try
+        {
+            var folders = await window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Add media folder",
+                AllowMultiple = true,
+            });
+            foreach (var folder in folders)
+            {
+                var path = folder.TryGetLocalPath();
+                if (path is not null && !ActivePattern.Media.Playlist.Folders.Contains(path))
+                {
+                    ActivePattern.Media.Playlist.Folders.Add(path);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Playlist folder picker failed.", ex);
+        }
+    }
+
+    private void MovePlaylistItem(PlaylistItemConfig? item, int delta)
+    {
+        if (item is null) return;
+        var items = ActivePattern.Media.Playlist.Items;
+        var index = items.IndexOf(item);
+        var target = index + delta;
+        if (index < 0 || target < 0 || target >= items.Count) return;
+        items.Move(index, target);
+    }
+
+    // ---- looks & cues -------------------------------------------------------
+
+    private string _newLookName = "";
+    public string NewLookName { get => _newLookName; set => Set(ref _newLookName, value); }
+
+    private int _newLookHotkey;
+    public int NewLookHotkey { get => _newLookHotkey; set => Set(ref _newLookHotkey, value); }
+
+    public int[] HotkeySlots { get; } = Enumerable.Range(0, 13).ToArray();
+
+    private string _nextCueText = "No cues scheduled.";
+    public string NextCueText { get => _nextCueText; private set => Set(ref _nextCueText, value); }
+
+    public List<string> LookNames => State.LooksAndCues.Looks.Select(l => l.Name).ToList();
+
+    private void SaveLook()
+    {
+        var name = string.IsNullOrWhiteSpace(NewLookName) ? $"Look {State.LooksAndCues.Looks.Count + 1}" : NewLookName.Trim();
+        var existing = State.LooksAndCues.Looks.FirstOrDefault(l => l.Name == name);
+        var json = LookService.Capture(State);
+        if (existing is not null)
+        {
+            existing.Json = json;
+            if (NewLookHotkey > 0) existing.Hotkey = NewLookHotkey;
+        }
+        else
+        {
+            // A hotkey can only belong to one look.
+            if (NewLookHotkey > 0)
+            {
+                foreach (var l in State.LooksAndCues.Looks.Where(l => l.Hotkey == NewLookHotkey))
+                {
+                    l.Hotkey = 0;
+                }
+            }
+            State.LooksAndCues.Looks.Add(new LookConfig { Name = name, Hotkey = NewLookHotkey, Json = json });
+        }
+        NewLookName = "";
+        NewLookHotkey = 0;
+        StatusMessage = $"Look '{name}' saved.";
+        Raise(nameof(LookNames));
+    }
+
+    public void ApplyLook(LookConfig look)
+    {
+        var ok = false;
+        _services.BulkEdit(() => ok = LookService.Apply(look.Json, State));
+        if (ok)
+        {
+            RebuildEditTargets();
+            Raise(nameof(ActivePattern));
+            StatusMessage = $"Look '{look.Name}' applied.";
+        }
+        else
+        {
+            StatusMessage = $"Look '{look.Name}' could not be applied.";
+        }
+    }
+
+    /// <summary>F1–F12 from the main window or an output window. False = no look on that key.</summary>
+    public bool ApplyLookHotkey(int slot)
+    {
+        var look = State.LooksAndCues.Looks.FirstOrDefault(l => l.Hotkey == slot);
+        if (look is null) return false;
+        ApplyLook(look);
+        return true;
+    }
+
+    private void CheckCues()
+    {
+        var now = DateTime.Now;
+        foreach (var cue in State.LooksAndCues.Cues)
+        {
+            if (!LookService.ShouldFire(cue, now)) continue;
+            cue.LastFiredDate = now.Date;
+            var look = State.LooksAndCues.Looks.FirstOrDefault(l => l.Name == cue.LookName);
+            if (look is not null)
+            {
+                ApplyLook(look);
+                StatusMessage = $"Cue {cue.Time}: look '{look.Name}' applied.";
+                Log.Info(StatusMessage);
+            }
+        }
+
+        var next = LookService.NextCue(State.LooksAndCues.Cues, now);
+        NextCueText = next is { } n
+            ? $"Next cue: '{n.Cue.LookName}' at {n.At:HH:mm}{(n.At.Date != now.Date ? " tomorrow" : "")}"
+            : "No cues scheduled.";
+    }
+
+    // ---- audio / fonts / feed / LED map ------------------------------------
+
+    public EnumItem[] ToneModes => Lists.ToneModes;
+    public EnumItem[] ToneChannelsList => Lists.ToneChannelsList;
+    public EnumItem[] FeedKinds => Lists.FeedKinds;
+    public EnumItem[] Rotations => Lists.Rotations;
+
+    private string _toneStatus = "Off";
+    public string ToneStatus { get => _toneStatus; private set => Set(ref _toneStatus, value); }
+
+    private string _feedStatus = "";
+    public string FeedStatus { get => _feedStatus; private set => Set(ref _feedStatus, value); }
+
+    public const string BuiltInFontLabel = "Inter (built-in)";
+
+    private List<string>? _fontFamilies;
+    public List<string> FontFamilies => _fontFamilies ??= BuildFontFamilies();
+
+    private static List<string> BuildFontFamilies()
+    {
+        var list = new List<string> { BuiltInFontLabel };
+        try
+        {
+            list.AddRange(SkiaSharp.SKFontManager.Default.FontFamilies
+                .Where(f => !string.IsNullOrWhiteSpace(f))
+                .Distinct()
+                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("System font enumeration failed.", ex);
+        }
+        return list;
+    }
+
+    /// <summary>Maps the empty model value ⇄ the built-in entry for the combo.</summary>
+    public string? SelectedFontFamily
+    {
+        get => string.IsNullOrEmpty(State.Brand.FontFamily) ? BuiltInFontLabel : State.Brand.FontFamily;
+        set
+        {
+            // The combo coerces values missing from its list to null (e.g. a show file made
+            // on a machine with fonts this one lacks) — never let that clear the model; the
+            // renderer already falls back to the built-in font for missing families.
+            if (value is null) return;
+            State.Brand.FontFamily = value == BuiltInFontLabel ? "" : value;
+            Raise();
+        }
+    }
+
+    private LedTileConfig? _selectedLedTile;
+    public LedTileConfig? SelectedLedTile
+    {
+        get => _selectedLedTile;
+        set
+        {
+            if (Set(ref _selectedLedTile, value)) Raise(nameof(HasLedTileSelection));
+        }
+    }
+
+    public bool HasLedTileSelection => _selectedLedTile is not null;
+
+    private void AddLedTile()
+    {
+        var led = ActivePattern.LedWall;
+        var tiles = led.CustomTiles;
+        var x = tiles.Count == 0 ? 0 : tiles.Max(t => t.X + t.Width);
+        var tile = new LedTileConfig { X = x, Y = 0, Width = led.TileWidth, Height = led.TileHeight };
+        tiles.Add(tile);
+        led.UseCustomMap = true;
+        SelectedLedTile = tile;
+    }
+
+    /// <summary>Seeds the custom map from the current regular grid — then edit the exceptions.</summary>
+    private void ImportGridToMap()
+    {
+        var led = ActivePattern.LedWall;
+        var layout = CanvasResolver.Led(led);
+        _services.BulkEdit(() =>
+        {
+            led.CustomTiles.Clear();
+            for (var r = 0; r < layout.Rows; r++)
+            {
+                for (var col = 0; col < layout.Columns; col++)
+                {
+                    led.CustomTiles.Add(new LedTileConfig
+                    {
+                        X = col * layout.TileWidth,
+                        Y = r * layout.TileHeight,
+                        Width = layout.TileWidth,
+                        Height = layout.TileHeight,
+                    });
+                }
+            }
+            led.UseCustomMap = true;
+        });
+        SelectedLedTile = led.CustomTiles.FirstOrDefault();
+        StatusMessage = $"Imported {led.CustomTiles.Count} tiles from the grid — drag or edit the exceptions.";
+    }
+
+    // ---- rotation & trims for the selected screen ---------------------------
+
+    public OutputRotation SelectedRotation
+    {
+        get => _selectedPlacement?.Rotation ?? OutputRotation.None;
+        set
+        {
+            if (_selectedPlacement is null) return;
+            _selectedPlacement.Rotation = value;
+            RaiseSelection();
+        }
+    }
+
+    public double SelectedBrightness
+    {
+        get => _selectedPlacement?.BrightnessPct ?? 100;
+        set { if (_selectedPlacement is not null) { _selectedPlacement.BrightnessPct = value; Raise(); } }
+    }
+
+    public double SelectedGamma
+    {
+        get => _selectedPlacement?.Gamma ?? 1.0;
+        set { if (_selectedPlacement is not null) { _selectedPlacement.Gamma = value; Raise(); } }
+    }
+
+    public double SelectedTrimR
+    {
+        get => _selectedPlacement?.TrimRPct ?? 100;
+        set { if (_selectedPlacement is not null) { _selectedPlacement.TrimRPct = value; Raise(); } }
+    }
+
+    public double SelectedTrimG
+    {
+        get => _selectedPlacement?.TrimGPct ?? 100;
+        set { if (_selectedPlacement is not null) { _selectedPlacement.TrimGPct = value; Raise(); } }
+    }
+
+    public double SelectedTrimB
+    {
+        get => _selectedPlacement?.TrimBPct ?? 100;
+        set { if (_selectedPlacement is not null) { _selectedPlacement.TrimBPct = value; Raise(); } }
     }
 
     // ---- NDI ----------------------------------------------------------------
@@ -502,6 +880,24 @@ public sealed class MainViewModel : Observable
     public RelayCommand ResetLayoutCommand { get; }
     public RelayCommand AddNdiSenderCommand { get; }
     public RelayCommand<NdiSenderConfig> RemoveNdiSenderCommand { get; }
+    public RelayCommand AddPlaylistFilesCommand { get; }
+    public RelayCommand AddPlaylistFolderCommand { get; }
+    public RelayCommand<PlaylistItemConfig> RemovePlaylistItemCommand { get; }
+    public RelayCommand<PlaylistItemConfig> MovePlaylistItemUpCommand { get; }
+    public RelayCommand<PlaylistItemConfig> MovePlaylistItemDownCommand { get; }
+    public RelayCommand<string> RemovePlaylistFolderCommand { get; }
+    public RelayCommand SaveLookCommand { get; }
+    public RelayCommand<LookConfig> ApplyLookCommand { get; }
+    public RelayCommand<LookConfig> UpdateLookCommand { get; }
+    public RelayCommand<LookConfig> DeleteLookCommand { get; }
+    public RelayCommand AddCueCommand { get; }
+    public RelayCommand<CueConfig> RemoveCueCommand { get; }
+    public RelayCommand<string> ToneFrequencyCommand { get; }
+    public RelayCommand RefreshFeedCommand { get; }
+    public RelayCommand ResetTrimsCommand { get; }
+    public RelayCommand AddLedTileCommand { get; }
+    public RelayCommand RemoveLedTileCommand { get; }
+    public RelayCommand ImportGridToMapCommand { get; }
 
     // ---- status -------------------------------------------------------------
 
@@ -560,6 +956,10 @@ public sealed class MainViewModel : Observable
         NdiStatus = active > 0
             ? $"{active} sender{(active == 1 ? "" : "s")} active"
             : NdiRuntimeFound ? "Off" : "Runtime not found";
+        PlaylistStatus = _services.Playlist.Status;
+        ToneStatus = _services.Audio.Status;
+        FeedStatus = _services.Feeds.Status;
+        CheckCues();
         Raise(nameof(CanvasInfo));
         Raise(nameof(HeaderClock));
         Raise(nameof(CountdownPreview));
@@ -733,6 +1133,15 @@ public sealed class MainViewModel : Observable
     private static readonly FilePickerFileType VideoTypes = new("Video")
     {
         Patterns = new[] { "*.mp4", "*.mov", "*.mkv", "*.avi", "*.webm", "*.m4v", "*.mpg", "*.mpeg", "*.wmv" },
+    };
+
+    private static readonly FilePickerFileType MediaTypes = new("Images & video")
+    {
+        Patterns = new[]
+        {
+            "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp", "*.gif",
+            "*.mp4", "*.mov", "*.mkv", "*.avi", "*.webm", "*.m4v", "*.mpg", "*.mpeg", "*.wmv",
+        },
     };
 
     private static readonly FilePickerFileType ShowTypes = new("Patterns show")
