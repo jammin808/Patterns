@@ -126,27 +126,75 @@ public class HeadlessUiTests
     }
 
     [AvaloniaFact]
-    public void IndependentModeCreatesAssignmentsAndEditTargets()
+    public void PlacementsReconcileAndCustomPatternsFlow()
     {
         var (services, vm, window) = Boot();
         try
         {
-            vm.State.Output.Mode = OutputMode.Independent;
-            Dispatcher.UIThread.RunJobs();
+            // Every detected screen gets a placement.
+            var screens = services.Screens.All;
+            Assert.Equal(screens.Count, vm.State.Output.Placements.Count(p => screens.Any(s => s.Id == p.ScreenId)));
 
-            // Headless platforms report at least one screen through the service (possibly zero —
-            // the VM must not blow up either way).
-            Assert.True(vm.EditTargets.Count >= 1);
-            Assert.Equal("Program", vm.EditTargets[0].Label);
-            Assert.Equal(vm.State.Independent.Count, vm.EditTargets.Count - 1);
-
-            if (vm.EditTargets.Count > 1)
+            if (screens.Count > 0)
             {
-                vm.EditTarget = vm.EditTargets[1];
+                var placement = vm.State.Output.Placements.First(p => p.ScreenId == screens[0].Id);
+                vm.SelectedPlacement = placement;
+                vm.SelectedUseCustom = true;
+                Dispatcher.UIThread.RunJobs();
+
+                // Assignment created, edit target appeared and was auto-selected.
+                Assert.Contains(vm.State.Independent, a => a.ScreenId == placement.ScreenId);
+                Assert.True(vm.ShowEditTargets);
+                Assert.Equal(placement.ScreenId, vm.EditTarget.ScreenId);
+
                 vm.ActivePattern.Kind = PatternKind.Focus;
-                Assert.Equal(PatternKind.Focus, services.State.Independent[0].Pattern.Kind);
+                Assert.Equal(PatternKind.Focus,
+                    services.State.Independent.First(a => a.ScreenId == placement.ScreenId).Pattern.Kind);
                 Assert.Equal(PatternKind.Grid, services.State.Pattern.Kind);
+
+                // Enable toggle pins the user's choice.
+                vm.SelectedEnabled = false;
+                Assert.True(placement.UserPinned);
+                Assert.False(placement.Enabled);
             }
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void PrimaryScreenDefaultsOffWhenOthersExist()
+    {
+        var (services, vm, window) = Boot();
+        try
+        {
+            var fakes = new List<ScreenInfo>
+            {
+                new("p", "Primary", new Avalonia.PixelRect(0, 0, 1920, 1080), 1.0, true, 0),
+                new("b", "Wall feed", new Avalonia.PixelRect(1920, 0, 1920, 1080), 1.0, false, 1),
+            };
+            vm.State.Output.Placements.Clear();
+            vm.ReconcilePlacements(fakes);
+
+            Assert.False(vm.State.Output.Placements.First(p => p.ScreenId == "p").Enabled);
+            Assert.True(vm.State.Output.Placements.First(p => p.ScreenId == "b").Enabled);
+
+            // Alone, the primary must stay enabled or GO would do nothing.
+            vm.State.Output.Placements.Clear();
+            vm.ReconcilePlacements(new List<ScreenInfo> { fakes[0] });
+            Assert.True(vm.State.Output.Placements.First(p => p.ScreenId == "p").Enabled);
+
+            // A pinned user choice survives re-detection.
+            vm.State.Output.Placements.Clear();
+            vm.ReconcilePlacements(fakes);
+            var primary = vm.State.Output.Placements.First(p => p.ScreenId == "p");
+            primary.Enabled = true;
+            primary.UserPinned = true;
+            vm.ReconcilePlacements(fakes);
+            Assert.True(primary.Enabled);
         }
         finally
         {

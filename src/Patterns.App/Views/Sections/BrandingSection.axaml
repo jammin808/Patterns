@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Sections.BrandingSection"
              x:DataType="vm:MainViewModel">
 
@@ -13,23 +14,23 @@
     <TextBlock Classes="h2" Text="COLOURS" />
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Primary" />
-      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.PrimaryColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      <c:ColorField Grid.Column="1" Value="{Binding State.Brand.PrimaryColor, Mode=TwoWay}" />
     </Grid>
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Secondary" />
-      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.SecondaryColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      <c:ColorField Grid.Column="1" Value="{Binding State.Brand.SecondaryColor, Mode=TwoWay}" />
     </Grid>
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Accent" />
-      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.AccentColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      <c:ColorField Grid.Column="1" Value="{Binding State.Brand.AccentColor, Mode=TwoWay}" />
     </Grid>
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Background" />
-      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.BackgroundColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      <c:ColorField Grid.Column="1" Value="{Binding State.Brand.BackgroundColor, Mode=TwoWay}" />
     </Grid>
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Text" />
-      <ColorPicker Grid.Column="1" Color="{Binding State.Brand.TextColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      <c:ColorField Grid.Column="1" Value="{Binding State.Brand.TextColor, Mode=TwoWay}" />
     </Grid>
     <CheckBox Content="Apply brand colours to patterns"
               IsChecked="{Binding State.Brand.ApplyToPatterns}" />

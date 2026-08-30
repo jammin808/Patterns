@@ -19,17 +19,6 @@ public enum PatternKind
     Particles,
 }
 
-/// <summary>How the physical screens are used.</summary>
-public enum OutputMode
-{
-    /// <summary>Every selected screen shows the same pattern.</summary>
-    Duplicate,
-    /// <summary>Each selected screen has its own pattern configuration.</summary>
-    Independent,
-    /// <summary>All selected screens form one large pixel canvas.</summary>
-    Span,
-}
-
 /// <summary>How a pattern canvas maps onto a differently sized sink.</summary>
 public enum CanvasScaleMode
 {

@@ -17,7 +17,7 @@ public sealed class AppServices
     public ShowState State { get; }
     public SnapshotBus Bus { get; }
     public SettingsStore Store { get; }
-    public NdiSender Ndi { get; }
+    public NdiService Ndi { get; }
     public ScreenService Screens { get; }
     public OutputWindowManager Outputs { get; }
     public VideoEngine Video { get; }
@@ -58,7 +58,7 @@ public sealed class AppServices
         State.Blackout = false;
 
         Bus = new SnapshotBus(State);
-        Ndi = new NdiSender(Bus);
+        Ndi = new NdiService(Bus);
         Video = new VideoEngine();
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
@@ -132,9 +132,8 @@ public sealed class AppServices
 
     private void ApplySideEffects()
     {
-        // NDI lifecycle.
-        if (State.Ndi.Enabled && !Ndi.IsRunning) Ndi.Start();
-        else if (!State.Ndi.Enabled && Ndi.IsRunning) Ndi.Stop();
+        // NDI sender set follows the config.
+        Ndi.Reconcile(Bus.Current);
 
         // Video decoder lifecycle.
         Video.Reconcile(Bus.Current);
@@ -172,7 +171,7 @@ public sealed class AppServices
         try
         {
             Outputs.CloseAll();
-            Ndi.Stop();
+            Ndi.StopAll();
             Video.Dispose();
             SaveNow();
             _instanceMutex?.Dispose();

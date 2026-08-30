@@ -1,15 +1,16 @@
-using Avalonia;
 using Patterns.App.Rendering;
 using Patterns.App.Views;
 using Patterns.Core.Model;
+using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 
 namespace Patterns.App.Services;
 
 /// <summary>
-/// Opens/closes/retargets the fullscreen output windows for the current mode. Reapplying is
-/// incremental: existing windows are retargeted instead of recreated (no fullscreen flicker).
+/// Opens/closes/retargets the fullscreen output windows from the screen arrangement:
+/// screens dragged flush form one spanned canvas; stand-alone screens are independent
+/// outputs; disabled screens get nothing. Reapplying is incremental (no fullscreen flicker).
 /// </summary>
 public sealed class OutputWindowManager
 {
@@ -25,28 +26,21 @@ public sealed class OutputWindowManager
 
     public event Action? LiveChanged;
 
-    /// <summary>Open (or retarget) output windows for the current output config.</summary>
+    /// <summary>Open (or retarget) output windows for the current arrangement.</summary>
     public void Apply()
     {
-        var state = _services.State;
-        var targets = _services.Screens.Resolve(state.Output.SelectedScreenIds);
+        var targets = BuildViewports(_services.State.Output.Placements, _services.Screens.All);
         if (targets.Count == 0)
         {
-            Log.Warn("No screens available for output.");
+            Log.Warn("No enabled screens to output to.");
+            LiveChanged?.Invoke();
             return;
         }
 
-        // Span union in device pixels.
-        var union = targets[0].Bounds;
-        foreach (var s in targets.Skip(1)) union = union.Union(s.Bounds);
-
         var wanted = new HashSet<string>();
-        for (var i = 0; i < targets.Count; i++)
+        foreach (var (screen, viewport) in targets)
         {
-            var screen = targets[i];
             wanted.Add(screen.Id);
-            var viewport = BuildViewport(state.Output.Mode, screen, i, union);
-
             if (_windows.TryGetValue(screen.Id, out var existing))
             {
                 existing.Pipeline.Viewport = viewport;
@@ -72,24 +66,60 @@ public sealed class OutputWindowManager
         }
 
         LiveChanged?.Invoke();
-        Log.Info($"Outputs live: {_windows.Count} ({state.Output.Mode}).");
+        Log.Info($"Outputs live: {_windows.Count}.");
     }
 
-    private static PipelineViewport BuildViewport(OutputMode mode, ScreenInfo screen, int index, PixelRect union)
-        => mode switch
+    /// <summary>
+    /// Pure mapping from arrangement to per-screen viewports — grouped screens get a span
+    /// viewport over the group union; singles reference their own size (with per-screen
+    /// pattern lookup enabled). Unit tested.
+    /// </summary>
+    public static List<(ScreenInfo Screen, PipelineViewport Viewport)> BuildViewports(
+        IEnumerable<ScreenPlacement> placements, IReadOnlyList<ScreenInfo> screens)
+    {
+        var byId = screens.ToDictionary(s => s.Id);
+        var live = new List<(ScreenPlacement Placement, ScreenInfo Info)>();
+        foreach (var p in placements)
         {
-            OutputMode.Span => new PipelineViewport(
-                SinkKind.Output,
-                new SKSizeI(union.Width, union.Height),
-                new SKPointI(screen.Bounds.X - union.X, screen.Bounds.Y - union.Y),
-                null,
-                index + 1,
-                screen.Label),
-            OutputMode.Independent => new PipelineViewport(
-                SinkKind.Output, SKSizeI.Empty, default, screen.Id, index + 1, screen.Label),
-            _ => new PipelineViewport(
-                SinkKind.Output, SKSizeI.Empty, default, null, index + 1, screen.Label),
-        };
+            if (p.Enabled && byId.TryGetValue(p.ScreenId, out var info))
+            {
+                live.Add((p, info));
+            }
+        }
+
+        var arranged = live
+            .Select(x => new ArrangedScreen(
+                x.Placement.ScreenId,
+                SKRectI.Create(x.Placement.X, x.Placement.Y, x.Info.Bounds.Width, x.Info.Bounds.Height)))
+            .ToList();
+        var groups = ScreenLayout.Groups(arranged);
+
+        // Stable operator-facing numbering: arrangement order, left-to-right then top-down.
+        var ordered = arranged.OrderBy(a => a.Rect.Left).ThenBy(a => a.Rect.Top).ToList();
+        var indexOf = ordered.Select((a, i) => (a.Id, Index: i + 1)).ToDictionary(x => x.Id, x => x.Index);
+
+        var result = new List<(ScreenInfo, PipelineViewport)>();
+        foreach (var group in groups)
+        {
+            var union = ScreenLayout.Union(group);
+            foreach (var member in group)
+            {
+                var info = byId[member.Id];
+                var viewport = group.Count > 1
+                    ? new PipelineViewport(
+                        SinkKind.Output,
+                        new SKSizeI(union.Width, union.Height),
+                        new SKPointI(member.Rect.Left - union.Left, member.Rect.Top - union.Top),
+                        null,
+                        indexOf[member.Id],
+                        info.Label)
+                    : new PipelineViewport(
+                        SinkKind.Output, SKSizeI.Empty, default, member.Id, indexOf[member.Id], info.Label);
+                result.Add((info, viewport));
+            }
+        }
+        return result;
+    }
 
     public void CloseAll()
     {

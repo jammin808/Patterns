@@ -9,10 +9,12 @@ Patterns bundles or optionally integrates the following third-party components:
 | [Inter typeface](https://rsms.me/inter/) | SIL Open Font License 1.1 | Embedded UI/overlay font (`src/Patterns.Core/Assets/Inter-LICENSE-OFL.txt`) |
 | [LibVLCSharp](https://code.videolan.org/videolan/LibVLCSharp) | LGPL-2.1 | Managed bindings for optional video playback |
 
-Runtime integrations that are **not** bundled and are loaded only when the user provides them:
+Runtime integrations (bundled only where stated, otherwise loaded when the user provides them):
 
-- **libVLC / VLC** (LGPL/GPL, VideoLAN) — video decoding. Install 64-bit VLC or place a
-  `libvlc` folder beside `Patterns.exe`.
+- **libVLC / VLC** (LGPL/GPL, VideoLAN) — video decoding. The *full* build redistributes the
+  libVLC binaries from the `VideoLAN.LibVLC.Windows` package (dynamically linked; sources at
+  [videolan.org](https://www.videolan.org)); the lean build instead uses an installed 64-bit
+  VLC or a `libvlc` folder beside `Patterns.exe`.
 - **NDI® runtime** (NewTek/Vizrt license) — NDI output. Install the free NDI runtime from
   [ndi.video](https://ndi.video) or place `Processing.NDI.Lib.x64.dll` beside `Patterns.exe`.
   NDI® is a registered trademark of Vizrt NDI AB.

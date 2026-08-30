@@ -179,7 +179,7 @@ public class CadenceTests
         var snap = Snap(s =>
         {
             s.Pattern.Kind = PatternKind.Grid;
-            s.Output.Mode = OutputMode.Independent;
+            s.Output.Placements.Add(new ScreenPlacement { ScreenId = "s1", UseCustomPattern = true });
             var a = new OutputAssignment { ScreenId = "s1" };
             a.Pattern.Kind = PatternKind.Motion;
             s.Independent.Add(a);

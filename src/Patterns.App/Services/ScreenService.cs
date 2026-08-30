@@ -61,11 +61,4 @@ public sealed class ScreenService
         Changed?.Invoke();
     }
 
-    /// <summary>The screens a config addresses: the selected ones that still exist, else all.</summary>
-    public IReadOnlyList<ScreenInfo> Resolve(IEnumerable<string> selectedIds)
-    {
-        var wanted = selectedIds.ToHashSet();
-        var hit = All.Where(s => wanted.Contains(s.Id)).ToList();
-        return hit.Count > 0 ? hit : All.ToList();
-    }
 }

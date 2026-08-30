@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.PatternSection"
              x:DataType="vm:MainViewModel">
@@ -8,10 +9,10 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1" Text="Pattern" />
 
-    <StackPanel IsVisible="{Binding IsIndependent}">
+    <StackPanel IsVisible="{Binding ShowEditTargets}">
       <TextBlock Classes="h2" Text="EDITING TARGET" />
       <ComboBox ItemsSource="{Binding EditTargets}" SelectedItem="{Binding EditTarget, Mode=TwoWay}" />
-      <TextBlock Classes="hint" Text="Independent mode: choose which screen you are editing. The preview follows." />
+      <TextBlock Classes="hint" Text="Choose which pattern you are editing — the program, or a screen with a custom pattern. The preview follows." />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="TYPE" />
@@ -137,7 +138,7 @@
       <TextBlock Classes="h2" Text="FLAT FIELD" />
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Colour" />
-        <ColorPicker Grid.Column="1" Color="{Binding ActivePattern.FlatField.Color, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+        <c:ColorField Grid.Column="1" Value="{Binding ActivePattern.FlatField.Color, Mode=TwoWay}" />
       </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Level %" />

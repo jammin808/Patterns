@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Sections.OverlaysSection"
              x:DataType="vm:MainViewModel">
 
@@ -14,6 +15,10 @@
       <CheckBox Content="Seconds" IsChecked="{Binding State.Overlays.Clock.ShowSeconds}" />
       <CheckBox Content="Date" IsChecked="{Binding State.Overlays.Clock.ShowDate}" />
       <CheckBox Content="Pill background" IsChecked="{Binding State.Overlays.Clock.Pill}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Text colour" />
+        <c:ColorField Grid.Column="1" Value="{Binding State.Overlays.Clock.TextColor, Mode=TwoWay}" />
+      </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
@@ -53,6 +58,10 @@
     <CheckBox Content="Show message" IsChecked="{Binding State.Overlays.Message.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Message.Enabled}">
       <TextBox Watermark="WELCOME" Text="{Binding State.Overlays.Message.Text}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Text colour" />
+        <c:ColorField Grid.Column="1" Value="{Binding State.Overlays.Message.TextColor, Mode=TwoWay}" />
+      </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"

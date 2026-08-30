@@ -24,7 +24,17 @@
     <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.3.20" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="LibVLCSharp" Version="3.10.1" />
+    <!-- Opt-in libVLC bundling for the "full" build (build/publish-win-x64-full.*):
+         video plays out of the box, at the cost of a much larger install footprint.
+         NOTE: the package's copy targets only work fully on a Windows build host. -->
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" Condition="'$(BundleVlc)' == 'true'" />
   </ItemGroup>
+
+  <PropertyGroup Condition="'$(BundleVlc)' == 'true'">
+    <!-- Ship x64 only — no point carrying x86/arm64 libvlc in the portable folder. -->
+    <VlcWindowsX86Enabled>false</VlcWindowsX86Enabled>
+    <VlcWindowsArm64Enabled>false</VlcWindowsArm64Enabled>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Patterns.Core\Patterns.Core.csproj" />

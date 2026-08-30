@@ -49,7 +49,7 @@ public sealed class VideoEngine : IDisposable
         }
     }
 
-    /// <summary>The media options that should be playing (program first, then independent screens).</summary>
+    /// <summary>The media options that should be playing (program first, then custom screens).</summary>
     private static MediaOptions? FindActiveVideo(ShowState state)
     {
         static bool Wants(PatternConfig p) =>
@@ -57,12 +57,11 @@ public sealed class VideoEngine : IDisposable
             !string.IsNullOrWhiteSpace(p.Media.VideoPath);
 
         if (Wants(state.Pattern)) return state.Pattern.Media;
-        if (state.Output.Mode == OutputMode.Independent)
+        foreach (var placement in state.Output.Placements)
         {
-            foreach (var a in state.Independent)
-            {
-                if (Wants(a.Pattern)) return a.Pattern.Media;
-            }
+            if (!placement.UseCustomPattern || !placement.Enabled) continue;
+            var a = state.Independent.FirstOrDefault(x => x.ScreenId == placement.ScreenId);
+            if (a is not null && Wants(a.Pattern)) return a.Pattern.Media;
         }
         return null;
     }

@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:Patterns.App.Views.Controls"
+             x:Class="Patterns.App.Views.Controls.ColorField"
+             x:DataType="c:ColorField">
+
+  <!-- Visual picker + hex entry, both bound to the same model string:
+       the picker for eyeballing, the text box for exact brand codes. -->
+  <Grid ColumnDefinitions="*,8,110">
+    <ColorPicker Grid.Column="0"
+                 HorizontalAlignment="Stretch"
+                 Color="{Binding $parent[c:ColorField].Value, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+    <TextBox Grid.Column="2"
+             VerticalAlignment="Center"
+             FontFamily="Consolas,Menlo,monospace"
+             FontSize="12"
+             Watermark="#RRGGBB"
+             Text="{Binding $parent[c:ColorField].Value, Mode=TwoWay}"
+             ToolTip.Tip="Hex colour, e.g. #3EC1F3" />
+  </Grid>
+</UserControl>

@@ -16,7 +16,7 @@ On outputs:  Esc close · Space/B blackout · I identify</TextBlock>
 
     <TextBlock Classes="h2" Text="WORKFLOW" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="1) Pick screens and a mode in Outputs.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
+               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
 
     <TextBlock Classes="h2" Text="PORTABLE FILES" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
@@ -24,6 +24,6 @@ On outputs:  Esc close · Space/B blackout · I identify</TextBlock>
 
     <TextBlock Classes="h2" Text="EXTRAS" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="NDI: install the free NDI runtime (ndi.video) or drop Processing.NDI.Lib.x64.dll beside the exe. Video: install 64-bit VLC or provide a 'libvlc' folder. Both are optional — the app runs without them." />
+               Text="NDI: install the free NDI runtime (ndi.video) or drop Processing.NDI.Lib.x64.dll beside the exe — then add as many senders as you need (8-bit BGRX or 10-bit P216). Video: the 'full' download bundles libVLC; the lean exe uses an installed 64-bit VLC or a 'libvlc' folder beside it. All optional — the app runs without them." />
   </StackPanel>
 </UserControl>

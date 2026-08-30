@@ -23,9 +23,11 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
-- **Multi-screen, three ways** — *Duplicate* the same pattern everywhere, run *Independent*
-  per-screen patterns, or *Span* all selected screens as one large pixel canvas (viewport-exact,
-  seam-tested).
+- **A graphical screen overview** — every detected screen is a live tile showing exactly what
+  it outputs. Drag screens flush together and they join into one spanned canvas (seam-tested,
+  viewport-exact); drag them apart and they split again. Any screen can be enabled/disabled or
+  given its own pattern — and your main screen stays off by default when other outputs exist,
+  so GO never covers the controls.
 - **LED wall mode** — describe the wall the way LED techs do: panel pixel size (any custom size,
   presets for 64–256 px), then either columns × rows or a target canvas (edge panels go partial,
   like the real thing). Tile borders, row-column / linear / serpentine data-run numbering,
@@ -51,10 +53,14 @@ fault containment, and settings that can never brick startup.
 - **Corporate branding** — brand kit (primary/secondary/accent/background/text + logo) that
   drives accents, checkerboards, colour cycles, particles and overlay text. Measurement lines
   stay neutral so patterns remain accurate. Kits save/load per client.
-- **User media** — your images (PNG/JPEG/BMP/WebP) with fit modes; your videos via optional
-  libVLC. Media renders through the engine, so it reaches spans and NDI too.
-- **NDI® output** — advertise the program as an NDI source at its own resolution and frame rate,
-  feature-detected at runtime (nothing crashes without it).
+- **User media** — your images (PNG/JPEG/BMP/WebP) with fit modes; your videos via libVLC
+  (bundled in the *full* download, optional otherwise). Everything you load lands in the
+  Library under *My media* for one-click recall. Media renders through the engine, so it
+  reaches spans and NDI too.
+- **NDI® outputs** — any number of senders, each with its own name, resolution, frame rate,
+  source (program or a specific screen) and bit depth — including **10-bit P216** with a
+  BT.709 limited-range pipeline for serious ramp/banding checks. Feature-detected at runtime
+  (nothing crashes without the NDI runtime).
 
 <table>
   <tr>
@@ -73,7 +79,8 @@ fault containment, and settings that can never brick startup.
 
 1. Grab `Patterns.exe` (build it with `build/publish-win-x64.cmd`, or take the CI artifact) and
    put it in a folder you can write to (USB stick, desktop — anywhere).
-2. Run it. Pick screens and a mode under **Outputs**.
+2. Run it. Arrange your screens on the **Outputs** page — drag them together for one big
+   canvas, click a tile to enable/disable it or give it its own pattern.
 3. Choose a pattern (or click one in the **Library**), tune it, press **GO** (`F5`).
 4. Everything — wall geometry, blend overlap, colours, countdowns — updates live on the outputs.
 
@@ -93,14 +100,17 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 
 - **NDI**: install the free [NDI runtime](https://ndi.video) *or* drop
   `Processing.NDI.Lib.x64.dll` next to `Patterns.exe`. The NDI tab shows what was detected.
-- **Video**: install 64-bit [VLC](https://videolan.org) *or* place a `libvlc` folder
-  (`libvlc.dll`, `libvlccore.dll`, `plugins/`) next to `Patterns.exe`. Images work without it.
+- **Video**: use the **full** build (`Patterns-portable-win-x64-full` CI artifact or
+  `build\publish-win-x64-full.cmd`), which bundles libVLC — or with the lean exe, install
+  64-bit [VLC](https://videolan.org) / place a `libvlc` folder next to `Patterns.exe`.
+  Images work without any of this.
 
 ## Building
 
 ```bash
-dotnet test                      # 92 tests: pixel-exact rendering, layout math, headless UI
+dotnet test                      # 113 tests: pixel-exact rendering, arrangement math, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
+build/publish-win-x64-full.cmd   # → dist/win-x64-full/  (exe + bundled libVLC; Windows host)
 ```
 
 Requires the .NET 8 SDK. The exe is self-contained — end users need nothing installed.

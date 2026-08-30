@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Sections.CountdownSection"
              x:DataType="vm:MainViewModel">
 
@@ -59,6 +60,10 @@
       <Slider Grid.Column="1" Minimum="4" Maximum="45" Value="{Binding State.Countdown.SizePct, Mode=TwoWay}" />
     </Grid>
     <CheckBox Content="Progress bar" IsChecked="{Binding State.Countdown.ShowProgressBar}" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Digits colour" />
+      <c:ColorField Grid.Column="1" Value="{Binding State.Countdown.TextColor, Mode=TwoWay}" />
+    </Grid>
 
     <TextBlock Classes="hint" Margin="0,8,0,0"
                Text="The countdown overlays whatever pattern is on screen — put it over branding colours, particles or a flat field for classic walk-in looks. Times within the last 12 hours read as already reached; later ones roll to tomorrow (so 00:30 armed at 23:00 counts 1.5 h)." />

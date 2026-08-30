@@ -1,19 +1,44 @@
 using System.Collections.ObjectModel;
+using System.Text.Json.Serialization;
 
 namespace Patterns.Core.Model;
 
 public sealed class OutputConfig : Observable
 {
-    private OutputMode _mode = OutputMode.Duplicate;
     private bool _topmost = true;
     private bool _hideCursor = true;
 
-    public OutputMode Mode { get => _mode; set => Set(ref _mode, value); }
     public bool Topmost { get => _topmost; set => Set(ref _topmost, value); }
     public bool HideCursor { get => _hideCursor; set => Set(ref _hideCursor, value); }
 
-    /// <summary>Stable ids of the screens patterns go to (empty = all screens).</summary>
-    public ObservableCollection<string> SelectedScreenIds { get; init; } = new();
+    /// <summary>
+    /// The spatial screen arrangement. Screens dragged flush against each other form one
+    /// spanned canvas; screens standing alone are independent outputs. Placement positions
+    /// are in arrangement space (device pixels), unrelated to the OS desktop layout.
+    /// </summary>
+    public ObservableCollection<ScreenPlacement> Placements { get; init; } = new();
+}
+
+/// <summary>One physical screen's place in the arrangement.</summary>
+public sealed class ScreenPlacement : Observable
+{
+    private string _screenId = "";
+    private int _x;
+    private int _y;
+    private bool _enabled = true;
+    private bool _useCustomPattern;
+    private bool _userPinned;
+
+    public string ScreenId { get => _screenId; set => Set(ref _screenId, value); }
+    /// <summary>Arranged position in device pixels (top-left).</summary>
+    public int X { get => _x; set => Set(ref _x, value); }
+    public int Y { get => _y; set => Set(ref _y, value); }
+    /// <summary>Disabled screens get no output window (e.g. the operator's own screen).</summary>
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    /// <summary>Show this screen's own pattern instead of the program (stand-alone screens only).</summary>
+    public bool UseCustomPattern { get => _useCustomPattern; set => Set(ref _useCustomPattern, value); }
+    /// <summary>Set once the user chose Enabled manually — stops automatic defaults overriding them.</summary>
+    public bool UserPinned { get => _userPinned; set => Set(ref _userPinned, value); }
 }
 
 /// <summary>Per-screen pattern in Independent mode.</summary>
@@ -34,6 +59,10 @@ public sealed class ClockOverlay : Observable
     private double _sizePct = 8;
     private double _opacity = 1.0;
     private bool _pill = true;
+    private string _textColor = "";
+
+    /// <summary>Clock text colour; empty = brand/theme text colour.</summary>
+    public string TextColor { get => _textColor; set => Set(ref _textColor, value); }
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public bool TwentyFourHour { get => _twentyFourHour; set => Set(ref _twentyFourHour, value); }
@@ -80,6 +109,10 @@ public sealed class MessageOverlay : Observable
     private double _sizePct = 6;
     private bool _scroll = false;
     private double _scrollPxPerSec = 120;
+    private string _textColor = "";
+
+    /// <summary>Message text colour; empty = brand/theme text colour.</summary>
+    public string TextColor { get => _textColor; set => Set(ref _textColor, value); }
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public string Text { get => _text; set => Set(ref _text, value); }
@@ -110,6 +143,10 @@ public sealed class CountdownConfig : Observable
     private bool _showProgressBar = false;
     private Anchor9 _anchor = Anchor9.Center;
     private double _sizePct = 18;
+    private string _textColor = "";
+
+    /// <summary>Digits colour; empty = brand/theme text colour (urgency tint still applies).</summary>
+    public string TextColor { get => _textColor; set => Set(ref _textColor, value); }
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     /// <summary>e.g. “BACK FROM LUNCH AT”, “REHEARSAL RESUMES IN”, “DOORS IN”.</summary>
@@ -150,21 +187,40 @@ public sealed class BrandKit : Observable
     public bool ApplyToPatterns { get => _applyToPatterns; set => Set(ref _applyToPatterns, value); }
 }
 
-public sealed class NdiConfig : Observable
+/// <summary>One advertised NDI source.</summary>
+public sealed class NdiSenderConfig : Observable
 {
-    private bool _enabled = false;
-    private string _senderName = "Patterns";
+    private string _id = Guid.NewGuid().ToString("N");
+    private bool _enabled = true;
+    private string _name = "Patterns";
     private int _width = 1920;
     private int _height = 1080;
-    private int _frameRateN = 60000;
-    private int _frameRateD = 1000;
+    private string _rateKey = "60";
+    private string _sourceScreenId = "";
+    private bool _tenBit;
+    private string _status = "";
 
+    public string Id { get => _id; set => Set(ref _id, value); }
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
-    public string SenderName { get => _senderName; set => Set(ref _senderName, value); }
+    public string Name { get => _name; set => Set(ref _name, value); }
     public int Width { get => _width; set => Set(ref _width, Math.Clamp(value, 16, 8192)); }
     public int Height { get => _height; set => Set(ref _height, Math.Clamp(value, 16, 8192)); }
-    public int FrameRateN { get => _frameRateN; set => Set(ref _frameRateN, Math.Clamp(value, 1, 240000)); }
-    public int FrameRateD { get => _frameRateD; set => Set(ref _frameRateD, Math.Clamp(value, 1, 1001)); }
+    /// <summary>Frame-rate key from <c>NdiRateTable</c> ("23.98"…"60").</summary>
+    public string RateKey { get => _rateKey; set => Set(ref _rateKey, value); }
+    /// <summary>Empty = program; otherwise the screen whose pattern this sender mirrors.</summary>
+    public string SourceScreenId { get => _sourceScreenId; set => Set(ref _sourceScreenId, value); }
+    /// <summary>Send 10-bit P216 (renders internally at 10 bpc; heavier on CPU).</summary>
+    public bool TenBit { get => _tenBit; set => Set(ref _tenBit, value); }
+
+    /// <summary>Runtime status line for the UI.</summary>
+    [JsonIgnore]
+    public string Status { get => _status; set => Set(ref _status, value); }
+}
+
+public sealed class NdiConfig : Observable
+{
+    /// <summary>All configured NDI sources; each enabled one runs its own sender thread.</summary>
+    public ObservableCollection<NdiSenderConfig> Senders { get; init; } = new();
 }
 
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
@@ -184,4 +240,16 @@ public sealed class ShowState : Observable
     public CountdownConfig Countdown { get; init; } = new();
     public BrandKit Brand { get; init; } = new();
     public NdiConfig Ndi { get; init; } = new();
+
+    /// <summary>Media the operator has loaded — surfaces in the Library under "My media".</summary>
+    public ObservableCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();
+}
+
+public sealed class MediaLibraryEntry : Observable
+{
+    private string _path = "";
+    private bool _isVideo;
+
+    public string Path { get => _path; set => Set(ref _path, value); }
+    public bool IsVideo { get => _isVideo; set => Set(ref _isVideo, value); }
 }

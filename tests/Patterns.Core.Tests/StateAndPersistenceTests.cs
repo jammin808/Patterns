@@ -59,18 +59,24 @@ public class SnapshotBusTests
     }
 
     [Fact]
-    public void PatternForFallsBackToProgram()
+    public void PatternForHonoursCustomFlagAndFallsBackToProgram()
     {
         var state = new ShowState();
         state.Pattern.Kind = PatternKind.Grid;
-        state.Output.Mode = OutputMode.Independent;
-        var assignment = new OutputAssignment { ScreenId = "s2" };
-        assignment.Pattern.Kind = PatternKind.Focus;
-        state.Independent.Add(assignment);
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "s2", UseCustomPattern = true });
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "s3", UseCustomPattern = false });
+        var a2 = new OutputAssignment { ScreenId = "s2" };
+        a2.Pattern.Kind = PatternKind.Focus;
+        state.Independent.Add(a2);
+        var a3 = new OutputAssignment { ScreenId = "s3" };
+        a3.Pattern.Kind = PatternKind.Motion;
+        state.Independent.Add(a3);
         var bus = new SnapshotBus(state);
         bus.Publish(state);
 
         Assert.Equal(PatternKind.Focus, bus.Current.PatternFor("s2").Kind);
+        // Assignment exists but the custom flag is off — program wins.
+        Assert.Equal(PatternKind.Grid, bus.Current.PatternFor("s3").Kind);
         Assert.Equal(PatternKind.Grid, bus.Current.PatternFor("unknown").Kind);
         Assert.Equal(PatternKind.Grid, bus.Current.PatternFor(null).Kind);
     }
@@ -120,7 +126,7 @@ public class SettingsStoreTests : IDisposable
         state.Pattern.Blend.OverlapPx = 512;
         state.Brand.PrimaryColor = "#123456";
         state.Countdown.TargetTime = "18:45";
-        state.Output.SelectedScreenIds.Add("0:1920x1080@0,0");
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "0:1920x1080@0,0", X = 40, Y = 8, Enabled = false, UseCustomPattern = true });
         state.Blackout = true; // runtime-only: must NOT persist
 
         store.Save(state);
@@ -130,7 +136,10 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal(512, loaded.Pattern.Blend.OverlapPx);
         Assert.Equal("#123456", loaded.Brand.PrimaryColor);
         Assert.Equal("18:45", loaded.Countdown.TargetTime);
-        Assert.Single(loaded.Output.SelectedScreenIds);
+        var placement = Assert.Single(loaded.Output.Placements);
+        Assert.Equal(40, placement.X);
+        Assert.False(placement.Enabled);
+        Assert.True(placement.UseCustomPattern);
         // Blackout persists in the file; the app deliberately resets it at startup.
         Assert.True(loaded.Blackout);
     }
@@ -209,7 +218,7 @@ public class ModelCopierTests
     {
         var src = new ShowState();
         src.Pattern.Particles.ColorsCsv = "#111111,#222222";
-        src.Ndi.SenderName = "Main";
+        src.Ndi.Senders.Add(new NdiSenderConfig { Name = "Main", TenBit = true });
         var dst = new ShowState();
         ModelCopier.Copy(src, dst);
         Assert.Equal(JsonUtil.Serialize(src), JsonUtil.Serialize(dst));

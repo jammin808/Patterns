@@ -1,36 +1,60 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.NdiSection"
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="NDI output" />
-
-    <CheckBox Content="Send the program as an NDI source" IsChecked="{Binding State.Ndi.Enabled}" />
+    <TextBlock Classes="h1" Text="NDI outputs" />
     <TextBlock Classes="hint" Text="{Binding NdiRuntimeNote}" />
 
-    <TextBlock Classes="h2" Text="SENDER" />
-    <TextBox Watermark="Sender name on the network" Text="{Binding State.Ndi.SenderName}" />
+    <ItemsControl ItemsSource="{Binding State.Ndi.Senders}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:NdiSenderConfig">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="10" Padding="12" Margin="0,4">
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="Auto,8,*,8,Auto">
+                <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" ToolTip.Tip="Send this source" />
+                <TextBox Grid.Column="2" Watermark="Sender name on the network" Text="{Binding Name}" />
+                <Button Grid.Column="4" Classes="chip" Content="Remove"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveNdiSenderCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
 
-    <TextBlock Classes="h2" Text="FORMAT" />
-    <Grid ColumnDefinitions="*,8,*">
-      <NumericUpDown Grid.Column="0" Minimum="16" Maximum="8192" Increment="16" FormatString="0"
-                     Value="{Binding State.Ndi.Width, Mode=TwoWay, Converter={StaticResource Num}}"
-                     ToolTip.Tip="Width" />
-      <NumericUpDown Grid.Column="2" Minimum="16" Maximum="8192" Increment="16" FormatString="0"
-                     Value="{Binding State.Ndi.Height, Mode=TwoWay, Converter={StaticResource Num}}"
-                     ToolTip.Tip="Height" />
-    </Grid>
-    <ComboBox PlaceholderText="Frame rate…" ItemsSource="{Binding NdiRates}"
-              SelectedItem="{Binding SelectedNdiRate, Mode=TwoWay}" />
+              <Grid ColumnDefinitions="*,8,*,8,110">
+                <NumericUpDown Grid.Column="0" Minimum="16" Maximum="8192" Increment="16" FormatString="0"
+                               Value="{Binding Width, Mode=TwoWay, Converter={StaticResource Num}}"
+                               ToolTip.Tip="Width" />
+                <NumericUpDown Grid.Column="2" Minimum="16" Maximum="8192" Increment="16" FormatString="0"
+                               Value="{Binding Height, Mode=TwoWay, Converter={StaticResource Num}}"
+                               ToolTip.Tip="Height" />
+                <ComboBox Grid.Column="4"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).NdiRateKeys}"
+                          SelectedItem="{Binding RateKey, Mode=TwoWay}"
+                          ToolTip.Tip="Frame rate" />
+              </Grid>
 
-    <TextBlock Classes="h2" Text="STATUS" />
-    <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10">
-      <TextBlock Text="{Binding NdiStatus}" TextWrapping="Wrap" />
-    </Border>
+              <Grid ColumnDefinitions="*,8,Auto">
+                <ComboBox Grid.Column="0"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).NdiSources}"
+                          SelectedValue="{Binding SourceScreenId, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                          ToolTip.Tip="What this sender mirrors" />
+                <CheckBox Grid.Column="2" Content="10-bit (P216)" IsChecked="{Binding TenBit}"
+                          ToolTip.Tip="Renders at 10 bits per channel and sends P216 — smooth ramps, heavier on CPU" />
+              </Grid>
+
+              <TextBlock Classes="hint" Text="{Binding Status}" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <Button Classes="chip" Content="+ Add NDI sender" Command="{Binding AddNdiSenderCommand}" />
 
     <TextBlock Classes="hint" Margin="0,8,0,0"
-               Text="The NDI feed mirrors the program pattern (with overlays and countdown) at its own resolution and frame rate — independent of physical outputs. Blackout affects NDI too." />
+               Text="Each sender is its own NDI source with its own resolution, frame rate and bit depth, mirroring the program or a specific screen's pattern. Blackout affects every sender. 10-bit is worth it for ramps and gradient checks; 8-bit is lighter for plain patterns." />
   </StackPanel>
 </UserControl>

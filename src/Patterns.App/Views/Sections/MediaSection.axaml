@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Sections.MediaSection"
              x:DataType="vm:MainViewModel">
 
@@ -35,7 +36,7 @@
               SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Background" />
-      <ColorPicker Grid.Column="1" Color="{Binding ActivePattern.Media.BackgroundColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      <c:ColorField Grid.Column="1" Value="{Binding ActivePattern.Media.BackgroundColor, Mode=TwoWay}" />
     </Grid>
   </StackPanel>
 </UserControl>

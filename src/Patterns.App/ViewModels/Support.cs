@@ -51,11 +51,6 @@ public sealed record ResolutionPreset(string Label, int W, int H)
     public override string ToString() => Label;
 }
 
-public sealed record RatePreset(string Label, int N, int D)
-{
-    public override string ToString() => Label;
-}
-
 public static class Lists
 {
     private static string Pretty(string name)
@@ -80,13 +75,6 @@ public static class Lists
         new(PatternKind.ColorCycle, "Colour cycle"),
         new(PatternKind.Media, "Media (image / video)"),
         new(PatternKind.Particles, "Particles"),
-    };
-
-    public static readonly EnumItem[] OutputModes =
-    {
-        new(OutputMode.Duplicate, "Duplicate — same pattern everywhere"),
-        new(OutputMode.Independent, "Independent — per-screen patterns"),
-        new(OutputMode.Span, "Span — one canvas across screens"),
     };
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();
@@ -162,18 +150,6 @@ public static class Lists
     };
 
     public static readonly int[] TileSizes = { 64, 96, 104, 128, 160, 168, 176, 192, 200, 256 };
-
-    public static readonly RatePreset[] NdiRates =
-    {
-        new("23.98", 24000, 1001),
-        new("24", 24000, 1000),
-        new("25", 25000, 1000),
-        new("29.97", 30000, 1001),
-        new("30", 30000, 1000),
-        new("50", 50000, 1000),
-        new("59.94", 60000, 1001),
-        new("60", 60000, 1000),
-    };
 
     public static readonly string[] CountdownLabels =
     {

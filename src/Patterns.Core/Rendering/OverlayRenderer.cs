@@ -93,7 +93,7 @@ public static class OverlayRenderer
                 pc.FillAA(f.Palette.ChipBg.WithAlpha((byte)(f.Palette.ChipBg.Alpha * o.Opacity))));
         }
 
-        var textColor = f.Palette.Text.WithAlpha(alpha);
+        var textColor = f.Color(o.TextColor, f.Palette.Text).WithAlpha(alpha);
         var timeCy = rect.Top + padY + size / 2;
         DrawUtil.FixedDigitsCentered(c, time, rect.MidX, timeCy, font, pc.Text(textColor));
 
@@ -158,7 +158,8 @@ public static class OverlayRenderer
         }
 
         var urgent = !over && status.Remaining.TotalSeconds <= 60;
-        var digitsColor = over ? f.Palette.Accent : urgent ? new SKColor(0xFF, 0x64, 0x50) : f.Palette.Text;
+        var baseDigits = f.Color(cd.TextColor, f.Palette.Text);
+        var digitsColor = over ? f.Palette.Accent : urgent ? new SKColor(0xFF, 0x64, 0x50) : baseDigits;
         if (showMessage)
         {
             DrawUtil.TextCentered(c, digits, rect.MidX, y + size / 2, font, pc.Text(digitsColor));
@@ -191,6 +192,7 @@ public static class OverlayRenderer
         font.Size = size;
         var text = o.Text;
         var textW = font.MeasureText(text);
+        var messageColor = f.Color(o.TextColor, f.Palette.Text);
 
         if (o.Scroll && textW > 0)
         {
@@ -205,16 +207,16 @@ public static class OverlayRenderer
             var baseline = y - (m.Ascent + m.Descent) / 2;
             for (var x = lead; x + textW > 0; x -= period)
             {
-                c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(f.Palette.Text));
+                c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(messageColor));
             }
             for (var x = lead + period; x < f.W; x += period)
             {
-                c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(f.Palette.Text));
+                c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(messageColor));
             }
             return;
         }
 
-        DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, f.Palette.Text, f.Palette.ChipBg);
+        DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, f.Palette.ChipBg);
     }
 
     /// <summary>Viewport-space overlays: crisp per-sink info chip and the identify badge.</summary>

@@ -1,36 +1,42 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Sections.OutputsSection"
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Outputs" />
+    <TextBlock Classes="h1" Text="Screens" />
 
-    <TextBlock Classes="h2" Text="MODE" />
-    <ComboBox ItemsSource="{Binding OutputModes}"
-              SelectedValue="{Binding State.Output.Mode, Mode=TwoWay}"
-              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    <Border Background="#0B0C10" CornerRadius="10" BorderBrush="{StaticResource HairlineBrush}"
+            BorderThickness="1" Height="320" ClipToBounds="True">
+      <c:ScreenArrangeControl />
+    </Border>
     <TextBlock Classes="hint"
-               Text="Duplicate mirrors the program pattern. Independent gives each screen its own pattern (pick the editing target in the Pattern tab). Span joins the selected screens into one pixel canvas." />
+               Text="Tiles show the live content of each screen. Drag a screen flush against another to join them into one big canvas (it glows green when it will connect); drag it away to split. Click a tile to select it." />
+    <TextBlock Classes="label" Text="{Binding GroupSummary}" Margin="0,2,0,0" />
 
-    <TextBlock Classes="h2" Text="SCREENS" />
-    <ItemsControl ItemsSource="{Binding ScreenRows}">
-      <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="vm:ScreenRow">
-          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,8" Margin="0,3">
-            <Grid ColumnDefinitions="Auto,*">
-              <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
-              <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
-                <TextBlock Classes="hint" Text="{Binding Detail}" />
-              </StackPanel>
-            </Grid>
-          </Border>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
-    <Button Classes="chip" Content="Identify screens" Command="{Binding IdentifyCommand}" />
+    <TextBlock Classes="h2" Text="SELECTED SCREEN" />
+    <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" IsVisible="{Binding HasSelection}">
+      <StackPanel>
+        <TextBlock Text="{Binding SelectedScreenTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <CheckBox Margin="0,6,0,0" Content="Output enabled"
+                  IsChecked="{Binding SelectedEnabled, Mode=TwoWay}" />
+        <CheckBox Content="Custom pattern for this screen"
+                  IsChecked="{Binding SelectedUseCustom, Mode=TwoWay}"
+                  IsEnabled="{Binding !SelectedIsGrouped}" />
+        <TextBlock Classes="hint" IsVisible="{Binding SelectedIsGrouped}"
+                   Text="This screen is part of a joined canvas — the canvas shows the program pattern. Drag it away to give it its own pattern." />
+      </StackPanel>
+    </Border>
+    <TextBlock Classes="hint" IsVisible="{Binding !HasSelection}" Text="Click a screen tile to select it." />
+
+    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+      <Button Classes="chip" Content="Identify screens" Command="{Binding IdentifyCommand}" />
+      <Button Classes="chip" Content="Reset layout" Command="{Binding ResetLayoutCommand}" />
+    </StackPanel>
+    <TextBlock Classes="hint"
+               Text="Your main (primary) screen stays off by default when other screens are present, so GO never covers the controls — tick 'Output enabled' to include it anyway." />
 
     <TextBlock Classes="h2" Text="WINDOW BEHAVIOUR" />
     <CheckBox Content="Always on top" IsChecked="{Binding State.Output.Topmost}" />
@@ -42,6 +48,6 @@
       <Button Classes="stop" Content="STOP" Command="{Binding StopCommand}" />
     </StackPanel>
     <TextBlock Classes="hint"
-               Text="On an output window: Esc closes outputs · Space/B blackout · I identify. Changes apply live." />
+               Text="On an output window: Esc closes outputs · Space/B blackout · I identify. Layout changes apply live while outputs run." />
   </StackPanel>
 </UserControl>

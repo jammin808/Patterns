@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Sections.ParticlesSection"
              x:DataType="vm:MainViewModel">
 
@@ -90,7 +91,7 @@
              IsEnabled="{Binding !ActivePattern.Particles.UseBrandColors}" />
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Background" />
-      <ColorPicker Grid.Column="1" Color="{Binding ActivePattern.Particles.BackgroundColor, Mode=TwoWay, Converter={StaticResource HexColor}}" />
+      <c:ColorField Grid.Column="1" Value="{Binding ActivePattern.Particles.BackgroundColor, Mode=TwoWay}" />
     </Grid>
     <CheckBox Content="Glow (additive — great on LED)" IsChecked="{Binding ActivePattern.Particles.Glow}" />
 

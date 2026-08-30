@@ -49,3 +49,24 @@ jobs:
         with:
           name: Patterns-portable-win-x64
           path: dist/win-x64/Patterns.exe
+
+      - name: Publish portable win-x64 with bundled libVLC
+        run: >
+          dotnet publish src/Patterns.App/Patterns.App.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=embedded
+          -p:BundleVlc=true
+          -o dist/win-x64-full
+      - name: Verify libVLC bundle
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist/win-x64-full/libvlc/win-x64/libvlc.dll)) { throw "libvlc.dll missing from full bundle" }
+          if (-not (Test-Path dist/win-x64-full/libvlc/win-x64/plugins)) { throw "libvlc plugins missing from full bundle" }
+      - name: Upload portable app with video
+        uses: actions/upload-artifact@v4
+        with:
+          name: Patterns-portable-win-x64-full
+          path: dist/win-x64-full/

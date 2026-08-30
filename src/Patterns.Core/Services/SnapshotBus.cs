@@ -28,14 +28,29 @@ public sealed class ShowSnapshot
         return _colorCache.GetOrAdd(hex, static (h, fb) => ColorUtil.TryParse(h, out var c) ? c : fb, fallback);
     }
 
-    /// <summary>The pattern a given sink should draw (independent screens may override the program).</summary>
+    /// <summary>
+    /// The pattern a given sink should draw: a screen with "custom pattern" enabled uses its
+    /// own assignment; everything else (grouped canvases included) shows the program.
+    /// </summary>
     public PatternConfig PatternFor(string? screenId)
     {
-        if (State.Output.Mode == OutputMode.Independent && screenId is not null)
+        if (screenId is not null)
         {
-            foreach (var a in State.Independent)
+            var custom = false;
+            foreach (var p in State.Output.Placements)
             {
-                if (a.ScreenId == screenId) return a.Pattern;
+                if (p.ScreenId == screenId)
+                {
+                    custom = p.UseCustomPattern;
+                    break;
+                }
+            }
+            if (custom)
+            {
+                foreach (var a in State.Independent)
+                {
+                    if (a.ScreenId == screenId) return a.Pattern;
+                }
             }
         }
         return State.Pattern;
