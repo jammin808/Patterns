@@ -157,3 +157,13 @@ public sealed class BoolToTextConverter : IValueConverter
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => BindingOperations.DoNothing;
 }
+
+/// <summary>true → the sandbox accent frame around the preview; false → no frame.</summary>
+public sealed class SandboxBorderConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is true ? new Avalonia.Thickness(2) : new Avalonia.Thickness(0);
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}

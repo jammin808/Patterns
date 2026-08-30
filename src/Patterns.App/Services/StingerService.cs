@@ -70,6 +70,13 @@ public sealed class StingerService : IDisposable
             return false;
         }
 
+        if (_services.Sandbox.Active)
+        {
+            // A clip must take the *program*, and revert to it — meaningless mid-sandbox.
+            _status = "Send or discard the sandbox first, then fire the clip.";
+            return false;
+        }
+
         var state = _services.State;
         if (_savedLook is null)
         {

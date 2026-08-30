@@ -165,18 +165,35 @@ public sealed class SnapshotBus
 
     public void Publish(ShowState state)
     {
-        var snap = new ShowSnapshot
-        {
-            State = JsonUtil.Clone(state),
-            Version = ++_version,
-            IdentifyUntilUtc = IdentifyUntilUtc,
-            PlaylistNow = PlaylistNow,
-            ToneIndicator = ToneIndicator,
-            FeedText = FeedText,
-        };
-        _current = snap;
+        _current = Build(state);
         Changed?.Invoke();
     }
+
+    private volatile ShowSnapshot? _sandbox;
+
+    /// <summary>
+    /// While look programming is sandboxed, the preview renders this snapshot and every
+    /// other sink stays on <see cref="Current"/> (the frozen program). Null = no sandbox.
+    /// </summary>
+    public ShowSnapshot? Sandbox => _sandbox;
+
+    public void PublishSandbox(ShowState state)
+    {
+        _sandbox = Build(state);
+        Changed?.Invoke();
+    }
+
+    public void ClearSandbox() => _sandbox = null;
+
+    private ShowSnapshot Build(ShowState state) => new()
+    {
+        State = JsonUtil.Clone(state),
+        Version = ++_version,
+        IdentifyUntilUtc = IdentifyUntilUtc,
+        PlaylistNow = PlaylistNow,
+        ToneIndicator = ToneIndicator,
+        FeedText = FeedText,
+    };
 }
 
 /// <summary>The playlist item currently on screen (immutable; carried on snapshots).</summary>

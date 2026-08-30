@@ -97,11 +97,50 @@
       </TabControl>
 
       <!-- Preview column -->
-      <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="12,0,0,0">
-        <Border Grid.Row="0" Classes="panel" Padding="6" ClipToBounds="True">
+      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="12,0,0,0">
+
+        <!-- Sandbox: build a look here while the outputs hold the program -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,8,*" Margin="0,0,0,8">
+          <ToggleButton Grid.Column="0" Content="SANDBOX" FontWeight="SemiBold" Padding="14,7"
+                        IsChecked="{Binding IsSandboxActive, Mode=TwoWay}"
+                        ToolTip.Tip="Programme a look without it going live: edits show only in this preview while every screen and NDI feed holds the current program. Then send it to all screens, to ticked screens, save it as a look (Looks tab), or switch off to discard. Blackout and GO/STOP stay live; cues hold while open." />
+          <Border Grid.Column="2" Background="#1C2E1F" BorderBrush="#2EE68A" BorderThickness="1"
+                  CornerRadius="8" Padding="8,4" IsVisible="{Binding IsSandboxActive}">
+            <Grid ColumnDefinitions="*,8,Auto,Auto">
+              <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                  <TextBlock Classes="label" Text="To:" VerticalAlignment="Center" />
+                  <ItemsControl ItemsSource="{Binding SandboxScreens}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="4" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:SandboxScreenChoice">
+                        <ToggleButton Classes="mini" Content="{Binding Chip}"
+                                      IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </ScrollViewer>
+              <Button Grid.Column="2" Classes="mini" Content="SEND SELECTED" Margin="0,0,6,0"
+                      Command="{Binding SandboxSendSelectedCommand}"
+                      ToolTip.Tip="The sandbox becomes the ticked screens' own pattern; everything else stays as it was" />
+              <Button Grid.Column="3" Classes="go" Content="SEND ALL" Padding="12,5"
+                      Command="{Binding SandboxSendAllCommand}"
+                      ToolTip.Tip="The sandbox becomes the program on every screen (crossfades in)" />
+            </Grid>
+          </Border>
+        </Grid>
+
+        <Border Grid.Row="1" Classes="panel" Padding="6" ClipToBounds="True"
+                BorderBrush="#2EE68A"
+                BorderThickness="{Binding IsSandboxActive, Converter={StaticResource SandboxBorder}}">
           <r:SkiaCanvasControl x:Name="PreviewCanvas" />
         </Border>
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="2,10,2,0">
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="2,10,2,0">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
             <TextBlock Classes="label" Text="{Binding CanvasInfo}" />
             <TextBlock Classes="label" Text="{Binding NdiStatus, StringFormat='NDI: {0}'}" />

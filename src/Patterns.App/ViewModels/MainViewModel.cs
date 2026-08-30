@@ -200,6 +200,34 @@ public sealed class MainViewModel : Observable
             StatusMessage = _services.Stingers.Status;
         });
 
+        // Sandbox look programming
+        SandboxSendAllCommand = new RelayCommand(() =>
+        {
+            if (!_services.Sandbox.Active) return;
+            _services.Sandbox.SendAll();
+            Raise(nameof(IsSandboxActive));
+            StatusMessage = "Sandbox sent to ALL screens.";
+        });
+        SandboxSendSelectedCommand = new RelayCommand(() =>
+        {
+            if (!_services.Sandbox.Active) return;
+            var picked = SandboxScreens.Where(s => s.IsSelected).ToList();
+            if (picked.Count == 0)
+            {
+                StatusMessage = "Tick the screens to send to first.";
+                return;
+            }
+            var inCanvas = CanvasGroups().SelectMany(g => g).Select(p => p.ScreenId).ToHashSet();
+            var spanned = picked.Where(s => inCanvas.Contains(s.ScreenId)).Select(s => s.Number).ToList();
+            _services.Sandbox.SendToScreens(picked.Select(s => s.ScreenId).ToList());
+            Raise(nameof(IsSandboxActive));
+            StatusMessage = $"Sandbox sent to screen{(picked.Count == 1 ? "" : "s")} " +
+                            $"{string.Join(", ", picked.Select(s => s.Number))} as their own pattern." +
+                            (spanned.Count > 0
+                                ? $" Note: screen{(spanned.Count == 1 ? "" : "s")} {string.Join(", ", spanned)} sit in a joined canvas and show the canvas content — split them apart to see their own look."
+                                : "");
+        });
+
         // Looks & cues
         SaveLookCommand = new RelayCommand(SaveLook);
         ApplyLookCommand = new RelayCommand<LookConfig>(look =>
@@ -279,6 +307,7 @@ public sealed class MainViewModel : Observable
     {
         ReconcilePlacements();
         RefreshOutputsStatus();
+        if (_services.Sandbox.Active) RebuildSandboxScreens();
     }
 
     public void ReconcilePlacements() => ReconcilePlacements(_services.Screens.All.ToList());
@@ -878,6 +907,43 @@ public sealed class MainViewModel : Observable
             .ToArray();
     }
 
+    // ---- sandbox look programming -------------------------------------------
+
+    public ObservableCollection<SandboxScreenChoice> SandboxScreens { get; } = new();
+
+    /// <summary>The bar's toggle: on = open the sandbox, off = discard. Send buttons close it too.</summary>
+    public bool IsSandboxActive
+    {
+        get => _services.Sandbox.Active;
+        set
+        {
+            if (value == _services.Sandbox.Active) return;
+            if (value)
+            {
+                _services.Sandbox.Enter();
+                RebuildSandboxScreens();
+                StatusMessage = "SANDBOX — build the look here; outputs keep showing the program.";
+            }
+            else
+            {
+                _services.Sandbox.Discard();
+                StatusMessage = "Sandbox discarded — outputs untouched.";
+            }
+            Raise(nameof(IsSandboxActive));
+        }
+    }
+
+    private void RebuildSandboxScreens()
+    {
+        SandboxScreens.Clear();
+        var n = 0;
+        foreach (var x in OrderedLivePlacements())
+        {
+            n++;
+            SandboxScreens.Add(new SandboxScreenChoice(n, x.Info.Label, x.Placement.ScreenId));
+        }
+    }
+
     // ---- audio track player -------------------------------------------------
 
     public ObservableCollection<AudioDeviceChoice> AudioDevices { get; } = new();
@@ -900,6 +966,10 @@ public sealed class MainViewModel : Observable
     {
         var selected = State.AudioPlayer.Devices;
         AudioDevices.Clear();
+        // Pinned first: the computer's own output — the feed usually wired to the venue PA.
+        AudioDevices.Add(new AudioDeviceChoice(this, AudioPlayerService.DefaultDeviceKey,
+            selected.Contains(AudioPlayerService.DefaultDeviceKey),
+            "Computer audio output (default device — venue sound feed)"));
         foreach (var name in AudioPlayerService.OutputDevices())
         {
             AudioDevices.Add(new AudioDeviceChoice(this, name, selected.Contains(name)));
@@ -999,6 +1069,13 @@ public sealed class MainViewModel : Observable
 
     private void CheckCues()
     {
+        if (_services.Sandbox.Active)
+        {
+            // A cue firing now would land in the sandbox, not on the outputs — hold them.
+            NextCueText = "Cues held while the sandbox is open.";
+            return;
+        }
+
         var now = DateTime.Now;
         foreach (var cue in State.LooksAndCues.Cues)
         {
@@ -1325,6 +1402,8 @@ public sealed class MainViewModel : Observable
     public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
     public RelayCommand StopStingerCommand { get; }
+    public RelayCommand SandboxSendAllCommand { get; }
+    public RelayCommand SandboxSendSelectedCommand { get; }
 
     private string _selectedPresenterLook = "";
     public string SelectedPresenterLook { get => _selectedPresenterLook; set => Set(ref _selectedPresenterLook, value); }
@@ -1380,6 +1459,9 @@ public sealed class MainViewModel : Observable
             };
         }
     }
+
+    /// <summary>The status-timer body, callable directly (tests drive it without waiting on the clock).</summary>
+    public void PollNow() => PollStatus();
 
     private void PollStatus()
     {

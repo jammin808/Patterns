@@ -46,14 +46,19 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
     private readonly MainViewModel _vm;
     private bool _isSelected;
 
-    public AudioDeviceChoice(MainViewModel vm, string name, bool selected)
+    public AudioDeviceChoice(MainViewModel vm, string name, bool selected, string? label = null)
     {
         _vm = vm;
         Name = name;
+        Label = label ?? name;
         _isSelected = selected;
     }
 
+    /// <summary>The stored key (a device's friendly name, or the computer-output sentinel).</summary>
     public string Name { get; }
+
+    /// <summary>What the checkbox shows.</summary>
+    public string Label { get; }
 
     public bool IsSelected
     {
@@ -62,6 +67,30 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
         {
             if (Set(ref _isSelected, value)) _vm.AudioDeviceChanged(this);
         }
+    }
+}
+
+/// <summary>A screen chip in the sandbox send bar.</summary>
+public sealed class SandboxScreenChoice : Patterns.Core.Model.Observable
+{
+    private bool _isSelected;
+
+    public SandboxScreenChoice(int number, string label, string screenId)
+    {
+        Number = number;
+        Label = label;
+        ScreenId = screenId;
+    }
+
+    public int Number { get; }
+    public string Label { get; }
+    public string ScreenId { get; }
+    public string Chip => $"{Number} · {Label}";
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => Set(ref _isSelected, value);
     }
 }
 

@@ -30,18 +30,18 @@
     <TextBlock Classes="label" Text="{Binding AudioPlayerStatus}" TextWrapping="Wrap" />
 
     <Grid ColumnDefinitions="*,8,Auto">
-      <TextBlock Classes="label" Text="Play on these outputs (none ticked = default device)" VerticalAlignment="Center" />
+      <TextBlock Classes="label" Text="Play on these outputs (none ticked = computer output)" VerticalAlignment="Center" />
       <Button Grid.Column="2" Classes="mini" Content="Refresh devices" Command="{Binding RefreshAudioDevicesCommand}" />
     </Grid>
     <ItemsControl ItemsSource="{Binding AudioDevices}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:AudioDeviceChoice">
-          <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,1" />
+          <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,1" />
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <TextBlock Classes="hint"
-               Text="Multi-device playback starts the outputs together; over very long tracks separate devices can drift a little. Device changes apply on the next play." />
+               Text="The computer audio output is the default Windows device — usually the jack or interface feeding the venue sound system — and it combines with HDMI screens (tick both to play everywhere at once). Multi-device playback starts the outputs together; over very long tracks separate devices can drift a little. Device changes apply on the next play." />
 
     <TextBlock Classes="h2" Text="STINGERS" />
     <TextBlock Classes="hint"

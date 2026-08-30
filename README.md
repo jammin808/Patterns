@@ -109,12 +109,20 @@ fault containment, and settings that can never brick startup.
 - **Picture-in-picture** — a second live input (another NDI feed or a capture device) as a
   corner overlay over the program on every output: anchor, size, opacity and border are live.
   Confidence-monitor the camera while the walls show content.
-- **Independent audio track** — play a music/VO file to **any set of audio outputs** (front
-  of house, a Dante/USB interface, HDMI screen audio — several at once), with loop and live
-  volume, regardless of what's on screen. Video sound and the tone generator stay separate.
+- **Independent audio track** — play a music/VO file to **any set of audio outputs**: the
+  **computer's own output** (the jack or interface feeding the venue sound system — a
+  pinned, explicit choice), HDMI screen audio, a Dante/USB interface — several at once,
+  with loop and live volume, regardless of what's on screen. Video sound and the tone
+  generator stay separate.
 - **4-corner warp** — nudge each output's corners (keystone/skew) so a slightly-off projector
   lands straight on the surface — composed with rotation and per-screen trims, applied to
   patterns, media and live inputs alike.
+- **Sandbox look programming** — flip on **SANDBOX** above the preview and build the next
+  look mid-show without it going live: every editor works as normal, the preview follows
+  your edits, but **all screens and NDI feeds hold the current program**. Then send it —
+  to **all screens** (crossfades in), to **ticked screens** as their own pattern, save it
+  as a look for later, or discard it. Blackout and GO/STOP stay live through the freeze,
+  and scheduled cues hold until the sandbox closes.
 - **Stingers** — one-press sounds and clips, no audio engineer needed: *"Take your seats,
   the show is about to begin."* A sound plays over everything on the audio-track outputs
   while the music ducks underneath (and comes back by itself); a **video clip takes over
@@ -142,8 +150,12 @@ fault containment, and settings that can never brick startup.
     <td><img src="docs/media/shot-looks.png" alt="Looks on F-keys, cue schedule and presenter click-through"/></td>
   </tr>
   <tr>
-    <td><img src="docs/media/shot-show.png" alt="Show page — transport, presenter, looks and audio on one screen"/></td>
+    <td><img src="docs/media/shot-show.png" alt="Show page — transport, presenter, looks, stingers and audio on one screen"/></td>
     <td><img src="docs/media/shot-playlist.png" alt="Playlist with drag-to-reorder and per-item timing"/></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/shot-sandbox.png" alt="Sandbox — building the next look while outputs hold the program"/></td>
+    <td><img src="docs/media/shot-audio.png" alt="Audio — track, stingers and per-output device routing"/></td>
   </tr>
 </table>
 
@@ -193,7 +205,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 275 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, headless UI
+dotnet test                      # 283 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, sandbox, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

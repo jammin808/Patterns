@@ -82,9 +82,13 @@ public sealed class RenderPipeline : IDisposable
             if (_sink.TransitionEndClock > ShowClock.Seconds) return RedrawCadence.Continuous;
             var vp = _viewport;
             var screenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId;
-            return PatternEngine.CadenceOf(_bus.Current, screenId, DateTime.UtcNow);
+            return PatternEngine.CadenceOf(SnapshotFor(vp), screenId, DateTime.UtcNow);
         }
     }
+
+    /// <summary>The preview follows the sandbox while look programming is sandboxed; outputs, NDI and thumbnails always show program.</summary>
+    private ShowSnapshot SnapshotFor(PipelineViewport vp)
+        => vp.Kind == SinkKind.Preview ? _bus.Sandbox ?? _bus.Current : _bus.Current;
 
     private SKColorFilter? _trimFilter;
     private string _trimFilterKey = "";
@@ -158,7 +162,7 @@ public sealed class RenderPipeline : IDisposable
                 // Keystone path: content renders to an offscreen surface at the effective
                 // size, then blits through warp ∘ rotation as one perspective image draw.
                 var surface = EnsureOffscreen(effectivePx);
-                _engine.Render(surface.Canvas, _bus.Current, in ctx, _sink);
+                _engine.Render(surface.Canvas, SnapshotFor(vp), in ctx, _sink);
                 surface.Canvas.Flush();
                 using var image = surface.Snapshot();
 
@@ -175,7 +179,7 @@ public sealed class RenderPipeline : IDisposable
             else
             {
                 canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                _engine.Render(canvas, _bus.Current, in ctx, _sink);
+                _engine.Render(canvas, SnapshotFor(vp), in ctx, _sink);
             }
 
             if (layered)

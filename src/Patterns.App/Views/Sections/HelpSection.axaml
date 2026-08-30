@@ -24,6 +24,10 @@ On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · Pg
     <TextBlock Classes="hint" TextWrapping="Wrap"
                Text="Switch it on in the Remote tab, then open the shown address on any phone or tablet on this network for the big-button web remote. Stream Decks: load the Bitfocus Companion module from integrations/companion-module-patterns (presets for transport, looks, screens, groups, presenter, stingers and audio, with live feedback) — or use Companion's Generic TCP with the one-line commands in docs/REMOTE.md. There is no password: anyone on the network can drive the show while remote control is on." />
 
+    <TextBlock Classes="h2" Text="SANDBOX (PROGRAM WITHOUT GOING LIVE)" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Flip SANDBOX above the preview to build the next look mid-show: every editor works as normal and the preview follows you, but the screens and NDI keep showing the current program. Send the result to ALL screens, to ticked screens (it becomes their own per-screen pattern), save it as a look in the Looks tab, or switch SANDBOX off to discard. Blackout, GO/STOP and screen toggles stay live the whole time; scheduled cues hold until the sandbox closes. Live video/NDI keeps playing on air — the sandbox preview shows a placeholder card for a different clip until it's sent." />
+
     <TextBlock Classes="h2" Text="STINGERS &amp; STAYING UP" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
                Text="Stingers (Audio tab): one-press sounds and clips — a sound plays over everything while the music ducks, a video clip takes the screens and the previous content returns when it ends. Fire them from the Show page, the phone remote or a Stream Deck. Watchdog (Remote tab): the app runs supervised — after a crash or a 30-second UI freeze it restarts itself with the same settings and puts live outputs (and the audio track) back. A clean close never auto-restores. The health line on the Show page counts uptime, watchdog restarts and contained render faults." />

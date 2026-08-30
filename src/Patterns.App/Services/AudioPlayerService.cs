@@ -30,6 +30,13 @@ public sealed class AudioPlayerService : IDisposable
 
     public string Status => _status;
 
+    /// <summary>
+    /// Stored key for "the computer's audio output" (the default render device — typically
+    /// the jack/interface feeding the venue sound system). A key, not a display name, so it
+    /// survives the default device changing.
+    /// </summary>
+    public const string DefaultDeviceKey = "(computer output)";
+
     /// <summary>Active output device friendly names (WASAPI). Empty off-Windows.</summary>
     public static IReadOnlyList<string> OutputDevices()
     {
@@ -141,15 +148,30 @@ public sealed class AudioPlayerService : IDisposable
         Log.Info($"Audio track started on {_players.Count} output(s): {Path.GetFileName(path)}");
     }
 
-    /// <summary>Stored names → devices; empty selection (or nothing matching) = the default device.</summary>
+    /// <summary>
+    /// Stored names → devices. The <see cref="DefaultDeviceKey"/> entry adds the computer's
+    /// default output (the venue-PA feed) and can combine with named HDMI screens; the same
+    /// physical endpoint never plays twice. Empty selection (or nothing matching) = default.
+    /// </summary>
     private static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names)
     {
         var result = new List<MMDevice>();
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddDefault()
+        {
+            var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            if (taken.Add(device.ID)) result.Add(device);
+            else device.Dispose();
+        }
+
+        if (names.Contains(DefaultDeviceKey)) AddDefault();
         if (names.Count > 0)
         {
             foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
             {
-                if (names.Any(n => string.Equals(n, device.FriendlyName, StringComparison.OrdinalIgnoreCase)))
+                if (names.Any(n => string.Equals(n, device.FriendlyName, StringComparison.OrdinalIgnoreCase)) &&
+                    taken.Add(device.ID))
                 {
                     result.Add(device);
                 }
@@ -159,10 +181,7 @@ public sealed class AudioPlayerService : IDisposable
                 }
             }
         }
-        if (result.Count == 0)
-        {
-            result.Add(enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia));
-        }
+        if (result.Count == 0) AddDefault();
         return result;
     }
 

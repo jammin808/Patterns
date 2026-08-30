@@ -30,6 +30,7 @@ public sealed class AppServices
     public AudioPlayerService AudioPlayer { get; }
     public ControlService Control { get; }
     public StingerService Stingers { get; }
+    public SandboxService Sandbox { get; }
     public RecoveryStore Recovery { get; }
 
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
@@ -85,6 +86,7 @@ public sealed class AppServices
         AudioPlayer = new AudioPlayerService(this);
         Control = new ControlService(this);
         Stingers = new StingerService(this);
+        Sandbox = new SandboxService(this);
         Recovery = new RecoveryStore(Store.BaseDirectory);
         PendingRecovery = Recovery.Read();
 
@@ -133,11 +135,21 @@ public sealed class AppServices
         }
     }
 
+    /// <summary>Runs the full change pipeline now (sandbox enter/exit republish without a model edit).</summary>
+    public void RepublishNow() => OnStateChanged();
+
     private void OnStateChanged()
     {
         if (_bulkDepth > 0) return;
 
-        Bus.Publish(State);
+        if (Sandbox.Active)
+        {
+            Sandbox.PublishBoth(); // outputs stay on the frozen program; preview follows the edits
+        }
+        else
+        {
+            Bus.Publish(State);
+        }
         ApplySideEffects();
 
         Outputs.NotifySnapshot();

@@ -15,6 +15,7 @@
     <conv:MediaKindConverter x:Key="MediaKind" />
     <conv:NotEmptyConverter x:Key="NotEmpty" />
     <conv:EnumNotEqualsConverter x:Key="NotEq" />
+    <conv:SandboxBorderConverter x:Key="SandboxBorder" />
 
     <!-- Palette -->
     <Color x:Key="AppBg">#0E0F13</Color>
