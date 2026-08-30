@@ -371,6 +371,10 @@ public sealed class ControlService : IDisposable
 <div class="sec">SCREENS</div>
 <div id="screens" class="grid row3"></div>
 
+<div class="sec">STINGERS</div>
+<div id="stingers" class="grid row2"></div>
+<div id="stingnow" class="grid" style="margin-top:10px"></div>
+
 <div class="sec">AUDIO TRACK</div>
 <div class="grid row2">
   <button class="go" onclick="cmd('AUDIO PLAY')">▶ Play</button>
@@ -415,6 +419,23 @@ function render(s) {
     b.onclick = function(){ cmd('SCREEN ' + x.n + ' TOGGLE'); };
     sc.appendChild(b);
   });
+
+  var st = document.getElementById('stingers'); st.innerHTML = '';
+  (s.stingers || []).forEach(function(x){
+    var b = document.createElement('button');
+    b.textContent = x.name;
+    b.onclick = function(){ cmd('STINGER ' + x.n); };
+    st.appendChild(b);
+  });
+  if (!s.stingers || s.stingers.length === 0) st.innerHTML = '<button disabled>No stingers set up</button>';
+  var sn = document.getElementById('stingnow'); sn.innerHTML = '';
+  if (s.stingerPlaying) {
+    var b2 = document.createElement('button');
+    b2.className = 'stop';
+    b2.textContent = '■ Stop: ' + s.stingerPlaying;
+    b2.onclick = function(){ cmd('STINGER STOP'); };
+    sn.appendChild(b2);
+  }
 }
 function poll() {
   fetch('/api/state')

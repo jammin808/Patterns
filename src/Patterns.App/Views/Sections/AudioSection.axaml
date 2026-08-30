@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.AudioSection"
              x:DataType="vm:MainViewModel">
 
@@ -41,6 +42,53 @@
     </ItemsControl>
     <TextBlock Classes="hint"
                Text="Multi-device playback starts the outputs together; over very long tracks separate devices can drift a little. Device changes apply on the next play." />
+
+    <TextBlock Classes="h2" Text="STINGERS" />
+    <TextBlock Classes="hint"
+               Text="One-press sounds and clips — 'Take your seats, the show is about to begin' — fired from here, the Show page, a phone or a Stream Deck, no audio engineer needed. Sounds play over everything (the music track ducks underneath); a video clip takes over every screen, and when it ends the previous content comes straight back." />
+    <WrapPanel>
+      <Button Classes="chip" Content="+ Add sounds / clips…" Command="{Binding AddStingerFilesCommand}" Margin="0,0,8,6" />
+      <Button Classes="stop" Content="■ STOP STINGER" Command="{Binding StopStingerCommand}" Margin="0,0,0,6" />
+    </WrapPanel>
+    <ItemsControl ItemsSource="{Binding State.Stingers.Items}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:StingerItemConfig">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
+            <Grid ColumnDefinitions="Auto,8,Auto,8,*,6,Auto" RowDefinitions="Auto,4,Auto">
+              <Button Grid.Column="0" Classes="go" Content="▶ FIRE" Padding="10,6"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireStingerCommand}"
+                      CommandParameter="{Binding}" />
+              <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center"
+                         Text="{Binding Path, Converter={StaticResource MediaKind}}" />
+              <TextBox Grid.Column="4" Text="{Binding Name}" MinWidth="60"
+                       Watermark="{Binding Path, Converter={StaticResource FileName}}"
+                       ToolTip.Tip="{Binding Path}" />
+              <Button Grid.Column="6" Classes="mini" Content="✕"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveStingerCommand}"
+                      CommandParameter="{Binding}" />
+              <Grid Grid.Row="2" Grid.ColumnSpan="7" ColumnDefinitions="Auto,8,*,8,40">
+                <TextBlock Classes="label" Text="Vol" VerticalAlignment="Center" />
+                <Slider Grid.Column="2" Minimum="0" Maximum="125" TickFrequency="5"
+                        Value="{Binding VolumePct, Mode=TwoWay}" />
+                <TextBlock Grid.Column="4" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                           Text="{Binding VolumePct, StringFormat={}{0:0}%}" />
+              </Grid>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Grid ColumnDefinitions="130,*,44">
+      <TextBlock Classes="label" Text="Music duck" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+              Value="{Binding State.Stingers.DuckPct, Mode=TwoWay}" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Stingers.DuckPct, StringFormat={}{0:0}%}" />
+    </Grid>
+    <TextBlock Classes="hint"
+               Text="How loud the music track stays while a sound stinger plays (0% = fully silent, then it comes back by itself). Sounds use the track's device selection above; clip sound plays like any video." />
+    <TextBlock Classes="label" Text="{Binding StingerStatus}" TextWrapping="Wrap" />
+
     <TextBlock Classes="hint"
                Text="Soundcheck signal for the audio engineer: a reference tone, or a channel ident — one pip LEFT, two pips RIGHT — with a matching on-screen indicator on every output, so what you see is what they hear." />
 

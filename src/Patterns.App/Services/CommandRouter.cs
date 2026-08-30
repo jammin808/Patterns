@@ -118,6 +118,22 @@ public sealed class CommandRouter
                 state.Tone.Enabled = false;
                 return ControlProtocol.Ok();
 
+            case RemoteCommandKind.Stinger:
+            {
+                var items = state.Stingers.Items;
+                var item = cmd.IntArg > 0
+                    ? (cmd.IntArg <= items.Count ? items[cmd.IntArg - 1] : null)
+                    : items.FirstOrDefault(i => string.Equals(i.DisplayName, cmd.TextArg, StringComparison.OrdinalIgnoreCase));
+                if (item is null)
+                {
+                    return ControlProtocol.Err(cmd.IntArg > 0 ? $"no stinger {cmd.IntArg}" : $"no stinger named '{cmd.TextArg}'");
+                }
+                return _services.Stingers.Fire(item) ? ControlProtocol.Ok() : ControlProtocol.Err(_services.Stingers.Status);
+            }
+            case RemoteCommandKind.StingerStop:
+                _services.Stingers.Stop();
+                return ControlProtocol.Ok();
+
             case RemoteCommandKind.Status:
                 return ControlProtocol.Ok(StateJson());
 
@@ -151,8 +167,11 @@ public sealed class CommandRouter
                 track = System.IO.Path.GetFileName(s.AudioPlayer.Path),
             },
             tone = s.Tone.Enabled,
+            stingers = s.Stingers.Items.Select((i, n) => new { n = n + 1, name = i.DisplayName }).ToArray(),
+            stingerPlaying = s.Stingers.PlayingName,
             playlist = _services.Playlist.Status,
             nextCue = vm?.NextCueText ?? "",
+            health = HealthMonitor.Summary(DateTime.UtcNow),
         };
         return JsonSerializer.Serialize(payload);
     }

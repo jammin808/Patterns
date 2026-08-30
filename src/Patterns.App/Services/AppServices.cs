@@ -29,6 +29,11 @@ public sealed class AppServices
     public AudioService Audio { get; }
     public AudioPlayerService AudioPlayer { get; }
     public ControlService Control { get; }
+    public StingerService Stingers { get; }
+    public RecoveryStore Recovery { get; }
+
+    /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
+    public RecoverySnapshot? PendingRecovery { get; }
 
     public MainWindow? MainWindow { get; private set; }
 
@@ -79,6 +84,9 @@ public sealed class AppServices
         Audio = new AudioService(this);
         AudioPlayer = new AudioPlayerService(this);
         Control = new ControlService(this);
+        Stingers = new StingerService(this);
+        Recovery = new RecoveryStore(Store.BaseDirectory);
+        PendingRecovery = Recovery.Read();
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
         _saveTimer.Tick += (_, _) =>
@@ -97,6 +105,7 @@ public sealed class AppServices
         _ = new ChangeTracker(State, OnStateChanged);
 
         Screens.Changed += () => Outputs.OnScreensChanged();
+        Outputs.LiveChanged += UpdateRecovery;
     }
 
     public void AttachMainWindow(MainWindow window)
@@ -142,6 +151,49 @@ public sealed class AppServices
 
         _saveTimer.Stop();
         _saveTimer.Start();
+
+        UpdateRecovery();
+    }
+
+    private (bool Live, bool Audio)? _recoveryWritten;
+
+    /// <summary>Keeps the recovery sidecar current: present while something is live, gone otherwise.</summary>
+    private void UpdateRecovery()
+    {
+        var current = (Outputs.IsLive, State.AudioPlayer.Playing);
+        if (_recoveryWritten == current) return;
+        _recoveryWritten = current;
+        if (current.Item1 || current.Item2)
+        {
+            Recovery.Write(current.Item1, current.Item2);
+        }
+        else
+        {
+            Recovery.Clear();
+        }
+    }
+
+    /// <summary>After a watchdog relaunch (--recover): put back what was running at the crash.</summary>
+    public void TryRecover(ViewModels.MainViewModel vm)
+    {
+        try
+        {
+            if (!State.Watchdog.AutoRestore) return;
+            if (PendingRecovery is not { } was || !RecoveryStore.IsFresh(was, DateTime.UtcNow)) return;
+
+            if (was.Live && !Outputs.IsLive) Outputs.Apply();
+            if (was.AudioPlaying && File.Exists(State.AudioPlayer.Path)) State.AudioPlayer.Playing = true;
+
+            var restored = was.Live || was.AudioPlaying;
+            vm.StatusMessage = restored
+                ? "Watchdog restarted the app — the show was put back on."
+                : "Watchdog restarted the app.";
+            Log.Info(vm.StatusMessage);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Recovery after restart failed.", ex);
+        }
     }
 
     /// <summary>Raised on the UI thread after each publish (preview + status displays hook this).</summary>
@@ -205,6 +257,7 @@ public sealed class AppServices
         try
         {
             Outputs.CloseAll();
+            Stingers.Dispose();
             Control.Dispose();
             Web.Dispose();
             Ndi.StopAll();
@@ -216,6 +269,7 @@ public sealed class AppServices
             Feeds.Dispose();
             Video.Dispose();
             SaveNow();
+            Recovery.Clear(); // a clean exit must never auto-restore
             _instanceMutex?.Dispose();
         }
         catch (Exception ex)

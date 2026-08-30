@@ -182,6 +182,24 @@ public sealed class MainViewModel : Observable
             RaiseSelection();
         });
 
+        // Stingers
+        AddStingerFilesCommand = new RelayCommand(() => _ = AddStingerFilesAsync());
+        RemoveStingerCommand = new RelayCommand<StingerItemConfig>(item =>
+        {
+            if (item is not null) State.Stingers.Items.Remove(item);
+        });
+        FireStingerCommand = new RelayCommand<StingerItemConfig>(item =>
+        {
+            if (item is null) return;
+            _services.Stingers.Fire(item);
+            StatusMessage = _services.Stingers.Status;
+        });
+        StopStingerCommand = new RelayCommand(() =>
+        {
+            _services.Stingers.Stop();
+            StatusMessage = _services.Stingers.Status;
+        });
+
         // Looks & cues
         SaveLookCommand = new RelayCommand(SaveLook);
         ApplyLookCommand = new RelayCommand<LookConfig>(look =>
@@ -570,6 +588,39 @@ public sealed class MainViewModel : Observable
         }
     }
 
+    private async Task AddStingerFilesAsync()
+    {
+        var window = _services.MainWindow;
+        if (window is null) return;
+        try
+        {
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Add stingers (sounds or video clips)",
+                AllowMultiple = true,
+                FileTypeFilter = new[] { MediaTypes, FilePickerFileTypes.All },
+            });
+            var skipped = 0;
+            foreach (var file in files)
+            {
+                var path = file.TryGetLocalPath();
+                if (path is null) continue;
+                if (!PlaylistSequencer.IsDecodedPath(path))
+                {
+                    skipped++; // images have no natural end — nothing to revert on
+                    continue;
+                }
+                State.Stingers.Items.Add(new StingerItemConfig { Path = path });
+                AddToMediaLibrary(path, PlaylistSequencer.IsVideoPath(path));
+            }
+            if (skipped > 0) StatusMessage = $"Stingers are sounds or video clips — {skipped} other file{(skipped == 1 ? "" : "s")} skipped.";
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Stinger file picker failed.", ex);
+        }
+    }
+
     private async Task AddPlaylistFolderAsync()
     {
         var window = _services.MainWindow;
@@ -836,6 +887,12 @@ public sealed class MainViewModel : Observable
 
     private string _remoteStatus = "";
     public string RemoteStatus { get => _remoteStatus; private set => Set(ref _remoteStatus, value); }
+
+    private string _stingerStatus = "Ready.";
+    public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
+
+    private string _healthText = "";
+    public string HealthText { get => _healthText; private set => Set(ref _healthText, value); }
 
     public string RemoteUrlsText => string.Join("\n", _services.Control.RemoteUrls());
 
@@ -1264,6 +1321,10 @@ public sealed class MainViewModel : Observable
     public RelayCommand StopAudioCommand { get; }
     public RelayCommand RefreshAudioDevicesCommand { get; }
     public RelayCommand ResetWarpCommand { get; }
+    public RelayCommand AddStingerFilesCommand { get; }
+    public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
+    public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
+    public RelayCommand StopStingerCommand { get; }
 
     private string _selectedPresenterLook = "";
     public string SelectedPresenterLook { get => _selectedPresenterLook; set => Set(ref _selectedPresenterLook, value); }
@@ -1335,6 +1396,8 @@ public sealed class MainViewModel : Observable
         FeedStatus = _services.Feeds.Status;
         WebStatus = _services.Web.Status;
         AudioPlayerStatus = _services.AudioPlayer.Status;
+        StingerStatus = _services.Stingers.Status;
+        HealthText = HealthMonitor.Summary(DateTime.UtcNow);
         RemoteStatus = State.Control.Enabled
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";

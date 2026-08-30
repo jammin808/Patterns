@@ -9,8 +9,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
       - name: Restore
@@ -21,7 +21,7 @@ jobs:
         run: dotnet test -c Release --no-build --logger "trx;LogFileName=results.trx"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results
           path: "**/TestResults/*.trx"
@@ -31,8 +31,8 @@ jobs:
     runs-on: windows-latest
     needs: test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
       - name: Publish portable win-x64
@@ -45,7 +45,7 @@ jobs:
           -p:DebugType=embedded
           -o dist/win-x64
       - name: Upload portable app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Patterns-portable-win-x64
           path: dist/win-x64/Patterns.exe
@@ -81,7 +81,7 @@ jobs:
           Get-ChildItem -Recurse -Depth 2 dist/win-x64-full | Select-Object -ExpandProperty FullName
           throw "libvlc.dll or plugins missing from full bundle"
       - name: Upload portable app with video
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Patterns-portable-win-x64-full
           path: dist/win-x64-full/

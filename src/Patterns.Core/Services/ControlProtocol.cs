@@ -21,6 +21,8 @@ public enum RemoteCommandKind
     AudioStop,
     ToneOn,
     ToneOff,
+    Stinger,     // by number (IntArg 1-based) or name (TextArg)
+    StingerStop,
     Status,
     Ping,
 }
@@ -108,6 +110,16 @@ public static class ControlProtocol
                     "OFF" => new(RemoteCommandKind.ToneOff, 0, ""),
                     _ => new(RemoteCommandKind.Unknown, 0, s),
                 };
+
+            case "STINGER":
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                if (arg.Equals("STOP", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new(RemoteCommandKind.StingerStop, 0, "");
+                }
+                return int.TryParse(arg, out var sting)
+                    ? new(RemoteCommandKind.Stinger, sting, "")
+                    : new(RemoteCommandKind.Stinger, 0, arg);
 
             default:
                 return new(RemoteCommandKind.Unknown, 0, s);

@@ -28,11 +28,14 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
 | `AUDIO PLAY` / `STOP` | The independent audio track |
 | `TONE ON` / `OFF` | Soundcheck tone generator |
+| `STINGER <n>` / `STINGER <name>` | Fire stinger *n* (Audio-tab order) or by name |
+| `STINGER STOP` | Stop the stinger (a clip reverts to the previous content) |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
 
 State JSON carries: `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
-`screens[{n,label,enabled,group}]`, `audio{playing,track}`, `tone`, `playlist`, `nextCue`.
+`screens[{n,label,enabled,group}]`, `audio{playing,track}`, `tone`, `stingers[{n,name}]`,
+`stingerPlaying`, `playlist`, `nextCue`, `health`.
 
 ## Bitfocus Companion
 

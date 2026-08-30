@@ -32,7 +32,13 @@ public static class Log
 
     public static void Info(string message) => Write("INFO", message, null);
     public static void Warn(string message, Exception? ex = null) => Write("WARN", message, ex);
-    public static void Error(string message, Exception? ex = null) => Write("ERROR", message, ex);
+
+    public static void Error(string message, Exception? ex = null)
+    {
+        // Every contained error passes through here — it doubles as the health counter.
+        HealthMonitor.Record(message);
+        Write("ERROR", message, ex);
+    }
 
     private static void Write(string level, string message, Exception? ex)
     {

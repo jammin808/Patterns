@@ -84,8 +84,10 @@ class PatternsInstance extends InstanceBase {
 			presenter_count: String(p.count ?? 0),
 			playlist: this.state.playlist ?? '',
 			next_cue: this.state.nextCue ?? '',
+			stinger: this.state.stingerPlaying ?? '',
+			health: this.state.health ?? '',
 		})
-		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing')
+		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing')
 	}
 
 	send(cmd) {
@@ -147,6 +149,17 @@ class PatternsInstance extends InstanceBase {
 					choices: [{ id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
 				callback: (a) => send(`TONE ${a.options.mode}`),
 			},
+			stinger: {
+				name: 'Fire stinger (by number)',
+				options: [{ type: 'number', id: 'n', label: 'Stinger number (Audio tab order)', default: 1, min: 1, max: 32 }],
+				callback: (a) => send(`STINGER ${a.options.n}`),
+			},
+			stinger_name: {
+				name: 'Fire stinger (by name)',
+				options: [{ type: 'textinput', id: 'name', label: 'Stinger name', default: '' }],
+				callback: (a) => send(`STINGER ${a.options.name}`),
+			},
+			stinger_stop: { name: 'Stop stinger', options: [], callback: () => send('STINGER STOP') },
 		}
 	}
 
@@ -173,6 +186,13 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => this.state.audio?.playing === true,
 			},
+			stinger_playing: {
+				type: 'boolean',
+				name: 'A stinger is on air',
+				defaultStyle: { bgcolor: combineRgb(190, 120, 0), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => (this.state.stingerPlaying ?? '') !== '',
+			},
 		}
 	}
 
@@ -183,6 +203,8 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'presenter_count', name: 'Presenter step count' },
 			{ variableId: 'playlist', name: 'Playlist status' },
 			{ variableId: 'next_cue', name: 'Next scheduled cue' },
+			{ variableId: 'stinger', name: 'Stinger on air (name)' },
+			{ variableId: 'health', name: 'App health line' },
 		]
 	}
 
@@ -243,6 +265,19 @@ class PatternsInstance extends InstanceBase {
 				style: { text: `${letter}\\nOFF`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'group', options: { letter, mode: 'OFF' } }], up: [] }], feedbacks: [],
 			}
+		}
+		for (let n = 1; n <= 8; n++) {
+			presets[`stinger_${n}`] = {
+				type: 'button', category: 'Stingers', name: `Stinger ${n}`,
+				style: { text: `STING\\n${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'stinger', options: { n } }], up: [] }],
+				feedbacks: [{ feedbackId: 'stinger_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } }],
+			}
+		}
+		presets.stinger_stop = {
+			type: 'button', category: 'Stingers', name: 'Stop stinger',
+			style: { text: 'STING\\nSTOP', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			steps: [{ down: [{ actionId: 'stinger_stop', options: {} }], up: [] }], feedbacks: [],
 		}
 		presets.audio_play = {
 			type: 'button', category: 'Audio', name: 'Audio play',

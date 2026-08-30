@@ -16,6 +16,7 @@ public sealed class AudioPlayerService : IDisposable
     private readonly AppServices _services;
     private readonly DispatcherTimer _timer;
     private readonly List<(IWavePlayer Output, AudioFileReader Reader, MMDevice Device)> _players = new();
+    private readonly List<(IWavePlayer Output, AudioFileReader Reader, MMDevice Device)> _sting = new();
     private string _activeKey = "";
     private string _status = "Stopped.";
 
@@ -56,6 +57,7 @@ public sealed class AudioPlayerService : IDisposable
     private void Tick()
     {
         var cfg = _services.State.AudioPlayer;
+        SweepStinger();
         try
         {
             if (!cfg.Playing || string.IsNullOrWhiteSpace(cfg.Path))
@@ -90,7 +92,9 @@ public sealed class AudioPlayerService : IDisposable
             }
 
             // Volume applies live (AudioFileReader.Volume is a linear gain; 1.25 ≈ +2 dB).
-            var volume = (float)(cfg.VolumePct / 100.0);
+            // While an audio stinger is on air the track ducks underneath it.
+            var duck = StingerPlaying ? _services.State.Stingers.DuckPct / 100.0 : 1.0;
+            var volume = (float)(cfg.VolumePct / 100.0 * duck);
             foreach (var (_, reader, _) in _players)
             {
                 reader.Volume = volume;
@@ -175,6 +179,76 @@ public sealed class AudioPlayerService : IDisposable
         });
     }
 
+    // ---- stingers -----------------------------------------------------------
+
+    /// <summary>An audio stinger is on air (the music track ducks while this is true).</summary>
+    public bool StingerPlaying { get; private set; }
+
+    /// <summary>
+    /// Fires a one-shot sound on the track's device selection, over whatever else plays.
+    /// Independent of the track players — the track keeps rolling (ducked) underneath.
+    /// </summary>
+    public bool PlayStinger(string path, double volumePct)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        StopStinger();
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            foreach (var device in ResolveDevices(enumerator, _services.State.AudioPlayer.Devices))
+            {
+                try
+                {
+                    var reader = new AudioFileReader(path) { Volume = (float)(volumePct / 100.0) };
+                    var output = new WasapiOut(device, AudioClientShareMode.Shared, true, 200);
+                    output.Init(reader);
+                    output.Play();
+                    _sting.Add((output, reader, device));
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn($"Stinger start failed on '{device.FriendlyName}'.", ex);
+                    device.Dispose();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Stinger could not start.", ex);
+        }
+        StingerPlaying = _sting.Count > 0;
+        return StingerPlaying;
+    }
+
+    public void StopStinger()
+    {
+        foreach (var (output, reader, device) in _sting)
+        {
+            try
+            {
+                output.Stop();
+                output.Dispose();
+                reader.Dispose();
+                device.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Stinger stop issue.", ex);
+            }
+        }
+        _sting.Clear();
+        StingerPlaying = false;
+    }
+
+    /// <summary>Reaps finished stinger players so the duck lifts at the natural end.</summary>
+    private void SweepStinger()
+    {
+        if (_sting.Count > 0 && _sting.All(p => p.Output.PlaybackState == PlaybackState.Stopped))
+        {
+            StopStinger();
+        }
+    }
+
     private void StopAll()
     {
         if (_players.Count == 0) return;
@@ -199,6 +273,7 @@ public sealed class AudioPlayerService : IDisposable
     public void Dispose()
     {
         _timer.Stop();
+        StopStinger();
         StopAll();
     }
 }

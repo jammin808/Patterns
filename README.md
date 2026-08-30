@@ -115,6 +115,18 @@ fault containment, and settings that can never brick startup.
 - **4-corner warp** — nudge each output's corners (keystone/skew) so a slightly-off projector
   lands straight on the surface — composed with rotation and per-screen trims, applied to
   patterns, media and live inputs alike.
+- **Stingers** — one-press sounds and clips, no audio engineer needed: *"Take your seats,
+  the show is about to begin."* A sound plays over everything on the audio-track outputs
+  while the music ducks underneath (and comes back by itself); a **video clip takes over
+  every screen and the previous content returns the moment it ends** — unless the operator
+  changes content mid-clip, in which case their choice stands. Fired from the Show page,
+  the web remote, the TCP protocol or Companion.
+- **A watchdog that keeps the show up** — the app runs supervised: a crash, or a UI that
+  stops responding for 30 s, gets the app restarted within seconds **with the same setup —
+  outputs re-opened and the audio track resumed** (a sidecar file remembers what was live;
+  a clean close never auto-restores). Restarts back off and stop if something genuinely
+  crash-loops. Individual render faults never get that far: they're contained per frame and
+  counted on a health line (uptime · restarts · faults caught) on the Show page and remotes.
 
 <table>
   <tr>
@@ -181,7 +193,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 251 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, headless UI
+dotnet test                      # 275 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

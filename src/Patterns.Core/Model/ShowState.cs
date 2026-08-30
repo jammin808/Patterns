@@ -425,6 +425,79 @@ public sealed class AudioPlayerConfig : Observable
     public bool Playing { get => _playing; set => Set(ref _playing, value); }
 }
 
+/// <summary>One stinger: a sound or clip fired over the show with a single press.</summary>
+public sealed class StingerItemConfig : Observable
+{
+    private string _name = "";
+    private string _path = "";
+    private double _volumePct = 100;
+
+    /// <summary>Button label ("Take your seats"); empty = the file name.</summary>
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            if (Set(ref _name, value)) Raise(nameof(DisplayName));
+        }
+    }
+
+    public string Path
+    {
+        get => _path;
+        set
+        {
+            if (Set(ref _path, value)) Raise(nameof(DisplayName));
+        }
+    }
+
+    public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
+
+    /// <summary>What fire buttons show. Splits both separators — show files travel between OSes.</summary>
+    [JsonIgnore]
+    public string DisplayName
+    {
+        get
+        {
+            if (_name.Length > 0) return _name;
+            var cut = _path.LastIndexOfAny(new[] { '/', '\\' });
+            return cut >= 0 ? _path[(cut + 1)..] : _path;
+        }
+    }
+}
+
+/// <summary>
+/// The stinger library — announcements and clips anyone can fire without touching the audio
+/// desk. Audio stingers play over everything (the music track ducks underneath); video
+/// stingers take over every screen and the previous content returns when the clip ends.
+/// </summary>
+public sealed class StingerConfig : Observable
+{
+    private double _duckPct = 20;
+    private string _playingName = "";
+
+    public ObservableCollection<StingerItemConfig> Items { get; init; } = new();
+
+    /// <summary>Music-track level (as % of its own volume) while an audio stinger plays.</summary>
+    public double DuckPct { get => _duckPct; set => Set(ref _duckPct, Math.Clamp(value, 0, 100)); }
+
+    /// <summary>Runtime-only: name of the stinger on air ("" = none).</summary>
+    [JsonIgnore]
+    public string PlayingName { get => _playingName; set => Set(ref _playingName, value); }
+}
+
+/// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>
+public sealed class WatchdogConfig : Observable
+{
+    private bool _enabled = true;
+    private bool _autoRestore = true;
+
+    /// <summary>Run under the supervisor (takes effect on the next start).</summary>
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    /// <summary>After a watchdog restart, put live outputs (and a playing track) back automatically.</summary>
+    public bool AutoRestore { get => _autoRestore; set => Set(ref _autoRestore, value); }
+}
+
 /// <summary>Remote control server: web remote + TCP line protocol (Companion).</summary>
 public sealed class ControlConfig : Observable
 {
@@ -482,6 +555,8 @@ public sealed class ShowState : Observable
     public PresenterConfig Presenter { get; init; } = new();
     public AudioPlayerConfig AudioPlayer { get; init; } = new();
     public ControlConfig Control { get; init; } = new();
+    public StingerConfig Stingers { get; init; } = new();
+    public WatchdogConfig Watchdog { get; init; } = new();
 
     /// <summary>Media the operator has loaded — surfaces in the Library under "My media".</summary>
     public ObservableCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();
