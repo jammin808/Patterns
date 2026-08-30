@@ -59,7 +59,7 @@ public class NewFeatureUiTests
                      {
                          new PatternSection(), new MediaSection(), new LooksSection(),
                          new AudioSection(), new OutputsSection(), new BrandingSection(),
-                         new OverlaysSection(),
+                         new OverlaysSection(), new WebSection(),
                      })
             {
                 host.Content = new ScrollViewer { Content = section };

@@ -28,6 +28,11 @@ public sealed class MediaPattern : IPatternRenderer
 
             if (now.IsVideo)
             {
+                if (Services.PlaylistSequencer.IsAudioPath(now.Path))
+                {
+                    AudioCard(c, in f, now.Path);
+                    return;
+                }
                 var video = VideoService.Current;
                 var vsize = video?.FrameSize;
                 var vdest = vsize is { } vs ? DrawUtil.Fit(vs, bounds, o.Fit) : bounds;
@@ -54,11 +59,16 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Source == MediaSource.Video)
         {
+            if (Services.PlaylistSequencer.IsAudioPath(o.VideoPath))
+            {
+                AudioCard(c, in f, o.VideoPath);
+                return;
+            }
             var video = VideoService.Current;
             if (video is null)
             {
                 var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)
-                    ? "Choose a video file in the Media panel."
+                    ? "Choose a video or audio file in the Media panel."
                     : VideoService.AvailabilityNote;
                 PlaceholderCard(c, in f, "No video playing", note);
                 return;
@@ -69,6 +79,46 @@ public sealed class MediaPattern : IPatternRenderer
             if (!video.DrawFrame(c, dest, pc.FillAA(SKColors.White)))
             {
                 PlaceholderCard(c, in f, "Video", video.StatusText);
+            }
+            return;
+        }
+
+        if (o.Source == MediaSource.NdiFeed)
+        {
+            var feed = NdiInput.Current;
+            if (feed is null)
+            {
+                var note = string.IsNullOrEmpty(NdiInput.AvailabilityNote)
+                    ? "Choose an NDI source in the Media panel."
+                    : NdiInput.AvailabilityNote;
+                PlaceholderCard(c, in f, "No NDI feed", note);
+                return;
+            }
+            var nsize = feed.FrameSize;
+            var ndest = nsize is { } ns ? DrawUtil.Fit(ns, bounds, o.Fit) : bounds;
+            if (!feed.DrawFrame(c, ndest, pc.FillAA(SKColors.White)))
+            {
+                PlaceholderCard(c, in f, o.NdiSourceName.Length > 0 ? o.NdiSourceName : "NDI", feed.StatusText);
+            }
+            return;
+        }
+
+        if (o.Source == MediaSource.Capture)
+        {
+            var cap = VideoService.Current;
+            if (cap is null)
+            {
+                var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)
+                    ? "Choose a capture device in the Media panel."
+                    : VideoService.AvailabilityNote;
+                PlaceholderCard(c, in f, "No capture device", note);
+                return;
+            }
+            var csize = cap.FrameSize;
+            var cdest = csize is { } cs ? DrawUtil.Fit(cs, bounds, o.Fit) : bounds;
+            if (!cap.DrawFrame(c, cdest, pc.FillAA(SKColors.White)))
+            {
+                PlaceholderCard(c, in f, o.CaptureDevice.Length > 0 ? o.CaptureDevice : "Capture", cap.StatusText);
             }
             return;
         }
@@ -98,6 +148,17 @@ public sealed class MediaPattern : IPatternRenderer
             var dest = DrawUtil.Fit(new SKSizeI(image.Width, image.Height), bounds, o.Fit);
             c.DrawImage(image, dest, DrawUtil.Smooth, pc.FillAA(SKColors.White));
         }
+    }
+
+    /// <summary>Audio-only media shows a clean card instead of "waiting for first frame".</summary>
+    private static void AudioCard(SKCanvas c, in PatternFrame f, string path)
+    {
+        var playing = VideoService.Current is { IsPlaying: true };
+        var status = playing
+            ? "Audio playing — sound only"
+            : VideoService.Current?.StatusText ?? VideoService.AvailabilityNote;
+        if (string.IsNullOrEmpty(status)) status = "Starting audio…";
+        PlaceholderCard(c, in f, "♪  " + System.IO.Path.GetFileName(path), status);
     }
 
     internal static void PlaceholderCard(SKCanvas c, in PatternFrame f, string title, string detail)

@@ -145,6 +145,39 @@ public static class NdiInterop
         public long Timestamp;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct FindCreate
+    {
+        [MarshalAs(UnmanagedType.U1)] public bool ShowLocalSources;
+        public IntPtr Groups;   // UTF-8, may be null
+        public IntPtr ExtraIps; // UTF-8, may be null
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Source
+    {
+        public IntPtr NdiName;    // UTF-8
+        public IntPtr UrlAddress; // UTF-8
+    }
+
+    public const int RecvColorFormatBgrxBgra = 0;
+    public const int RecvBandwidthHighest = 100;
+
+    public const int FrameTypeNone = 0;
+    public const int FrameTypeVideo = 1;
+    public const int FrameTypeAudio = 2;
+    public const int FrameTypeError = 4;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RecvCreateV3
+    {
+        public Source SourceToConnectTo;
+        public int ColorFormat;
+        public int Bandwidth;
+        [MarshalAs(UnmanagedType.U1)] public bool AllowVideoFields;
+        public IntPtr RecvName; // UTF-8, may be null
+    }
+
     // ---- native entry points ------------------------------------------------
 
     [DllImport(LibName, ExactSpelling = true)]
@@ -162,6 +195,29 @@ public static class NdiInterop
 
     [DllImport(LibName, ExactSpelling = true)]
     public static extern int NDIlib_send_get_no_connections(IntPtr instance, uint timeoutMs);
+
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern IntPtr NDIlib_find_create_v2(ref FindCreate createSettings);
+
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern void NDIlib_find_destroy(IntPtr instance);
+
+    /// <summary>Returns a native array of <see cref="Source"/>; valid until the next find call.</summary>
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern IntPtr NDIlib_find_get_current_sources(IntPtr instance, out uint count);
+
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern IntPtr NDIlib_recv_create_v3(ref RecvCreateV3 createSettings);
+
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern void NDIlib_recv_destroy(IntPtr instance);
+
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern int NDIlib_recv_capture_v2(
+        IntPtr instance, ref VideoFrameV2 video, IntPtr audio, IntPtr metadata, uint timeoutMs);
+
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern void NDIlib_recv_free_video_v2(IntPtr instance, ref VideoFrameV2 video);
 
     /// <summary>Allocates a UTF-8 copy of a string for native use. Free with <see cref="Marshal.FreeHGlobal"/>.</summary>
     public static IntPtr Utf8(string value)

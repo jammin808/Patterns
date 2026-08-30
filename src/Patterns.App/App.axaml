@@ -12,6 +12,9 @@
     <conv:FileNameConverter x:Key="FileName" />
     <conv:HotkeyLabelConverter x:Key="HotkeyLabel" />
     <conv:PositiveConverter x:Key="Positive" />
+    <conv:MediaKindConverter x:Key="MediaKind" />
+    <conv:NotEmptyConverter x:Key="NotEmpty" />
+    <conv:EnumNotEqualsConverter x:Key="NotEq" />
 
     <!-- Palette -->
     <Color x:Key="AppBg">#0E0F13</Color>

@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.WebSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Web pages" />
+    <TextBlock Classes="hint"
+               Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Pages open as managed browser windows (Edge or Chrome, private profile), so they never touch your own browser and close from here with one click." />
+
+    <TextBlock Classes="h2" Text="PAGE" />
+    <TextBox Watermark="https://example.com/schedule — or a local HTML file" Text="{Binding State.Web.Url}" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="On screen" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding WebScreens}"
+                SelectedValue="{Binding State.Web.TargetScreenId, Mode=TwoWay}"
+                SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}" />
+    </Grid>
+    <WrapPanel Margin="0,4,0,0">
+      <Button Classes="go" Content="OPEN FULL SCREEN" Command="{Binding OpenWebFullscreenCommand}"
+              Margin="0,0,8,6" ToolTip.Tip="Kiosk mode — no browser chrome, fills the chosen screen" />
+      <Button Classes="chip" Content="Windowed" Command="{Binding OpenWebWindowedCommand}"
+              Margin="0,0,8,6" VerticalAlignment="Center"
+              ToolTip.Tip="A movable window on the chosen screen (drag it, or close and reopen full screen)" />
+      <Button Classes="stop" Content="CLOSE" Command="{Binding CloseWebCommand}"
+              Margin="0,0,0,6" ToolTip.Tip="Close every web window Patterns opened" />
+    </WrapPanel>
+    <TextBlock Classes="label" Text="{Binding WebStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint"
+               Text="Full screen = kiosk (in), windowed = out; Esc inside a kiosk window also exits its full screen. Opened pages are remembered below." />
+
+    <TextBlock Classes="h2" Text="SAVED PAGES" />
+    <ItemsControl ItemsSource="{Binding State.Web.SavedUrls}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <Grid ColumnDefinitions="*,6,Auto,Auto" Margin="0,2">
+            <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}" />
+            <Button Grid.Column="2" Classes="mini" Content="Use"
+                    ToolTip.Tip="Put this address in the page box"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LoadWebUrlCommand}"
+                    CommandParameter="{Binding}" />
+            <Button Grid.Column="3" Classes="mini" Content="✕"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveWebUrlCommand}"
+                    CommandParameter="{Binding}" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="GOOD TO KNOW" />
+    <TextBlock Classes="hint"
+               Text="Web windows sit on top of the operating system, not inside the pattern engine — they don't join spans, take trims, or reach NDI outputs. For that, open the page on another machine and bring it in as an NDI feed (Media tab)." />
+  </StackPanel>
+</UserControl>

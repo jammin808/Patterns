@@ -318,10 +318,31 @@ public sealed class LooksConfig : Observable
     public ObservableCollection<CueConfig> Cues { get; init; } = new();
 }
 
+/// <summary>Web pages opened on outputs (managed browser windows, not engine-composited).</summary>
+public sealed class WebConfig : Observable
+{
+    private string _url = "";
+    private string _targetScreenId = "";
+
+    /// <summary>The page to open (https://… or a local file path).</summary>
+    public string Url { get => _url; set => Set(ref _url, value); }
+    /// <summary>Screen the browser window opens on ("" = primary).</summary>
+    public string TargetScreenId { get => _targetScreenId; set => Set(ref _targetScreenId, value); }
+
+    /// <summary>Quick-recall URLs (session schedules, dashboards, wayfinding pages).</summary>
+    public ObservableCollection<string> SavedUrls { get; init; } = new();
+}
+
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
+    public const int CurrentSchemaVersion = 2;
+
     private bool _blackout = false;
+    private int _schemaVersion; // absent in old files → 0 → migrations run
+
+    /// <summary>File format version; bumped when a migration is needed on load.</summary>
+    public int SchemaVersion { get => _schemaVersion; set => Set(ref _schemaVersion, value); }
 
     /// <summary>Instant black on every sink. Checked before any pattern code runs.</summary>
     public bool Blackout { get => _blackout; set => Set(ref _blackout, value); }
@@ -337,6 +358,7 @@ public sealed class ShowState : Observable
     public NdiConfig Ndi { get; init; } = new();
     public ToneConfig Tone { get; init; } = new();
     public LooksConfig LooksAndCues { get; init; } = new();
+    public WebConfig Web { get; init; } = new();
 
     /// <summary>Media the operator has loaded — surfaces in the Library under "My media".</summary>
     public ObservableCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();

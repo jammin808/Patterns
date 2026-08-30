@@ -109,7 +109,14 @@ public static class Lists
         new(TileNumbering.Linear, "Linear (1,2,3…)"),
         new(TileNumbering.Serpentine, "Serpentine data run"),
     };
-    public static readonly EnumItem[] MediaSources = Of<MediaSource>();
+    public static readonly EnumItem[] MediaSources =
+    {
+        new(MediaSource.Image, "Image"),
+        new(MediaSource.Video, "Video / audio file"),
+        new(MediaSource.Playlist, "Playlist"),
+        new(MediaSource.NdiFeed, "NDI feed (network)"),
+        new(MediaSource.Capture, "Capture device (HDMI / SDI / webcam)"),
+    };
     public static readonly EnumItem[] ParticleShapes = Of<ParticleShape>();
     public static readonly EnumItem[] ParticleEmitters =
     {

@@ -95,6 +95,10 @@ public enum MediaSource
     Image,
     Video,
     Playlist,
+    /// <summary>Receive a live NDI® feed from the network.</summary>
+    NdiFeed,
+    /// <summary>A capture device (HDMI/SDI cards, webcams) via DirectShow.</summary>
+    Capture,
 }
 
 /// <summary>Physical output rotation (content is pre-rotated so viewers see it upright).</summary>

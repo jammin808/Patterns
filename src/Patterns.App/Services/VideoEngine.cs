@@ -10,6 +10,7 @@ namespace Patterns.App.Services;
 /// <summary>
 /// Optional video decode via libVLC with callback rendering: frames land in a BGRA buffer
 /// that the engine composites like any layer — so video reaches outputs, spans and NDI.
+/// Also opens DirectShow capture devices (HDMI/SDI cards, webcams) through the same path.
 /// When libVLC is absent the Media pattern explains how to enable it; nothing crashes.
 /// </summary>
 public sealed class VideoEngine : IDisposable
@@ -23,8 +24,14 @@ public sealed class VideoEngine : IDisposable
     public void Reconcile(ShowSnapshot snap)
     {
         var media = MediaLocator.FindActiveVideo(snap);
-        var key = media is null ? "" : $"{media.Value.Path}|{media.Value.Loop}|{media.Value.Mute}";
-        if (key == _activeKey) return;
+
+        // Mute/volume apply live to the running player — they never restart the media.
+        var key = media is null ? "" : $"{media.Value.Target}|{media.Value.Loop}|{media.Value.IsCapture}";
+        if (key == _activeKey)
+        {
+            if (media is not null) _source?.SetAudio(media.Value.Mute, media.Value.VolumePct);
+            return;
+        }
         _activeKey = key;
 
         VideoService.Current = null;
@@ -37,12 +44,13 @@ public sealed class VideoEngine : IDisposable
 
         try
         {
-            _source = new VlcFrameSource(_vlc!, media.Value.Path, media.Value.Loop, media.Value.Mute);
+            _source = new VlcFrameSource(_vlc!, media.Value.Target, media.Value.Loop, media.Value.IsCapture,
+                media.Value.Mute, media.Value.VolumePct);
             VideoService.Current = _source;
         }
         catch (Exception ex)
         {
-            Log.Error($"Video open failed for '{media.Value.Path}'.", ex);
+            Log.Error($"Video open failed for '{media.Value.Target}'.", ex);
             VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
             // Forget the key so the next state change retries (the file may just not be ready yet).
             _activeKey = "";
@@ -123,6 +131,8 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
     private int _width;
     private int _height;
     private bool _disposed;
+    private volatile bool _mute;
+    private volatile float _volumePct;
 
     // Frames handed to render sinks may be recorded into GPU-deferred canvases that read the
     // pixels at flush time — so each decoded frame becomes its own immutable SKImage, and
@@ -149,10 +159,33 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
         }
     }
 
-    public VlcFrameSource(LibVLC vlc, string path, bool loop, bool mute)
+    /// <summary>Media options for a DirectShow capture device. Pure — unit tested.</summary>
+    public static string[] CaptureOptions(string deviceName) => new[]
     {
-        _media = new Media(vlc, new Uri(Path.GetFullPath(path)));
-        if (loop) _media.AddOption("input-repeat=65535");
+        $":dshow-vdev={deviceName}",
+        ":dshow-adev=none",     // programme audio routing stays with the desk, not the display PC
+        ":dshow-aspect-ratio=", // native
+        ":live-caching=80",     // low-latency for confidence monitoring
+    };
+
+    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct)
+    {
+        if (isCapture)
+        {
+            _media = new Media(vlc, "dshow://", FromType.FromLocation);
+            foreach (var opt in CaptureOptions(target))
+            {
+                _media.AddOption(opt);
+            }
+        }
+        else
+        {
+            _media = new Media(vlc, new Uri(Path.GetFullPath(target)));
+            if (loop) _media.AddOption("input-repeat=65535");
+        }
+
+        _mute = mute;
+        _volumePct = (float)volumePct;
 
         _formatCb = OnFormat;
         _cleanupCb = OnCleanup;
@@ -161,12 +194,39 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
 
         _player = new MediaPlayer(_media)
         {
-            Mute = mute,
             EnableHardwareDecoding = true,
         };
         _player.SetVideoFormatCallbacks(_formatCb, _cleanupCb);
         _player.SetVideoCallbacks(_lockCb, null, _displayCb);
+
+        // Audio state set before the audio output exists can be lost — (re)apply once
+        // playback has actually started, and again on every later change.
+        _player.Playing += (_, _) => ApplyAudio();
         _player.Play();
+        ApplyAudio();
+    }
+
+    /// <summary>Live mute/volume — never restarts the media.</summary>
+    public void SetAudio(bool mute, double volumePct)
+    {
+        if (_mute == mute && Math.Abs(_volumePct - volumePct) < 0.5) return;
+        _mute = mute;
+        _volumePct = (float)volumePct;
+        ApplyAudio();
+    }
+
+    private void ApplyAudio()
+    {
+        if (_disposed) return;
+        try
+        {
+            _player.Mute = _mute;
+            _player.Volume = (int)Math.Clamp(_volumePct, 0, 125);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Applying audio state failed.", ex);
+        }
     }
 
     public SKSizeI? FrameSize
@@ -195,11 +255,12 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
 
     public string StatusText => _player.State switch
     {
-        VLCState.Opening => "Opening video…",
+        VLCState.Opening => "Opening…",
         VLCState.Buffering => "Buffering…",
-        VLCState.Error => "Video error — check the file.",
-        VLCState.Ended => "Video ended.",
-        VLCState.Stopped => "Video stopped.",
+        VLCState.Error => "Playback error — check the file or device.",
+        VLCState.Ended => "Ended.",
+        VLCState.Stopped => "Stopped.",
+        VLCState.Playing => "Playing (no picture yet)…",
         _ => "Waiting for first frame…",
     };
 

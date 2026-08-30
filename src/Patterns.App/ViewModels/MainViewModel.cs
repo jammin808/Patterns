@@ -103,6 +103,25 @@ public sealed class MainViewModel : Observable
             if (folder is not null) ActivePattern.Media.Playlist.Folders.Remove(folder);
         });
 
+        // Live inputs & web pages
+        RefreshNdiSourcesCommand = new RelayCommand(() => RefreshNdiSources());
+        RefreshCaptureDevicesCommand = new RelayCommand(() => RefreshCaptureDevices());
+        OpenWebFullscreenCommand = new RelayCommand(() => OpenWeb(kiosk: true));
+        OpenWebWindowedCommand = new RelayCommand(() => OpenWeb(kiosk: false));
+        CloseWebCommand = new RelayCommand(() =>
+        {
+            _services.Web.CloseAll();
+            WebStatus = _services.Web.Status;
+        });
+        LoadWebUrlCommand = new RelayCommand<string>(url =>
+        {
+            if (url is not null) State.Web.Url = url;
+        });
+        RemoveWebUrlCommand = new RelayCommand<string>(url =>
+        {
+            if (url is not null) State.Web.SavedUrls.Remove(url);
+        });
+
         // Looks & cues
         SaveLookCommand = new RelayCommand(SaveLook);
         ApplyLookCommand = new RelayCommand<LookConfig>(look =>
@@ -234,6 +253,7 @@ public sealed class MainViewModel : Observable
         EnsureAssignmentsForCustomScreens();
         RebuildEditTargets();
         RebuildNdiSources();
+        RebuildWebScreens();
         RaiseArrangement();
     }
 
@@ -481,7 +501,7 @@ public sealed class MainViewModel : Observable
                 var path = file.TryGetLocalPath();
                 if (path is null) continue;
                 ActivePattern.Media.Playlist.Items.Add(new PlaylistItemConfig { Path = path });
-                AddToMediaLibrary(path, PlaylistSequencer.IsVideoPath(path));
+                AddToMediaLibrary(path, PlaylistSequencer.IsDecodedPath(path));
             }
         }
         catch (Exception ex)
@@ -524,6 +544,117 @@ public sealed class MainViewModel : Observable
         var target = index + delta;
         if (index < 0 || target < 0 || target >= items.Count) return;
         items.Move(index, target);
+    }
+
+    private PlaylistItemConfig? _selectedPlaylistItem;
+    public PlaylistItemConfig? SelectedPlaylistItem
+    {
+        get => _selectedPlaylistItem;
+        set
+        {
+            if (Set(ref _selectedPlaylistItem, value)) Raise(nameof(HasPlaylistItemSelection));
+        }
+    }
+
+    public bool HasPlaylistItemSelection => _selectedPlaylistItem is not null;
+
+    /// <summary>Drag-reorder target from the playlist list (index clamped; no-ops in place).</summary>
+    public void MovePlaylistItemTo(PlaylistItemConfig item, int targetIndex)
+    {
+        var items = ActivePattern.Media.Playlist.Items;
+        var index = items.IndexOf(item);
+        if (index < 0) return;
+        targetIndex = Math.Clamp(targetIndex, 0, items.Count - 1);
+        if (targetIndex == index) return;
+        items.Move(index, targetIndex);
+    }
+
+    // ---- NDI feed & capture inputs -----------------------------------------
+
+    public ObservableCollection<string> NdiSourceOptions { get; } = new();
+    public ObservableCollection<string> CaptureDeviceOptions { get; } = new();
+    private bool _captureListLoaded;
+    private int _ndiPollTick;
+
+    private void RefreshNdiSources(bool quiet = false)
+    {
+        // Clearing the list nulls the combo selection, which would write "" into the
+        // model — capture and restore the operator's choice around the rebuild.
+        var current = ActivePattern.Media.NdiSourceName;
+        var found = _services.NdiIn.DiscoverSources();
+        NdiSourceOptions.Clear();
+        foreach (var s in found)
+        {
+            NdiSourceOptions.Add(s);
+        }
+        if (!string.IsNullOrWhiteSpace(current) && !NdiSourceOptions.Contains(current))
+        {
+            NdiSourceOptions.Insert(0, current);
+        }
+        ActivePattern.Media.NdiSourceName = current;
+        if (!quiet)
+        {
+            StatusMessage = found.Count == 0
+                ? "No NDI sources visible yet — senders appear within a few seconds of starting."
+                : $"{found.Count} NDI source{(found.Count == 1 ? "" : "s")} on the network.";
+        }
+    }
+
+    private void RefreshCaptureDevices(bool quiet = false)
+    {
+        _captureListLoaded = true;
+        var current = ActivePattern.Media.CaptureDevice;
+        var found = CaptureDevices.List();
+        CaptureDeviceOptions.Clear();
+        foreach (var d in found)
+        {
+            CaptureDeviceOptions.Add(d);
+        }
+        if (!string.IsNullOrWhiteSpace(current) && !CaptureDeviceOptions.Contains(current))
+        {
+            CaptureDeviceOptions.Insert(0, current);
+        }
+        ActivePattern.Media.CaptureDevice = current;
+        if (!quiet)
+        {
+            StatusMessage = found.Count == 0
+                ? "No capture devices found (device lists need Windows)."
+                : $"{found.Count} capture device{(found.Count == 1 ? "" : "s")} found.";
+        }
+    }
+
+    // ---- web pages ----------------------------------------------------------
+
+    public ObservableCollection<EditTarget> WebScreens { get; } = new();
+
+    private string _webStatus = "";
+    public string WebStatus { get => _webStatus; private set => Set(ref _webStatus, value); }
+
+    private void RebuildWebScreens()
+    {
+        var current = State.Web.TargetScreenId;
+        WebScreens.Clear();
+        WebScreens.Add(new EditTarget("Primary screen", ""));
+        foreach (var s in _services.Screens.All)
+        {
+            WebScreens.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
+        }
+        State.Web.TargetScreenId = current;
+    }
+
+    private void OpenWeb(bool kiosk)
+    {
+        var screens = _services.Screens.All;
+        var screen = screens.FirstOrDefault(s => s.Id == State.Web.TargetScreenId)
+                     ?? screens.FirstOrDefault(s => s.IsPrimary)
+                     ?? screens.FirstOrDefault();
+        _services.Web.Open(State.Web.Url, screen, kiosk);
+        var normalized = WebService.NormalizeUrl(State.Web.Url);
+        if (!string.IsNullOrWhiteSpace(normalized) && !State.Web.SavedUrls.Contains(normalized))
+        {
+            State.Web.SavedUrls.Add(normalized);
+        }
+        WebStatus = _services.Web.Status;
     }
 
     // ---- looks & cues -------------------------------------------------------
@@ -898,6 +1029,13 @@ public sealed class MainViewModel : Observable
     public RelayCommand AddLedTileCommand { get; }
     public RelayCommand RemoveLedTileCommand { get; }
     public RelayCommand ImportGridToMapCommand { get; }
+    public RelayCommand RefreshNdiSourcesCommand { get; }
+    public RelayCommand RefreshCaptureDevicesCommand { get; }
+    public RelayCommand OpenWebFullscreenCommand { get; }
+    public RelayCommand OpenWebWindowedCommand { get; }
+    public RelayCommand CloseWebCommand { get; }
+    public RelayCommand<string> LoadWebUrlCommand { get; }
+    public RelayCommand<string> RemoveWebUrlCommand { get; }
 
     // ---- status -------------------------------------------------------------
 
@@ -959,7 +1097,26 @@ public sealed class MainViewModel : Observable
         PlaylistStatus = _services.Playlist.Status;
         ToneStatus = _services.Audio.Status;
         FeedStatus = _services.Feeds.Status;
+        WebStatus = _services.Web.Status;
         CheckCues();
+
+        // Now-playing marker on explicit playlist rows.
+        var nowPath = _services.Bus.PlaylistNow?.Path;
+        foreach (var item in ActivePattern.Media.Playlist.Items)
+        {
+            item.IsNowPlaying = nowPath is not null && string.Equals(item.Path, nowPath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Keep pick lists warm while their panels are in use (NDI discovery is push-based
+        // and cheap to read; capture enumeration is COM, so on demand + first need only).
+        if (ActivePattern.Media.Source == MediaSource.NdiFeed && ++_ndiPollTick % 3 == 0)
+        {
+            RefreshNdiSources(quiet: true);
+        }
+        if (ActivePattern.Media.Source == MediaSource.Capture && !_captureListLoaded)
+        {
+            RefreshCaptureDevices(quiet: true);
+        }
         Raise(nameof(CanvasInfo));
         Raise(nameof(HeaderClock));
         Raise(nameof(CountdownPreview));
@@ -1130,18 +1287,17 @@ public sealed class MainViewModel : Observable
 
     // ---- file dialogs -------------------------------------------------------
 
-    private static readonly FilePickerFileType VideoTypes = new("Video")
+    private static string[] Glob(params string[][] extensionSets)
+        => extensionSets.SelectMany(set => set.Select(e => "*" + e)).ToArray();
+
+    private static readonly FilePickerFileType VideoTypes = new("Video & audio")
     {
-        Patterns = new[] { "*.mp4", "*.mov", "*.mkv", "*.avi", "*.webm", "*.m4v", "*.mpg", "*.mpeg", "*.wmv" },
+        Patterns = Glob(PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions),
     };
 
-    private static readonly FilePickerFileType MediaTypes = new("Images & video")
+    private static readonly FilePickerFileType MediaTypes = new("Images, video & audio")
     {
-        Patterns = new[]
-        {
-            "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp", "*.gif",
-            "*.mp4", "*.mov", "*.mkv", "*.avi", "*.webm", "*.m4v", "*.mpg", "*.mpeg", "*.wmv",
-        },
+        Patterns = Glob(PlaylistSequencer.ImageExtensions, PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions),
     };
 
     private static readonly FilePickerFileType ShowTypes = new("Patterns show")

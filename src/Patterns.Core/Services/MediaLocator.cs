@@ -26,22 +26,38 @@ public static class MediaLocator
         return null;
     }
 
-    /// <summary>The video (path, loop, mute) that should be decoding, playlist-aware.</summary>
-    public static (string Path, bool Loop, bool Mute)? FindActiveVideo(ShowSnapshot snap)
+    /// <summary>What the libVLC decoder should be playing (file, playlist item, or capture device).</summary>
+    public readonly record struct ActivePlayback(string Target, bool Loop, bool IsCapture, bool Mute, double VolumePct);
+
+    /// <summary>The media that should be decoding right now, playlist- and capture-aware.</summary>
+    public static ActivePlayback? FindActiveVideo(ShowSnapshot snap)
     {
         var direct = FindActiveMedia(snap.State, MediaSource.Video);
         if (direct is not null && !string.IsNullOrWhiteSpace(direct.VideoPath))
         {
-            return (direct.VideoPath, direct.Loop, direct.Mute);
+            return new ActivePlayback(direct.VideoPath, direct.Loop, false, direct.Mute, direct.VolumePct);
+        }
+
+        var capture = FindActiveMedia(snap.State, MediaSource.Capture);
+        if (capture is not null && !string.IsNullOrWhiteSpace(capture.CaptureDevice))
+        {
+            return new ActivePlayback(capture.CaptureDevice, false, true, capture.Mute, capture.VolumePct);
         }
 
         var playlist = FindActivePlaylist(snap.State);
         if (playlist is not null && snap.PlaylistNow is { IsVideo: true } now)
         {
             // Playlist videos never loop themselves — their natural end advances the playlist.
-            return (now.Path, false, playlist.Mute);
+            return new ActivePlayback(now.Path, false, false, playlist.Mute, playlist.VolumePct);
         }
 
         return null;
+    }
+
+    /// <summary>The NDI source name that should be received right now (empty = none).</summary>
+    public static string FindActiveNdiSource(ShowState state)
+    {
+        var m = FindActiveMedia(state, MediaSource.NdiFeed);
+        return m is null ? "" : m.NdiSourceName;
     }
 }

@@ -21,6 +21,8 @@ public sealed class AppServices
     public ScreenService Screens { get; }
     public OutputWindowManager Outputs { get; }
     public VideoEngine Video { get; }
+    public NdiInputEngine NdiIn { get; }
+    public WebService Web { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
     public AudioService Audio { get; }
@@ -64,6 +66,8 @@ public sealed class AppServices
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
+        NdiIn = new NdiInputEngine();
+        Web = new WebService();
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);
@@ -142,8 +146,9 @@ public sealed class AppServices
         // NDI sender set follows the config.
         Ndi.Reconcile(Bus.Current);
 
-        // Video decoder lifecycle.
+        // Video decoder and NDI receiver lifecycles.
         Video.Reconcile(Bus.Current);
+        NdiIn.Reconcile(Bus.Current);
     }
 
     /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
@@ -190,7 +195,9 @@ public sealed class AppServices
         try
         {
             Outputs.CloseAll();
+            Web.Dispose();
             Ndi.StopAll();
+            NdiIn.Dispose();
             Audio.Dispose();
             Playlist.Dispose();
             Feeds.Dispose();

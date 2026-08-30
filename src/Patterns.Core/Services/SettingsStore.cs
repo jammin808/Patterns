@@ -46,7 +46,7 @@ public sealed class SettingsStore
         }
     }
 
-    public ShowState Load() => LoadFrom(SettingsPath) ?? new ShowState();
+    public ShowState Load() => LoadFrom(SettingsPath) ?? new ShowState { SchemaVersion = ShowState.CurrentSchemaVersion };
 
     public ShowState? LoadFrom(string path)
     {
@@ -56,7 +56,11 @@ public sealed class SettingsStore
             {
                 if (!File.Exists(candidate)) continue;
                 var state = JsonUtil.Deserialize<ShowState>(File.ReadAllText(candidate));
-                if (state is not null) return state;
+                if (state is not null)
+                {
+                    Migrate(state);
+                    return state;
+                }
             }
             catch (Exception ex)
             {
@@ -65,6 +69,22 @@ public sealed class SettingsStore
             }
         }
         return null;
+    }
+
+    /// <summary>Upgrades files written by older builds in place.</summary>
+    public static void Migrate(ShowState state)
+    {
+        if (state.SchemaVersion < 2)
+        {
+            // v0/v1 wrote Mute=true as a silent default (the "no audio" field report) —
+            // reset it to the new sound-on default; a deliberate mute is one click away.
+            state.Pattern.Media.Mute = false;
+            foreach (var a in state.Independent)
+            {
+                a.Pattern.Media.Mute = false;
+            }
+        }
+        state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }
 
     public void Save(ShowState state) => SaveTo(SettingsPath, state);

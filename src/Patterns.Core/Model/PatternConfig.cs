@@ -297,8 +297,13 @@ public sealed class PlaylistItemConfig : Observable
     private double _durationSeconds;
     private string _scheduledTime = "";
     private double _scheduledDurationSeconds = 60;
+    private bool _isNowPlaying;
 
     public string Path { get => _path; set => Set(ref _path, value); }
+
+    /// <summary>Runtime-only: this row is on screen right now (set by the playlist service).</summary>
+    [JsonIgnore]
+    public bool IsNowPlaying { get => _isNowPlaying; set => Set(ref _isNowPlaying, value); }
     /// <summary>Seconds to hold this item; 0 = default (image dwell, or the video's natural length).</summary>
     public double DurationSeconds { get => _durationSeconds; set => Set(ref _durationSeconds, Math.Clamp(value, 0, 24 * 3600)); }
     /// <summary>"HH:mm" — when set, this item interrupts the cycle daily at that time.</summary>
@@ -337,8 +342,11 @@ public sealed class MediaOptions : Observable
     private string _videoPath = "";
     private FitMode _fit = FitMode.Fit;
     private bool _loop = true;
-    private bool _mute = true;
+    private bool _mute; // sound on by default — an operator mutes deliberately
+    private double _volumePct = 100;
     private string _backgroundColor = "#000000";
+    private string _ndiSourceName = "";
+    private string _captureDevice = "";
 
     public MediaSource Source { get => _source; set => Set(ref _source, value); }
     public string ImagePath { get => _imagePath; set => Set(ref _imagePath, value); }
@@ -346,7 +354,14 @@ public sealed class MediaOptions : Observable
     public FitMode Fit { get => _fit; set => Set(ref _fit, value); }
     public bool Loop { get => _loop; set => Set(ref _loop, value); }
     public bool Mute { get => _mute; set => Set(ref _mute, value); }
+    /// <summary>Playback volume (0–125%; above 100 uses libVLC's software gain).</summary>
+    public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
     public string BackgroundColor { get => _backgroundColor; set => Set(ref _backgroundColor, value); }
+
+    /// <summary>NDI source to receive ("MACHINE (Sender)") when <see cref="Source"/> is NdiFeed.</summary>
+    public string NdiSourceName { get => _ndiSourceName; set => Set(ref _ndiSourceName, value); }
+    /// <summary>DirectShow video device name (HDMI/SDI capture) when <see cref="Source"/> is Capture.</summary>
+    public string CaptureDevice { get => _captureDevice; set => Set(ref _captureDevice, value); }
 
     public PlaylistOptions Playlist { get; init; } = new();
 }

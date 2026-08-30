@@ -8,7 +8,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1" Text="Media" />
-    <TextBlock Classes="hint" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI too." />
+    <TextBlock Classes="hint" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too." />
 
     <TextBlock Classes="h2" Text="SOURCE" />
     <ComboBox ItemsSource="{Binding MediaSources}"
@@ -24,62 +24,110 @@
       </Grid>
     </StackPanel>
 
-    <!-- Single video -->
+    <!-- Single video / audio file -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Video}}">
-      <TextBlock Classes="h2" Text="VIDEO" />
+      <TextBlock Classes="h2" Text="VIDEO / AUDIO FILE" />
       <Grid ColumnDefinitions="*,8,Auto">
-        <TextBox Grid.Column="0" Watermark="MP4, MOV, MKV…" Text="{Binding ActivePattern.Media.VideoPath}" />
+        <TextBox Grid.Column="0" Watermark="MP4, MOV, MKV… or MP3, WAV, FLAC…" Text="{Binding ActivePattern.Media.VideoPath}" />
         <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseVideoCommand}" />
       </Grid>
       <CheckBox Content="Loop" IsChecked="{Binding ActivePattern.Media.Loop}" />
-      <CheckBox Content="Mute audio" IsChecked="{Binding ActivePattern.Media.Mute}" />
+    </StackPanel>
+
+    <!-- NDI feed -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.NdiFeed}}">
+      <TextBlock Classes="h2" Text="NDI FEED" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <ComboBox Grid.Column="0" ItemsSource="{Binding NdiSourceOptions}"
+                  SelectedItem="{Binding ActivePattern.Media.NdiSourceName, Mode=TwoWay}"
+                  PlaceholderText="NDI sources on the network…" />
+        <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshNdiSourcesCommand}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="Receives a live NDI® video feed and composites it like any pattern — it reaches spans, trims and NDI outputs. The list refreshes itself while this panel is active; senders appear a few seconds after they start. Needs the NDI runtime (see the NDI tab). Video only — feed audio is not passed through." />
+    </StackPanel>
+
+    <!-- Capture device -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Capture}}">
+      <TextBlock Classes="h2" Text="CAPTURE DEVICE" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <ComboBox Grid.Column="0" ItemsSource="{Binding CaptureDeviceOptions}"
+                  SelectedItem="{Binding ActivePattern.Media.CaptureDevice, Mode=TwoWay}"
+                  PlaceholderText="Video capture devices…" />
+        <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshCaptureDevicesCommand}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through." />
     </StackPanel>
 
     <!-- Playlist -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Playlist}}">
       <TextBlock Classes="h2" Text="PLAYLIST" />
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Classes="chip" Content="+ Add files…" Command="{Binding AddPlaylistFilesCommand}" />
-        <Button Classes="chip" Content="+ Add folder…" Command="{Binding AddPlaylistFolderCommand}" />
-      </StackPanel>
+      <Grid ColumnDefinitions="Auto,8,Auto,*">
+        <Button Grid.Column="0" Classes="chip" Content="+ Add files…" Command="{Binding AddPlaylistFilesCommand}" />
+        <Button Grid.Column="2" Classes="chip" Content="+ Add folder…" Command="{Binding AddPlaylistFolderCommand}" />
+      </Grid>
       <TextBlock Classes="label" Text="{Binding PlaylistStatus}" Margin="0,4,0,2" TextWrapping="Wrap" />
 
-      <ItemsControl ItemsSource="{Binding ActivePattern.Media.Playlist.Items}">
+      <ItemsControl x:Name="PlaylistList" ItemsSource="{Binding ActivePattern.Media.Playlist.Items}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:PlaylistItemConfig">
-            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,3">
-              <StackPanel>
-                <Grid ColumnDefinitions="*,4,Auto,Auto,Auto">
-                  <TextBlock Grid.Column="0" Text="{Binding Path, Converter={StaticResource FileName}}"
-                             FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                             ToolTip.Tip="{Binding Path}" />
-                  <Button Grid.Column="2" Classes="mini" Content="↑"
-                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePlaylistItemUpCommand}"
-                          CommandParameter="{Binding}" />
-                  <Button Grid.Column="3" Classes="mini" Content="↓"
-                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePlaylistItemDownCommand}"
-                          CommandParameter="{Binding}" />
-                  <Button Grid.Column="4" Classes="mini" Content="✕"
-                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistItemCommand}"
-                          CommandParameter="{Binding}" />
-                </Grid>
-                <Grid ColumnDefinitions="Auto,4,52,10,Auto,4,58,4,Auto,4,*" Margin="0,4,0,0">
-                  <TextBlock Grid.Column="0" Classes="label" Text="Hold (s)" VerticalAlignment="Center"
-                             ToolTip.Tip="Seconds to show this item; 0 = default (image dwell / full video)" />
-                  <NumericUpDown Grid.Column="2" Minimum="0" Maximum="86400" Increment="5" FormatString="0" ShowButtonSpinner="False"
-                                 Value="{Binding DurationSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
-                  <TextBlock Grid.Column="4" Classes="label" Text="At" VerticalAlignment="Center"
-                             ToolTip.Tip="Daily play time (24 h HH:mm) — interrupts the cycle; blank = plays in turn" />
-                  <TextBox Grid.Column="6" Watermark="HH:mm" Text="{Binding ScheduledTime}" />
-                  <TextBlock Grid.Column="8" Classes="label" Text="for (s)" VerticalAlignment="Center" />
-                  <NumericUpDown Grid.Column="10" Minimum="1" Maximum="86400" Increment="10" FormatString="0" ShowButtonSpinner="False"
-                                 Value="{Binding ScheduledDurationSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
-                </Grid>
-              </StackPanel>
+            <Border Classes="plrow" Background="{StaticResource PanelBg2Brush}" CornerRadius="8"
+                    Padding="7,6" Margin="0,2">
+              <Grid ColumnDefinitions="Auto,8,Auto,8,*,6,Auto,6,Auto,6,Auto">
+                <Border Grid.Column="0" Classes="plhandle" Background="#262B36" CornerRadius="5"
+                        Padding="4,2" VerticalAlignment="Center" Cursor="SizeNorthSouth"
+                        ToolTip.Tip="Drag to re-order">
+                  <TextBlock Text="≡" FontSize="14" Foreground="#8A93A3" />
+                </Border>
+                <Border Grid.Column="2" Background="#20242E" CornerRadius="5" Padding="5,2" VerticalAlignment="Center">
+                  <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="#8A93A3"
+                             Text="{Binding Path, Converter={StaticResource MediaKind}}" />
+                </Border>
+                <TextBlock Grid.Column="4" Text="{Binding Path, Converter={StaticResource FileName}}"
+                           FontWeight="SemiBold" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                <Border Grid.Column="6" Background="#123A26" CornerRadius="7" Padding="6,2" VerticalAlignment="Center"
+                        IsVisible="{Binding IsNowPlaying}">
+                  <TextBlock Text="▶ NOW" FontSize="10" FontWeight="SemiBold" Foreground="#2EE68A" />
+                </Border>
+                <Border Grid.Column="8" Background="#20242E" CornerRadius="7" Padding="6,2" VerticalAlignment="Center"
+                        IsVisible="{Binding ScheduledTime, Converter={StaticResource NotEmpty}}"
+                        ToolTip.Tip="Plays daily at this time">
+                  <TextBlock FontSize="10" Foreground="#C8D0DC" Text="{Binding ScheduledTime, StringFormat='⏱ {0}'}" />
+                </Border>
+                <Button Grid.Column="10" Classes="mini" Content="✕" ToolTip.Tip="Remove from playlist"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistItemCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
             </Border>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
+      <TextBlock Classes="hint"
+                 Text="Drag the ≡ handle to re-order — items play top to bottom (or shuffled). Click a row to edit its timing below." />
+
+      <!-- Selected item timing -->
+      <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,8"
+              IsVisible="{Binding HasPlaylistItemSelection}" Margin="0,4,0,0">
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                     Text="{Binding SelectedPlaylistItem.Path, Converter={StaticResource FileName}, FallbackValue=''}" />
+          <Grid ColumnDefinitions="Auto,6,58,12,Auto,6,58,6,Auto,6,*" Margin="0,6,0,0">
+            <TextBlock Grid.Column="0" Classes="label" Text="Hold s" VerticalAlignment="Center"
+                       ToolTip.Tip="Seconds on screen; 0 = default (image dwell / full video or audio length)" />
+            <NumericUpDown Grid.Column="2" Minimum="0" Maximum="86400" Increment="5" FormatString="0" ShowButtonSpinner="False"
+                           Value="{Binding SelectedPlaylistItem.DurationSeconds, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" />
+            <TextBlock Grid.Column="4" Classes="label" Text="At" VerticalAlignment="Center"
+                       ToolTip.Tip="Daily play time (24 h HH:mm) — interrupts the cycle; blank = plays in turn" />
+            <TextBox Grid.Column="6" Watermark="HH:mm" Text="{Binding SelectedPlaylistItem.ScheduledTime, FallbackValue=''}" />
+            <TextBlock Grid.Column="8" Classes="label" Text="for s" VerticalAlignment="Center"
+                       ToolTip.Tip="How long the timed interruption holds before the cycle resumes" />
+            <NumericUpDown Grid.Column="10" Minimum="1" Maximum="86400" Increment="10" FormatString="0" ShowButtonSpinner="False"
+                           Value="{Binding SelectedPlaylistItem.ScheduledDurationSeconds, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=60}" />
+          </Grid>
+        </StackPanel>
+      </Border>
 
       <TextBlock Classes="h2" Text="PLAYLIST — FOLDERS" />
       <ItemsControl ItemsSource="{Binding ActivePattern.Media.Playlist.Folders}">
@@ -112,14 +160,28 @@
                        Value="{Binding ActivePattern.Media.Playlist.ShuffleSeed, Mode=TwoWay, Converter={StaticResource Num}}" />
       </Grid>
       <CheckBox Content="Include images" IsChecked="{Binding ActivePattern.Media.Playlist.IncludeImages}" />
-      <CheckBox Content="Include videos" IsChecked="{Binding ActivePattern.Media.Playlist.IncludeVideos}" />
-      <CheckBox Content="Mute video audio" IsChecked="{Binding ActivePattern.Media.Mute}" />
+      <CheckBox Content="Include videos &amp; audio" IsChecked="{Binding ActivePattern.Media.Playlist.IncludeVideos}" />
       <TextBlock Classes="hint"
-                 Text="The playlist loops continuously while this pattern is live. Items play in list order (use ↑ ↓ for a custom order) or shuffled; 'At HH:mm' items interrupt daily at that time, then the cycle resumes." />
+                 Text="The playlist loops continuously while this pattern is live. '⏱ HH:mm' items interrupt daily at that time, then the cycle resumes." />
+    </StackPanel>
+
+    <!-- Sound (video, audio, playlist) -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:MediaSource.Image}}">
+      <TextBlock Classes="h2" Text="SOUND" />
+      <CheckBox Content="Mute" IsChecked="{Binding ActivePattern.Media.Mute}" />
+      <Grid ColumnDefinitions="130,*,44">
+        <TextBlock Classes="label" Text="Volume" VerticalAlignment="Center" />
+        <Slider Grid.Column="1" Minimum="0" Maximum="125" TickFrequency="5"
+                Value="{Binding ActivePattern.Media.VolumePct, Mode=TwoWay}" />
+        <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding ActivePattern.Media.VolumePct, StringFormat={}{0:0}%}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="Plays on the default Windows audio device. 100% = source level; above 100 uses libVLC's software gain. Mute and volume apply live — the media never restarts." />
     </StackPanel>
 
     <TextBlock Classes="hint"
-               Text="Video decoding uses libVLC when available: install 64-bit VLC, or put a 'libvlc' folder beside Patterns.exe (the 'full' build ships it). Images always work." />
+               Text="Video decoding uses libVLC when available: the 'full' build ships it; otherwise install 64-bit VLC or put a 'libvlc' folder beside Patterns.exe. Images always work." />
 
     <TextBlock Classes="h2" Text="FIT" />
     <ComboBox ItemsSource="{Binding FitModes}"

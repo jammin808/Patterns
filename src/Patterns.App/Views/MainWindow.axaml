@@ -79,6 +79,9 @@
         <TabItem Header="Audio">
           <ScrollViewer><v:AudioSection /></ScrollViewer>
         </TabItem>
+        <TabItem Header="Web">
+          <ScrollViewer><v:WebSection /></ScrollViewer>
+        </TabItem>
         <TabItem Header="NDI">
           <ScrollViewer><v:NdiSection /></ScrollViewer>
         </TabItem>

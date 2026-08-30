@@ -14,6 +14,7 @@ public sealed class PlaylistSequencer
 {
     public static readonly string[] ImageExtensions = { ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif" };
     public static readonly string[] VideoExtensions = { ".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".mpg", ".mpeg", ".wmv" };
+    public static readonly string[] AudioExtensions = { ".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma", ".aiff", ".aif" };
 
     private List<PlaylistEntry> _order = new();
     private int _index = -1;
@@ -33,10 +34,16 @@ public sealed class PlaylistSequencer
     public static bool IsVideoPath(string path)
         => VideoExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
 
+    public static bool IsAudioPath(string path)
+        => AudioExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+
+    /// <summary>Media that needs the libVLC decoder and plays to a natural end (video or audio).</summary>
+    public static bool IsDecodedPath(string path) => IsVideoPath(path) || IsAudioPath(path);
+
     public static bool IsMediaPath(string path)
     {
         var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
-        return ImageExtensions.Contains(ext) || VideoExtensions.Contains(ext);
+        return ImageExtensions.Contains(ext) || VideoExtensions.Contains(ext) || AudioExtensions.Contains(ext);
     }
 
     /// <summary>
@@ -53,14 +60,14 @@ public sealed class PlaylistSequencer
         foreach (var item in options.Items)
         {
             if (string.IsNullOrWhiteSpace(item.Path) || !seen.Add(item.Path)) continue;
-            entries.Add(new PlaylistEntry(item.Path, IsVideoPath(item.Path), item.DurationSeconds,
+            entries.Add(new PlaylistEntry(item.Path, IsDecodedPath(item.Path), item.DurationSeconds,
                 item.ScheduledTime, item.ScheduledDurationSeconds));
         }
 
         foreach (var file in folderFiles.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
         {
             if (!IsMediaPath(file) || !seen.Add(file)) continue;
-            entries.Add(new PlaylistEntry(file, IsVideoPath(file), 0, "", 0));
+            entries.Add(new PlaylistEntry(file, IsDecodedPath(file), 0, "", 0));
         }
 
         entries.RemoveAll(e => e.IsVideo ? !options.IncludeVideos || !videoPlaybackAvailable : !options.IncludeImages);
@@ -120,7 +127,7 @@ public sealed class PlaylistSequencer
             if (_scheduleFired.TryGetValue(item.Path, out var fired) && fired.Date == localNow.Date) continue;
 
             _scheduleFired[item.Path] = localNow;
-            _scheduledOverride = new PlaylistEntry(item.Path, IsVideoPath(item.Path), item.DurationSeconds,
+            _scheduledOverride = new PlaylistEntry(item.Path, IsDecodedPath(item.Path), item.DurationSeconds,
                 item.ScheduledTime, item.ScheduledDurationSeconds);
             _overrideStartUtc = utcNow;
             _overrideEndsUtc = utcNow.AddSeconds(Math.Max(1, item.ScheduledDurationSeconds));

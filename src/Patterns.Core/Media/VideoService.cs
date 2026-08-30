@@ -43,3 +43,21 @@ public static class VideoService
     /// <summary>Availability text when no engine is present at all (e.g. libVLC missing).</summary>
     public static volatile string AvailabilityNote = "";
 }
+
+/// <summary>
+/// Mount point for the single active NDI® receive source (same contract as
+/// <see cref="VideoService"/> — the app layer writes, render threads read).
+/// </summary>
+public static class NdiInput
+{
+    private static volatile IVideoFrameSource? _current;
+
+    public static IVideoFrameSource? Current
+    {
+        get => _current;
+        set => _current = value;
+    }
+
+    /// <summary>Availability text when receive isn't possible (NDI runtime missing).</summary>
+    public static volatile string AvailabilityNote = "";
+}

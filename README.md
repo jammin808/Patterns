@@ -55,12 +55,22 @@ fault containment, and settings that can never brick startup.
 - **Corporate branding** — brand kit (primary/secondary/accent/background/text + logo) that
   drives accents, checkerboards, colour cycles, particles and overlay text. Measurement lines
   stay neutral so patterns remain accurate. Kits save/load per client.
-- **User media & playlists** — your images (PNG/JPEG/BMP/WebP) with fit modes; your videos via
-  libVLC (bundled in the *full* download, optional otherwise). Everything you load lands in the
-  Library under *My media* for one-click recall — and the **playlist** source cycles files
-  and whole folders (rescanned live) in custom order or seeded shuffle, images on a dwell
-  timer, videos to their end, with per-item overrides and daily *play at HH:mm for N seconds*
-  scheduling. Media renders through the engine, so it reaches spans and NDI too.
+- **User media & playlists** — your images (PNG/JPEG/BMP/WebP) with fit modes; your videos
+  *and audio files* (MP3/WAV/FLAC…) via libVLC (bundled in the *full* download, optional
+  otherwise), with live mute and volume that never restart the media. Everything you load
+  lands in the Library under *My media* for one-click recall — and the **playlist** source
+  cycles files and whole folders (rescanned live): drag rows to re-order or use seeded
+  shuffle, images on a dwell timer, videos/audio to their end, a ▶ NOW marker on the
+  playing row, per-item overrides and daily *play at HH:mm for N seconds* scheduling.
+  Media renders through the engine, so it reaches spans and NDI too.
+- **Live inputs** — receive an **NDI® feed** off the network (sources auto-discovered), or an
+  **HDMI/SDI capture device** (Elgato, Magewell, Blackmagic WDM, AVerMedia, webcams — anything
+  DirectShow) — both composite through the engine like any pattern, so a camera or remote feed
+  reaches spans, trims and NDI outputs.
+- **Web pages on screens** — open a session schedule, dashboard or stream full screen (kiosk)
+  or windowed on any chosen screen, as managed Edge/Chrome windows with a private profile:
+  they never touch the operator's browser and close from the app with one click, with a
+  saved-pages list for quick recall.
 - **Looks & cues** — save the entire content state (pattern, per-screen patterns, overlays,
   countdown, blackout) as a named look on `F1`–`F12`, then run the evening from a simple
   schedule: *Walk-in 18:00 · Countdown 18:45 · Blackout 19:00*. Screen arrangement and NDI
@@ -135,7 +145,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 182 tests: pixel-exact rendering, arrangement math, playlists, DSP, headless UI
+dotnet test                      # 215 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

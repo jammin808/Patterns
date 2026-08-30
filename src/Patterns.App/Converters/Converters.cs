@@ -76,13 +76,50 @@ public sealed class FileNameConverter : IValueConverter
         if (value is not string s || string.IsNullOrWhiteSpace(s)) return "";
         try
         {
-            return Path.GetFileName(s.TrimEnd('/', '\\')) is { Length: > 0 } name ? name : s;
+            // Split on both separators — Windows paths must shorten on any host.
+            var trimmed = s.TrimEnd('/', '\\');
+            var cut = trimmed.LastIndexOfAny(new[] { '/', '\\' });
+            var name = cut >= 0 ? trimmed[(cut + 1)..] : trimmed;
+            return name.Length > 0 ? name : s;
         }
         catch
         {
             return s;
         }
     }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}
+
+/// <summary>Media path → a compact kind label for playlist rows (VID/AUD/IMG).</summary>
+public sealed class MediaKindConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is not string s || string.IsNullOrWhiteSpace(s) ? ""
+            : Patterns.Core.Services.PlaylistSequencer.IsVideoPath(s) ? "VID"
+            : Patterns.Core.Services.PlaylistSequencer.IsAudioPath(s) ? "AUD"
+            : "IMG";
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}
+
+/// <summary>Non-empty string → true (chip/panel visibility for optional text).</summary>
+public sealed class NotEmptyConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is string s && !string.IsNullOrWhiteSpace(s);
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}
+
+/// <summary>value != parameter — the inverse of EnumEq, for "everything but X" panels.</summary>
+public sealed class EnumNotEqualsConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => !Equals(value, parameter);
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => BindingOperations.DoNothing;
