@@ -86,6 +86,10 @@ class PatternsInstance extends InstanceBase {
 			next_cue: this.state.nextCue ?? '',
 			stinger: this.state.stingerPlaying ?? '',
 			health: this.state.health ?? '',
+			machine_cpu: this.state.machine?.cpu >= 0 ? `${this.state.machine.cpu}%` : 'n/a',
+			machine_fps: String(this.state.machine?.fps ?? 0),
+			machine_power: this.state.machine?.battery ? 'BATTERY' : 'mains',
+			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing')
 	}
@@ -210,6 +214,10 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'next_cue', name: 'Next scheduled cue' },
 			{ variableId: 'stinger', name: 'Stinger on air (name)' },
 			{ variableId: 'health', name: 'App health line' },
+			{ variableId: 'machine_cpu', name: 'Computer CPU load' },
+			{ variableId: 'machine_fps', name: 'Output frame rate' },
+			{ variableId: 'machine_power', name: 'Power source (mains/BATTERY)' },
+			{ variableId: 'machine_advice', name: 'Health suggestions needing attention' },
 		]
 	}
 

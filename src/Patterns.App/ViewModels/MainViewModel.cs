@@ -255,6 +255,18 @@ public sealed class MainViewModel : Observable
             if (tile is not null) ActivePattern.Multiview.Tiles.Remove(tile);
         });
 
+        // Admin: graphics choice + restart + folder
+        RestartAppCommand = new RelayCommand(RestartApp);
+        OpenAppFolderCommand = new RelayCommand(OpenAppFolder);
+        State.Admin.Graphics.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(GraphicsConfig.Preference) or nameof(GraphicsConfig.AdapterName))
+            {
+                OnGraphicsChoiceChanged();
+            }
+        };
+        RebuildGpuRows();
+
         // Switcher: sandbox sends, CUT/TAKE, tile selection
         TakeCommand = new RelayCommand(() => SendAllFromSandbox(cut: false));
         CutCommand = new RelayCommand(() => SendAllFromSandbox(cut: true));
@@ -1686,6 +1698,8 @@ public sealed class MainViewModel : Observable
     public RelayCommand<MultiviewTileConfig> RemoveMultiviewTileCommand { get; }
     public RelayCommand StartStreamCommand { get; }
     public RelayCommand StopStreamCommand { get; }
+    public RelayCommand RestartAppCommand { get; }
+    public RelayCommand OpenAppFolderCommand { get; }
 
     /// <summary>TAKE (crossfade) / CUT (instant) — the sandbox becomes the program.</summary>
     private void SendAllFromSandbox(bool cut)
@@ -1756,6 +1770,212 @@ public sealed class MainViewModel : Observable
     }
 
     /// <summary>The status-timer body, callable directly (tests drive it without waiting on the clock).</summary>
+    // ---- admin ---------------------------------------------------------------
+
+    private const double SparkW = 196;
+    private const double SparkH = 40;
+
+    private string _adminCpuText = "—";
+    private string _adminMemText = "—";
+    private string _adminGpuText = "—";
+    private string _adminRenderText = "—";
+    private string _adminExtrasText = "—";
+    private string _gpuActiveText = "";
+    private string _graphicsApplyStatus = "";
+    private string _machineOverview = "";
+    private Avalonia.Points _adminCpuSpark = new();
+    private Avalonia.Points _adminRamSpark = new();
+    private Avalonia.Points _adminFpsSpark = new();
+    private string _suggestionsKey = "";
+    private string? _cpuNameCache;
+    private int _statusTicks;
+
+    public string AdminCpuText { get => _adminCpuText; private set => Set(ref _adminCpuText, value); }
+    public string AdminMemText { get => _adminMemText; private set => Set(ref _adminMemText, value); }
+    public string AdminGpuText { get => _adminGpuText; private set => Set(ref _adminGpuText, value); }
+    public string AdminRenderText { get => _adminRenderText; private set => Set(ref _adminRenderText, value); }
+    public string AdminExtrasText { get => _adminExtrasText; private set => Set(ref _adminExtrasText, value); }
+    public string GpuActiveText { get => _gpuActiveText; private set => Set(ref _gpuActiveText, value); }
+    public string GraphicsApplyStatus { get => _graphicsApplyStatus; private set => Set(ref _graphicsApplyStatus, value); }
+    public string MachineOverview { get => _machineOverview; private set => Set(ref _machineOverview, value); }
+    public Avalonia.Points AdminCpuSpark { get => _adminCpuSpark; private set => Set(ref _adminCpuSpark, value); }
+    public Avalonia.Points AdminRamSpark { get => _adminRamSpark; private set => Set(ref _adminRamSpark, value); }
+    public Avalonia.Points AdminFpsSpark { get => _adminFpsSpark; private set => Set(ref _adminFpsSpark, value); }
+
+    public ObservableCollection<SuggestionRow> AdminSuggestions { get; } = new();
+    public ObservableCollection<GpuRow> GpuRows { get; } = new();
+    public ObservableCollection<string> GpuAdapterNames { get; } = new();
+
+    public bool GpuSpecificVisible => State.Admin.Graphics.Preference == GpuPreferenceKind.Specific;
+
+    /// <summary>The Copy support info payload (also used by tests to sanity-check content).</summary>
+    public string BuildSupportInfo() => _services.Metrics.SupportInfo();
+
+    private void OnGraphicsChoiceChanged()
+    {
+        GpuService.RecordAppliedPath(State);
+        var registry = GpuService.ApplyWindowsPreference(State.Admin.Graphics);
+        GraphicsApplyStatus = (registry.Length > 0 ? registry + " " : "") +
+                              "Takes effect at the next start — use Restart app below.";
+        RebuildGpuRows();
+        Raise(nameof(GpuSpecificVisible));
+    }
+
+    private void RebuildGpuRows()
+    {
+        GpuRows.Clear();
+        GpuAdapterNames.Clear();
+        var adapters = GpuService.Adapters;
+        var best = GpuSelector.ChooseBest(adapters);
+        for (var i = 0; i < adapters.Count; i++)
+        {
+            var gpu = adapters[i];
+            var badges = new List<string>();
+            if (gpu.DedicatedVideoMemoryMB > 0) badges.Add($"{gpu.DedicatedVideoMemoryMB / 1024.0:0.#} GB");
+            badges.Add(gpu.VendorName);
+            if (i == best) badges.Add("best");
+            if (gpu.IsSoftware) badges.Add("software fallback");
+            if (string.Equals(gpu.Name, GpuService.ActiveAdapterName, StringComparison.OrdinalIgnoreCase) ||
+                (GpuService.ActiveAdapterName.Length == 0 && i == GpuService.RequestedIndex))
+            {
+                badges.Add("selected");
+            }
+            GpuRows.Add(new GpuRow(gpu.Name, string.Join(" · ", badges)));
+            if (!gpu.IsSoftware) GpuAdapterNames.Add(gpu.Name);
+        }
+        if (adapters.Count == 0)
+        {
+            GpuRows.Add(new GpuRow("No adapters detected", "GPU detection runs on Windows."));
+        }
+        if (GpuAdapterNames.Count == 0) GpuAdapterNames.Add("");
+        GpuActiveText = GpuService.ActiveAdapterName.Length > 0
+            ? $"Rendering on: {GpuService.ActiveAdapterName}"
+            : GpuService.RequestedName.Length > 0
+                ? $"Will render on: {GpuService.RequestedName}"
+                : "Adapter choice: Windows default";
+    }
+
+    private void RestartApp()
+    {
+        if (!LaunchOptions.IsChild)
+        {
+            StatusMessage = "Restart in place needs the watchdog (see Stability below) — with it off, close and reopen Patterns instead.";
+            return;
+        }
+        var code = _services.PrepareRestart();
+        StatusMessage = "Restarting — the show comes straight back…";
+        Log.Info("Restart requested from the Admin tab.");
+        (Avalonia.Application.Current?.ApplicationLifetime
+            as Avalonia.Controls.ApplicationLifetimes.IControlledApplicationLifetime)?.Shutdown(code);
+    }
+
+    private void OpenAppFolder()
+    {
+        var dir = _services.Store.BaseDirectory;
+        StatusMessage = $"App folder: {dir}";
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{dir}\"")
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Could not open the app folder.", ex);
+        }
+    }
+
+    private void PollAdmin()
+    {
+        var metrics = _services.Metrics;
+        if (metrics.Current is not { } s) return;
+
+        AdminCpuText = $"this app {Pct(s.CpuAppPct)} · whole computer {Pct(s.CpuSystemPct)}";
+        AdminMemText = $"this app {Mb(s.RamAppMB)} · computer {Pct(s.RamSystemPct)}" +
+                       (s.RamTotalMB > 0 ? $" of {s.RamTotalMB / 1024.0:0.0} GB" : "");
+        var vram = s.VramTotalMB > 0 ? $"video memory {Mb(s.VramUsedMB)} of {Mb(s.VramTotalMB)}" : "video memory n/a";
+        AdminGpuText = $"busy {Pct(s.GpuBusyPct)} · {vram}";
+        AdminRenderText = s.OutputWindows > 0
+            ? $"outputs {s.OutputFps:0} fps × {s.OutputWindows} window{(s.OutputWindows == 1 ? "" : "s")} · " +
+              $"preview {s.PreviewFps:0} fps · worst frame {s.WorstFrameMs:0.0} ms" +
+              (s.SlowFrames > 0 ? $" · {s.SlowFrames} slow" : "")
+            : $"preview {s.PreviewFps:0} fps — outputs closed";
+        AdminExtrasText = $"threads {s.Threads} · handles {s.Handles}" +
+                          (s.GcPausePct >= 0 ? $" · GC pause {s.GcPausePct:0.0}%" : "") +
+                          (s.DiskFreeGB >= 0 ? $" · disk free {s.DiskFreeGB:0.0} GB" : "") +
+                          $" · {(s.OnBattery ? $"ON BATTERY{(s.BatteryPct >= 0 ? $" {s.BatteryPct}%" : "")}" : "mains power")}";
+
+        AdminCpuSpark = Spark(metrics.History.Tail(180, x => x.CpuSystemPct), 100);
+        AdminRamSpark = Spark(metrics.History.Tail(180, x => x.RamAppMB), null);
+        AdminFpsSpark = Spark(metrics.History.Tail(180, x => x.OutputWindows > 0 ? x.OutputFps : x.PreviewFps), 66);
+
+        var key = string.Join("|", metrics.Suggestions.Select(x => x.Id + (int)x.Severity));
+        if (key != _suggestionsKey)
+        {
+            _suggestionsKey = key;
+            AdminSuggestions.Clear();
+            foreach (var advice in metrics.Suggestions)
+            {
+                AdminSuggestions.Add(new SuggestionRow(advice.Title, advice.Detail, SeverityBrush(advice)));
+            }
+        }
+
+        if (MachineOverview.Length == 0 || _statusTicks % 30 == 0)
+        {
+            MachineOverview = BuildMachineOverview(s);
+        }
+
+        static string Pct(double v) => v < 0 ? "n/a" : $"{v:0}%";
+        static string Mb(double v) => v < 0 ? "n/a" : v >= 1024 ? $"{v / 1024.0:0.0} GB" : $"{v:0} MB";
+    }
+
+    private static Avalonia.Media.IBrush SeverityBrush(HealthSuggestion s) => s switch
+    {
+        { Severity: HealthSeverity.Warning } => Avalonia.Media.Brush.Parse("#FF5C7A"),
+        { Severity: HealthSeverity.Advice } => Avalonia.Media.Brush.Parse("#FFC24D"),
+        { Id: "all-clear" } => Avalonia.Media.Brush.Parse("#2EE68A"),
+        _ => Avalonia.Media.Brush.Parse("#9AA7B8"),
+    };
+
+    private static Avalonia.Points Spark(IReadOnlyList<double> values, double? fixedMax)
+    {
+        var points = new Avalonia.Points();
+        foreach (var (x, y) in SparklinePath.Points(values, SparkW, SparkH, fixedMax))
+        {
+            points.Add(new Avalonia.Point(x, y));
+        }
+        return points;
+    }
+
+    private string BuildMachineOverview(MetricSample s)
+    {
+        try
+        {
+            _cpuNameCache ??= WinRegistry.ReadCpuName();
+            var parts = new List<string>
+            {
+                $"{Environment.MachineName} · {System.Runtime.InteropServices.RuntimeInformation.OSDescription}",
+                $"CPU: {(_cpuNameCache.Length > 0 ? _cpuNameCache : "unknown")} · {Environment.ProcessorCount} threads",
+            };
+            if (s.RamTotalMB > 0) parts.Add($"RAM: {s.RamTotalMB / 1024.0:0.0} GB");
+            var screens = _services.Screens.All;
+            if (screens.Count > 0)
+            {
+                parts.Add("Screens: " + string.Join(", ",
+                    screens.Select(sc => $"{sc.Bounds.Width}×{sc.Bounds.Height}{(sc.IsPrimary ? "★" : "")}")));
+            }
+            parts.Add($"App: Patterns · .NET {Environment.Version} · folder {_services.Store.BaseDirectory}");
+            return string.Join(Environment.NewLine, parts);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Machine overview failed.", ex);
+            return "";
+        }
+    }
+
     public void PollNow() => PollStatus();
 
     private void PollStatus()
@@ -1776,6 +1996,8 @@ public sealed class MainViewModel : Observable
         StingerStatus = _services.Stingers.Status;
         HealthText = HealthMonitor.Summary(DateTime.UtcNow);
         StreamStatus = _services.Stream.Status;
+        _statusTicks++;
+        PollAdmin();
         RefreshSwitcherTiles();
         RemoteStatus = State.Control.Enabled
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"

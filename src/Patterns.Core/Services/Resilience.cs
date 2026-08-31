@@ -34,6 +34,13 @@ public sealed class SupervisorPolicy
     /// <summary>How long silence on the heartbeat counts as a hung UI thread.</summary>
     public static readonly TimeSpan HangTimeout = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// Exit code the app uses to ask the supervisor for an immediate relaunch (the Admin
+    /// tab's Restart button, applying a GPU change). Restarted with no backoff delay, but
+    /// still counted against the crash-loop window so a restart storm can't flap forever.
+    /// </summary>
+    public const int RestartRequestExitCode = 82;
+
     /// <summary>Hung = the child was beating and then went silent past the timeout.</summary>
     public static bool IsHung(DateTime? lastBeatUtc, DateTime utcNow)
         => lastBeatUtc is { } beat && utcNow - beat > HangTimeout;
@@ -53,6 +60,11 @@ public sealed class SupervisorPolicy
         if (_crashes.Count > _maxCrashesInWindow)
         {
             return new SupervisorVerdict(SupervisorAction.GiveUp, TimeSpan.Zero);
+        }
+
+        if (exitCode == RestartRequestExitCode && !killedForHang)
+        {
+            return new SupervisorVerdict(SupervisorAction.Restart, TimeSpan.Zero);
         }
 
         var delay = TimeSpan.FromSeconds(DelaySeconds[Math.Min(_consecutive, DelaySeconds.Length - 1)]);

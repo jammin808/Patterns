@@ -198,6 +198,7 @@ public sealed class CommandRouter
             nextCue = vm?.NextCueText ?? "",
             stream = new { active = s.Stream.Active, status = _services.Stream.Status },
             health = HealthMonitor.Summary(DateTime.UtcNow),
+            machine = MachineRow(),
         };
         return JsonSerializer.Serialize(payload);
     }
@@ -211,6 +212,23 @@ public sealed class CommandRouter
         return options.Sections
             .Select((x, i) => (object)new { n = i + 1, name = x.Name, active = i == active })
             .ToArray();
+    }
+
+    /// <summary>Machine health for remotes: rounded numbers plus how many advisor lines want attention.</summary>
+    private object MachineRow()
+    {
+        var m = _services.Metrics.Current;
+        var advice = _services.Metrics.Suggestions.Count(x => x.Severity >= HealthSeverity.Advice);
+        return m is null
+            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice }
+            : new
+            {
+                cpu = Math.Round(m.CpuSystemPct, 0),
+                ram = Math.Round(m.RamSystemPct, 0),
+                fps = Math.Round(m.OutputWindows > 0 ? m.OutputFps : m.PreviewFps, 0),
+                battery = m.OnBattery,
+                advice,
+            };
     }
 
     /// <summary>Builds StateJson from any thread.</summary>

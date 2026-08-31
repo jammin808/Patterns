@@ -573,6 +573,33 @@ public sealed class WatchdogConfig : Observable
     public bool AutoRestore { get => _autoRestore; set => Set(ref _autoRestore, value); }
 }
 
+/// <summary>Which GPU renders the show. Applied at startup — changing it needs an app restart.</summary>
+public sealed class GraphicsConfig : Observable
+{
+    private GpuPreferenceKind _preference = GpuPreferenceKind.BestPerformance;
+    private string _adapterName = "";
+    private string _lastAppliedExePath = "";
+
+    public GpuPreferenceKind Preference { get => _preference; set => Set(ref _preference, value); }
+
+    /// <summary>Adapter name used when <see cref="Preference"/> is <see cref="GpuPreferenceKind.Specific"/>.</summary>
+    public string AdapterName { get => _adapterName; set => Set(ref _adapterName, value); }
+
+    /// <summary>Exe path whose Windows per-app GPU preference we last wrote — cleaned up when the exe moves.</summary>
+    public string LastAppliedExePath { get => _lastAppliedExePath; set => Set(ref _lastAppliedExePath, value); }
+}
+
+/// <summary>Administration: graphics choice and the performance record.</summary>
+public sealed class AdminConfig : Observable
+{
+    private bool _metricsCsv = true;
+
+    public GraphicsConfig Graphics { get; init; } = new();
+
+    /// <summary>Append a performance sample to patterns.metrics.csv every 30 s (rotated at 1 MB).</summary>
+    public bool MetricsCsv { get => _metricsCsv; set => Set(ref _metricsCsv, value); }
+}
+
 /// <summary>Remote control server: web remote + TCP line protocol (Companion).</summary>
 public sealed class ControlConfig : Observable
 {
@@ -633,6 +660,7 @@ public sealed class ShowState : Observable
     public StingerConfig Stingers { get; init; } = new();
     public WatchdogConfig Watchdog { get; init; } = new();
     public StreamConfig Stream { get; init; } = new();
+    public AdminConfig Admin { get; init; } = new();
 
     /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
     public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();

@@ -25,16 +25,8 @@
                  Text="The web remote drives presenter next/back, looks, transport, blackout, screens and the audio track — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens and canvas groups map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
     </StackPanel>
 
-    <TextBlock Classes="h2" Text="STABILITY (WATCHDOG)" />
-    <CheckBox Content="Watchdog: auto-restart after a crash or hang"
-              IsChecked="{Binding State.Watchdog.Enabled}"
-              ToolTip.Tip="Takes effect on the next start of Patterns" />
-    <CheckBox Content="After a restart, put the show back (open outputs, resume the audio track)"
-              IsChecked="{Binding State.Watchdog.AutoRestore}"
-              IsEnabled="{Binding State.Watchdog.Enabled}" />
-    <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />
     <TextBlock Classes="hint"
-               Text="A tiny supervisor runs the app as its child (two Patterns.exe in Task Manager — that's this). If the app crashes, or its interface stops responding for 30 seconds, it is restarted within seconds with the same settings and the outputs re-opened. Restarts back off and stop if something crashes over and over (see patterns.watchdog.log). Individual render faults never need it — they're contained per frame and counted above." />
+               Text="Watchdog, performance monitoring, GPU choice and machine health moved to the Admin tab." />
 
     <TextBlock Classes="hint"
                Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Pages open as managed browser windows (Edge or Chrome, private profile), so they never touch your own browser and close from here with one click." />

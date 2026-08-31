@@ -1,0 +1,116 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.AdminSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-admin" Text="Admin" />
+    <TextBlock Classes="hint"
+               Text="The machine room: live and historical performance, plain-language suggestions when something needs attention, the graphics card choice, and the tools for keeping a show machine healthy." />
+
+    <TextBlock Classes="h2" Text="LIVE PERFORMANCE (LAST 3 MINUTES)" />
+    <Grid ColumnDefinitions="86,*" Margin="0,2">
+      <TextBlock Classes="label" Text="CPU" VerticalAlignment="Top" Margin="0,2,0,0" />
+      <StackPanel Grid.Column="1" Spacing="3">
+        <TextBlock Classes="label" Text="{Binding AdminCpuText}" TextWrapping="Wrap" />
+        <Border Width="200" Height="44" HorizontalAlignment="Left" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="3">
+          <Polyline Points="{Binding AdminCpuSpark}" Stroke="#3EC1F3" StrokeThickness="1.5" Margin="1" />
+        </Border>
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="86,*" Margin="0,4">
+      <TextBlock Classes="label" Text="Memory" VerticalAlignment="Top" Margin="0,2,0,0" />
+      <StackPanel Grid.Column="1" Spacing="3">
+        <TextBlock Classes="label" Text="{Binding AdminMemText}" TextWrapping="Wrap" />
+        <Border Width="200" Height="44" HorizontalAlignment="Left" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="3">
+          <Polyline Points="{Binding AdminRamSpark}" Stroke="#B18CFF" StrokeThickness="1.5" Margin="1" />
+        </Border>
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="86,*" Margin="0,4">
+      <TextBlock Classes="label" Text="Rendering" VerticalAlignment="Top" Margin="0,2,0,0" />
+      <StackPanel Grid.Column="1" Spacing="3">
+        <TextBlock Classes="label" Text="{Binding AdminRenderText}" TextWrapping="Wrap" />
+        <Border Width="200" Height="44" HorizontalAlignment="Left" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="3">
+          <Polyline Points="{Binding AdminFpsSpark}" Stroke="#2EE68A" StrokeThickness="1.5" Margin="1" />
+        </Border>
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="86,*" Margin="0,2">
+      <TextBlock Classes="label" Text="GPU" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="1" Classes="label" Text="{Binding AdminGpuText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+    </Grid>
+    <TextBlock Classes="hint" Text="{Binding AdminExtrasText}" />
+    <TextBlock Classes="hint"
+               Text="A 30-second summary is appended to patterns.metrics.csv beside the exe (rotated at 1 MB) — after a bad night, the record shows what CPU, memory and frame rate were doing." />
+    <CheckBox Content="Keep the on-disk performance record (patterns.metrics.csv)"
+              IsChecked="{Binding State.Admin.MetricsCsv}" />
+
+    <TextBlock Classes="h2" Text="SUGGESTIONS" />
+    <ItemsControl ItemsSource="{Binding AdminSuggestions}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:SuggestionRow">
+          <Grid ColumnDefinitions="Auto,8,*" Margin="0,3">
+            <Ellipse Width="8" Height="8" Fill="{Binding Dot}" VerticalAlignment="Top" Margin="0,5,0,0" />
+            <StackPanel Grid.Column="2">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Classes="hint" Text="{Binding Detail}" TextWrapping="Wrap" Margin="0,1,0,0" />
+            </StackPanel>
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="GRAPHICS CARD" />
+    <ItemsControl ItemsSource="{Binding GpuRows}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:GpuRow">
+          <StackPanel Margin="0,2">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Classes="hint" Text="{Binding Detail}" TextWrapping="Wrap" />
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Grid ColumnDefinitions="60,*" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Use" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" MinWidth="240" HorizontalAlignment="Stretch"
+                ItemsSource="{x:Static vm:Lists.GpuPreferences}"
+                SelectedValue="{Binding State.Admin.Graphics.Preference, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="60,*" Margin="0,4,0,0" IsVisible="{Binding GpuSpecificVisible}">
+      <TextBlock Classes="label" Text="Adapter" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding GpuAdapterNames}"
+                SelectedItem="{Binding State.Admin.Graphics.AdapterName, Mode=TwoWay}" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding GpuActiveText}" />
+    <TextBlock Classes="label" Text="{Binding GraphicsApplyStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint"
+               Text="By default Patterns detects the best card (most video memory, discrete first) and registers it with Windows so video decoding uses the same card — on laptops this is what stops the show rendering on the battery-saver GPU. Changing it needs an app restart." />
+
+    <TextBlock Classes="h2" Text="THIS COMPUTER" />
+    <TextBlock Classes="label" Text="{Binding MachineOverview}" TextWrapping="Wrap" LineHeight="20" />
+    <WrapPanel Margin="0,6,0,0">
+      <Button Classes="chip" Content="Copy support info" Click="CopySupportInfo" Margin="0,0,8,6"
+              ToolTip.Tip="Machine, GPUs, screens, current numbers and advice — paste into an email or ticket" />
+      <Button Classes="chip" Content="Open app folder" Command="{Binding OpenAppFolderCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="Settings, logs, presets and the metrics record live beside Patterns.exe" />
+    </WrapPanel>
+
+    <TextBlock Classes="h2" Text="STABILITY (WATCHDOG)" />
+    <CheckBox Content="Watchdog: auto-restart after a crash or hang"
+              IsChecked="{Binding State.Watchdog.Enabled}"
+              ToolTip.Tip="Takes effect on the next start of Patterns" />
+    <CheckBox Content="After a restart, put the show back (open outputs, resume the audio track)"
+              IsChecked="{Binding State.Watchdog.AutoRestore}"
+              IsEnabled="{Binding State.Watchdog.Enabled}" />
+    <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />
+    <Button Classes="stop" Content="RESTART APP (SHOW COMES BACK)" Padding="14,8" Margin="0,6,0,0"
+            Command="{Binding RestartAppCommand}"
+            ToolTip.Tip="Exits and relaunches through the watchdog — outputs and the audio track are restored in seconds. Use it to apply a GPU change or clear a suspected leak at a break." />
+    <TextBlock Classes="hint"
+               Text="A tiny supervisor runs the app as its child (two Patterns.exe in Task Manager — that's this). If the app crashes, or its interface stops responding for 30 seconds, it is restarted within seconds with the same settings and the outputs re-opened. Restarts back off and stop if something crashes over and over (see patterns.watchdog.log). Individual render faults never need it — they're contained per frame and counted above." />
+  </StackPanel>
+</UserControl>

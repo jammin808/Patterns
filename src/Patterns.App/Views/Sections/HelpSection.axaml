@@ -34,7 +34,11 @@ On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · Pg
 
     <TextBlock Classes="h2" Text="STINGERS &amp; STAYING UP" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="Stingers (Audio tab): one-press sounds and clips — a sound plays over everything while the music ducks, a video clip takes the screens and the previous content returns when it ends. Fire them from the Show page, the phone remote or a Stream Deck. Watchdog (Remote tab): the app runs supervised — after a crash or a 30-second UI freeze it restarts itself with the same settings and puts live outputs (and the audio track) back. A clean close never auto-restores. The health line on the Show page counts uptime, watchdog restarts and contained render faults." />
+               Text="Stingers (Audio tab): one-press sounds and clips — a sound plays over everything while the music ducks, a video clip takes the screens and the previous content returns when it ends. Fire them from the Show page, the phone remote or a Stream Deck. Watchdog (Admin tab): the app runs supervised — after a crash or a 30-second UI freeze it restarts itself with the same settings and puts live outputs (and the audio track) back. A clean close never auto-restores. The health line on the Show page counts uptime, watchdog restarts and contained render faults." />
+
+    <TextBlock Classes="h2" Text="ADMIN (PERFORMANCE &amp; GPU)" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="The Admin tab watches the machine while you watch the show: live CPU/memory/GPU/frame-rate with three-minute history charts, plain-language suggestions when something needs attention (on battery, memory climbing, frames dropping, disk filling), a computer overview with one-click support info, and a Restart app button that brings the show straight back. A rolling patterns.metrics.csv (30-second samples) records the night for after-show reading. Graphics card: Patterns detects and uses the best GPU by default and registers the choice with Windows (so video decode follows); pick Power saving, a specific adapter, or Let Windows decide — changes apply after a restart." />
 
     <TextBlock Classes="h2" Text="PORTABLE FILES" />
     <TextBlock Classes="hint" TextWrapping="Wrap"

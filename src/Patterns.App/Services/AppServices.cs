@@ -32,6 +32,7 @@ public sealed class AppServices
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
     public StreamService Stream { get; }
+    public SystemMetricsService Metrics { get; }
     public RecoveryStore Recovery { get; }
 
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
@@ -89,8 +90,10 @@ public sealed class AppServices
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
+        Metrics = new SystemMetricsService(this);
         Recovery = new RecoveryStore(Store.BaseDirectory);
         PendingRecovery = Recovery.Read();
+        GpuService.RecordAppliedPath(State);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
         _saveTimer.Tick += (_, _) =>
@@ -170,10 +173,25 @@ public sealed class AppServices
     }
 
     private (bool Live, bool Audio)? _recoveryWritten;
+    private bool _restartRequested;
+
+    /// <summary>
+    /// Admin restart: freeze the recovery sidecar to the current live state so the relaunch
+    /// puts the show back, and return the exit code to shut down with (the supervisor's
+    /// restart-request code when supervised, 0 when not).
+    /// </summary>
+    public int PrepareRestart()
+    {
+        _restartRequested = true;
+        Recovery.Write(Outputs.IsLive, State.AudioPlayer.Playing);
+        SaveNow();
+        return LaunchOptions.IsChild ? SupervisorPolicy.RestartRequestExitCode : 0;
+    }
 
     /// <summary>Keeps the recovery sidecar current: present while something is live, gone otherwise.</summary>
     private void UpdateRecovery()
     {
+        if (_restartRequested) return; // the sidecar is frozen for the relaunch to read
         if (Bus.OutputsLive != Outputs.IsLive)
         {
             // GO/STOP don't touch the model, so push the tally change to sinks ourselves.
@@ -290,8 +308,12 @@ public sealed class AppServices
             Playlist.Dispose();
             Feeds.Dispose();
             Video.Dispose();
+            Metrics.Dispose();
             SaveNow();
-            Recovery.Clear(); // a clean exit must never auto-restore
+            if (!_restartRequested)
+            {
+                Recovery.Clear(); // a clean exit must never auto-restore
+            }
             _instanceMutex?.Dispose();
         }
         catch (Exception ex)

@@ -32,6 +32,7 @@
   <Style Selector="TextBlock.h1.neon-remote"><Setter Property="Foreground" Value="#35E0D0" /></Style>
   <Style Selector="TextBlock.h1.neon-ndi"><Setter Property="Foreground" Value="#8FA5FF" /></Style>
   <Style Selector="TextBlock.h1.neon-stream"><Setter Property="Foreground" Value="#FF5C7A" /></Style>
+  <Style Selector="TextBlock.h1.neon-admin"><Setter Property="Foreground" Value="#B8E356" /></Style>
 
   <!-- Switcher strip tiles -->
   <Style Selector="Border.tile">

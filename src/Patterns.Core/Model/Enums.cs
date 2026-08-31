@@ -211,3 +211,16 @@ public enum SinkKind
     Ndi,
     Thumbnail,
 }
+
+/// <summary>Which graphics card the app should render (and decode video) on.</summary>
+public enum GpuPreferenceKind
+{
+    /// <summary>Detect and use the best card — most video memory, discrete first. The default.</summary>
+    BestPerformance,
+    /// <summary>The low-power (integrated) card — battery-friendly rehearsal mode.</summary>
+    PowerSaving,
+    /// <summary>One named adapter, picked in the Admin tab.</summary>
+    Specific,
+    /// <summary>No override at all.</summary>
+    LetWindowsDecide,
+}

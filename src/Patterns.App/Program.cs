@@ -19,6 +19,9 @@ internal static class Program
             return Supervisor.Run();
         }
 
+        // Pick the GPU before Avalonia creates its D3D device (and before libVLC decodes).
+        Services.GpuService.Initialize();
+
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             Log.Error("Unhandled exception.", e.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, e) =>
@@ -41,6 +44,12 @@ internal static class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(new Win32PlatformOptions
+            {
+                // Called when the compositor creates its D3D11 device (AngleEgl, the default):
+                // answer with the adapter the settings resolved to (best card by default).
+                GraphicsAdapterSelectionCallback = Services.GpuService.SelectAdapter,
+            })
             .WithInterFont()
             .LogToTrace();
 }

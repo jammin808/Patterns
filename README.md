@@ -152,6 +152,21 @@ fault containment, and settings that can never brick startup.
   a clean close never auto-restores). Restarts back off and stop if something genuinely
   crash-loops. Individual render faults never get that far: they're contained per frame and
   counted on a health line (uptime · restarts · faults caught) on the Show page and remotes.
+- **An Admin tab that watches the machine** — live **CPU / memory / GPU / frame-rate**
+  with three-minute history charts, and **plain-language suggestions** when something needs
+  attention: running on battery, memory climbing like a leak, frames dropping, disk
+  filling, handle counts growing, the show stuck on the integrated GPU. A rolling
+  `patterns.metrics.csv` (30-second samples, rotated at 1 MB) records the night for
+  after-show reading; a computer overview with one-click **Copy support info** feeds
+  tickets; **Restart app** relaunches through the watchdog with the show restored. The
+  machine numbers also ride the remote protocol (`machine{cpu,ram,fps,battery,advice}`)
+  and Companion variables — CPU and fps in a Stream Deck key corner.
+- **It finds your best graphics card by default** — at startup Patterns enumerates the
+  GPUs (DXGI), picks the strongest (most video memory, discrete first), renders on it, and
+  registers the choice in Windows' per-app graphics preference so **video decoding follows
+  the same card** — on laptops this is what stops the show landing on the battery-saver
+  GPU. Selectable in Admin: best performance, power saving, a specific adapter, or let
+  Windows decide.
 
 <table>
   <tr>
@@ -176,7 +191,7 @@ fault containment, and settings that can never brick startup.
   </tr>
   <tr>
     <td><img src="docs/media/shot-multiview.png" alt="Multiview — program, screens, inputs and clock with tally"/></td>
-    <td><img src="docs/media/shot-playlist.png" alt="Playlist show parts with per-part files and daily start times"/></td>
+    <td><img src="docs/media/shot-admin.png" alt="Admin — live performance charts, health suggestions and the GPU choice"/></td>
   </tr>
 </table>
 
@@ -226,7 +241,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 311 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, switcher, playlist parts, multiview pixels, stream MRLs, headless UI
+dotnet test                      # 355 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, switcher, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

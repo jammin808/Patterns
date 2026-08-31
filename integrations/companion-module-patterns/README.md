@@ -24,3 +24,6 @@ Patterns pushes `STATE {json}` lines whenever anything changes, so blackout, per
 enable, stinger-on-air and audio-playing states light keys live, and
 `$(patterns:presenter_step)` / `$(patterns:presenter_count)` variables put the click
 position on the NEXT key (`$(patterns:stinger)` and `$(patterns:health)` exist too).
+Machine health lives in `$(patterns:machine_cpu)`, `$(patterns:machine_fps)`,
+`$(patterns:machine_power)` (mains/BATTERY) and `$(patterns:machine_advice)` — put CPU
+and fps in a key corner and you have a confidence monitor on the Stream Deck.

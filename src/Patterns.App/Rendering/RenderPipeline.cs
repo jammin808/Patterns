@@ -105,6 +105,7 @@ public sealed class RenderPipeline : IDisposable
     /// <summary>Renders into a leased Skia canvas whose current transform maps DIPs → device px.</summary>
     public void Render(SKCanvas canvas, double widthDips, double heightDips, double renderScaling)
     {
+        var frameStart = System.Diagnostics.Stopwatch.GetTimestamp();
         var vp = _viewport;
         var physicalPx = new SKSizeI(
             Math.Max(1, (int)Math.Round(widthDips * renderScaling)),
@@ -195,6 +196,8 @@ public sealed class RenderPipeline : IDisposable
         finally
         {
             canvas.RestoreToCount(save);
+            RenderStats.Record(vp.Kind, vp.SinkIndex,
+                System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds);
         }
     }
 

@@ -144,6 +144,12 @@ public sealed record EnumItem(object Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>One advisor line on the Admin tab, with its severity colour resolved.</summary>
+public sealed record SuggestionRow(string Title, string Detail, Avalonia.Media.IBrush Dot);
+
+/// <summary>One detected graphics adapter row on the Admin tab.</summary>
+public sealed record GpuRow(string Name, string Detail);
+
 public sealed record ResolutionPreset(string Label, int W, int H)
 {
     public override string ToString() => Label;
@@ -183,6 +189,14 @@ public static class Lists
         new(MultiviewSource.NdiFeed, "NDI feed (Media tab)"),
         new(MultiviewSource.Pip, "PiP input"),
         new(MultiviewSource.Clock, "Clock"),
+    };
+
+    public static readonly EnumItem[] GpuPreferences =
+    {
+        new(GpuPreferenceKind.BestPerformance, "Best performance (auto-detect)"),
+        new(GpuPreferenceKind.PowerSaving, "Power saving (integrated)"),
+        new(GpuPreferenceKind.Specific, "A specific adapter…"),
+        new(GpuPreferenceKind.LetWindowsDecide, "Let Windows decide"),
     };
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();

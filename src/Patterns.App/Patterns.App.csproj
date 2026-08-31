@@ -24,6 +24,7 @@
     <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.3.20" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="LibVLCSharp" Version="3.10.1" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <!-- Restore vehicle for the "full" build (build/publish-win-x64-full.*): the scripts
          restore with BundleVlc=true and copy the libvlc payload from this package into
