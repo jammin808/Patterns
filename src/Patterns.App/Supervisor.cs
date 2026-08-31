@@ -175,8 +175,11 @@ internal static class Supervisor
 
                 default:
                     restarts++;
-                    WLog($"App {(killedForHang ? "hung" : $"crashed (exit {exitCode})")} after " +
-                         $"{(DateTime.UtcNow - startedUtc).TotalSeconds:0}s — restart #{restarts} in {verdict.Delay.TotalSeconds:0}s.");
+                    var why = killedForHang ? "hung"
+                        : exitCode == SupervisorPolicy.RestartRequestExitCode ? "asked to restart (Admin tab)"
+                        : $"crashed (exit {exitCode})";
+                    WLog($"App {why} after {(DateTime.UtcNow - startedUtc).TotalSeconds:0}s — " +
+                         $"restart #{restarts} in {verdict.Delay.TotalSeconds:0}s.");
                     Thread.Sleep(verdict.Delay);
                     break;
             }
