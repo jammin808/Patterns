@@ -84,6 +84,17 @@ public static class InputBus
         _previous = next;
     }
 
+    /// <summary>
+    /// Clears the fade-out entry only if it is still <paramref name="expected"/>. A key that
+    /// was remounted and retired again has a newer fade source; sweeping the older retirement
+    /// must not take the newer one down with it.
+    /// </summary>
+    public static void ClearPreviousIf(string key, IVideoFrameSource expected)
+    {
+        if (!_previous.TryGetValue(key, out var current) || !ReferenceEquals(current, expected)) return;
+        SetPrevious(key, null);
+    }
+
     public static void Clear()
     {
         _current = Empty;

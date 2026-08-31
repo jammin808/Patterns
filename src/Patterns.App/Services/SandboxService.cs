@@ -53,8 +53,11 @@ public sealed class SandboxService
         if (!Active) return;
         var fade = _services.State.Transition.Enabled;
         if (cut) _services.State.Transition.Enabled = false;
-        Exit(reenterIfDefault: true);
+        Exit(reenterIfDefault: false);
+        // Restore the operator's transition setting *before* re-arming, or the next frozen
+        // program would carry CUT's "no fade" for the rest of the show.
         if (cut) _services.State.Transition.Enabled = fade; // republish carries the same content — no late fade
+        ReArmIfDefault();
         Log.Info($"Sandbox {(cut ? "cut" : "taken")} to program (all screens).");
     }
 
@@ -85,6 +88,12 @@ public sealed class SandboxService
         });
         Exit(reenterIfDefault: true);
         Log.Info($"Sandbox sent to {screenIds.Count} screen(s).");
+    }
+
+    /// <summary>Re-arms EDIT SAFE when the show asks for it (after a send).</summary>
+    private void ReArmIfDefault()
+    {
+        if (!Active && _services.State.Switcher.EditSafeByDefault) Enter();
     }
 
     /// <summary>Back to exactly what is on air right now. Outputs never notice.</summary>
@@ -131,9 +140,9 @@ public sealed class SandboxService
         _contentBefore = null;
         _services.Bus.ClearSandbox();
         _services.RepublishNow(); // outputs pick up the live state again (side effects included)
-        if (reenterIfDefault && _services.State.Switcher.EditSafeByDefault)
+        if (reenterIfDefault)
         {
-            Enter(); // edit-safe stays armed: the next look builds in safety too
+            ReArmIfDefault(); // edit-safe stays armed: the next look builds in safety too
         }
     }
 }

@@ -306,7 +306,10 @@ public sealed class NdiService : IDisposable
 
     public void Reconcile(ShowSnapshot snap)
     {
-        var desired = snap.State.Ndi.Senders.Where(s => s.Enabled).Select(s => s.Id).ToHashSet();
+        // Prep is pre-programming: nothing leaves the machine, on a cable or on the network.
+        var desired = snap.State.Mode == ShowMode.Prep
+            ? new HashSet<string>()
+            : snap.State.Ndi.Senders.Where(s => s.Enabled).Select(s => s.Id).ToHashSet();
 
         foreach (var id in _active.Keys.Where(id => !desired.Contains(id)).ToList())
         {

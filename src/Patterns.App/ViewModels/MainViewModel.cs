@@ -969,7 +969,8 @@ public sealed class MainViewModel : Observable
         var current = State.Web.TargetScreenId;
         WebScreens.Clear();
         WebScreens.Add(new EditTarget("Primary screen", ""));
-        foreach (var s in _services.Screens.All)
+        // Real displays only: a browser window or a stream capture needs somewhere to land.
+        foreach (var s in _services.Screens.Real)
         {
             WebScreens.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
         }
@@ -1965,25 +1966,21 @@ public sealed class MainViewModel : Observable
         {
             planned.ScreenId = realScreenId;
             planned.Planned = false;
-            foreach (var a in State.Independent.Where(a => a.ScreenId == oldId).ToList())
-            {
-                a.ScreenId = realScreenId;
-            }
-            foreach (var canvas in State.Output.CanvasNames.ToList())
-            {
-                var members = canvas.MemberKey.Split('+');
-                if (members.Contains(oldId))
-                {
-                    canvas.MemberKey = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? realScreenId : id));
-                }
-            }
-            foreach (var tile in State.Pattern.Multiview.Tiles.Where(t => t.ScreenId == oldId))
-            {
-                tile.ScreenId = realScreenId;
-            }
-            if (State.Stream.SourceScreenId == oldId) State.Stream.SourceScreenId = realScreenId;
-            if (State.Web.TargetScreenId == oldId) State.Web.TargetScreenId = realScreenId;
+            RewriteScreenId(State, oldId, realScreenId);
         });
+
+        // The rig lives in the frozen program too while EDIT SAFE is on — adopt there as well,
+        // or the audience keeps the planned screen the operator just replaced.
+        if (_services.Sandbox.ProgramState is { } air)
+        {
+            foreach (var p in air.Output.Placements.Where(p => p.ScreenId == oldId))
+            {
+                p.ScreenId = realScreenId;
+                p.Planned = false;
+            }
+            RewriteScreenId(air, oldId, realScreenId);
+            _services.RepublishNow();
+        }
 
         _services.Screens.Refresh();
         RebuildEditTargets();
@@ -1992,6 +1989,54 @@ public sealed class MainViewModel : Observable
         StatusMessage = $"Adopted onto {info.Label} ({info.Bounds.Width}×{info.Bounds.Height}) — everything programmed for it carried over.";
         Log.Info(StatusMessage);
         return true;
+    }
+
+    /// <summary>
+    /// Moves every reference to a screen id onto a new one. Adoption is only worth anything if
+    /// nothing programmed against the planned screen is left orphaned, so this covers the whole
+    /// surface: per-screen patterns, joined-canvas names, multiview tiles in <em>any</em>
+    /// pattern, NDI senders, the stream source, the web target — and the saved looks, whose
+    /// captured JSON carries per-screen assignments by id.
+    /// </summary>
+    private static void RewriteScreenId(ShowState state, string oldId, string newId)
+    {
+        foreach (var a in state.Independent.Where(a => a.ScreenId == oldId).ToList())
+        {
+            a.ScreenId = newId;
+        }
+        foreach (var canvas in state.Output.CanvasNames.ToList())
+        {
+            var members = canvas.MemberKey.Split('+');
+            if (members.Contains(oldId))
+            {
+                canvas.MemberKey = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
+            }
+        }
+        foreach (var pattern in AllPatterns(state))
+        {
+            foreach (var tile in pattern.Multiview.Tiles.Where(t => t.ScreenId == oldId))
+            {
+                tile.ScreenId = newId;
+            }
+        }
+        foreach (var sender in state.Ndi.Senders.Where(s => s.SourceScreenId == oldId))
+        {
+            sender.SourceScreenId = newId;
+        }
+        if (state.Stream.SourceScreenId == oldId) state.Stream.SourceScreenId = newId;
+        if (state.Web.TargetScreenId == oldId) state.Web.TargetScreenId = newId;
+
+        // Saved looks are captured JSON — the id appears verbatim inside them.
+        foreach (var look in state.LooksAndCues.Looks.Where(l => l.Json.Contains(oldId, StringComparison.Ordinal)))
+        {
+            look.Json = look.Json.Replace(oldId, newId, StringComparison.Ordinal);
+        }
+    }
+
+    private static IEnumerable<PatternConfig> AllPatterns(ShowState state)
+    {
+        yield return state.Pattern;
+        foreach (var a in state.Independent) yield return a.Pattern;
     }
 
     /// <summary>Real displays not already claimed by a placement — the adopt targets.</summary>

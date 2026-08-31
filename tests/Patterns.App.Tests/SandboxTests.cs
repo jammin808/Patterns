@@ -428,4 +428,85 @@ public class SandboxTests
             services.Shutdown();
         }
     }
+
+    // ---- regressions found by adversarial review ----------------------------
+
+    [AvaloniaFact]
+    public void ARuntimePublishNeverPushesTheSandboxEditToAir()
+    {
+        // The playlist, tone indicator and tally all publish "runtime" snapshots. Before the
+        // fix these bypassed the freeze and put the operator's private edit on the screens.
+        var (services, vm, window) = Boot();
+        try
+        {
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            vm.IsSandboxActive = true;
+            vm.State.Pattern.Kind = PatternKind.Focus; // building, not on air
+            Dispatcher.UIThread.RunJobs();
+
+            services.PublishRuntime();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Focus, services.Bus.Sandbox!.State.Pattern.Kind);
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CutDoesNotBakeItsNoFadeIntoTheNextFrozenProgram()
+    {
+        var (services, vm, window) = Boot();
+        try
+        {
+            vm.State.Transition.Enabled = true;
+            vm.IsSandboxActive = true;
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+
+            vm.CutCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(vm.State.Transition.Enabled);                  // live setting restored
+            Assert.True(vm.IsSandboxActive);                           // re-armed
+            Assert.True(services.Bus.Current.State.Transition.Enabled); // and the frozen program agrees
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStingerClipLiftsBlackoutEvenWhileSandboxed()
+    {
+        var (services, vm, window) = Boot();
+        var clip = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.mp4");
+        File.WriteAllBytes(clip, new byte[] { 1 });
+        try
+        {
+            vm.State.Blackout = true;
+            vm.IsSandboxActive = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(services.Stingers.Fire(new StingerItemConfig { Path = clip }));
+            Dispatcher.UIThread.RunJobs();
+
+            // PublishBoth copies the live blackout onto the program, so the clip has to clear
+            // the live flag — otherwise the "urgent announcement" plays behind a black screen.
+            Assert.False(vm.State.Blackout);
+            Assert.False(services.Bus.Current.State.Blackout);
+            Assert.Equal(clip, services.Bus.Current.State.Pattern.Media.VideoPath);
+        }
+        finally
+        {
+            File.Delete(clip);
+            window.Close();
+            services.Shutdown();
+        }
+    }
 }

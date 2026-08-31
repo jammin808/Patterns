@@ -125,7 +125,7 @@ public sealed class VideoEngine : IDisposable
         for (var i = _retired.Count - 1; i >= 0; i--)
         {
             if (DateTime.UtcNow - _retired[i].RetiredUtc <= TimeSpan.FromSeconds(4)) continue;
-            InputBus.SetPrevious(_retired[i].Key, null);
+            InputBus.ClearPreviousIf(_retired[i].Key, _retired[i].Source);
             _retired[i].Source.Dispose();
             _retired.RemoveAt(i);
         }
@@ -226,7 +226,9 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
     // Static so a successor source still sweeps a disposed predecessor's leftovers.
     private static readonly object RetiredGate = new();
     private static readonly List<(SKImage Image, DateTime RetiredUtc)> Retired = new();
-    private static readonly TimeSpan RetireHold = TimeSpan.FromSeconds(2);
+    // Long enough to outlive any deferred GPU flush, short enough that several decoders'
+    // retired frames never add up: a 2 s hold across four 1080p sources is gigabytes.
+    private static readonly TimeSpan RetireHold = TimeSpan.FromMilliseconds(400);
 
     private static void RetireImage(SKImage? image)
     {

@@ -80,6 +80,9 @@ public sealed class StingerService : IDisposable
             _savedCustom = state.Output.Placements.Select(p => (p.ScreenId, p.UseCustomPattern)).ToList();
         }
 
+        // Blackout is transport, never sandboxed: PublishBoth copies the live flag onto the
+        // frozen program, so lifting it has to happen on the live state or it is overwritten.
+        _services.State.Blackout = false;
         _services.EditAir(air =>
         {
             air.Blackout = false;
@@ -183,7 +186,7 @@ public sealed class StingerService : IDisposable
         _overrideKey = "";
         if (!restore || saved is null) return;
 
-        var blackoutNow = _services.AirState.Blackout; // an operator blackout during the clip stands
+        var blackoutNow = _services.State.Blackout; // an operator blackout during the clip stands (live flag)
         _services.EditAir(air =>
         {
             LookService.Apply(saved, air);

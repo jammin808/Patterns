@@ -178,13 +178,26 @@ public class PrepModeTests
                 Name = "Wall",
             });
             services.State.Stream.SourceScreenId = planned.ScreenId;
+            services.State.Web.TargetScreenId = planned.ScreenId;
             services.State.Pattern.Multiview.Tiles.Add(new MultiviewTileConfig
             {
                 Source = MultiviewSource.Screen,
                 ScreenId = planned.ScreenId,
             });
+            // …a multiview tile inside another screen's own pattern…
+            assignment.Pattern.Multiview.Tiles.Add(new MultiviewTileConfig
+            {
+                Source = MultiviewSource.Screen,
+                ScreenId = planned.ScreenId,
+            });
+            // …an NDI sender feeding off it…
+            services.State.Ndi.Senders.Add(new NdiSenderConfig { SourceScreenId = planned.ScreenId });
             var plannedId = planned.ScreenId;
+            // …and a look saved at the desk, whose captured JSON names the planned screen.
+            vm.NewLookName = "Desk look";
+            vm.SaveLookCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
+            Assert.Contains(services.State.LooksAndCues.Looks, l => l.Json.Contains(plannedId, StringComparison.Ordinal));
 
             Assert.True(vm.AdoptPlannedScreen(planned, venueId));
             Dispatcher.UIThread.RunJobs();
@@ -205,7 +218,17 @@ public class PrepModeTests
             Assert.Contains(services.State.Output.CanvasNames,
                 c => c.MemberKey.Split('+').Contains(venueId));
             Assert.Equal(venueId, services.State.Stream.SourceScreenId);
+            Assert.Equal(venueId, services.State.Web.TargetScreenId);
             Assert.Equal(venueId, services.State.Pattern.Multiview.Tiles[0].ScreenId);
+            Assert.Equal(venueId,
+                services.State.Independent.First(a => a.ScreenId == venueId).Pattern.Multiview.Tiles[0].ScreenId);
+            Assert.Equal(venueId, services.State.Ndi.Senders[0].SourceScreenId);
+
+            // Saved looks follow too — otherwise every desk-built look orphans the screen.
+            Assert.DoesNotContain(services.State.LooksAndCues.Looks,
+                l => l.Json.Contains(plannedId, StringComparison.Ordinal));
+            Assert.Contains(services.State.LooksAndCues.Looks,
+                l => l.Json.Contains(venueId, StringComparison.Ordinal));
 
             // It is a real output now.
             Assert.Contains(

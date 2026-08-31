@@ -18,6 +18,7 @@ public sealed class PlaylistService : IDisposable
     private readonly PlaylistSequencer _sequencer = new();
     private List<string> _folderFiles = new();
     private string _folderKey = "";
+    private DateTime? _unmountedSince; // when the current video item was first found unmounted
     private string _orderKey = "";
     private DateTime _lastScanUtc = DateTime.MinValue;
 
@@ -76,7 +77,26 @@ public sealed class PlaylistService : IDisposable
             var currentItem = _sequencer.Current;
             var currentIsVideo = currentItem?.IsVideo == true;
             var video = currentIsVideo ? InputBus.For(InputKeys.Video(currentItem!.Path)) : null;
-            var videoEnded = currentIsVideo && video is { IsEnded: true };
+
+            // A video item whose decoder never mounted (past the input limit, missing libVLC,
+            // an unreadable file) must not park the playlist forever — treat it as ended so
+            // the running order moves on.
+            if (currentIsVideo && video is null)
+            {
+                _unmountedSince ??= utcNow;
+            }
+            else
+            {
+                _unmountedSince = null;
+            }
+            var stalled = _unmountedSince is { } since && (utcNow - since).TotalSeconds > 8;
+            if (stalled)
+            {
+                Log.Warn($"Playlist item '{currentItem!.Path}' never started — advancing.");
+                _unmountedSince = null;
+            }
+
+            var videoEnded = currentIsVideo && (video is { IsEnded: true } || stalled);
             var videoLength = currentIsVideo && video is not null ? video.DurationSeconds : 0;
 
             _sequencer.Tick(options, localNow, utcNow, videoEnded, videoLength);

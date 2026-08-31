@@ -32,7 +32,7 @@ public sealed class NdiInputEngine : IDisposable
         for (var i = _retired.Count - 1; i >= 0; i--)
         {
             if (DateTime.UtcNow - _retired[i].RetiredUtc <= TimeSpan.FromSeconds(4)) continue;
-            InputBus.SetPrevious(_retired[i].Key, null);
+            InputBus.ClearPreviousIf(_retired[i].Key, _retired[i].Receiver);
             _retired[i].Receiver.Dispose();
             _retired.RemoveAt(i);
         }

@@ -336,7 +336,16 @@ public sealed class AppServices
     public void PublishRuntime()
     {
         if (_bulkDepth > 0) return;
-        Bus.Publish(State);
+        if (Sandbox.Active)
+        {
+            // A runtime publish must respect the freeze exactly like a model edit — otherwise
+            // the next playlist item or tone tick would push the operator's private edit to air.
+            Sandbox.PublishBoth();
+        }
+        else
+        {
+            Bus.Publish(State);
+        }
         Outputs.NotifySnapshot();
         SnapshotPublished?.Invoke();
     }
