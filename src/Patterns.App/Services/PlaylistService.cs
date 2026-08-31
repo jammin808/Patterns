@@ -34,7 +34,10 @@ public sealed class PlaylistService : IDisposable
     {
         try
         {
-            var options = MediaLocator.FindActivePlaylist(_services.State)?.Playlist;
+            // The playlist that is on air keeps running while the operator programs in the
+            // sandbox — the audience's walk-in loop never pauses for a rehearsal, and never
+            // goes blank because the preview is showing something that is not a playlist.
+            var options = MediaLocator.FindActivePlaylist(_services.AirState)?.Playlist;
             if (options is null)
             {
                 if (_services.Bus.PlaylistNow is not null)
