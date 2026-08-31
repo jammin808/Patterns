@@ -8,87 +8,126 @@ using SkiaSharp;
 namespace Patterns.App.Services;
 
 /// <summary>
-/// Optional video decode via libVLC with callback rendering: frames land in a BGRA buffer
+/// Optional video decode via libVLC with callback rendering: frames land in BGRA buffers
 /// that the engine composites like any layer — so video reaches outputs, spans and NDI.
-/// Also opens DirectShow capture devices (HDMI/SDI cards, webcams) through the same path.
-/// When libVLC is absent the Media pattern explains how to enable it; nothing crashes.
+/// Hosts one mount per referenced source (files, playlist items, DirectShow capture
+/// devices), published on the <see cref="InputBus"/>, so different screens, PiP and
+/// multiview tiles carry different inputs at the same time — and the same input on three
+/// screens still costs one decoder. When libVLC is absent nothing crashes.
 /// </summary>
 public sealed class VideoEngine : IDisposable
 {
+    /// <summary>Simultaneous decoders — capture cards and files are real CPU/GPU cost.</summary>
+    public const int MaxMounts = 4;
+
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
-    private VlcFrameSource? _source;
-    private string _activeKey = "";
-    private (VlcFrameSource Source, DateTime RetiredUtc)? _retired;
 
-    /// <summary>Reconciles the running decoder with the current snapshot (UI thread).</summary>
-    public void Reconcile(ShowSnapshot snap)
+    private sealed record Mount(VlcFrameSource Source, bool Loop);
+
+    private readonly Dictionary<string, Mount> _mounts = new();
+    private readonly List<(string Key, VlcFrameSource Source, DateTime RetiredUtc)> _retired = new();
+
+    /// <summary>Non-empty when more sources are wanted than the decoder cap allows.</summary>
+    public string LimitNote { get; private set; } = "";
+
+    /// <summary>Mounted keys with a short status each — the Media tab's active-inputs line.</summary>
+    public IReadOnlyList<(string Key, string Status)> MountStatuses
+        => _mounts.Select(kv => (kv.Key, kv.Value.Source.IsPlaying ? "playing" : kv.Value.Source.StatusText)).ToList();
+
+    /// <summary>
+    /// Reconciles the decoder pool with everything the program — and, while the operator is
+    /// programming, the sandbox — references (UI thread). Highest-priority reference wins a
+    /// shared mount's loop/audio settings.
+    /// </summary>
+    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null)
     {
         SweepRetired();
 
-        var media = MediaLocator.FindActiveVideo(snap);
+        var wanted = WantedVideoInputs(snap, sandbox);
+        var wantedKeys = wanted.Select(w => w.Key).ToHashSet();
 
-        // Mute/volume apply live to the running player — they never restart the media.
-        var key = media is null ? "" : $"{media.Value.Target}|{media.Value.Loop}|{media.Value.IsCapture}";
-        if (key == _activeKey)
+        foreach (var key in _mounts.Keys.Where(k => !wantedKeys.Contains(k)).ToList())
         {
-            if (media is not null) _source?.SetAudio(media.Value.Mute, media.Value.VolumePct);
-            return;
+            RetireMount(key);
         }
-        _activeKey = key;
 
-        VideoService.Current = null;
-        RetireSource();
-
-        if (media is null) return;
-
-        if (!EnsureVlc()) return;
-
-        try
+        var over = 0;
+        foreach (var w in wanted)
         {
-            _source = new VlcFrameSource(_vlc!, media.Value.Target, media.Value.Loop, media.Value.IsCapture,
-                media.Value.Mute, media.Value.VolumePct);
-            VideoService.Current = _source;
+            if (_mounts.TryGetValue(w.Key, out var existing))
+            {
+                if (existing.Loop == w.Loop)
+                {
+                    // Mute/volume apply live to the running player — never restart the media.
+                    existing.Source.SetAudio(w.Mute, w.VolumePct);
+                    continue;
+                }
+                RetireMount(w.Key); // loop change needs a reopen
+            }
+
+            if (_mounts.Count >= MaxMounts)
+            {
+                over++;
+                continue;
+            }
+            if (!EnsureVlc()) return;
+
+            try
+            {
+                var source = new VlcFrameSource(_vlc!, w.Target, w.Loop,
+                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct);
+                _mounts[w.Key] = new Mount(source, w.Loop);
+                InputBus.Mount(w.Key, source);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Video open failed for '{w.Target}'.", ex);
+                VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
+            }
         }
-        catch (Exception ex)
+
+        LimitNote = over > 0
+            ? $"Input limit: {MaxMounts} simultaneous decoders — {over} source{(over == 1 ? "" : "s")} waiting."
+            : "";
+    }
+
+    /// <summary>Program + sandbox wants, deduped by key, program's settings winning shared mounts.</summary>
+    public static List<MediaLocator.WantedInput> WantedVideoInputs(ShowSnapshot snap, ShowSnapshot? sandbox)
+    {
+        var list = MediaLocator.FindWantedInputs(snap);
+        if (sandbox is not null)
         {
-            Log.Error($"Video open failed for '{media.Value.Target}'.", ex);
-            VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
-            // Forget the key so the next state change retries (the file may just not be ready yet).
-            _activeKey = "";
+            var seen = list.Select(w => w.Key).ToHashSet();
+            list.AddRange(MediaLocator.FindWantedInputs(sandbox).Where(w => seen.Add(w.Key)));
         }
+        list.RemoveAll(w => w.Kind == MediaLocator.WantedKind.Ndi);
+        return list;
     }
 
     /// <summary>
-    /// The old source keeps decoding briefly as <see cref="VideoService.Previous"/> so a
-    /// crossfade fades out real frames instead of a placeholder; muted so two soundtracks
-    /// never overlap; swept a couple of seconds later.
+    /// The old source keeps decoding briefly on the bus's previous map so a crossfade fades
+    /// out real frames instead of a placeholder; muted so soundtracks never overlap.
     /// </summary>
-    private void RetireSource()
+    private void RetireMount(string key)
     {
-        if (_retired is { } r)
-        {
-            r.Source.Dispose();
-            _retired = null;
-        }
-        VideoService.Previous = null;
-        if (_source is not null)
-        {
-            _source.SetAudio(mute: true, volumePct: 0);
-            VideoService.Previous = _source;
-            _retired = (_source, DateTime.UtcNow);
-            _source = null;
-        }
+        if (!_mounts.TryGetValue(key, out var mount)) return;
+        _mounts.Remove(key);
+        InputBus.Unmount(key);
+        mount.Source.SetAudio(mute: true, volumePct: 0);
+        InputBus.SetPrevious(key, mount.Source);
+        _retired.Add((key, mount.Source, DateTime.UtcNow));
     }
 
     /// <summary>Also called from the app's 1 s poll so a retired decoder never lingers.</summary>
     public void SweepRetired()
     {
-        if (_retired is { } r && DateTime.UtcNow - r.RetiredUtc > TimeSpan.FromSeconds(4))
+        for (var i = _retired.Count - 1; i >= 0; i--)
         {
-            VideoService.Previous = null;
-            r.Source.Dispose();
-            _retired = null;
+            if (DateTime.UtcNow - _retired[i].RetiredUtc <= TimeSpan.FromSeconds(4)) continue;
+            InputBus.SetPrevious(_retired[i].Key, null);
+            _retired[i].Source.Dispose();
+            _retired.RemoveAt(i);
         }
     }
 
@@ -142,15 +181,18 @@ public sealed class VideoEngine : IDisposable
 
     public void Dispose()
     {
-        VideoService.Current = null;
-        VideoService.Previous = null;
-        _source?.Dispose();
-        _source = null;
-        if (_retired is { } r)
+        foreach (var (key, mount) in _mounts)
         {
-            r.Source.Dispose();
-            _retired = null;
+            InputBus.Unmount(key);
+            mount.Source.Dispose();
         }
+        _mounts.Clear();
+        foreach (var (key, source, _) in _retired)
+        {
+            InputBus.SetPrevious(key, null);
+            source.Dispose();
+        }
+        _retired.Clear();
         _vlc?.Dispose();
         _vlc = null;
     }

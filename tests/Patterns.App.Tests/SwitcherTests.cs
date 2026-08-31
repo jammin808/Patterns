@@ -119,7 +119,7 @@ public class SwitcherTests
 
             vm.CutCommand.Execute(null);
 
-            Assert.False(vm.IsSandboxActive);
+            Assert.True(vm.IsSandboxActive); // EDIT SAFE re-armed after the send
             Assert.Equal(PatternKind.ColorBars, services.Bus.Current.State.Pattern.Kind);
             Assert.True(vm.State.Transition.Enabled); // CUT bypassed, not disabled
         }
@@ -165,7 +165,8 @@ public class SwitcherTests
 
             vm.SandboxSendSelectedCommand.Execute(null);
 
-            Assert.False(vm.IsSandboxActive);
+            Assert.True(vm.IsSandboxActive); // EDIT SAFE re-armed after the send
+            Assert.False(vm.SwitcherTiles[1].IsSendTarget); // a send consumes its targets
             Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind); // program restored
             foreach (var id in new[] { "a", "b" })
             {

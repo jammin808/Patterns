@@ -16,6 +16,14 @@
 Page Down / Page Up   presenter click-through next / back (armed in Looks or Show)
 On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · PgDn/PgUp presenter</TextBlock>
 
+    <TextBlock Classes="h2" Text="BEFORE THE SHOW (PREP MODE)" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Outputs tab → PREP: build the whole rig at your desk with nothing plugged in. 'Plan a screen' adds a screen at the size the venue will have — arrange it, name it, give it its own pattern, put it in a canvas, use it in the multiview — and outputs stay held closed so nothing can go live by accident. Live inputs can be typed in by name (Media tab) before the camera or NDI sender exists. At the venue, switch to SHOW, pick which detected display each planned screen turned out to be and press Adopt: position, label, rotation, trims, warp, per-screen pattern, canvas name, multiview tiles and the stream source all follow onto the real display, so the desk work is never redone." />
+
+    <TextBlock Classes="h2" Text="MANY INPUTS AT ONCE" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Every live source runs on its own: give screen 1 a camera, screen 2 an NDI feed from the graphics PC and screen 3 a walk-in video, all at the same time. Pick the screen in the strip, then choose its source in the Media tab. The same feed used in several places (two screens, the PiP inset and a multiview tile) costs one decode, not four. Multiview tiles can name their own NDI source or capture device, so a monitor wall can show four different inputs. The Media tab lists what is mounted right now, and warns if the rig asks for more simultaneous sources than the limit (4 decoders, 6 NDI receivers)." />
+
     <TextBlock Classes="h2" Text="WORKFLOW" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
                Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, nudge its corners (warp) for a keystoned projector, or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  4) Save the state as a look (Looks tab) and put it on an F-key, the daily schedule, or the presenter click-through order.  5) Run the evening from the Show tab.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
@@ -26,7 +34,7 @@ On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · Pg
 
     <TextBlock Classes="h2" Text="THE SWITCHER (PROGRAM / PREVIEW)" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="The right side works like a vision mixer. PROGRAM (top) is always what the audience sees. PREVIEW (bottom) follows what you're editing — the banner over the tabs names it. The strip between them lists PGM, every joined canvas and every screen with its label: click a tile to edit it, use its switch to turn that output on/off live. Flip EDIT SAFE (sandbox) and the preview detaches from air: build the next look with any editor, then CUT (instant) or TAKE (crossfade) to every screen, SEND TO TICKED tiles as their own pattern, save it as a look, or toggle off to discard. Blackout, GO/STOP and the tile switches stay live through the freeze; cues hold; live video picked inside the sandbox shows a placeholder until sent. Name screens and canvases in the Outputs tab — the names follow into the strip, remotes and multiview." />
+               Text="The right side works like a vision mixer. PROGRAM (top) is always what the audience sees. PREVIEW (bottom) is where you build — and it is sandboxed from the moment the app opens, so touching any editor never reaches the screens. The strip between them lists PGM, every joined canvas and every screen with its label: click a tile to edit it, use its switch to turn that output on/off live. Build the next look with any editor, then CUT (instant) or TAKE (crossfade) to every screen, or SEND TO TICKED tiles as their own pattern; EDIT SAFE re-arms itself after each send, so you are always building in safety. What you FIRE still goes straight to air: F-key looks, the ON AIR button on a look, scheduled cues, presenter steps, stingers and every remote command — only what you are editing is held back. Use → PVW on a look to load it into the preview instead. Blackout and GO/STOP stay live through the freeze. Turn the default off in Admin → Switcher if you'd rather the preview mirrored the program." />
 
     <TextBlock Classes="h2" Text="SHOW PARTS, MULTIVIEW &amp; STREAMING" />
     <TextBlock Classes="hint" TextWrapping="Wrap"

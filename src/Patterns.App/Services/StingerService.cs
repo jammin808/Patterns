@@ -70,14 +70,9 @@ public sealed class StingerService : IDisposable
             return false;
         }
 
-        if (_services.Sandbox.Active)
-        {
-            // A clip must take the *program*, and revert to it — meaningless mid-sandbox.
-            _status = "Send or discard the sandbox first, then fire the clip.";
-            return false;
-        }
-
-        var state = _services.State;
+        // A clip takes the air and reverts to the air — it works the same whether the
+        // operator is programming in the sandbox or driving the program directly.
+        var state = _services.AirState;
         if (_savedLook is null)
         {
             // Chained clips keep the original pre-stinger content as the revert target.
@@ -85,25 +80,25 @@ public sealed class StingerService : IDisposable
             _savedCustom = state.Output.Placements.Select(p => (p.ScreenId, p.UseCustomPattern)).ToList();
         }
 
-        _services.BulkEdit(() =>
+        _services.EditAir(air =>
         {
-            state.Blackout = false;
-            state.Pattern.Kind = PatternKind.Media;
-            var media = state.Pattern.Media;
+            air.Blackout = false;
+            air.Pattern.Kind = PatternKind.Media;
+            var media = air.Pattern.Media;
             media.Source = MediaSource.Video;
             media.VideoPath = item.Path;
             media.Loop = false;
             media.Mute = false;
             media.VolumePct = item.VolumePct;
-            foreach (var p in state.Output.Placements)
+            foreach (var p in air.Output.Placements)
             {
                 p.UseCustomPattern = false; // the clip owns every screen
             }
         });
-        _overrideKey = ContentKey(state);
+        _overrideKey = ContentKey(_services.AirState);
         _clipPath = item.Path;
         _firedUtc = DateTime.UtcNow;
-        state.Stingers.PlayingName = name;
+        _services.State.Stingers.PlayingName = name;
         _status = $"Clip on screens: {name}";
         Log.Info($"Stinger fired: {name}");
         return true;
@@ -139,7 +134,7 @@ public sealed class StingerService : IDisposable
 
             if (!ClipActive) return;
 
-            var state = _services.State;
+            var state = _services.AirState;
             if (ContentKey(state) != _overrideKey)
             {
                 // The operator changed the content mid-clip — their choice stands.
@@ -148,11 +143,11 @@ public sealed class StingerService : IDisposable
                 return;
             }
 
-            var video = VideoService.Current;
+            var video = InputBus.For(InputKeys.Video(state.Pattern.Media.VideoPath));
             if (video is { IsEnded: true })
             {
                 StopClipIfAny(restore: true);
-                state.Stingers.PlayingName = "";
+                _services.State.Stingers.PlayingName = "";
                 _status = "Clip finished — previous content back.";
                 return;
             }
@@ -162,7 +157,7 @@ public sealed class StingerService : IDisposable
             if (stuck && (DateTime.UtcNow - _firedUtc).TotalSeconds > 12)
             {
                 StopClipIfAny(restore: true);
-                state.Stingers.PlayingName = "";
+                _services.State.Stingers.PlayingName = "";
                 _status = "Clip could not play — previous content back.";
             }
         }
@@ -180,7 +175,6 @@ public sealed class StingerService : IDisposable
     private void StopClipIfAny(bool restore)
     {
         if (!ClipActive) return;
-        var state = _services.State;
         var saved = _savedLook;
         var savedCustom = _savedCustom;
         _clipPath = "";
@@ -189,14 +183,14 @@ public sealed class StingerService : IDisposable
         _overrideKey = "";
         if (!restore || saved is null) return;
 
-        var blackoutNow = state.Blackout; // an operator blackout during the clip stands
-        _services.BulkEdit(() =>
+        var blackoutNow = _services.AirState.Blackout; // an operator blackout during the clip stands
+        _services.EditAir(air =>
         {
-            LookService.Apply(saved, state);
-            state.Blackout = blackoutNow;
+            LookService.Apply(saved, air);
+            air.Blackout = blackoutNow;
             foreach (var (screenId, wasCustom) in savedCustom ?? new())
             {
-                var placement = state.Output.Placements.FirstOrDefault(p => p.ScreenId == screenId);
+                var placement = air.Output.Placements.FirstOrDefault(p => p.ScreenId == screenId);
                 if (placement is not null) placement.UseCustomPattern = wasCustom;
             }
         });

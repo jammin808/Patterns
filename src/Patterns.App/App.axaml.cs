@@ -27,6 +27,10 @@ public sealed class App : Application
             services.AttachMainWindow(window);
             desktop.MainWindow = window;
 
+            // Previews are sandboxed by default: the operator can touch any editor from the
+            // first second without it reaching the audience.
+            services.StartDefaultSandbox();
+
             desktop.ShutdownRequested += (_, _) => services.Shutdown();
             desktop.Exit += (_, _) =>
             {

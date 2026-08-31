@@ -22,7 +22,6 @@ public sealed class AppServices
     public OutputWindowManager Outputs { get; }
     public VideoEngine Video { get; }
     public NdiInputEngine NdiIn { get; }
-    public PipEngine Pip { get; }
     public WebService Web { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
@@ -78,7 +77,6 @@ public sealed class AppServices
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
         NdiIn = new NdiInputEngine();
-        Pip = new PipEngine(Video);
         Web = new WebService();
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
@@ -111,8 +109,10 @@ public sealed class AppServices
 
         _ = new ChangeTracker(State, OnStateChanged);
 
+        Screens.PlannedProvider = PlannedScreens;
         Screens.Changed += () => Outputs.OnScreensChanged();
         Outputs.LiveChanged += UpdateRecovery;
+        Screens.Refresh(); // planned screens exist before any display is attached
     }
 
     public void AttachMainWindow(MainWindow window)
@@ -142,6 +142,31 @@ public sealed class AppServices
 
     /// <summary>Runs the full change pipeline now (sandbox enter/exit republish without a model edit).</summary>
     public void RepublishNow() => OnStateChanged();
+
+    /// <summary>What the audience is seeing: the frozen program while the sandbox is open, else the live state.</summary>
+    public ShowState AirState => Sandbox.ProgramState ?? State;
+
+    /// <summary>
+    /// Runs an air-targeted edit — a cue, a look recall, a stinger override, a playlist-part
+    /// switch. While the sandbox is open it lands on the frozen program (the operator's
+    /// in-progress edits stay untouched); otherwise it is a normal live edit.
+    /// </summary>
+    public void EditAir(Action<ShowState> edit)
+    {
+        if (!Sandbox.EditProgram(edit))
+        {
+            BulkEdit(() => edit(State));
+        }
+    }
+
+    /// <summary>App startup: arm EDIT SAFE when the show is configured to start sandboxed.</summary>
+    public void StartDefaultSandbox()
+    {
+        if (State.Switcher.EditSafeByDefault && !Sandbox.Active)
+        {
+            Sandbox.Enter();
+        }
+    }
 
     private void OnStateChanged()
     {
@@ -238,18 +263,56 @@ public sealed class AppServices
     /// <summary>Raised on the UI thread after each publish (preview + status displays hook this).</summary>
     public event Action? SnapshotPublished;
 
+    /// <summary>Synthetic screens for the placements the operator planned without hardware.</summary>
+    private IEnumerable<ScreenInfo> PlannedScreens()
+    {
+        foreach (var p in State.Output.Placements)
+        {
+            if (!p.Planned) continue;
+            yield return new ScreenInfo(
+                p.ScreenId,
+                p.CustomLabel.Length > 0 ? p.CustomLabel : "Planned screen",
+                new Avalonia.PixelRect(p.X, p.Y, p.PlannedWidth, p.PlannedHeight),
+                1.0, false, 0, IsPlanned: true);
+        }
+    }
+
+    private string _plannedKey = "";
+
+    /// <summary>Re-merges planned screens when their set, size or label changed.</summary>
+    private void SyncPlannedScreens()
+    {
+        var key = string.Join('|', State.Output.Placements
+            .Where(p => p.Planned)
+            .Select(p => $"{p.ScreenId}:{p.PlannedWidth}x{p.PlannedHeight}:{p.CustomLabel}"));
+        if (key == _plannedKey) return;
+        _plannedKey = key;
+        Screens.Refresh();
+    }
+
     private void ApplySideEffects()
     {
+        SyncPlannedScreens();
+
         // NDI sender set follows the config.
         Ndi.Reconcile(Bus.Current);
 
-        // Video decoder, NDI receiver and PiP lifecycles.
-        Video.Reconcile(Bus.Current);
-        NdiIn.Reconcile(Bus.Current);
-        Pip.Reconcile(Bus.Current);
+        // The live-input pool follows everything the program (and sandbox) references.
+        ReconcileInputs();
 
         // Remote control server follows its config.
         Control.Reconcile();
+    }
+
+    /// <summary>
+    /// Mounts/unmounts decoders and NDI receivers to match the current program snapshot —
+    /// and the sandbox snapshot while one is open, so the detached preview shows its inputs.
+    /// Also called directly on playlist item changes (runtime publishes skip side effects).
+    /// </summary>
+    public void ReconcileInputs()
+    {
+        Video.Reconcile(Bus.Current, Bus.Sandbox);
+        NdiIn.Reconcile(Bus.Current, Bus.Sandbox);
     }
 
     /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
@@ -301,7 +364,6 @@ public sealed class AppServices
             Control.Dispose();
             Web.Dispose();
             Ndi.StopAll();
-            Pip.Dispose();
             NdiIn.Dispose();
             Audio.Dispose();
             AudioPlayer.Dispose();

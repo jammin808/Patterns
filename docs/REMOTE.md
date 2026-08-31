@@ -38,7 +38,11 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 State JSON carries: `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
 `screens[{n,label,enabled,group}]` (labels honour operator names), `audio{playing,track}`, `tone`,
 `stingers[{n,name}]`, `stingerPlaying`, `sections[{n,name,active}]`, `playlist`, `nextCue`,
-`stream{active,status}`, `health`, `machine{cpu,ram,fps,battery,advice}` — machine load
+Remote commands always drive **what the audience sees**: looks, cues, playlist parts, stingers
+and transport apply to the program even while the operator is building the next look in the
+sandboxed preview.
+
+State JSON also carries `stream{active,status}`, `health`, `machine{cpu,ram,fps,battery,advice}` — machine load
 (percent, -1 = unknown), output frame rate, whether the computer is on battery, and how
 many Admin-tab suggestions currently need attention.
 

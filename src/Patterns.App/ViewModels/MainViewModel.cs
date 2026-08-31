@@ -45,7 +45,7 @@ public sealed class MainViewModel : Observable
     {
         _services = services;
 
-        GoCommand = new RelayCommand(() => { _services.Outputs.Apply(); RefreshOutputsStatus(); });
+        GoCommand = new RelayCommand(GoLive);
         StopCommand = new RelayCommand(() => { _services.Outputs.CloseAll(); RefreshOutputsStatus(); });
         IdentifyCommand = new RelayCommand(_services.Identify);
         BlackoutCommand = new RelayCommand(() => State.Blackout = !State.Blackout);
@@ -255,6 +255,22 @@ public sealed class MainViewModel : Observable
             if (tile is not null) ActivePattern.Multiview.Tiles.Remove(tile);
         });
 
+        // Prep mode: planned screens and adoption
+        AddPlannedScreenCommand = new RelayCommand(() => AddPlannedScreen());
+        RemovePlannedScreenCommand = new RelayCommand<ScreenPlacement>(p =>
+        {
+            if (p is not null) RemovePlannedScreen(p);
+        });
+        AdoptPlannedScreenCommand = new RelayCommand<ScreenPlacement>(p =>
+        {
+            if (p is null) return;
+            if (!AdoptPlannedScreen(p, p.AdoptTargetId))
+            {
+                StatusMessage = "Choose which detected display this planned screen becomes.";
+            }
+        });
+        RefreshAdoptTargetsCommand = new RelayCommand(RefreshAdoptTargets);
+
         // Admin: graphics choice + restart + folder
         RestartAppCommand = new RelayCommand(RestartApp);
         OpenAppFolderCommand = new RelayCommand(OpenAppFolder);
@@ -285,12 +301,15 @@ public sealed class MainViewModel : Observable
             var loneInCanvas = picked
                 .Where(t => t.MemberIds.Count == 1 && inCanvas.Contains(t.MemberIds[0]))
                 .Select(t => t.Title).ToList();
+            var titles = string.Join(", ", picked.Select(t => t.Title));
             _services.Sandbox.SendToScreens(ids);
+            ClearSendTargets();
             Raise(nameof(IsSandboxActive));
-            StatusMessage = $"Sandbox sent to {string.Join(", ", picked.Select(t => t.Title))} as their own pattern." +
+            StatusMessage = $"Sandbox sent to {titles} as their own pattern." +
                             (loneInCanvas.Count > 0
                                 ? " Note: screens inside a joined canvas keep showing the canvas content — split them apart to see their own look."
-                                : "");
+                                : "") +
+                            (_services.Sandbox.Active ? " EDIT SAFE re-armed." : "");
         });
         SelectTileCommand = new RelayCommand<SwitcherTile>(tile =>
         {
@@ -301,6 +320,10 @@ public sealed class MainViewModel : Observable
 
         // Looks & cues
         SaveLookCommand = new RelayCommand(SaveLook);
+        ApplyLookToPreviewCommand = new RelayCommand<LookConfig>(look =>
+        {
+            if (look is not null) ApplyLookToPreview(look);
+        });
         ApplyLookCommand = new RelayCommand<LookConfig>(look =>
         {
             if (look is not null) ApplyLook(look);
@@ -710,6 +733,7 @@ public sealed class MainViewModel : Observable
 
     private void RebuildEditTargets()
     {
+        RefreshAdoptTargets();
         var current = _editTarget?.ScreenId;
         EditTargets.Clear();
         EditTargets.Add(new EditTarget("Program", null));
@@ -1102,16 +1126,15 @@ public sealed class MainViewModel : Observable
             if (value)
             {
                 _services.Sandbox.Enter();
-                foreach (var tile in SwitcherTiles)
-                {
-                    tile.IsSendTarget = false; // fresh session, fresh targets
-                }
-                StatusMessage = "SANDBOX — build the look here; outputs keep showing the program.";
+                ClearSendTargets(); // fresh session, fresh targets
+                StatusMessage = "EDIT SAFE — build the look here; outputs keep showing the program.";
             }
             else
             {
                 _services.Sandbox.Discard();
-                StatusMessage = "Sandbox discarded — outputs untouched.";
+                StatusMessage = State.Switcher.EditSafeByDefault
+                    ? "EDIT SAFE off — the preview now mirrors what is on air (edits go live)."
+                    : "Sandbox discarded — outputs untouched.";
             }
             Raise(nameof(IsSandboxActive));
         }
@@ -1325,7 +1348,34 @@ public sealed class MainViewModel : Observable
         Raise(nameof(LookNames));
     }
 
+    /// <summary>
+    /// Fires a look to air — F-keys, look buttons, scheduled cues, presenter steps and
+    /// remotes all land here. EDIT SAFE protects what you are <em>building</em>, not what you
+    /// <em>fire</em>: with the sandbox open the audience gets the look and the preview keeps
+    /// showing the operator's in-progress edit. Use "→ PVW" to load one into the editors.
+    /// </summary>
     public void ApplyLook(LookConfig look)
+    {
+        var ok = false;
+        var sandboxed = _services.Sandbox.Active;
+        _services.EditAir(air => ok = LookService.Apply(look.Json, air));
+        if (!ok)
+        {
+            StatusMessage = $"Look '{look.Name}' could not be applied.";
+            return;
+        }
+        if (!sandboxed)
+        {
+            RebuildEditTargets();
+            Raise(nameof(ActivePattern));
+        }
+        StatusMessage = sandboxed
+            ? $"Look '{look.Name}' on air — your preview edit is untouched."
+            : $"Look '{look.Name}' applied.";
+    }
+
+    /// <summary>Loads a look into the editors (the sandboxed preview) instead of putting it on air.</summary>
+    public void ApplyLookToPreview(LookConfig look)
     {
         var ok = false;
         _services.BulkEdit(() => ok = LookService.Apply(look.Json, State));
@@ -1333,11 +1383,13 @@ public sealed class MainViewModel : Observable
         {
             RebuildEditTargets();
             Raise(nameof(ActivePattern));
-            StatusMessage = $"Look '{look.Name}' applied.";
+            StatusMessage = _services.Sandbox.Active
+                ? $"Look '{look.Name}' loaded into the preview — CUT or TAKE to put it on air."
+                : $"Look '{look.Name}' applied.";
         }
         else
         {
-            StatusMessage = $"Look '{look.Name}' could not be applied.";
+            StatusMessage = $"Look '{look.Name}' could not be loaded.";
         }
     }
 
@@ -1352,13 +1404,8 @@ public sealed class MainViewModel : Observable
 
     private void CheckCues()
     {
-        if (_services.Sandbox.Active)
-        {
-            // A cue firing now would land in the sandbox, not on the outputs — hold them.
-            NextCueText = "Cues held while the sandbox is open.";
-            return;
-        }
-
+        // Cues fire to air whether or not the sandbox is open: ApplyLook targets the program,
+        // so the schedule runs the show while the operator programs the next look in safety.
         var now = DateTime.Now;
         foreach (var cue in State.LooksAndCues.Cues)
         {
@@ -1656,6 +1703,7 @@ public sealed class MainViewModel : Observable
     public RelayCommand<PlaylistSectionConfig> SetPlaylistSectionCommand { get; }
     public RelayCommand SaveLookCommand { get; }
     public RelayCommand<LookConfig> ApplyLookCommand { get; }
+    public RelayCommand<LookConfig> ApplyLookToPreviewCommand { get; }
     public RelayCommand<LookConfig> UpdateLookCommand { get; }
     public RelayCommand<LookConfig> DeleteLookCommand { get; }
     public RelayCommand AddCueCommand { get; }
@@ -1700,6 +1748,10 @@ public sealed class MainViewModel : Observable
     public RelayCommand StopStreamCommand { get; }
     public RelayCommand RestartAppCommand { get; }
     public RelayCommand OpenAppFolderCommand { get; }
+    public RelayCommand AddPlannedScreenCommand { get; }
+    public RelayCommand<ScreenPlacement> RemovePlannedScreenCommand { get; }
+    public RelayCommand<ScreenPlacement> AdoptPlannedScreenCommand { get; }
+    public RelayCommand RefreshAdoptTargetsCommand { get; }
 
     /// <summary>TAKE (crossfade) / CUT (instant) — the sandbox becomes the program.</summary>
     private void SendAllFromSandbox(bool cut)
@@ -1710,8 +1762,21 @@ public sealed class MainViewModel : Observable
             return;
         }
         _services.Sandbox.SendAll(cut);
+        ClearSendTargets();
         Raise(nameof(IsSandboxActive));
-        StatusMessage = cut ? "CUT — sandbox is now the program on every screen." : "TAKE — sandbox faded up on every screen.";
+        var rearmed = _services.Sandbox.Active ? " EDIT SAFE re-armed." : "";
+        StatusMessage = (cut
+            ? "CUT — sandbox is now the program on every screen."
+            : "TAKE — sandbox faded up on every screen.") + rearmed;
+    }
+
+    /// <summary>A send consumes its targets — the next look starts from a clean strip.</summary>
+    private void ClearSendTargets()
+    {
+        foreach (var tile in SwitcherTiles)
+        {
+            tile.IsSendTarget = false;
+        }
     }
 
     private string _selectedPresenterLook = "";
@@ -1770,6 +1835,201 @@ public sealed class MainViewModel : Observable
     }
 
     /// <summary>The status-timer body, callable directly (tests drive it without waiting on the clock).</summary>
+    // ---- prep mode -----------------------------------------------------------
+
+    /// <summary>Pre-programming at the desk: outputs are held closed, planned screens stand in for the rig.</summary>
+    public bool IsPrepMode
+    {
+        get => State.Mode == ShowMode.Prep;
+        set
+        {
+            var mode = value ? ShowMode.Prep : ShowMode.Show;
+            if (State.Mode == mode) return;
+            if (value && _services.Outputs.IsLive)
+            {
+                _services.Outputs.CloseAll(); // prep never leaves something on the screens
+            }
+            State.Mode = mode;
+            RaiseModeChanged();
+            StatusMessage = value
+                ? "PREP — build the rig, screens, inputs and looks; GO is held until you switch to SHOW."
+                : "SHOW — outputs can open. Planned screens still need adopting onto real displays.";
+            Log.Info(StatusMessage);
+        }
+    }
+
+    public string ModeBanner => IsPrepMode
+        ? "PREP MODE — pre-programming; outputs are held closed"
+        : "SHOW MODE";
+
+    /// <summary>Planned screens that have no display behind them yet (blocks a clean GO).</summary>
+    public int PlannedScreenCount => State.Output.Placements.Count(p => p.Planned);
+
+    public string PrepSummary
+    {
+        get
+        {
+            var planned = PlannedScreenCount;
+            var real = _services.Screens.Real.Count;
+            return planned == 0
+                ? $"{real} display{(real == 1 ? "" : "s")} detected · no planned screens"
+                : $"{real} display{(real == 1 ? "" : "s")} detected · {planned} planned screen{(planned == 1 ? "" : "s")} waiting to be adopted";
+        }
+    }
+
+    private void RaiseModeChanged()
+    {
+        Raise(nameof(IsPrepMode));
+        Raise(nameof(ModeBanner));
+        Raise(nameof(PlannedScreenCount));
+        Raise(nameof(PrepSummary));
+        RefreshOutputsStatus();
+    }
+
+    private void GoLive()
+    {
+        if (IsPrepMode)
+        {
+            StatusMessage = "PREP MODE — outputs are held closed. Switch to SHOW (Outputs tab) when you are at the venue.";
+            return;
+        }
+        _services.Outputs.Apply();
+        RefreshOutputsStatus();
+    }
+
+    /// <summary>Adds a screen that does not exist yet, so the whole rig can be built at the desk.</summary>
+    public ScreenPlacement AddPlannedScreen(int width = 1920, int height = 1080, string label = "")
+    {
+        var placement = new ScreenPlacement
+        {
+            ScreenId = ScreenPlacement.PlannedIdPrefix + Guid.NewGuid().ToString("N")[..8],
+            Planned = true,
+            PlannedWidth = width,
+            PlannedHeight = height,
+            CustomLabel = label,
+            Enabled = true,
+            UserPinned = true,
+            X = NextPlannedX(),
+        };
+        State.Output.Placements.Add(placement);
+        _services.Screens.Refresh();
+        RebuildEditTargets();
+        RaiseModeChanged();
+        StatusMessage = $"Planned screen added ({width}×{height}). Arrange, pattern and label it like any other.";
+        return placement;
+    }
+
+    /// <summary>Places a new planned screen to the right of everything already arranged.</summary>
+    private int NextPlannedX()
+    {
+        var right = 0;
+        foreach (var (placement, info) in OrderedLivePlacements())
+        {
+            right = Math.Max(right, placement.X + OutputWindowManager.EffectiveSize(placement, info).Width);
+        }
+        return right;
+    }
+
+    public void RemovePlannedScreen(ScreenPlacement placement)
+    {
+        if (!placement.Planned) return;
+        State.Output.Placements.Remove(placement);
+        var assignment = State.Independent.FirstOrDefault(a => a.ScreenId == placement.ScreenId);
+        if (assignment is not null) State.Independent.Remove(assignment);
+        _services.Screens.Refresh();
+        RebuildEditTargets();
+        RaiseModeChanged();
+        StatusMessage = "Planned screen removed.";
+    }
+
+    /// <summary>
+    /// At the venue: bind a planned screen onto a real display. Everything programmed against
+    /// it — position, label, per-screen pattern, trims, warp, rotation and any look that
+    /// names it — follows onto the hardware, so the desk work is not redone.
+    /// </summary>
+    public bool AdoptPlannedScreen(ScreenPlacement planned, string realScreenId)
+    {
+        if (!planned.Planned || realScreenId.Length == 0) return false;
+        if (_services.Screens.Real.All(s => s.Id != realScreenId)) return false;
+
+        var oldId = planned.ScreenId;
+        if (State.Output.Placements.FirstOrDefault(p => p.ScreenId == realScreenId) is { } existing)
+        {
+            // That display already has a placement — retire it and let the planned one take over.
+            State.Output.Placements.Remove(existing);
+            var stale = State.Independent.FirstOrDefault(a => a.ScreenId == realScreenId);
+            if (stale is not null) State.Independent.Remove(stale);
+        }
+
+        _services.BulkEdit(() =>
+        {
+            planned.ScreenId = realScreenId;
+            planned.Planned = false;
+            foreach (var a in State.Independent.Where(a => a.ScreenId == oldId).ToList())
+            {
+                a.ScreenId = realScreenId;
+            }
+            foreach (var canvas in State.Output.CanvasNames.ToList())
+            {
+                var members = canvas.MemberKey.Split('+');
+                if (members.Contains(oldId))
+                {
+                    canvas.MemberKey = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? realScreenId : id));
+                }
+            }
+            foreach (var tile in State.Pattern.Multiview.Tiles.Where(t => t.ScreenId == oldId))
+            {
+                tile.ScreenId = realScreenId;
+            }
+            if (State.Stream.SourceScreenId == oldId) State.Stream.SourceScreenId = realScreenId;
+            if (State.Web.TargetScreenId == oldId) State.Web.TargetScreenId = realScreenId;
+        });
+
+        _services.Screens.Refresh();
+        RebuildEditTargets();
+        RaiseModeChanged();
+        var info = _services.Screens.Real.First(s => s.Id == realScreenId);
+        StatusMessage = $"Adopted onto {info.Label} ({info.Bounds.Width}×{info.Bounds.Height}) — everything programmed for it carried over.";
+        Log.Info(StatusMessage);
+        return true;
+    }
+
+    /// <summary>Real displays not already claimed by a placement — the adopt targets.</summary>
+    public ObservableCollection<EditTarget> AdoptTargets { get; } = new();
+
+    public void RefreshAdoptTargets()
+    {
+        AdoptTargets.Clear();
+        foreach (var s in _services.Screens.Real)
+        {
+            AdoptTargets.Add(new EditTarget($"{s.Label} · {s.Bounds.Width}×{s.Bounds.Height}", s.Id));
+        }
+    }
+
+    // ---- live-input pool -----------------------------------------------------
+
+    private string _activeInputsText = "No live inputs mounted.";
+    public string ActiveInputsText { get => _activeInputsText; private set => Set(ref _activeInputsText, value); }
+
+    private void RefreshActiveInputs()
+    {
+        var rows = new List<string>();
+        foreach (var (key, status) in _services.Video.MountStatuses.Concat(_services.NdiIn.MountStatuses))
+        {
+            var bare = key.Length > 4 ? key[4..] : key;
+            var label = key.StartsWith("vid:", StringComparison.Ordinal)
+                ? Path.GetFileName(bare)
+                : State.InputLabel(key, bare);
+            rows.Add($"{label} — {status}");
+        }
+        var notes = string.Join("  ",
+            new[] { _services.Video.LimitNote, _services.NdiIn.LimitNote }.Where(s => s.Length > 0));
+        var text = rows.Count == 0
+            ? "No live inputs mounted."
+            : $"Live inputs ({rows.Count}): {string.Join("  ·  ", rows)}";
+        ActiveInputsText = notes.Length > 0 ? $"{text}  {notes}" : text;
+    }
+
     // ---- admin ---------------------------------------------------------------
 
     private const double SparkW = 196;
@@ -1998,6 +2258,7 @@ public sealed class MainViewModel : Observable
         StreamStatus = _services.Stream.Status;
         _statusTicks++;
         PollAdmin();
+        RefreshActiveInputs();
         RefreshSwitcherTiles();
         RemoteStatus = State.Control.Enabled
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
@@ -2031,6 +2292,9 @@ public sealed class MainViewModel : Observable
 
     private void OnSnapshotPublished()
     {
+        // The sandbox can open or close without going through the toggle (startup arming, the
+        // re-arm after a send, a discard from a service) — keep the switcher honest about it.
+        Raise(nameof(IsSandboxActive));
         Raise(nameof(CanvasInfo));
         Raise(nameof(ShowCanvasPanel));
         Raise(nameof(InputNickname));
@@ -2039,11 +2303,17 @@ public sealed class MainViewModel : Observable
 
     private void RefreshOutputsStatus()
     {
-        var screens = _services.Screens.All.Count;
-        var enabled = State.Output.Placements.Count(p => p.Enabled && LiveInfo(p) is not null);
+        // Planned screens are counted separately — an operator must never read "4 detected"
+        // and believe four displays are plugged in.
+        var detected = _services.Screens.Real.Count;
+        var planned = PlannedScreenCount;
+        var enabled = State.Output.Placements.Count(p => p.Enabled && !p.Planned && LiveInfo(p) is not null);
+        var plannedText = planned > 0 ? $" · {planned} planned" : "";
         OutputsStatus = _services.Outputs.IsLive
             ? "LIVE — outputs running"
-            : $"{screens} screen{(screens == 1 ? "" : "s")} detected · {enabled} enabled — press GO";
+            : IsPrepMode
+                ? $"PREP — {detected} display{(detected == 1 ? "" : "s")} detected{plannedText} · GO is held"
+                : $"{detected} screen{(detected == 1 ? "" : "s")} detected{plannedText} · {enabled} enabled — press GO";
         Raise(nameof(IsLive));
     }
 

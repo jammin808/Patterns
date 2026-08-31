@@ -450,11 +450,18 @@ public sealed class MultiviewTileConfig : Observable
     private MultiviewSource _source = MultiviewSource.Program;
     private string _screenId = "";
     private string _label = "";
+    private string _input = "";
 
     public MultiviewSource Source { get => _source; set => Set(ref _source, value); }
 
     /// <summary>Which screen, when <see cref="Source"/> is Screen.</summary>
     public string ScreenId { get => _screenId; set => Set(ref _screenId, value); }
+
+    /// <summary>
+    /// Which input, when <see cref="Source"/> is NdiFeed (source name) or Capture (device
+    /// name). Empty NdiFeed = the first NDI source the show references.
+    /// </summary>
+    public string Input { get => _input; set => Set(ref _input, value); }
 
     /// <summary>Label override; empty = automatic (screen label, input nickname, source name).</summary>
     public string Label { get => _label; set => Set(ref _label, value); }

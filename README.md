@@ -152,6 +152,26 @@ fault containment, and settings that can never brick startup.
   a clean close never auto-restores). Restarts back off and stop if something genuinely
   crash-loops. Individual render faults never get that far: they're contained per frame and
   counted on a health line (uptime · restarts · faults caught) on the Show page and remotes.
+- **Every input, on its own, anywhere you want it** — live sources are a pool, not a slot:
+  a camera on screen 1, the graphics PC's NDI feed on screen 2 and a walk-in video on screen 3,
+  all at once, each with its own decoder. Use the same feed in several places — two screens, the
+  PiP inset, a multiview tile — and it still costs **one decode**; multiview tiles can name their
+  own NDI source or capture device, so a monitor wall shows four different inputs. The Media tab
+  lists what is mounted and says so when the rig wants more than the limit (4 decoders, 6 NDI
+  receivers).
+- **The preview is sandboxed by default** — from the moment the app opens, touching any editor
+  (screens, outputs, inputs, patterns, overlays) builds in the preview and **never reaches the
+  audience** until you CUT or TAKE — and EDIT SAFE re-arms itself after every send, so you are
+  always building in safety. What you *fire* still goes straight to air: F-key looks, scheduled
+  cues, presenter steps, stingers and every remote command. `→ PVW` loads a look into the preview
+  instead. Turn it off in Admin → Switcher if you prefer the preview to mirror the program.
+- **Prep mode — programme the show before the rig exists** — switch to PREP and build the whole
+  thing at your desk with nothing plugged in: **plan screens** at the sizes the venue will have,
+  arrange them, name them, give each its pattern, join them into canvases, put them in the
+  multiview, and type in the NDI and capture names the rig will use. GO is held closed so nothing
+  goes live by accident. At the venue, switch to SHOW, say which detected display each planned
+  screen turned out to be and press **Adopt** — position, label, rotation, trims, warp, per-screen
+  pattern, canvas name, multiview tiles and the stream source all follow onto the hardware.
 - **An Admin tab that watches the machine** — live **CPU / memory / GPU / frame-rate**
   with three-minute history charts, and **plain-language suggestions** when something needs
   attention: running on battery, memory climbing like a leak, frames dropping, disk
@@ -192,6 +212,10 @@ fault containment, and settings that can never brick startup.
   <tr>
     <td><img src="docs/media/shot-multiview.png" alt="Multiview — program, screens, inputs and clock with tally"/></td>
     <td><img src="docs/media/shot-admin.png" alt="Admin — live performance charts, health suggestions and the GPU choice"/></td>
+  </tr>
+  <tr>
+    <td><img src="docs/media/shot-prep.png" alt="Prep mode — planned screens built without hardware, sandboxed preview, adopt pickers"/></td>
+    <td><img src="docs/media/shot-sandbox.png" alt="The switcher — program on air on top, the next look building in the sandboxed preview"/></td>
   </tr>
 </table>
 
@@ -241,7 +265,7 @@ as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders 
 ## Building
 
 ```bash
-dotnet test                      # 355 tests: pixel-exact rendering, arrangement math, playlists, inputs, DSP, remote protocol, watchdog policy, stingers, switcher, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 379 tests: pixel-exact rendering, arrangement math, playlists, input pool, DSP, remote protocol, watchdog policy, stingers, switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

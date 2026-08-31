@@ -28,6 +28,7 @@ public enum MultiviewSource
     NdiFeed,
     Pip,
     Clock,
+    Capture,
 }
 
 /// <summary>How a pattern canvas maps onto a differently sized sink.</summary>
@@ -210,6 +211,18 @@ public enum SinkKind
     Output,
     Ndi,
     Thumbnail,
+}
+
+/// <summary>Pre-show programming versus running the show.</summary>
+public enum ShowMode
+{
+    /// <summary>
+    /// Pre-programming at the desk: screens, outputs, inputs and looks can be built for a rig
+    /// that isn't plugged in yet, and outputs are held closed so nothing goes live by accident.
+    /// </summary>
+    Prep,
+    /// <summary>At the venue: outputs open on the real displays.</summary>
+    Show,
 }
 
 /// <summary>Which graphics card the app should render (and decode video) on.</summary>

@@ -165,7 +165,7 @@ public class InputsWebViewModelTests
 
             if (!Patterns.Core.Ndi.NdiInterop.Available)
             {
-                Assert.Null(NdiInput.Current);
+                Assert.Null(InputBus.For(InputKeys.Ndi("TX1 (Programme)")));
                 Assert.Contains("runtime", NdiInput.AvailabilityNote, StringComparison.OrdinalIgnoreCase);
             }
         }

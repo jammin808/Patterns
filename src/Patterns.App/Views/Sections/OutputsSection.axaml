@@ -2,11 +2,64 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:c="using:Patterns.App.Views.Controls"
+             xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.OutputsSection"
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-outputs" Text="Screens" />
+
+    <TextBlock Classes="h2" Text="MODE" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <ToggleButton Classes="mini" Content="PREP (pre-programming)" IsChecked="{Binding IsPrepMode, Mode=TwoWay}"
+                    ToolTip.Tip="Build the rig at the desk with no hardware — GO stays held until you switch to SHOW" />
+      <TextBlock Classes="label" Text="{Binding PrepSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
+    </StackPanel>
+    <TextBlock Classes="hint"
+               Text="PREP is for the day before: add the screens the venue will have, arrange and label them, give each its pattern, type in the NDI and capture names the rig will use, and build every look — all without a display, a camera or a wall attached. Outputs are held closed so nothing can go live by accident. At the venue, switch to SHOW and adopt each planned screen onto the display it turned out to be; everything programmed against it comes with it." />
+
+    <TextBlock Classes="h2" Text="PLANNED SCREENS" IsVisible="{Binding PlannedScreenCount, Converter={StaticResource Positive}}" />
+    <ItemsControl ItemsSource="{Binding State.Output.Placements}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:ScreenPlacement">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="9,7" Margin="0,3"
+                  IsVisible="{Binding Planned}">
+            <StackPanel Spacing="5">
+              <Grid ColumnDefinitions="*,8,Auto">
+                <TextBox Grid.Column="0" Watermark="Name (e.g. Main wall)" Text="{Binding CustomLabel}" />
+                <Button Grid.Column="2" Classes="mini" Content="✕" ToolTip.Tip="Remove this planned screen"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlannedScreenCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
+              <Grid ColumnDefinitions="46,86,4,86,*">
+                <TextBlock Classes="label" Text="Size" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="1" Minimum="160" Maximum="16384" Increment="16" FormatString="0"
+                               ShowButtonSpinner="False"
+                               Value="{Binding PlannedWidth, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <NumericUpDown Grid.Column="3" Minimum="160" Maximum="16384" Increment="16" FormatString="0"
+                               ShowButtonSpinner="False"
+                               Value="{Binding PlannedHeight, Mode=TwoWay, Converter={StaticResource Num}}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,8,Auto">
+                <ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AdoptTargets}"
+                          SelectedValue="{Binding AdoptTargetId, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                          PlaceholderText="At the venue: which display is this?" />
+                <Button Grid.Column="2" Classes="chip" Content="Adopt"
+                        ToolTip.Tip="Bind this planned screen to the chosen display — position, label, pattern, trims and looks all follow"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AdoptPlannedScreenCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+      <Button Classes="chip" Content="+ Plan a screen" Command="{Binding AddPlannedScreenCommand}" />
+      <Button Classes="chip" Content="Refresh displays" Command="{Binding RefreshAdoptTargetsCommand}" />
+    </StackPanel>
 
     <Border Background="#0B0C10" CornerRadius="10" BorderBrush="{StaticResource HairlineBrush}"
             BorderThickness="1" Height="320" ClipToBounds="True">

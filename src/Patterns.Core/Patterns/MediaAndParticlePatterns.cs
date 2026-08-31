@@ -33,7 +33,7 @@ public sealed class MediaPattern : IPatternRenderer
                     AudioCard(c, in f, now.Path);
                     return;
                 }
-                var video = f.Ctx.IsFadeSource ? VideoService.Previous ?? VideoService.Current : VideoService.Current;
+                var video = InputBus.Resolve(InputKeys.Video(now.Path), f.Ctx.IsFadeSource);
                 var vsize = video?.FrameSize;
                 var vdest = vsize is { } vs ? DrawUtil.Fit(vs, bounds, o.Fit) : bounds;
                 if (video is null || !video.DrawFrame(c, vdest, pc.FillAA(SKColors.White)))
@@ -64,7 +64,7 @@ public sealed class MediaPattern : IPatternRenderer
                 AudioCard(c, in f, o.VideoPath);
                 return;
             }
-            var video = f.Ctx.IsFadeSource ? VideoService.Previous ?? VideoService.Current : VideoService.Current;
+            var video = InputBus.Resolve(InputKeys.Video(o.VideoPath), f.Ctx.IsFadeSource);
             if (video is null)
             {
                 var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)
@@ -85,7 +85,7 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Source == MediaSource.NdiFeed)
         {
-            var feed = f.Ctx.IsFadeSource ? NdiInput.Previous ?? NdiInput.Current : NdiInput.Current;
+            var feed = InputBus.Resolve(InputKeys.Ndi(o.NdiSourceName), f.Ctx.IsFadeSource);
             if (feed is null)
             {
                 var note = string.IsNullOrEmpty(NdiInput.AvailabilityNote)
@@ -105,7 +105,7 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Source == MediaSource.Capture)
         {
-            var cap = f.Ctx.IsFadeSource ? VideoService.Previous ?? VideoService.Current : VideoService.Current;
+            var cap = InputBus.Resolve(InputKeys.Capture(o.CaptureDevice), f.Ctx.IsFadeSource);
             if (cap is null)
             {
                 var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)
@@ -153,10 +153,10 @@ public sealed class MediaPattern : IPatternRenderer
     /// <summary>Audio-only media shows a clean card instead of "waiting for first frame".</summary>
     private static void AudioCard(SKCanvas c, in PatternFrame f, string path)
     {
-        var playing = VideoService.Current is { IsPlaying: true };
-        var status = playing
+        var mount = InputBus.For(InputKeys.Video(path));
+        var status = mount is { IsPlaying: true }
             ? "Audio playing — sound only"
-            : VideoService.Current?.StatusText ?? VideoService.AvailabilityNote;
+            : mount?.StatusText ?? VideoService.AvailabilityNote;
         if (string.IsNullOrEmpty(status)) status = "Starting audio…";
         PlaceholderCard(c, in f, "♪  " + System.IO.Path.GetFileName(path), status);
     }

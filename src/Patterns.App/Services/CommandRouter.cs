@@ -137,7 +137,9 @@ public sealed class CommandRouter
 
             case RemoteCommandKind.PlaylistSection:
             {
-                var options = MediaLocator.FindActivePlaylist(state)?.Playlist ?? state.Pattern.Media.Playlist;
+                // Remote commands drive what the audience sees, sandbox open or not.
+                var options = MediaLocator.FindActivePlaylist(_services.AirState)?.Playlist
+                              ?? _services.AirState.Pattern.Media.Playlist;
                 PlaylistSequencer.Normalize(options);
                 var index = cmd.IntArg > 0
                     ? cmd.IntArg - 1
@@ -147,7 +149,7 @@ public sealed class CommandRouter
                 {
                     return ControlProtocol.Err(cmd.IntArg > 0 ? $"no playlist part {cmd.IntArg}" : $"no playlist part named '{cmd.TextArg}'");
                 }
-                options.ActiveSection = index;
+                _services.EditAir(_ => options.ActiveSection = index);
                 return ControlProtocol.Ok();
             }
 

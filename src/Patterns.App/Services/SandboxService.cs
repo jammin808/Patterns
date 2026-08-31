@@ -21,6 +21,10 @@ public sealed class SandboxService
 
     public bool Active { get; private set; }
 
+    /// <summary>The frozen program the audience is seeing, or null when not sandboxed.
+    /// Air-targeted actions (look recalls, cues, stingers, playlist parts) edit this.</summary>
+    public ShowState? ProgramState => Active ? _program : null;
+
     public void Enter()
     {
         if (Active) return;
@@ -49,7 +53,7 @@ public sealed class SandboxService
         if (!Active) return;
         var fade = _services.State.Transition.Enabled;
         if (cut) _services.State.Transition.Enabled = false;
-        Exit();
+        Exit(reenterIfDefault: true);
         if (cut) _services.State.Transition.Enabled = fade; // republish carries the same content — no late fade
         Log.Info($"Sandbox {(cut ? "cut" : "taken")} to program (all screens).");
     }
@@ -79,37 +83,57 @@ public sealed class SandboxService
                 if (placement is not null) placement.UseCustomPattern = true;
             }
         });
-        Exit();
+        Exit(reenterIfDefault: true);
         Log.Info($"Sandbox sent to {screenIds.Count} screen(s).");
     }
 
-    /// <summary>Back to exactly what was on before the sandbox opened. Outputs never notice.</summary>
+    /// <summary>Back to exactly what is on air right now. Outputs never notice.</summary>
     public void Discard()
     {
         if (!Active) return;
         RestoreContent();
-        Exit();
+        Exit(reenterIfDefault: false); // an explicit toggle-off goes to the live mirror
         Log.Info("Sandbox discarded.");
+    }
+
+    /// <summary>
+    /// Runs an air-targeted edit against the frozen program (a cue, a look recall, a stinger
+    /// override, a playlist-part switch) and republishes — the audience sees it, the
+    /// operator's sandboxed edits stay untouched. False when not sandboxed.
+    /// </summary>
+    public bool EditProgram(Action<ShowState> edit)
+    {
+        if (!Active || _program is null) return false;
+        edit(_program);
+        _services.RepublishNow(); // sandbox branch republishes both sides + side effects
+        return true;
     }
 
     private void RestoreContent()
     {
-        if (_contentBefore is null) return;
+        // Air may have moved on mid-sandbox (cues, stingers, remote looks) — restoring the
+        // *current* program keeps what the audience is seeing, not what was on at Enter.
+        var json = _program is not null ? LookService.Capture(_program) : _contentBefore;
+        if (json is null) return;
         var state = _services.State;
         var blackout = state.Blackout; // keep whatever the operator set during the sandbox
         _services.BulkEdit(() =>
         {
-            LookService.Apply(_contentBefore, state);
+            LookService.Apply(json, state);
             state.Blackout = blackout;
         });
     }
 
-    private void Exit()
+    private void Exit(bool reenterIfDefault)
     {
         Active = false;
         _program = null;
         _contentBefore = null;
         _services.Bus.ClearSandbox();
         _services.RepublishNow(); // outputs pick up the live state again (side effects included)
+        if (reenterIfDefault && _services.State.Switcher.EditSafeByDefault)
+        {
+            Enter(); // edit-safe stays armed: the next look builds in safety too
+        }
     }
 }

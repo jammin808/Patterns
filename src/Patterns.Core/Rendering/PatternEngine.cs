@@ -271,19 +271,39 @@ public sealed class PatternEngine
             }
 
             case MultiviewSource.NdiFeed:
-                if (NdiInput.Current is { } ndi)
+            {
+                var name = tile.Input.Length > 0 ? tile.Input : Services.MediaLocator.FindActiveNdiSource(f.Snapshot.State);
+                if (InputBus.For(InputKeys.Ndi(name)) is { } ndi)
                 {
                     canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
                     if (!ndi.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "NDI — waiting for frames");
                 }
                 else
                 {
-                    DrawTileSlate(canvas, f, rect, "NDI — no feed received");
+                    DrawTileSlate(canvas, f, rect, name.Length > 0 ? $"NDI — {name} not received" : "NDI — no feed chosen");
+                }
+                break;
+            }
+
+            case MultiviewSource.Capture:
+                if (InputBus.For(InputKeys.Capture(tile.Input)) is { } cap)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    if (!cap.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "Capture — waiting for frames");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, tile.Input.Length > 0 ? $"Capture — {tile.Input} not open" : "Capture — no device chosen");
                 }
                 break;
 
             case MultiviewSource.Pip:
-                if (PipInput.Current is { } pip)
+            {
+                var pipCfg = f.Snapshot.State.Overlays.Pip;
+                var key = pipCfg.Source == PipSource.NdiFeed
+                    ? InputKeys.Ndi(pipCfg.NdiSourceName)
+                    : InputKeys.Capture(pipCfg.CaptureDevice);
+                if (pipCfg.Enabled && InputBus.For(key) is { } pip)
                 {
                     canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
                     if (!pip.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "PiP — waiting for frames");
@@ -293,6 +313,7 @@ public sealed class PatternEngine
                     DrawTileSlate(canvas, f, rect, "PiP input off");
                 }
                 break;
+            }
 
             default:
             {
@@ -359,9 +380,11 @@ public sealed class PatternEngine
             }
             case MultiviewSource.NdiFeed:
             {
-                var name = snap.State.Pattern.Media.NdiSourceName;
+                var name = tile.Input.Length > 0 ? tile.Input : Services.MediaLocator.FindActiveNdiSource(snap.State);
                 return name.Length > 0 ? snap.State.InputLabel("ndi:" + name, name) : "NDI FEED";
             }
+            case MultiviewSource.Capture:
+                return tile.Input.Length > 0 ? snap.State.InputLabel("cap:" + tile.Input, tile.Input) : "CAPTURE";
             case MultiviewSource.Pip:
                 return "PIP";
             default:

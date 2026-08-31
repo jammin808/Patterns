@@ -264,7 +264,9 @@ public static class OverlayRenderer
         var pip = snap.State.Overlays.Pip;
         if (!pip.Enabled || ctx.Sink == SinkKind.Thumbnail) return;
 
-        var source = Media.PipInput.Current;
+        var source = Media.InputBus.For(pip.Source == PipSource.NdiFeed
+            ? Media.InputKeys.Ndi(pip.NdiSourceName)
+            : Media.InputKeys.Capture(pip.CaptureDevice));
         var pc = sink.Paints;
         int vw = ctx.ViewportSize.Width, vh = ctx.ViewportSize.Height;
 

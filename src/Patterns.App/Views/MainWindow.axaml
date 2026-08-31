@@ -55,8 +55,15 @@
       <Grid Grid.Column="0" RowDefinitions="Auto,*">
         <Border Grid.Row="0" Background="#14232E" BorderBrush="{StaticResource AccentBrush}"
                 BorderThickness="0,0,0,2" CornerRadius="8,8,0,0" Padding="12,6" Margin="0,0,0,6">
-          <TextBlock Text="{Binding EditTargetBanner}" FontWeight="SemiBold" FontSize="12"
-                     Foreground="{StaticResource AccentBrush}" TextTrimming="CharacterEllipsis" />
+          <Grid ColumnDefinitions="Auto,*">
+            <Border Grid.Column="0" Background="#3A2E10" BorderBrush="#FFC24D" BorderThickness="1"
+                    CornerRadius="5" Padding="6,1" Margin="0,0,8,0" IsVisible="{Binding IsPrepMode}">
+              <TextBlock Text="PREP" FontWeight="Bold" FontSize="11" Foreground="#FFC24D" />
+            </Border>
+            <TextBlock Grid.Column="1" Text="{Binding EditTargetBanner}" FontWeight="SemiBold" FontSize="12"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource AccentBrush}" TextTrimming="CharacterEllipsis" />
+          </Grid>
         </Border>
         <TabControl Grid.Row="1" TabStripPlacement="Left" Padding="8,0,0,0">
         <TabItem>
@@ -191,7 +198,7 @@
                         IsChecked="{Binding IsSandboxActive, Mode=TwoWay}"
                         ToolTip.Tip="On: edits build here without going live — outputs and NDI hold the program (blackout stays live, cues hold). Then CUT/TAKE to all screens, SEND to ticked tiles, save as a look, or switch off to discard. Off: edits go straight to air, classic test-pattern style." />
           <TextBlock Grid.Column="4" Classes="hint" VerticalAlignment="Center" Margin="8,0,0,0"
-                     Text="{Binding IsSandboxActive, Converter={StaticResource BoolText}, ConverterParameter='sandboxed — nothing reaches the screens|mirrors the program (edits are live)'}" />
+                     Text="{Binding IsSandboxActive, Converter={StaticResource BoolText}, ConverterParameter='sandboxed — edits stay off air until you CUT or TAKE|LIVE — every edit goes straight to the screens'}" />
           <Button Grid.Column="5" Classes="mini" Content="SEND TO TICKED" Margin="0,0,6,0"
                   Command="{Binding SandboxSendSelectedCommand}" IsVisible="{Binding IsSandboxActive}"
                   ToolTip.Tip="The sandbox becomes the ticked tiles' own pattern; everything else stays as it was" />

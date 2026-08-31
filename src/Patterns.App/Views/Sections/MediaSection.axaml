@@ -8,7 +8,9 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-media" Text="Media" />
-    <TextBlock Classes="hint" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too." />
+    <TextBlock Classes="hint" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too. Every input runs separately: give each screen its own source (pick the screen in the strip, then choose here) and the same feed can sit on several screens, the PiP and the multiview at once — one decode per source." />
+
+    <TextBlock Classes="label" Text="{Binding ActiveInputsText}" TextWrapping="Wrap" />
 
     <TextBlock Classes="h2" Text="SOURCE" />
     <ComboBox ItemsSource="{Binding MediaSources}"
@@ -43,6 +45,8 @@
                   PlaceholderText="NDI sources on the network…" />
         <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshNdiSourcesCommand}" />
       </Grid>
+      <TextBox Margin="0,4,0,0" Watermark="…or type the exact source name (pre-show, before the feed exists)"
+               Text="{Binding ActivePattern.Media.NdiSourceName, Mode=TwoWay}" />
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Camera 1 (shown in the multiview and status)"
@@ -61,6 +65,8 @@
                   PlaceholderText="Video capture devices…" />
         <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshCaptureDevicesCommand}" />
       </Grid>
+      <TextBox Margin="0,4,0,0" Watermark="…or type the exact device name (pre-show, before the card is plugged in)"
+               Text="{Binding ActivePattern.Media.CaptureDevice, Mode=TwoWay}" />
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Podium cam (shown in the multiview and status)"

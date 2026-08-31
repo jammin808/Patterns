@@ -31,7 +31,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:LookConfig">
           <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,7" Margin="0,3">
-            <Grid ColumnDefinitions="Auto,10,*,8,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,10,*,8,Auto,Auto,Auto,Auto">
               <Border Grid.Column="0" Background="#20242E" CornerRadius="7" Padding="8,3" MinWidth="38"
                       IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}">
                 <TextBlock Text="{Binding Hotkey, Converter={StaticResource HotkeyLabel}}" FontWeight="SemiBold"
@@ -39,14 +39,19 @@
               </Border>
               <TextBlock Grid.Column="2" Text="{Binding Name}" FontWeight="SemiBold"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-              <Button Grid.Column="4" Classes="mini" Content="Apply"
+              <Button Grid.Column="4" Classes="mini" Content="→ PVW"
+                      ToolTip.Tip="Load into the preview to tweak, then CUT or TAKE it to air"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookToPreviewCommand}"
+                      CommandParameter="{Binding}" />
+              <Button Grid.Column="5" Classes="mini" Content="ON AIR"
+                      ToolTip.Tip="Put this look on the screens now (same as its F-key)"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="5" Classes="mini" Content="⟳"
+              <Button Grid.Column="6" Classes="mini" Content="⟳"
                       ToolTip.Tip="Overwrite this look with the current screen state"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UpdateLookCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="6" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
+              <Button Grid.Column="7" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteLookCommand}"
                       CommandParameter="{Binding}" />
             </Grid>

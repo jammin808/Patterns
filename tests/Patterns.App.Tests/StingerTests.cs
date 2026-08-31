@@ -84,7 +84,7 @@ public class StingerTests
             Assert.True(services.Stingers.ClipActive);
 
             // The decoder reports the natural end → the previous content comes back.
-            VideoService.Current = new EndedSource();
+            InputBus.Mount(InputKeys.Video(vm.State.Pattern.Media.VideoPath), new EndedSource());
             services.Stingers.Poll();
 
             Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);
@@ -95,7 +95,7 @@ public class StingerTests
         }
         finally
         {
-            VideoService.Current = null;
+            InputBus.Clear();
             File.Delete(clip);
             window.Close();
             services.Shutdown();
@@ -120,13 +120,13 @@ public class StingerTests
             Assert.False(services.Stingers.ClipActive);
             Assert.Equal("", vm.State.Stingers.PlayingName);
 
-            VideoService.Current = new EndedSource();
+            InputBus.Mount(InputKeys.Video(vm.State.Pattern.Media.VideoPath), new EndedSource());
             services.Stingers.Poll();
             Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind); // no zombie revert
         }
         finally
         {
-            VideoService.Current = null;
+            InputBus.Clear();
             File.Delete(clip);
             window.Close();
             services.Shutdown();
@@ -170,13 +170,13 @@ public class StingerTests
             Assert.True(services.Stingers.Fire(new StingerItemConfig { Path = clipB }));
             Assert.Equal(clipB, vm.State.Pattern.Media.VideoPath);
 
-            VideoService.Current = new EndedSource();
+            InputBus.Mount(InputKeys.Video(vm.State.Pattern.Media.VideoPath), new EndedSource());
             services.Stingers.Poll();
             Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind); // not clip A
         }
         finally
         {
-            VideoService.Current = null;
+            InputBus.Clear();
             File.Delete(clipA);
             File.Delete(clipB);
             window.Close();

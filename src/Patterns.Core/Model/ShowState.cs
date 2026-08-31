@@ -46,6 +46,9 @@ public sealed class ScreenPlacement : Observable
     private bool _enabled = true;
     private bool _useCustomPattern;
     private bool _userPinned;
+    private bool _planned;
+    private int _plannedWidth = 1920;
+    private int _plannedHeight = 1080;
     private OutputRotation _rotation = OutputRotation.None;
     private double _brightnessPct = 100;
     private double _gamma = 1.0;
@@ -67,6 +70,26 @@ public sealed class ScreenPlacement : Observable
     public bool UseCustomPattern { get => _useCustomPattern; set => Set(ref _useCustomPattern, value); }
     /// <summary>Set once the user chose Enabled manually — stops automatic defaults overriding them.</summary>
     public bool UserPinned { get => _userPinned; set => Set(ref _userPinned, value); }
+
+    /// <summary>
+    /// A screen the operator added while pre-programming, with no hardware behind it yet. It
+    /// takes part in the arrangement, editors, looks and multiview exactly like a real screen,
+    /// but never opens an output window — at the venue it is adopted onto a real display.
+    /// </summary>
+    public bool Planned { get => _planned; set => Set(ref _planned, value); }
+
+    /// <summary>The size a planned screen stands in for (the LED processor's canvas, the projector's native res).</summary>
+    public int PlannedWidth { get => _plannedWidth; set => Set(ref _plannedWidth, Math.Clamp(value, 160, 16384)); }
+    public int PlannedHeight { get => _plannedHeight; set => Set(ref _plannedHeight, Math.Clamp(value, 160, 16384)); }
+
+    /// <summary>Id prefix that marks a placement as planned rather than a detected display.</summary>
+    public const string PlannedIdPrefix = "planned:";
+
+    private string _adoptTargetId = "";
+
+    /// <summary>Runtime-only: the display chosen in the adopt picker for this planned screen.</summary>
+    [JsonIgnore]
+    public string AdoptTargetId { get => _adoptTargetId; set => Set(ref _adoptTargetId, value); }
 
     /// <summary>Physical rotation — content is pre-rotated so a rotated display reads upright.</summary>
     public OutputRotation Rotation { get => _rotation; set => Set(ref _rotation, value); }
@@ -561,6 +584,19 @@ public sealed class StreamConfig : Observable
     public bool Active { get => _active; set => Set(ref _active, value); }
 }
 
+/// <summary>The program/preview switcher's behaviour.</summary>
+public sealed class SwitcherConfig : Observable
+{
+    private bool _editSafeByDefault = true;
+
+    /// <summary>
+    /// Start (and stay) in EDIT SAFE: the preview opens sandboxed, and after every CUT/TAKE/
+    /// SEND it re-arms, so edits never reach the audience until they are sent. Off = the
+    /// classic live-mirror preview unless the operator toggles EDIT SAFE on.
+    /// </summary>
+    public bool EditSafeByDefault { get => _editSafeByDefault; set => Set(ref _editSafeByDefault, value); }
+}
+
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>
 public sealed class WatchdogConfig : Observable
 {
@@ -634,6 +670,13 @@ public sealed class ShowState : Observable
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run
+    private ShowMode _mode = ShowMode.Show;
+
+    /// <summary>
+    /// Prep (pre-programming, outputs held closed) or Show (at the venue). Saved with the show,
+    /// so a file built at the desk reopens in prep and one saved at the venue reopens ready.
+    /// </summary>
+    public ShowMode Mode { get => _mode; set => Set(ref _mode, value); }
 
     /// <summary>File format version; bumped when a migration is needed on load.</summary>
     public int SchemaVersion { get => _schemaVersion; set => Set(ref _schemaVersion, value); }
@@ -661,6 +704,7 @@ public sealed class ShowState : Observable
     public WatchdogConfig Watchdog { get; init; } = new();
     public StreamConfig Stream { get; init; } = new();
     public AdminConfig Admin { get; init; } = new();
+    public SwitcherConfig Switcher { get; init; } = new();
 
     /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
     public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();

@@ -26,70 +26,81 @@ public interface IVideoFrameSource
     string StatusText { get; }
 }
 
+/// <summary>Canonical mount keys — the same "ndi:"/"cap:" scheme the operator input labels use.</summary>
+public static class InputKeys
+{
+    public static string Video(string path) => path.Length == 0 ? "" : "vid:" + path;
+    public static string Capture(string device) => device.Length == 0 ? "" : "cap:" + device;
+    public static string Ndi(string source) => source.Length == 0 ? "" : "ndi:" + source;
+}
+
 /// <summary>
-/// Global mount point for the single active video source. Written by the app layer on the
-/// UI thread when the media config changes; read (volatile) by render threads.
+/// The live-input pool: every mounted source (video decoders, capture devices, NDI®
+/// receivers) keyed by identity, so any number of consumers — the program, per-screen
+/// patterns, PiP, multiview tiles, the sandboxed preview — draw the same frames from the
+/// same mount. The app layer's engines write on the UI thread by swapping copy-on-write
+/// maps; render threads only ever read the volatile references.
 /// </summary>
+public static class InputBus
+{
+    private static readonly Dictionary<string, IVideoFrameSource> Empty = new();
+    private static volatile Dictionary<string, IVideoFrameSource> _current = Empty;
+    private static volatile Dictionary<string, IVideoFrameSource> _previous = Empty;
+
+    /// <summary>The mounted source for a key, or null (not mounted / empty key).</summary>
+    public static IVideoFrameSource? For(string key)
+        => key.Length > 0 && _current.TryGetValue(key, out var s) ? s : null;
+
+    /// <summary>The just-unmounted source for a key, kept briefly so crossfades fade real frames.</summary>
+    public static IVideoFrameSource? PreviousFor(string key)
+        => key.Length > 0 && _previous.TryGetValue(key, out var s) ? s : null;
+
+    /// <summary>What a renderer should draw: the fade-out side prefers the retired source.</summary>
+    public static IVideoFrameSource? Resolve(string key, bool isFadeSource)
+        => isFadeSource ? PreviousFor(key) ?? For(key) : For(key);
+
+    public static IReadOnlyCollection<string> Keys => _current.Keys;
+
+    public static void Mount(string key, IVideoFrameSource source)
+    {
+        var next = new Dictionary<string, IVideoFrameSource>(_current) { [key] = source };
+        _current = next;
+    }
+
+    public static void Unmount(string key)
+    {
+        if (!_current.ContainsKey(key)) return;
+        var next = new Dictionary<string, IVideoFrameSource>(_current);
+        next.Remove(key);
+        _current = next;
+    }
+
+    /// <summary>Sets (source) or clears (null) the fade-out entry for a key.</summary>
+    public static void SetPrevious(string key, IVideoFrameSource? source)
+    {
+        var next = new Dictionary<string, IVideoFrameSource>(_previous);
+        if (source is null) next.Remove(key);
+        else next[key] = source;
+        _previous = next;
+    }
+
+    public static void Clear()
+    {
+        _current = Empty;
+        _previous = Empty;
+    }
+}
+
+/// <summary>Availability notes for the video/NDI stacks (empty = fine). Shown on placeholder cards.</summary>
 public static class VideoService
 {
-    private static volatile IVideoFrameSource? _current;
-
-    public static IVideoFrameSource? Current
-    {
-        get => _current;
-        set => _current = value;
-    }
-
-    /// <summary>Availability text when no engine is present at all (e.g. libVLC missing).</summary>
+    /// <summary>Availability text when no decode engine is present at all (e.g. libVLC missing).</summary>
     public static volatile string AvailabilityNote = "";
-
-    /// <summary>
-    /// The just-replaced source, kept alive briefly so crossfades can keep drawing the old
-    /// content while it fades out (the app layer retires and disposes it after the fade).
-    /// </summary>
-    private static volatile IVideoFrameSource? _previous;
-
-    public static IVideoFrameSource? Previous
-    {
-        get => _previous;
-        set => _previous = value;
-    }
 }
 
-/// <summary>
-/// Mount point for the single active NDI® receive source (same contract as
-/// <see cref="VideoService"/> — the app layer writes, render threads read).
-/// </summary>
+/// <summary>See <see cref="VideoService"/> — the NDI® receive side's availability note.</summary>
 public static class NdiInput
 {
-    private static volatile IVideoFrameSource? _current;
-    private static volatile IVideoFrameSource? _previous;
-
-    public static IVideoFrameSource? Current
-    {
-        get => _current;
-        set => _current = value;
-    }
-
-    /// <summary>See <see cref="VideoService.Previous"/> — the fade-out source.</summary>
-    public static IVideoFrameSource? Previous
-    {
-        get => _previous;
-        set => _previous = value;
-    }
-
     /// <summary>Availability text when receive isn't possible (NDI runtime missing).</summary>
     public static volatile string AvailabilityNote = "";
-}
-
-/// <summary>Mount point for the picture-in-picture live input (independent of the main media).</summary>
-public static class PipInput
-{
-    private static volatile IVideoFrameSource? _current;
-
-    public static IVideoFrameSource? Current
-    {
-        get => _current;
-        set => _current = value;
-    }
 }

@@ -81,7 +81,8 @@ public sealed class OutputWindowManager
         var live = new List<(ScreenPlacement Placement, ScreenInfo Info)>();
         foreach (var p in placements)
         {
-            if (p.Enabled && byId.TryGetValue(p.ScreenId, out var info))
+            // Planned screens take part in every editor, but there is no display to open on.
+            if (p.Enabled && byId.TryGetValue(p.ScreenId, out var info) && !info.IsPlanned)
             {
                 live.Add((p, info));
             }

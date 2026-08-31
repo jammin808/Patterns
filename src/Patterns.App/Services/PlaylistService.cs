@@ -73,8 +73,9 @@ public sealed class PlaylistService : IDisposable
                 _sequencer.SetOrder(PlaylistSequencer.BuildOrder(options, section.Items, _folderFiles, videoAvailable), utcNow);
             }
 
-            var video = VideoService.Current;
-            var currentIsVideo = _sequencer.Current?.IsVideo == true;
+            var currentItem = _sequencer.Current;
+            var currentIsVideo = currentItem?.IsVideo == true;
+            var video = currentIsVideo ? InputBus.For(InputKeys.Video(currentItem!.Path)) : null;
             var videoEnded = currentIsVideo && video is { IsEnded: true };
             var videoLength = currentIsVideo && video is not null ? video.DurationSeconds : 0;
 
@@ -91,6 +92,9 @@ public sealed class PlaylistService : IDisposable
             {
                 _services.Bus.PlaylistNow = now;
                 _services.PublishRuntime();
+                // Runtime publishes skip side effects — mount the new item's decoder now,
+                // not on the next model edit.
+                _services.ReconcileInputs();
             }
         }
         catch (Exception ex)
@@ -135,7 +139,7 @@ public sealed class PlaylistService : IDisposable
             var pos = now.Index >= 0 ? $"{now.Index + 1}/{now.Count}" : "scheduled";
             var held = (DateTime.UtcNow - now.StartedUtc).TotalSeconds;
             var dur = now.DurationSeconds > 0 ? $" · {Math.Max(0, now.DurationSeconds - held):0}s left" : "";
-            var options = MediaLocator.FindActivePlaylist(_services.State)?.Playlist;
+            var options = MediaLocator.FindActivePlaylist(_services.AirState)?.Playlist;
             var part = options is not null && options.Sections.Count > 1
                 ? $"[{PlaylistSequencer.ActiveSectionOf(options).Name}] "
                 : "";

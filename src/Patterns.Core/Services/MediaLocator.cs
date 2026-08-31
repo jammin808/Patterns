@@ -54,10 +54,107 @@ public static class MediaLocator
         return null;
     }
 
-    /// <summary>The NDI source name that should be received right now (empty = none).</summary>
+    /// <summary>The first NDI source the show references (empty = none) — the fallback feed.</summary>
     public static string FindActiveNdiSource(ShowState state)
     {
         var m = FindActiveMedia(state, MediaSource.NdiFeed);
         return m is null ? "" : m.NdiSourceName;
+    }
+
+    public enum WantedKind
+    {
+        VideoFile,
+        Capture,
+        Ndi,
+    }
+
+    /// <summary>One input the show wants mounted right now, in priority order.</summary>
+    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct);
+
+    /// <summary>
+    /// Every input the snapshot references — the program pattern, each enabled custom-pattern
+    /// screen, the PiP inset and multiview tiles — deduplicated by mount key, highest priority
+    /// first (its audio settings win when two configs share a mount). This is the whole
+    /// "distribute any input to any output" contract: engines mount this list, renderers
+    /// resolve frames per key, and the same camera can sit on three screens at once.
+    /// </summary>
+    public static List<WantedInput> FindWantedInputs(ShowSnapshot snap)
+    {
+        var list = new List<WantedInput>();
+        var seen = new HashSet<string>();
+        var state = snap.State;
+
+        void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct)
+        {
+            if (string.IsNullOrWhiteSpace(target)) return;
+            var key = kind switch
+            {
+                WantedKind.VideoFile => Media.InputKeys.Video(target),
+                WantedKind.Capture => Media.InputKeys.Capture(target),
+                _ => Media.InputKeys.Ndi(target),
+            };
+            if (seen.Add(key)) list.Add(new WantedInput(key, kind, target, loop, mute, volumePct));
+        }
+
+        void FromPattern(PatternConfig p)
+        {
+            if (p.Kind == PatternKind.Media)
+            {
+                var m = p.Media;
+                switch (m.Source)
+                {
+                    case MediaSource.Video:
+                        // Audio-only files mount too — the decoder carries their sound.
+                        Add(WantedKind.VideoFile, m.VideoPath, m.Loop, m.Mute, m.VolumePct);
+                        break;
+                    case MediaSource.Capture:
+                        Add(WantedKind.Capture, m.CaptureDevice, false, m.Mute, m.VolumePct);
+                        break;
+                    case MediaSource.NdiFeed:
+                        Add(WantedKind.Ndi, m.NdiSourceName, false, true, 0);
+                        break;
+                    case MediaSource.Playlist:
+                        // Only the active playlist has a "now playing" item; videos never
+                        // self-loop — their natural end advances the playlist.
+                        if (snap.PlaylistNow is { IsVideo: true } now && ReferenceEquals(m, FindActivePlaylist(state)))
+                        {
+                            Add(WantedKind.VideoFile, now.Path, false, m.Mute, m.VolumePct);
+                        }
+                        break;
+                }
+            }
+            else if (p.Kind == PatternKind.Multiview)
+            {
+                foreach (var tile in p.Multiview.Tiles)
+                {
+                    switch (tile.Source)
+                    {
+                        case MultiviewSource.NdiFeed:
+                            Add(WantedKind.Ndi, tile.Input.Length > 0 ? tile.Input : FindActiveNdiSource(state), false, true, 0);
+                            break;
+                        case MultiviewSource.Capture:
+                            Add(WantedKind.Capture, tile.Input, false, true, 0);
+                            break;
+                    }
+                }
+            }
+        }
+
+        FromPattern(state.Pattern);
+        foreach (var placement in state.Output.Placements)
+        {
+            if (!placement.UseCustomPattern || !placement.Enabled) continue;
+            var a = state.Independent.FirstOrDefault(x => x.ScreenId == placement.ScreenId);
+            if (a is not null) FromPattern(a.Pattern);
+        }
+
+        var pip = state.Overlays.Pip;
+        if (pip.Enabled)
+        {
+            if (pip.Source == PipSource.NdiFeed) Add(WantedKind.Ndi, pip.NdiSourceName, false, true, 0);
+            else Add(WantedKind.Capture, pip.CaptureDevice, false, true, 0);
+        }
+
+        return list;
     }
 }

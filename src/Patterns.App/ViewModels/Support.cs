@@ -186,7 +186,8 @@ public static class Lists
     {
         new(MultiviewSource.Program, "Program"),
         new(MultiviewSource.Screen, "A screen's content"),
-        new(MultiviewSource.NdiFeed, "NDI feed (Media tab)"),
+        new(MultiviewSource.NdiFeed, "NDI feed"),
+        new(MultiviewSource.Capture, "Capture device"),
         new(MultiviewSource.Pip, "PiP input"),
         new(MultiviewSource.Clock, "Clock"),
     };
