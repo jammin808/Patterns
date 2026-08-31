@@ -34,7 +34,9 @@ public sealed class FeedService : IDisposable
 
     private void Tick()
     {
-        var msg = _services.State.Overlays.Message;
+        // The ticker text rides the snapshot bus onto the program, so it follows air — not
+        // the operator's preview, which would blank the on-air crawl mid-show.
+        var msg = _services.AirState.Overlays.Message;
         var active = msg.Enabled && msg.UseFeed && !string.IsNullOrWhiteSpace(msg.FeedSource);
         if (!active)
         {

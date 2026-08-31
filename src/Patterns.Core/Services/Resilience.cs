@@ -73,8 +73,13 @@ public sealed class SupervisorPolicy
     }
 }
 
-/// <summary>What was running when the app last changed state — read back after a watchdog restart.</summary>
-public sealed record RecoverySnapshot(bool Live, bool AudioPlaying, DateTime UpdatedUtc);
+/// <summary>
+/// What was running when the app last changed state — read back after a watchdog restart.
+/// <paramref name="AirLook"/> is the content the audience was seeing, captured only while the
+/// operator was programming in the sandbox (the settings file already holds it otherwise);
+/// without it a crash mid-programming would reopen outputs on the untaken preview.
+/// </summary>
+public sealed record RecoverySnapshot(bool Live, bool AudioPlaying, DateTime UpdatedUtc, string? AirLook = null);
 
 /// <summary>
 /// Tiny sidecar file beside the settings: whether outputs (and the audio track) were live.
@@ -101,12 +106,12 @@ public sealed class RecoveryStore
         }
     }
 
-    public void Write(bool live, bool audioPlaying)
+    public void Write(bool live, bool audioPlaying, string? airLook = null)
     {
         try
         {
             var tmp = _path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(new RecoverySnapshot(live, audioPlaying, DateTime.UtcNow)));
+            File.WriteAllText(tmp, JsonUtil.Serialize(new RecoverySnapshot(live, audioPlaying, DateTime.UtcNow, airLook)));
             File.Move(tmp, _path, overwrite: true);
         }
         catch (Exception ex)

@@ -156,7 +156,12 @@ public sealed class AppServices
         if (!Sandbox.EditProgram(edit))
         {
             BulkEdit(() => edit(State));
+            return;
         }
+        // Air moved without the live state moving — the recovery sidecar must follow, or a
+        // crash would put the untaken preview back instead of what was on the screens.
+        _airDirty = true;
+        UpdateRecovery();
     }
 
     /// <summary>App startup: arm EDIT SAFE when the show is configured to start sandboxed.</summary>
@@ -225,15 +230,36 @@ public sealed class AppServices
         }
 
         var current = (Outputs.IsLive, State.AudioPlayer.Playing);
-        if (_recoveryWritten == current) return;
+        if (_recoveryWritten == current && !_airDirty) return;
         _recoveryWritten = current;
+        _airDirty = false;
         if (current.Item1 || current.Item2)
         {
-            Recovery.Write(current.Item1, current.Item2);
+            Recovery.Write(current.Item1, current.Item2, CaptureAirLook());
         }
         else
         {
             Recovery.Clear();
+        }
+    }
+
+    private bool _airDirty;
+
+    /// <summary>
+    /// The content the audience is seeing, but only while it differs from the live state —
+    /// unsandboxed, the settings file already is the air content and capturing would be waste.
+    /// </summary>
+    private string? CaptureAirLook()
+    {
+        if (!Sandbox.Active) return null;
+        try
+        {
+            return LookService.Capture(AirState);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Air look capture for recovery failed.", ex);
+            return null;
         }
     }
 
@@ -244,6 +270,13 @@ public sealed class AppServices
         {
             if (!State.Watchdog.AutoRestore) return;
             if (PendingRecovery is not { } was || !RecoveryStore.IsFresh(was, DateTime.UtcNow)) return;
+
+            // Put back what the audience was seeing, not the preview that was being built.
+            if (was.AirLook is { Length: > 0 } airLook)
+            {
+                BulkEdit(() => LookService.Apply(airLook, State));
+                vm.RefreshAfterRecovery();
+            }
 
             if (was.Live && !Outputs.IsLive) Outputs.Apply();
             if (was.AudioPlaying && File.Exists(State.AudioPlayer.Path)) State.AudioPlayer.Playing = true;

@@ -406,6 +406,21 @@ public sealed class MainViewModel : Observable
     public void ReconcilePlacements() => ReconcilePlacements(_services.Screens.All.ToList());
 
     /// <summary>
+    /// Displays that physically exist among the given list. The "primary goes off when there
+    /// are other screens" default must count these only — a planned screen has no hardware,
+    /// so letting it tip the count would turn off the operator's one real output.
+    /// </summary>
+    private static int RealCount(IReadOnlyList<ScreenInfo> screens)
+    {
+        var n = 0;
+        foreach (var s in screens)
+        {
+            if (!s.IsPlanned) n++;
+        }
+        return n;
+    }
+
+    /// <summary>
     /// Keeps placements in sync with detected screens: new screens appear to the right of the
     /// arrangement (disconnected), and — until the operator pins a choice — the primary screen
     /// defaults to disabled whenever other screens exist, so GO never covers the control UI.
@@ -429,7 +444,7 @@ public sealed class MainViewModel : Observable
                     ScreenId = screen.Id,
                     X = placements.Count == 0 ? 0 : maxRight + 120,
                     Y = 0,
-                    Enabled = !(screen.IsPrimary && screens.Count > 1),
+                    Enabled = !(screen.IsPrimary && RealCount(screens) > 1),
                 });
             }
         }
@@ -441,7 +456,7 @@ public sealed class MainViewModel : Observable
             var info = screens.FirstOrDefault(s => s.Id == p.ScreenId);
             if (info is not null)
             {
-                p.Enabled = !(info.IsPrimary && screens.Count > 1);
+                p.Enabled = !(info.IsPrimary && RealCount(screens) > 1);
             }
         }
 
@@ -455,6 +470,8 @@ public sealed class MainViewModel : Observable
         RebuildNdiSources();
         RebuildWebScreens();
         RaiseArrangement();
+        // Loading a show, or plugging a display in, can change the mode and the planned set.
+        RefreshOutputsStatus();
     }
 
     public ScreenInfo? LiveInfo(ScreenPlacement placement)
@@ -1375,6 +1392,13 @@ public sealed class MainViewModel : Observable
             : $"Look '{look.Name}' applied.";
     }
 
+    /// <summary>After the watchdog restored the air content into the model, resync the editors.</summary>
+    public void RefreshAfterRecovery()
+    {
+        RebuildEditTargets();
+        Raise(nameof(ActivePattern));
+    }
+
     /// <summary>Loads a look into the editors (the sandboxed preview) instead of putting it on air.</summary>
     public void ApplyLookToPreview(LookConfig look)
     {
@@ -1878,14 +1902,7 @@ public sealed class MainViewModel : Observable
         }
     }
 
-    private void RaiseModeChanged()
-    {
-        Raise(nameof(IsPrepMode));
-        Raise(nameof(ModeBanner));
-        Raise(nameof(PlannedScreenCount));
-        Raise(nameof(PrepSummary));
-        RefreshOutputsStatus();
-    }
+    private void RaiseModeChanged() => RefreshOutputsStatus();
 
     private void GoLive()
     {
@@ -2360,6 +2377,13 @@ public sealed class MainViewModel : Observable
                 ? $"PREP — {detected} display{(detected == 1 ? "" : "s")} detected{plannedText} · GO is held"
                 : $"{detected} screen{(detected == 1 ? "" : "s")} detected{plannedText} · {enabled} enabled — press GO";
         Raise(nameof(IsLive));
+
+        // Every path that can change the mode or the planned set — a show load, a display
+        // hot-plug, adoption — reaches here, so the mode UI is refreshed in one place.
+        Raise(nameof(IsPrepMode));
+        Raise(nameof(ModeBanner));
+        Raise(nameof(PlannedScreenCount));
+        Raise(nameof(PrepSummary));
     }
 
     public bool IsLive => _services.Outputs.IsLive;

@@ -286,4 +286,61 @@ public class PrepModeTests
         Assert.Equal("Upstage", planned.CustomLabel);
         Assert.Equal("", planned.AdoptTargetId); // runtime-only, never persisted
     }
+    [AvaloniaFact]
+    public void PlanningAScreenNeverTurnsOffTheOnlyRealDisplay()
+    {
+        // The "primary goes off when there are other screens" default must count hardware
+        // only — otherwise planning a screen silently disables the operator's one output.
+        var (services, vm, window) = Boot();
+        try
+        {
+            var real = services.Screens.Real[0];
+            var placement = services.State.Output.Placements.First(p => p.ScreenId == real.Id);
+            placement.UserPinned = false;
+            var wasEnabled = placement.Enabled;
+
+            vm.AddPlannedScreen(1920, 1080, "Planned");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(wasEnabled, placement.Enabled);
+            Assert.DoesNotContain("0 enabled", vm.OutputsStatus);
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheModeUiRefreshesWhenAShowOrTheDisplaysChange()
+    {
+        var (services, vm, window) = Boot();
+        try
+        {
+            var raised = new List<string>();
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is { } n) raised.Add(n);
+            };
+
+            // A loaded show file (or a hot-plugged display) reaches ReconcilePlacements —
+            // the mode badge, toggle, planned count and summary must all follow.
+            services.State.Mode = ShowMode.Prep;
+            vm.ReconcilePlacements();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(nameof(vm.IsPrepMode), raised);
+            Assert.Contains(nameof(vm.ModeBanner), raised);
+            Assert.Contains(nameof(vm.PlannedScreenCount), raised);
+            Assert.Contains(nameof(vm.PrepSummary), raised);
+            Assert.True(vm.IsPrepMode);
+            Assert.Contains("PREP", vm.OutputsStatus);
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
 }

@@ -509,4 +509,81 @@ public class SandboxTests
             services.Shutdown();
         }
     }
+    [AvaloniaFact]
+    public void DiscardKeepsWhateverAirMovedOnToMeanwhile()
+    {
+        // RestoreContent captures the CURRENT program, not the enter-time snapshot: a cue or
+        // remote look that fired while the operator was programming must survive the discard.
+        var (services, vm, window) = Boot();
+        try
+        {
+            vm.ActivePattern.Kind = PatternKind.LedWall;
+            vm.NewLookName = "Cue look";
+            vm.SaveLookCommand.Execute(null);
+            var cueLook = vm.State.LooksAndCues.Looks.First(l => l.Name == "Cue look");
+
+            vm.State.Pattern.Kind = PatternKind.Grid; // what is on air when programming starts
+            vm.IsSandboxActive = true;
+            vm.State.Pattern.Kind = PatternKind.ColorBars; // the operator's private edit
+            Dispatcher.UIThread.RunJobs();
+
+            // Air moves on underneath: a scheduled cue fires its look.
+            vm.ApplyLookCommand.Execute(cueLook);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PatternKind.LedWall, services.Bus.Current.State.Pattern.Kind);
+
+            vm.IsSandboxActive = false; // discard the edit
+
+            // The discard must land on the cue's look — not the Grid that was on at Enter.
+            Assert.Equal(PatternKind.LedWall, vm.State.Pattern.Kind);
+            Assert.Equal(PatternKind.LedWall, services.Bus.Current.State.Pattern.Kind);
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AirContentIsRecordedForRecoveryWhileProgramming()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "patterns-airrec-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var services = new AppServices(new SettingsStore(dir));
+        AppServices.Instance = services;
+        var vm = new MainViewModel(services);
+        var window = new MainWindow { DataContext = vm };
+        services.AttachMainWindow(window);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            vm.ActivePattern.Kind = PatternKind.LedWall;
+            vm.NewLookName = "On air";
+            vm.SaveLookCommand.Execute(null);
+            var onAir = vm.State.LooksAndCues.Looks.First(l => l.Name == "On air");
+
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            vm.GoCommand.Execute(null); // something live, so the recovery sidecar is written
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Outputs.IsLive);
+
+            vm.IsSandboxActive = true;
+            vm.ApplyLookCommand.Execute(onAir);          // air = LedWall
+            vm.State.Pattern.Kind = PatternKind.ColorBars; // preview = the untaken edit
+            Dispatcher.UIThread.RunJobs();
+
+            var saved = new RecoveryStore(dir).Read();
+            Assert.NotNull(saved);
+            Assert.False(string.IsNullOrEmpty(saved!.AirLook));
+            Assert.Contains("LedWall", saved.AirLook!);       // what the audience was seeing
+            Assert.DoesNotContain("ColorBars", saved.AirLook!); // not the operator's edit
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
 }
