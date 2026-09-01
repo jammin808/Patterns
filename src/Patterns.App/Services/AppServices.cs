@@ -272,9 +272,13 @@ public sealed class AppServices
             if (PendingRecovery is not { } was || !RecoveryStore.IsFresh(was, DateTime.UtcNow)) return;
 
             // Put back what the audience was seeing, not the preview that was being built.
+            // EDIT SAFE is already armed by the time this runs (StartDefaultSandbox precedes
+            // the recovery timer), so the air look has to land on the frozen program via the
+            // air seam — applying it to State would restore it into the preview and leave the
+            // outputs on the untaken edit the settings file holds.
             if (was.AirLook is { Length: > 0 } airLook)
             {
-                BulkEdit(() => LookService.Apply(airLook, State));
+                EditAir(air => LookService.Apply(airLook, air));
                 vm.RefreshAfterRecovery();
             }
 

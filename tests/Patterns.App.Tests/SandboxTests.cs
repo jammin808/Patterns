@@ -586,4 +586,47 @@ public class SandboxTests
             services.Shutdown();
         }
     }
+
+    /// <summary>
+    /// A watchdog relaunch arms EDIT SAFE before recovery runs, so the recorded air look must
+    /// land on the frozen program (the outputs), not in the sandboxed preview.
+    /// </summary>
+    [AvaloniaFact]
+    public void RecoveryPutsTheAirLookOnTheOutputsNotIntoTheSandboxedPreview()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "patterns-airrec2-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+
+        // What the audience was watching when the app died: a LED wall look.
+        var onAir = new ShowState();
+        onAir.Pattern.Kind = PatternKind.LedWall;
+        new RecoveryStore(dir).Write(live: true, audioPlaying: false, airLook: LookService.Capture(onAir));
+
+        var services = new AppServices(new SettingsStore(dir));
+        AppServices.Instance = services;
+        var vm = new MainViewModel(services);
+        var window = new MainWindow { DataContext = vm };
+        services.AttachMainWindow(window);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            services.StartDefaultSandbox();          // the app arms EDIT SAFE first...
+            vm.State.Pattern.Kind = PatternKind.ColorBars; // ...and the settings hold the untaken edit
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Sandbox.Active);
+
+            services.TryRecover(vm);                 // ...then the recovery timer fires
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(PatternKind.LedWall, services.Bus.Current.State.Pattern.Kind);   // outputs: what was on air
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Sandbox!.State.Pattern.Kind); // preview: the operator's edit survives
+            Assert.True(services.Outputs.IsLive);
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
 }
