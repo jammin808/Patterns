@@ -169,8 +169,8 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 2 | Content-target model (a joined canvas holds content of its own, keyed `a+b`); the wall — PGM/PVW miniatures per target at true shape, OWN / MON / ARM / OUTPUT, tally; aspect-locked panes following the selected target; scoped TAKE (un-armed targets keep their picture). | done |
 | 3 | Cue stack: two lists of one model (caller's stack, clicker list — the old presenter steps migrate into it), typed actions with one spec table, a simulating validator with per-cue *Broken* (never a global arm gate), the Cues page with FIRE, looks with their own cut / fade, blackout as transport across a cue. | done |
 | 4 | Run layout (LIVE strip, the wall beside the stack, transport row, the type scale); the executor with the one gate (armed, hold, blackout, executing, standby-id fence, 300 ms lockout, confirm window); history and journal; asynchronous settling; AirLabel; the schedule, part start times and plain F-keys held while armed; Enter / ↑ ↓ / Esc; STOP ALL; the sidecar keeps the caller's place and a relaunch restores it disarmed. | done |
-| 5 | Remote, Companion, tablet page and the pop-out wall. | next |
-| 6 | Five-group menu shell (Show · Plan · Edit · Setup · Admin) and the Build-layout extras. | |
+| 5 | The CUE verbs, STOPALL and HELLO (origins by name); the control-state push and the compact `cuestack` STATE block; `/api/cues`, the `/api/state?since=` long-poll, `/pgm.jpg`, the client header on cue commands; the `/run` tablet page; Companion module 1.1.0; the pop-out Run window. | done |
+| 6 | Five-group menu shell (Show · Plan · Edit · Setup · Admin) and the Build-layout extras. | next |
 
 Deferred on purpose: multiview tile maths for canvas targets; MON persisted per show (runtime only
 for now); clearing `CutAtVersion` for a sink that skipped the cut frame (a sink that renders every

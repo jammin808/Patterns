@@ -673,10 +673,14 @@ public sealed class ControlConfig : Observable
     private bool _enabled = true;
     private int _httpPort = 9696;
     private int _tcpPort = 9697;
+    private bool _remotesMayArm;
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public int HttpPort { get => _httpPort; set => Set(ref _httpPort, Math.Clamp(value, 1024, 65535)); }
     public int TcpPort { get => _tcpPort; set => Set(ref _tcpPort, Math.Clamp(value, 1024, 65535)); }
+
+    /// <summary>A remote may ARM / disarm the caller's cue stack (CUE ARM ON / OFF). Off by default: arming is a deliberate act at the desk.</summary>
+    public bool RemotesMayArm { get => _remotesMayArm; set => Set(ref _remotesMayArm, value); }
 }
 
 /// <summary>Web pages opened on outputs (managed browser windows, not engine-composited).</summary>

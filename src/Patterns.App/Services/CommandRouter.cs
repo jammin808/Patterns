@@ -33,6 +33,9 @@ public sealed class CommandRouter
         }
     }
 
+    /// <summary>A revision the tablet long-polls on: bumped by the control service on every push-worthy change.</summary>
+    public Func<long>? Rev { get; set; }
+
     private string Execute(RemoteCommand cmd, ActionOrigin origin)
     {
         switch (cmd.Kind)
@@ -43,6 +46,54 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok(StateJson());
             case RemoteCommandKind.Unknown:
                 return ControlProtocol.Err($"unknown command '{cmd.TextArg}'");
+            case RemoteCommandKind.Hello:
+                return ControlProtocol.Ok(); // the connection renamed its origin; nothing to run
+            case RemoteCommandKind.CueList:
+                return ControlProtocol.Ok(CueListJson());
+        }
+
+        var stack = _services.CueStack;
+        switch (cmd.Kind)
+        {
+            case RemoteCommandKind.CueGo:
+            {
+                // The OK payload carries the record, so a controller knows what happened, not just that it was heard.
+                var go = _services.Actions.Execute(new ShowAction(ShowActionKind.CueGo, cmd.TextArg), origin);
+                if (go.Status == ActionStatus.Requested && go.Message.StartsWith("CONFIRM", StringComparison.Ordinal))
+                {
+                    return ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = "Confirm", confirm = stack.ConfirmText, standby = StandbyRow(stack.StandbyCue) }));
+                }
+                return go.Ok
+                    ? ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = go.Status.ToString(), last = LastRow(stack), standby = StandbyRow(stack.StandbyCue) }))
+                    : ControlProtocol.Err(go.Message);
+            }
+            case RemoteCommandKind.CueStandbyNext:
+            case RemoteCommandKind.CueStandbyPrev:
+                return stack.StandbyMove(cmd.Kind == RemoteCommandKind.CueStandbyNext ? +1 : -1)
+                    ? ControlProtocol.Ok(JsonSerializer.Serialize(new { standby = StandbyRow(stack.StandbyCue) }))
+                    : ControlProtocol.Err("no cue that way");
+            case RemoteCommandKind.CueStandby:
+            {
+                var cue = stack.Stack.Cues.FirstOrDefault(c => CueNumber.Compare(c.Number, cmd.TextArg) == 0 && CueNumber.Parse(cmd.TextArg) is not null)
+                          ?? stack.Stack.Cues.FirstOrDefault(c => string.Equals(c.Name, cmd.TextArg, StringComparison.OrdinalIgnoreCase));
+                if (cue is null) return ControlProtocol.Err($"no cue '{cmd.TextArg}'");
+                stack.Standby(cue.Id);
+                return ControlProtocol.Ok(JsonSerializer.Serialize(new { standby = StandbyRow(cue) }));
+            }
+            case RemoteCommandKind.CueHoldOn:
+            case RemoteCommandKind.CueHoldOff:
+                stack.SetHold(cmd.Kind == RemoteCommandKind.CueHoldOn, origin);
+                return ControlProtocol.Ok();
+            case RemoteCommandKind.CueArmOn:
+            case RemoteCommandKind.CueArmOff:
+                if (!_services.State.Control.RemotesMayArm) return ControlProtocol.Err("remotes may not arm — allow it in the Remote tab");
+                stack.SetArmed(cmd.Kind == RemoteCommandKind.CueArmOn, origin);
+                return ControlProtocol.Ok();
+            case RemoteCommandKind.StopAll:
+            {
+                var stop = _services.Actions.Execute(ShowActionKind.StopAll, origin);
+                return stop.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(stop.Message);
+            }
         }
 
         if (ToAction(cmd) is not { } action) return ControlProtocol.Err($"unknown command '{cmd.Kind}'");
@@ -92,7 +143,9 @@ public sealed class CommandRouter
         var payload = new
         {
             show = s.Name,
+            rev = Rev?.Invoke() ?? 0,
             airLabel = _services.AirLabel,
+            cuestack = CueStackJson(),
             blackout = s.Blackout,
             live = _services.Outputs.IsLive,
             looks = s.LooksAndCues.Looks.Select(l => new { name = l.Name, slot = l.Hotkey }).ToArray(),
@@ -146,6 +199,94 @@ public sealed class CommandRouter
 
     /// <summary>Builds StateJson from any thread.</summary>
     public Task<string> StateJsonAsync() => Dispatcher.UIThread.InvokeAsync(StateJson).GetTask();
+
+    /// <summary>The caller's whole list with notes — GET /api/cues and CUE LIST, refetched when listRev changes.</summary>
+    public string CueListJson()
+    {
+        var stack = _services.CueStack;
+        var report = CueValidator.Validate(_services.State, stack.Stack, _services.ValidationContext);
+        var rows = stack.Stack.Cues.Select(c => new
+        {
+            id = c.Id,
+            number = c.Number,
+            name = c.Name,
+            enabled = c.Enabled,
+            requireConfirm = c.RequireConfirm,
+            ready = c.Ready,
+            track = c.Track,
+            notes = c.Notes,
+            summary = CueSummary.Describe(_services.State, c),
+            broken = report.ReasonFor(c.Id),
+        }).ToArray();
+        return JsonSerializer.Serialize(new { name = stack.Stack.Name, listRev = ListRev(), cues = rows });
+    }
+
+    public Task<string> CueListJsonAsync() => Dispatcher.UIThread.InvokeAsync(CueListJson).GetTask();
+
+    /// <summary>The compact block every STATE push carries; the full list rides /api/cues.</summary>
+    private object CueStackJson()
+    {
+        var stack = _services.CueStack;
+        var rt = stack.Runtime;
+        var cues = stack.Stack.Cues;
+        var standby = stack.StandbyCue;
+        var standbyIndex = standby is null ? -1 : cues.IndexOf(standby);
+        var next = new List<object>();
+        for (var i = standbyIndex + 1; i < cues.Count && next.Count < 6; i++)
+        {
+            if (cues[i].Enabled) next.Add(new { id = cues[i].Id, number = cues[i].Number, name = cues[i].Name });
+        }
+        var previous = stack.LastCue;
+        return new
+        {
+            armed = rt.Armed,
+            hold = rt.Hold,
+            seq = rt.Seq,
+            listRev = ListRev(),
+            confirm = stack.ConfirmText,
+            program = new { label = _services.AirLabel },
+            previous = previous is null ? null : new { id = previous.Id, number = previous.Number, name = previous.Name },
+            standby = StandbyRow(standby),
+            next = next.ToArray(),
+            last = LastRow(stack),
+            history = stack.History.Take(8).Select(RowJson).ToArray(),
+        };
+    }
+
+    private static object? StandbyRow(RunCueConfig? cue)
+        => cue is null ? null : new { id = cue.Id, number = cue.Number, name = cue.Name, requireConfirm = cue.RequireConfirm, notes = cue.Notes };
+
+    private static object? LastRow(CueStackService stack) => stack.History.Count == 0 ? null : RowJson(stack.History[0]);
+
+    private static object RowJson(CueExecutionRecord r) => new
+    {
+        id = r.CueId,
+        number = r.Number,
+        name = r.Name,
+        outcome = r.Outcome.ToString(),
+        error = r.IsFailure ? r.Detail : "",
+        at = r.AtUtc,
+        origin = r.Origin,
+        actionsDone = r.ActionsDone,
+        actionsTotal = r.ActionsTotal,
+    };
+
+    /// <summary>Changes when the list's shape does (ids, numbers, names, flags) — remotes refetch /api/cues on it.</summary>
+    private long ListRev()
+    {
+        unchecked
+        {
+            long h = 1469598103934665603;
+            foreach (var c in _services.CueStack.Stack.Cues)
+            {
+                foreach (var ch in $"{c.Id}|{c.Number}|{c.Name}|{c.Enabled}|{c.RequireConfirm}|{c.Ready}|")
+                {
+                    h = (h ^ ch) * 1099511628211;
+                }
+            }
+            return h & 0x7FFFFFFFFFFF;
+        }
+    }
 
     /// <summary>The clicker list as the remotes have always seen the presenter: armed, index, count, step names.</summary>
     private object PresenterState(ShowState s)

@@ -123,7 +123,12 @@ fault containment, and settings that can never brick startup.
   remote's LOOK stay live), so only the caller moves the picture. **Enter** is GO, ↑ ↓ move
   standby, Esc cancels a confirm and twice is STOP ALL (audio, stingers, tone — never the
   outputs, blackout or the stream). A watchdog relaunch reopens Run **disarmed** at the next
-  cue with a banner, and fires nothing; the history reads from the journal.
+  cue with a banner, and fires nothing; the history reads from the journal. **POP OUT** puts
+  the Run surface on the caller's own monitor as a second window with its own keys; the
+  `/run` page on the web-remote address gives a tablet the same LIVE strip, standby, next
+  six and GO / HOLD; Companion module 1.1.0 adds GO (green armed, amber on hold, red when
+  the last cue failed), standby, HOLD, ARM and STOP ALL keys with feedbacks and variables;
+  the protocol gains `CUE GO / STANDBY / HOLD / ARM / LIST`, `STOPALL` and `HELLO <name>`.
 - **Presenter click-through** — the clicker list: hand the presenter a USB clicker,
   `Page Down` advances, `Page Up` goes back (exactly what presentation remotes send), and
   each click fires the next cue — a look, a message, a stinger, anything a cue can do. It

@@ -28,6 +28,22 @@ public enum RemoteCommandKind
     StreamOff,
     Status,
     Ping,
+    /// <summary>"CUE GO [id]" — GO on the caller's stack; TextArg = the standby id the sender saw ("" skips the fence).</summary>
+    CueGo,
+    CueStandbyNext,
+    CueStandbyPrev,
+    /// <summary>"CUE STANDBY 03.020" or a cue name — TextArg.</summary>
+    CueStandby,
+    CueHoldOn,
+    CueHoldOff,
+    /// <summary>Accepted only when the Remote tab allows remotes to arm.</summary>
+    CueArmOn,
+    CueArmOff,
+    CueList,
+    /// <summary>"STOPALL" as one token: an older build parses "STOP ALL" as STOP and closes the outputs.</summary>
+    StopAll,
+    /// <summary>"HELLO FOH deck" — the connection names itself; history reads "GO from FOH deck".</summary>
+    Hello,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module).</summary>
@@ -66,6 +82,43 @@ public static class ControlProtocol
             case "PREV": case "BACK": return new(RemoteCommandKind.Prev, 0, "");
             case "STATUS": return new(RemoteCommandKind.Status, 0, "");
             case "PING": return new(RemoteCommandKind.Ping, 0, "");
+            case "STOPALL": return new(RemoteCommandKind.StopAll, 0, "");
+            case "HELLO": return arg.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.Hello, 0, arg);
+
+            case "CUE":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var what = sub[0].ToUpperInvariant();
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "GO": return new(RemoteCommandKind.CueGo, 0, rest);
+                    case "STANDBY":
+                        return rest.ToUpperInvariant() switch
+                        {
+                            "" => new(RemoteCommandKind.Unknown, 0, s),
+                            "NEXT" => new(RemoteCommandKind.CueStandbyNext, 0, ""),
+                            "PREV" or "BACK" => new(RemoteCommandKind.CueStandbyPrev, 0, ""),
+                            _ => new(RemoteCommandKind.CueStandby, 0, rest),
+                        };
+                    case "HOLD":
+                        return rest.ToUpperInvariant() switch
+                        {
+                            "ON" => new(RemoteCommandKind.CueHoldOn, 0, ""),
+                            "OFF" => new(RemoteCommandKind.CueHoldOff, 0, ""),
+                            _ => new(RemoteCommandKind.Unknown, 0, s),
+                        };
+                    case "ARM":
+                        return rest.ToUpperInvariant() switch
+                        {
+                            "ON" => new(RemoteCommandKind.CueArmOn, 0, ""),
+                            "OFF" => new(RemoteCommandKind.CueArmOff, 0, ""),
+                            _ => new(RemoteCommandKind.Unknown, 0, s),
+                        };
+                    case "LIST": return new(RemoteCommandKind.CueList, 0, "");
+                    default: return new(RemoteCommandKind.Unknown, 0, s);
+                }
+            }
 
             case "BLACKOUT":
                 return arg.ToUpperInvariant() switch

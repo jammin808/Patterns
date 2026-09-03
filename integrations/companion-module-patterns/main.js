@@ -15,6 +15,7 @@ class PatternsInstance extends InstanceBase {
 		this.socket = null
 		this.state = { blackout: false, looks: [], screens: [], presenter: { index: -1, count: 0 } }
 		this.buffer = ''
+		this.standbyId = '' // the standby id this instance last saw — every cue_go sends it
 	}
 
 	async init(config) {
@@ -56,7 +57,18 @@ class PatternsInstance extends InstanceBase {
 			return
 		}
 		this.socket = new TCPHelper(this.config.host, this.config.port ?? 9697)
-		this.socket.on('status_change', (status, message) => this.updateStatus(status, message))
+		this.socket.on('status_change', (status, message) => {
+			this.updateStatus(status, message)
+			if (status === InstanceStatus.Ok) {
+				// The connection names itself, so the caller's history reads "GO from FOH deck".
+				this.socket.send(`HELLO ${this.label ?? 'Companion'}\n`)
+			} else {
+				// Feedbacks reset on disconnect: a dead key must not stay green.
+				this.state = { blackout: false, looks: [], screens: [], presenter: { index: -1, count: 0 } }
+				this.standbyId = ''
+				this.checkFeedbacks()
+			}
+		})
 		this.socket.on('error', (err) => this.log('error', `Connection error: ${err.message}`))
 		this.socket.on('data', (data) => {
 			this.buffer += data.toString('utf8')
@@ -65,7 +77,10 @@ class PatternsInstance extends InstanceBase {
 				const line = this.buffer.slice(0, idx).trim()
 				this.buffer = this.buffer.slice(idx + 1)
 				if (line.startsWith('STATE ')) this.onState(line.slice(6))
-				else if (line.startsWith('ERR')) this.log('warn', line)
+				else if (line.startsWith('ERR')) {
+					this.log('warn', line)
+					this.setVariableValues({ last_error: line.slice(4) })
+				}
 			}
 		})
 	}
@@ -78,7 +93,21 @@ class PatternsInstance extends InstanceBase {
 			return
 		}
 		const p = this.state.presenter ?? { index: -1, count: 0 }
+		const c = this.state.cuestack ?? {}
+		this.standbyId = c.standby?.id ?? ''
 		this.setVariableValues({
+			program: this.state.airLabel ?? '',
+			cue_armed: c.armed ? 'ARMED' : 'off',
+			cue_hold: c.hold ? 'HOLD' : 'off',
+			cue_seq: String(c.seq ?? 0),
+			cue_standby_number: c.standby?.number ?? '-',
+			cue_standby_name: c.standby?.name ?? '',
+			cue_next_number: c.next?.[0]?.number ?? '-',
+			cue_next_name: c.next?.[0]?.name ?? '',
+			cue_previous_number: c.previous?.number ?? '-',
+			cue_previous_name: c.previous?.name ?? '',
+			cue_last_outcome: c.last?.outcome ?? '',
+			cue_confirm: c.confirm ?? '',
 			blackout: this.state.blackout ? 'ON' : 'off',
 			presenter_step: p.index >= 0 ? String(p.index + 1) : '-',
 			presenter_count: String(p.count ?? 0),
@@ -91,7 +120,8 @@ class PatternsInstance extends InstanceBase {
 			machine_power: this.state.machine?.battery ? 'BATTERY' : 'mains',
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
-		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing')
+		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing',
+			'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -125,6 +155,34 @@ class PatternsInstance extends InstanceBase {
 			},
 			presenter_next: { name: 'Presenter — next step', options: [], callback: () => send('NEXT') },
 			presenter_prev: { name: 'Presenter — previous step', options: [], callback: () => send('PREV') },
+			// The cue stack: GO always sends the standby id this instance last saw, so a GO that
+			// races a standby move is refused ("ERR standby moved") instead of firing the wrong cue.
+			cue_go: { name: 'Cue stack — GO (the standby cue)', options: [], callback: () => send(`CUE GO ${this.standbyId}`.trim()) },
+			cue_standby: {
+				name: 'Cue stack — standby',
+				options: [
+					{ type: 'dropdown', id: 'mode', label: 'Move', default: 'NEXT',
+						choices: [{ id: 'NEXT', label: 'Next cue' }, { id: 'PREV', label: 'Previous cue' }, { id: 'NUMBER', label: 'A cue number or name' }] },
+					{ type: 'textinput', id: 'cue', label: 'Cue number or name (when chosen above)', default: '' },
+				],
+				callback: (a) => send(a.options.mode === 'NUMBER' ? `CUE STANDBY ${a.options.cue}` : `CUE STANDBY ${a.options.mode}`),
+			},
+			cue_hold: {
+				name: 'Cue stack — HOLD',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE',
+					choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
+				callback: (a) => {
+					const mode = a.options.mode === 'TOGGLE' ? (this.state.cuestack?.hold ? 'OFF' : 'ON') : a.options.mode
+					send(`CUE HOLD ${mode}`)
+				},
+			},
+			cue_arm: {
+				name: 'Cue stack — ARM (needs "remotes may arm" in the Remote tab)',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'ON',
+					choices: [{ id: 'ON', label: 'Arm' }, { id: 'OFF', label: 'Disarm' }] }],
+				callback: (a) => send(`CUE ARM ${a.options.mode}`),
+			},
+			stop_all: { name: 'STOP ALL (audio, stingers, tone — never outputs, blackout or the stream)', options: [], callback: () => send('STOPALL') },
 			screen: {
 				name: 'Screen on/off/toggle',
 				options: [
@@ -204,6 +262,41 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => (this.state.stingerPlaying ?? '') !== '',
 			},
+			cue_armed: {
+				type: 'boolean',
+				name: 'Cue stack is armed',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.cuestack?.armed === true,
+			},
+			cue_hold: {
+				type: 'boolean',
+				name: 'Cue stack is on HOLD',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => this.state.cuestack?.hold === true,
+			},
+			cue_standby_is: {
+				type: 'boolean',
+				name: 'A given cue is on standby',
+				defaultStyle: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'textinput', id: 'cue', label: 'Cue number', default: '01.010' }],
+				callback: (fb) => (this.state.cuestack?.standby?.number ?? '') === fb.options.cue,
+			},
+			cue_confirm_required: {
+				type: 'boolean',
+				name: 'GO is waiting for confirmation',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.cuestack?.confirm,
+			},
+			cue_last_failed: {
+				type: 'boolean',
+				name: 'The last cue failed or was refused',
+				defaultStyle: { bgcolor: combineRgb(224, 52, 46), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => /Failed|Refused/.test(this.state.cuestack?.last?.outcome ?? ''),
+			},
 		}
 	}
 
@@ -220,6 +313,19 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'machine_fps', name: 'Output frame rate' },
 			{ variableId: 'machine_power', name: 'Power source (mains/BATTERY)' },
 			{ variableId: 'machine_advice', name: 'Health suggestions needing attention' },
+			{ variableId: 'program', name: 'What is on air, by name' },
+			{ variableId: 'cue_armed', name: 'Cue stack armed (ARMED/off)' },
+			{ variableId: 'cue_hold', name: 'Cue stack hold (HOLD/off)' },
+			{ variableId: 'cue_seq', name: 'Cue stack runtime sequence' },
+			{ variableId: 'cue_standby_number', name: 'Standby cue number' },
+			{ variableId: 'cue_standby_name', name: 'Standby cue name' },
+			{ variableId: 'cue_next_number', name: 'Next cue number' },
+			{ variableId: 'cue_next_name', name: 'Next cue name' },
+			{ variableId: 'cue_previous_number', name: 'Previous (last run) cue number' },
+			{ variableId: 'cue_previous_name', name: 'Previous (last run) cue name' },
+			{ variableId: 'cue_last_outcome', name: 'Last GO outcome' },
+			{ variableId: 'cue_confirm', name: 'Pending confirm (CONFIRM 03.020) or empty' },
+			{ variableId: 'last_error', name: 'Last ERR line from Patterns' },
 		]
 	}
 
@@ -243,6 +349,44 @@ class PatternsInstance extends InstanceBase {
 			style: { text: 'BLACK\\nOUT', size: '18', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'blackout', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'blackout', options: {}, style: { bgcolor: combineRgb(200, 0, 0) } }],
+		}
+		presets.cue_go = {
+			type: 'button', category: 'Cue stack', name: 'GO',
+			style: { text: 'GO\n$(patterns:cue_standby_number)\n$(patterns:cue_standby_name)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'cue_go', options: {} }], up: [] }],
+			feedbacks: [
+				{ feedbackId: 'cue_armed', options: {}, style: { bgcolor: combineRgb(30, 158, 90) } },
+				{ feedbackId: 'cue_hold', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } },
+				{ feedbackId: 'cue_confirm_required', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19), text: '$(patterns:cue_confirm)' } },
+				{ feedbackId: 'cue_last_failed', options: {}, style: { bgcolor: combineRgb(224, 52, 46) } },
+			],
+		}
+		presets.cue_standby_next = {
+			type: 'button', category: 'Cue stack', name: 'Standby next',
+			style: { text: 'STANDBY\n▼', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'cue_standby', options: { mode: 'NEXT', cue: '' } }], up: [] }], feedbacks: [],
+		}
+		presets.cue_standby_prev = {
+			type: 'button', category: 'Cue stack', name: 'Standby previous',
+			style: { text: 'STANDBY\n▲', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'cue_standby', options: { mode: 'PREV', cue: '' } }], up: [] }], feedbacks: [],
+		}
+		presets.cue_hold = {
+			type: 'button', category: 'Cue stack', name: 'HOLD',
+			style: { text: 'HOLD', size: '18', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'cue_hold', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'cue_hold', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
+		}
+		presets.cue_arm = {
+			type: 'button', category: 'Cue stack', name: 'ARM',
+			style: { text: 'ARM\n$(patterns:cue_armed)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'cue_arm', options: { mode: 'ON' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'cue_armed', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
+		}
+		presets.stop_all = {
+			type: 'button', category: 'Cue stack', name: 'STOP ALL',
+			style: { text: 'STOP\nALL', size: '14', color: combineRgb(224, 52, 46), bgcolor: dark },
+			steps: [{ down: [{ actionId: 'stop_all', options: {} }], up: [] }], feedbacks: [],
 		}
 		presets.next = {
 			type: 'button', category: 'Presenter', name: 'Next step',

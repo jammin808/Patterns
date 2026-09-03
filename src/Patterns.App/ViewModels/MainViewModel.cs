@@ -367,6 +367,18 @@ public sealed class MainViewModel : Observable
             Raise(nameof(ClickerArmed));
             Raise(nameof(PresenterStepText));
         };
+        PopOutRunCommand = new RelayCommand(() =>
+        {
+            if (_runWindow is { IsVisible: true })
+            {
+                _runWindow.Activate();
+                return;
+            }
+            _runWindow = new Views.RunWindow { DataContext = this };
+            _runWindow.Closed += (_, _) => _runWindow = null;
+            _runWindow.Show();
+            StatusMessage = "Run window opened — its Enter, ↑ ↓ and Esc work while it has focus.";
+        });
         ToggleRunLayoutCommand = new RelayCommand(() =>
         {
             if (IsRunLayout && _services.CueStack.Armed)
@@ -1073,6 +1085,14 @@ public sealed class MainViewModel : Observable
     public string RunLayoutButtonText => _isRunLayout ? "EXIT RUN" : "RUN";
 
     public RelayCommand ToggleRunLayoutCommand { get; private set; } = null!;
+
+    private Views.RunWindow? _runWindow;
+
+    /// <summary>The Run surface as a second window for a caller's own monitor.</summary>
+    public RelayCommand PopOutRunCommand { get; private set; } = null!;
+
+    /// <summary>The open pop-out, for tests and the warning about output displays.</summary>
+    public Views.RunWindow? RunWindow => _runWindow;
 
     // ---- remote screen/group switching --------------------------------------
 

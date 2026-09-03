@@ -9,6 +9,8 @@
 
     <TextBlock Classes="h2" Text="REMOTE CONTROL" />
     <CheckBox Content="Remote control on (web remote + Companion)" IsChecked="{Binding State.Control.Enabled}" />
+    <CheckBox Content="Remotes may ARM the cue stack (CUE ARM ON / OFF, the Companion ARM key)" IsChecked="{Binding State.Control.RemotesMayArm}"
+              ToolTip.Tip="Off by default: arming is a deliberate act at the desk. GO, standby and HOLD from a remote need the stack armed either way." />
     <StackPanel IsEnabled="{Binding State.Control.Enabled}">
       <Grid ColumnDefinitions="130,*,16,Auto,8,90">
         <TextBlock Classes="label" Text="Web remote port" VerticalAlignment="Center" />

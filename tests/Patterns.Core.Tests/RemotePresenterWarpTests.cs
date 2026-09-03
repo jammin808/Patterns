@@ -21,6 +21,23 @@ public class ControlProtocolTests
     [InlineData("STATUS", RemoteCommandKind.Status)]
     [InlineData("PING", RemoteCommandKind.Ping)]
     [InlineData("BLACKOUT ON", RemoteCommandKind.BlackoutOn)]
+    [InlineData("CUE GO", RemoteCommandKind.CueGo)]
+    [InlineData("cue go 0123abcd", RemoteCommandKind.CueGo)]
+    [InlineData("CUE STANDBY NEXT", RemoteCommandKind.CueStandbyNext)]
+    [InlineData("CUE STANDBY back", RemoteCommandKind.CueStandbyPrev)]
+    [InlineData("CUE STANDBY 03.020", RemoteCommandKind.CueStandby)]
+    [InlineData("CUE STANDBY Five-minute call", RemoteCommandKind.CueStandby)]
+    [InlineData("CUE STANDBY", RemoteCommandKind.Unknown)]
+    [InlineData("CUE HOLD ON", RemoteCommandKind.CueHoldOn)]
+    [InlineData("CUE HOLD off", RemoteCommandKind.CueHoldOff)]
+    [InlineData("CUE ARM ON", RemoteCommandKind.CueArmOn)]
+    [InlineData("CUE ARM OFF", RemoteCommandKind.CueArmOff)]
+    [InlineData("CUE LIST", RemoteCommandKind.CueList)]
+    [InlineData("CUE NONSENSE", RemoteCommandKind.Unknown)]
+    [InlineData("STOPALL", RemoteCommandKind.StopAll)]
+    [InlineData("STOP ALL", RemoteCommandKind.OutputsOff)]      // the frozen alias: an older build's STOP
+    [InlineData("HELLO FOH deck", RemoteCommandKind.Hello)]
+    [InlineData("HELLO", RemoteCommandKind.Unknown)]
     [InlineData("blackout off", RemoteCommandKind.BlackoutOff)]
     [InlineData("BLACKOUT", RemoteCommandKind.BlackoutToggle)]
     [InlineData("BLACKOUT TOGGLE", RemoteCommandKind.BlackoutToggle)]
@@ -30,6 +47,16 @@ public class ControlProtocolTests
     [InlineData("TONE OFF", RemoteCommandKind.ToneOff)]
     public void ParsesVerbs(string line, RemoteCommandKind kind)
         => Assert.Equal(kind, ControlProtocol.Parse(line).Kind);
+
+    [Fact]
+    public void CueVerbsCarryTheirArguments()
+    {
+        Assert.Equal("0123abcd", ControlProtocol.Parse("CUE GO 0123abcd").TextArg);
+        Assert.Equal("", ControlProtocol.Parse("CUE GO").TextArg);
+        Assert.Equal("03.020", ControlProtocol.Parse("CUE STANDBY 03.020").TextArg);
+        Assert.Equal("Five-minute call", ControlProtocol.Parse("CUE STANDBY Five-minute call").TextArg);
+        Assert.Equal("FOH deck", ControlProtocol.Parse("HELLO FOH deck").TextArg);
+    }
 
     [Fact]
     public void ParsesLookBySlotAndName()

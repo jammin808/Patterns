@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Patterns.App.ViewModels"
+        xmlns:ctl="using:Patterns.App.Views.Controls"
+        x:Class="Patterns.App.Views.RunWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Patterns — RUN"
+        Icon="/Assets/patterns-256.png"
+        Width="1280" Height="820" MinWidth="960" MinHeight="600"
+        Background="{StaticResource AppBgBrush}">
+  <Border Padding="12">
+    <ctl:RunView />
+  </Border>
+</Window>
