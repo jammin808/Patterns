@@ -51,6 +51,120 @@ public class StingerTests
     }
 
     [AvaloniaFact]
+    public void AVideoStingerFiredFromACueStaysInFrontOfBlackout()
+    {
+        // RunCue puts blackout back after a cue unless the cue switched it; a clip that took the
+        // screens lifted it on purpose, so the audience must not be left looking at black.
+        var (services, vm, window) = Boot();
+        var clip = TempClip("cue-sting.mp4");
+        try
+        {
+            services.ValidationVideoOverride = () => true; // headless: no libVLC, the clip is a stub the decoder never opens
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            var item = new StingerItemConfig { Path = clip, Name = "Opening sting" };
+            vm.State.Stingers.Items.Add(item);
+            var stack = CueStacks.Caller(vm.State);
+            var cue = new RunCueConfig { Number = "1", Name = "Sting", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = item.Id } } };
+            stack.Cues.Add(cue);
+            vm.State.Blackout = true;
+            Dispatcher.UIThread.RunJobs();
+
+            var result = services.Actions.Execute(new ShowAction(ShowActionKind.CueFire, cue.Id), ActionOrigin.Desk);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(result.Ok, result.Message);
+            Assert.True(services.Stingers.ClipActive);
+            Assert.False(vm.State.Blackout);
+            Assert.False(services.Bus.Current.State.Blackout);
+            Assert.Equal(clip, services.Bus.Current.State.Pattern.Media.VideoPath);
+            Assert.Equal("STING: Opening sting", services.AirLabel);
+
+            // The clip ends: the previous content comes back, and blackout stays off — the clip lifted it.
+            InputBus.Mount(InputKeys.Video(clip), new EndedSource());
+            services.Stingers.Poll();
+            Assert.False(services.Stingers.ClipActive);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
+        }
+        finally
+        {
+            InputBus.Clear();
+            File.Delete(clip);
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheLiveStripGetsItsLabelBackWhenAStingerEnds()
+    {
+        var (services, vm, window) = Boot();
+        var clip = TempClip("label-sting.mp4");
+        try
+        {
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            var item = new StingerItemConfig { Path = clip, Name = "Winner sting" };
+            vm.State.Stingers.Items.Add(item);
+            services.AirLabel = "Walk-in";
+
+            // A natural end gives the label back.
+            Assert.True(services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id).Ok);
+            Assert.Equal("STING: Winner sting", services.AirLabel);
+            InputBus.Mount(InputKeys.Video(clip), new EndedSource());
+            services.Stingers.Poll();
+            Assert.Equal("Walk-in", services.AirLabel);
+            Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);
+
+            // So does STOP.
+            Assert.True(services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id).Ok);
+            Assert.Equal("STING: Winner sting", services.AirLabel);
+            services.Actions.Execute(ShowActionKind.StingerStop, ActionOrigin.Desk);
+            Assert.Equal("Walk-in", services.AirLabel);
+
+            // A claim made meanwhile (a look, a cue) stands.
+            Assert.True(services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id).Ok);
+            services.AirLabel = "Awards holding";
+            services.Stingers.Poll();
+            Assert.False(services.Stingers.ClipActive);
+            Assert.Equal("Awards holding", services.AirLabel);
+        }
+        finally
+        {
+            InputBus.Clear();
+            File.Delete(clip);
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DeletingAStingerACueStillFiresIsRefused()
+    {
+        var (services, vm, window) = Boot();
+        var clip = TempClip("seats.wav");
+        try
+        {
+            var item = new StingerItemConfig { Path = clip, Name = "Take your seats" };
+            vm.State.Stingers.Items.Add(item);
+            var stack = CueStacks.Caller(vm.State);
+            stack.Cues.Add(new RunCueConfig { Number = "1", Name = "Call", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = item.Id } } });
+
+            vm.RemoveStingerCommand.Execute(item);
+            Assert.Contains(item, vm.State.Stingers.Items);
+            Assert.Contains("Take your seats", vm.StatusMessage);
+            Assert.Contains("cue 1 Call", vm.StatusMessage);
+
+            stack.Cues.Clear();
+            vm.RemoveStingerCommand.Execute(item);
+            Assert.DoesNotContain(item, vm.State.Stingers.Items);
+        }
+        finally
+        {
+            File.Delete(clip);
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
     public void VideoStingerOverridesEveryScreenThenReverts()
     {
         var (services, vm, window) = Boot();

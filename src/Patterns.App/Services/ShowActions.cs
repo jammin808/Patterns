@@ -361,8 +361,7 @@ public sealed class ShowActions
                 var item = FindStinger(a.Target);
                 if (item is null) return ActionResult.Refused($"No stinger '{a.Target}'.");
                 if (!_s.Stingers.Fire(item)) return ActionResult.Failed(_s.Stingers.Status);
-                _s.AirLabel = $"STING: {item.DisplayName}";
-                return ActionResult.Requested(_s.Stingers.Status);
+                return ActionResult.Requested(_s.Stingers.Status); // the service owns the strip's label while it plays
             }
             case ShowActionKind.StingerStop:
                 _s.Stingers.Stop();
@@ -547,7 +546,10 @@ public sealed class ShowActions
                 if (r.Status == ActionStatus.Requested) requested = true;
                 done++;
             }
-            if (!explicitBlackout) _s.State.Blackout = blackoutBefore;
+            // Blackout is transport, put back after the cue — unless a clip took the screens in
+            // this cue: it lifted blackout on purpose so the audience sees it, and it puts the
+            // previous state back itself when it ends.
+            if (!explicitBlackout && !_s.Stingers.ClipActive) _s.State.Blackout = blackoutBefore;
         });
 
         rt.LastCueId = cue.Id;
@@ -616,11 +618,5 @@ public sealed class ShowActions
         return false;
     }
 
-    private StingerItemConfig? FindStinger(string target)
-    {
-        var items = State.Stingers.Items;
-        if (int.TryParse(target, out var n)) return n >= 1 && n <= items.Count ? items[n - 1] : null;
-        return items.FirstOrDefault(i => i.Id == target)
-               ?? items.FirstOrDefault(i => string.Equals(i.DisplayName, target, StringComparison.OrdinalIgnoreCase));
-    }
+    private StingerItemConfig? FindStinger(string target) => StingerLibrary.Find(State, target);
 }

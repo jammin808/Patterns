@@ -192,7 +192,15 @@ public sealed class MainViewModel : Observable
         AddStingerFilesCommand = new RelayCommand(() => _ = AddStingerFilesAsync());
         RemoveStingerCommand = new RelayCommand<StingerItemConfig>(item =>
         {
-            if (item is not null) State.Stingers.Items.Remove(item);
+            if (item is null) return;
+            // A cue that fires a deleted stinger fails at show time; refuse and say what points here.
+            var refs = StingerLibrary.References(State, item);
+            if (refs.Count > 0)
+            {
+                StatusMessage = $"'{item.DisplayName}' is still used by {string.Join(", ", refs)} — remove those first.";
+                return;
+            }
+            State.Stingers.Items.Remove(item);
         });
         FireStingerCommand = new RelayCommand<StingerItemConfig>(item =>
         {

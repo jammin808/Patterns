@@ -24,6 +24,8 @@ public sealed class StingerService : IDisposable
     private DateTime _firedUtc;
     private bool _audioActive;
     private string _status = "Ready.";
+    private string _ourLabel = "";                                 // the LIVE strip's label while a stinger plays
+    private string? _labelBefore;                                  // what it said before, given back at the end
 
     public StingerService(AppServices services)
     {
@@ -61,6 +63,7 @@ public sealed class StingerService : IDisposable
             _audioActive = true;
             _services.State.Stingers.PlayingName = name;
             _status = $"On air: {name}";
+            TakeLabel(name);
             return true;
         }
 
@@ -109,6 +112,7 @@ public sealed class StingerService : IDisposable
         _firedUtc = DateTime.UtcNow;
         _services.State.Stingers.PlayingName = name;
         _status = $"Clip on screens: {name}";
+        TakeLabel(name);
         Log.Info($"Stinger fired: {name}");
         return true;
     }
@@ -124,6 +128,7 @@ public sealed class StingerService : IDisposable
         StopClipIfAny(restore: true);
         _services.State.Stingers.PlayingName = "";
         _status = "Ready.";
+        GiveLabelBack();
     }
 
     private void Tick()
@@ -138,6 +143,7 @@ public sealed class StingerService : IDisposable
                 {
                     _services.State.Stingers.PlayingName = "";
                     _status = "Ready.";
+                    GiveLabelBack();
                 }
             }
 
@@ -161,6 +167,7 @@ public sealed class StingerService : IDisposable
                 _status = "Clip finished — previous content back.";
                 _services.Journal.Record(ActionOrigin.Stinger.Label, ShowActionKind.StingerStop.ToString(), name,
                     ActionStatus.Done.ToString(), _status);
+                if (!_audioActive) GiveLabelBack();
                 return;
             }
 
@@ -174,6 +181,7 @@ public sealed class StingerService : IDisposable
                 _status = "Clip could not play — previous content back.";
                 _services.Journal.Record(ActionOrigin.Stinger.Label, ShowActionKind.StingerStop.ToString(), name,
                     ActionStatus.Failed.ToString(), _status);
+                if (!_audioActive) GiveLabelBack();
             }
         }
         catch (Exception ex)
@@ -218,6 +226,24 @@ public sealed class StingerService : IDisposable
         _overrideKey = "";
         _services.State.Stingers.PlayingName = "";
         _status = status;
+        _labelBefore = null; // the operator's own action named what is on air now
+        _ourLabel = "";
+    }
+
+    /// <summary>The LIVE strip says the sting while it plays; a chain keeps the original label to give back.</summary>
+    private void TakeLabel(string name)
+    {
+        _labelBefore ??= _services.AirLabel;
+        _ourLabel = $"STING: {name}";
+        _services.AirLabel = _ourLabel;
+    }
+
+    /// <summary>The strip goes back to what it said — unless a look or a cue claimed it meanwhile: that claim stands.</summary>
+    private void GiveLabelBack()
+    {
+        if (_labelBefore is { } before && _services.AirLabel == _ourLabel) _services.AirLabel = before;
+        _labelBefore = null;
+        _ourLabel = "";
     }
 
     public void Dispose() => _timer.Stop();

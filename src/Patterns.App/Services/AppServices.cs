@@ -72,7 +72,12 @@ public sealed class AppServices
     private readonly Lazy<CueValidationContext> _validation;
 
     /// <summary>What the cue validator may ask this machine: files on disk, the video runtime.</summary>
-    public CueValidationContext ValidationContext => _validation.Value;
+    public CueValidationContext ValidationContext => ValidationVideoOverride is { } video
+        ? new CueValidationContext { VideoDecoderAvailable = video() }
+        : _validation.Value;
+
+    /// <summary>Tests only: stand in for "is libVLC present" so a video-stinger cue can run headless.</summary>
+    public Func<bool>? ValidationVideoOverride { get; set; }
 
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
     public RecoverySnapshot? PendingRecovery { get; }

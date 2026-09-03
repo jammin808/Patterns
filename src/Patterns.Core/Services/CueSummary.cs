@@ -73,23 +73,7 @@ public static class CueSummary
     }
 
     /// <summary>A stinger by id, then by display name (case-insensitive).</summary>
-    public static StingerItemConfig? FindStinger(ShowState state, string idOrName)
-    {
-        if (string.IsNullOrWhiteSpace(idOrName)) return null;
-        foreach (var s in state.Stingers.Items)
-        {
-            if (string.Equals(s.Id, idOrName, StringComparison.Ordinal)) return s;
-        }
-        foreach (var s in state.Stingers.Items)
-        {
-            if (string.Equals(s.DisplayName, idOrName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(s.Name, idOrName, StringComparison.OrdinalIgnoreCase))
-            {
-                return s;
-            }
-        }
-        return null;
-    }
+    public static StingerItemConfig? FindStinger(ShowState state, string idOrName) => StingerLibrary.Find(state, idOrName);
 
     private static string ScreenLabel(ShowState state, string id)
     {
