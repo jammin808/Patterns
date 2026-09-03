@@ -28,7 +28,7 @@
     </StackPanel>
 
     <TextBlock Classes="hint"
-               Text="Watchdog, performance monitoring, GPU choice and machine health moved to the Admin tab." />
+               Text="Watchdog, performance monitoring, GPU choice and machine health live on the Machine page (ADMIN)." />
 
     <TextBlock Classes="hint"
                Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Pages open as managed browser windows (Edge or Chrome, private profile), so they never touch your own browser and close from here with one click." />
@@ -75,6 +75,6 @@
 
     <TextBlock Classes="h2" Text="GOOD TO KNOW" />
     <TextBlock Classes="hint"
-               Text="Web windows sit on top of the operating system, not inside the pattern engine — they don't join spans, take trims, or reach NDI outputs. For that, open the page on another machine and bring it in as an NDI feed (Media tab)." />
+               Text="Web windows sit on top of the operating system, not inside the pattern engine — they don't join spans, take trims, or reach NDI outputs. For that, open the page on another machine and bring it in as an NDI feed (Media page)." />
   </StackPanel>
 </UserControl>

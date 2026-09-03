@@ -176,7 +176,7 @@ internal static class Supervisor
                 default:
                     restarts++;
                     var why = killedForHang ? "hung"
-                        : exitCode == SupervisorPolicy.RestartRequestExitCode ? "asked to restart (Admin tab)"
+                        : exitCode == SupervisorPolicy.RestartRequestExitCode ? "asked to restart (Machine page)"
                         : $"crashed (exit {exitCode})";
                     WLog($"App {why} after {(DateTime.UtcNow - startedUtc).TotalSeconds:0}s — " +
                          $"restart #{restarts} in {verdict.Delay.TotalSeconds:0}s.");

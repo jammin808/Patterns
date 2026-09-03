@@ -177,6 +177,12 @@ public static class CueValidator
                 case CueActionKind.MessageOn:
                     if (string.IsNullOrWhiteSpace(a.Value)) Soft($"{where}: the message text is empty.");
                     break;
+                case CueActionKind.AudioVolume:
+                    if (!CueActionSpec.TryParsePercent(a.Value, out _))
+                    {
+                        Hard($"{where}: audio volume '{a.Value}' is not a number from 0 to 125.");
+                    }
+                    break;
                 case CueActionKind.ListArm:
                 case CueActionKind.ListDisarm:
                 case CueActionKind.ListGo:

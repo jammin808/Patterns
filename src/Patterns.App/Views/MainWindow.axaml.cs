@@ -21,6 +21,25 @@ public partial class MainWindow : Window
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnPreviewKeyUp, RoutingStrategies.Tunnel);
         Deactivated += (_, _) => _down.Clear(); // a key-up missed during Alt+Tab must not jam a key
+        DataContextChanged += (_, _) => HookShell();
+    }
+
+    private MainViewModel? _hookedVm;
+
+    /// <summary>
+    /// The page TabControl is bound two-way to the view model's page, but a refused change (leaving
+    /// Run while armed) leaves the view model where it was, and a binding does not re-publish an
+    /// unchanged value: the window puts the tab back itself.
+    /// </summary>
+    private void HookShell()
+    {
+        if (DataContext is not MainViewModel vm || ReferenceEquals(_hookedVm, vm)) return;
+        _hookedVm = vm;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(MainViewModel.SelectedPageIndex)) return;
+            if (Pages.SelectedIndex != vm.SelectedPageIndex) Pages.SelectedIndex = vm.SelectedPageIndex;
+        };
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)

@@ -53,6 +53,8 @@ public enum CueActionKind
     ListGo,
     ListBack,
     ListReset,
+    /// <summary>The audio track's volume, 0–125 %, as the SHOW CONTROLS drawer sends it.</summary>
+    AudioVolume,
 }
 
 /// <summary>One typed step of a cue.</summary>

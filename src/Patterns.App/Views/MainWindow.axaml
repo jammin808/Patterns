@@ -20,200 +20,267 @@
     <KeyBinding Gesture="Shift+F8" Command="{Binding BlackoutCommand}" />
   </Window.KeyBindings>
 
+  <Window.Styles>
+    <!-- The TabControl keeps the pages (and lets a test pick one by header); the shell draws
+         its own page strip across the top of the layout, so the built-in strip is hidden. -->
+    <Style Selector="TabControl#Pages /template/ ItemsPresenter#PART_ItemsPresenter">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+  </Window.Styles>
+
   <Grid RowDefinitions="Auto,*">
 
-    <!-- Header / transport -->
+    <!-- Header: the name, the mode selector, the transport -->
     <Border Grid.Row="0" Background="{StaticResource PanelBgBrush}"
             BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1" Padding="16,10">
-      <Grid ColumnDefinitions="Auto,*,Auto">
+      <Grid ColumnDefinitions="Auto,Auto,*">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <TextBlock Text="◧" FontSize="22" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
           <StackPanel>
             <TextBlock Text="PATTERNS" FontSize="16" FontWeight="Bold" LetterSpacing="2" />
-            <TextBlock Text="{Binding OutputsStatus}" Classes="hint" />
+            <TextBlock Text="{Binding OutputsStatus}" Classes="hint" MaxWidth="250" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OutputsStatus}" />
           </StackPanel>
         </StackPanel>
 
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <Border Classes="armedChip" IsVisible="{Binding Run.IsArmed}" VerticalAlignment="Center">
+        <!-- PREP · SHOW · RUN: the first two are the show mode, RUN is the caller's layout -->
+        <Border Grid.Column="1" Classes="modeGroup" Margin="28,0,0,0" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button Classes="mode prep" Classes.on="{Binding IsPrepSelected}" Content="PREP" Command="{Binding SelectPrepCommand}" Focusable="False"
+                    ToolTip.Tip="Pre-programming: build the rig, screens, inputs and looks with nothing plugged in — outputs are held closed" />
+            <Button Classes="mode show" Classes.on="{Binding IsShowSelected}" Content="SHOW" Command="{Binding SelectShowCommand}" Focusable="False"
+                    ToolTip.Tip="Show mode: the outputs can open; the editors and the switcher" />
+            <Button Classes="mode run" Classes.on="{Binding IsRunSelected}" Content="RUN" Command="{Binding SelectRunCommand}" Focusable="False"
+                    ToolTip.Tip="The caller's surface — LIVE strip, the wall, the cue stack, GO. Leaving it is refused while the stack is armed." />
+          </StackPanel>
+        </Border>
+
+        <!-- A WrapPanel, so a narrow window wraps the transport onto a second line instead
+             of clipping BLACKOUT off the right edge. -->
+        <WrapPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+          <Border Classes="armedChip" IsVisible="{Binding Run.IsArmed}" VerticalAlignment="Center" Margin="4,2">
             <TextBlock Text="ARMED" FontWeight="Bold" FontSize="11" />
           </Border>
-          <Button Classes="chip" Content="{Binding RunLayoutButtonText}" Command="{Binding ToggleRunLayoutCommand}" Focusable="False"
-                  ToolTip.Tip="RUN: the caller's surface — LIVE strip, the wall, the cue stack, GO. EXIT RUN is disabled while armed." />
           <TextBlock Text="{Binding HeaderClock}" FontSize="18" FontWeight="SemiBold"
-                     VerticalAlignment="Center" Margin="0,0,10,0" />
+                     VerticalAlignment="Center" Margin="4,2,12,2" />
           <!-- Transport buttons never take keyboard focus: a focused button fires on Space and
                Enter, and Space is the blackout key. -->
-          <Button Classes="go" Content="OUTPUTS ON (⇧F5)" Command="{Binding GoCommand}" Focusable="False"
+          <Button Classes="go" Content="OUTPUTS ON (⇧F5)" Command="{Binding GoCommand}" Focusable="False" Margin="4,2"
                   ToolTip.Tip="Open the output windows on the enabled screens (Shift+F5)" />
-          <Button Classes="stop" Content="OUTPUTS OFF (⇧F6)" Command="{Binding StopCommand}" Focusable="False"
+          <Button Classes="stop" Content="OUTPUTS OFF (⇧F6)" Command="{Binding StopCommand}" Focusable="False" Margin="4,2"
                   ToolTip.Tip="Close all output windows (Shift+F6)" />
-          <Button Classes="stop" Content="IDENTIFY (⇧F7)" Command="{Binding IdentifyCommand}" Focusable="False"
+          <Button Classes="stop" Content="IDENTIFY (⇧F7)" Command="{Binding IdentifyCommand}" Focusable="False" Margin="4,2"
                   ToolTip.Tip="Flash screen numbers on every output (Shift+F7)" />
-          <ToggleButton Classes="blackout" Content="BLACKOUT (⇧F8)" IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False"
+          <ToggleButton Classes="blackout" Content="BLACKOUT (⇧F8)" IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False" Margin="4,2"
                         ToolTip.Tip="Instant black on all outputs and NDI (Shift+F8, or Space) — F1–F12 recall looks" />
-        </StackPanel>
+        </WrapPanel>
       </Grid>
     </Border>
 
-    <!-- Body -->
-    <Grid Grid.Row="1" ColumnDefinitions="470,*" Margin="12">
+    <!-- Body: the rail of five groups, then the page strip over the layout -->
+    <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
 
-      <!-- Editor column: what-am-I-editing banner + build tabs (neon dots group them) -->
-      <Grid Grid.Column="0" RowDefinitions="Auto,*" IsVisible="{Binding !IsRunLayout}">
-        <Border Grid.Row="0" Background="#14232E" BorderBrush="{StaticResource AccentBrush}"
-                BorderThickness="0,0,0,2" CornerRadius="8,8,0,0" Padding="12,6" Margin="0,0,0,6">
-          <Grid ColumnDefinitions="Auto,*">
-            <Border Grid.Column="0" Background="#3A2E10" BorderBrush="#FFC24D" BorderThickness="1"
-                    CornerRadius="5" Padding="6,1" Margin="0,0,8,0" IsVisible="{Binding IsPrepMode}">
-              <TextBlock Text="PREP" FontWeight="Bold" FontSize="11" Foreground="#FFC24D" />
+      <Border Grid.Column="0" Classes="rail">
+        <ItemsControl ItemsSource="{Binding GroupStrip}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:GroupChip">
+              <Button Classes="navGroup" Classes.on="{Binding IsCurrent}" Focusable="False"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectGroupCommand}"
+                      CommandParameter="{Binding Group}" ToolTip.Tip="{Binding Hint}">
+                <StackPanel Spacing="6" HorizontalAlignment="Center">
+                  <Ellipse Classes="dot" Fill="{Binding HueBrush}" Width="10" Height="10" HorizontalAlignment="Center" />
+                  <TextBlock Classes="navlabel" Text="{Binding Label}" HorizontalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="10,8,12,12">
+
+        <!-- The page strip: the pages of the current group, visible in both layouts -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+          <ItemsControl Grid.Column="0" ItemsSource="{Binding PageStrip}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:PageChip">
+                <Button Classes="pageChip" Classes.on="{Binding IsCurrent}" Focusable="False"
+                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectPageCommand}"
+                        CommandParameter="{Binding Index}">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Ellipse Classes="dot" Fill="{Binding HueBrush}" />
+                    <TextBlock Text="{Binding Header}" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Grid.Column="1" Classes="hint" Text="{Binding GroupHint}" VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="470,*">
+
+          <!-- Editor column: what-am-I-editing banner + the page -->
+          <Grid Grid.Column="0" RowDefinitions="Auto,*" IsVisible="{Binding !IsRunLayout}">
+            <Border Grid.Row="0" Background="#14232E" BorderBrush="{StaticResource AccentBrush}"
+                    BorderThickness="0,0,0,2" CornerRadius="8,8,0,0" Padding="12,6" Margin="0,0,0,6">
+              <Grid ColumnDefinitions="Auto,*">
+                <Border Grid.Column="0" Background="#3A2E10" BorderBrush="#FFC24D" BorderThickness="1"
+                        CornerRadius="5" Padding="6,1" Margin="0,0,8,0" IsVisible="{Binding IsPrepMode}">
+                  <TextBlock Text="PREP" FontWeight="Bold" FontSize="11" Foreground="#FFC24D" />
+                </Border>
+                <TextBlock Grid.Column="1" Text="{Binding EditTargetBanner}" FontWeight="SemiBold" FontSize="12"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource AccentBrush}" TextTrimming="CharacterEllipsis" />
+              </Grid>
             </Border>
-            <TextBlock Grid.Column="1" Text="{Binding EditTargetBanner}" FontWeight="SemiBold" FontSize="12"
-                       VerticalAlignment="Center"
-                       Foreground="{StaticResource AccentBrush}" TextTrimming="CharacterEllipsis" />
+            <!-- One TabItem per page, in the order of the Shell.Pages table (a test pins them together). -->
+            <TabControl x:Name="Pages" Grid.Row="1" TabStripPlacement="Top" Padding="0"
+                        SelectedIndex="{Binding SelectedPageIndex, Mode=TwoWay}">
+              <TabItem Header="Panel"><ScrollViewer><v:ShowSection /></ScrollViewer></TabItem>
+              <TabItem Header="Run">
+                <StackPanel Classes="form" Margin="4,8,12,16">
+                  <TextBlock Classes="h1 neon-show" Text="Run" />
+                  <TextBlock Classes="hint" Text="The Run surface takes the whole window: the LIVE strip, the wall beside the cue stack, GO." />
+                </StackPanel>
+              </TabItem>
+              <TabItem Header="Cues"><ScrollViewer><v:CuesSection /></ScrollViewer></TabItem>
+              <TabItem Header="Looks"><ScrollViewer><v:LooksSection /></ScrollViewer></TabItem>
+              <TabItem Header="Pattern"><ScrollViewer><v:PatternSection /></ScrollViewer></TabItem>
+              <TabItem Header="Media"><ScrollViewer><v:MediaSection /></ScrollViewer></TabItem>
+              <TabItem Header="Overlays"><ScrollViewer><v:OverlaysSection /></ScrollViewer></TabItem>
+              <TabItem Header="Countdown"><ScrollViewer><v:CountdownSection /></ScrollViewer></TabItem>
+              <TabItem Header="Particles"><ScrollViewer><v:ParticlesSection /></ScrollViewer></TabItem>
+              <TabItem Header="Branding"><ScrollViewer><v:BrandingSection /></ScrollViewer></TabItem>
+              <TabItem Header="Library"><v:LibrarySection /></TabItem>
+              <TabItem Header="Screens"><ScrollViewer><v:OutputsSection /></ScrollViewer></TabItem>
+              <TabItem Header="Audio"><ScrollViewer><v:AudioSection /></ScrollViewer></TabItem>
+              <TabItem Header="NDI"><ScrollViewer><v:NdiSection /></ScrollViewer></TabItem>
+              <TabItem Header="Stream"><ScrollViewer><v:StreamSection /></ScrollViewer></TabItem>
+              <TabItem Header="Remote"><ScrollViewer><v:WebSection /></ScrollViewer></TabItem>
+              <TabItem Header="Machine"><ScrollViewer><v:AdminSection /></ScrollViewer></TabItem>
+              <TabItem Header="Help"><ScrollViewer><v:HelpSection /></ScrollViewer></TabItem>
+            </TabControl>
           </Grid>
-        </Border>
-        <TabControl Grid.Row="1" TabStripPlacement="Left" Padding="8,0,0,0">
-        <!-- One column, always: the default strip panel wraps into a second column once the
-             rail runs out of height, which squeezes the page beside it to nothing. -->
-        <TabControl.ItemsPanel>
-          <ItemsPanelTemplate><StackPanel Orientation="Vertical" /></ItemsPanelTemplate>
-        </TabControl.ItemsPanel>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#2EE68A"/><TextBlock Text="Show"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:ShowSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#3EC1F3"/><TextBlock Text="Pattern"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:PatternSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FF6EC7"/><TextBlock Text="Media"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:MediaSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#6E9BFF"/><TextBlock Text="Looks"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:LooksSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#6E9BFF"/><TextBlock Text="Cues"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:CuesSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#B18CFF"/><TextBlock Text="Outputs"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:OutputsSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FF9E58"/><TextBlock Text="Audio"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:AudioSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Clock"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:OverlaysSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Countdown"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:CountdownSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Particles"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:ParticlesSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FFC24D"/><TextBlock Text="Branding"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:BrandingSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#35E0D0"/><TextBlock Text="Remote"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:WebSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#8FA5FF"/><TextBlock Text="NDI"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:NdiSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#FF5C7A"/><TextBlock Text="Stream"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:StreamSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#B8E356"/><TextBlock Text="Admin"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:AdminSection /></ScrollViewer>
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#C0CBDB"/><TextBlock Text="Library"/></StackPanel></TabItem.Header>
-          <v:LibrarySection />
-        </TabItem>
-        <TabItem>
-          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#C0CBDB"/><TextBlock Text="Help"/></StackPanel></TabItem.Header>
-          <ScrollViewer><v:HelpSection /></ScrollViewer>
-        </TabItem>
-        </TabControl>
-      </Grid>
 
-      <!-- Switcher column: PROGRAM (air) on top, strip + CUT/TAKE, PREVIEW (work) below -->
-      <Grid Grid.Column="1" RowDefinitions="Auto,2*,Auto,Auto,3*,Auto" Margin="12,0,0,0" IsVisible="{Binding !IsRunLayout}">
+          <!-- Switcher column: PROGRAM (air) on top, the wall, the SHOW CONTROLS drawer, PREVIEW (work) below -->
+          <Grid Grid.Column="1" RowDefinitions="Auto,2*,Auto,Auto,Auto,3*,Auto" Margin="12,0,0,0" IsVisible="{Binding !IsRunLayout}">
 
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,8,*,Auto" Margin="2,0,2,4">
-          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-            <Ellipse Classes="dot" Fill="#FF5C7A" />
-            <TextBlock Text="PROGRAM" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" Foreground="#FF9EB0" />
-          </StackPanel>
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="4,0,0,0">
-            <TextBlock Classes="hint" Text="{Binding SelectedTargetLabel}" FontWeight="SemiBold" />
-            <TextBlock Classes="hint" Text="{Binding SelectedTargetSizeText}" />
-            <TextBlock Classes="hint" Text="· what the audience sees there" />
-          </StackPanel>
-          <TextBlock Grid.Column="3" Classes="label" Text="{Binding OutputsStatus}" VerticalAlignment="Center" />
-        </Grid>
-        <Border Grid.Row="1" Classes="panel" Padding="4" ClipToBounds="True"
-                BorderBrush="#59FF5C7A" BorderThickness="1">
-          <!-- The pane takes the selected target's shape: a true miniature, letterboxed. -->
-          <ctl:AspectBox Ratio="{Binding SelectedTargetRatio}">
-            <r:SkiaCanvasControl x:Name="PgmCanvas" />
-          </ctl:AspectBox>
-        </Border>
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,8,*,Auto" Margin="2,0,2,4">
+              <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                <Ellipse Classes="dot" Fill="#FF5C7A" />
+                <TextBlock Text="PROGRAM" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" Foreground="#FF9EB0" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="4,0,0,0">
+                <TextBlock Classes="hint" Text="{Binding SelectedTargetLabel}" FontWeight="SemiBold" />
+                <TextBlock Classes="hint" Text="{Binding SelectedTargetSizeText}" />
+                <TextBlock Classes="hint" Text="· what the audience sees there" />
+              </StackPanel>
+              <TextBlock Grid.Column="3" Classes="label" Text="{Binding OutputsStatus}" VerticalAlignment="Center" />
+            </Grid>
+            <Border Grid.Row="1" Classes="panel" Padding="4" ClipToBounds="True"
+                    BorderBrush="#59FF5C7A" BorderThickness="1">
+              <!-- The pane takes the selected target's shape: a true miniature, letterboxed. -->
+              <ctl:AspectBox Ratio="{Binding SelectedTargetRatio}">
+                <r:SkiaCanvasControl x:Name="PgmCanvas" />
+              </ctl:AspectBox>
+            </Border>
 
-        <!-- The wall (one tile per content target) with ARM ALL, CUT and TAKE — shared with the Run layout -->
-        <ctl:WallView Grid.Row="2" Margin="0,6,0,6" />
+            <!-- The wall (one tile per content target) with ARM ALL, CUT and TAKE — shared with the Run layout -->
+            <ctl:WallView Grid.Row="2" Margin="0,6,0,6" />
 
-        <Grid Grid.Row="3" ColumnDefinitions="Auto,8,Auto,8,*,Auto,Auto" Margin="2,0,2,4">
-          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-            <Ellipse Classes="dot" Fill="#2EE68A" />
-            <TextBlock Text="PREVIEW" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" Foreground="#8FE8B8" />
-          </StackPanel>
-          <ToggleButton Grid.Column="2" Classes="mini" Content="EDIT SAFE (sandbox)"
-                        IsChecked="{Binding IsSandboxActive, Mode=TwoWay}"
-                        ToolTip.Tip="On: edits build here without going live — outputs and NDI hold the program (blackout stays live, cues hold). Then CUT/TAKE to all screens, SEND to ticked tiles, save as a look, or switch off to discard. Off: edits go straight to air, classic test-pattern style." />
-          <TextBlock Grid.Column="4" Classes="hint" VerticalAlignment="Center" Margin="8,0,0,0"
-                     Text="{Binding IsSandboxActive, Converter={StaticResource BoolText}, ConverterParameter='sandboxed — edits stay off air until you CUT or TAKE|LIVE — every edit goes straight to the screens'}" />
-          <Button Grid.Column="5" Classes="mini" Content="SEND TO TICKED" Margin="0,0,6,0"
-                  Command="{Binding SandboxSendSelectedCommand}" IsVisible="{Binding IsSandboxActive}"
-                  ToolTip.Tip="The sandbox becomes the ticked tiles' own pattern; everything else stays as it was" />
-          <TextBlock Grid.Column="6" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
-        </Grid>
-        <Border Grid.Row="4" Classes="panel" Padding="4" ClipToBounds="True"
-                BorderBrush="#2EE68A"
-                BorderThickness="{Binding IsSandboxActive, Converter={StaticResource SandboxBorder}}">
-          <ctl:AspectBox Ratio="{Binding SelectedTargetRatio}">
-            <r:SkiaCanvasControl x:Name="PreviewCanvas" />
-          </ctl:AspectBox>
-        </Border>
+            <!-- SHOW CONTROLS: four air-targeted controls behind an explicit SEND, sandbox open or not -->
+            <Expander Grid.Row="3" Classes="drawer" IsExpanded="{Binding ShowControls.IsOpen, Mode=TwoWay}"
+                      HorizontalAlignment="Stretch" Margin="0,0,0,6">
+              <Expander.Header>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="SHOW CONTROLS" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" VerticalAlignment="Center" />
+                  <TextBlock Classes="hint" Text="message · clock · countdown · audio volume — straight to air behind SEND" VerticalAlignment="Center" />
+                </StackPanel>
+              </Expander.Header>
+              <Grid ColumnDefinitions="88,*,Auto,Auto,170" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="4,2,4,2">
+                <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Message" VerticalAlignment="Center" />
+                <TextBox Grid.Row="0" Grid.Column="1" Watermark="Message text" Text="{Binding ShowControls.DraftMessage, Mode=TwoWay}" Margin="0,2" />
+                <Button Grid.Row="0" Grid.Column="2" Classes="mini" Content="SEND" Command="{Binding ShowControls.MessageShowCommand}" Focusable="False" Margin="8,0,0,0"
+                        ToolTip.Tip="Put this text on air as the message overlay" />
+                <Button Grid.Row="0" Grid.Column="3" Classes="mini" Content="HIDE" Command="{Binding ShowControls.MessageHideCommand}" Focusable="False" />
+                <TextBlock Grid.Row="0" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.MessageAirText}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
 
-        <Grid Grid.Row="5" ColumnDefinitions="*,Auto" Margin="2,8,2,0">
-          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-            <TextBlock Classes="label" Text="{Binding CanvasInfo}" />
-            <TextBlock Classes="label" Text="{Binding NdiStatus, StringFormat='NDI: {0}'}" />
-            <TextBlock Classes="label" Foreground="{StaticResource AccentBrush}" Text="{Binding StatusMessage}" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-            <Button Classes="chip" Content="Save show…" Command="{Binding SaveShowCommand}" />
-            <Button Classes="chip" Content="Load show…" Command="{Binding LoadShowCommand}" />
-          </StackPanel>
+                <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Clock" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Classes="hint" Text="the clock overlay as set on the Overlays page" VerticalAlignment="Center" />
+                <Button Grid.Row="1" Grid.Column="2" Classes="mini" Content="SHOW" Command="{Binding ShowControls.ClockShowCommand}" Focusable="False" Margin="8,0,0,0" />
+                <Button Grid.Row="1" Grid.Column="3" Classes="mini" Content="HIDE" Command="{Binding ShowControls.ClockHideCommand}" Focusable="False" />
+                <TextBlock Grid.Row="1" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.ClockAirText}" VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Countdown" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,2">
+                  <TextBox Width="70" Watermark="min" Text="{Binding ShowControls.DraftMinutesText, Mode=TwoWay}" />
+                  <TextBlock Classes="hint" Text="minutes from START" VerticalAlignment="Center" />
+                </StackPanel>
+                <Button Grid.Row="2" Grid.Column="2" Classes="mini" Content="START" Command="{Binding ShowControls.CountdownStartCommand}" Focusable="False" Margin="8,0,0,0" />
+                <Button Grid.Row="2" Grid.Column="3" Classes="mini" Content="STOP" Command="{Binding ShowControls.CountdownStopCommand}" Focusable="False" />
+                <TextBlock Grid.Row="2" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.CountdownAirText}" VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Classes="label" Text="Audio volume" VerticalAlignment="Center" />
+                <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,48">
+                  <Slider Minimum="0" Maximum="125" TickFrequency="5" Value="{Binding ShowControls.DraftVolume, Mode=TwoWay}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="label" Text="{Binding ShowControls.DraftVolumeText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+                <Button Grid.Row="3" Grid.Column="2" Classes="mini" Content="SEND" Command="{Binding ShowControls.VolumeSendCommand}" Focusable="False" Margin="8,0,0,0"
+                        ToolTip.Tip="Set the audio track's volume now (100 = as recorded, up to 125)" />
+                <TextBlock Grid.Row="3" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.VolumeAirText, StringFormat='on air: {0}'}" VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5" Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Text="Each SEND goes to air through the same seam as a cue — sandbox open or not — and is journaled as a desk action. The next look recall replaces it." />
+              </Grid>
+            </Expander>
+
+            <Grid Grid.Row="4" ColumnDefinitions="Auto,8,Auto,8,*,Auto,Auto" Margin="2,0,2,4">
+              <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                <Ellipse Classes="dot" Fill="#2EE68A" />
+                <TextBlock Text="PREVIEW" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" Foreground="#8FE8B8" />
+              </StackPanel>
+              <ToggleButton Grid.Column="2" Classes="mini" Content="EDIT SAFE (sandbox)"
+                            IsChecked="{Binding IsSandboxActive, Mode=TwoWay}"
+                            ToolTip.Tip="On: edits build here without going live — outputs and NDI hold the program (blackout stays live, cues hold). Then CUT/TAKE to all screens, SEND to ticked tiles, save as a look, or switch off to discard. Off: edits go straight to air, classic test-pattern style." />
+              <TextBlock Grid.Column="4" Classes="hint" VerticalAlignment="Center" Margin="8,0,0,0"
+                         Text="{Binding IsSandboxActive, Converter={StaticResource BoolText}, ConverterParameter='sandboxed — edits stay off air until you CUT or TAKE|LIVE — every edit goes straight to the screens'}" />
+              <Button Grid.Column="5" Classes="mini" Content="SEND TO TICKED" Margin="0,0,6,0"
+                      Command="{Binding SandboxSendSelectedCommand}" IsVisible="{Binding IsSandboxActive}"
+                      ToolTip.Tip="The sandbox becomes the ticked tiles' own pattern; everything else stays as it was" />
+              <TextBlock Grid.Column="6" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
+            </Grid>
+            <Border Grid.Row="5" Classes="panel" Padding="4" ClipToBounds="True"
+                    BorderBrush="#2EE68A"
+                    BorderThickness="{Binding IsSandboxActive, Converter={StaticResource SandboxBorder}}">
+              <ctl:AspectBox Ratio="{Binding SelectedTargetRatio}">
+                <r:SkiaCanvasControl x:Name="PreviewCanvas" />
+              </ctl:AspectBox>
+            </Border>
+
+            <Grid Grid.Row="6" ColumnDefinitions="*,Auto" Margin="2,8,2,0">
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <TextBlock Classes="label" Text="{Binding CanvasInfo}" />
+                <TextBlock Classes="label" Text="{Binding NdiStatus, StringFormat='NDI: {0}'}" />
+                <TextBlock Classes="label" Foreground="{StaticResource AccentBrush}" Text="{Binding StatusMessage}"
+                           TextTrimming="CharacterEllipsis" MaxWidth="520" ToolTip.Tip="{Binding StatusMessage}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Classes="chip" Content="Save show…" Command="{Binding SaveShowCommand}" />
+                <Button Classes="chip" Content="Load show…" Command="{Binding LoadShowCommand}" />
+              </StackPanel>
+            </Grid>
+          </Grid>
+
+          <!-- The Run layout: one column for the caller — LIVE strip, the wall beside the list, a transport row -->
+          <ctl:RunView Grid.Column="0" Grid.ColumnSpan="2" IsVisible="{Binding IsRunLayout}" />
         </Grid>
       </Grid>
-
-      <!-- The Run layout: one column for the caller — LIVE strip, the wall beside the list, a transport row -->
-      <ctl:RunView Grid.Column="0" Grid.ColumnSpan="2" IsVisible="{Binding IsRunLayout}" />
     </Grid>
   </Grid>
 </Window>

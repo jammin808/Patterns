@@ -141,6 +141,7 @@ public sealed class ActionRow : Observable
         ValueKind.Transition => "blank = show default · cut · fade in ms (e.g. 800)",
         ValueKind.Minutes => "minutes, e.g. 5",
         ValueKind.Text => "the message text",
+        ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
         _ => "",
     };
 

@@ -424,4 +424,93 @@
     <Setter Property="FontSize" Value="12" />
     <Setter Property="Background" Value="#20242E" />
   </Style>
+
+  <!-- The shell: five group buttons on the rail, a page strip over the layout, the
+       PREP · SHOW · RUN selector in the header, and the SHOW CONTROLS drawer. -->
+  <Style Selector="Border.rail">
+    <Setter Property="Background" Value="{StaticResource PanelBgBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+    <Setter Property="Padding" Value="8,12" />
+    <Setter Property="Width" Value="94" />
+  </Style>
+  <Style Selector="Button.navGroup">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="bd" Background="Transparent" CornerRadius="10" Padding="4,11"
+                BorderThickness="1" BorderBrush="Transparent">
+          <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.navGroup:pointerover /template/ Border#bd">
+    <Setter Property="Background" Value="#1E222B" />
+  </Style>
+  <Style Selector="Button.navGroup.on /template/ Border#bd">
+    <Setter Property="Background" Value="#20303C" />
+    <Setter Property="BorderBrush" Value="{StaticResource AccentDimBrush}" />
+  </Style>
+  <Style Selector="Button.navGroup TextBlock.navlabel">
+    <Setter Property="Foreground" Value="#C8D0DC" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="1.5" />
+  </Style>
+  <Style Selector="Button.navGroup.on TextBlock.navlabel">
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
+  <Style Selector="Button.pageChip">
+    <Setter Property="Padding" Value="11,5" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Background" Value="#1A1D24" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.pageChip.on">
+    <Setter Property="Background" Value="#20303C" />
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Border.modeGroup">
+    <Setter Property="Background" Value="#101318" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="3" />
+  </Style>
+  <Style Selector="Button.mode">
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="#98A1B1" />
+  </Style>
+  <Style Selector="Button.mode.on">
+    <Setter Property="Background" Value="#20303C" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.mode.prep.on">
+    <Setter Property="Background" Value="#3A2E10" />
+    <Setter Property="Foreground" Value="#FFC24D" />
+  </Style>
+  <Style Selector="Button.mode.run.on">
+    <Setter Property="Background" Value="#137A4A" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
+  <Style Selector="Expander.drawer">
+    <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="8,4" />
+  </Style>
 </Styles>

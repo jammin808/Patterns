@@ -6,33 +6,8 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1 neon-show" Text="Show" />
-    <TextBlock Classes="hint" Text="Everything for show time on one page — the other tabs are for building." />
-
-    <TextBlock Classes="h2" Text="TRANSPORT" />
-    <!-- One button per row: the editor column is narrow and a transport label must never truncate. -->
-    <Grid RowDefinitions="Auto,8,Auto,8,Auto">
-      <Button Grid.Row="0" Classes="go" Content="OUTPUTS ON" HorizontalAlignment="Stretch" Height="52"
-              HorizontalContentAlignment="Center" Command="{Binding GoCommand}" Focusable="False" />
-      <Button Grid.Row="2" Classes="stop" Content="OUTPUTS OFF" HorizontalAlignment="Stretch" Height="40"
-              HorizontalContentAlignment="Center" Command="{Binding StopCommand}" Focusable="False" />
-      <ToggleButton Grid.Row="4" Classes="blackout" Content="BLACKOUT"
-                    Height="52" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                    IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False" />
-    </Grid>
-
-    <TextBlock Classes="h2" Text="PRESENTER" />
-    <Grid ColumnDefinitions="*,8,*">
-      <Button Grid.Column="0" Classes="chip" Content="⟨  Back" Height="46" HorizontalAlignment="Stretch"
-              HorizontalContentAlignment="Center" Command="{Binding PresenterPrevCommand}" />
-      <Button Grid.Column="2" Classes="go" Content="Next  ⟩" Height="46" HorizontalAlignment="Stretch"
-              HorizontalContentAlignment="Center" Command="{Binding PresenterNextCommand}" />
-    </Grid>
-    <Grid ColumnDefinitions="*,Auto">
-      <TextBlock Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
-      <CheckBox Grid.Column="1" Content="Clicker armed" IsChecked="{Binding ClickerArmed, Mode=TwoWay}"
-                ToolTip.Tip="Page Down / Page Up (USB clickers) advance the steps — set them up in the Looks tab" />
-    </Grid>
+    <TextBlock Classes="h1 neon-show" Text="Show panel" />
+    <TextBlock Classes="hint" Text="Show-time buttons beside the switcher: looks, stingers, the clicker list and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
 
     <TextBlock Classes="h2" Text="LOOKS" />
     <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
@@ -58,7 +33,20 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint" Text="Save looks in the Looks tab — F1–F12 recall them from anywhere." />
+    <TextBlock Classes="hint" Text="Save looks on the Looks page (PLAN) — F1–F12 recall them from anywhere." />
+
+    <TextBlock Classes="h2" Text="CLICKER LIST" />
+    <Grid ColumnDefinitions="*,8,*">
+      <Button Grid.Column="0" Classes="chip" Content="⟨  Back" Height="46" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center" Command="{Binding PresenterPrevCommand}" />
+      <Button Grid.Column="2" Classes="go" Content="Next  ⟩" Height="46" HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center" Command="{Binding PresenterNextCommand}" />
+    </Grid>
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
+      <CheckBox Grid.Column="1" Content="Clicker armed" IsChecked="{Binding ClickerArmed, Mode=TwoWay}"
+                ToolTip.Tip="Page Down / Page Up (USB clickers) step the clicker list — build it on the Cues page" />
+    </Grid>
 
     <TextBlock Classes="h2" Text="STINGERS" />
     <ItemsControl ItemsSource="{Binding State.Stingers.Items}">
@@ -88,7 +76,7 @@
       <Button Grid.Column="2" Classes="mini" Content="■ Stop stinger" Command="{Binding StopStingerCommand}" />
     </Grid>
     <TextBlock Classes="hint"
-               Text="Sounds play over everything (music ducks); a clip takes the screens and the previous content returns when it ends. Add them in the Audio tab." />
+               Text="Sounds play over everything (music ducks); a clip takes the screens and the previous content returns when it ends. Add them on the Audio page (SETUP)." />
 
     <TextBlock Classes="h2" Text="AUDIO TRACK" />
     <Grid ColumnDefinitions="*,8,Auto,Auto">
@@ -97,6 +85,7 @@
       <Button Grid.Column="2" Classes="mini" Content="▶ Play" Command="{Binding PlayAudioCommand}" />
       <Button Grid.Column="3" Classes="mini" Content="■ Stop" Command="{Binding StopAudioCommand}" />
     </Grid>
+    <TextBlock Classes="hint" Text="The message, clock, countdown and this track's volume are in the SHOW CONTROLS drawer under the wall." />
 
     <TextBlock Classes="h2" Text="STATUS" />
     <TextBlock Classes="label" Text="{Binding OutputsStatus}" TextWrapping="Wrap" />
@@ -105,6 +94,6 @@
     <TextBlock Classes="label" Text="{Binding RemoteStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />
     <TextBlock Classes="hint"
-               Text="Phone remote: open the web address above on any device on this network (Remote tab for settings and Companion)." />
+               Text="Phone remote: open the web address above on any device on this network (the Remote page under SETUP for settings and Companion)." />
   </StackPanel>
 </UserControl>

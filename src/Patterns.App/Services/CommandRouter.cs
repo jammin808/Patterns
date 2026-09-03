@@ -86,7 +86,7 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok();
             case RemoteCommandKind.CueArmOn:
             case RemoteCommandKind.CueArmOff:
-                if (!_services.State.Control.RemotesMayArm) return ControlProtocol.Err("remotes may not arm — allow it in the Remote tab");
+                if (!_services.State.Control.RemotesMayArm) return ControlProtocol.Err("remotes may not arm — allow it on the Remote page");
                 stack.SetArmed(cmd.Kind == RemoteCommandKind.CueArmOn, origin);
                 return ControlProtocol.Ok();
             case RemoteCommandKind.StopAll:

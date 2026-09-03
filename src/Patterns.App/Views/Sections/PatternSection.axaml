@@ -357,10 +357,10 @@
     <!-- Media / Particles pointers -->
     <TextBlock Classes="hint" Margin="0,10,0,0"
                IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Media}}"
-               Text="Configure the file and fit in the Media tab." />
+               Text="Configure the file and fit in the Media page." />
     <TextBlock Classes="hint" Margin="0,10,0,0"
                IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Particles}}"
-               Text="Design the animation in the Particles tab (mini studio)." />
+               Text="Design the animation in the Particles page (mini studio)." />
 
     <!-- Multiview -->
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Multiview}}">

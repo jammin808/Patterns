@@ -159,7 +159,7 @@ public sealed class ShowActions
             case ShowActionKind.OutputsOn:
                 if (State.Mode == ShowMode.Prep)
                 {
-                    return ActionResult.Refused("PREP MODE — outputs are held closed. Switch to SHOW (Outputs tab) when you are at the venue.");
+                    return ActionResult.Refused("PREP MODE — outputs are held closed. Switch to SHOW in the header when you are at the venue.");
                 }
                 _s.Outputs.Apply();
                 // Output windows take focus when they open and nothing hands it back: the next
@@ -292,6 +292,17 @@ public sealed class ShowActions
             case ShowActionKind.ClockOff:
                 _s.EditAir(air => air.Overlays.Clock.Enabled = false);
                 return ActionResult.Done("Clock off.");
+            case ShowActionKind.AudioVolume:
+            {
+                // The track is not in the snapshot: the player reads the live model every poll,
+                // sandbox or not, so this is the audio's air seam.
+                if (!CueActionSpec.TryParsePercent(a.Value, out var percent))
+                {
+                    return ActionResult.Refused("Audio volume needs a number from 0 to 125.");
+                }
+                State.AudioPlayer.VolumePct = percent;
+                return ActionResult.Done($"Audio volume {percent:0}%.");
+            }
 
             case ShowActionKind.ScreenOn:
             case ShowActionKind.ScreenOff:
@@ -557,6 +568,7 @@ public sealed class ShowActions
         CueActionKind.ApplyLook => new ShowAction(ShowActionKind.ApplyLook, a.Target, a.Value),
         CueActionKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay),
         CueActionKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
+        CueActionKind.AudioVolume => new ShowAction(ShowActionKind.AudioVolume, "", a.Value),
         CueActionKind.StingerFire => new ShowAction(ShowActionKind.StingerFire, a.Target),
         CueActionKind.StingerStop => new ShowAction(ShowActionKind.StingerStop),
         CueActionKind.PlaylistPart => new ShowAction(ShowActionKind.PlaylistPart, a.Target),

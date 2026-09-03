@@ -66,6 +66,8 @@ public enum ShowActionKind
     CueFire,
     /// <summary>GO on the caller's stack through the gate; Target = the standby id the sender saw ("" skips the fence).</summary>
     CueGo,
+    /// <summary>The audio track's volume in percent (0–125), live — the drawer's SEND and a cue.</summary>
+    AudioVolume,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

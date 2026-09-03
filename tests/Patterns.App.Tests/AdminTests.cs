@@ -43,8 +43,7 @@ public class AdminTests
         try
         {
             var tabs = window.GetVisualDescendants().OfType<TabControl>().First();
-            var admin = tabs.Items.OfType<TabItem>().FirstOrDefault(t =>
-                t.Header is StackPanel sp && sp.Children.OfType<TextBlock>().Any(tb => tb.Text == "Admin"));
+            var admin = tabs.Items.OfType<TabItem>().FirstOrDefault(t => t.Header as string == "Machine");
             Assert.NotNull(admin);
             tabs.SelectedItem = admin;
             Dispatcher.UIThread.RunJobs();

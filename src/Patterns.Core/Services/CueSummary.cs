@@ -58,6 +58,7 @@ public static class CueSummary
             case CueActionKind.CanvasOff: return $"Canvas '{CanvasLabel(state, a.Target)}' off";
             case CueActionKind.CountdownStart: return $"Countdown {a.Value} min";
             case CueActionKind.CountdownStop: return "Stop countdown";
+            case CueActionKind.AudioVolume: return $"Audio volume {a.Value}%";
             case CueActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
             case CueActionKind.MessageOff: return "Message off";
             case CueActionKind.ClockOn: return "Clock on";

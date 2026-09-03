@@ -173,6 +173,24 @@
     <TextBlock Classes="hint"
                Text="Your main (primary) screen stays off by default when other screens are present, so OUTPUTS ON never covers the controls — tick 'Output enabled' to include it anyway." />
 
+    <TextBlock Classes="h2" Text="TRANSITIONS" />
+    <CheckBox Content="Crossfade content changes" IsChecked="{Binding State.Transition.Enabled}" />
+    <Grid ColumnDefinitions="130,*,52" IsEnabled="{Binding State.Transition.Enabled}">
+      <TextBlock Classes="label" Text="Fade time (ms)" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="100" Maximum="3000" TickFrequency="50"
+              Value="{Binding State.Transition.DurationMs, Mode=TwoWay}" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Transition.DurationMs, StringFormat={}{0:0}}" />
+    </Grid>
+    <TextBlock Classes="hint"
+               Text="Look recalls, cues, playlist advances, source changes and blackout crossfade on every screen and NDI output — synchronised across spans. A cue's look can carry its own cut or fade. Setting tweaks stay instant." />
+
+    <TextBlock Classes="h2" Text="EDIT SAFE" />
+    <CheckBox Content="Previews are sandboxed by default (EDIT SAFE on at start, re-armed after every send)"
+              IsChecked="{Binding State.Switcher.EditSafeByDefault}" />
+    <TextBlock Classes="hint"
+               Text="On (recommended): the preview opens detached, so touching any editor — screens, outputs, inputs, patterns — never reaches the audience until you CUT or TAKE, and EDIT SAFE re-arms itself after each send. Things you fire still go straight to air: F-key looks, cues, stingers, the SHOW CONTROLS drawer and remote commands. Off: the preview mirrors the program and every edit is live." />
+
     <TextBlock Classes="h2" Text="WINDOW BEHAVIOUR" />
     <CheckBox Content="Always on top" IsChecked="{Binding State.Output.Topmost}" />
     <CheckBox Content="Hide mouse cursor on outputs" IsChecked="{Binding State.Output.HideCursor}" />

@@ -91,15 +91,24 @@ fault containment, and settings that can never brick startup.
   source (program or a specific screen) and bit depth — including **10-bit P216** with a
   BT.709 limited-range pipeline for serious ramp/banding checks. Feature-detected at runtime
   (nothing crashes without the NDI runtime).
-- **A Show page** — once the rig is built, run the evening from one screen: OUTPUTS ON/OFF, BLACKOUT,
-  presenter next/back, every look as a big button, the audio track, and live status. The
-  other tabs stay out of the way.
+- **Five groups, two levels** — the rail holds **SHOW · PLAN · BUILD · SETUP · ADMIN**, grouped
+  by who is at the desk and when, and the page strip across the top shows the pages of the
+  current group, so eighteen pages never crowd a laptop screen. **PREP · SHOW · RUN** in the
+  header is the mode: PREP holds the outputs closed while you pre-program, SHOW lets them
+  open, RUN is the caller's surface — and leaving RUN is refused while the stack is armed.
+  Under the wall, a **SHOW CONTROLS** drawer holds exactly four air-targeted controls —
+  message, clock, countdown, audio volume — each behind an explicit **SEND** that goes to
+  air whether or not the sandbox is open and is journaled as a desk action; the next look
+  recall replaces it. A cue can do the same four things.
+- **A Show panel** — once the rig is built, run the evening beside the switcher: every look
+  as a big button, the clicker list, stingers, the audio track and live status; the outputs
+  transport lives in the header. The other pages stay out of the way.
 - **Remote control** — a **web remote** (big-button page for any phone/tablet on the network),
   a one-command-per-line **TCP protocol** with live state feedback, and a ready-made
   **Bitfocus Companion module** (`integrations/companion-module-patterns/`) with presets for
   transport, looks `F1`–`F12`, individual screens and screen groups, presenter steps and
   audio — plus feedbacks and variables for Stream Deck keys. See [`docs/REMOTE.md`](docs/REMOTE.md).
-- **A cue stack** — the Cues tab holds two lists of the same kind: the **cue stack** a show
+- **A cue stack** — the Cues page (PLAN) holds two lists of the same kind: the **cue stack** a show
   caller runs in order, and the **clicker list** a speaker steps through. A cue is one or
   more typed actions run in order — apply a look (with its own cut or fade), play or stop the
   audio track, fire a stinger, switch a playlist part, start or stop the stream, blackout,
@@ -157,13 +166,13 @@ fault containment, and settings that can never brick startup.
   show it; its buttons are **OWN** (its own pattern instead of the program — a joined
   canvas can hold content of its own now), **MON** (draw the miniatures), **ARM** (the next
   CUT / TAKE changes it; un-armed, it keeps the picture the audience is seeing) and the
-  live **OUTPUT** switch. A bold banner above the tabs always says what you're editing.
+  live **OUTPUT** switch. A bold banner above the page always says what you're editing.
   Flip **EDIT SAFE (sandbox)** and the preview detaches from air: build the next look with
   every editor as normal, then **CUT** (instant) or **TAKE** (crossfade) it to every armed
   target, or send it to ticked tiles as their own pattern — or save it as a look, or
   discard. Blackout and OUTPUTS ON/OFF stay live through the freeze; what you *fire*
   (looks, cues, stingers, remote commands) still goes straight to air, only what you are
-  editing is held back. Subtle neon hues mark every section and tab, so the right page is
+  editing is held back. Subtle neon hues mark every group and page, so the right page is
   one glance away.
 - **Playlist show parts** — split the playlist into named parts of the show (*Walk-in ·
   Main · Break*): one part plays at a time, clicked on air from chips (or `SECTION 2`
@@ -194,7 +203,7 @@ fault containment, and settings that can never brick startup.
   a camera on screen 1, the graphics PC's NDI feed on screen 2 and a walk-in video on screen 3,
   all at once, each with its own decoder. Use the same feed in several places — two screens, the
   PiP inset, a multiview tile — and it still costs **one decode**; multiview tiles can name their
-  own NDI source or capture device, so a monitor wall shows four different inputs. The Media tab
+  own NDI source or capture device, so a monitor wall shows four different inputs. The Media page
   lists what is mounted and says so when the rig wants more than the limit (4 decoders, 6 NDI
   receivers).
 - **The preview is sandboxed by default** — from the moment the app opens, touching any editor
@@ -210,7 +219,7 @@ fault containment, and settings that can never brick startup.
   so nothing goes live by accident. At the venue, switch to SHOW, say which detected display each planned
   screen turned out to be and press **Adopt** — position, label, rotation, trims, warp, per-screen
   pattern, canvas name, multiview tiles and the stream source all follow onto the hardware.
-- **An Admin tab that watches the machine** — live **CPU / memory / GPU / frame-rate**
+- **A Machine page (ADMIN) that watches the machine** — live **CPU / memory / GPU / frame-rate**
   with three-minute history charts, and **plain-language suggestions** when something needs
   attention: running on battery, memory climbing like a leak, frames dropping, disk
   filling, handle counts growing, the show stuck on the integrated GPU. A rolling
@@ -241,7 +250,7 @@ fault containment, and settings that can never brick startup.
   </tr>
   <tr>
     <td><img src="docs/media/shot-run.png" alt="Run mode — the LIVE strip, the wall beside the cue stack with last / standby / next, and the transport row with GO"/></td>
-    <td><img src="docs/media/shot-show.png" alt="Show page — transport, presenter, looks, stingers and audio on one screen"/></td>
+    <td><img src="docs/media/shot-show.png" alt="The Show panel — looks, the clicker list, stingers and the audio track beside the switcher"/></td>
   </tr>
   <tr>
     <td><img src="docs/media/shot-playlist.png" alt="Playlist with drag-to-reorder and per-item timing"/></td>
@@ -251,7 +260,7 @@ fault containment, and settings that can never brick startup.
   </tr>
   <tr>
     <td><img src="docs/media/shot-multiview.png" alt="Multiview — program, screens, inputs and clock with tally"/></td>
-    <td><img src="docs/media/shot-admin.png" alt="Admin — live performance charts, health suggestions and the GPU choice"/></td>
+    <td><img src="docs/media/shot-admin.png" alt="Machine — live performance charts, health suggestions and the GPU choice"/></td>
   </tr>
   <tr>
     <td><img src="docs/media/shot-prep.png" alt="Prep mode — planned screens built without hardware, sandboxed preview, adopt pickers"/></td>
@@ -266,13 +275,14 @@ editor, looks/cues/presenter steps and the Show page drive them live.*
 
 1. Grab `Patterns.exe` (build it with `build/publish-win-x64.cmd`, or take the CI artifact) and
    put it in a folder you can write to (USB stick, desktop — anywhere).
-2. Run it. Arrange your screens on the **Outputs** page — drag them together for one big
-   canvas, click a tile to enable/disable it or give it its own pattern.
+2. Run it. Arrange your screens on the **Screens** page (SETUP) — drag them together for one
+   big canvas, click a tile to enable/disable it or give it its own pattern.
 3. Choose a pattern (or click one in the **Library**), tune it, press **OUTPUTS ON** (`Shift+F5`).
 4. Everything — wall geometry, blend overlap, colours, countdowns — updates live on the outputs.
-5. Save the state as a **look** and put it on an F-key or the daily cue schedule (**Looks** tab).
-6. Run the evening from the **Show** tab — or from a phone, tablet or Stream Deck via the
-   **Remote** tab (web remote, TCP protocol, Bitfocus Companion module).
+5. Save the state as a **look** and put it on an F-key or the daily schedule (**Looks** page,
+   PLAN); build the cue stack on the **Cues** page.
+6. Run the evening from the **Show panel** or the **RUN** surface — or from a phone, tablet or
+   Stream Deck via the **Remote** page (web remote, TCP protocol, Bitfocus Companion module).
 
 | Key | Action |
 |---|---|
@@ -300,12 +310,12 @@ older build does not know falls back to its plain default with a warning in the 
 ## Optional integrations
 
 - **NDI**: install the free [NDI runtime](https://ndi.video) *or* drop
-  `Processing.NDI.Lib.x64.dll` next to `Patterns.exe`. The NDI tab shows what was detected.
+  `Processing.NDI.Lib.x64.dll` next to `Patterns.exe`. The NDI page shows what was detected.
 - **Video**: use the **full** build (`Patterns-portable-win-x64-full` CI artifact or
   `build\publish-win-x64-full.cmd`), which bundles libVLC — or with the lean exe, install
   64-bit [VLC](https://videolan.org) / place a `libvlc` folder next to `Patterns.exe`.
   Images work without any of this.
-- **Remote control**: switch it on in the **Remote** tab — the web remote and TCP protocol
+- **Remote control**: switch it on on the **Remote** page (SETUP) — the web remote and TCP protocol
   need nothing installed anywhere. For Stream Decks, load the Companion module from
   `integrations/companion-module-patterns/` (or use Companion's Generic TCP with the
   commands in [`docs/REMOTE.md`](docs/REMOTE.md)). *No password — anyone on the network can

@@ -22,6 +22,8 @@ public enum ValueKind
     Transition,
     Minutes,
     Text,
+    /// <summary>A whole number of percent, 0–125.</summary>
+    Percent,
 }
 
 /// <summary>
@@ -40,6 +42,7 @@ public static class CueActionSpec
         CueActionKind.CanvasOn or CueActionKind.CanvasOff => (TargetKind.Canvas, ValueKind.None),
         CueActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
         CueActionKind.MessageOn => (TargetKind.None, ValueKind.Text),
+        CueActionKind.AudioVolume => (TargetKind.None, ValueKind.Percent),
         CueActionKind.ListArm or CueActionKind.ListDisarm or CueActionKind.ListGo
             or CueActionKind.ListBack or CueActionKind.ListReset => (TargetKind.Stack, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),
@@ -53,6 +56,7 @@ public static class CueActionSpec
         CueActionKind.ApplyLook => "Apply look",
         CueActionKind.AudioPlay => "Play audio track",
         CueActionKind.AudioStop => "Stop audio track",
+        CueActionKind.AudioVolume => "Audio volume",
         CueActionKind.StingerFire => "Fire stinger",
         CueActionKind.StingerStop => "Stop stinger",
         CueActionKind.PlaylistPart => "Playlist part",
@@ -82,7 +86,7 @@ public static class CueActionSpec
     public static readonly IReadOnlyList<CueActionKind> Editable = new[]
     {
         CueActionKind.ApplyLook, CueActionKind.Note,
-        CueActionKind.AudioPlay, CueActionKind.AudioStop,
+        CueActionKind.AudioPlay, CueActionKind.AudioStop, CueActionKind.AudioVolume,
         CueActionKind.StingerFire, CueActionKind.StingerStop,
         CueActionKind.PlaylistPart,
         CueActionKind.StreamStart, CueActionKind.StreamStop,
@@ -99,6 +103,16 @@ public static class CueActionSpec
     public static bool ChangesContent(CueActionKind kind) => kind is
         CueActionKind.ApplyLook or CueActionKind.PlaylistPart or
         CueActionKind.ScreenOn or CueActionKind.ScreenOff or CueActionKind.CanvasOn or CueActionKind.CanvasOff;
+
+    /// <summary>A percent value: a number from 0 to 125 (the player's own ceiling, ≈ +2 dB).</summary>
+    public static bool TryParsePercent(string? value, out double percent)
+    {
+        percent = 0;
+        if (!double.TryParse(value?.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) return false;
+        if (double.IsNaN(v) || v < 0 || v > 125) return false;
+        percent = v;
+        return true;
+    }
 
     /// <summary>A transition value: empty, "cut", or a whole number of milliseconds.</summary>
     public static bool TryParseTransition(string? value, out bool cut, out int fadeMs)

@@ -68,6 +68,12 @@ public class CueStackTests
         Assert.Equal((TargetKind.Look, ValueKind.Transition), CueActionSpec.For(CueActionKind.ApplyLook));
         Assert.Equal((TargetKind.Stack, ValueKind.None), CueActionSpec.For(CueActionKind.ListGo));
         Assert.Equal((TargetKind.None, ValueKind.Minutes), CueActionSpec.For(CueActionKind.CountdownStart));
+        Assert.Equal((TargetKind.None, ValueKind.Percent), CueActionSpec.For(CueActionKind.AudioVolume));
+        Assert.True(CueActionSpec.TryParsePercent(" 40 ", out var pct) && pct == 40);
+        Assert.False(CueActionSpec.TryParsePercent("126", out _));
+        Assert.False(CueActionSpec.TryParsePercent("-1", out _));
+        Assert.False(CueActionSpec.TryParsePercent("loud", out _));
+        Assert.Equal("Audio volume 40%", CueSummary.DescribeAction(new ShowState(), new CueActionConfig { Kind = CueActionKind.AudioVolume, Value = "40" }));
         Assert.True(CueActionSpec.TryParseTransition("", out var cut, out var ms) && !cut && ms < 0);
         Assert.True(CueActionSpec.TryParseTransition("CUT", out cut, out _) && cut);
         Assert.True(CueActionSpec.TryParseTransition("800", out _, out ms) && ms == 800);
@@ -103,6 +109,8 @@ public class CueStackTests
         stack.Cues.Add(Cue("01.100", "No stream target", Act(CueActionKind.StreamStart)));
         stack.Cues.Add(Cue("01.110", "Countdown", Act(CueActionKind.CountdownStart, "", "5")));
         stack.Cues.Add(Cue("01.120", "Empty message", Act(CueActionKind.MessageOn, "", "")));
+        stack.Cues.Add(Cue("01.130", "Volume", Act(CueActionKind.AudioVolume, "", "40")));
+        stack.Cues.Add(Cue("01.140", "Bad volume", Act(CueActionKind.AudioVolume, "", "loud")));
 
         var ctx = new CueValidationContext { FileExists = p => p.EndsWith(".wav") || p.EndsWith(".mp4"), VideoDecoderAvailable = true };
         var report = CueValidator.Validate(state, stack, ctx);
@@ -121,7 +129,9 @@ public class CueStackTests
         Assert.False(report.IsBroken(stack.Cues[10].Id));
         Assert.False(report.IsBroken(stack.Cues[11].Id));           // soft: the cue still runs
         Assert.Contains("empty", report.Warnings[stack.Cues[11].Id]);
-        Assert.Equal(6, report.BrokenCount);
+        Assert.False(report.IsBroken(stack.Cues[12].Id));
+        Assert.Contains("0 to 125", Reason("01.140"));
+        Assert.Equal(7, report.BrokenCount);
         Assert.Empty(report.StackNotes);
 
         // The environment matters: no video runtime, and a file that vanished.

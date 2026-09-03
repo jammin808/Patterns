@@ -7,32 +7,36 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1" Text="Help" />
 
+    <TextBlock Classes="h2" Text="THE SHELL" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Five groups on the rail, in the order a show happens: SHOW (the panel beside the switcher, and the Run surface) · PLAN (cues, looks and every wall-clock automation) · BUILD (pattern, media, overlays, countdown, particles, branding, the library) · SETUP (screens, audio, NDI, stream, remote) · ADMIN (the machine, this help). The strip across the top lists the current group's pages; each group remembers the page you were on. PREP · SHOW · RUN in the header is the mode: PREP holds the outputs closed while you pre-program, SHOW lets them open, RUN is the caller's surface — also a second window (POP OUT) and a tablet page at /run. Leaving RUN is refused while the cue stack is armed. SHOW CONTROLS under the wall: message, clock, countdown and the audio track's volume, each behind SEND — straight to air, sandbox open or not, journaled, and replaced by the next look recall." />
+
     <TextBlock Classes="h2" Text="KEYS" />
-    <TextBlock TextWrapping="Wrap" LineHeight="22" xml:space="preserve">F1–F12   apply saved looks (Looks tab)
+    <TextBlock TextWrapping="Wrap" LineHeight="22" xml:space="preserve">F1–F12   apply saved looks (Looks page)
 ⇧F5   OUTPUTS ON — open the output windows
 ⇧F6   OUTPUTS OFF — close them (on an output window: Esc twice within a second)
 ⇧F7   IDENTIFY — flash screen numbers
 ⇧F8 / Space   BLACKOUT toggle
-Page Down / Page Up   clicker list next / back (armed on the Cues, Looks or Show page)
+Page Down / Page Up   clicker list next / back (armed on the Cues page or the Show panel)
 Enter (RUN, armed)    GO on the cue stack · ↑ ↓ move standby · Esc cancels a confirm, Esc twice = STOP ALL
 On outputs:  Esc ×2 close · Space/B blackout · I identify · F1–F12 looks · PgDn/PgUp presenter
 Every key acts once per press — holding a key down never repeats it.</TextBlock>
 
     <TextBlock Classes="h2" Text="BEFORE THE SHOW (PREP MODE)" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="Outputs tab → PREP: build the whole rig at your desk with nothing plugged in. 'Plan a screen' adds a screen at the size the venue will have — arrange it, name it, give it its own pattern, put it in a canvas, use it in the multiview — and outputs stay held closed so nothing can go live by accident. Live inputs can be typed in by name (Media tab) before the camera or NDI sender exists. At the venue, switch to SHOW, pick which detected display each planned screen turned out to be and press Adopt: position, label, rotation, trims, warp, per-screen pattern, canvas name, multiview tiles and the stream source all follow onto the real display, so the desk work is never redone." />
+               Text="PREP in the header (or on the Screens page): build the whole rig at your desk with nothing plugged in. 'Plan a screen' adds a screen at the size the venue will have — arrange it, name it, give it its own pattern, put it in a canvas, use it in the multiview — and outputs stay held closed so nothing can go live by accident. Live inputs can be typed in by name (Media page) before the camera or NDI sender exists. At the venue, switch to SHOW, pick which detected display each planned screen turned out to be and press Adopt: position, label, rotation, trims, warp, per-screen pattern, canvas name, multiview tiles and the stream source all follow onto the real display, so the desk work is never redone." />
 
     <TextBlock Classes="h2" Text="MANY INPUTS AT ONCE" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="Every live source runs on its own: give screen 1 a camera, screen 2 an NDI feed from the graphics PC and screen 3 a walk-in video, all at the same time. Pick the screen in the strip, then choose its source in the Media tab. The same feed used in several places (two screens, the PiP inset and a multiview tile) costs one decode, not four. Multiview tiles can name their own NDI source or capture device, so a monitor wall can show four different inputs. The Media tab lists what is mounted right now, and warns if the rig asks for more simultaneous sources than the limit (4 decoders, 6 NDI receivers)." />
+               Text="Every live source runs on its own: give screen 1 a camera, screen 2 an NDI feed from the graphics PC and screen 3 a walk-in video, all at the same time. Pick the screen in the strip, then choose its source in the Media page. The same feed used in several places (two screens, the PiP inset and a multiview tile) costs one decode, not four. Multiview tiles can name their own NDI source or capture device, so a monitor wall can show four different inputs. The Media page lists what is mounted right now, and warns if the rig asks for more simultaneous sources than the limit (4 decoders, 6 NDI receivers)." />
 
     <TextBlock Classes="h2" Text="WORKFLOW" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, nudge its corners (warp) for a keystoned projector, or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) OUTPUTS ON.  4) Save the state as a look (Looks tab) and put it on an F-key, the daily schedule, or the presenter click-through order.  5) Run the evening from the Show tab.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
+               Text="1) SETUP › Screens — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, nudge its corners (warp) for a keystoned projector, or give it its own pattern.  2) BUILD — choose and tune a pattern (or grab one from the Library).  3) OUTPUTS ON.  4) PLAN › Looks — save the state as a look and put it on an F-key or the daily schedule; PLAN › Cues — build the cue stack and the clicker list.  5) SHOW — run the evening from the panel, or RUN for the caller's surface.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
 
     <TextBlock Classes="h2" Text="REMOTE CONTROL" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="Switch it on in the Remote tab, then open the shown address on any phone or tablet on this network for the big-button web remote. Stream Decks: load the Bitfocus Companion module from integrations/companion-module-patterns (presets for transport, looks, screens, groups, presenter, stingers and audio, with live feedback) — or use Companion's Generic TCP with the one-line commands in docs/REMOTE.md. There is no password: anyone on the network can drive the show while remote control is on." />
+               Text="Switch it on on the Remote page (SETUP), then open the shown address on any phone or tablet on this network for the big-button web remote. Stream Decks: load the Bitfocus Companion module from integrations/companion-module-patterns (presets for transport, looks, screens, groups, presenter, stingers and audio, with live feedback) — or use Companion's Generic TCP with the one-line commands in docs/REMOTE.md. There is no password: anyone on the network can drive the show while remote control is on." />
 
     <TextBlock Classes="h2" Text="THE SWITCHER (PROGRAM / PREVIEW)" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
@@ -40,15 +44,15 @@ Every key acts once per press — holding a key down never repeats it.</TextBloc
 
     <TextBlock Classes="h2" Text="SHOW PARTS, MULTIVIEW &amp; STREAMING" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="Playlist parts (Media tab): split the playlist into named parts of the show; click ▶ to put one on air, give parts daily start times, or switch with SECTION n from the remote. Multiview (Pattern tab → type Multiview): a monitor wall of program/screens/inputs/clock with labels and red on-air tally — assign it to any screen or NDI sender, and watch it remotely at the web-remote address + /multiview. Stream tab: send one screen to up to two RTMP/SRT/UDP destinations with a single encode (full build, Windows); it never auto-starts, and stream keys live in your settings file, so treat saved shows as sensitive." />
+               Text="Playlist parts (Media page; their daily start times also sit on the Looks page): split the playlist into named parts of the show; click ▶ to put one on air, give parts daily start times, or switch with SECTION n from the remote. Multiview (Pattern page → type Multiview): a monitor wall of program/screens/inputs/clock with labels and red on-air tally — assign it to any screen or NDI sender, and watch it remotely at the web-remote address + /multiview. Stream page: send one screen to up to two RTMP/SRT/UDP destinations with a single encode (full build, Windows); it never auto-starts, and stream keys live in your settings file, so treat saved shows as sensitive." />
 
     <TextBlock Classes="h2" Text="STINGERS &amp; STAYING UP" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="Stingers (Audio tab): one-press sounds and clips — a sound plays over everything while the music ducks, a video clip takes the screens and the previous content returns when it ends. Fire them from the Show page, the phone remote or a Stream Deck. Watchdog (Admin tab): the app runs supervised — after a crash or a 30-second UI freeze it restarts itself with the same settings and puts live outputs (and the audio track) back. A clean close never auto-restores. The health line on the Show page counts uptime, watchdog restarts and contained render faults." />
+               Text="Stingers (Audio page): one-press sounds and clips — a sound plays over everything while the music ducks, a video clip takes the screens and the previous content returns when it ends. Fire them from the Show panel, a cue, the phone remote or a Stream Deck. Watchdog (Machine page): the app runs supervised — after a crash or a 30-second UI freeze it restarts itself with the same settings and puts live outputs (and the audio track) back. A clean close never auto-restores. The health line on the Show panel counts uptime, watchdog restarts and contained render faults." />
 
-    <TextBlock Classes="h2" Text="ADMIN (PERFORMANCE &amp; GPU)" />
+    <TextBlock Classes="h2" Text="MACHINE (PERFORMANCE &amp; GPU)" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="The Admin tab watches the machine while you watch the show: live CPU/memory/GPU/frame-rate with three-minute history charts, plain-language suggestions when something needs attention (on battery, memory climbing, frames dropping, disk filling), a computer overview with one-click support info, and a Restart app button that brings the show straight back. A rolling patterns.metrics.csv (30-second samples) records the night for after-show reading. Graphics card: Patterns detects and uses the best GPU by default and registers the choice with Windows (so video decode follows); pick Power saving, a specific adapter, or Let Windows decide — changes apply after a restart." />
+               Text="The Machine page (ADMIN) watches the machine while you watch the show: live CPU/memory/GPU/frame-rate with three-minute history charts, plain-language suggestions when something needs attention (on battery, memory climbing, frames dropping, disk filling), a computer overview with one-click support info, and a Restart app button that brings the show straight back. A rolling patterns.metrics.csv (30-second samples) records the night for after-show reading. Graphics card: Patterns detects and uses the best GPU by default and registers the choice with Windows (so video decode follows); pick Power saving, a specific adapter, or Let Windows decide — changes apply after a restart." />
 
     <TextBlock Classes="h2" Text="PORTABLE FILES" />
     <TextBlock Classes="hint" TextWrapping="Wrap"

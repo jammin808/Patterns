@@ -11,7 +11,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 
 > There is no password. Anyone on the network can control the show while remote control
 > is enabled — that's the same trust model as most stage-control protocols. Turn it off
-> in the Remote tab when it isn't needed.
+> on the Remote page (SETUP) when it isn't needed.
 
 ## Commands
 
@@ -29,14 +29,14 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
 | `AUDIO PLAY` / `STOP` | The independent audio track |
 | `TONE ON` / `OFF` | Soundcheck tone generator |
-| `STINGER <n>` / `STINGER <name>` | Fire stinger *n* (Audio-tab order) or by name |
+| `STINGER <n>` / `STINGER <name>` | Fire stinger *n* (Audio-page order) or by name |
 | `STINGER STOP` | Stop the stinger (a clip reverts to the previous content) |
-| `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-tab order) on air |
-| `STREAM ON` / `OFF` | Start/stop the streaming output (Stream tab config) |
+| `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-page order) on air |
+| `STREAM ON` / `OFF` | Start/stop the streaming output (Stream page config) |
 | `CUE GO [<id>]` | GO on the caller's cue stack through the gate. Send the standby id you last saw (from STATE) and a GO that races a standby move answers `ERR standby moved`; `OK <json>` carries the execution record (`outcome`, `last`, `standby`) or `{"outcome":"Confirm"}` when the cue asks for a second GO within four seconds |
 | `CUE STANDBY NEXT` / `PREV` / `<number>` / `<name>` | Put a cue on standby — changes nothing on air |
 | `CUE HOLD ON` / `OFF` | A latched GO inhibit and nothing else |
-| `CUE ARM ON` / `OFF` | Arm / disarm the stack — accepted only when the Remote tab allows remotes to arm |
+| `CUE ARM ON` / `OFF` | Arm / disarm the stack — accepted only when the Remote page allows remotes to arm |
 | `CUE LIST` | `OK <json>` — the whole list with notes, summaries and broken reasons (`listRev` changes when the list does) |
 | `STOPALL` | Stops the audio track, any stinger and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |
@@ -59,11 +59,11 @@ sandboxed preview.
 
 State JSON also carries `stream{active,status}`, `health`, `machine{cpu,ram,fps,battery,advice}` — machine load
 (percent, -1 = unknown), output frame rate, whether the computer is on battery, and how
-many Admin-tab suggestions currently need attention.
+many Machine-page suggestions currently need attention.
 
 ## Remote multiview
 
-`http://<machine-ip>:9696/multiview` shows the configured multiview (Pattern tab →
+`http://<machine-ip>:9696/multiview` shows the configured multiview (Pattern page →
 Multiview) as a live picture refreshing about once a second — program, screens, inputs and
 clock with labels and on-air tally. `GET /mv.jpg` returns the current frame for anything
 else (tally lights, dashboards).

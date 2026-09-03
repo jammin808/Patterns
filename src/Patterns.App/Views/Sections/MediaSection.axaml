@@ -53,7 +53,7 @@
                  Text="{Binding InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint"
-                 Text="Receives a live NDI® video feed and composites it like any pattern — it reaches spans, trims and NDI outputs. The list refreshes itself while this panel is active; senders appear a few seconds after they start. Needs the NDI runtime (see the NDI tab). Video only — feed audio is not passed through." />
+                 Text="Receives a live NDI® video feed and composites it like any pattern — it reaches spans, trims and NDI outputs. The list refreshes itself while this panel is active; senders appear a few seconds after they start. Needs the NDI runtime (see the NDI page). Video only — feed audio is not passed through." />
     </StackPanel>
 
     <!-- Capture device -->

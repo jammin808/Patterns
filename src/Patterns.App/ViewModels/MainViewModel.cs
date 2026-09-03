@@ -367,6 +367,22 @@ public sealed class MainViewModel : Observable
             Raise(nameof(ClickerArmed));
             Raise(nameof(PresenterStepText));
         };
+        ShowControls = new ShowControls(_services, m => StatusMessage = m);
+        SelectGroupCommand = new RelayCommand<ShellGroup>(SelectGroup);
+        SelectPageCommand = new RelayCommand<int>(SelectPage);
+        SelectPrepCommand = new RelayCommand(() =>
+        {
+            if (!LeaveRun()) return;
+            IsPrepMode = true;
+            RaiseShell();
+        });
+        SelectShowCommand = new RelayCommand(() =>
+        {
+            if (!LeaveRun()) return;
+            IsPrepMode = false;
+            RaiseShell();
+        });
+        SelectRunCommand = new RelayCommand(() => SelectPage(Shell.RunPage));
         PopOutRunCommand = new RelayCommand(() =>
         {
             if (_runWindow is { IsVisible: true })
@@ -379,15 +395,7 @@ public sealed class MainViewModel : Observable
             _runWindow.Show();
             StatusMessage = "Run window opened — its Enter, ↑ ↓ and Esc work while it has focus.";
         });
-        ToggleRunLayoutCommand = new RelayCommand(() =>
-        {
-            if (IsRunLayout && _services.CueStack.Armed)
-            {
-                StatusMessage = "Disarm the cue stack before leaving the Run surface.";
-                return;
-            }
-            IsRunLayout = !IsRunLayout;
-        });
+        ToggleRunLayoutCommand = new RelayCommand(() => IsRunLayout = !IsRunLayout); // refused while armed, in SelectPage
         _services.Screens.Changed += OnScreensChanged;
 
         var statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -1033,7 +1041,7 @@ public sealed class MainViewModel : Observable
             var clicker = CueStacks.Clicker(State);
             var rt = _services.Cues.For(clicker);
             var count = clicker.Cues.Count;
-            if (count == 0) return "No clicker cues yet — add them on the Cues tab.";
+            if (count == 0) return "No clicker cues yet — add them on the Cues page.";
             if (rt.CurrentIndex < 0) return $"Ready — {count} cue{(count == 1 ? "" : "s")}, click to start.";
             var cue = rt.CurrentIndex < count ? clicker.Cues[rt.CurrentIndex] : null;
             return cue is null ? $"Cue {rt.CurrentIndex + 1} of {count}" : $"Cue {rt.CurrentIndex + 1} of {count}: {cue.Name}";
@@ -1061,26 +1069,136 @@ public sealed class MainViewModel : Observable
 
     private bool _isRunLayout;
 
-    /// <summary>The caller's one-column layout instead of the editors and the switcher.</summary>
+    /// <summary>
+    /// The caller's one-column layout instead of the editors and the switcher. It is the Run
+    /// page of the SHOW group: setting it selects that page (or the last Build page on the way
+    /// out), and leaving is refused while the caller's stack is armed.
+    /// </summary>
     public bool IsRunLayout
     {
         get => _isRunLayout;
         set
         {
-            if (!Set(ref _isRunLayout, value)) return;
-            Raise(nameof(RunLayoutButtonText));
-            if (value)
-            {
-                Run.Refresh();
-                if (_services.RecoveryBanner.Length > 0)
-                {
-                    Run.Banner = _services.RecoveryBanner;
-                    _services.RecoveryBanner = "";
-                }
-                StatusMessage = "RUN — Enter is GO while armed, ↑ ↓ move standby, Esc twice is STOP ALL. Space is still blackout.";
-            }
+            if (value == _isRunLayout) return;
+            SelectPage(value ? Shell.RunPage : _lastBuildPage);
         }
     }
+
+    private void SetRunLayout(bool value)
+    {
+        if (_isRunLayout == value) return;
+        _isRunLayout = value;
+        Raise(nameof(IsRunLayout));
+        Raise(nameof(RunLayoutButtonText));
+        if (value)
+        {
+            Run.Refresh();
+            if (_services.RecoveryBanner.Length > 0)
+            {
+                Run.Banner = _services.RecoveryBanner;
+                _services.RecoveryBanner = "";
+            }
+            StatusMessage = "RUN — Enter is GO while armed, ↑ ↓ move standby, Esc twice is STOP ALL. Space is still blackout.";
+        }
+    }
+
+    // ---- the shell: five groups on the rail, a page strip, the PREP · SHOW · RUN selector ----
+
+    private int _page = Shell.PanelPage;
+    private ShellGroup _group = ShellGroup.Show;
+    private int _lastBuildPage = Shell.PanelPage;
+    private readonly Dictionary<ShellGroup, int> _lastPage = new() { [ShellGroup.Show] = Shell.PanelPage };
+
+    /// <summary>The selected page as the window's TabControl index (two-way: a test picking a tab by header lands here too).</summary>
+    public int SelectedPageIndex
+    {
+        get => _page;
+        set => SelectPage(value);
+    }
+
+    public ShellGroup SelectedGroup => _group;
+
+    /// <summary>The group buttons on the rail.</summary>
+    public IReadOnlyList<GroupChip> GroupStrip => Shell.Groups.Select(g => new GroupChip(g.Group, g.Label, g.Hue, g.Hint, g.Group == _group)).ToList();
+
+    /// <summary>The pages of the current group, as the strip shows them.</summary>
+    public IReadOnlyList<PageChip> PageStrip => Shell.Pages.Where(p => p.Group == _group).Select(p => new PageChip(p.Index, p.Header, p.Hue, p.Index == _page)).ToList();
+
+    public string GroupHint => Shell.Info(_group).Hint;
+
+    /// <summary>
+    /// Select a page. The Run page is the Run layout; leaving it is refused while the caller's
+    /// stack is armed (the strip and the tab snap back), so a stray click cannot take the
+    /// surface away mid-show.
+    /// </summary>
+    public void SelectPage(int index)
+    {
+        if (index < 0 || index >= Shell.Pages.Count) return;
+        var run = index == Shell.RunPage;
+        if (!run && _isRunLayout && _services.CueStack.Armed)
+        {
+            StatusMessage = "Disarm the cue stack before leaving the Run surface.";
+            RaiseShell();
+            // The TabControl that asked is mid-write on its two-way binding, which ignores a
+            // source change raised inside that write: snap it back once the write has finished.
+            Dispatcher.UIThread.Post(() =>
+            {
+                Raise(nameof(SelectedPageIndex));
+                RaiseShell();
+            });
+            return;
+        }
+        var page = Shell.Pages[index];
+        _page = index;
+        _lastPage[page.Group] = index;
+        if (!run) _lastBuildPage = index;
+        _group = page.Group;
+        Raise(nameof(SelectedPageIndex));
+        SetRunLayout(run);
+        RaiseShell();
+    }
+
+    /// <summary>A group button: the group's last page, or its first; SHOW pressed while in Run goes to the panel.</summary>
+    public void SelectGroup(ShellGroup group)
+    {
+        var index = _lastPage.TryGetValue(group, out var last) ? last : Shell.FirstPage(group);
+        if (group == _group && _isRunLayout) index = Shell.PanelPage;
+        SelectPage(index);
+    }
+
+    public RelayCommand<ShellGroup> SelectGroupCommand { get; private set; } = null!;
+    public RelayCommand<int> SelectPageCommand { get; private set; } = null!;
+
+    /// <summary>PREP · SHOW · RUN in the header: the first two are the show mode, RUN is the layout.</summary>
+    public bool IsPrepSelected => !_isRunLayout && IsPrepMode;
+    public bool IsShowSelected => !_isRunLayout && !IsPrepMode;
+    public bool IsRunSelected => _isRunLayout;
+
+    public RelayCommand SelectPrepCommand { get; private set; } = null!;
+    public RelayCommand SelectShowCommand { get; private set; } = null!;
+    public RelayCommand SelectRunCommand { get; private set; } = null!;
+
+    /// <summary>Leave the Run layout for the last Build page; false when the armed stack refuses it.</summary>
+    private bool LeaveRun()
+    {
+        if (!_isRunLayout) return true;
+        SelectPage(_lastBuildPage);
+        return !_isRunLayout;
+    }
+
+    private void RaiseShell()
+    {
+        Raise(nameof(SelectedGroup));
+        Raise(nameof(GroupStrip));
+        Raise(nameof(PageStrip));
+        Raise(nameof(GroupHint));
+        Raise(nameof(IsPrepSelected));
+        Raise(nameof(IsShowSelected));
+        Raise(nameof(IsRunSelected));
+    }
+
+    /// <summary>The SHOW CONTROLS drawer beside the switcher.</summary>
+    public ShowControls ShowControls { get; private set; } = null!;
 
     public string RunLayoutButtonText => _isRunLayout ? "EXIT RUN" : "RUN";
 
@@ -2010,7 +2128,11 @@ public sealed class MainViewModel : Observable
         }
     }
 
-    private void RaiseModeChanged() => RefreshOutputsStatus();
+    private void RaiseModeChanged()
+    {
+        RefreshOutputsStatus();
+        RaiseShell();
+    }
 
     private void GoLive() => _services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
 
@@ -2294,7 +2416,7 @@ public sealed class MainViewModel : Observable
         }
         var code = _services.PrepareRestart();
         StatusMessage = "Restarting — the show comes straight back…";
-        Log.Info("Restart requested from the Admin tab.");
+        Log.Info("Restart requested from the Machine page.");
         (Avalonia.Application.Current?.ApplicationLifetime
             as Avalonia.Controls.ApplicationLifetimes.IControlledApplicationLifetime)?.Shutdown(code);
     }
@@ -2410,6 +2532,7 @@ public sealed class MainViewModel : Observable
 
     private void PollStatus()
     {
+        ShowControls?.Refresh();
         var active = _services.Ndi.ActiveCount;
         foreach (var cfg in State.Ndi.Senders)
         {

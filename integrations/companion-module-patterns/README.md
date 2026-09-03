@@ -6,7 +6,7 @@ canvas groups, stingers (one-press sounds and clips), and the audio track.
 
 ## Setup
 
-1. In Patterns: **Remote** tab → make sure remote control is on (Companion TCP port,
+1. In Patterns: **Remote** page (SETUP) → make sure remote control is on (Companion TCP port,
    default **9697**).
 2. In Companion (v3.x): `Connections → Add`, import this module as a dev module
    (`Settings → Developer modules path` pointing at this folder after `yarn && yarn package`,
@@ -22,7 +22,7 @@ the stack is armed, amber on HOLD or while a cue waits for confirmation (press G
 within four seconds), red when the last cue failed or was refused. Every GO sends the
 standby id the module last saw, so a GO that races a standby move is refused with
 `ERR standby moved` rather than firing the wrong cue; `$(patterns:last_error)` carries the
-last ERR line. **ARM** needs "Remotes may ARM the cue stack" in the Remote tab. **STOP ALL**
+last ERR line. **ARM** needs "Remotes may ARM the cue stack" on the Remote page. **STOP ALL**
 stops the audio track, any stinger and the tone — never the outputs, blackout or the
 stream. Variables: `cue_standby_number/name`, `cue_next_number/name`,
 `cue_previous_number/name`, `cue_last_outcome`, `cue_confirm`, `cue_armed`, `cue_hold`,

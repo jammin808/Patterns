@@ -48,7 +48,7 @@
       <TextBox Grid.Column="0" Watermark="Logo file (PNG with alpha recommended)" Text="{Binding State.Brand.LogoPath}" />
       <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseLogoCommand}" />
     </Grid>
-    <TextBlock Classes="hint" Text="Use it as a watermark (Clock &amp; overlays tab) or as a particle sprite (Logo shape)." />
+    <TextBlock Classes="hint" Text="Use it as a watermark (Overlays page) or as a particle sprite (Logo shape)." />
 
     <TextBlock Classes="h2" Text="BRAND KITS" />
     <StackPanel Orientation="Horizontal" Spacing="8">

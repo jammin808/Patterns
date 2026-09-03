@@ -6,9 +6,9 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1 neon-looks" Text="Looks &amp; cues" />
+    <TextBlock Classes="h1 neon-looks" Text="Looks" />
     <TextBlock Classes="hint"
-               Text="A look is the whole screen state — pattern, per-screen patterns, overlays, countdown, blackout — saved under a name. Recall a look instantly with F1–F12 or fire it from the schedule below." />
+               Text="A look is the whole screen state — pattern, per-screen patterns, overlays, countdown, blackout — saved under a name. Recall it with F1–F12, from a cue, or from the wall-clock automation below, which all lives on this page." />
 
     <TextBlock Classes="h2" Text="SAVE THE CURRENT STATE AS A LOOK" />
     <Grid ColumnDefinitions="*,8,110,8,Auto">
@@ -59,6 +59,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
+    <TextBlock Classes="hint" Text="The cue stack and the clicker list — what the caller and the speaker step through — are on the Cues page." />
 
     <TextBlock Classes="h2" Text="SCHEDULED AUTOMATION" />
     <TextBlock Classes="label" Text="{Binding NextCueText}" />
@@ -83,31 +84,29 @@
       <Button Classes="chip" Content="+ Add cue" Command="{Binding AddCueCommand}" />
     </StackPanel>
     <TextBlock Classes="hint"
-               Text="Each armed cue applies its look daily at the set time (24 h) while the app is running — e.g. Walk-in 18:00 · Countdown 18:45 · Blackout 19:00. Times are checked every second; a cue fires once per day." />
+               Text="Each armed cue applies its look daily at the set time (24 h) while the app is running — e.g. Walk-in 18:00 · Countdown 18:45 · Blackout 19:00. Times are checked every second; a cue fires once per day. While the caller's cue stack is armed, this schedule waits (the LIVE strip says AUTO HELD)." />
 
-    <TextBlock Classes="h2" Text="PRESENTER CLICK-THROUGH" />
+    <TextBlock Classes="h2" Text="PLAYLIST PARTS — DAILY START TIMES" />
+    <StackPanel IsVisible="{Binding State.Pattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Playlist}}">
+      <ItemsControl ItemsSource="{Binding State.Pattern.Media.Playlist.Sections}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:PlaylistSectionConfig">
+            <Grid ColumnDefinitions="14,8,*,8,74,8,Auto" Margin="0,3">
+              <TextBlock Grid.Column="0" Text="▶" FontSize="10" Foreground="#2EE68A" VerticalAlignment="Center"
+                         IsVisible="{Binding IsOnAir}" ToolTip.Tip="On air now" />
+              <TextBlock Grid.Column="2" Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              <TextBox Grid.Column="4" Watermark="HH:mm" Text="{Binding StartTime, Mode=TwoWay}"
+                       ToolTip.Tip="Optional daily start time (24 h): the part takes over at this time" />
+              <Button Grid.Column="6" Classes="mini" Content="ON AIR"
+                      ToolTip.Tip="Put this part on air now"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SetPlaylistSectionCommand}"
+                      CommandParameter="{Binding}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
     <TextBlock Classes="hint"
-               Text="The looks a speaker clicks through live in the CLICKER LIST on the Cues tab — one cue per look, in order, with notes. Hand the presenter a clicker: Page Down = next, Page Up = back (what USB presentation remotes send); the arrow keys work too when you're not typing, and the remote's NEXT / PREV drive the same list. It answers only while armed." />
-    <Grid ColumnDefinitions="Auto,16,Auto,*,Auto">
-      <CheckBox Grid.Column="0" Content="Clicker armed" IsChecked="{Binding ClickerArmed, Mode=TwoWay}" />
-      <Button Grid.Column="2" Classes="mini" Content="Reset to start" Command="{Binding PresenterResetCommand}" />
-      <TextBlock Grid.Column="4" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
-    </Grid>
-
-    <TextBlock Classes="h2" Text="TRANSITIONS" />
-    <CheckBox Content="Crossfade content changes" IsChecked="{Binding State.Transition.Enabled}" />
-    <Grid ColumnDefinitions="130,*,52" IsEnabled="{Binding State.Transition.Enabled}">
-      <TextBlock Classes="label" Text="Fade time (ms)" VerticalAlignment="Center" />
-      <Slider Grid.Column="1" Minimum="100" Maximum="3000" TickFrequency="50"
-              Value="{Binding State.Transition.DurationMs, Mode=TwoWay}" />
-      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
-                 Text="{Binding State.Transition.DurationMs, StringFormat={}{0:0}}" />
-    </Grid>
-    <TextBlock Classes="hint"
-               Text="Look recalls, presenter steps, playlist advances, source changes and blackout all crossfade on every screen and NDI output — synchronised across spans. Setting tweaks stay instant." />
-
-    <TextBlock Classes="h2" Text="KEYS" />
-    <TextBlock Classes="hint"
-               Text="F1–F12 apply looks from anywhere in the app (and on output windows). Transport lives on ⇧F5 OUTPUTS ON · ⇧F6 OUTPUTS OFF · ⇧F7 identify · ⇧F8 blackout; Space also toggles blackout when you're not typing." />
+               Text="Shown when the program pattern is Media → Playlist. Parts and their files are built on the Media page (BUILD); their start times live here with the rest of the wall-clock automation, and a part start waits like a scheduled cue while the stack is armed." />
   </StackPanel>
 </UserControl>

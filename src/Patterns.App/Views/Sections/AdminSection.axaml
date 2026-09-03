@@ -5,7 +5,7 @@
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1 neon-admin" Text="Admin" />
+    <TextBlock Classes="h1 neon-admin" Text="Machine" />
     <TextBlock Classes="hint"
                Text="The machine room: live and historical performance, plain-language suggestions when something needs attention, the graphics card choice, and the tools for keeping a show machine healthy." />
 
@@ -98,12 +98,6 @@
       <Button Classes="chip" Content="Open app folder" Command="{Binding OpenAppFolderCommand}" Margin="0,0,8,6"
               ToolTip.Tip="Settings, logs, presets and the metrics record live beside Patterns.exe" />
     </WrapPanel>
-
-    <TextBlock Classes="h2" Text="SWITCHER" />
-    <CheckBox Content="Previews are sandboxed by default (EDIT SAFE on at start, re-armed after every send)"
-              IsChecked="{Binding State.Switcher.EditSafeByDefault}" />
-    <TextBlock Classes="hint"
-               Text="On (recommended): the preview opens detached, so touching any editor — screens, outputs, inputs, patterns — never reaches the audience until you CUT or TAKE, and EDIT SAFE re-arms itself after each send. Things you fire still go straight to air: F-key looks, scheduled cues, presenter steps, stingers and remote commands. Off: the preview mirrors the program and every edit is live." />
 
     <TextBlock Classes="h2" Text="STABILITY (WATCHDOG)" />
     <CheckBox Content="Watchdog: auto-restart after a crash or hang"

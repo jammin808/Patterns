@@ -10,7 +10,7 @@
 
     <!-- LIVE strip: what is on air, by name, and the chips a caller glances at -->
     <Border Grid.Row="0" Classes="runLive">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <Ellipse Classes="tally" Classes.air="{Binding !Run.IsBlackout}" Width="12" Height="12" />
           <TextBlock Classes="runTag" Text="LIVE" />
@@ -22,8 +22,9 @@
         <Border Grid.Column="2" Classes="runChip blackoutChip" IsVisible="{Binding Run.IsBlackout}"><TextBlock Text="BLACKOUT" /></Border>
         <Border Grid.Column="3" Classes="runChip holdChip" IsVisible="{Binding Run.IsHold}"><TextBlock Text="HOLD" /></Border>
         <Border Grid.Column="4" Classes="runChip armedChip" IsVisible="{Binding Run.IsArmed}"><TextBlock Text="ARMED" /></Border>
-        <TextBlock Grid.Column="5" Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource TextDimBrush}" />
-        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <Border Grid.Column="5" Classes="runChip holdChip" IsVisible="{Binding IsPrepMode}" ToolTip.Tip="PREP mode: the outputs are held closed — cues run, the audience sees nothing"><TextBlock Text="PREP · OUTPUTS HELD" /></Border>
+        <TextBlock Grid.Column="6" Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource TextDimBrush}" />
+        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <Button Classes="mini" Content="POP OUT" Command="{Binding PopOutRunCommand}" Focusable="False"
                   ToolTip.Tip="Open the Run surface as a second window for the caller's own monitor" />
           <TextBlock Classes="runClock" Text="{Binding HeaderClock}" VerticalAlignment="Center" />
