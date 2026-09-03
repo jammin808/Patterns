@@ -14,6 +14,7 @@
 ⇧F7   IDENTIFY — flash screen numbers
 ⇧F8 / Space   BLACKOUT toggle
 Page Down / Page Up   clicker list next / back (armed on the Cues, Looks or Show page)
+Enter (RUN, armed)    GO on the cue stack · ↑ ↓ move standby · Esc cancels a confirm, Esc twice = STOP ALL
 On outputs:  Esc ×2 close · Space/B blackout · I identify · F1–F12 looks · PgDn/PgUp presenter
 Every key acts once per press — holding a key down never repeats it.</TextBlock>
 

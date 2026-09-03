@@ -51,8 +51,10 @@ public sealed class PlaylistService : IDisposable
             var utcNow = DateTime.UtcNow;
             var localNow = DateTime.Now;
 
-            // A section with a start time takes over daily at its minute.
-            if (_sequencer.SectionDue(options, localNow) is { } dueSection && options.ActiveSection != dueSection)
+            // A section with a start time takes over daily at its minute — unless the caller's
+            // stack is armed, when only GO moves the picture.
+            if (!_services.CueStack.SuspendsAutomation &&
+                _sequencer.SectionDue(options, localNow) is { } dueSection && options.ActiveSection != dueSection)
             {
                 options.ActiveSection = dueSection;
                 var name = options.Sections[dueSection].Name;

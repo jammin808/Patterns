@@ -64,6 +64,8 @@ public enum ShowActionKind
     ListReset,
     /// <summary>Target = cue id: run that cue's actions now, in order, stopping at the first failure.</summary>
     CueFire,
+    /// <summary>GO on the caller's stack through the gate; Target = the standby id the sender saw ("" skips the fence).</summary>
+    CueGo,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

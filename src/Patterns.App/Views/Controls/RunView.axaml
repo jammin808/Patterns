@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:svc="using:Patterns.Core.Services"
+             xmlns:ctl="using:Patterns.App.Views.Controls"
+             x:Class="Patterns.App.Views.Controls.RunView"
+             x:DataType="vm:MainViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+    <!-- LIVE strip: what is on air, by name, and the chips a caller glances at -->
+    <Border Grid.Row="0" Classes="runLive">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Ellipse Classes="tally" Classes.air="{Binding !Run.IsBlackout}" Width="12" Height="12" />
+          <TextBlock Classes="runTag" Text="LIVE" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0">
+          <TextBlock Classes="runLiveText" Text="{Binding Run.LiveLabel}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Classes="runNotes" Text="{Binding Run.ShowName}" Foreground="{StaticResource TextDimBrush}" />
+        </StackPanel>
+        <Border Grid.Column="2" Classes="runChip blackoutChip" IsVisible="{Binding Run.IsBlackout}"><TextBlock Text="BLACKOUT" /></Border>
+        <Border Grid.Column="3" Classes="runChip holdChip" IsVisible="{Binding Run.IsHold}"><TextBlock Text="HOLD" /></Border>
+        <Border Grid.Column="4" Classes="runChip armedChip" IsVisible="{Binding Run.IsArmed}"><TextBlock Text="ARMED" /></Border>
+        <TextBlock Grid.Column="5" Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource TextDimBrush}" />
+        <TextBlock Grid.Column="6" Classes="runClock" Text="{Binding HeaderClock}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <!-- After a watchdog relaunch: the place came back, nothing fired -->
+    <Border Grid.Row="1" Classes="runBanner" IsVisible="{Binding Run.HasBanner}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="runNotes" Text="{Binding Run.Banner}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <Button Grid.Column="1" Classes="mini" Content="OK" Command="{Binding Run.DismissBannerCommand}" Focusable="False" />
+      </Grid>
+    </Border>
+
+    <!-- The wall beside the list; the list is the only scrolling region -->
+    <Grid Grid.Row="2" ColumnDefinitions="5*,12,6*" Margin="0,10,0,0">
+      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,*">
+        <TextBlock Grid.Row="0" Classes="runTag" Text="THE WALL" Margin="2,0,0,6" />
+        <ctl:WallView Grid.Row="1" />
+        <TextBlock Grid.Row="2" Classes="runTag" Text="HISTORY" Margin="2,12,0,6" />
+        <ItemsControl Grid.Row="3" ItemsSource="{Binding Run.History}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="svc:CueExecutionRecord">
+              <Grid ColumnDefinitions="Auto,10,*,10,Auto,10,Auto" Margin="2,1">
+                <TextBlock Grid.Column="0" Classes="runNotes" Text="{Binding TimeText}" FontFamily="Consolas,Menlo,monospace" Foreground="{StaticResource TextDimBrush}" />
+                <TextBlock Grid.Column="2" Classes="runNotes" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Classes="runNotes runOutcome" Classes.failed="{Binding IsFailure}" Text="{Binding Outcome}" />
+                <TextBlock Grid.Column="6" Classes="runNotes" Text="{Binding Origin}" Foreground="{StaticResource TextDimBrush}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <Grid Grid.Column="2" RowDefinitions="Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,2,6">
+          <TextBlock Classes="runTag" Text="CUE STACK" />
+          <TextBlock Grid.Column="1" Classes="runNotes" Text="{Binding Run.ValidationSummary}" Foreground="{StaticResource TextDimBrush}" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Run.Rows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RunRow">
+                <Border Classes="runRow" Classes.standby="{Binding IsStandby}" Classes.last="{Binding IsLast}" Classes.next="{Binding IsNext}"
+                        Classes.broken="{Binding IsBroken}" Classes.off="{Binding !Enabled}">
+                  <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" Focusable="False"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Run.SelectRowCommand}" CommandParameter="{Binding}"
+                          ToolTip.Tip="Click: put this cue on standby (changes nothing on air)">
+                    <Grid ColumnDefinitions="88,Auto,*">
+                      <TextBlock Grid.Column="0" Classes="runNumber" Text="{Binding Number}" VerticalAlignment="Top" />
+                      <Border Grid.Column="1" Classes="runTagChip" IsVisible="{Binding Tag, Converter={StaticResource NotEmpty}}" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding Tag}" />
+                      </Border>
+                      <StackPanel Grid.Column="2" Spacing="2" Margin="10,0,0,0">
+                        <TextBlock Classes="runName" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="runNotes" Text="{Binding Summary}" Foreground="{StaticResource TextDimBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="runNotes runCueNotes" Text="{Binding Notes}" IsVisible="{Binding HasNotes}" TextWrapping="Wrap" />
+                        <TextBlock Classes="runNotes" Foreground="{StaticResource TallyPgmBrush}" Text="{Binding Problem}" IsVisible="{Binding IsBroken}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Grid>
+                  </Button>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+
+    <!-- Transport: the standby card, GO, and the guarded stops -->
+    <Border Grid.Row="3" Classes="runTransport">
+      <Grid ColumnDefinitions="Auto,12,*,12,Auto,Auto,Auto,Auto,12,Auto,Auto">
+        <ToggleButton Grid.Column="0" Classes="runArm" Content="{Binding Run.ArmText}" IsChecked="{Binding Run.IsArmed, Mode=OneWay}"
+                      Command="{Binding Run.ArmCommand}" Focusable="False"
+                      ToolTip.Tip="ARMED gates GO from every origin and holds the schedule, part start times and plain F-keys. Always off when the app opens." />
+        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+          <Grid ColumnDefinitions="Auto,10,*,Auto">
+            <TextBlock Grid.Column="0" Classes="runTag" Text="STANDBY" Foreground="{StaticResource TallyPvwBrush}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Classes="runStandby" Text="{Binding Run.StandbyText}" TextTrimming="CharacterEllipsis" />
+            <Border Grid.Column="3" Classes="runChip holdChip" IsVisible="{Binding Run.StandbyReadyText, Converter={StaticResource NotEmpty}}" VerticalAlignment="Center"><TextBlock Text="{Binding Run.StandbyReadyText}" /></Border>
+          </Grid>
+          <TextBlock Classes="runNotes runCueNotes" Text="{Binding Run.StandbyNotes}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Run.StandbyNotes, Converter={StaticResource NotEmpty}}" />
+          <TextBlock Classes="runNotes" Foreground="{StaticResource TallyPgmBrush}" Text="{Binding Run.StandbyProblem}" IsVisible="{Binding Run.StandbyIsBroken}" />
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Run.RunningText, Converter={StaticResource NotEmpty}}">
+            <TextBlock Classes="runTag" Text="RUNNING" Foreground="{StaticResource TallyPgmBrush}" VerticalAlignment="Center" />
+            <TextBlock Classes="runNotes runRunning" Classes.over="{Binding Run.RunningOverPlanned}" Text="{Binding Run.RunningText}" />
+          </StackPanel>
+        </StackPanel>
+        <Button Grid.Column="4" Classes="runStep" Content="▲" Command="{Binding Run.StandbyUpCommand}" Focusable="False" ToolTip.Tip="Standby up (↑) — no output change" />
+        <Button Grid.Column="5" Classes="runStep" Content="▼" Command="{Binding Run.StandbyDownCommand}" Focusable="False" ToolTip.Tip="Standby down (↓) — no output change" />
+        <Button Grid.Column="6" Classes="runGo" Classes.confirm="{Binding Run.IsConfirming}" Content="{Binding Run.GoText}" Command="{Binding Run.GoCommand}" Focusable="False"
+                ToolTip.Tip="GO (Enter while armed): runs the standby cue and moves standby to the next. A cue that asks for confirmation needs a second GO within four seconds." />
+        <ToggleButton Grid.Column="7" Classes="runHold" Content="HOLD" IsChecked="{Binding Run.IsHold, Mode=OneWay}" Command="{Binding Run.HoldCommand}" Focusable="False"
+                      ToolTip.Tip="A latched GO inhibit and nothing else: GO from any origin is refused until released" />
+        <ToggleButton Grid.Column="9" Classes="runBlackout" Content="BLACKOUT" IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False"
+                      ToolTip.Tip="Immediate black on every output (Space). While on, GO is refused rather than executing under black." />
+        <Button Grid.Column="10" Classes="runStop" Content="STOP ALL" Command="{Binding Run.StopAllCommand}" Focusable="False"
+                ToolTip.Tip="Stops the audio track, any stinger (a clip reverts) and the tone. Never outputs, blackout or the stream. Esc twice does the same." />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

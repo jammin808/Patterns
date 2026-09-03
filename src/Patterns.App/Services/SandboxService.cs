@@ -60,6 +60,7 @@ public sealed class SandboxService
         if (cut) _services.Bus.CutOnNextPublish();
         Exit(reenterIfDefault: false);
         ReArmIfDefault();
+        _services.AirLabel = Modified(_services.AirLabel);
         Log.Info($"Sandbox {(cut ? "cut" : "taken")} to program ({(kept == 0 ? "all screens" : $"{kept} target(s) kept their picture")}).");
     }
 
@@ -130,8 +131,13 @@ public sealed class SandboxService
             }
         });
         Exit(reenterIfDefault: true);
+        _services.AirLabel = Modified(_services.AirLabel);
         Log.Info($"Sandbox sent to {targetIds.Count} target(s).");
     }
+
+    /// <summary>"MODIFIED — last Walk-in": a send changed the picture; the caller's strip stops naming a look it is not.</summary>
+    private static string Modified(string previous)
+        => previous.StartsWith("MODIFIED", StringComparison.Ordinal) ? previous : $"MODIFIED — last {previous}";
 
     /// <summary>Re-arms EDIT SAFE when the show asks for it (after a send).</summary>
     private void ReArmIfDefault()

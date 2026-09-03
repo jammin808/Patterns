@@ -36,7 +36,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
 
-State JSON carries: `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
+State JSON carries: `airLabel` (what is on air, by name), `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
 `screens[{n,label,enabled,group}]` (labels honour operator names), `audio{playing,track}`, `tone`,
 `stingers[{n,name}]`, `stingerPlaying`, `sections[{n,name,active}]`, `playlist`, `nextCue`,
 Remote commands always drive **what the audience sees**: looks, cues, playlist parts, stingers

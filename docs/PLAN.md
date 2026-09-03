@@ -168,8 +168,8 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 1 | One action layer (`ShowActions`) for the desk, keyboard, output windows, remote, schedule and recovery, journaled to `patterns.showlog.jsonl`; OUTPUTS ON/OFF naming; snapshot-level CUT; tolerant enum loading; looks and stingers with ids. | done |
 | 2 | Content-target model (a joined canvas holds content of its own, keyed `a+b`); the wall — PGM/PVW miniatures per target at true shape, OWN / MON / ARM / OUTPUT, tally; aspect-locked panes following the selected target; scoped TAKE (un-armed targets keep their picture). | done |
 | 3 | Cue stack: two lists of one model (caller's stack, clicker list — the old presenter steps migrate into it), typed actions with one spec table, a simulating validator with per-cue *Broken* (never a global arm gate), the Cues page with FIRE, looks with their own cut / fade, blackout as transport across a cue. | done |
-| 4 | Run layout: standby/GO executor with the one gate (armed, hold, blackout latch, standby-id fence, lockout, confirm), journal tail, recovery keeps the caller's place. | next |
-| 5 | Remote, Companion, tablet page and the pop-out wall. | |
+| 4 | Run layout (LIVE strip, the wall beside the stack, transport row, the type scale); the executor with the one gate (armed, hold, blackout, executing, standby-id fence, 300 ms lockout, confirm window); history and journal; asynchronous settling; AirLabel; the schedule, part start times and plain F-keys held while armed; Enter / ↑ ↓ / Esc; STOP ALL; the sidecar keeps the caller's place and a relaunch restores it disarmed. | done |
+| 5 | Remote, Companion, tablet page and the pop-out wall. | next |
 | 6 | Five-group menu shell (Show · Plan · Edit · Setup · Admin) and the Build-layout extras. | |
 
 Deferred on purpose: multiview tile maths for canvas targets; MON persisted per show (runtime only

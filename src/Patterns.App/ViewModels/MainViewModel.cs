@@ -361,11 +361,21 @@ public sealed class MainViewModel : Observable
             RefreshTakeScope();
         };
         Cues = new CueEditor(_services, message => StatusMessage = message);
+        Run = new RunViewModel(_services, this);
         _services.Cues.Changed += () =>
         {
             Raise(nameof(ClickerArmed));
             Raise(nameof(PresenterStepText));
         };
+        ToggleRunLayoutCommand = new RelayCommand(() =>
+        {
+            if (IsRunLayout && _services.CueStack.Armed)
+            {
+                StatusMessage = "Disarm the cue stack before leaving the Run surface.";
+                return;
+            }
+            IsRunLayout = !IsRunLayout;
+        });
         _services.Screens.Changed += OnScreensChanged;
 
         var statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -1033,6 +1043,36 @@ public sealed class MainViewModel : Observable
 
     /// <summary>The Cues page.</summary>
     public CueEditor Cues { get; }
+
+    /// <summary>The Run surface's state and commands.</summary>
+    public RunViewModel Run { get; }
+
+    private bool _isRunLayout;
+
+    /// <summary>The caller's one-column layout instead of the editors and the switcher.</summary>
+    public bool IsRunLayout
+    {
+        get => _isRunLayout;
+        set
+        {
+            if (!Set(ref _isRunLayout, value)) return;
+            Raise(nameof(RunLayoutButtonText));
+            if (value)
+            {
+                Run.Refresh();
+                if (_services.RecoveryBanner.Length > 0)
+                {
+                    Run.Banner = _services.RecoveryBanner;
+                    _services.RecoveryBanner = "";
+                }
+                StatusMessage = "RUN — Enter is GO while armed, ↑ ↓ move standby, Esc twice is STOP ALL. Space is still blackout.";
+            }
+        }
+    }
+
+    public string RunLayoutButtonText => _isRunLayout ? "EXIT RUN" : "RUN";
+
+    public RelayCommand ToggleRunLayoutCommand { get; private set; } = null!;
 
     // ---- remote screen/group switching --------------------------------------
 
@@ -2370,6 +2410,7 @@ public sealed class MainViewModel : Observable
         PollAdmin();
         RefreshActiveInputs();
         RefreshSwitcherTiles();
+        Run.Tick();
         RemoteStatus = State.Control.Enabled
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";

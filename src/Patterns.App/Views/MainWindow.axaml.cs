@@ -113,6 +113,31 @@ public partial class MainWindow : Window
 
         var typing = FocusManager?.GetFocusedElement() is TextBox or NumericUpDown or ComboBox or AutoCompleteBox;
 
+        // The caller's keys, only on the Run surface and never in a text box: Enter is GO on
+        // the caller's stack (the gate refuses it unarmed), ↑ ↓ move standby without touching
+        // output, Esc cancels a pending confirm and a second Esc within a second is STOP ALL.
+        if (vm.IsRunLayout && !typing && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (e.Key is Key.Return or Key.Enter)
+            {
+                e.Handled = true;
+                if (Latch(e.Key)) vm.Run.Go(ActionOrigin.Keyboard);
+                return;
+            }
+            if (e.Key is Key.Up or Key.Down)
+            {
+                e.Handled = true;
+                if (Latch(e.Key)) vm.Services.CueStack.StandbyMove(e.Key == Key.Up ? -1 : +1);
+                return;
+            }
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                if (Latch(e.Key)) vm.Run.EscapePressed();
+                return;
+            }
+        }
+
         // Presenter clicker: USB presentation remotes send Page Down / Page Up (and often
         // the arrow keys — those only count when the operator isn't in a control).
         if (vm.ClickerArmed && e.KeyModifiers == KeyModifiers.None)

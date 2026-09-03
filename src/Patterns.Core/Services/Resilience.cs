@@ -79,7 +79,17 @@ public sealed class SupervisorPolicy
 /// operator was programming in the sandbox (the settings file already holds it otherwise);
 /// without it a crash mid-programming would reopen outputs on the untaken preview.
 /// </summary>
-public sealed record RecoverySnapshot(bool Live, bool AudioPlaying, DateTime UpdatedUtc, string? AirLook = null);
+public sealed record RecoverySnapshot(bool Live, bool AudioPlaying, DateTime UpdatedUtc, string? AirLook = null, RunPlace? Run = null);
+
+/// <summary>
+/// The caller's place, written atomically on every GO: what was on standby, what ran last and
+/// the last twenty history rows. A relaunch reopens the Run surface disarmed, pointing at the
+/// next cue, and fires nothing.
+/// </summary>
+public sealed record RunPlace(string? StandbyCueId, string? LastCueId, DateTime? LastGoUtc, IReadOnlyList<CueExecutionRecord> History)
+{
+    public const int HistoryRows = 20;
+}
 
 /// <summary>
 /// Tiny sidecar file beside the settings: whether outputs (and the audio track) were live.
@@ -106,12 +116,12 @@ public sealed class RecoveryStore
         }
     }
 
-    public void Write(bool live, bool audioPlaying, string? airLook = null)
+    public void Write(bool live, bool audioPlaying, string? airLook = null, RunPlace? run = null)
     {
         try
         {
             var tmp = _path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(new RecoverySnapshot(live, audioPlaying, DateTime.UtcNow, airLook)));
+            File.WriteAllText(tmp, JsonUtil.Serialize(new RecoverySnapshot(live, audioPlaying, DateTime.UtcNow, airLook, run)));
             File.Move(tmp, _path, overwrite: true);
         }
         catch (Exception ex)

@@ -92,6 +92,7 @@ public sealed class CommandRouter
         var payload = new
         {
             show = s.Name,
+            airLabel = _services.AirLabel,
             blackout = s.Blackout,
             live = _services.Outputs.IsLive,
             looks = s.LooksAndCues.Looks.Select(l => new { name = l.Name, slot = l.Hotkey }).ToArray(),

@@ -6,9 +6,16 @@ namespace Patterns.App.Services;
 public sealed class StackRuntime : Observable
 {
     private bool _armed;
+    private bool _hold;
+    private bool _executing;
     private int _currentIndex = -1;
     private string? _lastCueId;
     private string _lastOutcome = "";
+    private string? _standbyCueId;
+    private string? _confirmPendingCueId;
+    private DateTime? _confirmDeadlineUtc;
+    private DateTime? _lastGoUtc;
+    private long _seq;
 
     /// <summary>A runtime chip: the list answers its keys / GO only while armed. Always off at launch.</summary>
     public bool Armed { get => _armed; set => Set(ref _armed, value); }
@@ -19,6 +26,25 @@ public sealed class StackRuntime : Observable
     public string? LastCueId { get => _lastCueId; set => Set(ref _lastCueId, value); }
 
     public string LastOutcome { get => _lastOutcome; set => Set(ref _lastOutcome, value); }
+
+    /// <summary>A latched GO inhibit and nothing else: GO from any origin is refused with "held" until released.</summary>
+    public bool Hold { get => _hold; set => Set(ref _hold, value); }
+
+    /// <summary>A cue is running right now; a second GO is dropped, never queued.</summary>
+    public bool Executing { get => _executing; set => Set(ref _executing, value); }
+
+    /// <summary>The cue GO fires next. Selecting it changes no output.</summary>
+    public string? StandbyCueId { get => _standbyCueId; set => Set(ref _standbyCueId, value); }
+
+    /// <summary>A cue that asks for confirmation waits here for four seconds after the first GO.</summary>
+    public string? ConfirmPendingCueId { get => _confirmPendingCueId; set => Set(ref _confirmPendingCueId, value); }
+
+    public DateTime? ConfirmDeadlineUtc { get => _confirmDeadlineUtc; set => Set(ref _confirmDeadlineUtc, value); }
+
+    public DateTime? LastGoUtc { get => _lastGoUtc; set => Set(ref _lastGoUtc, value); }
+
+    /// <summary>Bumps on every runtime change; remotes long-poll on it.</summary>
+    public long Seq { get => _seq; set => Set(ref _seq, value); }
 }
 
 /// <summary>
@@ -50,9 +76,15 @@ public sealed class CueRuntime
         foreach (var rt in _byStack.Values)
         {
             rt.Armed = false;
+            rt.Hold = false;
+            rt.Executing = false;
             rt.CurrentIndex = -1;
             rt.LastCueId = null;
             rt.LastOutcome = "";
+            rt.StandbyCueId = null;
+            rt.ConfirmPendingCueId = null;
+            rt.ConfirmDeadlineUtc = null;
+            rt.LastGoUtc = null;
         }
         Changed?.Invoke();
     }

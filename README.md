@@ -110,6 +110,20 @@ fault containment, and settings that can never brick startup.
   run is marked **broken** with the reason, GO refuses it, and the rest of the list still
   runs — one deleted look never stops a show. A cue stops at its first failing action and
   says "failed at action 2 of 3"; blackout stays as it was unless the cue switches it.
+- **Run mode** — press **RUN** in the header and the window becomes the show caller's
+  surface: a **LIVE strip** that names what is on air (a look, `03.020 Five-minute call`,
+  `STING: …`, `PART: …`, or `MODIFIED — last …` after a send), the wall beside the **cue
+  stack** with the last, standby and next cues marked, and a transport row — **ARM**,
+  standby ▲ ▼, a big green **GO**, **HOLD**, **BLACKOUT** and a small guarded **STOP ALL**.
+  Every GO passes one gate in order, whatever pressed it: armed, not held, blackout off,
+  nothing executing, a cue on standby, the standby the sender saw still current, 300 ms
+  since the last GO, confirmation satisfied — and a refused GO says why. A cue that asks
+  for confirmation turns GO into `CONFIRM 03.020` for four seconds. While armed, the daily
+  schedule, playlist part start times and plain F-keys wait (the desk's look buttons and a
+  remote's LOOK stay live), so only the caller moves the picture. **Enter** is GO, ↑ ↓ move
+  standby, Esc cancels a confirm and twice is STOP ALL (audio, stingers, tone — never the
+  outputs, blackout or the stream). A watchdog relaunch reopens Run **disarmed** at the next
+  cue with a banner, and fires nothing; the history reads from the journal.
 - **Presenter click-through** — the clicker list: hand the presenter a USB clicker,
   `Page Down` advances, `Page Up` goes back (exactly what presentation remotes send), and
   each click fires the next cue — a look, a message, a stinger, anything a cue can do. It
@@ -221,9 +235,11 @@ fault containment, and settings that can never brick startup.
     <td><img src="docs/media/shot-cues.png" alt="The Cues page — the caller's stack with typed actions, readable summaries and a broken cue flagged with its reason"/></td>
   </tr>
   <tr>
+    <td><img src="docs/media/shot-run.png" alt="Run mode — the LIVE strip, the wall beside the cue stack with last / standby / next, and the transport row with GO"/></td>
     <td><img src="docs/media/shot-show.png" alt="Show page — transport, presenter, looks, stingers and audio on one screen"/></td>
-    <td><img src="docs/media/shot-playlist.png" alt="Playlist with drag-to-reorder and per-item timing"/></td>
   </tr>
+  <tr>
+    <td><img src="docs/media/shot-playlist.png" alt="Playlist with drag-to-reorder and per-item timing"/></td>
   <tr>
     <td><img src="docs/media/shot-sandbox.png" alt="The switcher — program on air on top, the next look building in the sandboxed preview"/></td>
     <td><img src="docs/media/shot-audio.png" alt="Audio — track, stingers and per-output device routing"/></td>
@@ -260,7 +276,10 @@ editor, looks/cues/presenter steps and the Show page drive them live.*
 | `Shift+F6` | OUTPUTS OFF — close them |
 | `Shift+F7` | IDENTIFY — flash screen numbers |
 | `Shift+F8` / `Space` | BLACKOUT toggle |
-| `Page Down` / `Page Up` | presenter click-through next / back (when armed) |
+| `Page Down` / `Page Up` | clicker list next / back (when armed) |
+| `Enter` (Run mode, armed) | GO on the cue stack |
+| `↑` / `↓` (Run mode) | move standby — no output change |
+| `Esc` (Run mode) | cancel a pending confirm; twice within a second = STOP ALL |
 | on outputs: `Esc` twice within a second | close outputs (one Esc never blanks the room; the prompt shows on the desk) |
 | on outputs: `Space` / `B`, `I`, `F1`–`F12`, `Page Down`/`Up` | blackout, identify, looks, presenter |
 

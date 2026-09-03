@@ -46,6 +46,29 @@ public sealed class AppServices
     /// <summary>Where each cue list is (armed, current cue). Runtime only; reset when a show loads.</summary>
     public CueRuntime Cues { get; } = new();
 
+    /// <summary>The caller's stack at show time: standby, GO, HOLD, history, the sidecar's place.</summary>
+    public CueStackService CueStack { get; }
+
+    private string _airLabel = "—";
+
+    /// <summary>
+    /// What is on air, by name: a look, "03.020 Five-minute call", "STING: name", "PART: Main",
+    /// or "MODIFIED — last …" after a sandbox send. Set inside every air-seam path; the LIVE
+    /// strip, the STATE json and a Companion variable read this one string.
+    /// </summary>
+    public string AirLabel
+    {
+        get => _airLabel;
+        set
+        {
+            if (_airLabel == value) return;
+            _airLabel = value;
+            AirLabelChanged?.Invoke();
+        }
+    }
+
+    public event Action? AirLabelChanged;
+
     private readonly Lazy<CueValidationContext> _validation;
 
     /// <summary>What the cue validator may ask this machine: files on disk, the video runtime.</summary>
@@ -121,6 +144,7 @@ public sealed class AppServices
         Recovery = new RecoveryStore(Store.BaseDirectory);
         PendingRecovery = Recovery.Read();
         Actions = new ShowActions(this);
+        CueStack = new CueStackService(this);
         GpuService.RecordAppliedPath(State);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
@@ -263,14 +287,24 @@ public sealed class AppServices
         if (_recoveryWritten == current && !_airDirty) return;
         _recoveryWritten = current;
         _airDirty = false;
-        if (current.Item1 || current.Item2)
+        var place = CueStack?.Runtime.LastCueId is null && CueStack?.Runtime.StandbyCueId is null ? null : CueStack?.Place();
+        if (current.Item1 || current.Item2 || place is not null)
         {
-            Recovery.Write(current.Item1, current.Item2, CaptureAirLook());
+            Recovery.Write(current.Item1, current.Item2, CaptureAirLook(), place);
         }
         else
         {
             Recovery.Clear();
         }
+    }
+
+    /// <summary>The caller's place goes to the sidecar on every GO, atomically, live or not.</summary>
+    public void WriteRunPlace()
+    {
+        if (_restartRequested) return;
+        _recoveryWritten = (Outputs.IsLive, State.AudioPlayer.Playing);
+        _airDirty = false;
+        Recovery.Write(Outputs.IsLive, State.AudioPlayer.Playing, CaptureAirLook(), CueStack.Place());
     }
 
     private bool _airDirty;
@@ -319,6 +353,13 @@ public sealed class AppServices
             vm.StatusMessage = restored
                 ? "Watchdog restarted the app — the show was put back on."
                 : "Watchdog restarted the app.";
+            if (was.Run is { } place)
+            {
+                // The caller's place: disarmed, pointing at the next cue, nothing fired.
+                RecoveryBanner = CueStack.RestorePlace(place);
+                vm.StatusMessage = RecoveryBanner;
+                vm.IsRunLayout = true;
+            }
             Log.Info(vm.StatusMessage);
         }
         catch (Exception ex)
@@ -326,6 +367,9 @@ public sealed class AppServices
             Log.Error("Recovery after restart failed.", ex);
         }
     }
+
+    /// <summary>"Restored after restart — last GO 03.020 at 19:41:58 — press ARM to continue", until dismissed.</summary>
+    public string RecoveryBanner { get; set; } = "";
 
     /// <summary>Raised on the UI thread after each publish (preview + status displays hook this).</summary>
     public event Action? SnapshotPublished;

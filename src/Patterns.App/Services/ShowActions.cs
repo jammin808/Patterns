@@ -119,6 +119,7 @@ public sealed class ShowActions
     /// </summary>
     public void RunSchedule(DateTime localNow)
     {
+        if (_s.CueStack.SuspendsAutomation) return; // the caller is armed: only GO moves the picture
         foreach (var cue in State.LooksAndCues.Cues)
         {
             if (!LookService.ShouldFire(cue, localNow)) continue;
@@ -197,7 +198,14 @@ public sealed class ShowActions
             {
                 if (!int.TryParse(a.Target, out var slot)) return ActionResult.Refused($"'{a.Target}' is not an F-key slot.");
                 var look = State.LooksAndCues.Looks.FirstOrDefault(l => l.Hotkey == slot);
-                return look is null ? ActionResult.Refused($"No look on F{slot}.") : ApplyLookToAir(look, a.Value);
+                if (look is null) return ActionResult.Refused($"No look on F{slot}.");
+                // A stray key cannot fire behind the caller: plain F-keys wait while the stack is
+                // armed (the show can opt out). The look buttons and a remote's LOOK stay live.
+                if (origin.Kind == OriginKind.Keyboard && _s.CueStack.SuspendsAutomation)
+                {
+                    return ActionResult.Refused($"F{slot} held — the cue stack is armed (looks from the desk or a remote still work).");
+                }
+                return ApplyLookToAir(look, a.Value);
             }
             case ShowActionKind.ApplyLookToPreview:
             {
@@ -221,6 +229,8 @@ public sealed class ShowActions
                 if (found is null) return ActionResult.Refused($"No cue '{a.Target}'.");
                 return RunCue(found.Value.Stack, found.Value.Cue, origin);
             }
+            case ShowActionKind.CueGo:
+                return _s.CueStack.Go(origin, a.Target.Length == 0 ? null : a.Target);
             case ShowActionKind.ListArm:
             case ShowActionKind.ListDisarm:
             case ShowActionKind.ListGo:
@@ -339,9 +349,9 @@ public sealed class ShowActions
             {
                 var item = FindStinger(a.Target);
                 if (item is null) return ActionResult.Refused($"No stinger '{a.Target}'.");
-                return _s.Stingers.Fire(item)
-                    ? ActionResult.Requested(_s.Stingers.Status)
-                    : ActionResult.Failed(_s.Stingers.Status);
+                if (!_s.Stingers.Fire(item)) return ActionResult.Failed(_s.Stingers.Status);
+                _s.AirLabel = $"STING: {item.DisplayName}";
+                return ActionResult.Requested(_s.Stingers.Status);
             }
             case ShowActionKind.StingerStop:
                 _s.Stingers.Stop();
@@ -357,6 +367,7 @@ public sealed class ShowActions
                     : options.Sections.ToList().FindIndex(x => string.Equals(x.Name, a.Target, StringComparison.OrdinalIgnoreCase));
                 if (index < 0 || index >= options.Sections.Count) return ActionResult.Refused($"No playlist part '{a.Target}'.");
                 _s.EditAir(_ => options.ActiveSection = index);
+                _s.AirLabel = $"PART: {options.Sections[index].Name}";
                 return ActionResult.Done($"Playlist part '{options.Sections[index].Name}' is on air.");
             }
 
@@ -412,6 +423,7 @@ public sealed class ShowActions
         var ok = false;
         _s.EditAir(air => ok = LookService.Apply(look.Json, air, rearmCountdown: true));
         if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be applied.");
+        _s.AirLabel = look.Name;
         // "cue 18:00" from the schedule: the status line says which cue fired, as it used to.
         var prefix = value.StartsWith("cue ", StringComparison.OrdinalIgnoreCase) ? $"Cue {value[4..]}: " : "";
         return ActionResult.Done(prefix + (sandboxed
@@ -473,7 +485,7 @@ public sealed class ShowActions
     /// stopping at the first failure ("failed at action k of n"; earlier actions stand). Blackout
     /// is transport: it is put back afterwards unless the cue says otherwise.
     /// </summary>
-    private ActionResult RunCue(CueStackConfig stack, RunCueConfig cue, ActionOrigin origin)
+    internal ActionResult RunCue(CueStackConfig stack, RunCueConfig cue, ActionOrigin origin)
     {
         var label = $"{cue.Number} {cue.Name}";
         var rt = _s.Cues.For(stack);
