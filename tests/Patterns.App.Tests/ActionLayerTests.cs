@@ -1,3 +1,4 @@
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
@@ -76,7 +77,7 @@ public class ActionLayerTests
             Assert.Equal(ActionStatus.Refused, refused.Status);
 
             var tail = b.Services.Journal.Tail(10);
-            Assert.Contains(tail, e => e.Kind == "ApplyLook" && e.Origin == "companion FOH deck" && e.Outcome == "Done" && e.Target == look.Id);
+            Assert.Contains(tail, e => e.Kind == "ApplyLook" && e.Origin == "companion FOH deck" && e.Outcome == "Done" && e.Target == look.Name); // journaled by name, not id
             Assert.Contains(tail, e => e.Kind == "BlackoutOn" && e.Origin == "keyboard" && e.Outcome == "Done");
             Assert.Contains(tail, e => e.Kind == "ApplyLook" && e.Origin == "tcp 10.0.0.5:5000" && e.Outcome == "Refused");
             Assert.True(File.Exists(b.Services.Journal.Path));
@@ -257,6 +258,127 @@ public class ActionLayerTests
         finally
         {
             b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheClickerSkipsAStepWhoseLookIsGoneInsteadOfSticking()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var state = b.Vm.State;
+            state.LooksAndCues.Looks.Add(new LookConfig { Name = "One", Json = LookService.Capture(state) });
+            state.LooksAndCues.Looks.Add(new LookConfig { Name = "Three", Json = LookService.Capture(state) });
+            state.Presenter.Steps.Add(new PresenterStepConfig { LookName = "One" });
+            state.Presenter.Steps.Add(new PresenterStepConfig { LookName = "Gone" });
+            state.Presenter.Steps.Add(new PresenterStepConfig { LookName = "Three" });
+            state.Presenter.Armed = true;
+            state.Presenter.CurrentIndex = -1;
+
+            var first = b.Services.Actions.Execute(ShowActionKind.PresenterNext, ActionOrigin.Clicker);
+            Assert.True(first.Ok);
+            Assert.Equal(0, state.Presenter.CurrentIndex);
+
+            var second = b.Services.Actions.Execute(ShowActionKind.PresenterNext, ActionOrigin.Clicker);
+            Assert.True(second.Ok);
+            Assert.Equal(2, state.Presenter.CurrentIndex); // over the missing step, onto Three
+            Assert.Contains("skipped", second.Message);
+            Assert.Contains("Gone", second.Message);
+
+            var back = b.Services.Actions.Execute(ShowActionKind.PresenterPrev, ActionOrigin.Clicker);
+            Assert.True(back.Ok);
+            Assert.Equal(0, state.Presenter.CurrentIndex); // and back over it the other way
+
+            // Nothing resolvable ahead: refused, with the reason — the index stays put.
+            state.LooksAndCues.Looks.Clear();
+            var stuck = b.Services.Actions.Execute(ShowActionKind.PresenterNext, ActionOrigin.Clicker);
+            Assert.False(stuck.Ok);
+            Assert.Equal(0, state.Presenter.CurrentIndex);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheJournalNamesLooksAndTheScheduleSaysWhichCueFired()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var look = new LookConfig { Name = "Walk-in", Json = LookService.Capture(b.Vm.State) };
+            b.Vm.State.LooksAndCues.Looks.Add(look);
+
+            var desk = b.Services.Actions.ApplyLook(look, ActionOrigin.Desk);
+            Assert.True(desk.Ok);
+            var entry = b.Services.Journal.Tail(1).Single();
+            Assert.Equal("ApplyLook", entry.Kind);
+            Assert.Equal("Walk-in", entry.Target); // the name, never the id
+
+            var cue = b.Services.Actions.ApplyLook(look, ActionOrigin.Schedule, note: "cue 18:00");
+            Assert.True(cue.Ok);
+            Assert.StartsWith("Cue 18:00:", cue.Message);
+            Assert.Contains("Walk-in", cue.Message);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AHeldTransportKeyOnTheDeskActsOnce()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            Assert.False(b.Vm.State.Blackout);
+
+            // Avalonia reports no repeat flag: a held Shift+F8 arrives as a stream of KeyDowns.
+            b.Window.KeyPress(Key.F8, RawInputModifiers.Shift, PhysicalKey.F8, null);
+            b.Window.KeyPress(Key.F8, RawInputModifiers.Shift, PhysicalKey.F8, null);
+            b.Window.KeyPress(Key.F8, RawInputModifiers.Shift, PhysicalKey.F8, null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(b.Vm.State.Blackout); // toggled once, not three times
+
+            b.Window.KeyRelease(Key.F8, RawInputModifiers.Shift, PhysicalKey.F8, null);
+            b.Window.KeyPress(Key.F8, RawInputModifiers.Shift, PhysicalKey.F8, null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(b.Vm.State.Blackout); // a new press acts again
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnOlderShowFileIsWrittenBackOnceAtStartupSoItsNewIdsStick()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "patterns-boot-migrate-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var store = new SettingsStore(dir);
+        var old = new ShowState { SchemaVersion = 3 };
+        old.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", Json = LookService.Capture(old) });
+        var json = System.Text.RegularExpressions.Regex.Replace(JsonUtil.Serialize(old),
+            @"(,)?\s*""Id"": ""[0-9a-fA-F]{32}""(,)?", m => m.Groups[1].Success && m.Groups[2].Success ? "," : "");
+        File.WriteAllText(store.SettingsPath, json);
+
+        var services = new AppServices(store);
+        try
+        {
+            var id = services.State.LooksAndCues.Looks[0].Id;
+            Assert.Equal(32, id.Length);
+            var onDisk = new SettingsStore(dir).LoadFrom(store.SettingsPath);
+            Assert.NotNull(onDisk);
+            Assert.Equal(ShowState.CurrentSchemaVersion, onDisk!.SchemaVersion);
+            Assert.Equal(id, onDisk.LooksAndCues.Looks[0].Id); // the same id next time
+        }
+        finally
+        {
+            services.Shutdown();
         }
     }
 }

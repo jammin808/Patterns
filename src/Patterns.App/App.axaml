@@ -27,13 +27,25 @@
     <Color x:Key="TextDim">#8A93A3</Color>
     <Color x:Key="DangerColor">#E0472E</Color>
 
+    <!-- Tally: four meanings, four colours, used the same way on the wall, the panes and the rows.
+         Red is on air and nothing else; blackout is black with a thin red outline and the word. -->
+    <Color x:Key="TallyPgm">#E0342E</Color>
+    <Color x:Key="TallyPvw">#2EE68A</Color>
+    <Color x:Key="TallyHold">#FFC24D</Color>
+    <Color x:Key="TallyOff">#4A505E</Color>
+
     <SolidColorBrush x:Key="AppBgBrush" Color="{StaticResource AppBg}" />
     <SolidColorBrush x:Key="PanelBgBrush" Color="{StaticResource PanelBg}" />
     <SolidColorBrush x:Key="PanelBg2Brush" Color="{StaticResource PanelBg2}" />
     <SolidColorBrush x:Key="HairlineBrush" Color="{StaticResource HairlineColor}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentDimBrush" Color="{StaticResource AccentDim}" />
     <SolidColorBrush x:Key="TextDimBrush" Color="{StaticResource TextDim}" />
     <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+    <SolidColorBrush x:Key="TallyPgmBrush" Color="{StaticResource TallyPgm}" />
+    <SolidColorBrush x:Key="TallyPvwBrush" Color="{StaticResource TallyPvw}" />
+    <SolidColorBrush x:Key="TallyHoldBrush" Color="{StaticResource TallyHold}" />
+    <SolidColorBrush x:Key="TallyOffBrush" Color="{StaticResource TallyOff}" />
   </Application.Resources>
 
   <Application.Styles>

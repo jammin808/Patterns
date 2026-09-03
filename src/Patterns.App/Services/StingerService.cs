@@ -77,7 +77,9 @@ public sealed class StingerService : IDisposable
         {
             // Chained clips keep the original pre-stinger content as the revert target.
             _savedLook = LookService.Capture(state);
-            _savedCustom = state.Output.Placements.Select(p => (p.ScreenId, p.UseCustomPattern)).ToList();
+            _savedCustom = state.Output.Placements.Select(p => (p.ScreenId, p.UseCustomPattern))
+                .Concat(state.Output.CanvasNames.Select(c => (c.MemberKey, c.UseCustomPattern)))
+                .ToList();
         }
 
         // Blackout is transport, never sandboxed: PublishBoth copies the live flag onto the
@@ -96,6 +98,10 @@ public sealed class StingerService : IDisposable
             foreach (var p in air.Output.Placements)
             {
                 p.UseCustomPattern = false; // the clip owns every screen
+            }
+            foreach (var c in air.Output.CanvasNames)
+            {
+                c.UseCustomPattern = false; // and every joined canvas
             }
         });
         _overrideKey = ContentKey(_services.AirState);
@@ -197,10 +203,9 @@ public sealed class StingerService : IDisposable
         {
             LookService.Apply(saved, air);
             air.Blackout = blackoutNow;
-            foreach (var (screenId, wasCustom) in savedCustom ?? new())
+            foreach (var (target, wasCustom) in savedCustom ?? new())
             {
-                var placement = air.Output.Placements.FirstOrDefault(p => p.ScreenId == screenId);
-                if (placement is not null) placement.UseCustomPattern = wasCustom;
+                ContentTargets.SetOwnPattern(air, target, wasCustom);
             }
         });
     }

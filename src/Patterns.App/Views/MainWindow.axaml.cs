@@ -30,17 +30,29 @@ public partial class MainWindow : Window
 
         var services = vm.Services;
 
-        // PREVIEW (bottom): follows the edit target, and the sandbox while it is open.
-        _previewPipeline = new RenderPipeline(services.Bus, PipelineViewport.Preview)
+        // PREVIEW (bottom): follows the selected target (own pattern or program) and the
+        // sandbox while it is open — a true miniature of that target, letterboxed to fit.
+        var preview = new RenderPipeline(services.Bus, PreviewViewport(vm))
         {
             ScreenIdOverride = () => services.PreviewScreenId,
         };
-        PreviewCanvas.Pipeline = _previewPipeline;
+        _previewPipeline = preview;
+        PreviewCanvas.Pipeline = preview;
 
-        // PROGRAM (top): always what the audience sees — never the sandbox.
-        _programPipeline = new RenderPipeline(services.Bus,
-            new PipelineViewport(Patterns.Core.Model.SinkKind.Output, default, default, null, 0, "PGM"));
-        PgmCanvas.Pipeline = _programPipeline;
+        // PROGRAM (top): what the audience sees on the selected target — never the sandbox.
+        // A monitor sink, so it never wears an output's identify badge or counts as an output.
+        var program = new RenderPipeline(services.Bus, ProgramViewport(vm));
+        _programPipeline = program;
+        PgmCanvas.Pipeline = program;
+
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is not (nameof(MainViewModel.SelectedTargetSize) or nameof(MainViewModel.SelectedTargetId))) return;
+            preview.Viewport = PreviewViewport(vm);
+            program.Viewport = ProgramViewport(vm);
+            PreviewCanvas.NotifyChanged();
+            PgmCanvas.NotifyChanged();
+        };
 
         services.SnapshotPublished += () =>
         {
@@ -54,6 +66,12 @@ public partial class MainWindow : Window
             _programPipeline?.Dispose();
         };
     }
+
+    private static PipelineViewport ProgramViewport(MainViewModel vm)
+        => PipelineViewport.Monitor(vm.SelectedTargetId, vm.SelectedTargetSize, "PGM", previewSide: false);
+
+    private static PipelineViewport PreviewViewport(MainViewModel vm)
+        => PipelineViewport.Preview with { ReferenceSize = vm.SelectedTargetSize, FitReference = true };
 
     private void OnPreviewKeyUp(object? sender, KeyEventArgs e) => _down.Remove(e.Key);
 
@@ -72,6 +90,14 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
         var actions = vm.Services.Actions;
+
+        // The transport KeyBindings (Shift+F5–F8) fire on every repeat of a held key; the
+        // first press is latched here and the repeats are swallowed before they reach them.
+        if (e.KeyModifiers == KeyModifiers.Shift && e.Key is >= Key.F5 and <= Key.F8)
+        {
+            if (!Latch(e.Key)) e.Handled = true;
+            return;
+        }
 
         // Plain F1–F12 recall looks (transport lives on Shift+F5–F8).
         if (e.Key is >= Key.F1 and <= Key.F12 && e.KeyModifiers == KeyModifiers.None)

@@ -126,7 +126,7 @@ public class SandboxTests
 
             services.Sandbox.Enter();
             vm.State.Pattern.Kind = PatternKind.Focus;
-            services.Sandbox.SendToScreens(new[] { "screen-a" });
+            services.Sandbox.SendToTargets(new[] { "screen-a" });
 
             // Program back to what it was; screen-a carries the sandbox as its own pattern.
             Assert.True(services.Sandbox.Active); // EDIT SAFE re-armed for the next look

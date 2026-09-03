@@ -157,3 +157,22 @@ selected screens; each window translates by its screen's offset within that unio
 Audio test signals, NDI receive, DMX/Art-Net triggers, genlock, 10-bit output paths, multiple
 simultaneous NDI senders (the sender abstraction already allows N), macOS/Linux builds (Avalonia
 makes them near-free later).
+
+## 8. Run mode — the six-phase roadmap
+
+The design review (published separately as *Patterns Run Mode*) settled a show-caller layer on top
+of the switcher. It is being built in phases; each lands with tests, docs and a green CI run.
+
+| Phase | What lands | Status |
+| --- | --- | --- |
+| 1 | One action layer (`ShowActions`) for the desk, keyboard, output windows, remote, schedule and recovery, journaled to `patterns.showlog.jsonl`; OUTPUTS ON/OFF naming; snapshot-level CUT; tolerant enum loading; looks and stingers with ids. | done |
+| 2 | Content-target model (a joined canvas holds content of its own, keyed `a+b`); the wall — PGM/PVW miniatures per target at true shape, OWN / MON / ARM / OUTPUT, tally; aspect-locked panes following the selected target; scoped TAKE (un-armed targets keep their picture). | done |
+| 3 | Cue stack: model, validator (per-cue *Broken*, never a global arm gate), Cues page. | next |
+| 4 | Run layout: standby/GO executor, journal tail, recovery keeps the caller's place. | |
+| 5 | Remote, Companion, tablet page and the pop-out wall. | |
+| 6 | Five-group menu shell (Show · Plan · Edit · Setup · Admin) and the Build-layout extras. | |
+
+Deferred on purpose: multiview tile maths for canvas targets; MON persisted per show (runtime only
+for now); clearing `CutAtVersion` for a sink that skipped the cut frame (a sink that renders every
+publish never sees the difference).
+

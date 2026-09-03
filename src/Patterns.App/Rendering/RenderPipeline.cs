@@ -16,6 +16,24 @@ public sealed record PipelineViewport(
 {
     public static PipelineViewport Preview { get; } = new(SinkKind.Preview, SKSizeI.Empty, default, null, 0, "Preview");
 
+    /// <summary>
+    /// Monitor mode: render the whole target (<see cref="ReferenceSize"/>) and scale it to fit
+    /// the control, letterboxed — a true miniature, so a grid has the cell count it has on the
+    /// wall. Rotation, warp and trims are the output's business and are not applied.
+    /// </summary>
+    public bool FitReference { get; init; }
+
+    /// <summary>Read the sandbox snapshot while one is open (the PVW side of a monitor).</summary>
+    public bool UsePreviewSnapshot { get; init; }
+
+    /// <summary>A monitor of one content target: PGM or PVW side, at its true size, scaled to fit.</summary>
+    public static PipelineViewport Monitor(string? targetId, SKSizeI targetSize, string label, bool previewSide)
+        => new(SinkKind.Monitor, targetSize, default, targetId, 0, label)
+        {
+            FitReference = true,
+            UsePreviewSnapshot = previewSide,
+        };
+
     /// <summary>Physical rotation applied when blitting to the window (content stays upright).</summary>
     public OutputRotation Rotation { get; init; } = OutputRotation.None;
 
@@ -59,6 +77,13 @@ public sealed class RenderPipeline : IDisposable
     private long _frame;
     private volatile PipelineViewport _viewport;
 
+    // A draw op queued for the compositor's render thread can run after the control that
+    // owns this pipeline has gone (a wall tile rebuilt, a window closed). Render and Dispose
+    // therefore share one gate: a disposed pipeline draws nothing instead of touching freed
+    // Skia handles.
+    private readonly object _gate = new();
+    private bool _disposed;
+
     public RenderPipeline(SnapshotBus bus, PipelineViewport viewport)
     {
         _bus = bus;
@@ -86,9 +111,12 @@ public sealed class RenderPipeline : IDisposable
         }
     }
 
-    /// <summary>The preview follows the sandbox while look programming is sandboxed; outputs, NDI and thumbnails always show program.</summary>
+    /// <summary>The preview (and a monitor's PVW side) follows the sandbox while look programming is sandboxed; outputs, NDI and thumbnails always show program.</summary>
     private ShowSnapshot SnapshotFor(PipelineViewport vp)
-        => vp.Kind == SinkKind.Preview ? _bus.Sandbox ?? _bus.Current : _bus.Current;
+        => vp.Kind == SinkKind.Preview || vp.UsePreviewSnapshot ? _bus.Sandbox ?? _bus.Current : _bus.Current;
+
+    /// <summary>The snapshot this pipeline is showing right now (tally and pending checks).</summary>
+    public ShowSnapshot CurrentSnapshot => SnapshotFor(_viewport);
 
     private SKColorFilter? _trimFilter;
     private string _trimFilterKey = "";
@@ -105,11 +133,26 @@ public sealed class RenderPipeline : IDisposable
     /// <summary>Renders into a leased Skia canvas whose current transform maps DIPs → device px.</summary>
     public void Render(SKCanvas canvas, double widthDips, double heightDips, double renderScaling)
     {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            RenderLocked(canvas, widthDips, heightDips, renderScaling);
+        }
+    }
+
+    private void RenderLocked(SKCanvas canvas, double widthDips, double heightDips, double renderScaling)
+    {
         var frameStart = System.Diagnostics.Stopwatch.GetTimestamp();
         var vp = _viewport;
         var physicalPx = new SKSizeI(
             Math.Max(1, (int)Math.Round(widthDips * renderScaling)),
             Math.Max(1, (int)Math.Round(heightDips * renderScaling)));
+
+        if (vp.FitReference && vp.ReferenceSize != SKSizeI.Empty)
+        {
+            RenderFitted(canvas, vp, physicalPx, renderScaling, frameStart);
+            return;
+        }
 
         // For 90/270 rotations the engine renders portrait content, blitted rotated below.
         var rotated = vp.Rotation is OutputRotation.Rot90 or OutputRotation.Rot270;
@@ -201,6 +244,60 @@ public sealed class RenderPipeline : IDisposable
         }
     }
 
+    private static readonly SKColor LetterboxColor = new(0x0A, 0x0A, 0x0F);
+
+    /// <summary>
+    /// Monitor rendering: the engine draws the target at its real size into a canvas scaled
+    /// to fit the control, so the miniature is the output's picture, not a re-layout at the
+    /// control's aspect. The same approach the screen overview uses.
+    /// </summary>
+    private void RenderFitted(SKCanvas canvas, PipelineViewport vp, SKSizeI physicalPx, double renderScaling, long frameStart)
+    {
+        var target = vp.ReferenceSize;
+        var scale = Math.Min(physicalPx.Width / (float)target.Width, physicalPx.Height / (float)target.Height);
+        var dx = (physicalPx.Width - target.Width * scale) / 2f;
+        var dy = (physicalPx.Height - target.Height * scale) / 2f;
+
+        var ctx = new RenderContext
+        {
+            ViewportSize = target,
+            ReferenceSize = target,
+            ViewportOrigin = default,
+            Time = ShowClock.Seconds,
+            Now = DateTime.Now,
+            UtcNow = DateTime.UtcNow,
+            Frame = _frame++,
+            Sink = vp.Kind,
+            SinkIndex = vp.SinkIndex,
+            SinkLabel = vp.Label,
+            ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
+            MeasuredFps = _sink.Fps.Fps,
+        };
+        _sink.Fps.Tick(ctx.Time);
+
+        var save = canvas.Save();
+        try
+        {
+            canvas.Scale((float)(1.0 / renderScaling));
+            canvas.ClipRect(SKRect.Create(0, 0, physicalPx.Width, physicalPx.Height));
+            canvas.Clear(LetterboxColor);
+            canvas.Translate(dx, dy);
+            canvas.Scale(scale);
+            canvas.ClipRect(SKRect.Create(0, 0, target.Width, target.Height));
+            _engine.Render(canvas, SnapshotFor(vp), in ctx, _sink);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Monitor render failed.", ex);
+        }
+        finally
+        {
+            canvas.RestoreToCount(save);
+            RenderStats.Record(vp.Kind, vp.SinkIndex,
+                System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds);
+        }
+    }
+
     private SKSurface? _offscreen;
     private SKSizeI _offscreenSize;
     private readonly SKPaint _warpPaint = new() { IsAntialias = true };
@@ -226,10 +323,15 @@ public sealed class RenderPipeline : IDisposable
 
     public void Dispose()
     {
-        _trimFilter?.Dispose();
-        _trimPaint.Dispose();
-        _warpPaint.Dispose();
-        _offscreen?.Dispose();
-        _sink.Dispose();
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _trimFilter?.Dispose();
+            _trimPaint.Dispose();
+            _warpPaint.Dispose();
+            _offscreen?.Dispose();
+            _sink.Dispose();
+        }
     }
 }

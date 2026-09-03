@@ -27,10 +27,17 @@ public sealed class CanvasNameConfig : Observable
 {
     private string _memberKey = "";
     private string _name = "";
+    private bool _useCustomPattern;
 
     /// <summary>Sorted member screen ids joined with '+' — stable identity for a given set of screens.</summary>
     public string MemberKey { get => _memberKey; set => Set(ref _memberKey, value); }
     public string Name { get => _name; set => Set(ref _name, value); }
+
+    /// <summary>
+    /// The canvas shows its own pattern (an <see cref="OutputAssignment"/> keyed by
+    /// <see cref="MemberKey"/>) instead of the program — the same choice a single screen has.
+    /// </summary>
+    public bool UseCustomPattern { get => _useCustomPattern; set => Set(ref _useCustomPattern, value); }
 
     public static string KeyFor(IEnumerable<string> memberScreenIds)
         => string.Join('+', memberScreenIds.OrderBy(id => id, StringComparer.Ordinal));
@@ -127,8 +134,18 @@ public sealed class ScreenPlacement : Observable
 public sealed class OutputAssignment : Observable
 {
     private string _screenId = "";
+    private bool _pinnedByTake;
+
+    /// <summary>The content target this pattern belongs to: a screen id, or a canvas member key.</summary>
     public string ScreenId { get => _screenId; set => Set(ref _screenId, value); }
     public PatternConfig Pattern { get; init; } = new();
+
+    /// <summary>
+    /// Written by a scoped TAKE to keep an un-armed target on its old picture. The next TAKE
+    /// that arms the target lifts the pin so it follows the program again; a pattern the
+    /// operator chose for the target is never pinned and never lifted.
+    /// </summary>
+    public bool PinnedByTake { get => _pinnedByTake; set => Set(ref _pinnedByTake, value); }
 }
 
 public sealed class ClockOverlay : Observable

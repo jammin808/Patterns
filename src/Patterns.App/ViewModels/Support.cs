@@ -79,30 +79,58 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
 {
     private readonly MainViewModel _vm;
     private bool _enabled;
-    private bool _isEditTarget;
+    private bool _isSelected;
     private bool _isSendTarget;
+    private bool _isOwn;
+    private bool _isArmed;
+    private bool _isMonitored = true;
+    private bool _isOnAir;
+    private bool _isHeld;
 
-    public SwitcherTile(MainViewModel vm, string title, string? editScreenId, IReadOnlyList<string> memberIds, bool enabled, bool isEditTarget)
+    public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
+        SkiaSharp.SKSizeI size, bool enabled, bool isSelected, bool isOwn, bool isArmed)
     {
         _vm = vm;
         Title = title;
-        EditScreenId = editScreenId;
+        TargetId = targetId;
         MemberIds = memberIds;
+        Size = size;
         _enabled = enabled;
-        _isEditTarget = isEditTarget;
+        _isSelected = isSelected;
+        _isOwn = isOwn;
+        _isArmed = isArmed;
+        PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false);
+        PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true);
     }
 
-    /// <summary>"PGM · Program", "A · Main wall" or "2 · Stage left".</summary>
+    /// <summary>"PGM", "A · Main wall" or "2 · Stage left".</summary>
     public string Title { get; }
 
-    /// <summary>Screen this tile edits when clicked; null = the program.</summary>
-    public string? EditScreenId { get; }
+    /// <summary>The content target this tile stands for: a screen id, a canvas key (a+b), or null for the program.</summary>
+    public string? TargetId { get; }
 
     /// <summary>Screens this tile stands for ("send selected" targets; empty for the program tile).</summary>
     public IReadOnlyList<string> MemberIds { get; }
 
-    public bool IsProgramTile => MemberIds.Count == 0;
+    public bool IsProgramTile => TargetId is null;
 
+    /// <summary>The target's real pixel size — the miniatures and the big panes take this shape.</summary>
+    public SkiaSharp.SKSizeI Size { get; }
+
+    public double Ratio => Size.Height > 0 ? (double)Size.Width / Size.Height : 16.0 / 9.0;
+
+    public string SizeText => $"{Size.Width}×{Size.Height}";
+
+    /// <summary>What is on air for this target (never the sandbox).</summary>
+    public Patterns.App.Rendering.PipelineViewport PgmViewport { get; }
+
+    /// <summary>What the next TAKE would put there (the sandbox while it is open, else the same as PGM).</summary>
+    public Patterns.App.Rendering.PipelineViewport PvwViewport { get; }
+
+    /// <summary>Screen this tile edits when clicked; null = the program.</summary>
+    public string? EditScreenId => IsOwn ? TargetId : null;
+
+    /// <summary>OUTPUT: the member screens on or off, live.</summary>
     public bool Enabled
     {
         get => _enabled;
@@ -112,11 +140,11 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         }
     }
 
-    /// <summary>Highlight: the editor panels currently work on this tile's content.</summary>
-    public bool IsEditTarget
+    /// <summary>Highlight: the big panes and the editors follow this tile.</summary>
+    public bool IsSelected
     {
-        get => _isEditTarget;
-        set => Set(ref _isEditTarget, value);
+        get => _isSelected;
+        set => Set(ref _isSelected, value);
     }
 
     /// <summary>Sandbox send target tick (visible only while the sandbox is open).</summary>
@@ -126,15 +154,73 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         set => Set(ref _isSendTarget, value);
     }
 
-    /// <summary>Refreshes live state without rebuilding the strip (keeps focus and ticks).</summary>
-    public void RefreshExternal(bool enabled, bool isEditTarget)
+    /// <summary>OWN: this target shows its own pattern instead of the program.</summary>
+    public bool IsOwn
+    {
+        get => _isOwn;
+        set
+        {
+            if (Set(ref _isOwn, value))
+            {
+                Raise(nameof(EditScreenId));
+                _vm.SetTileOwn(this, value);
+            }
+        }
+    }
+
+    /// <summary>ARM: the next CUT / TAKE changes this target. Un-armed, it keeps its picture.</summary>
+    public bool IsArmed
+    {
+        get => _isArmed;
+        set
+        {
+            if (Set(ref _isArmed, value)) _vm.SetTileArmed(this, value);
+        }
+    }
+
+    /// <summary>MON: the wall draws this target's PGM and PVW miniatures (off saves GPU on a big rig).</summary>
+    public bool IsMonitored
+    {
+        get => _isMonitored;
+        set => Set(ref _isMonitored, value);
+    }
+
+    /// <summary>Tally red: the audience can see this target right now.</summary>
+    public bool IsOnAir
+    {
+        get => _isOnAir;
+        private set => Set(ref _isOnAir, value);
+    }
+
+    /// <summary>Tally amber: a send is being built and this target is un-armed, so it will keep its picture.</summary>
+    public bool IsHeld
+    {
+        get => _isHeld;
+        private set => Set(ref _isHeld, value);
+    }
+
+    /// <summary>Refreshes live state without rebuilding the wall (keeps focus, ticks and MON).</summary>
+    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held)
     {
         if (_enabled != enabled)
         {
             _enabled = enabled;
             Raise(nameof(Enabled)); // no SetTileEnabled echo — this reflects, not commands
         }
-        IsEditTarget = isEditTarget;
+        if (_isOwn != isOwn)
+        {
+            _isOwn = isOwn;
+            Raise(nameof(IsOwn));
+            Raise(nameof(EditScreenId));
+        }
+        if (_isArmed != isArmed)
+        {
+            _isArmed = isArmed;
+            Raise(nameof(IsArmed));
+        }
+        IsSelected = isSelected;
+        IsOnAir = onAir;
+        IsHeld = held;
     }
 }
 

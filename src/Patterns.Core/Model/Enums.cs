@@ -211,6 +211,8 @@ public enum SinkKind
     Output,
     Ndi,
     Thumbnail,
+    /// <summary>A desk monitor of one target (the wall's tiles, the large PGM/PVW pair): crossfades and PiP on, no identify badge, not an output for statistics.</summary>
+    Monitor,
 }
 
 /// <summary>Pre-show programming versus running the show.</summary>

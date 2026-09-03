@@ -18,7 +18,7 @@
               HorizontalContentAlignment="Center" Command="{Binding StopCommand}" Focusable="False" />
       <ToggleButton Grid.Row="4" Classes="blackout" Content="BLACKOUT"
                     Height="52" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                    IsChecked="{Binding State.Blackout}" Focusable="False" />
+                    IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False" />
     </Grid>
 
     <TextBlock Classes="h2" Text="PRESENTER" />

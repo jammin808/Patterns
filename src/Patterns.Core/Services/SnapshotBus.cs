@@ -68,28 +68,17 @@ public sealed class ShowSnapshot
     }
 
     /// <summary>
-    /// The pattern a given sink should draw: a screen with "custom pattern" enabled uses its
-    /// own assignment; everything else (grouped canvases included) shows the program.
+    /// The pattern a given sink should draw: a content target (a single screen, or a joined
+    /// canvas by its member key) with "own pattern" on uses its assignment; everything else
+    /// shows the program. Hot path: plain loops, no allocation.
     /// </summary>
-    public PatternConfig PatternFor(string? screenId)
+    public PatternConfig PatternFor(string? targetId)
     {
-        if (screenId is not null)
+        if (targetId is not null && ContentTargets.UsesOwnPattern(State, targetId))
         {
-            var custom = false;
-            foreach (var p in State.Output.Placements)
+            foreach (var a in State.Independent)
             {
-                if (p.ScreenId == screenId)
-                {
-                    custom = p.UseCustomPattern;
-                    break;
-                }
-            }
-            if (custom)
-            {
-                foreach (var a in State.Independent)
-                {
-                    if (a.ScreenId == screenId) return a.Pattern;
-                }
+                if (a.ScreenId == targetId) return a.Pattern;
             }
         }
         return State.Pattern;

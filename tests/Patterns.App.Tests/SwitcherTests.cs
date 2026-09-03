@@ -25,9 +25,11 @@ public class SwitcherTests
         new("c", "Lobby", new Avalonia.PixelRect(4400, 0, 1920, 1080), 1.0, false, 2),
     };
 
-    /// <summary>a+b flush = canvas A; c stands alone.</summary>
+    /// <summary>a+b flush = canvas A; c stands alone. The fakes become the rig the app sees.</summary>
     private static void Arrange(MainViewModel vm, List<ScreenInfo> fakes)
     {
+        vm.Services.Screens.All.Clear();
+        foreach (var s in fakes) vm.Services.Screens.All.Add(s);
         vm.State.Output.Placements.Clear();
         vm.ReconcilePlacements(fakes);
         var a = vm.State.Output.Placements.First(p => p.ScreenId == "a");
@@ -58,7 +60,7 @@ public class SwitcherTests
 
             Assert.Equal(3, vm.SwitcherTiles.Count);
             Assert.True(vm.SwitcherTiles[0].IsProgramTile);
-            Assert.True(vm.SwitcherTiles[0].IsEditTarget); // program is the default target
+            Assert.True(vm.SwitcherTiles[0].IsSelected); // program is the default target
             Assert.Equal("A · Main wall", vm.SwitcherTiles[1].Title);
             Assert.Equal(new[] { "a", "b" }, vm.SwitcherTiles[1].MemberIds.OrderBy(x => x));
             Assert.Equal("3 · Lobby TV", vm.SwitcherTiles[2].Title);
@@ -160,12 +162,15 @@ public class SwitcherTests
             Assert.True(vm.IsSandboxActive); // EDIT SAFE re-armed after the send
             Assert.False(vm.SwitcherTiles[1].IsSendTarget); // a send consumes its targets
             Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind); // program restored
-            foreach (var id in new[] { "a", "b" })
-            {
-                Assert.True(vm.State.Output.Placements.First(p => p.ScreenId == id).UseCustomPattern);
-                Assert.Equal(PatternKind.Focus, vm.State.Independent.First(x => x.ScreenId == id).Pattern.Kind);
-            }
+            // The canvas is one content target: the look lands on it as one picture, keyed a+b,
+            // not as two per-screen patterns that the span would ignore.
+            var key = CanvasNameConfig.KeyFor(new[] { "a", "b" });
+            Assert.True(ContentTargets.UsesOwnPattern(vm.State, key));
+            Assert.Equal(PatternKind.Focus, vm.State.Independent.First(x => x.ScreenId == key).Pattern.Kind);
+            Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor(key).Kind);
+            Assert.True(vm.SwitcherTiles[1].IsOwn);
             Assert.False(vm.State.Output.Placements.First(p => p.ScreenId == "c").UseCustomPattern);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
         }
         finally
         {

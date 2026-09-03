@@ -48,6 +48,12 @@ public sealed class SettingsStore
 
     public ShowState Load() => LoadFrom(SettingsPath) ?? new ShowState { SchemaVersion = ShowState.CurrentSchemaVersion };
 
+    /// <summary>
+    /// True when the last load upgraded an older file. Ids minted during that upgrade (looks,
+    /// stingers) only become stable once the file is written back — the app saves once.
+    /// </summary>
+    public bool LastLoadMigrated { get; private set; }
+
     public ShowState? LoadFrom(string path)
     {
         foreach (var candidate in new[] { path, path + ".bak" })
@@ -58,6 +64,7 @@ public sealed class SettingsStore
                 var state = JsonUtil.Deserialize<ShowState>(File.ReadAllText(candidate));
                 if (state is not null)
                 {
+                    LastLoadMigrated = state.SchemaVersion < ShowState.CurrentSchemaVersion;
                     Migrate(state);
                     if (state.Name.Length == 0) state.Name = ShowNameFor(path);
                     return state;
@@ -94,7 +101,16 @@ public sealed class SettingsStore
         }
 
         // v4: looks and stingers carry stable ids (minted by their initialisers when a file
-        // lacks them) and the show has a name. Nothing to rewrite; the fields are additive.
+        // lacks them; a blank one from a hand-edited file is minted here) and the show has a
+        // name. The app writes an upgraded file back once so the minted ids stick.
+        foreach (var look in state.LooksAndCues.Looks)
+        {
+            if (string.IsNullOrWhiteSpace(look.Id)) look.Id = Guid.NewGuid().ToString("N");
+        }
+        foreach (var stinger in state.Stingers.Items)
+        {
+            if (string.IsNullOrWhiteSpace(stinger.Id)) stinger.Id = Guid.NewGuid().ToString("N");
+        }
 
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }

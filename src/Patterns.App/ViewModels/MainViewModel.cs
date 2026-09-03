@@ -280,32 +280,34 @@ public sealed class MainViewModel : Observable
         SandboxSendSelectedCommand = new RelayCommand(() =>
         {
             if (!_services.Sandbox.Active) return;
-            var picked = SwitcherTiles.Where(t => t.IsSendTarget && !t.IsProgramTile).ToList();
+            var picked = SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null).ToList();
             if (picked.Count == 0)
             {
                 StatusMessage = "Tick the tiles to send to first.";
                 return;
             }
-            var ids = picked.SelectMany(t => t.MemberIds).Distinct().ToList();
-            var inCanvas = CanvasGroups().SelectMany(g => g).Select(p => p.ScreenId).ToHashSet();
-            var loneInCanvas = picked
-                .Where(t => t.MemberIds.Count == 1 && inCanvas.Contains(t.MemberIds[0]))
-                .Select(t => t.Title).ToList();
             var titles = string.Join(", ", picked.Select(t => t.Title));
-            _services.Sandbox.SendToScreens(ids);
+            // A tile is a content target: a joined canvas takes the look as one picture.
+            _services.Sandbox.SendToTargets(picked.Select(t => t.TargetId!).ToList());
             ClearSendTargets();
             Raise(nameof(IsSandboxActive));
+            RebuildEditTargets(); // the targets now show their own pattern — OWN lights up
             StatusMessage = $"Sandbox sent to {titles} as their own pattern." +
-                            (loneInCanvas.Count > 0
-                                ? " Note: screens inside a joined canvas keep showing the canvas content — split them apart to see their own look."
-                                : "") +
                             (_services.Sandbox.Active ? " EDIT SAFE re-armed." : "");
         });
         SelectTileCommand = new RelayCommand<SwitcherTile>(tile =>
         {
             if (tile is null) return;
-            EditTarget = EditTargets.FirstOrDefault(t => t.ScreenId == tile.EditScreenId) ?? EditTargets[0];
+            // The editors work on the tile's own pattern when it has one, else on the program;
+            // the big panes show the tile either way.
+            EditTarget = (tile.IsOwn ? EditTargets.FirstOrDefault(t => t.ScreenId == tile.TargetId) : null) ?? EditTargets[0];
+            SelectTarget(tile.TargetId);
             StatusMessage = EditTargetBanner;
+        });
+        ArmAllCommand = new RelayCommand(() =>
+        {
+            _services.Arming.ArmAll();
+            StatusMessage = "Every target armed — the next CUT / TAKE goes everywhere.";
         });
 
         // Looks & cues
@@ -380,6 +382,12 @@ public sealed class MainViewModel : Observable
 
         _services.SnapshotPublished += OnSnapshotPublished;
         _services.Outputs.LiveChanged += RefreshOutputsStatus;
+        _services.Outputs.LiveChanged += RefreshSwitcherTiles; // tally follows the outputs
+        _services.Arming.Changed += () =>
+        {
+            RefreshSwitcherTiles();
+            RefreshTakeScope();
+        };
         _services.Screens.Changed += OnScreensChanged;
 
         var statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -706,7 +714,10 @@ public sealed class MainViewModel : Observable
             {
                 Raise(nameof(ActivePattern));
                 Raise(nameof(EditTargetBanner));
-                _services.PreviewScreenId = value.ScreenId;
+                // The panes follow the editors: a target with its own pattern is selected with
+                // it; "Program" keeps the selected tile unless that tile shows its own picture.
+                if (value.ScreenId is not null) SelectTarget(value.ScreenId);
+                else if (_selectedTargetId is { } selected && ContentTargets.UsesOwnPattern(State, selected)) SelectTarget(null);
                 RefreshSwitcherTiles();
                 RaisePlaylistSection();
             }
@@ -735,17 +746,13 @@ public sealed class MainViewModel : Observable
         {
             EnsureAssignment(p.ScreenId);
         }
-    }
-
-    private void EnsureAssignment(string screenId)
-    {
-        if (State.Independent.All(a => a.ScreenId != screenId))
+        foreach (var c in State.Output.CanvasNames.Where(c => c.UseCustomPattern && c.MemberKey.Length > 0))
         {
-            var assignment = new OutputAssignment { ScreenId = screenId };
-            ModelCopier.Copy(State.Pattern, assignment.Pattern);
-            State.Independent.Add(assignment);
+            EnsureAssignment(c.MemberKey);
         }
     }
+
+    private void EnsureAssignment(string targetId) => ContentTargets.EnsureAssignment(State, targetId);
 
     private void RebuildEditTargets()
     {
@@ -753,6 +760,16 @@ public sealed class MainViewModel : Observable
         var current = _editTarget?.ScreenId;
         EditTargets.Clear();
         EditTargets.Add(new EditTarget("Program", null));
+        // A joined canvas with its own pattern is an edit target like a screen. A member screen
+        // keeps its own entry too (its pattern is what the screen shows when split off again).
+        var groups = CanvasGroups();
+        for (var i = 0; i < groups.Count; i++)
+        {
+            var key = CanvasNameConfig.KeyFor(groups[i].Select(m => m.ScreenId));
+            if (!ContentTargets.UsesOwnPattern(State, key)) continue;
+            var letter = ((char)('A' + i)).ToString();
+            EditTargets.Add(new EditTarget($"Canvas {letter} — {CanvasNameFor(groups[i], letter)}", key));
+        }
         foreach (var p in State.Output.Placements.Where(p => p.UseCustomPattern))
         {
             var info = LiveInfo(p);
@@ -1052,9 +1069,73 @@ public sealed class MainViewModel : Observable
     public object[] RemoteScreens(IReadOnlyList<ScreenInfo>? screens = null)
         => _services.Actions.RemoteScreens(screens);
 
-    // ---- switcher (program / preview, strip, sandbox) -----------------------
+    // ---- switcher (program / preview, the wall, sandbox) --------------------
 
     public ObservableCollection<SwitcherTile> SwitcherTiles { get; } = new();
+
+    private string? _selectedTargetId;
+    private SKSizeI _selectedTargetSize = Rig.DefaultTargetSize;
+    private string _selectedTargetLabel = "PGM";
+
+    /// <summary>The content target the big PROGRAM and PREVIEW panes show (null = the program bus).</summary>
+    public string? SelectedTargetId => _selectedTargetId;
+
+    /// <summary>Its real pixel size — the panes are true miniatures of it, letterboxed to fit.</summary>
+    public SKSizeI SelectedTargetSize
+    {
+        get => _selectedTargetSize;
+        private set
+        {
+            if (Set(ref _selectedTargetSize, value)) Raise(nameof(SelectedTargetRatio));
+        }
+    }
+
+    public double SelectedTargetRatio =>
+        _selectedTargetSize.Height > 0 ? (double)_selectedTargetSize.Width / _selectedTargetSize.Height : 16.0 / 9.0;
+
+    /// <summary>"PGM", "A · Main wall" or "2 · Stage left" — the pane headers name what they show.</summary>
+    public string SelectedTargetLabel { get => _selectedTargetLabel; private set => Set(ref _selectedTargetLabel, value); }
+
+    public string SelectedTargetSizeText => $"{_selectedTargetSize.Width}×{_selectedTargetSize.Height}";
+
+    /// <summary>Points the panes (and the preview pipeline) at a target; the editors are set separately.</summary>
+    private void SelectTarget(string? targetId)
+    {
+        _selectedTargetId = targetId;
+        _services.PreviewScreenId = targetId; // the preview resolves own-pattern vs program itself
+        var tile = SwitcherTiles.FirstOrDefault(t => t.TargetId == targetId);
+        SelectedTargetSize = tile?.Size ?? Rig.TargetSize(State, _services.Screens.All, targetId);
+        SelectedTargetLabel = tile is null || tile.IsProgramTile ? "PGM" : tile.Title;
+        Raise(nameof(SelectedTargetId));
+        Raise(nameof(SelectedTargetSizeText));
+        RefreshSwitcherTiles();
+    }
+
+    /// <summary>How many targets the next CUT / TAKE leaves alone — shown beside the buttons.</summary>
+    public int HeldCount => SwitcherTiles.Count(t => !t.IsProgramTile && !t.IsArmed);
+
+    public bool AnyHeld => HeldCount > 0;
+
+    public string TakeScopeText => HeldCount is var n && n > 0 ? $"{n} held" : "";
+
+    private void RefreshTakeScope()
+    {
+        Raise(nameof(HeldCount));
+        Raise(nameof(AnyHeld));
+        Raise(nameof(TakeScopeText));
+    }
+
+    /// <summary>The desk's BLACKOUT toggles go through the action layer, so they are journaled like every other origin.</summary>
+    public bool IsBlackout
+    {
+        get => State.Blackout;
+        set
+        {
+            if (value == State.Blackout) return;
+            _services.Actions.Execute(value ? ShowActionKind.BlackoutOn : ShowActionKind.BlackoutOff, ActionOrigin.Desk);
+            Raise(nameof(IsBlackout));
+        }
+    }
 
     /// <summary>The EDIT toggle: on = open the sandbox, off = discard. CUT/TAKE close it too.</summary>
     public bool IsSandboxActive
@@ -1077,6 +1158,7 @@ public sealed class MainViewModel : Observable
                     : "Sandbox discarded — outputs untouched.";
             }
             Raise(nameof(IsSandboxActive));
+            RefreshSwitcherTiles(); // HOLD tallies only mean something while a send is being built
         }
     }
 
@@ -1092,70 +1174,98 @@ public sealed class MainViewModel : Observable
         return string.IsNullOrWhiteSpace(stored) ? $"Canvas {letter}" : stored!;
     }
 
-    /// <summary>Rebuilds the strip: PGM tile, then joined canvases, then single screens.</summary>
+    /// <summary>Rebuilds the wall: PGM tile, then joined canvases, then single screens.</summary>
     public void RebuildSwitcherTiles(IReadOnlyList<ScreenInfo>? screens = null)
     {
-        var keepTargets = SwitcherTiles.Where(t => t.IsSendTarget)
-            .SelectMany(t => t.MemberIds).ToHashSet();
+        var known = screens ?? _services.Screens.All;
+        var keepTargets = SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null)
+            .Select(t => t.TargetId!).ToHashSet();
+        var monitorOff = SwitcherTiles.Where(t => !t.IsMonitored).Select(t => t.TargetId ?? "").ToHashSet();
         SwitcherTiles.Clear();
 
-        SwitcherTiles.Add(new SwitcherTile(this, "PGM", null, Array.Empty<string>(),
-            enabled: true, isEditTarget: EditTarget.ScreenId is null));
-
-        var ordered = OrderedLivePlacements(screens);
+        var arming = _services.Arming;
+        var groups = CanvasGroups(known);
+        var grouped = groups.SelectMany(g => g).Select(p => p.ScreenId).ToHashSet();
+        var ordered = OrderedLivePlacements(known);
         var numberOf = ordered.Select((x, i) => (x.Placement.ScreenId, N: i + 1))
             .ToDictionary(x => x.ScreenId, x => x.N);
-        var groups = CanvasGroups(screens);
-        var grouped = groups.SelectMany(g => g).Select(p => p.ScreenId).ToHashSet();
+        var targets = new List<string>();
+
+        SwitcherTiles.Add(new SwitcherTile(this, "PGM", null, Array.Empty<string>(),
+            Rig.TargetSize(State, known, null),
+            enabled: true, isSelected: _selectedTargetId is null, isOwn: false, isArmed: true)
+        {
+            IsMonitored = !monitorOff.Contains(""),
+        });
 
         for (var i = 0; i < groups.Count; i++)
         {
             var letter = ((char)('A' + i)).ToString();
             var members = groups[i];
-            var tile = new SwitcherTile(this,
+            var key = CanvasNameConfig.KeyFor(members.Select(m => m.ScreenId));
+            targets.Add(key);
+            SwitcherTiles.Add(new SwitcherTile(this,
                 $"{letter} · {CanvasNameFor(members, letter)}",
-                null,
+                key,
                 members.Select(m => m.ScreenId).ToList(),
+                Rig.TargetSize(State, known, key),
                 members.All(m => m.Enabled),
-                isEditTarget: false)
+                isSelected: _selectedTargetId == key,
+                isOwn: ContentTargets.UsesOwnPattern(State, key),
+                isArmed: arming.IsArmed(key))
             {
-                IsSendTarget = members.Any(m => keepTargets.Contains(m.ScreenId)),
-            };
-            SwitcherTiles.Add(tile);
+                IsSendTarget = keepTargets.Contains(key),
+                IsMonitored = !monitorOff.Contains(key),
+            });
         }
 
         foreach (var (placement, info) in ordered)
         {
-            if (grouped.Contains(placement.ScreenId)) continue;
-            var tile = new SwitcherTile(this,
-                $"{numberOf[placement.ScreenId]} · {LabelFor(placement, info)}",
-                placement.UseCustomPattern ? placement.ScreenId : null,
-                new[] { placement.ScreenId },
+            var id = placement.ScreenId;
+            if (grouped.Contains(id)) continue;
+            targets.Add(id);
+            SwitcherTiles.Add(new SwitcherTile(this,
+                $"{numberOf[id]} · {LabelFor(placement, info)}",
+                id,
+                new[] { id },
+                OutputWindowManager.EffectiveSize(placement, info),
                 placement.Enabled,
-                isEditTarget: EditTarget.ScreenId is not null && EditTarget.ScreenId == placement.ScreenId)
+                isSelected: _selectedTargetId == id,
+                isOwn: placement.UseCustomPattern,
+                isArmed: arming.IsArmed(id))
             {
-                IsSendTarget = keepTargets.Contains(placement.ScreenId),
-            };
-            SwitcherTiles.Add(tile);
+                IsSendTarget = keepTargets.Contains(id),
+                IsMonitored = !monitorOff.Contains(id),
+            });
         }
+
+        arming.Prune(targets); // a screen that left the rig cannot hold a stale un-arm
+        // Re-measure the selection (a join, a split or a rotation changes its shape); a
+        // selection that left the rig falls back to the program.
+        SelectTarget(_selectedTargetId is { } selected && targets.Contains(selected) ? selected : null);
         Raise(nameof(EditTargetBanner));
+        RefreshTakeScope();
     }
 
-    /// <summary>Live refresh without rebuilding (keeps ticks and focus; called each poll).</summary>
+    /// <summary>Live refresh without rebuilding (keeps ticks, focus and MON; called each poll and on every change that moves a tally).</summary>
     private void RefreshSwitcherTiles()
     {
         var byId = State.Output.Placements.ToDictionary(p => p.ScreenId);
+        var live = _services.Outputs.IsLive && !State.Blackout;
+        var building = _services.Sandbox.Active;
         foreach (var tile in SwitcherTiles)
         {
-            if (tile.IsProgramTile)
+            if (tile.TargetId is not { } target)
             {
-                tile.RefreshExternal(true, EditTarget.ScreenId is null);
+                tile.RefreshExternal(true, _selectedTargetId is null, isOwn: false, isArmed: true, onAir: live, held: false);
                 continue;
             }
             var members = tile.MemberIds.Select(id => byId.GetValueOrDefault(id)).Where(p => p is not null).ToList();
             var enabled = members.Count > 0 && members.All(p => p!.Enabled);
-            var isTarget = tile.EditScreenId is not null && tile.EditScreenId == EditTarget.ScreenId;
-            tile.RefreshExternal(enabled, isTarget);
+            var armed = _services.Arming.IsArmed(target);
+            tile.RefreshExternal(enabled, target == _selectedTargetId,
+                ContentTargets.UsesOwnPattern(State, target), armed,
+                onAir: live && enabled, held: building && !armed);
         }
     }
 
@@ -1169,6 +1279,40 @@ public sealed class MainViewModel : Observable
             placement.Enabled = enabled;
             placement.UserPinned = true;
         }
+        RefreshSwitcherTiles();
+    }
+
+    /// <summary>ARM off keeps the target's picture through the next CUT / TAKE. Runtime only — a show always opens fully armed.</summary>
+    internal void SetTileArmed(SwitcherTile tile, bool armed)
+    {
+        if (tile.TargetId is not { } target) return;
+        _services.Arming.Set(target, armed);
+        StatusMessage = armed
+            ? $"{tile.Title} armed — the next CUT / TAKE changes it."
+            : $"{tile.Title} held — it keeps its picture through the next CUT / TAKE.";
+    }
+
+    /// <summary>OWN on gives the target its own pattern (a copy of the program, so nothing jumps) and hands it to the editors.</summary>
+    internal void SetTileOwn(SwitcherTile tile, bool on)
+    {
+        if (tile.TargetId is not { } target) return;
+        if (ContentTargets.UsesOwnPattern(State, target) == on) return;
+        _services.BulkEdit(() =>
+        {
+            if (on) ContentTargets.EnsureAssignment(State, target);
+            ContentTargets.SetOwnPattern(State, target, on);
+        });
+        RebuildEditTargets();
+        if (on)
+        {
+            EditTarget = EditTargets.FirstOrDefault(t => t.ScreenId == target) ?? EditTargets[0];
+            StatusMessage = $"{tile.Title} now shows its own pattern — the editors work on it.";
+        }
+        else
+        {
+            SelectTarget(target);
+            StatusMessage = $"{tile.Title} follows the program again.";
+        }
     }
 
     /// <summary>Big banner over the editor: what the panels currently change.</summary>
@@ -1176,8 +1320,19 @@ public sealed class MainViewModel : Observable
     {
         get
         {
-            if (_editTarget.ScreenId is null) return "EDITING: PROGRAM — every screen without its own pattern";
-            var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == _editTarget.ScreenId);
+            if (_editTarget.ScreenId is not { } id) return "EDITING: PROGRAM — every target without its own pattern";
+            if (ContentTargets.IsCanvasKey(id))
+            {
+                var groups = CanvasGroups();
+                for (var i = 0; i < groups.Count; i++)
+                {
+                    if (CanvasNameConfig.KeyFor(groups[i].Select(m => m.ScreenId)) != id) continue;
+                    var letter = ((char)('A' + i)).ToString();
+                    return $"EDITING: CANVAS {letter} · {CanvasNameFor(groups[i], letter)} (its own pattern)";
+                }
+                return "EDITING: PROGRAM";
+            }
+            var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
             if (placement is null) return "EDITING: PROGRAM";
             var ordered = OrderedLivePlacements();
             var n = ordered.FindIndex(x => x.Placement.ScreenId == placement.ScreenId) + 1;
@@ -1335,6 +1490,7 @@ public sealed class MainViewModel : Observable
                 {
                     ClearSendTargets();
                     Raise(nameof(IsSandboxActive));
+                    RebuildEditTargets(); // a scoped send pins / lifts own patterns — OWN follows
                 }
                 break;
             case ShowActionKind.OutputsOn:
@@ -1686,6 +1842,7 @@ public sealed class MainViewModel : Observable
     public RelayCommand TakeCommand { get; }
     public RelayCommand CutCommand { get; }
     public RelayCommand<SwitcherTile> SelectTileCommand { get; }
+    public RelayCommand ArmAllCommand { get; }
     public RelayCommand AddMultiviewTileCommand { get; }
     public RelayCommand<MultiviewTileConfig> RemoveMultiviewTileCommand { get; }
     public RelayCommand StartStreamCommand { get; }
@@ -1913,6 +2070,15 @@ public sealed class MainViewModel : Observable
         foreach (var a in state.Independent.Where(a => a.ScreenId == oldId).ToList())
         {
             a.ScreenId = newId;
+        }
+        // A joined canvas's own pattern is keyed by its members (a+b) — the key moves too.
+        foreach (var a in state.Independent.Where(a => ContentTargets.IsCanvasKey(a.ScreenId)).ToList())
+        {
+            var members = ContentTargets.Members(a.ScreenId);
+            if (members.Contains(oldId))
+            {
+                a.ScreenId = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
+            }
         }
         foreach (var canvas in state.Output.CanvasNames.ToList())
         {
@@ -2254,6 +2420,8 @@ public sealed class MainViewModel : Observable
         Raise(nameof(ShowCanvasPanel));
         Raise(nameof(InputNickname));
         RaiseArrangement();
+        Raise(nameof(IsBlackout)); // Space, Shift+F8, a remote or an output-window key moved it
+        RefreshSwitcherTiles(); // tally: blackout, a screen switched, the sandbox opened or closed
     }
 
     private void RefreshOutputsStatus()

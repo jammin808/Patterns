@@ -27,7 +27,7 @@ public class ArrangementTests
         foreach (var (_, vp) in result)
         {
             Assert.Equal(new SKSizeI(3840, 1080), vp.ReferenceSize);
-            Assert.Null(vp.ScreenId); // grouped canvases show the program
+            Assert.Equal("a+b", vp.ScreenId); // a joined canvas is one content target, keyed by its members
         }
         Assert.Equal(new SKPointI(0, 0), result.First(x => x.Screen.Id == "a").Viewport.ViewportOrigin);
         Assert.Equal(new SKPointI(1920, 0), result.First(x => x.Screen.Id == "b").Viewport.ViewportOrigin);

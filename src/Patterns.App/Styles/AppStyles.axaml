@@ -48,6 +48,32 @@
     <Setter Property="Background" Value="#14232E" />
   </Style>
 
+  <!-- Tally on the wall: the dot and the title carry it (red = on air, amber = held, grey = off);
+       the border stays the selection so the two never fight. -->
+  <Style Selector="Ellipse.tally"><Setter Property="Fill" Value="{StaticResource TallyOffBrush}" /></Style>
+  <Style Selector="Ellipse.tally.hold"><Setter Property="Fill" Value="{StaticResource TallyHoldBrush}" /></Style>
+  <Style Selector="Ellipse.tally.air"><Setter Property="Fill" Value="{StaticResource TallyPgmBrush}" /></Style>
+  <Style Selector="TextBlock.tileTitle"><Setter Property="Foreground" Value="#E6EAF2" /></Style>
+  <Style Selector="TextBlock.tileTitle.hold"><Setter Property="Foreground" Value="{StaticResource TallyHoldBrush}" /></Style>
+  <Style Selector="TextBlock.tileTitle.air"><Setter Property="Foreground" Value="#FF9EB0" /></Style>
+
+  <!-- OWN / MON / ARM on a wall tile: small, lit when on -->
+  <Style Selector="ToggleButton.wall">
+    <Setter Property="Padding" Value="5,1" />
+    <Setter Property="Margin" Value="0,0,3,0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Background" Value="#20242E" />
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.wall:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource AccentDimBrush}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
   <Style Selector="TextBlock.h2">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="SemiBold" />

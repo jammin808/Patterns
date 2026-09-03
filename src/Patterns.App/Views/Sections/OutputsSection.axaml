@@ -183,6 +183,6 @@
       <Button Classes="stop" Content="OUTPUTS OFF" Command="{Binding StopCommand}" Focusable="False" />
     </StackPanel>
     <TextBlock Classes="hint"
-               Text="On an output window: Esc closes outputs · Space/B blackout · I identify. Layout changes apply live while outputs run." />
+               Text="On an output window: Esc twice within a second closes outputs · Space/B blackout · I identify. Layout changes apply live while outputs run." />
   </StackPanel>
 </UserControl>

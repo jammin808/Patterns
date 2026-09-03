@@ -1,5 +1,6 @@
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
+using Patterns.Core.Services;
 using SkiaSharp;
 
 namespace Patterns.App.Services;
@@ -54,4 +55,59 @@ public static class Rig
     /// <summary>The label a screen shows everywhere: the operator's name, or the OS one.</summary>
     public static string LabelFor(ScreenPlacement placement, ScreenInfo? info)
         => placement.CustomLabel.Length > 0 ? placement.CustomLabel : info?.Label ?? placement.ScreenId;
+
+    /// <summary>
+    /// Every content target in the rig, in wall order: joined canvases by member key, then the
+    /// stand-alone screens. The strip, a scoped TAKE and the arming set all walk this list.
+    /// </summary>
+    public static List<string> Targets(ShowState state, IReadOnlyList<ScreenInfo> known)
+    {
+        var result = new List<string>();
+        var grouped = new HashSet<string>();
+        foreach (var g in CanvasGroups(state, known))
+        {
+            foreach (var p in g) grouped.Add(p.ScreenId);
+            result.Add(CanvasNameConfig.KeyFor(g.Select(p => p.ScreenId)));
+        }
+        foreach (var (placement, _) in OrderedLivePlacements(state, known))
+        {
+            if (!grouped.Contains(placement.ScreenId)) result.Add(placement.ScreenId);
+        }
+        return result;
+    }
+
+    /// <summary>A sensible shape when the rig has no screens at all.</summary>
+    public static readonly SKSizeI DefaultTargetSize = new(1920, 1080);
+
+    /// <summary>
+    /// The pixel size of a content target: a canvas's union, a screen's effective (rotation-aware)
+    /// size. The program (null) takes the first target's shape so the panes show something true.
+    /// </summary>
+    public static SKSizeI TargetSize(ShowState state, IReadOnlyList<ScreenInfo> known, string? targetId)
+    {
+        if (targetId is null)
+        {
+            var first = Targets(state, known).FirstOrDefault();
+            return first is null ? DefaultTargetSize : TargetSize(state, known, first);
+        }
+        var live = OrderedLivePlacements(state, known);
+        if (ContentTargets.IsCanvasKey(targetId))
+        {
+            var members = ContentTargets.Members(targetId);
+            SKRectI? union = null;
+            foreach (var (placement, info) in live)
+            {
+                if (!members.Contains(placement.ScreenId)) continue;
+                var size = OutputWindowManager.EffectiveSize(placement, info);
+                var rect = SKRectI.Create(placement.X, placement.Y, size.Width, size.Height);
+                union = union is { } u ? SKRectI.Union(u, rect) : rect;
+            }
+            return union is { } r ? new SKSizeI(r.Width, r.Height) : DefaultTargetSize;
+        }
+        foreach (var (placement, info) in live)
+        {
+            if (placement.ScreenId == targetId) return OutputWindowManager.EffectiveSize(placement, info);
+        }
+        return DefaultTargetSize;
+    }
 }

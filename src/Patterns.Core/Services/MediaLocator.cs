@@ -17,10 +17,9 @@ public static class MediaLocator
         static bool Wants(PatternConfig p, MediaSource s) => p.Kind == PatternKind.Media && p.Media.Source == s;
 
         if (Wants(state.Pattern, source)) return state.Pattern.Media;
-        foreach (var placement in state.Output.Placements)
+        foreach (var target in ContentTargets.ActiveCustomTargets(state))
         {
-            if (!placement.UseCustomPattern || !placement.Enabled) continue;
-            var a = state.Independent.FirstOrDefault(x => x.ScreenId == placement.ScreenId);
+            var a = state.Independent.FirstOrDefault(x => x.ScreenId == target);
             if (a is not null && Wants(a.Pattern, source)) return a.Pattern.Media;
         }
         return null;
@@ -141,10 +140,9 @@ public static class MediaLocator
         }
 
         FromPattern(state.Pattern);
-        foreach (var placement in state.Output.Placements)
+        foreach (var target in ContentTargets.ActiveCustomTargets(state))
         {
-            if (!placement.UseCustomPattern || !placement.Enabled) continue;
-            var a = state.Independent.FirstOrDefault(x => x.ScreenId == placement.ScreenId);
+            var a = state.Independent.FirstOrDefault(x => x.ScreenId == target);
             if (a is not null) FromPattern(a.Pattern);
         }
 

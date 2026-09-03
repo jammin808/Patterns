@@ -40,6 +40,9 @@ public sealed class AppServices
     /// <summary>The one way to do something to the show — see <see cref="ShowActions"/>.</summary>
     public ShowActions Actions { get; }
 
+    /// <summary>Which targets the next CUT / TAKE touches (all, unless un-armed on the wall).</summary>
+    public TransitionArming Arming { get; } = new();
+
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
     public RecoverySnapshot? PendingRecovery { get; }
 
@@ -78,6 +81,12 @@ public sealed class AppServices
         State = Store.Load();
         State.Blackout = false;
         State.Tone.Enabled = false; // a tone must never auto-start with the app
+        if (Store.LastLoadMigrated)
+        {
+            // An upgraded file is written back once so the ids minted for its looks and
+            // stingers are the same ids next time (cues and the journal refer to them).
+            SaveNow();
+        }
 
         Journal = new ShowLog(Store.BaseDirectory);
         Bus = new SnapshotBus(State);

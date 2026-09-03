@@ -48,45 +48,89 @@ public sealed class SandboxService
     /// The sandbox becomes the program on every screen. TAKE uses the configured crossfade;
     /// CUT switches instantly whatever the transition setting says.
     /// </summary>
-    public void SendAll(bool cut = false)
+    public void SendAll(bool cut = false, IReadOnlyCollection<string>? unarmedTargets = null)
     {
         if (!Active) return;
+        // Runs on every send: un-armed targets get pinned, and pins on armed targets lift —
+        // a fully armed TAKE after a scoped one is exactly when the lifting matters.
+        var kept = MergeScope(unarmedTargets ?? Array.Empty<string>());
         // A cut is a property of the snapshot, not of the transition setting: toggling the
         // setting around the publish stopped working inside a bulk edit (the intermediate
         // publish is suppressed, so the only snapshot the outputs saw carried "fade").
         if (cut) _services.Bus.CutOnNextPublish();
         Exit(reenterIfDefault: false);
         ReArmIfDefault();
-        Log.Info($"Sandbox {(cut ? "cut" : "taken")} to program (all screens).");
+        Log.Info($"Sandbox {(cut ? "cut" : "taken")} to program ({(kept == 0 ? "all screens" : $"{kept} target(s) kept their picture")}).");
     }
 
     /// <summary>
-    /// The sandbox pattern lands on the chosen screens as their per-screen pattern; the
-    /// program (and every other screen) goes back to what it was showing.
+    /// A scoped send: un-armed targets keep the picture the audience is seeing — the program's
+    /// content for that target is pinned as the target's own pattern in the sandbox before it
+    /// becomes the program — and armed targets whose only "own pattern" is such a pin have the
+    /// pin lifted so they follow the new program. Overlays, countdown and blackout are rig-wide
+    /// and always go with the send. Returns how many targets kept their picture.
     /// </summary>
-    public void SendToScreens(IReadOnlyList<string> screenIds)
+    private int MergeScope(IReadOnlyCollection<string> unarmed)
     {
-        if (!Active || screenIds.Count == 0) return;
+        var program = _program;
+        if (program is null) return 0;
+        var state = _services.State;
+        var kept = 0;
+        if (unarmed.Count == 0 && state.Independent.All(a => !a.PinnedByTake)) return 0; // nothing to pin or lift
+        _services.BulkEdit(() =>
+        {
+            foreach (var target in Rig.Targets(state, _services.Screens.All))
+            {
+                if (unarmed.Contains(target))
+                {
+                    var source = ContentTargets.UsesOwnPattern(program, target)
+                        ? program.Independent.FirstOrDefault(a => a.ScreenId == target)?.Pattern ?? program.Pattern
+                        : program.Pattern;
+                    var assignment = ContentTargets.EnsureAssignment(state, target);
+                    ModelCopier.Copy(JsonUtil.ClonePattern(source), assignment.Pattern);
+                    // A pattern the operator chose for the target stays theirs; only a program
+                    // copy is marked as a pin the next armed send may lift.
+                    if (!ContentTargets.UsesOwnPattern(state, target)) assignment.PinnedByTake = true;
+                    ContentTargets.SetOwnPattern(state, target, true);
+                    kept++;
+                }
+                else
+                {
+                    var assignment = state.Independent.FirstOrDefault(a => a.ScreenId == target);
+                    if (assignment is { PinnedByTake: true })
+                    {
+                        state.Independent.Remove(assignment);
+                        ContentTargets.SetOwnPattern(state, target, false);
+                    }
+                }
+            }
+        });
+        return kept;
+    }
+
+    /// <summary>
+    /// The sandbox pattern lands on the chosen content targets (screens, or joined canvases by
+    /// key) as their own pattern; the program (and every other target) goes back to what it
+    /// was showing.
+    /// </summary>
+    public void SendToTargets(IReadOnlyList<string> targetIds)
+    {
+        if (!Active || targetIds.Count == 0) return;
         var state = _services.State;
         var pattern = JsonUtil.ClonePattern(state.Pattern);
         RestoreContent();
         _services.BulkEdit(() =>
         {
-            foreach (var id in screenIds)
+            foreach (var id in targetIds)
             {
-                var assignment = state.Independent.FirstOrDefault(a => a.ScreenId == id);
-                if (assignment is null)
-                {
-                    assignment = new OutputAssignment { ScreenId = id };
-                    state.Independent.Add(assignment);
-                }
+                var assignment = ContentTargets.EnsureAssignment(state, id);
                 ModelCopier.Copy(pattern, assignment.Pattern);
-                var placement = state.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
-                if (placement is not null) placement.UseCustomPattern = true;
+                assignment.PinnedByTake = false; // the operator chose this picture — it stays
+                ContentTargets.SetOwnPattern(state, id, true);
             }
         });
         Exit(reenterIfDefault: true);
-        Log.Info($"Sandbox sent to {screenIds.Count} screen(s).");
+        Log.Info($"Sandbox sent to {targetIds.Count} target(s).");
     }
 
     /// <summary>Re-arms EDIT SAFE when the show asks for it (after a send).</summary>

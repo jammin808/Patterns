@@ -78,14 +78,15 @@ public sealed class OutputWindowManager
     /// pattern lookup enabled). Unit tested.
     /// </summary>
     public static List<(ScreenInfo Screen, PipelineViewport Viewport)> BuildViewports(
-        IEnumerable<ScreenPlacement> placements, IReadOnlyList<ScreenInfo> screens)
+        IEnumerable<ScreenPlacement> placements, IReadOnlyList<ScreenInfo> screens, bool includePlanned = false)
     {
         var byId = screens.ToDictionary(s => s.Id);
         var live = new List<(ScreenPlacement Placement, ScreenInfo Info)>();
         foreach (var p in placements)
         {
-            // Planned screens take part in every editor, but there is no display to open on.
-            if (p.Enabled && byId.TryGetValue(p.ScreenId, out var info) && !info.IsPlanned)
+            // Planned screens take part in every editor (and the wall), but there is no
+            // display to open on — the output windows never see them.
+            if (p.Enabled && byId.TryGetValue(p.ScreenId, out var info) && (includePlanned || !info.IsPlanned))
             {
                 live.Add((p, info));
             }
@@ -111,6 +112,9 @@ public sealed class OutputWindowManager
         foreach (var group in groups)
         {
             var union = ScreenLayout.Union(group);
+            // A joined canvas is one content target: its members render the canvas's own
+            // pattern (or the program) through the span, keyed by the sorted member set.
+            var canvasKey = group.Count > 1 ? CanvasNameConfig.KeyFor(group.Select(m => m.Id)) : null;
             foreach (var member in group)
             {
                 var info = byId[member.Id];
@@ -120,7 +124,7 @@ public sealed class OutputWindowManager
                         SinkKind.Output,
                         new SKSizeI(union.Width, union.Height),
                         new SKPointI(member.Rect.Left - union.Left, member.Rect.Top - union.Top),
-                        null,
+                        canvasKey,
                         indexOf[member.Id],
                         info.Label)
                     : new PipelineViewport(

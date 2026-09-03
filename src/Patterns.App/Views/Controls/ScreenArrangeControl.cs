@@ -41,6 +41,7 @@ public sealed class ScreenArrangeControl : Control
     private SKRectI _dragPreview;
     private bool _dragging;
     private bool _snapConnected;
+    private ViewState? _lastView; // what the last frame drew — the animation check walks its tiles
 
     public ScreenArrangeControl()
     {
@@ -84,10 +85,13 @@ public sealed class ScreenArrangeControl : Control
         if (_vm is null) return false;
         if (_dragging) return true;
         var snap = _vm.Services.Bus.Current;
-        foreach (var p in _vm.State.Output.Placements)
+        if (_lastView is not { } view) return false;
+        foreach (var tile in view.Tiles)
         {
-            if (!p.Enabled) continue;
-            if (PatternEngine.CadenceOf(snap, p.UseCustomPattern ? p.ScreenId : null, DateTime.UtcNow) == RedrawCadence.Continuous)
+            // The tile's viewport names its content target (a canvas key for a member) —
+            // the same resolution the output makes, so the overview animates when it does.
+            if (!tile.Placement.Enabled || tile.Viewport is not { } vp) continue;
+            if (PatternEngine.CadenceOf(snap, vp.ScreenId, DateTime.UtcNow) == RedrawCadence.Continuous)
             {
                 return true;
             }
@@ -186,6 +190,7 @@ public sealed class ScreenArrangeControl : Control
     public override void Render(DrawingContext context)
     {
         var view = BuildView();
+        _lastView = view;
         if (_vm is null)
         {
             return;

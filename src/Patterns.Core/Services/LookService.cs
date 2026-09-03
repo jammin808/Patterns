@@ -31,7 +31,9 @@ public static class LookService
             Overlays = JsonUtil.Clone(state.Overlays),
             Countdown = JsonUtil.Clone(state.Countdown),
             Blackout = state.Blackout,
-            CustomScreens = state.Output.Placements.Where(p => p.UseCustomPattern).Select(p => p.ScreenId).ToList(),
+            CustomScreens = state.Output.Placements.Where(p => p.UseCustomPattern).Select(p => p.ScreenId)
+                .Concat(state.Output.CanvasNames.Where(c => c.UseCustomPattern).Select(c => c.MemberKey))
+                .ToList(),
         };
         return JsonUtil.Serialize(data);
     }
@@ -101,6 +103,17 @@ public static class LookService
             foreach (var p in state.Output.Placements)
             {
                 p.UseCustomPattern = custom.Contains(p.ScreenId);
+            }
+            // Joined canvases are targets too (keyed a+b); a look saved before canvases could
+            // hold content simply lists none, which reads as "no canvas has its own pattern".
+            // A canvas the show has no row for yet gets one, so the look lands as saved.
+            foreach (var c in state.Output.CanvasNames)
+            {
+                c.UseCustomPattern = custom.Contains(c.MemberKey);
+            }
+            foreach (var key in custom)
+            {
+                if (ContentTargets.IsCanvasKey(key)) ContentTargets.SetOwnPattern(state, key, true);
             }
         }
 

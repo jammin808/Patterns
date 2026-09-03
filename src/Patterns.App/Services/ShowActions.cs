@@ -36,7 +36,7 @@ public sealed class ShowActions
 
         if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify))
         {
-            _s.Journal.Record(origin.Label, action.Kind.ToString(), action.Target, result.Status.ToString(), result.Message);
+            _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(), result.Message);
         }
         Performed?.Invoke(action, origin, result);
         return result;
@@ -45,10 +45,17 @@ public sealed class ShowActions
     public ActionResult Execute(ShowActionKind kind, ActionOrigin origin, string target = "", string value = "")
         => Execute(new ShowAction(kind, target, value), origin);
 
+    /// <summary>The journal names looks, not their ids — a caller reading it back should not need the show file.</summary>
+    private string JournalTarget(ShowAction action)
+        => action.Kind is ShowActionKind.ApplyLook or ShowActionKind.ApplyLookToPreview
+            ? LookService.Find(State, action.Target)?.Name ?? action.Target
+            : action.Target;
+
     // ---- convenience entry points the desk and the windows use ------------------
 
-    public ActionResult ApplyLook(LookConfig look, ActionOrigin origin, bool cut = false)
-        => Execute(new ShowAction(ShowActionKind.ApplyLook, look.Id, cut ? "cut" : ""), origin);
+    /// <param name="note">Where the recall came from, for the status line ("cue 18:00"); ignored when cutting.</param>
+    public ActionResult ApplyLook(LookConfig look, ActionOrigin origin, bool cut = false, string note = "")
+        => Execute(new ShowAction(ShowActionKind.ApplyLook, look.Id, cut ? "cut" : note), origin);
 
     /// <summary>F1–F12. False = no look on that key (the key is left for other handlers).</summary>
     public bool ApplyLookHotkey(int slot, ActionOrigin origin)
@@ -119,7 +126,7 @@ public sealed class ShowActions
                     ActionStatus.Refused.ToString(), $"Scheduled cue {cue.Time}: look '{cue.LookName}' not found.");
                 continue;
             }
-            var result = ApplyLook(look, ActionOrigin.Schedule);
+            var result = ApplyLook(look, ActionOrigin.Schedule, note: $"cue {cue.Time}");
             if (result.Ok) Log.Info($"Cue {cue.Time}: look '{look.Name}' applied.");
         }
     }
@@ -151,8 +158,14 @@ public sealed class ShowActions
                 }
                 _s.Outputs.Apply();
                 // Output windows take focus when they open and nothing hands it back: the next
-                // keystroke would land on the audience surface. The desk owns the keyboard.
-                try { _s.MainWindow?.Activate(); } catch { /* headless or minimised — fine */ }
+                // keystroke would land on the audience surface. The desk owns the keyboard —
+                // when the operator pressed the button here. A remote never raises the desk,
+                // and neither does anything when an output sits on the desk's own display (the
+                // desk would cover the audience surface); Esc twice hands focus back there.
+                if (origin.Kind is OriginKind.Desk or OriginKind.Keyboard && !DeskSharesADisplayWithAnOutput())
+                {
+                    try { _s.MainWindow?.Activate(); } catch { /* headless or minimised — fine */ }
+                }
                 return _s.Outputs.IsLive ? ActionResult.Done("Outputs on.") : ActionResult.Failed("No enabled screens to output to.");
             case ShowActionKind.OutputsOff:
                 _s.Outputs.CloseAll();
@@ -290,11 +303,13 @@ public sealed class ShowActions
                     return ActionResult.Refused("Open EDIT SAFE (the sandbox) first — build the look, then CUT or TAKE it to air.");
                 }
                 var cut = a.Kind == ShowActionKind.Cut;
-                _s.Sandbox.SendAll(cut);
+                var unarmed = _s.Arming.Unarmed;
+                _s.Sandbox.SendAll(cut, unarmed);
                 var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
+                var scope = unarmed.Count == 0 ? "on every screen" : $"on the armed tiles ({unarmed.Count} kept their picture)";
                 return ActionResult.Done((cut
-                    ? "CUT — sandbox is now the program on every screen."
-                    : "TAKE — sandbox faded up on every screen.") + rearmed);
+                    ? $"CUT — sandbox is now the program {scope}."
+                    : $"TAKE — sandbox faded up {scope}.") + rearmed);
             }
 
             case ShowActionKind.StopAll:
@@ -320,26 +335,66 @@ public sealed class ShowActions
         var ok = false;
         _s.EditAir(air => ok = LookService.Apply(look.Json, air));
         if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be applied.");
-        return ActionResult.Done(sandboxed
+        // "cue 18:00" from the schedule: the status line says which cue fired, as it used to.
+        var prefix = value.StartsWith("cue ", StringComparison.OrdinalIgnoreCase) ? $"Cue {value[4..]}: " : "";
+        return ActionResult.Done(prefix + (sandboxed
             ? $"Look '{look.Name}' on air — your preview edit is untouched."
-            : $"Look '{look.Name}' applied.");
+            : $"Look '{look.Name}' applied."));
     }
 
     private ActionResult Presenter(int delta)
     {
         var p = State.Presenter;
-        if (PresenterLogic.Advance(p.CurrentIndex, p.Steps.Count, delta, p.Loop) is not { } idx)
+        // A step whose look is gone (renamed, deleted) is skipped in the direction of travel,
+        // so the clicker never sticks on it mid-talk; the status line says what was skipped.
+        var skipped = new List<string>();
+        var current = p.CurrentIndex;
+        for (var hops = 0; hops < p.Steps.Count; hops++)
         {
-            return ActionResult.Refused("No presenter step.");
+            if (PresenterLogic.Advance(current, p.Steps.Count, delta, p.Loop) is not { } idx)
+            {
+                return ActionResult.Refused(skipped.Count == 0
+                    ? "No presenter step."
+                    : $"No presenter step with a look left — skipped {string.Join(", ", skipped)}.");
+            }
+            var step = p.Steps[idx];
+            var look = LookService.Find(State, step.LookName);
+            if (look is null)
+            {
+                skipped.Add($"step {idx + 1} ('{step.LookName}' not found)");
+                current = idx;
+                continue;
+            }
+            p.CurrentIndex = idx;
+            var applied = ApplyLookToAir(look, "");
+            if (!applied.Ok) return applied;
+            var name = step.Label.Length > 0 ? step.Label : look.Name;
+            return ActionResult.Done(skipped.Count == 0
+                ? $"Presenter {idx + 1}/{p.Steps.Count}: {name}"
+                : $"Presenter {idx + 1}/{p.Steps.Count}: {name} — skipped {string.Join(", ", skipped)}");
         }
-        var step = p.Steps[idx];
-        // Resolve before moving: a missing look must not swallow the step.
-        var look = LookService.Find(State, step.LookName);
-        if (look is null) return ActionResult.Failed($"Presenter step {idx + 1}: look '{step.LookName}' not found.");
-        p.CurrentIndex = idx;
-        var applied = ApplyLookToAir(look, "");
-        if (!applied.Ok) return applied;
-        return ActionResult.Done($"Presenter {idx + 1}/{p.Steps.Count}: {(step.Label.Length > 0 ? step.Label : look.Name)}");
+        return ActionResult.Failed($"No presenter step has a look — {string.Join(", ", skipped)}.");
+    }
+
+    private bool DeskSharesADisplayWithAnOutput()
+    {
+        try
+        {
+            var desk = _s.MainWindow;
+            if (desk is null) return false;
+            var deskScreen = desk.Screens.ScreenFromWindow(desk);
+            if (deskScreen is null) return false;
+            foreach (var window in _s.Outputs.Windows)
+            {
+                var info = _s.Screens.All.FirstOrDefault(s => s.Id == window.TargetScreenId);
+                if (info is not null && info.Bounds.Intersects(deskScreen.Bounds)) return true;
+            }
+        }
+        catch
+        {
+            // No screen information (headless) — nothing to protect.
+        }
+        return false;
     }
 
     private StingerItemConfig? FindStinger(string target)

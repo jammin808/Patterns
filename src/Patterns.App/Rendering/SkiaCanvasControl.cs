@@ -14,7 +14,7 @@ namespace Patterns.App.Rendering;
 /// Redraw is demand-driven: continuous (vsync) only while the snapshot is animated,
 /// once per second for clocks, and only on change for static patterns — idle cost ~0.
 /// </summary>
-public sealed class SkiaCanvasControl : Control
+public class SkiaCanvasControl : Control
 {
     private RenderPipeline? _pipeline;
     private readonly DispatcherTimer _secondTimer;

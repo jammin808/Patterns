@@ -118,16 +118,22 @@ fault containment, and settings that can never brick startup.
   lands straight on the surface — composed with rotation and per-screen trims, applied to
   patterns, media and live inputs alike.
 - **A switcher workspace** — the right side of the window works like a vision mixer:
-  **PROGRAM on top** (always what the audience sees), **PREVIEW below**, and a strip of
-  tiles between them — the program, every joined canvas and every screen, each with its
-  **custom label**, a live on/off switch, and one click to make it what the editors work
-  on (a bold banner above the tabs always says what you're editing). Flip **EDIT SAFE
-  (sandbox)** and the preview detaches from air: build the next look with every editor
-  as normal, then **CUT** (instant) or **TAKE** (crossfade) it to every screen, or send
-  it to ticked tiles as their own pattern — or save it as a look, or discard. Blackout
-  and OUTPUTS ON/OFF stay live through the freeze; what you *fire* (looks, cues, stingers,
-  remote commands) still goes straight to air, only what you are editing is held back. Subtle
-  neon hues mark every section and tab, so the right page is one glance away.
+  **PROGRAM on top** (always what the audience sees), **PREVIEW below**, and **the wall**
+  between them — one tile per *content target*: the program, every joined canvas and every
+  stand-alone screen, each with its **custom label**, a **PGM and a PVW miniature** (true
+  pictures at the target's own shape, so a 3840×1080 wall looks like a wall) and a **tally**
+  (red on air, amber held, grey off). Click a tile and the big panes take its shape and
+  show it; its buttons are **OWN** (its own pattern instead of the program — a joined
+  canvas can hold content of its own now), **MON** (draw the miniatures), **ARM** (the next
+  CUT / TAKE changes it; un-armed, it keeps the picture the audience is seeing) and the
+  live **OUTPUT** switch. A bold banner above the tabs always says what you're editing.
+  Flip **EDIT SAFE (sandbox)** and the preview detaches from air: build the next look with
+  every editor as normal, then **CUT** (instant) or **TAKE** (crossfade) it to every armed
+  target, or send it to ticked tiles as their own pattern — or save it as a look, or
+  discard. Blackout and OUTPUTS ON/OFF stay live through the freeze; what you *fire*
+  (looks, cues, stingers, remote commands) still goes straight to air, only what you are
+  editing is held back. Subtle neon hues mark every section and tab, so the right page is
+  one glance away.
 - **Playlist show parts** — split the playlist into named parts of the show (*Walk-in ·
   Main · Break*): one part plays at a time, clicked on air from chips (or `SECTION 2`
   from the remote/Companion), or **starting daily at a set time**. Old flat playlists

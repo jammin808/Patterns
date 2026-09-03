@@ -85,6 +85,7 @@ public sealed class PatternEngine
             sink.LastSnapshot = snap;
             sink.TransitionFrom = null;
             sink.TransitionEndClock = 0;
+            sink.TransitionSeenVersion = snap.Version; // a cut shown with fades off is still seen
         }
 
         RenderContent(canvas, snap, in ctx, sink);
