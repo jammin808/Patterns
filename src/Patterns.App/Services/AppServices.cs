@@ -43,6 +43,14 @@ public sealed class AppServices
     /// <summary>Which targets the next CUT / TAKE touches (all, unless un-armed on the wall).</summary>
     public TransitionArming Arming { get; } = new();
 
+    /// <summary>Where each cue list is (armed, current cue). Runtime only; reset when a show loads.</summary>
+    public CueRuntime Cues { get; } = new();
+
+    private readonly Lazy<CueValidationContext> _validation;
+
+    /// <summary>What the cue validator may ask this machine: files on disk, the video runtime.</summary>
+    public CueValidationContext ValidationContext => _validation.Value;
+
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
     public RecoverySnapshot? PendingRecovery { get; }
 
@@ -92,6 +100,11 @@ public sealed class AppServices
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
+        var video = Video;
+        _validation = new Lazy<CueValidationContext>(() => new CueValidationContext
+        {
+            VideoDecoderAvailable = video.EnsureAvailable(),
+        });
         NdiIn = new NdiInputEngine();
         Web = new WebService();
         Screens = new ScreenService();

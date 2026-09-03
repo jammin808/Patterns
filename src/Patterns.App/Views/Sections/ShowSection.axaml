@@ -30,7 +30,7 @@
     </Grid>
     <Grid ColumnDefinitions="*,Auto">
       <TextBlock Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
-      <CheckBox Grid.Column="1" Content="Clicker armed" IsChecked="{Binding State.Presenter.Armed}"
+      <CheckBox Grid.Column="1" Content="Clicker armed" IsChecked="{Binding ClickerArmed, Mode=TwoWay}"
                 ToolTip.Tip="Page Down / Page Up (USB clickers) advance the steps — set them up in the Looks tab" />
     </Grid>
 

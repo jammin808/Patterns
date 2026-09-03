@@ -92,7 +92,7 @@ public sealed class OutputWindow : Window
         }
 
         // Presenter clicker on the output too — presenters click at the screen they see.
-        if (_services.State.Presenter.Armed && e.KeyModifiers == KeyModifiers.None &&
+        if (_services.Cues.For(Patterns.Core.Services.CueStacks.Clicker(_services.State)).Armed && e.KeyModifiers == KeyModifiers.None &&
             e.Key is Key.PageDown or Key.PageUp or Key.Right or Key.Left)
         {
             var forward = e.Key is Key.PageDown or Key.Right;

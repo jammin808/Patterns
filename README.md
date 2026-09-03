@@ -99,10 +99,22 @@ fault containment, and settings that can never brick startup.
   **Bitfocus Companion module** (`integrations/companion-module-patterns/`) with presets for
   transport, looks `F1`–`F12`, individual screens and screen groups, presenter steps and
   audio — plus feedbacks and variables for Stream Deck keys. See [`docs/REMOTE.md`](docs/REMOTE.md).
-- **Presenter click-through** — programme looks in a click order and hand the presenter a
-  USB clicker: `Page Down` advances, `Page Up` goes back (exactly what presentation remotes
-  send), and each click can change any screen's content — patterns, media, blackout, the lot.
-  The remote and Companion `NEXT`/`PREV` drive the same steps.
+- **A cue stack** — the Cues tab holds two lists of the same kind: the **cue stack** a show
+  caller runs in order, and the **clicker list** a speaker steps through. A cue is one or
+  more typed actions run in order — apply a look (with its own cut or fade), play or stop the
+  audio track, fire a stinger, switch a playlist part, start or stop the stream, blackout,
+  screens and canvases on or off, start a countdown, a message or the clock, and hand the
+  room to the other list. Numbers are labels (`03.020`, auto-assigned, editable, never used
+  to sort); every reference is **checked as you build** by simulating the list in order, so a
+  part named by cue 12 is checked against the playlist cue 9 puts on air. A cue that cannot
+  run is marked **broken** with the reason, GO refuses it, and the rest of the list still
+  runs — one deleted look never stops a show. A cue stops at its first failing action and
+  says "failed at action 2 of 3"; blackout stays as it was unless the cue switches it.
+- **Presenter click-through** — the clicker list: hand the presenter a USB clicker,
+  `Page Down` advances, `Page Up` goes back (exactly what presentation remotes send), and
+  each click fires the next cue — a look, a message, a stinger, anything a cue can do. It
+  answers only while armed (always off when the app opens); the remote and Companion
+  `NEXT`/`PREV` drive the same list. Older shows' presenter steps move into it on load.
 - **Crossfade transitions** — content changes glide instead of cut (100 ms–3 s, engine-level,
   so they work on spans, rotated outputs and NDI alike — even between videos and live inputs).
   Turn them off and everything cuts clean like a test-pattern box should.
@@ -206,7 +218,7 @@ fault containment, and settings that can never brick startup.
   </tr>
   <tr>
     <td><img src="docs/media/shot-ledmap.png" alt="Irregular LED map editor with live preview"/></td>
-    <td><img src="docs/media/shot-looks.png" alt="Looks on F-keys, cue schedule and presenter click-through"/></td>
+    <td><img src="docs/media/shot-cues.png" alt="The Cues page — the caller's stack with typed actions, readable summaries and a broken cue flagged with its reason"/></td>
   </tr>
   <tr>
     <td><img src="docs/media/shot-show.png" alt="Show page — transport, presenter, looks, stingers and audio on one screen"/></td>

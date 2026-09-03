@@ -1,0 +1,122 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.CuesSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-looks" Text="Cues" />
+    <TextBlock Classes="hint"
+               Text="Two lists of the same kind. The CUE STACK is what the show caller runs, in order; the CLICKER LIST is what a speaker steps through with Page Down / Page Up (and the remote's NEXT / PREV). A cue is one or more typed actions run in order — apply a look, play audio, fire a stinger, switch a playlist part, start a countdown… Every reference is checked as you build: a cue that cannot run is marked broken with the reason, and the rest of the list still runs." />
+
+    <Grid ColumnDefinitions="*,8,Auto,6,Auto">
+      <ComboBox Grid.Column="0" ItemsSource="{Binding Cues.Stacks}" SelectedItem="{Binding Cues.SelectedStack, Mode=TwoWay}"
+                DisplayMemberBinding="{Binding Name}" HorizontalAlignment="Stretch" ToolTip.Tip="Which list to edit" />
+      <Button Grid.Column="2" Classes="chip" Content="+ Cue" Command="{Binding Cues.AddCueCommand}"
+              ToolTip.Tip="Add a cue after the selected one" />
+      <Button Grid.Column="4" Classes="mini" Content="Renumber" Command="{Binding Cues.RenumberCommand}"
+              ToolTip.Tip="01.010, 01.020, … in list order (the order never changes)" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding Cues.ValidationSummary}" />
+
+    <ItemsControl ItemsSource="{Binding Cues.Rows}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:CueRow">
+          <Border Classes="cueRow" Classes.cueSelected="{Binding IsSelected}" Classes.cueBroken="{Binding IsBroken}"
+                  Classes.cueOff="{Binding !Enabled}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <Ellipse Grid.Column="0" Width="7" Height="7" Margin="0,0,8,0" VerticalAlignment="Center"
+                       Classes="cueDot" Classes.current="{Binding IsCurrent}" Classes.broken="{Binding IsBroken}" Classes.ready="{Binding Ready}"
+                       ToolTip.Tip="Green = last run from this list · red = broken · blue = marked ready" />
+              <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="0,2" Cursor="Hand"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.SelectCueCommand}"
+                      CommandParameter="{Binding}">
+                <StackPanel Spacing="1">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding Number}" FontFamily="Consolas,Menlo,monospace" FontSize="12" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <Border Background="#20242E" CornerRadius="6" Padding="5,1" IsVisible="{Binding HasTrack}">
+                      <TextBlock Text="{Binding Track}" FontSize="10" Foreground="{StaticResource TextDimBrush}" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock Classes="hint" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                  <TextBlock Classes="hint" Foreground="{StaticResource TallyPgmBrush}" Text="{Binding Problem}" IsVisible="{Binding IsBroken}" />
+                  <TextBlock Classes="hint" Foreground="{StaticResource TallyHoldBrush}" Text="{Binding Warning}" IsVisible="{Binding HasWarning}" />
+                </StackPanel>
+              </Button>
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+                <ToggleSwitch IsChecked="{Binding Enabled, Mode=TwoWay}" OnContent="" OffContent="" MinWidth="0" Margin="0,-4"
+                              ToolTip.Tip="Enabled — a disabled cue is skipped" />
+                <Button Classes="mini" Content="FIRE" FontWeight="Bold" Focusable="False"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.FireCueCommand}"
+                        CommandParameter="{Binding}" ToolTip.Tip="Run this cue's actions now (goes to air)" />
+              </StackPanel>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint" Foreground="{StaticResource TallyHoldBrush}" Text="{Binding Cues.StackNotesText}" IsVisible="{Binding Cues.HasStackNotes}" />
+
+    <StackPanel IsVisible="{Binding Cues.IsClickerSelected}" Spacing="4">
+      <TextBlock Classes="h2" Text="CLICKER" />
+      <Grid ColumnDefinitions="Auto,12,Auto,*,Auto">
+        <CheckBox Grid.Column="0" Content="Clicker armed" IsChecked="{Binding ClickerArmed, Mode=TwoWay}"
+                  ToolTip.Tip="While armed, Page Down / Page Up (and the arrow keys outside a text box) step this list. Always off when the app opens." />
+        <CheckBox Grid.Column="2" Content="Loop at the end" IsChecked="{Binding Cues.LoopAtEnd, Mode=TwoWay}" />
+        <Button Grid.Column="4" Classes="mini" Content="Reset to start" Command="{Binding PresenterResetCommand}" />
+      </Grid>
+      <TextBlock Classes="label" Text="{Binding PresenterStepText}" />
+    </StackPanel>
+
+    <StackPanel IsVisible="{Binding Cues.HasSelection}" Spacing="4">
+      <TextBlock Classes="h2" Text="SELECTED CUE" />
+      <Grid ColumnDefinitions="84,8,*">
+        <TextBox Grid.Column="0" Text="{Binding Cues.SelectedCue.Number, Mode=TwoWay}" Watermark="01.010" ToolTip.Tip="The number is a label — the list order is what runs" />
+        <TextBox Grid.Column="2" Text="{Binding Cues.SelectedCue.Name, Mode=TwoWay}" Watermark="Cue name" />
+      </Grid>
+      <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+        <TextBox Grid.Column="0" Text="{Binding Cues.SelectedCue.Track, Mode=TwoWay}" Watermark="Track (Video, VT, Audio…)" />
+        <CheckBox Grid.Column="2" Content="Ready" IsChecked="{Binding Cues.SelectedCue.Ready, Mode=TwoWay}" ToolTip.Tip="Marked built by the visual operator — not a gate" />
+        <CheckBox Grid.Column="4" Content="Confirm" IsChecked="{Binding Cues.SelectedCue.RequireConfirm, Mode=TwoWay}" ToolTip.Tip="GO asks for a second press (the Run page)" />
+      </Grid>
+      <TextBox Text="{Binding Cues.SelectedCue.Notes, Mode=TwoWay}" Watermark="Notes for the caller — “Take only when foyer doors close.”" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="44" />
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+        <Button Grid.Column="0" Classes="mini" Content="↑" Command="{Binding Cues.MoveCueUpCommand}" ToolTip.Tip="Move the cue up" />
+        <Button Grid.Column="1" Classes="mini" Content="↓" Command="{Binding Cues.MoveCueDownCommand}" ToolTip.Tip="Move the cue down" />
+        <Button Grid.Column="2" Classes="mini" Content="✕ Remove" Command="{Binding Cues.RemoveSelectedCommand}" ToolTip.Tip="Remove the selected cue" />
+        <Button Grid.Column="4" Classes="go" Content="FIRE NOW" FontWeight="Bold" Padding="14,5" Focusable="False" Command="{Binding Cues.FireSelectedCommand}"
+                ToolTip.Tip="Run the selected cue's actions now, in order (goes to air)" />
+      </Grid>
+
+      <TextBlock Classes="h2" Text="ACTIONS (RUN IN ORDER)" />
+      <ItemsControl ItemsSource="{Binding Cues.ActionRows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ActionRow">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,6,Auto,Auto,Auto">
+                  <ComboBox Grid.Column="0" ItemsSource="{Binding KindChoices}" SelectedItem="{Binding SelectedKind, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                  <Button Grid.Column="2" Classes="mini" Content="↑"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionUpCommand}" CommandParameter="{Binding}" />
+                  <Button Grid.Column="3" Classes="mini" Content="↓"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionDownCommand}" CommandParameter="{Binding}" />
+                  <Button Grid.Column="4" Classes="mini" Content="✕"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.RemoveActionCommand}" CommandParameter="{Binding}" />
+                </Grid>
+                <ComboBox IsVisible="{Binding HasTarget}" ItemsSource="{Binding TargetChoices}" SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"
+                          PlaceholderText="{Binding TargetHint}" HorizontalAlignment="Stretch" />
+                <TextBox IsVisible="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" Watermark="{Binding ValueHint}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Button Classes="chip" Content="+ Action" Command="{Binding Cues.AddActionCommand}" HorizontalAlignment="Left" />
+      <TextBlock Classes="hint"
+                 Text="Looks are the prepared moments: build one in the preview, Save look, then Apply look here. A video stinger takes every screen, so it cannot share a cue with a look, part, screen or canvas change. Blackout stays as it was after a cue unless the cue switches it." />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

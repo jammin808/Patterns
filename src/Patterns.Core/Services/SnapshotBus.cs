@@ -41,6 +41,21 @@ public sealed class ShowSnapshot
     /// </summary>
     public long CutAtVersion { get; init; }
 
+    /// <summary>Runtime-only: a fade length (ms) requested for one publish — the recall that carried it.</summary>
+    public int FadeOverrideMs { get; init; } = -1;
+
+    /// <summary>The version the override belongs to; only the sink that starts its fade on that version uses it.</summary>
+    public long FadeOverrideVersion { get; init; } = -1;
+
+    /// <summary>The fade this snapshot asks for, in seconds: the override on its own version, else the show setting.</summary>
+    public double FadeSecondsFor(long version)
+        => FadeOverrideMs >= 0 && FadeOverrideVersion == version
+            ? FadeOverrideMs / 1000.0
+            : State.Transition.DurationMs / 1000.0;
+
+    /// <summary>Fades are on for this snapshot: the setting, or a one-off override above zero.</summary>
+    public bool FadesEnabled => State.Transition.Enabled || (FadeOverrideMs > 0 && FadeOverrideVersion == Version);
+
     public SKColor Color(string? hex, SKColor fallback)
     {
         if (string.IsNullOrWhiteSpace(hex)) return fallback;
@@ -163,6 +178,12 @@ public sealed class SnapshotBus
     public bool OutputsLive { get; set; }
 
     private bool _cutPending;
+
+    private int _fadePendingMs = -1;
+
+    private int _fadeMs = -1;
+
+    private long _fadeVersion = -1;
     private long _cutVersion;
 
     /// <summary>
@@ -171,6 +192,9 @@ public sealed class SnapshotBus
     /// on every later snapshot until each sink has seen it).
     /// </summary>
     public void CutOnNextPublish() => _cutPending = true;
+
+    /// <summary>The next publish fades over this many milliseconds (a look's own transition), once.</summary>
+    public void FadeOnNextPublish(int ms) => _fadePendingMs = Math.Max(0, ms);
 
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
@@ -205,6 +229,12 @@ public sealed class SnapshotBus
             _cutVersion = version;
             _cutPending = false;
         }
+        if (_fadePendingMs >= 0)
+        {
+            _fadeMs = _fadePendingMs;
+            _fadeVersion = version;
+            _fadePendingMs = -1;
+        }
         return new ShowSnapshot
         {
             State = JsonUtil.Clone(state),
@@ -215,6 +245,8 @@ public sealed class SnapshotBus
             FeedText = FeedText,
             OutputsLive = OutputsLive,
             CutAtVersion = _cutVersion,
+            FadeOverrideMs = _fadeMs,
+            FadeOverrideVersion = _fadeVersion,
         };
     }
 }

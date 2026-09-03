@@ -48,6 +48,22 @@ public enum ShowActionKind
     Cut,
     /// <summary>Audio track, stingers (a clip reverts) and the tone stop. Never outputs, never blackout, never the stream.</summary>
     StopAll,
+    /// <summary>Value = minutes; a duration countdown starts now on air.</summary>
+    CountdownStart,
+    CountdownStop,
+    /// <summary>Value = the text (empty keeps the current text).</summary>
+    MessageOn,
+    MessageOff,
+    ClockOn,
+    ClockOff,
+    /// <summary>Target = a cue list (stack id or name): the clicker list or the caller's stack.</summary>
+    ListArm,
+    ListDisarm,
+    ListGo,
+    ListBack,
+    ListReset,
+    /// <summary>Target = cue id: run that cue's actions now, in order, stopping at the first failure.</summary>
+    CueFire,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

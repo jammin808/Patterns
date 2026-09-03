@@ -1,0 +1,109 @@
+using System.Text;
+using Patterns.Core.Model;
+
+namespace Patterns.Core.Services;
+
+/// <summary>The readable line under a cue: "Apply 'Awards holding' + Play audio + Part 'Main'".</summary>
+public static class CueSummary
+{
+    public static string Describe(ShowState state, RunCueConfig cue, int max = 3)
+    {
+        if (cue.Actions.Count == 0) return "No actions — notes only.";
+        var parts = new List<string>();
+        foreach (var a in cue.Actions)
+        {
+            if (parts.Count == max)
+            {
+                parts.Add($"+{cue.Actions.Count - max} more");
+                break;
+            }
+            parts.Add(DescribeAction(state, a));
+        }
+        return string.Join(" + ", parts);
+    }
+
+    public static string DescribeAction(ShowState state, CueActionConfig a)
+    {
+        switch (a.Kind)
+        {
+            case CueActionKind.Unknown: return "Unknown action (newer build)";
+            case CueActionKind.Note: return "Note";
+            case CueActionKind.ApplyLook:
+            {
+                var look = LookService.Find(state, a.Target);
+                var sb = new StringBuilder($"Apply '{look?.Name ?? a.Target}'");
+                if (CueActionSpec.TryParseTransition(a.Value, out var cut, out var ms))
+                {
+                    if (cut) sb.Append(" (cut)");
+                    else if (ms >= 0) sb.Append($" ({ms} ms)");
+                }
+                return sb.ToString();
+            }
+            case CueActionKind.AudioPlay: return "Play audio";
+            case CueActionKind.AudioStop: return "Stop audio";
+            case CueActionKind.StingerFire:
+            {
+                var s = FindStinger(state, a.Target);
+                return $"Sting '{s?.DisplayName ?? a.Target}'";
+            }
+            case CueActionKind.StingerStop: return "Stop stinger";
+            case CueActionKind.PlaylistPart: return $"Part '{a.Target}'";
+            case CueActionKind.StreamStart: return "Start stream";
+            case CueActionKind.StreamStop: return "Stop stream";
+            case CueActionKind.BlackoutOn: return "Blackout on";
+            case CueActionKind.BlackoutOff: return "Blackout off";
+            case CueActionKind.ScreenOn: return $"Screen '{ScreenLabel(state, a.Target)}' on";
+            case CueActionKind.ScreenOff: return $"Screen '{ScreenLabel(state, a.Target)}' off";
+            case CueActionKind.CanvasOn: return $"Canvas '{CanvasLabel(state, a.Target)}' on";
+            case CueActionKind.CanvasOff: return $"Canvas '{CanvasLabel(state, a.Target)}' off";
+            case CueActionKind.CountdownStart: return $"Countdown {a.Value} min";
+            case CueActionKind.CountdownStop: return "Stop countdown";
+            case CueActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
+            case CueActionKind.MessageOff: return "Message off";
+            case CueActionKind.ClockOn: return "Clock on";
+            case CueActionKind.ClockOff: return "Clock off";
+            case CueActionKind.ListArm: return $"Arm {StackName(state, a.Target)}";
+            case CueActionKind.ListDisarm: return $"Disarm {StackName(state, a.Target)}";
+            case CueActionKind.ListGo: return $"GO on {StackName(state, a.Target)}";
+            case CueActionKind.ListBack: return $"Back on {StackName(state, a.Target)}";
+            case CueActionKind.ListReset: return $"Reset {StackName(state, a.Target)}";
+            default: return a.Kind.ToString();
+        }
+    }
+
+    /// <summary>A stinger by id, then by display name (case-insensitive).</summary>
+    public static StingerItemConfig? FindStinger(ShowState state, string idOrName)
+    {
+        if (string.IsNullOrWhiteSpace(idOrName)) return null;
+        foreach (var s in state.Stingers.Items)
+        {
+            if (string.Equals(s.Id, idOrName, StringComparison.Ordinal)) return s;
+        }
+        foreach (var s in state.Stingers.Items)
+        {
+            if (string.Equals(s.DisplayName, idOrName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(s.Name, idOrName, StringComparison.OrdinalIgnoreCase))
+            {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    private static string ScreenLabel(ShowState state, string id)
+    {
+        var p = state.Output.Placements.FirstOrDefault(x => x.ScreenId == id);
+        return p is null ? id : p.CustomLabel.Length > 0 ? p.CustomLabel : id;
+    }
+
+    private static string CanvasLabel(ShowState state, string key)
+    {
+        var c = state.Output.CanvasNames.FirstOrDefault(x => x.MemberKey == key);
+        return c is { Name.Length: > 0 } ? c.Name : key;
+    }
+
+    private static string StackName(ShowState state, string idOrName)
+        => CueStacks.Find(state, idOrName)?.Name ?? (idOrName.Length == 0 ? "a list" : idOrName);
+
+    private static string Shorten(string text) => text.Length <= 24 ? text : text[..22] + "…";
+}

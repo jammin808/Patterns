@@ -67,6 +67,10 @@ public sealed class ShowActions
     public bool PresenterAdvance(int delta, ActionOrigin origin)
         => Execute(delta >= 0 ? ShowActionKind.PresenterNext : ShowActionKind.PresenterPrev, origin).Ok;
 
+    /// <summary>Runs a cue now, from any list: the desk's FIRE button, and later the caller's GO.</summary>
+    public ActionResult FireCue(RunCueConfig cue, ActionOrigin origin)
+        => Execute(new ShowAction(ShowActionKind.CueFire, cue.Id), origin);
+
     /// <summary>Screen by overview number (1-based) → on / off / toggled (null). False = no such screen.</summary>
     public bool SetScreenEnabled(int number, bool? target, IReadOnlyList<ScreenInfo>? screens = null)
     {
@@ -209,7 +213,75 @@ public sealed class ShowActions
 
             case ShowActionKind.PresenterNext:
             case ShowActionKind.PresenterPrev:
-                return Presenter(a.Kind == ShowActionKind.PresenterNext ? +1 : -1);
+                return Presenter(a.Kind == ShowActionKind.PresenterNext ? +1 : -1, origin);
+
+            case ShowActionKind.CueFire:
+            {
+                var found = CueStacks.FindCue(State, a.Target);
+                if (found is null) return ActionResult.Refused($"No cue '{a.Target}'.");
+                return RunCue(found.Value.Stack, found.Value.Cue, origin);
+            }
+            case ShowActionKind.ListArm:
+            case ShowActionKind.ListDisarm:
+            case ShowActionKind.ListGo:
+            case ShowActionKind.ListBack:
+            case ShowActionKind.ListReset:
+            {
+                var stack = CueStacks.Find(State, a.Target);
+                if (stack is null) return ActionResult.Refused($"No cue list '{a.Target}'.");
+                var rt = _s.Cues.For(stack);
+                switch (a.Kind)
+                {
+                    case ShowActionKind.ListArm:
+                        rt.Armed = true;
+                        return ActionResult.Done($"{stack.Name} armed.");
+                    case ShowActionKind.ListDisarm:
+                        rt.Armed = false;
+                        return ActionResult.Done($"{stack.Name} disarmed.");
+                    case ShowActionKind.ListReset:
+                        rt.CurrentIndex = -1;
+                        return ActionResult.Done($"{stack.Name} reset to the start.");
+                    case ShowActionKind.ListGo:
+                        return RunList(stack, +1, origin);
+                    default:
+                        return RunList(stack, -1, origin);
+                }
+            }
+
+            case ShowActionKind.CountdownStart:
+            {
+                if (!double.TryParse(a.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
+                {
+                    return ActionResult.Refused("A countdown needs a number of minutes above zero.");
+                }
+                _s.EditAir(air =>
+                {
+                    air.Countdown.TargetKind = CountdownTargetKind.Duration;
+                    air.Countdown.DurationMinutes = minutes;
+                    air.Countdown.ArmedAtUtc = DateTime.UtcNow;
+                    air.Countdown.Enabled = true;
+                });
+                return ActionResult.Done($"Countdown running: {minutes:0.#} min.");
+            }
+            case ShowActionKind.CountdownStop:
+                _s.EditAir(air => air.Countdown.Enabled = false);
+                return ActionResult.Done("Countdown off.");
+            case ShowActionKind.MessageOn:
+                _s.EditAir(air =>
+                {
+                    if (a.Value.Length > 0) air.Overlays.Message.Text = a.Value;
+                    air.Overlays.Message.Enabled = true;
+                });
+                return ActionResult.Done(a.Value.Length > 0 ? $"Message on: '{a.Value}'." : "Message on.");
+            case ShowActionKind.MessageOff:
+                _s.EditAir(air => air.Overlays.Message.Enabled = false);
+                return ActionResult.Done("Message off.");
+            case ShowActionKind.ClockOn:
+                _s.EditAir(air => air.Overlays.Clock.Enabled = true);
+                return ActionResult.Done("Clock on.");
+            case ShowActionKind.ClockOff:
+                _s.EditAir(air => air.Overlays.Clock.Enabled = false);
+                return ActionResult.Done("Clock off.");
 
             case ShowActionKind.ScreenOn:
             case ShowActionKind.ScreenOff:
@@ -331,9 +403,14 @@ public sealed class ShowActions
     private ActionResult ApplyLookToAir(LookConfig look, string value)
     {
         var sandboxed = _s.Sandbox.Active;
-        if (string.Equals(value, "cut", StringComparison.OrdinalIgnoreCase)) _s.Bus.CutOnNextPublish();
+        // Value: "cut", a fade in ms (this recall only), or anything else for the show default.
+        if (CueActionSpec.TryParseTransition(value, out var cut, out var fadeMs))
+        {
+            if (cut) _s.Bus.CutOnNextPublish();
+            else if (fadeMs >= 0) _s.Bus.FadeOnNextPublish(fadeMs);
+        }
         var ok = false;
-        _s.EditAir(air => ok = LookService.Apply(look.Json, air));
+        _s.EditAir(air => ok = LookService.Apply(look.Json, air, rearmCountdown: true));
         if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be applied.");
         // "cue 18:00" from the schedule: the status line says which cue fired, as it used to.
         var prefix = value.StartsWith("cue ", StringComparison.OrdinalIgnoreCase) ? $"Cue {value[4..]}: " : "";
@@ -342,39 +419,157 @@ public sealed class ShowActions
             : $"Look '{look.Name}' applied."));
     }
 
-    private ActionResult Presenter(int delta)
+    /// <summary>The clicker: Page Down / Up, NEXT / PREV and the Show page drive the clicker list.</summary>
+    private ActionResult Presenter(int delta, ActionOrigin origin)
+        => RunList(CueStacks.Clicker(State), delta, origin);
+
+    /// <summary>
+    /// Steps a list: the next (or previous) cue that can run is fired; a disabled or broken cue
+    /// is skipped in the direction of travel — the list never sticks on one mid-show — and the
+    /// status line says what was skipped.
+    /// </summary>
+    private ActionResult RunList(CueStackConfig stack, int delta, ActionOrigin origin)
     {
-        var p = State.Presenter;
-        // A step whose look is gone (renamed, deleted) is skipped in the direction of travel,
-        // so the clicker never sticks on it mid-talk; the status line says what was skipped.
+        var rt = _s.Cues.For(stack);
+        var cues = stack.Cues;
         var skipped = new List<string>();
-        var current = p.CurrentIndex;
-        for (var hops = 0; hops < p.Steps.Count; hops++)
+        var current = rt.CurrentIndex;
+        for (var hops = 0; hops < cues.Count; hops++)
         {
-            if (PresenterLogic.Advance(current, p.Steps.Count, delta, p.Loop) is not { } idx)
+            if (PresenterLogic.Advance(current, cues.Count, delta, stack.LoopAtEnd) is not { } idx)
             {
                 return ActionResult.Refused(skipped.Count == 0
-                    ? "No presenter step."
-                    : $"No presenter step with a look left — skipped {string.Join(", ", skipped)}.");
+                    ? $"No cue in {stack.Name}."
+                    : $"No cue left to run in {stack.Name} — skipped {string.Join(", ", skipped)}.");
             }
-            var step = p.Steps[idx];
-            var look = LookService.Find(State, step.LookName);
-            if (look is null)
+            var cue = cues[idx];
+            if (!cue.Enabled)
             {
-                skipped.Add($"step {idx + 1} ('{step.LookName}' not found)");
+                skipped.Add($"{cue.Number} (disabled)");
                 current = idx;
                 continue;
             }
-            p.CurrentIndex = idx;
-            var applied = ApplyLookToAir(look, "");
-            if (!applied.Ok) return applied;
-            var name = step.Label.Length > 0 ? step.Label : look.Name;
+            var check = CueValidator.ValidateOne(State, cue, _s.ValidationContext);
+            if (check.BrokenCount > 0)
+            {
+                skipped.Add($"{cue.Number} ({check.ReasonFor(cue.Id)})");
+                current = idx;
+                continue;
+            }
+            rt.CurrentIndex = idx;
+            var result = RunCue(stack, cue, origin);
+            if (!result.Ok) return result;
+            var prefix = stack.IsClicker ? "Presenter" : stack.Name;
             return ActionResult.Done(skipped.Count == 0
-                ? $"Presenter {idx + 1}/{p.Steps.Count}: {name}"
-                : $"Presenter {idx + 1}/{p.Steps.Count}: {name} — skipped {string.Join(", ", skipped)}");
+                ? $"{prefix} {idx + 1}/{cues.Count}: {cue.Name}"
+                : $"{prefix} {idx + 1}/{cues.Count}: {cue.Name} — skipped {string.Join(", ", skipped)}");
         }
-        return ActionResult.Failed($"No presenter step has a look — {string.Join(", ", skipped)}.");
+        return ActionResult.Failed($"No cue in {stack.Name} can run — {string.Join(", ", skipped)}.");
     }
+
+    /// <summary>
+    /// Runs one cue: re-checked against the live state first (a hard issue refuses it, program
+    /// untouched), then its actions in order inside one bulk edit so the screens change once,
+    /// stopping at the first failure ("failed at action k of n"; earlier actions stand). Blackout
+    /// is transport: it is put back afterwards unless the cue says otherwise.
+    /// </summary>
+    private ActionResult RunCue(CueStackConfig stack, RunCueConfig cue, ActionOrigin origin)
+    {
+        var label = $"{cue.Number} {cue.Name}";
+        var rt = _s.Cues.For(stack);
+        if (!cue.Enabled)
+        {
+            rt.LastOutcome = "Refused";
+            return ActionResult.Refused($"{label} is disabled.");
+        }
+        var check = CueValidator.ValidateOne(State, cue, _s.ValidationContext);
+        if (check.BrokenCount > 0)
+        {
+            rt.LastOutcome = "Refused";
+            return ActionResult.Refused($"{label}: {check.ReasonFor(cue.Id)}");
+        }
+
+        var blackoutBefore = _s.State.Blackout;
+        var explicitBlackout = cue.Actions.Any(x => x.Kind is CueActionKind.BlackoutOn or CueActionKind.BlackoutOff);
+        var total = cue.Actions.Count;
+        var done = 0;
+        var requested = false;
+        ActionResult? failure = null;
+        _s.BulkEdit(() =>
+        {
+            foreach (var action in cue.Actions)
+            {
+                if (action.Kind == CueActionKind.Note)
+                {
+                    done++;
+                    continue;
+                }
+                var mapped = ToShowAction(action);
+                ActionResult r;
+                try
+                {
+                    r = Run(mapped, origin);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Cue {label}: action {mapped} failed.", ex);
+                    r = ActionResult.Failed(ex.Message);
+                }
+                Performed?.Invoke(mapped, origin, r); // editors resync; the cue itself is what gets journaled
+                if (!r.Ok)
+                {
+                    failure = r;
+                    break;
+                }
+                if (r.Status == ActionStatus.Requested) requested = true;
+                done++;
+            }
+            if (!explicitBlackout) _s.State.Blackout = blackoutBefore;
+        });
+
+        rt.LastCueId = cue.Id;
+        if (failure is not null)
+        {
+            rt.LastOutcome = "Failed";
+            return ActionResult.Failed($"{label}: failed at action {done + 1} of {total} — {failure.Message}");
+        }
+        rt.LastOutcome = requested ? "Requested" : "Done";
+        return requested
+            ? ActionResult.Requested($"{label} — {CueSummary.Describe(State, cue)} (still settling).")
+            : ActionResult.Done($"{label} — {CueSummary.Describe(State, cue)}");
+    }
+
+    /// <summary>A typed cue action as the action layer runs it.</summary>
+    public static ShowAction ToShowAction(CueActionConfig a) => a.Kind switch
+    {
+        CueActionKind.ApplyLook => new ShowAction(ShowActionKind.ApplyLook, a.Target, a.Value),
+        CueActionKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay),
+        CueActionKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
+        CueActionKind.StingerFire => new ShowAction(ShowActionKind.StingerFire, a.Target),
+        CueActionKind.StingerStop => new ShowAction(ShowActionKind.StingerStop),
+        CueActionKind.PlaylistPart => new ShowAction(ShowActionKind.PlaylistPart, a.Target),
+        CueActionKind.StreamStart => new ShowAction(ShowActionKind.StreamStart),
+        CueActionKind.StreamStop => new ShowAction(ShowActionKind.StreamStop),
+        CueActionKind.BlackoutOn => new ShowAction(ShowActionKind.BlackoutOn),
+        CueActionKind.BlackoutOff => new ShowAction(ShowActionKind.BlackoutOff),
+        CueActionKind.ScreenOn => new ShowAction(ShowActionKind.ScreenOn, a.Target),
+        CueActionKind.ScreenOff => new ShowAction(ShowActionKind.ScreenOff, a.Target),
+        CueActionKind.CanvasOn => new ShowAction(ShowActionKind.CanvasOn, a.Target),
+        CueActionKind.CanvasOff => new ShowAction(ShowActionKind.CanvasOff, a.Target),
+        CueActionKind.CountdownStart => new ShowAction(ShowActionKind.CountdownStart, "", a.Value),
+        CueActionKind.CountdownStop => new ShowAction(ShowActionKind.CountdownStop),
+        CueActionKind.MessageOn => new ShowAction(ShowActionKind.MessageOn, "", a.Value),
+        CueActionKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
+        CueActionKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
+        CueActionKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
+        CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),
+        CueActionKind.ListDisarm => new ShowAction(ShowActionKind.ListDisarm, a.Target),
+        CueActionKind.ListGo => new ShowAction(ShowActionKind.ListGo, a.Target),
+        CueActionKind.ListBack => new ShowAction(ShowActionKind.ListBack, a.Target),
+        CueActionKind.ListReset => new ShowAction(ShowActionKind.ListReset, a.Target),
+        CueActionKind.Note => new ShowAction(ShowActionKind.Note),
+        _ => new ShowAction(ShowActionKind.Unknown),
+    };
 
     private bool DeskSharesADisplayWithAnOutput()
     {

@@ -24,7 +24,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `IDENTIFY` | Flash screen numbers |
 | `LOOK <1–12>` | Apply the look on that F-key slot |
 | `LOOK <name>` | Apply a look by name (case-insensitive) |
-| `NEXT` / `PREV` | Presenter click-through forward / back |
+| `NEXT` / `PREV` | Clicker list forward / back (the presenter click-through) |
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
 | `AUDIO PLAY` / `STOP` | The independent audio track |

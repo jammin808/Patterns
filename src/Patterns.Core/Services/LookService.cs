@@ -61,6 +61,15 @@ public static class LookService
                 refs.Add($"scheduled cue at {cue.Time}");
             }
         }
+        foreach (var (stack, cue, action) in CueStacks.AllActions(state))
+        {
+            if (action.Kind != CueActionKind.ApplyLook) continue;
+            if (string.Equals(action.Target, look.Id, StringComparison.Ordinal) ||
+                string.Equals(action.Target, look.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                refs.Add($"{stack.Name} cue {cue.Number} {cue.Name}");
+            }
+        }
         for (var i = 0; i < state.Presenter.Steps.Count; i++)
         {
             if (string.Equals(state.Presenter.Steps[i].LookName, look.Name, StringComparison.OrdinalIgnoreCase))
@@ -72,7 +81,9 @@ public static class LookService
     }
 
     /// <summary>Applies a captured look in place (bindings keep their object references).</summary>
-    public static bool Apply(string lookJson, ShowState state)
+    /// <param name="rearmCountdown">A recall (F-key, cue, schedule): a duration countdown the look carries starts
+    /// now rather than from the stale moment it was saved. State transfers (sandbox restore, recovery) leave it.</param>
+    public static bool Apply(string lookJson, ShowState state, bool rearmCountdown = false)
     {
         LookData? data;
         try
@@ -115,6 +126,11 @@ public static class LookService
             {
                 if (ContentTargets.IsCanvasKey(key)) ContentTargets.SetOwnPattern(state, key, true);
             }
+        }
+
+        if (rearmCountdown && state.Countdown.Enabled && state.Countdown.TargetKind == CountdownTargetKind.Duration)
+        {
+            state.Countdown.ArmedAtUtc = DateTime.UtcNow;
         }
 
         // Looks captured before playlist sections existed carry flat lists — lift them.

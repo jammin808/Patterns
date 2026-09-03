@@ -21,7 +21,7 @@ public sealed class PatternEngine
         // Crossfade on content changes: when this sink's content identity changes, the
         // previous snapshot keeps rendering on top, fading out over the configured time.
         // Thumbnails and fade-source re-renders themselves are excluded.
-        if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail && snap.State.Transition.Enabled)
+        if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail && snap.FadesEnabled)
         {
             var key = snap.TransitionKeyFor(ctx.ScreenId);
             // A CUT this sink has not shown yet: switch now, and abandon any fade in flight.
@@ -35,7 +35,7 @@ public sealed class PatternEngine
             {
                 sink.TransitionFrom = prev;
                 sink.TransitionStartClock = ctx.Time;
-                sink.TransitionEndClock = ctx.Time + snap.State.Transition.DurationMs / 1000.0;
+                sink.TransitionEndClock = ctx.Time + snap.FadeSecondsFor(snap.Version);
             }
             sink.TransitionKey = key;
             sink.LastSnapshot = snap;
@@ -43,7 +43,7 @@ public sealed class PatternEngine
 
             if (sink.TransitionFrom is { } from)
             {
-                var duration = Math.Max(0.05, snap.State.Transition.DurationMs / 1000.0);
+                var duration = Math.Max(0.05, sink.TransitionEndClock - sink.TransitionStartClock);
                 var t = (ctx.Time - sink.TransitionStartClock) / duration;
                 if (t >= 1)
                 {

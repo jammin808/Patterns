@@ -166,12 +166,15 @@ public class ActionLayerTests
             b.Vm.SaveLookCommand.Execute(null);
             Assert.Single(b.Vm.State.LooksAndCues.Looks);
 
-            b.Vm.State.Presenter.Steps.Add(new PresenterStepConfig { LookName = "walk-in" });
+            var clicker = CueStacks.Clicker(b.Vm.State);
+            var cue = new RunCueConfig { Number = "01.010", Name = "Opening" };
+            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+            clicker.Cues.Add(cue);
             b.Vm.DeleteLookCommand.Execute(look);
             Assert.Single(b.Vm.State.LooksAndCues.Looks);
-            Assert.Contains("presenter step 1", b.Vm.StatusMessage);
+            Assert.Contains("Clicker list cue 01.010 Opening", b.Vm.StatusMessage);
 
-            b.Vm.State.Presenter.Steps.Clear();
+            clicker.Cues.Clear();
             b.Vm.DeleteLookCommand.Execute(look);
             Assert.Empty(b.Vm.State.LooksAndCues.Looks);
         }
@@ -270,31 +273,35 @@ public class ActionLayerTests
             var state = b.Vm.State;
             state.LooksAndCues.Looks.Add(new LookConfig { Name = "One", Json = LookService.Capture(state) });
             state.LooksAndCues.Looks.Add(new LookConfig { Name = "Three", Json = LookService.Capture(state) });
-            state.Presenter.Steps.Add(new PresenterStepConfig { LookName = "One" });
-            state.Presenter.Steps.Add(new PresenterStepConfig { LookName = "Gone" });
-            state.Presenter.Steps.Add(new PresenterStepConfig { LookName = "Three" });
-            state.Presenter.Armed = true;
-            state.Presenter.CurrentIndex = -1;
+            var clicker = CueStacks.Clicker(state);
+            foreach (var name in new[] { "One", "Gone", "Three" })
+            {
+                var cue = new RunCueConfig { Name = name, Number = CueNumber.Next(clicker.Cues.Count > 0 ? clicker.Cues[^1].Number : null) };
+                cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = name }); // by name: "Gone" never resolves
+                clicker.Cues.Add(cue);
+            }
+            var rt = b.Services.Cues.For(clicker);
+            Assert.Equal(-1, rt.CurrentIndex);
 
             var first = b.Services.Actions.Execute(ShowActionKind.PresenterNext, ActionOrigin.Clicker);
             Assert.True(first.Ok);
-            Assert.Equal(0, state.Presenter.CurrentIndex);
+            Assert.Equal(0, rt.CurrentIndex);
 
             var second = b.Services.Actions.Execute(ShowActionKind.PresenterNext, ActionOrigin.Clicker);
             Assert.True(second.Ok);
-            Assert.Equal(2, state.Presenter.CurrentIndex); // over the missing step, onto Three
+            Assert.Equal(2, rt.CurrentIndex); // over the broken cue, onto Three
             Assert.Contains("skipped", second.Message);
             Assert.Contains("Gone", second.Message);
 
             var back = b.Services.Actions.Execute(ShowActionKind.PresenterPrev, ActionOrigin.Clicker);
             Assert.True(back.Ok);
-            Assert.Equal(0, state.Presenter.CurrentIndex); // and back over it the other way
+            Assert.Equal(0, rt.CurrentIndex); // and back over it the other way
 
-            // Nothing resolvable ahead: refused, with the reason — the index stays put.
+            // Nothing runnable ahead: refused, with the reason — the place stays put.
             state.LooksAndCues.Looks.Clear();
             var stuck = b.Services.Actions.Execute(ShowActionKind.PresenterNext, ActionOrigin.Clicker);
             Assert.False(stuck.Ok);
-            Assert.Equal(0, state.Presenter.CurrentIndex);
+            Assert.Equal(0, rt.CurrentIndex);
         }
         finally
         {

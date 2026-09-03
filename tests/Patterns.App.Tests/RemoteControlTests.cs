@@ -173,18 +173,23 @@ public class RemoteControlTests
             vm.NewLookName = "Two";
             vm.SaveLookCommand.Execute(null);
 
-            vm.State.Presenter.Steps.Add(new PresenterStepConfig { LookName = "One" });
-            vm.State.Presenter.Steps.Add(new PresenterStepConfig { LookName = "Two" });
+            var clicker = CueStacks.Clicker(vm.State);
+            foreach (var name in new[] { "One", "Two" })
+            {
+                var cue = new RunCueConfig { Name = name };
+                cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = LookService.Find(vm.State, name)!.Id });
+                clicker.Cues.Add(cue);
+            }
 
             Assert.True(vm.PresenterAdvance(+1));
             Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
-            Assert.Equal(0, vm.State.Presenter.CurrentIndex);
+            Assert.Equal(0, services.Cues.For(clicker).CurrentIndex);
 
             Assert.True(vm.PresenterAdvance(+1));
             Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);
 
             Assert.False(vm.PresenterAdvance(+1)); // end, no loop
-            vm.State.Presenter.Loop = true;
+            clicker.LoopAtEnd = true;
             Assert.True(vm.PresenterAdvance(+1)); // wraps
             Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
 

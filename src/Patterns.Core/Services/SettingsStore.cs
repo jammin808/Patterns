@@ -46,7 +46,16 @@ public sealed class SettingsStore
         }
     }
 
-    public ShowState Load() => LoadFrom(SettingsPath) ?? new ShowState { SchemaVersion = ShowState.CurrentSchemaVersion };
+    public ShowState Load() => LoadFrom(SettingsPath) ?? Fresh();
+
+    /// <summary>A new show: current schema, both cue lists present.</summary>
+    public static ShowState Fresh()
+    {
+        var state = new ShowState { SchemaVersion = ShowState.CurrentSchemaVersion };
+        CueStacks.Caller(state);
+        CueStacks.Clicker(state);
+        return state;
+    }
 
     /// <summary>
     /// True when the last load upgraded an older file. Ids minted during that upgrade (looks,
@@ -111,6 +120,15 @@ public sealed class SettingsStore
         {
             if (string.IsNullOrWhiteSpace(stinger.Id)) stinger.Id = Guid.NewGuid().ToString("N");
         }
+
+        // v5: the presenter click-through becomes the clicker list — one Apply Look cue per
+        // step — and the show always holds the caller's stack beside it.
+        if (state.SchemaVersion < 5 || state.Presenter.Steps.Count > 0)
+        {
+            CueStacks.MigratePresenter(state);
+        }
+        CueStacks.Caller(state);
+        CueStacks.Clicker(state);
 
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }

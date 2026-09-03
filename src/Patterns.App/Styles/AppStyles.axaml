@@ -34,6 +34,14 @@
   <Style Selector="TextBlock.h1.neon-stream"><Setter Property="Foreground" Value="#FF5C7A" /></Style>
   <Style Selector="TextBlock.h1.neon-admin"><Setter Property="Foreground" Value="#B8E356" /></Style>
 
+  <!-- The navigation rail: seventeen pages fit a 720 px window without wrapping -->
+  <Style Selector="TabControl[TabStripPlacement=Left] > TabItem">
+    <Setter Property="FontSize" Value="17" />
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Margin" Value="0" />
+  </Style>
+
   <!-- Switcher strip tiles -->
   <Style Selector="Border.tile">
     <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
@@ -56,6 +64,30 @@
   <Style Selector="TextBlock.tileTitle"><Setter Property="Foreground" Value="#E6EAF2" /></Style>
   <Style Selector="TextBlock.tileTitle.hold"><Setter Property="Foreground" Value="{StaticResource TallyHoldBrush}" /></Style>
   <Style Selector="TextBlock.tileTitle.air"><Setter Property="Foreground" Value="#FF9EB0" /></Style>
+
+  <!-- Cue rows on the Cues page: selection is the border, state is the dot -->
+  <Style Selector="Border.cueRow">
+    <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Margin" Value="0,2" />
+  </Style>
+  <Style Selector="Border.cueRow.cueSelected">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="Background" Value="#14232E" />
+  </Style>
+  <Style Selector="Border.cueRow.cueBroken">
+    <Setter Property="BorderBrush" Value="#80E0342E" />
+  </Style>
+  <Style Selector="Border.cueRow.cueOff">
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+  <Style Selector="Ellipse.cueDot"><Setter Property="Fill" Value="{StaticResource TallyOffBrush}" /></Style>
+  <Style Selector="Ellipse.cueDot.ready"><Setter Property="Fill" Value="{StaticResource AccentBrush}" /></Style>
+  <Style Selector="Ellipse.cueDot.current"><Setter Property="Fill" Value="{StaticResource TallyPvwBrush}" /></Style>
+  <Style Selector="Ellipse.cueDot.broken"><Setter Property="Fill" Value="{StaticResource TallyPgmBrush}" /></Style>
 
   <!-- OWN / MON / ARM on a wall tile: small, lit when on -->
   <Style Selector="ToggleButton.wall">

@@ -69,6 +69,11 @@
           </Grid>
         </Border>
         <TabControl Grid.Row="1" TabStripPlacement="Left" Padding="8,0,0,0">
+        <!-- One column, always: the default strip panel wraps into a second column once the
+             rail runs out of height, which squeezes the page beside it to nothing. -->
+        <TabControl.ItemsPanel>
+          <ItemsPanelTemplate><StackPanel Orientation="Vertical" /></ItemsPanelTemplate>
+        </TabControl.ItemsPanel>
         <TabItem>
           <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#2EE68A"/><TextBlock Text="Show"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:ShowSection /></ScrollViewer>
@@ -84,6 +89,10 @@
         <TabItem>
           <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#6E9BFF"/><TextBlock Text="Looks"/></StackPanel></TabItem.Header>
           <ScrollViewer><v:LooksSection /></ScrollViewer>
+        </TabItem>
+        <TabItem>
+          <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#6E9BFF"/><TextBlock Text="Cues"/></StackPanel></TabItem.Header>
+          <ScrollViewer><v:CuesSection /></ScrollViewer>
         </TabItem>
         <TabItem>
           <TabItem.Header><StackPanel Orientation="Horizontal" Spacing="7"><Ellipse Classes="dot" Fill="#B18CFF"/><TextBlock Text="Outputs"/></StackPanel></TabItem.Header>

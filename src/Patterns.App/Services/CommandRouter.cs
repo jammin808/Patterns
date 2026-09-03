@@ -95,13 +95,7 @@ public sealed class CommandRouter
             blackout = s.Blackout,
             live = _services.Outputs.IsLive,
             looks = s.LooksAndCues.Looks.Select(l => new { name = l.Name, slot = l.Hotkey }).ToArray(),
-            presenter = new
-            {
-                armed = s.Presenter.Armed,
-                index = s.Presenter.CurrentIndex,
-                count = s.Presenter.Steps.Count,
-                steps = s.Presenter.Steps.Select(p => p.Label.Length > 0 ? p.Label : p.LookName).ToArray(),
-            },
+            presenter = PresenterState(s),
             screens = _services.Actions.RemoteScreens(),
             audio = new
             {
@@ -151,4 +145,18 @@ public sealed class CommandRouter
 
     /// <summary>Builds StateJson from any thread.</summary>
     public Task<string> StateJsonAsync() => Dispatcher.UIThread.InvokeAsync(StateJson).GetTask();
+
+    /// <summary>The clicker list as the remotes have always seen the presenter: armed, index, count, step names.</summary>
+    private object PresenterState(ShowState s)
+    {
+        var clicker = CueStacks.Clicker(s);
+        var rt = _services.Cues.For(clicker);
+        return new
+        {
+            armed = rt.Armed,
+            index = rt.CurrentIndex,
+            count = clicker.Cues.Count,
+            steps = clicker.Cues.Select(c => c.Name).ToArray(),
+        };
+    }
 }

@@ -456,10 +456,17 @@ public sealed class PresenterConfig : Observable
     private bool _loop;
     private int _currentIndex = -1;
 
-    /// <summary>When armed, clicker keys (and remote NEXT/PREV) drive the steps.</summary>
+    /// <summary>
+    /// When armed, clicker keys (and remote NEXT/PREV) drive the clicker list. A runtime chip:
+    /// a show always opens with the clicker disarmed, so nothing fires until someone arms it.
+    /// </summary>
+    [JsonIgnore]
     public bool Armed { get => _armed; set => Set(ref _armed, value); }
+
+    /// <summary>Kept for files from before schema 5; the clicker list's LoopAtEnd carries it now.</summary>
     public bool Loop { get => _loop; set => Set(ref _loop, value); }
 
+    /// <summary>Kept for files from before schema 5; migrated into the clicker list on load.</summary>
     public ObservableCollection<PresenterStepConfig> Steps { get; init; } = new();
 
     /// <summary>Runtime-only: the step currently applied (-1 = not started).</summary>
@@ -690,7 +697,7 @@ public sealed class WebConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run
@@ -726,6 +733,9 @@ public sealed class ShowState : Observable
     public WebConfig Web { get; init; } = new();
     public TransitionConfig Transition { get; init; } = new();
     public PresenterConfig Presenter { get; init; } = new();
+
+    /// <summary>The caller's cue stack and the speaker's clicker list (schema 5); see <see cref="Services.CueStacks"/>.</summary>
+    public ObservableCollection<CueStackConfig> Stacks { get; init; } = new();
     public AudioPlayerConfig AudioPlayer { get; init; } = new();
     public ControlConfig Control { get; init; } = new();
     public StingerConfig Stingers { get; init; } = new();

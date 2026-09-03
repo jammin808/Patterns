@@ -167,8 +167,8 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | --- | --- | --- |
 | 1 | One action layer (`ShowActions`) for the desk, keyboard, output windows, remote, schedule and recovery, journaled to `patterns.showlog.jsonl`; OUTPUTS ON/OFF naming; snapshot-level CUT; tolerant enum loading; looks and stingers with ids. | done |
 | 2 | Content-target model (a joined canvas holds content of its own, keyed `a+b`); the wall — PGM/PVW miniatures per target at true shape, OWN / MON / ARM / OUTPUT, tally; aspect-locked panes following the selected target; scoped TAKE (un-armed targets keep their picture). | done |
-| 3 | Cue stack: model, validator (per-cue *Broken*, never a global arm gate), Cues page. | next |
-| 4 | Run layout: standby/GO executor, journal tail, recovery keeps the caller's place. | |
+| 3 | Cue stack: two lists of one model (caller's stack, clicker list — the old presenter steps migrate into it), typed actions with one spec table, a simulating validator with per-cue *Broken* (never a global arm gate), the Cues page with FIRE, looks with their own cut / fade, blackout as transport across a cue. | done |
+| 4 | Run layout: standby/GO executor with the one gate (armed, hold, blackout latch, standby-id fence, lockout, confirm), journal tail, recovery keeps the caller's place. | next |
 | 5 | Remote, Companion, tablet page and the pop-out wall. | |
 | 6 | Five-group menu shell (Show · Plan · Edit · Setup · Admin) and the Build-layout extras. | |
 

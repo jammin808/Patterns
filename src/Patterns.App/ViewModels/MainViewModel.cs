@@ -156,40 +156,12 @@ public sealed class MainViewModel : Observable
             if (url is not null) State.Web.SavedUrls.Remove(url);
         });
 
-        // Presenter click-through
-        AddPresenterStepCommand = new RelayCommand(() =>
-        {
-            var name = SelectedPresenterLook;
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                name = State.LooksAndCues.Looks.FirstOrDefault()?.Name ?? "";
-            }
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                StatusMessage = "Save a look first — presenter steps recall looks.";
-                return;
-            }
-            State.Presenter.Steps.Add(new PresenterStepConfig { LookName = name });
-            Raise(nameof(PresenterStepText));
-        });
-        RemovePresenterStepCommand = new RelayCommand<PresenterStepConfig>(step =>
-        {
-            if (step is not null) State.Presenter.Steps.Remove(step);
-            Raise(nameof(PresenterStepText));
-        });
-        MovePresenterStepUpCommand = new RelayCommand<PresenterStepConfig>(step =>
-        {
-            if (step is not null) MovePresenterStep(step, -1);
-        });
-        MovePresenterStepDownCommand = new RelayCommand<PresenterStepConfig>(step =>
-        {
-            if (step is not null) MovePresenterStep(step, +1);
-        });
+        // Presenter click-through: the clicker list on the Cues page, stepped from here
         PresenterNextCommand = new RelayCommand(() => _services.Actions.PresenterAdvance(+1, ActionOrigin.Desk));
         PresenterPrevCommand = new RelayCommand(() => _services.Actions.PresenterAdvance(-1, ActionOrigin.Desk));
         PresenterResetCommand = new RelayCommand(() =>
         {
-            State.Presenter.CurrentIndex = -1;
+            _services.Actions.Execute(ShowActionKind.ListReset, ActionOrigin.Desk, CueStacks.Clicker(State).Id);
             Raise(nameof(PresenterStepText));
         });
 
@@ -387,6 +359,12 @@ public sealed class MainViewModel : Observable
         {
             RefreshSwitcherTiles();
             RefreshTakeScope();
+        };
+        Cues = new CueEditor(_services, message => StatusMessage = message);
+        _services.Cues.Changed += () =>
+        {
+            Raise(nameof(ClickerArmed));
+            Raise(nameof(PresenterStepText));
         };
         _services.Screens.Changed += OnScreensChanged;
 
@@ -1030,23 +1008,31 @@ public sealed class MainViewModel : Observable
     {
         get
         {
-            var p = State.Presenter;
-            if (p.Steps.Count == 0) return "No presenter steps yet.";
-            return p.CurrentIndex < 0
-                ? $"Ready — {p.Steps.Count} step{(p.Steps.Count == 1 ? "" : "s")}, click to start."
-                : $"Step {p.CurrentIndex + 1} of {p.Steps.Count}";
+            var clicker = CueStacks.Clicker(State);
+            var rt = _services.Cues.For(clicker);
+            var count = clicker.Cues.Count;
+            if (count == 0) return "No clicker cues yet — add them on the Cues tab.";
+            if (rt.CurrentIndex < 0) return $"Ready — {count} cue{(count == 1 ? "" : "s")}, click to start.";
+            var cue = rt.CurrentIndex < count ? clicker.Cues[rt.CurrentIndex] : null;
+            return cue is null ? $"Cue {rt.CurrentIndex + 1} of {count}" : $"Cue {rt.CurrentIndex + 1} of {count}: {cue.Name}";
         }
     }
 
-    /// <summary>Moves a presenter step (drag/arrows in the list).</summary>
-    public void MovePresenterStep(PresenterStepConfig step, int delta)
+    /// <summary>The clicker list's arm — a runtime chip, never saved: the app always opens disarmed.</summary>
+    public bool ClickerArmed
     {
-        var steps = State.Presenter.Steps;
-        var index = steps.IndexOf(step);
-        var target = index + delta;
-        if (index < 0 || target < 0 || target >= steps.Count) return;
-        steps.Move(index, target);
+        get => _services.Cues.For(CueStacks.Clicker(State)).Armed;
+        set
+        {
+            var rt = _services.Cues.For(CueStacks.Clicker(State));
+            if (rt.Armed == value) return;
+            _services.Actions.Execute(value ? ShowActionKind.ListArm : ShowActionKind.ListDisarm, ActionOrigin.Desk, CueStacks.Clicker(State).Id);
+            Raise(nameof(ClickerArmed));
+        }
     }
+
+    /// <summary>The Cues page.</summary>
+    public CueEditor Cues { get; }
 
     // ---- remote screen/group switching --------------------------------------
 
@@ -1477,12 +1463,21 @@ public sealed class MainViewModel : Observable
                 break;
             case ShowActionKind.PresenterNext:
             case ShowActionKind.PresenterPrev:
+            case ShowActionKind.ListGo:
+            case ShowActionKind.ListBack:
+            case ShowActionKind.CueFire:
                 Raise(nameof(PresenterStepText));
                 if (result.Ok && !_services.Sandbox.Active)
                 {
                     RebuildEditTargets();
                     Raise(nameof(ActivePattern));
                 }
+                break;
+            case ShowActionKind.ListArm:
+            case ShowActionKind.ListDisarm:
+            case ShowActionKind.ListReset:
+                Raise(nameof(ClickerArmed));
+                Raise(nameof(PresenterStepText));
                 break;
             case ShowActionKind.Take:
             case ShowActionKind.Cut:
@@ -1821,10 +1816,6 @@ public sealed class MainViewModel : Observable
     public RelayCommand CloseWebCommand { get; }
     public RelayCommand<string> LoadWebUrlCommand { get; }
     public RelayCommand<string> RemoveWebUrlCommand { get; }
-    public RelayCommand AddPresenterStepCommand { get; }
-    public RelayCommand<PresenterStepConfig> RemovePresenterStepCommand { get; }
-    public RelayCommand<PresenterStepConfig> MovePresenterStepUpCommand { get; }
-    public RelayCommand<PresenterStepConfig> MovePresenterStepDownCommand { get; }
     public RelayCommand PresenterNextCommand { get; }
     public RelayCommand PresenterPrevCommand { get; }
     public RelayCommand PresenterResetCommand { get; }
@@ -1863,8 +1854,6 @@ public sealed class MainViewModel : Observable
         }
     }
 
-    private string _selectedPresenterLook = "";
-    public string SelectedPresenterLook { get => _selectedPresenterLook; set => Set(ref _selectedPresenterLook, value); }
 
     private static readonly FilePickerFileType AudioTypes = new("Audio")
     {
@@ -2682,6 +2671,8 @@ public sealed class MainViewModel : Observable
             return;
         }
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
+        _services.Cues.Reset(); // every list starts over, disarmed
+        Cues.OnShowLoaded();
         ReconcilePlacements();
         BuildLibrary();
         StatusMessage = $"Show loaded: {Path.GetFileName(path)}";

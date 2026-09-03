@@ -60,7 +60,7 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-    <TextBlock Classes="h2" Text="SCHEDULE (CUES)" />
+    <TextBlock Classes="h2" Text="SCHEDULED AUTOMATION" />
     <TextBlock Classes="label" Text="{Binding NextCueText}" />
     <ItemsControl ItemsSource="{Binding State.LooksAndCues.Cues}">
       <ItemsControl.ItemTemplate>
@@ -87,40 +87,11 @@
 
     <TextBlock Classes="h2" Text="PRESENTER CLICK-THROUGH" />
     <TextBlock Classes="hint"
-               Text="Programme looks in a click order and hand the presenter a clicker: Page Down = next, Page Up = back (what USB presentation remotes send). Arrow keys work too when you're not typing. The remote and Companion NEXT/PREV drive the same steps." />
-    <Grid ColumnDefinitions="*,8,Auto">
-      <ComboBox Grid.Column="0" ItemsSource="{Binding LookNames}"
-                SelectedItem="{Binding SelectedPresenterLook, Mode=TwoWay}"
-                PlaceholderText="Look to add as a step…" />
-      <Button Grid.Column="2" Classes="chip" Content="+ Add step" Command="{Binding AddPresenterStepCommand}" />
-    </Grid>
-    <ItemsControl ItemsSource="{Binding State.Presenter.Steps}">
-      <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="m:PresenterStepConfig">
-          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
-            <Grid ColumnDefinitions="Auto,6,*,6,Auto,Auto,Auto">
-              <TextBlock Grid.Column="0" Text="{Binding LookName}" FontWeight="SemiBold" MaxWidth="150"
-                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-              <TextBox Grid.Column="2" Watermark="Note (optional)" Text="{Binding Label}" MinWidth="70" />
-              <Button Grid.Column="4" Classes="mini" Content="↑"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePresenterStepUpCommand}"
-                      CommandParameter="{Binding}" />
-              <Button Grid.Column="5" Classes="mini" Content="↓"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MovePresenterStepDownCommand}"
-                      CommandParameter="{Binding}" />
-              <Button Grid.Column="6" Classes="mini" Content="✕"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePresenterStepCommand}"
-                      CommandParameter="{Binding}" />
-            </Grid>
-          </Border>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
-    <Grid ColumnDefinitions="Auto,16,Auto,16,Auto,*,Auto">
-      <CheckBox Grid.Column="0" Content="Clicker armed" IsChecked="{Binding State.Presenter.Armed}" />
-      <CheckBox Grid.Column="2" Content="Loop at the end" IsChecked="{Binding State.Presenter.Loop}" />
-      <Button Grid.Column="4" Classes="mini" Content="Reset to start" Command="{Binding PresenterResetCommand}" />
-      <TextBlock Grid.Column="6" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
+               Text="The looks a speaker clicks through live in the CLICKER LIST on the Cues tab — one cue per look, in order, with notes. Hand the presenter a clicker: Page Down = next, Page Up = back (what USB presentation remotes send); the arrow keys work too when you're not typing, and the remote's NEXT / PREV drive the same list. It answers only while armed." />
+    <Grid ColumnDefinitions="Auto,16,Auto,*,Auto">
+      <CheckBox Grid.Column="0" Content="Clicker armed" IsChecked="{Binding ClickerArmed, Mode=TwoWay}" />
+      <Button Grid.Column="2" Classes="mini" Content="Reset to start" Command="{Binding PresenterResetCommand}" />
+      <TextBlock Grid.Column="4" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
     </Grid>
 
     <TextBlock Classes="h2" Text="TRANSITIONS" />
