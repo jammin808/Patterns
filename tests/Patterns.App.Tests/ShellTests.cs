@@ -1,3 +1,4 @@
+using Avalonia.Headless;
 using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls;
@@ -177,6 +178,32 @@ public class ShellTests
             Assert.True(vm.IsPrepMode);
             Assert.False(vm.IsPrepSelected);
             Assert.True(vm.IsRunSelected);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>Every page of every group renders in the window, and the strip agrees with the table.</summary>
+    [AvaloniaFact]
+    public void EveryPageRendersAndTheStripNamesIt()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var tabs = Tabs(b.Window);
+            foreach (var page in Shell.Pages)
+            {
+                b.Vm.SelectPage(page.Index);
+                Settle(b.Window);
+                Assert.Equal(page.Index, tabs.SelectedIndex);
+                Assert.Equal(page.Group, b.Vm.SelectedGroup);
+                Assert.Equal(page.Header, b.Vm.PageStrip.Single(c => c.IsCurrent).Header);
+                Assert.Equal(page.Index == Shell.RunPage, b.Vm.IsRunLayout);
+                using var frame = b.Window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+            }
         }
         finally
         {
