@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -180,6 +182,59 @@ public class ShellTests
         {
             b.Dispose();
         }
+    }
+
+    /// <summary>The laptop requirement: at the window's minimum size nothing the operator needs is off screen.</summary>
+    [AvaloniaFact]
+    public void TheShellFitsTheMinimumWindowInBothLayouts()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var window = b.Window;
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            Settle(window);
+            Assert.True(window.Bounds.Width <= window.MinWidth + 1, $"window is {window.Bounds.Width} wide");
+
+            // Build layout: the transport (BLACKOUT is the rightmost), the rail's last group and the wall's TAKE.
+            AssertInside(window, window.GetVisualDescendants().OfType<ToggleButton>().First(t => t.Classes.Contains("blackout")), "BLACKOUT");
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().Last(x => x.Classes.Contains("navGroup")), "ADMIN group");
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Classes.Contains("pageChip")), "first page chip");
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Content as string == "TAKE"), "TAKE");
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Content as string == "Load show…"), "Load show");
+
+            // Run layout: GO, STOP ALL and the standby arrows sit in the transport row at the bottom.
+            b.Vm.SelectRunCommand.Execute(null);
+            Settle(window);
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Classes.Contains("runGo")), "GO");
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Classes.Contains("runStop")), "STOP ALL");
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().Last(x => x.Classes.Contains("navGroup")), "ADMIN group (Run)");
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    private static void Settle(Avalonia.Controls.Window window)
+    {
+        for (var i = 0; i < 6; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+    }
+
+    private static void AssertInside(Avalonia.Controls.Window window, Control control, string what)
+    {
+        Assert.True(control.IsEffectivelyVisible, $"{what} is not visible");
+        var origin = control.TranslatePoint(new Avalonia.Point(0, 0), window);
+        Assert.True(origin.HasValue, $"{what} is not in the window's tree");
+        var right = origin!.Value.X + control.Bounds.Width;
+        var bottom = origin.Value.Y + control.Bounds.Height;
+        Assert.True(origin.Value.X >= 0 && origin.Value.Y >= 0 && right <= window.Bounds.Width + 0.5 && bottom <= window.Bounds.Height + 0.5,
+            $"{what} runs off the window: {origin.Value.X:0},{origin.Value.Y:0} – {right:0},{bottom:0} in {window.Bounds.Width:0}×{window.Bounds.Height:0}");
     }
 
     [AvaloniaFact]
