@@ -154,12 +154,14 @@ public sealed class ControlService : IDisposable
             var hello = await _router.StateJsonAsync();
             await WriteLine(stream, "STATE " + hello, ct);
 
+            var endpoint = client.Client.RemoteEndPoint?.ToString() ?? "";
+            var origin = new ActionOrigin(OriginKind.Tcp, "", endpoint);
             while (!ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync(ct);
                 if (line is null) break;
                 if (line.Trim().Length == 0) continue;
-                var response = await _router.ExecuteAsync(ControlProtocol.Parse(line));
+                var response = await _router.ExecuteAsync(ControlProtocol.Parse(line), origin);
                 await WriteLine(stream, response, ct);
             }
         }
@@ -273,7 +275,8 @@ public sealed class ControlService : IDisposable
             else if (method == "POST" && path == "/api/cmd")
             {
                 contentType = "application/json";
-                var response = await _router.ExecuteAsync(ControlProtocol.Parse(body));
+                var httpOrigin = new ActionOrigin(OriginKind.Http, "", client.Client.RemoteEndPoint?.ToString() ?? "");
+                var response = await _router.ExecuteAsync(ControlProtocol.Parse(body), httpOrigin);
                 var ok = response.StartsWith("OK");
                 payload = $"{{\"ok\":{(ok ? "true" : "false")},\"msg\":{System.Text.Json.JsonSerializer.Serialize(response)}}}";
             }
@@ -451,8 +454,8 @@ setInterval(function () {
 
 <div class="sec">TRANSPORT</div>
 <div class="grid row3">
-  <button class="go" onclick="cmd('GO')">GO</button>
-  <button class="stop" onclick="cmd('STOP')">STOP</button>
+  <button class="go" onclick="cmd('OUTPUTS ON')">OUTPUTS ON</button>
+  <button class="stop" onclick="cmd('OUTPUTS OFF')">OUTPUTS OFF</button>
   <button onclick="cmd('IDENTIFY')">IDENTIFY</button>
 </div>
 <div class="grid" style="margin-top:10px">

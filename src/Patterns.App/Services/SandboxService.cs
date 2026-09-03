@@ -51,12 +51,11 @@ public sealed class SandboxService
     public void SendAll(bool cut = false)
     {
         if (!Active) return;
-        var fade = _services.State.Transition.Enabled;
-        if (cut) _services.State.Transition.Enabled = false;
+        // A cut is a property of the snapshot, not of the transition setting: toggling the
+        // setting around the publish stopped working inside a bulk edit (the intermediate
+        // publish is suppressed, so the only snapshot the outputs saw carried "fade").
+        if (cut) _services.Bus.CutOnNextPublish();
         Exit(reenterIfDefault: false);
-        // Restore the operator's transition setting *before* re-arming, or the next frozen
-        // program would carry CUT's "no fade" for the rest of the show.
-        if (cut) _services.State.Transition.Enabled = fade; // republish carries the same content — no late fade
         ReArmIfDefault();
         Log.Info($"Sandbox {(cut ? "cut" : "taken")} to program (all screens).");
     }

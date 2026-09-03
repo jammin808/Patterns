@@ -9,12 +9,13 @@
 
     <TextBlock Classes="h2" Text="KEYS" />
     <TextBlock TextWrapping="Wrap" LineHeight="22" xml:space="preserve">F1–F12   apply saved looks (Looks tab)
-⇧F5   GO — open outputs
-⇧F6   STOP — close outputs
+⇧F5   OUTPUTS ON — open the output windows
+⇧F6   OUTPUTS OFF — close them (on an output window: Esc twice within a second)
 ⇧F7   IDENTIFY — flash screen numbers
 ⇧F8 / Space   BLACKOUT toggle
 Page Down / Page Up   presenter click-through next / back (armed in Looks or Show)
-On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · PgDn/PgUp presenter</TextBlock>
+On outputs:  Esc ×2 close · Space/B blackout · I identify · F1–F12 looks · PgDn/PgUp presenter
+Every key acts once per press — holding a key down never repeats it.</TextBlock>
 
     <TextBlock Classes="h2" Text="BEFORE THE SHOW (PREP MODE)" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
@@ -26,7 +27,7 @@ On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · Pg
 
     <TextBlock Classes="h2" Text="WORKFLOW" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, nudge its corners (warp) for a keystoned projector, or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) GO.  4) Save the state as a look (Looks tab) and put it on an F-key, the daily schedule, or the presenter click-through order.  5) Run the evening from the Show tab.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
+               Text="1) Arrange screens in Outputs — drag tiles together to span them into one canvas, click a tile to enable/disable it, rotate it for portrait mounting, trim its brightness/colour, nudge its corners (warp) for a keystoned projector, or give it its own pattern.  2) Choose and tune a pattern (or grab one from the Library).  3) OUTPUTS ON.  4) Save the state as a look (Looks tab) and put it on an F-key, the daily schedule, or the presenter click-through order.  5) Run the evening from the Show tab.  Everything updates live while outputs run — including LED wall geometry, blend overlap, countdowns and branding." />
 
     <TextBlock Classes="h2" Text="REMOTE CONTROL" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
@@ -34,7 +35,7 @@ On outputs:  Esc close · Space/B blackout · I identify · F1–F12 looks · Pg
 
     <TextBlock Classes="h2" Text="THE SWITCHER (PROGRAM / PREVIEW)" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="The right side works like a vision mixer. PROGRAM (top) is always what the audience sees. PREVIEW (bottom) is where you build — and it is sandboxed from the moment the app opens, so touching any editor never reaches the screens. The strip between them lists PGM, every joined canvas and every screen with its label: click a tile to edit it, use its switch to turn that output on/off live. Build the next look with any editor, then CUT (instant) or TAKE (crossfade) to every screen, or SEND TO TICKED tiles as their own pattern; EDIT SAFE re-arms itself after each send, so you are always building in safety. What you FIRE still goes straight to air: F-key looks, the ON AIR button on a look, scheduled cues, presenter steps, stingers and every remote command — only what you are editing is held back. Use → PVW on a look to load it into the preview instead. Blackout and GO/STOP stay live through the freeze. Turn the default off in Admin → Switcher if you'd rather the preview mirrored the program." />
+               Text="The right side works like a vision mixer. PROGRAM (top) is always what the audience sees. PREVIEW (bottom) is where you build — and it is sandboxed from the moment the app opens, so touching any editor never reaches the screens. The strip between them lists PGM, every joined canvas and every screen with its label: click a tile to edit it, use its switch to turn that output on/off live. Build the next look with any editor, then CUT (instant) or TAKE (crossfade) to every screen, or SEND TO TICKED tiles as their own pattern; EDIT SAFE re-arms itself after each send, so you are always building in safety. What you FIRE still goes straight to air: F-key looks, the ON AIR button on a look, scheduled cues, presenter steps, stingers and every remote command — only what you are editing is held back. Use → PVW on a look to load it into the preview instead. Blackout and OUTPUTS ON/OFF stay live through the freeze. Turn the default off in Admin → Switcher if you'd rather the preview mirrored the program." />
 
     <TextBlock Classes="h2" Text="SHOW PARTS, MULTIVIEW &amp; STREAMING" />
     <TextBlock Classes="hint" TextWrapping="Wrap"

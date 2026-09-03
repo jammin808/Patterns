@@ -24,6 +24,9 @@ public sealed class OutputWindowManager
 
     public bool IsLive => _windows.Count > 0;
 
+    /// <summary>The open output windows (tests drive their keys; the wall reads their viewports).</summary>
+    public IReadOnlyCollection<OutputWindow> Windows => _windows.Values;
+
     public event Action? LiveChanged;
 
     /// <summary>Open (or retarget) output windows for the current arrangement.</summary>

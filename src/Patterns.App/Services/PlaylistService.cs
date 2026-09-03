@@ -55,7 +55,10 @@ public sealed class PlaylistService : IDisposable
             if (_sequencer.SectionDue(options, localNow) is { } dueSection && options.ActiveSection != dueSection)
             {
                 options.ActiveSection = dueSection;
-                Log.Info($"Playlist section '{options.Sections[dueSection].Name}' took over ({options.Sections[dueSection].StartTime}).");
+                var name = options.Sections[dueSection].Name;
+                Log.Info($"Playlist section '{name}' took over ({options.Sections[dueSection].StartTime}).");
+                _services.Journal.Record(ActionOrigin.Playlist.Label, ShowActionKind.PlaylistPart.ToString(), name,
+                    ActionStatus.Done.ToString(), $"Show part '{name}' took over at {options.Sections[dueSection].StartTime}.");
             }
 
             var section = PlaylistSequencer.ActiveSectionOf(options);

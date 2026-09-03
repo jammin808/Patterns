@@ -16,16 +16,8 @@ public class AdminTests
 {
     private static (AppServices Services, MainViewModel Vm, MainWindow Window, string Dir) Boot()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-admin-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var services = new AppServices(new SettingsStore(dir));
-        AppServices.Instance = services;
-        var vm = new MainViewModel(services);
-        var window = new MainWindow { DataContext = vm };
-        services.AttachMainWindow(window);
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-        return (services, vm, window, dir);
+        var b = TestApp.Boot();
+        return (b.Services, b.Vm, b.Window, b.Dir);
     }
 
     private static MetricSample Healthy(int i) => new()

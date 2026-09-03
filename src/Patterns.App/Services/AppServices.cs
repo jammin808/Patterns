@@ -34,6 +34,12 @@ public sealed class AppServices
     public SystemMetricsService Metrics { get; }
     public RecoveryStore Recovery { get; }
 
+    /// <summary>The show journal: every air change with its origin, on disk beside the settings.</summary>
+    public ShowLog Journal { get; }
+
+    /// <summary>The one way to do something to the show — see <see cref="ShowActions"/>.</summary>
+    public ShowActions Actions { get; }
+
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
     public RecoverySnapshot? PendingRecovery { get; }
 
@@ -73,6 +79,7 @@ public sealed class AppServices
         State.Blackout = false;
         State.Tone.Enabled = false; // a tone must never auto-start with the app
 
+        Journal = new ShowLog(Store.BaseDirectory);
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
@@ -91,6 +98,7 @@ public sealed class AppServices
         Metrics = new SystemMetricsService(this);
         Recovery = new RecoveryStore(Store.BaseDirectory);
         PendingRecovery = Recovery.Read();
+        Actions = new ShowActions(this);
         GpuService.RecordAppliedPath(State);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
@@ -282,7 +290,7 @@ public sealed class AppServices
                 vm.RefreshAfterRecovery();
             }
 
-            if (was.Live && !Outputs.IsLive) Outputs.Apply();
+            if (was.Live && !Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
             if (was.AudioPlaying && File.Exists(State.AudioPlayer.Path)) State.AudioPlayer.Playing = true;
 
             var restored = was.Live || was.AudioPlaying;
@@ -299,6 +307,13 @@ public sealed class AppServices
 
     /// <summary>Raised on the UI thread after each publish (preview + status displays hook this).</summary>
     public event Action? SnapshotPublished;
+
+    /// <summary>A line for the desk's status strip — the place confirmations belong, never the audience surface.</summary>
+    public void Notify(string message)
+    {
+        if (MainWindow?.DataContext is ViewModels.MainViewModel vm) vm.StatusMessage = message;
+        else Log.Info(message);
+    }
 
     /// <summary>Synthetic screens for the placements the operator planned without hardware.</summary>
     private IEnumerable<ScreenInfo> PlannedScreens()

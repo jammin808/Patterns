@@ -50,6 +50,9 @@ public sealed class SinkState : IDisposable
     /// <summary>Show-clock second the running crossfade ends (cadence hook; 0 = idle).</summary>
     public double TransitionEndClock { get; set; }
 
+    /// <summary>Newest snapshot version this sink has passed through the transition logic (cut detection).</summary>
+    public long TransitionSeenVersion { get; set; } = -1;
+
     // Zone-plate runtime shader (compiled once per sink; falls back if unsupported).
     public SKRuntimeEffect? ZonePlateEffect { get; set; }
     public bool ZonePlateUnavailable { get; set; }

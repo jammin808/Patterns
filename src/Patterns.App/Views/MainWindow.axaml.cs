@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Patterns.App.Rendering;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
+using Patterns.Core.Services;
 
 namespace Patterns.App.Views;
 
@@ -11,12 +12,15 @@ public partial class MainWindow : Window
 {
     private RenderPipeline? _previewPipeline;
     private RenderPipeline? _programPipeline;
+    private readonly HashSet<Key> _down = new();
 
     public MainWindow()
     {
         InitializeComponent();
         Loaded += OnLoaded;
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, OnPreviewKeyUp, RoutingStrategies.Tunnel);
+        Deactivated += (_, _) => _down.Clear(); // a key-up missed during Alt+Tab must not jam a key
     }
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
@@ -51,17 +55,33 @@ public partial class MainWindow : Window
         };
     }
 
+    private void OnPreviewKeyUp(object? sender, KeyEventArgs e) => _down.Remove(e.Key);
+
+    /// <summary>
+    /// One physical press, one action: Avalonia reports no repeat flag, so a held key arrives
+    /// as a stream of KeyDowns. Only the keys this handler acts on are latched.
+    /// </summary>
+    private bool Latch(Key key)
+    {
+        if (_down.Contains(key)) return false;
+        _down.Add(key);
+        return true;
+    }
+
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+        var actions = vm.Services.Actions;
 
         // Plain F1–F12 recall looks (transport lives on Shift+F5–F8).
         if (e.Key is >= Key.F1 and <= Key.F12 && e.KeyModifiers == KeyModifiers.None)
         {
-            if (vm.ApplyLookHotkey(e.Key - Key.F1 + 1))
+            if (!Latch(e.Key))
             {
                 e.Handled = true;
+                return;
             }
+            if (actions.ApplyLookHotkey(e.Key - Key.F1 + 1, ActionOrigin.Keyboard)) e.Handled = true;
             return;
         }
 
@@ -71,21 +91,24 @@ public partial class MainWindow : Window
         // the arrow keys — those only count when the operator isn't in a control).
         if (vm.State.Presenter.Armed && e.KeyModifiers == KeyModifiers.None)
         {
-            if (e.Key is Key.PageDown || (!typing && e.Key is Key.Right))
+            var forward = e.Key is Key.PageDown || (!typing && e.Key is Key.Right);
+            var back = e.Key is Key.PageUp || (!typing && e.Key is Key.Left);
+            if (forward || back)
             {
-                if (vm.PresenterAdvance(+1)) e.Handled = true;
-                return;
-            }
-            if (e.Key is Key.PageUp || (!typing && e.Key is Key.Left))
-            {
-                if (vm.PresenterAdvance(-1)) e.Handled = true;
+                if (!Latch(e.Key))
+                {
+                    e.Handled = true;
+                    return;
+                }
+                if (actions.PresenterAdvance(forward ? +1 : -1, ActionOrigin.Clicker)) e.Handled = true;
                 return;
             }
         }
 
         // Space toggles blackout — operator muscle memory — but never while typing.
         if (e.Key != Key.Space || typing) return;
-        vm.State.Blackout = !vm.State.Blackout;
         e.Handled = true;
+        if (!Latch(e.Key)) return;
+        actions.Execute(ShowActionKind.BlackoutToggle, ActionOrigin.Keyboard);
     }
 }

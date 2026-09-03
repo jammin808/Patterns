@@ -126,7 +126,7 @@ selected screens; each window translates by its screen's offset within that unio
 | Pattern library up to 4K | Parametric patterns × resolution presets (720p→DCI 4K, portrait variants, common LED processor rasters); preset gallery with live-rendered thumbnails; built-in + user presets. |
 | Motion setting | Moving bar (px/s or px/frame judder mode), bouncing box with FPS/frametime readout, frame-flash (drop detector), animated zone plate, scrolling grid, colour cycle. |
 | Particle generator / mini studio | Pooled CPU sim (up to ~20k particles), emitter shape/rate/velocity/spread, gravity/wind/drag, size & alpha over life, shapes (circle/square/star/streak/logo sprite), brand palette; presets: snow, confetti, starfield, rain, bokeh, embers; parameters editable live = the "mini studio". |
-| Sleek UI | Dark professional theme (Fluent + custom styles, Inter font), left nav rail, live preview center, parameter panel right, transport bar (GO / BLACKOUT / IDENTIFY), keyboard shortcuts. |
+| Sleek UI | Dark professional theme (Fluent + custom styles, Inter font), left nav rail, live preview center, parameter panel right, transport bar (OUTPUTS ON/OFF / IDENTIFY / BLACKOUT), keyboard shortcuts. |
 | Brand colour schemes | Brand kit: primary/secondary/accent/background + logo; patterns and particles consume the palette; kits save/load as JSON for repeat clients. |
 | User graphics & videos | Media pattern: images (PNG/JPEG/BMP/WebP) with fit modes; video via optional libVLC (loop, fit modes) composited through the engine (reaches outputs + NDI). |
 | Company logo | Brand kit logo (PNG w/ alpha) usable as overlay watermark (position/scale/opacity) and as particle sprite. |

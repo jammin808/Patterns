@@ -149,9 +149,12 @@ public sealed class StingerService : IDisposable
             var video = InputBus.For(InputKeys.Video(state.Pattern.Media.VideoPath));
             if (video is { IsEnded: true })
             {
+                var name = _services.State.Stingers.PlayingName;
                 StopClipIfAny(restore: true);
                 _services.State.Stingers.PlayingName = "";
                 _status = "Clip finished — previous content back.";
+                _services.Journal.Record(ActionOrigin.Stinger.Label, ShowActionKind.StingerStop.ToString(), name,
+                    ActionStatus.Done.ToString(), _status);
                 return;
             }
 
@@ -159,9 +162,12 @@ public sealed class StingerService : IDisposable
             var stuck = video is null || (!video.IsPlaying && video.DurationSeconds <= 0);
             if (stuck && (DateTime.UtcNow - _firedUtc).TotalSeconds > 12)
             {
+                var name = _services.State.Stingers.PlayingName;
                 StopClipIfAny(restore: true);
                 _services.State.Stingers.PlayingName = "";
                 _status = "Clip could not play — previous content back.";
+                _services.Journal.Record(ActionOrigin.Stinger.Label, ShowActionKind.StingerStop.ToString(), name,
+                    ActionStatus.Failed.ToString(), _status);
             }
         }
         catch (Exception ex)

@@ -21,16 +21,8 @@ public class ColorEditingTests
 {
     private static (AppServices Services, MainViewModel Vm, MainWindow Window) Boot()
     {
-        var dir = Path.Combine(Path.GetTempPath(), "patterns-color-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        var services = new AppServices(new SettingsStore(dir));
-        AppServices.Instance = services;
-        var vm = new MainViewModel(services);
-        var window = new MainWindow { DataContext = vm };
-        services.AttachMainWindow(window);
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-        return (services, vm, window);
+        var b = TestApp.Boot();
+        return (b.Services, b.Vm, b.Window);
     }
 
     private static void SelectTab(MainWindow window, string header)

@@ -102,8 +102,10 @@ class PatternsInstance extends InstanceBase {
 	buildActions() {
 		const send = (cmd) => this.send(cmd)
 		return {
-			go: { name: 'GO (open outputs)', options: [], callback: () => send('GO') },
-			stop: { name: 'STOP (close outputs)', options: [], callback: () => send('STOP') },
+			// Action ids stay 'go' / 'stop' so saved pages keep working; the verbs are the
+			// outputs transport. GO is reserved for the cue stack.
+			go: { name: 'Outputs on (open output windows)', options: [], callback: () => send('OUTPUTS ON') },
+			stop: { name: 'Outputs off (close output windows)', options: [], callback: () => send('OUTPUTS OFF') },
 			identify: { name: 'Identify screens', options: [], callback: () => send('IDENTIFY') },
 			blackout: {
 				name: 'Blackout',
@@ -227,13 +229,13 @@ class PatternsInstance extends InstanceBase {
 		const dark = combineRgb(20, 22, 28)
 
 		presets.go = {
-			type: 'button', category: 'Transport', name: 'GO',
-			style: { text: 'GO', size: '24', color: white, bgcolor: combineRgb(0, 100, 50) },
+			type: 'button', category: 'Transport', name: 'Outputs on',
+			style: { text: 'OUTPUTS\\nON', size: '14', color: white, bgcolor: combineRgb(0, 100, 50) },
 			steps: [{ down: [{ actionId: 'go', options: {} }], up: [] }], feedbacks: [],
 		}
 		presets.stop = {
-			type: 'button', category: 'Transport', name: 'STOP',
-			style: { text: 'STOP', size: '18', color: white, bgcolor: combineRgb(90, 30, 30) },
+			type: 'button', category: 'Transport', name: 'Outputs off',
+			style: { text: 'OUTPUTS\\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'stop', options: {} }], up: [] }], feedbacks: [],
 		}
 		presets.blackout = {

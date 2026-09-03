@@ -59,6 +59,7 @@ public sealed class SettingsStore
                 if (state is not null)
                 {
                     Migrate(state);
+                    if (state.Name.Length == 0) state.Name = ShowNameFor(path);
                     return state;
                 }
             }
@@ -92,7 +93,22 @@ public sealed class SettingsStore
             PlaylistSequencer.Normalize(a.Pattern.Media.Playlist);
         }
 
+        // v4: looks and stingers carry stable ids (minted by their initialisers when a file
+        // lacks them) and the show has a name. Nothing to rewrite; the fields are additive.
+
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
+    }
+
+    /// <summary>"awards-2026.patshow.json" → "awards-2026"; the settings file itself has no name.</summary>
+    public static string ShowNameFor(string path)
+    {
+        // Show files travel between machines: split on both separators, whatever the host uses.
+        var cut = path.LastIndexOfAny(new[] { '/', '\\' });
+        var file = cut >= 0 ? path[(cut + 1)..] : path;
+        if (string.Equals(file, "patterns.settings.json", StringComparison.OrdinalIgnoreCase)) return "";
+        var name = Path.GetFileNameWithoutExtension(file);
+        if (name.EndsWith(".patshow", StringComparison.OrdinalIgnoreCase)) name = name[..^".patshow".Length];
+        return name;
     }
 
     public void Save(ShowState state) => SaveTo(SettingsPath, state);

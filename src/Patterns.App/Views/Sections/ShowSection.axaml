@@ -10,14 +10,15 @@
     <TextBlock Classes="hint" Text="Everything for show time on one page — the other tabs are for building." />
 
     <TextBlock Classes="h2" Text="TRANSPORT" />
-    <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto">
-      <Button Grid.Column="0" Classes="go" Content="GO" HorizontalAlignment="Stretch" Height="52"
-              HorizontalContentAlignment="Center" Command="{Binding GoCommand}" />
-      <Button Grid.Column="2" Classes="stop" Content="STOP" HorizontalAlignment="Stretch" Height="52"
-              HorizontalContentAlignment="Center" Command="{Binding StopCommand}" />
-      <ToggleButton Grid.Row="2" Grid.ColumnSpan="3" Classes="blackout" Content="BLACKOUT"
+    <!-- One button per row: the editor column is narrow and a transport label must never truncate. -->
+    <Grid RowDefinitions="Auto,8,Auto,8,Auto">
+      <Button Grid.Row="0" Classes="go" Content="OUTPUTS ON" HorizontalAlignment="Stretch" Height="52"
+              HorizontalContentAlignment="Center" Command="{Binding GoCommand}" Focusable="False" />
+      <Button Grid.Row="2" Classes="stop" Content="OUTPUTS OFF" HorizontalAlignment="Stretch" Height="40"
+              HorizontalContentAlignment="Center" Command="{Binding StopCommand}" Focusable="False" />
+      <ToggleButton Grid.Row="4" Classes="blackout" Content="BLACKOUT"
                     Height="52" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                    IsChecked="{Binding State.Blackout}" />
+                    IsChecked="{Binding State.Blackout}" Focusable="False" />
     </Grid>
 
     <TextBlock Classes="h2" Text="PRESENTER" />
@@ -98,8 +99,8 @@
     </Grid>
 
     <TextBlock Classes="h2" Text="STATUS" />
-    <TextBlock Classes="label" Text="{Binding OutputsStatus}" />
-    <TextBlock Classes="label" Text="{Binding NextCueText}" />
+    <TextBlock Classes="label" Text="{Binding OutputsStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding NextCueText}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding PlaylistStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding RemoteStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />

@@ -11,6 +11,12 @@ public sealed class LookData
     public OverlaySet Overlays { get; init; } = new();
     public CountdownConfig Countdown { get; init; } = new();
     public bool Blackout { get; init; }
+
+    /// <summary>
+    /// Screens that were showing their own pattern when the look was saved. Null in looks
+    /// saved before this field existed — applying those leaves the flags alone.
+    /// </summary>
+    public List<string>? CustomScreens { get; init; }
 }
 
 /// <summary>Capture/apply logic for looks, plus cue-firing arithmetic. Pure and unit tested.</summary>
@@ -25,8 +31,42 @@ public static class LookService
             Overlays = JsonUtil.Clone(state.Overlays),
             Countdown = JsonUtil.Clone(state.Countdown),
             Blackout = state.Blackout,
+            CustomScreens = state.Output.Placements.Where(p => p.UseCustomPattern).Select(p => p.ScreenId).ToList(),
         };
         return JsonUtil.Serialize(data);
+    }
+
+    /// <summary>
+    /// The one resolver for everything that names a look — F-keys aside, looks are referenced
+    /// by name, and four code paths used to disagree on case. Id first, then name, case-insensitive.
+    /// </summary>
+    public static LookConfig? Find(ShowState state, string nameOrId)
+    {
+        if (string.IsNullOrWhiteSpace(nameOrId)) return null;
+        var looks = state.LooksAndCues.Looks;
+        return looks.FirstOrDefault(l => l.Id == nameOrId)
+               ?? looks.FirstOrDefault(l => string.Equals(l.Name, nameOrId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>What still points at a look. A delete lists these instead of orphaning them.</summary>
+    public static IReadOnlyList<string> References(ShowState state, LookConfig look)
+    {
+        var refs = new List<string>();
+        foreach (var cue in state.LooksAndCues.Cues)
+        {
+            if (string.Equals(cue.LookName, look.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                refs.Add($"scheduled cue at {cue.Time}");
+            }
+        }
+        for (var i = 0; i < state.Presenter.Steps.Count; i++)
+        {
+            if (string.Equals(state.Presenter.Steps[i].LookName, look.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                refs.Add($"presenter step {i + 1}");
+            }
+        }
+        return refs;
     }
 
     /// <summary>Applies a captured look in place (bindings keep their object references).</summary>
@@ -53,6 +93,16 @@ public static class LookService
         ModelCopier.Copy(data.Overlays, state.Overlays);
         ModelCopier.Copy(data.Countdown, state.Countdown);
         state.Blackout = data.Blackout;
+
+        // Which screens show their own pattern is part of the picture: without it the same
+        // look shows a different program after any per-screen send than it did in rehearsal.
+        if (data.CustomScreens is { } custom)
+        {
+            foreach (var p in state.Output.Placements)
+            {
+                p.UseCustomPattern = custom.Contains(p.ScreenId);
+            }
+        }
 
         // Looks captured before playlist sections existed carry flat lists — lift them.
         PlaylistSequencer.Normalize(state.Pattern.Media.Playlist);

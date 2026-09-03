@@ -12,7 +12,7 @@
     <TextBlock Classes="h2" Text="MODE" />
     <StackPanel Orientation="Horizontal" Spacing="8">
       <ToggleButton Classes="mini" Content="PREP (pre-programming)" IsChecked="{Binding IsPrepMode, Mode=TwoWay}"
-                    ToolTip.Tip="Build the rig at the desk with no hardware — GO stays held until you switch to SHOW" />
+                    ToolTip.Tip="Build the rig at the desk with no hardware — the outputs stay held until you switch to SHOW" />
       <TextBlock Classes="label" Text="{Binding PrepSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
     </StackPanel>
     <TextBlock Classes="hint"
@@ -171,7 +171,7 @@
       <Button Classes="chip" Content="Reset layout" Command="{Binding ResetLayoutCommand}" />
     </StackPanel>
     <TextBlock Classes="hint"
-               Text="Your main (primary) screen stays off by default when other screens are present, so GO never covers the controls — tick 'Output enabled' to include it anyway." />
+               Text="Your main (primary) screen stays off by default when other screens are present, so OUTPUTS ON never covers the controls — tick 'Output enabled' to include it anyway." />
 
     <TextBlock Classes="h2" Text="WINDOW BEHAVIOUR" />
     <CheckBox Content="Always on top" IsChecked="{Binding State.Output.Topmost}" />
@@ -179,8 +179,8 @@
 
     <TextBlock Classes="h2" Text="LIVE" />
     <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button Classes="go" Content="GO" Command="{Binding GoCommand}" />
-      <Button Classes="stop" Content="STOP" Command="{Binding StopCommand}" />
+      <Button Classes="go" Content="OUTPUTS ON" Command="{Binding GoCommand}" Focusable="False" />
+      <Button Classes="stop" Content="OUTPUTS OFF" Command="{Binding StopCommand}" Focusable="False" />
     </StackPanel>
     <TextBlock Classes="hint"
                Text="On an output window: Esc closes outputs · Space/B blackout · I identify. Layout changes apply live while outputs run." />

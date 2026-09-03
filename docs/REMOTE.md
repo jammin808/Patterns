@@ -3,7 +3,7 @@
 Patterns runs two remote interfaces while **Remote → Remote control** is on:
 
 - **Web remote** — `http://<machine-ip>:9696/` (port configurable). Big-button page for a
-  phone or tablet: presenter next/back, looks, GO/STOP/IDENTIFY, blackout, per-screen
+  phone or tablet: presenter next/back, looks, OUTPUTS ON/OFF, IDENTIFY, blackout, per-screen
   toggles, audio track. Works in any browser on the same network.
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
   every command answers `OK`, `OK <json>` or `ERR <reason>`. On connect — and on every
@@ -17,8 +17,9 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 
 | Command | Effect |
 |---|---|
-| `GO` | Open outputs on the enabled screens |
-| `STOP` | Close all outputs |
+| `OUTPUTS ON` | Open the output windows on the enabled screens |
+| `OUTPUTS OFF` | Close all output windows |
+| `GO` / `STOP` | Frozen aliases for `OUTPUTS ON` / `OFF` (older buttons keep working; `GO` never fires a cue) |
 | `BLACKOUT ON` / `OFF` / `TOGGLE` | Instant black on every sink |
 | `IDENTIFY` | Flash screen numbers |
 | `LOOK <1–12>` | Apply the look on that F-key slot |

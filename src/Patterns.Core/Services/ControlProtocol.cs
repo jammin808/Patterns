@@ -3,8 +3,8 @@ namespace Patterns.Core.Services;
 public enum RemoteCommandKind
 {
     Unknown,
-    Go,
-    Stop,
+    OutputsOn,   // "OUTPUTS ON" (and the frozen alias "GO" — outputs, never a cue)
+    OutputsOff,  // "OUTPUTS OFF" (alias "STOP")
     BlackoutOn,
     BlackoutOff,
     BlackoutToggle,
@@ -50,8 +50,17 @@ public static class ControlProtocol
 
         switch (verb)
         {
-            case "GO": return new(RemoteCommandKind.Go, 0, "");
-            case "STOP": return new(RemoteCommandKind.Stop, 0, "");
+            // GO and STOP stay accepted for the outputs so existing Generic-TCP buttons keep
+            // working; new integrations should send OUTPUTS ON / OFF. Bare GO never fires a cue.
+            case "GO": return new(RemoteCommandKind.OutputsOn, 0, "");
+            case "STOP": return new(RemoteCommandKind.OutputsOff, 0, "");
+            case "OUTPUTS":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" => new(RemoteCommandKind.OutputsOn, 0, ""),
+                    "OFF" => new(RemoteCommandKind.OutputsOff, 0, ""),
+                    _ => new(RemoteCommandKind.Unknown, 0, s),
+                };
             case "IDENTIFY": return new(RemoteCommandKind.Identify, 0, "");
             case "NEXT": return new(RemoteCommandKind.Next, 0, "");
             case "PREV": case "BACK": return new(RemoteCommandKind.Prev, 0, "");

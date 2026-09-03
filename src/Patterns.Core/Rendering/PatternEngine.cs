@@ -24,7 +24,14 @@ public sealed class PatternEngine
         if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail && snap.State.Transition.Enabled)
         {
             var key = snap.TransitionKeyFor(ctx.ScreenId);
-            if (sink.TransitionKey is { } lastKey && lastKey != key && sink.LastSnapshot is { } prev)
+            // A CUT this sink has not shown yet: switch now, and abandon any fade in flight.
+            var cut = snap.CutAtVersion > sink.TransitionSeenVersion;
+            if (cut)
+            {
+                sink.TransitionFrom = null;
+                sink.TransitionEndClock = 0;
+            }
+            else if (sink.TransitionKey is { } lastKey && lastKey != key && sink.LastSnapshot is { } prev)
             {
                 sink.TransitionFrom = prev;
                 sink.TransitionStartClock = ctx.Time;
@@ -32,6 +39,7 @@ public sealed class PatternEngine
             }
             sink.TransitionKey = key;
             sink.LastSnapshot = snap;
+            sink.TransitionSeenVersion = snap.Version;
 
             if (sink.TransitionFrom is { } from)
             {

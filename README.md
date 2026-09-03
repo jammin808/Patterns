@@ -91,7 +91,7 @@ fault containment, and settings that can never brick startup.
   source (program or a specific screen) and bit depth — including **10-bit P216** with a
   BT.709 limited-range pipeline for serious ramp/banding checks. Feature-detected at runtime
   (nothing crashes without the NDI runtime).
-- **A Show page** — once the rig is built, run the evening from one screen: GO/STOP/BLACKOUT,
+- **A Show page** — once the rig is built, run the evening from one screen: OUTPUTS ON/OFF, BLACKOUT,
   presenter next/back, every look as a big button, the audio track, and live status. The
   other tabs stay out of the way.
 - **Remote control** — a **web remote** (big-button page for any phone/tablet on the network),
@@ -125,7 +125,8 @@ fault containment, and settings that can never brick startup.
   (sandbox)** and the preview detaches from air: build the next look with every editor
   as normal, then **CUT** (instant) or **TAKE** (crossfade) it to every screen, or send
   it to ticked tiles as their own pattern — or save it as a look, or discard. Blackout
-  and GO/STOP stay live through the freeze; scheduled cues hold until it closes. Subtle
+  and OUTPUTS ON/OFF stay live through the freeze; what you *fire* (looks, cues, stingers,
+  remote commands) still goes straight to air, only what you are editing is held back. Subtle
   neon hues mark every section and tab, so the right page is one glance away.
 - **Playlist show parts** — split the playlist into named parts of the show (*Walk-in ·
   Main · Break*): one part plays at a time, clicked on air from chips (or `SECTION 2`
@@ -168,8 +169,8 @@ fault containment, and settings that can never brick startup.
 - **Prep mode — programme the show before the rig exists** — switch to PREP and build the whole
   thing at your desk with nothing plugged in: **plan screens** at the sizes the venue will have,
   arrange them, name them, give each its pattern, join them into canvases, put them in the
-  multiview, and type in the NDI and capture names the rig will use. GO is held closed so nothing
-  goes live by accident. At the venue, switch to SHOW, say which detected display each planned
+  multiview, and type in the NDI and capture names the rig will use. The outputs are held closed
+  so nothing goes live by accident. At the venue, switch to SHOW, say which detected display each planned
   screen turned out to be and press **Adopt** — position, label, rotation, trims, warp, per-screen
   pattern, canvas name, multiview tiles and the stream source all follow onto the hardware.
 - **An Admin tab that watches the machine** — live **CPU / memory / GPU / frame-rate**
@@ -228,7 +229,7 @@ editor, looks/cues/presenter steps and the Show page drive them live.*
    put it in a folder you can write to (USB stick, desktop — anywhere).
 2. Run it. Arrange your screens on the **Outputs** page — drag them together for one big
    canvas, click a tile to enable/disable it or give it its own pattern.
-3. Choose a pattern (or click one in the **Library**), tune it, press **GO** (`Shift+F5`).
+3. Choose a pattern (or click one in the **Library**), tune it, press **OUTPUTS ON** (`Shift+F5`).
 4. Everything — wall geometry, blend overlap, colours, countdowns — updates live on the outputs.
 5. Save the state as a **look** and put it on an F-key or the daily cue schedule (**Looks** tab).
 6. Run the evening from the **Show** tab — or from a phone, tablet or Stream Deck via the
@@ -237,16 +238,22 @@ editor, looks/cues/presenter steps and the Show page drive them live.*
 | Key | Action |
 |---|---|
 | `F1`–`F12` | apply saved looks |
-| `Shift+F5` | GO — open outputs |
-| `Shift+F6` | STOP — close outputs |
+| `Shift+F5` | OUTPUTS ON — open the output windows |
+| `Shift+F6` | OUTPUTS OFF — close them |
 | `Shift+F7` | IDENTIFY — flash screen numbers |
 | `Shift+F8` / `Space` | BLACKOUT toggle |
 | `Page Down` / `Page Up` | presenter click-through next / back (when armed) |
-| on outputs: `Esc` | close outputs |
+| on outputs: `Esc` twice within a second | close outputs (one Esc never blanks the room; the prompt shows on the desk) |
 | on outputs: `Space` / `B`, `I`, `F1`–`F12`, `Page Down`/`Up` | blackout, identify, looks, presenter |
 
 Settings autosave beside the exe (`patterns.settings.json`, atomic with backup); whole rigs save
 as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders next to the exe.
+Every change to what the audience sees — a look recall, a scheduled cue, a stinger and its
+revert, a playlist part, outputs on/off, blackout — is appended to `patterns.showlog.jsonl`
+with the time and who caused it (desk, keyboard, clicker, a remote's address, the schedule),
+so a show can be reconstructed afterwards and a caller can see what happened after a restart.
+A show file saved by a newer build never quarantines an older build's settings: a setting the
+older build does not know falls back to its plain default with a warning in the log.
 
 ## Optional integrations
 

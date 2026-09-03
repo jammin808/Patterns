@@ -34,6 +34,13 @@ public sealed class ShowSnapshot
     /// <summary>Runtime-only: output windows are open (drives multiview tally).</summary>
     public bool OutputsLive { get; init; }
 
+    /// <summary>
+    /// Runtime-only: the version at which the last CUT was published. A sink that has not yet
+    /// shown that version switches without a crossfade, whatever the transition setting says —
+    /// so a cut stays a cut inside a bulk edit and on a sink that skipped a frame.
+    /// </summary>
+    public long CutAtVersion { get; init; }
+
     public SKColor Color(string? hex, SKColor fallback)
     {
         if (string.IsNullOrWhiteSpace(hex)) return fallback;
@@ -166,6 +173,16 @@ public sealed class SnapshotBus
     /// <summary>Set by the output manager; carried on every snapshot (multiview tally).</summary>
     public bool OutputsLive { get; set; }
 
+    private bool _cutPending;
+    private long _cutVersion;
+
+    /// <summary>
+    /// The next published snapshot is a CUT: sinks switch to it without a crossfade. Survives a
+    /// bulk edit (the flag waits for the publish) and a skipped frame (the version is carried
+    /// on every later snapshot until each sink has seen it).
+    /// </summary>
+    public void CutOnNextPublish() => _cutPending = true;
+
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
@@ -191,16 +208,26 @@ public sealed class SnapshotBus
 
     public void ClearSandbox() => _sandbox = null;
 
-    private ShowSnapshot Build(ShowState state) => new()
+    private ShowSnapshot Build(ShowState state)
     {
-        State = JsonUtil.Clone(state),
-        Version = ++_version,
-        IdentifyUntilUtc = IdentifyUntilUtc,
-        PlaylistNow = PlaylistNow,
-        ToneIndicator = ToneIndicator,
-        FeedText = FeedText,
-        OutputsLive = OutputsLive,
-    };
+        var version = ++_version;
+        if (_cutPending)
+        {
+            _cutVersion = version;
+            _cutPending = false;
+        }
+        return new ShowSnapshot
+        {
+            State = JsonUtil.Clone(state),
+            Version = version,
+            IdentifyUntilUtc = IdentifyUntilUtc,
+            PlaylistNow = PlaylistNow,
+            ToneIndicator = ToneIndicator,
+            FeedText = FeedText,
+            OutputsLive = OutputsLive,
+            CutAtVersion = _cutVersion,
+        };
+    }
 }
 
 /// <summary>The playlist item currently on screen (immutable; carried on snapshots).</summary>

@@ -45,10 +45,13 @@ public sealed class MainViewModel : Observable
     {
         _services = services;
 
+        // Every verb goes through the action layer: one code path for the desk, the keyboard,
+        // the remotes and the schedule, one journal, one place to resync the editors from.
+        _services.Actions.Performed += OnActionPerformed;
         GoCommand = new RelayCommand(GoLive);
-        StopCommand = new RelayCommand(() => { _services.Outputs.CloseAll(); RefreshOutputsStatus(); });
-        IdentifyCommand = new RelayCommand(_services.Identify);
-        BlackoutCommand = new RelayCommand(() => State.Blackout = !State.Blackout);
+        StopCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.OutputsOff, ActionOrigin.Desk));
+        IdentifyCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Identify, ActionOrigin.Desk));
+        BlackoutCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.BlackoutToggle, ActionOrigin.Desk));
         ArmCountdownCommand = new RelayCommand(() =>
         {
             State.Countdown.ArmedAtUtc = DateTime.UtcNow;
@@ -182,8 +185,8 @@ public sealed class MainViewModel : Observable
         {
             if (step is not null) MovePresenterStep(step, +1);
         });
-        PresenterNextCommand = new RelayCommand(() => PresenterAdvance(+1));
-        PresenterPrevCommand = new RelayCommand(() => PresenterAdvance(-1));
+        PresenterNextCommand = new RelayCommand(() => _services.Actions.PresenterAdvance(+1, ActionOrigin.Desk));
+        PresenterPrevCommand = new RelayCommand(() => _services.Actions.PresenterAdvance(-1, ActionOrigin.Desk));
         PresenterResetCommand = new RelayCommand(() =>
         {
             State.Presenter.CurrentIndex = -1;
@@ -199,9 +202,9 @@ public sealed class MainViewModel : Observable
         PlayAudioCommand = new RelayCommand(() =>
         {
             if (AudioDevices.Count == 0) RefreshAudioDevices();
-            State.AudioPlayer.Playing = true;
+            _services.Actions.Execute(ShowActionKind.AudioPlay, ActionOrigin.Desk);
         });
-        StopAudioCommand = new RelayCommand(() => State.AudioPlayer.Playing = false);
+        StopAudioCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.AudioStop, ActionOrigin.Desk));
         RefreshAudioDevicesCommand = new RelayCommand(RefreshAudioDevices);
         ResetWarpCommand = new RelayCommand(() =>
         {
@@ -222,30 +225,17 @@ public sealed class MainViewModel : Observable
         FireStingerCommand = new RelayCommand<StingerItemConfig>(item =>
         {
             if (item is null) return;
-            _services.Stingers.Fire(item);
-            StatusMessage = _services.Stingers.Status;
+            _services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id);
         });
-        StopStingerCommand = new RelayCommand(() =>
-        {
-            _services.Stingers.Stop();
-            StatusMessage = _services.Stingers.Status;
-        });
+        StopStingerCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StingerStop, ActionOrigin.Desk));
 
         // Streaming
         while (State.Stream.Destinations.Count < 2)
         {
             State.Stream.Destinations.Add(new StreamDestinationConfig());
         }
-        StartStreamCommand = new RelayCommand(() =>
-        {
-            State.Stream.Active = true;
-            StatusMessage = "Stream starting…";
-        });
-        StopStreamCommand = new RelayCommand(() =>
-        {
-            State.Stream.Active = false;
-            StatusMessage = "Stream stopped.";
-        });
+        StartStreamCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StreamStart, ActionOrigin.Desk));
+        StopStreamCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StreamStop, ActionOrigin.Desk));
 
         // Multiview
         AddMultiviewTileCommand = new RelayCommand(() =>
@@ -284,9 +274,9 @@ public sealed class MainViewModel : Observable
         RebuildGpuRows();
 
         // Switcher: sandbox sends, CUT/TAKE, tile selection
-        TakeCommand = new RelayCommand(() => SendAllFromSandbox(cut: false));
-        CutCommand = new RelayCommand(() => SendAllFromSandbox(cut: true));
-        SandboxSendAllCommand = new RelayCommand(() => SendAllFromSandbox(cut: false));
+        TakeCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk));
+        CutCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Cut, ActionOrigin.Desk));
+        SandboxSendAllCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk));
         SandboxSendSelectedCommand = new RelayCommand(() =>
         {
             if (!_services.Sandbox.Active) return;
@@ -336,7 +326,16 @@ public sealed class MainViewModel : Observable
         });
         DeleteLookCommand = new RelayCommand<LookConfig>(look =>
         {
-            if (look is not null) State.LooksAndCues.Looks.Remove(look);
+            if (look is null) return;
+            // Orphaned references fail silently at show time; refuse and say what points here.
+            var refs = LookService.References(State, look);
+            if (refs.Count > 0)
+            {
+                StatusMessage = $"'{look.Name}' is still used by {string.Join(", ", refs)} — remove those first.";
+                return;
+            }
+            State.LooksAndCues.Looks.Remove(look);
+            Raise(nameof(LookNames));
         });
         AddCueCommand = new RelayCommand(() =>
         {
@@ -1008,24 +1007,7 @@ public sealed class MainViewModel : Observable
     // ---- presenter click-through -------------------------------------------
 
     /// <summary>Advances the presenter steps and applies the step's look. False = no move.</summary>
-    public bool PresenterAdvance(int delta)
-    {
-        var p = State.Presenter;
-        if (PresenterLogic.Advance(p.CurrentIndex, p.Steps.Count, delta, p.Loop) is not { } idx) return false;
-        var step = p.Steps[idx];
-        p.CurrentIndex = idx;
-        var look = State.LooksAndCues.Looks.FirstOrDefault(
-            l => string.Equals(l.Name, step.LookName, StringComparison.OrdinalIgnoreCase));
-        if (look is null)
-        {
-            StatusMessage = $"Presenter step {idx + 1}: look '{step.LookName}' not found.";
-            return false;
-        }
-        ApplyLook(look);
-        StatusMessage = $"Presenter {idx + 1}/{p.Steps.Count}: {(step.Label.Length > 0 ? step.Label : look.Name)}";
-        Raise(nameof(PresenterStepText));
-        return true;
-    }
+    public bool PresenterAdvance(int delta) => _services.Actions.PresenterAdvance(delta, ActionOrigin.Desk);
 
     public string PresenterStepText
     {
@@ -1052,83 +1034,23 @@ public sealed class MainViewModel : Observable
     // ---- remote screen/group switching --------------------------------------
 
     private List<(ScreenPlacement Placement, ScreenInfo Info)> OrderedLivePlacements(IReadOnlyList<ScreenInfo>? screens = null)
-    {
-        var known = screens ?? _services.Screens.All;
-        return State.Output.Placements
-            .Select(p => (Placement: p, Info: known.FirstOrDefault(s => s.Id == p.ScreenId)))
-            .Where(x => x.Info is not null)
-            .Select(x => (x.Placement, Info: x.Info!))
-            .OrderBy(x => x.Placement.X).ThenBy(x => x.Placement.Y)
-            .ToList();
-    }
+        => Rig.OrderedLivePlacements(State, screens ?? _services.Screens.All);
 
     /// <summary>Remote: screen by its overview number → enabled/disabled/toggled.</summary>
     public bool SetScreenEnabled(int number, bool? target, IReadOnlyList<ScreenInfo>? screens = null)
-    {
-        var ordered = OrderedLivePlacements(screens);
-        if (number < 1 || number > ordered.Count) return false;
-        var placement = ordered[number - 1].Placement;
-        placement.Enabled = target ?? !placement.Enabled;
-        placement.UserPinned = true;
-        return true;
-    }
+        => _services.Actions.SetScreenEnabled(number, target, screens);
 
     /// <summary>Joined-canvas letters (A, B, …) → their member placements, arrangement order.</summary>
     private List<List<ScreenPlacement>> CanvasGroups(IReadOnlyList<ScreenInfo>? screens = null)
-    {
-        var live = OrderedLivePlacements(screens);
-        var arranged = live
-            .Select(x => new ArrangedScreen(x.Placement.ScreenId,
-                SkiaSharp.SKRectI.Create(x.Placement.X, x.Placement.Y,
-                    OutputWindowManager.EffectiveSize(x.Placement, x.Info).Width,
-                    OutputWindowManager.EffectiveSize(x.Placement, x.Info).Height)))
-            .ToList();
-        var byId = live.ToDictionary(x => x.Placement.ScreenId, x => x.Placement);
-        return ScreenLayout.Groups(arranged)
-            .Where(g => g.Count > 1)
-            .OrderBy(g => ScreenLayout.Union(g).Left).ThenBy(g => ScreenLayout.Union(g).Top)
-            .Select(g => g.Select(m => byId[m.Id]).ToList())
-            .ToList();
-    }
+        => Rig.CanvasGroups(State, screens ?? _services.Screens.All);
 
     /// <summary>Remote: every screen of canvas 'A'/'B'… on or off at once.</summary>
     public bool SetGroupEnabled(string letter, bool enabled, IReadOnlyList<ScreenInfo>? screens = null)
-    {
-        if (letter.Length != 1) return false;
-        var groups = CanvasGroups(screens);
-        var index = letter[0] - 'A';
-        if (index < 0 || index >= groups.Count) return false;
-        foreach (var placement in groups[index])
-        {
-            placement.Enabled = enabled;
-            placement.UserPinned = true;
-        }
-        return true;
-    }
+        => _services.Actions.SetGroupEnabled(letter, enabled, screens);
 
     /// <summary>Screen rows for the remote-state JSON. UI thread.</summary>
     public object[] RemoteScreens(IReadOnlyList<ScreenInfo>? screens = null)
-    {
-        var groups = CanvasGroups(screens);
-        string? LetterOf(ScreenPlacement p)
-        {
-            for (var i = 0; i < groups.Count; i++)
-            {
-                if (groups[i].Contains(p)) return ((char)('A' + i)).ToString();
-            }
-            return null;
-        }
-
-        return OrderedLivePlacements(screens)
-            .Select((x, i) => (object)new
-            {
-                n = i + 1,
-                label = LabelFor(x.Placement, x.Info),
-                enabled = x.Placement.Enabled,
-                group = LetterOf(x.Placement),
-            })
-            .ToArray();
-    }
+        => _services.Actions.RemoteScreens(screens);
 
     // ---- switcher (program / preview, strip, sandbox) -----------------------
 
@@ -1160,9 +1082,7 @@ public sealed class MainViewModel : Observable
 
     /// <summary>The label a screen shows everywhere: the operator's name, or the OS one.</summary>
     public string LabelFor(ScreenPlacement placement, ScreenInfo? info = null)
-        => placement.CustomLabel.Length > 0
-            ? placement.CustomLabel
-            : (info ?? LiveInfo(placement))?.Label ?? placement.ScreenId;
+        => Rig.LabelFor(placement, info ?? LiveInfo(placement));
 
     /// <summary>The stored (or automatic) name of the canvas containing a set of members.</summary>
     public string CanvasNameFor(IReadOnlyList<ScreenPlacement> members, string letter)
@@ -1341,7 +1261,8 @@ public sealed class MainViewModel : Observable
     private void SaveLook()
     {
         var name = string.IsNullOrWhiteSpace(NewLookName) ? $"Look {State.LooksAndCues.Looks.Count + 1}" : NewLookName.Trim();
-        var existing = State.LooksAndCues.Looks.FirstOrDefault(l => l.Name == name);
+        // "Walk-in" and "walk-in" are the same look: the resolver is case-insensitive, so the save must be too.
+        var existing = LookService.Find(State, name);
         var json = LookService.Capture(State);
         if (existing is not null)
         {
@@ -1372,24 +1293,58 @@ public sealed class MainViewModel : Observable
     /// <em>fire</em>: with the sandbox open the audience gets the look and the preview keeps
     /// showing the operator's in-progress edit. Use "→ PVW" to load one into the editors.
     /// </summary>
-    public void ApplyLook(LookConfig look)
+    public void ApplyLook(LookConfig look) => _services.Actions.ApplyLook(look, ActionOrigin.Desk);
+
+    /// <summary>
+    /// Every action, from every origin, lands here once it has run: the status line and the
+    /// editor resyncs live in one place instead of in each caller.
+    /// </summary>
+    private void OnActionPerformed(ShowAction action, ActionOrigin origin, ActionResult result)
     {
-        var ok = false;
-        var sandboxed = _services.Sandbox.Active;
-        _services.EditAir(air => ok = LookService.Apply(look.Json, air));
-        if (!ok)
+        if (result.Message.Length > 0) StatusMessage = result.Message;
+        switch (action.Kind)
         {
-            StatusMessage = $"Look '{look.Name}' could not be applied.";
-            return;
+            case ShowActionKind.ApplyLook:
+            case ShowActionKind.ApplyLookHotkey:
+                // Unsandboxed, the look landed in the live model the editors bind to.
+                if (result.Ok && !_services.Sandbox.Active)
+                {
+                    RebuildEditTargets();
+                    Raise(nameof(ActivePattern));
+                }
+                break;
+            case ShowActionKind.ApplyLookToPreview:
+                if (result.Ok)
+                {
+                    RebuildEditTargets();
+                    Raise(nameof(ActivePattern));
+                }
+                break;
+            case ShowActionKind.PresenterNext:
+            case ShowActionKind.PresenterPrev:
+                Raise(nameof(PresenterStepText));
+                if (result.Ok && !_services.Sandbox.Active)
+                {
+                    RebuildEditTargets();
+                    Raise(nameof(ActivePattern));
+                }
+                break;
+            case ShowActionKind.Take:
+            case ShowActionKind.Cut:
+                if (result.Ok)
+                {
+                    ClearSendTargets();
+                    Raise(nameof(IsSandboxActive));
+                }
+                break;
+            case ShowActionKind.OutputsOn:
+            case ShowActionKind.OutputsOff:
+                RefreshOutputsStatus();
+                break;
+            case ShowActionKind.PlaylistPart:
+                RaisePlaylistSection();
+                break;
         }
-        if (!sandboxed)
-        {
-            RebuildEditTargets();
-            Raise(nameof(ActivePattern));
-        }
-        StatusMessage = sandboxed
-            ? $"Look '{look.Name}' on air — your preview edit is untouched."
-            : $"Look '{look.Name}' applied.";
     }
 
     /// <summary>After the watchdog restored the air content into the model, resync the editors.</summary>
@@ -1401,54 +1356,18 @@ public sealed class MainViewModel : Observable
 
     /// <summary>Loads a look into the editors (the sandboxed preview) instead of putting it on air.</summary>
     public void ApplyLookToPreview(LookConfig look)
-    {
-        var ok = false;
-        _services.BulkEdit(() => ok = LookService.Apply(look.Json, State));
-        if (ok)
-        {
-            RebuildEditTargets();
-            Raise(nameof(ActivePattern));
-            StatusMessage = _services.Sandbox.Active
-                ? $"Look '{look.Name}' loaded into the preview — CUT or TAKE to put it on air."
-                : $"Look '{look.Name}' applied.";
-        }
-        else
-        {
-            StatusMessage = $"Look '{look.Name}' could not be loaded.";
-        }
-    }
+        => _services.Actions.Execute(ShowActionKind.ApplyLookToPreview, ActionOrigin.Desk, look.Id);
 
     /// <summary>F1–F12 from the main window or an output window. False = no look on that key.</summary>
-    public bool ApplyLookHotkey(int slot)
-    {
-        var look = State.LooksAndCues.Looks.FirstOrDefault(l => l.Hotkey == slot);
-        if (look is null) return false;
-        ApplyLook(look);
-        return true;
-    }
+    public bool ApplyLookHotkey(int slot) => _services.Actions.ApplyLookHotkey(slot, ActionOrigin.Keyboard);
 
     private void CheckCues()
     {
-        // Cues fire to air whether or not the sandbox is open: ApplyLook targets the program,
-        // so the schedule runs the show while the operator programs the next look in safety.
+        // Cues fire to air whether or not the sandbox is open: the action layer targets the
+        // program, so the schedule runs the show while the operator programs in safety.
         var now = DateTime.Now;
-        foreach (var cue in State.LooksAndCues.Cues)
-        {
-            if (!LookService.ShouldFire(cue, now)) continue;
-            cue.LastFiredDate = now.Date;
-            var look = State.LooksAndCues.Looks.FirstOrDefault(l => l.Name == cue.LookName);
-            if (look is not null)
-            {
-                ApplyLook(look);
-                StatusMessage = $"Cue {cue.Time}: look '{look.Name}' applied.";
-                Log.Info(StatusMessage);
-            }
-        }
-
-        var next = LookService.NextCue(State.LooksAndCues.Cues, now);
-        NextCueText = next is { } n
-            ? $"Next cue: '{n.Cue.LookName}' at {n.At:HH:mm}{(n.At.Date != now.Date ? " tomorrow" : "")}"
-            : "No cues scheduled.";
+        _services.Actions.RunSchedule(now);
+        NextCueText = ShowActions.NextScheduledText(State, now);
     }
 
     // ---- audio / fonts / feed / LED map ------------------------------------
@@ -1778,23 +1697,6 @@ public sealed class MainViewModel : Observable
     public RelayCommand<ScreenPlacement> AdoptPlannedScreenCommand { get; }
     public RelayCommand RefreshAdoptTargetsCommand { get; }
 
-    /// <summary>TAKE (crossfade) / CUT (instant) — the sandbox becomes the program.</summary>
-    private void SendAllFromSandbox(bool cut)
-    {
-        if (!_services.Sandbox.Active)
-        {
-            StatusMessage = "Open EDIT (sandbox) first — build the look, then CUT or TAKE it to air.";
-            return;
-        }
-        _services.Sandbox.SendAll(cut);
-        ClearSendTargets();
-        Raise(nameof(IsSandboxActive));
-        var rearmed = _services.Sandbox.Active ? " EDIT SAFE re-armed." : "";
-        StatusMessage = (cut
-            ? "CUT — sandbox is now the program on every screen."
-            : "TAKE — sandbox faded up on every screen.") + rearmed;
-    }
-
     /// <summary>A send consumes its targets — the next look starts from a clean strip.</summary>
     private void ClearSendTargets()
     {
@@ -1877,7 +1779,7 @@ public sealed class MainViewModel : Observable
             State.Mode = mode;
             RaiseModeChanged();
             StatusMessage = value
-                ? "PREP — build the rig, screens, inputs and looks; GO is held until you switch to SHOW."
+                ? "PREP — build the rig, screens, inputs and looks; the outputs stay held until you switch to SHOW."
                 : "SHOW — outputs can open. Planned screens still need adopting onto real displays.";
             Log.Info(StatusMessage);
         }
@@ -1904,16 +1806,7 @@ public sealed class MainViewModel : Observable
 
     private void RaiseModeChanged() => RefreshOutputsStatus();
 
-    private void GoLive()
-    {
-        if (IsPrepMode)
-        {
-            StatusMessage = "PREP MODE — outputs are held closed. Switch to SHOW (Outputs tab) when you are at the venue.";
-            return;
-        }
-        _services.Outputs.Apply();
-        RefreshOutputsStatus();
-    }
+    private void GoLive() => _services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
 
     /// <summary>Adds a screen that does not exist yet, so the whole rig can be built at the desk.</summary>
     public ScreenPlacement AddPlannedScreen(int width = 1920, int height = 1080, string label = "")
@@ -2374,8 +2267,8 @@ public sealed class MainViewModel : Observable
         OutputsStatus = _services.Outputs.IsLive
             ? "LIVE — outputs running"
             : IsPrepMode
-                ? $"PREP — {detected} display{(detected == 1 ? "" : "s")} detected{plannedText} · GO is held"
-                : $"{detected} screen{(detected == 1 ? "" : "s")} detected{plannedText} · {enabled} enabled — press GO";
+                ? $"PREP — {detected} display{(detected == 1 ? "" : "s")} detected{plannedText} · outputs held"
+                : $"{detected} screen{(detected == 1 ? "" : "s")} detected{plannedText} · {enabled} enabled — press OUTPUTS ON";
         Raise(nameof(IsLive));
 
         // Every path that can change the mode or the planned set — a show load, a display
@@ -2599,6 +2492,7 @@ public sealed class MainViewModel : Observable
             });
             var path = file?.TryGetLocalPath();
             if (path is null) return;
+            if (State.Name.Length == 0) State.Name = SettingsStore.ShowNameFor(path);
             _services.Store.SaveTo(path, State);
             StatusMessage = $"Show saved: {Path.GetFileName(path)}";
         }

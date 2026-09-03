@@ -9,8 +9,11 @@ namespace Patterns.Core.Tests;
 public class ControlProtocolTests
 {
     [Theory]
-    [InlineData("GO", RemoteCommandKind.Go)]
-    [InlineData("stop", RemoteCommandKind.Stop)]
+    [InlineData("GO", RemoteCommandKind.OutputsOn)]          // frozen alias: outputs, never a cue
+    [InlineData("stop", RemoteCommandKind.OutputsOff)]
+    [InlineData("OUTPUTS ON", RemoteCommandKind.OutputsOn)]
+    [InlineData("outputs off", RemoteCommandKind.OutputsOff)]
+    [InlineData("OUTPUTS", RemoteCommandKind.Unknown)]
     [InlineData("  Identify  ", RemoteCommandKind.Identify)]
     [InlineData("NEXT", RemoteCommandKind.Next)]
     [InlineData("prev", RemoteCommandKind.Prev)]

@@ -137,6 +137,6 @@
 
     <TextBlock Classes="h2" Text="KEYS" />
     <TextBlock Classes="hint"
-               Text="F1–F12 apply looks from anywhere in the app (and on output windows). Transport moved to ⇧F5 GO · ⇧F6 STOP · ⇧F7 blackout · ⇧F8 identify; Space still toggles blackout when you're not typing." />
+               Text="F1–F12 apply looks from anywhere in the app (and on output windows). Transport lives on ⇧F5 OUTPUTS ON · ⇧F6 OUTPUTS OFF · ⇧F7 identify · ⇧F8 blackout; Space also toggles blackout when you're not typing." />
   </StackPanel>
 </UserControl>

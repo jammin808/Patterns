@@ -1,0 +1,352 @@
+using Patterns.Core.Model;
+using Patterns.Core.Services;
+
+namespace Patterns.App.Services;
+
+/// <summary>
+/// The one way to do something to the show. The desk's buttons, the keyboard, the output
+/// windows, the remote protocol, the Companion module, the daily schedule and (later) the
+/// cue executor all call <see cref="Execute"/>; every call returns a typed result, is
+/// written to the show journal with its origin, and raises <see cref="Performed"/> so the
+/// view model can resync its editors. Nothing here needs the window to exist.
+/// </summary>
+public sealed class ShowActions
+{
+    private readonly AppServices _s;
+
+    public ShowActions(AppServices services) => _s = services;
+
+    /// <summary>Raised on the UI thread after every action, whatever its outcome.</summary>
+    public event Action<ShowAction, ActionOrigin, ActionResult>? Performed;
+
+    private ShowState State => _s.State;
+
+    public ActionResult Execute(ShowAction action, ActionOrigin origin)
+    {
+        ActionResult result;
+        try
+        {
+            result = Run(action, origin);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Action {action} failed.", ex);
+            result = ActionResult.Failed(ex.Message);
+        }
+
+        if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify))
+        {
+            _s.Journal.Record(origin.Label, action.Kind.ToString(), action.Target, result.Status.ToString(), result.Message);
+        }
+        Performed?.Invoke(action, origin, result);
+        return result;
+    }
+
+    public ActionResult Execute(ShowActionKind kind, ActionOrigin origin, string target = "", string value = "")
+        => Execute(new ShowAction(kind, target, value), origin);
+
+    // ---- convenience entry points the desk and the windows use ------------------
+
+    public ActionResult ApplyLook(LookConfig look, ActionOrigin origin, bool cut = false)
+        => Execute(new ShowAction(ShowActionKind.ApplyLook, look.Id, cut ? "cut" : ""), origin);
+
+    /// <summary>F1–F12. False = no look on that key (the key is left for other handlers).</summary>
+    public bool ApplyLookHotkey(int slot, ActionOrigin origin)
+    {
+        if (State.LooksAndCues.Looks.All(l => l.Hotkey != slot)) return false;
+        return Execute(new ShowAction(ShowActionKind.ApplyLookHotkey, slot.ToString()), origin).Ok;
+    }
+
+    public bool PresenterAdvance(int delta, ActionOrigin origin)
+        => Execute(delta >= 0 ? ShowActionKind.PresenterNext : ShowActionKind.PresenterPrev, origin).Ok;
+
+    /// <summary>Screen by overview number (1-based) → on / off / toggled (null). False = no such screen.</summary>
+    public bool SetScreenEnabled(int number, bool? target, IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        var ordered = Rig.OrderedLivePlacements(State, screens ?? _s.Screens.All);
+        if (number < 1 || number > ordered.Count) return false;
+        var placement = ordered[number - 1].Placement;
+        placement.Enabled = target ?? !placement.Enabled;
+        placement.UserPinned = true;
+        return true;
+    }
+
+    /// <summary>Every screen of canvas 'A'/'B'… on or off at once. False = no such canvas.</summary>
+    public bool SetGroupEnabled(string letter, bool enabled, IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        if (letter.Length != 1) return false;
+        var groups = Rig.CanvasGroups(State, screens ?? _s.Screens.All);
+        var index = char.ToUpperInvariant(letter[0]) - 'A';
+        if (index < 0 || index >= groups.Count) return false;
+        foreach (var placement in groups[index])
+        {
+            placement.Enabled = enabled;
+            placement.UserPinned = true;
+        }
+        return true;
+    }
+
+    /// <summary>Screen rows for the remote-state JSON and the phone page.</summary>
+    public object[] RemoteScreens(IReadOnlyList<ScreenInfo>? screens = null)
+    {
+        var known = screens ?? _s.Screens.All;
+        var groups = Rig.CanvasGroups(State, known);
+        return Rig.OrderedLivePlacements(State, known)
+            .Select((x, i) => (object)new
+            {
+                n = i + 1,
+                label = Rig.LabelFor(x.Placement, x.Info),
+                enabled = x.Placement.Enabled,
+                group = Rig.LetterOf(groups, x.Placement),
+            })
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The daily schedule: fires every cue whose minute has come (once per day) to air, with
+    /// origin "schedule", whether or not the sandbox is open. Called from the 1 s poll.
+    /// </summary>
+    public void RunSchedule(DateTime localNow)
+    {
+        foreach (var cue in State.LooksAndCues.Cues)
+        {
+            if (!LookService.ShouldFire(cue, localNow)) continue;
+            cue.LastFiredDate = localNow.Date;
+            var look = LookService.Find(State, cue.LookName);
+            if (look is null)
+            {
+                _s.Journal.Record(ActionOrigin.Schedule.Label, ShowActionKind.ApplyLook.ToString(), cue.LookName,
+                    ActionStatus.Refused.ToString(), $"Scheduled cue {cue.Time}: look '{cue.LookName}' not found.");
+                continue;
+            }
+            var result = ApplyLook(look, ActionOrigin.Schedule);
+            if (result.Ok) Log.Info($"Cue {cue.Time}: look '{look.Name}' applied.");
+        }
+    }
+
+    /// <summary>"Next cue: 'Walk-in' at 18:00 tomorrow" — the same line on the Show page and in STATE.</summary>
+    public static string NextScheduledText(ShowState state, DateTime localNow)
+    {
+        var next = LookService.NextCue(state.LooksAndCues.Cues, localNow);
+        return next is { } n
+            ? $"Next cue: '{n.Cue.LookName}' at {n.At:HH:mm}{(n.At.Date != localNow.Date ? " tomorrow" : "")}"
+            : "No cues scheduled.";
+    }
+
+    // ---- the verbs -----------------------------------------------------------
+
+    private ActionResult Run(ShowAction a, ActionOrigin origin)
+    {
+        switch (a.Kind)
+        {
+            case ShowActionKind.Note:
+                return ActionResult.Done();
+            case ShowActionKind.Unknown:
+                return ActionResult.Refused("This action comes from a newer build and cannot run here.");
+
+            case ShowActionKind.OutputsOn:
+                if (State.Mode == ShowMode.Prep)
+                {
+                    return ActionResult.Refused("PREP MODE — outputs are held closed. Switch to SHOW (Outputs tab) when you are at the venue.");
+                }
+                _s.Outputs.Apply();
+                // Output windows take focus when they open and nothing hands it back: the next
+                // keystroke would land on the audience surface. The desk owns the keyboard.
+                try { _s.MainWindow?.Activate(); } catch { /* headless or minimised — fine */ }
+                return _s.Outputs.IsLive ? ActionResult.Done("Outputs on.") : ActionResult.Failed("No enabled screens to output to.");
+            case ShowActionKind.OutputsOff:
+                _s.Outputs.CloseAll();
+                return ActionResult.Done("Outputs off.");
+            case ShowActionKind.Identify:
+                _s.Identify();
+                return ActionResult.Done();
+
+            case ShowActionKind.BlackoutOn:
+                State.Blackout = true;
+                return ActionResult.Done("Blackout.");
+            case ShowActionKind.BlackoutOff:
+                State.Blackout = false;
+                return ActionResult.Done("Blackout lifted.");
+            case ShowActionKind.BlackoutToggle:
+                State.Blackout = !State.Blackout;
+                return ActionResult.Done(State.Blackout ? "Blackout." : "Blackout lifted.");
+
+            case ShowActionKind.ApplyLook:
+            {
+                var look = LookService.Find(State, a.Target);
+                return look is null ? ActionResult.Refused($"No look named '{a.Target}'.") : ApplyLookToAir(look, a.Value);
+            }
+            case ShowActionKind.ApplyLookHotkey:
+            {
+                if (!int.TryParse(a.Target, out var slot)) return ActionResult.Refused($"'{a.Target}' is not an F-key slot.");
+                var look = State.LooksAndCues.Looks.FirstOrDefault(l => l.Hotkey == slot);
+                return look is null ? ActionResult.Refused($"No look on F{slot}.") : ApplyLookToAir(look, a.Value);
+            }
+            case ShowActionKind.ApplyLookToPreview:
+            {
+                var look = LookService.Find(State, a.Target);
+                if (look is null) return ActionResult.Refused($"No look named '{a.Target}'.");
+                var ok = false;
+                _s.BulkEdit(() => ok = LookService.Apply(look.Json, State));
+                if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be loaded.");
+                return ActionResult.Done(_s.Sandbox.Active
+                    ? $"Look '{look.Name}' loaded into the preview — CUT or TAKE to put it on air."
+                    : $"Look '{look.Name}' applied.");
+            }
+
+            case ShowActionKind.PresenterNext:
+            case ShowActionKind.PresenterPrev:
+                return Presenter(a.Kind == ShowActionKind.PresenterNext ? +1 : -1);
+
+            case ShowActionKind.ScreenOn:
+            case ShowActionKind.ScreenOff:
+            case ShowActionKind.ScreenToggle:
+            {
+                bool? target = a.Kind switch
+                {
+                    ShowActionKind.ScreenOn => true,
+                    ShowActionKind.ScreenOff => false,
+                    _ => null,
+                };
+                if (int.TryParse(a.Target, out var number))
+                {
+                    return SetScreenEnabled(number, target) ? ActionResult.Done() : ActionResult.Refused($"No screen {number}.");
+                }
+                var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == a.Target);
+                if (placement is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                placement.Enabled = target ?? !placement.Enabled;
+                placement.UserPinned = true;
+                return ActionResult.Done();
+            }
+            case ShowActionKind.CanvasOn:
+            case ShowActionKind.CanvasOff:
+            {
+                var on = a.Kind == ShowActionKind.CanvasOn;
+                if (a.Target.Length == 1)
+                {
+                    return SetGroupEnabled(a.Target, on) ? ActionResult.Done() : ActionResult.Refused($"No canvas {a.Target.ToUpperInvariant()}.");
+                }
+                var groups = Rig.CanvasGroups(State, _s.Screens.All);
+                var group = groups.FirstOrDefault(g => CanvasNameConfig.KeyFor(g.Select(m => m.ScreenId)) == a.Target);
+                if (group is null) return ActionResult.Refused($"No canvas '{a.Target}'.");
+                foreach (var p in group)
+                {
+                    p.Enabled = on;
+                    p.UserPinned = true;
+                }
+                return ActionResult.Done();
+            }
+
+            case ShowActionKind.AudioPlay:
+                State.AudioPlayer.Playing = true;
+                return ActionResult.Requested("Audio track playing.");
+            case ShowActionKind.AudioStop:
+                State.AudioPlayer.Playing = false;
+                return ActionResult.Done("Audio track stopped.");
+            case ShowActionKind.ToneOn:
+                State.Tone.Enabled = true;
+                return ActionResult.Done("Tone on.");
+            case ShowActionKind.ToneOff:
+                State.Tone.Enabled = false;
+                return ActionResult.Done("Tone off.");
+
+            case ShowActionKind.StingerFire:
+            {
+                var item = FindStinger(a.Target);
+                if (item is null) return ActionResult.Refused($"No stinger '{a.Target}'.");
+                return _s.Stingers.Fire(item)
+                    ? ActionResult.Requested(_s.Stingers.Status)
+                    : ActionResult.Failed(_s.Stingers.Status);
+            }
+            case ShowActionKind.StingerStop:
+                _s.Stingers.Stop();
+                return ActionResult.Done(_s.Stingers.Status);
+
+            case ShowActionKind.PlaylistPart:
+            {
+                // Parts drive what the audience sees, sandbox open or not.
+                var options = MediaLocator.FindActivePlaylist(_s.AirState)?.Playlist ?? _s.AirState.Pattern.Media.Playlist;
+                PlaylistSequencer.Normalize(options);
+                var index = int.TryParse(a.Target, out var n)
+                    ? n - 1
+                    : options.Sections.ToList().FindIndex(x => string.Equals(x.Name, a.Target, StringComparison.OrdinalIgnoreCase));
+                if (index < 0 || index >= options.Sections.Count) return ActionResult.Refused($"No playlist part '{a.Target}'.");
+                _s.EditAir(_ => options.ActiveSection = index);
+                return ActionResult.Done($"Playlist part '{options.Sections[index].Name}' is on air.");
+            }
+
+            case ShowActionKind.StreamStart:
+                State.Stream.Active = true;
+                return ActionResult.Requested("Stream starting…");
+            case ShowActionKind.StreamStop:
+                State.Stream.Active = false;
+                return ActionResult.Done("Stream stopped.");
+
+            case ShowActionKind.Take:
+            case ShowActionKind.Cut:
+            {
+                if (!_s.Sandbox.Active)
+                {
+                    return ActionResult.Refused("Open EDIT SAFE (the sandbox) first — build the look, then CUT or TAKE it to air.");
+                }
+                var cut = a.Kind == ShowActionKind.Cut;
+                _s.Sandbox.SendAll(cut);
+                var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
+                return ActionResult.Done((cut
+                    ? "CUT — sandbox is now the program on every screen."
+                    : "TAKE — sandbox faded up on every screen.") + rearmed);
+            }
+
+            case ShowActionKind.StopAll:
+                _s.Stingers.Stop();
+                State.AudioPlayer.Playing = false;
+                State.Tone.Enabled = false;
+                return ActionResult.Done("Stopped: audio track, stingers, tone. Outputs, blackout and the stream are untouched.");
+
+            default:
+                return ActionResult.Refused($"Unknown action '{a.Kind}'.");
+        }
+    }
+
+    /// <summary>
+    /// Fires a look to air. EDIT SAFE protects what you are <em>building</em>, not what you
+    /// <em>fire</em>: with the sandbox open the audience gets the look and the preview keeps
+    /// showing the operator's in-progress edit. "cut" switches without the crossfade.
+    /// </summary>
+    private ActionResult ApplyLookToAir(LookConfig look, string value)
+    {
+        var sandboxed = _s.Sandbox.Active;
+        if (string.Equals(value, "cut", StringComparison.OrdinalIgnoreCase)) _s.Bus.CutOnNextPublish();
+        var ok = false;
+        _s.EditAir(air => ok = LookService.Apply(look.Json, air));
+        if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be applied.");
+        return ActionResult.Done(sandboxed
+            ? $"Look '{look.Name}' on air — your preview edit is untouched."
+            : $"Look '{look.Name}' applied.");
+    }
+
+    private ActionResult Presenter(int delta)
+    {
+        var p = State.Presenter;
+        if (PresenterLogic.Advance(p.CurrentIndex, p.Steps.Count, delta, p.Loop) is not { } idx)
+        {
+            return ActionResult.Refused("No presenter step.");
+        }
+        var step = p.Steps[idx];
+        // Resolve before moving: a missing look must not swallow the step.
+        var look = LookService.Find(State, step.LookName);
+        if (look is null) return ActionResult.Failed($"Presenter step {idx + 1}: look '{step.LookName}' not found.");
+        p.CurrentIndex = idx;
+        var applied = ApplyLookToAir(look, "");
+        if (!applied.Ok) return applied;
+        return ActionResult.Done($"Presenter {idx + 1}/{p.Steps.Count}: {(step.Label.Length > 0 ? step.Label : look.Name)}");
+    }
+
+    private StingerItemConfig? FindStinger(string target)
+    {
+        var items = State.Stingers.Items;
+        if (int.TryParse(target, out var n)) return n >= 1 && n <= items.Count ? items[n - 1] : null;
+        return items.FirstOrDefault(i => i.Id == target)
+               ?? items.FirstOrDefault(i => string.Equals(i.DisplayName, target, StringComparison.OrdinalIgnoreCase));
+    }
+}

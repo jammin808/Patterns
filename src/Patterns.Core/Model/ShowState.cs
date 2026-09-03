@@ -370,10 +370,13 @@ public sealed class ToneConfig : Observable
 /// <summary>A saved content state ("look"): pattern, per-screen patterns, overlays, countdown, blackout.</summary>
 public sealed class LookConfig : Observable
 {
+    private string _id = Guid.NewGuid().ToString("N");
     private string _name = "Look";
     private int _hotkey;
     private string _json = "";
 
+    /// <summary>Stable identity (schema 4): renaming a look never breaks what references it.</summary>
+    public string Id { get => _id; set => Set(ref _id, value); }
     public string Name { get => _name; set => Set(ref _name, value); }
     /// <summary>1–12 → F1–F12; 0 = no hotkey.</summary>
     public int Hotkey { get => _hotkey; set => Set(ref _hotkey, Math.Clamp(value, 0, 12)); }
@@ -473,9 +476,13 @@ public sealed class AudioPlayerConfig : Observable
 /// <summary>One stinger: a sound or clip fired over the show with a single press.</summary>
 public sealed class StingerItemConfig : Observable
 {
+    private string _id = Guid.NewGuid().ToString("N");
     private string _name = "";
     private string _path = "";
     private double _volumePct = 100;
+
+    /// <summary>Stable identity (schema 4) — names fall back to file names and need not be unique.</summary>
+    public string Id { get => _id; set => Set(ref _id, value); }
 
     /// <summary>Button label ("Take your seats"); empty = the file name.</summary>
     public string Name
@@ -666,11 +673,15 @@ public sealed class WebConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run
     private ShowMode _mode = ShowMode.Show;
+    private string _name = "";
+
+    /// <summary>The show's name as the caller sees it (defaults to the file name it was loaded from).</summary>
+    public string Name { get => _name; set => Set(ref _name, value); }
 
     /// <summary>
     /// Prep (pre-programming, outputs held closed) or Show (at the venue). Saved with the show,
