@@ -108,6 +108,21 @@ public sealed class SpotifyService : IDisposable
 
     public IReadOnlyList<SpotifyPlaylistRef> Playlists { get; private set; } = Array.Empty<SpotifyPlaylistRef>();
 
+    /// <summary>The songs of whatever was last browsed on the Audio page, and the listing they came from.</summary>
+    public IReadOnlyList<SpotifyTrackRef> Tracks { get; private set; } = Array.Empty<SpotifyTrackRef>();
+
+    public string TracksOf { get; private set; } = "";
+
+    public IReadOnlyList<SpotifySearchHit> SearchHits { get; private set; } = Array.Empty<SpotifySearchHit>();
+
+    /// <summary>What the browse list is doing — "Loading…", "40 songs.", or why it could not. Desk only; never read by a cue.</summary>
+    public string BrowseStatus => _browseStatus;
+
+    private volatile string _browseStatus = "";
+
+    /// <summary>A long playlist stops here: a picker for the desk, not a mirror of the whole account.</summary>
+    public const int BrowseCap = 500;
+
     /// <summary>Set by the skip verb; consumed by the next poll. Never a synchronous socket from a cue.</summary>
     public bool SkipRequested { get => _skip; set => _skip = value; }
 
@@ -690,6 +705,94 @@ public sealed class SpotifyService : IDisposable
         var reply = await Send(new SpotifyRequest("GET", SpotifyEndpoints.PlaylistsUrl()));
         if (!Handle(reply, null)) return;
         Playlists = SpotifyJson.ReadPlaylists(reply.Body);
+    }
+
+    // ---- browsing (desk-only, asynchronous; a free account can do all of this) --------------
+
+    /// <summary>
+    /// Lists the songs inside a playlist, album or artist, page by page up to <see cref="BrowseCap"/>.
+    /// Every page goes through <see cref="Handle"/>, so a failure is the same sentence the
+    /// status line shows and never a throw; what was read before it stays listed.
+    /// </summary>
+    public async Task LoadTracksAsync(string uri)
+    {
+        if (!SpotifyUri.TryParse(uri, out var r) || SpotifyEndpoints.TracksUrl(r).Length == 0)
+        {
+            _browseStatus = "Browse a playlist, album or artist — a song has nothing inside it.";
+            return;
+        }
+        if (!await ReadyToBrowseAsync()) return;
+        _browseStatus = "Loading…";
+        var all = new List<SpotifyTrackRef>();
+        var total = 0;
+        var offset = 0;
+        while (true)
+        {
+            var reply = await Send(new SpotifyRequest("GET", SpotifyEndpoints.TracksUrl(r, offset)));
+            if (!Handle(reply, null))
+            {
+                _browseStatus = _status;
+                break;
+            }
+            var (page, count, read) = SpotifyJson.ReadTracks(reply.Body);
+            all.AddRange(page);
+            total = count;
+            offset += read;
+            if (read == 0 || offset >= total || offset >= BrowseCap || r.Kind == SpotifyRefKind.Artist)
+            {
+                _browseStatus = all.Count == 0
+                    ? "No songs in there that Spotify can play by name."
+                    : offset < total ? $"First {all.Count} songs of {total}." : $"{all.Count} song{(all.Count == 1 ? "" : "s")}.";
+                break;
+            }
+        }
+        Tracks = all;
+        TracksOf = r.Uri;
+    }
+
+    /// <summary>Songs, albums, playlists and artists for some words.</summary>
+    public async Task SearchAsync(string? query)
+    {
+        var q = (query ?? "").Trim();
+        if (q.Length == 0)
+        {
+            _browseStatus = "Type a song, album, playlist or artist to search for.";
+            return;
+        }
+        if (!await ReadyToBrowseAsync()) return;
+        _browseStatus = "Searching…";
+        var reply = await Send(new SpotifyRequest("GET", SpotifyEndpoints.SearchUrl(q)));
+        if (!Handle(reply, null))
+        {
+            _browseStatus = _status;
+            return;
+        }
+        SearchHits = SpotifyJson.ReadSearch(reply.Body);
+        _browseStatus = SearchHits.Count == 0
+            ? "Nothing found."
+            : $"{SearchHits.Count} result{(SearchHits.Count == 1 ? "" : "s")} — pick one and ADD.";
+    }
+
+    /// <summary>Signed in with a live token — renewing one first when the desk asks before the poll has.</summary>
+    private async Task<bool> ReadyToBrowseAsync()
+    {
+        if (!_creds.HasClientId)
+        {
+            _browseStatus = "Add your Spotify Client ID on the Audio page.";
+            return false;
+        }
+        if (!_creds.IsConnected)
+        {
+            _browseStatus = _signedOutReason ?? "Not connected — press CONNECT on the Audio page.";
+            return false;
+        }
+        if (_token.IsEmpty || _token.NeedsRefresh(NowUtc())) await IssueRefresh();
+        if (_token.IsEmpty)
+        {
+            _browseStatus = _status;
+            return false;
+        }
+        return true;
     }
 
     /// <summary>

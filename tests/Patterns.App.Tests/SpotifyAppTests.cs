@@ -945,4 +945,300 @@ public class SpotifyAppTests
             b.Dispose();
         }
     }
+
+    // ---- browsing, searching, music on a look ---------------------------------------
+
+    /// <summary>One page of a playlist listing: song i is "Song i"; item 1 is a local file and item 2 a removed song.</summary>
+    private static string PlaylistPage(int offset, int total, int pageSize = SpotifyEndpoints.TracksPage)
+    {
+        var items = new List<string>();
+        for (var i = offset; i < Math.Min(total, offset + pageSize); i++)
+        {
+            items.Add(i switch
+            {
+                1 => "{\"is_local\":true,\"track\":{\"uri\":\"spotify:local:a:b:c\",\"name\":\"Ripped\"}}",
+                2 => "{\"track\":null}",
+                _ => $"{{\"track\":{{\"uri\":\"spotify:track:T{i}\",\"name\":\"Song {i}\",\"duration_ms\":{180000 + i},\"artists\":[{{\"name\":\"Artist\"}}]}}}}",
+            });
+        }
+        return $"{{\"total\":{total},\"items\":[{string.Join(",", items)}]}}";
+    }
+
+    private static int OffsetOf(string url)
+    {
+        var i = url.IndexOf("offset=", StringComparison.Ordinal) + 7;
+        var end = url.IndexOf('&', i);
+        return int.Parse(url[i..(end < 0 ? url.Length : end)]);
+    }
+
+    [AvaloniaFact]
+    public void BrowsingAPlaylistPagesThroughItsSongsAndStopsAtTheCap()
+    {
+        using var r = new Rig(enabled: true, connected: true);
+        var total = 120;
+        r.Fake.Answer = q => q.Url.Contains("/playlists/P/tracks") ? new SpotifyReply(200, PlaylistPage(OffsetOf(q.Url), total)) : null;
+        var vm = r.Vm;
+        vm.BrowseSpotifyPlaylistCommand.Execute(null);          // nothing chosen yet: a sentence
+        Assert.Contains("Choose one of your playlists", vm.StatusMessage);
+        vm.SpotifyPlaylists.Add(new SpotifyPlaylistRef("spotify:playlist:P", "Walk-in", total));
+        vm.SelectedSpotifyPlaylist = vm.SpotifyPlaylists[0];
+        vm.BrowseSpotifyPlaylistCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(new[] { 0, 50, 100 }, r.Fake.Of("/playlists/P/tracks").Select(q => OffsetOf(q.Url)).ToArray());
+        Assert.All(r.Fake.Of("/playlists/P/tracks"), q => Assert.Equal("A", q.Bearer)); // the token came first
+        Assert.Equal(118, r.Spotify.Tracks.Count);              // the local file and the removed song are skipped
+        Assert.Equal("spotify:playlist:P", r.Spotify.TracksOf);
+        Assert.Equal("118 songs.", r.Spotify.BrowseStatus);
+        Assert.Equal(118, vm.SpotifyTracks.Count);
+        Assert.Equal("118 songs.", vm.SpotifyBrowseStatus);
+        Assert.Equal("Artist · Song 0  ·  3:00", vm.SpotifyTracks[0].ToString());
+
+        // A browsed song becomes a one-press entry named like the read-back; the same song twice stays one entry.
+        vm.AddSpotifyTrackCommand.Execute(null);
+        Assert.Contains("Pick a song", vm.StatusMessage);
+        vm.SelectedSpotifyTrack = vm.SpotifyTracks[5];       // songs 0, 3, 4, 5, 6, 7 — the two skipped ones are not there
+        vm.AddSpotifyTrackCommand.Execute(null);
+        var item = Assert.Single(vm.State.Spotify.Items);
+        Assert.Equal(("spotify:track:T7", "Artist · Song 7"), (item.Uri, item.Name));
+        vm.AddSpotifyTrackCommand.Execute(null);
+        Assert.Single(vm.State.Spotify.Items);
+        Assert.Contains("already", vm.StatusMessage);
+
+        // A long listing stops at the cap and says so; a pasted link browses the same way.
+        total = 900;
+        r.Fake.Requests.Clear();
+        vm.MusicLinkDraft = "https://open.spotify.com/playlist/P?si=1";
+        vm.BrowseSpotifyLinkCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(10, r.Fake.Count("/playlists/P/tracks"));
+        Assert.Equal(498, r.Spotify.Tracks.Count);
+        Assert.Equal("First 498 songs of 900.", vm.SpotifyBrowseStatus);
+
+        // A song has nothing to browse; a link that is not Spotify is a sentence, not a request.
+        r.Fake.Requests.Clear();
+        vm.MusicLinkDraft = "spotify:track:T1";
+        vm.BrowseSpotifyLinkCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("a song has nothing inside it", vm.SpotifyBrowseStatus);
+        vm.MusicLinkDraft = "https://youtube.com/x";
+        vm.BrowseSpotifyLinkCommand.Execute(null);
+        Assert.Contains("Paste a Spotify playlist", vm.StatusMessage);
+        Assert.Empty(r.Fake.Requests);
+        Assert.Equal(498, vm.SpotifyTracks.Count);              // the last good listing stays
+    }
+
+    [AvaloniaFact]
+    public void SearchingListsHitsAndAddingOneMakesAnEntryAndAFailureIsASentence()
+    {
+        using var r = new Rig(enabled: true, connected: true);
+        r.Fake.Answer = q => q.Url.Contains("/search?")
+            ? new SpotifyReply(200,
+                "{\"tracks\":{\"items\":[{\"uri\":\"spotify:track:T\",\"name\":\"Kerala\",\"artists\":[{\"name\":\"Bonobo\"}]}]}," +
+                "\"playlists\":{\"items\":[null,{\"uri\":\"spotify:playlist:P\",\"name\":\"Chill\",\"owner\":{\"display_name\":\"Ben\"}}]}}")
+            : null;
+        var vm = r.Vm;
+        vm.SearchSpotifyCommand.Execute(null);                  // nothing typed
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains("Type a song", vm.SpotifyBrowseStatus);
+        Assert.Empty(r.Fake.Of("/search?"));
+
+        vm.MusicSearchDraft = " bonobo ";
+        vm.SearchSpotifyCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        var search = Assert.Single(r.Fake.Of("/search?"));
+        Assert.Contains("q=bonobo&", search.Url);
+        Assert.Equal("A", search.Bearer);
+        Assert.Equal(2, vm.SpotifySearchHits.Count);
+        Assert.Equal("2 results — pick one and ADD.", vm.SpotifyBrowseStatus);
+        Assert.Equal("SONG  Kerala — Bonobo", vm.SpotifySearchHits[0].ToString());
+
+        vm.AddSpotifySearchHitCommand.Execute(null);            // nothing picked
+        Assert.Contains("Pick a result", vm.StatusMessage);
+        vm.SelectedSpotifySearchHit = vm.SpotifySearchHits[1];
+        vm.AddSpotifySearchHitCommand.Execute(null);
+        vm.SelectedSpotifySearchHit = vm.SpotifySearchHits[0];
+        vm.AddSpotifySearchHitCommand.Execute(null);
+        Assert.Equal(new[] { ("spotify:playlist:P", "Chill"), ("spotify:track:T", "Bonobo · Kerala") },
+            vm.State.Spotify.Items.Select(i => (i.Uri, i.Name)).ToArray());
+
+        r.Fake.Throw = true;
+        vm.SearchSpotifyCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Spotify is unavailable — check the network.", vm.SpotifyBrowseStatus);
+        Assert.Equal(2, vm.SpotifySearchHits.Count);            // the last good answer stays listed
+
+        // Not signed in: a sentence, and no request at all.
+        r.Fake.Throw = false;
+        r.Fake.Requests.Clear();
+        r.Spotify.Disconnect();
+        vm.SearchSpotifyCommand.Execute(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("Not connected — press CONNECT on the Audio page.", vm.SpotifyBrowseStatus);
+        Assert.Empty(r.Fake.Requests);
+    }
+
+    [AvaloniaFact]
+    public void ALookStartsItsMusicOnAirAndNeverInThePreview()
+    {
+        using var r = new Rig(enabled: true, connected: true);
+        var item = r.Item("Interval bed", "spotify:playlist:X");
+        var vm = r.Vm;
+        vm.IsSandboxActive = false;
+        var look = SaveLook(vm, "Walk-in", PatternKind.ColorBars);
+        look.MusicItemId = item.Id;
+        vm.ActivePattern.Kind = PatternKind.Grid;
+
+        var result = r.Execute(ShowActionKind.ApplyLook, look.Id);
+        Assert.Equal(ActionStatus.Requested, result.Status);    // the look settles on its music, like a cue would
+        Assert.Contains("Walk-in", result.Message);
+        Assert.Contains("Interval bed", result.Message);
+        Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
+        Assert.True(r.Music.Playing);
+        Assert.Equal(item.Id, r.Music.PlayingId);
+        var tail = r.Services.Journal.Tail(2);
+        Assert.Equal(new[] { "ApplyLook", "SpotifyPlay" }, tail.Select(e => e.Kind).OrderBy(k => k).ToArray());
+        Assert.Equal("Interval bed", tail.Single(e => e.Kind == "SpotifyPlay").Target);
+        Assert.Contains("Walk-in", tail.Single(e => e.Kind == "SpotifyPlay").Message);
+        Assert.Equal("Walk-in", tail.Single(e => e.Kind == "ApplyLook").Target);
+        Assert.All(tail, e => Assert.Equal(ActionOrigin.Desk.Label, e.Origin));
+        r.Poll(3);
+        Assert.Single(r.Fake.Of("/me/player/play"));
+
+        // Loading the same look into the preview changes the picture there and nothing about the music.
+        r.Execute(ShowActionKind.SpotifyPause);
+        r.Fake.Requests.Clear();
+        vm.IsSandboxActive = true;
+        Assert.Equal(ActionStatus.Done, r.Execute(ShowActionKind.ApplyLookToPreview, look.Id).Status);
+        r.Poll(3);
+        Assert.False(r.Music.Playing);
+        Assert.Empty(r.Fake.Of("/me/player/play"));
+
+        // A look that pauses: the pause goes out on this turn, as PAUSE does.
+        vm.IsSandboxActive = false;
+        var speech = SaveLook(vm, "Speech", PatternKind.Focus);
+        speech.MusicItemId = LookConfig.PauseMusic;
+        r.Execute(ShowActionKind.SpotifyPlay, "1");
+        r.Poll(2);
+        var pauses = r.Fake.Count("/me/player/pause");
+        var onAir = r.Execute(ShowActionKind.ApplyLook, speech.Id);
+        Assert.Equal(ActionStatus.Requested, onAir.Status);
+        Assert.False(r.Music.Playing);
+        Assert.Equal(pauses + 1, r.Fake.Count("/me/player/pause"));
+        Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);
+    }
+
+    [AvaloniaFact]
+    public void ALookWhoseMusicIsOffOrGoneStillLandsAndSaysSo()
+    {
+        using var r = new Rig(enabled: false, connected: true);
+        var item = r.Item("Interval bed", "spotify:playlist:X");
+        var vm = r.Vm;
+        vm.IsSandboxActive = false;
+        var look = SaveLook(vm, "Walk-in", PatternKind.ColorBars);
+        look.MusicItemId = item.Id;
+        vm.ActivePattern.Kind = PatternKind.Grid;
+
+        // Break music off: the look lands, the music step is a no-op, nothing goes out.
+        var off = r.Execute(ShowActionKind.ApplyLook, look.Id);
+        Assert.Equal(ActionStatus.Done, off.Status);
+        Assert.Contains("Break music is off", off.Message);
+        Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
+        Assert.False(r.Music.Playing);
+        r.Poll(3);
+        Assert.Empty(r.Fake.Requests);
+
+        // The entry is gone: the look still lands; the music step is refused and journaled as such.
+        r.Music.Enabled = true;
+        look.MusicItemId = "ghost";
+        vm.ActivePattern.Kind = PatternKind.Grid;
+        var gone = r.Execute(ShowActionKind.ApplyLook, look.Id);
+        Assert.Equal(ActionStatus.Done, gone.Status);
+        Assert.Contains("No break music 'ghost'", gone.Message);
+        Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
+        Assert.False(r.Music.Playing);
+        var music = r.Services.Journal.Tail(2).Single(e => e.Kind == "SpotifyPlay");
+        Assert.Equal("Refused", music.Outcome);
+        Assert.Contains("Walk-in", music.Message);
+
+        // A cue applying that look validates with a warning, never a broken row, and runs.
+        var stack = CueStacks.Caller(vm.State);
+        var cue = new RunCueConfig { Number = "01.010", Name = "Doors" };
+        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+        stack.Cues.Add(cue);
+        Dispatcher.UIThread.RunJobs();
+        var report = CueValidator.Validate(vm.State, stack, r.Services.ValidationContext);
+        Assert.False(report.IsBroken(cue.Id));
+        Assert.True(report.Warnings.TryGetValue(cue.Id, out var warning));
+        Assert.Contains("no longer in the library", warning);
+        vm.ActivePattern.Kind = PatternKind.Grid;
+        var fired = r.Services.Actions.Execute(new ShowAction(ShowActionKind.CueFire, cue.Id), ActionOrigin.Desk);
+        Assert.True(fired.Ok, fired.Message);
+        Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
+
+        // Deleting an entry a look starts is refused and names the look.
+        look.MusicItemId = item.Id;
+        vm.RemoveMusicItemCommand.Execute(item);
+        Assert.Contains(item, vm.State.Spotify.Items);
+        Assert.Contains("look 'Walk-in'", vm.StatusMessage);
+    }
+
+    [AvaloniaFact]
+    public void TheLooksPageOffersMusicPerLookAndARenameNeverDropsTheChoice()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            vm.State.Spotify.Enabled = true;
+            var bed = new SpotifyItemConfig { Name = "Interval bed", Uri = "spotify:playlist:X" };
+            vm.State.Spotify.Items.Add(bed);
+            vm.NewLookName = "Walk-in";
+            vm.SaveLookCommand.Execute(null);
+            var look = LookService.Find(vm.State, "Walk-in")!;
+            look.MusicItemId = bed.Id;
+            vm.PollNow();
+            Assert.Equal(new[] { "", LookConfig.PauseMusic, bed.Id }, vm.LookMusicChoices.Select(c => c.Id).ToArray());
+            Assert.Equal("▶ Interval bed", vm.LookMusicChoices[2].Label);
+
+            var host = new Window { DataContext = vm, Width = 900, Height = 700, Content = new ScrollViewer { Content = new LooksSection() } };
+            host.Show();
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            var picker = host.GetVisualDescendants().OfType<ComboBox>().Single(c => c.Name == "LookMusic");
+            Assert.True(picker.IsVisible);
+            Assert.Equal(bed.Id, Assert.IsType<LookMusicChoice>(picker.SelectedItem).Id);
+
+            // A rename relabels in place and an added entry appends: the look keeps its choice through both.
+            bed.Name = "Doors bed";
+            vm.State.Spotify.Items.Add(new SpotifyItemConfig { Name = "Walk-out", Uri = "spotify:album:Y" });
+            vm.PollNow();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("▶ Doors bed", vm.LookMusicChoices[2].Label);
+            Assert.Equal(4, vm.LookMusicChoices.Count);
+            Assert.Equal(bed.Id, look.MusicItemId);
+            Assert.Same(vm.LookMusicChoices[2], picker.SelectedItem);
+
+            // A look naming an entry that has gone keeps an offered, marked choice rather than losing it.
+            look.MusicItemId = "ghost";
+            vm.PollNow();
+            Assert.Contains(vm.LookMusicChoices, c => c.Id == "ghost" && c.Label.Contains("no longer"));
+            look.MusicItemId = bed.Id;
+            vm.PollNow();
+            Assert.DoesNotContain(vm.LookMusicChoices, c => c.Id == "ghost");
+
+            // Picking "pause" writes through; switching break music off hides the picker.
+            picker.SelectedItem = vm.LookMusicChoices[1];
+            Assert.Equal(LookConfig.PauseMusic, look.MusicItemId);
+            vm.State.Spotify.Enabled = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(picker.IsVisible);
+            host.Close();
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
 }

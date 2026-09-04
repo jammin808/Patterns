@@ -442,6 +442,159 @@ public class SpotifyLibraryTests
         Assert.Contains(refs, r => r.Contains("03.030 By name"));
         Assert.Empty(SpotifyLibrary.References(state, new SpotifyItemConfig { Id = "other", Uri = "spotify:track:x" }));
     }
+
+    [Fact]
+    public void ReferencesNameTheLooksThatStartAnEntryAndAPauseNamesNothing()
+    {
+        var state = new ShowState();
+        var a = new SpotifyItemConfig { Id = "m-a", Name = "Interval bed", Uri = "spotify:playlist:A" };
+        state.Spotify.Items.Add(a);
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", MusicItemId = "m-a" });
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Speech", MusicItemId = LookConfig.PauseMusic });
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Plain" });
+        Assert.Equal(new[] { "look 'Walk-in'" }, SpotifyLibrary.References(state, a));
+        Assert.True(SpotifyLibrary.StartsMusic(state.LooksAndCues.Looks[0]));
+        Assert.False(SpotifyLibrary.StartsMusic(state.LooksAndCues.Looks[1]));
+        Assert.False(SpotifyLibrary.StartsMusic(state.LooksAndCues.Looks[2]));
+    }
+}
+
+/// <summary>Browsing and searching — the URLs and the readers, pure — and what a look remembers about music.</summary>
+public class SpotifyBrowseTests
+{
+    [Fact]
+    public void TheSongsUrlsPageAPlaylistOrAlbumAndTakeAnArtistsTopSongs()
+    {
+        Assert.True(SpotifyUri.TryParse("spotify:playlist:P1", out var list));
+        Assert.Equal("https://api.spotify.com/v1/playlists/P1/tracks?offset=0&limit=50&fields=total,items(is_local,track(uri,name,duration_ms,artists(name)))",
+            SpotifyEndpoints.TracksUrl(list));
+        Assert.StartsWith("https://api.spotify.com/v1/playlists/P1/tracks?offset=100&limit=50&", SpotifyEndpoints.TracksUrl(list, 100, 500)); // the page size is Spotify's
+        Assert.True(SpotifyUri.TryParse("spotify:album:A1", out var album));
+        Assert.Equal("https://api.spotify.com/v1/albums/A1/tracks?offset=50&limit=50", SpotifyEndpoints.TracksUrl(album, 50));
+        Assert.True(SpotifyUri.TryParse("spotify:artist:R1", out var artist));
+        Assert.Equal("https://api.spotify.com/v1/artists/R1/top-tracks", SpotifyEndpoints.TracksUrl(artist, 50));
+        Assert.True(SpotifyUri.TryParse("spotify:track:T1", out var song));
+        Assert.Equal("", SpotifyEndpoints.TracksUrl(song));
+        Assert.Equal("", SpotifyEndpoints.TracksUrl(default));
+
+        Assert.Equal("https://api.spotify.com/v1/search?q=bonobo%20kerala&type=track,album,playlist,artist&limit=10", SpotifyEndpoints.SearchUrl(" bonobo kerala "));
+        Assert.EndsWith("limit=50", SpotifyEndpoints.SearchUrl("x", 500));
+        Assert.EndsWith("limit=1", SpotifyEndpoints.SearchUrl("x", 0));
+        Assert.Contains("q=&", SpotifyEndpoints.SearchUrl(null));
+    }
+
+    [Fact]
+    public void ReadsSongsInEveryShapeAndSkipsWhatCannotBePlayedByName()
+    {
+        var (playlist, total, read) = SpotifyJson.ReadTracks("""
+            {"total":120,"items":[
+              {"is_local":false,"track":{"uri":"spotify:track:A","name":"Kerala","duration_ms":222000,"artists":[{"name":"Bonobo"},{"name":"Other"}]}},
+              {"is_local":false,"track":null},
+              {"is_local":true,"track":{"uri":"spotify:local:x:y:z","name":"Ripped","artists":[]}},
+              {"is_local":false,"track":{"uri":"spotify:episode:E","name":"A podcast","artists":[]}},
+              {"is_local":false,"track":{"uri":"spotify:track:B","name":"No artist"}},
+              7]}
+            """);
+        Assert.Equal(120, total);
+        Assert.Equal(6, read);
+        Assert.Equal(2, playlist.Count);
+        Assert.Equal(("spotify:track:A", "Kerala", "Bonobo", 222000), (playlist[0].Uri, playlist[0].Name, playlist[0].Artist, playlist[0].DurationMs));
+        Assert.Equal("Bonobo · Kerala", playlist[0].Line);
+        Assert.Equal("3:42", playlist[0].Length);
+        Assert.Equal("Bonobo · Kerala  ·  3:42", playlist[0].ToString());
+        Assert.Equal("No artist", playlist[1].Line);
+        Assert.Equal("No artist", playlist[1].ToString());
+
+        var (album, albumTotal, albumRead) = SpotifyJson.ReadTracks("""
+            {"total":2,"items":[{"uri":"spotify:track:C","name":"One","artists":[{"name":"Band"}],"duration_ms":61000},
+                                {"uri":"spotify:track:D","name":"Two","artists":[{"name":"Band"}]}]}
+            """);
+        Assert.Equal((2, 2, 2), (album.Count, albumTotal, albumRead));
+        Assert.Equal("1:01", album[0].Length);
+        Assert.Equal("", album[1].Length);
+
+        var (top, topTotal, topRead) = SpotifyJson.ReadTracks("""{"tracks":[{"uri":"spotify:track:E","name":"Hit","artists":[{"name":"Star"}]}]}""");
+        Assert.Equal((1, 1, 1), (top.Count, topTotal, topRead));
+
+        // A total smaller than the page is corrected by what was read; junk is empty, never a throw.
+        Assert.Equal(3, SpotifyJson.ReadTracks("""{"total":1,"items":[{"uri":"spotify:track:A","name":"a"},{"uri":"spotify:track:B","name":"b"},null]}""").Total);
+        Assert.Equal((0, 0), (SpotifyJson.ReadTracks("").Total, SpotifyJson.ReadTracks("").Read));
+        Assert.Empty(SpotifyJson.ReadTracks("{\"items\":[{").Tracks);
+        Assert.Empty(SpotifyJson.ReadTracks("[1]").Tracks);
+        Assert.Empty(SpotifyJson.ReadTracks("{}").Tracks);
+    }
+
+    [Fact]
+    public void ReadsSearchHitsSongsFirstAndSkipsTheNullsSpotifySends()
+    {
+        var hits = SpotifyJson.ReadSearch("""
+            {"playlists":{"items":[{"uri":"spotify:playlist:P","name":"Chill","owner":{"display_name":"Ben"},"tracks":{"total":40}}, null, {"uri":"spotify:playlist:Q","name":"Nameless owner"}]},
+             "tracks":{"items":[{"uri":"spotify:track:T","name":"Kerala","artists":[{"name":"Bonobo"}],"duration_ms":1}, {"uri":"spotify:track:U"}]},
+             "albums":{"items":[{"uri":"spotify:album:A","name":"Migration","artists":[{"name":"Bonobo"}]}]},
+             "artists":{"items":[{"uri":"spotify:artist:R","name":"Bonobo"}]}}
+            """);
+        Assert.Equal(new[] { SpotifyRefKind.Track, SpotifyRefKind.Album, SpotifyRefKind.Playlist, SpotifyRefKind.Playlist, SpotifyRefKind.Artist },
+            hits.Select(h => h.Kind).ToArray());
+        Assert.Equal("SONG  Kerala — Bonobo", hits[0].ToString());
+        Assert.Equal("Bonobo · Kerala", hits[0].EntryName);
+        Assert.Equal("ALBUM  Migration — Bonobo", hits[1].ToString());
+        Assert.Equal("Migration", hits[1].EntryName);
+        Assert.Equal("LIST  Chill — by Ben · 40 songs", hits[2].ToString());
+        Assert.Equal("LIST  Nameless owner", hits[3].ToString());
+        Assert.Equal("ARTIST  Bonobo", hits[4].ToString());
+        Assert.Empty(SpotifyJson.ReadSearch("garbage"));
+        Assert.Empty(SpotifyJson.ReadSearch("{\"tracks\":{\"items\":\"no\"}}"));
+        Assert.Empty(SpotifyJson.ReadSearch("[]"));
+    }
+
+    [Fact]
+    public void ALookRemembersItsMusicAndAnOlderLookHasNone()
+    {
+        var state = new ShowState();
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", MusicItemId = "m1" });
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Speech", MusicItemId = LookConfig.PauseMusic });
+        var back = JsonUtil.Deserialize<ShowState>(JsonUtil.Serialize(state))!;
+        Assert.Equal("m1", back.LooksAndCues.Looks[0].MusicItemId);
+        Assert.Equal("pause", back.LooksAndCues.Looks[1].MusicItemId);
+
+        Assert.Equal("", JsonUtil.Deserialize<LookConfig>("{\"Name\":\"Old\",\"Json\":\"{}\"}")!.MusicItemId);
+        Assert.Equal("", JsonUtil.Deserialize<LookConfig>("{\"MusicItemId\":null}")!.MusicItemId);
+        Assert.Equal("", new LookConfig { MusicItemId = null! }.MusicItemId);
+    }
+
+    [Fact]
+    public void ALookNamingMissingOrSwitchedOffMusicOnlyWarnsAndACueStillRuns()
+    {
+        var state = new ShowState();
+        state.Spotify.Enabled = true;
+        state.Spotify.Items.Add(new SpotifyItemConfig { Id = "m1", Name = "Interval bed", Uri = "spotify:playlist:X" });
+        var look = new LookConfig { Name = "Walk-in", Json = LookService.Capture(state), MusicItemId = "ghost" };
+        state.LooksAndCues.Looks.Add(look);
+        var ready = new CueValidationContext { FileExists = _ => true, VideoDecoderAvailable = true, MusicReady = true };
+        RunCueConfig Cue()
+        {
+            var c = new RunCueConfig { Number = "1", Name = "Doors" };
+            c.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+            return c;
+        }
+
+        var missing = CueValidator.ValidateOne(state, Cue(), ready);
+        Assert.Equal(0, missing.BrokenCount);
+        Assert.Contains("no longer in the library", missing.Warnings.Values.Single());
+
+        look.MusicItemId = "m1";
+        Assert.Empty(CueValidator.ValidateOne(state, Cue(), ready).Warnings);
+
+        state.Spotify.Enabled = false;
+        var off = CueValidator.ValidateOne(state, Cue(), ready);
+        Assert.Equal(0, off.BrokenCount);
+        Assert.Contains("break music is off", off.Warnings.Values.Single());
+
+        look.MusicItemId = LookConfig.PauseMusic; // pausing nothing is nothing to warn about
+        Assert.Empty(CueValidator.ValidateOne(state, Cue(), ready).Warnings);
+        look.MusicItemId = "";
+        Assert.Empty(CueValidator.ValidateOne(state, Cue(), ready).Warnings);
+    }
 }
 
 public class SpotifyCredentialStoreTests

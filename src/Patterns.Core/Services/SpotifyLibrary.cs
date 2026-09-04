@@ -30,7 +30,7 @@ public static class SpotifyLibrary
         return null;
     }
 
-    /// <summary>What still points at an entry — the cues that play it — so a delete can refuse and say why.</summary>
+    /// <summary>What still points at an entry — the cues that play it, the looks that start it — so a delete can refuse and say why.</summary>
     public static IReadOnlyList<string> References(ShowState state, SpotifyItemConfig item)
     {
         var refs = new List<string>();
@@ -39,6 +39,14 @@ public static class SpotifyLibrary
             if (action.Kind != CueActionKind.SpotifyPlay) continue;
             if (ReferenceEquals(Find(state, action.Target), item)) refs.Add($"{stack.Name} cue {cue.Number} {cue.Name}");
         }
+        foreach (var look in state.LooksAndCues.Looks)
+        {
+            if (StartsMusic(look) && ReferenceEquals(Find(state, look.MusicItemId), item)) refs.Add($"look '{look.Name}'");
+        }
         return refs;
     }
+
+    /// <summary>True when a look names an entry to play (not "leave it", not "pause").</summary>
+    public static bool StartsMusic(LookConfig look)
+        => look.MusicItemId.Length > 0 && look.MusicItemId != LookConfig.PauseMusic;
 }

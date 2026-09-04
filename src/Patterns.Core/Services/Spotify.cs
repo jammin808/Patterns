@@ -214,6 +214,32 @@ public static class SpotifyEndpoints
     public static string PlaylistsUrl(int limit = 50)
         => Api + "/me/playlists?limit=" + Math.Clamp(limit, 1, 50).ToString(CultureInfo.InvariantCulture);
 
+    /// <summary>The page size Spotify allows on a songs listing.</summary>
+    public const int TracksPage = 50;
+
+    /// <summary>
+    /// The songs inside a playlist or album (paged), or an artist's top songs (one page). Empty
+    /// for a song or junk: there is nothing to browse inside one.
+    /// </summary>
+    public static string TracksUrl(SpotifyRef r, int offset = 0, int limit = TracksPage)
+    {
+        var page = "offset=" + Math.Max(0, offset).ToString(CultureInfo.InvariantCulture) +
+                   "&limit=" + Math.Clamp(limit, 1, TracksPage).ToString(CultureInfo.InvariantCulture);
+        return r.Kind switch
+        {
+            SpotifyRefKind.Playlist => Api + "/playlists/" + Uri.EscapeDataString(r.Id) + "/tracks?" + page +
+                                       "&fields=total,items(is_local,track(uri,name,duration_ms,artists(name)))",
+            SpotifyRefKind.Album => Api + "/albums/" + Uri.EscapeDataString(r.Id) + "/tracks?" + page,
+            SpotifyRefKind.Artist => Api + "/artists/" + Uri.EscapeDataString(r.Id) + "/top-tracks",
+            _ => "",
+        };
+    }
+
+    /// <summary>Songs, albums, playlists and artists matching some words — a handful of each.</summary>
+    public static string SearchUrl(string? query, int limit = 10)
+        => Api + "/search?q=" + Uri.EscapeDataString((query ?? "").Trim()) +
+           "&type=track,album,playlist,artist&limit=" + Math.Clamp(limit, 1, 50).ToString(CultureInfo.InvariantCulture);
+
     /// <summary>Context for a playlist/album/artist, a uri list for one song, null to resume.</summary>
     public static string? PlayBody(string? uri)
     {
@@ -250,6 +276,29 @@ public sealed record SpotifyDevice(string Id, string Name, bool IsActive, bool I
 public sealed record SpotifyPlaylistRef(string Uri, string Name, int Tracks)
 {
     public override string ToString() => Tracks > 0 ? $"{Name} ({Tracks})" : Name;
+}
+
+/// <summary>One song, as a playlist, an album, an artist's top songs or a search names it.</summary>
+public sealed record SpotifyTrackRef(string Uri, string Name, string Artist, int DurationMs)
+{
+    /// <summary>"Bonobo · Kerala" — the same line the read-back shows.</summary>
+    public string Line => Artist.Length == 0 ? Name : $"{Artist} · {Name}";
+
+    /// <summary>"3:42"; empty when the length is unknown.</summary>
+    public string Length => DurationMs > 0 ? $"{DurationMs / 60000}:{DurationMs / 1000 % 60:00}" : "";
+
+    public override string ToString() => Length.Length > 0 ? $"{Line}  ·  {Length}" : Line;
+}
+
+/// <summary>One search result — a song, album, playlist or artist — with the line that tells them apart.</summary>
+public sealed record SpotifySearchHit(SpotifyRefKind Kind, string Uri, string Name, string Detail)
+{
+    public string KindLabel => new SpotifyRef(Kind, "").KindLabel;
+
+    /// <summary>The library entry's name when a hit is added: "Bonobo · Kerala" for a song, the name for the rest.</summary>
+    public string EntryName => Kind == SpotifyRefKind.Track && Detail.Length > 0 ? $"{Detail} · {Name}" : Name;
+
+    public override string ToString() => Detail.Length > 0 ? $"{KindLabel}  {Name} — {Detail}" : $"{KindLabel}  {Name}";
 }
 
 /// <summary>What Spotify says is actually happening — the read-back the desk and the remote show.</summary>
@@ -404,6 +453,105 @@ public static class SpotifyJson
             Log.Warn("Spotify playlist list unreadable.", ex);
         }
         return list;
+    }
+
+    /// <summary>
+    /// One page of songs in any of the three shapes Spotify uses — playlist items wrapping a
+    /// <c>track</c>, album items that are the track, an artist's <c>tracks</c> array. Skips what
+    /// cannot be played by name: a removed song (a null track), a local file, a podcast episode.
+    /// <c>Read</c> counts every item on the page so a caller pages by it, not by what survived;
+    /// <c>Total</c> is the listing's whole length (the page's own count when it is not paged).
+    /// </summary>
+    public static (IReadOnlyList<SpotifyTrackRef> Tracks, int Total, int Read) ReadTracks(string body)
+    {
+        var list = new List<SpotifyTrackRef>();
+        var read = 0;
+        var total = 0;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return (list, 0, 0);
+            var paged = root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array;
+            if (!paged && !(root.TryGetProperty("tracks", out items) && items.ValueKind == JsonValueKind.Array)) return (list, 0, 0);
+            foreach (var item in items.EnumerateArray())
+            {
+                read++;
+                if (item.ValueKind != JsonValueKind.Object) continue;
+                var track = item.TryGetProperty("track", out var inner) ? inner : item;
+                if (track.ValueKind != JsonValueKind.Object) continue;
+                if (Bool(item, "is_local") || Bool(track, "is_local")) continue;
+                if (!SpotifyUri.TryParse(Str(track, "uri"), out var r) || r.Kind != SpotifyRefKind.Track) continue;
+                list.Add(new SpotifyTrackRef(r.Uri, Str(track, "name"), FirstArtist(track), Int(track, "duration_ms")));
+            }
+            total = paged ? Math.Max(Int(root, "total"), read) : read;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Spotify song list unreadable.", ex);
+        }
+        return (list, total, read);
+    }
+
+    /// <summary>Search results in the order an operator scans them — songs, albums, playlists, artists; the nulls Spotify sends are skipped.</summary>
+    public static IReadOnlyList<SpotifySearchHit> ReadSearch(string body)
+    {
+        var list = new List<SpotifySearchHit>();
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return list;
+            foreach (var (group, kind) in new[]
+                     {
+                         ("tracks", SpotifyRefKind.Track), ("albums", SpotifyRefKind.Album),
+                         ("playlists", SpotifyRefKind.Playlist), ("artists", SpotifyRefKind.Artist),
+                     })
+            {
+                if (!root.TryGetProperty(group, out var g) || g.ValueKind != JsonValueKind.Object) continue;
+                if (!g.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array) continue;
+                foreach (var item in items.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object) continue;
+                    if (!SpotifyUri.TryParse(Str(item, "uri"), out var r) || r.Kind != kind) continue;
+                    var name = Str(item, "name");
+                    if (name.Length == 0) continue;
+                    var detail = kind switch
+                    {
+                        SpotifyRefKind.Playlist => PlaylistDetail(item),
+                        SpotifyRefKind.Artist => "",
+                        _ => FirstArtist(item),
+                    };
+                    list.Add(new SpotifySearchHit(kind, r.Uri, name, detail));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Spotify search reply unreadable.", ex);
+        }
+        return list;
+    }
+
+    private static string FirstArtist(JsonElement track)
+    {
+        if (!track.TryGetProperty("artists", out var artists) || artists.ValueKind != JsonValueKind.Array) return "";
+        foreach (var a in artists.EnumerateArray())
+        {
+            var name = Str(a, "name");
+            if (name.Length > 0) return name;
+        }
+        return "";
+    }
+
+    /// <summary>"by Ben · 40 songs" — what tells two playlists of the same name apart.</summary>
+    private static string PlaylistDetail(JsonElement p)
+    {
+        var owner = p.TryGetProperty("owner", out var o) ? Str(o, "display_name") : "";
+        var tracks = p.TryGetProperty("tracks", out var t) && t.ValueKind == JsonValueKind.Object ? Int(t, "total") : 0;
+        var songs = tracks > 0 ? $"{tracks} songs" : "";
+        if (owner.Length > 0 && songs.Length > 0) return $"by {owner} · {songs}";
+        return owner.Length > 0 ? $"by {owner}" : songs;
     }
 
     /// <summary>The account line the Audio page shows: the display name and whether it is Premium.</summary>

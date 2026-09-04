@@ -261,7 +261,45 @@ public sealed class MainViewModel : Observable
         ResumeMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyPlay, ActionOrigin.Desk));
         PauseMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyPause, ActionOrigin.Desk));
         SkipMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyNext, ActionOrigin.Desk));
+        BrowseSpotifyPlaylistCommand = new RelayCommand(() =>
+        {
+            if (SelectedSpotifyPlaylist is not { } list)
+            {
+                StatusMessage = "Choose one of your playlists first — press Refresh my playlists after CONNECT.";
+                return;
+            }
+            _ = BrowseSpotifyAsync(list.Uri);
+        });
+        BrowseSpotifyLinkCommand = new RelayCommand(() =>
+        {
+            if (!SpotifyUri.TryParse(MusicLinkDraft, out var r))
+            {
+                StatusMessage = "Paste a Spotify playlist, album or artist link to browse its songs.";
+                return;
+            }
+            _ = BrowseSpotifyAsync(r.Uri);
+        });
+        AddSpotifyTrackCommand = new RelayCommand(() =>
+        {
+            if (SelectedSpotifyTrack is not { } track)
+            {
+                StatusMessage = "Pick a song in the list first.";
+                return;
+            }
+            AddMusicEntry(track.Uri, track.Line);
+        });
+        SearchSpotifyCommand = new RelayCommand(() => _ = SearchSpotifyAsync());
+        AddSpotifySearchHitCommand = new RelayCommand(() =>
+        {
+            if (SelectedSpotifySearchHit is not { } hit)
+            {
+                StatusMessage = "Pick a result first.";
+                return;
+            }
+            AddMusicEntry(hit.Uri, hit.EntryName);
+        });
         RefreshSpotifyDevices();
+        RefreshLookMusicChoices();
 
         // VOG / stinger: the desk's own chips assert the kind, so a panel that is stale after a
         // re-kind on the Audio page refuses rather than surprises.
@@ -2038,6 +2076,126 @@ public sealed class MainViewModel : Observable
     private IReadOnlyList<SpotifyDevice>? _spotifyDevicesSeen;
     private IReadOnlyList<SpotifyPlaylistRef>? _spotifyPlaylistsSeen;
 
+    // ---- browse & search (desk only; a free account can do this much) --------
+
+    public ObservableCollection<SpotifyTrackRef> SpotifyTracks { get; } = new();
+
+    private SpotifyTrackRef? _selectedSpotifyTrack;
+    public SpotifyTrackRef? SelectedSpotifyTrack { get => _selectedSpotifyTrack; set => Set(ref _selectedSpotifyTrack, value); }
+
+    public ObservableCollection<SpotifySearchHit> SpotifySearchHits { get; } = new();
+
+    private SpotifySearchHit? _selectedSpotifySearchHit;
+    public SpotifySearchHit? SelectedSpotifySearchHit { get => _selectedSpotifySearchHit; set => Set(ref _selectedSpotifySearchHit, value); }
+
+    private string _musicSearchDraft = "";
+    public string MusicSearchDraft { get => _musicSearchDraft; set => Set(ref _musicSearchDraft, value ?? ""); }
+
+    private string _spotifyBrowseStatus = "";
+    public string SpotifyBrowseStatus { get => _spotifyBrowseStatus; private set => Set(ref _spotifyBrowseStatus, value); }
+
+    public RelayCommand BrowseSpotifyPlaylistCommand { get; }
+    public RelayCommand BrowseSpotifyLinkCommand { get; }
+    public RelayCommand AddSpotifyTrackCommand { get; }
+    public RelayCommand SearchSpotifyCommand { get; }
+    public RelayCommand AddSpotifySearchHitCommand { get; }
+
+    private IReadOnlyList<SpotifyTrackRef>? _spotifyTracksSeen;
+    private IReadOnlyList<SpotifySearchHit>? _spotifySearchSeen;
+
+    private void RefreshSpotifyBrowse()
+    {
+        var tracks = _services.Spotify.Tracks;
+        if (!ReferenceEquals(_spotifyTracksSeen, tracks))
+        {
+            _spotifyTracksSeen = tracks;
+            SpotifyTracks.Clear();
+            foreach (var t in tracks) SpotifyTracks.Add(t);
+            SelectedSpotifyTrack = null;
+        }
+        var hits = _services.Spotify.SearchHits;
+        if (!ReferenceEquals(_spotifySearchSeen, hits))
+        {
+            _spotifySearchSeen = hits;
+            SpotifySearchHits.Clear();
+            foreach (var h in hits) SpotifySearchHits.Add(h);
+            SelectedSpotifySearchHit = null;
+        }
+        SpotifyBrowseStatus = _services.Spotify.BrowseStatus;
+    }
+
+    private async Task BrowseSpotifyAsync(string uri)
+    {
+        try
+        {
+            await _services.Spotify.LoadTracksAsync(uri);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Spotify browse issue.", ex);
+        }
+        RefreshSpotifyBrowse();
+    }
+
+    private async Task SearchSpotifyAsync()
+    {
+        try
+        {
+            await _services.Spotify.SearchAsync(MusicSearchDraft);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Spotify search issue.", ex);
+        }
+        RefreshSpotifyBrowse();
+    }
+
+    /// <summary>A browsed song or a search hit becomes a one-press entry; the same link twice stays one entry.</summary>
+    private void AddMusicEntry(string uri, string name)
+    {
+        if (!SpotifyUri.TryParse(uri, out var r)) return;
+        if (State.Spotify.Items.FirstOrDefault(i => i.Uri == r.Uri) is { } existing)
+        {
+            StatusMessage = $"'{existing.DisplayName}' is already in break music.";
+            return;
+        }
+        State.Spotify.Items.Add(new SpotifyItemConfig { Uri = r.Uri, Name = name });
+        StatusMessage = $"Added '{name}' to break music.";
+        RefreshLookMusicChoices();
+    }
+
+    // ---- music on a look -----------------------------------------------------
+
+    /// <summary>The Music picker on every look: leave it, pause it, or one of the break-music entries.</summary>
+    public ObservableCollection<LookMusicChoice> LookMusicChoices { get; } = new();
+
+    /// <summary>
+    /// Kept in step with the break-music list by adding and relabelling in place. A choice is
+    /// removed only when no look names it — a bound picker that loses its selected item writes
+    /// the loss back into the look — so an entry a look still names stays offered, marked, until
+    /// the look is pointed elsewhere.
+    /// </summary>
+    private void RefreshLookMusicChoices()
+    {
+        var wanted = new List<(string Id, string Label)> { ("", "Leave the music alone"), (LookConfig.PauseMusic, "Pause break music") };
+        foreach (var m in State.Spotify.Items) wanted.Add((m.Id, "▶ " + m.DisplayName));
+        foreach (var look in State.LooksAndCues.Looks)
+        {
+            var id = look.MusicItemId;
+            if (id.Length > 0 && wanted.All(w => w.Id != id)) wanted.Add((id, "▶ (no longer in break music)"));
+        }
+        for (var i = LookMusicChoices.Count - 1; i >= 0; i--)
+        {
+            if (wanted.All(w => w.Id != LookMusicChoices[i].Id)) LookMusicChoices.RemoveAt(i);
+        }
+        foreach (var (id, label) in wanted)
+        {
+            var existing = LookMusicChoices.FirstOrDefault(c => c.Id == id);
+            if (existing is null) LookMusicChoices.Add(new LookMusicChoice(id, label));
+            else if (existing.Label != label) existing.Label = label;
+        }
+    }
+
     /// <summary>
     /// The "Play on" picker: whichever device is active, then Spotify's devices, then the show's
     /// choice when it is not on Spotify right now (so a loaded show never loses its device).
@@ -3121,6 +3279,13 @@ public sealed class MainViewModel : Observable
         SpotifyNowPlaying = _services.Spotify.NowPlaying;
         if (!ReferenceEquals(_spotifyDevicesSeen, _services.Spotify.Devices)) RefreshSpotifyDevices();       // CONNECT filled them in
         if (!ReferenceEquals(_spotifyPlaylistsSeen, _services.Spotify.Playlists)) RefreshSpotifyPlaylists();
+        if (!ReferenceEquals(_spotifyTracksSeen, _services.Spotify.Tracks) ||
+            !ReferenceEquals(_spotifySearchSeen, _services.Spotify.SearchHits) ||
+            SpotifyBrowseStatus != _services.Spotify.BrowseStatus)
+        {
+            RefreshSpotifyBrowse();
+        }
+        RefreshLookMusicChoices(); // a renamed or added entry, a loaded show
         HealthText = HealthMonitor.Summary(DateTime.UtcNow);
         StreamStatus = _services.Stream.Status;
         _statusTicks++;

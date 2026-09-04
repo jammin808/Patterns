@@ -267,6 +267,18 @@ public static class CueValidator
         {
             soft($"{where}: look '{look.Name}' was saved before looks recorded which screens show their own pattern — re-save it.");
         }
+        // Music on a look is never Hard: the picture must land whatever the music does.
+        if (SpotifyLibrary.StartsMusic(look))
+        {
+            if (SpotifyLibrary.Find(state, look.MusicItemId) is null)
+            {
+                soft($"{where}: look '{look.Name}' starts break music that is no longer in the library — the look still applies; the music step is skipped.");
+            }
+            else if (!state.Spotify.Enabled)
+            {
+                soft($"{where}: look '{look.Name}' starts break music, but break music is off (Audio page) — the look still applies.");
+            }
+        }
         foreach (var pattern in Patterns(data))
         {
             if (pattern.Kind != PatternKind.Media) continue;

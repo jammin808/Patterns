@@ -178,6 +178,12 @@ fault containment, and settings that can never brick startup.
   VOG sound and fades under a stinger like the music track, **STOP ALL pauses it**, and it is a cue action
   (play / pause / skip / level), a `MUSIC` remote verb and a Companion key. Needs Spotify
   Premium and your own free Client ID; the feature is off until you switch it on.
+  **Browse and search** on the Audio page: the songs inside any of your playlists (or a
+  pasted playlist, album or artist link) and a search across Spotify, each result one press
+  from becoming a button. A **look can start a playlist or song, or pause the music**, as it
+  goes on air, so a cue's picture and its music are one GO; loading a look into the preview
+  leaves the music alone. Browsing and searching work on a free account; starting playback
+  is Premium-only, by Spotify's rule.
 - **4-corner warp** — nudge each output's corners (keystone/skew) so a slightly-off projector
   lands straight on the surface — composed with rotation and per-screen trims, applied to
   patterns, media and live inputs alike.
@@ -377,7 +383,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 724 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 735 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

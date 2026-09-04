@@ -22,9 +22,9 @@
     <TextBlock Classes="h2" Text="SOURCE &amp; QUALITY" />
     <Grid ColumnDefinitions="110,*">
       <TextBlock Classes="label" Text="Screen" VerticalAlignment="Center" />
-      <ComboBox Grid.Column="1" ItemsSource="{Binding WebScreens}"
-                SelectedValue="{Binding State.Stream.SourceScreenId, Mode=TwoWay}"
-                SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}" />
+      <ComboBox Grid.Column="1" SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                ItemsSource="{Binding WebScreens}"
+                SelectedValue="{Binding State.Stream.SourceScreenId, Mode=TwoWay}" />
     </Grid>
     <Grid ColumnDefinitions="110,86,8,86" Margin="0,4,0,0">
       <TextBlock Classes="label" Text="Size (px)" VerticalAlignment="Center" />

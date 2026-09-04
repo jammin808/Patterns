@@ -45,11 +45,13 @@ public sealed class ShowActions
     public ActionResult Execute(ShowActionKind kind, ActionOrigin origin, string target = "", string value = "")
         => Execute(new ShowAction(kind, target, value), origin);
 
-    /// <summary>The journal names looks, not their ids — a caller reading it back should not need the show file.</summary>
-    private string JournalTarget(ShowAction action)
-        => action.Kind is ShowActionKind.ApplyLook or ShowActionKind.ApplyLookToPreview
-            ? LookService.Find(State, action.Target)?.Name ?? action.Target
-            : action.Target;
+    /// <summary>The journal names looks and break music, not their ids — a caller reading it back should not need the show file.</summary>
+    private string JournalTarget(ShowAction action) => action.Kind switch
+    {
+        ShowActionKind.ApplyLook or ShowActionKind.ApplyLookToPreview => LookService.Find(State, action.Target)?.Name ?? action.Target,
+        ShowActionKind.SpotifyPlay when action.Target.Length > 0 => SpotifyLibrary.Find(State, action.Target)?.DisplayName ?? action.Target,
+        _ => action.Target,
+    };
 
     // ---- convenience entry points the desk and the windows use ------------------
 
@@ -192,7 +194,7 @@ public sealed class ShowActions
             case ShowActionKind.ApplyLook:
             {
                 var look = LookService.Find(State, a.Target);
-                return look is null ? ActionResult.Refused($"No look named '{a.Target}'.") : ApplyLookToAir(look, a.Value);
+                return look is null ? ActionResult.Refused($"No look named '{a.Target}'.") : ApplyLookToAir(look, a.Value, origin);
             }
             case ShowActionKind.ApplyLookHotkey:
             {
@@ -205,7 +207,7 @@ public sealed class ShowActions
                 {
                     return ActionResult.Refused($"F{slot} held — the cue stack is armed (looks from the desk or a remote still work).");
                 }
-                return ApplyLookToAir(look, a.Value);
+                return ApplyLookToAir(look, a.Value, origin);
             }
             case ShowActionKind.ApplyLookToPreview:
             {
@@ -487,7 +489,7 @@ public sealed class ShowActions
     /// <em>fire</em>: with the sandbox open the audience gets the look and the preview keeps
     /// showing the operator's in-progress edit. "cut" switches without the crossfade.
     /// </summary>
-    private ActionResult ApplyLookToAir(LookConfig look, string value)
+    private ActionResult ApplyLookToAir(LookConfig look, string value, ActionOrigin origin)
     {
         var sandboxed = _s.Sandbox.Active;
         // Value: "cut", a fade in ms (this recall only), or anything else for the show default.
@@ -502,9 +504,40 @@ public sealed class ShowActions
         _s.AirLabel = look.Name;
         // "cue 18:00" from the schedule: the status line says which cue fired, as it used to.
         var prefix = value.StartsWith("cue ", StringComparison.OrdinalIgnoreCase) ? $"Cue {value[4..]}: " : "";
-        return ActionResult.Done(prefix + (sandboxed
+        var text = prefix + (sandboxed
             ? $"Look '{look.Name}' on air — your preview edit is untouched."
-            : $"Look '{look.Name}' applied."));
+            : $"Look '{look.Name}' applied.");
+        if (RunLookMusic(look, origin) is not { } music) return ActionResult.Done(text);
+        // The music is asynchronous like every break-music verb: a Requested look settles on it.
+        var line = $"{text} {music.Message}";
+        return music.Status == ActionStatus.Requested ? ActionResult.Requested(line) : ActionResult.Done(line);
+    }
+
+    /// <summary>
+    /// A look can start or pause break music: the same verb a cue or the remote would use, run
+    /// after the picture has landed, journaled on its own with the look's origin — and never
+    /// able to stop the look, whatever Spotify or the library says. Null when the look leaves
+    /// the music alone.
+    /// </summary>
+    private ActionResult? RunLookMusic(LookConfig look, ActionOrigin origin)
+    {
+        if (look.MusicItemId.Length == 0) return null;
+        var action = look.MusicItemId == LookConfig.PauseMusic
+            ? new ShowAction(ShowActionKind.SpotifyPause)
+            : new ShowAction(ShowActionKind.SpotifyPlay, look.MusicItemId);
+        ActionResult result;
+        try
+        {
+            result = Run(action, origin);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Look '{look.Name}': music step {action} failed.", ex);
+            result = ActionResult.Failed(ex.Message);
+        }
+        _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(),
+            $"Look '{look.Name}': {result.Message}");
+        return result;
     }
 
     /// <summary>The clicker: Page Down / Up, NEXT / PREV and the Show page drive the clicker list.</summary>

@@ -74,6 +74,25 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
 public sealed record SpotifyDeviceChoice(string Name, string Label);
 
 /// <summary>
+/// One choice in a look's Music picker: leave it, pause it, or a break-music entry. The label
+/// follows a rename in place, so a bound row never loses its selected item.
+/// </summary>
+public sealed class LookMusicChoice : Patterns.Core.Model.Observable
+{
+    private string _label;
+
+    public LookMusicChoice(string id, string label)
+    {
+        Id = id;
+        _label = label;
+    }
+
+    public string Id { get; }
+
+    public string Label { get => _label; set => Set(ref _label, value); }
+}
+
+/// <summary>
 /// One tile in the switcher strip between the program and preview panes: the program
 /// itself, a joined canvas, or a single screen — with its label, live on/off toggle,
 /// edit-target highlight, and (while the sandbox is open) a send-target tick.

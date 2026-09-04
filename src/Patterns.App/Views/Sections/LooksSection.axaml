@@ -8,7 +8,7 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-looks" Text="Looks" />
     <TextBlock Classes="hint"
-               Text="A look is the whole screen state — pattern, per-screen patterns, overlays, countdown, blackout — saved under a name. Recall it with F1–F12, from a cue, or from the wall-clock automation below, which all lives on this page." />
+               Text="A look is the whole screen state — pattern, per-screen patterns, overlays, countdown, blackout — saved under a name. Recall it with F1–F12, from a cue, or from the wall-clock automation below, which all lives on this page. With break music on (Audio page), a look can also start a playlist or song, or pause the music, as it goes on air — loading it into the preview leaves the music alone." />
 
     <TextBlock Classes="h2" Text="SAVE THE CURRENT STATE AS A LOOK" />
     <Grid ColumnDefinitions="*,8,110,8,Auto">
@@ -31,7 +31,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:LookConfig">
           <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,7" Margin="0,3">
-            <Grid ColumnDefinitions="Auto,10,*,8,Auto,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,10,*,8,Auto,8,Auto,Auto,Auto,Auto">
               <Border Grid.Column="0" Background="#20242E" CornerRadius="7" Padding="8,3" MinWidth="38"
                       IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}">
                 <TextBlock Text="{Binding Hotkey, Converter={StaticResource HotkeyLabel}}" FontWeight="SemiBold"
@@ -39,19 +39,27 @@
               </Border>
               <TextBlock Grid.Column="2" Text="{Binding Name}" FontWeight="SemiBold"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-              <Button Grid.Column="4" Classes="mini" Content="→ PVW"
+              <!-- The value binding must be in place before the value: a value that cannot be matched to an item is written back as nothing. -->
+              <ComboBox Grid.Column="4" Name="LookMusic" MinWidth="150" MaxWidth="230"
+                        SelectedValueBinding="{Binding Id, x:DataType=vm:LookMusicChoice}"
+                        DisplayMemberBinding="{Binding Label, x:DataType=vm:LookMusicChoice}"
+                        ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LookMusicChoices}"
+                        SelectedValue="{Binding MusicItemId, Mode=TwoWay}"
+                        IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).State.Spotify.Enabled}"
+                        ToolTip.Tip="Break music this look starts, or pauses, as it goes on air (Audio page entries)" />
+              <Button Grid.Column="6" Classes="mini" Content="→ PVW"
                       ToolTip.Tip="Load into the preview to tweak, then CUT or TAKE it to air"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookToPreviewCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="5" Classes="mini" Content="ON AIR"
+              <Button Grid.Column="7" Classes="mini" Content="ON AIR"
                       ToolTip.Tip="Put this look on the screens now (same as its F-key)"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="6" Classes="mini" Content="⟳"
+              <Button Grid.Column="8" Classes="mini" Content="⟳"
                       ToolTip.Tip="Overwrite this look with the current screen state"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UpdateLookCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="7" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
+              <Button Grid.Column="9" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteLookCommand}"
                       CommandParameter="{Binding}" />
             </Grid>

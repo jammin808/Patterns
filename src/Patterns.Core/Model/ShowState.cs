@@ -441,6 +441,10 @@ public sealed class LookConfig : Observable
     private string _name = "Look";
     private int _hotkey;
     private string _json = "";
+    private string _musicItemId = "";
+
+    /// <summary>What "pause break music" looks like in <see cref="MusicItemId"/>.</summary>
+    public const string PauseMusic = "pause";
 
     /// <summary>Stable identity (schema 4): renaming a look never breaks what references it.</summary>
     public string Id { get => _id; set => Set(ref _id, value); }
@@ -449,6 +453,14 @@ public sealed class LookConfig : Observable
     public int Hotkey { get => _hotkey; set => Set(ref _hotkey, Math.Clamp(value, 0, 12)); }
     /// <summary>The captured state, stored as an opaque JSON blob (LookData).</summary>
     public string Json { get => _json; set => Set(ref _json, value); }
+
+    /// <summary>
+    /// Break music this look starts when it goes on air: empty leaves the music alone,
+    /// <see cref="PauseMusic"/> pauses it, anything else is a break-music entry's id (Audio page).
+    /// Loading a look into the preview never touches the music. A null (a picker that lost its
+    /// items writes one) keeps the choice: only "" means "leave the music alone".
+    /// </summary>
+    public string MusicItemId { get => _musicItemId; set => Set(ref _musicItemId, value ?? _musicItemId); }
 }
 
 /// <summary>A scheduled recall: apply a look at a time of day, daily.</summary>

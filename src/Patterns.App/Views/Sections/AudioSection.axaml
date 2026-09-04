@@ -85,19 +85,44 @@
       </Grid>
       <TextBlock Classes="hint"
                  Text="The Spotify device's own volume. It drops to the Music duck level below while a VOG sound plays and fades out under a stinger, like the music track." />
-      <Grid ColumnDefinitions="130,*,8,Auto">
+      <Grid ColumnDefinitions="130,*,8,Auto,8,Auto">
         <TextBlock Classes="label" Text="Spotify link" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding MusicLinkDraft}" Watermark="https://open.spotify.com/playlist/…" />
         <Button Grid.Column="3" Classes="chip" Content="ADD" Command="{Binding AddMusicItemCommand}" />
+        <Button Grid.Column="5" Classes="mini" Content="BROWSE SONGS" Command="{Binding BrowseSpotifyLinkCommand}"
+                ToolTip.Tip="List the songs inside a playlist, album or artist link, to add them one at a time" />
       </Grid>
-      <TextBlock Classes="hint" Text="In Spotify: right-click a playlist, album or song → Share → Copy link, then paste it here." />
-      <Grid ColumnDefinitions="130,*,8,Auto,8,Auto">
+      <TextBlock Classes="hint" Text="In Spotify: right-click a playlist, album or song → Share → Copy link, then paste it here. ADD keeps the whole thing as one button; BROWSE SONGS lists what is inside so single songs can be added." />
+      <Grid ColumnDefinitions="130,*,8,Auto,8,Auto,8,Auto">
         <TextBlock Classes="label" Text="My playlists" VerticalAlignment="Center" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding SpotifyPlaylists}" SelectedItem="{Binding SelectedSpotifyPlaylist}"
                   HorizontalAlignment="Stretch" PlaceholderText="Refresh after CONNECT" />
         <Button Grid.Column="3" Classes="chip" Content="ADD" Command="{Binding AddSpotifyPlaylistCommand}" />
-        <Button Grid.Column="5" Classes="mini" Content="Refresh my playlists" Command="{Binding RefreshSpotifyPlaylistsCommand}" />
+        <Button Grid.Column="5" Classes="mini" Content="BROWSE SONGS" Command="{Binding BrowseSpotifyPlaylistCommand}" />
+        <Button Grid.Column="7" Classes="mini" Content="Refresh my playlists" Command="{Binding RefreshSpotifyPlaylistsCommand}" />
       </Grid>
+      <Grid ColumnDefinitions="130,*,8,Auto">
+        <TextBlock Classes="label" Text="Search Spotify" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding MusicSearchDraft}" Watermark="A song, album, playlist or artist">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding SearchSpotifyCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+        <Button Grid.Column="3" Classes="chip" Content="SEARCH" Command="{Binding SearchSpotifyCommand}" />
+      </Grid>
+      <TextBlock Classes="label" Text="{Binding SpotifyBrowseStatus}" TextWrapping="Wrap"
+                 IsVisible="{Binding SpotifyBrowseStatus, Converter={StaticResource NotEmpty}}" />
+      <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding SpotifyTracks.Count, Converter={StaticResource Positive}}">
+        <ListBox Grid.Column="0" ItemsSource="{Binding SpotifyTracks}" SelectedItem="{Binding SelectedSpotifyTrack}" MaxHeight="220"
+                 ToolTip.Tip="The songs inside what you browsed — pick one and ADD SONG" />
+        <Button Grid.Column="2" Classes="chip" Content="ADD SONG" VerticalAlignment="Top" Command="{Binding AddSpotifyTrackCommand}" />
+      </Grid>
+      <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding SpotifySearchHits.Count, Converter={StaticResource Positive}}">
+        <ListBox Grid.Column="0" ItemsSource="{Binding SpotifySearchHits}" SelectedItem="{Binding SelectedSpotifySearchHit}" MaxHeight="220"
+                 ToolTip.Tip="Search results — pick one and ADD" />
+        <Button Grid.Column="2" Classes="chip" Content="ADD" VerticalAlignment="Top" Command="{Binding AddSpotifySearchHitCommand}" />
+      </Grid>
+      <TextBlock Classes="hint" Text="Browsing and searching work on any Spotify account. Starting the music needs Premium — Spotify lets no app control a free account's playback. A look can start (or pause) an entry from here when it goes on air: the Music picker on the Looks page." />
       <Button Classes="stop" Content="❚❚ PAUSE BREAK MUSIC" Command="{Binding PauseMusicCommand}" HorizontalAlignment="Left" />
       <ItemsControl ItemsSource="{Binding State.Spotify.Items}">
         <ItemsControl.ItemTemplate>
