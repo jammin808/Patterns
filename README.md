@@ -62,9 +62,13 @@ fault containment, and settings that can never brick startup.
   folders each get theirs) and a ✕ to take a file out of the library again.
 - **Motion diagnostics** — moving bar with a px-per-frame judder mode, bouncing FPS box,
   frame-flash drop detector, animated zone plate, scrolling grid.
-- **Particle mini-studio** — snow, confetti, starfield, rain, bokeh, embers, fireflies presets;
-  emitter, physics, shapes (including your logo as a sprite), brand palettes, additive glow —
-  thousands of particles, one draw call.
+- **Particle mini-studio** — scenes in packs: Classic (snow, confetti, starfield, rain, bokeh,
+  embers, fireflies), Awards (gold dust, champagne, red-carpet sparkle, ticker tape), Modern,
+  Nature, Moods, Starcloth, Night sky and Feel-good (party confetti, bubbles, fireworks,
+  sparkler, sunshine), plus your own saved scenes under Custom; emitter, physics, shapes
+  (including your logo as a sprite), brand palettes, additive glow — thousands of particles,
+  one draw call. A scene that drifts sideways keeps the whole screen covered: the upwind edge
+  takes its share of the births, so wind never sweeps one side bare.
 - **Time, date & countdowns** — clock overlay (12/24 h, seconds, date) and a show countdown to a
   time of day or a duration (“BACK FROM LUNCH AT…”, “SHOW STARTS IN…”), with hold / flash /
   message endings and an optional progress bar. Overlays composite over *any* pattern.
@@ -386,7 +390,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 739 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 751 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

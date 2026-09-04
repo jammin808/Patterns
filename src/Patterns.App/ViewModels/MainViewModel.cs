@@ -3452,17 +3452,57 @@ public sealed class MainViewModel : Observable
     /// <summary>Rebuilds every tile — the factory table, the show's media, the saved presets, the brand kits — and re-renders the thumbnails.</summary>
     public void RefreshLibrary() => BuildLibrary();
 
+    // ---- particle scenes, by pack ----------------------------------------------
+
+    /// <summary>The Particles page's chips: every factory pack in order, then "Custom" — the operator's saved particle presets.</summary>
+    public ObservableCollection<ParticlePackGroup> ParticlePackGroups { get; } = new();
+
+    private RelayCommand<ParticleChip>? _applyParticleChip;
+
+    public RelayCommand<ParticleChip> ApplyParticleChipCommand => _applyParticleChip ??= new RelayCommand<ParticleChip>(chip => chip?.Apply());
+
+    private void RefreshParticlePackGroups()
+    {
+        var groups = new List<ParticlePackGroup>();
+        foreach (var category in ParticlePresets.Categories)
+        {
+            groups.Add(new ParticlePackGroup(category, ParticlePresets.In(category)
+                .Select(pack => new ParticleChip(pack.Name, () => _services.BulkEdit(() => ParticlePresets.Apply(pack.Name, ActivePattern.Particles))))
+                .ToList()));
+        }
+        var custom = new List<ParticleChip>();
+        foreach (var (name, path) in _services.Store.ListPresets())
+        {
+            var p = path;
+            if (_services.Store.LoadPreset(p) is not { Kind: PatternKind.Particles }) continue;
+            custom.Add(new ParticleChip(name, () =>
+            {
+                if (_services.Store.LoadPreset(p) is not { } cfg) return;
+                _services.BulkEdit(() => ModelCopier.Copy(cfg.Particles, ActivePattern.Particles));
+            }));
+        }
+        if (custom.Count > 0) groups.Add(new ParticlePackGroup("Custom", custom));
+        if (ParticlePackGroups.Count == groups.Count &&
+            ParticlePackGroups.Zip(groups).All(z => z.First.Category == z.Second.Category &&
+                                                    z.First.Chips.Select(c => c.Name).SequenceEqual(z.Second.Chips.Select(c => c.Name))))
+        {
+            return; // the same chips: leave the page alone
+        }
+        ParticlePackGroups.Clear();
+        foreach (var g in groups) ParticlePackGroups.Add(g);
+    }
+
     private void BuildLibrary()
     {
+        RefreshParticlePackGroups();
         LibraryAll.Clear();
         foreach (var b in BuiltInPresets.All)
         {
             var preset = b;
-            var particles = preset.Category == "Ambience";
             LibraryAll.Add(new PresetItem
             {
                 Id = $"builtin:{preset.Category}:{preset.Name}",
-                Section = particles ? "Particles" : "Patterns",
+                Section = preset.Section,
                 Category = preset.Category,
                 Name = preset.Name,
                 Apply = () => _services.BulkEdit(() => preset.Apply(ActivePattern)),

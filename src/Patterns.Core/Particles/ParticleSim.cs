@@ -37,6 +37,7 @@ public sealed class ParticleSim : IDisposable
     private long _doneSteps = -1;
     private float _w = 1920, _h = 1080;
     private ParticleOptions _o = new();
+    private EdgeFlux _flux = EdgeFlux.None;
 
     /// <summary>
     /// Fixed integration step. Every sink quantizes the shared show clock to this grid and
@@ -68,6 +69,7 @@ public sealed class ParticleSim : IDisposable
         _o = o;
         _w = canvas.Width;
         _h = canvas.Height;
+        _flux = EdgeFlux.Estimate(o, _w, _h);
 
         _colors = o.UseBrandColors
             ? new[]
@@ -177,13 +179,36 @@ public sealed class ParticleSim : IDisposable
         switch (o.Emitter)
         {
             case ParticleEmitter.TopEdge:
-                p.X = (float)(_rng.NextDouble() * _w);
-                p.Y = preWarm ? (float)(_rng.NextDouble() * _h) : -margin;
-                break;
             case ParticleEmitter.BottomEdge:
-                p.X = (float)(_rng.NextDouble() * _w);
-                p.Y = preWarm ? (float)(_rng.NextDouble() * _h) : _h + margin;
+            {
+                var top = o.Emitter == ParticleEmitter.TopEdge;
+                if (preWarm)
+                {
+                    p.X = (float)(_rng.NextDouble() * _w);
+                    p.Y = (float)(_rng.NextDouble() * _h);
+                    break;
+                }
+                // The upwind side edge takes its share of births (EdgeFlux) so a drifting field
+                // keeps the whole canvas covered. The draw is taken on every birth, so the
+                // sequence — and every sink's field — never depends on the estimate's value.
+                var side = _rng.NextDouble() < _flux.SideFraction;
+                if (!side)
+                {
+                    p.X = (float)(_rng.NextDouble() * _w);
+                    p.Y = top ? -margin : _h + margin;
+                    break;
+                }
+                // Deeper entries where the wind has had time to work; the speed a particle born
+                // on the top would have built by this depth, so the side entries match the field.
+                var u = _rng.NextDouble();
+                var depth = (float)(_h * (u + (Math.Sqrt(u) - u) * _flux.AccelShare));
+                var t = MathF.Min(EdgeFlux.TimeToTravel(_flux.V0, _flux.A, depth), _flux.Cross);
+                p.X = _flux.FromLeft ? -margin : _w + margin;
+                p.Y = top ? depth : _h - depth;
+                p.Vx += _flux.Ax * t;
+                p.Vy += _flux.Ay * t;
                 break;
+            }
             case ParticleEmitter.Center:
                 // Starfield: Vx carries the base speed; position near center.
                 p.Vx = Math.Max(20, speed);

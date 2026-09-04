@@ -3,7 +3,8 @@ using Patterns.Core.Particles;
 
 namespace Patterns.App.Services;
 
-public sealed record BuiltInPreset(string Category, string Name, Action<PatternConfig> Apply);
+/// <summary>One factory tile; <paramref name="Section"/> is where the Library files it ("Patterns", or "Particles" for a scene).</summary>
+public sealed record BuiltInPreset(string Category, string Name, Action<PatternConfig> Apply, string Section = "Patterns");
 
 /// <summary>The factory pattern library. Every entry works at any canvas size up to 4K+.</summary>
 public static class BuiltInPresets
@@ -76,14 +77,15 @@ public static class BuiltInPresets
         Add("Motion", "Frame flash", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.FrameFlash; });
         Add("Motion", "Zone plate", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.ZonePlate; });
 
-        // Ambience (particles)
-        foreach (var preset in ParticlePresets.Names)
+        // Particles: every scene of every pack, filed under its pack.
+        foreach (var pack in ParticlePresets.Packs)
         {
-            Add("Ambience", preset, p =>
+            var name = pack.Name;
+            list.Add(new BuiltInPreset(pack.Category, name, p =>
             {
                 p.Kind = PatternKind.Particles;
-                ParticlePresets.Apply(preset, p.Particles);
-            });
+                ParticlePresets.Apply(name, p.Particles);
+            }, "Particles"));
         }
 
         return list;

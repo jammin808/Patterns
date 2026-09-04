@@ -73,6 +73,12 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
 /// <summary>One Spotify Connect device in the "Play on" picker (empty name = whichever is active).</summary>
 public sealed record SpotifyDeviceChoice(string Name, string Label);
 
+/// <summary>A row of chips on the Particles page: one factory pack, or "Custom" for the operator's saved particle presets.</summary>
+public sealed record ParticlePackGroup(string Category, IReadOnlyList<ParticleChip> Chips);
+
+/// <summary>One preset chip: its name and what pressing it does to the editing target.</summary>
+public sealed record ParticleChip(string Name, Action Apply);
+
 /// <summary>
 /// One choice in a look's Music picker: leave it, pause it, or a break-music entry. The label
 /// follows a rename in place, so a bound row never loses its selected item.

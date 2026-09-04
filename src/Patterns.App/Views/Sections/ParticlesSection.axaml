@@ -7,21 +7,31 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-time" Text="Particle studio" />
-    <TextBlock Classes="hint" Text="Select the Particles pattern type to see this live. Presets are starting points — everything below is yours to shape." />
+    <TextBlock Classes="hint" Text="Select the Particles pattern type to see this live. Scenes are starting points — everything below is yours to shape. A scene that drifts sideways keeps the whole screen covered: the upwind edge takes its share of the births." />
 
-    <TextBlock Classes="h2" Text="PRESETS" />
-    <ItemsControl ItemsSource="{Binding ParticlePresetNames}">
-      <ItemsControl.ItemsPanel>
-        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-      </ItemsControl.ItemsPanel>
+    <TextBlock Classes="h2" Text="SCENES" />
+    <ItemsControl ItemsSource="{Binding ParticlePackGroups}">
       <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="x:String">
-          <Button Classes="chip" Margin="0,2,6,2" Content="{Binding}"
-                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyParticlePresetCommand}"
-                  CommandParameter="{Binding}" />
+        <DataTemplate x:DataType="vm:ParticlePackGroup">
+          <StackPanel Margin="0,0,0,4">
+            <TextBlock Classes="label" Text="{Binding Category}" Margin="0,4,0,2" />
+            <ItemsControl ItemsSource="{Binding Chips}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ParticleChip">
+                  <Button Classes="chip" Margin="0,2,6,2" Content="{Binding Name}"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyParticleChipCommand}"
+                          CommandParameter="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
+    <TextBlock Classes="hint" Text="Custom holds the presets you save on the Pattern page while Particles is the pattern — your own scenes, beside the packs." />
 
     <TextBlock Classes="h2" Text="EMITTER" />
     <ComboBox ItemsSource="{Binding ParticleEmitters}"
