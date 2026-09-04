@@ -75,8 +75,16 @@ public class StreamMrlTests
 
 public class MultiviewRenderTests
 {
-    private static ShowSnapshot Snap(ShowState state, bool live = true)
-        => new() { State = JsonUtil.Clone(state), Version = 1, OutputsLive = live };
+    private static ShowSnapshot Snap(ShowState state, bool live = true,
+        IReadOnlyDictionary<string, ScreenGeometry>? displays = null)
+    {
+        var clone = JsonUtil.Clone(state);
+        return new()
+        {
+            State = clone, Version = 1, OutputsLive = live,
+            Rig = RigGeometry.Build(clone, displays ?? RigGeometry.NoDisplays),
+        };
+    }
 
     private static ShowState RedProgram()
     {
@@ -89,36 +97,45 @@ public class MultiviewRenderTests
         return state;
     }
 
-    private static SKBitmap Render(ShowSnapshot snap, MultiviewOptions opts, int w = 320, int h = 180)
+    private static SKBitmap Render(ShowSnapshot snap, MultiviewOptions opts, int w = 320, int h = 180,
+        SinkKind sinkKind = SinkKind.Thumbnail, SinkState? reuse = null)
     {
         var engine = new PatternEngine();
-        using var sink = new SinkState();
-        var info = new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-        var ctx = new RenderContext
+        var owned = reuse is null ? new SinkState() : null;
+        var sink = reuse ?? owned!;
+        try
         {
-            ViewportSize = new SKSizeI(w, h),
-            ReferenceSize = new SKSizeI(w, h),
-            Time = 5.0,
-            Now = new DateTime(2026, 8, 30, 12, 0, 0),
-            UtcNow = new DateTime(2026, 8, 30, 10, 0, 0, DateTimeKind.Utc),
-            Sink = SinkKind.Thumbnail,
-            SinkIndex = 0,
-            SinkLabel = "mv-test",
-        };
-        var frame = new PatternFrame
+            var info = new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            var ctx = new RenderContext
+            {
+                ViewportSize = new SKSizeI(w, h),
+                ReferenceSize = new SKSizeI(w, h),
+                Time = 5.0,
+                Now = new DateTime(2026, 8, 30, 12, 0, 0),
+                UtcNow = new DateTime(2026, 8, 30, 10, 0, 0, DateTimeKind.Utc),
+                Sink = sinkKind,
+                SinkIndex = 0,
+                SinkLabel = "mv-test",
+            };
+            var frame = new PatternFrame
+            {
+                Snapshot = snap,
+                Config = snap.State.Pattern,
+                Ctx = ctx,
+                Sink = sink,
+                Canvas = new SKSizeI(w, h),
+                Palette = Palette.Resolve(snap),
+            };
+            engine.RenderMultiview(surface.Canvas, in frame, sink, opts);
+            surface.Canvas.Flush();
+            using var image = surface.Snapshot();
+            return SKBitmap.FromImage(image);
+        }
+        finally
         {
-            Snapshot = snap,
-            Config = snap.State.Pattern,
-            Ctx = ctx,
-            Sink = sink,
-            Canvas = new SKSizeI(w, h),
-            Palette = Palette.Resolve(snap),
-        };
-        engine.RenderMultiview(surface.Canvas, in frame, sink, opts);
-        surface.Canvas.Flush();
-        using var image = surface.Snapshot();
-        return SKBitmap.FromImage(image);
+            owned?.Dispose();
+        }
     }
 
     [Fact]
@@ -168,6 +185,166 @@ public class MultiviewRenderTests
 
         using var bmp = Render(Snap(state), opts); // must complete without stack overflow
         Assert.True(bmp.Width > 0);
+    }
+
+    private static readonly SKColor MultiviewBg = new(0x06, 0x07, 0x0A);
+    private static readonly SKColor SlateFill = new(0x11, 0x13, 0x1A);
+
+    /// <summary>a and b flush (canvas a+b), c standing alone; every display 1920×1080.</summary>
+    private static Dictionary<string, ScreenGeometry> ThreeDisplays() => new(StringComparer.Ordinal)
+    {
+        ["a"] = new ScreenGeometry(1920, 1080, "Left"),
+        ["b"] = new ScreenGeometry(1920, 1080, "Right"),
+        ["c"] = new ScreenGeometry(1920, 1080, "Lobby"),
+    };
+
+    private static void ThreeScreens(ShowState state)
+    {
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "a", X = 0, Y = 0, Enabled = true });
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "b", X = 1920, Y = 0, Enabled = true });
+        state.Output.Placements.Add(new ScreenPlacement { ScreenId = "c", X = 6000, Y = 0, Enabled = true });
+    }
+
+    [Fact]
+    public void AScreenTileIsATrueMiniatureOfThatScreenNotAReLayoutAtSixteenByNine()
+    {
+        var state = RedProgram();
+        state.Output.Placements.Add(new ScreenPlacement
+        {
+            ScreenId = "p", X = 0, Y = 0, Enabled = true,
+            Planned = true, PlannedWidth = 1080, PlannedHeight = 1920,
+        });
+
+        var opts = new MultiviewOptions { Columns = 1, ShowLabels = false, ShowTally = false };
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "p" });
+
+        using var bmp = Render(Snap(state), opts);
+
+        // A portrait screen is a tall box in the middle of its cell, letterboxed either side —
+        // at 16:9 the picture would have spanned the whole width.
+        var inside = bmp.GetPixel(160, 90);
+        Assert.True(inside.Red > 200 && inside.Blue < 40, $"tile centre should be the screen's picture, got {inside}");
+        Assert.Equal(MultiviewBg, bmp.GetPixel(20, 90));
+    }
+
+    [Fact]
+    public void AJoinedCanvasIsATileAndAMemberTileRendersItsSliceOfIt()
+    {
+        var state = RedProgram();
+        ThreeScreens(state);
+        var key = CanvasNameConfig.KeyFor(new[] { "a", "b" });
+        var canvasPattern = ContentTargets.EnsureAssignment(state, key).Pattern;
+        ContentTargets.SetOwnPattern(state, key, true);
+        canvasPattern.Kind = PatternKind.FlatField;
+        canvasPattern.FlatField.Color = "#0000FF";
+        canvasPattern.FlatField.ShowLabel = false;
+        canvasPattern.Canvas.FollowOutput = true;
+
+        var opts = new MultiviewOptions { Columns = 3, ShowLabels = false, ShowTally = false };
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = key });
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "a" });
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "c" });
+
+        using var bmp = Render(Snap(state, displays: ThreeDisplays()), opts, 960, 180);
+
+        var canvas = bmp.GetPixel(161, 90);
+        Assert.True(canvas.Blue > 200 && canvas.Red < 40, $"the canvas tile shows the canvas, got {canvas}");
+        // A 32:9 strip cannot fill a 16:9-ish cell: the aspect, proved by colour.
+        Assert.Equal(MultiviewBg, bmp.GetPixel(161, 10));
+
+        var member = bmp.GetPixel(480, 90);
+        Assert.True(member.Blue > 200 && member.Red < 40, $"a member shows its half of the canvas, got {member}");
+
+        var lobby = bmp.GetPixel(798, 90);
+        Assert.True(lobby.Red > 200 && lobby.Blue < 40, $"a stand-alone screen follows the program, got {lobby}");
+    }
+
+    [Fact]
+    public void ACanvasTileIsOnAirOnlyWhileEveryMemberIsEnabled()
+    {
+        var state = RedProgram();
+        state.Pattern.FlatField.Color = "#0000FF"; // blue content, so a red border is unmistakable
+        ThreeScreens(state);
+        var key = CanvasNameConfig.KeyFor(new[] { "a", "b" });
+
+        var opts = new MultiviewOptions { Columns = 1, ShowTally = true };
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = key });
+
+        // The top tally border sits at y ≈ 33 (video rect 3.84 tall strip inside a 320×180 frame).
+        static int TopBorderRed(SKBitmap bmp)
+        {
+            var best = 0;
+            for (var y = 30; y <= 37; y++) best = Math.Max(best, bmp.GetPixel(160, y).Red);
+            return best;
+        }
+
+        using (var on = Render(Snap(state, displays: ThreeDisplays()), opts))
+        {
+            Assert.True(TopBorderRed(on) > 150, $"both members on = red tally, got {TopBorderRed(on)}");
+        }
+
+        state.Output.Placements.First(p => p.ScreenId == "b").Enabled = false;
+        using var off = Render(Snap(state, displays: ThreeDisplays()), opts);
+        Assert.True(TopBorderRed(off) < 90, $"half a canvas is not on air, got {TopBorderRed(off)}");
+    }
+
+    [Fact]
+    public void ATileNamingNothingOrAGhostDrawsASlateNotTheProgram()
+    {
+        var opts = new MultiviewOptions { ShowLabels = false, ShowTally = false };
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "" });
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "ghost" });
+
+        using var bmp = Render(Snap(RedProgram()), opts);
+
+        // Above the slate's centred caption, inside each tile's video rect.
+        Assert.Equal(SlateFill, bmp.GetPixel(80, 60));
+        Assert.Equal(SlateFill, bmp.GetPixel(240, 60));
+    }
+
+    [Fact]
+    public void AnIdentifyBadgeNeverLandsInsideAMultiviewTile()
+    {
+        var snap = new ShowSnapshot
+        {
+            State = JsonUtil.Clone(RedProgram()),
+            Version = 1,
+            OutputsLive = true,
+            IdentifyUntilUtc = new DateTime(2026, 8, 30, 10, 0, 3, DateTimeKind.Utc),
+        };
+        var opts = new MultiviewOptions { Columns = 1, ShowLabels = false, ShowTally = false };
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
+
+        using var bmp = Render(snap, opts, sinkKind: SinkKind.Output);
+
+        var centre = bmp.GetPixel(160, 90);
+        Assert.True(centre.Red > 200, $"a tile is a monitor, not an output — no identify card, got {centre}");
+    }
+
+    [Fact]
+    public void AThumbnailMultiviewKeepsItsTilesFreeOfPipAndToneChips()
+    {
+        var state = JsonUtil.Clone(RedProgram());
+        var opts = new MultiviewOptions { Columns = 1, ShowLabels = false, ShowTally = false };
+        opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
+
+        using var quiet = Render(new ShowSnapshot { State = state, Version = 1 }, opts);
+        using var tone = Render(new ShowSnapshot { State = state, Version = 1, ToneIndicator = "L+R" }, opts);
+
+        Assert.Equal(quiet.Bytes, tone.Bytes); // /mv.jpg keeps exactly the picture it had
+    }
+
+    [Fact]
+    public void ADenseGridRendersWithoutFailingAndSkipsCollapsedCells()
+    {
+        var opts = new MultiviewOptions { Columns = 0 };
+        for (var i = 0; i < 200; i++) opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
+
+        using var sink = new SinkState();
+        using var bmp = Render(Snap(RedProgram()), opts, reuse: sink);
+
+        Assert.NotNull(bmp);
+        Assert.Empty(sink.Failed);
     }
 
     [Fact]

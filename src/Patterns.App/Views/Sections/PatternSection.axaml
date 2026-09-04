@@ -366,7 +366,7 @@
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Multiview}}">
       <TextBlock Classes="h2" Text="MULTIVIEW TILES" />
       <TextBlock Classes="hint"
-                 Text="A monitor wall: program, any screen's content, live inputs and a clock, with labels and red on-air tally. Send it to any screen (its own pattern), an NDI sender, or watch it remotely at the web remote address + /multiview. No tiles = automatic (program + every screen + clock)." />
+                 Text="A monitor wall: the program, any screen or joined canvas, live inputs and a clock, with labels and red on-air tally. Every tile is a true miniature of what that target really shows — a whole joined canvas, or one screen's own half of one — at its real shape, the same picture the wall shows; a target with no display attached is drawn 16:9. Send it to any screen (its own pattern), an NDI sender, or watch it remotely at the web remote address + /multiview. No tiles = automatic (program + every screen + clock)." />
       <ItemsControl ItemsSource="{Binding ActivePattern.Multiview.Tiles}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:MultiviewTileConfig">
@@ -381,10 +381,10 @@
                         CommandParameter="{Binding}" />
                 <ComboBox Grid.Row="2" Grid.ColumnSpan="5"
                           IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.Screen}}"
-                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewScreens}"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewTargets}"
                           SelectedValue="{Binding ScreenId, Mode=TwoWay}"
                           SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
-                          PlaceholderText="Which screen…" />
+                          PlaceholderText="Which screen or canvas…" />
                 <TextBox Grid.Row="2" Grid.ColumnSpan="5"
                          IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.NdiFeed}}"
                          Watermark="NDI source name (empty = the show's first NDI feed)"

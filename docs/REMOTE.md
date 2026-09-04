@@ -65,8 +65,11 @@ many Machine-page suggestions currently need attention.
 
 `http://<machine-ip>:9696/multiview` shows the configured multiview (Pattern page →
 Multiview) as a live picture refreshing about once a second — program, screens, inputs and
-clock with labels and on-air tally. `GET /mv.jpg` returns the current frame for anything
-else (tally lights, dashboards).
+clock with labels and on-air tally. Each tile is drawn at its target's real shape — a joined
+canvas is one wide tile, a screen inside one shows its own half — the same picture the wall
+shows; a target with no display attached falls back to 16:9. `GET /mv.jpg` returns the current
+frame for anything else (tally lights, dashboards); `GET /mv.jpg?w=1280` renders at that width
+(320–1920; default 1024).
 
 ## The cue stack on a tablet
 

@@ -296,7 +296,8 @@ public sealed class ControlService : IDisposable
             {
                 contentType = "image/jpeg";
                 payload = "";
-                binary = RenderMultiviewJpeg();
+                binary = RenderMultiviewJpeg(
+                    int.TryParse(QueryValue(path, "w"), out var mvw) ? Math.Clamp(mvw, 320, 1920) : 1024);
             }
             else if (method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?")))
             {
@@ -455,13 +456,14 @@ public sealed class ControlService : IDisposable
     /// Renders the configured multiview (Pattern tab) to a JPEG for /mv.jpg — the engine is
     /// thread-safe over immutable snapshots, so this runs on the socket task, ~1 fps/viewer.
     /// </summary>
-    private byte[] RenderMultiviewJpeg()
+    private byte[] RenderMultiviewJpeg(int width)
     {
         lock (_mvGate)
         {
             var snap = _services.Bus.Current;
-            const int w = 1024;
-            const int h = w * 9 / 16;
+            // The page frame stays 16:9 — the tiles inside it are what carry their targets' shapes.
+            var w = width;
+            var h = w * 9 / 16;
             var info = new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul);
             using var surface = SKSurface.Create(info);
             var ctx = new RenderContext
@@ -628,7 +630,7 @@ setInterval(function () {
   var next = new Image();
   next.onload = function(){ img.src = next.src; document.getElementById('err').textContent=''; };
   next.onerror = function(){ document.getElementById('err').textContent = 'Connection lost — retrying…'; };
-  next.src = '/mv.jpg?t=' + Date.now();
+  next.src = '/mv.jpg?w=' + Math.min(1920, Math.max(320, Math.round(window.innerWidth * (window.devicePixelRatio || 1)))) + '&t=' + Date.now();
 }, 1000);
 </script>
 </body>

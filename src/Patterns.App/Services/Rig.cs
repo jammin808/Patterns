@@ -1,5 +1,4 @@
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 
@@ -22,24 +21,31 @@ public static class Rig
             .OrderBy(x => x.Placement.X).ThenBy(x => x.Placement.Y)
             .ToList();
 
+    /// <summary>The geometry table Core needs, built from the App's ScreenInfo list.</summary>
+    public static IReadOnlyDictionary<string, ScreenGeometry> DisplaysOf(IReadOnlyList<ScreenInfo> known)
+    {
+        var map = new Dictionary<string, ScreenGeometry>(known.Count, StringComparer.Ordinal);
+        foreach (var s in known) map[s.Id] = new ScreenGeometry(s.Bounds.Width, s.Bounds.Height, s.Label);
+        return map;   // indexer, not ToDictionary: a duplicate id cannot throw
+    }
+
+    /// <summary>This rig's geometry, resolved from the placements and the known displays.</summary>
+    public static RigGeometry Geometry(ShowState state, IReadOnlyList<ScreenInfo> known)
+        => RigGeometry.Build(state, DisplaysOf(known));
+
     /// <summary>Joined canvases (screens dragged flush) → member placements; letters A, B… follow this order.</summary>
     public static List<List<ScreenPlacement>> CanvasGroups(ShowState state, IReadOnlyList<ScreenInfo> known)
     {
-        var live = OrderedLivePlacements(state, known);
-        var arranged = live
-            .Select(x =>
-            {
-                var size = OutputWindowManager.EffectiveSize(x.Placement, x.Info);
-                return new ArrangedScreen(x.Placement.ScreenId,
-                    SKRectI.Create(x.Placement.X, x.Placement.Y, size.Width, size.Height));
-            })
-            .ToList();
-        var byId = live.ToDictionary(x => x.Placement.ScreenId, x => x.Placement);
-        return ScreenLayout.Groups(arranged)
-            .Where(g => g.Count > 1)
-            .OrderBy(g => ScreenLayout.Union(g).Left).ThenBy(g => ScreenLayout.Union(g).Top)
-            .Select(g => g.Select(m => byId[m.Id]).ToList())
-            .ToList();
+        var geo = Geometry(state, known);
+        var byId = new Dictionary<string, ScreenPlacement>(StringComparer.Ordinal);
+        foreach (var p in state.Output.Placements) byId[p.ScreenId] = p;
+        var result = new List<List<ScreenPlacement>>();
+        foreach (var key in geo.Targets)
+        {
+            if (!ContentTargets.IsCanvasKey(key)) continue;
+            result.Add(geo.MembersOf(key).Select(id => byId[id]).ToList());
+        }
+        return result;
     }
 
     /// <summary>The canvas letter a placement belongs to, or null for a stand-alone screen.</summary>
@@ -61,53 +67,15 @@ public static class Rig
     /// stand-alone screens. The strip, a scoped TAKE and the arming set all walk this list.
     /// </summary>
     public static List<string> Targets(ShowState state, IReadOnlyList<ScreenInfo> known)
-    {
-        var result = new List<string>();
-        var grouped = new HashSet<string>();
-        foreach (var g in CanvasGroups(state, known))
-        {
-            foreach (var p in g) grouped.Add(p.ScreenId);
-            result.Add(CanvasNameConfig.KeyFor(g.Select(p => p.ScreenId)));
-        }
-        foreach (var (placement, _) in OrderedLivePlacements(state, known))
-        {
-            if (!grouped.Contains(placement.ScreenId)) result.Add(placement.ScreenId);
-        }
-        return result;
-    }
+        => Geometry(state, known).Targets.ToList();
 
     /// <summary>A sensible shape when the rig has no screens at all.</summary>
-    public static readonly SKSizeI DefaultTargetSize = new(1920, 1080);
+    public static readonly SKSizeI DefaultTargetSize = RigGeometry.FallbackTargetSize;
 
     /// <summary>
     /// The pixel size of a content target: a canvas's union, a screen's effective (rotation-aware)
     /// size. The program (null) takes the first target's shape so the panes show something true.
     /// </summary>
     public static SKSizeI TargetSize(ShowState state, IReadOnlyList<ScreenInfo> known, string? targetId)
-    {
-        if (targetId is null)
-        {
-            var first = Targets(state, known).FirstOrDefault();
-            return first is null ? DefaultTargetSize : TargetSize(state, known, first);
-        }
-        var live = OrderedLivePlacements(state, known);
-        if (ContentTargets.IsCanvasKey(targetId))
-        {
-            var members = ContentTargets.Members(targetId);
-            SKRectI? union = null;
-            foreach (var (placement, info) in live)
-            {
-                if (!members.Contains(placement.ScreenId)) continue;
-                var size = OutputWindowManager.EffectiveSize(placement, info);
-                var rect = SKRectI.Create(placement.X, placement.Y, size.Width, size.Height);
-                union = union is { } u ? SKRectI.Union(u, rect) : rect;
-            }
-            return union is { } r ? new SKSizeI(r.Width, r.Height) : DefaultTargetSize;
-        }
-        foreach (var (placement, info) in live)
-        {
-            if (placement.ScreenId == targetId) return OutputWindowManager.EffectiveSize(placement, info);
-        }
-        return DefaultTargetSize;
-    }
+        => Geometry(state, known).SizeOf(targetId);
 }

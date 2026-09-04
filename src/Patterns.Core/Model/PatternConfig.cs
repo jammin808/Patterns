@@ -454,8 +454,13 @@ public sealed class MultiviewTileConfig : Observable
 
     public MultiviewSource Source { get => _source; set => Set(ref _source, value); }
 
-    /// <summary>Which screen, when <see cref="Source"/> is Screen.</summary>
-    public string ScreenId { get => _screenId; set => Set(ref _screenId, value); }
+    /// <summary>
+    /// Which content target, when <see cref="Source"/> is Screen: a screen id, or a joined
+    /// canvas's sorted member key (<c>a+b</c>) — the same id an output assignment and a wall
+    /// tile use. A member screen of a joined canvas renders that member's slice of the canvas.
+    /// Empty = nothing picked yet. A cleared picker writes null; that lands as empty.
+    /// </summary>
+    public string ScreenId { get => _screenId; set => Set(ref _screenId, value ?? ""); }
 
     /// <summary>
     /// Which input, when <see cref="Source"/> is NdiFeed (source name) or Capture (device

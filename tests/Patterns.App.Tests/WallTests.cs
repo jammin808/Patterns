@@ -45,6 +45,52 @@ public class WallTests
     }
 
     [AvaloniaFact]
+    public void PickersOnlyRebuildWhenTheRigMoves()
+    {
+        // Clearing a ComboBox's items drops its selection and the two-way binding writes that back:
+        // a rebuild that changes nothing must not touch the bound collections at all.
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            Rig(b);
+            vm.ReconcilePlacements(b.Services.Screens.All.ToList());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(vm.MultiviewTargets, t => t.ScreenId == CanvasKey);
+            Assert.Contains(vm.NdiSources, t => t.ScreenId == CanvasKey);
+
+            var tileEvents = 0;
+            var ndiEvents = 0;
+            vm.MultiviewTargets.CollectionChanged += (_, _) => tileEvents++;
+            vm.NdiSources.CollectionChanged += (_, _) => ndiEvents++;
+            vm.RebuildSwitcherTiles();
+            vm.ReconcilePlacements(b.Services.Screens.All.ToList());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, tileEvents);
+            Assert.Equal(0, ndiEvents);
+
+            // A join undone moves the pickers.
+            vm.State.Output.Placements.First(p => p.ScreenId == "b").X = 4000;
+            vm.ReconcilePlacements(b.Services.Screens.All.ToList());
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(tileEvents > 0);
+            Assert.DoesNotContain(vm.MultiviewTargets, t => t.ScreenId == CanvasKey);
+
+            // A cleared picker cannot write null into the show.
+            var tile = new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "a" };
+            tile.ScreenId = null!;
+            Assert.Equal("", tile.ScreenId);
+            var sender = new NdiSenderConfig { SourceScreenId = "a" };
+            sender.SourceScreenId = null!;
+            Assert.Equal("", sender.SourceScreenId);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void TheWallHasATilePerContentTargetWithItsRealShape()
     {
         var b = TestApp.Boot();
@@ -83,6 +129,97 @@ public class WallTests
             Assert.Equal(CanvasKey, viewports.First(x => x.Screen.Id == "a").Viewport.ScreenId);
             Assert.Equal(CanvasKey, viewports.First(x => x.Screen.Id == "b").Viewport.ScreenId);
             Assert.Equal("c", viewports.First(x => x.Screen.Id == "c").Viewport.ScreenId);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheWallAndTheSnapshotAgreeOnEveryTargetsShapeAndName()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            Rig(b);
+            var snap = b.Services.Bus.Current;
+
+            // One list of targets, one set of shapes, one set of words — the feature's contract.
+            Assert.Equal(Patterns.App.Services.Rig.Targets(b.Vm.State, b.Services.Screens.All), snap.Rig.Targets);
+            Assert.Equal(new SKSizeI(3840, 1080), snap.Rig.SizeOf(null));
+            foreach (var tile in b.Vm.SwitcherTiles)
+            {
+                Assert.Equal(tile.Size, snap.Rig.SizeOf(tile.TargetId));
+                if (tile.TargetId is null) continue;
+                Assert.Equal(tile.Title, snap.Rig.LabelFor(b.Vm.State, tile.TargetId));
+            }
+            Assert.Equal("A · Canvas A", snap.Rig.LabelFor(b.Vm.State, CanvasKey));
+            Assert.Equal("3 · Lobby", snap.Rig.LabelFor(b.Vm.State, "c"));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AChangedDisplayTableAndLabelReachTheNextSnapshot()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            Rig(b);
+
+            // A bigger display behind the same id — the fixture writes Screens.All directly, so
+            // ScreenService.Changed never fires and only the publish path can pick it up.
+            var i = b.Services.Screens.All.ToList().FindIndex(s => s.Id == "c");
+            b.Services.Screens.All[i] = new ScreenInfo("c", "Lobby", new Avalonia.PixelRect(4400, 0, 3840, 2160), 1.0, false, 2);
+
+            // A model edit that is not geometry: the new shapes must still land on this snapshot.
+            b.Vm.State.Output.Placements.First(p => p.ScreenId == "c").CustomLabel = "Foyer";
+            Dispatcher.UIThread.RunJobs();
+
+            var snap = b.Services.Bus.Current;
+            Assert.Equal(new SKSizeI(3840, 2160), snap.Rig.SizeOf("c"));
+            Assert.Equal("3 · Foyer", snap.Rig.LabelFor(b.Vm.State, "c"));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheMultiviewTilePickerOffersCanvasesThenEveryScreenInWallOrder()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            Rig(b);
+
+            Assert.Equal(
+                new (string, string?)[] { ("A · Canvas A", CanvasKey), ("1 · Left", "a"), ("2 · Right", "b"), ("3 · Lobby", "c") },
+                b.Vm.MultiviewTargets.Select(t => (t.Label, t.ScreenId)));
+
+            // A canvas rename moves the picker's first entry and nothing else.
+            b.Vm.State.Output.CanvasNames.Add(new CanvasNameConfig { MemberKey = CanvasKey, Name = "Main wall" });
+            b.Vm.RebuildSwitcherTiles();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(
+                new (string, string?)[] { ("A · Main wall", CanvasKey), ("1 · Left", "a"), ("2 · Right", "b"), ("3 · Lobby", "c") },
+                b.Vm.MultiviewTargets.Select(t => (t.Label, t.ScreenId)));
+
+            // The NDI picker follows the same reconcile a finished drag runs, and gains the
+            // canvas without losing a single screen it offered before.
+            b.Vm.ReconcilePlacements();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(b.Vm.NdiSources, t => t.ScreenId == CanvasKey);
+            foreach (var s in b.Services.Screens.All)
+            {
+                Assert.Contains(b.Vm.NdiSources, t => t.ScreenId == s.Id);
+            }
+            Assert.Contains(b.Vm.NdiSources, t => t.ScreenId == "");
         }
         finally
         {

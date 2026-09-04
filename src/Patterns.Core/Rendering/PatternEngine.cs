@@ -219,10 +219,15 @@ public sealed class PatternEngine
             var row = i / cols;
             var cell = SKRect.Create(gap + col * (cellW + gap), gap + row * (cellH + gap), cellW, cellH);
             var content = SKRect.Create(cell.Left, cell.Top, cell.Width, cell.Height - labelH);
+            if (content.Width < 1f || content.Height < 1f) continue;   // a grid too dense to draw
 
-            // 16:9 letterbox inside the content area keeps every source undistorted.
-            var video = FitRect(content, 16f / 9f);
-            DrawTileContent(canvas, in f, sink, tile, video);
+            // Each tile takes its target's real shape inside a uniform cell — the same two-step
+            // the wall does with AspectBox + RenderFitted, so a 3840×1080 canvas is a wide strip
+            // and a portrait screen a tall box, never a re-layout at 16:9. Live inputs and the
+            // clock have no target of their own and stay 16:9.
+            var vp = TileViewport(f.Snapshot, tile);
+            var video = FitRect(content, vp?.Aspect ?? 16f / 9f);
+            DrawTileContent(canvas, in f, sink, tile, video, vp);
 
             if (opts.ShowTally)
             {
@@ -255,25 +260,47 @@ public sealed class PatternEngine
         return SKRect.Create(outer.Left + (outer.Width - w) / 2, outer.Top + (outer.Height - h) / 2, w, h);
     }
 
-    private void DrawTileContent(SKCanvas canvas, in PatternFrame f, SinkState sink, MultiviewTileConfig tile, SKRect rect)
+    private void DrawTileContent(SKCanvas canvas, in PatternFrame f, SinkState sink, MultiviewTileConfig tile,
+        SKRect rect, TargetViewport? vp)
     {
         switch (tile.Source)
         {
             case MultiviewSource.Program:
             case MultiviewSource.Screen:
             {
-                var size = new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height));
+                if (vp is not { } v)
+                {
+                    // A Screen tile with nothing picked, or naming a screen or canvas this show
+                    // no longer has. Say so: a confidence monitor that quietly shows the program
+                    // instead is worse than no monitor.
+                    DrawTileSlate(canvas, f, rect,
+                        tile.ScreenId.Length == 0 ? "Pick a screen or canvas" : "Not in this rig");
+                    break;
+                }
+
+                // RenderFitted's maths: draw the target at its own pixel size into a canvas
+                // scaled to fit the tile. A FollowOutput grid gets the cell count it has on the
+                // wall; a fixed canvas letterboxes against the target's shape, not 16:9.
+                var scale = Math.Min(rect.Width / v.ViewportSize.Width, rect.Height / v.ViewportSize.Height);
                 var sub = f.Ctx with
                 {
-                    ViewportSize = size,
-                    ReferenceSize = size,
-                    ViewportOrigin = default,
-                    ScreenId = tile.Source == MultiviewSource.Screen ? tile.ScreenId : null,
+                    ViewportSize = v.ViewportSize,     // this screen's own pixels
+                    ReferenceSize = v.ReferenceSize,   // the canvas the pattern resolves against
+                    ViewportOrigin = v.Origin,         // this member's slice of a joined canvas
+                    ScreenId = v.TargetId,             // a screen id, a canvas key, or null = program
                     InMultiview = true,
+                    // A tile is a monitor of one target, never an output: no identify badge inside
+                    // a tile. Never more overlay than the sink the multiview itself draws on, so
+                    // /mv.jpg's thumbnail tiles stay free of PiP, tone and info chips.
+                    Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
+                    SinkIndex = 0,
+                    SinkLabel = TileLabel(f.Snapshot, tile),
                 };
                 var save = canvas.Save();
-                canvas.Translate(rect.Left, rect.Top);
-                canvas.ClipRect(SKRect.Create(0, 0, size.Width, size.Height));
+                canvas.Translate(rect.Left + (rect.Width - v.ViewportSize.Width * scale) / 2f,
+                                 rect.Top + (rect.Height - v.ViewportSize.Height * scale) / 2f);
+                canvas.Scale(scale);
+                canvas.ClipRect(SKRect.Create(0, 0, v.ViewportSize.Width, v.ViewportSize.Height));
                 RenderContent(canvas, f.Snapshot, in sub, sink);
                 canvas.RestoreToCount(save);
                 break;
@@ -361,13 +388,27 @@ public sealed class PatternEngine
         return tiles;
     }
 
+    /// <summary>
+    /// The target maths for a tile that re-renders show content. Null for a tile that draws a
+    /// live input or the clock straight into its rect, and null for a Screen tile whose id
+    /// names nothing in this show — that one draws a slate.
+    /// </summary>
+    private static TargetViewport? TileViewport(ShowSnapshot snap, MultiviewTileConfig tile)
+        => tile.Source switch
+        {
+            MultiviewSource.Program => snap.Rig.ViewportForTarget(null),
+            MultiviewSource.Screen when ContentTargets.IsInRig(snap.State, tile.ScreenId)
+                => snap.Rig.ViewportForTile(tile.ScreenId),
+            _ => null,
+        };
+
     private static bool TileOnAir(ShowSnapshot snap, MultiviewTileConfig tile)
     {
         if (snap.State.Blackout || !snap.OutputsLive) return false;
         return tile.Source switch
         {
             MultiviewSource.Program => true,
-            MultiviewSource.Screen => snap.State.Output.Placements.FirstOrDefault(p => p.ScreenId == tile.ScreenId)?.Enabled == true,
+            MultiviewSource.Screen => ContentTargets.IsTargetEnabled(snap.State, tile.ScreenId),
             _ => false,
         };
     }
@@ -380,13 +421,9 @@ public sealed class PatternEngine
             case MultiviewSource.Program:
                 return "PROGRAM";
             case MultiviewSource.Screen:
-            {
-                var ordered = snap.State.Output.Placements.OrderBy(p => p.X).ThenBy(p => p.Y).ToList();
-                var placement = ordered.FirstOrDefault(p => p.ScreenId == tile.ScreenId);
-                if (placement is null) return "SCREEN";
-                var n = ordered.IndexOf(placement) + 1;
-                return placement.CustomLabel.Length > 0 ? $"{n} · {placement.CustomLabel}" : $"SCREEN {n}";
-            }
+                return tile.ScreenId.Length == 0
+                    ? "—"
+                    : snap.Rig.LabelFor(snap.State, tile.ScreenId);
             case MultiviewSource.NdiFeed:
             {
                 var name = tile.Input.Length > 0 ? tile.Input : Services.MediaLocator.FindActiveNdiSource(snap.State);

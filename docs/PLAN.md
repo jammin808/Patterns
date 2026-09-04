@@ -158,7 +158,7 @@ Audio test signals, NDI receive, DMX/Art-Net triggers, genlock, 10-bit output pa
 simultaneous NDI senders (the sender abstraction already allows N), macOS/Linux builds (Avalonia
 makes them near-free later).
 
-## 8. Run mode — the six-phase roadmap
+## 8. Run mode — the seven-phase roadmap
 
 The design review (published separately as *Patterns Run Mode*) settled a show-caller layer on top
 of the switcher. It is being built in phases; each lands with tests, docs and a green CI run.
@@ -171,10 +171,11 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 4 | Run layout (LIVE strip, the wall beside the stack, transport row, the type scale); the executor with the one gate (armed, hold, blackout, executing, standby-id fence, 300 ms lockout, confirm window); history and journal; asynchronous settling; AirLabel; the schedule, part start times and plain F-keys held while armed; Enter / ↑ ↓ / Esc; STOP ALL; the sidecar keeps the caller's place and a relaunch restores it disarmed. | done |
 | 5 | The CUE verbs, STOPALL and HELLO (origins by name); the control-state push and the compact `cuestack` STATE block; `/api/cues`, the `/api/state?since=` long-poll, `/pgm.jpg`, the client header on cue commands; the `/run` tablet page; Companion module 1.1.0; the pop-out Run window. | done |
 | 6 | The shell: five groups on the rail (SHOW · PLAN · BUILD · SETUP · ADMIN) with a page strip over the layout and one page table pinned to the window's tabs; PREP · SHOW · RUN as the header mode selector; four pages re-cut (the Show panel without the transport, Looks with all the wall-clock automation, Screens with transitions and the EDIT SAFE default, Machine); the SHOW CONTROLS drawer — message, clock, countdown, audio volume behind SEND — and the AudioVolume verb a cue can use too; the PREP chip on the LIVE strip; docs, screenshots, Help. | done |
+| 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
-Deferred on purpose: multiview tile maths for canvas targets; MON persisted per show (runtime only
-for now); clearing `CutAtVersion` for a sink that skipped the cut frame (a sink that renders every
-publish never sees the difference); per-target overlays (the countdown, message and clock are
+Deferred on purpose: MON persisted per show (runtime only for now); clearing `CutAtVersion` for a
+sink that skipped the cut frame (a sink that renders every publish never sees the difference);
+per-target overlays (the countdown, message and clock are
 rig-wide and travel with looks — "countdown on Centre, branding on the sides" needs an overlay set
 per content target, which the target model now makes possible).
 

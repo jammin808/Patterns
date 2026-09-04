@@ -183,10 +183,13 @@ fault containment, and settings that can never brick startup.
   destinations** (RTMP for YouTube/Twitch/Restream, SRT, UDP) at no extra encoding cost.
   Optional audio from a capture device; never auto-starts; an encoder or network failure
   changes a status line, never the show.
-- **Customisable multiview** — a monitor wall as a pattern: program, any screen's content,
-  live inputs and a clock, with labels (your custom names) and **red on-air tally**. Being
-  engine-rendered it goes anywhere — an operator screen, an NDI sender — and it's
-  **available remotely** at `/multiview` on the web-remote address (live JPEG refresh).
+- **Customisable multiview** — a monitor wall as a pattern: program, any screen **or joined
+  canvas** at its own real shape (a 3840×1080 wall is a long thin tile, a portrait screen a
+  tall box), live inputs and a clock, with the same labels (your custom names) and **red
+  on-air tally** the wall uses — so the multiview, the wall and the outputs never disagree;
+  a target with no display attached is drawn 16:9. Being engine-rendered it goes anywhere —
+  an operator screen, an NDI sender — and it's **available remotely** at `/multiview` on the
+  web-remote address (live JPEG refresh).
 - **Stingers** — one-press sounds and clips, no audio engineer needed: *"Take your seats,
   the show is about to begin."* A sound plays over everything on the audio-track outputs
   while the music ducks underneath (and comes back by itself); a **video clip takes over
@@ -324,7 +327,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 379 tests: pixel-exact rendering, arrangement math, playlists, input pool, DSP, remote protocol, watchdog policy, stingers, switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 507 tests: pixel-exact rendering, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, stingers, switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

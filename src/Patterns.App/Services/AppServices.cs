@@ -169,7 +169,12 @@ public sealed class AppServices
         _ = new ChangeTracker(State, OnStateChanged);
 
         Screens.PlannedProvider = PlannedScreens;
-        Screens.Changed += () => Outputs.OnScreensChanged();
+        Screens.Changed += () =>
+        {
+            var moved = SyncDisplays();
+            Outputs.OnScreensChanged();
+            if (moved) PublishRuntime();   // a hot-plug moves no model: push the new shapes ourselves
+        };
         Outputs.LiveChanged += UpdateRecovery;
         Screens.Refresh(); // planned screens exist before any display is attached
     }
@@ -236,6 +241,7 @@ public sealed class AppServices
     {
         if (_bulkDepth > 0) return;
 
+        SyncDisplays();
         if (Sandbox.Active)
         {
             Sandbox.PublishBoth(); // outputs stay on the frozen program; preview follows the edits
@@ -400,6 +406,28 @@ public sealed class AppServices
         }
     }
 
+    private string _displayKey = "";
+
+    /// <summary>
+    /// Hands the bus the measured display sizes and names so every snapshot can resolve target
+    /// geometry. Runs before each publish: a snapshot must never carry a stale display table.
+    /// Returns true when they changed, so a caller with nothing else to publish can push one.
+    /// </summary>
+    private bool SyncDisplays()
+    {
+        var key = new System.Text.StringBuilder();
+        foreach (var s in Screens.All)
+        {
+            key.Append(s.Id).Append('\u001f').Append(s.Bounds.Width).Append('x')
+               .Append(s.Bounds.Height).Append('\u001f').Append(s.Label).Append('\u001e');
+        }
+        var k = key.ToString();
+        if (k == _displayKey) return false;
+        _displayKey = k;
+        Bus.Displays = Rig.DisplaysOf(Screens.All.ToList());   // a fresh dictionary, assigned whole
+        return true;
+    }
+
     private string _plannedKey = "";
 
     /// <summary>Re-merges planned screens when their set, size or label changed.</summary>
@@ -459,6 +487,7 @@ public sealed class AppServices
     public void PublishRuntime()
     {
         if (_bulkDepth > 0) return;
+        SyncDisplays();
         if (Sandbox.Active)
         {
             // A runtime publish must respect the freeze exactly like a model edit — otherwise

@@ -35,6 +35,14 @@ public sealed class ShowSnapshot
     public bool OutputsLive { get; init; }
 
     /// <summary>
+    /// Runtime-only: the rig's pixel geometry for the placements in <see cref="State"/> — every
+    /// content target's size and name, and each screen's slice of the canvas it joined. Derived
+    /// here on every publish (never cached across them) so it can never disagree with this
+    /// snapshot's own placements, including the frozen program clone while the sandbox is open.
+    /// </summary>
+    public RigGeometry Rig { get; init; } = RigGeometry.Empty;
+
+    /// <summary>
     /// Runtime-only: the version at which the last CUT was published. A sink that has not yet
     /// shown that version switches without a crossfade, whatever the transition setting says —
     /// so a cut stays a cut inside a bulk edit and on a sink that skipped a frame.
@@ -177,6 +185,13 @@ public sealed class SnapshotBus
     /// <summary>Set by the output manager; carried on every snapshot (multiview tally).</summary>
     public bool OutputsLive { get; set; }
 
+    /// <summary>
+    /// Set by the app when the attached or planned displays change: each display's measured
+    /// pixel size and name, keyed by screen id. Read only on the publishing thread, inside
+    /// Build. Assigned whole — never mutated after being handed over.
+    /// </summary>
+    public IReadOnlyDictionary<string, ScreenGeometry> Displays { get; set; } = RigGeometry.NoDisplays;
+
     private bool _cutPending;
 
     private int _fadePendingMs = -1;
@@ -235,9 +250,10 @@ public sealed class SnapshotBus
             _fadeVersion = version;
             _fadePendingMs = -1;
         }
+        var clone = JsonUtil.Clone(state);
         return new ShowSnapshot
         {
-            State = JsonUtil.Clone(state),
+            State = clone,
             Version = version,
             IdentifyUntilUtc = IdentifyUntilUtc,
             PlaylistNow = PlaylistNow,
@@ -247,6 +263,7 @@ public sealed class SnapshotBus
             CutAtVersion = _cutVersion,
             FadeOverrideMs = _fadeMs,
             FadeOverrideVersion = _fadeVersion,
+            Rig = RigGeometry.Build(clone, Displays),
         };
     }
 }

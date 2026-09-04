@@ -185,6 +185,14 @@ public class PrepModeTests
             // …an NDI sender feeding off it…
             services.State.Ndi.Senders.Add(new NdiSenderConfig { SourceScreenId = planned.ScreenId });
             var plannedId = planned.ScreenId;
+            // …a tile and a sender pointed at a joined canvas the planned screen is a member of…
+            var plannedCanvasKey = CanvasNameConfig.KeyFor(new[] { plannedId, "other" });
+            services.State.Pattern.Multiview.Tiles.Add(new MultiviewTileConfig
+            {
+                Source = MultiviewSource.Screen,
+                ScreenId = plannedCanvasKey,
+            });
+            services.State.Ndi.Senders.Add(new NdiSenderConfig { SourceScreenId = plannedCanvasKey });
             // …and a look saved at the desk, whose captured JSON names the planned screen.
             vm.NewLookName = "Desk look";
             vm.SaveLookCommand.Execute(null);
@@ -215,6 +223,11 @@ public class PrepModeTests
             Assert.Equal(venueId,
                 services.State.Independent.First(a => a.ScreenId == venueId).Pattern.Multiview.Tiles[0].ScreenId);
             Assert.Equal(venueId, services.State.Ndi.Senders[0].SourceScreenId);
+
+            // A canvas key moves with its member, or the adopted screen orphans the canvas.
+            var venueCanvasKey = CanvasNameConfig.KeyFor(new[] { venueId, "other" });
+            Assert.Equal(venueCanvasKey, services.State.Pattern.Multiview.Tiles[1].ScreenId);
+            Assert.Equal(venueCanvasKey, services.State.Ndi.Senders[1].SourceScreenId);
 
             // Saved looks follow too — otherwise every desk-built look orphans the screen.
             Assert.DoesNotContain(services.State.LooksAndCues.Looks,

@@ -271,7 +271,7 @@ public static class Lists
     public static readonly EnumItem[] MultiviewSources =
     {
         new(MultiviewSource.Program, "Program"),
-        new(MultiviewSource.Screen, "A screen's content"),
+        new(MultiviewSource.Screen, "A screen or canvas"),
         new(MultiviewSource.NdiFeed, "NDI feed"),
         new(MultiviewSource.Capture, "Capture device"),
         new(MultiviewSource.Pip, "PiP input"),

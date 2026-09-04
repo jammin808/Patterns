@@ -72,6 +72,45 @@ public class ContentTargetTests
     }
 
     [Fact]
+    public void ACanvasIsOnAirOnlyWhileEveryMemberScreenIsEnabled()
+    {
+        var state = Rig();
+        Assert.True(ContentTargets.IsTargetEnabled(state, "c"));
+        Assert.True(ContentTargets.IsTargetEnabled(state, Key));
+
+        state.Output.Placements.First(p => p.ScreenId == "b").Enabled = false;
+        Assert.False(ContentTargets.IsTargetEnabled(state, Key)); // half a canvas is no canvas
+        Assert.True(ContentTargets.IsTargetEnabled(state, "a"));  // the member keeps its own switch
+        Assert.False(ContentTargets.IsTargetEnabled(state, "b"));
+
+        Assert.False(ContentTargets.IsTargetEnabled(state, ""));
+        Assert.False(ContentTargets.IsTargetEnabled(state, "+"));      // names no screen, never on
+        Assert.False(ContentTargets.IsTargetEnabled(state, "ghost"));
+        Assert.False(ContentTargets.IsTargetEnabled(state, "x+y"));
+
+        // A degenerate canvas key can no longer be yielded as an active target.
+        state.Output.CanvasNames.Add(new CanvasNameConfig { MemberKey = "+", UseCustomPattern = true });
+        Assert.DoesNotContain("+", ContentTargets.ActiveCustomTargets(state));
+    }
+
+    [Fact]
+    public void IsInRigKnowsAScreenACanvasAndNeitherEmptyNorAGhost()
+    {
+        var state = Rig();
+        Assert.True(ContentTargets.IsInRig(state, "a"));
+        Assert.True(ContentTargets.IsInRig(state, Key));
+        Assert.False(ContentTargets.IsInRig(state, ""));
+        Assert.False(ContentTargets.IsInRig(state, "ghost"));
+        Assert.False(ContentTargets.IsInRig(state, "x+y"));
+
+        // One live member is enough for the key to still name something the show has.
+        state.Output.Placements.Remove(state.Output.Placements.First(p => p.ScreenId == "b"));
+        Assert.True(ContentTargets.IsInRig(state, Key));
+        state.Output.Placements.Remove(state.Output.Placements.First(p => p.ScreenId == "a"));
+        Assert.False(ContentTargets.IsInRig(state, Key));
+    }
+
+    [Fact]
     public void MediaOnAJoinedCanvasIsFoundForDecoding()
     {
         var state = Rig();

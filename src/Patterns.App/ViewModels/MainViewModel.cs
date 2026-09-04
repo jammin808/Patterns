@@ -1025,17 +1025,40 @@ public sealed class MainViewModel : Observable
         }
         State.Web.TargetScreenId = current;
 
-        MultiviewScreens.Clear();
-        foreach (var x in OrderedLivePlacements())
-        {
-            MultiviewScreens.Add(new EditTarget($"{MultiviewScreens.Count + 1} — {LabelFor(x.Placement, x.Info)}", x.Placement.ScreenId));
-        }
+        RebuildMultiviewTargets();
     }
 
     // ---- multiview ----------------------------------------------------------
 
-    /// <summary>Screen choices for multiview tiles (arrangement order, custom labels).</summary>
-    public ObservableCollection<EditTarget> MultiviewScreens { get; } = new();
+    /// <summary>Target choices for multiview tiles, in wall order: joined canvases, then every screen.</summary>
+    public ObservableCollection<EditTarget> MultiviewTargets { get; } = new();
+
+    private void RebuildMultiviewTargets()
+    {
+        var geo = Rig.Geometry(State, _services.Screens.All);
+        var wanted = new List<EditTarget>();
+        foreach (var key in geo.Targets)
+        {
+            if (ContentTargets.IsCanvasKey(key)) wanted.Add(new EditTarget(geo.LabelFor(State, key), key));
+        }
+        foreach (var s in geo.Screens)
+        {
+            wanted.Add(new EditTarget(geo.LabelFor(State, s.Id), s.Id));
+        }
+        ReplaceIfChanged(MultiviewTargets, wanted);
+    }
+
+    /// <summary>
+    /// A picker bound two-way to a model id is rebuilt in place only when its entries really
+    /// moved: clearing a ComboBox's items drops its selection, and the binding would write that
+    /// empty selection back into the show. Same entries, same order = nothing happens.
+    /// </summary>
+    private static void ReplaceIfChanged(ObservableCollection<EditTarget> current, List<EditTarget> wanted)
+    {
+        if (current.Count == wanted.Count && current.SequenceEqual(wanted)) return;
+        current.Clear();
+        foreach (var t in wanted) current.Add(t);
+    }
 
     // ---- presenter click-through -------------------------------------------
 
@@ -1417,6 +1440,8 @@ public sealed class MainViewModel : Observable
         SelectTarget(_selectedTargetId is { } selected && targets.Contains(selected) ? selected : null);
         Raise(nameof(EditTargetBanner));
         RefreshTakeScope();
+        // A join creates and destroys canvases, so the tile picker's targets move with the wall.
+        RebuildMultiviewTargets();
     }
 
     /// <summary>Live refresh without rebuilding (keeps ticks, focus and MON; called each poll and on every change that moves a tally).</summary>
@@ -1860,12 +1885,19 @@ public sealed class MainViewModel : Observable
 
     private void RebuildNdiSources()
     {
-        NdiSources.Clear();
-        NdiSources.Add(new EditTarget("Program", ""));
+        var wanted = new List<EditTarget> { new("Program", "") };
+        // Additive: every entry the picker offered before is still offered, so a stored
+        // SourceScreenId can never be blanked by the combo's two-way binding.
+        var geo = Rig.Geometry(State, _services.Screens.All);
+        foreach (var key in geo.Targets)
+        {
+            if (ContentTargets.IsCanvasKey(key)) wanted.Add(new EditTarget(geo.LabelFor(State, key), key));
+        }
         foreach (var s in _services.Screens.All)
         {
-            NdiSources.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
+            wanted.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
         }
+        ReplaceIfChanged(NdiSources, wanted);
     }
 
     private void AddNdiSender()
@@ -2269,14 +2301,26 @@ public sealed class MainViewModel : Observable
         }
         foreach (var pattern in AllPatterns(state))
         {
-            foreach (var tile in pattern.Multiview.Tiles.Where(t => t.ScreenId == oldId))
+            foreach (var tile in pattern.Multiview.Tiles)
             {
-                tile.ScreenId = newId;
+                if (tile.ScreenId == oldId) { tile.ScreenId = newId; continue; }
+                if (!ContentTargets.IsCanvasKey(tile.ScreenId)) continue;
+                var members = ContentTargets.Members(tile.ScreenId);
+                if (members.Contains(oldId))
+                {
+                    tile.ScreenId = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
+                }
             }
         }
-        foreach (var sender in state.Ndi.Senders.Where(s => s.SourceScreenId == oldId))
+        foreach (var sender in state.Ndi.Senders)
         {
-            sender.SourceScreenId = newId;
+            if (sender.SourceScreenId == oldId) { sender.SourceScreenId = newId; continue; }
+            if (!ContentTargets.IsCanvasKey(sender.SourceScreenId)) continue;
+            var members = ContentTargets.Members(sender.SourceScreenId);
+            if (members.Contains(oldId))
+            {
+                sender.SourceScreenId = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
+            }
         }
         if (state.Stream.SourceScreenId == oldId) state.Stream.SourceScreenId = newId;
         if (state.Web.TargetScreenId == oldId) state.Web.TargetScreenId = newId;

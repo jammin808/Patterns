@@ -150,9 +150,7 @@ public sealed class OutputWindowManager
 
     /// <summary>The size a screen occupies in arrangement space (swapped for portrait rotations).</summary>
     public static SKSizeI EffectiveSize(ScreenPlacement placement, ScreenInfo info)
-        => placement.Rotation is OutputRotation.Rot90 or OutputRotation.Rot270
-            ? new SKSizeI(info.Bounds.Height, info.Bounds.Width)
-            : new SKSizeI(info.Bounds.Width, info.Bounds.Height);
+        => RigGeometry.EffectiveSize(placement, new SKSizeI(info.Bounds.Width, info.Bounds.Height));
 
     public void CloseAll()
     {

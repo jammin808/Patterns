@@ -349,8 +349,8 @@ public sealed class NdiSenderConfig : Observable
     public int Height { get => _height; set => Set(ref _height, Math.Clamp(value, 16, 8192)); }
     /// <summary>Frame-rate key from <c>NdiRateTable</c> ("23.98"…"60").</summary>
     public string RateKey { get => _rateKey; set => Set(ref _rateKey, value); }
-    /// <summary>Empty = program; otherwise the screen whose pattern this sender mirrors.</summary>
-    public string SourceScreenId { get => _sourceScreenId; set => Set(ref _sourceScreenId, value); }
+    /// <summary>Empty = program; otherwise the screen or joined canvas (member key) whose pattern this sender mirrors.</summary>
+    public string SourceScreenId { get => _sourceScreenId; set => Set(ref _sourceScreenId, value ?? ""); }
     /// <summary>Send 10-bit P216 (renders internally at 10 bpc; heavier on CPU).</summary>
     public bool TenBit { get => _tenBit; set => Set(ref _tenBit, value); }
 

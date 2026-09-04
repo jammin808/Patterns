@@ -64,6 +64,53 @@ public static class ContentTargets
     }
 
     /// <summary>
+    /// Does this id name something the show still has? A screen with a placement, or a canvas key
+    /// with at least one member placement. Empty is never in the rig. Geometry-independent on
+    /// purpose: a headless render with no display table must still resolve a real screen id.
+    /// </summary>
+    public static bool IsInRig(ShowState state, string targetId)
+    {
+        if (targetId.Length == 0) return false;
+        if (IsCanvasKey(targetId))
+        {
+            foreach (var id in Members(targetId))
+            {
+                foreach (var p in state.Output.Placements)
+                {
+                    if (p.ScreenId == id) return true;
+                }
+            }
+            return false;
+        }
+        foreach (var p in state.Output.Placements)
+        {
+            if (p.ScreenId == targetId) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Is every screen behind this target switched on? A canvas needs all of its members; a single
+    /// screen needs its own placement. An unknown or empty id, and a canvas key with no members,
+    /// are never on.
+    /// </summary>
+    public static bool IsTargetEnabled(ShowState state, string targetId)
+    {
+        if (targetId.Length == 0) return false;
+        if (IsCanvasKey(targetId))
+        {
+            var members = Members(targetId);
+            if (members.Length == 0) return false;
+            foreach (var id in members)
+            {
+                if (state.Output.Placements.FirstOrDefault(p => p.ScreenId == id)?.Enabled != true) return false;
+            }
+            return true;
+        }
+        return state.Output.Placements.FirstOrDefault(p => p.ScreenId == targetId)?.Enabled == true;
+    }
+
+    /// <summary>
     /// Targets whose own pattern is on air right now: enabled singles with the flag, and
     /// canvases with the flag whose members are all enabled. Drives media and input reconcile.
     /// </summary>
@@ -75,17 +122,7 @@ public static class ContentTargets
         }
         foreach (var c in state.Output.CanvasNames)
         {
-            if (!c.UseCustomPattern || c.MemberKey.Length == 0) continue;
-            var allOn = true;
-            foreach (var id in Members(c.MemberKey))
-            {
-                if (state.Output.Placements.FirstOrDefault(p => p.ScreenId == id)?.Enabled != true)
-                {
-                    allOn = false;
-                    break;
-                }
-            }
-            if (allOn) yield return c.MemberKey;
+            if (c.UseCustomPattern && IsTargetEnabled(state, c.MemberKey)) yield return c.MemberKey;
         }
     }
 }
