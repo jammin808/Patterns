@@ -54,6 +54,10 @@ public enum RemoteCommandKind
     Vog,
     /// <summary>"STING n" / "STING name" — fires it only if it really is a stinger.</summary>
     Sting,
+    /// <summary>"DUCK ON" / "DUCK OFF" / "DUCK TOGGLE" (bare "DUCK" toggles) — the live duck for an announcement from the room.</summary>
+    DuckOn,
+    DuckOff,
+    DuckToggle,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module).</summary>
@@ -224,6 +228,15 @@ public static class ControlProtocol
                     "ON" => new(RemoteCommandKind.ToneOn, 0, ""),
                     "OFF" => new(RemoteCommandKind.ToneOff, 0, ""),
                     _ => new(RemoteCommandKind.Unknown, 0, s),
+                };
+
+            // The live duck is a latch like BLACKOUT: ON / OFF are explicit, anything else toggles.
+            case "DUCK":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" => new(RemoteCommandKind.DuckOn, 0, ""),
+                    "OFF" => new(RemoteCommandKind.DuckOff, 0, ""),
+                    _ => new(RemoteCommandKind.DuckToggle, 0, ""),
                 };
 
             case "STREAM":

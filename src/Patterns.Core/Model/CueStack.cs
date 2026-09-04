@@ -61,6 +61,9 @@ public enum CueActionKind
     SpotifyNext,
     /// <summary>Value = the break-music level, 0–100 % (the Spotify device's own volume).</summary>
     SpotifyVolume,
+    /// <summary>The live duck for an announcement from the room: everything but a VOG makes way, and comes back with DuckOff.</summary>
+    DuckOn,
+    DuckOff,
 }
 
 /// <summary>One typed step of a cue.</summary>

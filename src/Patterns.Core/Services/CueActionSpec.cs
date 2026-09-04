@@ -84,6 +84,8 @@ public static class CueActionSpec
         CueActionKind.MessageOff => "Message off",
         CueActionKind.ClockOn => "Clock on",
         CueActionKind.ClockOff => "Clock off",
+        CueActionKind.DuckOn => "Duck for an announcement",
+        CueActionKind.DuckOff => "Lift the duck",
         CueActionKind.ListArm => "Arm a list",
         CueActionKind.ListDisarm => "Disarm a list",
         CueActionKind.ListGo => "GO on a list",
@@ -107,6 +109,7 @@ public static class CueActionSpec
         CueActionKind.CountdownStart, CueActionKind.CountdownStop,
         CueActionKind.MessageOn, CueActionKind.MessageOff,
         CueActionKind.ClockOn, CueActionKind.ClockOff,
+        CueActionKind.DuckOn, CueActionKind.DuckOff,
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };
 

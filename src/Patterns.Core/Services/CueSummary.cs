@@ -75,6 +75,8 @@ public static class CueSummary
             case CueActionKind.MessageOff: return "Message off";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
+            case CueActionKind.DuckOn: return "Duck for announcement";
+            case CueActionKind.DuckOff: return "Lift the duck";
             case CueActionKind.ListArm: return $"Arm {StackName(state, a.Target)}";
             case CueActionKind.ListDisarm: return $"Disarm {StackName(state, a.Target)}";
             case CueActionKind.ListGo: return $"GO on {StackName(state, a.Target)}";

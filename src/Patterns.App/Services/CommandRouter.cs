@@ -131,6 +131,9 @@ public sealed class CommandRouter
             RemoteCommandKind.MusicVolume => new ShowAction(ShowActionKind.SpotifyVolume, "", cmd.TextArg),
             RemoteCommandKind.ToneOn => new ShowAction(ShowActionKind.ToneOn),
             RemoteCommandKind.ToneOff => new ShowAction(ShowActionKind.ToneOff),
+            RemoteCommandKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
+            RemoteCommandKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
+            RemoteCommandKind.DuckToggle => new ShowAction(ShowActionKind.DuckToggle),
             RemoteCommandKind.Stinger => new ShowAction(ShowActionKind.StingerFire, byNumberOrName),
             RemoteCommandKind.Vog => new ShowAction(ShowActionKind.StingerFire, byNumberOrName, "vog"),
             RemoteCommandKind.Sting => new ShowAction(ShowActionKind.StingerFire, byNumberOrName, "sting"),
@@ -184,6 +187,7 @@ public sealed class CommandRouter
                         : _services.Stingers.VogOnAir.Length > 0 ? "vog" : "",
             vogSound = _services.Stingers.VogSoundOnAir,                   // a VOG sound over the show — over a stinger too
             stingHold = _services.Stingers.HoldName,                       // "" = not holding
+            duck = s.Stingers.DuckActive,                                  // the live duck for an announcement from the room
             sections = SectionRows(s),
             playlist = _services.Playlist.Status,
             nextCue = ShowActions.NextScheduledText(s, DateTime.Now),

@@ -214,6 +214,11 @@ fault containment, and settings that can never brick startup.
   **video clip takes over every screen and the previous content returns the moment it
   ends** — unless the operator changes content mid-clip, in which case their choice stands.
   Fired from the Show panel, a cue, the web remote, the TCP protocol or Companion.
+- **Live DUCK** — someone needs to speak from the room, through the house desk or a mic on the
+  Patterns machine: press **D** (or DUCK in the SHOW CONTROLS drawer, on the phone, on a Stream
+  Deck, in a cue) and the music track, break music, a playing stinger and a clip's soundtrack
+  drop to the level you set, ramping, until you lift it — a VOG never ducks. A latch, not a
+  programme source: STOP ALL and look recalls leave it, and a restart never comes up ducked.
 - **Stingers** — transition hits from the same library: the music **fades out** instead of
   ducking, a clip **dissolves in**, and when it lands the show goes where the stinger says —
   **back** to what was on, **held** on the last frame for your TAKE or GO (with an optional
@@ -364,7 +369,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 699 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, edge blend, the PiP crop, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 708 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

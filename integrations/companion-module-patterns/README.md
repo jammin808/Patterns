@@ -42,6 +42,15 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Live duck (module 1.3.0)
+
+The **DUCK** key (`duck` action: toggle / on / off, `DUCK …` on the wire) makes way for an
+announcement from the room: the music track, break music, a playing stinger's sound and a clip's
+soundtrack drop to the Audio page's live-duck level, ramping, and come back when the key is
+pressed again — a VOG never ducks. It is a latch, not a programme source: STOP ALL and look
+recalls leave it. Feedback `duck_on` (hold amber) and `$(patterns:duck)` (`DUCK` / `off`). Every
+existing action, feedback and variable id is unchanged.
+
 ## Break music (module 1.2.0)
 
 The **Break music** category drives Spotify through Patterns: play / resume, pause, skip and

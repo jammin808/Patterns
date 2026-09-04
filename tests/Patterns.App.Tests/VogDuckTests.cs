@@ -56,7 +56,8 @@ public class VogDuckTests
 
             Assert.Equal(ActionStatus.Requested, Fire(b, 1).Status);
             Assert.Equal("STING: Whoosh", b.Services.AirLabel);
-            Assert.Equal(0.0, b.Services.Stingers.MusicGainAt(T0.AddSeconds(2)));   // the sting fades the music
+            // The press ran on the real clock: read the fade two seconds after it, never a fixed instant.
+            Assert.Equal(0.0, b.Services.Stingers.MusicGainAt(DateTime.UtcNow.AddSeconds(2)));   // the sting fades the music
 
             Assert.Equal(ActionStatus.Requested, Fire(b, 2).Status);
             Assert.Equal(2, fakes.Voices.Count);

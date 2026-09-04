@@ -45,6 +45,10 @@ public class ControlProtocolTests
     [InlineData("AUDIO STOP", RemoteCommandKind.AudioStop)]
     [InlineData("TONE ON", RemoteCommandKind.ToneOn)]
     [InlineData("TONE OFF", RemoteCommandKind.ToneOff)]
+    [InlineData("DUCK ON", RemoteCommandKind.DuckOn)]
+    [InlineData("duck off", RemoteCommandKind.DuckOff)]
+    [InlineData("DUCK TOGGLE", RemoteCommandKind.DuckToggle)]
+    [InlineData("DUCK", RemoteCommandKind.DuckToggle)]
     [InlineData("MUSIC PLAY", RemoteCommandKind.MusicPlay)]
     [InlineData("MUSIC PAUSE", RemoteCommandKind.MusicPause)]
     [InlineData("SPOTIFY NEXT", RemoteCommandKind.MusicNext)]      // the frozen alias

@@ -115,6 +115,7 @@ class PatternsInstance extends InstanceBase {
 			next_cue: this.state.nextCue ?? '',
 			stinger: this.state.stingerPlaying ?? '',
 			sting_hold: this.state.stingHold ?? '',
+			duck: this.state.duck ? 'DUCK' : 'off',
 			music: this.state.music?.now ?? '',
 			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
 			music_level: String(this.state.music?.level ?? 0),
@@ -126,7 +127,7 @@ class PatternsInstance extends InstanceBase {
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing', 'music_playing',
-			'vog_playing', 'sting_playing', 'sting_hold', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -217,6 +218,14 @@ class PatternsInstance extends InstanceBase {
 				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'ON',
 					choices: [{ id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
 				callback: (a) => send(`TONE ${a.options.mode}`),
+			},
+			// The live duck: music, stinger sounds and clip audio make way for an announcement
+			// from the room (a VOG never ducks). A latch — STOP ALL leaves it.
+			duck: {
+				name: 'Live duck (make way for an announcement from the room)',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE',
+					choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
+				callback: (a) => send(`DUCK ${a.options.mode}`),
 			},
 			stinger: {
 				name: 'Fire stinger (by number)',
@@ -332,6 +341,13 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => (this.state.stingHold ?? '') !== '',
 			},
+			duck_on: {
+				type: 'boolean',
+				name: 'The live duck is on',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.duck,
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -386,6 +402,7 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'next_cue', name: 'Next scheduled cue' },
 			{ variableId: 'stinger', name: 'VOG or stinger on air (name)' },
 			{ variableId: 'sting_hold', name: 'Stinger holding the screens (name)' },
+			{ variableId: 'duck', name: 'Live duck (DUCK/off)' },
 			{ variableId: 'music', name: 'Break music — now playing' },
 			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
 			{ variableId: 'music_level', name: 'Break music level (0–100)' },
@@ -469,6 +486,12 @@ class PatternsInstance extends InstanceBase {
 			type: 'button', category: 'Cue stack', name: 'STOP ALL',
 			style: { text: 'STOP\nALL', size: '14', color: combineRgb(224, 52, 46), bgcolor: dark },
 			steps: [{ down: [{ actionId: 'stop_all', options: {} }], up: [] }], feedbacks: [],
+		}
+		presets.duck = {
+			type: 'button', category: 'Cue stack', name: 'DUCK (live announcement)',
+			style: { text: 'DUCK\n$(patterns:duck)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'duck', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'duck_on', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
 		}
 		const musicOn = { feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }
 		presets.music_play = {

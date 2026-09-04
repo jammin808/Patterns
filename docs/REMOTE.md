@@ -34,6 +34,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `MUSIC NEXT` | Skip to the next track (alias `MUSIC SKIP`) |
 | `MUSIC VOL <0–100>` | The Spotify device's own level (alias `VOLUME`; out of range answers `ERR … 0 to 100`) |
 | `TONE ON` / `OFF` | Soundcheck tone generator |
+| `DUCK ON` / `OFF` / `TOGGLE` | The live duck: the music track, break music, a playing stinger's sound and a clip's soundtrack drop to the Audio page's live-duck level for an announcement from the room and come back when lifted; a VOG never ducks. A latch (bare `DUCK` toggles): STOP ALL and look recalls leave it |
 | `STINGER <n>` / `STINGER <name>` | Fire library item *n* (Audio-page order) or by name — a VOG or a stinger, whichever it is |
 | `VOG <n>` / `VOG <name>` | The same, refused if that item is a stinger — a key that says VOG never fires one |
 | `STING <n>` / `STING <name>` | The same, refused if that item is a VOG |
@@ -69,7 +70,7 @@ State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel
 `screens[{n,label,enabled,group}]` (labels honour operator names), `audio{playing,track}`, `tone`,
 `stingers[{n,name,kind}]` (`kind` is `vog` or `sting`), `stingerPlaying` (whatever owns the show), `stingerKind`
 (`vog` / `sting` / empty), `vogSound` (a VOG sound playing over the show — over a stinger too, which it ducks
-rather than stops; empty when none), `stingHold` (the name of a stinger holding the screens, or empty),
+rather than stops; empty when none), `stingHold` (the name of a stinger holding the screens, or empty), `duck` (the live duck is on),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),

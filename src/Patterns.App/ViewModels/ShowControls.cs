@@ -27,6 +27,8 @@ public sealed class ShowControls : Observable
     private bool _messageOnAir;
     private bool _clockOnAir;
     private bool _countdownOnAir;
+    private bool _duckOnAir;
+    private string _duckAirText = "off";
 
     public ShowControls(AppServices services, Action<string> status)
     {
@@ -39,9 +41,17 @@ public sealed class ShowControls : Observable
         CountdownStartCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.CountdownStart, "", _draftMinutesText.Trim())));
         CountdownStopCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.CountdownStop)));
         VolumeSendCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.AudioVolume, "", _draftVolume.ToString("0", System.Globalization.CultureInfo.InvariantCulture))));
+        DuckToggleCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.DuckToggle)));
         _draftVolume = services.State.AudioPlayer.VolumePct;
         Refresh();
     }
+
+    /// <summary>The live duck's level and fade are the show's (Audio page); the drawer edits them in place.</summary>
+    public StingerConfig Stingers => _s.State.Stingers;
+
+    public bool DuckOnAir { get => _duckOnAir; private set => Set(ref _duckOnAir, value); }
+    public string DuckAirText { get => _duckAirText; private set => Set(ref _duckAirText, value); }
+    public RelayCommand DuckToggleCommand { get; }
 
     /// <summary>Open or closed; opening re-reads the air so the labels are current.</summary>
     public bool IsOpen
@@ -102,6 +112,8 @@ public sealed class ShowControls : Observable
                 ? $"running · {countdown.DurationMinutes:0.#} min"
                 : "running · to a time";
         VolumeAirText = $"{_s.State.AudioPlayer.VolumePct:0}%";
+        DuckOnAir = _s.State.Stingers.DuckActive;
+        DuckAirText = DuckOnAir ? $"ducked to {_s.State.Stingers.DuckToPct:0}%" : "off";
     }
 
     private void Send(ShowAction action)

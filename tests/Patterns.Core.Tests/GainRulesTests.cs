@@ -45,6 +45,24 @@ public class GainRulesTests
     }
 
     [Fact]
+    public void TheLiveDuckIsAFactorOnEverythingButAVog()
+    {
+        var live = new GainInputs(VogSoundPlaying: false, DuckPct: 20, StingRamp: 1, LiveDuck: 0.1);
+        Assert.Equal(0.1, GainRules.For(AudioBus.Music, live), 6);
+        Assert.Equal(0.1, GainRules.For(AudioBus.StingSound, live), 6);
+        Assert.Equal(0.1, GainRules.For(AudioBus.ClipAudio, live), 6);
+        Assert.Equal(1.0, GainRules.For(AudioBus.VogSound, live));
+
+        // With a VOG on top the two ducks multiply; the ramp is clamped like the others.
+        var both = new GainInputs(true, 50, 1, 0.5);
+        Assert.Equal(0.25, GainRules.For(AudioBus.Music, both), 6);
+        Assert.Equal(0.25, GainRules.For(AudioBus.StingSound, both), 6);
+        Assert.Equal(0.0, GainRules.For(AudioBus.Music, new GainInputs(false, 20, 1, -1)));
+        Assert.Equal(1.0, GainRules.For(AudioBus.Music, new GainInputs(false, 20, 1, 3)));
+        Assert.Equal(1.0, GainRules.For(AudioBus.Music, new GainInputs(false, 20, 1)));   // the default is off
+    }
+
+    [Fact]
     public void TheRampIsClampedAndTheDuckIsAShare()
     {
         Assert.Equal(1.0, GainRules.For(AudioBus.Music, new GainInputs(false, 20, 7)));

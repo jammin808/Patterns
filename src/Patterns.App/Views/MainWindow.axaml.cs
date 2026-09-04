@@ -175,6 +175,14 @@ public partial class MainWindow : Window
             }
         }
 
+        // D is the live duck — everything but a VOG makes way for the room — latched like Space.
+        if (e.Key == Key.D && !typing && e.KeyModifiers == KeyModifiers.None)
+        {
+            e.Handled = true;
+            if (Latch(e.Key)) actions.Execute(ShowActionKind.DuckToggle, ActionOrigin.Keyboard);
+            return;
+        }
+
         // Space toggles blackout — operator muscle memory — but never while typing.
         if (e.Key != Key.Space || typing) return;
         e.Handled = true;

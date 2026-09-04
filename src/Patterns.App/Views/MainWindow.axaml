@@ -199,11 +199,11 @@
               <Expander.Header>
                 <Grid ColumnDefinitions="Auto,*">
                   <TextBlock Text="SHOW CONTROLS" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Classes="hint" Text="message · clock · countdown · audio volume — straight to air behind SEND"
+                  <TextBlock Grid.Column="1" Classes="hint" Text="message · clock · countdown · audio volume · live duck — straight to air behind SEND"
                              VerticalAlignment="Center" Margin="10,0,24,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                 </Grid>
               </Expander.Header>
-              <Grid ColumnDefinitions="88,*,Auto,Auto,170" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="4,2,4,2">
+              <Grid ColumnDefinitions="88,*,Auto,Auto,170" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="4,2,4,2">
                 <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Message" VerticalAlignment="Center" />
                 <TextBox Grid.Row="0" Grid.Column="1" Watermark="Message text" Text="{Binding ShowControls.DraftMessage, Mode=TwoWay}" Margin="0,2" />
                 <Button Grid.Row="0" Grid.Column="2" Classes="mini" Content="SEND" Command="{Binding ShowControls.MessageShowCommand}" Focusable="False" Margin="8,0,0,0"
@@ -235,8 +235,22 @@
                         ToolTip.Tip="Set the audio track's volume now (100 = as recorded, up to 125)" />
                 <TextBlock Grid.Row="3" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.VolumeAirText, StringFormat='on air: {0}'}" VerticalAlignment="Center" Margin="10,0,0,0" />
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5" Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap"
-                           Text="Each SEND goes to air through the same seam as a cue — sandbox open or not — and is journaled as a desk action. The next look recall replaces it." />
+                <TextBlock Grid.Row="4" Grid.Column="0" Classes="label" Text="Live duck" VerticalAlignment="Center" />
+                <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,48,12,*,64">
+                  <Slider Minimum="0" Maximum="100" TickFrequency="5" Value="{Binding ShowControls.Stingers.DuckToPct, Mode=TwoWay}" VerticalAlignment="Center"
+                          ToolTip.Tip="What the music, a stinger and a clip's sound hold at while the room speaks" />
+                  <TextBlock Grid.Column="1" Classes="label" Text="{Binding ShowControls.Stingers.DuckToPct, StringFormat={}{0:0}%}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  <Slider Grid.Column="3" Minimum="0" Maximum="2000" TickFrequency="50" Value="{Binding ShowControls.Stingers.DuckFadeMs, Mode=TwoWay, Converter={StaticResource Num}}" VerticalAlignment="Center"
+                          ToolTip.Tip="How fast it goes down and comes back" />
+                  <TextBlock Grid.Column="4" Classes="label" Text="{Binding ShowControls.Stingers.DuckFadeMs, StringFormat={}{0} ms}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+                <ToggleButton Grid.Row="4" Grid.Column="2" Grid.ColumnSpan="2" Classes="mini duck" Content="DUCK" IsChecked="{Binding ShowControls.DuckOnAir, Mode=OneWay}"
+                              Command="{Binding ShowControls.DuckToggleCommand}" Focusable="False" Margin="8,0,0,0"
+                              ToolTip.Tip="Make way for a live announcement from the room: everything but a VOG ducks until you press it again (D). STOP ALL leaves it." />
+                <TextBlock Grid.Row="4" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.DuckAirText}" VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="5" Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Text="Each SEND goes to air through the same seam as a cue — sandbox open or not — and is journaled as a desk action. The next look recall replaces it; the duck stays until you lift it." />
               </Grid>
             </Expander>
 

@@ -684,6 +684,9 @@ public sealed class StingerConfig : Observable
     private int _stopFadeMs = 200;
     private int _holdSeconds;   // 0 = hold until the operator takes it
     private string _playingName = "";
+    private double _duckToPct = 10;
+    private int _duckFadeMs = 300;
+    private bool _duckActive;
 
     public ObservableCollection<StingerItemConfig> Items { get; init; } = new();
 
@@ -702,6 +705,16 @@ public sealed class StingerConfig : Observable
     /// <summary>Runtime-only: name of the stinger on air ("" = none).</summary>
     [JsonIgnore]
     public string PlayingName { get => _playingName; set => Set(ref _playingName, value); }
+
+    /// <summary>The live duck: what everything but a VOG holds at (as % of its own level) while an announcement is made from the room.</summary>
+    public double DuckToPct { get => _duckToPct; set => Set(ref _duckToPct, Math.Clamp(value, 0, 100)); }
+
+    /// <summary>How fast the live duck goes down and comes back (0 = a step).</summary>
+    public int DuckFadeMs { get => _duckFadeMs; set => Set(ref _duckFadeMs, Math.Clamp(value, 0, 2000)); }
+
+    /// <summary>Runtime-only: the live duck is on. A restart never comes up ducked.</summary>
+    [JsonIgnore]
+    public bool DuckActive { get => _duckActive; set => Set(ref _duckActive, value); }
 }
 
 /// <summary>One entry in the break-music library: a Spotify playlist, album or track by URI.</summary>

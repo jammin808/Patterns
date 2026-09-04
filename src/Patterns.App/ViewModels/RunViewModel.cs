@@ -105,6 +105,11 @@ public sealed class RunViewModel : Observable
     /// <summary>The chip: break music is on and asked to play. Sound, so never the label — the label is the picture.</summary>
     public bool IsMusicPlaying => _s.State.Spotify.Enabled && _s.State.Spotify.Playing;
 
+    /// <summary>The chip: the live duck is on — the room is speaking and everything but a VOG has made way.</summary>
+    public bool IsDucked => _s.State.Stingers.DuckActive;
+
+    public string DuckTip => $"Live duck: music, stinger sounds and clip audio held at {_s.State.Stingers.DuckToPct:0}% for an announcement — press D or DUCK again to lift it; STOP ALL leaves it";
+
     public string MusicTip => _s.Spotify.NowPlaying.Length > 0
         ? $"Break music: {_s.Spotify.NowPlaying}{(_s.Spotify.DeviceLabel.Length > 0 ? " — " + _s.Spotify.DeviceLabel : "")} — STOP ALL pauses it"
         : "Break music playing — STOP ALL pauses it";
@@ -210,6 +215,8 @@ public sealed class RunViewModel : Observable
         Raise(nameof(MusicTip));     // follows the track
         Raise(nameof(IsStingHolding));
         Raise(nameof(StingHoldText));
+        Raise(nameof(IsDucked));
+        Raise(nameof(DuckTip));
     }
 
     private void OnRuntimeChanged()
@@ -227,6 +234,8 @@ public sealed class RunViewModel : Observable
         Raise(nameof(MusicTip));
         Raise(nameof(IsStingHolding));
         Raise(nameof(StingHoldText));
+        Raise(nameof(IsDucked));
+        Raise(nameof(DuckTip));
         Raise(nameof(ArmText));
         Raise(nameof(CanExit));
         Raise(nameof(GoText));

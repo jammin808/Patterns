@@ -125,6 +125,10 @@ public sealed class OutputWindow : Window
                 _services.Actions.Execute(ShowActionKind.BlackoutToggle, ActionOrigin.Keyboard);
                 e.Handled = true;
                 break;
+            case Key.D:
+                _services.Actions.Execute(ShowActionKind.DuckToggle, ActionOrigin.Keyboard);
+                e.Handled = true;
+                break;
             case Key.I:
                 _services.Actions.Execute(ShowActionKind.Identify, ActionOrigin.Keyboard);
                 e.Handled = true;

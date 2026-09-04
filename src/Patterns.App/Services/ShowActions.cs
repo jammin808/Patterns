@@ -402,6 +402,19 @@ public sealed class ShowActions
                 State.Tone.Enabled = false;
                 return ActionResult.Done("Tone off.");
 
+            // The live duck: sound only, never the picture — so never the sandbox, never the label.
+            case ShowActionKind.DuckOn:
+                _s.Stingers.SetDuck(true);
+                return ActionResult.Done($"Ducked to {State.Stingers.DuckToPct:0}% for a live announcement.");
+            case ShowActionKind.DuckOff:
+                _s.Stingers.SetDuck(false);
+                return ActionResult.Done("Duck lifted.");
+            case ShowActionKind.DuckToggle:
+                _s.Stingers.SetDuck(!State.Stingers.DuckActive);
+                return ActionResult.Done(State.Stingers.DuckActive
+                    ? $"Ducked to {State.Stingers.DuckToPct:0}% for a live announcement."
+                    : "Duck lifted.");
+
             case ShowActionKind.StingerFire:
             {
                 var item = StingerLibrary.Find(State, a.Target);
@@ -645,6 +658,8 @@ public sealed class ShowActions
         CueActionKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
         CueActionKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
         CueActionKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
+        CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
+        CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
         CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),
         CueActionKind.ListDisarm => new ShowAction(ShowActionKind.ListDisarm, a.Target),
         CueActionKind.ListGo => new ShowAction(ShowActionKind.ListGo, a.Target),

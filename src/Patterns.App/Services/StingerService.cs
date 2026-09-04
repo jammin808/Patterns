@@ -48,6 +48,10 @@ public sealed class StingerService : IDisposable
     private double _gainTo = 1;
     private DateTime _gainStartUtc;
     private int _gainMs;
+    private double _duckFrom = 1;                                  // the live duck's own ramp
+    private double _duckTo = 1;
+    private DateTime _duckStartUtc;
+    private int _duckMs;
 
     public StingerService(AppServices services)
     {
@@ -102,7 +106,7 @@ public sealed class StingerService : IDisposable
     public double GainAt(AudioBus bus, DateTime nowUtc)
     {
         var ramp = MusicLevel.Gain(_gainFrom, _gainTo, MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs));
-        return GainRules.For(bus, new GainInputs(_services.MusicDuckActive, _services.State.Stingers.DuckPct, ramp));
+        return GainRules.For(bus, new GainInputs(_services.MusicDuckActive, _services.State.Stingers.DuckPct, ramp, DuckFactorAt(nowUtc)));
     }
 
     /// <summary>The music bus — the file track and break music both read it.</summary>
@@ -110,7 +114,37 @@ public sealed class StingerService : IDisposable
 
     /// <summary>The fade is moving: the music player polls faster while this is true.</summary>
     public bool MusicRamping(DateTime nowUtc)
-        => _gainMs > 0 && Math.Abs(_gainFrom - _gainTo) > 0.0001 && MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs) < 1;
+        => (_gainMs > 0 && Math.Abs(_gainFrom - _gainTo) > 0.0001 && MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs) < 1)
+        || (_duckMs > 0 && Math.Abs(_duckFrom - _duckTo) > 0.0001 && MusicLevel.Progress(_duckStartUtc, nowUtc, _duckMs) < 1);
+
+    // ---- the live duck ----------------------------------------------------------------
+
+    /// <summary>The live duck is on: the room is making an announcement and everything but a VOG has made way.</summary>
+    public bool DuckActive => _services.State.Stingers.DuckActive;
+
+    /// <summary>The live duck as a factor on the music, a stinger sound and a clip's soundtrack (1 = off), ramping.</summary>
+    public double DuckFactorAt(DateTime nowUtc)
+        => MusicLevel.Gain(_duckFrom, _duckTo, MusicLevel.Progress(_duckStartUtc, nowUtc, _duckMs));
+
+    /// <summary>
+    /// Ducks everything but a VOG to the show's live-duck level, or lifts it — an anchored ramp
+    /// from wherever the factor is now, so a quick on-off never jumps or clicks. A standing
+    /// instruction about the room, not a programme source: STOP ALL leaves it, a look recall
+    /// leaves it, only the operator (or a cue) lifts it. Idempotent.
+    /// </summary>
+    public void SetDuck(bool on, DateTime? nowUtc = null)
+    {
+        var now = nowUtc ?? DateTime.UtcNow;
+        var cfg = _services.State.Stingers;
+        if (cfg.DuckActive == on) return;
+        _duckFrom = DuckFactorAt(now);
+        _duckTo = on ? MusicLevel.Duck(cfg.DuckToPct) : 1.0;
+        _duckStartUtc = now;
+        _duckMs = cfg.DuckFadeMs;
+        cfg.DuckActive = on;
+        _services.AudioPlayer.ApplyGains(now);
+        Log.Info(on ? "Live duck on." : "Live duck off.");
+    }
 
     /// <summary>Ramps the music to a new level from wherever it is now — a reversal never jumps or clicks.</summary>
     private void StartGain(double to, DateTime now)

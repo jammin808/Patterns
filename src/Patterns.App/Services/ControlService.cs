@@ -544,6 +544,7 @@ public sealed class ControlService : IDisposable
   <span class="chip armed" id="carmed">ARMED</span>
   <span class="chip music" id="cmusic">♪ MUSIC</span>
   <span class="chip hold" id="chold2">STING HOLD</span>
+  <span class="chip hold" id="cduck">DUCK</span>
 </div>
 <div class="card standby">
   <div class="k">STANDBY</div>
@@ -583,6 +584,7 @@ function render(s) {
   var h2 = document.getElementById('chold2');
   h2.classList.toggle('on', !!s.stingHold);
   h2.textContent = s.stingHold ? 'STING HOLD: ' + s.stingHold : 'STING HOLD';
+  document.getElementById('cduck').classList.toggle('on', !!s.duck);
   var sb = c.standby; standbyId = sb ? sb.id : '';
   document.getElementById('sb').innerHTML = sb ? '<span class="num">' + esc(sb.number) + '</span>' + esc(sb.name) : 'No cue on standby';
   document.getElementById('sbnotes').textContent = sb ? (sb.notes || '') : '';
@@ -672,6 +674,7 @@ setInterval(function () {
   .stop { background:#3A2020; border-color:#6A3A3A; }
   .bo { background:#3A0F0F; border-color:var(--bad); color:#FFB0B0; }
   .bo.on { background:var(--bad); color:#fff; }
+  #duck.on { background:var(--hold); color:#0E0F13; }
   .look { padding:18px 6px; }
   .look .k { display:block; font-size:11px; color:var(--acc); }
   .scr.off { opacity:.45; }
@@ -698,6 +701,9 @@ setInterval(function () {
 </div>
 <div class="grid" style="margin-top:10px">
   <button id="bo" class="bo big" onclick="cmd('BLACKOUT TOGGLE')">BLACKOUT</button>
+</div>
+<div class="grid" style="margin-top:10px">
+  <button id="duck" class="big" onclick="cmd('DUCK TOGGLE')" title="Everything but a VOG makes way for an announcement from the room — press again to lift it">DUCK</button>
 </div>
 
 <div class="sec">LOOKS</div>
@@ -743,6 +749,8 @@ function render(s) {
   var bo = document.getElementById('bo');
   bo.classList.toggle('on', s.blackout);
   bo.textContent = s.blackout ? 'BLACKOUT — ON' : 'BLACKOUT';
+  var duck = document.getElementById('duck');
+  if (duck) { duck.classList.toggle('on', !!s.duck); duck.textContent = s.duck ? 'DUCK — ON (lift)' : 'DUCK'; }
 
   var p = s.presenter;
   document.getElementById('step').textContent =

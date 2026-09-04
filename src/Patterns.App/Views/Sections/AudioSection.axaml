@@ -200,6 +200,20 @@
                  Text="{Binding State.Stingers.DuckPct, StringFormat={}{0:0}%}" />
     </Grid>
     <Grid ColumnDefinitions="130,*,52">
+      <TextBlock Classes="label" Text="Live duck level" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+              Value="{Binding State.Stingers.DuckToPct, Mode=TwoWay}" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Stingers.DuckToPct, StringFormat={}{0:0}%}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,52">
+      <TextBlock Classes="label" Text="Live duck fade" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="2000" TickFrequency="50"
+              Value="{Binding State.Stingers.DuckFadeMs, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Stingers.DuckFadeMs, StringFormat={}{0} ms}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,52">
       <TextBlock Classes="label" Text="Sting fade" VerticalAlignment="Center" />
       <Slider Grid.Column="1" Minimum="0" Maximum="2000" TickFrequency="50"
               Value="{Binding State.Stingers.FadeMs, Mode=TwoWay, Converter={StaticResource Num}}" />
@@ -221,7 +235,7 @@
                  Text="{Binding State.Stingers.HoldSeconds, StringFormat={}{0} s}" />
     </Grid>
     <TextBlock Classes="hint"
-               Text="Music duck: how loud the music track stays while a VOG sound plays (0% = silent, then it comes back by itself). Sting fade: how quickly the music fades out under a stinger, how quickly the picture dissolves into a clip, and how quickly the music comes back (0 = a hard cut). Stop fade: how a sound or clip that is stopped — by STOP, by the next press, by a cue moving on — leaves the air: a fade to silence, never a cut, and a stopped sound is silenced for good, so it can never be heard again under the next one. Hold limit: a stinger set to hold gives the show back by itself after this long — 0 means it holds until you take it, so cut stings with a hold frame. Sounds use the track's device selection above; a clip's sound plays like any video." />
+               Text="Music duck: how loud the music track stays while a VOG sound plays (0% = silent, then it comes back by itself). Live duck: what the music, a playing stinger and a clip's sound hold at while someone speaks from the room — press D, the DUCK key in the SHOW CONTROLS drawer, a Companion key or DUCK on the phone; it stays until you lift it, and STOP ALL leaves it. Sting fade: how quickly the music fades out under a stinger, how quickly the picture dissolves into a clip, and how quickly the music comes back (0 = a hard cut). Stop fade: how a sound or clip that is stopped — by STOP, by the next press, by a cue moving on — leaves the air: a fade to silence, never a cut, and a stopped sound is silenced for good, so it can never be heard again under the next one. Hold limit: a stinger set to hold gives the show back by itself after this long — 0 means it holds until you take it, so cut stings with a hold frame. Sounds use the track's device selection above; a clip's sound plays like any video." />
     <TextBlock Classes="label" Text="{Binding StingerStatus}" TextWrapping="Wrap" />
 
     <TextBlock Classes="hint"

@@ -862,10 +862,10 @@ public class SpotifyAppTests
         var chip = b.Window.GetVisualDescendants().OfType<Border>().Single(x => x.Classes.Contains("musicChip"));
         Assert.True(chip.IsVisible);
         var strip = Assert.IsType<Grid>(chip.GetVisualParent());
-        Assert.Equal(10, strip.ColumnDefinitions.Count);
+        Assert.Equal(11, strip.ColumnDefinitions.Count);        // …BREAK MUSIC · STING HOLD · DUCK · next-auto · POP OUT + clock
         Assert.Equal(6, Grid.GetColumn(chip));
         var clock = strip.Children.OfType<StackPanel>().Last();  // POP OUT and the clock stay the last column
-        Assert.Equal(9, Grid.GetColumn(clock));
+        Assert.Equal(10, Grid.GetColumn(clock));
         Assert.Equal(strip.ColumnDefinitions.Count - 1, Grid.GetColumn(clock));
 
         r.Execute(ShowActionKind.SpotifyPause);

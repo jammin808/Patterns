@@ -91,6 +91,12 @@ public partial class RunWindow : Window
             {
                 e.Handled = true;
                 if (Latch(e.Key)) vm.Services.Actions.Execute(Patterns.Core.Services.ShowActionKind.BlackoutToggle, ActionOrigin.Keyboard);
+                return;
+            }
+            if (e.Key == Key.D)
+            {
+                e.Handled = true;
+                if (Latch(e.Key)) vm.Services.Actions.Execute(Patterns.Core.Services.ShowActionKind.DuckToggle, ActionOrigin.Keyboard);
             }
         }
     }

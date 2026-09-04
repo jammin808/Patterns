@@ -80,6 +80,10 @@ public enum ShowActionKind
     SpotifyNext,
     /// <summary>The break-music level in percent (0–100 — the Spotify device's own volume), live.</summary>
     SpotifyVolume,
+    /// <summary>The live duck: everything but a VOG makes way for an announcement from the room. STOP ALL leaves it.</summary>
+    DuckOn,
+    DuckOff,
+    DuckToggle,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>
