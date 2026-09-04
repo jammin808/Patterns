@@ -497,13 +497,51 @@ public sealed class AudioPlayerConfig : Observable
     public bool Playing { get => _playing; set => Set(ref _playing, value); }
 }
 
-/// <summary>One stinger: a sound or clip fired over the show with a single press.</summary>
+/// <summary>
+/// What a library item is. <c>Vog</c> is first on purpose: an unknown value written by a newer
+/// build lands here through the tolerant enum converter in <see cref="Services.JsonUtil"/>, and a
+/// VOG is exactly what every stinger did before the split — sound over everything, content carries on.
+/// </summary>
+public enum StingerKind
+{
+    /// <summary>Voice of God: plays over the show. The music ducks; a clip takes the screens and the content comes back.</summary>
+    Vog,
+
+    /// <summary>A transition hit: the music fades out instead of ducking, and an after-policy runs when it lands.</summary>
+    Sting,
+}
+
+/// <summary>
+/// What the show does when a stinger lands. <c>Return</c> is first on purpose: it is today's
+/// behaviour and the safe landing for any value this build does not understand — the show comes
+/// back rather than holding on a dead frame.
+/// </summary>
+public enum StingerAfter
+{
+    /// <summary>The content that was on air when the sting started comes back.</summary>
+    Return,
+
+    /// <summary>Hold the sting on the screens until the operator TAKEs the preview or GOes a cue.</summary>
+    Manual,
+
+    /// <summary>GO a cue list — <see cref="StingerItemConfig.AfterTarget"/> names it; blank = the caller's stack.</summary>
+    Next,
+
+    /// <summary>Apply a named look, or fire a named cue — <see cref="StingerItemConfig.AfterTarget"/> is its id.</summary>
+    Custom,
+}
+
+/// <summary>One library item: a sound or clip fired over the show with a single press — a VOG or a stinger.</summary>
 public sealed class StingerItemConfig : Observable
 {
     private string _id = Guid.NewGuid().ToString("N");
     private string _name = "";
     private string _path = "";
     private double _volumePct = 100;
+    private StingerKind _kind = StingerKind.Vog;
+    private StingerAfter _after = StingerAfter.Return;
+    private string _afterTarget = "";
+    private bool _musicReturns = true;
 
     /// <summary>Stable identity (schema 4) — names fall back to file names and need not be unique.</summary>
     public string Id { get => _id; set => Set(ref _id, value); }
@@ -529,6 +567,59 @@ public sealed class StingerItemConfig : Observable
 
     public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
 
+    /// <summary>VOG (over the show) or Stinger (a transition hit). New and migrated items are VOGs.</summary>
+    public StingerKind Kind
+    {
+        get => _kind;
+        set
+        {
+            if (Set(ref _kind, value))
+            {
+                Raise(nameof(IsSting));
+                Raise(nameof(KindLabel));
+                Raise(nameof(AfterKey));
+            }
+        }
+    }
+
+    /// <summary>Stinger only: what the show does when it lands. A VOG never reads this.</summary>
+    public StingerAfter After
+    {
+        get => _after;
+        set
+        {
+            if (Set(ref _after, value)) Raise(nameof(AfterKey));
+        }
+    }
+
+    /// <summary>
+    /// Next → a cue-list id (blank = the caller's stack). Custom → a look id or a cue id. A cleared
+    /// picker writes null; that becomes empty rather than a stored null.
+    /// </summary>
+    public string AfterTarget
+    {
+        get => _afterTarget;
+        set
+        {
+            if (Set(ref _afterTarget, value ?? "")) Raise(nameof(AfterKey));
+        }
+    }
+
+    /// <summary>Changes whenever the kind, the policy or the target does: what the Audio page's read-back line binds to.</summary>
+    [JsonIgnore]
+    public string AfterKey => $"{_id}|{_kind}|{_after}|{_afterTarget}";
+
+    /// <summary>Stinger only: the music fades back up when it lands. Off = the track stops.</summary>
+    public bool MusicReturns { get => _musicReturns; set => Set(ref _musicReturns, value); }
+
+    /// <summary>Row-level panel visibility in XAML without a converter.</summary>
+    [JsonIgnore]
+    public bool IsSting => _kind == StingerKind.Sting;
+
+    /// <summary>The tag beside a fire button and in the cue picker.</summary>
+    [JsonIgnore]
+    public string KindLabel => _kind == StingerKind.Sting ? "STING" : "VOG";
+
     /// <summary>What fire buttons show. Splits both separators — show files travel between OSes.</summary>
     [JsonIgnore]
     public string DisplayName
@@ -543,19 +634,29 @@ public sealed class StingerItemConfig : Observable
 }
 
 /// <summary>
-/// The stinger library — announcements and clips anyone can fire without touching the audio
-/// desk. Audio stingers play over everything (the music track ducks underneath); video
-/// stingers take over every screen and the previous content returns when the clip ends.
+/// The library of one-press sounds and clips — announcements and transition hits anyone can fire
+/// without touching the audio desk. A VOG plays over everything (the music track ducks underneath)
+/// and a VOG clip hands the screens back when it ends; a stinger fades the music out instead and
+/// runs its after-policy when it lands. One collection and one numbering for both kinds, so
+/// "STINGER 3", a saved Companion preset and a cue target never change meaning.
 /// </summary>
 public sealed class StingerConfig : Observable
 {
     private double _duckPct = 20;
+    private int _fadeMs = 400;
+    private int _holdSeconds;   // 0 = hold until the operator takes it
     private string _playingName = "";
 
     public ObservableCollection<StingerItemConfig> Items { get; init; } = new();
 
-    /// <summary>Music-track level (as % of its own volume) while an audio stinger plays.</summary>
+    /// <summary>Music-track level (as % of its own volume) while a <em>VOG sound</em> plays. A stinger fades the music out instead.</summary>
     public double DuckPct { get => _duckPct; set => Set(ref _duckPct, Math.Clamp(value, 0, 100)); }
+
+    /// <summary>How fast the music fades out under a stinger (and back afterwards), and the crossfade into a clip. 0 = a hard cut.</summary>
+    public int FadeMs { get => _fadeMs; set => Set(ref _fadeMs, Math.Clamp(value, 0, 2000)); }
+
+    /// <summary>A held stinger gives the show back by itself after this long. 0 (the default) = hold until you take it.</summary>
+    public int HoldSeconds { get => _holdSeconds; set => Set(ref _holdSeconds, Math.Clamp(value, 0, 600)); }
 
     /// <summary>Runtime-only: name of the stinger on air ("" = none).</summary>
     [JsonIgnore]
@@ -783,7 +884,7 @@ public sealed class WebConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 6;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run

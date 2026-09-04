@@ -2,9 +2,39 @@ using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using Patterns.App.Services;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Converters;
+
+/// <summary>
+/// The line beside a library row on the Audio page (the after-policy's problem, note or phrase)
+/// and, with parameter "summary", the phrase under a stinger chip on the Show panel. Bound to the
+/// row's AfterKey so it follows every edit of the kind, the policy or the target; computed against
+/// the live show, the same rules the validator applies.
+/// </summary>
+public sealed class StingerAfterTextConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not string key || key.Length == 0) return "";
+        var state = AppServices.Instance?.State;
+        if (state is null) return "";
+        var id = key.Split('|')[0];
+        var item = state.Stingers.Items.FirstOrDefault(i => i.Id == id);
+        if (item is null || !item.IsSting) return "";
+        if (string.Equals(parameter as string, "summary", StringComparison.OrdinalIgnoreCase))
+        {
+            return "→ " + StingerLibrary.AfterSummary(state, item);
+        }
+        return StingerLibrary.AfterProblem(state, item)
+               ?? StingerLibrary.AfterNote(state, item)
+               ?? $"Ends: {StingerLibrary.AfterSummary(state, item)}.";
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => BindingOperations.DoNothing;
+}
 
 /// <summary>
 /// Bridges NumericUpDown's decimal? to int/double model properties (and back) so compiled

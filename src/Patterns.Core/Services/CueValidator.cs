@@ -89,7 +89,7 @@ public static class CueValidator
         void Hard(string text) => report.Add(new CueIssue(cue.Id, IssueSeverity.Hard, text));
         void Soft(string text) => report.Add(new CueIssue(cue.Id, IssueSeverity.Soft, text));
 
-        var hasVideoStinger = false;
+        var hasVideoTakeover = false;
         var hasContent = false;
         var hasBlackoutOn = false;
         var k = 0;
@@ -127,18 +127,21 @@ public static class CueValidator
                     break;
                 case CueActionKind.StingerFire:
                 {
-                    var s = CueSummary.FindStinger(state, a.Target);
+                    var s = StingerLibrary.Find(state, a.Target);
                     if (s is null)
                     {
-                        Hard($"{where}: stinger '{a.Target}' not found.");
+                        Hard($"{where}: VOG or stinger '{a.Target}' not found.");
                         break;
                     }
                     if (!ctx.FileExists(s.Path)) Hard($"{where}: stinger file missing — {Path.GetFileName(s.Path)}.");
                     if (PlaylistSequencer.IsVideoPath(s.Path))
                     {
-                        hasVideoStinger = true;
+                        // The takeover follows the file, never the kind: a video VOG takes every screen too.
+                        hasVideoTakeover = true;
                         if (!ctx.VideoDecoderAvailable) Hard($"{where}: a video stinger needs the video runtime (libVLC), which is not present.");
                     }
+                    if (StingerLibrary.AfterProblem(state, s) is { } bad) Hard($"{where}: {bad}");
+                    else if (StingerLibrary.AfterNote(state, s) is { } note) Soft($"{where}: {note}");
                     break;
                 }
                 case CueActionKind.PlaylistPart:
@@ -238,13 +241,13 @@ public static class CueValidator
             }
         }
 
-        if (hasVideoStinger && hasContent)
+        if (hasVideoTakeover && hasContent)
         {
-            Hard("A video stinger takes every screen — it cannot share a cue with a look, part, screen or canvas change.");
+            Hard("A video VOG or stinger takes every screen — it cannot share a cue with a look, part, screen or canvas change.");
         }
-        if (hasVideoStinger && hasBlackoutOn)
+        if (hasVideoTakeover && hasBlackoutOn)
         {
-            Hard("A video stinger lifts blackout — it cannot share a cue with Blackout on.");
+            Hard("A video VOG or stinger lifts blackout — it cannot share a cue with Blackout on.");
         }
     }
 

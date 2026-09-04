@@ -7,7 +7,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-show" Text="Show panel" />
-    <TextBlock Classes="hint" Text="Show-time buttons beside the switcher: looks, stingers, the clicker list, break music and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
+    <TextBlock Classes="hint" Text="Show-time buttons beside the switcher: looks, VOGs and stingers, the clicker list, break music and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
 
     <TextBlock Classes="h2" Text="LOOKS" />
     <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
@@ -48,35 +48,79 @@
                 ToolTip.Tip="Page Down / Page Up (USB clickers) step the clicker list — build it on the Cues page" />
     </Grid>
 
-    <TextBlock Classes="h2" Text="STINGERS" />
-    <ItemsControl ItemsSource="{Binding State.Stingers.Items}">
-      <ItemsControl.ItemsPanel>
-        <ItemsPanelTemplate>
-          <UniformGrid Columns="2" />
-        </ItemsPanelTemplate>
-      </ItemsControl.ItemsPanel>
-      <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="m:StingerItemConfig">
-          <Button Classes="chip" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Center"
-                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireStingerCommand}"
-                  CommandParameter="{Binding}">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="{Binding Path, Converter={StaticResource MediaKind}}" FontSize="10"
-                         Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
-              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
-                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-            </StackPanel>
-          </Button>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
+    <StackPanel IsVisible="{Binding VogChips.Count, Converter={StaticResource Positive}}">
+      <TextBlock Classes="h2" Text="VOG" />
+      <ItemsControl ItemsSource="{Binding VogChips}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="2" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:StingerItemConfig">
+            <Button Classes="chip" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireVogCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding Path, Converter={StaticResource MediaKind}}" FontSize="10"
+                           Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <StackPanel IsVisible="{Binding StingChips.Count, Converter={StaticResource Positive}}">
+      <TextBlock Classes="h2" Text="STINGERS" />
+      <ItemsControl ItemsSource="{Binding StingChips}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="2" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:StingerItemConfig">
+            <Button Classes="chip" Margin="0,0,6,6" Height="56" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireStingCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Spacing="2">
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding Path, Converter={StaticResource MediaKind}}" FontSize="10"
+                             Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Classes="hint" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           Text="{Binding AfterKey, Converter={StaticResource StingerAfterText}, ConverterParameter=summary}" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <Border Classes="runBanner" IsVisible="{Binding StingerHolding}">
+      <Grid ColumnDefinitions="*,8,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="runTag" Text="STING HOLD" />
+          <TextBlock Classes="label" Text="{Binding StingerHoldText}" TextWrapping="Wrap" />
+          <TextBlock Classes="hint" Text="TAKE the preview, GO the next cue — or put it back." />
+        </StackPanel>
+        <Button Grid.Column="2" Classes="stop" Content="PUT IT BACK" Command="{Binding StopStingerCommand}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
     <Grid ColumnDefinitions="*,8,Auto">
       <TextBlock Classes="label" Text="{Binding StingerStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
-      <Button Grid.Column="2" Classes="mini" Content="■ Stop stinger" Command="{Binding StopStingerCommand}" />
+      <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding StopStingerCommand}" />
     </Grid>
     <TextBlock Classes="hint"
-               Text="Sounds play over everything (music ducks); a clip takes the screens and the previous content returns when it ends. Add them on the Audio page (SETUP)." />
+               Text="A VOG plays over everything (the music ducks) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. Set them up on the Audio page (SETUP)." />
 
     <TextBlock Classes="h2" Text="AUDIO TRACK" />
     <Grid ColumnDefinitions="*,8,Auto,Auto">

@@ -139,6 +139,22 @@ public sealed class SettingsStore
         CueStacks.Caller(state);
         CueStacks.Clicker(state);
 
+        // v6: the stinger library splits into VOG (today's behaviour — over the show, the music
+        // ducks, the content carries on) and Stinger (a transition hit with an after-policy).
+        // Everything an older file holds behaved as a VOG, so that is what it becomes, written
+        // explicitly so a hand-edited or half-written file lands somewhere defined rather than on
+        // a property initialiser.
+        if (state.SchemaVersion < 6)
+        {
+            foreach (var item in state.Stingers.Items)
+            {
+                item.Kind = StingerKind.Vog;
+                item.After = StingerAfter.Return;
+                item.AfterTarget = "";
+                item.MusicReturns = true;
+            }
+        }
+
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }
 

@@ -201,6 +201,7 @@ public sealed class MainViewModel : Observable
                 return;
             }
             State.Stingers.Items.Remove(item);
+            RefreshStingerGroups();
         });
         FireStingerCommand = new RelayCommand<StingerItemConfig>(item =>
         {
@@ -260,6 +261,21 @@ public sealed class MainViewModel : Observable
         PauseMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyPause, ActionOrigin.Desk));
         SkipMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyNext, ActionOrigin.Desk));
         RefreshSpotifyDevices();
+
+        // VOG / stinger: the desk's own chips assert the kind, so a panel that is stale after a
+        // re-kind on the Audio page refuses rather than surprises.
+        FireVogCommand = new RelayCommand<StingerItemConfig>(item =>
+        {
+            if (item is null) return;
+            _services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id, "vog");
+        });
+        FireStingCommand = new RelayCommand<StingerItemConfig>(item =>
+        {
+            if (item is null) return;
+            _services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id, "sting");
+        });
+        RefreshStingerGroups();
+        RefreshAfterChoices();
 
         // Streaming
         while (State.Stream.Destinations.Count < 2)
@@ -902,7 +918,7 @@ public sealed class MainViewModel : Observable
         {
             var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Add stingers (sounds or video clips)",
+                Title = "Add VOGs / stingers (sounds or video clips)",
                 AllowMultiple = true,
                 FileTypeFilter = new[] { MediaTypes, FilePickerFileTypes.All },
             });
@@ -919,7 +935,8 @@ public sealed class MainViewModel : Observable
                 State.Stingers.Items.Add(new StingerItemConfig { Path = path });
                 AddToMediaLibrary(path, PlaylistSequencer.IsVideoPath(path));
             }
-            if (skipped > 0) StatusMessage = $"Stingers are sounds or video clips — {skipped} other file{(skipped == 1 ? "" : "s")} skipped.";
+            if (skipped > 0) StatusMessage = $"VOGs and stingers are sounds or video clips — {skipped} other file{(skipped == 1 ? "" : "s")} skipped.";
+            RefreshStingerGroups();
         }
         catch (Exception ex)
         {
@@ -1602,6 +1619,81 @@ public sealed class MainViewModel : Observable
     private string _stingerStatus = "Ready.";
     public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
 
+    // ---- VOG / stingers ----------------------------------------------------
+
+    /// <summary>The Show panel's two chip grids: one library, split by kind, in library order.</summary>
+    public ObservableCollection<StingerItemConfig> VogChips { get; } = new();
+    public ObservableCollection<StingerItemConfig> StingChips { get; } = new();
+
+    public EnumItem[] StingerKinds => Lists.StingerKinds;
+    public EnumItem[] StingerAfters => Lists.StingerAfters;
+
+    /// <summary>Cue lists for a stinger's "GO the next cue" target; the first row, with an empty id, is the caller's list.</summary>
+    public ObservableCollection<PickItem> AfterListChoices { get; } = new();
+
+    /// <summary>Looks then cues, for "A look or cue I name…"; the first row, with an empty id, is "nothing chosen".</summary>
+    public ObservableCollection<PickItem> AfterLookOrCueChoices { get; } = new();
+
+    private bool _stingerHolding;
+    public bool StingerHolding { get => _stingerHolding; private set => Set(ref _stingerHolding, value); }
+
+    private string _stingerHoldText = "";
+    public string StingerHoldText { get => _stingerHoldText; private set => Set(ref _stingerHoldText, value); }
+
+    private string _stingerChipKey = "";
+    private string _afterChoiceKey = "";
+
+    /// <summary>Regroups the chips only when the library really moved — no per-item subscriptions to leak.</summary>
+    private void RefreshStingerGroups()
+    {
+        var key = string.Join('|', State.Stingers.Items.Select(s => $"{s.Id}:{(int)s.Kind}:{s.DisplayName}"));
+        if (key == _stingerChipKey) return;
+        _stingerChipKey = key;
+        VogChips.Clear();
+        StingChips.Clear();
+        foreach (var s in State.Stingers.Items)
+        {
+            (s.Kind == StingerKind.Vog ? VogChips : StingChips).Add(s);
+        }
+    }
+
+    /// <summary>
+    /// The two "after" pickers, synced in place: a bound picker whose items are cleared drops its
+    /// selection and writes that back into the row, so entries that are still wanted stay put.
+    /// </summary>
+    private void RefreshAfterChoices()
+    {
+        var key = string.Join('|', State.Stacks.Select(st => $"{st.Id}:{st.Name}:{string.Join(',', st.Cues.Select(c => $"{c.Id}{c.Number}{c.Name}"))}"))
+                  + "#" + string.Join('|', State.LooksAndCues.Looks.Select(l => $"{l.Id}:{l.Name}"));
+        if (key == _afterChoiceKey) return;
+        _afterChoiceKey = key;
+        var lists = new List<PickItem> { new("", "The caller's list") };
+        lists.AddRange(State.Stacks.Select(st => new PickItem(st.Id, st.Name)));
+        var targets = new List<PickItem> { new("", "Choose a look or cue…") };
+        targets.AddRange(State.LooksAndCues.Looks.Select(l => new PickItem(l.Id, $"Look · {l.Name}")));
+        foreach (var st in State.Stacks)
+        {
+            foreach (var c in st.Cues) targets.Add(new PickItem(c.Id, $"{st.Name} · {c.Number} {c.Name}"));
+        }
+        SyncPickItems(AfterListChoices, lists);
+        SyncPickItems(AfterLookOrCueChoices, targets);
+    }
+
+    private static void SyncPickItems(ObservableCollection<PickItem> current, List<PickItem> wanted)
+    {
+        for (var i = current.Count - 1; i >= 0; i--)
+        {
+            if (!wanted.Contains(current[i])) current.RemoveAt(i);
+        }
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            if (i < current.Count && current[i] == wanted[i]) continue;
+            var at = current.IndexOf(wanted[i]);
+            if (at >= 0) current.Move(at, i);
+            else current.Insert(i, wanted[i]);
+        }
+    }
+
     // ---- break music (Spotify) ---------------------------------------------
 
     private string _spotifyStatus = "Off.";
@@ -2229,6 +2321,8 @@ public sealed class MainViewModel : Observable
     public RelayCommand AddStingerFilesCommand { get; }
     public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
+    public RelayCommand<StingerItemConfig> FireVogCommand { get; }
+    public RelayCommand<StingerItemConfig> FireStingCommand { get; }
     public RelayCommand StopStingerCommand { get; }
     public RelayCommand SpotifyConnectCommand { get; }
     public RelayCommand SpotifyDisconnectCommand { get; }
@@ -2794,6 +2888,10 @@ public sealed class MainViewModel : Observable
         WebStatus = _services.Web.Status;
         AudioPlayerStatus = _services.AudioPlayer.Status;
         StingerStatus = _services.Stingers.Status;
+        RefreshStingerGroups();
+        RefreshAfterChoices();
+        StingerHolding = _services.Stingers.Holding;
+        StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";
         SpotifyStatus = _services.Spotify.Status;
         SpotifyAccountText = _services.Spotify.AccountText;
         SpotifyNowPlaying = _services.Spotify.NowPlaying;
@@ -3110,6 +3208,8 @@ public sealed class MainViewModel : Observable
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();
         RefreshSpotifyDevices();
+        RefreshStingerGroups();
+        RefreshAfterChoices();
         ReconcilePlacements();
         BuildLibrary();
         StatusMessage = $"Show loaded: {Path.GetFileName(path)}";

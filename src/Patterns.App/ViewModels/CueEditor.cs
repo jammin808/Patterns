@@ -128,7 +128,7 @@ public sealed class ActionRow : Observable
     public string TargetHint => CueActionSpec.For(Action.Kind).Target switch
     {
         TargetKind.Look => "Which look…",
-        TargetKind.Stinger => "Which stinger…",
+        TargetKind.Stinger => "Which VOG or stinger…",
         TargetKind.Part => "Which playlist part…",
         TargetKind.Screen => "Which screen…",
         TargetKind.Canvas => "Which canvas…",
@@ -422,7 +422,8 @@ public sealed class CueEditor : Observable
             case TargetKind.Look:
                 return state.LooksAndCues.Looks.Select(l => new PickItem(l.Id, l.Name));
             case TargetKind.Stinger:
-                return state.Stingers.Items.Select(s => new PickItem(s.Id, s.DisplayName));
+                // Everything, in library order and kind-labelled: a cue written before the split still finds its item.
+                return state.Stingers.Items.Select(s => new PickItem(s.Id, $"{s.KindLabel} · {s.DisplayName}"));
             case TargetKind.Part:
             {
                 var names = new List<string>();

@@ -132,6 +132,8 @@ public sealed class CommandRouter
             RemoteCommandKind.ToneOn => new ShowAction(ShowActionKind.ToneOn),
             RemoteCommandKind.ToneOff => new ShowAction(ShowActionKind.ToneOff),
             RemoteCommandKind.Stinger => new ShowAction(ShowActionKind.StingerFire, byNumberOrName),
+            RemoteCommandKind.Vog => new ShowAction(ShowActionKind.StingerFire, byNumberOrName, "vog"),
+            RemoteCommandKind.Sting => new ShowAction(ShowActionKind.StingerFire, byNumberOrName, "sting"),
             RemoteCommandKind.StingerStop => new ShowAction(ShowActionKind.StingerStop),
             RemoteCommandKind.PlaylistSection => new ShowAction(ShowActionKind.PlaylistPart, byNumberOrName),
             RemoteCommandKind.StreamOn => new ShowAction(ShowActionKind.StreamStart),
@@ -171,8 +173,16 @@ public sealed class CommandRouter
                 items = s.Spotify.Items.Select((i, n) => new { n = n + 1, name = i.DisplayName }).ToArray(),
             },
             tone = s.Tone.Enabled,
-            stingers = s.Stingers.Items.Select((i, n) => new { n = n + 1, name = i.DisplayName }).ToArray(),
-            stingerPlaying = s.Stingers.PlayingName,
+            stingers = s.Stingers.Items.Select((i, n) => new
+            {
+                n = n + 1,
+                name = i.DisplayName,
+                kind = i.Kind == StingerKind.Sting ? "sting" : "vog",
+            }).ToArray(),
+            stingerPlaying = s.Stingers.PlayingName,                       // whatever is on air, either kind
+            stingerKind = _services.Stingers.StingOnAir.Length > 0 ? "sting"
+                        : _services.Stingers.VogOnAir.Length > 0 ? "vog" : "",
+            stingHold = _services.Stingers.HoldName,                       // "" = not holding
             sections = SectionRows(s),
             playlist = _services.Playlist.Status,
             nextCue = ShowActions.NextScheduledText(s, DateTime.Now),

@@ -289,6 +289,20 @@ public static class Lists
         new(GpuPreferenceKind.LetWindowsDecide, "Let Windows decide"),
     };
 
+    public static readonly EnumItem[] StingerKinds =
+    {
+        new(StingerKind.Vog, "VOG — over the show, the music ducks"),
+        new(StingerKind.Sting, "Stinger — a transition hit, the music fades"),
+    };
+
+    public static readonly EnumItem[] StingerAfters =
+    {
+        new(StingerAfter.Return, "Back to what was on"),
+        new(StingerAfter.Manual, "Hold — I'll TAKE or GO"),
+        new(StingerAfter.Next, "GO the next cue"),
+        new(StingerAfter.Custom, "A look or cue I name…"),
+    };
+
     public static readonly EnumItem[] Anchors = Of<Anchor9>();
     public static readonly EnumItem[] FitModes = Of<FitMode>();
     public static readonly EnumItem[] BarsVariants =

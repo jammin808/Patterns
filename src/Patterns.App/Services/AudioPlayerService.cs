@@ -61,8 +61,19 @@ public sealed class AudioPlayerService : IDisposable
         }
     }
 
+    /// <summary>The timer body, callable directly (tests drive it without waiting on the clock).</summary>
+    public void Poll() => Tick();
+
     private void Tick()
     {
+        var now = DateTime.UtcNow;
+        // A 400 ms poll renders a 400 ms fade as one step — a chop, not a fade. While a ramp moves,
+        // poll at 50 ms (about eight steps over the default fade) and drop straight back to the
+        // idle rate. Stingers is constructed after this service in the composition root; a
+        // DispatcherTimer cannot tick before that constructor returns, so the read is safe.
+        var want = _services.Stingers is { } stingers && stingers.MusicRamping(now) ? 50d : 400d;
+        if (Math.Abs(_timer.Interval.TotalMilliseconds - want) > 0.5) _timer.Interval = TimeSpan.FromMilliseconds(want);
+
         var cfg = _services.State.AudioPlayer;
         SweepStinger();
         try
@@ -98,11 +109,10 @@ public sealed class AudioPlayerService : IDisposable
                 StartAll(cfg.Path, cfg.Loop, cfg.Devices);
             }
 
-            // Volume applies live (AudioFileReader.Volume is a linear gain; 1.25 ≈ +2 dB).
-            // While an announcement is on air the track ducks underneath it — one rule, shared
-            // with break music, so the two music sources duck together.
-            var volume = (float)(cfg.VolumePct / 100.0 *
-                MusicLevel.Factor(_services.MusicDuckActive, _services.State.Stingers.DuckPct));
+            // Volume applies live (AudioFileReader.Volume is a linear gain; 1.25 ≈ +2 dB). A VOG's
+            // sound ducks the track underneath it and a stinger fades it — one rule, shared with
+            // break music, so the two music sources move together.
+            var volume = (float)(cfg.VolumePct / 100.0 * _services.Stingers.MusicGainAt(now));
             foreach (var (_, reader, _) in _players)
             {
                 reader.Volume = volume;

@@ -44,6 +44,12 @@ public class NewFeatureUiTests
             vm.State.Overlays.Message.UseFeed = true;
             vm.State.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", Hotkey = 1, Json = LookService.Capture(vm.State) });
             vm.State.LooksAndCues.Cues.Add(new CueConfig { Time = "18:00", LookName = "Walk-in" });
+            vm.State.Stingers.Items.Add(new StingerItemConfig { Path = "C:/show/seats.wav", Name = "Take your seats" });
+            vm.State.Stingers.Items.Add(new StingerItemConfig
+            {
+                Path = "C:/show/whoosh.mp4", Name = "Whoosh", Kind = StingerKind.Sting,
+                After = StingerAfter.Custom, AfterTarget = vm.State.LooksAndCues.Looks[0].Id,
+            });
             vm.State.Spotify.Enabled = true;
             vm.State.Spotify.Items.Add(new SpotifyItemConfig { Name = "Interval bed", Uri = "spotify:playlist:X" });
             vm.State.Spotify.Items.Add(new SpotifyItemConfig { Uri = "spotify:track:Y" });

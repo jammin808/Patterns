@@ -34,8 +34,10 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `MUSIC NEXT` | Skip to the next track (alias `MUSIC SKIP`) |
 | `MUSIC VOL <0–100>` | The Spotify device's own level (alias `VOLUME`; out of range answers `ERR … 0 to 100`) |
 | `TONE ON` / `OFF` | Soundcheck tone generator |
-| `STINGER <n>` / `STINGER <name>` | Fire stinger *n* (Audio-page order) or by name |
-| `STINGER STOP` | Stop the stinger (a clip reverts to the previous content) |
+| `STINGER <n>` / `STINGER <name>` | Fire library item *n* (Audio-page order) or by name — a VOG or a stinger, whichever it is |
+| `VOG <n>` / `VOG <name>` | The same, refused if that item is a stinger — a key that says VOG never fires one |
+| `STING <n>` / `STING <name>` | The same, refused if that item is a VOG |
+| `STINGER STOP` | Stop whatever is on air: a clip or a held frame reverts, and a stinger's ending is cancelled, never run (`VOG STOP` / `STING STOP` are aliases) |
 | `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-page order) on air |
 | `STREAM ON` / `OFF` | Start/stop the streaming output (Stream page config) |
 | `CUE GO [<id>]` | GO on the caller's cue stack through the gate. Send the standby id you last saw (from STATE) and a GO that races a standby move answers `ERR standby moved`; `OK <json>` carries the execution record (`outcome`, `last`, `standby`) or `{"outcome":"Confirm"}` when the cue asks for a second GO within four seconds |
@@ -43,12 +45,15 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `CUE HOLD ON` / `OFF` | A latched GO inhibit and nothing else |
 | `CUE ARM ON` / `OFF` | Arm / disarm the stack — accepted only when the Remote page allows remotes to arm |
 | `CUE LIST` | `OK <json>` — the whole list with notes, summaries and broken reasons (`listRev` changes when the list does) |
-| `STOPALL` | Stops the audio track, break music, any stinger and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
+| `STOPALL` | Stops the audio track, break music, any VOG or stinger (a clip or a held frame reverts, no ending runs) and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
 
-`SPOTIFY …` is accepted as an alias for every `MUSIC …` verb. With break music switched off on the
+One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in
+Audio-page order — there is deliberately no per-kind numbering, because two numbering schemes on a
+live desk is how the wrong button gets fired. Like `STINGER`, the `VOG` and `STING` verbs need no
+client header over HTTP. `SPOTIFY …` is accepted as an alias for every `MUSIC …` verb. With break music switched off on the
 Audio page the `MUSIC` verbs answer `OK` and do nothing — a saved button never breaks a cue — while a
 name that resolves to no entry is an `ERR` on or off. Patterns drives the Spotify app (Premium and
 your own Client ID, set up on the Audio page); it never plays the audio itself.
@@ -62,7 +67,9 @@ State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel
 `cuestack{armed,hold,seq,listRev,confirm,program{label},previous{id,number,name},standby{id,number,name,requireConfirm,notes},next[6]{id,number,name},last{id,number,name,outcome,error,at,origin,actionsDone,actionsTotal},history[8]}`
 (the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
 `screens[{n,label,enabled,group}]` (labels honour operator names), `audio{playing,track}`, `tone`,
-`stingers[{n,name}]`, `stingerPlaying`, `sections[{n,name,active}]`, `playlist`, `nextCue`,
+`stingers[{n,name,kind}]` (`kind` is `vog` or `sting`), `stingerPlaying` (whatever is on air), `stingerKind`
+(`vog` / `sting` / empty), `stingHold` (the name of a stinger holding the screens, or empty),
+`sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),
 Remote commands always drive **what the audience sees**: looks, cues, playlist parts, stingers
@@ -95,7 +102,8 @@ for up to 25 seconds, so it updates within the push throttle instead of polling.
 
 Use the **Patterns module** in `integrations/companion-module-patterns/` (1.2.0: cue stack
 GO / standby / HOLD / ARM / STOP ALL with feedbacks and variables, a **Break music** category —
-play / pause / skip and entries 1–6, lit while music plays — plus presets for
+play / pause / skip and entries 1–6, lit while music plays — a **VOG** category and kind-checked
+stinger keys with a STING HOLD feedback and a *put it back* key, plus presets for
 transport/looks/screens/groups/presenter/audio — see its README for install), or the
 built-in **Generic TCP** connection sending the raw commands above (no feedback).
 

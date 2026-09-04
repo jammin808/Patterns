@@ -212,10 +212,57 @@ public class CueStackTests
             Act(CueActionKind.MessageOn, "", "Welcome back"));
 
         Assert.Equal("Apply 'Awards holding' (cut) + Play audio + Part 'Main' + +2 more", CueSummary.Describe(state, cue));
-        Assert.Equal("Sting 'Applause'", CueSummary.DescribeAction(state, cue.Actions[3]));
+        Assert.Equal("VOG 'Applause'", CueSummary.DescribeAction(state, cue.Actions[3]));   // a default item is a VOG
         Assert.Equal("Message 'Welcome back'", CueSummary.DescribeAction(state, cue.Actions[4]));
+
+        // A stinger says where it leaves the show, in the same phrase the desk and the picker use.
+        state.Stingers.Items.Add(new StingerItemConfig
+        {
+            Name = "Whoosh", Path = "/w.mp4", Kind = StingerKind.Sting, After = StingerAfter.Manual,
+        });
+        Assert.Equal("Sting 'Whoosh' (hold for a take)",
+            CueSummary.DescribeAction(state, Act(CueActionKind.StingerFire, "Whoosh")));
+        Assert.Equal("Sting 'gone'", CueSummary.DescribeAction(state, Act(CueActionKind.StingerFire, "gone")));
         Assert.Equal("No actions — notes only.", CueSummary.Describe(state, Cue("01.020", "Note")));
         Assert.Equal("Apply 'nope' (800 ms)", CueSummary.DescribeAction(state, Act(CueActionKind.ApplyLook, "nope", "800")));
+    }
+
+    [Fact]
+    public void TheValidatorChecksWhereAStingerEnds()
+    {
+        var state = ShowWithLook("Walk-in", PatternKind.Grid);
+        var look = LookService.Find(state, "Walk-in")!;
+        var caller = CueStacks.Caller(state);
+        var sting = new StingerItemConfig { Id = "s1", Name = "Whoosh", Path = "/show/whoosh.mp4", Kind = StingerKind.Sting };
+        state.Stingers.Items.Add(sting);
+        var vogClip = new StingerItemConfig { Id = "v1", Name = "Winner", Path = "/show/winner.mp4" };
+        state.Stingers.Items.Add(vogClip);
+        var ctx = new CueValidationContext { FileExists = _ => true, VideoDecoderAvailable = true };
+
+        // Validated on their own, as GO re-checks a cue — the caller's list stays empty on purpose.
+        var cue = Cue("09.010", "Hit", Act(CueActionKind.StingerFire, "s1"));
+
+        // An after-policy that points nowhere is a Hard issue, named where the operator can fix it.
+        sting.After = StingerAfter.Custom;
+        sting.AfterTarget = "gone";
+        Assert.Contains("ends on a look or cue that is not there", CueValidator.ValidateOne(state, cue, ctx).ReasonFor(cue.Id));
+
+        sting.AfterTarget = look.Id;
+        Assert.Equal(0, CueValidator.ValidateOne(state, cue, ctx).BrokenCount);
+
+        sting.After = StingerAfter.Next;
+        sting.AfterTarget = caller.Id;
+        Assert.Equal(0, CueValidator.ValidateOne(state, cue, ctx).BrokenCount);
+
+        // Blank Next on an empty caller list is worth saying, not worth refusing.
+        sting.AfterTarget = "";
+        var soft = CueValidator.ValidateOne(state, cue, ctx);
+        Assert.Equal(0, soft.BrokenCount);
+        Assert.Contains("the caller's list is empty", soft.Warnings[cue.Id]);
+
+        // The takeover rule follows the file, not the kind: a video VOG takes every screen too.
+        var shared = Cue("09.020", "Clip with a look", Act(CueActionKind.StingerFire, "v1"), Act(CueActionKind.ApplyLook, look.Id));
+        Assert.Contains("cannot share a cue", CueValidator.ValidateOne(state, shared, ctx).ReasonFor(shared.Id));
     }
 
     [Fact]

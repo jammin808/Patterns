@@ -59,9 +59,9 @@ public sealed class AppServices
     private string _airLabel = "—";
 
     /// <summary>
-    /// What is on air, by name: a look, "03.020 Five-minute call", "STING: name", "PART: Main",
-    /// or "MODIFIED — last …" after a sandbox send. Set inside every air-seam path; the LIVE
-    /// strip, the STATE json and a Companion variable read this one string.
+    /// What is on air, by name: a look, "03.020 Five-minute call", "VOG: name", "STING: name",
+    /// "STING HOLD: name", "PART: Main", or "MODIFIED — last …" after a sandbox send. Set inside
+    /// every air-seam path; the LIVE strip, the STATE json and a Companion variable read this one string.
     /// </summary>
     public string AirLabel
     {
@@ -308,6 +308,7 @@ public sealed class AppServices
     /// </summary>
     public int PrepareRestart()
     {
+        Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
         _restartRequested = true;
         Recovery.Write(Outputs.IsLive, State.AudioPlayer.Playing);
         SaveNow();
@@ -350,6 +351,19 @@ public sealed class AppServices
     }
 
     private bool _airDirty;
+    private string? _pinnedAirLook;
+
+    /// <summary>
+    /// While a clip owns the screens, the recovery sidecar must hold the content to come back to —
+    /// not the clip. A watchdog relaunch mid-sting puts the show back, never a dead frame.
+    /// </summary>
+    public void PinAirLook(string? json)
+    {
+        if (_pinnedAirLook == json) return;
+        _pinnedAirLook = json;
+        _airDirty = true;
+        UpdateRecovery();
+    }
 
     /// <summary>
     /// The content the audience is seeing, but only while it differs from the live state —
@@ -357,6 +371,7 @@ public sealed class AppServices
     /// </summary>
     private string? CaptureAirLook()
     {
+        if (_pinnedAirLook is { Length: > 0 }) return _pinnedAirLook;
         if (!Sandbox.Active) return null;
         try
         {
@@ -536,6 +551,16 @@ public sealed class AppServices
     public void SaveNow()
     {
         if (!_autosave) return;
+        // A clip on the screens (or a sting holding them) is a momentary event, never what the show
+        // is. Writing now would reopen the file on a dead clip; the revert — or Shutdown's
+        // Stingers.Dispose(), which stops first — writes the real content a moment later.
+        // Null-safe on purpose: SaveNow also runs at startup, before Stingers exists.
+        if (Stingers is { OwnsScreens: true })
+        {
+            _saveTimer.Stop();
+            _saveTimer.Start();
+            return;
+        }
         try
         {
             Store.Save(State);

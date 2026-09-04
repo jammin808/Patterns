@@ -44,9 +44,12 @@ public static class CueSummary
             case CueActionKind.StingerFire:
             {
                 var s = FindStinger(state, a.Target);
-                return $"Sting '{s?.DisplayName ?? a.Target}'";
+                if (s is null) return $"Sting '{a.Target}'";     // a dead target reads as it always did
+                return s.Kind == StingerKind.Vog
+                    ? $"VOG '{s.DisplayName}'"
+                    : $"Sting '{s.DisplayName}' ({StingerLibrary.AfterSummary(state, s)})";
             }
-            case CueActionKind.StingerStop: return "Stop stinger";
+            case CueActionKind.StingerStop: return "Stop VOG / stinger";
             case CueActionKind.PlaylistPart: return $"Part '{a.Target}'";
             case CueActionKind.StreamStart: return "Start stream";
             case CueActionKind.StreamStop: return "Stop stream";
@@ -81,7 +84,7 @@ public static class CueSummary
         }
     }
 
-    /// <summary>A stinger by id, then by display name (case-insensitive).</summary>
+    /// <summary>A library item by number, id, then display name (case-insensitive) — either kind.</summary>
     public static StingerItemConfig? FindStinger(ShowState state, string idOrName) => StingerLibrary.Find(state, idOrName);
 
     private static string ScreenLabel(ShowState state, string id)

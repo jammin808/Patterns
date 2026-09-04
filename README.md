@@ -101,7 +101,7 @@ fault containment, and settings that can never brick startup.
   air whether or not the sandbox is open and is journaled as a desk action; the next look
   recall replaces it. A cue can do the same four things.
 - **A Show panel** — once the rig is built, run the evening beside the switcher: every look
-  as a big button, the clicker list, stingers, the audio track and live status; the outputs
+  as a big button, the clicker list, VOGs and stingers, the audio track and live status; the outputs
   transport lives in the header. The other pages stay out of the way.
 - **Remote control** — a **web remote** (big-button page for any phone/tablet on the network),
   a one-command-per-line **TCP protocol** with live state feedback, and a ready-made
@@ -111,7 +111,7 @@ fault containment, and settings that can never brick startup.
 - **A cue stack** — the Cues page (PLAN) holds two lists of the same kind: the **cue stack** a show
   caller runs in order, and the **clicker list** a speaker steps through. A cue is one or
   more typed actions run in order — apply a look (with its own cut or fade), play or stop the
-  audio track, fire a stinger, switch a playlist part, start or stop the stream, blackout,
+  audio track, fire a VOG or stinger, switch a playlist part, start or stop the stream, blackout,
   screens and canvases on or off, start a countdown, a message or the clock, and hand the
   room to the other list. Numbers are labels (`03.020`, auto-assigned, editable, never used
   to sort); every reference is **checked as you build** by simulating the list in order, so a
@@ -121,7 +121,7 @@ fault containment, and settings that can never brick startup.
   says "failed at action 2 of 3"; blackout stays as it was unless the cue switches it.
 - **Run mode** — press **RUN** in the header and the window becomes the show caller's
   surface: a **LIVE strip** that names what is on air (a look, `03.020 Five-minute call`,
-  `STING: …`, `PART: …`, or `MODIFIED — last …` after a send), the wall beside the **cue
+  `VOG: …`, `STING: …`, `STING HOLD: …`, `PART: …`, or `MODIFIED — last …` after a send), the wall beside the **cue
   stack** with the last, standby and next cues marked, and a transport row — **ARM**,
   standby ▲ ▼, a big green **GO**, **HOLD**, **BLACKOUT** and a small guarded **STOP ALL**.
   Every GO passes one gate in order, whatever pressed it: armed, not held, blackout off,
@@ -130,7 +130,7 @@ fault containment, and settings that can never brick startup.
   for confirmation turns GO into `CONFIRM 03.020` for four seconds. While armed, the daily
   schedule, playlist part start times and plain F-keys wait (the desk's look buttons and a
   remote's LOOK stay live), so only the caller moves the picture. **Enter** is GO, ↑ ↓ move
-  standby, Esc cancels a confirm and twice is STOP ALL (audio, break music, stingers, tone —
+  standby, Esc cancels a confirm and twice is STOP ALL (audio, break music, VOGs, stingers, tone —
   never the outputs, blackout or the stream). A watchdog relaunch reopens Run **disarmed** at the next
   cue with a banner, and fires nothing; the history reads from the journal. **POP OUT** puts
   the Run surface on the caller's own monitor as a second window with its own keys; the
@@ -140,7 +140,7 @@ fault containment, and settings that can never brick startup.
   the protocol gains `CUE GO / STANDBY / HOLD / ARM / LIST`, `STOPALL` and `HELLO <name>`.
 - **Presenter click-through** — the clicker list: hand the presenter a USB clicker,
   `Page Down` advances, `Page Up` goes back (exactly what presentation remotes send), and
-  each click fires the next cue — a look, a message, a stinger, anything a cue can do. It
+  each click fires the next cue — a look, a message, a VOG, anything a cue can do. It
   answers only while armed (always off when the app opens); the remote and Companion
   `NEXT`/`PREV` drive the same list. Older shows' presenter steps move into it on load.
 - **Crossfade transitions** — content changes glide instead of cut (100 ms–3 s, engine-level,
@@ -159,7 +159,7 @@ fault containment, and settings that can never brick startup.
   *drives* Spotify rather than playing it (the sound comes out of the Spotify app on the
   desk machine or any Spotify Connect device — Spotify's DRM allows nothing else), tells it
   what to play, how loud and when to stop, and reads back what is on. It ducks under a
-  sound stinger like the music track, **STOP ALL pauses it**, and it is a cue action
+  VOG sound and fades under a stinger like the music track, **STOP ALL pauses it**, and it is a cue action
   (play / pause / skip / level), a `MUSIC` remote verb and a Companion key. Needs Spotify
   Premium and your own free Client ID; the feature is off until you switch it on.
 - **4-corner warp** — nudge each output's corners (keystone/skew) so a slightly-off projector
@@ -198,12 +198,20 @@ fault containment, and settings that can never brick startup.
   a target with no display attached is drawn 16:9. Being engine-rendered it goes anywhere —
   an operator screen, an NDI sender — and it's **available remotely** at `/multiview` on the
   web-remote address (live JPEG refresh).
-- **Stingers** — one-press sounds and clips, no audio engineer needed: *"Take your seats,
-  the show is about to begin."* A sound plays over everything on the audio-track outputs
-  while the music ducks underneath (and comes back by itself); a **video clip takes over
-  every screen and the previous content returns the moment it ends** — unless the operator
-  changes content mid-clip, in which case their choice stands. Fired from the Show page,
-  the web remote, the TCP protocol or Companion.
+- **VOG** (voice of God) — one-press sounds and clips over the show, no audio engineer
+  needed: *"Take your seats, the show is about to begin."* A sound plays over everything on
+  the audio-track outputs while the music ducks underneath (and comes back by itself); a
+  **video clip takes over every screen and the previous content returns the moment it
+  ends** — unless the operator changes content mid-clip, in which case their choice stands.
+  Fired from the Show panel, a cue, the web remote, the TCP protocol or Companion.
+- **Stingers** — transition hits from the same library: the music **fades out** instead of
+  ducking, a clip **dissolves in**, and when it lands the show goes where the stinger says —
+  **back** to what was on, **held** on the last frame for your TAKE or GO (with an optional
+  hold limit), **on to the caller's next cue** through the real GO gate, or to **a look or
+  cue you name**. Anything that cannot run puts the show back and says so; STOP ALL always
+  puts a held stinger back and never runs its ending. One library and one numbering for both
+  kinds, so `STINGER 3`, a saved Companion key and a cue target never change meaning; `VOG n`
+  and `STING n` refuse the other kind. A crash mid-sting comes back to the show, never the clip.
 - **A watchdog that keeps the show up** — the app runs supervised: a crash, or a UI that
   stops responding for 30 s, gets the app restarted within seconds **with the same setup —
   outputs re-opened and the audio track resumed** (a sidecar file remembers what was live;
@@ -261,13 +269,13 @@ fault containment, and settings that can never brick startup.
   </tr>
   <tr>
     <td><img src="docs/media/shot-run.png" alt="Run mode — the LIVE strip, the wall beside the cue stack with last / standby / next, and the transport row with GO"/></td>
-    <td><img src="docs/media/shot-show.png" alt="The Show panel — looks, the clicker list, stingers and the audio track beside the switcher"/></td>
+    <td><img src="docs/media/shot-show.png" alt="The Show panel — looks, the clicker list, VOGs, stingers, break music and the audio track beside the switcher"/></td>
   </tr>
   <tr>
     <td><img src="docs/media/shot-playlist.png" alt="Playlist with drag-to-reorder and per-item timing"/></td>
   <tr>
     <td><img src="docs/media/shot-sandbox.png" alt="The switcher — program on air on top, the next look building in the sandboxed preview"/></td>
-    <td><img src="docs/media/shot-audio.png" alt="Audio — track, stingers and per-output device routing"/></td>
+    <td><img src="docs/media/shot-audio.png" alt="Audio — track, break music, VOGs and stingers with their endings, and per-output device routing"/></td>
   </tr>
   <tr>
     <td><img src="docs/media/shot-multiview.png" alt="Multiview — program, screens, inputs and clock with tally"/></td>
@@ -311,7 +319,7 @@ editor, looks/cues/presenter steps and the Show page drive them live.*
 
 Settings autosave beside the exe (`patterns.settings.json`, atomic with backup); whole rigs save
 as show files (`*.patshow.json`). Presets and brand kits are plain JSON folders next to the exe.
-Every change to what the audience sees — a look recall, a scheduled cue, a stinger and its
+Every change to what the audience sees — a look recall, a scheduled cue, a VOG or stinger and its
 revert, a playlist part, outputs on/off, blackout — is appended to `patterns.showlog.jsonl`
 with the time and who caused it (desk, keyboard, clicker, a remote's address, the schedule),
 so a show can be reconstructed afterwards and a caller can see what happened after a restart.
@@ -344,7 +352,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 614 tests: pixel-exact rendering, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, stingers, break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 651 tests: pixel-exact rendering, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

@@ -2,7 +2,7 @@
 
 Stream Deck / Companion control for the Patterns show display suite: fast look recall,
 presenter next/back, transport, blackout with live feedback, individual screens and
-canvas groups, stingers (one-press sounds and clips), break music (Spotify) and the audio track.
+canvas groups, VOGs and stingers (one-press sounds and clips), break music (Spotify) and the audio track.
 
 ## Setup
 
@@ -13,7 +13,7 @@ canvas groups, stingers (one-press sounds and clips), break music (Spotify) and 
    or copy the folder into your dev modules directory), then add the **Patterns** connection
    with the machine's IP and port.
 3. Drag presets onto keys: Cue stack (GO, standby ▲ ▼, HOLD, ARM, STOP ALL), Transport,
-   Presenter, Looks (F1–F12), Screens, Stingers, Audio, Break music.
+   Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music.
 
 ## The cue stack (module 1.1.0)
 
@@ -23,11 +23,23 @@ within four seconds), red when the last cue failed or was refused. Every GO send
 standby id the module last saw, so a GO that races a standby move is refused with
 `ERR standby moved` rather than firing the wrong cue; `$(patterns:last_error)` carries the
 last ERR line. **ARM** needs "Remotes may ARM the cue stack" on the Remote page. **STOP ALL**
-stops the audio track, break music, any stinger and the tone — never the outputs, blackout
-or the stream. Variables: `cue_standby_number/name`, `cue_next_number/name`,
+stops the audio track, break music, any VOG or stinger (a clip or a held frame reverts, and a
+stinger's ending is cancelled) and the tone — never the outputs, blackout or the stream. Variables: `cue_standby_number/name`, `cue_next_number/name`,
 `cue_previous_number/name`, `cue_last_outcome`, `cue_confirm`, `cue_armed`, `cue_hold`,
 `cue_seq`, and `program` (what is on air, by name). The module says `HELLO <label>` on
 connect, so the caller's history reads "GO from FOH deck".
+
+## VOG and stingers (module 1.2.0)
+
+One library, one numbering. The **Stingers** presets (`stinger_1..8`, `STINGER n`) fire whatever
+item *n* is; the **VOG** category (`vog_1..8`, `VOG n`) and the kind-checked stinger keys
+(`STING n`, `sting`, `sting_name`) refuse the other kind — Patterns answers `ERR … is a VOG, not a
+stinger` — so a key that says VOG never fires a transition. Feedbacks: `vog_playing` (blue),
+`sting_playing` (amber) and `sting_hold` (hold amber) — a stinger that landed and is holding the
+screens lights every sting key until the caller TAKEs, GOes, or presses the *Held stinger — put
+it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. Note that the
+`program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
+a trigger matching `STING:` should match `VOG:` too.
 
 ## Break music (module 1.2.0)
 

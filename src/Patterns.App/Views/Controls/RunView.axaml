@@ -10,7 +10,7 @@
 
     <!-- LIVE strip: what is on air, by name, and the chips a caller glances at -->
     <Border Grid.Row="0" Classes="runLive">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <Ellipse Classes="tally" Classes.air="{Binding !Run.IsBlackout}" Width="12" Height="12" />
           <TextBlock Classes="runTag" Text="LIVE" />
@@ -24,8 +24,10 @@
         <Border Grid.Column="4" Classes="runChip armedChip" IsVisible="{Binding Run.IsArmed}"><TextBlock Text="ARMED" /></Border>
         <Border Grid.Column="5" Classes="runChip holdChip" IsVisible="{Binding IsPrepMode}" ToolTip.Tip="PREP mode: the outputs are held closed — cues run, the audience sees nothing"><TextBlock Text="PREP · OUTPUTS HELD" /></Border>
         <Border Grid.Column="6" Classes="runChip musicChip" IsVisible="{Binding Run.IsMusicPlaying}" ToolTip.Tip="{Binding Run.MusicTip}"><TextBlock Text="♪ BREAK MUSIC" /></Border>
-        <TextBlock Grid.Column="7" Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource TextDimBrush}" />
-        <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <Border Grid.Column="7" Classes="runChip holdChip" IsVisible="{Binding Run.IsStingHolding}"
+                ToolTip.Tip="A stinger landed and is holding the screens — TAKE the preview or GO the next cue"><TextBlock Text="{Binding Run.StingHoldText}" /></Border>
+        <TextBlock Grid.Column="8" Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource TextDimBrush}" />
+        <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <Button Classes="mini" Content="POP OUT" Command="{Binding PopOutRunCommand}" Focusable="False"
                   ToolTip.Tip="Open the Run surface as a second window for the caller's own monitor" />
           <TextBlock Classes="runClock" Text="{Binding HeaderClock}" VerticalAlignment="Center" />
@@ -125,7 +127,7 @@
         <ToggleButton Grid.Column="9" Classes="runBlackout" Content="BLACKOUT" IsChecked="{Binding IsBlackout, Mode=TwoWay}" Focusable="False"
                       ToolTip.Tip="Immediate black on every output (Space). While on, GO is refused rather than executing under black." />
         <Button Grid.Column="10" Classes="runStop" Content="STOP ALL" Command="{Binding Run.StopAllCommand}" Focusable="False"
-                ToolTip.Tip="Stops the audio track, break music, any stinger (a clip reverts) and the tone. Never outputs, blackout or the stream. Esc twice does the same." />
+                ToolTip.Tip="Stops the audio track, break music, any VOG or stinger (the previous content comes back — it never runs the stinger's ending) and the tone. Never outputs, blackout or the stream. Esc twice does the same." />
       </Grid>
     </Border>
   </Grid>

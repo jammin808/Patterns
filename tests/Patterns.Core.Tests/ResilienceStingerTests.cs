@@ -145,6 +145,12 @@ public class StingerProtocolTests
     [InlineData("STINGER Take your seats", RemoteCommandKind.Stinger, 0, "Take your seats")]
     [InlineData("STINGER STOP", RemoteCommandKind.StingerStop, 0, "")]
     [InlineData("stinger stop", RemoteCommandKind.StingerStop, 0, "")]
+    [InlineData("VOG 3", RemoteCommandKind.Vog, 3, "")]
+    [InlineData("vog Take your seats", RemoteCommandKind.Vog, 0, "Take your seats")]
+    [InlineData("VOG STOP", RemoteCommandKind.StingerStop, 0, "")]
+    [InlineData("STING 2", RemoteCommandKind.Sting, 2, "")]
+    [InlineData("sting Whoosh", RemoteCommandKind.Sting, 0, "Whoosh")]
+    [InlineData("sting stop", RemoteCommandKind.StingerStop, 0, "")]
     public void ParsesStingerCommands(string line, RemoteCommandKind kind, int intArg, string textArg)
     {
         var cmd = ControlProtocol.Parse(line);
@@ -156,6 +162,13 @@ public class StingerProtocolTests
     [Fact]
     public void BareStingerIsUnknown()
         => Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("STINGER").Kind);
+
+    [Fact]
+    public void BareVogAndBareStingAreUnknown()
+    {
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VOG").Kind);
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("STING").Kind);
+    }
 
     [Fact]
     public void DisplayNameFallsBackToTheFileName()

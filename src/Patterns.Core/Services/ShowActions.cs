@@ -35,7 +35,10 @@ public enum ShowActionKind
     AudioStop,
     ToneOn,
     ToneOff,
-    /// <summary>Target = stinger number (1-based, Audio-tab order), name or id.</summary>
+    /// <summary>
+    /// Target = library number (1-based, Audio-page order), name or id; Value = "" (either kind),
+    /// "vog" or "sting" — a button that says VOG must never fire a stinger.
+    /// </summary>
     StingerFire,
     StingerStop,
     /// <summary>Target = playlist part number (1-based) or name.</summary>

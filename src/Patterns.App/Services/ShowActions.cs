@@ -404,8 +404,13 @@ public sealed class ShowActions
 
             case ShowActionKind.StingerFire:
             {
-                var item = FindStinger(a.Target);
-                if (item is null) return ActionResult.Refused($"No stinger '{a.Target}'.");
+                var item = StingerLibrary.Find(State, a.Target);
+                if (item is null) return ActionResult.Refused($"No VOG or stinger '{a.Target}'.");
+                if (!StingerLibrary.KindMatches(item, a.Value, out var wanted))
+                {
+                    // A button that says VOG must never fire a stinger: refused, and the item named.
+                    return ActionResult.Refused($"'{item.DisplayName}' is a {StingerLibrary.KindWord(item.Kind)}, not a {wanted}.");
+                }
                 if (!_s.Stingers.Fire(item)) return ActionResult.Failed(_s.Stingers.Status);
                 return ActionResult.Requested(_s.Stingers.Status); // the service owns the strip's label while it plays
             }
@@ -452,12 +457,12 @@ public sealed class ShowActions
             }
 
             case ShowActionKind.StopAll:
-                _s.Stingers.Stop();
+                _s.Stingers.Stop();              // both kinds; a clip or a held frame reverts; an after is cancelled, never fired
                 State.AudioPlayer.Playing = false;
                 State.Spotify.Playing = false;   // the service issues the pause and retries until it lands…
                 _s.Spotify.PokeNow();            // …starting on this turn, not up to 400 ms later
                 State.Tone.Enabled = false;
-                return ActionResult.Done("Stopped: audio track, break music, stingers, tone. Outputs, blackout and the stream are untouched.");
+                return ActionResult.Done("Stopped: audio track, break music, VOGs and stingers (previous content back), tone. Outputs, blackout and the stream are untouched.");
 
             default:
                 return ActionResult.Refused($"Unknown action '{a.Kind}'.");
@@ -595,9 +600,9 @@ public sealed class ShowActions
                 done++;
             }
             // Blackout is transport, put back after the cue — unless a clip took the screens in
-            // this cue: it lifted blackout on purpose so the audience sees it, and it puts the
-            // previous state back itself when it ends.
-            if (!explicitBlackout && !_s.Stingers.ClipActive) _s.State.Blackout = blackoutBefore;
+            // this cue (or a stinger is holding them): it lifted blackout on purpose so the
+            // audience sees it, and it puts the previous state back itself when it ends.
+            if (!explicitBlackout && !_s.Stingers.OwnsScreens) _s.State.Blackout = blackoutBefore;
         });
 
         rt.LastCueId = cue.Id;
@@ -670,5 +675,4 @@ public sealed class ShowActions
         return false;
     }
 
-    private StingerItemConfig? FindStinger(string target) => StingerLibrary.Find(State, target);
 }

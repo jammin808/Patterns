@@ -114,6 +114,7 @@ class PatternsInstance extends InstanceBase {
 			playlist: this.state.playlist ?? '',
 			next_cue: this.state.nextCue ?? '',
 			stinger: this.state.stingerPlaying ?? '',
+			sting_hold: this.state.stingHold ?? '',
 			music: this.state.music?.now ?? '',
 			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
 			music_level: String(this.state.music?.level ?? 0),
@@ -125,7 +126,7 @@ class PatternsInstance extends InstanceBase {
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing', 'music_playing',
-			'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'vog_playing', 'sting_playing', 'sting_hold', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -186,7 +187,7 @@ class PatternsInstance extends InstanceBase {
 					choices: [{ id: 'ON', label: 'Arm' }, { id: 'OFF', label: 'Disarm' }] }],
 				callback: (a) => send(`CUE ARM ${a.options.mode}`),
 			},
-			stop_all: { name: 'STOP ALL (audio, break music, stingers, tone — never outputs, blackout or the stream)', options: [], callback: () => send('STOPALL') },
+			stop_all: { name: 'STOP ALL (audio, break music, VOGs, stingers, tone — never outputs, blackout or the stream)', options: [], callback: () => send('STOPALL') },
 			screen: {
 				name: 'Screen on/off/toggle',
 				options: [
@@ -227,7 +228,29 @@ class PatternsInstance extends InstanceBase {
 				options: [{ type: 'textinput', id: 'name', label: 'Stinger name', default: '' }],
 				callback: (a) => send(`STINGER ${a.options.name}`),
 			},
-			stinger_stop: { name: 'Stop stinger', options: [], callback: () => send('STINGER STOP') },
+			stinger_stop: { name: 'Stop VOG / stinger (a held frame reverts; the ending is cancelled)', options: [], callback: () => send('STINGER STOP') },
+			// VOG / STING name the same library by the same number and only assert the kind: a key
+			// that says VOG never fires a stinger — Patterns refuses and names the item.
+			vog: {
+				name: 'Fire VOG (by number, Audio-page order)',
+				options: [{ type: 'number', id: 'n', label: 'Library number (Audio page order)', default: 1, min: 1, max: 32 }],
+				callback: (a) => send(`VOG ${a.options.n}`),
+			},
+			vog_name: {
+				name: 'Fire VOG (by name)',
+				options: [{ type: 'textinput', id: 'name', label: 'VOG name', default: '' }],
+				callback: (a) => send(`VOG ${a.options.name}`),
+			},
+			sting: {
+				name: 'Fire stinger (by number, Audio-page order)',
+				options: [{ type: 'number', id: 'n', label: 'Library number (Audio page order)', default: 1, min: 1, max: 32 }],
+				callback: (a) => send(`STING ${a.options.n}`),
+			},
+			sting_name: {
+				name: 'Fire stinger (by name)',
+				options: [{ type: 'textinput', id: 'name', label: 'Stinger name', default: '' }],
+				callback: (a) => send(`STING ${a.options.name}`),
+			},
 			// Break music (Spotify): the MUSIC verbs. With the feature off in Patterns these answer OK and do nothing.
 			music: {
 				name: 'Break music',
@@ -288,6 +311,27 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => (this.state.stingerPlaying ?? '') !== '',
 			},
+			vog_playing: {
+				type: 'boolean',
+				name: 'A VOG is on air',
+				defaultStyle: { bgcolor: combineRgb(0, 100, 160), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.stingerKind === 'vog',
+			},
+			sting_playing: {
+				type: 'boolean',
+				name: 'A stinger is on air',
+				defaultStyle: { bgcolor: combineRgb(190, 120, 0), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.stingerKind === 'sting',
+			},
+			sting_hold: {
+				type: 'boolean',
+				name: 'A stinger is holding the screens',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => (this.state.stingHold ?? '') !== '',
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -340,7 +384,8 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'presenter_count', name: 'Presenter step count' },
 			{ variableId: 'playlist', name: 'Playlist status' },
 			{ variableId: 'next_cue', name: 'Next scheduled cue' },
-			{ variableId: 'stinger', name: 'Stinger on air (name)' },
+			{ variableId: 'stinger', name: 'VOG or stinger on air (name)' },
+			{ variableId: 'sting_hold', name: 'Stinger holding the screens (name)' },
 			{ variableId: 'music', name: 'Break music — now playing' },
 			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
 			{ variableId: 'music_level', name: 'Break music level (0–100)' },
@@ -497,6 +542,29 @@ class PatternsInstance extends InstanceBase {
 			type: 'button', category: 'Stingers', name: 'Stop stinger',
 			style: { text: 'STING\\nSTOP', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'stinger_stop', options: {} }], up: [] }], feedbacks: [],
+		}
+		for (let n = 1; n <= 8; n++) {
+			presets[`vog_${n}`] = {
+				type: 'button', category: 'VOG', name: `VOG ${n}`,
+				style: { text: `VOG\\n${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'vog', options: { n } }], up: [] }],
+				feedbacks: [{ feedbackId: 'vog_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }],
+			}
+			presets[`sting_${n}`] = {
+				type: 'button', category: 'Stingers', name: `Stinger ${n} (kind-checked)`,
+				style: { text: `STING\\n${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'sting', options: { n } }], up: [] }],
+				feedbacks: [
+					{ feedbackId: 'sting_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } },
+					{ feedbackId: 'sting_hold', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } },
+				],
+			}
+		}
+		presets.sting_hold_release = {
+			type: 'button', category: 'Stingers', name: 'Held stinger — put it back',
+			style: { text: 'HOLD\\nBACK', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'stinger_stop', options: {} }], up: [] }],
+			feedbacks: [{ feedbackId: 'sting_hold', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
 		}
 		presets.audio_play = {
 			type: 'button', category: 'Audio', name: 'Audio play',

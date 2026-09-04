@@ -97,6 +97,11 @@ public sealed class RunViewModel : Observable
     public bool IsHold => _s.CueStack.Runtime.Hold;
     public bool IsBlackout => _s.State.Blackout;
 
+    /// <summary>A stinger landed and is holding the screens for the caller's take.</summary>
+    public bool IsStingHolding => _s.Stingers.Holding;
+
+    public string StingHoldText => _s.Stingers.Holding ? $"STING HOLD: {_s.Stingers.HoldName}" : "";
+
     /// <summary>The chip: break music is on and asked to play. Sound, so never the label — the label is the picture.</summary>
     public bool IsMusicPlaying => _s.State.Spotify.Enabled && _s.State.Spotify.Playing;
 
@@ -191,7 +196,7 @@ public sealed class RunViewModel : Observable
             return;
         }
         _lastEscUtc = now;
-        _vm.StatusMessage = "Press Esc again within a second to STOP ALL (audio, break music, stingers, tone — never outputs or blackout).";
+        _vm.StatusMessage = "Press Esc again within a second to STOP ALL (audio, break music, VOGs, stingers, tone — never outputs or blackout).";
     }
 
     /// <summary>Each second: the running clock, confirm expiry and asynchronous settling.</summary>
@@ -203,6 +208,8 @@ public sealed class RunViewModel : Observable
         Raise(nameof(NextAutoText));
         Raise(nameof(IsMusicPlaying));
         Raise(nameof(MusicTip));     // follows the track
+        Raise(nameof(IsStingHolding));
+        Raise(nameof(StingHoldText));
     }
 
     private void OnRuntimeChanged()
@@ -218,6 +225,8 @@ public sealed class RunViewModel : Observable
         Raise(nameof(IsBlackout));
         Raise(nameof(IsMusicPlaying));
         Raise(nameof(MusicTip));
+        Raise(nameof(IsStingHolding));
+        Raise(nameof(StingHoldText));
         Raise(nameof(ArmText));
         Raise(nameof(CanExit));
         Raise(nameof(GoText));

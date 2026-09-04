@@ -215,7 +215,7 @@ public sealed class SpotifyService : IDisposable
             }
         }
 
-        var level = MusicLevel.DevicePercent(cfg.LevelPct, _services.MusicDuckActive, _services.State.Stingers.DuckPct);
+        var level = MusicLevel.DevicePercent(cfg.LevelPct, _services.Stingers.MusicGainAt(now));
         if (cfg.Playing && level != _sentLevel && now - _levelSentUtc >= LevelInterval)
         {
             _ = IssueVolume(level);

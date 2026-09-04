@@ -16,6 +16,7 @@
     <conv:NotEmptyConverter x:Key="NotEmpty" />
     <conv:EnumNotEqualsConverter x:Key="NotEq" />
     <conv:SandboxBorderConverter x:Key="SandboxBorder" />
+    <conv:StingerAfterTextConverter x:Key="StingerAfterText" />
 
     <!-- Palette -->
     <Color x:Key="AppBg">#0E0F13</Color>

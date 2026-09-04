@@ -53,6 +53,9 @@ public class ActionLayerTests
         Assert.Equal(new ShowAction(ShowActionKind.ApplyLook, "Walk-in"), CommandRouter.ToAction(ControlProtocol.Parse("LOOK Walk-in")));
         Assert.Equal(new ShowAction(ShowActionKind.PlaylistPart, "Main"), CommandRouter.ToAction(ControlProtocol.Parse("SECTION Main")));
         Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "2"), CommandRouter.ToAction(ControlProtocol.Parse("STINGER 2")));
+        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "2", "vog"), CommandRouter.ToAction(ControlProtocol.Parse("VOG 2")));
+        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "Whoosh", "sting"), CommandRouter.ToAction(ControlProtocol.Parse("STING Whoosh")));
+        Assert.Equal(new ShowAction(ShowActionKind.StingerStop), CommandRouter.ToAction(ControlProtocol.Parse("VOG STOP")));
         Assert.Equal(new ShowAction(ShowActionKind.CanvasOn, "A"), CommandRouter.ToAction(ControlProtocol.Parse("GROUP a ON")));
         Assert.Equal(new ShowAction(ShowActionKind.ScreenToggle, "1"), CommandRouter.ToAction(ControlProtocol.Parse("SCREEN 1")));
         Assert.Equal(new ShowAction(ShowActionKind.OutputsOn), CommandRouter.ToAction(ControlProtocol.Parse("GO")));

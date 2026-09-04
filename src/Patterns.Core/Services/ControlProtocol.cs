@@ -50,6 +50,10 @@ public enum RemoteCommandKind
     MusicNext,
     /// <summary>"MUSIC VOL 40" — 0–100; the level rides TextArg (IntArg == 0 is the "no number" sentinel).</summary>
     MusicVolume,
+    /// <summary>"VOG n" / "VOG name" — fires it only if it really is a VOG.</summary>
+    Vog,
+    /// <summary>"STING n" / "STING name" — fires it only if it really is a stinger.</summary>
+    Sting,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module).</summary>
@@ -245,6 +249,29 @@ public static class ControlProtocol
                 return int.TryParse(arg, out var sting)
                     ? new(RemoteCommandKind.Stinger, sting, "")
                     : new(RemoteCommandKind.Stinger, 0, arg);
+
+            // VOG and STING name the same library by the same number — they only assert which kind
+            // they expect, so a button that says VOG can never fire a stinger. STINGER stays
+            // kind-agnostic and untouched: every saved preset and phone bookmark keeps working.
+            case "VOG":
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                if (arg.Equals("STOP", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new(RemoteCommandKind.StingerStop, 0, "");
+                }
+                return int.TryParse(arg, out var vogN)
+                    ? new(RemoteCommandKind.Vog, vogN, "")
+                    : new(RemoteCommandKind.Vog, 0, arg);
+
+            case "STING":
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                if (arg.Equals("STOP", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new(RemoteCommandKind.StingerStop, 0, "");
+                }
+                return int.TryParse(arg, out var stingN)
+                    ? new(RemoteCommandKind.Sting, stingN, "")
+                    : new(RemoteCommandKind.Sting, 0, arg);
 
             default:
                 return new(RemoteCommandKind.Unknown, 0, s);

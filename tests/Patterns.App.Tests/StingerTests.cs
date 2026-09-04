@@ -76,7 +76,7 @@ public class StingerTests
             Assert.False(vm.State.Blackout);
             Assert.False(services.Bus.Current.State.Blackout);
             Assert.Equal(clip, services.Bus.Current.State.Pattern.Media.VideoPath);
-            Assert.Equal("STING: Opening sting", services.AirLabel);
+            Assert.Equal("VOG: Opening sting", services.AirLabel);
 
             // The clip ends: the previous content comes back, and blackout stays off — the clip lifted it.
             InputBus.Mount(InputKeys.Video(clip), new EndedSource());
@@ -107,7 +107,7 @@ public class StingerTests
 
             // A natural end gives the label back.
             Assert.True(services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id).Ok);
-            Assert.Equal("STING: Winner sting", services.AirLabel);
+            Assert.Equal("VOG: Winner sting", services.AirLabel);
             InputBus.Mount(InputKeys.Video(clip), new EndedSource());
             services.Stingers.Poll();
             Assert.Equal("Walk-in", services.AirLabel);
@@ -115,7 +115,7 @@ public class StingerTests
 
             // So does STOP.
             Assert.True(services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id).Ok);
-            Assert.Equal("STING: Winner sting", services.AirLabel);
+            Assert.Equal("VOG: Winner sting", services.AirLabel);
             services.Actions.Execute(ShowActionKind.StingerStop, ActionOrigin.Desk);
             Assert.Equal("Walk-in", services.AirLabel);
 
@@ -344,7 +344,9 @@ public class StingerTests
             Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);
 
             var json = router.StateJson();
-            Assert.Contains("\"stingers\":[{\"n\":1,\"name\":\"Opener\"}]", json);
+            Assert.Contains("\"stingers\":[{\"n\":1,\"name\":\"Opener\",\"kind\":\"vog\"}]", json);
+            Assert.Contains("\"stingHold\":\"\"", json);
+            Assert.Contains("\"stingerKind\":\"\"", json);
             Assert.Contains("\"health\":\"Up ", json);
         }
         finally

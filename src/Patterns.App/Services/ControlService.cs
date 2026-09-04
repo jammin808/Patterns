@@ -543,6 +543,7 @@ public sealed class ControlService : IDisposable
   <span class="chip hold" id="chold">HOLD</span>
   <span class="chip armed" id="carmed">ARMED</span>
   <span class="chip music" id="cmusic">♪ MUSIC</span>
+  <span class="chip hold" id="chold2">STING HOLD</span>
 </div>
 <div class="card standby">
   <div class="k">STANDBY</div>
@@ -579,6 +580,9 @@ function render(s) {
   document.getElementById('chold').classList.toggle('on', !!c.hold);
   document.getElementById('carmed').classList.toggle('on', !!c.armed);
   document.getElementById('cmusic').classList.toggle('on', !!(s.music && s.music.playing));
+  var h2 = document.getElementById('chold2');
+  h2.classList.toggle('on', !!s.stingHold);
+  h2.textContent = s.stingHold ? 'STING HOLD: ' + s.stingHold : 'STING HOLD';
   var sb = c.standby; standbyId = sb ? sb.id : '';
   document.getElementById('sb').innerHTML = sb ? '<span class="num">' + esc(sb.number) + '</span>' + esc(sb.name) : 'No cue on standby';
   document.getElementById('sbnotes').textContent = sb ? (sb.notes || '') : '';
@@ -705,8 +709,10 @@ setInterval(function () {
 <div class="sec" id="secsec" hidden>SHOW PARTS (PLAYLIST)</div>
 <div id="sections" class="grid row3"></div>
 
+<div class="sec">VOG</div>
+<div id="vogs" class="grid row2"></div>
 <div class="sec">STINGERS</div>
-<div id="stingers" class="grid row2"></div>
+<div id="stings" class="grid row2"></div>
 <div id="stingnow" class="grid" style="margin-top:10px"></div>
 
 <div class="sec" id="musicsec" hidden>BREAK MUSIC</div>
@@ -774,16 +780,25 @@ function render(s) {
     se.appendChild(b);
   });
 
-  var st = document.getElementById('stingers'); st.innerHTML = '';
+  // One library, one numbering: both grids fire the frozen STINGER n verb by library number.
+  var vg = document.getElementById('vogs'); vg.innerHTML = '';
+  var sg = document.getElementById('stings'); sg.innerHTML = '';
   (s.stingers || []).forEach(function(x){
     var b = document.createElement('button');
-    b.textContent = x.name;
+    b.textContent = (x.kind === 'sting' ? '⚡ ' : '🔊 ') + x.name;
     b.onclick = function(){ cmd('STINGER ' + x.n); };
-    st.appendChild(b);
+    (x.kind === 'sting' ? sg : vg).appendChild(b);
   });
-  if (!s.stingers || s.stingers.length === 0) st.innerHTML = '<button disabled>No stingers set up</button>';
+  if (!vg.children.length) vg.innerHTML = '<button disabled>No VOGs set up</button>';
+  if (!sg.children.length) sg.innerHTML = '<button disabled>No stingers set up</button>';
   var sn = document.getElementById('stingnow'); sn.innerHTML = '';
-  if (s.stingerPlaying) {
+  if (s.stingHold) {
+    var b3 = document.createElement('button');
+    b3.className = 'stop';
+    b3.textContent = '■ Holding: ' + s.stingHold + ' — put it back';
+    b3.onclick = function(){ cmd('STINGER STOP'); };
+    sn.appendChild(b3);
+  } else if (s.stingerPlaying) {
     var b2 = document.createElement('button');
     b2.className = 'stop';
     b2.textContent = '■ Stop: ' + s.stingerPlaying;
