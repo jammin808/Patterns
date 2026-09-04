@@ -125,6 +125,10 @@ public sealed class CommandRouter
             RemoteCommandKind.GroupOff => new ShowAction(ShowActionKind.CanvasOff, cmd.TextArg),
             RemoteCommandKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay),
             RemoteCommandKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
+            RemoteCommandKind.MusicPlay => new ShowAction(ShowActionKind.SpotifyPlay, byNumberOrName),
+            RemoteCommandKind.MusicPause => new ShowAction(ShowActionKind.SpotifyPause),
+            RemoteCommandKind.MusicNext => new ShowAction(ShowActionKind.SpotifyNext),
+            RemoteCommandKind.MusicVolume => new ShowAction(ShowActionKind.SpotifyVolume, "", cmd.TextArg),
             RemoteCommandKind.ToneOn => new ShowAction(ShowActionKind.ToneOn),
             RemoteCommandKind.ToneOff => new ShowAction(ShowActionKind.ToneOff),
             RemoteCommandKind.Stinger => new ShowAction(ShowActionKind.StingerFire, byNumberOrName),
@@ -155,6 +159,16 @@ public sealed class CommandRouter
             {
                 playing = s.AudioPlayer.Playing,
                 track = System.IO.Path.GetFileName(s.AudioPlayer.Path),
+            },
+            music = new
+            {
+                on = s.Spotify.Enabled,
+                playing = s.Spotify.Playing,
+                level = (int)Math.Round(s.Spotify.LevelPct),
+                now = _services.Spotify.NowPlaying,
+                device = _services.Spotify.DeviceLabel,
+                status = _services.Spotify.Status,
+                items = s.Spotify.Items.Select((i, n) => new { n = n + 1, name = i.DisplayName }).ToArray(),
             },
             tone = s.Tone.Enabled,
             stingers = s.Stingers.Items.Select((i, n) => new { n = n + 1, name = i.DisplayName }).ToArray(),

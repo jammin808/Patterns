@@ -133,6 +133,7 @@ public sealed class ActionRow : Observable
         TargetKind.Screen => "Which screen…",
         TargetKind.Canvas => "Which canvas…",
         TargetKind.Stack => "Which list…",
+        TargetKind.Music => "Which break music… (blank = resume)",
         _ => "",
     };
 
@@ -142,6 +143,7 @@ public sealed class ActionRow : Observable
         ValueKind.Minutes => "minutes, e.g. 5",
         ValueKind.Text => "the message text",
         ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
+        ValueKind.Level => "percent, 0–100 (the Spotify device's own volume)",
         _ => "",
     };
 
@@ -452,6 +454,8 @@ public sealed class CueEditor : Observable
             }
             case TargetKind.Stack:
                 return state.Stacks.Select(s => new PickItem(s.Id, s.Name));
+            case TargetKind.Music:
+                return state.Spotify.Items.Select(m => new PickItem(m.Id, m.DisplayName));
             default:
                 return Array.Empty<PickItem>();
         }

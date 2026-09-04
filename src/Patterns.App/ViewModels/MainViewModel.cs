@@ -209,6 +209,58 @@ public sealed class MainViewModel : Observable
         });
         StopStingerCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StingerStop, ActionOrigin.Desk));
 
+        // Break music (Spotify): the desk's buttons go through the same verbs a cue and the remote use.
+        SpotifyConnectCommand = new RelayCommand(() => _ = ConnectSpotifyAsync());
+        SpotifyDisconnectCommand = new RelayCommand(() =>
+        {
+            _services.Spotify.Disconnect();
+            RefreshSpotifyDevices();
+            RefreshSpotifyPlaylists();
+        });
+        RefreshSpotifyDevicesCommand = new RelayCommand(() => _ = RefreshSpotifyDevicesAsync());
+        RefreshSpotifyPlaylistsCommand = new RelayCommand(() => _ = RefreshSpotifyPlaylistsAsync());
+        AddMusicItemCommand = new RelayCommand(() =>
+        {
+            if (!SpotifyUri.TryParse(MusicLinkDraft, out var r))
+            {
+                StatusMessage = "That is not a Spotify link — copy one from Spotify with Share → Copy link.";
+                return;
+            }
+            State.Spotify.Items.Add(new SpotifyItemConfig { Uri = r.Uri });
+            MusicLinkDraft = "";
+        });
+        AddSpotifyPlaylistCommand = new RelayCommand(() =>
+        {
+            if (SelectedSpotifyPlaylist is not { } list)
+            {
+                StatusMessage = "Choose one of your playlists first — press Refresh my playlists after CONNECT.";
+                return;
+            }
+            if (!SpotifyUri.TryParse(list.Uri, out var r)) return;
+            State.Spotify.Items.Add(new SpotifyItemConfig { Uri = r.Uri, Name = list.Name });
+        });
+        RemoveMusicItemCommand = new RelayCommand<SpotifyItemConfig>(item =>
+        {
+            if (item is null) return;
+            // A cue that plays a deleted entry fails at show time; refuse and say what points here.
+            var refs = SpotifyLibrary.References(State, item);
+            if (refs.Count > 0)
+            {
+                StatusMessage = $"'{item.DisplayName}' is still used by {string.Join(", ", refs)} — remove those first.";
+                return;
+            }
+            State.Spotify.Items.Remove(item);
+        });
+        PlayMusicItemCommand = new RelayCommand<SpotifyItemConfig>(item =>
+        {
+            if (item is null) return;
+            _services.Actions.Execute(ShowActionKind.SpotifyPlay, ActionOrigin.Desk, item.Id);
+        });
+        ResumeMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyPlay, ActionOrigin.Desk));
+        PauseMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyPause, ActionOrigin.Desk));
+        SkipMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyNext, ActionOrigin.Desk));
+        RefreshSpotifyDevices();
+
         // Streaming
         while (State.Stream.Destinations.Count < 2)
         {
@@ -1550,6 +1602,138 @@ public sealed class MainViewModel : Observable
     private string _stingerStatus = "Ready.";
     public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
 
+    // ---- break music (Spotify) ---------------------------------------------
+
+    private string _spotifyStatus = "Off.";
+    public string SpotifyStatus { get => _spotifyStatus; private set => Set(ref _spotifyStatus, value); }
+
+    private string _spotifyAccountText = "Not connected.";
+    public string SpotifyAccountText { get => _spotifyAccountText; private set => Set(ref _spotifyAccountText, value); }
+
+    private string _spotifyNowPlaying = "";
+    public string SpotifyNowPlaying { get => _spotifyNowPlaying; private set => Set(ref _spotifyNowPlaying, value); }
+
+    /// <summary>The operator's own Client ID; the setter writes the sidecar beside the settings, never the show.</summary>
+    public string SpotifyClientId
+    {
+        get => _services.Spotify.ClientId;
+        set
+        {
+            if (_services.Spotify.ClientId == (value ?? "").Trim()) return;
+            _services.Spotify.ClientId = value ?? "";
+            Raise(nameof(SpotifyClientId));
+        }
+    }
+
+    /// <summary>The three redirect URIs to register on the Spotify app — one per loopback port CONNECT may use.</summary>
+    public string SpotifyRedirectUris => string.Join("\n", LoopbackCallback.Ports.Select(SpotifyEndpoints.RedirectUri));
+
+    public ObservableCollection<SpotifyDeviceChoice> SpotifyDevices { get; } = new();
+
+    private SpotifyDeviceChoice? _selectedSpotifyDevice;
+    public SpotifyDeviceChoice? SelectedSpotifyDevice
+    {
+        get => _selectedSpotifyDevice;
+        set
+        {
+            if (value is null) return; // a rebuilt picker clears itself first; the show's choice stands
+            if (!Set(ref _selectedSpotifyDevice, value)) return;
+            State.Spotify.DeviceName = value.Name;
+        }
+    }
+
+    public ObservableCollection<SpotifyPlaylistRef> SpotifyPlaylists { get; } = new();
+
+    private SpotifyPlaylistRef? _selectedSpotifyPlaylist;
+    public SpotifyPlaylistRef? SelectedSpotifyPlaylist { get => _selectedSpotifyPlaylist; set => Set(ref _selectedSpotifyPlaylist, value); }
+
+    private string _musicLinkDraft = "";
+    public string MusicLinkDraft { get => _musicLinkDraft; set => Set(ref _musicLinkDraft, value ?? ""); }
+
+    private IReadOnlyList<SpotifyDevice>? _spotifyDevicesSeen;
+    private IReadOnlyList<SpotifyPlaylistRef>? _spotifyPlaylistsSeen;
+
+    /// <summary>
+    /// The "Play on" picker: whichever device is active, then Spotify's devices, then the show's
+    /// choice when it is not on Spotify right now (so a loaded show never loses its device).
+    /// Rebuilt in place only when the entries really moved — clearing a bound picker drops its
+    /// selection, and the selection setter ignores that null.
+    /// </summary>
+    private void RefreshSpotifyDevices()
+    {
+        var chosen = State.Spotify.DeviceName;
+        var devices = _services.Spotify.Devices;
+        _spotifyDevicesSeen = devices;
+        var wanted = new List<SpotifyDeviceChoice> { new("", "Whichever device is active") };
+        foreach (var d in devices)
+        {
+            wanted.Add(new SpotifyDeviceChoice(d.Name, d.IsActive ? $"{d.Name} (active)" : d.Name));
+        }
+        if (chosen.Length > 0 && !wanted.Any(c => string.Equals(c.Name, chosen, StringComparison.OrdinalIgnoreCase)))
+        {
+            wanted.Add(new SpotifyDeviceChoice(chosen, $"{chosen} (not on Spotify right now)"));
+        }
+        if (SpotifyDevices.Count != wanted.Count || !SpotifyDevices.SequenceEqual(wanted))
+        {
+            SpotifyDevices.Clear();
+            foreach (var c in wanted) SpotifyDevices.Add(c);
+        }
+        _selectedSpotifyDevice = SpotifyDevices.FirstOrDefault(c => string.Equals(c.Name, chosen, StringComparison.OrdinalIgnoreCase))
+                                 ?? SpotifyDevices[0];
+        Raise(nameof(SelectedSpotifyDevice));
+    }
+
+    private void RefreshSpotifyPlaylists()
+    {
+        var lists = _services.Spotify.Playlists;
+        _spotifyPlaylistsSeen = lists;
+        if (SpotifyPlaylists.Count == lists.Count && SpotifyPlaylists.SequenceEqual(lists)) return;
+        SpotifyPlaylists.Clear();
+        foreach (var l in lists) SpotifyPlaylists.Add(l);
+        SelectedSpotifyPlaylist = SpotifyPlaylists.FirstOrDefault();
+    }
+
+    private async Task ConnectSpotifyAsync()
+    {
+        try
+        {
+            await _services.Spotify.ConnectAsync();
+            RefreshSpotifyDevices();
+            await _services.Spotify.RefreshPlaylistsAsync();
+            RefreshSpotifyPlaylists();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Spotify connect issue.", ex);
+        }
+    }
+
+    private async Task RefreshSpotifyDevicesAsync()
+    {
+        try
+        {
+            await _services.Spotify.RefreshDevicesAsync();
+            RefreshSpotifyDevices();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Spotify device refresh issue.", ex);
+        }
+    }
+
+    private async Task RefreshSpotifyPlaylistsAsync()
+    {
+        try
+        {
+            await _services.Spotify.RefreshPlaylistsAsync();
+            RefreshSpotifyPlaylists();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Spotify playlist refresh issue.", ex);
+        }
+    }
+
     private string _healthText = "";
     public string HealthText { get => _healthText; private set => Set(ref _healthText, value); }
 
@@ -2046,6 +2230,17 @@ public sealed class MainViewModel : Observable
     public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
     public RelayCommand StopStingerCommand { get; }
+    public RelayCommand SpotifyConnectCommand { get; }
+    public RelayCommand SpotifyDisconnectCommand { get; }
+    public RelayCommand RefreshSpotifyDevicesCommand { get; }
+    public RelayCommand RefreshSpotifyPlaylistsCommand { get; }
+    public RelayCommand AddMusicItemCommand { get; }
+    public RelayCommand AddSpotifyPlaylistCommand { get; }
+    public RelayCommand<SpotifyItemConfig> RemoveMusicItemCommand { get; }
+    public RelayCommand<SpotifyItemConfig> PlayMusicItemCommand { get; }
+    public RelayCommand ResumeMusicCommand { get; }
+    public RelayCommand PauseMusicCommand { get; }
+    public RelayCommand SkipMusicCommand { get; }
     public RelayCommand SandboxSendAllCommand { get; }
     public RelayCommand SandboxSendSelectedCommand { get; }
     public RelayCommand TakeCommand { get; }
@@ -2599,6 +2794,11 @@ public sealed class MainViewModel : Observable
         WebStatus = _services.Web.Status;
         AudioPlayerStatus = _services.AudioPlayer.Status;
         StingerStatus = _services.Stingers.Status;
+        SpotifyStatus = _services.Spotify.Status;
+        SpotifyAccountText = _services.Spotify.AccountText;
+        SpotifyNowPlaying = _services.Spotify.NowPlaying;
+        if (!ReferenceEquals(_spotifyDevicesSeen, _services.Spotify.Devices)) RefreshSpotifyDevices();       // CONNECT filled them in
+        if (!ReferenceEquals(_spotifyPlaylistsSeen, _services.Spotify.Playlists)) RefreshSpotifyPlaylists();
         HealthText = HealthMonitor.Summary(DateTime.UtcNow);
         StreamStatus = _services.Stream.Status;
         _statusTicks++;
@@ -2909,6 +3109,7 @@ public sealed class MainViewModel : Observable
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();
+        RefreshSpotifyDevices();
         ReconcilePlacements();
         BuildLibrary();
         StatusMessage = $"Show loaded: {Path.GetFileName(path)}";

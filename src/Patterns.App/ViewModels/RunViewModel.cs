@@ -96,6 +96,13 @@ public sealed class RunViewModel : Observable
     public bool IsArmed => _s.CueStack.Armed;
     public bool IsHold => _s.CueStack.Runtime.Hold;
     public bool IsBlackout => _s.State.Blackout;
+
+    /// <summary>The chip: break music is on and asked to play. Sound, so never the label — the label is the picture.</summary>
+    public bool IsMusicPlaying => _s.State.Spotify.Enabled && _s.State.Spotify.Playing;
+
+    public string MusicTip => _s.Spotify.NowPlaying.Length > 0
+        ? $"Break music: {_s.Spotify.NowPlaying}{(_s.Spotify.DeviceLabel.Length > 0 ? " — " + _s.Spotify.DeviceLabel : "")} — STOP ALL pauses it"
+        : "Break music playing — STOP ALL pauses it";
     public string NextAutoText => _s.CueStack.NextAutoText(DateTime.Now);
 
     /// <summary>"Restored after restart — last GO 03.020 at 19:41:58 — press ARM to continue".</summary>
@@ -184,7 +191,7 @@ public sealed class RunViewModel : Observable
             return;
         }
         _lastEscUtc = now;
-        _vm.StatusMessage = "Press Esc again within a second to STOP ALL (audio, stingers, tone — never outputs or blackout).";
+        _vm.StatusMessage = "Press Esc again within a second to STOP ALL (audio, break music, stingers, tone — never outputs or blackout).";
     }
 
     /// <summary>Each second: the running clock, confirm expiry and asynchronous settling.</summary>
@@ -194,6 +201,8 @@ public sealed class RunViewModel : Observable
         Raise(nameof(RunningText));
         Raise(nameof(RunningOverPlanned));
         Raise(nameof(NextAutoText));
+        Raise(nameof(IsMusicPlaying));
+        Raise(nameof(MusicTip));     // follows the track
     }
 
     private void OnRuntimeChanged()
@@ -207,6 +216,8 @@ public sealed class RunViewModel : Observable
         Raise(nameof(IsArmed));
         Raise(nameof(IsHold));
         Raise(nameof(IsBlackout));
+        Raise(nameof(IsMusicPlaying));
+        Raise(nameof(MusicTip));
         Raise(nameof(ArmText));
         Raise(nameof(CanExit));
         Raise(nameof(GoText));

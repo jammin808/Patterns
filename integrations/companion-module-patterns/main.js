@@ -114,13 +114,17 @@ class PatternsInstance extends InstanceBase {
 			playlist: this.state.playlist ?? '',
 			next_cue: this.state.nextCue ?? '',
 			stinger: this.state.stingerPlaying ?? '',
+			music: this.state.music?.now ?? '',
+			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
+			music_level: String(this.state.music?.level ?? 0),
+			music_device: this.state.music?.device ?? '',
 			health: this.state.health ?? '',
 			machine_cpu: this.state.machine?.cpu >= 0 ? `${this.state.machine.cpu}%` : 'n/a',
 			machine_fps: String(this.state.machine?.fps ?? 0),
 			machine_power: this.state.machine?.battery ? 'BATTERY' : 'mains',
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
-		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing',
+		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing', 'music_playing',
 			'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
@@ -182,7 +186,7 @@ class PatternsInstance extends InstanceBase {
 					choices: [{ id: 'ON', label: 'Arm' }, { id: 'OFF', label: 'Disarm' }] }],
 				callback: (a) => send(`CUE ARM ${a.options.mode}`),
 			},
-			stop_all: { name: 'STOP ALL (audio, stingers, tone — never outputs, blackout or the stream)', options: [], callback: () => send('STOPALL') },
+			stop_all: { name: 'STOP ALL (audio, break music, stingers, tone — never outputs, blackout or the stream)', options: [], callback: () => send('STOPALL') },
 			screen: {
 				name: 'Screen on/off/toggle',
 				options: [
@@ -224,6 +228,28 @@ class PatternsInstance extends InstanceBase {
 				callback: (a) => send(`STINGER ${a.options.name}`),
 			},
 			stinger_stop: { name: 'Stop stinger', options: [], callback: () => send('STINGER STOP') },
+			// Break music (Spotify): the MUSIC verbs. With the feature off in Patterns these answer OK and do nothing.
+			music: {
+				name: 'Break music',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'PLAY',
+					choices: [{ id: 'PLAY', label: 'Play / resume' }, { id: 'PAUSE', label: 'Pause' }, { id: 'NEXT', label: 'Skip track' }] }],
+				callback: (a) => send(`MUSIC ${a.options.mode}`),
+			},
+			music_item: {
+				name: 'Break music — play entry (by number)',
+				options: [{ type: 'number', id: 'n', label: 'Break-music number (Audio page order)', default: 1, min: 1, max: 32 }],
+				callback: (a) => send(`MUSIC PLAY ${a.options.n}`),
+			},
+			music_name: {
+				name: 'Break music — play entry (by name)',
+				options: [{ type: 'textinput', id: 'name', label: 'Break-music name', default: '' }],
+				callback: (a) => send(`MUSIC PLAY ${a.options.name}`),
+			},
+			music_level: {
+				name: 'Break music level',
+				options: [{ type: 'number', id: 'n', label: 'Level (0–100, the Spotify device\'s own volume)', default: 60, min: 0, max: 100 }],
+				callback: (a) => send(`MUSIC VOL ${a.options.n}`),
+			},
 			section: {
 				name: 'Playlist — show part on air',
 				options: [{ type: 'number', id: 'n', label: 'Part number (Media tab order)', default: 1, min: 1, max: 32 }],
@@ -261,6 +287,13 @@ class PatternsInstance extends InstanceBase {
 				defaultStyle: { bgcolor: combineRgb(190, 120, 0), color: combineRgb(255, 255, 255) },
 				options: [],
 				callback: () => (this.state.stingerPlaying ?? '') !== '',
+			},
+			music_playing: {
+				type: 'boolean',
+				name: 'Break music is playing',
+				defaultStyle: { bgcolor: combineRgb(20, 120, 90), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.music?.playing === true,
 			},
 			cue_armed: {
 				type: 'boolean',
@@ -308,6 +341,10 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'playlist', name: 'Playlist status' },
 			{ variableId: 'next_cue', name: 'Next scheduled cue' },
 			{ variableId: 'stinger', name: 'Stinger on air (name)' },
+			{ variableId: 'music', name: 'Break music — now playing' },
+			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
+			{ variableId: 'music_level', name: 'Break music level (0–100)' },
+			{ variableId: 'music_device', name: 'Break music — Spotify device' },
 			{ variableId: 'health', name: 'App health line' },
 			{ variableId: 'machine_cpu', name: 'Computer CPU load' },
 			{ variableId: 'machine_fps', name: 'Output frame rate' },
@@ -387,6 +424,29 @@ class PatternsInstance extends InstanceBase {
 			type: 'button', category: 'Cue stack', name: 'STOP ALL',
 			style: { text: 'STOP\nALL', size: '14', color: combineRgb(224, 52, 46), bgcolor: dark },
 			steps: [{ down: [{ actionId: 'stop_all', options: {} }], up: [] }], feedbacks: [],
+		}
+		const musicOn = { feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }
+		presets.music_play = {
+			type: 'button', category: 'Break music', name: 'Break music — play / resume',
+			style: { text: 'BREAK\\n▶', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'music', options: { mode: 'PLAY' } }], up: [] }], feedbacks: [musicOn],
+		}
+		presets.music_pause = {
+			type: 'button', category: 'Break music', name: 'Break music — pause',
+			style: { text: 'BREAK\\n❚❚', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'music', options: { mode: 'PAUSE' } }], up: [] }], feedbacks: [musicOn],
+		}
+		presets.music_skip = {
+			type: 'button', category: 'Break music', name: 'Break music — skip track',
+			style: { text: 'BREAK\\n⏭', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'music', options: { mode: 'NEXT' } }], up: [] }], feedbacks: [musicOn],
+		}
+		for (let n = 1; n <= 6; n++) {
+			presets[`music_${n}`] = {
+				type: 'button', category: 'Break music', name: `Break music ${n}`,
+				style: { text: `BREAK\\n${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'music_item', options: { n } }], up: [] }], feedbacks: [musicOn],
+			}
 		}
 		presets.next = {
 			type: 'button', category: 'Presenter', name: 'Next step',

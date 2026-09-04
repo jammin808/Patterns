@@ -21,6 +21,9 @@ public sealed class CueValidationContext
 
     /// <summary>libVLC present — a video stinger needs it.</summary>
     public bool VideoDecoderAvailable { get; init; } = true;
+
+    /// <summary>Spotify is signed in — break music can actually run tonight.</summary>
+    public bool MusicReady { get; init; } = true;
 }
 
 /// <summary>The result of validating one list.</summary>
@@ -183,6 +186,48 @@ public static class CueValidator
                         Hard($"{where}: audio volume '{a.Value}' is not a number from 0 to 125.");
                     }
                     break;
+                case CueActionKind.SpotifyPlay:
+                case CueActionKind.SpotifyPause:
+                case CueActionKind.SpotifyNext:
+                case CueActionKind.SpotifyVolume:
+                {
+                    if (a.Kind == CueActionKind.SpotifyPlay && a.Target.Length > 0)
+                    {
+                        var m = SpotifyLibrary.Find(state, a.Target);
+                        if (m is null)
+                        {
+                            Hard($"{where}: break music '{a.Target}' not found.");
+                            break;
+                        }
+                        if (!SpotifyUri.IsValid(m.Uri))
+                        {
+                            Hard($"{where}: break music '{m.DisplayName}' has no valid Spotify link.");
+                            break;
+                        }
+                    }
+                    if (a.Kind == CueActionKind.SpotifyVolume && !CueActionSpec.TryParseLevel(a.Value, out _))
+                    {
+                        Hard($"{where}: break music level '{a.Value}' is not a number from 0 to 100.");
+                        break;
+                    }
+                    // Soft only, deliberately: a Hard issue refuses the WHOLE cue and the GO gate skips
+                    // it, so an operator unticking "Use break music" mid-show would silently drop the
+                    // look this cue applies. Sound going quiet is survivable; the picture not changing is not.
+                    if (!state.Spotify.Enabled)
+                    {
+                        Soft($"{where}: break music is off (Audio page) — this action will do nothing.");
+                        break;
+                    }
+                    if (!ctx.MusicReady)
+                    {
+                        Soft($"{where}: Spotify is not connected yet — connect on the Audio page before the show.");
+                    }
+                    else if (a.Kind == CueActionKind.SpotifyPlay && state.Spotify.DeviceName.Length == 0)
+                    {
+                        Soft($"{where}: no Spotify device chosen — whichever device is active will play.");
+                    }
+                    break;
+                }
                 case CueActionKind.ListArm:
                 case CueActionKind.ListDisarm:
                 case CueActionKind.ListGo:

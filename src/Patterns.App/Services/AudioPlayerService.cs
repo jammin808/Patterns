@@ -99,9 +99,10 @@ public sealed class AudioPlayerService : IDisposable
             }
 
             // Volume applies live (AudioFileReader.Volume is a linear gain; 1.25 ≈ +2 dB).
-            // While an audio stinger is on air the track ducks underneath it.
-            var duck = StingerPlaying ? _services.State.Stingers.DuckPct / 100.0 : 1.0;
-            var volume = (float)(cfg.VolumePct / 100.0 * duck);
+            // While an announcement is on air the track ducks underneath it — one rule, shared
+            // with break music, so the two music sources duck together.
+            var volume = (float)(cfg.VolumePct / 100.0 *
+                MusicLevel.Factor(_services.MusicDuckActive, _services.State.Stingers.DuckPct));
             foreach (var (_, reader, _) in _players)
             {
                 reader.Volume = volume;

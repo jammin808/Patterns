@@ -7,7 +7,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-show" Text="Show panel" />
-    <TextBlock Classes="hint" Text="Show-time buttons beside the switcher: looks, stingers, the clicker list and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
+    <TextBlock Classes="hint" Text="Show-time buttons beside the switcher: looks, stingers, the clicker list, break music and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
 
     <TextBlock Classes="h2" Text="LOOKS" />
     <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
@@ -86,6 +86,47 @@
       <Button Grid.Column="3" Classes="mini" Content="■ Stop" Command="{Binding StopAudioCommand}" />
     </Grid>
     <TextBlock Classes="hint" Text="The message, clock, countdown and this track's volume are in the SHOW CONTROLS drawer under the wall." />
+
+    <StackPanel x:Name="BreakMusicBlock" IsVisible="{Binding State.Spotify.Enabled}">
+      <TextBlock Classes="h2" Text="BREAK MUSIC" />
+      <ItemsControl ItemsSource="{Binding State.Spotify.Items}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="2" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:SpotifyItemConfig">
+            <Button Classes="chip" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlayMusicItemCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding KindLabel}" FontSize="10"
+                           Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Grid ColumnDefinitions="*,8,Auto,Auto,Auto">
+        <TextBlock Classes="label" Text="{Binding SpotifyStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <Button Grid.Column="2" Classes="mini" Content="▶ Play" Command="{Binding ResumeMusicCommand}" />
+        <Button Grid.Column="3" Classes="mini" Content="❚❚ Pause" Command="{Binding PauseMusicCommand}" />
+        <Button Grid.Column="4" Classes="mini" Content="⏭ Skip" Command="{Binding SkipMusicCommand}" />
+      </Grid>
+      <Grid ColumnDefinitions="Auto,8,*,8,44">
+        <TextBlock Classes="label" Text="Level" VerticalAlignment="Center" />
+        <Slider Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                Value="{Binding State.Spotify.LevelPct, Mode=TwoWay}" />
+        <TextBlock Grid.Column="4" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Spotify.LevelPct, StringFormat={}{0:0}%}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="Spotify plays the room during breaks. It ducks under a stinger sound and STOP ALL pauses it. Set it up on the Audio page (SETUP)." />
+    </StackPanel>
 
     <TextBlock Classes="h2" Text="STATUS" />
     <TextBlock Classes="label" Text="{Binding OutputsStatus}" TextWrapping="Wrap" />

@@ -70,6 +70,9 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
     }
 }
 
+/// <summary>One Spotify Connect device in the "Play on" picker (empty name = whichever is active).</summary>
+public sealed record SpotifyDeviceChoice(string Name, string Label);
+
 /// <summary>
 /// One tile in the switcher strip between the program and preview panes: the program
 /// itself, a joined canvas, or a single screen — with its label, live on/off toggle,

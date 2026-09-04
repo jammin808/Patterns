@@ -44,6 +44,9 @@ public class NewFeatureUiTests
             vm.State.Overlays.Message.UseFeed = true;
             vm.State.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", Hotkey = 1, Json = LookService.Capture(vm.State) });
             vm.State.LooksAndCues.Cues.Add(new CueConfig { Time = "18:00", LookName = "Walk-in" });
+            vm.State.Spotify.Enabled = true;
+            vm.State.Spotify.Items.Add(new SpotifyItemConfig { Name = "Interval bed", Uri = "spotify:playlist:X" });
+            vm.State.Spotify.Items.Add(new SpotifyItemConfig { Uri = "spotify:track:Y" });
             Dispatcher.UIThread.RunJobs();
 
             var host = new Window { DataContext = vm, Width = 600, Height = 900 };
@@ -51,7 +54,7 @@ public class NewFeatureUiTests
                      {
                          new PatternSection(), new MediaSection(), new LooksSection(),
                          new AudioSection(), new OutputsSection(), new BrandingSection(),
-                         new OverlaysSection(), new WebSection(),
+                         new OverlaysSection(), new WebSection(), new ShowSection(),
                      })
             {
                 host.Content = new ScrollViewer { Content = section };

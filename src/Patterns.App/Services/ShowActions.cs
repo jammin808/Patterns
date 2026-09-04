@@ -349,6 +349,52 @@ public sealed class ShowActions
             case ShowActionKind.AudioStop:
                 State.AudioPlayer.Playing = false;
                 return ActionResult.Done("Audio track stopped.");
+
+            case ShowActionKind.SpotifyPlay:
+            {
+                // Break music is not in the snapshot: the service reads the live model every poll,
+                // sandbox or not — the same air seam as the audio track. Never Failed and never
+                // Refused for a network or setup fact: RunCue aborts a cue at the first non-Ok
+                // result and the GO gate skips a cue the validator calls Broken, so a cue must not
+                // stop, or be skipped, because Spotify is unhappy.
+                // A name that resolves to nothing is a programming error, on or off: refused either
+                // way, so the validator's Broken set and the executor's Refused set are one set.
+                SpotifyItemConfig? item = null;
+                if (a.Target.Length > 0)
+                {
+                    item = SpotifyLibrary.Find(State, a.Target);
+                    if (item is null) return ActionResult.Refused($"No break music '{a.Target}'.");
+                    if (!SpotifyUri.IsValid(item.Uri)) return ActionResult.Refused($"'{item.DisplayName}' has no valid Spotify link.");
+                }
+                if (!State.Spotify.Enabled) return ActionResult.Done("Break music is off — nothing played.");
+                if (item is not null)
+                {
+                    State.Spotify.PlayingId = item.Id;
+                    State.Spotify.Playing = true;
+                    return ActionResult.Requested($"Break music: {item.DisplayName}.");
+                }
+                State.Spotify.Playing = true;
+                return ActionResult.Requested("Break music playing.");
+            }
+            case ShowActionKind.SpotifyPause:
+                if (!State.Spotify.Enabled) return ActionResult.Done("Break music is off.");
+                State.Spotify.Playing = false;
+                _s.Spotify.PokeNow();
+                return ActionResult.Requested("Break music pausing.");
+            case ShowActionKind.SpotifyNext:
+                if (!State.Spotify.Enabled) return ActionResult.Done("Break music is off.");
+                _s.Spotify.SkipRequested = true;   // consumed by the next poll; never a synchronous socket
+                return ActionResult.Requested("Break music: next track.");
+            case ShowActionKind.SpotifyVolume:
+            {
+                if (!CueActionSpec.TryParseLevel(a.Value, out var level))
+                {
+                    return ActionResult.Refused("Break music level needs a number from 0 to 100.");
+                }
+                if (!State.Spotify.Enabled) return ActionResult.Done("Break music is off.");
+                State.Spotify.LevelPct = level;
+                return ActionResult.Done($"Break music level {level:0}%.");
+            }
             case ShowActionKind.ToneOn:
                 State.Tone.Enabled = true;
                 return ActionResult.Done("Tone on.");
@@ -408,8 +454,10 @@ public sealed class ShowActions
             case ShowActionKind.StopAll:
                 _s.Stingers.Stop();
                 State.AudioPlayer.Playing = false;
+                State.Spotify.Playing = false;   // the service issues the pause and retries until it lands…
+                _s.Spotify.PokeNow();            // …starting on this turn, not up to 400 ms later
                 State.Tone.Enabled = false;
-                return ActionResult.Done("Stopped: audio track, stingers, tone. Outputs, blackout and the stream are untouched.");
+                return ActionResult.Done("Stopped: audio track, break music, stingers, tone. Outputs, blackout and the stream are untouched.");
 
             default:
                 return ActionResult.Refused($"Unknown action '{a.Kind}'.");
@@ -571,6 +619,10 @@ public sealed class ShowActions
         CueActionKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay),
         CueActionKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
         CueActionKind.AudioVolume => new ShowAction(ShowActionKind.AudioVolume, "", a.Value),
+        CueActionKind.SpotifyPlay => new ShowAction(ShowActionKind.SpotifyPlay, a.Target),
+        CueActionKind.SpotifyPause => new ShowAction(ShowActionKind.SpotifyPause),
+        CueActionKind.SpotifyNext => new ShowAction(ShowActionKind.SpotifyNext),
+        CueActionKind.SpotifyVolume => new ShowAction(ShowActionKind.SpotifyVolume, "", a.Value),
         CueActionKind.StingerFire => new ShowAction(ShowActionKind.StingerFire, a.Target),
         CueActionKind.StingerStop => new ShowAction(ShowActionKind.StingerStop),
         CueActionKind.PlaylistPart => new ShowAction(ShowActionKind.PlaylistPart, a.Target),

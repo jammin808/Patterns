@@ -44,6 +44,12 @@ public enum RemoteCommandKind
     StopAll,
     /// <summary>"HELLO FOH deck" — the connection names itself; history reads "GO from FOH deck".</summary>
     Hello,
+    /// <summary>"MUSIC PLAY [n|name]" — break music; empty arg resumes what is loaded.</summary>
+    MusicPlay,
+    MusicPause,
+    MusicNext,
+    /// <summary>"MUSIC VOL 40" — 0–100; the level rides TextArg (IntArg == 0 is the "no number" sentinel).</summary>
+    MusicVolume,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module).</summary>
@@ -117,6 +123,46 @@ public static class ControlProtocol
                         };
                     case "LIST": return new(RemoteCommandKind.CueList, 0, "");
                     default: return new(RemoteCommandKind.Unknown, 0, s);
+                }
+            }
+
+            // MUSIC is canonical; SPOTIFY is a frozen alias for the same reason GO/STOP are aliases
+            // for OUTPUTS ON/OFF — a saved button must keep working.
+            case "MUSIC":
+            case "SPOTIFY":
+            {
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var what = sub[0].ToUpperInvariant();
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "PLAY":
+                    case "RESUME":
+                        if (rest.Length == 0) return new(RemoteCommandKind.MusicPlay, 0, "");
+                        return int.TryParse(rest, out var pick)
+                            ? new(RemoteCommandKind.MusicPlay, pick, "")
+                            : new(RemoteCommandKind.MusicPlay, 0, rest);
+                    case "PAUSE":
+                    case "STOP":
+                        return new(RemoteCommandKind.MusicPause, 0, "");
+                    case "NEXT":
+                    case "SKIP":
+                        return new(RemoteCommandKind.MusicNext, 0, "");
+                    case "VOL":
+                    case "VOLUME":
+                        // The level rides TextArg, not IntArg: IntArg == 0 is the "no number"
+                        // sentinel CommandRouter's byNumberOrName relies on, and MUSIC VOL 0 is a
+                        // real request. The range is checked by the executor so the operator reads
+                        // a sentence, not "unknown command".
+                        return rest.Length == 0
+                            ? new(RemoteCommandKind.Unknown, 0, s)
+                            : new(RemoteCommandKind.MusicVolume, 0, rest);
+                    default:
+                        // "MUSIC 3" / "MUSIC Interval bed" — by number or name, like STINGER.
+                        return int.TryParse(what, out var n)
+                            ? new(RemoteCommandKind.MusicPlay, n, "")
+                            : new(RemoteCommandKind.MusicPlay, 0, arg);
                 }
             }
 

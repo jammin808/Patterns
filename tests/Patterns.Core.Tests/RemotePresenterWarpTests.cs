@@ -45,6 +45,11 @@ public class ControlProtocolTests
     [InlineData("AUDIO STOP", RemoteCommandKind.AudioStop)]
     [InlineData("TONE ON", RemoteCommandKind.ToneOn)]
     [InlineData("TONE OFF", RemoteCommandKind.ToneOff)]
+    [InlineData("MUSIC PLAY", RemoteCommandKind.MusicPlay)]
+    [InlineData("MUSIC PAUSE", RemoteCommandKind.MusicPause)]
+    [InlineData("SPOTIFY NEXT", RemoteCommandKind.MusicNext)]      // the frozen alias
+    [InlineData("MUSIC VOL 40", RemoteCommandKind.MusicVolume)]
+    [InlineData("MUSIC", RemoteCommandKind.Unknown)]
     public void ParsesVerbs(string line, RemoteCommandKind kind)
         => Assert.Equal(kind, ControlProtocol.Parse(line).Kind);
 

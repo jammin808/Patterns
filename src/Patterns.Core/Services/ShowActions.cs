@@ -46,7 +46,7 @@ public enum ShowActionKind
     Take,
     /// <summary>The sandbox becomes the program on every screen, instantly.</summary>
     Cut,
-    /// <summary>Audio track, stingers (a clip reverts) and the tone stop. Never outputs, never blackout, never the stream.</summary>
+    /// <summary>Audio track, break music, stingers (a clip reverts) and the tone stop. Never outputs, never blackout, never the stream.</summary>
     StopAll,
     /// <summary>Value = minutes; a duration countdown starts now on air.</summary>
     CountdownStart,
@@ -68,6 +68,15 @@ public enum ShowActionKind
     CueGo,
     /// <summary>The audio track's volume in percent (0–125), live — the drawer's SEND and a cue.</summary>
     AudioVolume,
+    /// <summary>Break music (Spotify): Target = library entry number (1-based, Audio-page order),
+    /// name or id; empty resumes, or plays the first saved entry.</summary>
+    SpotifyPlay,
+    /// <summary>Break music pauses (Spotify has no "stop"; the position is kept so play resumes).</summary>
+    SpotifyPause,
+    /// <summary>Break music skips to the next track in whatever is playing.</summary>
+    SpotifyNext,
+    /// <summary>The break-music level in percent (0–100 — the Spotify device's own volume), live.</summary>
+    SpotifyVolume,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

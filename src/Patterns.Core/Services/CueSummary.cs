@@ -59,6 +59,15 @@ public static class CueSummary
             case CueActionKind.CountdownStart: return $"Countdown {a.Value} min";
             case CueActionKind.CountdownStop: return "Stop countdown";
             case CueActionKind.AudioVolume: return $"Audio volume {a.Value}%";
+            case CueActionKind.SpotifyPlay:
+            {
+                if (a.Target.Length == 0) return "Break music play";
+                var m = SpotifyLibrary.Find(state, a.Target);
+                return $"Break music '{m?.DisplayName ?? a.Target}'";
+            }
+            case CueActionKind.SpotifyPause: return "Break music pause";
+            case CueActionKind.SpotifyNext: return "Break music skip";
+            case CueActionKind.SpotifyVolume: return $"Break music {a.Value}%";
             case CueActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
             case CueActionKind.MessageOff: return "Message off";
             case CueActionKind.ClockOn: return "Clock on";

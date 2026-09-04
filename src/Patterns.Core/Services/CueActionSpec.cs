@@ -12,6 +12,8 @@ public enum TargetKind
     Screen,
     Canvas,
     Stack,
+    /// <summary>A break-music library entry (blank = resume what is loaded).</summary>
+    Music,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -24,6 +26,8 @@ public enum ValueKind
     Text,
     /// <summary>A whole number of percent, 0–125.</summary>
     Percent,
+    /// <summary>A whole number of percent, 0–100 (a Spotify device's own range).</summary>
+    Level,
 }
 
 /// <summary>
@@ -43,6 +47,8 @@ public static class CueActionSpec
         CueActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
         CueActionKind.MessageOn => (TargetKind.None, ValueKind.Text),
         CueActionKind.AudioVolume => (TargetKind.None, ValueKind.Percent),
+        CueActionKind.SpotifyPlay => (TargetKind.Music, ValueKind.None),
+        CueActionKind.SpotifyVolume => (TargetKind.None, ValueKind.Level),
         CueActionKind.ListArm or CueActionKind.ListDisarm or CueActionKind.ListGo
             or CueActionKind.ListBack or CueActionKind.ListReset => (TargetKind.Stack, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),
@@ -57,6 +63,10 @@ public static class CueActionSpec
         CueActionKind.AudioPlay => "Play audio track",
         CueActionKind.AudioStop => "Stop audio track",
         CueActionKind.AudioVolume => "Audio volume",
+        CueActionKind.SpotifyPlay => "Break music — play",
+        CueActionKind.SpotifyPause => "Break music — pause",
+        CueActionKind.SpotifyNext => "Break music — skip track",
+        CueActionKind.SpotifyVolume => "Break music level",
         CueActionKind.StingerFire => "Fire stinger",
         CueActionKind.StingerStop => "Stop stinger",
         CueActionKind.PlaylistPart => "Playlist part",
@@ -87,6 +97,7 @@ public static class CueActionSpec
     {
         CueActionKind.ApplyLook, CueActionKind.Note,
         CueActionKind.AudioPlay, CueActionKind.AudioStop, CueActionKind.AudioVolume,
+        CueActionKind.SpotifyPlay, CueActionKind.SpotifyPause, CueActionKind.SpotifyNext, CueActionKind.SpotifyVolume,
         CueActionKind.StingerFire, CueActionKind.StingerStop,
         CueActionKind.PlaylistPart,
         CueActionKind.StreamStart, CueActionKind.StreamStop,
@@ -99,7 +110,10 @@ public static class CueActionSpec
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };
 
-    /// <summary>Content actions: a video stinger cannot share a cue with these (the clip owns every screen).</summary>
+    /// <summary>
+    /// Content actions: a video stinger cannot share a cue with these (the clip owns every screen).
+    /// Break music is sound only and is deliberately not here.
+    /// </summary>
     public static bool ChangesContent(CueActionKind kind) => kind is
         CueActionKind.ApplyLook or CueActionKind.PlaylistPart or
         CueActionKind.ScreenOn or CueActionKind.ScreenOff or CueActionKind.CanvasOn or CueActionKind.CanvasOff;
@@ -111,6 +125,16 @@ public static class CueActionSpec
         if (!double.TryParse(value?.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) return false;
         if (double.IsNaN(v) || v < 0 || v > 125) return false;
         percent = v;
+        return true;
+    }
+
+    /// <summary>A level value: a number from 0 to 100 (a Spotify device's own volume range).</summary>
+    public static bool TryParseLevel(string? value, out double level)
+    {
+        level = 0;
+        if (!double.TryParse(value?.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) return false;
+        if (double.IsNaN(v) || v < 0 || v > 100) return false;
+        level = v;
         return true;
     }
 

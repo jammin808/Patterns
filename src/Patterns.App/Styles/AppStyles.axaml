@@ -184,6 +184,17 @@
   <Style Selector="Border.armedChip TextBlock">
     <Setter Property="Foreground" Value="{StaticResource TallyHoldBrush}" />
   </Style>
+  <!-- Break music is sound, not the picture: accent blue, never a tally colour -->
+  <Style Selector="Border.musicChip">
+    <Setter Property="Background" Value="#10303A" />
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="8,3" />
+  </Style>
+  <Style Selector="Border.musicChip TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+  </Style>
   <Style Selector="Border.holdChip">
     <Setter Property="Background" Value="{StaticResource TallyHoldBrush}" />
   </Style>

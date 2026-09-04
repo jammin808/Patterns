@@ -2,7 +2,7 @@
 
 Stream Deck / Companion control for the Patterns show display suite: fast look recall,
 presenter next/back, transport, blackout with live feedback, individual screens and
-canvas groups, stingers (one-press sounds and clips), and the audio track.
+canvas groups, stingers (one-press sounds and clips), break music (Spotify) and the audio track.
 
 ## Setup
 
@@ -13,7 +13,7 @@ canvas groups, stingers (one-press sounds and clips), and the audio track.
    or copy the folder into your dev modules directory), then add the **Patterns** connection
    with the machine's IP and port.
 3. Drag presets onto keys: Cue stack (GO, standby ▲ ▼, HOLD, ARM, STOP ALL), Transport,
-   Presenter, Looks (F1–F12), Screens, Stingers, Audio.
+   Presenter, Looks (F1–F12), Screens, Stingers, Audio, Break music.
 
 ## The cue stack (module 1.1.0)
 
@@ -23,11 +23,21 @@ within four seconds), red when the last cue failed or was refused. Every GO send
 standby id the module last saw, so a GO that races a standby move is refused with
 `ERR standby moved` rather than firing the wrong cue; `$(patterns:last_error)` carries the
 last ERR line. **ARM** needs "Remotes may ARM the cue stack" on the Remote page. **STOP ALL**
-stops the audio track, any stinger and the tone — never the outputs, blackout or the
-stream. Variables: `cue_standby_number/name`, `cue_next_number/name`,
+stops the audio track, break music, any stinger and the tone — never the outputs, blackout
+or the stream. Variables: `cue_standby_number/name`, `cue_next_number/name`,
 `cue_previous_number/name`, `cue_last_outcome`, `cue_confirm`, `cue_armed`, `cue_hold`,
 `cue_seq`, and `program` (what is on air, by name). The module says `HELLO <label>` on
 connect, so the caller's history reads "GO from FOH deck".
+
+## Break music (module 1.2.0)
+
+The **Break music** category drives Spotify through Patterns: play / resume, pause, skip and
+keys for entries 1–6 of the Audio page's break-music library (actions `music`, `music_item`,
+`music_name` and `music_level` for anything else). Every key lights green while music plays
+(`music_playing` feedback); `$(patterns:music)` is the track Spotify reports,
+`$(patterns:music_state)` PLAYING / paused, `$(patterns:music_level)` the device level and
+`$(patterns:music_device)` the Spotify device. With break music switched off in Patterns the
+keys answer OK and do nothing, so a saved page never breaks a cue.
 
 No module? The same protocol works with Companion's built-in **Generic TCP** connection —
 send the commands listed in `docs/REMOTE.md` (e.g. `LOOK 2`, `NEXT`, `BLACKOUT TOGGLE`),

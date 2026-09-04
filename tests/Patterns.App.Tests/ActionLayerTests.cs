@@ -56,6 +56,12 @@ public class ActionLayerTests
         Assert.Equal(new ShowAction(ShowActionKind.CanvasOn, "A"), CommandRouter.ToAction(ControlProtocol.Parse("GROUP a ON")));
         Assert.Equal(new ShowAction(ShowActionKind.ScreenToggle, "1"), CommandRouter.ToAction(ControlProtocol.Parse("SCREEN 1")));
         Assert.Equal(new ShowAction(ShowActionKind.OutputsOn), CommandRouter.ToAction(ControlProtocol.Parse("GO")));
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay, "2"), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PLAY 2")));
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay, "Interval bed"), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PLAY Interval bed")));
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PLAY")));
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPause), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PAUSE")));
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyNext), CommandRouter.ToAction(ControlProtocol.Parse("SPOTIFY SKIP")));
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyVolume, "", "0"), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC VOL 0")));
         Assert.Null(CommandRouter.ToAction(ControlProtocol.Parse("PING")));
     }
 

@@ -43,6 +43,87 @@
     <TextBlock Classes="hint"
                Text="The computer audio output is the default Windows device — usually the jack or interface feeding the venue sound system — and it combines with HDMI screens (tick both to play everywhere at once). Multi-device playback starts the outputs together; over very long tracks separate devices can drift a little. Device changes apply on the next play." />
 
+    <TextBlock Classes="h2" Text="BREAK MUSIC (SPOTIFY)" />
+    <TextBlock Classes="hint"
+               Text="Plays your Spotify playlists in the room during breaks and while people arrive. The sound comes out of the Spotify app on this machine (or any Spotify Connect device) — Patterns tells it what to play, how loud and when to stop, and reads back what is on. It ducks under a sound stinger like the music track does, and STOP ALL pauses it. Needs Spotify Premium and your own free Client ID from the Spotify developer dashboard." />
+    <CheckBox Content="Use Spotify for break music" IsChecked="{Binding State.Spotify.Enabled}" />
+    <StackPanel IsEnabled="{Binding State.Spotify.Enabled}">
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Client ID" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding SpotifyClientId, UpdateSourceTrigger=LostFocus}" Watermark="Client ID from your Spotify app" />
+      </Grid>
+      <TextBlock Classes="hint" Text="Add all three of these as Redirect URIs in your Spotify app settings:" />
+      <TextBox Text="{Binding SpotifyRedirectUris, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+               FontFamily="Consolas,Menlo,monospace" />
+      <TextBlock Classes="hint"
+                 Text="Spotify has not accepted 'localhost' since April 2025 — these loopback addresses are the supported form for a desktop app. Three, so a busy port never blocks sign-in." />
+      <WrapPanel>
+        <Button Classes="go" Content="CONNECT" Command="{Binding SpotifyConnectCommand}" Margin="0,0,8,6" />
+        <Button Classes="mini" Content="DISCONNECT" Command="{Binding SpotifyDisconnectCommand}" Margin="0,0,10,6" VerticalAlignment="Center" />
+        <TextBlock Classes="label" Text="{Binding SpotifyAccountText}" VerticalAlignment="Center" Margin="0,0,0,6" />
+      </WrapPanel>
+      <Grid ColumnDefinitions="130,*,8,Auto">
+        <TextBlock Classes="label" Text="Play on" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding SpotifyDevices}" SelectedItem="{Binding SelectedSpotifyDevice}"
+                  HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:SpotifyDeviceChoice">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Grid.Column="3" Classes="mini" Content="Refresh devices" Command="{Binding RefreshSpotifyDevicesCommand}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="Leave the device blank to play on whatever Spotify is currently using. If the chosen device is not on Spotify when a cue fires, the music plays on the active device and says so rather than refusing. Which sound output Spotify itself uses is set in Spotify." />
+      <Grid ColumnDefinitions="130,*,44">
+        <TextBlock Classes="label" Text="Level" VerticalAlignment="Center" />
+        <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+                Value="{Binding State.Spotify.LevelPct, Mode=TwoWay}" />
+        <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Spotify.LevelPct, StringFormat={}{0:0}%}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="The Spotify device's own volume. It drops to the Music duck level below (about half a second) while a stinger sound plays." />
+      <Grid ColumnDefinitions="130,*,8,Auto">
+        <TextBlock Classes="label" Text="Spotify link" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding MusicLinkDraft}" Watermark="https://open.spotify.com/playlist/…" />
+        <Button Grid.Column="3" Classes="chip" Content="ADD" Command="{Binding AddMusicItemCommand}" />
+      </Grid>
+      <TextBlock Classes="hint" Text="In Spotify: right-click a playlist, album or song → Share → Copy link, then paste it here." />
+      <Grid ColumnDefinitions="130,*,8,Auto,8,Auto">
+        <TextBlock Classes="label" Text="My playlists" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding SpotifyPlaylists}" SelectedItem="{Binding SelectedSpotifyPlaylist}"
+                  HorizontalAlignment="Stretch" PlaceholderText="Refresh after CONNECT" />
+        <Button Grid.Column="3" Classes="chip" Content="ADD" Command="{Binding AddSpotifyPlaylistCommand}" />
+        <Button Grid.Column="5" Classes="mini" Content="Refresh my playlists" Command="{Binding RefreshSpotifyPlaylistsCommand}" />
+      </Grid>
+      <Button Classes="stop" Content="❚❚ PAUSE BREAK MUSIC" Command="{Binding PauseMusicCommand}" HorizontalAlignment="Left" />
+      <ItemsControl ItemsSource="{Binding State.Spotify.Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:SpotifyItemConfig">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
+              <Grid ColumnDefinitions="Auto,8,Auto,8,*,8,Auto,6,Auto">
+                <Button Grid.Column="0" Classes="go" Content="▶ PLAY" Padding="10,6"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlayMusicItemCommand}"
+                        CommandParameter="{Binding}" />
+                <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" Text="{Binding KindLabel}" />
+                <TextBox Grid.Column="4" Text="{Binding Name}" MinWidth="60"
+                         Watermark="{Binding DisplayName}" ToolTip.Tip="{Binding Uri}" />
+                <CheckBox Grid.Column="6" Content="Shuffle" IsChecked="{Binding Shuffle}" VerticalAlignment="Center" />
+                <Button Grid.Column="8" Classes="mini" Content="✕"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveMusicItemCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Classes="label" Text="{Binding SpotifyStatus}" TextWrapping="Wrap" />
+      <TextBlock Classes="hint"
+                 Text="Patterns controls Spotify; it does not play the audio itself — Spotify's DRM does not allow that. A development-mode Client ID from the Spotify dashboard allows up to five listed Premium accounts; a business gets more. Your sign-in is kept in patterns.spotify.json beside the settings file and never travels inside a show file. Switching break music off leaves whatever is playing on Spotify — use PAUSE or STOP ALL first. Closing Patterns leaves the music playing too." />
+    </StackPanel>
+
     <TextBlock Classes="h2" Text="STINGERS" />
     <TextBlock Classes="hint"
                Text="One-press sounds and clips — 'Take your seats, the show is about to begin' — fired from here, the Show page, a phone or a Stream Deck, no audio engineer needed. Sounds play over everything (the music track ducks underneath); a video clip takes over every screen, and when it ends the previous content comes straight back." />

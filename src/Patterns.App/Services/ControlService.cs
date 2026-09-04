@@ -514,6 +514,7 @@ public sealed class ControlService : IDisposable
   .armed { background:#3A2E10; color:var(--hold); border:1px solid var(--hold); }
   .hold { background:var(--hold); color:#0E0F13; }
   .bo { background:#000; color:var(--pgm); border:1px solid var(--pgm); }
+  .music { background:#10303A; color:var(--acc); border:1px solid var(--acc); }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:12px; }
   .card.standby { border-color:var(--pvw); border-width:2px; }
   .card .k { font-size:12px; letter-spacing:.14em; color:var(--mut); font-weight:700; }
@@ -541,6 +542,7 @@ public sealed class ControlService : IDisposable
   <span class="chip bo" id="cbo">BLACKOUT</span>
   <span class="chip hold" id="chold">HOLD</span>
   <span class="chip armed" id="carmed">ARMED</span>
+  <span class="chip music" id="cmusic">♪ MUSIC</span>
 </div>
 <div class="card standby">
   <div class="k">STANDBY</div>
@@ -576,6 +578,7 @@ function render(s) {
   document.getElementById('cbo').classList.toggle('on', !!s.blackout);
   document.getElementById('chold').classList.toggle('on', !!c.hold);
   document.getElementById('carmed').classList.toggle('on', !!c.armed);
+  document.getElementById('cmusic').classList.toggle('on', !!(s.music && s.music.playing));
   var sb = c.standby; standbyId = sb ? sb.id : '';
   document.getElementById('sb').innerHTML = sb ? '<span class="num">' + esc(sb.number) + '</span>' + esc(sb.name) : 'No cue on standby';
   document.getElementById('sbnotes').textContent = sb ? (sb.notes || '') : '';
@@ -706,6 +709,15 @@ setInterval(function () {
 <div id="stingers" class="grid row2"></div>
 <div id="stingnow" class="grid" style="margin-top:10px"></div>
 
+<div class="sec" id="musicsec" hidden>BREAK MUSIC</div>
+<div id="music" class="grid row2"></div>
+<div id="musicctl" class="grid row3" style="margin-top:10px" hidden>
+  <button class="go" onclick="cmd('MUSIC PLAY')">▶ Play</button>
+  <button class="stop" onclick="cmd('MUSIC PAUSE')">❚❚ Pause</button>
+  <button onclick="cmd('MUSIC NEXT')">⏭ Skip</button>
+</div>
+<div id="musicnow" style="color:var(--mut);font-size:13px;margin-top:6px"></div>
+
 <div class="sec">AUDIO TRACK</div>
 <div class="grid row2">
   <button class="go" onclick="cmd('AUDIO PLAY')">▶ Play</button>
@@ -778,6 +790,19 @@ function render(s) {
     b2.onclick = function(){ cmd('STINGER STOP'); };
     sn.appendChild(b2);
   }
+
+  var m = s.music || {};
+  document.getElementById('musicsec').hidden = !m.on;
+  document.getElementById('musicctl').hidden = !m.on;
+  var mu = document.getElementById('music'); mu.innerHTML = '';
+  (m.items || []).forEach(function (x) {
+    var b = document.createElement('button');
+    b.textContent = x.name;
+    b.onclick = function () { cmd('MUSIC PLAY ' + x.n); };
+    mu.appendChild(b);
+  });
+  document.getElementById('musicnow').textContent =
+    !m.on ? '' : m.playing ? (m.now || 'Starting…') + (m.device ? ' · ' + m.device : '') : (m.status || 'Paused');
 }
 function poll() {
   fetch('/api/state')

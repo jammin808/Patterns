@@ -55,6 +55,12 @@ public enum CueActionKind
     ListReset,
     /// <summary>The audio track's volume, 0–125 %, as the SHOW CONTROLS drawer sends it.</summary>
     AudioVolume,
+    /// <summary>Target = break-music entry id (empty resumes); break music is sound only.</summary>
+    SpotifyPlay,
+    SpotifyPause,
+    SpotifyNext,
+    /// <summary>Value = the break-music level, 0–100 % (the Spotify device's own volume).</summary>
+    SpotifyVolume,
 }
 
 /// <summary>One typed step of a cue.</summary>

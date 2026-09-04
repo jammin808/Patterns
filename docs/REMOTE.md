@@ -28,6 +28,11 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
 | `AUDIO PLAY` / `STOP` | The independent audio track |
+| `MUSIC PLAY` | Break music (Spotify): resume, or start the library's first entry |
+| `MUSIC PLAY <n>` / `MUSIC PLAY <name>` | Play break-music entry *n* (Audio-page order) or by name (`MUSIC <n>` / `MUSIC <name>` do the same) |
+| `MUSIC PAUSE` | Pause break music (alias `MUSIC STOP`) |
+| `MUSIC NEXT` | Skip to the next track (alias `MUSIC SKIP`) |
+| `MUSIC VOL <0–100>` | The Spotify device's own level (alias `VOLUME`; out of range answers `ERR … 0 to 100`) |
 | `TONE ON` / `OFF` | Soundcheck tone generator |
 | `STINGER <n>` / `STINGER <name>` | Fire stinger *n* (Audio-page order) or by name |
 | `STINGER STOP` | Stop the stinger (a clip reverts to the previous content) |
@@ -38,10 +43,15 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `CUE HOLD ON` / `OFF` | A latched GO inhibit and nothing else |
 | `CUE ARM ON` / `OFF` | Arm / disarm the stack — accepted only when the Remote page allows remotes to arm |
 | `CUE LIST` | `OK <json>` — the whole list with notes, summaries and broken reasons (`listRev` changes when the list does) |
-| `STOPALL` | Stops the audio track, any stinger and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
+| `STOPALL` | Stops the audio track, break music, any stinger and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
+
+`SPOTIFY …` is accepted as an alias for every `MUSIC …` verb. With break music switched off on the
+Audio page the `MUSIC` verbs answer `OK` and do nothing — a saved button never breaks a cue — while a
+name that resolves to no entry is an `ERR` on or off. Patterns drives the Spotify app (Premium and
+your own Client ID, set up on the Audio page); it never plays the audio itself.
 
 While the caller's stack is armed, `LOOK` and the other content commands still work and are
 journaled with your name; the daily schedule, playlist part start times and plain F-keys on the
@@ -53,6 +63,8 @@ State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel
 (the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
 `screens[{n,label,enabled,group}]` (labels honour operator names), `audio{playing,track}`, `tone`,
 `stingers[{n,name}]`, `stingerPlaying`, `sections[{n,name,active}]`, `playlist`, `nextCue`,
+`music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
+Spotify reports, `status` the same sentence the Audio page shows),
 Remote commands always drive **what the audience sees**: looks, cues, playlist parts, stingers
 and transport apply to the program even while the operator is building the next look in the
 sandboxed preview.
@@ -81,8 +93,9 @@ for up to 25 seconds, so it updates within the push throttle instead of polling.
 
 ## Bitfocus Companion
 
-Use the **Patterns module** in `integrations/companion-module-patterns/` (1.1.0: cue stack
-GO / standby / HOLD / ARM / STOP ALL with feedbacks and variables, plus presets for
+Use the **Patterns module** in `integrations/companion-module-patterns/` (1.2.0: cue stack
+GO / standby / HOLD / ARM / STOP ALL with feedbacks and variables, a **Break music** category —
+play / pause / skip and entries 1–6, lit while music plays — plus presets for
 transport/looks/screens/groups/presenter/audio — see its README for install), or the
 built-in **Generic TCP** connection sending the raw commands above (no feedback).
 

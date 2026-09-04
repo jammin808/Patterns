@@ -130,8 +130,8 @@ fault containment, and settings that can never brick startup.
   for confirmation turns GO into `CONFIRM 03.020` for four seconds. While armed, the daily
   schedule, playlist part start times and plain F-keys wait (the desk's look buttons and a
   remote's LOOK stay live), so only the caller moves the picture. **Enter** is GO, ↑ ↓ move
-  standby, Esc cancels a confirm and twice is STOP ALL (audio, stingers, tone — never the
-  outputs, blackout or the stream). A watchdog relaunch reopens Run **disarmed** at the next
+  standby, Esc cancels a confirm and twice is STOP ALL (audio, break music, stingers, tone —
+  never the outputs, blackout or the stream). A watchdog relaunch reopens Run **disarmed** at the next
   cue with a banner, and fires nothing; the history reads from the journal. **POP OUT** puts
   the Run surface on the caller's own monitor as a second window with its own keys; the
   `/run` page on the web-remote address gives a tablet the same LIVE strip, standby, next
@@ -154,6 +154,14 @@ fault containment, and settings that can never brick startup.
   pinned, explicit choice), HDMI screen audio, a Dante/USB interface — several at once,
   with loop and live volume, regardless of what's on screen. Video sound and the tone
   generator stay separate.
+- **Break music from Spotify** — your playlists, albums and songs as one-press buttons for
+  the room between the show's own content: walk-in, the interval, the wrap. Patterns
+  *drives* Spotify rather than playing it (the sound comes out of the Spotify app on the
+  desk machine or any Spotify Connect device — Spotify's DRM allows nothing else), tells it
+  what to play, how loud and when to stop, and reads back what is on. It ducks under a
+  sound stinger like the music track, **STOP ALL pauses it**, and it is a cue action
+  (play / pause / skip / level), a `MUSIC` remote verb and a Companion key. Needs Spotify
+  Premium and your own free Client ID; the feature is off until you switch it on.
 - **4-corner warp** — nudge each output's corners (keystone/skew) so a slightly-off projector
   lands straight on the surface — composed with rotation and per-screen trims, applied to
   patterns, media and live inputs alike.
@@ -323,11 +331,20 @@ older build does not know falls back to its plain default with a warning in the 
   `integrations/companion-module-patterns/` (or use Companion's Generic TCP with the
   commands in [`docs/REMOTE.md`](docs/REMOTE.md)). *No password — anyone on the network can
   drive the show while it's enabled, so switch it off when you don't need it.*
+- **Spotify break music**: needs a Spotify **Premium** account and your own free **Client ID**
+  from the [Spotify developer dashboard](https://developer.spotify.com/dashboard) — create an
+  app there and register all three redirect URIs the Audio page lists
+  (`http://127.0.0.1:8724/callback`, `…:8725/…`, `…:8726/…`; Spotify no longer accepts
+  `localhost`). A development-mode app allows up to five listed Premium accounts, which is
+  plenty for a desk; a business can ask Spotify for more. Which sound output Spotify uses is
+  chosen inside Spotify. CONNECT on the Audio page signs in through your browser; the sign-in
+  is kept in `patterns.spotify.json` beside the settings file and **never travels inside a
+  show file** — a show on another machine asks for its own CONNECT.
 
 ## Building
 
 ```bash
-dotnet test                      # 507 tests: pixel-exact rendering, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, stingers, switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 614 tests: pixel-exact rendering, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, stingers, break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

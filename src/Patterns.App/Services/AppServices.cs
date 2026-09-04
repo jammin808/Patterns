@@ -27,6 +27,13 @@ public sealed class AppServices
     public FeedService Feeds { get; }
     public AudioService Audio { get; }
     public AudioPlayerService AudioPlayer { get; }
+
+    /// <summary>The Spotify sign-in for this machine, beside the settings file — never in a show.</summary>
+    public SpotifyCredentialStore SpotifyCredentials { get; }
+
+    /// <summary>Break music: Patterns drives Spotify, Spotify makes the sound.</summary>
+    public SpotifyService Spotify { get; }
+
     public ControlService Control { get; }
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
@@ -69,12 +76,28 @@ public sealed class AppServices
 
     public event Action? AirLabelChanged;
 
-    private readonly Lazy<CueValidationContext> _validation;
+    /// <summary>
+    /// What makes background music duck — an announcement playing over it. One source, read by both
+    /// music players (the file track and break music) so they duck together. A Func because
+    /// <see cref="AudioPlayerService.StingerPlaying"/> can never be true off Windows, so a headless
+    /// test needs to drive it.
+    /// </summary>
+    public Func<bool> MusicDuckSource { get; set; } = () => false;
 
-    /// <summary>What the cue validator may ask this machine: files on disk, the video runtime.</summary>
-    public CueValidationContext ValidationContext => ValidationVideoOverride is { } video
-        ? new CueValidationContext { VideoDecoderAvailable = video() }
-        : _validation.Value;
+    public bool MusicDuckActive => MusicDuckSource();
+
+    private readonly Lazy<bool> _videoDecoder;
+
+    /// <summary>
+    /// What the cue validator may ask this machine: files on disk, the video runtime, whether break
+    /// music can actually run tonight. Built per call — a Spotify connection arrives after startup,
+    /// so a cached record would keep saying "not connected" all night. The libVLC probe stays lazy.
+    /// </summary>
+    public CueValidationContext ValidationContext => new()
+    {
+        VideoDecoderAvailable = ValidationVideoOverride is { } video ? video() : _videoDecoder.Value,
+        MusicReady = Spotify.Connected,
+    };
 
     /// <summary>Tests only: stand in for "is libVLC present" so a video-stinger cue can run headless.</summary>
     public Func<bool>? ValidationVideoOverride { get; set; }
@@ -91,6 +114,7 @@ public sealed class AppServices
     private readonly DispatcherTimer _reapplyTimer;
     private int _bulkDepth;
     private bool _autosave = true;
+    private bool _primaryInstance = true;
     private Mutex? _instanceMutex;
 
     public AppServices(SettingsStore? store = null)
@@ -106,6 +130,7 @@ public sealed class AppServices
             if (!first)
             {
                 _autosave = false;
+                _primaryInstance = false;
                 Log.Warn("Another instance owns this folder — autosave disabled here.");
             }
         }
@@ -129,10 +154,7 @@ public sealed class AppServices
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
         var video = Video;
-        _validation = new Lazy<CueValidationContext>(() => new CueValidationContext
-        {
-            VideoDecoderAvailable = video.EnsureAvailable(),
-        });
+        _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
         Web = new WebService();
         Screens = new ScreenService();
@@ -141,6 +163,9 @@ public sealed class AppServices
         Feeds = new FeedService(this);
         Audio = new AudioService(this);
         AudioPlayer = new AudioPlayerService(this);
+        MusicDuckSource = () => AudioPlayer.StingerPlaying;
+        SpotifyCredentials = new SpotifyCredentialStore(Store.BaseDirectory);
+        Spotify = new SpotifyService(this, SpotifyCredentials);
         Control = new ControlService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
@@ -206,6 +231,12 @@ public sealed class AppServices
 
     /// <summary>Runs the full change pipeline now (sandbox enter/exit republish without a model edit).</summary>
     public void RepublishNow() => OnStateChanged();
+
+    /// <summary>False in a second Patterns window on the same folder: it must not fight over the music.</summary>
+    /// <summary>Tests only: behave as a second window on the same folder.</summary>
+    public Func<bool>? PrimaryInstanceOverride { get; set; }
+
+    public bool IsPrimaryInstance => PrimaryInstanceOverride?.Invoke() ?? _primaryInstance;
 
     /// <summary>What the audience is seeing: the frozen program while the sandbox is open, else the live state.</summary>
     public ShowState AirState => Sandbox.ProgramState ?? State;
@@ -522,6 +553,7 @@ public sealed class AppServices
             Outputs.CloseAll();
             Stream.Dispose();
             Stingers.Dispose();
+            Spotify.Dispose();
             Control.Dispose();
             Web.Dispose();
             Ndi.StopAll();

@@ -233,12 +233,15 @@ public class RunTests
             b.Vm.State.AudioPlayer.Playing = true;
             b.Vm.State.Tone.Enabled = true;
             b.Vm.State.Stream.Active = true;
+            b.Vm.State.Spotify.Enabled = true;
+            b.Vm.State.Spotify.Playing = true;
             b.Services.Actions.Execute(ShowActionKind.BlackoutOn, ActionOrigin.Desk);
 
             b.Vm.Run.StopAllCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
 
             Assert.False(b.Vm.State.AudioPlayer.Playing);
+            Assert.False(b.Vm.State.Spotify.Playing);
             Assert.False(b.Vm.State.Tone.Enabled);
             Assert.True(b.Vm.State.Stream.Active);       // a broadcast destination, not running media
             Assert.True(b.Services.Outputs.IsLive);      // never the outputs

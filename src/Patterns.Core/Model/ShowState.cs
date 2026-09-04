@@ -562,6 +562,88 @@ public sealed class StingerConfig : Observable
     public string PlayingName { get => _playingName; set => Set(ref _playingName, value); }
 }
 
+/// <summary>One entry in the break-music library: a Spotify playlist, album or track by URI.</summary>
+public sealed class SpotifyItemConfig : Observable
+{
+    private string _id = Guid.NewGuid().ToString("N");
+    private string _name = "";
+    private string _uri = "";
+    private bool _shuffle;
+
+    /// <summary>Stable identity — names need not be unique (the <see cref="StingerItemConfig"/> rule).</summary>
+    public string Id { get => _id; set => Set(ref _id, value); }
+
+    /// <summary>Button label ("Interval bed"); empty = what the link says it is.</summary>
+    public string Name
+    {
+        get => _name;
+        set
+        {
+            if (Set(ref _name, value)) Raise(nameof(DisplayName));
+        }
+    }
+
+    /// <summary>Canonical "spotify:playlist:ID" / "spotify:album:ID" / "spotify:track:ID" / "spotify:artist:ID".</summary>
+    public string Uri
+    {
+        get => _uri;
+        set
+        {
+            if (Set(ref _uri, value))
+            {
+                Raise(nameof(DisplayName));
+                Raise(nameof(KindLabel));
+            }
+        }
+    }
+
+    /// <summary>Shuffle the context when this plays (a playlist of beds, not a running order).</summary>
+    public bool Shuffle { get => _shuffle; set => Set(ref _shuffle, value); }
+
+    /// <summary>What fire buttons show.</summary>
+    [JsonIgnore]
+    public string DisplayName => _name.Length > 0 ? _name : Services.SpotifyUri.Describe(_uri);
+
+    /// <summary>LIST / ALBUM / SONG / ARTIST / "" — the row's kind chip, like the stinger's media kind.</summary>
+    [JsonIgnore]
+    public string KindLabel => Services.SpotifyUri.TryParse(_uri, out var r) ? r.KindLabel : "";
+}
+
+/// <summary>
+/// Break music: Spotify playing the room between the show's own content. Patterns does not decode
+/// Spotify audio (DRM forbids it) — it drives the Spotify app on this machine, or any Spotify
+/// Connect device, through the Web API. Premium and the operator's own Client ID are required; the
+/// Audio page says so plainly. Sound only: nothing here is sandboxed and nothing here rides the
+/// snapshot. Off until switched on.
+/// </summary>
+public sealed class SpotifyConfig : Observable
+{
+    private bool _enabled;
+    private double _levelPct = 60;
+    private string _deviceName = "";
+    private bool _playing;
+    private string _playingId = "";
+
+    /// <summary>Off by default: a show that does not use break music behaves exactly as before.</summary>
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    public ObservableCollection<SpotifyItemConfig> Items { get; init; } = new();
+
+    /// <summary>The Spotify device's own volume, 0–100 (Spotify's range, not the file player's 0–125).</summary>
+    public double LevelPct { get => _levelPct; set => Set(ref _levelPct, Math.Clamp(value, 0, 100)); }
+
+    /// <summary>Preferred Connect device by name (ids rotate every Spotify session); empty = whichever is active.</summary>
+    public string DeviceName { get => _deviceName; set => Set(ref _deviceName, value ?? ""); }
+
+    /// <summary>Runtime-only intent: break music never auto-starts with the app.</summary>
+    [JsonIgnore]
+    public bool Playing { get => _playing; set => Set(ref _playing, value); }
+
+    /// <summary>Runtime-only: the library entry last asked for ("" = resume whatever is loaded).</summary>
+    [JsonIgnore]
+    public string PlayingId { get => _playingId; set => Set(ref _playingId, value); }
+}
+
 /// <summary>An operator nickname for a live input ("Camera 1" for an NDI source or capture card).</summary>
 public sealed class InputLabelConfig : Observable
 {
@@ -743,6 +825,10 @@ public sealed class ShowState : Observable
     public AudioPlayerConfig AudioPlayer { get; init; } = new();
     public ControlConfig Control { get; init; } = new();
     public StingerConfig Stingers { get; init; } = new();
+
+    /// <summary>Break music (Spotify) — background sound between the show's own content.</summary>
+    public SpotifyConfig Spotify { get; init; } = new();
+
     public WatchdogConfig Watchdog { get; init; } = new();
     public StreamConfig Stream { get; init; } = new();
     public AdminConfig Admin { get; init; } = new();

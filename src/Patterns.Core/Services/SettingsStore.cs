@@ -121,6 +121,15 @@ public sealed class SettingsStore
             if (string.IsNullOrWhiteSpace(stinger.Id)) stinger.Id = Guid.NewGuid().ToString("N");
         }
 
+        // Break music: hand-edited or hand-copied entries get an id and a canonical URI, like
+        // stingers. Unconditional and idempotent — no schema step, because there is nothing to
+        // convert: a file written before break music existed simply has no block and defaults off.
+        foreach (var item in state.Spotify.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.Id)) item.Id = Guid.NewGuid().ToString("N");
+            if (SpotifyUri.TryParse(item.Uri, out var r)) item.Uri = r.Uri; // a pasted link becomes the URI form
+        }
+
         // v5: the presenter click-through becomes the clicker list — one Apply Look cue per
         // step — and the show always holds the caller's stack beside it.
         if (state.SchemaVersion < 5 || state.Presenter.Steps.Count > 0)

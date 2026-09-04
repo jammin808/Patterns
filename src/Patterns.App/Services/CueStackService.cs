@@ -14,7 +14,6 @@ public sealed class CueStackService
 {
     public const int HistoryRows = 50;
     private static readonly TimeSpan SettleWindow = TimeSpan.FromSeconds(12);
-    private static readonly string[] FailureWords = { "fail", "error", "missing", "need", "not found", "unavailable", "could not" };
 
     private readonly AppServices _s;
 
@@ -283,15 +282,16 @@ public sealed class CueStackService
         }
     }
 
+    /// <summary>
+    /// A watched service saying it failed. Break music contributes <see cref="SpotifyService.CommandFailure"/>
+    /// and never its Status: that line legitimately says "No Spotify device…" for minutes while
+    /// nothing is being asked of it, and feeding it in would poison every asynchronous cue in the show.
+    /// </summary>
     private string? LateFailure()
     {
-        foreach (var status in new[] { _s.Stream.Status, _s.AudioPlayer.Status, _s.Stingers.Status })
+        foreach (var status in new[] { _s.Stream.Status, _s.AudioPlayer.Status, _s.Stingers.Status, _s.Spotify.CommandFailure })
         {
-            if (status.Length == 0) continue;
-            foreach (var word in FailureWords)
-            {
-                if (status.Contains(word, StringComparison.OrdinalIgnoreCase)) return status;
-            }
+            if (StatusWords.ReadsAsFailure(status)) return status;
         }
         return null;
     }
