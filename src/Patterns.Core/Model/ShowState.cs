@@ -652,6 +652,7 @@ public sealed class StingerConfig : Observable
 {
     private double _duckPct = 20;
     private int _fadeMs = 400;
+    private int _stopFadeMs = 200;
     private int _holdSeconds;   // 0 = hold until the operator takes it
     private string _playingName = "";
 
@@ -662,6 +663,9 @@ public sealed class StingerConfig : Observable
 
     /// <summary>How fast the music fades out under a stinger (and back afterwards), and the crossfade into a clip. 0 = a hard cut.</summary>
     public int FadeMs { get => _fadeMs; set => Set(ref _fadeMs, Math.Clamp(value, 0, 2000)); }
+
+    /// <summary>How a stopped or superseded sound or clip leaves the air: a fade to silence over this long, never a cut (50–1000 ms).</summary>
+    public int StopFadeMs { get => _stopFadeMs; set => Set(ref _stopFadeMs, Math.Clamp(value, 50, 1000)); }
 
     /// <summary>A held stinger gives the show back by itself after this long. 0 (the default) = hold until you take it.</summary>
     public int HoldSeconds { get => _holdSeconds; set => Set(ref _holdSeconds, Math.Clamp(value, 0, 600)); }

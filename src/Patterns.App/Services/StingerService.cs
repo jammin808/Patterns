@@ -228,7 +228,7 @@ public sealed class StingerService : IDisposable
         var now = nowUtc ?? DateTime.UtcNow;
         if (_audioActive)
         {
-            _services.AudioPlayer.StopStinger();
+            _services.AudioPlayer.ReleaseStingers(); // a fade to silence over the stop fade, never a cut
             _audioActive = false;
         }
         _holding = false;

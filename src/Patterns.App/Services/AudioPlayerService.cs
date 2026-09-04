@@ -16,13 +16,15 @@ public sealed class AudioPlayerService : IDisposable
     private readonly AppServices _services;
     private readonly DispatcherTimer _timer;
     private readonly List<(IWavePlayer Output, AudioFileReader Reader, MMDevice Device)> _players = new();
-    private readonly List<(IWavePlayer Output, AudioFileReader Reader, MMDevice Device)> _sting = new();
     private string _activeKey = "";
     private string _status = "Stopped.";
 
     public AudioPlayerService(AppServices services)
     {
         _services = services;
+        VoiceFactory = (path, volumePct) => OperatingSystem.IsWindows()
+            ? WasapiStingerVoice.Open(path, volumePct, _services.State.AudioPlayer.Devices)
+            : null;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
@@ -164,7 +166,7 @@ public sealed class AudioPlayerService : IDisposable
     /// default output (the venue-PA feed) and can combine with named HDMI screens; the same
     /// physical endpoint never plays twice. Empty selection (or nothing matching) = default.
     /// </summary>
-    private static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names)
+    internal static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names)
     {
         var result = new List<MMDevice>();
         var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -211,71 +213,86 @@ public sealed class AudioPlayerService : IDisposable
 
     // ---- stingers -----------------------------------------------------------
 
-    /// <summary>An audio stinger is on air (the music track ducks while this is true).</summary>
-    public bool StingerPlaying { get; private set; }
+    private readonly List<IStingerVoice> _voices = new();
+
+    /// <summary>
+    /// Opens a voice for a file at a volume: by default one WASAPI output per selected device,
+    /// null off Windows or when nothing opens. Tests inject a fake so the whole stinger sound
+    /// path — fire, release, re-fire, the sweep — runs headless.
+    /// </summary>
+    public Func<string, double, IStingerVoice?> VoiceFactory { get; set; }
+
+    /// <summary>An audio stinger is on air and has not been told to leave (the music track ducks while this is true).</summary>
+    public bool StingerPlaying => _voices.Any(v => v.IsPlaying && !v.Releasing);
 
     /// <summary>
     /// Fires a one-shot sound on the track's device selection, over whatever else plays.
-    /// Independent of the track players — the track keeps rolling (ducked) underneath.
+    /// Independent of the track players — the track keeps rolling (ducked) underneath. Whatever
+    /// sound was on air is released — a fade to silence, never a cut — and this one is always a
+    /// fresh voice: a released voice is never reused, so a stopped sound cannot come back.
     /// </summary>
     public bool PlayStinger(string path, double volumePct)
     {
-        if (!OperatingSystem.IsWindows()) return false;
-        StopStinger();
+        ReleaseStingers();
+        IStingerVoice? voice = null;
         try
         {
-            using var enumerator = new MMDeviceEnumerator();
-            foreach (var device in ResolveDevices(enumerator, _services.State.AudioPlayer.Devices))
-            {
-                try
-                {
-                    var reader = new AudioFileReader(path) { Volume = (float)(volumePct / 100.0) };
-                    var output = new WasapiOut(device, AudioClientShareMode.Shared, true, 200);
-                    output.Init(reader);
-                    output.Play();
-                    _sting.Add((output, reader, device));
-                }
-                catch (Exception ex)
-                {
-                    Log.Warn($"Stinger start failed on '{device.FriendlyName}'.", ex);
-                    device.Dispose();
-                }
-            }
+            voice = VoiceFactory(path, volumePct);
         }
         catch (Exception ex)
         {
             Log.Error("Stinger could not start.", ex);
         }
-        StingerPlaying = _sting.Count > 0;
-        return StingerPlaying;
+        if (voice is null) return false;
+        _voices.Add(voice);
+        return true;
     }
 
+    /// <summary>
+    /// Every playing sound leaves the air over the show's stop fade. The duck lifts at once (the
+    /// music comes back under the tail); the sweep disposes each voice once it has gone silent.
+    /// </summary>
+    public void ReleaseStingers()
+    {
+        var ms = _services.State.Stingers.StopFadeMs;
+        foreach (var voice in _voices)
+        {
+            if (!voice.Releasing) voice.Release(ms);
+        }
+    }
+
+    /// <summary>A hard stop — for shutdown, where nothing is listening for a fade.</summary>
     public void StopStinger()
     {
-        foreach (var (output, reader, device) in _sting)
+        foreach (var voice in _voices)
         {
             try
             {
-                output.Stop();
-                output.Dispose();
-                reader.Dispose();
-                device.Dispose();
+                voice.Dispose();
             }
             catch (Exception ex)
             {
                 Log.Warn("Stinger stop issue.", ex);
             }
         }
-        _sting.Clear();
-        StingerPlaying = false;
+        _voices.Clear();
     }
 
-    /// <summary>Reaps finished stinger players so the duck lifts at the natural end.</summary>
+    /// <summary>Reaps voices that have gone silent — a natural end or a finished release — so the duck lifts and the outputs close.</summary>
     private void SweepStinger()
     {
-        if (_sting.Count > 0 && _sting.All(p => p.Output.PlaybackState == PlaybackState.Stopped))
+        for (var i = _voices.Count - 1; i >= 0; i--)
         {
-            StopStinger();
+            if (_voices[i].IsPlaying) continue;
+            try
+            {
+                _voices[i].Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Stinger voice dispose issue.", ex);
+            }
+            _voices.RemoveAt(i);
         }
     }
 

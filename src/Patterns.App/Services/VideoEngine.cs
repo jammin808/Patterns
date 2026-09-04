@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Avalonia.Threading;
 using LibVLCSharp.Shared;
 using Patterns.Core.Media;
 using Patterns.Core.Model;
@@ -23,10 +24,18 @@ public sealed class VideoEngine : IDisposable
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
 
-    private sealed record Mount(VlcFrameSource Source, bool Loop);
+    private sealed record Mount(IMountedSource Source, bool Loop);
 
     private readonly Dictionary<string, Mount> _mounts = new();
-    private readonly List<(string Key, VlcFrameSource Source, DateTime RetiredUtc)> _retired = new();
+    private readonly List<(string Key, IMountedSource Source, DateTime RetiredUtc, int HoldMs)> _retired = new();
+    private DispatcherTimer? _pump;
+
+    /// <summary>
+    /// Opens a source for a wanted input. Null = the libVLC path (the default); tests inject a
+    /// fake so the retirement bookkeeping — the fade, the hold, the sweep, a re-fire inside the
+    /// hold — runs without a decoder.
+    /// </summary>
+    public Func<MediaLocator.WantedInput, IMountedSource?>? SourceFactory { get; set; }
 
     /// <summary>Non-empty when more sources are wanted than the decoder cap allows.</summary>
     public string LimitNote { get; private set; } = "";
@@ -40,16 +49,23 @@ public sealed class VideoEngine : IDisposable
     /// programming, the sandbox — references (UI thread). Highest-priority reference wins a
     /// shared mount's loop/audio settings.
     /// </summary>
-    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null)
+    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, DateTime? nowUtc = null)
     {
-        SweepRetired();
+        var now = nowUtc ?? DateTime.UtcNow;
+        SweepRetired(now);
 
         var wanted = WantedVideoInputs(snap, sandbox);
         var wantedKeys = wanted.Select(w => w.Key).ToHashSet();
 
+        // A source that leaves fades its sound out over the stop fade and is kept, silenced, only
+        // as long as the longest fade in flight needs its frames.
+        var fadeMs = snap.State.Stingers.StopFadeMs;
+        var transitionMs = snap.FadesEnabled ? (int)Math.Round(snap.FadeSecondsFor(snap.Version) * 1000) : 0;
+        var holdMs = AudioFade.RetireHoldMs(transitionMs, fadeMs);
+
         foreach (var key in _mounts.Keys.Where(k => !wantedKeys.Contains(k)).ToList())
         {
-            RetireMount(key);
+            RetireMount(key, now, holdMs, fadeMs);
         }
 
         var over = 0;
@@ -63,7 +79,7 @@ public sealed class VideoEngine : IDisposable
                     existing.Source.SetAudio(w.Mute, w.VolumePct);
                     continue;
                 }
-                RetireMount(w.Key); // loop change needs a reopen
+                RetireMount(w.Key, now, holdMs, fadeMs); // loop change needs a reopen
             }
 
             if (_mounts.Count >= MaxMounts)
@@ -71,12 +87,15 @@ public sealed class VideoEngine : IDisposable
                 over++;
                 continue;
             }
-            if (!EnsureVlc()) return;
+            if (SourceFactory is null && !EnsureVlc()) return;
 
             try
             {
-                var source = new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct);
+                var source = SourceFactory is { } open
+                    ? open(w)
+                    : new VlcFrameSource(_vlc!, w.Target, w.Loop,
+                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct);
+                if (source is null) continue;
                 _mounts[w.Key] = new Mount(source, w.Loop);
                 InputBus.Mount(w.Key, source);
             }
@@ -107,28 +126,75 @@ public sealed class VideoEngine : IDisposable
 
     /// <summary>
     /// The old source keeps decoding briefly on the bus's previous map so a crossfade fades
-    /// out real frames instead of a placeholder; muted so soundtracks never overlap.
+    /// out real frames instead of a placeholder. Its sound fades to silence over the stop fade
+    /// and is then held silent — re-asserted on every pump, because a mute written before the
+    /// decoder's audio output exists is lost — and the whole source is disposed once the longest
+    /// fade in flight is over. A retired source is never brought back: a re-fire of the same
+    /// file inside the hold opens a fresh decoder.
     /// </summary>
-    private void RetireMount(string key)
+    private void RetireMount(string key, DateTime now, int holdMs, int fadeMs)
     {
         if (!_mounts.TryGetValue(key, out var mount)) return;
         _mounts.Remove(key);
         InputBus.Unmount(key);
-        mount.Source.SetAudio(mute: true, volumePct: 0);
+        mount.Source.BeginFadeOut(now, fadeMs);
         InputBus.SetPrevious(key, mount.Source);
-        _retired.Add((key, mount.Source, DateTime.UtcNow));
+        _retired.Add((key, mount.Source, now, holdMs));
+        StartPump();
+    }
+
+    /// <summary>Fades and silences every retired source, then sweeps. Runs at 50 ms only while something is retired.</summary>
+    public void Pump(DateTime? nowUtc = null)
+    {
+        var now = nowUtc ?? DateTime.UtcNow;
+        foreach (var (_, source, _, _) in _retired)
+        {
+            try
+            {
+                source.Pump(now);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Retired video source pump failed.", ex);
+            }
+        }
+        SweepRetired(now);
     }
 
     /// <summary>Also called from the app's 1 s poll so a retired decoder never lingers.</summary>
-    public void SweepRetired()
+    public void SweepRetired(DateTime? nowUtc = null)
     {
+        var now = nowUtc ?? DateTime.UtcNow;
         for (var i = _retired.Count - 1; i >= 0; i--)
         {
-            if (DateTime.UtcNow - _retired[i].RetiredUtc <= TimeSpan.FromSeconds(4)) continue;
+            if ((now - _retired[i].RetiredUtc).TotalMilliseconds <= _retired[i].HoldMs) continue;
             InputBus.ClearPreviousIf(_retired[i].Key, _retired[i].Source);
             _retired[i].Source.Dispose();
             _retired.RemoveAt(i);
         }
+        if (_retired.Count == 0) _pump?.Stop();
+    }
+
+    /// <summary>Retired sources are kept alive for a few hundred milliseconds only.</summary>
+    public int RetiredCount => _retired.Count;
+
+    private void StartPump()
+    {
+        if (_pump is null)
+        {
+            try
+            {
+                _pump = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+                _pump.Tick += (_, _) => Pump();
+            }
+            catch (Exception ex)
+            {
+                // No dispatcher (a bare test host): the 1 s poll and the next Reconcile still sweep.
+                Log.Warn("Video retire pump could not start.", ex);
+                return;
+            }
+        }
+        if (!_pump.IsEnabled) _pump.Start();
     }
 
     /// <summary>Whether video decode is available (initialises libVLC on first ask).</summary>
@@ -181,13 +247,14 @@ public sealed class VideoEngine : IDisposable
 
     public void Dispose()
     {
+        _pump?.Stop();
         foreach (var (key, mount) in _mounts)
         {
             InputBus.Unmount(key);
             mount.Source.Dispose();
         }
         _mounts.Clear();
-        foreach (var (key, source, _) in _retired)
+        foreach (var (key, source, _, _) in _retired)
         {
             InputBus.SetPrevious(key, null);
             source.Dispose();
@@ -198,12 +265,29 @@ public sealed class VideoEngine : IDisposable
     }
 }
 
+/// <summary>A source the engine owns: live audio settings while mounted, a fade-out and a silence hold once retired.</summary>
+public interface IMountedSource : IVideoFrameSource, IDisposable
+{
+    /// <summary>Live mute/volume — never restarts the media.</summary>
+    void SetAudio(bool mute, double volumePct);
+
+    /// <summary>Told to leave: the sound ramps to silence over <paramref name="ms"/> from <paramref name="nowUtc"/>.</summary>
+    void BeginFadeOut(DateTime nowUtc, int ms);
+
+    /// <summary>Advances the fade and, once silent, keeps asserting silence — a dropped write must not become a sound.</summary>
+    void Pump(DateTime nowUtc);
+}
+
 /// <summary>One playing video: libVLC decodes into our BGRA buffer; renderers draw the newest frame.</summary>
-public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
+public sealed class VlcFrameSource : IMountedSource
 {
     private readonly object _gate = new();
     private readonly Media _media;
     private readonly MediaPlayer _player;
+    private DateTime _fadeStartUtc;
+    private int _fadeMs = -1;        // -1 = not retiring
+    private float _fadeFrom;
+    private bool _silenced;
 
     // Keep delegate instances alive for the lifetime of the callbacks.
     private readonly MediaPlayer.LibVLCVideoFormatCb _formatCb;
@@ -294,13 +378,68 @@ public sealed class VlcFrameSource : IVideoFrameSource, IDisposable
         ApplyAudio();
     }
 
-    /// <summary>Live mute/volume — never restarts the media.</summary>
+    /// <summary>Live mute/volume — never restarts the media. Ignored once the source is leaving: it only gets quieter.</summary>
     public void SetAudio(bool mute, double volumePct)
     {
+        if (_fadeMs >= 0) return;
         if (_mute == mute && Math.Abs(_volumePct - volumePct) < 0.5) return;
         _mute = mute;
         _volumePct = (float)volumePct;
         ApplyAudio();
+    }
+
+    public void BeginFadeOut(DateTime nowUtc, int ms)
+    {
+        if (_fadeMs >= 0) return;
+        _fadeStartUtc = nowUtc;
+        _fadeMs = Math.Max(0, ms);
+        _fadeFrom = _mute ? 0 : _volumePct;
+        Pump(nowUtc);
+    }
+
+    /// <summary>
+    /// The fade is a pure function of the clock (a missed pump never stalls it). Once it reaches
+    /// silence the source is silenced for good and the silence is re-asserted on every pump:
+    /// libVLC drops audio writes made before its audio output exists, so a clip retired in its
+    /// first moments would otherwise come up at full volume a beat later — the sound a room
+    /// hears "again" under the next stinger.
+    /// </summary>
+    public void Pump(DateTime nowUtc)
+    {
+        if (_fadeMs < 0 || _disposed) return;
+        if (_silenced || AudioFade.Done(_fadeStartUtc, nowUtc, _fadeMs) || _fadeFrom <= 0)
+        {
+            Silence();
+            return;
+        }
+        var volume = _fadeFrom * (float)AudioFade.GainAt(_fadeStartUtc, nowUtc, _fadeMs);
+        try
+        {
+            _player.Volume = (int)Math.Clamp(volume, 0, 125);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Fading a retired source failed.", ex);
+        }
+    }
+
+    /// <summary>Mute, zero volume and no audio track at all — three ways to be silent, kept until disposal.</summary>
+    private void Silence()
+    {
+        _silenced = true;
+        _mute = true;
+        _volumePct = 0;
+        if (_disposed) return;
+        try
+        {
+            _player.Mute = true;
+            _player.Volume = 0;
+            if (_player.AudioTrack != -1) _player.SetAudioTrack(-1);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Silencing a retired source failed.", ex);
+        }
     }
 
     private void ApplyAudio()

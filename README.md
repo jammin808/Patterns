@@ -214,6 +214,8 @@ fault containment, and settings that can never brick startup.
   puts a held stinger back and never runs its ending. One library and one numbering for both
   kinds, so `STINGER 3`, a saved Companion key and a cue target never change meaning; `VOG n`
   and `STING n` refuse the other kind. A crash mid-sting comes back to the show, never the clip.
+  A stopped sound or clip **fades out** over the stop fade (never a cut) and is silenced for
+  good — nothing told to stop can be heard again under the next press, however soon it comes.
 - **A watchdog that keeps the show up** — the app runs supervised: a crash, or a UI that
   stops responding for 30 s, gets the app restarted within seconds **with the same setup —
   outputs re-opened and the audio track resumed** (a sidecar file remembers what was live;
@@ -354,7 +356,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 661 tests: pixel-exact rendering, the ticker's seamless loop, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 671 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```
