@@ -179,9 +179,10 @@ public sealed class CommandRouter
                 name = i.DisplayName,
                 kind = i.Kind == StingerKind.Sting ? "sting" : "vog",
             }).ToArray(),
-            stingerPlaying = s.Stingers.PlayingName,                       // whatever is on air, either kind
+            stingerPlaying = s.Stingers.PlayingName,                       // whatever owns the show right now, either kind
             stingerKind = _services.Stingers.StingOnAir.Length > 0 ? "sting"
                         : _services.Stingers.VogOnAir.Length > 0 ? "vog" : "",
+            vogSound = _services.Stingers.VogSoundOnAir,                   // a VOG sound over the show — over a stinger too
             stingHold = _services.Stingers.HoldName,                       // "" = not holding
             sections = SectionRows(s),
             playlist = _services.Playlist.Status,

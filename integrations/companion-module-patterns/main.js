@@ -316,7 +316,7 @@ class PatternsInstance extends InstanceBase {
 				name: 'A VOG is on air',
 				defaultStyle: { bgcolor: combineRgb(0, 100, 160), color: combineRgb(255, 255, 255) },
 				options: [],
-				callback: () => this.state.stingerKind === 'vog',
+				callback: () => this.state.stingerKind === 'vog' || (this.state.vogSound ?? '') !== '',
 			},
 			sting_playing: {
 				type: 'boolean',

@@ -81,34 +81,7 @@ public class StingerSoundTests
 
     // ---- the voice, through the live service ------------------------------------------
 
-    private sealed class FakeVoice : IStingerVoice
-    {
-        public string Path { get; }
-        public double VolumePct { get; }
-        public bool Playing = true;
-        public int ReleasedMs = -1;
-        public bool Disposed;
-        public double Gain = 1;
-
-        public FakeVoice(string path, double volumePct)
-        {
-            Path = path;
-            VolumePct = volumePct;
-        }
-
-        public bool IsPlaying => Playing && !Disposed;
-        public bool Releasing => ReleasedMs >= 0;
-        public void SetGain(double gain) => Gain = gain;
-        public void Release(int ms) => ReleasedMs = ms;
-        public void Dispose() => Disposed = true;
-    }
-
-    private static string TempSound(string name)
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}-{name}");
-        File.WriteAllBytes(path, new byte[] { 0, 0, 0, 1 });
-        return path;
-    }
+    private static string TempSound(string name) => AudioFakes.TempFile(name);
 
     [AvaloniaFact]
     public void StopReleasesTheSoundAndTheNextPressIsAFreshVoice()
@@ -216,47 +189,6 @@ public class StingerSoundTests
     }
 
     // ---- the decoder, through the video engine --------------------------------------
-
-    private sealed class FakeSource : IMountedSource
-    {
-        public MediaLocator.WantedInput Wanted { get; }
-        public bool Mute;
-        public double VolumePct;
-        public DateTime? FadeStartUtc;
-        public int FadeMs = -1;
-        public int Pumps;
-        public bool Disposed;
-
-        public FakeSource(MediaLocator.WantedInput wanted)
-        {
-            Wanted = wanted;
-            Mute = wanted.Mute;
-            VolumePct = wanted.VolumePct;
-        }
-
-        public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint) => false;
-        public SKSizeI? FrameSize => null;
-        public bool IsPlaying => !Disposed;
-        public bool IsEnded => false;
-        public double DurationSeconds => 10;
-        public string StatusText => "fake";
-
-        public void SetAudio(bool mute, double volumePct)
-        {
-            Mute = mute;
-            VolumePct = volumePct;
-        }
-
-        public void BeginFadeOut(DateTime nowUtc, int ms)
-        {
-            FadeStartUtc = nowUtc;
-            FadeMs = ms;
-        }
-
-        public void Pump(DateTime nowUtc) => Pumps++;
-
-        public void Dispose() => Disposed = true;
-    }
 
     private static ShowSnapshot Clip(string path, int stopFadeMs, int transitionMs)
     {

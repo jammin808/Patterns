@@ -1,6 +1,7 @@
 using Avalonia.Threading;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;
@@ -78,6 +79,7 @@ public sealed class AudioPlayerService : IDisposable
 
         var cfg = _services.State.AudioPlayer;
         SweepStinger();
+        ApplyGains(now);
         try
         {
             if (!cfg.Playing || string.IsNullOrWhiteSpace(cfg.Path))
@@ -213,27 +215,33 @@ public sealed class AudioPlayerService : IDisposable
 
     // ---- stingers -----------------------------------------------------------
 
-    private readonly List<IStingerVoice> _voices = new();
+    private readonly List<(IStingerVoice Voice, StingerKind Kind)> _voices = new();
 
     /// <summary>
     /// Opens a voice for a file at a volume: by default one WASAPI output per selected device,
     /// null off Windows or when nothing opens. Tests inject a fake so the whole stinger sound
-    /// path — fire, release, re-fire, the sweep — runs headless.
+    /// path — fire, release, re-fire, the duck, the sweep — runs headless.
     /// </summary>
     public Func<string, double, IStingerVoice?> VoiceFactory { get; set; }
 
-    /// <summary>An audio stinger is on air and has not been told to leave (the music track ducks while this is true).</summary>
-    public bool StingerPlaying => _voices.Any(v => v.IsPlaying && !v.Releasing);
+    /// <summary>A stinger sound of either kind is on air and has not been told to leave.</summary>
+    public bool StingerPlaying => _voices.Any(v => v.Voice.IsPlaying && !v.Voice.Releasing);
+
+    /// <summary>A VOG sound is on air and has not been told to leave — what ducks everything else.</summary>
+    public bool VogSoundPlaying => _voices.Any(v => v.Kind == StingerKind.Vog && v.Voice.IsPlaying && !v.Voice.Releasing);
+
+    /// <summary>A sting sound is on air and has not been told to leave.</summary>
+    public bool StingSoundPlaying => _voices.Any(v => v.Kind == StingerKind.Sting && v.Voice.IsPlaying && !v.Voice.Releasing);
 
     /// <summary>
     /// Fires a one-shot sound on the track's device selection, over whatever else plays.
-    /// Independent of the track players — the track keeps rolling (ducked) underneath. Whatever
-    /// sound was on air is released — a fade to silence, never a cut — and this one is always a
-    /// fresh voice: a released voice is never reused, so a stopped sound cannot come back.
+    /// Independent of the track players — the track keeps rolling (ducked) underneath. Always a
+    /// fresh voice: a released voice is never reused, so a stopped sound cannot come back. Who
+    /// leaves when it starts is the stinger service's call (a new VOG releases the old VOG; a
+    /// VOG never stops a stinger — it ducks it); this only opens the sound and sets its gain.
     /// </summary>
-    public bool PlayStinger(string path, double volumePct)
+    public bool PlayStinger(string path, double volumePct, StingerKind kind = StingerKind.Vog)
     {
-        ReleaseStingers();
         IStingerVoice? voice = null;
         try
         {
@@ -244,27 +252,48 @@ public sealed class AudioPlayerService : IDisposable
             Log.Error("Stinger could not start.", ex);
         }
         if (voice is null) return false;
-        _voices.Add(voice);
+        _voices.Add((voice, kind));
+        ApplyGains(DateTime.UtcNow);
         return true;
     }
 
     /// <summary>
-    /// Every playing sound leaves the air over the show's stop fade. The duck lifts at once (the
-    /// music comes back under the tail); the sweep disposes each voice once it has gone silent.
+    /// The playing sounds of one kind — or of both — leave the air over the show's stop fade. The
+    /// duck lifts at once (the music comes back under the tail); the sweep disposes each voice
+    /// once it has gone silent.
     /// </summary>
-    public void ReleaseStingers()
+    public void ReleaseStingers(StingerKind? kind = null)
     {
         var ms = _services.State.Stingers.StopFadeMs;
-        foreach (var voice in _voices)
+        foreach (var (voice, k) in _voices)
         {
+            if (kind is { } only && k != only) continue;
             if (!voice.Releasing) voice.Release(ms);
         }
+        ApplyGains(DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Every sound and every clip on air gets the gain its bus says it should have right now —
+    /// a stinger sound and a clip's soundtrack duck under a VOG sound and come back after it.
+    /// Called on every poll and the moment a sound starts or leaves, so a duck never waits.
+    /// </summary>
+    public void ApplyGains(DateTime nowUtc)
+    {
+        if (_services.Stingers is not { } stingers) return; // constructed after this service
+        var sting = stingers.GainAt(AudioBus.StingSound, nowUtc);
+        var vog = stingers.GainAt(AudioBus.VogSound, nowUtc);
+        foreach (var (voice, kind) in _voices)
+        {
+            voice.SetGain(kind == StingerKind.Vog ? vog : sting);
+        }
+        _services.Video.ApplyClipGain(stingers.GainAt(AudioBus.ClipAudio, nowUtc));
     }
 
     /// <summary>A hard stop — for shutdown, where nothing is listening for a fade.</summary>
     public void StopStinger()
     {
-        foreach (var voice in _voices)
+        foreach (var (voice, _) in _voices)
         {
             try
             {
@@ -283,10 +312,10 @@ public sealed class AudioPlayerService : IDisposable
     {
         for (var i = _voices.Count - 1; i >= 0; i--)
         {
-            if (_voices[i].IsPlaying) continue;
+            if (_voices[i].Voice.IsPlaying) continue;
             try
             {
-                _voices[i].Dispose();
+                _voices[i].Voice.Dispose();
             }
             catch (Exception ex)
             {

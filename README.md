@@ -202,7 +202,9 @@ fault containment, and settings that can never brick startup.
   web-remote address (live JPEG refresh).
 - **VOG** (voice of God) — one-press sounds and clips over the show, no audio engineer
   needed: *"Take your seats, the show is about to begin."* A sound plays over everything on
-  the audio-track outputs while the music ducks underneath (and comes back by itself); a
+  the audio-track outputs while the music ducks underneath (and comes back by itself) — and
+  over a **playing stinger** it ducks the stinger too, sound or clip, rather than stopping it,
+  so a long hit carries on under the announcement and comes back up after it; a
   **video clip takes over every screen and the previous content returns the moment it
   ends** — unless the operator changes content mid-clip, in which case their choice stands.
   Fired from the Show panel, a cue, the web remote, the TCP protocol or Companion.
@@ -356,7 +358,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 671 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 681 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

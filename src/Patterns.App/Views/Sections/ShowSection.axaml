@@ -120,7 +120,7 @@
       <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding StopStingerCommand}" />
     </Grid>
     <TextBlock Classes="hint"
-               Text="A VOG plays over everything (the music ducks) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. Set them up on the Audio page (SETUP)." />
+               Text="A VOG plays over everything (the music ducks, and so does a stinger that is playing) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. Set them up on the Audio page (SETUP)." />
 
     <TextBlock Classes="h2" Text="AUDIO TRACK" />
     <Grid ColumnDefinitions="*,8,Auto,Auto">

@@ -24,11 +24,31 @@ public sealed class VideoEngine : IDisposable
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
 
-    private sealed record Mount(IMountedSource Source, bool Loop);
+    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct);
 
     private readonly Dictionary<string, Mount> _mounts = new();
     private readonly List<(string Key, IMountedSource Source, DateTime RetiredUtc, int HoldMs)> _retired = new();
     private DispatcherTimer? _pump;
+    private double _clipGain = 1;
+
+    /// <summary>The gain every mounted clip's soundtrack currently carries on top of its own volume (the VOG duck).</summary>
+    public double ClipGain => _clipGain;
+
+    /// <summary>
+    /// Ducks — or restores — the soundtrack of every clip on the screens: a VOG announcement
+    /// over a playing sting or a VOG clip steps the clip down and lets it carry on, never stops it.
+    /// Retired sources are not touched: they are already leaving.
+    /// </summary>
+    public void ApplyClipGain(double gain)
+    {
+        gain = Math.Clamp(gain, 0, 1);
+        if (Math.Abs(gain - _clipGain) < 0.0005) return;
+        _clipGain = gain;
+        foreach (var mount in _mounts.Values)
+        {
+            mount.Source.SetAudio(mount.Mute, mount.VolumePct * gain);
+        }
+    }
 
     /// <summary>
     /// Opens a source for a wanted input. Null = the libVLC path (the default); tests inject a
@@ -76,7 +96,8 @@ public sealed class VideoEngine : IDisposable
                 if (existing.Loop == w.Loop)
                 {
                     // Mute/volume apply live to the running player — never restart the media.
-                    existing.Source.SetAudio(w.Mute, w.VolumePct);
+                    existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
+                    _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct };
                     continue;
                 }
                 RetireMount(w.Key, now, holdMs, fadeMs); // loop change needs a reopen
@@ -94,9 +115,10 @@ public sealed class VideoEngine : IDisposable
                 var source = SourceFactory is { } open
                     ? open(w)
                     : new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct);
+                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain);
                 if (source is null) continue;
-                _mounts[w.Key] = new Mount(source, w.Loop);
+                if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
+                _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct);
                 InputBus.Mount(w.Key, source);
             }
             catch (Exception ex)

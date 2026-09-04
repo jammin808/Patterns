@@ -34,7 +34,8 @@ connect, so the caller's history reads "GO from FOH deck".
 One library, one numbering. The **Stingers** presets (`stinger_1..8`, `STINGER n`) fire whatever
 item *n* is; the **VOG** category (`vog_1..8`, `VOG n`) and the kind-checked stinger keys
 (`STING n`, `sting`, `sting_name`) refuse the other kind — Patterns answers `ERR … is a VOG, not a
-stinger` — so a key that says VOG never fires a transition. Feedbacks: `vog_playing` (blue),
+stinger` — so a key that says VOG never fires a transition. Feedbacks: `vog_playing` (blue — a VOG
+clip, or a VOG sound, including one playing over a stinger it ducks),
 `sting_playing` (amber) and `sting_hold` (hold amber) — a stinger that landed and is holding the
 screens lights every sting key until the caller TAKEs, GOes, or presses the *Held stinger — put
 it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. Note that the

@@ -77,10 +77,9 @@ public sealed class AppServices
     public event Action? AirLabelChanged;
 
     /// <summary>
-    /// What makes background music duck — an announcement playing over it. One source, read by both
-    /// music players (the file track and break music) so they duck together. A Func because
-    /// <see cref="AudioPlayerService.StingerPlaying"/> can never be true off Windows, so a headless
-    /// test needs to drive it.
+    /// What makes background music duck — a VOG announcement playing over it. One source, read by
+    /// every gain rule (the music players, a stinger sound, a clip's soundtrack) so they duck
+    /// together. A Func so a headless test can drive it without a voice.
     /// </summary>
     public Func<bool> MusicDuckSource { get; set; } = () => false;
 
@@ -163,7 +162,7 @@ public sealed class AppServices
         Feeds = new FeedService(this);
         Audio = new AudioService(this);
         AudioPlayer = new AudioPlayerService(this);
-        MusicDuckSource = () => AudioPlayer.StingerPlaying;
+        MusicDuckSource = () => AudioPlayer.VogSoundPlaying;
         SpotifyCredentials = new SpotifyCredentialStore(Store.BaseDirectory);
         Spotify = new SpotifyService(this, SpotifyCredentials);
         Control = new ControlService(this);
