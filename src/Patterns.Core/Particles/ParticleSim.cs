@@ -1,3 +1,4 @@
+using Patterns.Core.Effects;
 using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
@@ -38,6 +39,7 @@ public sealed class ParticleSim : IDisposable
     private float _w = 1920, _h = 1080;
     private ParticleOptions _o = new();
     private EdgeFlux _flux = EdgeFlux.None;
+    private EffectSurge _surge = EffectSurge.Zero;   // the pulse as of the last Advance, for the draw
 
     /// <summary>
     /// Fixed integration step. Every sink quantizes the shared show clock to this grid and
@@ -115,13 +117,24 @@ public sealed class ParticleSim : IDisposable
         }
         for (; _doneSteps < target; _doneSteps++)
         {
-            StepFixed(StepSeconds);
+            // The pulse is read at the quantised step clock, so a span's halves and NDI step
+            // through the same surge on the same steps.
+            StepFixed(StepSeconds, EffectImpulses.SurgeAt((_doneSteps + 1) * StepSeconds));
         }
+        _surge = EffectImpulses.SurgeAt(time);
     }
 
-    /// <summary>One deterministic simulation step (also used directly by tests).</summary>
-    public void StepFixed(float dt)
+    /// <summary>One deterministic simulation step with no pulse (also used directly by tests).</summary>
+    public void StepFixed(float dt) => StepFixed(dt, EffectSurge.Zero);
+
+    /// <summary>
+    /// One deterministic simulation step under a pulse: everything moves faster by its Speed,
+    /// and its Burst re-births a share of the field at the emitter with a kick — an explosion
+    /// from a centre, a rush from an edge — that the envelope then settles.
+    /// </summary>
+    public void StepFixed(float dt, in EffectSurge surge)
     {
+        var speedMul = 1 + 3f * surge.Speed;
         var starfield = _o.Emitter == ParticleEmitter.Center;
         float cx = _w / 2, cy = _h / 2;
         var maxDist = MathF.Sqrt(cx * cx + cy * cy) + 1;
@@ -138,15 +151,15 @@ public sealed class ParticleSim : IDisposable
                 var dy = p.Y - cy;
                 var dist = MathF.Sqrt(dx * dx + dy * dy) + 0.01f;
                 var speed = (0.15f + dist / maxDist * 2.6f) * (p.Vx); // Vx stores base speed here
-                p.X += dx / dist * speed * dt;
-                p.Y += dy / dist * speed * dt;
+                p.X += dx / dist * speed * dt * speedMul;
+                p.Y += dy / dist * speed * dt * speedMul;
             }
             else
             {
                 p.Vx += (float)_o.WindX * dt * 0.35f;
                 p.Vy += (float)_o.GravityY * dt;
-                p.X += p.Vx * dt + MathF.Sin(p.Age * p.WobFreq + p.WobPhase) * (float)_o.Wobble * 42f * dt;
-                p.Y += p.Vy * dt;
+                p.X += p.Vx * dt * speedMul + MathF.Sin(p.Age * p.WobFreq + p.WobPhase) * (float)_o.Wobble * 42f * dt;
+                p.Y += p.Vy * dt * speedMul;
             }
 
             p.Rot += p.RotV * dt;
@@ -155,6 +168,19 @@ public sealed class ParticleSim : IDisposable
             if (p.X < -m || p.X > _w + m || p.Y < -m || p.Y > _h + m)
             {
                 Spawn(ref p, preWarm: false);
+            }
+        }
+
+        if (surge.Burst > 0.001f)
+        {
+            var births = (int)Math.Ceiling(_count * surge.Burst * 0.015f);
+            var kick = 1 + 2.5f * surge.Burst;
+            for (var k = 0; k < births; k++)
+            {
+                var i = _rng.Next(_count);
+                Spawn(ref _pool[i], preWarm: false);
+                _pool[i].Vx *= kick;
+                _pool[i].Vy *= kick;
             }
         }
     }
@@ -242,7 +268,7 @@ public sealed class ParticleSim : IDisposable
             ref var p = ref _pool[i];
             _spriteRects[i] = sprite;
 
-            var scalePx = p.Size * 2; // sprite drawn at 2×size px
+            var scalePx = p.Size * 2 * (1 + 0.6f * _surge.Glow); // sprite drawn at 2×size px, bigger under a pulse's glow
             if (starfield)
             {
                 var dx = p.X - cx;
@@ -268,7 +294,7 @@ public sealed class ParticleSim : IDisposable
         }
 
         var paint = pc.FillAA(SKColors.White);
-        paint.BlendMode = _o.Glow ? SKBlendMode.Plus : SKBlendMode.SrcOver;
+        paint.BlendMode = _o.Glow || _surge.Glow > 0.25f ? SKBlendMode.Plus : SKBlendMode.SrcOver;
         c.DrawAtlas(_atlas, _spriteRects, _xforms, _tints, SKBlendMode.Modulate, DrawUtil.Smooth, paint);
         paint.BlendMode = SKBlendMode.SrcOver;
     }
@@ -358,4 +384,5 @@ public sealed class ParticleSim : IDisposable
     // Test hooks.
     public int Count => _count;
     public (float X, float Y) PositionOf(int i) => (_pool[i].X, _pool[i].Y);
+    public float AgeOf(int i) => _pool[i].Age;
 }

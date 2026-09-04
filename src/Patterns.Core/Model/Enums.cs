@@ -288,3 +288,19 @@ public enum FractalQuality
     Fast,
     Fine,
 }
+
+/// <summary>What a library item is: a sound or clip on disk, or an effect pulse — a surge through the particles and fractals on screen.</summary>
+public enum StingerSource
+{
+    File,
+    EffectPulse,
+}
+
+/// <summary>The shape of an effect pulse: what surges, and how.</summary>
+public enum PulsePreset
+{
+    Explosion,
+    Rush,
+    Flash,
+    Bloom,
+}

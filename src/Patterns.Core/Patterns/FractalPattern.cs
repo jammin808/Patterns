@@ -184,11 +184,12 @@ public sealed class FractalPattern : IPatternRenderer
         var sink = f.Sink;
         var palette = Palette(sink, o.ColorsCsv);
         var audio = o.AudioSource == AudioSourceKind.None ? AudioLevelFrame.Zero : AudioLevels.Read(f.Ctx.UtcNow);
+        var surge = EffectImpulses.SurgeAt(f.Ctx.Time);
         int w = f.W, h = f.H;
 
         if (UsesShader(f.Ctx.Sink) && Shader(sink, o.Kind) is { } fx)
         {
-            var view = FractalView.Of(o, f.Ctx.Time, audio, ShaderIterationCap);
+            var view = FractalView.Of(o, f.Ctx.Time, audio, ShaderIterationCap, surge);
             var uniforms = new SKRuntimeEffectUniforms(fx)
             {
                 ["res"] = new[] { (float)w, (float)h },
@@ -211,14 +212,16 @@ public sealed class FractalPattern : IPatternRenderer
             paint.Shader = shader;
             c.DrawRect(SKRect.Create(0, 0, w, h), paint);
             paint.Shader = null;
+            EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
             return;
         }
 
-        var cpuView = FractalView.Of(o, f.Ctx.Time, audio);
+        var cpuView = FractalView.Of(o, f.Ctx.Time, audio, surge: surge);
         var size = FractalRaster.SizeFor(o.Quality, f.Canvas);
         sink.Fractal = FractalRaster.Render(sink.Fractal, size, o.Kind, palette, cpuView);
         using var image = SKImage.FromBitmap(sink.Fractal.Bitmap);
         if (image is not null) c.DrawImage(image, SKRect.Create(0, 0, w, h), DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
+        EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
     }
 
     private static SKRuntimeEffect? Shader(SinkState sink, FractalKind kind)

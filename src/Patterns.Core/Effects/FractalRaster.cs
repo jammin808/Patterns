@@ -15,16 +15,16 @@ public readonly record struct FractalView(double CenterX, double CenterY, double
     /// <summary>Plane units across the whole canvas height at zoom 1.</summary>
     public const double BaseSpan = 2.4;
 
-    public static FractalView Of(FractalOptions o, double time, AudioLevelFrame audio, int iterationCap = 1024)
+    public static FractalView Of(FractalOptions o, double time, AudioLevelFrame audio, int iterationCap = 1024, EffectSurge surge = default)
     {
         var amount = o.AudioSource == AudioSourceKind.None ? 0 : o.AudioAmount;
         var speed = o.Speed;
-        var pulse = 1 + 0.08 * Math.Sin(time * speed * 0.6) + audio.Level * 0.35 * amount;
+        var pulse = 1 + 0.08 * Math.Sin(time * speed * 0.6) + audio.Level * 0.35 * amount + surge.Zoom * 0.6;
         var span = BaseSpan / (o.Zoom * Math.Max(0.5, pulse));
         var cr = o.JuliaReal + 0.06 * Math.Sin(time * speed) * (1 + audio.Mid * amount);
         var ci = o.JuliaImag + 0.06 * Math.Cos(time * speed * 0.77);
-        var offset = time * speed * 0.05 + audio.Low * 0.3 * amount;
-        var bright = 1 + audio.High * 0.5 * amount;
+        var offset = time * speed * 0.05 + audio.Low * 0.3 * amount + surge.Speed * 0.15;
+        var bright = 1 + audio.High * 0.5 * amount + surge.Glow * 0.8;
         return new FractalView(o.CenterX, o.CenterY, span, cr, ci, Math.Min(o.Iterations, iterationCap), offset, bright, time);
     }
 

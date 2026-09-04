@@ -113,7 +113,7 @@ public static class StingerLibrary
     /// </summary>
     public static string AfterSummary(ShowState state, StingerItemConfig item)
     {
-        if (item.Kind != StingerKind.Sting) return "";
+        if (item.Kind != StingerKind.Sting || item.Source == StingerSource.EffectPulse) return "";
         switch (item.After)
         {
             case StingerAfter.Manual:
@@ -146,7 +146,7 @@ public static class StingerLibrary
     /// </summary>
     public static string? AfterProblem(ShowState state, StingerItemConfig item)
     {
-        if (item.Kind != StingerKind.Sting) return null;
+        if (item.Kind != StingerKind.Sting || item.Source == StingerSource.EffectPulse) return null;
         switch (item.After)
         {
             case StingerAfter.Next:
@@ -170,7 +170,7 @@ public static class StingerLibrary
     /// <summary>Worth saying, not worth refusing — a Soft validator issue. First match wins.</summary>
     public static string? AfterNote(ShowState state, StingerItemConfig item)
     {
-        if (item.Kind != StingerKind.Sting) return null;
+        if (item.Kind != StingerKind.Sting || item.Source == StingerSource.EffectPulse) return null;
         var name = item.DisplayName;
         if (item.After == StingerAfter.Manual && PlaylistSequencer.IsAudioPath(item.Path))
         {
@@ -203,7 +203,7 @@ public static class StingerLibrary
             foreach (var action in cue.Actions)
             {
                 if (action.Kind != CueActionKind.StingerFire) continue;
-                if (Find(state, action.Target) is { Kind: StingerKind.Sting, After: StingerAfter.Next }) return true;
+                if (Find(state, action.Target) is { Kind: StingerKind.Sting, After: StingerAfter.Next, Source: StingerSource.File }) return true;
             }
         }
         return false;

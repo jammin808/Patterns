@@ -2692,6 +2692,20 @@ public sealed class MainViewModel : Observable
     // ---- fractal ------------------------------------------------------------
 
     public string[] FractalPresetNames => FractalPresets.Names;
+
+    // ---- effect pulses ------------------------------------------------------
+
+    public EnumItem[] PulsePresets => Lists.PulsePresets;
+
+    private RelayCommand? _addEffectPulse;
+
+    /// <summary>A stinger with no file: a surge through the particles and fractals on screen, fired like any other.</summary>
+    public RelayCommand AddEffectPulseCommand => _addEffectPulse ??= new RelayCommand(() =>
+    {
+        State.Stingers.Items.Add(new StingerItemConfig { Source = StingerSource.EffectPulse, Kind = StingerKind.Sting });
+        RefreshStingerGroups();
+        StatusMessage = "Effect pulse added — fire it like any stinger; it surges through the particles and fractals on screen.";
+    });
     public EnumItem[] FractalKinds => Lists.FractalKinds;
     public EnumItem[] AudioSources => Lists.AudioSources;
     public EnumItem[] FractalQualities => Lists.FractalQualities;

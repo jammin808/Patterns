@@ -151,9 +151,11 @@
 
     <TextBlock Classes="h2" Text="VOG &amp; STINGERS" />
     <TextBlock Classes="hint"
-               Text="One-press sounds and clips, fired from here, the Show panel, a cue, a phone or a Stream Deck — no audio engineer needed. A VOG (voice of God) plays over the show — 'Take your seats, the show is about to begin' — the music ducks underneath, and a clip hands the screens back when it ends. A STINGER is a transition hit: the music fades out, a clip dissolves in, and when it lands the show goes where you say — back to what was on, held for your take, on to the next cue, or to a look or cue you name. New files start as VOGs; switch a row to Stinger to give it an ending." />
+               Text="One-press sounds and clips, fired from here, the Show panel, a cue, a phone or a Stream Deck — no audio engineer needed. A VOG (voice of God) plays over the show — 'Take your seats, the show is about to begin' — the music ducks underneath, and a clip hands the screens back when it ends. A STINGER is a transition hit: the music fades out, a clip dissolves in, and when it lands the show goes where you say — back to what was on, held for your take, on to the next cue, or to a look or cue you name. New files start as VOGs; switch a row to Stinger to give it an ending. An EFFECT PULSE is a stinger with no file: a surge through the particles and fractals on screen — an explosion, a rush, a flash, a bloom — that settles back by itself, owns nothing and changes no music; fire it alone, over a clip, or in a cue beside a look." />
     <WrapPanel>
       <Button Classes="chip" Content="+ Add sounds / clips…" Command="{Binding AddStingerFilesCommand}" Margin="0,0,8,6" />
+      <Button Classes="chip" Content="+ Add effect pulse" Command="{Binding AddEffectPulseCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="A stinger with no file: a surge through the particles and fractals on screen — an explosion, a rush, a flash, a bloom — that settles back by itself" />
       <Button Classes="stop" Content="■ STOP" Command="{Binding StopStingerCommand}" Margin="0,0,0,6"
               ToolTip.Tip="Stops whatever is on air: a clip or a held frame reverts, and a stinger's ending is cancelled, never run" />
     </WrapPanel>
@@ -167,22 +169,34 @@
                       CommandParameter="{Binding}" />
               <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <TextBlock Classes="label" Text="{Binding KindLabel}" Foreground="{StaticResource AccentBrush}" />
-                <TextBlock Classes="label" Text="{Binding Path, Converter={StaticResource MediaKind}}" />
+                <TextBlock Classes="label" Text="{Binding Path, Converter={StaticResource MediaKind}}" IsVisible="{Binding IsFile}" />
               </StackPanel>
               <TextBox Grid.Column="4" Text="{Binding Name}" MinWidth="60"
-                       Watermark="{Binding Path, Converter={StaticResource FileName}}"
+                       Watermark="{Binding DisplayName}"
                        ToolTip.Tip="{Binding Path}" />
               <Button Grid.Column="6" Classes="mini" Content="✕"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveStingerCommand}"
                       CommandParameter="{Binding}" />
-              <Grid Grid.Row="2" Grid.ColumnSpan="7" ColumnDefinitions="Auto,8,*,8,40">
+              <Grid Grid.Row="2" Grid.ColumnSpan="7" ColumnDefinitions="Auto,8,260,8,*,8,60" IsVisible="{Binding IsPulse}">
+                <TextBlock Classes="label" Text="Pulse" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="2" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PulsePresets}"
+                          SelectedValue="{Binding PulsePreset, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                <Slider Grid.Column="4" Minimum="100" Maximum="5000" TickFrequency="100"
+                        Value="{Binding PulseMs, Mode=TwoWay, Converter={StaticResource Num}}"
+                        ToolTip.Tip="How long the surge runs before the picture settles" />
+                <TextBlock Grid.Column="6" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                           Text="{Binding PulseMs, StringFormat={}{0} ms}" />
+              </Grid>
+              <Grid Grid.Row="2" Grid.ColumnSpan="7" ColumnDefinitions="Auto,8,*,8,40" IsVisible="{Binding IsFile}">
                 <TextBlock Classes="label" Text="Vol" VerticalAlignment="Center" />
                 <Slider Grid.Column="2" Minimum="0" Maximum="125" TickFrequency="5"
                         Value="{Binding VolumePct, Mode=TwoWay}" />
                 <TextBlock Grid.Column="4" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                            Text="{Binding VolumePct, StringFormat={}{0:0}%}" />
               </Grid>
-              <Grid Grid.Row="4" Grid.ColumnSpan="7" ColumnDefinitions="Auto,8,260,8,*">
+              <Grid Grid.Row="4" Grid.ColumnSpan="7" ColumnDefinitions="Auto,8,260,8,*" IsVisible="{Binding IsFile}">
                 <TextBlock Classes="label" Text="Kind" VerticalAlignment="Center" />
                 <ComboBox Grid.Column="2" HorizontalAlignment="Stretch"
                           ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).StingerKinds}"

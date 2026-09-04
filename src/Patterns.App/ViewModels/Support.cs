@@ -339,6 +339,14 @@ public static class Lists
         new(StingerKind.Sting, "Stinger — a transition hit, the music fades"),
     };
 
+    public static readonly EnumItem[] PulsePresets =
+    {
+        new(PulsePreset.Explosion, "Explosion — a burst from the emitter, a flash, then settle"),
+        new(PulsePreset.Rush, "Rush — everything speeds up and dives in"),
+        new(PulsePreset.Flash, "Flash — a white hit and a glow"),
+        new(PulsePreset.Bloom, "Bloom — a swell of size and glow"),
+    };
+
     public static readonly EnumItem[] StingerAfters =
     {
         new(StingerAfter.Return, "Back to what was on"),

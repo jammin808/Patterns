@@ -200,5 +200,6 @@ public sealed class ParticlePattern : IPatternRenderer
         }
         sim.Advance(f.Ctx.Time);
         sim.Render(c, f.Paints);
+        Effects.EffectFlash.Draw(c, f.W, f.H, Effects.EffectImpulses.SurgeAt(f.Ctx.Time).Flash, f.Paints);
     }
 }

@@ -604,9 +604,48 @@ public sealed class StingerItemConfig : Observable
     private StingerAfter _after = StingerAfter.Return;
     private string _afterTarget = "";
     private bool _musicReturns = true;
+    private StingerSource _source = StingerSource.File;
+    private PulsePreset _pulsePreset = PulsePreset.Explosion;
+    private int _pulseMs = 900;
 
     /// <summary>Stable identity (schema 4) — names fall back to file names and need not be unique.</summary>
     public string Id { get => _id; set => Set(ref _id, value); }
+
+    /// <summary>A sound or clip on disk, or an effect pulse — a surge through the particles and fractals on screen.</summary>
+    public StingerSource Source
+    {
+        get => _source;
+        set
+        {
+            if (Set(ref _source, value))
+            {
+                Raise(nameof(IsPulse));
+                Raise(nameof(IsFile));
+                Raise(nameof(IsSting));
+                Raise(nameof(KindLabel));
+                Raise(nameof(DisplayName));
+            }
+        }
+    }
+
+    /// <summary>Pulse only: its shape.</summary>
+    public PulsePreset PulsePreset
+    {
+        get => _pulsePreset;
+        set
+        {
+            if (Set(ref _pulsePreset, value)) Raise(nameof(DisplayName));
+        }
+    }
+
+    /// <summary>Pulse only: how long the surge runs before the picture settles, 100 – 5000 ms.</summary>
+    public int PulseMs { get => _pulseMs; set => Set(ref _pulseMs, Math.Clamp(value, 100, 5000)); }
+
+    [JsonIgnore]
+    public bool IsPulse => _source == StingerSource.EffectPulse;
+
+    [JsonIgnore]
+    public bool IsFile => _source == StingerSource.File;
 
     /// <summary>Button label ("Take your seats"); empty = the file name.</summary>
     public string Name
@@ -674,21 +713,22 @@ public sealed class StingerItemConfig : Observable
     /// <summary>Stinger only: the music fades back up when it lands. Off = the track stops.</summary>
     public bool MusicReturns { get => _musicReturns; set => Set(ref _musicReturns, value); }
 
-    /// <summary>Row-level panel visibility in XAML without a converter.</summary>
+    /// <summary>Row-level panel visibility in XAML without a converter: a stinger file, whose ending is the operator's to choose. A pulse has no ending.</summary>
     [JsonIgnore]
-    public bool IsSting => _kind == StingerKind.Sting;
+    public bool IsSting => _kind == StingerKind.Sting && _source == StingerSource.File;
 
     /// <summary>The tag beside a fire button and in the cue picker.</summary>
     [JsonIgnore]
-    public string KindLabel => _kind == StingerKind.Sting ? "STING" : "VOG";
+    public string KindLabel => _source == StingerSource.EffectPulse ? "PULSE" : _kind == StingerKind.Sting ? "STING" : "VOG";
 
-    /// <summary>What fire buttons show. Splits both separators — show files travel between OSes.</summary>
+    /// <summary>What fire buttons show. Splits both separators — show files travel between OSes. A nameless pulse is named by its shape.</summary>
     [JsonIgnore]
     public string DisplayName
     {
         get
         {
             if (_name.Length > 0) return _name;
+            if (_source == StingerSource.EffectPulse) return $"{_pulsePreset} pulse";
             var cut = _path.LastIndexOfAny(new[] { '/', '\\' });
             return cut >= 0 ? _path[(cut + 1)..] : _path;
         }

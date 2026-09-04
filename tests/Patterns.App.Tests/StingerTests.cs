@@ -344,7 +344,7 @@ public class StingerTests
             Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);
 
             var json = router.StateJson();
-            Assert.Contains("\"stingers\":[{\"n\":1,\"name\":\"Opener\",\"kind\":\"vog\"}]", json);
+            Assert.Contains("\"stingers\":[{\"n\":1,\"name\":\"Opener\",\"kind\":\"vog\",\"source\":\"file\"}]", json);
             Assert.Contains("\"stingHold\":\"\"", json);
             Assert.Contains("\"stingerKind\":\"\"", json);
             Assert.Contains("\"health\":\"Up ", json);

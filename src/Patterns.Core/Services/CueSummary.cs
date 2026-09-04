@@ -45,6 +45,7 @@ public static class CueSummary
             {
                 var s = FindStinger(state, a.Target);
                 if (s is null) return $"Sting '{a.Target}'";     // a dead target reads as it always did
+                if (s.Source == StingerSource.EffectPulse) return $"Pulse '{s.DisplayName}'";
                 return s.Kind == StingerKind.Vog
                     ? $"VOG '{s.DisplayName}'"
                     : $"Sting '{s.DisplayName}' ({StingerLibrary.AfterSummary(state, s)})";

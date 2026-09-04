@@ -248,6 +248,11 @@ fault containment, and settings that can never brick startup.
   Deck, in a cue) and the music track, break music, a playing stinger and a clip's soundtrack
   drop to the level you set, ramping, until you lift it — a VOG never ducks. A latch, not a
   programme source: STOP ALL and look recalls leave it, and a restart never comes up ducked.
+- **Effect pulses** — a stinger with no file: an **explosion**, a **rush**, a **flash** or a
+  **bloom** that surges through the particles and fractals on screen and settles back by itself
+  within its length. It owns nothing — no session, no label, no revert, no change to the music —
+  so it fires alone, over a clip, from a cue beside a look, or from `STINGER n` and a Stream
+  Deck like any other; every output, a span's halves and NDI surge on the same frame.
 - **Stingers** — transition hits from the same library: the music **fades out** instead of
   ducking, a clip **dissolves in**, and when it lands the show goes where the stinger says —
   **back** to what was on, **held** on the last frame for your TAKE or GO (with an optional
@@ -398,7 +403,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 763 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 770 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, effect pulses through particles and fractals, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

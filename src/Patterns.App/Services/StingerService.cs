@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using Patterns.Core.Effects;
 using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -164,6 +165,16 @@ public sealed class StingerService : IDisposable
     {
         var now = nowUtc ?? NowUtc();
         var name = item.DisplayName;
+        if (item.Source == StingerSource.EffectPulse)
+        {
+            // A pulse is a surge through whatever is on screen: no session, no label, no revert,
+            // no after-policy, no change to the music. It fires over anything, and anything fires
+            // over it; a re-press restarts the surge from its own rise.
+            EffectImpulses.Fire(item.PulsePreset, ShowClock.Seconds, item.PulseMs / 1000.0);
+            _status = $"Pulse: {name}";
+            Log.Info($"Effect pulse fired: {name}");
+            return true;
+        }
         if (string.IsNullOrWhiteSpace(item.Path) || !File.Exists(item.Path))
         {
             _status = $"File missing: {name}";

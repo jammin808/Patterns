@@ -74,6 +74,10 @@ public class VogStingerAppTests
     /// <summary>Unsandboxed, program on Grid, the LIVE strip saying "Doors": the ground every test starts from.</summary>
     private static void Ground(TestApp.Booted b)
     {
+        // The service's own timer must read the test's clock: with the wall clock it would judge a
+        // clip fired "at T0" stuck (no decoder here) twelve seconds after T0 — which is every run
+        // once the day has moved past it.
+        b.Services.Stingers.NowUtc = () => T0;
         b.Vm.IsSandboxActive = false;
         b.Vm.ActivePattern.Kind = PatternKind.Grid;
         b.Vm.State.Stingers.FadeMs = 400;

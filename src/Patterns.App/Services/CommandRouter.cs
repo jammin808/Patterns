@@ -181,6 +181,7 @@ public sealed class CommandRouter
                 n = n + 1,
                 name = i.DisplayName,
                 kind = i.Kind == StingerKind.Sting ? "sting" : "vog",
+                source = i.Source == StingerSource.EffectPulse ? "pulse" : "file",
             }).ToArray(),
             stingerPlaying = s.Stingers.PlayingName,                       // whatever owns the show right now, either kind
             stingerKind = _services.Stingers.StingOnAir.Length > 0 ? "sting"

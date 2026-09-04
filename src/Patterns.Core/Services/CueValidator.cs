@@ -133,6 +133,7 @@ public static class CueValidator
                         Hard($"{where}: VOG or stinger '{a.Target}' not found.");
                         break;
                     }
+                    if (s.Source == StingerSource.EffectPulse) break; // a pulse needs no file, owns no screens and has no ending
                     if (!ctx.FileExists(s.Path)) Hard($"{where}: stinger file missing — {Path.GetFileName(s.Path)}.");
                     if (PlaylistSequencer.IsVideoPath(s.Path))
                     {
