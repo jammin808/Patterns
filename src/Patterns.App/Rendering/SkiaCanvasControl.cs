@@ -6,6 +6,7 @@ using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Avalonia.Threading;
 using Patterns.Core.Rendering;
+using Patterns.Core.Services;
 
 namespace Patterns.App.Rendering;
 
@@ -54,21 +55,15 @@ public class SkiaCanvasControl : Control
         ScheduleNext(pipeline);
     }
 
+    private long _pacerSlot = -1;
+
     private void ScheduleNext(RenderPipeline pipeline)
     {
         switch (pipeline.Cadence)
         {
             case RedrawCadence.Continuous:
                 _secondTimer.Stop();
-                if (!_frameRequested)
-                {
-                    _frameRequested = true;
-                    TopLevel.GetTopLevel(this)?.RequestAnimationFrame(_ =>
-                    {
-                        _frameRequested = false;
-                        InvalidateVisual();
-                    });
-                }
+                RequestFrame();
                 break;
 
             case RedrawCadence.PerSecond:
@@ -79,6 +74,30 @@ public class SkiaCanvasControl : Control
                 _secondTimer.Stop();
                 break;
         }
+    }
+
+    /// <summary>
+    /// One vsync callback at a time. An output with a target rate presents only when the show
+    /// clock has entered a new frame slot at that rate (<see cref="FramePacer"/>); on the other
+    /// vsyncs it just asks for the next one, so a 30 fps show on a 60 Hz display draws every
+    /// other refresh and never a frame late. Unpaced sinks draw on every vsync, as before.
+    /// </summary>
+    private void RequestFrame()
+    {
+        if (_frameRequested) return;
+        _frameRequested = true;
+        TopLevel.GetTopLevel(this)?.RequestAnimationFrame(_ =>
+        {
+            _frameRequested = false;
+            var target = _pipeline?.Viewport.TargetFps ?? 0;
+            if (target > 0 && _pipeline?.Cadence == RedrawCadence.Continuous &&
+                !FramePacer.ShouldPresent(ShowClock.Seconds, target, ref _pacerSlot))
+            {
+                RequestFrame();
+                return;
+            }
+            InvalidateVisual();
+        });
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)

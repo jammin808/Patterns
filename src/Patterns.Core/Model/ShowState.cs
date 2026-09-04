@@ -7,9 +7,17 @@ public sealed class OutputConfig : Observable
 {
     private bool _topmost = true;
     private bool _hideCursor = true;
+    private int _masterFps;
 
     public bool Topmost { get => _topmost; set => Set(ref _topmost, value); }
     public bool HideCursor { get => _hideCursor; set => Set(ref _hideCursor, value); }
+
+    /// <summary>
+    /// The show's frame rate: every output presents at this rate (a screen may override it), an
+    /// NDI sender set to "master" sends at it, and the stream can follow it. 0 = every display's
+    /// own refresh, as before.
+    /// </summary>
+    public int MasterFps { get => _masterFps; set => Set(ref _masterFps, Math.Clamp(value, 0, 240)); }
 
     /// <summary>
     /// The spatial screen arrangement. Screens dragged flush against each other form one
@@ -100,6 +108,11 @@ public sealed class ScreenPlacement : Observable
 
     /// <summary>Physical rotation — content is pre-rotated so a rotated display reads upright.</summary>
     public OutputRotation Rotation { get => _rotation; set => Set(ref _rotation, value); }
+
+    private int _fpsOverride;
+
+    /// <summary>This output's own frame rate; 0 = the show's master rate (or the display's refresh when that is 0 too).</summary>
+    public int FpsOverride { get => _fpsOverride; set => Set(ref _fpsOverride, Math.Clamp(value, 0, 240)); }
     public double BrightnessPct { get => _brightnessPct; set => Set(ref _brightnessPct, Math.Clamp(value, 10, 200)); }
     /// <summary>Midtone gamma trim; 1.0 = neutral, above darkens mids, below lifts them.</summary>
     public double Gamma { get => _gamma; set => Set(ref _gamma, Math.Clamp(value, 0.4, 2.5)); }
@@ -839,6 +852,12 @@ public sealed class StreamConfig : Observable
     public int Width { get => _width; set => Set(ref _width, Math.Clamp(value, 320, 3840)); }
     public int Height { get => _height; set => Set(ref _height, Math.Clamp(value, 180, 2160)); }
     public int Fps { get => _fps; set => Set(ref _fps, Math.Clamp(value, 10, 60)); }
+
+    private bool _fpsFollowsMaster;
+
+    /// <summary>Encode at the show's master frame rate (clamped to 10–60) instead of <see cref="Fps"/>.</summary>
+    public bool FpsFollowsMaster { get => _fpsFollowsMaster; set => Set(ref _fpsFollowsMaster, value); }
+
     public int VideoKbps { get => _videoKbps; set => Set(ref _videoKbps, Math.Clamp(value, 500, 20000)); }
     public int AudioKbps { get => _audioKbps; set => Set(ref _audioKbps, Math.Clamp(value, 64, 320)); }
 
@@ -935,6 +954,19 @@ public sealed class WebConfig : Observable
     public ObservableCollection<string> SavedUrls { get; init; } = new();
 }
 
+/// <summary>The mode a capture device opens in — what the card's driver calls a stream capability.</summary>
+public sealed class CaptureFormatConfig : Observable
+{
+    private string _device = "";
+    private string _format = "";
+
+    /// <summary>The DirectShow friendly name.</summary>
+    public string Device { get => _device; set => Set(ref _device, value ?? ""); }
+
+    /// <summary>"1920x1080@60" — a <c>CaptureFormat</c> key; empty means the device's default.</summary>
+    public string Format { get => _format; set => Set(ref _format, value ?? ""); }
+}
+
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
@@ -991,6 +1023,33 @@ public sealed class ShowState : Observable
 
     /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
     public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();
+
+    /// <summary>The mode each capture device opens in ("1920x1080@60"), by device name; absent = the device's default.</summary>
+    public ObservableCollection<CaptureFormatConfig> CaptureFormats { get; init; } = new();
+
+    /// <summary>The stored mode key for a capture device, or "" for the device's default.</summary>
+    public string CaptureFormatFor(string device)
+    {
+        foreach (var f in CaptureFormats)
+        {
+            if (string.Equals(f.Device, device, StringComparison.OrdinalIgnoreCase)) return f.Format;
+        }
+        return "";
+    }
+
+    /// <summary>Sets (or clears, with "") the mode a capture device opens in.</summary>
+    public void SetCaptureFormat(string device, string format)
+    {
+        if (string.IsNullOrWhiteSpace(device)) return;
+        var existing = CaptureFormats.FirstOrDefault(f => string.Equals(f.Device, device, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(format))
+        {
+            if (existing is not null) CaptureFormats.Remove(existing);
+            return;
+        }
+        if (existing is null) CaptureFormats.Add(new CaptureFormatConfig { Device = device, Format = format });
+        else existing.Format = format;
+    }
 
     /// <summary>The nickname for an input key, or the fallback when none is set.</summary>
     public string InputLabel(string key, string fallback)

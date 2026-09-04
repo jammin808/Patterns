@@ -33,10 +33,13 @@
       <NumericUpDown Grid.Column="3" Minimum="180" Maximum="2160" Increment="2" FormatString="0" ShowButtonSpinner="False"
                      Value="{Binding State.Stream.Height, Mode=TwoWay, Converter={StaticResource Num}}" />
     </Grid>
-    <Grid ColumnDefinitions="110,86" Margin="0,4,0,0">
+    <Grid ColumnDefinitions="110,86,12,*" Margin="0,4,0,0">
       <TextBlock Classes="label" Text="Frame rate" VerticalAlignment="Center" />
       <NumericUpDown Grid.Column="1" Minimum="10" Maximum="60" Increment="5" FormatString="0" ShowButtonSpinner="False"
-                     Value="{Binding State.Stream.Fps, Mode=TwoWay, Converter={StaticResource Num}}" />
+                     Value="{Binding State.Stream.Fps, Mode=TwoWay, Converter={StaticResource Num}}"
+                     IsEnabled="{Binding !State.Stream.FpsFollowsMaster}" />
+      <CheckBox Grid.Column="3" Content="Follow the show's master rate (Screens page)" VerticalAlignment="Center"
+                IsChecked="{Binding State.Stream.FpsFollowsMaster}" />
     </Grid>
     <Grid ColumnDefinitions="110,86" Margin="0,4,0,0">
       <TextBlock Classes="label" Text="Video kbps" VerticalAlignment="Center" />

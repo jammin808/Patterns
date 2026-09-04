@@ -206,7 +206,7 @@ public sealed class NdiSender : IDisposable
                     _engine.Render(surface.Canvas, snap, in ctx, sink);
                     surface.Canvas.Flush();
 
-                    var (rateN, rateD) = NdiRateTable.Resolve(cfg.RateKey);
+                    var (rateN, rateD) = NdiRateTable.Resolve(cfg.RateKey, snap.State.Output.MasterFps);
                     using (var pixmap = surface.PeekPixels())
                     {
                         if (pixmap is null)

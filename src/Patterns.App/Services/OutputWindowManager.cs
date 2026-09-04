@@ -32,7 +32,8 @@ public sealed class OutputWindowManager
     /// <summary>Open (or retarget) output windows for the current arrangement.</summary>
     public void Apply()
     {
-        var targets = BuildViewports(_services.State.Output.Placements, _services.Screens.All);
+        var targets = BuildViewports(_services.State.Output.Placements, _services.Screens.All,
+            masterFps: _services.State.Output.MasterFps);
         if (targets.Count == 0)
         {
             Log.Warn("No enabled screens to output to.");
@@ -78,7 +79,7 @@ public sealed class OutputWindowManager
     /// pattern lookup enabled). Unit tested.
     /// </summary>
     public static List<(ScreenInfo Screen, PipelineViewport Viewport)> BuildViewports(
-        IEnumerable<ScreenPlacement> placements, IReadOnlyList<ScreenInfo> screens, bool includePlanned = false)
+        IEnumerable<ScreenPlacement> placements, IReadOnlyList<ScreenInfo> screens, bool includePlanned = false, int masterFps = 0)
     {
         var byId = screens.ToDictionary(s => s.Id);
         var live = new List<(ScreenPlacement Placement, ScreenInfo Info)>();
@@ -150,6 +151,8 @@ public sealed class OutputWindowManager
                     BlendRightPx = blend.Right, BlendBottomPx = blend.Bottom,
                     BlendCurve = placement.BlendCurve,
                     BlendGamma = placement.BlendGamma,
+                    // The screen's own rate wins; else the master; 0 leaves the display's refresh.
+                    TargetFps = placement.FpsOverride > 0 ? placement.FpsOverride : masterFps,
                 };
                 result.Add((info, viewport));
             }

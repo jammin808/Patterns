@@ -73,6 +73,9 @@ public sealed record PipelineViewport(
     public BlendCurve BlendCurve { get; init; } = BlendCurve.SCurve;
     public double BlendGamma { get; init; } = 1.0;
 
+    /// <summary>The rate this sink presents at (0 = every vsync). Outputs only; the preview and monitors stay unpaced.</summary>
+    public int TargetFps { get; init; }
+
     /// <summary>Only a real output fades its edges — never a monitor, a preview, NDI or a thumbnail.</summary>
     public bool HasBlend => Kind == SinkKind.Output &&
         (BlendLeftPx > 0 || BlendTopPx > 0 || BlendRightPx > 0 || BlendBottomPx > 0);

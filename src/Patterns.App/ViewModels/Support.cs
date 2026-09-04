@@ -244,6 +244,24 @@ public sealed record ResolutionPreset(string Label, int W, int H)
     public override string ToString() => Label;
 }
 
+/// <summary>A frame-rate choice: 0 means "follow" (the display's refresh for the master, the master for a screen).</summary>
+public sealed record FpsOption(int Value, string Label)
+{
+    public override string ToString() => Label;
+
+    public static readonly FpsOption[] Master =
+    {
+        new(0, "Every display's own refresh (unlimited)"),
+        new(24, "24 fps"), new(25, "25 fps"), new(30, "30 fps"), new(50, "50 fps"), new(60, "60 fps"),
+    };
+
+    public static readonly FpsOption[] Screen =
+    {
+        new(0, "The show's master rate"),
+        new(24, "24 fps"), new(25, "25 fps"), new(30, "30 fps"), new(50, "50 fps"), new(60, "60 fps"),
+    };
+}
+
 public static class Lists
 {
     private static string Pretty(string name)

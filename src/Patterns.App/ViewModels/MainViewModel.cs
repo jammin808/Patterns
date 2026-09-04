@@ -445,6 +445,11 @@ public sealed class MainViewModel : Observable
             Raise(nameof(PresenterStepText));
         };
         ShowControls = new ShowControls(_services, m => StatusMessage = m);
+        CaptureFormat = new CaptureFormatPicker(() => State, () => ActivePattern.Media.CaptureDevice, () => _services.RepublishNow());
+        PipCaptureFormat = new CaptureFormatPicker(() => State, () => State.Overlays.Pip.CaptureDevice, () => _services.RepublishNow());
+        ApplyDisplayModeCommand = new RelayCommand(ApplyDisplayMode);
+        KeepDisplayModeCommand = new RelayCommand(KeepDisplayMode);
+        RevertDisplayModeCommand = new RelayCommand(RevertDisplayMode);
         SelectGroupCommand = new RelayCommand<ShellGroup>(SelectGroup);
         SelectPageCommand = new RelayCommand<int>(SelectPage);
         SelectPrepCommand = new RelayCommand(() =>
@@ -491,8 +496,193 @@ public sealed class MainViewModel : Observable
 
     private void OnScreensChanged()
     {
+        AdoptRenamedDisplay();
         ReconcilePlacements();
         RefreshOutputsStatus();
+    }
+
+    // ---- frame rate ---------------------------------------------------------
+
+    public FpsOption[] MasterFpsOptions => FpsOption.Master;
+    public FpsOption[] ScreenFpsOptions => FpsOption.Screen;
+
+    /// <summary>The show's frame rate: outputs pace to it, an NDI sender on "master" sends at it, the stream can follow it.</summary>
+    public int MasterFps
+    {
+        get => State.Output.MasterFps;
+        set
+        {
+            if (State.Output.MasterFps == value) return;
+            State.Output.MasterFps = value;
+            Raise();
+            if (_services.Outputs.IsLive) _services.Outputs.Apply(); // the windows re-read their viewports
+        }
+    }
+
+    /// <summary>The selected screen's own rate; 0 follows the master.</summary>
+    public int SelectedFpsOverride
+    {
+        get => _selectedPlacement?.FpsOverride ?? 0;
+        set
+        {
+            if (_selectedPlacement is null || _selectedPlacement.FpsOverride == value) return;
+            _selectedPlacement.FpsOverride = value;
+            Raise();
+            if (_services.Outputs.IsLive) _services.Outputs.Apply();
+        }
+    }
+
+    // ---- display modes ------------------------------------------------------
+
+    private string _displayModeStatus = "";
+    private bool _displayModePending;
+    private string _selectedDisplayModeLabel = "";
+    private readonly List<DisplayMode> _displayModes = new();
+    private (string Device, DisplayMode Previous, string ScreenId, int Index)? _modeChange;
+    private DispatcherTimer? _modeRevertTimer;
+
+    /// <summary>The modes the selected display offers ("1920×1080 @ 60 Hz"); its current mode first.</summary>
+    public ObservableCollection<string> DisplayModeOptions { get; } = new();
+
+    public string SelectedDisplayModeLabel { get => _selectedDisplayModeLabel; set => Set(ref _selectedDisplayModeLabel, value ?? ""); }
+
+    /// <summary>A sentence about the display's mode: what it is in, what a change did, or why none is possible here.</summary>
+    public string DisplayModeStatus { get => _displayModeStatus; private set => Set(ref _displayModeStatus, value); }
+
+    /// <summary>A change was applied and waits for KEEP — REVERT, or fifteen seconds, puts the old mode back.</summary>
+    public bool DisplayModePending { get => _displayModePending; private set => Set(ref _displayModePending, value); }
+
+    public RelayCommand ApplyDisplayModeCommand { get; }
+    public RelayCommand KeepDisplayModeCommand { get; }
+    public RelayCommand RevertDisplayModeCommand { get; }
+
+    private void RefreshDisplayModes()
+    {
+        _displayModes.Clear();
+        DisplayModeOptions.Clear();
+        if (_selectedPlacement is null || LiveInfo(_selectedPlacement) is not { IsPlanned: false } info)
+        {
+            DisplayModeStatus = "";
+            return;
+        }
+        if (!DisplayModes.Supported)
+        {
+            DisplayModeStatus = "Display modes can only be changed on Windows.";
+            return;
+        }
+        var device = DisplayModes.DeviceFor(info.Bounds);
+        var current = device is null ? null : DisplayModes.Current(device);
+        foreach (var m in device is null ? Array.Empty<DisplayMode>() : DisplayModes.List(device))
+        {
+            _displayModes.Add(m);
+            DisplayModeOptions.Add(m.Label);
+        }
+        if (current is { } cur)
+        {
+            SelectedDisplayModeLabel = cur.Label;
+            if (!_displayModePending) DisplayModeStatus = $"Now {cur.Label}.";
+        }
+        else
+        {
+            DisplayModeStatus = "This display could not be matched to a Windows display device.";
+        }
+    }
+
+    private void ApplyDisplayMode()
+    {
+        if (_selectedPlacement is null || LiveInfo(_selectedPlacement) is not { IsPlanned: false } info) return;
+        var pick = _displayModes.FirstOrDefault(m => m.Label == SelectedDisplayModeLabel);
+        if (pick == default)
+        {
+            DisplayModeStatus = "Pick a mode first.";
+            return;
+        }
+        var device = DisplayModes.DeviceFor(info.Bounds);
+        if (device is null || DisplayModes.Current(device) is not { } previous)
+        {
+            DisplayModeStatus = "This display could not be matched to a Windows display device.";
+            return;
+        }
+        if (previous == pick)
+        {
+            DisplayModeStatus = $"Already {pick.Label}.";
+            return;
+        }
+        if (_services.Outputs.IsLive)
+        {
+            DisplayModeStatus = "Close the outputs (OUTPUTS OFF) before changing a display mode.";
+            return;
+        }
+        _modeChange = (device, previous, _selectedPlacement.ScreenId, info.Index);
+        var error = DisplayModes.Apply(device, pick);
+        if (error.Length > 0)
+        {
+            _modeChange = null;
+            DisplayModeStatus = error;
+            return;
+        }
+        DisplayModePending = true;
+        DisplayModeStatus = $"Changed to {pick.Label} — KEEP it, or it reverts to {previous.Label} in 15 s.";
+        _modeRevertTimer?.Stop();
+        _modeRevertTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _modeRevertTimer.Tick += (_, _) => RevertDisplayMode();
+        _modeRevertTimer.Start();
+        Log.Info($"Display mode change on {device}: {previous.Label} → {pick.Label}.");
+    }
+
+    private void KeepDisplayMode()
+    {
+        if (!DisplayModePending) return;
+        _modeRevertTimer?.Stop();
+        _modeRevertTimer = null;
+        DisplayModePending = false;
+        // The rename has happened once the display is back under the id the change names; if
+        // Windows' topology event is still on its way, the hook finishes and forgets the change.
+        if (_modeChange is { } change && _services.Screens.Real.Any(s => s.Id == change.ScreenId)) _modeChange = null;
+        DisplayModeStatus = $"Kept {SelectedDisplayModeLabel}.";
+        Log.Info("Display mode kept.");
+    }
+
+    private void RevertDisplayMode()
+    {
+        _modeRevertTimer?.Stop();
+        _modeRevertTimer = null;
+        if (!DisplayModePending || _modeChange is not { } change) return;
+        DisplayModePending = false;
+        var error = DisplayModes.Apply(change.Device, change.Previous);
+        DisplayModeStatus = error.Length > 0 ? $"Could not revert: {error}" : $"Reverted to {change.Previous.Label}.";
+        // The rename hook below moves the placement back to the display's restored id.
+        Log.Info("Display mode reverted.");
+    }
+
+    /// <summary>
+    /// A display whose mode just changed comes back from Windows with a new id (ids embed the
+    /// geometry). Before the arrangement is reconciled — which would add a fresh placement for
+    /// the "new" display and orphan the old one — move everything programmed against the old id
+    /// onto the new one: the placement, its pattern, its canvases, senders, tiles and looks.
+    /// </summary>
+    private void AdoptRenamedDisplay()
+    {
+        if (_modeChange is not { } change) return;
+        // After KEEP or REVERT this is the last topology event the change may act on: a later
+        // hot-plug must never move a placement onto whichever display took the index.
+        var settled = !DisplayModePending;
+        var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == change.ScreenId);
+        var survived = _services.Screens.Real.Any(s => s.Id == change.ScreenId); // the id survived: nothing moved
+        var replacement = survived ? null : _services.Screens.Real.FirstOrDefault(s => s.Index == change.Index);
+        if (placement is null || survived || replacement is null || State.Output.Placements.Any(p => p.ScreenId == replacement.Id))
+        {
+            if (settled) _modeChange = null;
+            return;
+        }
+
+        var oldId = change.ScreenId;
+        _services.BulkEdit(() => ContentTargets.RenameScreen(State, oldId, replacement.Id));
+        if (_services.Sandbox.ProgramState is { } air) ContentTargets.RenameScreen(air, oldId, replacement.Id);
+        _services.RepublishNow();
+        _modeChange = settled ? null : change with { ScreenId = replacement.Id };
+        if (_selectedPlacement == placement) RaiseSelection();
+        Log.Info($"Display re-identified after a mode change: {oldId} → {replacement.Id}.");
     }
 
     public void ReconcilePlacements() => ReconcilePlacements(_services.Screens.All.ToList());
@@ -802,7 +992,9 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedScreenLabel));
         Raise(nameof(SelectedCanvasName));
         Raise(nameof(SelectedIsInCanvas));
+        Raise(nameof(SelectedFpsOverride));
         RaiseBlend();
+        RefreshDisplayModes();
     }
 
     // ---- custom labels ------------------------------------------------------
@@ -1394,6 +1586,12 @@ public sealed class MainViewModel : Observable
 
     /// <summary>The SHOW CONTROLS drawer beside the switcher.</summary>
     public ShowControls ShowControls { get; private set; } = null!;
+
+    /// <summary>The Format picker for the Media page's capture device.</summary>
+    public CaptureFormatPicker CaptureFormat { get; private set; } = null!;
+
+    /// <summary>The Format picker for the PiP inset's capture device.</summary>
+    public CaptureFormatPicker PipCaptureFormat { get; private set; } = null!;
 
     public string RunLayoutButtonText => _isRunLayout ? "EXIT RUN" : "RUN";
 
@@ -2628,9 +2826,8 @@ public sealed class MainViewModel : Observable
 
         _services.BulkEdit(() =>
         {
-            planned.ScreenId = realScreenId;
             planned.Planned = false;
-            RewriteScreenId(State, oldId, realScreenId);
+            ContentTargets.RenameScreen(State, oldId, realScreenId);
         });
 
         // The rig lives in the frozen program too while EDIT SAFE is on — adopt there as well,
@@ -2639,10 +2836,9 @@ public sealed class MainViewModel : Observable
         {
             foreach (var p in air.Output.Placements.Where(p => p.ScreenId == oldId))
             {
-                p.ScreenId = realScreenId;
                 p.Planned = false;
             }
-            RewriteScreenId(air, oldId, realScreenId);
+            ContentTargets.RenameScreen(air, oldId, realScreenId);
             _services.RepublishNow();
         }
 
@@ -2653,75 +2849,6 @@ public sealed class MainViewModel : Observable
         StatusMessage = $"Adopted onto {info.Label} ({info.Bounds.Width}×{info.Bounds.Height}) — everything programmed for it carried over.";
         Log.Info(StatusMessage);
         return true;
-    }
-
-    /// <summary>
-    /// Moves every reference to a screen id onto a new one. Adoption is only worth anything if
-    /// nothing programmed against the planned screen is left orphaned, so this covers the whole
-    /// surface: per-screen patterns, joined-canvas names, multiview tiles in <em>any</em>
-    /// pattern, NDI senders, the stream source, the web target — and the saved looks, whose
-    /// captured JSON carries per-screen assignments by id.
-    /// </summary>
-    private static void RewriteScreenId(ShowState state, string oldId, string newId)
-    {
-        foreach (var a in state.Independent.Where(a => a.ScreenId == oldId).ToList())
-        {
-            a.ScreenId = newId;
-        }
-        // A joined canvas's own pattern is keyed by its members (a+b) — the key moves too.
-        foreach (var a in state.Independent.Where(a => ContentTargets.IsCanvasKey(a.ScreenId)).ToList())
-        {
-            var members = ContentTargets.Members(a.ScreenId);
-            if (members.Contains(oldId))
-            {
-                a.ScreenId = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
-            }
-        }
-        foreach (var canvas in state.Output.CanvasNames.ToList())
-        {
-            var members = canvas.MemberKey.Split('+');
-            if (members.Contains(oldId))
-            {
-                canvas.MemberKey = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
-            }
-        }
-        foreach (var pattern in AllPatterns(state))
-        {
-            foreach (var tile in pattern.Multiview.Tiles)
-            {
-                if (tile.ScreenId == oldId) { tile.ScreenId = newId; continue; }
-                if (!ContentTargets.IsCanvasKey(tile.ScreenId)) continue;
-                var members = ContentTargets.Members(tile.ScreenId);
-                if (members.Contains(oldId))
-                {
-                    tile.ScreenId = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
-                }
-            }
-        }
-        foreach (var sender in state.Ndi.Senders)
-        {
-            if (sender.SourceScreenId == oldId) { sender.SourceScreenId = newId; continue; }
-            if (!ContentTargets.IsCanvasKey(sender.SourceScreenId)) continue;
-            var members = ContentTargets.Members(sender.SourceScreenId);
-            if (members.Contains(oldId))
-            {
-                sender.SourceScreenId = CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id));
-            }
-        }
-        if (state.Stream.SourceScreenId == oldId) state.Stream.SourceScreenId = newId;
-        if (state.Web.TargetScreenId == oldId) state.Web.TargetScreenId = newId;
-
-        // Saved looks are captured JSON — the id appears verbatim inside them.
-        foreach (var look in state.LooksAndCues.Looks.Where(l => l.Json.Contains(oldId, StringComparison.Ordinal)))
-        {
-            look.Json = look.Json.Replace(oldId, newId, StringComparison.Ordinal);
-        }
-    }
-
-    private static IEnumerable<PatternConfig> AllPatterns(ShowState state)
-    {
-        yield return state.Pattern;
-        foreach (var a in state.Independent) yield return a.Pattern;
     }
 
     /// <summary>Real displays not already claimed by a placement — the adopt targets.</summary>
@@ -3026,6 +3153,9 @@ public sealed class MainViewModel : Observable
         {
             RefreshCaptureDevices(quiet: true);
         }
+        // The Format pickers follow their device; a refresh is free while the device is unchanged.
+        if (ActivePattern.Media.Source == MediaSource.Capture) CaptureFormat.Refresh();
+        if (State.Overlays.Pip.Enabled && State.Overlays.Pip.Source == PipSource.Capture) PipCaptureFormat.Refresh();
         Raise(nameof(CanvasInfo));
         Raise(nameof(HeaderClock));
         Raise(nameof(CountdownPreview));

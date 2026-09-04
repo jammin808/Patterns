@@ -151,6 +151,12 @@
                   PlaceholderText="Capture devices…" />
         <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding RefreshCaptureDevicesCommand}" />
       </Grid>
+      <Grid ColumnDefinitions="130,*"
+            IsVisible="{Binding State.Overlays.Pip.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PipSource.Capture}}">
+        <TextBlock Classes="label" Text="Format" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding PipCaptureFormat.Options}"
+                  SelectedItem="{Binding PipCaptureFormat.Selected, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+      </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"

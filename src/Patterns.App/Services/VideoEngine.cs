@@ -24,7 +24,7 @@ public sealed class VideoEngine : IDisposable
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
 
-    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct);
+    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct, string Format = "");
 
     private readonly Dictionary<string, Mount> _mounts = new();
     private readonly List<(string Key, IMountedSource Source, DateTime RetiredUtc, int HoldMs)> _retired = new();
@@ -93,14 +93,14 @@ public sealed class VideoEngine : IDisposable
         {
             if (_mounts.TryGetValue(w.Key, out var existing))
             {
-                if (existing.Loop == w.Loop)
+                if (existing.Loop == w.Loop && existing.Format == w.Format)
                 {
                     // Mute/volume apply live to the running player — never restart the media.
                     existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
                     _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct };
                     continue;
                 }
-                RetireMount(w.Key, now, holdMs, fadeMs); // loop change needs a reopen
+                RetireMount(w.Key, now, holdMs, fadeMs); // a loop or capture-mode change needs a reopen
             }
 
             if (_mounts.Count >= MaxMounts)
@@ -115,10 +115,10 @@ public sealed class VideoEngine : IDisposable
                 var source = SourceFactory is { } open
                     ? open(w)
                     : new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain);
+                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format);
                 if (source is null) continue;
                 if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
-                _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct);
+                _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format);
                 InputBus.Mount(w.Key, source);
             }
             catch (Exception ex)
@@ -353,21 +353,34 @@ public sealed class VlcFrameSource : IMountedSource
         }
     }
 
-    /// <summary>Media options for a DirectShow capture device. Pure — unit tested.</summary>
-    public static string[] CaptureOptions(string deviceName) => new[]
+    /// <summary>
+    /// Media options for a DirectShow capture device. A chosen mode ("1920x1080@60") asks the
+    /// driver for that size and rate; an empty or unreadable one leaves the device's default.
+    /// Pure — unit tested.
+    /// </summary>
+    public static string[] CaptureOptions(string deviceName, string format = "")
     {
-        $":dshow-vdev={deviceName}",
-        ":dshow-adev=none",     // programme audio routing stays with the desk, not the display PC
-        ":dshow-aspect-ratio=", // native
-        ":live-caching=80",     // low-latency for confidence monitoring
-    };
+        var options = new List<string>
+        {
+            $":dshow-vdev={deviceName}",
+            ":dshow-adev=none",     // programme audio routing stays with the desk, not the display PC
+            ":dshow-aspect-ratio=", // native
+            ":live-caching=80",     // low-latency for confidence monitoring
+        };
+        if (CaptureFormat.TryParse(format, out var f))
+        {
+            options.Add($":dshow-size={f.Width}x{f.Height}");
+            options.Add($":dshow-fps={f.Fps.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+        return options.ToArray();
+    }
 
-    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct)
+    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "")
     {
         if (isCapture)
         {
             _media = new Media(vlc, "dshow://", FromType.FromLocation);
-            foreach (var opt in CaptureOptions(target))
+            foreach (var opt in CaptureOptions(target, format))
             {
                 _media.AddOption(opt);
             }

@@ -65,11 +65,12 @@ public sealed class StreamService : IDisposable
             }
 
             var rect = SourceRect(cfg.SourceScreenId);
-            var key = $"{rect}|{cfg.Width}x{cfg.Height}@{cfg.Fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{string.Join(";", urls)}";
+            var fps = StreamMrl.EffectiveFps(cfg, _services.State.Output.MasterFps);
+            var key = $"{rect}|{cfg.Width}x{cfg.Height}@{fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{string.Join(";", urls)}";
             if (key != _activeKey)
             {
                 Stop();
-                if (StreamMrl.Build(cfg, rect, urls) is not { } plan) return;
+                if (StreamMrl.Build(cfg, rect, urls, _services.State.Output.MasterFps) is not { } plan) return;
                 _media = new Media(vlc, plan.Mrl, FromType.FromLocation, plan.Options);
                 _player = new MediaPlayer(_media);
                 if (!_player.Play())
@@ -81,7 +82,7 @@ public sealed class StreamService : IDisposable
                 _activeKey = key;
                 _startedUtc = DateTime.UtcNow;
                 _destinations = urls.Count;
-                Log.Info($"Streaming started: {cfg.Width}x{cfg.Height}@{cfg.Fps}, {cfg.VideoKbps} kbps, {urls.Count} destination(s).");
+                Log.Info($"Streaming started: {cfg.Width}x{cfg.Height}@{fps}, {cfg.VideoKbps} kbps, {urls.Count} destination(s).");
             }
 
             if (_player is { } player)
@@ -95,7 +96,7 @@ public sealed class StreamService : IDisposable
                 }
                 var up = DateTime.UtcNow - _startedUtc;
                 _status = $"LIVE · {_destinations} destination{(_destinations == 1 ? "" : "s")} · " +
-                          $"{cfg.Width}×{cfg.Height}@{cfg.Fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}";
+                          $"{cfg.Width}×{cfg.Height}@{fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}";
             }
         }
         catch (Exception ex)

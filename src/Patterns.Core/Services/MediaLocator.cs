@@ -67,8 +67,8 @@ public static class MediaLocator
         Ndi,
     }
 
-    /// <summary>One input the show wants mounted right now, in priority order.</summary>
-    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct);
+    /// <summary>One input the show wants mounted right now, in priority order. <paramref name="Format"/> is a capture device's chosen mode ("1920x1080@60"; empty = the device's default).</summary>
+    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "");
 
     /// <summary>
     /// Every input the snapshot references — the program pattern, each enabled custom-pattern
@@ -92,7 +92,9 @@ public static class MediaLocator
                 WantedKind.Capture => Media.InputKeys.Capture(target),
                 _ => Media.InputKeys.Ndi(target),
             };
-            if (seen.Add(key)) list.Add(new WantedInput(key, kind, target, loop, mute, volumePct));
+            if (!seen.Add(key)) return;
+            var format = kind == WantedKind.Capture ? state.CaptureFormatFor(target) : "";
+            list.Add(new WantedInput(key, kind, target, loop, mute, volumePct, format));
         }
 
         void FromPattern(PatternConfig p)

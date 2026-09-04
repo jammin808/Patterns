@@ -13,6 +13,56 @@ public static class ContentTargets
     /// <summary>Screen ids never contain '+'; canvas keys always do.</summary>
     public static bool IsCanvasKey(string targetId) => targetId.Contains('+');
 
+    /// <summary>
+    /// Moves every reference to a screen id onto a new one: the placement itself, per-screen
+    /// patterns, joined-canvas keys and names, multiview tiles in any pattern, NDI senders, the
+    /// stream source, the web target — and the saved looks, whose captured JSON carries
+    /// per-screen assignments by id. Adopting a planned screen onto a display and a display
+    /// changing mode (its id embeds its geometry) both need the whole surface, or something
+    /// programmed against the screen is left orphaned.
+    /// </summary>
+    public static void RenameScreen(ShowState state, string oldId, string newId)
+    {
+        if (oldId.Length == 0 || newId.Length == 0 || oldId == newId) return;
+
+        string Rekey(string key)
+        {
+            if (key == oldId) return newId;
+            if (!IsCanvasKey(key)) return key;
+            var members = Members(key);
+            return members.Contains(oldId) ? CanvasNameConfig.KeyFor(members.Select(id => id == oldId ? newId : id)) : key;
+        }
+
+        foreach (var p in state.Output.Placements)
+        {
+            if (p.ScreenId == oldId) p.ScreenId = newId;
+        }
+        foreach (var a in state.Independent) a.ScreenId = Rekey(a.ScreenId);
+        foreach (var canvas in state.Output.CanvasNames) canvas.MemberKey = Rekey(canvas.MemberKey);
+        foreach (var pattern in AllPatterns(state))
+        {
+            foreach (var tile in pattern.Multiview.Tiles) tile.ScreenId = Rekey(tile.ScreenId);
+        }
+        foreach (var sender in state.Ndi.Senders) sender.SourceScreenId = Rekey(sender.SourceScreenId);
+        state.Stream.SourceScreenId = Rekey(state.Stream.SourceScreenId);
+        state.Web.TargetScreenId = Rekey(state.Web.TargetScreenId);
+
+        // Saved looks are captured JSON — the id appears verbatim inside them.
+        foreach (var look in state.LooksAndCues.Looks)
+        {
+            if (look.Json.Contains(oldId, StringComparison.Ordinal))
+            {
+                look.Json = look.Json.Replace(oldId, newId, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    private static IEnumerable<PatternConfig> AllPatterns(ShowState state)
+    {
+        yield return state.Pattern;
+        foreach (var a in state.Independent) yield return a.Pattern;
+    }
+
     public static string[] Members(string canvasKey) => canvasKey.Split('+', StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>Does the target show its own pattern rather than the program?</summary>

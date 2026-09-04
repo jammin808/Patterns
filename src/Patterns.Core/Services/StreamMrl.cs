@@ -13,15 +13,20 @@ public static class StreamMrl
 {
     public sealed record Plan(string Mrl, string[] Options);
 
+    /// <summary>The rate the stream encodes at: the show's master rate when it follows one, else its own (10–60).</summary>
+    public static int EffectiveFps(StreamConfig cfg, int masterFps)
+        => cfg.FpsFollowsMaster && masterFps > 0 ? Math.Clamp(masterFps, 10, 60) : cfg.Fps;
+
     /// <summary>Null when there is nothing to stream to.</summary>
-    public static Plan? Build(StreamConfig cfg, SKRectI screenRect, IReadOnlyList<string> destinations)
+    public static Plan? Build(StreamConfig cfg, SKRectI screenRect, IReadOnlyList<string> destinations, int masterFps = 0)
     {
         var dests = destinations.Where(d => !string.IsNullOrWhiteSpace(d)).Take(2).ToList();
         if (dests.Count == 0) return null;
 
+        var fps = EffectiveFps(cfg, masterFps);
         var options = new List<string>
         {
-            $":screen-fps={cfg.Fps}",
+            $":screen-fps={fps}",
             $":screen-left={screenRect.Left}",
             $":screen-top={screenRect.Top}",
             $":screen-width={screenRect.Width}",
@@ -38,7 +43,7 @@ public static class StreamMrl
             options.Add($":dshow-adev={cfg.AudioDevice.Trim()}");
         }
 
-        var venc = $"venc=x264{{preset=veryfast,tune=zerolatency,keyint={cfg.Fps * 2}}}";
+        var venc = $"venc=x264{{preset=veryfast,tune=zerolatency,keyint={fps * 2}}}";
         var transcode = audio
             ? $"#transcode{{vcodec=h264,{venc},vb={cfg.VideoKbps},width={cfg.Width},height={cfg.Height},acodec=mp4a,ab={cfg.AudioKbps},channels=2,samplerate=48000}}"
             : $"#transcode{{vcodec=h264,{venc},vb={cfg.VideoKbps},width={cfg.Width},height={cfg.Height}}}";

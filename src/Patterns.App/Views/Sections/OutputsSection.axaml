@@ -69,6 +69,16 @@
                Text="Tiles show the live content of each screen. Drag a screen flush against another to join them into one big canvas (it glows green when it will connect); drag it away to split. Click a tile to select it." />
     <TextBlock Classes="label" Text="{Binding GroupSummary}" Margin="0,2,0,0" />
 
+    <TextBlock Classes="h2" Text="FRAME RATE" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Master rate" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding MasterFpsOptions}"
+                SelectedValue="{Binding MasterFps, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:FpsOption}" />
+    </Grid>
+    <TextBlock Classes="hint"
+               Text="The show's frame rate. Every output presents at it — a 30 fps show on 60 Hz displays draws every other refresh, evenly, on one clock — an NDI sender set to 'master' sends at it, and the stream can follow it. Unlimited leaves every display at its own refresh. A screen below can override it." />
+
     <TextBlock Classes="h2" Text="SELECTED SCREEN" />
     <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" IsVisible="{Binding HasSelection}">
       <StackPanel>
@@ -99,6 +109,24 @@
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
         <TextBlock Classes="hint"
                    Text="For displays mounted in portrait or upside down: content is rendered upright and rotated at output. The overview above shows the rotated shape." />
+
+        <TextBlock Classes="label" Text="Frame rate" Margin="0,8,0,0" />
+        <ComboBox ItemsSource="{Binding ScreenFpsOptions}"
+                  SelectedValue="{Binding SelectedFpsOverride, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:FpsOption}" />
+
+        <TextBlock Classes="label" Text="Display mode (Windows)" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto,8,Auto">
+          <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding DisplayModeOptions}"
+                    SelectedItem="{Binding SelectedDisplayModeLabel, Mode=TwoWay}" PlaceholderText="Modes this display offers…" />
+          <Button Grid.Column="2" Classes="chip" Content="Apply" Command="{Binding ApplyDisplayModeCommand}"
+                  ToolTip.Tip="Switch the display to this size and refresh rate — the same change as Windows' Display settings" />
+          <Button Grid.Column="4" Classes="chip" Content="KEEP" Command="{Binding KeepDisplayModeCommand}" IsVisible="{Binding DisplayModePending}" />
+          <Button Grid.Column="6" Classes="chip" Content="REVERT" Command="{Binding RevertDisplayModeCommand}" IsVisible="{Binding DisplayModePending}" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding DisplayModeStatus}" TextWrapping="Wrap" />
+        <TextBlock Classes="hint"
+                   Text="Lists the modes the display's own EDID offers and applies one through Windows, so a 1080p50 wall or a 4K projector gets the signal it expects. A change waits for KEEP and reverts by itself in 15 s if the picture is lost; everything programmed for the screen — placement, pattern, canvases, senders, looks — follows it across the change. Close the outputs first." />
 
         <TextBlock Classes="label" Text="Output trims" Margin="0,8,0,0" />
         <Grid ColumnDefinitions="86,*,44" RowDefinitions="Auto,Auto,Auto,Auto,Auto">

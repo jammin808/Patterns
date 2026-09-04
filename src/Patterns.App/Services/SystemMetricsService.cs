@@ -67,11 +67,12 @@ public sealed class SystemMetricsService : IDisposable
         }
     }
 
-    internal AdvisorContext BuildContext(MetricSample sample) => new()
+    /// <summary>The advisor's view of the rig for one sample; the target rate follows the show's master frame rate (60 when unlimited).</summary>
+    public AdvisorContext BuildContext(MetricSample sample) => new()
     {
         OutputsLive = _services.Outputs.IsLive,
         ContentContinuous = sample.OutputWindows > 0 && sample.OutputFps > 15,
-        TargetFps = 60,
+        TargetFps = _services.State.Output.MasterFps > 0 ? _services.State.Output.MasterFps : 60,
         WatchdogEnabled = _services.State.Watchdog.Enabled,
         WatchdogRestarts = HealthMonitor.Restarts,
         DiscreteGpuPresent = GpuService.DiscreteGpuPresent,

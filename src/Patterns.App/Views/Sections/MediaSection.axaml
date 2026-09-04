@@ -68,12 +68,17 @@
       <TextBox Margin="0,4,0,0" Watermark="…or type the exact device name (pre-show, before the card is plugged in)"
                Text="{Binding ActivePattern.Media.CaptureDevice, Mode=TwoWay}" />
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Format" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding CaptureFormat.Options}"
+                  SelectedItem="{Binding CaptureFormat.Selected, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+      </Grid>
+      <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Podium cam (shown in the multiview and status)"
                  Text="{Binding InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint"
-                 Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through." />
+                 Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default." />
     </StackPanel>
 
     <!-- Playlist -->

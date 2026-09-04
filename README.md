@@ -40,6 +40,14 @@ fault containment, and settings that can never brick startup.
   in pixels, continuous alignment grid through the zones, hue-coded projector frames, blend-curve
   ramps (linear / cosine / S-curve / gamma 2.2), zone markers with centerlines, and a flat 50%
   grey double-stack check.
+- **Frame rate, display modes, capture formats** — a **master frame rate** for the show (every
+  output paces to it on one clock, evenly — a 30 fps show on 60 Hz displays draws every other
+  refresh — with a per-screen override; an NDI sender set to *master* sends at it; the stream
+  can follow it); a **display-mode picker** per screen that lists what the display's EDID offers
+  and applies it through Windows with KEEP / REVERT and a 15 s safety revert, everything
+  programmed for the screen following it across the change; and a **Format** picker per capture
+  device listing the sizes and rates the card's driver advertises, so the card opens in the
+  mode the source sends.
 - **Edge blend on the real outputs** — tick *Automatic* on two projectors and overlap them on the
   Screens page: the overlap becomes a joined canvas both draw, each output fading its shared
   edge to black along the chosen curve with a blend gamma you tune until the grey check reads
@@ -369,7 +377,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 708 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 724 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```
