@@ -84,7 +84,9 @@ fault containment, and settings that can never brick startup.
   so front-of-house can confirm routing at a glance. Never auto-starts with the app.
 - **Ticker data feeds** — point the message ticker at an RSS/Atom feed, a CSV/text file of
   lines, or an ICS calendar (next 24 h as `HH:mm Event`) — session schedules and wayfinding
-  straight onto the screens, refreshed on your interval.
+  straight onto the screens, refreshed on your interval. The ticker loops seamlessly at any
+  speed and text length, every screen, span half and NDI sender shows the same train, and the
+  message can sit on a soft fade (the classic lower third), a solid bar, a chip or nothing.
 - **System fonts** — overlay text (clock, countdown, messages, chips) in any font installed
   on the machine, with the bundled Inter as a travelling fallback.
 - **NDI® outputs** — any number of senders, each with its own name, resolution, frame rate,
@@ -352,7 +354,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 651 tests: pixel-exact rendering, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 661 tests: pixel-exact rendering, the ticker's seamless loop, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

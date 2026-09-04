@@ -176,6 +176,17 @@ public static class DrawUtil
         }
     }
 
+    /// <summary>The rect a <see cref="Chip"/> of the given text width occupies — same padding, same margin rule.</summary>
+    public static SKRect ChipBounds(float textWidth, SKSizeI canvas, Anchor9 anchor, float textSize, float margin = -1)
+    {
+        var padX = textSize * 0.7f;
+        var padY = textSize * 0.42f;
+        var boxW = textWidth + padX * 2;
+        var boxH = textSize + padY * 2;
+        if (margin < 0) margin = Math.Max(8, canvas.Height * 0.02f);
+        return Anchored(canvas, boxW, boxH, anchor, margin);
+    }
+
     /// <summary>Rounded translucent chip with centered text; returns the chip rect.</summary>
     public static SKRect Chip(
         SKCanvas c, string text, SKSizeI canvas, Anchor9 anchor, float textSize,
@@ -183,14 +194,8 @@ public static class DrawUtil
     {
         var font = fontOverride ?? pc.FontBold;
         font.Size = textSize;
-        var w = font.MeasureText(text);
-        var padX = textSize * 0.7f;
-        var padY = textSize * 0.42f;
-        var boxW = w + padX * 2;
-        var boxH = textSize + padY * 2;
-        if (margin < 0) margin = Math.Max(8, canvas.Height * 0.02f);
-        var rect = Anchored(canvas, boxW, boxH, anchor, margin);
-        c.DrawRoundRect(rect, boxH * 0.24f, boxH * 0.24f, pc.FillAA(bg));
+        var rect = ChipBounds(font.MeasureText(text), canvas, anchor, textSize, margin);
+        if (bg.Alpha > 0) c.DrawRoundRect(rect, rect.Height * 0.24f, rect.Height * 0.24f, pc.FillAA(bg));
         TextCentered(c, text, rect.MidX, rect.MidY, font, pc.Text(textColor));
         return rect;
     }

@@ -304,6 +304,13 @@ public static class Lists
     };
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();
+    public static readonly EnumItem[] MessageBackgrounds =
+    {
+        new(MessageBackground.Auto, "Auto — chip when static, none when scrolling"),
+        new(MessageBackground.None, "None — text over the picture"),
+        new(MessageBackground.Chip, "Solid — a chip, or a bar behind a ticker"),
+        new(MessageBackground.Fade, "Fade — soft band, darkest at the edge"),
+    };
     public static readonly EnumItem[] FitModes = Of<FitMode>();
     public static readonly EnumItem[] BarsVariants =
     {

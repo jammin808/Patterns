@@ -57,11 +57,58 @@ public sealed class SinkState : IDisposable
     public SKRuntimeEffect? ZonePlateEffect { get; set; }
     public bool ZonePlateUnavailable { get; set; }
 
+    /// <summary>Message ticker caches: the measured text width and the fade-band shader.</summary>
+    public TickerCache Ticker { get; } = new();
+
     public void Dispose()
     {
         Paints.Dispose();
         Particles?.Dispose();
         Checker.Dispose();
         ZonePlateEffect?.Dispose();
+        Ticker.Dispose();
+    }
+}
+
+/// <summary>
+/// Per-sink caches for the message overlay: the text is measured once per (text, font, size)
+/// and the fade band's gradient is built once per (band, strength) — neither changes per frame.
+/// </summary>
+public sealed class TickerCache : IDisposable
+{
+    private string _textKey = "";
+    private float _textWidth;
+    private readonly Dictionary<string, SKShader> _fades = new();
+
+    public float MeasuredWidth(string text, SKFont font, string family)
+    {
+        var key = $"{family}|{font.Size}|{text}";
+        if (key != _textKey)
+        {
+            _textKey = key;
+            _textWidth = font.MeasureText(text);
+        }
+        return _textWidth;
+    }
+
+    /// <summary>A vertical gradient, opaque-dark at <paramref name="darkY"/> and clear at <paramref name="clearY"/>, at x = <paramref name="x"/>.</summary>
+    public SKShader FadeShader(float x, float darkY, float clearY, byte peakAlpha)
+    {
+        var key = $"{x}|{darkY}|{clearY}|{peakAlpha}";
+        if (_fades.TryGetValue(key, out var shader)) return shader;
+        // A middle-row band needs two at once; a size change replaces them. Never more than a few.
+        if (_fades.Count >= 4) Dispose();
+        shader = SKShader.CreateLinearGradient(
+            new SKPoint(x, darkY), new SKPoint(x, clearY),
+            new[] { new SKColor(0, 0, 0, peakAlpha), SKColors.Transparent },
+            SKShaderTileMode.Clamp);
+        _fades[key] = shader;
+        return shader;
+    }
+
+    public void Dispose()
+    {
+        foreach (var shader in _fades.Values) shader.Dispose();
+        _fades.Clear();
     }
 }

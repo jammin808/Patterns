@@ -192,36 +192,98 @@ public static class OverlayRenderer
     {
         var pc = f.Paints;
         var size = (float)(f.H * o.SizePct / 100);
-        var font = pc.FontFor(f.Snapshot.State.Brand.FontFamily, bold: true);
+        var family = f.Snapshot.State.Brand.FontFamily;
+        var font = pc.FontFor(family, bold: true);
         font.Size = size;
         // A live feed replaces the static text when configured and delivering.
         var text = o.UseFeed && f.Snapshot.FeedText.Length > 0 ? f.Snapshot.FeedText : o.Text;
-        var textW = font.MeasureText(text);
+        var textW = f.Sink.Ticker.MeasuredWidth(text, font, family);
         var messageColor = f.Color(o.TextColor, f.Palette.Text);
+        var peak = (byte)Math.Clamp(o.BackgroundStrength * 255, 0, 255);
 
         if (o.Scroll && textW > 0)
         {
-            var y = DrawUtil.Anchored(f.Canvas, f.W, size * 1.6f, o.Anchor, Math.Max(10f, f.H * 0.03f)).MidY;
-            var period = textW + f.W * 0.25f;
-            // Travel spans the whole canvas plus one full copy, so the text enters from the
-            // right edge and leaves completely off the left before wrapping.
-            var travel = f.W + period;
-            var offset = (float)(f.Ctx.Time * o.ScrollPxPerSec % travel);
-            var lead = f.W - offset; // left edge of the lead copy, sweeping right → left
-            var m = font.Metrics;
-            var baseline = y - (m.Ascent + m.Descent) / 2;
-            for (var x = lead; x + textW > 0; x -= period)
+            var band = DrawUtil.Anchored(f.Canvas, f.W, size * 1.6f, o.Anchor, Math.Max(10f, f.H * 0.03f));
+            switch (o.Background)
             {
-                c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(messageColor));
+                case MessageBackground.Chip:
+                    c.DrawRect(band, pc.Fill(new SKColor(0, 0, 0, peak)));
+                    break;
+                case MessageBackground.Fade:
+                    DrawFadeBand(c, in f, band, o.Anchor, size, peak);
+                    break;
             }
-            for (var x = lead + period; x < f.W; x += period)
+
+            // The train of copies is periodic, so its phase is the travel distance modulo the
+            // copy period — wrapping then moves the train by exactly one copy, which cannot be
+            // seen. The distance comes from the snapshot's line so every sink agrees on it.
+            var period = TickerMath.Period(textW, f.W);
+            var line = f.Snapshot.Ticker ?? TickerLine.From(o.ScrollPxPerSec);
+            var distance = line.DistanceAt(f.Ctx.Time);
+            var m = font.Metrics;
+            var baseline = band.MidY - (m.Ascent + m.Descent) / 2;
+            foreach (var x in TickerMath.CopyPositions(distance, period, textW, f.W))
             {
                 c.DrawText(text, x, baseline, SKTextAlign.Left, font, pc.Text(messageColor));
             }
             return;
         }
 
-        DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, f.Palette.ChipBg, fontOverride: font);
+        switch (o.Background)
+        {
+            case MessageBackground.None:
+                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, SKColors.Transparent, fontOverride: font);
+                break;
+            case MessageBackground.Chip:
+                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, new SKColor(0, 0, 0, peak), fontOverride: font);
+                break;
+            case MessageBackground.Fade:
+                DrawFadeBand(c, in f, DrawUtil.ChipBounds(textW, f.Canvas, o.Anchor, size), o.Anchor, size, peak);
+                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, SKColors.Transparent, fontOverride: font);
+                break;
+            default:
+                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, f.Palette.ChipBg, fontOverride: font);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The soft backdrop: a full-width band around the text row, darkest at the edge the message
+    /// sits on and clear a text-height beyond the row — the classic lower third. A message in the
+    /// middle row gets a band that is darkest on its own centre line and fades both ways.
+    /// </summary>
+    private static void DrawFadeBand(SKCanvas c, in PatternFrame f, SKRect row, Anchor9 anchor, float size, byte peak)
+    {
+        var feather = size * 1.2f;
+        var top = (int)anchor / 3 == 0;
+        var bottom = (int)anchor / 3 == 2;
+        SKRect band;
+        float darkY, clearY;
+        if (top)
+        {
+            band = SKRect.Create(0, 0, f.W, row.Bottom + feather);
+            darkY = 0;
+            clearY = band.Bottom;
+        }
+        else if (bottom)
+        {
+            band = SKRect.Create(0, row.Top - feather, f.W, f.H - (row.Top - feather));
+            darkY = f.H;
+            clearY = band.Top;
+        }
+        else
+        {
+            // Middle row: two half-bands meeting on the text's centre line.
+            var upper = SKRect.Create(0, row.Top - feather, f.W, row.MidY - (row.Top - feather));
+            var lower = SKRect.Create(0, row.MidY, f.W, row.Bottom + feather - row.MidY);
+            using var up = new SKPaint { Shader = f.Sink.Ticker.FadeShader(0, upper.Bottom, upper.Top, peak) };
+            c.DrawRect(upper, up);
+            using var down = new SKPaint { Shader = f.Sink.Ticker.FadeShader(0, lower.Top, lower.Bottom, peak) };
+            c.DrawRect(lower, down);
+            return;
+        }
+        using var paint = new SKPaint { Shader = f.Sink.Ticker.FadeShader(0, darkY, clearY, peak) };
+        c.DrawRect(band, paint);
     }
 
     /// <summary>Viewport-space overlays: crisp per-sink info chip and the identify badge.</summary>

@@ -79,6 +79,18 @@
         <NumericUpDown Grid.Column="1" Minimum="10" Maximum="4000" Increment="10" FormatString="0"
                        Value="{Binding State.Overlays.Message.ScrollPxPerSec, Mode=TwoWay, Converter={StaticResource Num}}" />
       </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Background" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding MessageBackgrounds}"
+                  SelectedValue="{Binding State.Overlays.Message.Background, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Backdrop strength" />
+        <Slider Grid.Column="1" Minimum="0.1" Maximum="1" Value="{Binding State.Overlays.Message.BackgroundStrength, Mode=TwoWay}" />
+      </Grid>
+      <TextBlock Classes="hint"
+                 Text="Fade is a soft band that is darkest at the edge the message sits on — the classic lower third under a ticker. A ticker loops seamlessly at any speed and text length, and every screen, span half and NDI sender shows the same train." />
 
       <CheckBox Content="Feed the text from a data source (RSS / CSV / calendar)"
                 IsChecked="{Binding State.Overlays.Message.UseFeed}" Margin="0,6,0,0" />

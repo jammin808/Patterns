@@ -34,6 +34,16 @@ public sealed class ShowSnapshot
     /// <summary>Runtime-only: output windows are open (drives multiview tally).</summary>
     public bool OutputsLive { get; init; }
 
+    /// <summary>Runtime-only: the show clock (seconds) at which this snapshot was published.</summary>
+    public double PublishedClock { get; init; }
+
+    /// <summary>
+    /// Runtime-only: the message ticker's travel line, shared by every sink so a span, an NDI
+    /// sender and a late-opened output all draw the same train. Null for a snapshot built
+    /// outside the bus (thumbnails, tests): the renderer then runs the plain line from clock 0.
+    /// </summary>
+    public Rendering.TickerLine? Ticker { get; init; }
+
     /// <summary>
     /// Runtime-only: the rig's pixel geometry for the placements in <see cref="State"/> — every
     /// content target's size and name, and each screen's slice of the canvas it joined. Derived
@@ -162,10 +172,24 @@ public sealed class SnapshotBus
 {
     private volatile ShowSnapshot _current;
     private long _version;
+    private readonly Func<double> _clock;
+    private Rendering.TickerLine _ticker;
+    private Rendering.TickerLine _sandboxTicker;
 
-    public SnapshotBus(ShowState initial)
+    /// <param name="clock">The show clock the bus stamps on every publish; tests inject a fixed one.</param>
+    public SnapshotBus(ShowState initial, Func<double>? clock = null)
     {
-        _current = new ShowSnapshot { State = JsonUtil.Clone(initial), Version = 0 };
+        _clock = clock ?? (static () => ShowClock.Seconds);
+        _ticker = Rendering.TickerLine.From(initial.Overlays.Message.ScrollPxPerSec);
+        _sandboxTicker = _ticker;
+        var now = _clock();
+        _current = new ShowSnapshot
+        {
+            State = JsonUtil.Clone(initial),
+            Version = 0,
+            PublishedClock = now,
+            Ticker = _ticker,
+        };
     }
 
     public ShowSnapshot Current => _current;
@@ -216,7 +240,7 @@ public sealed class SnapshotBus
 
     public void Publish(ShowState state)
     {
-        _current = Build(state);
+        _current = Build(state, ref _ticker);
         Changed?.Invoke();
     }
 
@@ -230,15 +254,20 @@ public sealed class SnapshotBus
 
     public void PublishSandbox(ShowState state)
     {
-        _sandbox = Build(state);
+        // The sandbox keeps a ticker line of its own, seeded from the program's when it opens:
+        // a speed tried in the sandbox must never re-anchor the train that is on air.
+        if (_sandbox is null) _sandboxTicker = _ticker;
+        _sandbox = Build(state, ref _sandboxTicker);
         Changed?.Invoke();
     }
 
     public void ClearSandbox() => _sandbox = null;
 
-    private ShowSnapshot Build(ShowState state)
+    private ShowSnapshot Build(ShowState state, ref Rendering.TickerLine ticker)
     {
         var version = ++_version;
+        var now = _clock();
+        ticker = ticker.WithSpeed(state.Overlays.Message.ScrollPxPerSec, now);
         if (_cutPending)
         {
             _cutVersion = version;
@@ -260,6 +289,8 @@ public sealed class SnapshotBus
             ToneIndicator = ToneIndicator,
             FeedText = FeedText,
             OutputsLive = OutputsLive,
+            PublishedClock = now,
+            Ticker = ticker,
             CutAtVersion = _cutVersion,
             FadeOverrideMs = _fadeMs,
             FadeOverrideVersion = _fadeVersion,

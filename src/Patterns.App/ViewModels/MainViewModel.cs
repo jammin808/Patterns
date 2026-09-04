@@ -2013,6 +2013,7 @@ public sealed class MainViewModel : Observable
     public EnumItem[] ToneModes => Lists.ToneModes;
     public EnumItem[] ToneChannelsList => Lists.ToneChannelsList;
     public EnumItem[] FeedKinds => Lists.FeedKinds;
+    public EnumItem[] MessageBackgrounds => Lists.MessageBackgrounds;
     public EnumItem[] Rotations => Lists.Rotations;
     public EnumItem[] PipSources => Lists.PipSources;
 

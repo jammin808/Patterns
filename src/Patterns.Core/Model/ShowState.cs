@@ -209,6 +209,8 @@ public sealed class MessageOverlay : Observable
     private bool _scroll = false;
     private double _scrollPxPerSec = 120;
     private string _textColor = "";
+    private MessageBackground _background = MessageBackground.Auto;
+    private double _backgroundStrength = 0.7;
     private bool _useFeed;
     private string _feedSource = "";
     private FeedKind _feedKind = FeedKind.Auto;
@@ -234,6 +236,12 @@ public sealed class MessageOverlay : Observable
     public double SizePct { get => _sizePct; set => Set(ref _sizePct, Math.Clamp(value, 2, 30)); }
     public bool Scroll { get => _scroll; set => Set(ref _scroll, value); }
     public double ScrollPxPerSec { get => _scrollPxPerSec; set => Set(ref _scrollPxPerSec, Math.Clamp(value, 10, 4000)); }
+
+    /// <summary>What sits behind the text: the original chip-or-nothing, nothing, a solid band, or a soft fade.</summary>
+    public MessageBackground Background { get => _background; set => Set(ref _background, value); }
+
+    /// <summary>Peak opacity of the chip or fade band (0.1–1). Auto ignores it and keeps the theme chip.</summary>
+    public double BackgroundStrength { get => _backgroundStrength; set => Set(ref _backgroundStrength, Math.Clamp(value, 0.1, 1)); }
 }
 
 public sealed class OverlaySet : Observable

@@ -155,6 +155,19 @@ public enum FeedKind
     Ics,
 }
 
+/// <summary>What sits behind the message text.</summary>
+public enum MessageBackground
+{
+    /// <summary>A chip behind a static message, nothing behind a scrolling ticker — the original behaviour.</summary>
+    Auto,
+    /// <summary>Text straight over the picture.</summary>
+    None,
+    /// <summary>A solid band: a pill behind a static message, a full-width bar behind a ticker.</summary>
+    Chip,
+    /// <summary>A soft band that is darkest at the anchored edge and fades into the picture.</summary>
+    Fade,
+}
+
 public enum Anchor9
 {
     TopLeft,
