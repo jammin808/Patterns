@@ -56,7 +56,10 @@ fault containment, and settings that can never brick startup.
 - **A proper pattern library** — alignment grids, SMPTE RP 219-style / EBU / 75% / 100% bars
   (legal or full range), grey & RGB ramps, banding steps, focus charts (Siemens star, line pairs,
   type), geometry & safe areas, flat fields, 1-px checkerboards — parametric at any resolution up
-  to 4K DCI and beyond, with a thumbnail preset gallery plus your own saved presets.
+  to 4K DCI and beyond, with a thumbnail preset gallery plus your own saved presets. The
+  **Library** files everything under section chips — Patterns, Images, Videos, Audio, Particles,
+  Presets, Brand kits — with a search box, a thumbnail per tile (two files of one name in two
+  folders each get theirs) and a ✕ to take a file out of the library again.
 - **Motion diagnostics** — moving bar with a px-per-frame judder mode, bouncing FPS box,
   frame-flash drop detector, animated zone plate, scrolling grid.
 - **Particle mini-studio** — snow, confetti, starfield, rain, bokeh, embers, fireflies presets;
@@ -71,7 +74,7 @@ fault containment, and settings that can never brick startup.
 - **User media & playlists** — your images (PNG/JPEG/BMP/WebP) with fit modes; your videos
   *and audio files* (MP3/WAV/FLAC…) via libVLC (bundled in the *full* download, optional
   otherwise), with live mute and volume that never restart the media. Everything you load
-  lands in the Library under *My media* for one-click recall — and the **playlist** source
+  lands in the Library under *Images*, *Videos* or *Audio* for one-click recall — and the **playlist** source
   cycles files and whole folders (rescanned live): drag rows to re-order or use seeded
   shuffle, images on a dwell timer, videos/audio to their end, a ▶ NOW marker on the
   playing row, per-item overrides and daily *play at HH:mm for N seconds* scheduling.
@@ -383,7 +386,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 735 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 739 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

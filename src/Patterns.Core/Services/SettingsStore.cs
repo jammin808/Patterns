@@ -155,6 +155,17 @@ public sealed class SettingsStore
             }
         }
 
+        // v7: the media library's entries carry an id, a kind and a date (the Library page's
+        // sections, search and thumbnails key on them). Derived from the path and minted where
+        // missing, idempotent, so a hand-edited file lands somewhere defined; the app writes an
+        // upgraded file back once so the minted ids stick.
+        foreach (var media in state.MediaLibrary)
+        {
+            if (string.IsNullOrWhiteSpace(media.Id)) media.Id = Guid.NewGuid().ToString("N");
+            if (media.Kind == LibraryMediaKind.Unknown) media.Kind = MediaLibraryEntry.KindOf(media.Path, media.IsVideo);
+            if (media.AddedUtc == default) media.AddedUtc = DateTime.UtcNow;
+        }
+
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }
 

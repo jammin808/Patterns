@@ -62,4 +62,48 @@ public static class ThumbnailRenderer
             return null;
         }
     }
+
+    /// <summary>A brand kit's thumbnail: its colours as bands, the company name over them. Null on any failure.</summary>
+    public static Bitmap? Swatch(IReadOnlyList<string> hexColors, string caption)
+    {
+        try
+        {
+            var info = new SKImageInfo(Width, Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
+            if (surface is null) return null;
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.Black);
+            var colors = hexColors.Select(h => SKColor.TryParse(h, out var c) ? c : SKColors.Gray).ToList();
+            if (colors.Count == 0) colors.Add(SKColors.Gray);
+            var band = (float)Width / colors.Count;
+            using var paint = new SKPaint { IsAntialias = false };
+            for (var i = 0; i < colors.Count; i++)
+            {
+                paint.Color = colors[i];
+                canvas.DrawRect(i * band, 0, band + 1, Height, paint);
+            }
+            if (caption.Length > 0)
+            {
+                using var font = new SKFont { Size = 20 };
+                using var shadow = new SKPaint { Color = new SKColor(0, 0, 0, 160), IsAntialias = true };
+                using var text = new SKPaint { Color = SKColors.White, IsAntialias = true };
+                var width = font.MeasureText(caption);
+                var x = Math.Max(8, (Width - width) / 2);
+                canvas.DrawText(caption, x + 1, Height / 2f + 8, SKTextAlign.Left, font, shadow);
+                canvas.DrawText(caption, x, Height / 2f + 7, SKTextAlign.Left, font, text);
+            }
+            canvas.Flush();
+            using var image = surface.Snapshot();
+            using var png = image.Encode(SKEncodedImageFormat.Png, 90);
+            using var stream = new MemoryStream();
+            png.SaveTo(stream);
+            stream.Position = 0;
+            return new Bitmap(stream);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Swatch render failed.", ex);
+            return null;
+        }
+    }
 }

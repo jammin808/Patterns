@@ -42,7 +42,7 @@ public class VogStingerTests : IDisposable
         var loaded = store.Load();
 
         Assert.True(store.LastLoadMigrated);
-        Assert.Equal(6, loaded.SchemaVersion);
+        Assert.Equal(ShowState.CurrentSchemaVersion, loaded.SchemaVersion); // 6 then; every later step upgrades it further
         Assert.Equal(2, loaded.Stingers.Items.Count);
         foreach (var item in loaded.Stingers.Items)
         {

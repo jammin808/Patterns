@@ -252,3 +252,12 @@ public enum GpuPreferenceKind
     /// <summary>No override at all.</summary>
     LetWindowsDecide,
 }
+
+/// <summary>What a media-library entry is. Unknown first — the tolerant-enum rule; the migration derives the rest from the path.</summary>
+public enum LibraryMediaKind
+{
+    Unknown,
+    Image,
+    Video,
+    Audio,
+}

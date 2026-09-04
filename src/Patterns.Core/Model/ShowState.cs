@@ -982,7 +982,7 @@ public sealed class CaptureFormatConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 7;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run
@@ -1079,9 +1079,38 @@ public sealed class ShowState : Observable
 
 public sealed class MediaLibraryEntry : Observable
 {
+    private string _id = Guid.NewGuid().ToString("N");
     private string _path = "";
     private bool _isVideo;
+    private LibraryMediaKind _kind;
+    private string _name = "";
+    private DateTime _addedUtc;
+
+    /// <summary>Stable identity (schema 7): thumbnails and the Library page key on it, never on the file name.</summary>
+    public string Id { get => _id; set => Set(ref _id, value); }
 
     public string Path { get => _path; set => Set(ref _path, value); }
+
+    /// <summary>Decoded by libVLC (a video or an audio file) rather than shown as a picture. Kept for older files; <see cref="Kind"/> is the finer truth.</summary>
     public bool IsVideo { get => _isVideo; set => Set(ref _isVideo, value); }
+
+    /// <summary>Image, video or audio (schema 7; derived from the path for older files).</summary>
+    public LibraryMediaKind Kind { get => _kind; set => Set(ref _kind, value); }
+
+    /// <summary>An optional operator name; empty = the file name.</summary>
+    public string Name { get => _name; set => Set(ref _name, value ?? ""); }
+
+    public DateTime AddedUtc { get => _addedUtc; set => Set(ref _addedUtc, value); }
+
+    [JsonIgnore]
+    public string DisplayName => _name.Length > 0 ? _name : System.IO.Path.GetFileName(_path);
+
+    /// <summary>What a path is, by its extension — the decoded flag decides only when the extension says nothing.</summary>
+    public static LibraryMediaKind KindOf(string path, bool isVideo)
+    {
+        if (Services.PlaylistSequencer.IsVideoPath(path)) return LibraryMediaKind.Video;
+        if (Services.PlaylistSequencer.IsAudioPath(path)) return LibraryMediaKind.Audio;
+        if (Services.PlaylistSequencer.IsMediaPath(path)) return LibraryMediaKind.Image; // a known picture extension
+        return isVideo ? LibraryMediaKind.Video : LibraryMediaKind.Image;
+    }
 }
