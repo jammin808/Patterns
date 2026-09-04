@@ -99,7 +99,8 @@ public sealed class OutputWindowManager
                 var size = EffectiveSize(x.Placement, x.Info);
                 return new ArrangedScreen(
                     x.Placement.ScreenId,
-                    SKRectI.Create(x.Placement.X, x.Placement.Y, size.Width, size.Height));
+                    SKRectI.Create(x.Placement.X, x.Placement.Y, size.Width, size.Height),
+                    x.Placement.BlendAuto);
             })
             .ToList();
         var groups = ScreenLayout.Groups(arranged);
@@ -129,6 +130,10 @@ public sealed class OutputWindowManager
                         info.Label)
                     : new PipelineViewport(
                         SinkKind.Output, SKSizeI.Empty, default, member.Id, indexOf[member.Id], info.Label);
+                // The blend zones: the overlaps this screen has with every other live screen
+                // (automatic), or the widths the operator typed. Only an output draws them.
+                var blend = EdgeBlend.Resolve(placement,
+                    EdgeBlend.Derive(member.Rect, arranged.Where(o => o.Id != member.Id).Select(o => o.Rect)));
                 viewport = viewport with
                 {
                     Rotation = placement.Rotation,
@@ -141,6 +146,10 @@ public sealed class OutputWindowManager
                     WarpTrx = placement.WarpTrx, WarpTry = placement.WarpTry,
                     WarpBlx = placement.WarpBlx, WarpBly = placement.WarpBly,
                     WarpBrx = placement.WarpBrx, WarpBry = placement.WarpBry,
+                    BlendLeftPx = blend.Left, BlendTopPx = blend.Top,
+                    BlendRightPx = blend.Right, BlendBottomPx = blend.Bottom,
+                    BlendCurve = placement.BlendCurve,
+                    BlendGamma = placement.BlendGamma,
                 };
                 result.Add((info, viewport));
             }

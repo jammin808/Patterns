@@ -118,7 +118,7 @@ public sealed class RigGeometry
             raw = new SKSizeI(Math.Max(1, raw.Width), Math.Max(1, raw.Height));
             var eff = EffectiveSize(p, raw);
             // Enabled is not geometry: the wall shows switched-off targets too.
-            placed.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, eff.Width, eff.Height)));
+            placed.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, eff.Width, eff.Height), p.BlendAuto));
             labels.Add(label);
         }
 

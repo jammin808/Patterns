@@ -1,4 +1,5 @@
 using Patterns.Core.Model;
+using Patterns.Core.Patterns;
 using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -63,6 +64,20 @@ public sealed record PipelineViewport(
         Math.Abs(TrimRPct - 100) > 0.01 || Math.Abs(TrimGPct - 100) > 0.01 || Math.Abs(TrimBPct - 100) > 0.01;
 
     public string TrimKey => $"{BrightnessPct:0.##}|{Gamma:0.###}|{TrimRPct:0.##}|{TrimGPct:0.##}|{TrimBPct:0.##}";
+
+    /// <summary>Edge-blend zones in this output's own pixels (arrangement space: before rotation and warp).</summary>
+    public int BlendLeftPx { get; init; }
+    public int BlendTopPx { get; init; }
+    public int BlendRightPx { get; init; }
+    public int BlendBottomPx { get; init; }
+    public BlendCurve BlendCurve { get; init; } = BlendCurve.SCurve;
+    public double BlendGamma { get; init; } = 1.0;
+
+    /// <summary>Only a real output fades its edges — never a monitor, a preview, NDI or a thumbnail.</summary>
+    public bool HasBlend => Kind == SinkKind.Output &&
+        (BlendLeftPx > 0 || BlendTopPx > 0 || BlendRightPx > 0 || BlendBottomPx > 0);
+
+    public string BlendKey => $"{BlendLeftPx}|{BlendTopPx}|{BlendRightPx}|{BlendBottomPx}|{BlendCurve}|{BlendGamma:0.###}";
 }
 
 /// <summary>
@@ -216,18 +231,41 @@ public sealed class RenderPipeline : IDisposable
                     new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
                     new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry));
                 canvas.Clear(SKColors.Black);
+                var warped = canvas.Save();
                 canvas.Concat(in warp);
                 canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
                 canvas.DrawImage(image, 0, 0, Patterns.Core.Rendering.DrawUtil.Smooth, _warpPaint);
+                canvas.RestoreToCount(warped); // the blend mask below applies the same transform itself
             }
             else
             {
+                var turned = canvas.Save();
                 canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
                 _engine.Render(canvas, SnapshotFor(vp), in ctx, _sink);
+                canvas.RestoreToCount(turned);
             }
 
             if (layered)
             {
+                canvas.Restore();
+            }
+
+            if (vp.HasBlend)
+            {
+                // Last, over the trimmed picture, through the same warp and rotation the picture
+                // took: the zones sit on the picture's own edges, so a keystoned projector's
+                // fade follows its keystone. Black with alpha, so each band multiplies the light.
+                canvas.Save();
+                if (vp.HasWarp)
+                {
+                    canvas.Concat(WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
+                        new SKPoint(vp.WarpTlx, vp.WarpTly),
+                        new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
+                        new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
+                        new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry)));
+                }
+                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
+                DrawBlendMask(canvas, vp, effectivePx);
                 canvas.Restore();
             }
         }
@@ -298,6 +336,75 @@ public sealed class RenderPipeline : IDisposable
         }
     }
 
+    // ---- edge blend ---------------------------------------------------------
+
+    private readonly Dictionary<string, SKShader> _blendShaders = new();
+    private string _blendShaderKey = "";
+    private readonly SKPaint _blendPaint = new();
+
+    /// <summary>The gradient stops of one zone: black at the outer edge, clear where the full picture begins.</summary>
+    private static SKColor[] BlendStops(BlendCurve curve, double gamma)
+    {
+        const int n = 32;
+        var stops = new SKColor[n + 1];
+        for (var i = 0; i <= n; i++)
+        {
+            var weight = BlendMath.Weight(curve, i / (double)n, gamma);
+            stops[i] = new SKColor(0, 0, 0, (byte)Math.Clamp(Math.Round(255 * (1 - weight)), 0, 255));
+        }
+        return stops;
+    }
+
+    /// <summary>
+    /// Four bands, one per blended edge, each a linear gradient across its zone; a corner where
+    /// two zones meet multiplies both, which is exactly the product two overlapping projectors
+    /// need. Cached per zone geometry and rebuilt only when the viewport's blend changes.
+    /// </summary>
+    private void DrawBlendMask(SKCanvas canvas, PipelineViewport vp, SKSizeI size)
+    {
+        if (_blendShaderKey != vp.BlendKey + "|" + size)
+        {
+            foreach (var s in _blendShaders.Values) s.Dispose();
+            _blendShaders.Clear();
+            _blendShaderKey = vp.BlendKey + "|" + size;
+        }
+        var stops = BlendStops(vp.BlendCurve, vp.BlendGamma);
+        int w = size.Width, h = size.Height;
+        if (vp.BlendLeftPx > 0)
+        {
+            Band(canvas, "L", SKRect.Create(0, 0, Math.Min(vp.BlendLeftPx, w), h),
+                new SKPoint(0, 0), new SKPoint(Math.Min(vp.BlendLeftPx, w), 0), stops);
+        }
+        if (vp.BlendRightPx > 0)
+        {
+            var zone = Math.Min(vp.BlendRightPx, w);
+            Band(canvas, "R", SKRect.Create(w - zone, 0, zone, h),
+                new SKPoint(w, 0), new SKPoint(w - zone, 0), stops);
+        }
+        if (vp.BlendTopPx > 0)
+        {
+            Band(canvas, "T", SKRect.Create(0, 0, w, Math.Min(vp.BlendTopPx, h)),
+                new SKPoint(0, 0), new SKPoint(0, Math.Min(vp.BlendTopPx, h)), stops);
+        }
+        if (vp.BlendBottomPx > 0)
+        {
+            var zone = Math.Min(vp.BlendBottomPx, h);
+            Band(canvas, "B", SKRect.Create(0, h - zone, w, zone),
+                new SKPoint(0, h), new SKPoint(0, h - zone), stops);
+        }
+    }
+
+    private void Band(SKCanvas canvas, string edge, SKRect rect, SKPoint outer, SKPoint inner, SKColor[] stops)
+    {
+        if (!_blendShaders.TryGetValue(edge, out var shader))
+        {
+            shader = SKShader.CreateLinearGradient(outer, inner, stops, SKShaderTileMode.Clamp);
+            _blendShaders[edge] = shader;
+        }
+        _blendPaint.Shader = shader;
+        canvas.DrawRect(rect, _blendPaint);
+    }
+
     private SKSurface? _offscreen;
     private SKSizeI _offscreenSize;
     private readonly SKPaint _warpPaint = new() { IsAntialias = true };
@@ -330,6 +437,9 @@ public sealed class RenderPipeline : IDisposable
             _trimFilter?.Dispose();
             _trimPaint.Dispose();
             _warpPaint.Dispose();
+            foreach (var s in _blendShaders.Values) s.Dispose();
+            _blendShaders.Clear();
+            _blendPaint.Dispose();
             _offscreen?.Dispose();
             _sink.Dispose();
         }

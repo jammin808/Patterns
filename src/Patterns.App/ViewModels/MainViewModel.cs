@@ -187,6 +187,7 @@ public sealed class MainViewModel : Observable
             _selectedPlacement.WarpBrx = 0; _selectedPlacement.WarpBry = 0;
             RaiseSelection();
         });
+        ResetBlendCommand = new RelayCommand(ResetBlend);
 
         // Stingers
         AddStingerFilesCommand = new RelayCommand(() => _ = AddStingerFilesAsync());
@@ -648,10 +649,102 @@ public sealed class MainViewModel : Observable
             if (info is not null && p.Enabled)
             {
                 var size = OutputWindowManager.EffectiveSize(p, info);
-                result.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, size.Width, size.Height)));
+                result.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, size.Width, size.Height), p.BlendAuto));
             }
         }
         return result;
+    }
+
+    // ---- edge blend ---------------------------------------------------------
+
+    public bool SelectedBlendAuto
+    {
+        get => _selectedPlacement?.BlendAuto ?? false;
+        set
+        {
+            if (_selectedPlacement is null || _selectedPlacement.BlendAuto == value) return;
+            _selectedPlacement.BlendAuto = value;
+            ReconcilePlacements(); // an overlap may now join (or leave) a canvas
+            RaiseSelection();
+        }
+    }
+
+    public int SelectedBlendLeft
+    {
+        get => _selectedPlacement?.BlendLeftPx ?? 0;
+        set { if (_selectedPlacement is { } p) { p.BlendLeftPx = value; RaiseBlend(); } }
+    }
+
+    public int SelectedBlendTop
+    {
+        get => _selectedPlacement?.BlendTopPx ?? 0;
+        set { if (_selectedPlacement is { } p) { p.BlendTopPx = value; RaiseBlend(); } }
+    }
+
+    public int SelectedBlendRight
+    {
+        get => _selectedPlacement?.BlendRightPx ?? 0;
+        set { if (_selectedPlacement is { } p) { p.BlendRightPx = value; RaiseBlend(); } }
+    }
+
+    public int SelectedBlendBottom
+    {
+        get => _selectedPlacement?.BlendBottomPx ?? 0;
+        set { if (_selectedPlacement is { } p) { p.BlendBottomPx = value; RaiseBlend(); } }
+    }
+
+    public BlendCurve SelectedBlendCurve
+    {
+        get => _selectedPlacement?.BlendCurve ?? BlendCurve.SCurve;
+        set { if (_selectedPlacement is { } p) { p.BlendCurve = value; RaiseBlend(); } }
+    }
+
+    public double SelectedBlendGamma
+    {
+        get => _selectedPlacement?.BlendGamma ?? 1.0;
+        set { if (_selectedPlacement is { } p) { p.BlendGamma = value; RaiseBlend(); } }
+    }
+
+    /// <summary>The zones this output will actually fade, in its own pixels — derived from the overlaps when automatic.</summary>
+    public string BlendReadback
+    {
+        get
+        {
+            if (_selectedPlacement is not { } p) return "";
+            var arranged = BuildArranged();
+            var mine = arranged.FirstOrDefault(a => a.Id == p.ScreenId);
+            if (mine.Id is null) return "This screen is not in the arrangement.";
+            var derived = EdgeBlend.Derive(mine.Rect, arranged.Where(a => a.Id != mine.Id).Select(a => a.Rect));
+            var used = EdgeBlend.Resolve(p, derived);
+            var words = $"left {used.Left} · top {used.Top} · right {used.Right} · bottom {used.Bottom} px";
+            if (!p.BlendAuto) return used.Any ? $"Fading {words}." : "No blend on this output.";
+            return used.Any
+                ? $"Overlaps found: {words} — both projectors draw the overlap, faded."
+                : "No overlap with another screen yet — drag this screen over its neighbour by the overlap width.";
+        }
+    }
+
+    private void RaiseBlend()
+    {
+        Raise(nameof(BlendReadback));
+        Raise(nameof(SelectedBlendLeft));
+        Raise(nameof(SelectedBlendTop));
+        Raise(nameof(SelectedBlendRight));
+        Raise(nameof(SelectedBlendBottom));
+        Raise(nameof(SelectedBlendCurve));
+        Raise(nameof(SelectedBlendGamma));
+        Raise(nameof(SelectedBlendAuto));
+    }
+
+    private void ResetBlend()
+    {
+        if (_selectedPlacement is not { } p) return;
+        p.BlendAuto = false;
+        p.BlendLeftPx = p.BlendTopPx = p.BlendRightPx = p.BlendBottomPx = 0;
+        p.BlendCurve = BlendCurve.SCurve;
+        p.BlendGamma = 1.0;
+        ReconcilePlacements();
+        RaiseSelection();
     }
 
     public string GroupSummary
@@ -689,6 +782,7 @@ public sealed class MainViewModel : Observable
     {
         Raise(nameof(GroupSummary));
         Raise(nameof(SelectedIsGrouped));
+        Raise(nameof(BlendReadback));
     }
 
     private void RaiseSelection()
@@ -708,6 +802,7 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedScreenLabel));
         Raise(nameof(SelectedCanvasName));
         Raise(nameof(SelectedIsInCanvas));
+        RaiseBlend();
     }
 
     // ---- custom labels ------------------------------------------------------
@@ -2319,6 +2414,7 @@ public sealed class MainViewModel : Observable
     public RelayCommand StopAudioCommand { get; }
     public RelayCommand RefreshAudioDevicesCommand { get; }
     public RelayCommand ResetWarpCommand { get; }
+    public RelayCommand ResetBlendCommand { get; }
     public RelayCommand AddStingerFilesCommand { get; }
     public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingerCommand { get; }

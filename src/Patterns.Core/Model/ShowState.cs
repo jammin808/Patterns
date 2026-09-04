@@ -128,6 +128,28 @@ public sealed class ScreenPlacement : Observable
     public bool HasWarp =>
         _warpTlx != 0 || _warpTly != 0 || _warpTrx != 0 || _warpTry != 0 ||
         _warpBlx != 0 || _warpBly != 0 || _warpBrx != 0 || _warpBry != 0;
+
+    // Edge blend: the soft fade a projector's picture gets along the edges it shares with a
+    // neighbour, so two overlapping projectors read as one picture. Automatic takes the widths
+    // from the arrangement's overlaps (and lets this screen overlap its neighbours to join a
+    // canvas); manual widths are for a rig measured by hand.
+    private bool _blendAuto;
+    private int _blendLeftPx; private int _blendTopPx; private int _blendRightPx; private int _blendBottomPx;
+    private BlendCurve _blendCurve = BlendCurve.SCurve;
+    private double _blendGamma = 1.0;
+
+    /// <summary>Blend widths follow the overlaps in the arrangement; overlapping this screen joins the canvas.</summary>
+    public bool BlendAuto { get => _blendAuto; set => Set(ref _blendAuto, value); }
+    public int BlendLeftPx { get => _blendLeftPx; set => Set(ref _blendLeftPx, Math.Clamp(value, 0, 4096)); }
+    public int BlendTopPx { get => _blendTopPx; set => Set(ref _blendTopPx, Math.Clamp(value, 0, 4096)); }
+    public int BlendRightPx { get => _blendRightPx; set => Set(ref _blendRightPx, Math.Clamp(value, 0, 4096)); }
+    public int BlendBottomPx { get => _blendBottomPx; set => Set(ref _blendBottomPx, Math.Clamp(value, 0, 4096)); }
+    /// <summary>The fade's shape across the zone (the same curves the Projection blend pattern draws).</summary>
+    public BlendCurve BlendCurve { get => _blendCurve; set => Set(ref _blendCurve, value); }
+    /// <summary>Compensates the projectors' gamma so the two ramps add up to flat light; 1 = the raw curve.</summary>
+    public double BlendGamma { get => _blendGamma; set => Set(ref _blendGamma, Math.Clamp(value, 0.5, 3.0)); }
+
+    public bool HasBlend => _blendAuto || _blendLeftPx > 0 || _blendTopPx > 0 || _blendRightPx > 0 || _blendBottomPx > 0;
 }
 
 /// <summary>Per-screen pattern in Independent mode.</summary>

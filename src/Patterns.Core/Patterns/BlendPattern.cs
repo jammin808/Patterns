@@ -18,6 +18,19 @@ public static class BlendMath
             _ => t,
         };
     }
+
+    /// <summary>
+    /// The light an output should show <paramref name="t"/> of the way into its blend zone (0 at
+    /// the outer edge, 1 where its full picture begins), as the signal to send: the curve raised
+    /// to 1/gamma, so two projectors with that gamma add up to flat light across the join. Gamma 1
+    /// is the raw curve — what the Projection blend pattern's ramps show.
+    /// </summary>
+    public static double Weight(BlendCurve curve, double t, double gamma)
+    {
+        var w = Curve(curve, t);
+        gamma = Math.Clamp(gamma, 0.5, 3.0);
+        return Math.Abs(gamma - 1.0) < 1e-6 ? w : Math.Pow(w, 1.0 / gamma);
+    }
 }
 
 /// <summary>

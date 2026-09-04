@@ -143,7 +143,7 @@ public sealed class ScreenArrangeControl : Control
 
         // Grouping over ENABLED screens at their committed (or previewed) positions.
         var enabledArr = entries.Where(x => x.P.Enabled)
-            .Select(x => new ArrangedScreen(x.P.ScreenId, x.Rect))
+            .Select(x => new ArrangedScreen(x.P.ScreenId, x.Rect, x.P.BlendAuto))
             .ToList();
         var groups = ScreenLayout.Groups(enabledArr);
         var groupIndexOf = new Dictionary<string, (int Index, int Size)>();
@@ -443,18 +443,19 @@ public sealed class ScreenArrangeControl : Control
         var moving = SKRectI.Create(_dragStartRect.Left + dx, _dragStartRect.Top + dy, _dragStartRect.Width, _dragStartRect.Height);
 
         var others = new List<SKRectI>();
-        var enabledOthers = new List<SKRectI>();
+        var enabledOthers = new List<ArrangedScreen>();
         foreach (var t in view.Tiles)
         {
             if (t.Placement == _dragPlacement) continue;
             others.Add(t.Arranged);
-            if (t.Placement.Enabled) enabledOthers.Add(t.Arranged);
+            if (t.Placement.Enabled) enabledOthers.Add(new ArrangedScreen(t.Placement.ScreenId, t.Arranged, t.Placement.BlendAuto));
         }
 
         var threshold = Math.Max(12, (int)(18 / view.Scale));
         _dragPreview = ScreenLayout.Snap(moving, others, threshold);
+        var preview = new ArrangedScreen(_dragPlacement.ScreenId, _dragPreview, _dragPlacement.BlendAuto);
         _snapConnected = _dragPlacement.Enabled &&
-                         enabledOthers.Any(o => ScreenLayout.Touching(_dragPreview, o));
+                         enabledOthers.Any(o => ScreenLayout.Connected(preview, o));
         InvalidateVisual();
     }
 
@@ -467,8 +468,14 @@ public sealed class ScreenArrangeControl : Control
         if (_dragging)
         {
             var view = BuildView();
-            var others = view?.Tiles.Where(t => t.Placement != _dragPlacement).Select(t => t.Arranged).ToList() ?? new List<SKRectI>();
-            if (!ScreenLayout.OverlapsAny(_dragPreview, others))
+            var tiles = view?.Tiles.Where(t => t.Placement != _dragPlacement).ToList() ?? new List<Tile>();
+            // An overlap is a mistake — unless a blending projector is involved on both sides of
+            // it: then the overlap is the blend zone, and the drop is exactly what was meant.
+            var overlapped = tiles.Where(t => ScreenLayout.OverlapsAny(_dragPreview, new[] { t.Arranged })).ToList();
+            var allowed = overlapped.Count == 0 ||
+                          _dragPlacement.BlendAuto ||
+                          overlapped.All(t => t.Placement.BlendAuto);
+            if (allowed)
             {
                 _dragPlacement.X = _dragPreview.Left;
                 _dragPlacement.Y = _dragPreview.Top;

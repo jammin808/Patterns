@@ -2,8 +2,12 @@ using SkiaSharp;
 
 namespace Patterns.Core.Rendering;
 
-/// <summary>A screen in arrangement space: stable id + arranged rect in device pixels.</summary>
-public readonly record struct ArrangedScreen(string Id, SKRectI Rect);
+/// <summary>
+/// A screen in arrangement space: stable id + arranged rect in device pixels. <paramref name="Blend"/>
+/// marks a projector whose edges blend automatically: it may overlap its neighbours, and the
+/// overlap joins them into one canvas instead of being a mistake.
+/// </summary>
+public readonly record struct ArrangedScreen(string Id, SKRectI Rect, bool Blend = false);
 
 /// <summary>
 /// Pure math for the graphical screen arrangement: edge snapping while dragging,
@@ -41,7 +45,23 @@ public static class ScreenLayout
         return false;
     }
 
-    /// <summary>Connected components of touching screens. Singletons are their own group.</summary>
+    /// <summary>The rects share real area — at least <see cref="MinSharedEdge"/> on both axes, not a flush edge.</summary>
+    public static bool Overlapping(SKRectI a, SKRectI b)
+    {
+        var w = Math.Min(a.Right, b.Right) - Math.Max(a.Left, b.Left);
+        var h = Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Top, b.Top);
+        return w >= MinSharedEdge && h >= MinSharedEdge;
+    }
+
+    /// <summary>
+    /// Two screens form one canvas when they touch — or when they overlap and either side blends
+    /// automatically: two projectors share their overlap and both draw it, faded. A rig with no
+    /// blending projector never regroups on an overlap.
+    /// </summary>
+    public static bool Connected(in ArrangedScreen a, in ArrangedScreen b)
+        => Touching(a.Rect, b.Rect) || ((a.Blend || b.Blend) && Overlapping(a.Rect, b.Rect));
+
+    /// <summary>Connected components of touching (or blend-overlapping) screens. Singletons are their own group.</summary>
     public static List<List<ArrangedScreen>> Groups(IReadOnlyList<ArrangedScreen> screens)
     {
         var groups = new List<List<ArrangedScreen>>();
@@ -60,7 +80,7 @@ public static class ScreenLayout
                 group.Add(screens[cur]);
                 for (var j = 0; j < screens.Count; j++)
                 {
-                    if (!assigned[j] && Touching(screens[cur].Rect, screens[j].Rect))
+                    if (!assigned[j] && Connected(screens[cur], screens[j]))
                     {
                         assigned[j] = true;
                         stack.Push(j);

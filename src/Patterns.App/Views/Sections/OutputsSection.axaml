@@ -162,6 +162,41 @@
         </StackPanel>
         <TextBlock Classes="hint"
                    Text="Pulls each corner of this output by the given pixels — a light keystone for casually placed projectors, not a full warp engine. Positive X moves right, positive Y moves down." />
+
+        <TextBlock Classes="label" Text="Edge blend (projectors)" Margin="0,8,0,0" />
+        <CheckBox Content="Automatic — fade the edges this screen overlaps with a neighbour"
+                  IsChecked="{Binding SelectedBlendAuto, Mode=TwoWay}" />
+        <TextBlock Classes="hint" Text="{Binding BlendReadback}" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="76,*,12,76,*" RowDefinitions="Auto,4,Auto" IsEnabled="{Binding !SelectedBlendAuto}">
+          <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Left px" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="4096" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedBlendLeft, Mode=TwoWay, Converter={StaticResource Num}}" />
+          <TextBlock Grid.Row="0" Grid.Column="3" Classes="label" Text="Right px" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="0" Grid.Column="4" Minimum="0" Maximum="4096" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedBlendRight, Mode=TwoWay, Converter={StaticResource Num}}" />
+          <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Top px" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="4096" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedBlendTop, Mode=TwoWay, Converter={StaticResource Num}}" />
+          <TextBlock Grid.Row="2" Grid.Column="3" Classes="label" Text="Bottom px" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="2" Grid.Column="4" Minimum="0" Maximum="4096" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedBlendBottom, Mode=TwoWay, Converter={StaticResource Num}}" />
+        </Grid>
+        <Grid ColumnDefinitions="86,*,44" RowDefinitions="Auto,Auto" Margin="0,4,0,0">
+          <TextBlock Grid.Row="0" Classes="label" Text="Curve" VerticalAlignment="Center" />
+          <ComboBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding BlendCurves}"
+                    SelectedValue="{Binding SelectedBlendCurve, Mode=TwoWay}"
+                    SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+          <TextBlock Grid.Row="1" Classes="label" Text="Blend gamma" VerticalAlignment="Center" />
+          <Slider Grid.Row="1" Grid.Column="1" Minimum="0.5" Maximum="3" TickFrequency="0.05"
+                  Value="{Binding SelectedBlendGamma, Mode=TwoWay}" />
+          <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                     Text="{Binding SelectedBlendGamma, StringFormat={}{0:0.00}}" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Classes="chip" Content="Reset blend" Command="{Binding ResetBlendCommand}" />
+        </StackPanel>
+        <TextBlock Classes="hint"
+                   Text="Two projectors that overlap on the wall: tick Automatic on both, drag one over the other by the overlap, and the overlap becomes a joined canvas that both draw, each fading its shared edge to black so the light adds up to one picture. Put the Projection blend pattern's grey check on the canvas and turn the gamma until the overlap reads as flat as the rest. Only this output fades; NDI, monitors and the preview never do." />
       </StackPanel>
     </Border>
     <TextBlock Classes="hint" IsVisible="{Binding !HasSelection}" Text="Click a screen tile to select it." />

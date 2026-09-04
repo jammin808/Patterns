@@ -40,6 +40,11 @@ fault containment, and settings that can never brick startup.
   in pixels, continuous alignment grid through the zones, hue-coded projector frames, blend-curve
   ramps (linear / cosine / S-curve / gamma 2.2), zone markers with centerlines, and a flat 50%
   grey double-stack check.
+- **Edge blend on the real outputs** — tick *Automatic* on two projectors and overlap them on the
+  Screens page: the overlap becomes a joined canvas both draw, each output fading its shared
+  edge to black along the chosen curve with a blend gamma you tune until the grey check reads
+  flat. Manual widths per edge for a rig measured by hand; a keystoned projector's fade follows
+  its keystone; NDI, monitors and the preview never fade.
 - **A proper pattern library** — alignment grids, SMPTE RP 219-style / EBU / 75% / 100% bars
   (legal or full range), grey & RGB ramps, banding steps, focus charts (Siemens star, line pairs,
   type), geometry & safe areas, flat fields, 1-px checkerboards — parametric at any resolution up
@@ -358,7 +363,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 681 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 696 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, edge blend, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```
