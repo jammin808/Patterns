@@ -1,4 +1,5 @@
 using Patterns.Core.Model;
+using Patterns.Core.Effects;
 using Patterns.Core.Particles;
 
 namespace Patterns.App.Services;
@@ -76,6 +77,17 @@ public static class BuiltInPresets
         Add("Motion", "Bouncing FPS box", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.BouncingBox; });
         Add("Motion", "Frame flash", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.FrameFlash; });
         Add("Motion", "Zone plate", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.ZonePlate; });
+
+        // Effects: the fractal scenes.
+        foreach (var scene in FractalPresets.Names)
+        {
+            var name = scene;
+            Add("Effects", name, p =>
+            {
+                p.Kind = PatternKind.Fractal;
+                FractalPresets.Apply(name, p.Fractal);
+            });
+        }
 
         // Particles: every scene of every pack, filed under its pack.
         foreach (var pack in ParticlePresets.Packs)

@@ -311,6 +311,7 @@ public static class Lists
         new(PatternKind.ColorCycle, "Colour cycle"),
         new(PatternKind.Media, "Media (image / video)"),
         new(PatternKind.Particles, "Particles"),
+        new(PatternKind.Fractal, "Fractal (sound-reactive)"),
         new(PatternKind.Multiview, "Multiview (monitor wall)"),
     };
 
@@ -368,6 +369,26 @@ public static class Lists
         new(RampVariant.GrayVertical, "Grey ramp — vertical"),
         new(RampVariant.Rgb, "RGB + grey ramps"),
         new(RampVariant.Steps, "Grey steps (banding)"),
+    };
+    public static readonly EnumItem[] FractalKinds =
+    {
+        new(FractalKind.Mandelbrot, "Mandelbrot"),
+        new(FractalKind.Julia, "Julia"),
+        new(FractalKind.BurningShip, "Burning ship"),
+        new(FractalKind.Newton, "Newton"),
+        new(FractalKind.DomainWarp, "Domain warp (flowing noise)"),
+    };
+    public static readonly EnumItem[] AudioSources =
+    {
+        new(AudioSourceKind.None, "No sound — just the motion"),
+        new(AudioSourceKind.Internal, "This computer's sound (what it plays)"),
+        new(AudioSourceKind.External, "An input — microphone, line, interface"),
+    };
+    public static readonly EnumItem[] FractalQualities =
+    {
+        new(FractalQuality.Balanced, "Balanced"),
+        new(FractalQuality.Fast, "Fast (NDI and thumbnails coarser)"),
+        new(FractalQuality.Fine, "Fine (NDI and thumbnails cost more CPU)"),
     };
     public static readonly EnumItem[] MotionVariants =
     {

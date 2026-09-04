@@ -18,6 +18,7 @@ public enum PatternKind
     Media,
     Particles,
     Multiview,
+    Fractal,
 }
 
 /// <summary>What one multiview tile shows.</summary>
@@ -260,4 +261,30 @@ public enum LibraryMediaKind
     Image,
     Video,
     Audio,
+}
+
+/// <summary>The fractal families the Fractal pattern draws.</summary>
+public enum FractalKind
+{
+    Mandelbrot,
+    Julia,
+    BurningShip,
+    Newton,
+    DomainWarp,
+}
+
+/// <summary>Where a sound-reactive effect listens: nowhere, this computer's own sound, or an input.</summary>
+public enum AudioSourceKind
+{
+    None,
+    Internal,
+    External,
+}
+
+/// <summary>How much the CPU path (NDI, thumbnails) spends on a fractal frame.</summary>
+public enum FractalQuality
+{
+    Balanced,
+    Fast,
+    Fine,
 }

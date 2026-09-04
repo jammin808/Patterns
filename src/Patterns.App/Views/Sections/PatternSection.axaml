@@ -338,6 +338,90 @@
       </Grid>
     </StackPanel>
 
+    <!-- Fractal -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Fractal}}">
+      <TextBlock Classes="h2" Text="FRACTAL" />
+      <TextBlock Classes="hint" Text="A living picture from pure maths, drawn on the graphics card at any size. Start from a scene, then shape it — and let it breathe with the sound." />
+      <ItemsControl ItemsSource="{Binding FractalPresetNames}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <Button Classes="chip" Margin="0,2,6,2" Content="{Binding}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyFractalPresetCommand}"
+                    CommandParameter="{Binding}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <ComboBox ItemsSource="{Binding FractalKinds}"
+                SelectedValue="{Binding ActivePattern.Fractal.Kind, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Zoom" />
+        <NumericUpDown Grid.Column="1" Minimum="0.2" Maximum="1000000" Increment="0.5" FormatString="0.###"
+                       Value="{Binding ActivePattern.Fractal.Zoom, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="1 = the whole set fits the height; higher is closer in" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,*">
+        <TextBlock Classes="label" Text="Centre (x, y)" />
+        <NumericUpDown Grid.Column="1" Minimum="-4" Maximum="4" Increment="0.01" FormatString="0.####"
+                       Value="{Binding ActivePattern.Fractal.CenterX, Mode=TwoWay, Converter={StaticResource Num}}" />
+        <NumericUpDown Grid.Column="3" Minimum="-4" Maximum="4" Increment="0.01" FormatString="0.####"
+                       Value="{Binding ActivePattern.Fractal.CenterY, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Detail (iterations)" />
+        <NumericUpDown Grid.Column="1" Minimum="8" Maximum="1024" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Fractal.Iterations, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Motion" />
+        <Slider Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding ActivePattern.Fractal.Speed, Mode=TwoWay}"
+                ToolTip.Tip="How fast the picture breathes and the colours drift; 0 holds still" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,*"
+            IsVisible="{Binding ActivePattern.Fractal.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:FractalKind.Julia}}">
+        <TextBlock Classes="label" Text="Julia c (re, im)" />
+        <NumericUpDown Grid.Column="1" Minimum="-2" Maximum="2" Increment="0.01" FormatString="0.###"
+                       Value="{Binding ActivePattern.Fractal.JuliaReal, Mode=TwoWay, Converter={StaticResource Num}}" />
+        <NumericUpDown Grid.Column="3" Minimum="-2" Maximum="2" Increment="0.01" FormatString="0.###"
+                       Value="{Binding ActivePattern.Fractal.JuliaImag, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Palette" />
+        <TextBox Grid.Column="1" Watermark="#0B0C2A,#1E3A8A,#3EC1F3,#FFFFFF,#FFB020"
+                 Text="{Binding ActivePattern.Fractal.ColorsCsv}" ToolTip.Tip="Two to five colours the picture cycles through" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Quality" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding FractalQualities}"
+                  SelectedValue="{Binding ActivePattern.Fractal.Quality, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <TextBlock Classes="hint" Text="Outputs, the preview and the monitors draw at full resolution on the graphics card. NDI and thumbnails draw on the CPU at a modest size and scale up — Quality sets how modest." />
+
+      <TextBlock Classes="h2" Text="SOUND" />
+      <ComboBox ItemsSource="{Binding AudioSources}"
+                SelectedValue="{Binding ActivePattern.Fractal.AudioSource, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <Grid ColumnDefinitions="130,*,8,Auto"
+            IsVisible="{Binding ActivePattern.Fractal.AudioSource, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:AudioSourceKind.External}}">
+        <TextBlock Classes="label" Text="Input" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding AudioCaptureDevices}"
+                  SelectedItem="{Binding ActivePattern.Fractal.AudioDevice, Mode=TwoWay}"
+                  HorizontalAlignment="Stretch" PlaceholderText="Choose an input" />
+        <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding RefreshAudioCaptureDevicesCommand}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Amount" />
+        <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ActivePattern.Fractal.AudioAmount, Mode=TwoWay}"
+                ToolTip.Tip="How much the sound moves the picture" />
+      </Grid>
+      <TextBlock Classes="label" Text="{Binding FractalAudioStatus}" TextWrapping="Wrap" />
+      <TextBlock Classes="hint" Text="This computer's sound is whatever plays through its default output — Spotify or a video on this machine included; a Spotify Connect speaker elsewhere is not heard here. An input is a microphone, a line or an interface channel. The level pulses the zoom, the lows drift the colours, the highs brighten. Windows only." />
+    </StackPanel>
+
     <!-- Colour cycle -->
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.ColorCycle}}">
       <TextBlock Classes="h2" Text="COLOUR CYCLE" />

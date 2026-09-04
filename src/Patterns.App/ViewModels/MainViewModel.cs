@@ -3,6 +3,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Patterns.App.Services;
+using Patterns.Core.Effects;
 using Patterns.Core.Model;
 using Patterns.Core.Ndi;
 using Patterns.Core.Particles;
@@ -2688,6 +2689,43 @@ public sealed class MainViewModel : Observable
     public string[] CountdownLabels => Lists.CountdownLabels;
     public string[] ParticlePresetNames => ParticlePresets.Names;
 
+    // ---- fractal ------------------------------------------------------------
+
+    public string[] FractalPresetNames => FractalPresets.Names;
+    public EnumItem[] FractalKinds => Lists.FractalKinds;
+    public EnumItem[] AudioSources => Lists.AudioSources;
+    public EnumItem[] FractalQualities => Lists.FractalQualities;
+
+    private RelayCommand<string>? _applyFractalPreset;
+
+    public RelayCommand<string> ApplyFractalPresetCommand => _applyFractalPreset ??= new RelayCommand<string>(name =>
+    {
+        if (name is null) return;
+        _services.BulkEdit(() => FractalPresets.Apply(name, ActivePattern.Fractal));
+    });
+
+    /// <summary>The inputs a sound-reactive effect can listen to, with the show's choice kept when it is not here.</summary>
+    public ObservableCollection<string> AudioCaptureDevices { get; } = new();
+
+    private RelayCommand? _refreshAudioCaptureDevices;
+
+    public RelayCommand RefreshAudioCaptureDevicesCommand => _refreshAudioCaptureDevices ??= new RelayCommand(RefreshAudioCaptureDevices);
+
+    public void RefreshAudioCaptureDevices()
+    {
+        var wanted = AudioAnalyserService.CaptureDevices().ToList();
+        var chosen = ActivePattern.Fractal.AudioDevice;
+        if (chosen.Length > 0 && !wanted.Contains(chosen, StringComparer.OrdinalIgnoreCase)) wanted.Add(chosen);
+        if (AudioCaptureDevices.Count == wanted.Count && AudioCaptureDevices.SequenceEqual(wanted)) return;
+        AudioCaptureDevices.Clear();
+        foreach (var d in wanted) AudioCaptureDevices.Add(d);
+    }
+
+    private string _fractalAudioStatus = "Off.";
+
+    /// <summary>What the analyser says it is doing — the Pattern page's sound line.</summary>
+    public string FractalAudioStatus { get => _fractalAudioStatus; private set => Set(ref _fractalAudioStatus, value); }
+
     public ResolutionPreset? SelectedResolution
     {
         get => _selectedResolution;
@@ -3314,6 +3352,8 @@ public sealed class MainViewModel : Observable
             RefreshSpotifyBrowse();
         }
         RefreshLookMusicChoices(); // a renamed or added entry, a loaded show
+        FractalAudioStatus = _services.Analyser.Status;
+        if (ActivePattern.Kind == PatternKind.Fractal) RefreshAudioCaptureDevices();
         HealthText = HealthMonitor.Summary(DateTime.UtcNow);
         StreamStatus = _services.Stream.Status;
         _statusTicks++;

@@ -515,4 +515,59 @@ public sealed class PatternConfig : Observable
     public MediaOptions Media { get; init; } = new();
     public ParticleOptions Particles { get; init; } = new();
     public MultiviewOptions Multiview { get; init; } = new();
+    public FractalOptions Fractal { get; init; } = new();
+}
+
+/// <summary>The Fractal pattern: a family, a view of the plane, a palette, motion, and the sound it listens to.</summary>
+public sealed class FractalOptions : Observable
+{
+    private FractalKind _kind = FractalKind.Mandelbrot;
+    private string _preset = "Mandelbrot classic";
+    private double _zoom = 1;
+    private double _centerX = -0.6;
+    private double _centerY = 0;
+    private int _iterations = 96;
+    private double _speed = 0.5;
+    private double _juliaReal = -0.72;
+    private double _juliaImag = 0.27;
+    private string _colorsCsv = "#0B0C2A,#1E3A8A,#3EC1F3,#FFFFFF,#FFB020";
+    private double _audioAmount = 0.6;
+    private AudioSourceKind _audioSource = AudioSourceKind.None;
+    private string _audioDevice = "";
+    private FractalQuality _quality = FractalQuality.Balanced;
+
+    public FractalKind Kind { get => _kind; set => Set(ref _kind, value); }
+
+    /// <summary>The scene last applied; a label, never read back.</summary>
+    public string Preset { get => _preset; set => Set(ref _preset, value ?? ""); }
+
+    /// <summary>1 = the whole set fits the canvas height; higher is closer in.</summary>
+    public double Zoom { get => _zoom; set => Set(ref _zoom, Math.Clamp(value, 0.2, 1_000_000)); }
+
+    public double CenterX { get => _centerX; set => Set(ref _centerX, Math.Clamp(value, -4, 4)); }
+
+    public double CenterY { get => _centerY; set => Set(ref _centerY, Math.Clamp(value, -4, 4)); }
+
+    /// <summary>Escape-time depth: more is finer and slower.</summary>
+    public int Iterations { get => _iterations; set => Set(ref _iterations, Math.Clamp(value, 8, 1024)); }
+
+    /// <summary>How fast the picture breathes and the palette drifts; 0 holds still.</summary>
+    public double Speed { get => _speed; set => Set(ref _speed, Math.Clamp(value, 0, 5)); }
+
+    public double JuliaReal { get => _juliaReal; set => Set(ref _juliaReal, Math.Clamp(value, -2, 2)); }
+
+    public double JuliaImag { get => _juliaImag; set => Set(ref _juliaImag, Math.Clamp(value, -2, 2)); }
+
+    /// <summary>Two to five colours the picture cycles through, as the particle studio writes them.</summary>
+    public string ColorsCsv { get => _colorsCsv; set => Set(ref _colorsCsv, value ?? ""); }
+
+    /// <summary>How much the sound moves the picture (0 = not at all).</summary>
+    public double AudioAmount { get => _audioAmount; set => Set(ref _audioAmount, Math.Clamp(value, 0, 1)); }
+
+    public AudioSourceKind AudioSource { get => _audioSource; set => Set(ref _audioSource, value); }
+
+    /// <summary>The input to listen to when the source is External; a null from a picker that lost its items keeps the choice.</summary>
+    public string AudioDevice { get => _audioDevice; set => Set(ref _audioDevice, value ?? _audioDevice); }
+
+    public FractalQuality Quality { get => _quality; set => Set(ref _quality, value); }
 }

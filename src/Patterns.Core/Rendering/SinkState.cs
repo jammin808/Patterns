@@ -55,6 +55,19 @@ public sealed class SinkState : IDisposable
 
     // Zone-plate runtime shader (compiled once per sink; falls back if unsupported).
     public SKRuntimeEffect? ZonePlateEffect { get; set; }
+
+    /// <summary>The fractal shaders compiled for this sink, one per family; a family that failed to compile stays on the CPU path.</summary>
+    public Dictionary<FractalKind, SKRuntimeEffect> FractalEffects { get; } = new();
+
+    public HashSet<FractalKind> FractalUnavailable { get; } = new();
+
+    /// <summary>The CPU path's low-resolution frame and its pixel buffer, reused frame to frame.</summary>
+    public Effects.FractalSurface? Fractal { get; set; }
+
+    /// <summary>The parsed fractal palette, keyed by the CSV it came from.</summary>
+    public string FractalColorsKey { get; set; } = "";
+
+    public SKColor[] FractalColors { get; set; } = Array.Empty<SKColor>();
     public bool ZonePlateUnavailable { get; set; }
 
     /// <summary>Message ticker caches: the measured text width and the fade-band shader.</summary>
@@ -62,6 +75,10 @@ public sealed class SinkState : IDisposable
 
     public void Dispose()
     {
+        foreach (var fx in FractalEffects.Values) fx.Dispose();
+        FractalEffects.Clear();
+        Fractal?.Dispose();
+        Fractal = null;
         Paints.Dispose();
         Particles?.Dispose();
         Checker.Dispose();

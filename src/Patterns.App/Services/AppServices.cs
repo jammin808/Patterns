@@ -39,6 +39,7 @@ public sealed class AppServices
     public SandboxService Sandbox { get; }
     public StreamService Stream { get; }
     public SystemMetricsService Metrics { get; }
+    public AudioAnalyserService Analyser { get; }
     public RecoveryStore Recovery { get; }
 
     /// <summary>The show journal: every air change with its origin, on disk beside the settings.</summary>
@@ -170,6 +171,7 @@ public sealed class AppServices
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
         Metrics = new SystemMetricsService(this);
+        Analyser = new AudioAnalyserService(this);
         Recovery = new RecoveryStore(Store.BaseDirectory);
         PendingRecovery = Recovery.Read();
         Actions = new ShowActions(this);
@@ -588,6 +590,7 @@ public sealed class AppServices
             Feeds.Dispose();
             Video.Dispose();
             Metrics.Dispose();
+            Analyser.Dispose();
             SaveNow();
             if (!_restartRequested)
             {

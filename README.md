@@ -69,6 +69,14 @@ fault containment, and settings that can never brick startup.
   (including your logo as a sprite), brand palettes, additive glow — thousands of particles,
   one draw call. A scene that drifts sideways keeps the whole screen covered: the upwind edge
   takes its share of the births, so wind never sweeps one side bare.
+- **Fractals, sound-reactive** — a living picture from pure maths as a pattern of its own:
+  Mandelbrot, Julia, Burning ship, Newton and a flowing domain warp, with scenes to start from
+  (seahorse valley, Julia swirl and dragon, lava, ocean…), zoom, centre, detail, motion and a
+  palette. Outputs, the preview and the monitors draw it on the graphics card at full size;
+  NDI and thumbnails draw the same view on the CPU at a modest size. It can listen — to this
+  computer's own sound or to an input (a microphone, a line, an interface) — and breathe with
+  it: the level pulses the zoom, the lows drift the colours, the highs brighten. Windows only
+  for the listening; the picture works everywhere.
 - **Time, date & countdowns** — clock overlay (12/24 h, seconds, date) and a show countdown to a
   time of day or a duration (“BACK FROM LUNCH AT…”, “SHOW STARTS IN…”), with hold / flash /
   message endings and an optional progress bar. Overlays composite over *any* pattern.
@@ -390,7 +398,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 751 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 763 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

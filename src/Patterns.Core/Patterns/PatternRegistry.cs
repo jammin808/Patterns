@@ -22,5 +22,6 @@ public static class PatternRegistry
             [PatternKind.ColorCycle] = new ColorCyclePattern(),
             [PatternKind.Media] = new MediaPattern(),
             [PatternKind.Particles] = new ParticlePattern(),
+            [PatternKind.Fractal] = new FractalPattern(),
         };
 }
