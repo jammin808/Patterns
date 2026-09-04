@@ -12,6 +12,14 @@ public interface IVideoFrameSource
     /// <summary>Draws the newest decoded frame into dest. Returns false when no frame is available yet.</summary>
     bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint);
 
+    /// <summary>
+    /// Draws the part of the newest frame that survives <paramref name="crop"/>, stretched into
+    /// dest. Sources that own an image override this with a source-rect draw; the default draws
+    /// the whole frame, so a source that knows nothing of crops keeps working.
+    /// </summary>
+    bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
+        => DrawFrame(canvas, dest, paint);
+
     SKSizeI? FrameSize { get; }
 
     bool IsPlaying { get; }

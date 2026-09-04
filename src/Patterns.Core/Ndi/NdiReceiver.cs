@@ -191,6 +191,9 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     }
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
+        => DrawFrame(canvas, dest, paint, FrameCrop.None);
+
+    public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
     {
         SKImage? image;
         lock (_gate)
@@ -198,7 +201,14 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
             image = _latest;
         }
         if (image is null) return false;
-        canvas.DrawImage(image, dest, Rendering.DrawUtil.Smooth, paint);
+        if (crop.Any)
+        {
+            canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Rendering.DrawUtil.Smooth, paint);
+        }
+        else
+        {
+            canvas.DrawImage(image, dest, Rendering.DrawUtil.Smooth, paint);
+        }
         return true;
     }
 

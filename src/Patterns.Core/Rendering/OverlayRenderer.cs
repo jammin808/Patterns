@@ -332,8 +332,10 @@ public static class OverlayRenderer
         var pc = sink.Paints;
         int vw = ctx.ViewportSize.Width, vh = ctx.ViewportSize.Height;
 
+        // The inset takes the shape of what survives the crop, so a cropped feed is never squashed.
+        var crop = FrameCrop.From(pip);
         var w = (float)(vw * pip.WidthPct / 100.0);
-        var aspect = source?.FrameSize is { } fs && fs.Height > 0 ? (float)fs.Width / fs.Height : 16f / 9f;
+        var aspect = source?.FrameSize is { } fs && fs.Height > 0 ? crop.AspectOf(fs) : 16f / 9f;
         var h = w / aspect;
         var margin = Math.Max(8f, vh * 0.02f);
 
@@ -347,7 +349,7 @@ public static class OverlayRenderer
         var alpha = (byte)Math.Clamp(pip.Opacity * 255, 0, 255);
         using var paint = new SKPaint { Color = new SKColor(255, 255, 255, alpha), IsAntialias = true };
 
-        if (source is null || !source.DrawFrame(c, rect, paint))
+        if (source is null || !source.DrawFrame(c, rect, paint, in crop))
         {
             // No frames yet — a quiet slate so the operator sees where the inset will be.
             c.DrawRoundRect(rect, 6, 6, pc.FillAA(new SKColor(0x10, 0x12, 0x18, alpha)));

@@ -286,9 +286,16 @@ public sealed class PipOverlay : Observable
     private double _widthPct = 25;
     private double _opacity = 1.0;
     private bool _showBorder = true;
+    private double _cropLeftPct; private double _cropTopPct; private double _cropRightPct; private double _cropBottomPct;
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public PipSource Source { get => _source; set => Set(ref _source, value); }
+
+    /// <summary>Cut this share of the feed away on each side (0–45 %): the inset shows the rest at its cropped shape.</summary>
+    public double CropLeftPct { get => _cropLeftPct; set => Set(ref _cropLeftPct, Math.Clamp(value, 0, 45)); }
+    public double CropTopPct { get => _cropTopPct; set => Set(ref _cropTopPct, Math.Clamp(value, 0, 45)); }
+    public double CropRightPct { get => _cropRightPct; set => Set(ref _cropRightPct, Math.Clamp(value, 0, 45)); }
+    public double CropBottomPct { get => _cropBottomPct; set => Set(ref _cropBottomPct, Math.Clamp(value, 0, 45)); }
     public string NdiSourceName { get => _ndiSourceName; set => Set(ref _ndiSourceName, value); }
     public string CaptureDevice { get => _captureDevice; set => Set(ref _captureDevice, value); }
     public Anchor9 Anchor { get => _anchor; set => Set(ref _anchor, value); }

@@ -154,8 +154,9 @@ fault containment, and settings that can never brick startup.
   so they work on spans, rotated outputs and NDI alike — even between videos and live inputs).
   Turn them off and everything cuts clean like a test-pattern box should.
 - **Picture-in-picture** — a second live input (another NDI feed or a capture device) as a
-  corner overlay over the program on every output: anchor, size, opacity and border are live.
-  Confidence-monitor the camera while the walls show content.
+  corner overlay over the program on every output: anchor, size, opacity and border are live,
+  and the feed **crops from any side** (a slate, a border, a black bar) with the inset taking
+  the cropped shape. Confidence-monitor the camera while the walls show content.
 - **Independent audio track** — play a music/VO file to **any set of audio outputs**: the
   **computer's own output** (the jack or interface feeding the venue sound system — a
   pinned, explicit choice), HDMI screen audio, a Dante/USB interface — several at once,
@@ -363,7 +364,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 696 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, edge blend, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 699 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, edge blend, the PiP crop, arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

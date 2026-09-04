@@ -166,8 +166,27 @@
         <Slider Grid.Column="1" Minimum="0.1" Maximum="1" Value="{Binding State.Overlays.Pip.Opacity, Mode=TwoWay}" />
       </Grid>
       <CheckBox Content="Accent border" IsChecked="{Binding State.Overlays.Pip.ShowBorder}" />
+      <TextBlock Classes="label" Text="Crop the feed (% cut away on each side)" Margin="0,6,0,0" />
+      <Grid ColumnDefinitions="130,*,40" RowDefinitions="Auto,Auto,Auto,Auto">
+        <TextBlock Grid.Row="0" Classes="label" Text="Left" VerticalAlignment="Center" />
+        <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding State.Overlays.Pip.CropLeftPct, Mode=TwoWay}" />
+        <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Overlays.Pip.CropLeftPct, StringFormat={}{0:0}%}" />
+        <TextBlock Grid.Row="1" Classes="label" Text="Right" VerticalAlignment="Center" />
+        <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding State.Overlays.Pip.CropRightPct, Mode=TwoWay}" />
+        <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Overlays.Pip.CropRightPct, StringFormat={}{0:0}%}" />
+        <TextBlock Grid.Row="2" Classes="label" Text="Top" VerticalAlignment="Center" />
+        <Slider Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding State.Overlays.Pip.CropTopPct, Mode=TwoWay}" />
+        <TextBlock Grid.Row="2" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Overlays.Pip.CropTopPct, StringFormat={}{0:0}%}" />
+        <TextBlock Grid.Row="3" Classes="label" Text="Bottom" VerticalAlignment="Center" />
+        <Slider Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding State.Overlays.Pip.CropBottomPct, Mode=TwoWay}" />
+        <TextBlock Grid.Row="3" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding State.Overlays.Pip.CropBottomPct, StringFormat={}{0:0}%}" />
+      </Grid>
       <TextBlock Classes="hint"
-                 Text="A second live input (camera, remote feed) in the corner of whatever is showing — its own receiver/decoder, independent of the Media source, on every screen and NDI output. Inset audio is not played." />
+                 Text="A second live input (camera, remote feed) in the corner of whatever is showing — its own receiver/decoder, independent of the Media source, on every screen and NDI output. Crop away a slate, a border or a black bar from any side; the inset takes the cropped shape, never squashes. Inset audio is not played." />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="TECH INFO CHIP" />

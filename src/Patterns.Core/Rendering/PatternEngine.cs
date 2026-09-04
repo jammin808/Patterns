@@ -342,7 +342,8 @@ public sealed class PatternEngine
                 if (pipCfg.Enabled && InputBus.For(key) is { } pip)
                 {
                     canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
-                    if (!pip.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "PiP — waiting for frames");
+                    var crop = FrameCrop.From(pipCfg); // the tile shows the inset as the room sees it
+                    if (!pip.DrawFrame(canvas, rect, null, in crop)) DrawTileSlate(canvas, f, rect, "PiP — waiting for frames");
                 }
                 else
                 {

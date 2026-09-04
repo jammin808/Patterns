@@ -514,6 +514,9 @@ public sealed class VlcFrameSource : IMountedSource
     };
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
+        => DrawFrame(canvas, dest, paint, FrameCrop.None);
+
+    public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
     {
         SKImage? image;
         lock (_gate)
@@ -522,7 +525,14 @@ public sealed class VlcFrameSource : IMountedSource
         }
         if (image is null) return false;
         // The image is immutable and outlives any deferred flush via the retire hold.
-        canvas.DrawImage(image, dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
+        if (crop.Any)
+        {
+            canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
+        }
+        else
+        {
+            canvas.DrawImage(image, dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
+        }
         return true;
     }
 
