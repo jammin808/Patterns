@@ -57,7 +57,7 @@ public sealed class StingerService : IDisposable
     {
         _services = services;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-        _timer.Tick += (_, _) => Tick(DateTime.UtcNow);
+        _timer.Tick += (_, _) => Tick(NowUtc());
         _timer.Start();
     }
 
@@ -93,7 +93,7 @@ public sealed class StingerService : IDisposable
     private bool SessionOpen => ClipActive || _holding || _stingSoundActive;
 
     /// <summary>The timer body, callable directly (tests drive it with their own clock).</summary>
-    public void Poll(DateTime? nowUtc = null) => Tick(nowUtc ?? DateTime.UtcNow);
+    public void Poll(DateTime? nowUtc = null) => Tick(nowUtc ?? NowUtc());
 
     // ---- the gains --------------------------------------------------------------------
 
@@ -117,6 +117,9 @@ public sealed class StingerService : IDisposable
         => (_gainMs > 0 && Math.Abs(_gainFrom - _gainTo) > 0.0001 && MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs) < 1)
         || (_duckMs > 0 && Math.Abs(_duckFrom - _duckTo) > 0.0001 && MusicLevel.Progress(_duckStartUtc, nowUtc, _duckMs) < 1);
 
+    /// <summary>The clock behind every ramp, so a test can read a fade at an exact instant instead of racing the wall clock.</summary>
+    public Func<DateTime> NowUtc { get; set; } = () => DateTime.UtcNow;
+
     // ---- the live duck ----------------------------------------------------------------
 
     /// <summary>The live duck is on: the room is making an announcement and everything but a VOG has made way.</summary>
@@ -134,7 +137,7 @@ public sealed class StingerService : IDisposable
     /// </summary>
     public void SetDuck(bool on, DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? NowUtc();
         var cfg = _services.State.Stingers;
         if (cfg.DuckActive == on) return;
         _duckFrom = DuckFactorAt(now);
@@ -159,7 +162,7 @@ public sealed class StingerService : IDisposable
 
     public bool Fire(StingerItemConfig item, DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? NowUtc();
         var name = item.DisplayName;
         if (string.IsNullOrWhiteSpace(item.Path) || !File.Exists(item.Path))
         {
@@ -337,7 +340,7 @@ public sealed class StingerService : IDisposable
     /// </summary>
     public void Stop(DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? NowUtc();
         _services.AudioPlayer.ReleaseStingers();
         _stingSoundActive = false;
         _vogSoundActive = false;
@@ -418,7 +421,7 @@ public sealed class StingerService : IDisposable
         catch (Exception ex)
         {
             Log.Error("Stinger tick failed.", ex);
-            Abandon("Stinger error.", DateTime.UtcNow);
+            Abandon("Stinger error.", NowUtc());
         }
     }
 

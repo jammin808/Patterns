@@ -39,15 +39,20 @@ public class LiveDuckTests
             b.Vm.State.Stingers.DuckFadeMs = 300;
             Assert.False(b.Vm.State.Stingers.DuckActive);
             Assert.Equal(1.0, b.Services.Stingers.MusicGainAt(T0));
+            // The verb goes through the router on the service's clock, held here so the ramp is
+            // read at exact instants — never a race against a slow runner's wall clock.
+            var clock = T0;
+            b.Services.Stingers.NowUtc = () => clock;
 
             var router = new CommandRouter(b.Services);
             Assert.Equal("OK", Pump(router.ExecuteAsync(ControlProtocol.Parse("DUCK ON"))));
             Assert.True(b.Vm.State.Stingers.DuckActive);
             Assert.Contains("\"duck\":true", router.StateJson());
 
-            // The ramp: 1 → 0.1 over 300 ms from the press, on the injected clock.
-            var now = DateTime.UtcNow;
-            Assert.InRange(b.Services.Stingers.MusicGainAt(now), 0.85, 1.0);
+            // The ramp: 1 → 0.1 over 300 ms from the press.
+            var now = T0;
+            Assert.Equal(1.0, b.Services.Stingers.MusicGainAt(now));
+            Assert.InRange(b.Services.Stingers.MusicGainAt(now.AddMilliseconds(150)), 0.45, 0.65);
             Assert.Equal(0.1, b.Services.Stingers.MusicGainAt(now.AddSeconds(2)), 3);
             Assert.True(b.Services.Stingers.MusicRamping(now.AddMilliseconds(100)));
             Assert.False(b.Services.Stingers.MusicRamping(now.AddSeconds(1)));
@@ -59,14 +64,18 @@ public class LiveDuckTests
             b.Services.AudioPlayer.ApplyGains(now.AddSeconds(2));
             Assert.Equal(0.1, b.Services.Video.ClipGain, 3);
 
-            // Idempotent, and bare DUCK toggles.
+            // Idempotent, and bare DUCK toggles — lifting ramps back from the ducked level.
+            clock = T0.AddSeconds(1);
             Assert.Equal("OK", Pump(router.ExecuteAsync(ControlProtocol.Parse("DUCK ON"))));
             Assert.True(b.Vm.State.Stingers.DuckActive);
+            Assert.Equal(0.1, b.Services.Stingers.MusicGainAt(clock), 3);   // idempotent: the ramp was not restarted
             Assert.Equal("OK", Pump(router.ExecuteAsync(ControlProtocol.Parse("DUCK"))));
             Assert.False(b.Vm.State.Stingers.DuckActive);
             Assert.Contains("\"duck\":false", router.StateJson());
-            Assert.Equal(1.0, b.Services.Stingers.MusicGainAt(DateTime.UtcNow.AddSeconds(2)));
-            b.Services.AudioPlayer.ApplyGains(DateTime.UtcNow.AddSeconds(2));
+            Assert.Equal(0.1, b.Services.Stingers.MusicGainAt(clock), 3);
+            Assert.InRange(b.Services.Stingers.MusicGainAt(clock.AddMilliseconds(150)), 0.45, 0.65);
+            Assert.Equal(1.0, b.Services.Stingers.MusicGainAt(clock.AddSeconds(2)));
+            b.Services.AudioPlayer.ApplyGains(clock.AddSeconds(2));
             Assert.Equal(1.0, b.Services.Video.ClipGain);
         }
         finally
