@@ -44,6 +44,20 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## A look on one screen alone (module 2.3.0)
+
+Patterns' Show panel now runs the show from one place — the cue strip (standby, GO, HOLD, ARM),
+the looks grid and a row per screen with its own look picker — and the two per-screen sends it
+gained are here as actions. `screen_look` sends `SCREEN <n> LOOK <name or id>`: the look's
+picture for that screen (its own picture in the look if it had one, else the look's program)
+lands on screen `n` alone as the screen's own pattern; every other screen stays as it was, a
+whole-look recall or a cue later replaces it, TAKE leaves it, a lock keeps it. `screen_program`
+sends `SCREEN <n> PROGRAM`: the screen drops its own picture and follows the program again.
+Presets under *Screens*: PGM per screen (the key labels itself from the screen's label). A key
+for "sponsor logo on the side screen" is `screen_look` with the screen's number and the look's
+name typed once; the same line works from a cue (*Screen — its own look*) and from OSC
+(`/patterns/screen/<n>/look "<name>"`, `/patterns/screen/<n>/program`).
+
 ## Installs: announcements, adverts, the schedule (module 2.2.0)
 
 A permanent install runs from Patterns' Install page (PLAN) — programmes on a rota, adverts at

@@ -359,6 +359,24 @@ class PatternsInstance extends InstanceBase {
 				],
 				callback: (a) => send(`SCREEN ${a.options.n} ${a.options.mode}`),
 			},
+			// A look on one screen alone: its picture for that screen lands there as the screen's own pattern; every other screen stays.
+			screen_look: {
+				name: 'Screen — a look on this screen alone (every other screen stays)',
+				options: [
+					{ type: 'number', id: 'n', label: 'Screen number (overview order)', default: 1, min: 1, max: 32 },
+					{ type: 'textinput', id: 'look', label: 'Look (name or id)', default: '' },
+				],
+				callback: (a) => {
+					const look = String(a.options.look ?? '').trim()
+					if (look) send(`SCREEN ${a.options.n} LOOK ${look}`)
+				},
+			},
+			// The screen drops its own picture and follows the program again.
+			screen_program: {
+				name: 'Screen — back to the program (drops its own picture)',
+				options: [{ type: 'number', id: 'n', label: 'Screen number (overview order)', default: 1, min: 1, max: 32 }],
+				callback: (a) => send(`SCREEN ${a.options.n} PROGRAM`),
+			},
 			// The review latch: the sandboxed preview full-frame on every multiview until it is switched off.
 			review: {
 				name: 'Review — the preview on every multiview (toggle / on / off)',
@@ -1322,6 +1340,12 @@ class PatternsInstance extends InstanceBase {
 				style: { text: `LOCK\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'screen_lock', options: { n, mode: 'TOGGLE' } }], up: [] }],
 				feedbacks: [{ feedbackId: 'screen_locked', options: { n }, style: { bgcolor: combineRgb(160, 110, 0) } }, empty('screen', n)],
+			}
+			presets[`screen_${n}_program`] = {
+				type: 'button', category: 'Screens', name: `Screen ${n} back to the program`,
+				style: { text: `PGM\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'screen_program', options: { n } }], up: [] }],
+				feedbacks: [empty('screen', n)],
 			}
 		}
 		for (const letter of ['A', 'B', 'C', 'D']) {

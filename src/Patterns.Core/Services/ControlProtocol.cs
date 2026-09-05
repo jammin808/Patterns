@@ -133,6 +133,10 @@ public enum RemoteCommandKind
     UpdateApply,
     /// <summary>"RESTART &lt;passcode&gt;" — the app restarted under the watchdog with the show put back (TextArg: the admin passcode).</summary>
     Restart,
+    /// <summary>"SCREEN &lt;n&gt; LOOK &lt;name&gt;" — the look's picture (TextArg) on screen n (IntArg) alone, as its own pattern.</summary>
+    ScreenLook,
+    /// <summary>"SCREEN &lt;n&gt; PROGRAM" (PGM / FOLLOW) — screen n shows the program again.</summary>
+    ScreenProgram,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -287,11 +291,20 @@ public static class ControlProtocol
             {
                 var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
                 if (sub.Length < 1 || !int.TryParse(sub[0], out var n)) return new(RemoteCommandKind.Unknown, 0, s);
-                var action = sub.Length > 1 ? sub[1].ToUpperInvariant() : "TOGGLE";
+                var rest = sub.Length > 1 ? sub[1] : "";
+                // "SCREEN 2 LOOK Sponsor": the look on that screen alone; "SCREEN 2 PROGRAM": the program again.
+                if (rest.StartsWith("LOOK ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var look = rest[5..].Trim();
+                    return look.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.ScreenLook, n, look);
+                }
+                var action = rest.ToUpperInvariant();
                 return action switch
                 {
                     "ON" => new(RemoteCommandKind.ScreenOn, n, ""),
                     "OFF" => new(RemoteCommandKind.ScreenOff, n, ""),
+                    "PROGRAM" or "PGM" or "FOLLOW" => new(RemoteCommandKind.ScreenProgram, n, ""),
+                    "LOOK" => new(RemoteCommandKind.Unknown, 0, s),
                     _ => new(RemoteCommandKind.ScreenToggle, n, ""),
                 };
             }

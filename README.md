@@ -23,6 +23,16 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The Show panel as the control surface** — one page runs the show beside the switcher. CUES is
+  the caller's stack in a strip (STANDBY with its planned and expected time, NEXT, GO / HOLD / ARM,
+  ▲ ▼, an auto-follow's CANCEL); LOOKS are one press each with a PVW key that loads the look into
+  the sandboxed preview for a sign-off; SCREENS — EACH ON ITS OWN is a row per screen with a look
+  picker — → THIS SCREEN puts that look's picture on that screen alone while every other screen
+  stays, PROGRAM puts it back, LOCK and ON beside it; PROGRESSION reads the clicker's place, a
+  deck's page, a counting auto-follow and the playlist's part in one line. The per-screen sends are
+  actions everywhere: a cue's *Screen — its own look* / *back to the program*, `SCREEN 2 LOOK
+  Sponsor` / `SCREEN 2 PROGRAM` on the wire, `/patterns/screen/2/look` over OSC, Companion 2.3.0's
+  `screen_look` and `screen_program` keys.
 - **Permanent installs: the clock runs the site** — a new PLAN page for the machine nobody sits
   at: a shop window, a hotel lobby, a museum wall. Programmes are looks on a rota (a start, an end,
   the days — `Mon–Fri`, `weekends` — the dates of a season, a window past midnight); adverts are a
@@ -719,7 +729,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 970 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
+dotnet test                      # 977 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

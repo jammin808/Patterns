@@ -233,6 +233,30 @@ public static class LookService
         return true;
     }
 
+    /// <summary>
+    /// The picture a saved look holds for one target: the target's own pattern when the look had it
+    /// showing its own, else the look's program — what SCREEN n LOOK puts on that screen alone.
+    /// Null when the look's JSON cannot be read.
+    /// </summary>
+    public static PatternConfig? PictureFor(string lookJson, string targetId)
+    {
+        LookData? data;
+        try
+        {
+            data = JsonUtil.Deserialize<LookData>(lookJson);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Look could not be read.", ex);
+            return null;
+        }
+        if (data is null) return null;
+        var own = data.CustomScreens?.Contains(targetId) == true
+            ? data.Independent.FirstOrDefault(a => a.ScreenId == targetId)?.Pattern
+            : null;
+        return JsonUtil.ClonePattern(own ?? data.Pattern);
+    }
+
     /// <summary>A cue fires when enabled, its minute matches, and it hasn't fired today.</summary>
     public static bool ShouldFire(CueConfig cue, DateTime localNow)
     {

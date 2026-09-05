@@ -169,6 +169,13 @@ public enum ShowActionKind
     UpdateApply,
     /// <summary>Target = the admin passcode: the app restarts under the watchdog with the show put back.</summary>
     Restart,
+    /// <summary>
+    /// Target = a screen (number, placement id or canvas key), Value = a look (name or id): the look's
+    /// picture for that target lands on it alone as its own pattern — every other target stays.
+    /// </summary>
+    ScreenLook,
+    /// <summary>Target = a screen or canvas: its own pattern is dropped and it shows the program again.</summary>
+    ScreenProgram,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

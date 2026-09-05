@@ -129,6 +129,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     private bool _isOnAir;
     private bool _isHeld;
     private bool _isLocked;
+    private Patterns.Core.Model.LookConfig? _pendingLook;
 
     public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
         SkiaSharp.SKSizeI size, bool enabled, bool isSelected, bool isOwn, bool isArmed,
@@ -147,9 +148,29 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         RoleBadge = roleBadge;
         MirrorNote = mirrorNote;
         SendHereCommand = new RelayCommand(() => _vm.SendSandboxToTile(this));
+        SendLookCommand = new RelayCommand(() => _vm.SendLookToTile(this, PendingLook));
+        ProgramCommand = new RelayCommand(() => _vm.SendProgramToTile(this));
         PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false);
         PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true);
     }
+
+    /// <summary>The look chosen on the Show panel for this screen alone — sent by SendLookCommand.</summary>
+    public Patterns.Core.Model.LookConfig? PendingLook
+    {
+        get => _pendingLook;
+        set
+        {
+            if (Set(ref _pendingLook, value)) Raise(nameof(HasPendingLook));
+        }
+    }
+
+    public bool HasPendingLook => _pendingLook is not null;
+
+    /// <summary>→ THIS SCREEN: the pending look's picture lands on this target alone (live, every other screen stays).</summary>
+    public RelayCommand SendLookCommand { get; }
+
+    /// <summary>PROGRAM: this target drops its own picture and follows the program again (live).</summary>
+    public RelayCommand ProgramCommand { get; }
 
     /// <summary>CONF / INFO / REP for a screen with a role; empty for a main screen.</summary>
     public string RoleBadge { get; }

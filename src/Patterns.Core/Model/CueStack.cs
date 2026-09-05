@@ -102,6 +102,10 @@ public enum CueActionKind
     ScheduleOn,
     /// <summary>The install's schedule stops; what is on stays.</summary>
     ScheduleOff,
+    /// <summary>Target = a screen id (or a canvas key), Value = a look id: the look's picture on that target alone.</summary>
+    ScreenLook,
+    /// <summary>Target = a screen id (or a canvas key): back to the program.</summary>
+    ScreenProgram,
 }
 
 /// <summary>

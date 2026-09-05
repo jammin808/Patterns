@@ -257,6 +257,8 @@ public static class CueSheet
             "advertoff" or "adoff" or "advertend" or "endadvert" or "skipadvert" or "advertstop" => CueActionKind.AdvertOff,
             "schedule" or "scheduleon" or "install" or "installon" or "installschedule" or "installscheduleon" => CueActionKind.ScheduleOn,
             "scheduleoff" or "installoff" or "installscheduleoff" or "schedulestop" => CueActionKind.ScheduleOff,
+            "screenlook" or "lookonscreen" or "lookon" or "sendlook" or "screensend" or "own" or "ownlook" => CueActionKind.ScreenLook,
+            "screenprogram" or "screenpgm" or "backtoprogram" or "toprogram" or "program" or "pgm" or "follow" => CueActionKind.ScreenProgram,
             _ => null,
         };
     }
@@ -311,11 +313,17 @@ public static class CueSheet
         };
     }
 
-    /// <summary>A value as a person reads it: a library entry's id goes out as its name.</summary>
+    /// <summary>A value as a person reads it: a library entry's id goes out as its name, a look's id as the look's name.</summary>
     private static string ValueName(ShowState state, CueActionConfig a)
-        => CueActionSpec.For(a.Kind).Value == ValueKind.Person && a.Value.Length > 0
-            ? state.LowerThirds.FindEntry(a.Value)?.Name ?? a.Value
-            : a.Value;
+    {
+        if (a.Value.Length == 0) return a.Value;
+        return CueActionSpec.For(a.Kind).Value switch
+        {
+            ValueKind.Person => state.LowerThirds.FindEntry(a.Value)?.Name ?? a.Value,
+            ValueKind.Look => LookService.Find(state, a.Value)?.Name ?? a.Value,
+            _ => a.Value,
+        };
+    }
 
     private static bool IsYes(string s)
     {

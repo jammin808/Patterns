@@ -185,6 +185,8 @@ public sealed class CommandRouter
             RemoteCommandKind.ScheduleOff => new ShowAction(ShowActionKind.ScheduleOff),
             RemoteCommandKind.UpdateApply => new ShowAction(ShowActionKind.UpdateApply, cmd.TextArg),
             RemoteCommandKind.Restart => new ShowAction(ShowActionKind.Restart, cmd.TextArg),
+            RemoteCommandKind.ScreenLook => new ShowAction(ShowActionKind.ScreenLook, cmd.IntArg.ToString(), cmd.TextArg),
+            RemoteCommandKind.ScreenProgram => new ShowAction(ShowActionKind.ScreenProgram, cmd.IntArg.ToString()),
             _ => null,
         };
     }

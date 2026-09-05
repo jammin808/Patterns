@@ -173,6 +173,16 @@ public static class CueValidator
                 case CueActionKind.ScreenUnlock:
                     if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     break;
+                case CueActionKind.ScreenLook:
+                case CueActionKind.ScreenProgram:
+                    hasContent = true;
+                    if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    if (a.Kind == CueActionKind.ScreenLook)
+                    {
+                        if (a.Value.Length == 0) Hard($"{where}: which look? Choose the look this screen shows.");
+                        else if (LookService.Find(state, a.Value) is null) Hard($"{where}: look '{a.Value}' not found — the cue reads as broken until it exists.");
+                    }
+                    break;
                 case CueActionKind.CanvasOn:
                 case CueActionKind.CanvasOff:
                 {

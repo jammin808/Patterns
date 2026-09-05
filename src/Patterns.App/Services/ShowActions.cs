@@ -491,6 +491,49 @@ public sealed class ShowActions
                     ? $"{label} locked — it keeps its picture through looks, cues, TAKE ALL and stingers."
                     : $"{label} follows looks, cues and TAKE again.");
             }
+            case ShowActionKind.ScreenLook:
+            {
+                // The look's picture for this target alone, as its own pattern: every other target stays,
+                // and the next TAKE leaves it (an operator's choice, never a pin). A whole-look recall
+                // replaces it; a lock keeps it through looks and cues too.
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var look = LookService.Find(State, a.Value);
+                if (look is null) return ActionResult.Refused($"No look named '{a.Value}'.");
+                var picture = LookService.PictureFor(look.Json, target);
+                if (picture is null) return ActionResult.Failed($"Look '{look.Name}' could not be read.");
+                void Land(ShowState state)
+                {
+                    var assignment = ContentTargets.EnsureAssignment(state, target);
+                    ModelCopier.Copy(JsonUtil.ClonePattern(picture), assignment.Pattern);
+                    assignment.PinnedByTake = false;
+                    ContentTargets.SetOwnPattern(state, target, true);
+                }
+                // Both the edited state and the frozen program, like a lock: the air changes now and the next TAKE carries it.
+                _s.BulkEdit(() => Land(State));
+                if (_s.Sandbox.Active) _s.EditAir(Land);
+                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                return ActionResult.Done($"Look '{look.Name}' on {label} alone — every other screen stays.");
+            }
+            case ShowActionKind.ScreenProgram:
+            {
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                if (!ContentTargets.UsesOwnPattern(_s.AirState, target) && !ContentTargets.UsesOwnPattern(State, target))
+                {
+                    return ActionResult.Done($"{label} already shows the program.");
+                }
+                void Follow(ShowState state)
+                {
+                    ContentTargets.SetOwnPattern(state, target, false);
+                    var own = state.Independent.FirstOrDefault(x => x.ScreenId == target);
+                    if (own is not null) state.Independent.Remove(own);
+                }
+                _s.BulkEdit(() => Follow(State));
+                if (_s.Sandbox.Active) _s.EditAir(Follow);
+                return ActionResult.Done($"{label} shows the program again.");
+            }
             case ShowActionKind.CanvasOn:
             case ShowActionKind.CanvasOff:
             {
@@ -1001,6 +1044,8 @@ public sealed class ShowActions
         CueActionKind.ScreenOff => new ShowAction(ShowActionKind.ScreenOff, a.Target),
         CueActionKind.ScreenLock => new ShowAction(ShowActionKind.ScreenLock, a.Target),
         CueActionKind.ScreenUnlock => new ShowAction(ShowActionKind.ScreenUnlock, a.Target),
+        CueActionKind.ScreenLook => new ShowAction(ShowActionKind.ScreenLook, a.Target, a.Value),
+        CueActionKind.ScreenProgram => new ShowAction(ShowActionKind.ScreenProgram, a.Target),
         CueActionKind.CanvasOn => new ShowAction(ShowActionKind.CanvasOn, a.Target),
         CueActionKind.CanvasOff => new ShowAction(ShowActionKind.CanvasOff, a.Target),
         CueActionKind.CountdownStart => new ShowAction(ShowActionKind.CountdownStart, "", a.Value),

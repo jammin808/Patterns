@@ -160,6 +160,12 @@ public sealed class RunViewModel : Observable
     // ---- the cards ----------------------------------------------------------------
 
     public string StandbyText => _s.CueStack.StandbyCue is { } cue ? $"{cue.Number}  {cue.Name}" : "No cue on standby";
+
+    /// <summary>The cue after standby — the one GO lands on next: "04  Sponsor loop" or "" at the end of the list.</summary>
+    public string NextText => Rows.FirstOrDefault(r => r.IsNext) is { } next ? $"{next.Number}  {next.Name}" : "";
+    public bool HasNext => NextText.Length > 0;
+    public bool HasStandbyPlan => StandbyPlanText.Length > 0;
+    public bool HasValidationSummary => ValidationSummary.Length > 0;
     public string StandbyNotes => _s.CueStack.StandbyCue?.Notes ?? "";
     public string StandbyProblem => _s.CueStack.StandbyCue is { } cue && _report?.ReasonFor(cue.Id) is { } r ? $"BROKEN — {r}" : "";
     public bool StandbyIsBroken => StandbyProblem.Length > 0;
@@ -349,6 +355,10 @@ public sealed class RunViewModel : Observable
         Raise(nameof(GoText));
         Raise(nameof(IsConfirming));
         Raise(nameof(StandbyText));
+        Raise(nameof(NextText));
+        Raise(nameof(HasNext));
+        Raise(nameof(HasStandbyPlan));
+        Raise(nameof(HasValidationSummary));
         Raise(nameof(StandbyNotes));
         Raise(nameof(StandbyProblem));
         Raise(nameof(StandbyIsBroken));

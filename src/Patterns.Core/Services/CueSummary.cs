@@ -58,6 +58,8 @@ public static class CueSummary
             case CueActionKind.BlackoutOff: return "Blackout off";
             case CueActionKind.ScreenOn: return $"Screen '{ScreenLabel(state, a.Target)}' on";
             case CueActionKind.ScreenOff: return $"Screen '{ScreenLabel(state, a.Target)}' off";
+            case CueActionKind.ScreenLook: return $"Screen '{ScreenLabel(state, a.Target)}' → look '{LookService.Find(state, a.Value)?.Name ?? (a.Value.Length > 0 ? a.Value + " (not found)" : "?")}'";
+            case CueActionKind.ScreenProgram: return $"Screen '{ScreenLabel(state, a.Target)}' → the program";
             case CueActionKind.ScreenLock: return $"Screen '{ScreenLabel(state, a.Target)}' locked — keeps its picture";
             case CueActionKind.ScreenUnlock: return $"Screen '{ScreenLabel(state, a.Target)}' follows cues again";
             case CueActionKind.CanvasOn: return $"Canvas '{CanvasLabel(state, a.Target)}' on";

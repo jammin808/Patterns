@@ -8,7 +8,45 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-show" Text="Show panel" />
-    <TextBlock Classes="hint tip" Text="Show-time buttons beside the switcher: looks, VOGs and stingers, the clicker list, break music and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
+    <TextBlock Classes="hint tip" Text="One page runs the show beside the switcher: the caller's cue strip, the looks, each screen on its own, where the show goes next, then VOGs and stingers, lower thirds, the audio track and break music. The outputs transport is in the header; the Run page (SHOW) is the same cue stack full screen for a caller reading from a metre." />
+
+    <TextBlock Classes="h2" Text="CUES" />
+    <Border Classes="runRow">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="Auto,10,*,8,Auto">
+          <TextBlock Classes="runTag" Text="STANDBY" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="2" Spacing="2">
+            <TextBlock Classes="label" FontWeight="SemiBold" Text="{Binding Run.StandbyText}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="hint" Text="{Binding Run.StandbyPlanText}" IsVisible="{Binding Run.HasStandbyPlan}" />
+            <TextBlock Classes="hint" Foreground="{StaticResource TallyPgmBrush}" Text="{Binding Run.StandbyProblem}" IsVisible="{Binding Run.StandbyIsBroken}" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Button Classes="mini" Content="▲" Command="{Binding Run.StandbyUpCommand}" ToolTip.Tip="The cue above goes on standby" />
+            <Button Classes="mini" Content="▼" Command="{Binding Run.StandbyDownCommand}" ToolTip.Tip="The cue below goes on standby" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnDefinitions="Auto,10,*" IsVisible="{Binding Run.HasNext}">
+          <TextBlock Classes="runTag" Text="NEXT" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="2" Classes="label" Text="{Binding Run.NextText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+          <Button Classes="runGo" Content="{Binding Run.GoText}" Command="{Binding Run.GoCommand}" IsEnabled="{Binding Run.IsArmed}"
+                  Height="56" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  ToolTip.Tip="The standby cue fires and the next one moves up (Space / Enter on the Run page); a cue marked confirm asks twice" />
+          <Button Grid.Column="2" Classes="chip" Classes.air="{Binding Run.IsHold}" Content="HOLD" Command="{Binding Run.HoldCommand}" Height="56"
+                  ToolTip.Tip="Nothing fires — GO, auto-follows, the clicker — until HOLD is pressed again" />
+          <Button Grid.Column="4" Classes="chip" Classes.pvw="{Binding Run.IsArmed}" Content="{Binding Run.ArmText}" Command="{Binding Run.ArmCommand}" Height="56"
+                  ToolTip.Tip="Disarmed, the stack cannot GO — the app always opens disarmed" />
+        </Grid>
+        <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding Run.HasFollow}">
+          <TextBlock Classes="label" Text="{Binding Run.FollowText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <Button Grid.Column="2" Classes="mini" Content="CANCEL" Command="{Binding Run.CancelFollowCommand}"
+                  ToolTip.Tip="The auto-follow counting down is cancelled; the cue stays on standby for a GO" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding Run.ValidationSummary}" IsVisible="{Binding Run.HasValidationSummary}" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+    <TextBlock Classes="hint tip" Text="The caller's stack in a strip: STANDBY is the cue GO fires, NEXT the one after it; ▲ ▼ move the standby, HOLD stops everything firing, ARM is the safety. Build the stack on the Cues page (PLAN)." />
 
     <TextBlock Classes="h2" Text="LOOKS" />
     <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
@@ -19,27 +57,69 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:LookConfig">
-          <!-- Lit red while it is the picture on air, green while it is loaded in the preview. -->
-          <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}"
-                  Margin="0,0,6,6" Height="52" HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Center"
-                  ToolTip.Tip="{Binding TallyText}"
-                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
-                  CommandParameter="{Binding}">
-            <StackPanel>
-              <TextBlock Text="{Binding Hotkey, Converter={StaticResource HotkeyLabel}}" FontSize="10"
-                         Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center"
-                         IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}" />
-              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Center"
-                         TextTrimming="CharacterEllipsis" />
-            </StackPanel>
-          </Button>
+          <!-- Lit red while it is the picture on air, green while it is loaded in the preview; PVW loads it into the preview for a sign-off. -->
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,6,6">
+            <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}"
+                    Height="56" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    ToolTip.Tip="{Binding TallyText}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel>
+                <TextBlock Text="{Binding Hotkey, Converter={StaticResource HotkeyLabel}}" FontSize="10"
+                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center"
+                           IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}" />
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" HorizontalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="1" Classes="mini" Content="PVW" Height="56" Margin="2,0,0,0" VerticalAlignment="Stretch"
+                    ToolTip.Tip="Load this look into the sandboxed preview (EDIT SAFE) for a sign-off — TAKE then puts it on air"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookToPreviewCommand}"
+                    CommandParameter="{Binding}" />
+          </Grid>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint tip" Text="Save looks on the Looks page (PLAN) — F1–F12 recall them from anywhere." />
+    <TextBlock Classes="hint tip" Text="A tile puts the look on air (with EDIT SAFE open it goes to the preview for a TAKE); PVW loads it into the preview whatever the mode. Save looks on the Looks page (PLAN) — F1–F12 recall them from anywhere." />
 
-    <TextBlock Classes="h2" Text="CLICKER LIST" />
+    <TextBlock Classes="h2" Text="SCREENS — EACH ON ITS OWN" />
+    <ItemsControl ItemsSource="{Binding SwitcherTiles}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:SwitcherTile">
+          <!-- One row per screen and canvas (the program tile has the LOOKS grid above): a look on this screen alone, or the program back. -->
+          <Border Classes="runRow" IsVisible="{Binding !IsProgramTile}">
+            <StackPanel Spacing="6">
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                <TextBlock Classes="label" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Classes="runTag" Text="ON AIR" Foreground="{StaticResource TallyPgmBrush}" IsVisible="{Binding IsOnAir}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Classes="runTag" Text="OWN" IsVisible="{Binding IsOwn}" Margin="6,0,0,0" VerticalAlignment="Center"
+                           ToolTip.Tip="This screen shows its own picture, not the program" />
+                <TextBlock Grid.Column="3" Classes="runTag" Text="LOCKED" IsVisible="{Binding IsLocked}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Classes="runTag" Text="{Binding RoleBadge}" IsVisible="{Binding HasBadge}" Margin="6,0,0,0" VerticalAlignment="Center" ToolTip.Tip="{Binding BadgeTip}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,6,Auto,6,Auto,6,Auto,6,Auto">
+                <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).State.LooksAndCues.Looks}"
+                          SelectedItem="{Binding PendingLook, Mode=TwoWay}" PlaceholderText="Which look…" HorizontalAlignment="Stretch"
+                          DisplayMemberBinding="{Binding Name, x:DataType=m:LookConfig}"
+                          ToolTip.Tip="The look whose picture → THIS SCREEN puts here alone" />
+                <Button Grid.Column="2" Classes="go" Content="→ THIS SCREEN" Command="{Binding SendLookCommand}" IsEnabled="{Binding HasPendingLook}"
+                        ToolTip.Tip="That look's picture for this screen lands here alone, live — every other screen stays as it is; a whole-look recall or a cue replaces it, TAKE leaves it, LOCK keeps it" />
+                <Button Grid.Column="4" Classes="chip" Content="PROGRAM" Command="{Binding ProgramCommand}"
+                        ToolTip.Tip="Back to the program: this screen drops its own picture" />
+                <ToggleButton Grid.Column="6" Classes="mini" Content="LOCK" IsChecked="{Binding IsLocked, Mode=TwoWay}"
+                              ToolTip.Tip="Keeps its picture through looks, cues, TAKE ALL and stingers (a confidence or info screen). Saved with the show" />
+                <ToggleButton Grid.Column="8" Classes="mini" Content="ON" IsChecked="{Binding Enabled, Mode=TwoWay}"
+                              ToolTip.Tip="The screen's output on or off, live" />
+              </Grid>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint tip" Text="Independent screen changes without leaving the panel: pick a look in a row and → THIS SCREEN puts that look's picture (its own picture for this screen if the look carried one, else the look's program) on that screen alone — every other screen stays exactly as it was. PROGRAM puts the screen back on the program. On the wire: SCREEN 2 LOOK Sponsor, SCREEN 2 PROGRAM; a cue's Screen — its own look; /patterns/screen/2/look over OSC; Companion's screen_look key." />
+
+    <TextBlock Classes="h2" Text="PROGRESSION" />
     <Grid ColumnDefinitions="*,8,*">
       <Button Grid.Column="0" Classes="chip" Content="⟨  Back" Height="46" HorizontalAlignment="Stretch"
               HorizontalContentAlignment="Center" Command="{Binding PresenterPrevCommand}" />
@@ -47,10 +127,11 @@
               HorizontalContentAlignment="Center" Command="{Binding PresenterNextCommand}" />
     </Grid>
     <Grid ColumnDefinitions="*,Auto">
-      <TextBlock Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
+      <TextBlock Classes="label" Text="{Binding ProgressionText}" VerticalAlignment="Center" TextWrapping="Wrap" />
       <CheckBox Grid.Column="1" Content="Clicker armed" IsChecked="{Binding ClickerArmed, Mode=TwoWay}"
                 ToolTip.Tip="Page Down / Page Up (USB clickers) step the clicker list — build it on the Cues page" />
     </Grid>
+    <TextBlock Classes="hint tip" Text="Where the show goes next, by itself or by a click, in one line: the clicker list's place (NEXT / BACK here, Page Down / Page Up from a USB clicker while Clicker armed is ticked), a deck's page while a PDF is on air, an auto-follow counting down in the cue stack, and the playlist's part with what is left of it." />
 
     <StackPanel IsVisible="{Binding VogChips.Count, Converter={StaticResource Positive}}">
       <TextBlock Classes="h2" Text="VOG" />

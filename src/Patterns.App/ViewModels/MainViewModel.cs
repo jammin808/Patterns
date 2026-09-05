@@ -307,6 +307,7 @@ public sealed class MainViewModel : Observable
         {
             _services.Actions.Execute(ShowActionKind.ListReset, ActionOrigin.Desk, CueStacks.Clicker(State).Id);
             Raise(nameof(PresenterStepText));
+            Raise(nameof(ProgressionText));
         });
 
         // Audio track player
@@ -736,6 +737,7 @@ public sealed class MainViewModel : Observable
         {
             Raise(nameof(ClickerArmed));
             Raise(nameof(PresenterStepText));
+            Raise(nameof(ProgressionText));
         };
         ShowControls = new ShowControls(_services, m => StatusMessage = m);
         CaptureFormat = new CaptureFormatPicker(() => State, () => ActivePattern.Media.CaptureDevice, () => _services.RepublishNow());
@@ -2743,6 +2745,28 @@ public sealed class MainViewModel : Observable
         }
     }
 
+    private string _progressionSeen = "";
+
+    /// <summary>
+    /// The Show panel's PROGRESSION line — where the show goes next by itself or by a click, in one
+    /// read: the clicker list's place (or a deck's page), an auto-follow counting down, the playlist's part.
+    /// </summary>
+    public string ProgressionText
+    {
+        get
+        {
+            var parts = new List<string>(3) { PresenterStepText };
+            var follow = _services.CueStack.FollowText();
+            if (follow.Length > 0) parts.Add(follow);
+            var playlist = PlaylistStatus;
+            if (playlist.Length > 0 && !playlist.StartsWith("Playlist idle", StringComparison.OrdinalIgnoreCase))
+            {
+                parts.Add(playlist);                                                 // a part playing: where it is and what is left
+            }
+            return string.Join("  ·  ", parts);
+        }
+    }
+
     /// <summary>The clicker list's arm — a runtime chip, never saved: the app always opens disarmed.</summary>
     // ---- decks: a PDF presentation, a page at a time ------------------------------
 
@@ -2848,6 +2872,7 @@ public sealed class MainViewModel : Observable
             DeckPageText = $"Page {deck.Page} / {deck.PageCount} · {deck.PageShape.Width:0}×{deck.PageShape.Height:0} pt{tail}";
         }
         Raise(nameof(PresenterStepText));
+            Raise(nameof(ProgressionText));
     }
 
     public bool ClickerArmed
@@ -3305,6 +3330,32 @@ public sealed class MainViewModel : Observable
         Raise(nameof(IsSandboxActive));
         RebuildEditTargets(); // the target now shows its own pattern — OWN lights up
         StatusMessage = $"Sent to {tile.Title} as its own pattern — every other target stays as it was.";
+    }
+
+    /// <summary>
+    /// → THIS SCREEN on the Show panel: the chosen look's picture lands on this target alone as its own
+    /// pattern, live, through the action layer (journaled, the same path a cue or SCREEN n LOOK takes).
+    /// </summary>
+    internal void SendLookToTile(SwitcherTile tile, LookConfig? look)
+    {
+        if (tile.TargetId is not { } target) return;
+        if (look is null)
+        {
+            StatusMessage = $"Pick a look for {tile.Title} first — then → THIS SCREEN puts it there alone.";
+            return;
+        }
+        var result = Report(_services.Actions.Execute(ShowActionKind.ScreenLook, ActionOrigin.Desk, target, look.Id));
+        if (result.Ok) RebuildEditTargets(); // OWN lights up on the tile and the editors see the new assignment
+    }
+
+    /// <summary>PROGRAM on the Show panel: this target drops its own picture and follows the program again, live.</summary>
+    internal void SendProgramToTile(SwitcherTile tile)
+    {
+        if (tile.TargetId is not { } target) return;
+        var result = Report(_services.Actions.Execute(ShowActionKind.ScreenProgram, ActionOrigin.Desk, target));
+        if (!result.Ok) return;
+        RebuildEditTargets();
+        SelectTarget(target);
     }
 
     /// <summary>A tile's on/off switch: every member screen follows, pinned as a user choice.</summary>
@@ -3991,6 +4042,7 @@ public sealed class MainViewModel : Observable
             case ShowActionKind.CueFire:
                 RefreshDeck();
                 Raise(nameof(PresenterStepText));
+            Raise(nameof(ProgressionText));
                 if (result.Ok && !_services.Sandbox.Active)
                 {
                     RebuildEditTargets();
@@ -4002,6 +4054,7 @@ public sealed class MainViewModel : Observable
             case ShowActionKind.ListReset:
                 Raise(nameof(ClickerArmed));
                 Raise(nameof(PresenterStepText));
+            Raise(nameof(ProgressionText));
                 break;
             case ShowActionKind.Take:
             case ShowActionKind.Cut:
@@ -5860,6 +5913,12 @@ public sealed class MainViewModel : Observable
         RefreshActiveInputs();
         RefreshSwitcherTiles();
         Run.Tick();
+        var progression = ProgressionText;
+        if (progression != _progressionSeen)
+        {
+            _progressionSeen = progression;                                          // an auto-follow ticking, the playlist moving
+            Raise(nameof(ProgressionText));
+        }
         RemoteStatus = State.Control.Enabled
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";

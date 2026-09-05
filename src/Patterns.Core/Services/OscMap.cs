@@ -23,6 +23,8 @@ public static class OscMap
         ("/patterns/look/index <n>", "LOOK #n — the nth look in the show's order, whatever its name or F-key (also /patterns/look/index/<n>, /patterns/look/bank/<n>)"),
         ("/patterns/next, /patterns/prev", "NEXT / PREV — the clicker list"),
         ("/patterns/screen/<n> [1|0]", "SCREEN n ON / OFF; no argument toggles"),
+        ("/patterns/screen/<n>/look <name>", "SCREEN n LOOK name — the look's picture on that screen alone, as its own pattern (also /patterns/screen/<n>/look/<name>)"),
+        ("/patterns/screen/<n>/program", "SCREEN n PROGRAM — the screen shows the program again (also /pgm, /follow)"),
         ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
         ("/patterns/group/<letter> 1|0", "GROUP A ON / OFF — a joined canvas"),
         ("/patterns/audio/play, /patterns/audio/stop", "AUDIO PLAY / STOP — the audio track"),
@@ -93,7 +95,20 @@ public static class OscMap
                 return Named("LOOK", m, seg);
             case "next": return "NEXT";
             case "prev": case "back": return "PREV";
-            case "screen": return Numbered("SCREEN", seg, m, seg2, "TOGGLE", toggles: true);
+            case "screen":
+            {
+                // /patterns/screen/2/look "Sponsor" · /patterns/screen/2/look/Sponsor · /patterns/screen/2/program — the screen's own look, or the program again.
+                if (seg2.Equals("look", StringComparison.OrdinalIgnoreCase) && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var screen))
+                {
+                    var look = seg3.Length > 0 ? string.Join(" ", parts.Skip(3)) : m.Text() ?? "";
+                    return look.Length == 0 ? null : $"SCREEN {screen} LOOK {look}";
+                }
+                if (seg2.ToLowerInvariant() is "program" or "pgm" or "follow" && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var back))
+                {
+                    return $"SCREEN {back} PROGRAM";
+                }
+                return Numbered("SCREEN", seg, m, seg2, "TOGGLE", toggles: true);
+            }
             case "lock": return Numbered("LOCK", seg, m, seg2, "TOGGLE", toggles: true);
             case "group":
                 if (seg.Length == 0) return null;

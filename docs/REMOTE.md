@@ -45,6 +45,8 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `RESTART <passcode>` | The app restarts under the watchdog with the show put back — the Install page's admin passcode; `ERR` with none set, a wrong one (five wrong tries lock the gate for a minute), or without the watchdog |
 | `UPDATE APPLY <passcode>` | The staged update (`updates/*.zip`) applied by the watchdog between two starts of the app, rolled back if the new build does not stay up; the same gate as `RESTART` |
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
+| `SCREEN <n> LOOK <name or id>` | The look's picture for screen *n* lands on it alone as its own pattern — every other screen stays; a whole-look recall or a cue later replaces it, TAKE leaves it, a lock keeps it |
+| `SCREEN <n> PROGRAM` (`PGM`, `FOLLOW`) | Screen *n* drops its own picture and shows the program again |
 | `LOCK <n> ON` / `OFF` / `TOGGLE` | Lock screen *n*: it keeps its picture through looks, cues, TAKE ALL and stingers (a confidence monitor, an info screen); unlock lets it follow again. Bare `LOCK <n>` toggles |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
 | `AUDIO PLAY` / `STOP` | The independent audio track |
@@ -184,6 +186,8 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/look/index <n>` | LOOK #n — the *n*th look in the show's order, whatever its name or F-key (also `/patterns/look/index/<n>`, `/patterns/look/bank/<n>`) |
 | `/patterns/next`, `/patterns/prev` | NEXT / PREV — the clicker list |
 | `/patterns/screen/<n> [1\|0]` | SCREEN n ON / OFF; no argument toggles |
+| `/patterns/screen/<n>/look "<name>"` (or `/screen/<n>/look/<name>`) | SCREEN n LOOK name — that look's picture on screen n alone |
+| `/patterns/screen/<n>/program` (or `/pgm`, `/follow`) | SCREEN n PROGRAM — screen n back to the program |
 | `/patterns/lock/<n> [1\|0]` | LOCK n ON / OFF; no argument toggles |
 | `/patterns/group/<letter> 1\|0` | GROUP A ON / OFF — a joined canvas |
 | `/patterns/audio/play`, `/patterns/audio/stop` | AUDIO PLAY / STOP — the audio track |

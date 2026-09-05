@@ -116,7 +116,9 @@ public sealed class ActionRow : Observable
             Raise(nameof(HasTarget));
             Raise(nameof(HasValue));
             Raise(nameof(HasPersonValue));
+            Raise(nameof(HasLookValue));
             Raise(nameof(HasTextValue));
+            Raise(nameof(PickHint));
             Raise(nameof(TargetHint));
             Raise(nameof(ValueHint));
             Raise(nameof(SelectedTarget));
@@ -135,19 +137,31 @@ public sealed class ActionRow : Observable
 
     public bool HasValue => CueActionSpec.For(Action.Kind).Value != ValueKind.None;
 
-    /// <summary>The value is a person from the lower-thirds library: a picker, not a text box.</summary>
-    public bool HasPersonValue => CueActionSpec.For(Action.Kind).Value == ValueKind.Person;
+    /// <summary>
+    /// The value is picked from a library — a person from the lower-thirds library, or a look for a
+    /// screen's own send — so it is a picker, not a text box.
+    /// </summary>
+    public bool HasPersonValue => CueActionSpec.For(Action.Kind).Value is ValueKind.Person or ValueKind.Look;
+
+    /// <summary>The value is a look: the picker lists the looks and has no "as designed" row.</summary>
+    public bool HasLookValue => CueActionSpec.For(Action.Kind).Value == ValueKind.Look;
 
     public bool HasTextValue => HasValue && !HasPersonValue;
+
+    /// <summary>The picker's placeholder — what a blank value means depends on what is being picked.</summary>
+    public string PickHint => HasLookValue ? "Which look…" : "Who… (blank = as designed)";
 
     public PickItem? SelectedPerson
     {
         get
         {
-            if (Action.Value.Length == 0) return PersonChoices.FirstOrDefault(p => p.Id.Length == 0) ?? AsDesigned;
+            if (Action.Value.Length == 0)
+            {
+                return HasLookValue ? null : PersonChoices.FirstOrDefault(p => p.Id.Length == 0) ?? AsDesigned;
+            }
             return PersonChoices.FirstOrDefault(p => p.Id == Action.Value)
                    ?? PersonChoices.FirstOrDefault(p => string.Equals(p.Label, Action.Value, StringComparison.OrdinalIgnoreCase))
-                   ?? new PickItem(Action.Value, $"{Action.Value} (not in the library)");
+                   ?? new PickItem(Action.Value, HasLookValue ? $"{Action.Value} (not found)" : $"{Action.Value} (not in the library)");
         }
         set
         {
@@ -189,6 +203,7 @@ public sealed class ActionRow : Observable
         ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
         ValueKind.Level => "percent, 0–100 (the Spotify device's own volume)",
         ValueKind.Person => "who: a library entry (blank = as designed)",
+        ValueKind.Look => "which look's picture lands on that screen alone",
         ValueKind.WebKey => "an action — next · prev · first · last · present · exit · play · pause · mute · restart · black · white — or a key: ArrowRight · Space · k · Ctrl+Shift+F5",
         ValueKind.Point => "x y in percent of the page, e.g. 50 50",
         _ => "",
@@ -239,12 +254,19 @@ public sealed class ActionRow : Observable
         PersonChoices.Clear();
         if (HasPersonValue)
         {
-            PersonChoices.Add(AsDesigned);
-            foreach (var item in _editor.PeopleChoices()) PersonChoices.Add(item);
+            if (HasLookValue)
+            {
+                foreach (var item in _editor.ChoicesFor(TargetKind.Look)) PersonChoices.Add(item);
+            }
+            else
+            {
+                PersonChoices.Add(AsDesigned);
+                foreach (var item in _editor.PeopleChoices()) PersonChoices.Add(item);
+            }
             var value = Action.Value;
             if (value.Length > 0 && PersonChoices.All(p => p.Id != value && !string.Equals(p.Label, value, StringComparison.OrdinalIgnoreCase)))
             {
-                PersonChoices.Add(new PickItem(value, $"{value} (not in the library)"));
+                PersonChoices.Add(new PickItem(value, HasLookValue ? $"{value} (not found)" : $"{value} (not in the library)"));
             }
         }
         Raise(nameof(SelectedPerson));

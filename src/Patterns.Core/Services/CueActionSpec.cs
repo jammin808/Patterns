@@ -44,6 +44,8 @@ public enum ValueKind
     Point,
     /// <summary>A deck page: a number (1-based), first or last.</summary>
     DeckPage,
+    /// <summary>A look of the show (id or name) — a picker, not a text box.</summary>
+    Look,
 }
 
 /// <summary>
@@ -78,6 +80,8 @@ public static class CueActionSpec
         CueActionKind.DeviceSend => (TargetKind.Device, ValueKind.Text),
         CueActionKind.Announce => (TargetKind.Slot, ValueKind.Text),
         CueActionKind.AdvertPlay => (TargetKind.Slot, ValueKind.None),
+        CueActionKind.ScreenLook => (TargetKind.Screen, ValueKind.Look),
+        CueActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),
     };
 
@@ -138,6 +142,8 @@ public static class CueActionSpec
         CueActionKind.AdvertOff => "Advert — end now",
         CueActionKind.ScheduleOn => "Install schedule on",
         CueActionKind.ScheduleOff => "Install schedule off",
+        CueActionKind.ScreenLook => "Screen — its own look",
+        CueActionKind.ScreenProgram => "Screen — back to the program",
         _ => kind.ToString(),
     };
 
@@ -153,6 +159,7 @@ public static class CueActionSpec
         CueActionKind.BlackoutOn, CueActionKind.BlackoutOff,
         CueActionKind.ScreenOn, CueActionKind.ScreenOff,
         CueActionKind.ScreenLock, CueActionKind.ScreenUnlock,
+        CueActionKind.ScreenLook, CueActionKind.ScreenProgram,
         CueActionKind.CanvasOn, CueActionKind.CanvasOff,
         CueActionKind.CountdownStart, CueActionKind.CountdownStop,
         CueActionKind.MessageOn, CueActionKind.MessageOff,
@@ -173,7 +180,8 @@ public static class CueActionSpec
     /// </summary>
     public static bool ChangesContent(CueActionKind kind) => kind is
         CueActionKind.ApplyLook or CueActionKind.PlaylistPart or
-        CueActionKind.ScreenOn or CueActionKind.ScreenOff or CueActionKind.CanvasOn or CueActionKind.CanvasOff;
+        CueActionKind.ScreenOn or CueActionKind.ScreenOff or CueActionKind.CanvasOn or CueActionKind.CanvasOff or
+        CueActionKind.ScreenLook or CueActionKind.ScreenProgram;
 
     /// <summary>A percent value: a number from 0 to 125 (the player's own ceiling, ≈ +2 dB).</summary>
     public static bool TryParsePercent(string? value, out double percent)
