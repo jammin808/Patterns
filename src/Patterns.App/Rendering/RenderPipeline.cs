@@ -136,6 +136,15 @@ public sealed class RenderPipeline : IDisposable
     /// <summary>The snapshot this pipeline is showing right now (tally and pending checks).</summary>
     public ShowSnapshot CurrentSnapshot => SnapshotFor(_viewport);
 
+    private volatile HitRect[] _lastHits = Array.Empty<HitRect>();
+    private PaneMap? _lastMap;
+
+    /// <summary>The boxes the last fitted frame drew that the desk can drag (monitor panes only; empty elsewhere).</summary>
+    public IReadOnlyList<HitRect> LastHits => _lastHits;
+
+    /// <summary>The maths from the pane's device pixels to the picture it showed last (null until a fitted frame drew).</summary>
+    public PaneMap? LastMap => _lastMap;
+
     private SKColorFilter? _trimFilter;
     private string _trimFilterKey = "";
     private readonly SKPaint _trimPaint = new();
@@ -326,6 +335,9 @@ public sealed class RenderPipeline : IDisposable
             canvas.Scale(scale);
             canvas.ClipRect(SKRect.Create(0, 0, target.Width, target.Height));
             _engine.Render(canvas, SnapshotFor(vp), in ctx, _sink);
+            // What the desk can take hold of on this pane, and how its pixels map to the picture.
+            _lastMap = new PaneMap(target, dx, dy, scale, _sink.LastCanvasOffset, _sink.LastCanvasScale, _sink.LastCanvasSize);
+            _lastHits = _sink.Hits.ToArray();
         }
         catch (Exception ex)
         {

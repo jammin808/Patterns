@@ -55,6 +55,11 @@
                 SelectedValue="{Binding State.Countdown.Anchor, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
     </Grid>
+    <Grid ColumnDefinitions="130,*,8,*">
+      <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the countdown on the PREVIEW pane" />
+      <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Countdown.OffsetXPct, Mode=TwoWay}" />
+      <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Countdown.OffsetYPct, Mode=TwoWay}" />
+    </Grid>
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Size (% height)" />
       <Slider Grid.Column="1" Minimum="4" Maximum="45" Value="{Binding State.Countdown.SizePct, Mode=TwoWay}" />

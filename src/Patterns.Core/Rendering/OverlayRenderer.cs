@@ -50,10 +50,20 @@ public static class OverlayRenderer
         var targetH = (float)(f.H * o.HeightPct / 100);
         var targetW = targetH * logo.Width / Math.Max(1, logo.Height);
         var margin = Math.Max(10f, f.H * 0.03f);
-        var rect = DrawUtil.Anchored(f.Canvas, targetW, targetH, o.Anchor, margin);
+        var rect = DrawUtil.Anchored(f.Canvas, targetW, targetH, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
 
         var paint = f.Paints.FillAA(SKColors.White.WithAlpha((byte)(o.Opacity * 255)));
         c.DrawImage(logo, rect, DrawUtil.Smooth, paint);
+        Hit(in f, HitKind.Logo, rect);
+    }
+
+    /// <summary>Records a box the desk can drag — on the top-level draw only, never from a fade source, a tile or a layer.</summary>
+    private static void Hit(in PatternFrame f, HitKind kind, SKRect rect) => Hit(f.Ctx, f.Sink, kind, rect, false);
+
+    private static void Hit(in RenderContext ctx, SinkState sink, HitKind kind, SKRect rect, bool viewport)
+    {
+        if (ctx.IsFadeSource || ctx.InMultiview || ctx.InLayer) return;
+        sink.Hits.Add(new HitRect(kind, rect, viewport));
     }
 
     private static void DrawClock(SKCanvas c, in PatternFrame f, ClockOverlay o)
@@ -90,7 +100,8 @@ public static class OverlayRenderer
         var boxW = Math.Max(timeW, dateW) + padX * 2;
         var boxH = size + padY * 2 + (date is not null ? dateFontSize * 1.5f : 0);
         var margin = Math.Max(10f, f.H * 0.03f);
-        var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, o.Anchor, margin);
+        var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
+        Hit(in f, HitKind.Clock, rect);
 
         var alpha = (byte)(o.Opacity * 255);
         if (o.Pill)
@@ -150,7 +161,8 @@ public static class OverlayRenderer
         var boxW = Math.Max(mainW, labelW) + padX * 2;
         var boxH = size + padY * 2 + (label.Length > 0 ? labelSize * 1.7f : 0) + barH;
         var margin = Math.Max(10f, f.H * 0.03f);
-        var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, cd.Anchor, margin);
+        var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, cd.Anchor, margin, cd.OffsetXPct, cd.OffsetYPct);
+        Hit(in f, HitKind.Countdown, rect);
 
         c.DrawRoundRect(rect, size * 0.16f, size * 0.16f, pc.FillAA(f.Palette.ChipBg));
         c.DrawRoundRect(rect, size * 0.16f, size * 0.16f, pc.StrokeAA(f.Palette.Accent.WithAlpha(0x70), Math.Max(1.5f, size * 0.02f)));
@@ -206,7 +218,9 @@ public static class OverlayRenderer
 
         if (o.Scroll && textW > 0)
         {
-            var band = DrawUtil.Anchored(f.Canvas, f.W, size * 1.6f, o.Anchor, Math.Max(10f, f.H * 0.03f));
+            // A ticker runs the full width: only the vertical nudge applies.
+            var band = DrawUtil.Anchored(f.Canvas, f.W, size * 1.6f, o.Anchor, Math.Max(10f, f.H * 0.03f), 0, o.OffsetYPct);
+            Hit(in f, HitKind.Message, band);
             switch (o.Background)
             {
                 case MessageBackground.Chip:
@@ -232,22 +246,24 @@ public static class OverlayRenderer
             return;
         }
 
+        SKRect chip;
         switch (o.Background)
         {
             case MessageBackground.None:
-                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, SKColors.Transparent, fontOverride: font);
+                chip = DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, SKColors.Transparent, fontOverride: font, offsetXPct: o.OffsetXPct, offsetYPct: o.OffsetYPct);
                 break;
             case MessageBackground.Chip:
-                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, new SKColor(0, 0, 0, peak), fontOverride: font);
+                chip = DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, new SKColor(0, 0, 0, peak), fontOverride: font, offsetXPct: o.OffsetXPct, offsetYPct: o.OffsetYPct);
                 break;
             case MessageBackground.Fade:
-                DrawFadeBand(c, in f, DrawUtil.ChipBounds(textW, f.Canvas, o.Anchor, size), o.Anchor, size, peak);
-                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, SKColors.Transparent, fontOverride: font);
+                DrawFadeBand(c, in f, DrawUtil.ChipBounds(textW, f.Canvas, o.Anchor, size, -1, o.OffsetXPct, o.OffsetYPct), o.Anchor, size, peak);
+                chip = DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, SKColors.Transparent, fontOverride: font, offsetXPct: o.OffsetXPct, offsetYPct: o.OffsetYPct);
                 break;
             default:
-                DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, f.Palette.ChipBg, fontOverride: font);
+                chip = DrawUtil.Chip(c, text, f.Canvas, o.Anchor, size, pc, messageColor, f.Palette.ChipBg, fontOverride: font, offsetXPct: o.OffsetXPct, offsetYPct: o.OffsetYPct);
                 break;
         }
+        Hit(in f, HitKind.Message, chip);
     }
 
     /// <summary>
@@ -347,7 +363,10 @@ public static class OverlayRenderer
         var row = (int)pip.Anchor / 3;
         var x = col switch { 0 => margin, 1 => (vw - w) / 2, _ => vw - w - margin };
         var y = row switch { 0 => margin, 1 => (vh - h) / 2, _ => vh - h - margin };
+        x += (float)(vw * pip.OffsetXPct / 100);
+        y += (float)(vh * pip.OffsetYPct / 100);
         var rect = SKRect.Create(x, y, w, h);
+        Hit(in ctx, sink, HitKind.Pip, rect, viewport: true);
 
         var alpha = (byte)Math.Clamp(pip.Opacity * 255, 0, 255);
         using var paint = new SKPaint { Color = new SKColor(255, 255, 255, alpha), IsAntialias = true };

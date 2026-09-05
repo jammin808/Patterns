@@ -9,7 +9,9 @@ using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.App.Views.Controls;
 using Patterns.Core.Model;
+using Patterns.Core.Rendering;
 using Patterns.Core.Services;
+using SkiaSharp;
 
 namespace Patterns.App.Views;
 
@@ -54,6 +56,7 @@ public partial class MainWindow : Window
 
         var services = vm.Services;
         HookDeskLayout(vm);
+        HookPreviewDrag();
         Services.DirectOutputService.MarkStarted(); // the desk is up: a start with the swap chain worked
 
         // PREVIEW (bottom): follows the selected target (own pattern or program) and the
@@ -210,6 +213,94 @@ public partial class MainWindow : Window
 
     private void OnPaneHandleDragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)
         => SetProgramShare(ProgramShareApplied);
+
+    // ---- drag on the PREVIEW pane: a layer or an overlay goes where the pointer puts it ------
+
+    /// <summary>The PREVIEW pane's pipeline — its last frame's boxes and maths drive the drag; tests render into it directly.</summary>
+    public RenderPipeline? PreviewPipeline => _previewPipeline;
+
+    private HitRect? _dragHit;
+    private SKPoint _dragStart;
+    private (double X, double Y) _dragFrom;
+    private bool _dragMoved;
+
+    private void HookPreviewDrag()
+    {
+        PreviewCanvas.PointerPressed += (_, e) =>
+        {
+            if (!e.GetCurrentPoint(PreviewCanvas).Properties.IsLeftButtonPressed) return;
+            if (!BeginPreviewDrag(e.GetPosition(PreviewCanvas))) return;
+            e.Pointer.Capture(PreviewCanvas);
+            e.Handled = true;
+        };
+        PreviewCanvas.PointerMoved += (_, e) =>
+        {
+            if (_dragHit is null || !ReferenceEquals(e.Pointer.Captured, PreviewCanvas)) return;
+            MovePreviewDrag(e.GetPosition(PreviewCanvas));
+            e.Handled = true;
+        };
+        PreviewCanvas.PointerReleased += (_, e) =>
+        {
+            if (_dragHit is null) return;
+            e.Pointer.Capture(null);
+            EndPreviewDrag();
+            e.Handled = true;
+        };
+    }
+
+    /// <summary>Takes hold of the layer or overlay under a point on the PREVIEW pane (DIPs); false when the pointer is on the picture itself.</summary>
+    public bool BeginPreviewDrag(Point dip)
+    {
+        if (_previewPipeline is not { LastMap: { } map } pipeline || DataContext is not MainViewModel vm) return false;
+        var device = ToDevice(dip);
+        var hit = HitTester.Find(pipeline.LastHits, in map, device);
+        if (hit is null) return false;
+        _dragHit = hit;
+        _dragStart = device;
+        _dragFrom = vm.DragPlaceOf(hit.Value.Kind);
+        _dragMoved = false;
+        return true;
+    }
+
+    /// <summary>Moves what was taken hold of: the pointer's travel becomes a share of the canvas (or of the viewport for the PiP).</summary>
+    public void MovePreviewDrag(Point dip)
+    {
+        if (_dragHit is not { } hit || _previewPipeline is not { LastMap: { } map } || DataContext is not MainViewModel vm) return;
+        var device = ToDevice(dip);
+        var delta = new SKPoint(device.X - _dragStart.X, device.Y - _dragStart.Y);
+        if (!_dragMoved && Math.Abs(delta.X) + Math.Abs(delta.Y) < 3) return;
+        _dragMoved = true;
+        double dxPct, dyPct;
+        if (hit.ViewportSpace)
+        {
+            var t = map.TargetDelta(delta);
+            dxPct = t.X * 100.0 / Math.Max(1, map.Target.Width);
+            dyPct = t.Y * 100.0 / Math.Max(1, map.Target.Height);
+        }
+        else
+        {
+            var c = map.CanvasDelta(delta);
+            dxPct = c.X * 100.0 / Math.Max(1, map.Canvas.Width);
+            dyPct = c.Y * 100.0 / Math.Max(1, map.Canvas.Height);
+        }
+        vm.DragPlace(hit.Kind, _dragFrom.X + dxPct, _dragFrom.Y + dyPct);
+    }
+
+    public void EndPreviewDrag()
+    {
+        if (_dragHit is { } hit && _dragMoved && DataContext is MainViewModel vm)
+        {
+            vm.StatusMessage = $"{MainViewModel.DragName(hit.Kind)} placed — {(vm.IsSandboxActive ? "in the preview; CUT or TAKE puts it on air" : "on air")}.";
+        }
+        _dragHit = null;
+        _dragMoved = false;
+    }
+
+    private SKPoint ToDevice(Point dip)
+    {
+        var scaling = RenderScaling;
+        return new SKPoint((float)(dip.X * scaling), (float)(dip.Y * scaling));
+    }
 
     // ---- ? TIPS: the page's explanations behind one button ---------------------------------
 

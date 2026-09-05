@@ -123,6 +123,16 @@ public static class DrawUtil
         return SKRect.Create(x, y, w, h);
     }
 
+    /// <summary>An anchored box nudged by a share of the canvas on each axis (a dragged overlay).</summary>
+    public static SKRect Anchored(SKSizeI canvas, float w, float h, Anchor9 anchor, float margin, double offsetXPct, double offsetYPct)
+    {
+        var r = Anchored(canvas, w, h, anchor, margin);
+        if (offsetXPct == 0 && offsetYPct == 0) return r;
+        return SKRect.Create(
+            r.Left + (float)(canvas.Width * offsetXPct / 100),
+            r.Top + (float)(canvas.Height * offsetYPct / 100), w, h);
+    }
+
     public static SKColor Hue(int index, int count, float saturation = 78, float value = 100)
         => SKColor.FromHsv(count <= 0 ? 0 : index * 360f / count, saturation, value);
 
@@ -177,24 +187,26 @@ public static class DrawUtil
     }
 
     /// <summary>The rect a <see cref="Chip"/> of the given text width occupies — same padding, same margin rule.</summary>
-    public static SKRect ChipBounds(float textWidth, SKSizeI canvas, Anchor9 anchor, float textSize, float margin = -1)
+    public static SKRect ChipBounds(float textWidth, SKSizeI canvas, Anchor9 anchor, float textSize, float margin = -1,
+        double offsetXPct = 0, double offsetYPct = 0)
     {
         var padX = textSize * 0.7f;
         var padY = textSize * 0.42f;
         var boxW = textWidth + padX * 2;
         var boxH = textSize + padY * 2;
         if (margin < 0) margin = Math.Max(8, canvas.Height * 0.02f);
-        return Anchored(canvas, boxW, boxH, anchor, margin);
+        return Anchored(canvas, boxW, boxH, anchor, margin, offsetXPct, offsetYPct);
     }
 
     /// <summary>Rounded translucent chip with centered text; returns the chip rect.</summary>
     public static SKRect Chip(
         SKCanvas c, string text, SKSizeI canvas, Anchor9 anchor, float textSize,
-        PaintCache pc, SKColor textColor, SKColor bg, float margin = -1, SKFont? fontOverride = null)
+        PaintCache pc, SKColor textColor, SKColor bg, float margin = -1, SKFont? fontOverride = null,
+        double offsetXPct = 0, double offsetYPct = 0)
     {
         var font = fontOverride ?? pc.FontBold;
         font.Size = textSize;
-        var rect = ChipBounds(font.MeasureText(text), canvas, anchor, textSize, margin);
+        var rect = ChipBounds(font.MeasureText(text), canvas, anchor, textSize, margin, offsetXPct, offsetYPct);
         if (bg.Alpha > 0) c.DrawRoundRect(rect, rect.Height * 0.24f, rect.Height * 0.24f, pc.FillAA(bg));
         TextCentered(c, text, rect.MidX, rect.MidY, font, pc.Text(textColor));
         return rect;

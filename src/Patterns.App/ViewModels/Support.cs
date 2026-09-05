@@ -577,6 +577,15 @@ public static class Lists
         new(CanvasScaleMode.OneToOne, "1:1 pixels (centre)"),
     };
 
+    public static readonly EnumItem[] LayerSources =
+    {
+        new(LayerSource.Image, "Image (still)"),
+        new(LayerSource.Video, "Video clip"),
+        new(LayerSource.NdiFeed, "NDI feed (network)"),
+        new(LayerSource.Capture, "Capture device (HDMI / SDI / webcam)"),
+        new(LayerSource.Screen, "Another screen or canvas"),
+    };
+
     public static readonly EnumItem[] ScreenRoles =
     {
         new(ScreenRole.Main, Patterns.Core.Services.ScreenRoles.Label(ScreenRole.Main)),

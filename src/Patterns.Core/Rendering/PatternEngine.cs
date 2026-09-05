@@ -102,6 +102,10 @@ public sealed class PatternEngine
 
         var palette = Palette.Resolve(snap);
 
+        // The frame the desk can take hold of: only the top-level draw records what it drew where.
+        var topLevel = !ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer;
+        if (topLevel) sink.Hits.Clear();
+
         if (snap.State.Blackout)
         {
             // Checked before any pattern code runs: blackout cannot be broken by a pattern bug.
@@ -115,6 +119,12 @@ public sealed class PatternEngine
         var cfg = snap.PatternFor(ctx.ScreenId);
         var canvasSize = CanvasResolver.Resolve(cfg, ctx.ReferenceSize);
         var (offset, scale) = CanvasResolver.MapToReference(canvasSize, ctx.ReferenceSize, cfg.Canvas.ScaleMode);
+        if (topLevel)
+        {
+            sink.LastCanvasOffset = offset;
+            sink.LastCanvasScale = scale;
+            sink.LastCanvasSize = canvasSize;
+        }
 
         var frame = new PatternFrame
         {
@@ -164,6 +174,19 @@ public sealed class PatternEngine
             }
         }
 
+        // The two layers: over the pattern, under the overlays; a bad layer never takes the sink down.
+        if (!ctx.InLayer && (cfg.Layer1.Enabled || cfg.Layer2.Enabled))
+        {
+            try
+            {
+                LayerRenderer.Render(canvas, in frame, DrawLayerScreen);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Layer rendering threw.", ex);
+            }
+        }
+
         try
         {
             OverlayRenderer.RenderCanvasOverlays(canvas, in frame);
@@ -182,6 +205,48 @@ public sealed class PatternEngine
         {
             canvas.DrawRect(SKRect.Create(0, 0, ctx.ViewportSize.Width, ctx.ViewportSize.Height), sink.Paints.Fill(SKColors.White));
         }
+    }
+
+    // ---- layers -------------------------------------------------------------
+
+    /// <summary>
+    /// Another target's picture inside a layer's box: the target drawn at its own pixel size
+    /// into a canvas scaled to fit the box (the multiview tile's maths), as a monitor of that
+    /// target — never an output, never a layer host, so two screens showing each other stop.
+    /// </summary>
+    private bool DrawLayerScreen(SKCanvas canvas, SKRect dest, string targetId, in PatternFrame f)
+    {
+        if (!ContentTargets.IsInRig(f.Snapshot.State, targetId)) return false;
+        var v = f.Snapshot.Rig.ViewportForTile(targetId);
+        if (v.ViewportSize.Width <= 0 || v.ViewportSize.Height <= 0) return false;
+        var scale = Math.Min(dest.Width / v.ViewportSize.Width, dest.Height / v.ViewportSize.Height);
+        if (scale <= 0) return false;
+        var sub = f.Ctx with
+        {
+            ViewportSize = v.ViewportSize,
+            ReferenceSize = v.ReferenceSize,
+            ViewportOrigin = v.Origin,
+            ScreenId = v.TargetId,
+            InMultiview = true,
+            InLayer = true,
+            Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
+            SinkIndex = 0,
+            SinkLabel = f.Snapshot.Rig.LabelFor(f.Snapshot.State, targetId),
+        };
+        var save = canvas.Save();
+        try
+        {
+            canvas.Translate(dest.Left + (dest.Width - v.ViewportSize.Width * scale) / 2f,
+                             dest.Top + (dest.Height - v.ViewportSize.Height * scale) / 2f);
+            canvas.Scale(scale);
+            canvas.ClipRect(SKRect.Create(0, 0, v.ViewportSize.Width, v.ViewportSize.Height));
+            RenderContent(canvas, f.Snapshot, in sub, f.Sink);
+        }
+        finally
+        {
+            canvas.RestoreToCount(save);
+        }
+        return true;
     }
 
     // ---- multiview ----------------------------------------------------------
@@ -469,7 +534,9 @@ public sealed class PatternEngine
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
 
     /// <summary>How often a sink must redraw for this snapshot (drives the idle-efficiency logic).</summary>
-    public static RedrawCadence CadenceOf(ShowSnapshot snap, string? screenId, DateTime utcNow)
+    public static RedrawCadence CadenceOf(ShowSnapshot snap, string? screenId, DateTime utcNow) => CadenceOf(snap, screenId, utcNow, 0);
+
+    private static RedrawCadence CadenceOf(ShowSnapshot snap, string? screenId, DateTime utcNow, int depth)
     {
         var s = snap.State;
         if (snap.IdentifyUntilUtc is { } until && until > utcNow) return RedrawCadence.Continuous;
@@ -485,7 +552,9 @@ public sealed class PatternEngine
             || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture)
             || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)
             || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll)
-            || LowerThirds.LowerThirdClock.IsLive(s.LowerThirds, utcNow);
+            || LowerThirds.LowerThirdClock.IsLive(s.LowerThirds, utcNow)
+            || LayerIsLive(snap, p.Layer1, screenId, utcNow, depth)
+            || LayerIsLive(snap, p.Layer2, screenId, utcNow, depth);
 
         if (!continuous && s.Countdown.Enabled && s.Countdown.EndBehavior == CountdownEndBehavior.Flash)
         {
@@ -496,5 +565,14 @@ public sealed class PatternEngine
         if (continuous) return RedrawCadence.Continuous;
         if (s.Overlays.Clock.Enabled || s.Countdown.Enabled) return RedrawCadence.PerSecond;
         return RedrawCadence.Static;
+    }
+
+    /// <summary>A layer that moves: a clip or a live feed, or another target whose own picture moves (two hops at most, so a pair of screens showing each other settle).</summary>
+    private static bool LayerIsLive(ShowSnapshot snap, LayerConfig l, string? screenId, DateTime utcNow, int depth)
+    {
+        if (!l.Enabled) return false;
+        if (l.Source is LayerSource.Video or LayerSource.NdiFeed or LayerSource.Capture) return true;
+        if (l.Source != LayerSource.Screen || l.TargetId.Length == 0 || l.TargetId == screenId || depth >= 2) return false;
+        return CadenceOf(snap, l.TargetId, utcNow, depth + 1) == RedrawCadence.Continuous;
     }
 }

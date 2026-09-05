@@ -47,7 +47,9 @@
     <StackPanel IsVisible="{Binding HasLowerThird}">
       <TextBlock Classes="h2" Text="PREVIEW" />
       <Border Background="#0B0C10" CornerRadius="8" ClipToBounds="True">
-        <c:LowerThirdPreview Design="{Binding SelectedLowerThird}" State="{Binding State}" TimeMs="{Binding PreviewTimeMs}" Height="250" />
+        <c:LowerThirdPreview Design="{Binding SelectedLowerThird}" State="{Binding State}" TimeMs="{Binding PreviewTimeMs}" Height="250"
+                             SelectedElement="{Binding SelectedElement, Mode=TwoWay}"
+                             ToolTip.Tip="Click an element to select it; drag it to move it" />
       </Border>
       <Grid ColumnDefinitions="Auto,6,Auto,8,*,8,60" Margin="0,4,0,0">
         <ToggleButton Classes="chip" Content="▶ PLAY" IsChecked="{Binding PreviewPlaying, Mode=TwoWay}" ToolTip.Tip="Run the way in, the hold and the way out, round and round" />

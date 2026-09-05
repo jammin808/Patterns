@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Patterns.Core.Model;
 
 namespace Patterns.Core.Services;
@@ -15,7 +16,35 @@ public static class JsonUtil
         AllowTrailingCommas = true,
     };
 
+    /// <summary>
+    /// The identity of a picture: the same JSON minus every <see cref="TransitionNeutralAttribute"/>
+    /// property, so a crossfade runs when the picture changes and never when a layer is dragged.
+    /// </summary>
+    public static readonly JsonSerializerOptions IdentityOptions = new()
+    {
+        Converters = { new TolerantEnumConverterFactory() },
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver
+        {
+            Modifiers =
+            {
+                static info =>
+                {
+                    for (var i = info.Properties.Count - 1; i >= 0; i--)
+                    {
+                        if (info.Properties[i].AttributeProvider?.IsDefined(typeof(TransitionNeutralAttribute), inherit: true) == true)
+                        {
+                            info.Properties.RemoveAt(i);
+                        }
+                    }
+                },
+            },
+        },
+    };
+
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Options);
+
+    public static string SerializeIdentity<T>(T value) => JsonSerializer.Serialize(value, IdentityOptions);
 
     public static T? Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json, Options);
 

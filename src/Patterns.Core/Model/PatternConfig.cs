@@ -492,6 +492,94 @@ public sealed class MultiviewOptions : Observable
     public bool ShowTally { get => _showTally; set => Set(ref _showTally, value); }
 }
 
+/// <summary>What a layer draws. First member is the fallback for a value this build does not know.</summary>
+public enum LayerSource
+{
+    Image,
+    Video,
+    NdiFeed,
+    Capture,
+    /// <summary>Another target's picture — a screen or a joined canvas, by id.</summary>
+    Screen,
+}
+
+/// <summary>
+/// One of the two layers over a target's pattern: any picture — a still, a clip, an NDI feed, a
+/// capture device, another target's picture — in a box given as a share of the canvas, with a
+/// fit, a crop, corners, a border and an opacity. Off by default; drawn after the pattern and
+/// under the overlays on every sink that shows the canvas, so spans, NDI and the stream carry it.
+/// The box is transition-neutral: dragging a layer never starts a crossfade, a new picture does.
+/// </summary>
+public sealed class LayerConfig : Observable
+{
+    private bool _enabled;
+    private LayerSource _source = LayerSource.Image;
+    private string _imagePath = "";
+    private string _videoPath = "";
+    private string _ndiSourceName = "";
+    private string _captureDevice = "";
+    private string _targetId = "";
+    private double _xPct = 5;
+    private double _yPct = 5;
+    private double _wPct = 40;
+    private double _hPct = 40;
+    private FitMode _fit = FitMode.Fill;
+    private double _opacity = 1;
+    private double _cornerPx;
+    private double _borderPx;
+    private string _borderColor = "#FFFFFF";
+    private double _cropLeftPct; private double _cropTopPct; private double _cropRightPct; private double _cropBottomPct;
+    private bool _loop = true;
+    private bool _mute = true;
+    private double _volumePct = 100;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public LayerSource Source { get => _source; set => Set(ref _source, value); }
+    public string ImagePath { get => _imagePath; set => Set(ref _imagePath, value ?? ""); }
+    public string VideoPath { get => _videoPath; set => Set(ref _videoPath, value ?? ""); }
+    public string NdiSourceName { get => _ndiSourceName; set => Set(ref _ndiSourceName, value ?? ""); }
+    public string CaptureDevice { get => _captureDevice; set => Set(ref _captureDevice, value ?? ""); }
+    /// <summary>The screen id or canvas key a Screen layer shows.</summary>
+    public string TargetId { get => _targetId; set => Set(ref _targetId, value ?? ""); }
+
+    /// <summary>The box, as a share of the canvas: its top-left (may sit partly off the canvas) and its size.</summary>
+    [TransitionNeutral] public double XPct { get => _xPct; set => Set(ref _xPct, Math.Clamp(value, -100, 100)); }
+    [TransitionNeutral] public double YPct { get => _yPct; set => Set(ref _yPct, Math.Clamp(value, -100, 100)); }
+    [TransitionNeutral] public double WPct { get => _wPct; set => Set(ref _wPct, Math.Clamp(value, 1, 200)); }
+    [TransitionNeutral] public double HPct { get => _hPct; set => Set(ref _hPct, Math.Clamp(value, 1, 200)); }
+
+    /// <summary>How the picture sits in the box: Fill crops to cover it, Fit letterboxes, Stretch ignores the shape, Center draws 1:1.</summary>
+    public FitMode Fit { get => _fit; set => Set(ref _fit, value); }
+    public double Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0, 1)); }
+    /// <summary>Rounded corners, in canvas pixels.</summary>
+    public double CornerPx { get => _cornerPx; set => Set(ref _cornerPx, Math.Clamp(value, 0, 500)); }
+    /// <summary>A border drawn inside the box, in canvas pixels; 0 = none.</summary>
+    public double BorderPx { get => _borderPx; set => Set(ref _borderPx, Math.Clamp(value, 0, 200)); }
+    public string BorderColor { get => _borderColor; set => Set(ref _borderColor, value ?? ""); }
+
+    /// <summary>Cut this share of the picture away on each side (0–45 %) before it is fitted.</summary>
+    public double CropLeftPct { get => _cropLeftPct; set => Set(ref _cropLeftPct, Math.Clamp(value, 0, 45)); }
+    public double CropTopPct { get => _cropTopPct; set => Set(ref _cropTopPct, Math.Clamp(value, 0, 45)); }
+    public double CropRightPct { get => _cropRightPct; set => Set(ref _cropRightPct, Math.Clamp(value, 0, 45)); }
+    public double CropBottomPct { get => _cropBottomPct; set => Set(ref _cropBottomPct, Math.Clamp(value, 0, 45)); }
+
+    /// <summary>A clip loops; its sound is off unless asked for (b-roll under the pattern).</summary>
+    public bool Loop { get => _loop; set => Set(ref _loop, value); }
+    public bool Mute { get => _mute; set => Set(ref _mute, value); }
+    public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
+
+    /// <summary>Something is chosen for the source (a path, a name, a target).</summary>
+    [JsonIgnore]
+    public bool HasSource => _source switch
+    {
+        LayerSource.Image => _imagePath.Length > 0,
+        LayerSource.Video => _videoPath.Length > 0,
+        LayerSource.NdiFeed => _ndiSourceName.Length > 0,
+        LayerSource.Capture => _captureDevice.Length > 0,
+        _ => _targetId.Length > 0,
+    };
+}
+
 /// <summary>Everything that describes what is drawn on the canvas (minus overlays).</summary>
 public sealed class PatternConfig : Observable
 {
@@ -516,6 +604,10 @@ public sealed class PatternConfig : Observable
     public ParticleOptions Particles { get; init; } = new();
     public MultiviewOptions Multiview { get; init; } = new();
     public FractalOptions Fractal { get; init; } = new();
+
+    /// <summary>Two pictures over the pattern, whatever its kind — see <see cref="LayerConfig"/>.</summary>
+    public LayerConfig Layer1 { get; init; } = new();
+    public LayerConfig Layer2 { get; init; } = new();
 }
 
 /// <summary>The Fractal pattern: a family, a view of the plane, a palette, motion, and the sound it listens to.</summary>

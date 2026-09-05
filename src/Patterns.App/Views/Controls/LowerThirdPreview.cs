@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
@@ -29,8 +31,16 @@ public sealed class LowerThirdPreview : Control
     public static readonly StyledProperty<double> TimeMsProperty =
         AvaloniaProperty.Register<LowerThirdPreview, double>(nameof(TimeMs));
 
+    /// <summary>The element the designer is editing: a click on the stage picks it, a drag moves it.</summary>
+    public static readonly StyledProperty<LowerThirdElement?> SelectedElementProperty =
+        AvaloniaProperty.Register<LowerThirdPreview, LowerThirdElement?>(nameof(SelectedElement), defaultBindingMode: BindingMode.TwoWay);
+
     private readonly SinkState _sink = new();
     private long _version;
+    private LowerThirdElement? _drag;
+    private Point _dragStart;
+    private (double X, double Y) _dragFrom;
+    private bool _dragMoved;
 
     static LowerThirdPreview()
     {
@@ -60,8 +70,95 @@ public sealed class LowerThirdPreview : Control
         set => SetValue(TimeMsProperty, value);
     }
 
+    public LowerThirdElement? SelectedElement
+    {
+        get => GetValue(SelectedElementProperty);
+        set => SetValue(SelectedElementProperty, value);
+    }
+
     /// <summary>The hold the preview gives a design that waits to be hidden.</summary>
     public const int WaitingHoldMs = 1500;
+
+    // ---- picking and dragging elements on the stage ------------------------------
+
+    /// <summary>The stage inside the control: the 16:9 picture letterboxed at this scale, from this origin — the same maths <see cref="RenderPreview"/> draws with.</summary>
+    public static (float Scale, float Left, float Top) Stage(float width, float height)
+    {
+        var scale = Math.Min(width / 1920f, height / 1080f);
+        return (scale, (width - 1920f * scale) / 2f, (height - 1080f * scale) / 2f);
+    }
+
+    /// <summary>An element's resting box (its way in ignored) in the control's own units.</summary>
+    public static Rect BoxOnStage(LowerThirdDesign design, LowerThirdElement e, float width, float height)
+    {
+        var (scale, left, top) = Stage(width, height);
+        var box = LowerThirdRenderer.BoxOf(design, new SKSizeI(1920, 1080), out var designScale);
+        var k = designScale * scale;
+        return new Rect(left + (box.Left + (float)e.X * designScale) * scale, top + (box.Top + (float)e.Y * designScale) * scale,
+            Math.Max(1, e.W * k), Math.Max(1, e.H * k));
+    }
+
+    /// <summary>The topmost enabled element under a point (the last in the list draws on top), or null.</summary>
+    public static LowerThirdElement? HitElement(LowerThirdDesign design, Point p, float width, float height)
+    {
+        for (var i = design.Elements.Count - 1; i >= 0; i--)
+        {
+            var e = design.Elements[i];
+            if (e.Enabled && BoxOnStage(design, e, width, height).Contains(p)) return e;
+        }
+        return null;
+    }
+
+    /// <summary>Moves an element by a pointer travel in the control's units — design pixels follow the stage's scale.</summary>
+    public static void DragBy(LowerThirdDesign design, LowerThirdElement e, (double X, double Y) from, Point delta, float width, float height)
+    {
+        var (scale, _, _) = Stage(width, height);
+        LowerThirdRenderer.BoxOf(design, new SKSizeI(1920, 1080), out var designScale);
+        var k = scale * designScale;
+        if (k <= 0) return;
+        e.X = Math.Round(from.X + delta.X / k);
+        e.Y = Math.Round(from.Y + delta.Y / k);
+    }
+
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (Design is not { } design || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        var p = e.GetPosition(this);
+        var hit = HitElement(design, p, (float)Bounds.Width, (float)Bounds.Height);
+        if (hit is null) return;
+        SelectedElement = hit;
+        _drag = hit;
+        _dragStart = p;
+        _dragFrom = (hit.X, hit.Y);
+        _dragMoved = false;
+        e.Pointer.Capture(this);
+        e.Handled = true;
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        if (_drag is null || Design is not { } design || !ReferenceEquals(e.Pointer.Captured, this)) return;
+        var p = e.GetPosition(this);
+        var delta = new Point(p.X - _dragStart.X, p.Y - _dragStart.Y);
+        if (!_dragMoved && Math.Abs(delta.X) + Math.Abs(delta.Y) < 3) return;
+        _dragMoved = true;
+        DragBy(design, _drag, _dragFrom, delta, (float)Bounds.Width, (float)Bounds.Height);
+        InvalidateVisual();
+        e.Handled = true;
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        if (_drag is null) return;
+        e.Pointer.Capture(null);
+        _drag = null;
+        _dragMoved = false;
+        InvalidateVisual();
+        e.Handled = true;
+    }
 
     public override void Render(DrawingContext context)
     {

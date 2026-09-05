@@ -6,6 +6,113 @@
              x:Class="Patterns.App.Views.Sections.MediaSection"
              x:DataType="vm:MainViewModel">
 
+  <UserControl.Resources>
+    <!-- One layer's editor: the source, its box, how it sits, its edges -->
+    <DataTemplate x:Key="LayerEditor" x:DataType="m:LayerConfig">
+      <StackPanel Spacing="4">
+        <CheckBox Content="On" IsChecked="{Binding Enabled, Mode=TwoWay}" />
+        <Grid ColumnDefinitions="86,*">
+          <TextBlock Classes="label" Text="Source" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LayerSources}"
+                    SelectedValue="{Binding Source, Mode=TwoWay}"
+                    SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+        </Grid>
+        <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Image}}">
+          <TextBox Watermark="PNG, JPEG, BMP, WebP…" Text="{Binding ImagePath, Mode=TwoWay}" />
+          <Button Grid.Column="2" Classes="chip" Content="Browse…"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).BrowseLayerImageCommand}" CommandParameter="{Binding}" />
+        </Grid>
+        <StackPanel Spacing="4" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Video}}">
+          <Grid ColumnDefinitions="*,8,Auto">
+            <TextBox Watermark="MP4, MOV, MKV…" Text="{Binding VideoPath, Mode=TwoWay}" />
+            <Button Grid.Column="2" Classes="chip" Content="Browse…"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).BrowseLayerVideoCommand}" CommandParameter="{Binding}" />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <CheckBox Content="Loop" IsChecked="{Binding Loop, Mode=TwoWay}" />
+            <CheckBox Content="Mute" IsChecked="{Binding Mute, Mode=TwoWay}" />
+          </StackPanel>
+          <Grid ColumnDefinitions="86,*,44">
+            <TextBlock Classes="label" Text="Volume" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Minimum="0" Maximum="125" TickFrequency="5" Value="{Binding VolumePct, Mode=TwoWay}" />
+            <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding VolumePct, StringFormat={}{0:0}%}" />
+          </Grid>
+        </StackPanel>
+        <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.NdiFeed}}">
+          <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).NdiSourceOptions}"
+                    SelectedItem="{Binding NdiSourceName, Mode=TwoWay}" PlaceholderText="NDI sources on the network…" />
+          <Button Grid.Column="2" Classes="chip" Content="Refresh"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RefreshNdiSourcesCommand}" />
+        </Grid>
+        <TextBox IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.NdiFeed}}"
+                 Watermark="…or type the exact source name" Text="{Binding NdiSourceName, Mode=TwoWay}" />
+        <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Capture}}">
+          <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).CaptureDeviceOptions}"
+                    SelectedItem="{Binding CaptureDevice, Mode=TwoWay}" PlaceholderText="Capture devices…" />
+          <Button Grid.Column="2" Classes="chip" Content="Refresh"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RefreshCaptureDevicesCommand}" />
+        </Grid>
+        <ComboBox IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Screen}}"
+                  ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewTargets}"
+                  SelectedValue="{Binding TargetId, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                  PlaceholderText="Which screen or canvas…" />
+
+        <TextBlock Classes="label" Text="Box (% of the canvas — or drag it on the PREVIEW pane)" Margin="0,6,0,0" />
+        <Grid ColumnDefinitions="86,*,44" RowDefinitions="Auto,Auto,Auto,Auto">
+          <TextBlock Grid.Row="0" Classes="label" Text="Left" VerticalAlignment="Center" />
+          <Slider Grid.Row="0" Grid.Column="1" Minimum="-50" Maximum="100" Value="{Binding XPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding XPct, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="1" Classes="label" Text="Top" VerticalAlignment="Center" />
+          <Slider Grid.Row="1" Grid.Column="1" Minimum="-50" Maximum="100" Value="{Binding YPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding YPct, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="2" Classes="label" Text="Width" VerticalAlignment="Center" />
+          <Slider Grid.Row="2" Grid.Column="1" Minimum="2" Maximum="150" Value="{Binding WPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="2" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding WPct, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="3" Classes="label" Text="Height" VerticalAlignment="Center" />
+          <Slider Grid.Row="3" Grid.Column="1" Minimum="2" Maximum="150" Value="{Binding HPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="3" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding HPct, StringFormat={}{0:0}%}" />
+        </Grid>
+        <Grid ColumnDefinitions="86,*">
+          <TextBlock Classes="label" Text="Fit" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FitModes}"
+                    SelectedValue="{Binding Fit, Mode=TwoWay}"
+                    SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+        </Grid>
+        <Grid ColumnDefinitions="86,*,44">
+          <TextBlock Classes="label" Text="Opacity" VerticalAlignment="Center" />
+          <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding Opacity, Mode=TwoWay}" />
+          <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding Opacity, StringFormat={}{0:0.00}}" />
+        </Grid>
+        <Grid ColumnDefinitions="86,*,8,86,*">
+          <TextBlock Classes="label" Text="Corners (px)" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Column="1" Minimum="0" Maximum="500" Increment="2" FormatString="0" Value="{Binding CornerPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+          <TextBlock Grid.Column="3" Classes="label" Text="Border (px)" VerticalAlignment="Center" Margin="8,0,0,0" />
+          <NumericUpDown Grid.Column="4" Minimum="0" Maximum="200" Increment="1" FormatString="0" Value="{Binding BorderPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+        </Grid>
+        <Grid ColumnDefinitions="86,*">
+          <TextBlock Classes="label" Text="Border colour" VerticalAlignment="Center" />
+          <c:ColorField Grid.Column="1" Value="{Binding BorderColor, Mode=TwoWay}" />
+        </Grid>
+        <TextBlock Classes="label" Text="Crop (% cut away on each side)" Margin="0,6,0,0" />
+        <Grid ColumnDefinitions="86,*,44" RowDefinitions="Auto,Auto,Auto,Auto">
+          <TextBlock Grid.Row="0" Classes="label" Text="Left" VerticalAlignment="Center" />
+          <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding CropLeftPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding CropLeftPct, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="1" Classes="label" Text="Right" VerticalAlignment="Center" />
+          <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding CropRightPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding CropRightPct, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="2" Classes="label" Text="Top" VerticalAlignment="Center" />
+          <Slider Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding CropTopPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="2" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding CropTopPct, StringFormat={}{0:0}%}" />
+          <TextBlock Grid.Row="3" Classes="label" Text="Bottom" VerticalAlignment="Center" />
+          <Slider Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="45" Value="{Binding CropBottomPct, Mode=TwoWay}" />
+          <TextBlock Grid.Row="3" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding CropBottomPct, StringFormat={}{0:0}%}" />
+        </Grid>
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-media" Text="Media" />
     <TextBlock Classes="hint tip" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too. Every input runs separately: give each screen its own source (pick the screen in the strip, then choose here) and the same feed can sit on several screens, the PiP and the multiview at once — one decode per source." />
@@ -259,5 +366,22 @@
       <TextBlock Classes="label" Text="Background" />
       <c:ColorField Grid.Column="1" Value="{Binding ActivePattern.Media.BackgroundColor, Mode=TwoWay}" />
     </Grid>
+
+    <!-- Layers: two pictures over this target's pattern, whatever its kind -->
+    <TextBlock Classes="h2" Text="LAYERS" />
+    <TextBlock Classes="hint tip"
+               Text="Two pictures over this target's pattern, whatever it is — a still, a clip, an NDI feed, a capture device, or another screen's picture — each in a box you drag on the PREVIEW pane (or set below), with a fit, a crop, corners, a border and an opacity. They belong to the pattern, so they travel with looks and cues and reach spans, NDI and the stream; they draw under the overlays and the lower third. Dragging never starts a crossfade; a new picture fades in." />
+    <Border Classes="panel" Padding="10" Margin="0,4,0,0">
+      <StackPanel>
+        <TextBlock Classes="label" Text="LAYER 1" FontWeight="Bold" Margin="0,0,0,4" />
+        <ContentControl Content="{Binding ActivePattern.Layer1}" ContentTemplate="{StaticResource LayerEditor}" />
+      </StackPanel>
+    </Border>
+    <Border Classes="panel" Padding="10" Margin="0,6,0,0">
+      <StackPanel>
+        <TextBlock Classes="label" Text="LAYER 2" FontWeight="Bold" Margin="0,0,0,4" />
+        <ContentControl Content="{Binding ActivePattern.Layer2}" ContentTemplate="{StaticResource LayerEditor}" />
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>

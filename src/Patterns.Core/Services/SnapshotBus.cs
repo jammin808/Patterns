@@ -92,7 +92,7 @@ public sealed class ShowSnapshot
         return _transitionKeys.GetOrAdd(screenId ?? "", _ =>
         {
             var cfg = PatternFor(screenId);
-            var json = JsonUtil.Serialize(cfg);
+            var json = JsonUtil.SerializeIdentity(cfg); // a layer's box is not identity: a drag never fades
             var playlist = cfg.Kind == PatternKind.Media && cfg.Media.Source == MediaSource.Playlist
                 ? PlaylistNow?.Path ?? ""
                 : "";

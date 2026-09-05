@@ -46,6 +46,9 @@ public readonly record struct RenderContext
 
     /// <summary>True while rendering inside a multiview tile — nested multiviews draw a slate instead.</summary>
     public bool InMultiview { get; init; }
+
+    /// <summary>True while rendering another target's picture inside a layer — a layer in there draws nothing, so two screens showing each other cannot recurse.</summary>
+    public bool InLayer { get; init; }
 }
 
 /// <summary>How often a sink needs to redraw for the current snapshot.</summary>

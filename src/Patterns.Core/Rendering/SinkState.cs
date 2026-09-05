@@ -79,6 +79,20 @@ public sealed class SinkState : IDisposable
     /// <summary>The snapshot version the lower-third caches were last swept for gone elements at.</summary>
     public long LowerThirdsSweptVersion { get; set; } = -1;
 
+    /// <summary>
+    /// The boxes the last top-level frame drew that the desk can drag — layers and canvas
+    /// overlays in canvas pixels, the PiP in viewport pixels — in draw order. A fade source, a
+    /// multiview tile or a screen layer never touches it.
+    /// </summary>
+    public List<HitRect> Hits { get; } = new();
+
+    /// <summary>Where the last top-level frame put its canvas inside the reference space (the pane's inverse mapping needs it).</summary>
+    public SKPoint LastCanvasOffset { get; set; }
+
+    public float LastCanvasScale { get; set; } = 1;
+
+    public SKSizeI LastCanvasSize { get; set; }
+
     public void Dispose()
     {
         foreach (var cache in LowerThirds.Values) cache.Dispose();

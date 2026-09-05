@@ -99,6 +99,23 @@ public static class MediaLocator
 
         void FromPattern(PatternConfig p)
         {
+            // The two layers ride over any kind of pattern.
+            foreach (var l in new[] { p.Layer1, p.Layer2 })
+            {
+                if (!l.Enabled) continue;
+                switch (l.Source)
+                {
+                    case LayerSource.Video:
+                        Add(WantedKind.VideoFile, l.VideoPath, l.Loop, l.Mute, l.VolumePct);
+                        break;
+                    case LayerSource.Capture:
+                        Add(WantedKind.Capture, l.CaptureDevice, false, true, 0);
+                        break;
+                    case LayerSource.NdiFeed:
+                        Add(WantedKind.Ndi, l.NdiSourceName, false, true, 0);
+                        break;
+                }
+            }
             if (p.Kind == PatternKind.Media)
             {
                 var m = p.Media;

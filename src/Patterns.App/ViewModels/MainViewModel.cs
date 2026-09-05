@@ -98,6 +98,28 @@ public sealed class MainViewModel : Observable
             AddToMediaLibrary(p, isVideo: true);
         }));
         BrowseLogoCommand = new RelayCommand(() => _ = PickFileAsync("Choose logo (PNG with alpha)", FilePickerFileTypes.ImageAll, p => State.Brand.LogoPath = p));
+        BrowseLayerImageCommand = new RelayCommand<LayerConfig>(layer =>
+        {
+            if (layer is null) return;
+            _ = PickFileAsync("Choose the layer's image", FilePickerFileTypes.ImageAll, p =>
+            {
+                layer.ImagePath = p;
+                layer.Source = LayerSource.Image;
+                layer.Enabled = true;
+                AddToMediaLibrary(p, isVideo: false);
+            });
+        });
+        BrowseLayerVideoCommand = new RelayCommand<LayerConfig>(layer =>
+        {
+            if (layer is null) return;
+            _ = PickFileAsync("Choose the layer's clip", VideoTypes, p =>
+            {
+                layer.VideoPath = p;
+                layer.Source = LayerSource.Video;
+                layer.Enabled = true;
+                AddToMediaLibrary(p, isVideo: true);
+            });
+        });
         ApplyParticlePresetCommand = new RelayCommand<string>(name =>
         {
             if (name is null) return;
@@ -1115,6 +1137,73 @@ public sealed class MainViewModel : Observable
         RebuildMirrorSources();
         RaiseBlend();
         RefreshDisplayModes();
+    }
+
+    // ---- layers and drags on the PREVIEW pane ---------------------------------------
+
+    public EnumItem[] LayerSources => Lists.LayerSources;
+
+    public RelayCommand<LayerConfig> BrowseLayerImageCommand { get; }
+    public RelayCommand<LayerConfig> BrowseLayerVideoCommand { get; }
+
+    /// <summary>The pattern the PREVIEW pane shows, in the live model: the target's own, its source's when it repeats one, else the program.</summary>
+    public PatternConfig PreviewPattern
+    {
+        get
+        {
+            var id = _services.PreviewScreenId;
+            if (id is null) return State.Pattern;
+            id = ScreenRoles.ResolveMirror(State, id);
+            if (!ContentTargets.UsesOwnPattern(State, id)) return State.Pattern;
+            return State.Independent.FirstOrDefault(a => a.ScreenId == id)?.Pattern ?? State.Pattern;
+        }
+    }
+
+    public static string DragName(HitKind kind) => kind switch
+    {
+        HitKind.Layer1 => "Layer 1",
+        HitKind.Layer2 => "Layer 2",
+        HitKind.Logo => "The logo",
+        HitKind.Clock => "The clock",
+        HitKind.Countdown => "The countdown",
+        HitKind.Message => "The message",
+        HitKind.Pip => "The PiP inset",
+        _ => "The element",
+    };
+
+    /// <summary>Where a draggable thing sits now: a layer's box (a share of the canvas) or an overlay's nudge from its anchor.</summary>
+    public (double X, double Y) DragPlaceOf(HitKind kind)
+    {
+        var p = PreviewPattern;
+        var o = State.Overlays;
+        return kind switch
+        {
+            HitKind.Layer1 => (p.Layer1.XPct, p.Layer1.YPct),
+            HitKind.Layer2 => (p.Layer2.XPct, p.Layer2.YPct),
+            HitKind.Logo => (o.Logo.OffsetXPct, o.Logo.OffsetYPct),
+            HitKind.Clock => (o.Clock.OffsetXPct, o.Clock.OffsetYPct),
+            HitKind.Countdown => (State.Countdown.OffsetXPct, State.Countdown.OffsetYPct),
+            HitKind.Message => (o.Message.OffsetXPct, o.Message.OffsetYPct),
+            HitKind.Pip => (o.Pip.OffsetXPct, o.Pip.OffsetYPct),
+            _ => (0, 0),
+        };
+    }
+
+    /// <summary>Puts a draggable thing at a place (the same units <see cref="DragPlaceOf"/> reads); the model publishes, the panes follow.</summary>
+    public void DragPlace(HitKind kind, double x, double y)
+    {
+        var p = PreviewPattern;
+        var o = State.Overlays;
+        switch (kind)
+        {
+            case HitKind.Layer1: p.Layer1.XPct = x; p.Layer1.YPct = y; break;
+            case HitKind.Layer2: p.Layer2.XPct = x; p.Layer2.YPct = y; break;
+            case HitKind.Logo: o.Logo.OffsetXPct = x; o.Logo.OffsetYPct = y; break;
+            case HitKind.Clock: o.Clock.OffsetXPct = x; o.Clock.OffsetYPct = y; break;
+            case HitKind.Countdown: State.Countdown.OffsetXPct = x; State.Countdown.OffsetYPct = y; break;
+            case HitKind.Message: o.Message.OffsetXPct = x; o.Message.OffsetYPct = y; break;
+            case HitKind.Pip: o.Pip.OffsetXPct = x; o.Pip.OffsetYPct = y; break;
+        }
     }
 
     // ---- roles, locks and repeaters ---------------------------------------------

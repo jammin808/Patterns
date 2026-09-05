@@ -43,6 +43,8 @@ public static class ContentTargets
         foreach (var pattern in AllPatterns(state))
         {
             foreach (var tile in pattern.Multiview.Tiles) tile.ScreenId = Rekey(tile.ScreenId);
+            if (pattern.Layer1.TargetId.Length > 0) pattern.Layer1.TargetId = Rekey(pattern.Layer1.TargetId);
+            if (pattern.Layer2.TargetId.Length > 0) pattern.Layer2.TargetId = Rekey(pattern.Layer2.TargetId);
         }
         foreach (var sender in state.Ndi.Senders) sender.SourceScreenId = Rekey(sender.SourceScreenId);
         state.Stream.SourceScreenId = Rekey(state.Stream.SourceScreenId);

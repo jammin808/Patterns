@@ -255,6 +255,12 @@ public sealed class ClockOverlay : Observable
     private bool _showDate = true;
     private Anchor9 _anchor = Anchor9.TopRight;
     private double _sizePct = 8;
+    private double _offsetXPct;
+    private double _offsetYPct;
+
+    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it.</summary>
+    public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
+    public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
     private double _opacity = 1.0;
     private bool _pill = true;
     private string _textColor = "";
@@ -279,6 +285,12 @@ public sealed class LogoOverlay : Observable
     private bool _enabled = false;
     private Anchor9 _anchor = Anchor9.BottomRight;
     private double _heightPct = 12;
+    private double _offsetXPct;
+    private double _offsetYPct;
+
+    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it.</summary>
+    public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
+    public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
     private double _opacity = 0.9;
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
@@ -305,6 +317,12 @@ public sealed class MessageOverlay : Observable
     private string _text = "WELCOME";
     private Anchor9 _anchor = Anchor9.BottomCenter;
     private double _sizePct = 6;
+    private double _offsetXPct;
+    private double _offsetYPct;
+
+    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it; a ticker takes the vertical one.</summary>
+    public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
+    public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
     private bool _scroll = false;
     private double _scrollPxPerSec = 120;
     private string _textColor = "";
@@ -361,6 +379,12 @@ public sealed class PipOverlay : Observable
     private string _captureDevice = "";
     private Anchor9 _anchor = Anchor9.BottomRight;
     private double _widthPct = 25;
+    private double _offsetXPct;
+    private double _offsetYPct;
+
+    /// <summary>A nudge from the anchor as a share of the viewport (−100..100) — a drag on the PREVIEW pane writes it.</summary>
+    public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
+    public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
     private double _opacity = 1.0;
     private bool _showBorder = true;
     private double _cropLeftPct; private double _cropTopPct; private double _cropRightPct; private double _cropBottomPct;
@@ -395,6 +419,12 @@ public sealed class CountdownConfig : Observable
     private bool _showProgressBar = false;
     private Anchor9 _anchor = Anchor9.Center;
     private double _sizePct = 18;
+    private double _offsetXPct;
+    private double _offsetYPct;
+
+    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it.</summary>
+    public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
+    public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
     private string _textColor = "";
 
     /// <summary>Digits colour; empty = brand/theme text colour (urgency tint still applies).</summary>

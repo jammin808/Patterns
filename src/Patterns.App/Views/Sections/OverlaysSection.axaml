@@ -26,6 +26,11 @@
                   SelectedValue="{Binding State.Overlays.Clock.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
+      <Grid ColumnDefinitions="130,*,8,*">
+        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the clock on the PREVIEW pane" />
+        <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Clock.OffsetXPct, Mode=TwoWay}" />
+        <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Clock.OffsetYPct, Mode=TwoWay}" />
+      </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Size (% height)" />
         <Slider Grid.Column="1" Minimum="2" Maximum="40" Value="{Binding State.Overlays.Clock.SizePct, Mode=TwoWay}" />
@@ -44,6 +49,11 @@
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
                   SelectedValue="{Binding State.Overlays.Logo.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,*">
+        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the logo on the PREVIEW pane" />
+        <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Logo.OffsetXPct, Mode=TwoWay}" />
+        <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Logo.OffsetYPct, Mode=TwoWay}" />
       </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Height (%)" />
@@ -68,6 +78,11 @@
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
                   SelectedValue="{Binding State.Overlays.Message.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,*">
+        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the message on the PREVIEW pane; a ticker takes the vertical nudge only" />
+        <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Message.OffsetXPct, Mode=TwoWay}" />
+        <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Message.OffsetYPct, Mode=TwoWay}" />
       </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Size (% height)" />
@@ -162,6 +177,11 @@
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
                   SelectedValue="{Binding State.Overlays.Pip.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,*">
+        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the screen — or drag the inset on the PREVIEW pane" />
+        <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Pip.OffsetXPct, Mode=TwoWay}" />
+        <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Pip.OffsetYPct, Mode=TwoWay}" />
       </Grid>
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Width (%)" />
