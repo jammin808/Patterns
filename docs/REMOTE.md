@@ -2,9 +2,15 @@
 
 Patterns runs two remote interfaces while **Remote → Remote control** is on:
 
-- **Web remote** — `http://<machine-ip>:9696/` (port configurable). Big-button page for a
-  phone or tablet: presenter next/back, looks, OUTPUTS ON/OFF, IDENTIFY, blackout, per-screen
-  toggles, audio track. Works in any browser on the same network.
+- **Web remote** — `http://<machine-ip>:9696/` (port configurable). One page for a phone or
+  tablet with a menu across SHOW (presenter, transport, blackout, duck, STOP ALL, what is on
+  now), CUES (the standby cue with its plan, ▲ ▼ GO HOLD, ARM, the day's timing, the next and
+  the last), LOOKS, SCREENS (a switch and a padlock per screen, show parts), AUDIO (the audio
+  track, break music, VOGs, stingers, tone), LOWER THIRDS (designs and people) and SETUP (the
+  health line, the machine, the stream, the main machine's beacon, links to `/run` and
+  `/multiview`); a sticky header names what is on air with its chips and a connection dot, the
+  tab you were on is remembered, and the page waits on `GET /api/state?since=<rev>` so it
+  changes the moment the show does. Works in any browser on the same network.
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
   every command answers `OK`, `OK <json>` or `ERR <reason>`. On connect — and on every
   change — the server pushes `STATE <json>` so controllers can show live feedback.

@@ -46,7 +46,7 @@ Every key acts once per press — holding a key down never repeats it.</TextBloc
 
     <TextBlock Classes="h2" Text="REMOTE CONTROL" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="Switch it on on the Remote page (SETUP), then open the shown address on any phone or tablet on this network for the big-button web remote. Stream Decks: load the Bitfocus Companion module from integrations/companion-module-patterns (presets for transport, looks, screens, groups, presenter, stingers and audio, with live feedback) — or use Companion's Generic TCP with the one-line commands in docs/REMOTE.md. There is no password: anyone on the network can drive the show while remote control is on." />
+               Text="Switch it on on the Remote page (SETUP), then open the shown address on any phone or tablet on this network for the web remote — one page with a menu across SHOW, CUES, LOOKS, SCREENS, AUDIO, LOWER THIRDS and SETUP, a header that names what is on air with its chips and a connection dot, thumb-sized buttons, and a page that changes the moment the show does; the tab you were on is remembered. Stream Decks: load the Bitfocus Companion module from integrations/companion-module-patterns (presets for transport, looks, screens, groups, presenter, stingers and audio, with live feedback) — or use Companion's Generic TCP with the one-line commands in docs/REMOTE.md. There is no password: anyone on the network can drive the show while remote control is on." />
 
     <TextBlock Classes="h2" Text="THE SWITCHER (PROGRAM / PREVIEW)" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
