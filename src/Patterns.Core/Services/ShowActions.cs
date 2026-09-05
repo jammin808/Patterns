@@ -105,6 +105,15 @@ public enum ShowActionKind
     ReviewOn,
     ReviewOff,
     ReviewToggle,
+    /// <summary>FREEZE: every output holds the frame it shows until released (a runtime flag, never saved); the desk keeps moving.</summary>
+    FreezeOn,
+    FreezeOff,
+    FreezeToggle,
+    /// <summary>Blackout on with a fade of the value's milliseconds (empty: the show's transition time), then off again the same way.</summary>
+    FadeToBlack,
+    FadeUp,
+    /// <summary>The look that was on air before the current one, back on air (the value: cut, a fade in ms, or the show default).</summary>
+    LookBack,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

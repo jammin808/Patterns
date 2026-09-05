@@ -149,6 +149,12 @@ public sealed class CommandRouter
             RemoteCommandKind.ReviewOn => new ShowAction(ShowActionKind.ReviewOn),
             RemoteCommandKind.ReviewOff => new ShowAction(ShowActionKind.ReviewOff),
             RemoteCommandKind.ReviewToggle => new ShowAction(ShowActionKind.ReviewToggle),
+            RemoteCommandKind.FreezeOn => new ShowAction(ShowActionKind.FreezeOn),
+            RemoteCommandKind.FreezeOff => new ShowAction(ShowActionKind.FreezeOff),
+            RemoteCommandKind.FreezeToggle => new ShowAction(ShowActionKind.FreezeToggle),
+            RemoteCommandKind.FadeToBlack => new ShowAction(ShowActionKind.FadeToBlack, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
+            RemoteCommandKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
+            RemoteCommandKind.LookBack => new ShowAction(ShowActionKind.LookBack, "", cmd.TextArg),
             RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
             _ => null,
         };
@@ -181,6 +187,8 @@ public sealed class CommandRouter
             blackout = s.Blackout,
             live = _services.Outputs.IsLive,
             review = _services.Bus.ReviewOnMultiview,                      // the preview fills every multiview
+            frozen = _services.Bus.Frozen,                                 // every output holds its frame
+            previousLook = LookService.Find(s, _services.PreviousAirLookId)?.Name ?? "",   // what LOOKBACK returns to
 
             looks = s.LooksAndCues.Looks.Select(l => new { name = l.Name, slot = l.Hotkey }).ToArray(),
             presenter = PresenterState(s),

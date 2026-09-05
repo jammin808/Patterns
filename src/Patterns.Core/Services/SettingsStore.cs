@@ -17,6 +17,18 @@ public sealed class SettingsStore
     /// <summary>Lower-third designs saved as files of their own, so a creation travels between shows and machines.</summary>
     public string LowerThirdsDirectory { get; }
 
+    /// <summary>Earlier versions of the show file, kept beside it (see <see cref="ListBackups"/>).</summary>
+    public string BackupsDirectory { get; }
+
+    /// <summary>How many earlier versions are kept; the oldest go as new ones come.</summary>
+    public const int BackupsKept = 20;
+
+    /// <summary>
+    /// The least time between two kept versions: the autosave writes seconds after every edit, and a
+    /// version per keystroke would push the useful ones out within a minute. Tests set it to zero.
+    /// </summary>
+    public TimeSpan BackupSpacing { get; set; } = TimeSpan.FromMinutes(5);
+
     public SettingsStore(string? baseDirectory = null)
     {
         BaseDirectory = baseDirectory ?? ResolvePortableDirectory();
@@ -24,6 +36,7 @@ public sealed class SettingsStore
         PresetsDirectory = Path.Combine(BaseDirectory, "presets");
         BrandKitsDirectory = Path.Combine(BaseDirectory, "brandkits");
         LowerThirdsDirectory = Path.Combine(BaseDirectory, "lowerthirds");
+        BackupsDirectory = Path.Combine(BaseDirectory, "backups");
     }
 
     public static string ResolvePortableDirectory()
@@ -195,7 +208,77 @@ public sealed class SettingsStore
     public void SaveTo(string path, ShowState state)
     {
         var json = JsonUtil.Serialize(state);
+        if (string.Equals(path, SettingsPath, StringComparison.OrdinalIgnoreCase)) KeepBackup(json);
         WriteAtomic(path, json);
+    }
+
+    private const string BackupPrefix = "patterns.settings.";
+    private const string BackupStamp = "yyyyMMdd-HHmmss-fff";
+
+    /// <summary>
+    /// Before the show file is overwritten with something different, the file as it was goes to
+    /// backups/ under its time — unless a version younger than <see cref="BackupSpacing"/> is
+    /// there already — and the oldest beyond <see cref="BackupsKept"/> go. Never throws: a
+    /// backup that fails must not stop the save. (The save itself keeps the previous file as
+    /// .bak as well: the very last version, whatever the spacing.)
+    /// </summary>
+    private void KeepBackup(string newJson)
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return;
+            if (File.ReadAllText(SettingsPath) == newJson) return;
+            var kept = ListBackups();
+            if (kept.Count > 0 && DateTime.Now - kept[0].When < BackupSpacing) return;
+            Directory.CreateDirectory(BackupsDirectory);
+            var stamp = DateTime.Now.ToString(BackupStamp, System.Globalization.CultureInfo.InvariantCulture);
+            var target = Path.Combine(BackupsDirectory, $"{BackupPrefix}{stamp}.json");
+            for (var n = 2; File.Exists(target); n++)
+            {
+                target = Path.Combine(BackupsDirectory, $"{BackupPrefix}{stamp}-{n}.json");   // two in one millisecond: the second keeps its own file
+            }
+            File.Copy(SettingsPath, target, overwrite: false);
+            foreach (var stale in ListBackups().Skip(BackupsKept)) File.Delete(stale.Path);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Show backup failed.", ex);
+        }
+    }
+
+    /// <summary>The kept versions of the show file, newest first: when each was the show, and where it is.</summary>
+    public IReadOnlyList<(DateTime When, string Path)> ListBackups()
+    {
+        try
+        {
+            if (!Directory.Exists(BackupsDirectory)) return Array.Empty<(DateTime, string)>();
+            var list = new List<(DateTime When, int Seq, string Path)>();
+            foreach (var f in Directory.GetFiles(BackupsDirectory, BackupPrefix + "*.json"))
+            {
+                var rest = Path.GetFileNameWithoutExtension(f)[BackupPrefix.Length..];
+                var stamp = rest.Length > BackupStamp.Length ? rest[..BackupStamp.Length] : rest;
+                var seq = rest.Length > BackupStamp.Length + 1 && int.TryParse(rest[(BackupStamp.Length + 1)..], out var k) ? k : 1;
+                var when = DateTime.TryParseExact(stamp, BackupStamp, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var t) ? t : File.GetLastWriteTime(f);
+                list.Add((when, seq, f));
+            }
+            return list.OrderByDescending(x => x.When).ThenByDescending(x => x.Seq).Select(x => (x.When, x.Path)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Could not list show backups.", ex);
+            return Array.Empty<(DateTime, string)>();
+        }
+    }
+
+    /// <summary>The previous save of the show file (.bak), when there is one — the version before the last write.</summary>
+    public string? PreviousSavePath
+    {
+        get
+        {
+            var bak = SettingsPath + ".bak";
+            return File.Exists(bak) ? bak : null;
+        }
     }
 
     public static void WriteAtomic(string path, string content)

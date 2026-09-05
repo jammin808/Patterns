@@ -49,6 +49,13 @@ public sealed class ShowSnapshot
     public bool ReviewOnMultiview { get; init; }
 
     /// <summary>
+    /// Runtime-only: FREEZE — every output (a window, an NDI send, the stream) holds the frame it
+    /// showed when it was pressed until it is released; the desk's own views keep moving. A
+    /// blackout still takes a frozen output. Never in the show file.
+    /// </summary>
+    public bool Frozen { get; init; }
+
+    /// <summary>
     /// Runtime-only: the message ticker's travel line, shared by every sink so a span, an NDI
     /// sender and a late-opened output all draw the same train. Null for a snapshot built
     /// outside the bus (thumbnails, tests): the renderer then runs the plain line from clock 0.
@@ -219,6 +226,9 @@ public sealed class SnapshotBus
     /// <summary>Set by the review toggle; carried on every snapshot — every multiview then draws the preview full-frame.</summary>
     public bool ReviewOnMultiview { get; set; }
 
+    /// <summary>FREEZE: the outputs hold their frame (runtime-only; carried on every snapshot built after it flips).</summary>
+    public bool Frozen { get; set; }
+
     /// <summary>Set by the playlist service; carried on every snapshot.</summary>
     public PlaylistNow? PlaylistNow { get; set; }
 
@@ -319,6 +329,7 @@ public sealed class SnapshotBus
             Rig = RigGeometry.Build(clone, Displays),
             PreviewSource = _previewSource,
             ReviewOnMultiview = ReviewOnMultiview,
+            Frozen = Frozen,
         };
     }
 }

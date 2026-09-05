@@ -54,6 +54,9 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `LOWERTHIRD OFF` | The lower third on air leaves the way it was designed to (`LT HIDE` does the same) |
 | `LOWERTHIRD <design> WITH <person>` | Fill design *n* / the named design from the library first — the person's name, role, company and photo (Lower thirds page, LIBRARY) — then put it on air; *person* is a number (library order) or a name (`LT … WITH …` is the same) |
 | `PERSON <n>` / `PERSON <name>` | The same into the lower third on air (else the last shown, else the first): the next speaker in one command. A name that is not in the library answers `ERR … not in the lower-thirds library` — a wrong name never reaches the screen |
+| `FREEZE ON` / `OFF` / `TOGGLE` | Every output — the windows, the NDI sends, the stream — holds the frame it shows until released; the desk's own views keep moving, a blackout still takes a frozen output. A latch (bare `FREEZE` toggles), never saved |
+| `FADE [seconds]` / `FADE UP [seconds]` (also `FADEUP`) | A blackout with a fade of its own: down over the seconds given (`FADE 2`, `FADE 2.5`, `FADE 1500ms`; none = the show's transition time), or up again the same way. Refused with `ERR` when the show is already there |
+| `LOOKBACK [cut\|ms]` | The look that was on air before the current one, back on air with the show's transition (or a cut, or a fade in ms); a second `LOOKBACK` swaps back. `ERR` when there is none yet |
 | `REVIEW ON` / `OFF` / `TOGGLE` | Every multiview (a screen's own multiview pattern, an NDI send of it, `/multiview`) draws the desk's sandboxed preview full-frame with a REVIEW chip until switched off — the next look checked on the monitor wall before the TAKE; the audience's screens do not change. A latch (bare `REVIEW` toggles), never saved |
 | `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-page order) on air |
 | `STREAM ON` / `OFF` | Start/stop the streaming output (Stream page config) |
@@ -83,7 +86,7 @@ is on — lift it first`, `standby moved`, `too soon after the last GO`, or the 
 State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel` (what is on air, by name),
 `cuestack{armed,hold,seq,listRev,confirm,program{label},previous{id,number,name},standby{id,number,name,requireConfirm,notes,plannedStart,followSeconds},next[6]{id,number,name},last{id,number,name,outcome,error,at,origin,actionsDone,actionsTotal},history[8],timing{offsetSeconds,offset,nextBreak{number,name,expected,planned,deltaSeconds,atLeast,text},lunch{…},end{…},follow}}`
 (`timing` is the caller's clock: `offset` reads "ON TIME", "3 MIN LATE" or "2 MIN EARLY" from the last GO against its planned start; `nextBreak`, `lunch` and `end` say when the marked cues are expected — `atLeast` when a cue has overrun or has no planned length; `follow` reads "AUTO 01.030 in 0:07" while the next cue is going to fire by itself)
-(the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
+(the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `frozen` (every output holds its frame), `previousLook` (the name `LOOKBACK` returns to, or empty), `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
 `screens[{n,label,enabled,group,locked,role}]` (labels honour operator names; `role` is main, confidence, info or repeater), `audio{playing,track}`, `tone`,
 `stingers[{n,name,kind,source}]` (`kind` is `vog` or `sting`; `source` is `file`, or `pulse` for an effect pulse — a surge through the particles and fractals on screen that owns nothing), `stingerPlaying` (whatever owns the show), `stingerKind`
 (`vog` / `sting` / empty), `vogSound` (a VOG sound playing over the show — over a stinger too, which it ducks
@@ -171,6 +174,9 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/cue/hold 1\|0` | CUE HOLD ON / OFF |
 | `/patterns/cue/arm 1\|0` | CUE ARM ON / OFF — only while the Remote page allows remotes to arm |
 | `/patterns/review [1\|0]` | REVIEW ON / OFF — the preview full-frame on every multiview; no argument toggles |
+| `/patterns/freeze [1\|0]` | FREEZE ON / OFF — every output holds its frame; no argument toggles |
+| `/patterns/fade [seconds]` · `/patterns/fade/up [seconds]` | FADE / FADE UP — a blackout with a fade of that many seconds (none: the show's transition time); the seconds as the argument or the next segment (`/patterns/fade/down/2`) |
+| `/patterns/lookback` | LOOKBACK — the look that was on air before the current one, back on air |
 | `/patterns/stopall` | STOPALL |
 | `/patterns/ping` | PING — answered with `/patterns/pong` to the sender |
 | `/patterns/status` | STATUS — answered with `/patterns/status <json>` to the sender |
@@ -182,7 +188,7 @@ same `ERR …` sentence the TCP port would write) or an address is not one Patte
 there — throttled to 200 ms like the STATE pushes — carrying `/patterns/state/live i`,
 `/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/music i`, `/music/now s`,
 `/music/level i`, `/stinger s`, `/stinger/hold s`, `/lowerthird s`, `/lowerthird/person s`,
-`/stream i`, `/playlist s`, `/health s`, `/review i`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/cue/armed i`,
+`/stream i`, `/playlist s`, `/health s`, `/review i`, `/freeze i`, `/look/previous s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/cue/armed i`,
 `/cue/hold i`, `/cue/confirm s`, `/cue/standby s s` (number, name), `/cue/previous s s`,
 `/cue/next s s`, `/cue/last s s` (number, outcome), `/cue/offset s`, `/cue/follow s`. TouchOSC:
 send to the machine on 9698, receive on 9699 with the tablet's address as the feedback host.

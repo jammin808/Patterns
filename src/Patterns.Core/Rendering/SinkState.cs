@@ -122,12 +122,53 @@ public sealed class SinkState : IDisposable
         return _wall!;
     }
 
+    private SKSurface? _freeze;
+    private SKImage? _frozen;
+
+    /// <summary>The frame this output holds while FREEZE is on; null while it moves.</summary>
+    public SKImage? FrozenFrame => _frozen;
+
+    /// <summary>The size the held frame was captured at (a resized sink captures again).</summary>
+    public SKSizeI FrozenSize { get; private set; }
+
+    /// <summary>The surface the frame is drawn on once when FREEZE is pressed, before it is held.</summary>
+    public SKSurface FreezeSurface(SKSizeI size)
+    {
+        size = new SKSizeI(Math.Max(1, size.Width), Math.Max(1, size.Height));
+        if (_freeze is null || FrozenSize != size)
+        {
+            _freeze?.Dispose();
+            _freeze = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            FrozenSize = size;
+        }
+        return _freeze!;
+    }
+
+    /// <summary>Holds a captured frame until <see cref="DropFrozen"/>.</summary>
+    public void HoldFrozen(SKImage frame, SKSizeI size)
+    {
+        _frozen?.Dispose();
+        _frozen = frame;
+        FrozenSize = size;
+    }
+
+    /// <summary>FREEZE released (or never on): the held frame and its surface go.</summary>
+    public void DropFrozen()
+    {
+        if (_frozen is null && _freeze is null) return;
+        _frozen?.Dispose();
+        _frozen = null;
+        _freeze?.Dispose();
+        _freeze = null;
+    }
+
     public void Dispose()
     {
         _preview?.Dispose();
         _preview = null;
         _wall?.Dispose();
         _wall = null;
+        DropFrozen();
         foreach (var cache in LowerThirds.Values) cache.Dispose();
         LowerThirds.Clear();
         foreach (var fx in FractalEffects.Values) fx.Dispose();

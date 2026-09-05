@@ -119,6 +119,8 @@ class PatternsInstance extends InstanceBase {
 			lower_third: this.state.lowerThird ?? '',
 			lower_third_person: this.state.lowerThirdPerson ?? '',
 			review: this.state.review ? 'ON' : 'off',
+			freeze: this.state.frozen ? 'FROZEN' : 'off',
+			previous_look: this.state.previousLook ?? '',
 			music: this.state.music?.now ?? '',
 			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
 			music_level: String(this.state.music?.level ?? 0),
@@ -130,7 +132,7 @@ class PatternsInstance extends InstanceBase {
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'audio_playing', 'stinger_playing', 'music_playing',
-			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'review_on', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'review_on', 'frozen','cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -206,6 +208,27 @@ class PatternsInstance extends InstanceBase {
 				name: 'Review — the preview on every multiview (toggle / on / off)',
 				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
 				callback: (a) => send(`REVIEW ${a.options.mode}`),
+			},
+			// FREEZE: every output holds its frame until released; the desk keeps moving.
+			freeze: {
+				name: 'Freeze — every output holds its frame (toggle / on / off)',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'Freeze' }, { id: 'OFF', label: 'Release' }] }],
+				callback: (a) => send(`FREEZE ${a.options.mode}`),
+			},
+			// A blackout with a fade of its own: down to black or up again, over the seconds given (0 = the show's transition time).
+			fade: {
+				name: 'Fade to black / fade up over a time',
+				options: [
+					{ type: 'dropdown', id: 'dir', label: 'Direction', default: 'DOWN', choices: [{ id: 'DOWN', label: 'To black' }, { id: 'UP', label: 'Up (lift the blackout)' }] },
+					{ type: 'number', id: 'secs', label: 'Seconds (0 = the show\'s transition time)', default: 2, min: 0, max: 600, step: 0.5 },
+				],
+				callback: (a) => send(`${a.options.dir === 'UP' ? 'FADEUP' : 'FADE'}${a.options.secs > 0 ? ' ' + a.options.secs : ''}`),
+			},
+			// The look that was on air before the current one, back on air (press again to swap back).
+			look_back: {
+				name: 'Previous look — back on air',
+				options: [],
+				callback: () => send('LOOKBACK'),
 			},
 			screen_lock: {
 				name: 'Screen lock / unlock (locked, it keeps its picture through looks, cues and TAKE)',
@@ -420,6 +443,13 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => !!this.state.review,
 			},
+			frozen: {
+				type: 'boolean',
+				name: 'Frozen (every output holds its frame)',
+				defaultStyle: { bgcolor: combineRgb(53, 224, 208), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.frozen,
+			},
 			lower_third_person_is: {
 				type: 'boolean',
 				name: 'A given person is on screen (the name the lower third on air carries)',
@@ -488,6 +518,8 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'lower_third', name: 'Lower third on screen (name, or empty)' },
 			{ variableId: 'lower_third_person', name: 'The name the lower third on screen carries (or empty)' },
 			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
+			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
+			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
 			{ variableId: 'music', name: 'Break music — now playing' },
 			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
 			{ variableId: 'music_level', name: 'Break music level (0–100)' },
@@ -584,6 +616,30 @@ class PatternsInstance extends InstanceBase {
 			style: { text: 'REVIEW\\n$(patterns:review)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'review', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'review_on', options: {}, style: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) } }],
+		}
+		presets.freeze = {
+			type: 'button', category: 'Transport', name: 'FREEZE — every output holds its frame',
+			style: { text: 'FREEZE\\n$(patterns:freeze)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'freeze', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'frozen', options: {}, style: { bgcolor: combineRgb(53, 224, 208), color: combineRgb(14, 15, 19) } }],
+		}
+		presets.fade_down = {
+			type: 'button', category: 'Transport', name: 'FADE TO BLACK — 2 s',
+			style: { text: 'FADE\\nTO BLACK\\n2 s', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2 } }], up: [] }],
+			feedbacks: [{ feedbackId: 'blackout', options: {}, style: { bgcolor: combineRgb(224, 52, 46), color: white } }],
+		}
+		presets.fade_up = {
+			type: 'button', category: 'Transport', name: 'FADE UP — 2 s',
+			style: { text: 'FADE\\nUP\\n2 s', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2 } }], up: [] }],
+			feedbacks: [],
+		}
+		presets.look_back = {
+			type: 'button', category: 'Looks', name: 'PREVIOUS LOOK — back on air',
+			style: { text: 'BACK TO\\n$(patterns:previous_look)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'look_back', options: {} }], up: [] }],
+			feedbacks: [],
 		}
 		presets.lower_third_off = {
 			type: 'button', category: 'Lower thirds', name: 'Lower third off',

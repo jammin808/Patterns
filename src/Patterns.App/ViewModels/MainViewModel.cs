@@ -327,6 +327,15 @@ public sealed class MainViewModel : Observable
         WalkNextCommand = new RelayCommand(WalkNext);
         WalkBackCommand = new RelayCommand(WalkBack);
         WalkRestartCommand = new RelayCommand(WalkRestart);
+
+        // Freeze, the timed fade, the previous look, the show file's earlier versions.
+        FreezeCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.FreezeToggle, ActionOrigin.Desk));
+        FadeToBlackCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.FadeToBlack, ActionOrigin.Desk, "", FadeMsText()));
+        FadeUpCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.FadeUp, ActionOrigin.Desk, "", FadeMsText()));
+        LookBackCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.LookBack, ActionOrigin.Desk).Message);
+        RestoreBackupCommand = new RelayCommand(RestoreBackup);
+        OpenBackupsFolderCommand = new RelayCommand(OpenBackupsFolder);
+        RefreshBackups();
         WalkRoles = Enum.GetValues<DeskRole>().Select(r => new WalkRoleChip(this, r)).ToList();
         RebuildWalkList();
         if (Walkthroughs.For(_walkRole).FirstOrDefault() is { } firstWalk) StartWalkthrough(firstWalk.Id);
@@ -2798,6 +2807,104 @@ public sealed class MainViewModel : Observable
         }
     }
 
+    // ---- freeze, the timed fade, the previous look ------------------------------------
+
+    private bool _frozenSeen;
+    private string _previousLookSeen = "";
+    private double _fadeSeconds = 2;
+
+    /// <summary>FREEZE: every output holds its frame — a runtime flag on the bus, through the action layer like every switch.</summary>
+    public bool IsFrozen
+    {
+        get => _services.Bus.Frozen;
+        set
+        {
+            if (value == _services.Bus.Frozen) return;
+            _services.Actions.Execute(value ? ShowActionKind.FreezeOn : ShowActionKind.FreezeOff, ActionOrigin.Desk);
+            _frozenSeen = _services.Bus.Frozen;
+            Raise(nameof(IsFrozen));
+        }
+    }
+
+    /// <summary>The seconds the Show panel's FADE TO BLACK and FADE UP take (a desk setting, not the show's).</summary>
+    public double FadeSeconds { get => _fadeSeconds; set => Set(ref _fadeSeconds, Math.Clamp(double.IsFinite(value) ? value : 2, 0.1, 60)); }
+
+    private string FadeMsText() => ((int)Math.Round(_fadeSeconds * 1000)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The look LOOK BACK returns to, by name ("" = none yet).</summary>
+    public string PreviousLookName => LookService.Find(State, _services.PreviousAirLookId)?.Name ?? "";
+
+    public string LookBackText => PreviousLookName.Length > 0 ? $"◀ BACK TO '{PreviousLookName}'" : "◀ PREVIOUS LOOK";
+
+    // ---- the show file's earlier versions ---------------------------------------------
+
+    /// <summary>One kept version of the show file, as the Machine page lists it.</summary>
+    public sealed record BackupChoice(string Label, string Path)
+    {
+        public override string ToString() => Label;
+    }
+
+    public System.Collections.ObjectModel.ObservableCollection<BackupChoice> BackupChoices { get; } = new();
+
+    private BackupChoice? _selectedBackup;
+
+    public BackupChoice? SelectedBackup { get => _selectedBackup; set => Set(ref _selectedBackup, value); }
+
+    private string _backupsSummary = "";
+
+    /// <summary>"The previous save and 12 earlier versions, the oldest from Tue 14:02, in …\backups".</summary>
+    public string BackupsSummary { get => _backupsSummary; private set => Set(ref _backupsSummary, value); }
+
+    /// <summary>Reads the kept versions: the previous save first, then the timed copies, newest first.</summary>
+    public void RefreshBackups()
+    {
+        var store = _services.Store;
+        var keep = _selectedBackup?.Path;
+        BackupChoices.Clear();
+        if (store.PreviousSavePath is { } bak)
+        {
+            BackupChoices.Add(new BackupChoice($"The previous save — {File.GetLastWriteTime(bak):ddd HH:mm:ss}", bak));
+        }
+        var kept = store.ListBackups();
+        foreach (var (when, path) in kept)
+        {
+            BackupChoices.Add(new BackupChoice($"{when:ddd d MMM HH:mm:ss}", path));
+        }
+        SelectedBackup = BackupChoices.FirstOrDefault(c => c.Path == keep) ?? BackupChoices.FirstOrDefault();
+        BackupsSummary = BackupChoices.Count == 0
+            ? "No earlier version yet — one is kept the first time the show file changes."
+            : $"{(store.PreviousSavePath is null ? "" : "The previous save and ")}{kept.Count} earlier version{(kept.Count == 1 ? "" : "s")}"
+              + (kept.Count > 0 ? $", the oldest from {kept[^1].When:ddd d MMM HH:mm}" : "")
+              + $", in {store.BackupsDirectory}";
+    }
+
+    /// <summary>The selected version becomes the show — every list starts over, exactly as Load show does.</summary>
+    private void RestoreBackup()
+    {
+        if (_selectedBackup is not { } choice) return;
+        var loaded = _services.Store.LoadFrom(choice.Path);
+        if (loaded is null)
+        {
+            StatusMessage = "That version could not be read.";
+            return;
+        }
+        ApplyLoadedShow(loaded, $"Show restored: {choice.Label}");
+        RefreshBackups();
+    }
+
+    private void OpenBackupsFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(_services.Store.BackupsDirectory);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_services.Store.BackupsDirectory) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Could not open the folder: {ex.Message}";
+        }
+    }
+
     private string _stingerStatus = "Ready.";
     public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
 
@@ -3851,6 +3958,12 @@ public sealed class MainViewModel : Observable
     public RelayCommand WalkNextCommand { get; }
     public RelayCommand WalkBackCommand { get; }
     public RelayCommand WalkRestartCommand { get; }
+    public RelayCommand FreezeCommand { get; }
+    public RelayCommand FadeToBlackCommand { get; }
+    public RelayCommand FadeUpCommand { get; }
+    public RelayCommand LookBackCommand { get; }
+    public RelayCommand RestoreBackupCommand { get; }
+    public RelayCommand OpenBackupsFolderCommand { get; }
     public RelayCommand AddStingerFilesCommand { get; }
     public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
@@ -4991,6 +5104,18 @@ public sealed class MainViewModel : Observable
         }
         if (_selectedPlacement is { Gaps.Count: > 0 }) Raise(nameof(GapSummary)); // a gap row edited in place: the words follow
         ObserveWalkChecks();                                                          // a walkthrough step ticks itself as the desk does the work
+        if (_frozenSeen != _services.Bus.Frozen)
+        {
+            _frozenSeen = _services.Bus.Frozen;                                       // a remote froze or released: the desk's button follows
+            Raise(nameof(IsFrozen));
+        }
+        var previous = PreviousLookName;
+        if (previous != _previousLookSeen)
+        {
+            _previousLookSeen = previous;
+            Raise(nameof(PreviousLookName));
+            Raise(nameof(LookBackText));
+        }
         var beacon = _services.Beacon;
         BeaconStatus = beacon.Sending || beacon.Listening
             ? $"{beacon.Status}{(beacon.Sent > 0 ? $" {beacon.Sent} sent." : "")}{(beacon.Listening ? " " + beacon.WatchText : "")}"
@@ -5508,6 +5633,12 @@ public sealed class MainViewModel : Observable
             StatusMessage = "Show file could not be read.";
             return;
         }
+        ApplyLoadedShow(loaded, $"Show loaded: {Path.GetFileName(path)}");
+    }
+
+    /// <summary>A show read from a file becomes the show: the model copied over, every list started over, the desk refreshed.</summary>
+    private void ApplyLoadedShow(ShowState loaded, string status)
+    {
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();
@@ -5516,6 +5647,6 @@ public sealed class MainViewModel : Observable
         RefreshAfterChoices();
         ReconcilePlacements();
         BuildLibrary();
-        StatusMessage = $"Show loaded: {Path.GetFileName(path)}";
+        StatusMessage = status;
     }
 }

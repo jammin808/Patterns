@@ -183,5 +183,17 @@
     <TextBlock Classes="label" Text="{Binding BeaconStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="hint tip"
                Text="The backup-machine path: two machines on the same network, the same show file on both (a USB stick, or Export the show), the same displays cabled to a switcher or the same NDI names, the main one sending its beacon and the backup listening. The backup's health line reads 'Main machine seen 1 s ago: live · Walk-in · standby 01.020' while all is well, 'MAIN MACHINE SILENT for 6 s — take over?' when the main goes quiet, and 'its watchdog gave up' when the main's supervisor stood down; the super-check shows the same as a red row. Taking over is still your call — OUTPUTS ON here, the switcher to this machine — and that is deliberate: two machines both deciding to be the main is the one failure worse than one being down. Nothing but this datagram leaves the machine; the beacon carries no control." />
+
+    <TextBlock Classes="h2" Text="EARLIER VERSIONS OF THE SHOW" />
+    <TextBlock Classes="label" Text="{Binding BackupsSummary}" TextWrapping="Wrap" />
+    <Grid ColumnDefinitions="*,8,Auto,8,Auto" Margin="0,4,0,0">
+      <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding BackupChoices}" SelectedItem="{Binding SelectedBackup, Mode=TwoWay}"
+                PlaceholderText="No earlier version yet" ToolTip.Tip="The previous save, then the kept versions, newest first" />
+      <Button Grid.Column="2" Classes="chip" Content="RESTORE" Command="{Binding RestoreBackupCommand}"
+              ToolTip.Tip="The chosen version becomes the show — every list starts over, exactly as Load show does; the show as it is now goes to the versions first" />
+      <Button Grid.Column="4" Classes="chip" Content="OPEN FOLDER" Command="{Binding OpenBackupsFolderCommand}" />
+    </Grid>
+    <TextBlock Classes="hint tip"
+               Text="Every save keeps the previous file as .bak, and the first save that changes something after five quiet minutes keeps the file as it was in backups/ under its time — twenty of them, the oldest going as new ones come. So the show as it was before the last change, and as it was an hour or a day ago, is one RESTORE away, on this machine, without a network. The GitHub history is the other ladder: every push is a version of the software with its build attached (README → Versions and rolling back)." />
   </StackPanel>
 </UserControl>

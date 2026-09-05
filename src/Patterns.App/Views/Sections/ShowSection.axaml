@@ -221,6 +221,21 @@
                  Text="Spotify plays the room during breaks. It ducks under a stinger sound and STOP ALL pauses it. Set it up on the Audio page (SETUP)." />
     </StackPanel>
 
+    <TextBlock Classes="h2" Text="FREEZE · FADE · LOOK BACK" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <ToggleButton Classes="chip" Content="FREEZE" IsChecked="{Binding IsFrozen, Mode=TwoWay}"
+                    ToolTip.Tip="Every output — the windows, the NDI sends, the stream — holds the frame it shows until you press again; the desk keeps moving. A blackout still takes a frozen output. Never saved" />
+      <Button Classes="chip" Content="FADE TO BLACK" Command="{Binding FadeToBlackCommand}"
+              ToolTip.Tip="Blackout, faded over the seconds beside it (a blackout of its own time, whatever the transition setting)" />
+      <NumericUpDown Width="86" Minimum="0.1" Maximum="60" Increment="0.5" FormatString="0.#" ShowButtonSpinner="False"
+                     Value="{Binding FadeSeconds, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Seconds for FADE TO BLACK and FADE UP" />
+      <Button Classes="chip" Content="FADE UP" Command="{Binding FadeUpCommand}" ToolTip.Tip="The blackout lifted, faded over the same seconds" />
+      <Button Classes="chip" Content="{Binding LookBackText}" Command="{Binding LookBackCommand}"
+              ToolTip.Tip="The look that was on air before the current one, back on air with the show's transition — press again to swap back" />
+    </StackPanel>
+    <TextBlock Classes="hint tip"
+               Text="FREEZE holds every output's picture while you change anything behind it (a wall processor's freeze, on the whole rig); FADE TO BLACK and FADE UP are a blackout with a fade of the seconds you type, so a two-second fade to black does not need the transition setting changed; the previous look comes back on air with LOOK BACK, and pressing it again swaps the two. On the wire: FREEZE, FADE 2, FADE UP 2, LOOKBACK; the phone remote and Companion have them; the journal writes every press." />
+
     <TextBlock Classes="h2" Text="REVIEW" />
     <ToggleButton Classes="chip" Content="THE PREVIEW ON EVERY MULTIVIEW" IsChecked="{Binding ReviewOnMultiview, Mode=TwoWay}" HorizontalAlignment="Left"
                   ToolTip.Tip="Every multiview draws the sandboxed preview full-frame with a REVIEW chip until you switch it off — the next look checked on the monitor wall before the TAKE. Never saved" />

@@ -127,6 +127,12 @@ public sealed partial class ControlService
   </div>
   <div id="nowrow" class="grid" style="margin-top:10px"></div>
   <div class="line">STOP ALL stops the audio track, break music, VOGs, stingers and the tone — never the outputs, blackout or the stream. Press it twice.</div>
+  <div class="sec">FREEZE · FADE</div>
+  <div class="grid row3">
+    <button id="freeze" class="big" onclick="cmd('FREEZE TOGGLE')" title="Every output holds its frame until you press again">FREEZE</button>
+    <button class="big bo" onclick="cmd('FADE 2')" title="Blackout, faded over two seconds">FADE ↓ 2 S</button>
+    <button class="big" onclick="cmd('FADEUP 2')" title="The blackout lifted over two seconds">FADE ↑ 2 S</button>
+  </div>
   <div class="sec">REVIEW</div>
   <div class="grid"><button id="review" onclick="cmd('REVIEW TOGGLE')">PREVIEW ON THE MULTIVIEW</button></div>
   <div class="line">Every multiview shows what the desk is building until you switch it off — the audience's screens do not change.</div>
@@ -158,6 +164,7 @@ public sealed partial class ControlService
 
 <section id="tab-looks">
   <div class="sec">LOOKS — straight to air</div>
+  <div class="grid"><button id="lookback" onclick="cmd('LOOKBACK')" title="The look that was on air before the current one, back on air">◀ PREVIOUS LOOK</button></div>
   <div id="looks" class="grid row3"></div>
 </section>
 
@@ -291,6 +298,11 @@ function render(s) {
   if (s.lowerThird) now.appendChild(btn('■ Hide lower third: ' + esc(s.lowerThird) + (s.lowerThirdPerson ? ' — ' + esc(s.lowerThirdPerson) : ''), 'stop', function(){ cmd('LT OFF'); }));
   var rv = document.getElementById('review');
   rv.classList.toggle('lit', !!s.review); rv.textContent = s.review ? 'REVIEW — ON: the preview fills every multiview' : 'PREVIEW ON THE MULTIVIEW';
+  var fz = document.getElementById('freeze');
+  fz.classList.toggle('on', !!s.frozen); fz.textContent = s.frozen ? 'FROZEN — release' : 'FREEZE';
+  var lb = document.getElementById('lookback');
+  lb.textContent = s.previousLook ? '◀ BACK TO: ' + s.previousLook : '◀ PREVIOUS LOOK';
+  lb.disabled = !s.previousLook;
 
   // CUES
   var sb = c.standby; standbyId = sb ? sb.id : '';

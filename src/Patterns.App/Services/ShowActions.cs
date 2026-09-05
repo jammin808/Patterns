@@ -481,6 +481,48 @@ public sealed class ShowActions
                 State.Spotify.LevelPct = level;
                 return ActionResult.Done($"Break music level {level:0}%.");
             }
+            case ShowActionKind.FreezeOn:
+            case ShowActionKind.FreezeOff:
+            case ShowActionKind.FreezeToggle:
+            {
+                // A runtime flag on the bus like the review: every output holds its frame from the
+                // next snapshot on; the desk's own views keep moving; the show file never carries it.
+                var on = a.Kind switch
+                {
+                    ShowActionKind.FreezeOn => true,
+                    ShowActionKind.FreezeOff => false,
+                    _ => !_s.Bus.Frozen,
+                };
+                if (on == _s.Bus.Frozen) return ActionResult.Done(on ? "Already frozen." : "Not frozen.");
+                _s.Bus.Frozen = on;
+                _s.PublishRuntime();
+                return ActionResult.Done(on ? "FREEZE — every output holds its frame." : "Freeze released.");
+            }
+
+            case ShowActionKind.FadeToBlack:
+            case ShowActionKind.FadeUp:
+            {
+                // A blackout with a fade of its own: the value's milliseconds, or the show's time.
+                var down = a.Kind == ShowActionKind.FadeToBlack;
+                if (State.Blackout == down) return ActionResult.Refused(down ? "Already black." : "Not black.");
+                var ms = int.TryParse(a.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0
+                    ? v
+                    : (int)Math.Round(State.Transition.DurationMs);
+                _s.Bus.FadeOnNextPublish(ms);
+                State.Blackout = down;
+                var secs = (ms / 1000.0).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+                return ActionResult.Done(down ? $"Fading to black over {secs} s." : $"Fading up over {secs} s.");
+            }
+
+            case ShowActionKind.LookBack:
+            {
+                var id = _s.PreviousAirLookId;
+                var back = id.Length > 0 ? LookService.Find(State, id) : null;
+                if (back is null) return ActionResult.Refused("No previous look to go back to.");
+                // The recall makes today's look the previous one, so LOOK BACK twice is a swap.
+                return ApplyLookToAir(back, a.Value, origin);
+            }
+
             case ShowActionKind.ReviewOn:
             case ShowActionKind.ReviewOff:
             case ShowActionKind.ReviewToggle:

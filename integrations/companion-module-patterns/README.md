@@ -42,6 +42,18 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Freeze, the timed fade and the previous look (module 1.8.0)
+
+**FREEZE** (Transport) holds every output's frame — the windows, the NDI sends, the stream —
+until it is pressed again; the key lights cyan while the rig is frozen (`frozen` feedback,
+`$(patterns:freeze)` reads FROZEN/off) and follows a freeze made anywhere else. The `freeze`
+action takes a mode (toggle / freeze / release). **FADE TO BLACK 2 s** and **FADE UP 2 s** are
+the `fade` action: a direction and the seconds (0 = the show's transition time) — a blackout with
+a fade of its own, so the key that fades the room to black over two seconds needs no change to
+the transition setting; the blackout feedback lights the down key. **PREVIOUS LOOK** (Looks)
+puts the look that was on air before the current one back on air (`look_back`; the key reads
+`$(patterns:previous_look)`), and pressing it again swaps the two.
+
 ## Review on the multiview (module 1.7.0)
 
 The **Transport** category gains **REVIEW** (`review` action: toggle / on / off, `REVIEW …` on the

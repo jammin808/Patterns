@@ -75,6 +75,16 @@ public enum RemoteCommandKind
     ReviewOn,
     ReviewOff,
     ReviewToggle,
+    /// <summary>"FREEZE ON" / "FREEZE OFF" / "FREEZE TOGGLE" (bare "FREEZE" toggles) — every output holds its frame, or moves again.</summary>
+    FreezeOn,
+    FreezeOff,
+    FreezeToggle,
+    /// <summary>"FADE [seconds]" — blackout with a fade of that many seconds (IntArg: milliseconds; 0 = the show's transition time).</summary>
+    FadeToBlack,
+    /// <summary>"FADE UP [seconds]" / "FADEUP [seconds]" — the blackout lifted with a fade (IntArg: milliseconds; 0 = the show's).</summary>
+    FadeUp,
+    /// <summary>"LOOKBACK [cut|ms]" — the look that was on air before the current one, back on air.</summary>
+    LookBack,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -87,6 +97,20 @@ public readonly record struct RemoteCommand(RemoteCommandKind Kind, int IntArg, 
 /// </summary>
 public static class ControlProtocol
 {
+    /// <summary>"2", "2.5", "0", "1500ms", "" (the show's own time, 0): seconds into milliseconds; false for words.</summary>
+    public static bool TryParseSeconds(string text, out int ms)
+    {
+        ms = 0;
+        var t = text.Trim();
+        if (t.Length == 0) return true;
+        var inMs = t.EndsWith("ms", StringComparison.OrdinalIgnoreCase);
+        if (inMs) t = t[..^2].Trim();
+        else if (t.EndsWith("s", StringComparison.OrdinalIgnoreCase)) t = t[..^1].Trim();
+        if (!double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) || v < 0 || v > 600_000) return false;
+        ms = (int)Math.Round(inMs ? v : v * 1000);
+        return true;
+    }
+
     public static RemoteCommand Parse(string line)
     {
         var s = line.Trim();
@@ -302,6 +326,35 @@ public static class ControlProtocol
                     "OFF" => new(RemoteCommandKind.ReviewOff, 0, ""),
                     _ => new(RemoteCommandKind.ReviewToggle, 0, ""),
                 };
+
+            case "FREEZE":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" => new(RemoteCommandKind.FreezeOn, 0, ""),
+                    "OFF" => new(RemoteCommandKind.FreezeOff, 0, ""),
+                    _ => new(RemoteCommandKind.FreezeToggle, 0, ""),
+                };
+
+            // "FADE", "FADE 2", "FADE 2.5", "FADE UP", "FADE UP 3", "FADEUP 3", "FADE DOWN 1": seconds, or the show's own time.
+            case "FADE":
+            case "FADEUP":
+            case "FADEDOWN":
+            {
+                var up = verb == "FADEUP";
+                var rest = arg;
+                if (verb == "FADE" && rest.Length > 0)
+                {
+                    var words = rest.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                    var word = words[0].ToUpperInvariant();
+                    if (word is "UP" or "IN") { up = true; rest = words.Length > 1 ? words[1] : ""; }
+                    else if (word is "DOWN" or "OUT" or "BLACK") { rest = words.Length > 1 ? words[1] : ""; }
+                }
+                if (!TryParseSeconds(rest, out var ms)) return new(RemoteCommandKind.Unknown, 0, s);
+                return new(up ? RemoteCommandKind.FadeUp : RemoteCommandKind.FadeToBlack, ms, "");
+            }
+
+            case "LOOKBACK":
+                return new(RemoteCommandKind.LookBack, 0, arg);
 
             // A person from the library into the lower third on air (else the first design), and on air.
             case "PERSON":

@@ -88,7 +88,23 @@ public sealed class AppServices
     /// look — exactly, or "edited" once the program no longer matches its picture — and with
     /// nothing recorded (a fresh start) lights whichever look the picture matches.
     /// </summary>
-    public string AirLookId { get; set; } = "";
+    private string _airLookId = "";
+
+    public string AirLookId
+    {
+        get => _airLookId;
+        set
+        {
+            if (value == _airLookId) return;
+            // The look before this one, for LOOK BACK: a recall keeps what it replaced; a part or
+            // a stinger that takes the picture clears the air look but not the way back.
+            if (_airLookId.Length > 0) PreviousAirLookId = _airLookId;
+            _airLookId = value;
+        }
+    }
+
+    /// <summary>The look that was on air before the current one, by id ("" = none yet) — what LOOK BACK returns to.</summary>
+    public string PreviousAirLookId { get; private set; } = "";
 
     /// <summary>The look loaded into the sandboxed preview, by id ("" = none): set by → PVW, cleared when the sandbox closes.</summary>
     public string PreviewLookId { get; set; } = "";

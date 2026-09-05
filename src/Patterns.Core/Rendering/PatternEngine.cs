@@ -18,6 +18,30 @@ public sealed class PatternEngine
 
     public void Render(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
     {
+        // FREEZE: what leaves the machine — an output window, an NDI send, the stream — holds the
+        // frame it showed when the freeze was pressed: drawn once onto the sink's own surface,
+        // held as an image, put up unchanged until the release. The desk's views (the preview,
+        // the monitors, the thumbnails) keep moving, a blackout still takes a frozen output, and
+        // the fade that runs when the freeze lifts starts from the frame the room was seeing.
+        if (snap.Frozen && !snap.State.Blackout && !ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer
+            && ctx.Sink is SinkKind.Output or SinkKind.Ndi or SinkKind.Stream)
+        {
+            if (sink.FrozenFrame is null || sink.FrozenSize != ctx.ViewportSize)
+            {
+                var surface = sink.FreezeSurface(ctx.ViewportSize);
+                RenderLive(surface.Canvas, snap, in ctx, sink);
+                surface.Canvas.Flush();
+                sink.HoldFrozen(surface.Snapshot(), ctx.ViewportSize);
+            }
+            canvas.DrawImage(sink.FrozenFrame!, 0, 0);
+            return;
+        }
+        sink.DropFrozen();
+        RenderLive(canvas, snap, in ctx, sink);
+    }
+
+    private void RenderLive(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
+    {
         // Crossfade on content changes: when this sink's content identity changes, the
         // previous snapshot keeps rendering on top, fading out over the configured time.
         // Thumbnails and fade-source re-renders themselves are excluded.
