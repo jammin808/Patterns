@@ -362,7 +362,9 @@ function render(s) {
     var row = document.createElement('div');
     row.className = 'scr' + (x.enabled ? '' : ' off') + (x.locked ? ' locked' : '');
     var tag = (x.role && x.role !== 'main' ? ' <span class="k">' + esc(x.role.toUpperCase()) + '</span>' : '') + (x.group ? ' <span class="k">[' + esc(x.group) + ']</span>' : '');
-    row.appendChild(btn(esc(x.n + ' · ' + x.label) + tag + (x.enabled ? '' : ' <span class="k">OFF</span>'), '', function(){ cmd('SCREEN ' + x.n + ' TOGGLE'); }));
+    // What the screen is showing and what the next TAKE does to it: OWN = its own picture; NEXT / HELD only while EDIT SAFE is open.
+    var state = (x.own ? ' <span class="k">OWN</span>' : '') + (s.editSafe && !x.locked ? (x.armed ? ' <span class="k">NEXT</span>' : ' <span class="k">HELD</span>') : '');
+    row.appendChild(btn(esc(x.n + ' · ' + x.label) + tag + state + (x.enabled ? '' : ' <span class="k">OFF</span>'), '', function(){ cmd('SCREEN ' + x.n + ' TOGGLE'); }));
     row.appendChild(btn(x.locked ? '🔒' : '🔓', '', function(){ cmd('LOCK ' + x.n + ' TOGGLE'); }));
     sc.appendChild(row);
   });

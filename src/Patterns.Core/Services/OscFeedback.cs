@@ -53,6 +53,7 @@ public static class OscFeedback
             Text(list, root, "health", "health");
             Flag(list, root, "review", "review");
             Flag(list, root, "frozen", "freeze");
+            Flag(list, root, "editSafe", "editsafe");
             Text(list, root, "previousLook", "look/previous");
             if (root.TryGetProperty("rev", out var rev) && rev.ValueKind == JsonValueKind.Number) list.Add(OscMessage.Of(Prefix + "rev", (int)(rev.GetInt64() & 0x7FFFFFFF)));
 
@@ -64,6 +65,7 @@ public static class OscFeedback
                     var number = n.GetInt32();
                     list.Add(OscMessage.Of($"{Prefix}screen/{number}", Bit(s, "enabled")));
                     list.Add(OscMessage.Of($"{Prefix}lock/{number}", Bit(s, "locked")));
+                    if (s.TryGetProperty("armed", out _)) list.Add(OscMessage.Of($"{Prefix}armed/{number}", Bit(s, "armed")));
                 }
             }
 

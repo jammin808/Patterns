@@ -56,6 +56,13 @@ public sealed class ShowSnapshot
     public bool Frozen { get; init; }
 
     /// <summary>
+    /// Runtime-only: the content targets the wall un-armed — what the next CUT / TAKE leaves
+    /// alone. Empty = everything is armed. The multiview's NEXT / HELD badges read it; never in
+    /// the show file (a show always opens fully armed).
+    /// </summary>
+    public IReadOnlyCollection<string> UnarmedTargets { get; init; } = Array.Empty<string>();
+
+    /// <summary>
     /// Runtime-only: the message ticker's travel line, shared by every sink so a span, an NDI
     /// sender and a late-opened output all draw the same train. Null for a snapshot built
     /// outside the bus (thumbnails, tests): the renderer then runs the plain line from clock 0.
@@ -229,6 +236,9 @@ public sealed class SnapshotBus
     /// <summary>FREEZE: the outputs hold their frame (runtime-only; carried on every snapshot built after it flips).</summary>
     public bool Frozen { get; set; }
 
+    /// <summary>Set by the wall's arming; carried on every snapshot (the multiview's NEXT / HELD badges). Assigned whole, never mutated.</summary>
+    public IReadOnlyCollection<string> UnarmedTargets { get; set; } = Array.Empty<string>();
+
     /// <summary>Set by the playlist service; carried on every snapshot.</summary>
     public PlaylistNow? PlaylistNow { get; set; }
 
@@ -330,6 +340,7 @@ public sealed class SnapshotBus
             PreviewSource = _previewSource,
             ReviewOnMultiview = ReviewOnMultiview,
             Frozen = Frozen,
+            UnarmedTargets = UnarmedTargets,
         };
     }
 }

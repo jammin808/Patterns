@@ -430,21 +430,81 @@ public sealed class PatternEngine
 
             if (opts.ShowTally)
             {
-                var on = TileOnAir(f.Snapshot, tile);
-                canvas.DrawRect(video, f.Paints.StrokeAA(on ? TallyRed : TallyIdle, on ? 3 : 1.5f));
+                // The border: red live to the audience, green for the preview; then the badges —
+                // PGM / OFF / BLACK / FROZEN, NEXT or HELD for the next TAKE, LOCKED, OWN, REP.
+                var on = MultiviewTally.IsOnAir(f.Snapshot, tile);
+                var pvw = tile.Source == MultiviewSource.Preview && MultiviewTally.HasPreview(f.Snapshot);
+                canvas.DrawRect(video, f.Paints.StrokeAA(on ? TallyRed : pvw ? TallyGreen : TallyIdle, on || pvw ? 3 : 1.5f));
+                DrawTileBadges(canvas, in f, video, MultiviewTally.Badges(f.Snapshot, tile));
             }
 
             if (opts.ShowLabels)
             {
-                var label = TileLabel(f.Snapshot, tile);
                 var bar = SKRect.Create(video.Left, cell.Bottom - labelH, video.Width, labelH);
-                canvas.DrawRect(bar, f.Paints.Fill(new SKColor(0x10, 0x12, 0x18)));
-                var font = f.Paints.FontBold;
-                font.Size = labelH * 0.62f;
-                DrawUtil.TextCentered(canvas, label, bar.MidX, bar.MidY + font.Size * 0.35f,
-                    font, f.Paints.Text(new SKColor(0xD8, 0xDE, 0xE8)));
+                DrawTileCaption(canvas, in f, bar, MultiviewTally.Name(f.Snapshot, tile), MultiviewTally.Kind(f.Snapshot, tile));
             }
         }
+    }
+
+    private static readonly SKColor TallyGreen = new(0x2E, 0xE6, 0x8A);
+
+    /// <summary>The badges along a tile's top edge: filled chips for the states that matter most, outlines for the rest; stops at the tile's right edge.</summary>
+    private static void DrawTileBadges(SKCanvas canvas, in PatternFrame f, SKRect video, List<TileBadge> badges)
+    {
+        if (badges.Count == 0) return;
+        var h = Math.Clamp(video.Height * 0.11f, 11f, 26f);
+        var font = f.Paints.FontBold;
+        font.Size = h * 0.62f;
+        var x = video.Left + h * 0.35f;
+        var y = video.Top + h * 0.35f;
+        foreach (var b in badges)
+        {
+            var w = font.MeasureText(b.Text) + h * 0.9f;
+            if (x + w > video.Right - h * 0.2f) break;
+            var chip = SKRect.Create(x, y, w, h);
+            if (b.Filled)
+            {
+                canvas.DrawRoundRect(chip, h * 0.22f, h * 0.22f, f.Paints.FillAA(b.Color));
+                DrawUtil.TextCentered(canvas, b.Text, chip.MidX, chip.MidY, font, f.Paints.Text(new SKColor(0x0E, 0x0F, 0x13)));
+            }
+            else
+            {
+                canvas.DrawRoundRect(chip, h * 0.22f, h * 0.22f, f.Paints.FillAA(new SKColor(0x10, 0x12, 0x18, 0xD0)));
+                canvas.DrawRoundRect(chip, h * 0.22f, h * 0.22f, f.Paints.StrokeAA(b.Color, 1.2f));
+                DrawUtil.TextCentered(canvas, b.Text, chip.MidX, chip.MidY, font, f.Paints.Text(b.Color));
+            }
+            x += w + h * 0.3f;
+        }
+    }
+
+    /// <summary>The bar under a tile: the name on the left and what it is on the right when both fit, else the name centred.</summary>
+    private static void DrawTileCaption(SKCanvas canvas, in PatternFrame f, SKRect bar, string name, string kind)
+    {
+        canvas.DrawRect(bar, f.Paints.Fill(new SKColor(0x10, 0x12, 0x18)));
+        var font = f.Paints.FontBold;
+        font.Size = bar.Height * 0.62f;
+        var pad = bar.Height * 0.4f;
+        var bright = f.Paints.Text(new SKColor(0xD8, 0xDE, 0xE8));
+        if (kind.Length > 0)
+        {
+            var small = f.Paints.FontRegular;
+            small.Size = bar.Height * 0.48f;
+            var nameW = font.MeasureText(name);
+            var kindW = small.MeasureText(kind);
+            if (nameW + kindW + pad * 3 <= bar.Width)
+            {
+                DrawUtil.TextLeft(canvas, name, bar.Left + pad, Baseline(bar, font), font, bright);
+                canvas.DrawText(kind, bar.Right - pad, Baseline(bar, small), SKTextAlign.Right, small, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
+                return;
+            }
+        }
+        DrawUtil.TextCentered(canvas, name, bar.MidX, bar.MidY, font, bright);
+    }
+
+    private static float Baseline(SKRect bar, SKFont font)
+    {
+        var m = font.Metrics;
+        return bar.MidY - (m.Ascent + m.Descent) / 2;
     }
 
     private static SKRect FitRect(SKRect outer, float aspect)
@@ -493,7 +553,7 @@ public sealed class PatternEngine
                     // /mv.jpg's thumbnail tiles stay free of PiP, tone and info chips.
                     Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
                     SinkIndex = 0,
-                    SinkLabel = TileLabel(f.Snapshot, tile),
+                    SinkLabel = MultiviewTally.Name(f.Snapshot, tile),
                 };
                 var save = canvas.Save();
                 canvas.Translate(rect.Left + (rect.Width - v.ViewportSize.Width * scale) / 2f,
@@ -654,44 +714,6 @@ public sealed class PatternEngine
             MultiviewSource.Preview => snap.PreviewSource?.Invoke()?.Rig.ViewportForTarget(null),
             _ => null,
         };
-
-    private static bool TileOnAir(ShowSnapshot snap, MultiviewTileConfig tile)
-    {
-        if (snap.State.Blackout || !snap.OutputsLive) return false;
-        return tile.Source switch
-        {
-            MultiviewSource.Program => true,
-            MultiviewSource.Screen => ContentTargets.IsTargetEnabled(snap.State, tile.ScreenId),
-            _ => false,
-        };
-    }
-
-    private static string TileLabel(ShowSnapshot snap, MultiviewTileConfig tile)
-    {
-        if (tile.Label.Length > 0) return tile.Label;
-        switch (tile.Source)
-        {
-            case MultiviewSource.Program:
-                return "PROGRAM";
-            case MultiviewSource.Screen:
-                return tile.ScreenId.Length == 0
-                    ? "—"
-                    : snap.Rig.LabelFor(snap.State, tile.ScreenId);
-            case MultiviewSource.NdiFeed:
-            {
-                var name = tile.Input.Length > 0 ? tile.Input : Services.MediaLocator.FindActiveNdiSource(snap.State);
-                return name.Length > 0 ? snap.State.InputLabel("ndi:" + name, name) : "NDI FEED";
-            }
-            case MultiviewSource.Capture:
-                return tile.Input.Length > 0 ? snap.State.InputLabel("cap:" + tile.Input, tile.Input) : "CAPTURE";
-            case MultiviewSource.Pip:
-                return "PIP";
-            case MultiviewSource.Preview:
-                return "PREVIEW";
-            default:
-                return "CLOCK";
-        }
-    }
 
     private static void DrawErrorCard(SKCanvas c, in PatternFrame f, string? message)
     {

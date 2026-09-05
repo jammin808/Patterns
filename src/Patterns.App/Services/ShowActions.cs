@@ -116,15 +116,23 @@ public sealed class ShowActions
     {
         var known = screens ?? _s.Screens.All;
         var groups = Rig.CanvasGroups(State, known);
+        var geometry = _s.Bus.Current.Rig;
         return Rig.OrderedLivePlacements(State, known)
-            .Select((x, i) => (object)new
+            .Select((x, i) =>
             {
-                n = i + 1,
-                label = Rig.LabelFor(x.Placement, x.Info),
-                enabled = x.Placement.Enabled,
-                group = Rig.LetterOf(groups, x.Placement),
-                locked = !x.Placement.FollowsCues,
-                role = x.Placement.Role.ToString().ToLowerInvariant(),
+                // The target the screen renders through — its canvas, or itself — is what the wall arms and gives a picture of its own.
+                var target = geometry.TargetOf(x.Placement.ScreenId);
+                return (object)new
+                {
+                    n = i + 1,
+                    label = Rig.LabelFor(x.Placement, x.Info),
+                    enabled = x.Placement.Enabled,
+                    group = Rig.LetterOf(groups, x.Placement),
+                    locked = !x.Placement.FollowsCues,
+                    role = x.Placement.Role.ToString().ToLowerInvariant(),
+                    armed = _s.Arming.IsArmed(target),                          // the next CUT / TAKE changes it
+                    own = ContentTargets.UsesOwnPattern(State, target),           // its own picture, not the program's
+                };
             })
             .ToArray();
     }

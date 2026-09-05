@@ -207,6 +207,7 @@ public sealed class CommandRouter
             live = _services.Outputs.IsLive,
             review = _services.Bus.ReviewOnMultiview,                      // the preview fills every multiview
             frozen = _services.Bus.Frozen,                                 // every output holds its frame
+            editSafe = _services.Sandbox.Active,                           // EDIT SAFE open: there is a preview, and a TAKE to come
             previousLook = LookService.Find(s, _services.PreviousAirLookId)?.Name ?? "",   // what LOOKBACK returns to
 
             looks = s.LooksAndCues.Looks.Select(l => new { name = l.Name, slot = l.Hotkey }).ToArray(),

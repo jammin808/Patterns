@@ -91,7 +91,7 @@ State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel
 `cuestack{armed,hold,seq,listRev,confirm,program{label},previous{id,number,name},standby{id,number,name,requireConfirm,notes,plannedStart,followSeconds},next[6]{id,number,name},last{id,number,name,outcome,error,at,origin,actionsDone,actionsTotal},history[8],timing{offsetSeconds,offset,nextBreak{number,name,expected,planned,deltaSeconds,atLeast,text},lunch{…},end{…},follow}}`
 (`timing` is the caller's clock: `offset` reads "ON TIME", "3 MIN LATE" or "2 MIN EARLY" from the last GO against its planned start; `nextBreak`, `lunch` and `end` say when the marked cues are expected — `atLeast` when a cue has overrun or has no planned length; `follow` reads "AUTO 01.030 in 0:07" while the next cue is going to fire by itself)
 (the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `frozen` (every output holds its frame), `previousLook` (the name `LOOKBACK` returns to, or empty), `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
-`screens[{n,label,enabled,group,locked,role}]` (labels honour operator names; `role` is main, confidence, info or repeater), `audio{playing,track}`, `tone`,
+`screens[{n,label,enabled,group,locked,role,armed,own}]` (labels honour operator names; `role` is main, confidence, info or repeater; `armed` = the next CUT / TAKE changes it; `own` = it shows a picture of its own, not the program's), `editSafe` (EDIT SAFE is open: there is a preview and a TAKE to come), `audio{playing,track}`, `tone`,
 `stingers[{n,name,kind,source}]` (`kind` is `vog` or `sting`; `source` is `file`, or `pulse` for an effect pulse — a surge through the particles and fractals on screen that owns nothing), `stingerPlaying` (whatever owns the show), `stingerKind`
 (`vog` / `sting` / empty), `vogSound` (a VOG sound playing over the show — over a stinger too, which it ducks
 rather than stops; empty when none), `stingHold` (the name of a stinger holding the screens, or empty), `duck` (the live duck is on),
@@ -199,7 +199,7 @@ there — throttled to 200 ms like the STATE pushes — carrying `/patterns/stat
 `/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/music i`, `/music/now s`,
 `/music/level i`, `/stinger s`, `/stinger/hold s`, `/lowerthird s`, `/lowerthird/person s`, `/lowerthird/preview s`,
 `/lowerthird/preview/person s`, `/lowerthird/default s`, `/lowerthird/edited i`,
-`/stream i`, `/playlist s`, `/health s`, `/review i`, `/freeze i`, `/look/previous s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/cue/armed i`,
+`/stream i`, `/playlist s`, `/health s`, `/review i`, `/freeze i`, `/editsafe i`, `/look/previous s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/armed/<n> i`, `/cue/armed i`,
 `/cue/hold i`, `/cue/confirm s`, `/cue/standby s s` (number, name), `/cue/previous s s`,
 `/cue/next s s`, `/cue/last s s` (number, outcome), `/cue/offset s`, `/cue/follow s`. TouchOSC:
 send to the machine on 9698, receive on 9699 with the tablet's address as the feedback host.

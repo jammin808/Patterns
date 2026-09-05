@@ -455,7 +455,7 @@
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Multiview}}">
       <TextBlock Classes="h2" Text="MULTIVIEW TILES" />
       <TextBlock Classes="hint tip"
-                 Text="A monitor wall: the program, any screen or joined canvas, live inputs and a clock, with labels and red on-air tally. Every tile is a true miniature of what that target really shows — a whole joined canvas, or one screen's own half of one — at its real shape, the same picture the wall shows; a target with no display attached is drawn 16:9. Send it to any screen (its own pattern), an NDI sender, or watch it remotely at the web remote address + /multiview. No tiles = automatic (program + every screen + clock)." />
+                 Text="A monitor wall: the program, any screen or joined canvas, live inputs and a clock, with labels and a tally. Every tile is a true miniature of what that target really shows — a whole joined canvas, or one screen's own half of one — at its real shape, the same picture the wall shows; a target with no display attached is drawn 16:9. The tally says what state each target is in: a red border and PGM while it is live to the audience (OFF, OUTPUTS OFF or BLACK when it is not, FROZEN while the outputs hold), NEXT in green when the next TAKE changes it and HELD when it is un-armed on the wall (both only while EDIT SAFE is open), LOCKED, OWN for a screen on its own picture, REP for a repeater; the Preview tile is green-bordered PVW. Under each tile: its name, then which output it is — SCREEN 2 · 1920×1080, CANVAS A · 3840×1080 · 2 SCREENS, NDI SEND, STREAM — and the PROGRAM tile lists the screens the program is on, the PREVIEW tile the ones the next TAKE reaches. Send it to any screen (its own pattern), an NDI sender, or watch it remotely at the web remote address + /multiview. No tiles = automatic (program + every screen + clock)." />
       <ItemsControl ItemsSource="{Binding ActivePattern.Multiview.Tiles}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:MultiviewTileConfig">
@@ -497,7 +497,7 @@
       </Grid>
       <StackPanel Orientation="Horizontal" Spacing="16">
         <CheckBox Content="Labels" IsChecked="{Binding ActivePattern.Multiview.ShowLabels}" />
-        <CheckBox Content="On-air tally borders" IsChecked="{Binding ActivePattern.Multiview.ShowTally}" />
+        <CheckBox Content="Tally: borders and PGM / NEXT / HELD / LOCKED badges" IsChecked="{Binding ActivePattern.Multiview.ShowTally}" />
       </StackPanel>
       <ToggleButton Classes="chip" Content="REVIEW: THE PREVIEW FULL SCREEN" IsChecked="{Binding ReviewOnMultiview, Mode=TwoWay}" HorizontalAlignment="Left" Margin="0,8,0,0"
                     ToolTip.Tip="Every multiview — this pattern on a screen, an NDI send of it, /multiview — draws the sandboxed preview full-frame with a REVIEW chip until you switch it off: check the next look on the monitor wall before the TAKE. Never saved with the show" />

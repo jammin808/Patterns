@@ -244,6 +244,13 @@ public sealed class AppServices
             if (moved) PublishRuntime();   // a hot-plug moves no model: push the new shapes ourselves
         };
         Outputs.LiveChanged += UpdateRecovery;
+        Arming.Changed += () =>
+        {
+            // The wall's arming is not in the model: push it to the sinks ourselves, so the
+            // multiview's NEXT / HELD badges follow the next TAKE's scope as it is set.
+            Bus.UnarmedTargets = Arming.Unarmed.ToHashSet(StringComparer.Ordinal);
+            PublishRuntime();
+        };
         Screens.Refresh(); // planned screens exist before any display is attached
     }
 
