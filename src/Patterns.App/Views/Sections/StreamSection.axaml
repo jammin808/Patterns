@@ -7,7 +7,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-stream" Text="Stream" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Send a screen to the internet: captured, encoded once (one resolution, one frame rate), and duplicated to up to two destinations — YouTube/Twitch/Restream (RTMP), SRT or UDP. Needs the full build (bundled libVLC) on Windows." />
 
     <TextBlock Classes="h2" Text="ON AIR" />
@@ -16,7 +16,7 @@
       <Button Classes="stop" Content="STOP" Padding="16,8" Command="{Binding StopStreamCommand}" />
     </StackPanel>
     <TextBlock Classes="label" Text="{Binding StreamStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Streaming never auto-starts with the app. Stopping is instant; platforms show their usual few seconds of delay." />
 
     <TextBlock Classes="h2" Text="SOURCE &amp; QUALITY" />
@@ -27,7 +27,7 @@
                 SelectedValue="{Binding State.Stream.SourceScreenId, Mode=TwoWay}"
                 ToolTip.Tip="A display is captured off the desktop (everything on it, cheapest). Its own screen, a joined canvas or a planned screen is rendered by the engine — the stream's own screen takes a look of its own on the Screens page and the wall." />
     </Grid>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Its own screen: the stream becomes a screen on the rig with a look of its own — arrange it, OWN it on the wall, give it its own pattern, put it in a cue — at the stream's size. Nothing on the desktop can wander into it." />
     <Grid ColumnDefinitions="110,86,8,86" Margin="0,4,0,0">
       <TextBlock Classes="label" Text="Size (px)" VerticalAlignment="Center" />
@@ -49,7 +49,7 @@
       <NumericUpDown Grid.Column="1" Minimum="500" Maximum="20000" Increment="250" FormatString="0" ShowButtonSpinner="False"
                      Value="{Binding State.Stream.VideoKbps, Mode=TwoWay, Converter={StaticResource Num}}" />
     </Grid>
-    <TextBlock Classes="hint" Text="720p30 ≈ 3500–5000 kbps · 1080p30 ≈ 5000–8000 kbps." />
+    <TextBlock Classes="hint tip" Text="720p30 ≈ 3500–5000 kbps · 1080p30 ≈ 5000–8000 kbps." />
     <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
       <TextBlock Classes="label" Text="Audio device" VerticalAlignment="Center" />
       <TextBox Grid.Column="1" Watermark="DirectShow audio device — empty = video only"
@@ -63,7 +63,7 @@
       <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                  Text="{Binding State.Stream.AudioDelayMs, StringFormat={}{0} ms}" />
     </Grid>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Audio comes from a capture device (a mixer/interface input, or a virtual cable like VB-Audio carrying the computer's sound). Leave empty to stream video only. The sync check on the Audio page flashes the stream and clicks at the same master instant — measure the gap on the far end and set the delay." />
 
     <TextBlock Classes="h2" Text="DESTINATIONS (UP TO 2, SAME ENCODE)" />
@@ -78,7 +78,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Both destinations carry the identical encode — one encoder's CPU cost, two sends. The URL includes the stream key; treat show files as sensitive when keys are saved." />
   </StackPanel>
 </UserControl>

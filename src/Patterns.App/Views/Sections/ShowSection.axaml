@@ -8,7 +8,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-show" Text="Show panel" />
-    <TextBlock Classes="hint" Text="Show-time buttons beside the switcher: looks, VOGs and stingers, the clicker list, break music and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
+    <TextBlock Classes="hint tip" Text="Show-time buttons beside the switcher: looks, VOGs and stingers, the clicker list, break music and the audio track. The outputs transport is in the header; the cue stack runs from the Run page (RUN)." />
 
     <TextBlock Classes="h2" Text="LOOKS" />
     <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
@@ -37,7 +37,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint" Text="Save looks on the Looks page (PLAN) — F1–F12 recall them from anywhere." />
+    <TextBlock Classes="hint tip" Text="Save looks on the Looks page (PLAN) — F1–F12 recall them from anywhere." />
 
     <TextBlock Classes="h2" Text="CLICKER LIST" />
     <Grid ColumnDefinitions="*,8,*">
@@ -131,7 +131,7 @@
         <TextBlock Classes="label" Text="{Binding LowerThirdStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
         <Button Grid.Column="2" Classes="mini" Content="■ Hide" Command="{Binding HideLowerThirdCommand}" />
       </Grid>
-      <TextBlock Classes="hint" Text="A design goes on air over whatever is showing, on every screen, send and the stream, and leaves the way it was designed to. Build them on the Lower thirds page (BUILD)." />
+      <TextBlock Classes="hint tip" Text="A design goes on air over whatever is showing, on every screen, send and the stream, and leaves the way it was designed to. Build them on the Lower thirds page (BUILD)." />
     </StackPanel>
 
     <Border Classes="runBanner" IsVisible="{Binding StingerHolding}">
@@ -139,7 +139,7 @@
         <StackPanel Spacing="2">
           <TextBlock Classes="runTag" Text="STING HOLD" />
           <TextBlock Classes="label" Text="{Binding StingerHoldText}" TextWrapping="Wrap" />
-          <TextBlock Classes="hint" Text="TAKE the preview, GO the next cue — or put it back." />
+          <TextBlock Classes="hint tip" Text="TAKE the preview, GO the next cue — or put it back." />
         </StackPanel>
         <Button Grid.Column="2" Classes="stop" Content="PUT IT BACK" Command="{Binding StopStingerCommand}" VerticalAlignment="Center" />
       </Grid>
@@ -149,7 +149,7 @@
       <TextBlock Classes="label" Text="{Binding StingerStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
       <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding StopStingerCommand}" />
     </Grid>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="A VOG plays over everything (the music ducks, and so does a stinger that is playing) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. Set them up on the Audio page (SETUP)." />
 
     <TextBlock Classes="h2" Text="AUDIO TRACK" />
@@ -159,7 +159,7 @@
       <Button Grid.Column="2" Classes="mini" Content="▶ Play" Command="{Binding PlayAudioCommand}" />
       <Button Grid.Column="3" Classes="mini" Content="■ Stop" Command="{Binding StopAudioCommand}" />
     </Grid>
-    <TextBlock Classes="hint" Text="The message, clock, countdown and this track's volume are in the SHOW CONTROLS drawer under the wall." />
+    <TextBlock Classes="hint tip" Text="The message, clock, countdown and this track's volume are in the SHOW CONTROLS drawer under the wall." />
 
     <StackPanel x:Name="BreakMusicBlock" IsVisible="{Binding State.Spotify.Enabled}">
       <TextBlock Classes="h2" Text="BREAK MUSIC" />
@@ -198,7 +198,7 @@
         <TextBlock Grid.Column="4" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                    Text="{Binding State.Spotify.LevelPct, StringFormat={}{0:0}%}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Spotify plays the room during breaks. It ducks under a stinger sound and STOP ALL pauses it. Set it up on the Audio page (SETUP)." />
     </StackPanel>
 
@@ -208,7 +208,7 @@
     <TextBlock Classes="label" Text="{Binding PlaylistStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding RemoteStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Phone remote: open the web address above on any device on this network (the Remote page under SETUP for settings and Companion)." />
   </StackPanel>
 </UserControl>

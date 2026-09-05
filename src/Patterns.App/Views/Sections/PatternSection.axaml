@@ -12,7 +12,7 @@
     <StackPanel IsVisible="{Binding ShowEditTargets}">
       <TextBlock Classes="h2" Text="EDITING TARGET" />
       <ComboBox ItemsSource="{Binding EditTargets}" SelectedItem="{Binding EditTarget, Mode=TwoWay}" />
-      <TextBlock Classes="hint" Text="Choose which pattern you are editing — the program, or a screen with a custom pattern. The preview follows." />
+      <TextBlock Classes="hint tip" Text="Choose which pattern you are editing — the program, or a screen with a custom pattern. The preview follows." />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="TYPE" />
@@ -78,7 +78,7 @@
         <NumericUpDown Grid.Column="1" Minimum="0.05" Maximum="60" Increment="0.25" FormatString="0.##"
                        Value="{Binding ActivePattern.Checker.IntervalSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
       </Grid>
-      <TextBlock Classes="hint" Text="1 px cells verify pixel-perfect signal paths. Branding colours apply when enabled in Branding." />
+      <TextBlock Classes="hint tip" Text="1 px cells verify pixel-perfect signal paths. Branding colours apply when enabled in Branding." />
     </StackPanel>
 
     <!-- Colour bars -->
@@ -88,7 +88,7 @@
                 SelectedValue="{Binding ActivePattern.Bars.Variant, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       <CheckBox Content="Full range (stretch 16–235 → 0–255)" IsChecked="{Binding ActivePattern.Bars.FullRange}" />
-      <TextBlock Classes="hint" Text="SMPTE layout uses BT.709 legal levels; full range suits graphics/LED pipelines." />
+      <TextBlock Classes="hint tip" Text="SMPTE layout uses BT.709 legal levels; full range suits graphics/LED pipelines." />
     </StackPanel>
 
     <!-- Ramp -->
@@ -213,7 +213,7 @@
           <TextBox Watermark="Panel label (optional — blank = automatic number)"
                    Text="{Binding SelectedLedTile.Label, FallbackValue=''}" />
         </StackPanel>
-        <TextBlock Classes="hint"
+        <TextBlock Classes="hint tip"
                    Text="Drag panels into place — they snap flush to neighbours. Gaps and mixed sizes are fine; the wall canvas is the bounding box of all panels." />
       </StackPanel>
 
@@ -341,7 +341,7 @@
     <!-- Fractal -->
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Fractal}}">
       <TextBlock Classes="h2" Text="FRACTAL" />
-      <TextBlock Classes="hint" Text="A living picture from pure maths, drawn on the graphics card at any size. Start from a scene, then shape it — and let it breathe with the sound." />
+      <TextBlock Classes="hint tip" Text="A living picture from pure maths, drawn on the graphics card at any size. Start from a scene, then shape it — and let it breathe with the sound." />
       <ItemsControl ItemsSource="{Binding FractalPresetNames}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -399,7 +399,7 @@
                   SelectedValue="{Binding ActivePattern.Fractal.Quality, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
-      <TextBlock Classes="hint" Text="Outputs, the preview and the monitors draw at full resolution on the graphics card. NDI and thumbnails draw on the CPU at a modest size and scale up — Quality sets how modest." />
+      <TextBlock Classes="hint tip" Text="Outputs, the preview and the monitors draw at full resolution on the graphics card. NDI and thumbnails draw on the CPU at a modest size and scale up — Quality sets how modest." />
 
       <TextBlock Classes="h2" Text="SOUND" />
       <ComboBox ItemsSource="{Binding AudioSources}"
@@ -419,7 +419,7 @@
                 ToolTip.Tip="How much the sound moves the picture" />
       </Grid>
       <TextBlock Classes="label" Text="{Binding FractalAudioStatus}" TextWrapping="Wrap" />
-      <TextBlock Classes="hint" Text="This computer's sound is whatever plays through its default output — Spotify or a video on this machine included; a Spotify Connect speaker elsewhere is not heard here. An input is a microphone, a line or an interface channel. The level pulses the zoom, the lows drift the colours, the highs brighten. Windows only." />
+      <TextBlock Classes="hint tip" Text="This computer's sound is whatever plays through its default output — Spotify or a video on this machine included; a Spotify Connect speaker elsewhere is not heard here. An input is a microphone, a line or an interface channel. The level pulses the zoom, the lows drift the colours, the highs brighten. Windows only." />
     </StackPanel>
 
     <!-- Colour cycle -->
@@ -439,17 +439,17 @@
     </StackPanel>
 
     <!-- Media / Particles pointers -->
-    <TextBlock Classes="hint" Margin="0,10,0,0"
-               IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Media}}"
-               Text="Configure the file and fit in the Media page." />
-    <TextBlock Classes="hint" Margin="0,10,0,0"
-               IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Particles}}"
-               Text="Design the animation in the Particles page (mini studio)." />
+    <Panel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Media}}">
+      <TextBlock Classes="hint tip" Margin="0,10,0,0" Text="Configure the file and fit in the Media page." />
+    </Panel>
+    <Panel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Particles}}">
+      <TextBlock Classes="hint tip" Margin="0,10,0,0" Text="Design the animation in the Particles page (mini studio)." />
+    </Panel>
 
     <!-- Multiview -->
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Multiview}}">
       <TextBlock Classes="h2" Text="MULTIVIEW TILES" />
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="A monitor wall: the program, any screen or joined canvas, live inputs and a clock, with labels and red on-air tally. Every tile is a true miniature of what that target really shows — a whole joined canvas, or one screen's own half of one — at its real shape, the same picture the wall shows; a target with no display attached is drawn 16:9. Send it to any screen (its own pattern), an NDI sender, or watch it remotely at the web remote address + /multiview. No tiles = automatic (program + every screen + clock)." />
       <ItemsControl ItemsSource="{Binding ActivePattern.Multiview.Tiles}">
         <ItemsControl.ItemTemplate>

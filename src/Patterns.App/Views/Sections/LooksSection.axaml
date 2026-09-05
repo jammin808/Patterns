@@ -7,7 +7,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-looks" Text="Looks" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="A look is the whole screen state — pattern, per-screen patterns, overlays, countdown, blackout — saved under a name. Recall it with F1–F12, from a cue, or from the wall-clock automation below, which all lives on this page. With break music on (Audio page), a look can also start a playlist or song, or pause the music, as it goes on air — loading it into the preview leaves the music alone." />
 
     <TextBlock Classes="h2" Text="SAVE THE CURRENT STATE AS A LOOK" />
@@ -24,7 +24,7 @@
       </ComboBox>
       <Button Grid.Column="4" Classes="chip" Content="Save look" Command="{Binding SaveLookCommand}" />
     </Grid>
-    <TextBlock Classes="hint" Text="Saving with an existing name updates that look. A hotkey slot in use moves to the new look." />
+    <TextBlock Classes="hint tip" Text="Saving with an existing name updates that look. A hotkey slot in use moves to the new look." />
 
     <TextBlock Classes="h2" Text="LOOKS" />
     <ItemsControl ItemsSource="{Binding State.LooksAndCues.Looks}">
@@ -73,7 +73,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint" Text="The cue stack and the clicker list — what the caller and the speaker step through — are on the Cues page." />
+    <TextBlock Classes="hint tip" Text="The cue stack and the clicker list — what the caller and the speaker step through — are on the Cues page." />
 
     <TextBlock Classes="h2" Text="SCHEDULED AUTOMATION" />
     <TextBlock Classes="label" Text="{Binding NextCueText}" />
@@ -97,7 +97,7 @@
     <StackPanel Orientation="Horizontal" Spacing="8">
       <Button Classes="chip" Content="+ Add cue" Command="{Binding AddCueCommand}" />
     </StackPanel>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Each armed cue applies its look daily at the set time (24 h) while the app is running — e.g. Walk-in 18:00 · Countdown 18:45 · Blackout 19:00. Times are checked every second; a cue fires once per day. While the caller's cue stack is armed, this schedule waits (the LIVE strip says AUTO HELD)." />
 
     <TextBlock Classes="h2" Text="PLAYLIST PARTS — DAILY START TIMES" />
@@ -120,7 +120,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
     </StackPanel>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Shown when the program pattern is Media → Playlist. Parts and their files are built on the Media page (BUILD); their start times live here with the rest of the wall-clock automation, and a part start waits like a scheduled cue while the stack is armed." />
   </StackPanel>
 </UserControl>

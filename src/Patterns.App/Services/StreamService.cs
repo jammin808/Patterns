@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using LibVLCSharp.Shared;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
 
@@ -49,6 +50,15 @@ public sealed class StreamService : IDisposable
                 _status = !cfg.Active
                     ? "Not streaming."
                     : "No destination enabled — add an RTMP/SRT/UDP URL below.";
+                return;
+            }
+
+            // Prep is pre-programming: nothing leaves the machine — not on a cable, not on the
+            // network. The stream stays armed and comes up by itself in SHOW.
+            if (_services.State.Mode == ShowMode.Prep)
+            {
+                Stop();
+                _status = "PREP — the stream is held closed; it starts when you switch to SHOW.";
                 return;
             }
 

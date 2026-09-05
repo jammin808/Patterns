@@ -23,6 +23,12 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **A clearer desk** — the explanations that sat on every page now live behind **? TIPS** on the
+  page strip: press it for the current page's tips under their headings, tick *Show hints on the
+  pages* to have them inline again (the show remembers). The room goes to the controls, the type
+  is a step larger, and the header says which is the **MODE** (PREP · SHOW — what may leave the
+  machine) and which the **LAYOUT** (RUN — the caller's surface over either). PREP now holds the
+  stream closed as well as the outputs and the NDI sends.
 - **A graphical screen overview** — every detected screen is a live tile showing exactly what
   it outputs. Drag screens flush together and they join into one spanned canvas (seam-tested,
   viewport-exact); drag them apart and they split again. Any screen can be enabled/disabled or
@@ -123,9 +129,11 @@ fault containment, and settings that can never brick startup.
   (nothing crashes without the NDI runtime).
 - **Five groups, two levels** — the rail holds **SHOW · PLAN · BUILD · SETUP · ADMIN**, grouped
   by who is at the desk and when, and the page strip across the top shows the pages of the
-  current group, so eighteen pages never crowd a laptop screen. **PREP · SHOW · RUN** in the
-  header is the mode: PREP holds the outputs closed while you pre-program, SHOW lets them
-  open, RUN is the caller's surface — and leaving RUN is refused while the stack is armed.
+  current group, so eighteen pages never crowd a laptop screen. **MODE** in the header is
+  PREP or SHOW: PREP holds the outputs, the NDI sends and the stream closed while you
+  pre-program (every editor, look and cue still works), SHOW lets them open; **LAYOUT** is
+  RUN, the caller's surface over either mode — and leaving RUN is refused while the stack is
+  armed. **? TIPS** on the page strip holds the current page's explanations.
   Under the wall, a **SHOW CONTROLS** drawer holds exactly four air-targeted controls —
   message, clock, countdown, audio volume — each behind an explicit **SEND** that goes to
   air whether or not the sandbox is open and is journaled as a desk action; the next look
@@ -357,8 +365,9 @@ fault containment, and settings that can never brick startup.
 - **Prep mode — programme the show before the rig exists** — switch to PREP and build the whole
   thing at your desk with nothing plugged in: **plan screens** at the sizes the venue will have,
   arrange them, name them, give each its pattern, join them into canvases, put them in the
-  multiview, and type in the NDI and capture names the rig will use. The outputs are held closed
-  so nothing goes live by accident. At the venue, switch to SHOW, say which detected display each planned
+  multiview, and type in the NDI and capture names the rig will use. The outputs, the NDI sends
+  and the stream are held closed so nothing goes live by accident — on a cable or on the network.
+  At the venue, switch to SHOW, say which detected display each planned
   screen turned out to be and press **Adopt** — position, label, rotation, trims, warp, per-screen
   pattern, canvas name, multiview tiles and the stream source all follow onto the hardware.
 - **A Machine page (ADMIN) that watches the machine** — live **CPU / memory / GPU / frame-rate**
@@ -475,7 +484,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 822 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, effect stings through particles and fractals (every shape settles, the scored phases, the sliders that write back), lower thirds (every ease, keys blended in order, the clock through in, hold and out by the hold or by a hide, the motions' keys and the stagger, ten presets inside their boxes and through the show's JSON, the picture in its box on every sink and gone cleanly, every element kind drawn with its caches swept, a media element's clip wanted while it is on; the remote verbs, the cue action checked and summarised, a look that carries one and recalls it afresh, a design as a file; the designer's edits, the file round trip, SHOW and HIDE from the desk, the remote and through the sandbox, the tally and the panel chips, the preview at three instants), direct output (the decision from every fact, a card that must be hardware, the honest status lines, the fuse armed and disarmed across a start and held after a failed one, a window prepared live and put back, the tick and the summary on the pages), the master clock (wall time that never steps, a drift measured to the ppm, a lock that holds a fast device to a few milliseconds where free-running loses ten, the converter transparent at one and clean at a pitch, the delay line, the sync marks and the clicks landing on the frame, the video delay reaching every clip, the stream's option), the tally (the look on air, edited, in the preview, taken; a playing VOG and a sting's bar), the desk's dividers (moved, clamped, held back on a small window, WIDE, remembered in the show), the super-check (a strong machine all clear, a laptop on battery with an idle card, the red rows, unknown facts grey, the level, the report on the page and in the file), the feeds' own screens (one per send, the stream's while set to it, never joined to a canvas, a mirrored target's shape kept in the frame, an own screen's look, the frame feed that never tears, the rendered stream plan), arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 826 tests: the desk's hints (folded away by default, back with the tick, remembered; ? TIPS reading a page under its headings), PREP holding the stream, MODE and LAYOUT apart, the type stepped up; pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, effect stings through particles and fractals (every shape settles, the scored phases, the sliders that write back), lower thirds (every ease, keys blended in order, the clock through in, hold and out by the hold or by a hide, the motions' keys and the stagger, ten presets inside their boxes and through the show's JSON, the picture in its box on every sink and gone cleanly, every element kind drawn with its caches swept, a media element's clip wanted while it is on; the remote verbs, the cue action checked and summarised, a look that carries one and recalls it afresh, a design as a file; the designer's edits, the file round trip, SHOW and HIDE from the desk, the remote and through the sandbox, the tally and the panel chips, the preview at three instants), direct output (the decision from every fact, a card that must be hardware, the honest status lines, the fuse armed and disarmed across a start and held after a failed one, a window prepared live and put back, the tick and the summary on the pages), the master clock (wall time that never steps, a drift measured to the ppm, a lock that holds a fast device to a few milliseconds where free-running loses ten, the converter transparent at one and clean at a pitch, the delay line, the sync marks and the clicks landing on the frame, the video delay reaching every clip, the stream's option), the tally (the look on air, edited, in the preview, taken; a playing VOG and a sting's bar), the desk's dividers (moved, clamped, held back on a small window, WIDE, remembered in the show), the super-check (a strong machine all clear, a laptop on battery with an idle card, the red rows, unknown facts grey, the level, the report on the page and in the file), the feeds' own screens (one per send, the stream's while set to it, never joined to a canvas, a mirrored target's shape kept in the frame, an own screen's look, the frame feed that never tears, the rendered stream plan), arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

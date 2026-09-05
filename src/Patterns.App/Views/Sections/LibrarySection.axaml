@@ -7,7 +7,7 @@
   <Grid RowDefinitions="Auto,*" Margin="4,8,4,4">
     <StackPanel Grid.Row="0">
       <TextBlock Classes="h1" Text="Library" />
-      <TextBlock Classes="hint" Margin="0,0,0,8"
+      <TextBlock Classes="hint tip" Margin="0,0,0,8"
                  Text="Everything you can put on a screen with one click: factory patterns, your images, videos and audio, saved presets, particle scenes and brand kits — applied to the current editing target. Pick a section, or type to search." />
       <Grid ColumnDefinitions="*,12,260" Margin="0,0,0,6">
         <ListBox Grid.Column="0" Name="LibrarySections" ItemsSource="{Binding LibrarySections}"

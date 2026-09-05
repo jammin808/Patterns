@@ -89,7 +89,7 @@
         <TextBlock Classes="label" Text="Backdrop strength" />
         <Slider Grid.Column="1" Minimum="0.1" Maximum="1" Value="{Binding State.Overlays.Message.BackgroundStrength, Mode=TwoWay}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Fade is a soft band that is darkest at the edge the message sits on — the classic lower third under a ticker. A ticker loops seamlessly at any speed and text length, and every screen, span half and NDI sender shows the same train." />
 
       <CheckBox Content="Feed the text from a data source (RSS / CSV / calendar)"
@@ -121,7 +121,7 @@
           <Button Classes="chip" Content="Refresh now" Command="{Binding RefreshFeedCommand}" />
         </StackPanel>
         <TextBlock Classes="label" Text="{Binding FeedStatus}" TextWrapping="Wrap" />
-        <TextBlock Classes="hint"
+        <TextBlock Classes="hint tip"
                    Text="RSS/Atom shows headlines; CSV/plain text shows one entry per line; an ICS calendar shows the next 24 h as 'HH:mm  Event'. Turn on Scroll for a ticker. The message text above is ignored while the feed is on." />
       </StackPanel>
     </StackPanel>
@@ -191,7 +191,7 @@
         <TextBlock Grid.Row="3" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                    Text="{Binding State.Overlays.Pip.CropBottomPct, StringFormat={}{0:0}%}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="A second live input (camera, remote feed) in the corner of whatever is showing — its own receiver/decoder, independent of the Media source, on every screen and NDI output. Crop away a slate, a border or a black bar from any side; the inset takes the cropped shape, never squashes. Inset audio is not played." />
     </StackPanel>
 

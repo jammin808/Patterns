@@ -65,7 +65,7 @@
       <c:ColorField Grid.Column="1" Value="{Binding State.Countdown.TextColor, Mode=TwoWay}" />
     </Grid>
 
-    <TextBlock Classes="hint" Margin="0,8,0,0"
+    <TextBlock Classes="hint tip" Margin="0,8,0,0"
                Text="The countdown overlays whatever pattern is on screen — put it over branding colours, particles or a flat field for classic walk-in looks. Times within the last 12 hours read as already reached; later ones roll to tomorrow (so 00:30 armed at 23:00 counts 1.5 h)." />
   </StackPanel>
 </UserControl>

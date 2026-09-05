@@ -8,7 +8,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-media" Text="Media" />
-    <TextBlock Classes="hint" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too. Every input runs separately: give each screen its own source (pick the screen in the strip, then choose here) and the same feed can sit on several screens, the PiP and the multiview at once — one decode per source." />
+    <TextBlock Classes="hint tip" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too. Every input runs separately: give each screen its own source (pick the screen in the strip, then choose here) and the same feed can sit on several screens, the PiP and the multiview at once — one decode per source." />
 
     <TextBlock Classes="label" Text="{Binding ActiveInputsText}" TextWrapping="Wrap" />
 
@@ -52,7 +52,7 @@
         <TextBox Grid.Column="1" Watermark="e.g. Camera 1 (shown in the multiview and status)"
                  Text="{Binding InputNickname, Mode=TwoWay}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Receives a live NDI® video feed and composites it like any pattern — it reaches spans, trims and NDI outputs. The list refreshes itself while this panel is active; senders appear a few seconds after they start. Needs the NDI runtime (see the NDI page). Video only — feed audio is not passed through." />
     </StackPanel>
 
@@ -77,14 +77,14 @@
         <TextBox Grid.Column="1" Watermark="e.g. Podium cam (shown in the multiview and status)"
                  Text="{Binding InputNickname, Mode=TwoWay}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default." />
     </StackPanel>
 
     <!-- Playlist -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Playlist}}">
       <TextBlock Classes="h2" Text="SHOW PARTS" />
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Split the playlist into parts of the show — Walk-in, Main, Break… One part plays at a time: click ▶ to put it on air (also from the remote/Companion: SECTION 2), or give it a daily start time. Files and folders below belong to the highlighted part." />
       <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -126,7 +126,7 @@
       <Grid ColumnDefinitions="86,90,8,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Starts daily" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="HH:mm" Text="{Binding ActivePlaylistSection.StartTime, Mode=TwoWay}" />
-        <TextBlock Grid.Column="3" Classes="hint" VerticalAlignment="Center"
+        <TextBlock Grid.Column="3" Classes="hint tip" VerticalAlignment="Center"
                    Text="optional — takes over at this time (24 h)" />
       </Grid>
 
@@ -172,7 +172,7 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Drag the ≡ handle to re-order — items play top to bottom (or shuffled). Click a row to edit its timing below." />
 
       <!-- Selected item timing -->
@@ -211,7 +211,7 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Folder media (scanned with subfolders) plays after the items above, sorted by name. New files are picked up automatically." />
 
       <TextBlock Classes="h2" Text="PLAYLIST — PLAYBACK" />
@@ -229,7 +229,7 @@
       </Grid>
       <CheckBox Content="Include images" IsChecked="{Binding ActivePattern.Media.Playlist.IncludeImages}" />
       <CheckBox Content="Include videos &amp; audio" IsChecked="{Binding ActivePattern.Media.Playlist.IncludeVideos}" />
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="The playlist loops continuously while this pattern is live. '⏱ HH:mm' items interrupt daily at that time, then the cycle resumes." />
     </StackPanel>
 
@@ -244,11 +244,11 @@
         <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                    Text="{Binding ActivePattern.Media.VolumePct, StringFormat={}{0:0}%}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Plays on the default Windows audio device. 100% = source level; above 100 uses libVLC's software gain. Mute and volume apply live — the media never restarts." />
     </StackPanel>
 
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Video decoding uses libVLC when available: the 'full' build ships it; otherwise install 64-bit VLC or put a 'libvlc' folder beside Patterns.exe. Images always work." />
 
     <TextBlock Classes="h2" Text="FIT" />

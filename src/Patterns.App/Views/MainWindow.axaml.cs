@@ -1,9 +1,13 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Patterns.App.Rendering;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
+using Patterns.App.Views.Controls;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -206,6 +210,61 @@ public partial class MainWindow : Window
 
     private void OnPaneHandleDragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)
         => SetProgramShare(ProgramShareApplied);
+
+    // ---- ? TIPS: the page's explanations behind one button ---------------------------------
+
+    /// <summary>The current page's tips — the group's line, then its prose hints under their headings.</summary>
+    public IReadOnlyList<PageTip> CurrentPageTips()
+    {
+        if (DataContext is not MainViewModel vm) return Array.Empty<PageTip>();
+        return PageTips.Collect(Pages.SelectedContent as Visual ?? Pages, vm.GroupHint);
+    }
+
+    private void OnTipsClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control anchor || DataContext is not MainViewModel vm) return;
+        var tips = CurrentPageTips();
+        var header = vm.PageStrip.FirstOrDefault(c => c.IsCurrent)?.Header ?? "This page";
+        var panel = new StackPanel { MaxWidth = 560 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"{header} — tips",
+            FontSize = 16,
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4),
+        });
+        if (tips.Count == 0)
+        {
+            panel.Children.Add(new TextBlock { Classes = { "tipText" }, Text = "Nothing to explain here. The Help page has the whole guide." });
+        }
+        var heading = "";
+        foreach (var tip in tips)
+        {
+            if (tip.Heading.Length > 0 && tip.Heading != heading)
+            {
+                heading = tip.Heading;
+                panel.Children.Add(new TextBlock { Classes = { "tipHead" }, Text = tip.Heading });
+            }
+            panel.Children.Add(new TextBlock { Classes = { "tipText" }, Text = tip.Text });
+        }
+
+        var flyout = new Flyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+        var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 12, 0, 4) };
+        var inline = new CheckBox { Content = "Show hints on the pages", IsChecked = vm.ShowHints, VerticalAlignment = VerticalAlignment.Center };
+        inline.IsCheckedChanged += (_, _) => vm.ShowHints = inline.IsChecked == true;
+        footer.Children.Add(inline);
+        var help = new Button { Classes = { "mini" }, Content = "Open Help", VerticalAlignment = VerticalAlignment.Center };
+        help.Click += (_, _) =>
+        {
+            flyout.Hide();
+            vm.SelectPage(Shell.IndexOf("Help"));
+        };
+        footer.Children.Add(help);
+        panel.Children.Add(footer);
+
+        flyout.Content = new ScrollViewer { Content = panel, MaxHeight = 640, Padding = new Thickness(4, 2, 12, 2) };
+        flyout.ShowAt(anchor);
+    }
 
     private static PipelineViewport ProgramViewport(MainViewModel vm)
         => PipelineViewport.Monitor(vm.SelectedTargetId, vm.SelectedTargetSize, "PGM", previewSide: false);

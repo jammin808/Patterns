@@ -7,7 +7,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-time" Text="Particle studio" />
-    <TextBlock Classes="hint" Text="Select the Particles pattern type to see this live. Scenes are starting points — everything below is yours to shape. A scene that drifts sideways keeps the whole screen covered: the upwind edge takes its share of the births." />
+    <TextBlock Classes="hint tip" Text="Select the Particles pattern type to see this live. Scenes are starting points — everything below is yours to shape. A scene that drifts sideways keeps the whole screen covered: the upwind edge takes its share of the births." />
 
     <TextBlock Classes="h2" Text="SCENES" />
     <ItemsControl ItemsSource="{Binding ParticlePackGroups}">
@@ -31,7 +31,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint" Text="Custom holds the presets you save on the Pattern page while Particles is the pattern — your own scenes, beside the packs." />
+    <TextBlock Classes="hint tip" Text="Custom holds the presets you save on the Pattern page while Particles is the pattern — your own scenes, beside the packs." />
 
     <TextBlock Classes="h2" Text="EMITTER" />
     <ComboBox ItemsSource="{Binding ParticleEmitters}"
@@ -110,6 +110,6 @@
       <NumericUpDown Grid.Column="1" Minimum="0" Maximum="99999999" Increment="1" FormatString="0"
                      Value="{Binding ActivePattern.Particles.Seed, Mode=TwoWay, Converter={StaticResource Num}}" />
     </Grid>
-    <TextBlock Classes="hint" Text="The Logo shape uses the brand logo as the particle sprite. The same seed gives the same animation on every output." />
+    <TextBlock Classes="hint tip" Text="The Logo shape uses the brand logo as the particle sprite. The same seed gives the same animation on every output." />
   </StackPanel>
 </UserControl>

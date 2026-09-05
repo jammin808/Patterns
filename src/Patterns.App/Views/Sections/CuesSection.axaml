@@ -7,7 +7,7 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-looks" Text="Cues" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Two lists of the same kind. The CUE STACK is what the show caller runs, in order; the CLICKER LIST is what a speaker steps through with Page Down / Page Up (and the remote's NEXT / PREV). A cue is one or more typed actions run in order — apply a look, play audio, fire a VOG or stinger, switch a playlist part, start a countdown… Every reference is checked as you build: a cue that cannot run is marked broken with the reason, and the rest of the list still runs." />
 
     <Grid ColumnDefinitions="*,8,Auto,6,Auto">
@@ -115,7 +115,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
       <Button Classes="chip" Content="+ Action" Command="{Binding Cues.AddActionCommand}" HorizontalAlignment="Left" />
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Looks are the prepared moments: build one in the preview, Save look, then Apply look here. A video VOG or stinger takes every screen, so it cannot share a cue with a look, part, screen or canvas change. A stinger that moves the show on does it when the clip lands, not inside the cue — set that on the Audio page. Blackout stays as it was after a cue unless the cue switches it." />
     </StackPanel>
   </StackPanel>

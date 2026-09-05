@@ -10,6 +10,8 @@
         Icon="/Assets/patterns-256.png"
         Width="1420" Height="900" MinWidth="1180" MinHeight="720"
         WindowStartupLocation="CenterScreen"
+        FontSize="15"
+        Classes.nohints="{Binding !ShowHints}"
         Background="{StaticResource AppBgBrush}">
 
   <!-- Plain F1–F12 are look hotkeys (handled in code-behind); transport sits on Shift+F5–F8. -->
@@ -42,15 +44,25 @@
           </StackPanel>
         </StackPanel>
 
-        <!-- PREP · SHOW · RUN: the first two are the show mode, RUN is the caller's layout -->
+        <!-- MODE (PREP · SHOW) is what may leave the machine; LAYOUT (RUN) is the caller's
+             surface over either mode. Two captions, a divider, so the header says which is which. -->
         <Border Grid.Column="1" Classes="modeGroup" Margin="28,0,0,0" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" Spacing="2">
-            <Button Classes="mode prep" Classes.on="{Binding IsPrepSelected}" Content="PREP" Command="{Binding SelectPrepCommand}" Focusable="False"
-                    ToolTip.Tip="Pre-programming: build the rig, screens, inputs and looks with nothing plugged in — outputs are held closed" />
-            <Button Classes="mode show" Classes.on="{Binding IsShowSelected}" Content="SHOW" Command="{Binding SelectShowCommand}" Focusable="False"
-                    ToolTip.Tip="Show mode: the outputs can open; the editors and the switcher" />
-            <Button Classes="mode run" Classes.on="{Binding IsRunSelected}" Content="RUN" Command="{Binding SelectRunCommand}" Focusable="False"
-                    ToolTip.Tip="The caller's surface — LIVE strip, the wall, the cue stack, GO. Leaving it is refused while the stack is armed." />
+            <StackPanel>
+              <TextBlock Classes="modeCaption" Text="MODE" />
+              <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Classes="mode prep" Classes.on="{Binding IsPrepSelected}" Content="PREP" Command="{Binding SelectPrepCommand}" Focusable="False"
+                        ToolTip.Tip="PREP — pre-programming, at the desk or with nothing plugged in. Every editor, look and cue works; the outputs, the NDI sends and the stream are held closed, so the audience sees nothing. Plan screens now, adopt them onto the real displays at the venue." />
+                <Button Classes="mode show" Classes.on="{Binding IsShowSelected}" Content="SHOW" Command="{Binding SelectShowCommand}" Focusable="False"
+                        ToolTip.Tip="SHOW — at the venue. OUTPUTS ON opens the windows on the enabled displays, the NDI sends run and the stream starts when armed. The same editors and switcher as PREP." />
+              </StackPanel>
+            </StackPanel>
+            <Border Width="1" Background="{StaticResource HairlineBrush}" Margin="8,4" />
+            <StackPanel>
+              <TextBlock Classes="modeCaption" Text="LAYOUT" />
+              <Button Classes="mode run" Classes.on="{Binding IsRunSelected}" Content="RUN" Command="{Binding SelectRunCommand}" Focusable="False"
+                      ToolTip.Tip="RUN — the caller's layout, in either mode: the LIVE strip, the wall, the cue stack and GO take the window (POP OUT for a second monitor, /run on a tablet). Enter is GO, ↑ ↓ move standby, Esc twice is STOP ALL. Leaving it is refused while the stack is armed." />
+            </StackPanel>
           </StackPanel>
         </Border>
 
@@ -101,8 +113,9 @@
 
       <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="10,8,12,12">
 
-        <!-- The page strip: the pages of the current group, visible in both layouts -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
+        <!-- The page strip: the pages of the current group (never clipped — the group's line
+             gives way first), ? TIPS for the page's explanations, WIDE; visible in both layouts -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,8">
           <ItemsControl Grid.Column="0" ItemsSource="{Binding PageStrip}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate>
@@ -120,8 +133,10 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Grid.Column="1" Classes="hint" Text="{Binding GroupHint}" VerticalAlignment="Center" Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
-          <ToggleButton Grid.Column="2" Classes="mini" Content="◧ WIDE" Margin="12,0,0,0" Focusable="False"
+          <TextBlock Grid.Column="1" Classes="hint tip" Text="{Binding GroupHint}" VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+          <Button Grid.Column="2" Classes="help" Content="? TIPS" Click="OnTipsClick" Focusable="False" IsVisible="{Binding !IsRunLayout}"
+                  ToolTip.Tip="This page's explanations, under their headings — and a tick to show them on the pages again" />
+          <ToggleButton Grid.Column="3" Classes="mini" Content="◧ WIDE" Margin="12,0,0,0" Focusable="False"
                         IsChecked="{Binding WideWorkArea, Mode=TwoWay}" IsVisible="{Binding !IsRunLayout}"
                         ToolTip.Tip="Give the page the room: the screens reduce to a strip on the right (the wall, PROGRAM and PREVIEW stay, small). Drag the divider for anything in between; the layout travels with the show." />
         </Grid>
@@ -156,7 +171,7 @@
               <TabItem Header="Run">
                 <StackPanel Classes="form" Margin="4,8,12,16">
                   <TextBlock Classes="h1 neon-show" Text="Run" />
-                  <TextBlock Classes="hint" Text="The Run surface takes the whole window: the LIVE strip, the wall beside the cue stack, GO." />
+                  <TextBlock Classes="hint tip" Text="The Run surface takes the whole window: the LIVE strip, the wall beside the cue stack, GO." />
                 </StackPanel>
               </TabItem>
               <TabItem Header="Cues"><ScrollViewer><v:CuesSection /></ScrollViewer></TabItem>
@@ -228,7 +243,7 @@
               <Expander.Header>
                 <Grid ColumnDefinitions="Auto,*">
                   <TextBlock Text="SHOW CONTROLS" FontWeight="Bold" FontSize="12" LetterSpacing="1.5" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Classes="hint" Text="message · clock · countdown · audio volume · live duck — straight to air behind SEND"
+                  <TextBlock Grid.Column="1" Classes="hint tip" Text="message · clock · countdown · audio volume · live duck — straight to air behind SEND"
                              VerticalAlignment="Center" Margin="10,0,24,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                 </Grid>
               </Expander.Header>
@@ -241,7 +256,7 @@
                 <TextBlock Grid.Row="0" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.MessageAirText}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Classes="label" Text="Clock" VerticalAlignment="Center" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Classes="hint" Text="the clock overlay as set on the Overlays page" VerticalAlignment="Center" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Classes="hint tip" Text="the clock overlay as set on the Overlays page" VerticalAlignment="Center" />
                 <Button Grid.Row="1" Grid.Column="2" Classes="mini" Content="SHOW" Command="{Binding ShowControls.ClockShowCommand}" Focusable="False" Margin="8,0,0,0" />
                 <Button Grid.Row="1" Grid.Column="3" Classes="mini" Content="HIDE" Command="{Binding ShowControls.ClockHideCommand}" Focusable="False" />
                 <TextBlock Grid.Row="1" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.ClockAirText}" VerticalAlignment="Center" Margin="10,0,0,0" />
@@ -278,7 +293,7 @@
                               ToolTip.Tip="Make way for a live announcement from the room: everything but a VOG ducks until you press it again (D). STOP ALL leaves it." />
                 <TextBlock Grid.Row="4" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.DuckAirText}" VerticalAlignment="Center" Margin="10,0,0,0" />
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="5" Classes="hint" Margin="0,4,0,0" TextWrapping="Wrap"
+                <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="5" Classes="hint tip" Margin="0,4,0,0" TextWrapping="Wrap"
                            Text="Each SEND goes to air through the same seam as a cue — sandbox open or not — and is journaled as a desk action. The next look recall replaces it; the duck stays until you lift it." />
               </Grid>
             </Expander>

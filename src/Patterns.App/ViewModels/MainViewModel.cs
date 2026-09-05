@@ -1818,7 +1818,6 @@ public sealed class MainViewModel : Observable
         }
     }
 
-    /// <summary>The EDIT toggle: on = open the sandbox, off = discard. CUT/TAKE close it too.</summary>
     /// <summary>The page takes the room and the screens reduce to a strip on the right (the show remembers it).</summary>
     public bool WideWorkArea
     {
@@ -1830,6 +1829,23 @@ public sealed class MainViewModel : Observable
             Raise(nameof(WideWorkArea));
         }
     }
+
+    /// <summary>
+    /// The pages' explanations inline (the show remembers it). Off, they sit behind ? TIPS on
+    /// the page strip and the controls have the room.
+    /// </summary>
+    public bool ShowHints
+    {
+        get => State.Desk.ShowHints;
+        set
+        {
+            if (State.Desk.ShowHints == value) return;
+            State.Desk.ShowHints = value;
+            Raise(nameof(ShowHints));
+        }
+    }
+
+    /// <summary>The EDIT toggle: on = open the sandbox, off = discard. CUT/TAKE close it too.</summary>
 
     public bool IsSandboxActive
     {

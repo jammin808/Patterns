@@ -1151,6 +1151,7 @@ public sealed class DeskLayoutConfig : Observable
     private double _editorWidth = DefaultEditorWidth;
     private double _programShare = DefaultProgramShare;
     private bool _wideWorkArea;
+    private bool _showHints;
 
     /// <summary>The page column's width in pixels (the divider between the page and the screens).</summary>
     public double EditorWidth
@@ -1168,6 +1169,12 @@ public sealed class DeskLayoutConfig : Observable
 
     /// <summary>The page takes the room; the screens shrink to a strip on the right.</summary>
     public bool WideWorkArea { get => _wideWorkArea; set => Set(ref _wideWorkArea, value); }
+
+    /// <summary>
+    /// The pages' explanations shown inline. Off (the default) they live behind ? TIPS on the
+    /// page strip, and the room goes to the controls.
+    /// </summary>
+    public bool ShowHints { get => _showHints; set => Set(ref _showHints, value); }
 }
 
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>

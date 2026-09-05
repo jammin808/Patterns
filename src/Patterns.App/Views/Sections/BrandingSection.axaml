@@ -34,13 +34,13 @@
     </Grid>
     <CheckBox Content="Apply brand colours to patterns"
               IsChecked="{Binding State.Brand.ApplyToPatterns}" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Accents, checkerboards, colour cycles, particles and overlay text pick up the brand kit. Measurement lines stay neutral so patterns remain accurate." />
 
     <TextBlock Classes="h2" Text="TYPE" />
     <ComboBox ItemsSource="{Binding FontFamilies}"
               SelectedItem="{Binding SelectedFontFamily, Mode=TwoWay}" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Font for clock, countdown, messages and pattern chips — any font installed on this machine. The built-in Inter always works and travels with the app." />
 
     <TextBlock Classes="h2" Text="LOGO" />
@@ -48,13 +48,13 @@
       <TextBox Grid.Column="0" Watermark="Logo file (PNG with alpha recommended)" Text="{Binding State.Brand.LogoPath}" />
       <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseLogoCommand}" />
     </Grid>
-    <TextBlock Classes="hint" Text="Use it as a watermark (Overlays page) or as a particle sprite (Logo shape)." />
+    <TextBlock Classes="hint tip" Text="Use it as a watermark (Overlays page) or as a particle sprite (Logo shape)." />
 
     <TextBlock Classes="h2" Text="BRAND KITS" />
     <StackPanel Orientation="Horizontal" Spacing="8">
       <Button Classes="chip" Content="Save kit" Command="{Binding SaveBrandKitCommand}" />
       <Button Classes="chip" Content="Load kit…" Command="{Binding LoadBrandKitCommand}" />
     </StackPanel>
-    <TextBlock Classes="hint" Text="Kits are JSON files in the portable 'brandkits' folder — keep one per client." />
+    <TextBlock Classes="hint tip" Text="Kits are JSON files in the portable 'brandkits' folder — keep one per client." />
   </StackPanel>
 </UserControl>

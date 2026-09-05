@@ -10,10 +10,11 @@
     <Setter Property="Padding" Value="14" />
   </Style>
 
+  <!-- Type: the window sets 15 px as the base; headings, labels and chips step from it. -->
   <Style Selector="TextBlock.h1">
-    <Setter Property="FontSize" Value="17" />
+    <Setter Property="FontSize" Value="20" />
     <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="Margin" Value="0,0,0,10" />
+    <Setter Property="Margin" Value="0,0,0,12" />
   </Style>
 
   <!-- Subtle neon section identity: tab dots and tinted h1 headings -->
@@ -363,7 +364,7 @@
   </Style>
 
   <Style Selector="TextBlock.h2">
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
     <Setter Property="Margin" Value="0,12,0,6" />
@@ -371,14 +372,46 @@
 
   <Style Selector="TextBlock.label">
     <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <!-- hint = a small dim line (a status readout, a label in a row); hint tip = an explanation.
+       The window wears nohints (the show's ShowHints off, the default) and the explanations fold
+       away behind ? TIPS on the page strip; the readouts stay. -->
   <Style Selector="TextBlock.hint">
     <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
-    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontSize" Value="12" />
     <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="Window.nohints TextBlock.tip">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <!-- The ? TIPS flyout: the page's explanations under their headings -->
+  <Style Selector="Button.help">
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="Margin" Value="12,0,0,0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Background" Value="#14232E" />
+    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource AccentDimBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="TextBlock.tipHead">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="1.5" />
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+    <Setter Property="Margin" Value="0,10,0,2" />
+  </Style>
+  <Style Selector="TextBlock.tipText">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="#D5DAE3" />
+    <Setter Property="Margin" Value="0,2,0,4" />
   </Style>
 
   <!-- Compact controls in parameter panels -->
@@ -386,11 +419,11 @@
     <Setter Property="Margin" Value="0,3" />
   </Style>
   <Style Selector="NumericUpDown">
-    <Setter Property="MinHeight" Value="30" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="FontSize" Value="14" />
   </Style>
   <Style Selector="ComboBox">
-    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="MinHeight" Value="32" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
   </Style>
 
@@ -456,10 +489,12 @@
     <Setter Property="Background" Value="{StaticResource DangerBrush}" />
   </Style>
 
-  <Style Selector="Button.chip">
-    <Setter Property="Padding" Value="10,6" />
+  <!-- A bare type selector matches that type alone, so the toggles wearing chip and mini are
+       named as well — otherwise ▶ PLAY, SYNC CHECK, EDIT SAFE and WIDE sit at the theme's size. -->
+  <Style Selector="Button.chip, ToggleButton.chip">
+    <Setter Property="Padding" Value="12,7" />
     <Setter Property="CornerRadius" Value="14" />
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="Background" Value="#20242E" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="BorderBrush" Value="Transparent" />
@@ -507,11 +542,11 @@
     <Setter Property="Foreground" Value="#FFFFFF" />
   </Style>
 
-  <Style Selector="Button.mini">
-    <Setter Property="Padding" Value="7,3" />
+  <Style Selector="Button.mini, ToggleButton.mini">
+    <Setter Property="Padding" Value="8,4" />
     <Setter Property="Margin" Value="2,0,0,0" />
     <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="Background" Value="#20242E" />
   </Style>
 
@@ -545,7 +580,7 @@
   </Style>
   <Style Selector="Button.navGroup TextBlock.navlabel">
     <Setter Property="Foreground" Value="#C8D0DC" />
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="LetterSpacing" Value="1.5" />
   </Style>
@@ -554,9 +589,9 @@
   </Style>
 
   <Style Selector="Button.pageChip">
-    <Setter Property="Padding" Value="11,5" />
+    <Setter Property="Padding" Value="12,6" />
     <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="14" />
     <Setter Property="Background" Value="#1A1D24" />
     <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
     <Setter Property="BorderThickness" Value="1" />
@@ -574,10 +609,19 @@
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="Padding" Value="3" />
   </Style>
+  <!-- MODE (PREP · SHOW) and LAYOUT (RUN) each carry a caption, so the header says which is which. -->
+  <Style Selector="TextBlock.modeCaption">
+    <Setter Property="FontSize" Value="9" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="1.5" />
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,0,0,2" />
+  </Style>
   <Style Selector="Button.mode">
-    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="Padding" Value="16,6" />
     <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontSize" Value="13" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="#98A1B1" />

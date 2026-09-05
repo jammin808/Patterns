@@ -23,14 +23,14 @@
       <TextBlock Classes="label" Text="Open on a phone or tablet on this network:" Margin="0,4,0,0" />
       <TextBox Text="{Binding RemoteUrlsText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                FontFamily="Consolas,monospace" />
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="The web remote drives presenter next/back, looks, transport, blackout, screens and the audio track — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens and canvas groups map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
     </StackPanel>
 
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Watchdog, performance monitoring, GPU choice and machine health live on the Machine page (ADMIN)." />
 
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Pages open as managed browser windows (Edge or Chrome, private profile), so they never touch your own browser and close from here with one click." />
 
     <TextBlock Classes="h2" Text="PAGE" />
@@ -51,7 +51,7 @@
               Margin="0,0,0,6" ToolTip.Tip="Close every web window Patterns opened" />
     </WrapPanel>
     <TextBlock Classes="label" Text="{Binding WebStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Full screen = kiosk (in), windowed = out; Esc inside a kiosk window also exits its full screen. Opened pages are remembered below." />
 
     <TextBlock Classes="h2" Text="SAVED PAGES" />
@@ -74,7 +74,7 @@
     </ItemsControl>
 
     <TextBlock Classes="h2" Text="GOOD TO KNOW" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Web windows sit on top of the operating system, not inside the pattern engine — they don't join spans, take trims, or reach NDI outputs. For that, open the page on another machine and bring it in as an NDI feed (Media page)." />
   </StackPanel>
 </UserControl>

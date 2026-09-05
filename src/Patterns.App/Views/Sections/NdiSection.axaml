@@ -54,7 +54,7 @@
 
     <Button Classes="chip" Content="+ Add NDI sender" Command="{Binding AddNdiSenderCommand}" />
 
-    <TextBlock Classes="hint" Margin="0,8,0,0"
+    <TextBlock Classes="hint tip" Margin="0,8,0,0"
                Text="Each sender is its own NDI source with its own resolution, frame rate and bit depth — and its own screen on the rig (Screens page: FEED SCREENS; the wall shows it). Pick what it shows: the program, a mirror of any screen or joined canvas (kept at that target's shape, bars around it), or its own screen, which takes a look of its own like any screen — OWN on the wall, → PVW and TAKE, a look, a cue. Blackout affects every sender. 10-bit is worth it for ramps and gradient checks; 8-bit is lighter for plain patterns." />
   </StackPanel>
 </UserControl>

@@ -6,11 +6,11 @@
 
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-admin" Text="Machine" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="The machine room: live and historical performance, plain-language suggestions when something needs attention, the graphics card choice, and the tools for keeping a show machine healthy." />
 
     <TextBlock Classes="h2" Text="SUPER-CHECK" />
-    <TextBlock Classes="hint" TextWrapping="Wrap"
+    <TextBlock Classes="hint tip" TextWrapping="Wrap"
                Text="One button: the machine, the graphics card, every display and its mode, the outputs and their frame rate, NDI, the stream, audio, the remote, video playback and the advice — each with a light — and the level of show this hardware is good for. The report is saved beside the exe and can be copied into an email." />
     <WrapPanel>
       <Button Classes="go" Content="RUN SUPER-CHECK" Padding="14,8" Margin="0,0,8,6" Command="{Binding RunSuperCheckCommand}"
@@ -83,7 +83,7 @@
       <TextBlock Grid.Column="1" Classes="label" Text="{Binding AdminGpuText}" VerticalAlignment="Center" TextWrapping="Wrap" />
     </Grid>
     <TextBlock Classes="hint" Text="{Binding AdminExtrasText}" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="A 30-second summary is appended to patterns.metrics.csv beside the exe (rotated at 1 MB) — after a bad night, the record shows what CPU, memory and frame rate were doing." />
     <CheckBox Content="Keep the on-disk performance record (patterns.metrics.csv)"
               IsChecked="{Binding State.Admin.MetricsCsv}" />
@@ -133,7 +133,7 @@
     </Grid>
     <TextBlock Classes="label" Text="{Binding GpuActiveText}" />
     <TextBlock Classes="label" Text="{Binding GraphicsApplyStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="By default Patterns detects the best card (most video memory, discrete first) and registers it with Windows so video decoding uses the same card — on laptops this is what stops the show rendering on the battery-saver GPU. Changing it needs an app restart." />
 
     <TextBlock Classes="h2" Text="THIS COMPUTER" />
@@ -156,7 +156,7 @@
     <Button Classes="stop" Content="RESTART APP (SHOW COMES BACK)" Padding="14,8" Margin="0,6,0,0"
             Command="{Binding RestartAppCommand}"
             ToolTip.Tip="Exits and relaunches through the watchdog — outputs and the audio track are restored in seconds. Use it to apply a GPU change or clear a suspected leak at a break." />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="A tiny supervisor runs the app as its child (two Patterns.exe in Task Manager — that's this). If the app crashes, or its interface stops responding for 30 seconds, it is restarted within seconds with the same settings and the outputs re-opened. Restarts back off and stop if something crashes over and over (see patterns.watchdog.log). Individual render faults never need it — they're contained per frame and counted above." />
   </StackPanel>
 </UserControl>

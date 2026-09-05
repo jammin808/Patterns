@@ -9,7 +9,7 @@
     <TextBlock Classes="h1 neon-audio" Text="Audio" />
 
     <TextBlock Classes="h2" Text="AUDIO TRACK" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="An independent music/announcement track — plays whatever is on screen, to the default output or any set of devices (each HDMI screen is an audio device, so a track can follow all screens, one, or a group)." />
     <Grid ColumnDefinitions="*,8,Auto">
       <TextBox Grid.Column="0" Watermark="MP3, WAV, FLAC…" Text="{Binding State.AudioPlayer.Path}" />
@@ -47,11 +47,11 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="The computer audio output is the default Windows device — usually the jack or interface feeding the venue sound system — and it combines with HDMI screens (tick both to play everywhere at once). Each output has its own delay offset for lip sync. Device changes apply on the next play." />
 
     <TextBlock Classes="h2" Text="MASTER CLOCK &amp; SYNC" />
-    <TextBlock Classes="hint" TextWrapping="Wrap"
+    <TextBlock Classes="hint tip" TextWrapping="Wrap"
                Text="Every audio device runs on a clock of its own, and none of them is the show's: over two hours a sound card fifty parts per million off is a third of a second out. With the lock on, every output's sound is resampled by the drift its clock shows against the master clock — the same clock the pictures, the fades and the ducks run on — so a two-hour track ends when the pictures do. The offsets above hold a picture and its sound together; the sync check lets you measure them." />
     <CheckBox Content="Lock the outputs to the master clock (resample away the drift)" IsChecked="{Binding State.AudioPlayer.SyncLock}" />
     <TextBlock Classes="label" Text="{Binding SyncStatus}" TextWrapping="Wrap" />
@@ -66,12 +66,12 @@
     <Grid ColumnDefinitions="Auto,12,*">
       <ToggleButton Classes="mini" Content="SYNC CHECK" IsChecked="{Binding SyncCheck, Mode=TwoWay}"
                     ToolTip.Tip="Every two seconds on the master clock, every screen, NDI send and the stream flash white and the tone output clicks. Film a screen with a phone (or watch the stream and the room together): the gap between the flash and the click is the offset to dial in above" />
-      <TextBlock Grid.Column="2" Classes="hint" VerticalAlignment="Center" TextWrapping="Wrap"
+      <TextBlock Grid.Column="2" Classes="hint tip" VerticalAlignment="Center" TextWrapping="Wrap"
                  Text="A flash on every sink and a click on the tone output at the same master instant, every two seconds — measure the gap, set the offsets, switch it off." />
     </Grid>
 
     <TextBlock Classes="h2" Text="BREAK MUSIC (SPOTIFY)" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Plays your Spotify playlists in the room during breaks and while people arrive. The sound comes out of the Spotify app on this machine (or any Spotify Connect device) — Patterns tells it what to play, how loud and when to stop, and reads back what is on. It ducks under a VOG sound and fades under a stinger, like the music track does, and STOP ALL pauses it. Needs Spotify Premium and your own free Client ID from the Spotify developer dashboard." />
     <CheckBox Content="Use Spotify for break music" IsChecked="{Binding State.Spotify.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Spotify.Enabled}">
@@ -79,10 +79,10 @@
         <TextBlock Classes="label" Text="Client ID" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Text="{Binding SpotifyClientId, UpdateSourceTrigger=LostFocus}" Watermark="Client ID from your Spotify app" />
       </Grid>
-      <TextBlock Classes="hint" Text="Add all three of these as Redirect URIs in your Spotify app settings:" />
+      <TextBlock Classes="hint tip" Text="Add all three of these as Redirect URIs in your Spotify app settings:" />
       <TextBox Text="{Binding SpotifyRedirectUris, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                FontFamily="Consolas,Menlo,monospace" />
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Spotify has not accepted 'localhost' since April 2025 — these loopback addresses are the supported form for a desktop app. Three, so a busy port never blocks sign-in." />
       <WrapPanel>
         <Button Classes="go" Content="CONNECT" Command="{Binding SpotifyConnectCommand}" Margin="0,0,8,6" />
@@ -101,7 +101,7 @@
         </ComboBox>
         <Button Grid.Column="3" Classes="mini" Content="Refresh devices" Command="{Binding RefreshSpotifyDevicesCommand}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Leave the device blank to play on whatever Spotify is currently using. If the chosen device is not on Spotify when a cue fires, the music plays on the active device and says so rather than refusing. Which sound output Spotify itself uses is set in Spotify." />
       <Grid ColumnDefinitions="130,*,44">
         <TextBlock Classes="label" Text="Level" VerticalAlignment="Center" />
@@ -110,7 +110,7 @@
         <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                    Text="{Binding State.Spotify.LevelPct, StringFormat={}{0:0}%}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="The Spotify device's own volume. It drops to the Music duck level below while a VOG sound plays and fades out under a stinger, like the music track." />
       <Grid ColumnDefinitions="130,*,8,Auto,8,Auto">
         <TextBlock Classes="label" Text="Spotify link" VerticalAlignment="Center" />
@@ -119,7 +119,7 @@
         <Button Grid.Column="5" Classes="mini" Content="BROWSE SONGS" Command="{Binding BrowseSpotifyLinkCommand}"
                 ToolTip.Tip="List the songs inside a playlist, album or artist link, to add them one at a time" />
       </Grid>
-      <TextBlock Classes="hint" Text="In Spotify: right-click a playlist, album or song → Share → Copy link, then paste it here. ADD keeps the whole thing as one button; BROWSE SONGS lists what is inside so single songs can be added." />
+      <TextBlock Classes="hint tip" Text="In Spotify: right-click a playlist, album or song → Share → Copy link, then paste it here. ADD keeps the whole thing as one button; BROWSE SONGS lists what is inside so single songs can be added." />
       <Grid ColumnDefinitions="130,*,8,Auto,8,Auto,8,Auto">
         <TextBlock Classes="label" Text="My playlists" VerticalAlignment="Center" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding SpotifyPlaylists}" SelectedItem="{Binding SelectedSpotifyPlaylist}"
@@ -149,7 +149,7 @@
                  ToolTip.Tip="Search results — pick one and ADD" />
         <Button Grid.Column="2" Classes="chip" Content="ADD" VerticalAlignment="Top" Command="{Binding AddSpotifySearchHitCommand}" />
       </Grid>
-      <TextBlock Classes="hint" Text="Browsing and searching work on any Spotify account. Starting the music needs Premium — Spotify lets no app control a free account's playback. A look can start (or pause) an entry from here when it goes on air: the Music picker on the Looks page." />
+      <TextBlock Classes="hint tip" Text="Browsing and searching work on any Spotify account. Starting the music needs Premium — Spotify lets no app control a free account's playback. A look can start (or pause) an entry from here when it goes on air: the Music picker on the Looks page." />
       <Button Classes="stop" Content="❚❚ PAUSE BREAK MUSIC" Command="{Binding PauseMusicCommand}" HorizontalAlignment="Left" />
       <ItemsControl ItemsSource="{Binding State.Spotify.Items}">
         <ItemsControl.ItemTemplate>
@@ -172,12 +172,12 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
       <TextBlock Classes="label" Text="{Binding SpotifyStatus}" TextWrapping="Wrap" />
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="Patterns controls Spotify; it does not play the audio itself — Spotify's DRM does not allow that. A development-mode Client ID from the Spotify dashboard allows up to five listed Premium accounts; a business gets more. Your sign-in is kept in patterns.spotify.json beside the settings file and never travels inside a show file. Switching break music off leaves whatever is playing on Spotify — use PAUSE or STOP ALL first. Closing Patterns leaves the music playing too." />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="VOG &amp; STINGERS" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="One-press sounds and clips, fired from here, the Show panel, a cue, a phone or a Stream Deck — no audio engineer needed. A VOG (voice of God) plays over the show — 'Take your seats, the show is about to begin' — the music ducks underneath, and a clip hands the screens back when it ends. A STINGER is a transition hit: the music fades out, a clip dissolves in, and when it lands the show goes where you say — back to what was on, held for your take, on to the next cue, or to a look or cue you name. New files start as VOGs; switch a row to Stinger to give it an ending. An EFFECT PULSE is a stinger with no file: a surge through the particles and fractals on screen — an explosion, a rush, a flash, a bloom — that settles back by itself, owns nothing and changes no music; fire it alone, over a clip, or in a cue beside a look." />
     <WrapPanel>
       <Button Classes="chip" Content="+ Add sounds / clips…" Command="{Binding AddStingerFilesCommand}" Margin="0,0,8,6" />
@@ -307,18 +307,18 @@
       <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                  Text="{Binding State.Stingers.HoldSeconds, StringFormat={}{0} s}" />
     </Grid>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Music duck: how loud the music track stays while a VOG sound plays (0% = silent, then it comes back by itself). Live duck: what the music, a playing stinger and a clip's sound hold at while someone speaks from the room — press D, the DUCK key in the SHOW CONTROLS drawer, a Companion key or DUCK on the phone; it stays until you lift it, and STOP ALL leaves it. Sting fade: how quickly the music fades out under a stinger, how quickly the picture dissolves into a clip, and how quickly the music comes back (0 = a hard cut). Stop fade: how a sound or clip that is stopped — by STOP, by the next press, by a cue moving on — leaves the air: a fade to silence, never a cut, and a stopped sound is silenced for good, so it can never be heard again under the next one. Hold limit: a stinger set to hold gives the show back by itself after this long — 0 means it holds until you take it, so cut stings with a hold frame. Sounds use the track's device selection above; a clip's sound plays like any video." />
     <TextBlock Classes="label" Text="{Binding StingerStatus}" TextWrapping="Wrap" />
 
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Soundcheck signal for the audio engineer: a reference tone, or a channel ident — one pip LEFT, two pips RIGHT — with a matching on-screen indicator on every output, so what you see is what they hear." />
 
     <TextBlock Classes="h2" Text="TONE GENERATOR" />
     <ToggleButton Classes="blackout" Content="TONE ON / OFF" IsChecked="{Binding State.Tone.Enabled}"
                   HorizontalAlignment="Left" Padding="16,8" />
     <TextBlock Classes="label" Text="{Binding ToneStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint" Text="The tone never auto-starts with the app — it always comes up off." />
+    <TextBlock Classes="hint tip" Text="The tone never auto-starts with the app — it always comes up off." />
 
     <StackPanel IsEnabled="{Binding State.Tone.Enabled}">
       <Grid ColumnDefinitions="130,*">
@@ -351,7 +351,7 @@
         <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                    Text="{Binding State.Tone.LevelDb, StringFormat={}{0:0} dB}" />
       </Grid>
-      <TextBlock Classes="hint"
+      <TextBlock Classes="hint tip"
                  Text="-18 dBFS is a common line-up level. The tone plays on the default Windows audio device; channel ident shows LEFT / RIGHT on screen in time with the pips." />
     </StackPanel>
   </StackPanel>

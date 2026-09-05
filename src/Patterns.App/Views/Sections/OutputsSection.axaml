@@ -15,7 +15,7 @@
                     ToolTip.Tip="Build the rig at the desk with no hardware — the outputs stay held until you switch to SHOW" />
       <TextBlock Classes="label" Text="{Binding PrepSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
     </StackPanel>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="PREP is for the day before: add the screens the venue will have, arrange and label them, give each its pattern, type in the NDI and capture names the rig will use, and build every look — all without a display, a camera or a wall attached. Outputs are held closed so nothing can go live by accident. At the venue, switch to SHOW and adopt each planned screen onto the display it turned out to be; everything programmed against it comes with it." />
 
     <TextBlock Classes="h2" Text="PLANNED SCREENS" IsVisible="{Binding PlannedScreenCount, Converter={StaticResource Positive}}" />
@@ -62,8 +62,10 @@
     </StackPanel>
 
     <TextBlock Classes="h2" Text="FEED SCREENS (NDI SENDS, THE STREAM)" IsVisible="{Binding VirtualScreenCount, Converter={StaticResource Positive}}" />
-    <TextBlock Classes="hint" IsVisible="{Binding VirtualScreenCount, Converter={StaticResource Positive}}"
+    <Panel IsVisible="{Binding VirtualScreenCount, Converter={StaticResource Positive}}">
+    <TextBlock Classes="hint tip"
                Text="Every NDI send owns a screen of its own, and the stream does while it is set to its own screen. They are screens like any other — arrange them, OWN them on the wall, give them a look of their own, put them in a multiview or a cue — but never a window, never adopted onto a display, never joined to one by touching. A send that mirrors another target still owns one; what the send shows is chosen on the NDI page, the stream's source on the Stream page. The size follows the feed." />
+    </Panel>
     <ItemsControl ItemsSource="{Binding State.Output.Placements}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:ScreenPlacement">
@@ -87,7 +89,7 @@
             BorderThickness="1" Height="320" ClipToBounds="True">
       <c:ScreenArrangeControl />
     </Border>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Tiles show the live content of each screen. Drag a screen flush against another to join them into one big canvas (it glows green when it will connect); drag it away to split. Click a tile to select it." />
     <TextBlock Classes="label" Text="{Binding GroupSummary}" Margin="0,2,0,0" />
 
@@ -98,7 +100,7 @@
                 SelectedValue="{Binding MasterFps, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:FpsOption}" />
     </Grid>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="The show's frame rate. Every output presents at it — a 30 fps show on 60 Hz displays draws every other refresh, evenly, on one clock — an NDI sender set to 'master' sends at it, and the stream can follow it. Unlimited leaves every display at its own refresh. A screen below can override it." />
 
     <TextBlock Classes="h2" Text="SELECTED SCREEN" />
@@ -122,20 +124,24 @@
         <CheckBox Content="Custom pattern for this screen"
                   IsChecked="{Binding SelectedUseCustom, Mode=TwoWay}"
                   IsEnabled="{Binding !SelectedIsGrouped}" />
-        <TextBlock Classes="hint" IsVisible="{Binding SelectedIsGrouped}"
-                   Text="This screen is part of a joined canvas — the canvas shows the program pattern. Drag it away to give it its own pattern." />
+        <Panel IsVisible="{Binding SelectedIsGrouped}">
+          <TextBlock Classes="hint tip"
+                     Text="This screen is part of a joined canvas — the canvas shows the program pattern. Drag it away to give it its own pattern." />
+        </Panel>
         <CheckBox Margin="0,4,0,0" Content="Direct output — bypass the desktop compositor"
                   IsChecked="{Binding SelectedDirectOutput, Mode=TwoWay}" IsVisible="{Binding SelectedIsDisplay}"
                   ToolTip.Tip="Windows hands this window straight to its display through the flip path — no composition frame, no compositor jitter. The swap chain behind it is chosen when Patterns starts." />
         <TextBlock Classes="hint" Text="{Binding DirectOutputStatus}" TextWrapping="Wrap" IsVisible="{Binding SelectedIsDisplay}" />
-        <TextBlock Classes="hint" IsVisible="{Binding SelectedIsDisplay}"
-                   Text="With it, a hardware card renders and Windows flips this window straight to its display while it covers the display alone — the compositor's frame of latency and its jitter go. The swap chain behind it is process-wide and chosen at start: tick, save, restart Patterns. A start that fails to reach the desk with it is held off next time and the line above says so; untick and tick to try again." />
+        <Panel IsVisible="{Binding SelectedIsDisplay}">
+          <TextBlock Classes="hint tip"
+                     Text="With it, a hardware card renders and Windows flips this window straight to its display while it covers the display alone — the compositor's frame of latency and its jitter go. The swap chain behind it is process-wide and chosen at start: tick, save, restart Patterns. A start that fails to reach the desk with it is held off next time and the line above says so; untick and tick to try again." />
+        </Panel>
 
         <TextBlock Classes="label" Text="Orientation" Margin="0,8,0,0" />
         <ComboBox ItemsSource="{Binding Rotations}"
                   SelectedValue="{Binding SelectedRotation, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
-        <TextBlock Classes="hint"
+        <TextBlock Classes="hint tip"
                    Text="For displays mounted in portrait or upside down: content is rendered upright and rotated at output. The overview above shows the rotated shape." />
 
         <TextBlock Classes="label" Text="Frame rate" Margin="0,8,0,0" />
@@ -153,7 +159,7 @@
           <Button Grid.Column="6" Classes="chip" Content="REVERT" Command="{Binding RevertDisplayModeCommand}" IsVisible="{Binding DisplayModePending}" />
         </Grid>
         <TextBlock Classes="hint" Text="{Binding DisplayModeStatus}" TextWrapping="Wrap" />
-        <TextBlock Classes="hint"
+        <TextBlock Classes="hint tip"
                    Text="Lists the modes the display's own EDID offers and applies one through Windows, so a 1080p50 wall or a 4K projector gets the signal it expects. A change waits for KEEP and reverts by itself in 15 s if the picture is lost; everything programmed for the screen — placement, pattern, canvases, senders, looks — follows it across the change. Close the outputs first." />
 
         <TextBlock Classes="label" Text="Output trims" Margin="0,8,0,0" />
@@ -187,7 +193,7 @@
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Classes="chip" Content="Reset trims" Command="{Binding ResetTrimsCommand}" />
         </StackPanel>
-        <TextBlock Classes="hint"
+        <TextBlock Classes="hint tip"
                    Text="Per-screen brightness / gamma / RGB balance for matching mismatched house displays. Applies to this output only — NDI and other screens are untouched." />
 
         <TextBlock Classes="label" Text="Corner warp (keystone) — px offsets" Margin="0,8,0,0" />
@@ -216,7 +222,7 @@
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Classes="chip" Content="Reset warp" Command="{Binding ResetWarpCommand}" />
         </StackPanel>
-        <TextBlock Classes="hint"
+        <TextBlock Classes="hint tip"
                    Text="Pulls each corner of this output by the given pixels — a light keystone for casually placed projectors, not a full warp engine. Positive X moves right, positive Y moves down." />
 
         <TextBlock Classes="label" Text="Edge blend (projectors)" Margin="0,8,0,0" />
@@ -251,7 +257,7 @@
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Classes="chip" Content="Reset blend" Command="{Binding ResetBlendCommand}" />
         </StackPanel>
-        <TextBlock Classes="hint"
+        <TextBlock Classes="hint tip"
                    Text="Two projectors that overlap on the wall: tick Automatic on both, drag one over the other by the overlap, and the overlap becomes a joined canvas that both draw, each fading its shared edge to black so the light adds up to one picture. Put the Projection blend pattern's grey check on the canvas and turn the gamma until the overlap reads as flat as the rest. Only this output fades; NDI, monitors and the preview never do." />
       </StackPanel>
     </Border>
@@ -261,7 +267,7 @@
       <Button Classes="chip" Content="Identify screens" Command="{Binding IdentifyCommand}" />
       <Button Classes="chip" Content="Reset layout" Command="{Binding ResetLayoutCommand}" />
     </StackPanel>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Your main (primary) screen stays off by default when other screens are present, so OUTPUTS ON never covers the controls — tick 'Output enabled' to include it anyway." />
 
     <TextBlock Classes="h2" Text="TRANSITIONS" />
@@ -273,13 +279,13 @@
       <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                  Text="{Binding State.Transition.DurationMs, StringFormat={}{0:0}}" />
     </Grid>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="Look recalls, cues, playlist advances, source changes and blackout crossfade on every screen and NDI output — synchronised across spans. A cue's look can carry its own cut or fade. Setting tweaks stay instant." />
 
     <TextBlock Classes="h2" Text="EDIT SAFE" />
     <CheckBox Content="Previews are sandboxed by default (EDIT SAFE on at start, re-armed after every send)"
               IsChecked="{Binding State.Switcher.EditSafeByDefault}" />
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="On (recommended): the preview opens detached, so touching any editor — screens, outputs, inputs, patterns — never reaches the audience until you CUT or TAKE, and EDIT SAFE re-arms itself after each send. Things you fire still go straight to air: F-key looks, cues, stingers, the SHOW CONTROLS drawer and remote commands. Off: the preview mirrors the program and every edit is live." />
 
     <TextBlock Classes="h2" Text="WINDOW BEHAVIOUR" />
@@ -291,7 +297,7 @@
       <Button Classes="go" Content="OUTPUTS ON" Command="{Binding GoCommand}" Focusable="False" />
       <Button Classes="stop" Content="OUTPUTS OFF" Command="{Binding StopCommand}" Focusable="False" />
     </StackPanel>
-    <TextBlock Classes="hint"
+    <TextBlock Classes="hint tip"
                Text="On an output window: Esc twice within a second closes outputs · Space/B blackout · I identify. Layout changes apply live while outputs run." />
   </StackPanel>
 </UserControl>
