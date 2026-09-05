@@ -85,11 +85,15 @@ public sealed class ActionRow : Observable
 {
     private readonly CueEditor _editor;
 
+    /// <summary>The Person picker's first row: the design shows the fields it carries.</summary>
+    public static readonly PickItem AsDesigned = new("", "As designed — the fields the design carries");
+
     public ActionRow(CueEditor editor, CueActionConfig action)
     {
         _editor = editor;
         Action = action;
         TargetChoices = new ObservableCollection<PickItem>();
+        PersonChoices = new ObservableCollection<PickItem>();
         RefreshChoices();
     }
 
@@ -111,9 +115,12 @@ public sealed class ActionRow : Observable
             Raise(nameof(SelectedKind));
             Raise(nameof(HasTarget));
             Raise(nameof(HasValue));
+            Raise(nameof(HasPersonValue));
+            Raise(nameof(HasTextValue));
             Raise(nameof(TargetHint));
             Raise(nameof(ValueHint));
             Raise(nameof(SelectedTarget));
+            Raise(nameof(SelectedPerson));
             Raise(nameof(Value));
             _editor.OnCueEdited();
         }
@@ -121,9 +128,36 @@ public sealed class ActionRow : Observable
 
     public ObservableCollection<PickItem> TargetChoices { get; }
 
+    /// <summary>The library for a Person value: as designed first, then every entry in page order.</summary>
+    public ObservableCollection<PickItem> PersonChoices { get; }
+
     public bool HasTarget => CueActionSpec.For(Action.Kind).Target != TargetKind.None;
 
     public bool HasValue => CueActionSpec.For(Action.Kind).Value != ValueKind.None;
+
+    /// <summary>The value is a person from the lower-thirds library: a picker, not a text box.</summary>
+    public bool HasPersonValue => CueActionSpec.For(Action.Kind).Value == ValueKind.Person;
+
+    public bool HasTextValue => HasValue && !HasPersonValue;
+
+    public PickItem? SelectedPerson
+    {
+        get
+        {
+            if (Action.Value.Length == 0) return PersonChoices.FirstOrDefault(p => p.Id.Length == 0) ?? AsDesigned;
+            return PersonChoices.FirstOrDefault(p => p.Id == Action.Value)
+                   ?? PersonChoices.FirstOrDefault(p => string.Equals(p.Label, Action.Value, StringComparison.OrdinalIgnoreCase))
+                   ?? new PickItem(Action.Value, $"{Action.Value} (not in the library)");
+        }
+        set
+        {
+            if (value is null || value.Id == Action.Value) return;
+            Action.Value = value.Id;
+            Raise(nameof(SelectedPerson));
+            Raise(nameof(Value));
+            _editor.OnCueEdited();
+        }
+    }
 
     public string TargetHint => CueActionSpec.For(Action.Kind).Target switch
     {
@@ -145,6 +179,7 @@ public sealed class ActionRow : Observable
         ValueKind.Text => "the message text",
         ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
         ValueKind.Level => "percent, 0–100 (the Spotify device's own volume)",
+        ValueKind.Person => "who: a library entry (blank = as designed)",
         _ => "",
     };
 
@@ -189,6 +224,19 @@ public sealed class ActionRow : Observable
             TargetChoices.Add(new PickItem(target, $"{target} (not found)"));
         }
         Raise(nameof(SelectedTarget));
+
+        PersonChoices.Clear();
+        if (HasPersonValue)
+        {
+            PersonChoices.Add(AsDesigned);
+            foreach (var item in _editor.PeopleChoices()) PersonChoices.Add(item);
+            var value = Action.Value;
+            if (value.Length > 0 && PersonChoices.All(p => p.Id != value && !string.Equals(p.Label, value, StringComparison.OrdinalIgnoreCase)))
+            {
+                PersonChoices.Add(new PickItem(value, $"{value} (not in the library)"));
+            }
+        }
+        Raise(nameof(SelectedPerson));
     }
 }
 
@@ -605,6 +653,10 @@ public sealed class CueEditor : Observable
         actions.Move(index, target);
         OnCueEdited();
     }
+
+    /// <summary>The lower-thirds library for a Person value, in page order: the id, the name and what the row says.</summary>
+    public IEnumerable<PickItem> PeopleChoices()
+        => _s.State.LowerThirds.Entries.Select(e => new PickItem(e.Id, e.Summary.Length > 0 ? $"{e.Name} — {e.Summary}" : e.Name));
 
     /// <summary>The pickers for one target kind, from the live show.</summary>
     public IEnumerable<PickItem> ChoicesFor(TargetKind kind)

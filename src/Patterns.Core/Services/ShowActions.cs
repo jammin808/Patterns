@@ -84,7 +84,12 @@ public enum ShowActionKind
     DuckOn,
     DuckOff,
     DuckToggle,
-    /// <summary>Target = a lower third's id, name or 1-based number (Lower thirds page order): it goes on air (again restarts its way in).</summary>
+    /// <summary>
+    /// Target = a lower third's id, name or 1-based number (Lower thirds page order), or empty for
+    /// the one on air (else the first); Value = a library entry (id, name or number) recalled into it
+    /// first — its name, role, company and photo — or empty for the design as it is. It goes on air
+    /// (again restarts its way in).
+    /// </summary>
     LowerThirdShow,
     /// <summary>The lower third on air leaves the way it was designed to.</summary>
     LowerThirdHide,

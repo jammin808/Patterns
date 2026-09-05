@@ -1,3 +1,4 @@
+using Patterns.Core.LowerThirds;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -315,8 +316,22 @@ public sealed class ShowActions
                 return ActionResult.Done("Clock off.");
             case ShowActionKind.LowerThirdShow:
             {
-                var design = State.LowerThirds.Find(a.Target) ?? _s.AirState.LowerThirds.Find(a.Target);
-                if (design is null) return ActionResult.Refused($"Lower third '{a.Target}' not found.");
+                // An empty target is the design on air (else the last shown, else the first): a person recalled into whatever is showing.
+                var design = a.Target.Length == 0
+                    ? DefaultLowerThird()
+                    : State.LowerThirds.Find(a.Target) ?? _s.AirState.LowerThirds.Find(a.Target);
+                if (design is null)
+                {
+                    return ActionResult.Refused(a.Target.Length == 0 ? "No lower third design in the show." : $"Lower third '{a.Target}' not found.");
+                }
+                LowerThirdEntry? who = null;
+                if (a.Value.Length > 0)
+                {
+                    // A wrong name must never reach the screen: an entry that is not there refuses the show.
+                    who = State.LowerThirds.FindEntry(a.Value) ?? _s.AirState.LowerThirds.FindEntry(a.Value);
+                    if (who is null) return ActionResult.Refused($"'{a.Value}' is not in the lower-thirds library.");
+                    LowerThirdsConfig.Fill(design, who); // the edited design too, so the designer and the tally read what is on
+                }
                 var now = ShowClock.UtcNow;
                 _s.EditAir(air =>
                 {
@@ -327,9 +342,10 @@ public sealed class ShowActions
                         onAir = design.Clone(newId: false);
                         air.LowerThirds.Designs.Add(onAir);
                     }
+                    if (who is not null) LowerThirdsConfig.Fill(onAir, who);
                     air.LowerThirds.Show(onAir, now);
                 });
-                return ActionResult.Done($"Lower third '{design.Name}' on.");
+                return ActionResult.Done(who is null ? $"Lower third '{design.Name}' on." : $"Lower third '{design.Name}' on — {who.Name}.");
             }
             case ShowActionKind.LowerThirdHide:
                 _s.EditAir(air => air.LowerThirds.Hide(ShowClock.UtcNow));
@@ -766,7 +782,7 @@ public sealed class ShowActions
         CueActionKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
         CueActionKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
         CueActionKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
-        CueActionKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, a.Target),
+        CueActionKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, a.Target, a.Value),
         CueActionKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
         CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
         CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
@@ -778,6 +794,15 @@ public sealed class ShowActions
         CueActionKind.Note => new ShowAction(ShowActionKind.Note),
         _ => new ShowAction(ShowActionKind.Unknown),
     };
+
+    /// <summary>The lower third a person goes into when none is named: the one on air, else the last shown, else the first.</summary>
+    private LowerThirdDesign? DefaultLowerThird()
+    {
+        var air = _s.AirState.LowerThirds;
+        var edited = State.LowerThirds;
+        var id = air.ActiveId.Length > 0 ? air.ActiveId : edited.ActiveId;
+        return (id.Length > 0 ? edited.Find(id) ?? air.Find(id) : null) ?? edited.Designs.FirstOrDefault() ?? air.Designs.FirstOrDefault();
+    }
 
     private bool DeskSharesADisplayWithAnOutput()
     {

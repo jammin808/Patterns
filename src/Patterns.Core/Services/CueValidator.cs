@@ -195,9 +195,16 @@ public static class CueValidator
                     break;
                 case CueActionKind.LowerThirdShow:
                 {
-                    var design = state.LowerThirds.Find(a.Target);
-                    if (design is null) Hard($"{where}: lower third '{a.Target}' not found.");
+                    // An empty target means the design on air (else the first): a library entry recalled into whatever is showing.
+                    var design = a.Target.Length == 0 ? state.LowerThirds.Designs.FirstOrDefault() : state.LowerThirds.Find(a.Target);
+                    if (design is null) Hard(a.Target.Length == 0 ? $"{where}: no lower third design in the show." : $"{where}: lower third '{a.Target}' not found.");
                     else if (design.Elements.Count == 0) Soft($"{where}: lower third '{design.Name}' has nothing in it.");
+                    if (a.Value.Length > 0)
+                    {
+                        var who = state.LowerThirds.FindEntry(a.Value);
+                        if (who is null) Hard($"{where}: '{a.Value}' is not in the lower-thirds library — a wrong name must never reach the screen.");
+                        else if (who.Photo.Length > 0 && !ctx.FileExists(who.Photo)) Soft($"{where}: {who.Name}'s photo '{who.Photo}' is missing — the design's picture stays.");
+                    }
                     break;
                 }
                 case CueActionKind.AudioVolume:

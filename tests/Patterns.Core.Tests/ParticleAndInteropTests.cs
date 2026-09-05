@@ -124,6 +124,8 @@ public class NdiInteropLayoutTests
     }
 }
 
+/// <summary>In the InputBus collection: the cadence reads the process-wide sync-marks flag, which the sync tests flip.</summary>
+[Collection("InputBus")]
 public class CadenceTests
 {
     private static ShowSnapshot Snap(Action<ShowState> mutate, DateTime? identifyUntil = null)

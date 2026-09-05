@@ -724,6 +724,8 @@ setInterval(function () {
 <div class="sec" id="ltsec" hidden>LOWER THIRDS</div>
 <div id="lts" class="grid row2"></div>
 <div id="ltnow" class="grid" style="margin-top:10px"></div>
+<div class="sec" id="peoplesec" hidden>PEOPLE (INTO THE LOWER THIRD ON AIR)</div>
+<div id="people" class="grid row2"></div>
 
 <div class="sec" id="musicsec" hidden>BREAK MUSIC</div>
 <div id="music" class="grid row2"></div>
@@ -833,10 +835,22 @@ function render(s) {
   if (s.lowerThird) {
     var b4 = document.createElement('button');
     b4.className = 'stop';
-    b4.textContent = '■ Hide: ' + s.lowerThird;
+    b4.textContent = '■ Hide: ' + s.lowerThird + (s.lowerThirdPerson ? ' — ' + s.lowerThirdPerson : '');
     b4.onclick = function(){ cmd('LT OFF'); };
     ln.appendChild(b4);
   }
+
+  // The library: one button per person (PERSON n, page order) into the design on air; the name on screen lights.
+  var pe = document.getElementById('people'); pe.innerHTML = '';
+  var peopleList = s.people || [];
+  document.getElementById('peoplesec').hidden = peopleList.length === 0;
+  peopleList.forEach(function(x){
+    var b = document.createElement('button');
+    b.innerHTML = esc(x.name) + (x.role ? '<br><span class="k">' + esc(x.role) + '</span>' : '');
+    if (s.lowerThirdPerson && s.lowerThirdPerson === x.name) { b.style.borderColor = 'var(--good)'; b.style.color = 'var(--good)'; }
+    b.onclick = function(){ cmd('PERSON ' + x.n); };
+    pe.appendChild(b);
+  });
 
   var m = s.music || {};
   document.getElementById('musicsec').hidden = !m.on;

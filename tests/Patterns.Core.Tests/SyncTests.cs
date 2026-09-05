@@ -9,6 +9,8 @@ using Xunit;
 namespace Patterns.Core.Tests;
 
 /// <summary>The master clock's audio side: the drift estimator, the lock, the converter, the delay line, the sync marks, the offsets.</summary>
+/// <summary>In the InputBus collection: the sync-marks test flips the process-wide flag the cadence tests read, so they must not run beside it.</summary>
+[Collection("InputBus")]
 public class SyncTests
 {
     [Fact]

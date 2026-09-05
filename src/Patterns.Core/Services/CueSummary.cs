@@ -76,7 +76,13 @@ public static class CueSummary
             case CueActionKind.SpotifyVolume: return $"Break music {a.Value}%";
             case CueActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
             case CueActionKind.MessageOff: return "Message off";
-            case CueActionKind.LowerThirdShow: return $"Lower third '{state.LowerThirds.Find(a.Target)?.Name ?? a.Target}'";
+            case CueActionKind.LowerThirdShow:
+            {
+                var design = a.Target.Length == 0 ? "on air" : $"'{state.LowerThirds.Find(a.Target)?.Name ?? a.Target}'";
+                if (a.Value.Length == 0) return $"Lower third {design}";
+                var who = state.LowerThirds.FindEntry(a.Value);
+                return who is null ? $"Lower third {design} — '{a.Value}' (not in the library)" : $"Lower third {design} — {who.Name}";
+            }
             case CueActionKind.LowerThirdHide: return "Lower third off";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";

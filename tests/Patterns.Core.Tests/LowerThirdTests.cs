@@ -8,6 +8,8 @@ using Xunit;
 namespace Patterns.Core.Tests;
 
 /// <summary>The lower-thirds engine: easing, keys, the clock, the motions, the presets, the picture and its caches.</summary>
+/// <summary>In the InputBus collection: the cadence assertion reads the process-wide sync-marks flag, which the sync tests flip.</summary>
+[Collection("InputBus")]
 public class LowerThirdTests
 {
     private static LowerThirdKeyframe Key(double u, double x = 0, double opacity = 1, double scale = 1, EaseKind ease = EaseKind.Linear)

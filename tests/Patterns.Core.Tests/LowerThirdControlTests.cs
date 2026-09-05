@@ -21,7 +21,7 @@ public class LowerThirdControlTests
     [Fact]
     public void TheCueActionHasItsSpecSummaryAndChecks()
     {
-        Assert.Equal((TargetKind.LowerThird, ValueKind.None), CueActionSpec.For(CueActionKind.LowerThirdShow));
+        Assert.Equal((TargetKind.LowerThird, ValueKind.Person), CueActionSpec.For(CueActionKind.LowerThirdShow));
         Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.LowerThirdHide));
         Assert.Equal("Lower third on", CueActionSpec.Label(CueActionKind.LowerThirdShow));
         Assert.Contains(CueActionKind.LowerThirdShow, CueActionSpec.Editable);

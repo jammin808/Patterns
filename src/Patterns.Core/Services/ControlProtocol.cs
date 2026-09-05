@@ -66,10 +66,15 @@ public enum RemoteCommandKind
     ScreenLock,
     ScreenUnlock,
     ScreenLockToggle,
+    /// <summary>
+    /// "LT &lt;design&gt; WITH &lt;person&gt;" / "PERSON &lt;n|name&gt;" — a library entry (Extra: number, Lower thirds
+    /// page order, or name) fills the design (TextArg: number or name; "" = the one on air, else the first) and it goes on air.
+    /// </summary>
+    LowerThirdPerson,
 }
 
-/// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module).</summary>
-public readonly record struct RemoteCommand(RemoteCommandKind Kind, int IntArg, string TextArg);
+/// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
+public readonly record struct RemoteCommand(RemoteCommandKind Kind, int IntArg, string TextArg, string Extra = "");
 
 /// <summary>
 /// The text command protocol shared by the TCP port (Bitfocus Companion generic TCP and the
@@ -260,17 +265,34 @@ public static class ControlProtocol
                     _ => new(RemoteCommandKind.DuckToggle, 0, ""),
                 };
 
-            // A lower third by number (Lower thirds page order) or name; OFF / HIDE takes the one on air off.
+            // A lower third by number (Lower thirds page order) or name; OFF / HIDE takes the one on air off;
+            // "LT <design> WITH <person>" fills it from the library first.
             case "LOWERTHIRD":
             case "LT":
+            {
                 if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
                 if (arg.Equals("OFF", StringComparison.OrdinalIgnoreCase) || arg.Equals("HIDE", StringComparison.OrdinalIgnoreCase))
                 {
                     return new(RemoteCommandKind.LowerThirdHide, 0, "");
                 }
+                if (arg.EndsWith(" WITH", StringComparison.OrdinalIgnoreCase)) return new(RemoteCommandKind.Unknown, 0, s);
+                var with = arg.IndexOf(" WITH ", StringComparison.OrdinalIgnoreCase);
+                if (with >= 0)
+                {
+                    var design = arg[..with].Trim();
+                    var person = arg[(with + 6)..].Trim();
+                    return design.Length == 0 || person.Length == 0
+                        ? new(RemoteCommandKind.Unknown, 0, s)
+                        : new(RemoteCommandKind.LowerThirdPerson, 0, design, person);
+                }
                 return int.TryParse(arg, out var lower)
                     ? new(RemoteCommandKind.LowerThirdShow, lower, "")
                     : new(RemoteCommandKind.LowerThirdShow, 0, arg);
+            }
+
+            // A person from the library into the lower third on air (else the first design), and on air.
+            case "PERSON":
+                return arg.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.LowerThirdPerson, 0, "", arg);
 
             case "STREAM":
                 return arg.ToUpperInvariant() switch

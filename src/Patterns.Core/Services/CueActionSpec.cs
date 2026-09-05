@@ -30,6 +30,8 @@ public enum ValueKind
     Percent,
     /// <summary>A whole number of percent, 0–100 (a Spotify device's own range).</summary>
     Level,
+    /// <summary>A lower-thirds library entry (id, name or number) to fill the design with first; empty = as designed.</summary>
+    Person,
 }
 
 /// <summary>
@@ -52,7 +54,7 @@ public static class CueActionSpec
         CueActionKind.AudioVolume => (TargetKind.None, ValueKind.Percent),
         CueActionKind.SpotifyPlay => (TargetKind.Music, ValueKind.None),
         CueActionKind.SpotifyVolume => (TargetKind.None, ValueKind.Level),
-        CueActionKind.LowerThirdShow => (TargetKind.LowerThird, ValueKind.None),
+        CueActionKind.LowerThirdShow => (TargetKind.LowerThird, ValueKind.Person),
         CueActionKind.ListArm or CueActionKind.ListDisarm or CueActionKind.ListGo
             or CueActionKind.ListBack or CueActionKind.ListReset => (TargetKind.Stack, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),

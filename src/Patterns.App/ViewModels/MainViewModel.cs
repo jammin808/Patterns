@@ -297,6 +297,16 @@ public sealed class MainViewModel : Observable
         PickElementFileCommand = new RelayCommand(() => _ = PickElementFileAsync());
         SaveLowerThirdFileCommand = new RelayCommand(SaveLowerThirdFile);
         LoadLowerThirdFileCommand = new RelayCommand<string>(path => LoadLowerThirdFile(path));
+        NewEntryCommand = new RelayCommand(() => NewEntry());
+        DeleteEntryCommand = new RelayCommand<LowerThirdEntry>(DeleteEntry);
+        UseEntryCommand = new RelayCommand<LowerThirdEntry>(e => { if (e is not null) UseEntry(e); });
+        ShowEntryCommand = new RelayCommand<LowerThirdEntry>(e => { if (e is not null) ShowEntry(e, SelectedLowerThird); });
+        ShowEntryOnAirCommand = new RelayCommand<LowerThirdEntry>(e => { if (e is not null) ShowEntry(e, null); });
+        BrowseEntryPhotoCommand = new RelayCommand(() => _ = BrowseEntryPhotoAsync());
+        ImportPeopleCommand = new RelayCommand(() => _ = ImportPeopleAsync(append: false));
+        ImportPeopleAppendCommand = new RelayCommand(() => _ = ImportPeopleAsync(append: true));
+        ExportPeopleCommand = new RelayCommand(() => _ = SaveTextAsync("Export the people library", "people.csv", ExportPeopleCsv(), "People exported"));
+        SavePeopleTemplateCommand = new RelayCommand(() => _ = SaveTextAsync("Save the people template", "people-template.csv", LowerThirdLibrary.Template(), "Template saved"));
         PreviewRestartCommand = new RelayCommand(() => PreviewTimeMs = 0);
         ResetWarpCommand = new RelayCommand(() =>
         {
@@ -3463,6 +3473,16 @@ public sealed class MainViewModel : Observable
     public RelayCommand PickElementFileCommand { get; }
     public RelayCommand SaveLowerThirdFileCommand { get; }
     public RelayCommand<string> LoadLowerThirdFileCommand { get; }
+    public RelayCommand NewEntryCommand { get; }
+    public RelayCommand<LowerThirdEntry> DeleteEntryCommand { get; }
+    public RelayCommand<LowerThirdEntry> UseEntryCommand { get; }
+    public RelayCommand<LowerThirdEntry> ShowEntryCommand { get; }
+    public RelayCommand<LowerThirdEntry> ShowEntryOnAirCommand { get; }
+    public RelayCommand BrowseEntryPhotoCommand { get; }
+    public RelayCommand ImportPeopleCommand { get; }
+    public RelayCommand ImportPeopleAppendCommand { get; }
+    public RelayCommand ExportPeopleCommand { get; }
+    public RelayCommand SavePeopleTemplateCommand { get; }
     public RelayCommand PreviewRestartCommand { get; }
     public RelayCommand ResetWarpCommand { get; }
     public RelayCommand ResetBlendCommand { get; }
@@ -3843,6 +3863,21 @@ public sealed class MainViewModel : Observable
     /// <summary>What is on screen, for the pages.</summary>
     public string LowerThirdStatus { get => _lowerThirdStatus; private set => Set(ref _lowerThirdStatus, value); }
 
+    private LowerThirdEntry? _selectedEntry;
+
+    /// <summary>The library entry being edited on the Lower thirds page.</summary>
+    public LowerThirdEntry? SelectedEntry
+    {
+        get => _selectedEntry;
+        set
+        {
+            if (!Set(ref _selectedEntry, value)) return;
+            Raise(nameof(HasEntry));
+        }
+    }
+
+    public bool HasEntry => _selectedEntry is not null;
+
     public LowerThirdDesign? SelectedLowerThird
     {
         get => _selectedLowerThird;
@@ -4158,6 +4193,126 @@ public sealed class MainViewModel : Observable
             LowerThirdFiles.Add(new PickItem(path, name));
         }
     }
+
+    // ---- the library: people and lines ----------------------------------------------------------
+
+    /// <summary>A new library entry, named so it never collides, selected.</summary>
+    public LowerThirdEntry NewEntry(string name = "New person")
+    {
+        var entry = new LowerThirdEntry { Name = UniqueEntryName(name) };
+        State.LowerThirds.Entries.Add(entry);
+        SelectedEntry = entry;
+        StatusMessage = $"'{entry.Name}' added to the library — fill in the name, the role and the company.";
+        return entry;
+    }
+
+    private string UniqueEntryName(string name)
+    {
+        var candidate = name;
+        var n = 2;
+        while (State.LowerThirds.Entries.Any(e => string.Equals(e.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate = $"{name} {n++}";
+        }
+        return candidate;
+    }
+
+    private void DeleteEntry(LowerThirdEntry? entry)
+    {
+        if (entry is null) return;
+        var entries = State.LowerThirds.Entries;
+        var index = entries.IndexOf(entry);
+        if (index < 0) return;
+        var wasSelected = ReferenceEquals(SelectedEntry, entry);
+        entries.Remove(entry);
+        if (wasSelected) SelectedEntry = entries.Count == 0 ? null : entries[Math.Clamp(index, 0, entries.Count - 1)];
+        StatusMessage = $"'{entry.Name}' removed from the library.";
+    }
+
+    /// <summary>The entry into the selected design (else the first): its fields and its photo; nothing goes on air.</summary>
+    public LowerThirdDesign? UseEntry(LowerThirdEntry entry)
+    {
+        var design = SelectedLowerThird ?? State.LowerThirds.Designs.FirstOrDefault();
+        if (design is null)
+        {
+            StatusMessage = "No design to put the person into — add one first.";
+            return null;
+        }
+        var picture = LowerThirdsConfig.Fill(design, entry);
+        StatusMessage = entry.Photo.Length > 0 && picture is null
+            ? $"'{entry.Name}' is in '{design.Name}' — the design has no picture element for the photo."
+            : $"'{entry.Name}' is in '{design.Name}'.";
+        return design;
+    }
+
+    /// <summary>The entry into a design and on air: the given one, else the one on air (else the last shown, else the first).</summary>
+    public ActionResult ShowEntry(LowerThirdEntry entry, LowerThirdDesign? design)
+        => _services.Actions.Execute(ShowActionKind.LowerThirdShow, ActionOrigin.Desk, design?.Id ?? "", entry.Id);
+
+    private async Task BrowseEntryPhotoAsync()
+    {
+        var entry = SelectedEntry;
+        var window = _services.MainWindow;
+        if (entry is null || window is null) return;
+        try
+        {
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = entry.Name.Length > 0 ? $"Choose a photo for {entry.Name}" : "Choose a photo",
+                AllowMultiple = false,
+                FileTypeFilter = new[] { FilePickerFileTypes.ImageAll, FilePickerFileTypes.All },
+            });
+            var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            if (path is null) return;
+            entry.Photo = path;
+            AddToMediaLibrary(path, isVideo: false);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Photo pick failed.", ex);
+        }
+    }
+
+    private async Task ImportPeopleAsync(bool append)
+    {
+        var path = await PickOpenPathAsync(append ? "Append a people list" : "Import a people list", PeopleTypes, null);
+        if (path is null) return;
+        StatusMessage = ImportPeopleFrom(path, append);
+    }
+
+    /// <summary>
+    /// Reads a CSV or the first sheet of an .xlsx into the library — replacing it, or appended
+    /// (a name already there is updated, never doubled); returns the words for the status line.
+    /// </summary>
+    public string ImportPeopleFrom(string path, bool append)
+    {
+        TableData table;
+        try
+        {
+            table = path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+                ? XlsxTable.Read(File.ReadAllBytes(path))
+                : CsvTable.Parse(File.ReadAllText(path));
+        }
+        catch (Exception ex)
+        {
+            Log.Error("People list read failed.", ex);
+            return $"Could not read {Path.GetFileName(path)}: {ex.Message}";
+        }
+        var report = LowerThirdLibrary.Import(table);
+        var entries = State.LowerThirds.Entries;
+        if (!append && report.Entries.Count > 0)
+        {
+            entries.Clear();
+            SelectedEntry = null;
+        }
+        var (added, updated) = LowerThirdLibrary.Merge(entries, report.Entries);
+        if (SelectedEntry is null && entries.Count > 0) SelectedEntry = entries[0];
+        var words = $"{report.Summary}: {added} added, {updated} updated ({Path.GetFileName(path)})";
+        if (report.Notes.Count > 0) words += " — " + report.Notes[0];
+        return words;
+    }
+
+    public string ExportPeopleCsv() => LowerThirdLibrary.Export(State.LowerThirds.Entries);
 
     /// <summary>The tally: the design on screen lights its row and chip with its phase; true while one is on.</summary>
     private bool RefreshLowerThirdTallies()
@@ -4861,6 +5016,7 @@ public sealed class MainViewModel : Observable
 
     private static readonly FilePickerFileType CueSheetTypes = new("Cue sheet (CSV or Excel)") { Patterns = new[] { "*.csv", "*.xlsx", "*.txt" } };
     private static readonly FilePickerFileType CsvTypes = new("CSV") { Patterns = new[] { "*.csv" } };
+    private static readonly FilePickerFileType PeopleTypes = new("People list (CSV or Excel)") { Patterns = new[] { "*.csv", "*.xlsx", "*.txt" } };
 
     private async Task ImportCueSheetAsync(bool append)
     {

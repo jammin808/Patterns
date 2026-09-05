@@ -157,7 +157,10 @@
                 </Grid>
                 <ComboBox IsVisible="{Binding HasTarget}" ItemsSource="{Binding TargetChoices}" SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"
                           PlaceholderText="{Binding TargetHint}" HorizontalAlignment="Stretch" />
-                <TextBox IsVisible="{Binding HasValue}" Text="{Binding Value, Mode=TwoWay}" Watermark="{Binding ValueHint}" />
+                <ComboBox IsVisible="{Binding HasPersonValue}" ItemsSource="{Binding PersonChoices}" SelectedItem="{Binding SelectedPerson, Mode=TwoWay}"
+                          PlaceholderText="Who… (blank = as designed)" HorizontalAlignment="Stretch"
+                          ToolTip.Tip="A person from the Lower thirds page's LIBRARY: the name, the role, the company and the photo go into the design before it shows" />
+                <TextBox IsVisible="{Binding HasTextValue}" Text="{Binding Value, Mode=TwoWay}" Watermark="{Binding ValueHint}" />
               </StackPanel>
             </Border>
           </DataTemplate>

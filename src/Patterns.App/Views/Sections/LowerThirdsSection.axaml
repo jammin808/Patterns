@@ -44,6 +44,65 @@
     <TextBlock Classes="hint tip"
                Text="SHOW and HIDE go straight to air (sandbox open or not) and are journaled; the Show panel, a cue (Lower third on / off), the phone remote and Companion (LT n) do the same. A look saved while a design is on carries it." />
 
+    <TextBlock Classes="h2" Text="LIBRARY: PEOPLE &amp; LINES" />
+    <WrapPanel>
+      <Button Classes="chip" Content="+ Person" Margin="0,0,6,6" Command="{Binding NewEntryCommand}" ToolTip.Tip="A new entry: a name, a role, a company, a photo, a note for you" />
+      <Button Classes="chip" Content="IMPORT LIST" Margin="0,0,6,6" Command="{Binding ImportPeopleCommand}"
+              ToolTip.Tip="A speaker list from a CSV or the first sheet of an Excel file replaces the library — Name (or First name and Last name), Role, Company, Photo, Note, read by their header names" />
+      <Button Classes="mini" Content="Append" Margin="0,0,6,6" Command="{Binding ImportPeopleAppendCommand}" ToolTip.Tip="Add a list to the library; a name already there is updated, never doubled" />
+      <Button Classes="mini" Content="Export CSV" Margin="0,0,6,6" Command="{Binding ExportPeopleCommand}" ToolTip.Tip="The library as a CSV — for Excel, a printout or another show" />
+      <Button Classes="mini" Content="Template CSV" Margin="0,0,6,6" Command="{Binding SavePeopleTemplateCommand}" ToolTip.Tip="The columns with rows to copy" />
+    </WrapPanel>
+    <ListBox ItemsSource="{Binding State.LowerThirds.Entries}" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}" MaxHeight="230">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="lt:LowerThirdEntry">
+          <Grid ColumnDefinitions="*,8,Auto,Auto,Auto">
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              <TextBlock Classes="label" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Summary, Converter={StaticResource NotEmpty}}" />
+            </StackPanel>
+            <Button Grid.Column="2" Classes="mini" Content="USE" ToolTip.Tip="Into the selected design — its fields and its photo — without going on air"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UseEntryCommand}" CommandParameter="{Binding}" />
+            <Button Grid.Column="3" Classes="mini" Content="SHOW" ToolTip.Tip="Into the selected design, and on air now"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ShowEntryCommand}" CommandParameter="{Binding}" />
+            <Button Grid.Column="4" Classes="mini" Content="✕" ToolTip.Tip="Remove from the library"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteEntryCommand}" CommandParameter="{Binding}" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+    <ContentControl Content="{Binding SelectedEntry}" IsVisible="{Binding HasEntry}">
+      <ContentControl.ContentTemplate>
+        <DataTemplate x:DataType="lt:LowerThirdEntry">
+          <StackPanel Classes="form">
+            <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+              <TextBlock Classes="label" Text="Name" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding Name, Mode=TwoWay}" Watermark="Jane Doe — or a line: Doors open 19:00" />
+            </Grid>
+            <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+              <TextBlock Classes="label" Text="Role" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding Role, Mode=TwoWay}" Watermark="Chief Executive" />
+            </Grid>
+            <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+              <TextBlock Classes="label" Text="Company" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding Company, Mode=TwoWay}" Watermark="Empty = the brand kit's company" />
+            </Grid>
+            <Grid ColumnDefinitions="110,*,8,Auto" Margin="0,4,0,0">
+              <TextBlock Classes="label" Text="Photo" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding Photo, Mode=TwoWay}" Watermark="Empty = the design's picture stays" />
+              <Button Grid.Column="3" Classes="mini" Content="Browse…" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).BrowseEntryPhotoCommand}" />
+            </Grid>
+            <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+              <TextBlock Classes="label" Text="Note" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding Note, Mode=TwoWay}" Watermark="For you — pronunciation, the session — never drawn" />
+            </Grid>
+          </StackPanel>
+        </DataTemplate>
+      </ContentControl.ContentTemplate>
+    </ContentControl>
+    <TextBlock Classes="hint tip"
+               Text="The library is every person (or line) the show will name, kept apart from the designs so one design serves the whole speaker list. USE puts an entry into the selected design — the Name, Role and Company elements read its fields, the photo lands in the picture element named Photo (else the first picture) — and SHOW does that and puts it on air. A cue (Lower third on) names the design and the person; a person who is not in the library is refused before the show, so a wrong name never reaches the screen. The Show panel's PEOPLE chips, the phone's PEOPLE buttons, PERSON n / LT design WITH person on the wire and Companion put the next speaker into the design on air. Append updates a name that is already there; Photo paths are kept as written." />
+
     <StackPanel IsVisible="{Binding HasLowerThird}">
       <TextBlock Classes="h2" Text="PREVIEW" />
       <Border Background="#0B0C10" CornerRadius="8" ClipToBounds="True">

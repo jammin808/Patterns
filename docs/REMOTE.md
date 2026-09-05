@@ -42,6 +42,8 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `STINGER STOP` | Stop whatever is on air: a clip or a held frame reverts, and a stinger's ending is cancelled, never run (`VOG STOP` / `STING STOP` are aliases) |
 | `LOWERTHIRD <n>` / `LOWERTHIRD <name>` | Put lower third *n* (Lower thirds page order) or the named design on air over whatever is showing; again restarts its way in (`LT` is an alias) |
 | `LOWERTHIRD OFF` | The lower third on air leaves the way it was designed to (`LT HIDE` does the same) |
+| `LOWERTHIRD <design> WITH <person>` | Fill design *n* / the named design from the library first — the person's name, role, company and photo (Lower thirds page, LIBRARY) — then put it on air; *person* is a number (library order) or a name (`LT … WITH …` is the same) |
+| `PERSON <n>` / `PERSON <name>` | The same into the lower third on air (else the last shown, else the first): the next speaker in one command. A name that is not in the library answers `ERR … not in the lower-thirds library` — a wrong name never reaches the screen |
 | `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-page order) on air |
 | `STREAM ON` / `OFF` | Start/stop the streaming output (Stream page config) |
 | `CUE GO [<id>]` | GO on the caller's cue stack through the gate. Send the standby id you last saw (from STATE) and a GO that races a standby move answers `ERR standby moved`; `OK <json>` carries the execution record (`outcome`, `last`, `standby`) or `{"outcome":"Confirm"}` when the cue asks for a second GO within four seconds |
@@ -76,6 +78,7 @@ State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel
 (`vog` / `sting` / empty), `vogSound` (a VOG sound playing over the show — over a stinger too, which it ducks
 rather than stops; empty when none), `stingHold` (the name of a stinger holding the screens, or empty), `duck` (the live duck is on),
 `lowerThirds[{n,name}]` (the designs, Lower thirds page order), `lowerThird` (the design on screen — arriving, holding or leaving — or empty),
+`people[{n,name,role}]` (the library, page order — `PERSON n`), `lowerThirdPerson` (the name the lower third on screen carries, or empty),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),

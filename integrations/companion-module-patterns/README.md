@@ -42,6 +42,18 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## The people library (module 1.6.0)
+
+The **Lower thirds** category gains the library from the Lower thirds page: `lower_third_person`
+(by number, page order: `PERSON n` on the wire, or `LT <design> WITH n` when a design is named)
+and `lower_third_person_name` (by name) put a person — name, role, company and photo — into the
+lower third on air (else the last shown, else the first) and show it again: the next speaker in
+one press. A name that is not in the library is refused (`ERR … not in the lower-thirds library`),
+so a wrong name never reaches the screen. Feedback `lower_third_person_is` (red while that name is
+on screen), `$(patterns:lower_third_person)` (the name the lower third on screen carries, or empty),
+and the state's `people[{n,name,role}]`. Presets: PERSON 1–6. Every existing action, feedback and
+variable id is unchanged.
+
 ## Screen locks (module 1.5.0)
 
 The **Screens** category gains `screen_lock` (toggle / lock / unlock, `LOCK n …` on the wire): a

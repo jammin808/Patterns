@@ -117,6 +117,7 @@ class PatternsInstance extends InstanceBase {
 			sting_hold: this.state.stingHold ?? '',
 			duck: this.state.duck ? 'DUCK' : 'off',
 			lower_third: this.state.lowerThird ?? '',
+			lower_third_person: this.state.lowerThirdPerson ?? '',
 			music: this.state.music?.now ?? '',
 			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
 			music_level: String(this.state.music?.level ?? 0),
@@ -128,7 +129,7 @@ class PatternsInstance extends InstanceBase {
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'audio_playing', 'stinger_playing', 'music_playing',
-			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -260,6 +261,24 @@ class PatternsInstance extends InstanceBase {
 				callback: (a) => send(`LT ${a.options.name}`),
 			},
 			lower_third_off: { name: 'Lower third off (leaves the way it was designed to)', options: [], callback: () => send('LT OFF') },
+			// The library: a person by number (Lower thirds page order) or name into a design — the one on air when
+			// blank (else the first) — and on air. A name that is not in the library is refused: it never reaches the screen.
+			lower_third_person: {
+				name: 'Lower third — a person from the library (by number)',
+				options: [
+					{ type: 'number', id: 'n', label: 'Person number (Lower thirds page order)', default: 1, min: 1, max: 200 },
+					{ type: 'textinput', id: 'design', label: 'Design (number or name; blank = the one on air, else the first)', default: '' },
+				],
+				callback: (a) => send(a.options.design ? `LT ${a.options.design} WITH ${a.options.n}` : `PERSON ${a.options.n}`),
+			},
+			lower_third_person_name: {
+				name: 'Lower third — a person from the library (by name)',
+				options: [
+					{ type: 'textinput', id: 'name', label: 'Person name', default: '' },
+					{ type: 'textinput', id: 'design', label: 'Design (number or name; blank = the one on air, else the first)', default: '' },
+				],
+				callback: (a) => send(a.options.design ? `LT ${a.options.design} WITH ${a.options.name}` : `PERSON ${a.options.name}`),
+			},
 			// VOG / STING name the same library by the same number and only assert the kind: a key
 			// that says VOG never fires a stinger — Patterns refuses and names the item.
 			vog: {
@@ -387,6 +406,16 @@ class PatternsInstance extends InstanceBase {
 					return on !== '' && (!fb.options.name || on === fb.options.name)
 				},
 			},
+			lower_third_person_is: {
+				type: 'boolean',
+				name: 'A given person is on screen (the name the lower third on air carries)',
+				defaultStyle: { bgcolor: combineRgb(224, 52, 46), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'textinput', id: 'name', label: 'Person name', default: '' }],
+				callback: (fb) => {
+					const on = this.state.lowerThirdPerson ?? ''
+					return on !== '' && on === fb.options.name
+				},
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -443,6 +472,7 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'sting_hold', name: 'Stinger holding the screens (name)' },
 			{ variableId: 'duck', name: 'Live duck (DUCK/off)' },
 			{ variableId: 'lower_third', name: 'Lower third on screen (name, or empty)' },
+			{ variableId: 'lower_third_person', name: 'The name the lower third on screen carries (or empty)' },
 			{ variableId: 'music', name: 'Break music — now playing' },
 			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
 			{ variableId: 'music_level', name: 'Break music level (0–100)' },
@@ -544,6 +574,13 @@ class PatternsInstance extends InstanceBase {
 				type: 'button', category: 'Lower thirds', name: `Lower third ${n}`,
 				style: { text: `LT\\n${n}`, size: '18', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third', options: { n } }], up: [] }], feedbacks: [lowerOn],
+			}
+		}
+		for (let n = 1; n <= 6; n++) {
+			presets[`person_${n}`] = {
+				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) into the lower third on air`,
+				style: { text: `PERSON\\n${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third_person', options: { n, design: '' } }], up: [] }], feedbacks: [lowerOn],
 			}
 		}
 		const musicOn = { feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }

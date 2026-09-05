@@ -145,6 +145,7 @@ public sealed class CommandRouter
             RemoteCommandKind.StreamOn => new ShowAction(ShowActionKind.StreamStart),
             RemoteCommandKind.StreamOff => new ShowAction(ShowActionKind.StreamStop),
             RemoteCommandKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, byNumberOrName),
+            RemoteCommandKind.LowerThirdPerson => new ShowAction(ShowActionKind.LowerThirdShow, cmd.TextArg, cmd.Extra),
             RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
             _ => null,
         };
@@ -155,6 +156,13 @@ public sealed class CommandRouter
     {
         var air = _services.AirState.LowerThirds;
         return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(air, ShowClock.UtcNow) ? air.Active?.Name ?? "" : "";
+    }
+
+    /// <summary>The name the lower third on screen carries (a library entry's, or the design's own); "" when none is on.</summary>
+    private string LowerThirdPersonOnAir()
+    {
+        var air = _services.AirState.LowerThirds;
+        return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(air, ShowClock.UtcNow) ? air.Active?.PersonName ?? "" : "";
     }
 
     /// <summary>State summary for remotes. UI thread only.</summary>
@@ -190,6 +198,8 @@ public sealed class CommandRouter
             tone = s.Tone.Enabled,
             lowerThirds = s.LowerThirds.Designs.Select((d, n) => new { n = n + 1, name = d.Name }).ToArray(),
             lowerThird = LowerThirdOnAir(),                                // the design on screen right now, or ""
+            people = s.LowerThirds.Entries.Select((e, n) => new { n = n + 1, name = e.Name, role = e.Role }).ToArray(),
+            lowerThirdPerson = LowerThirdPersonOnAir(),                    // the name on screen right now, or ""
             stingers = s.Stingers.Items.Select((i, n) => new
             {
                 n = n + 1,

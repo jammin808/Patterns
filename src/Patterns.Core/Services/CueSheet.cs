@@ -191,7 +191,7 @@ public static class CueSheet
                 look is null ? "" : LookService.Find(state, look.Target)?.Name ?? look.Target,
                 other is null ? "" : CueActionSpec.Label(other.Kind),
                 other is null ? "" : TargetName(state, other),
-                other?.Value ?? "",
+                other is null ? "" : ValueName(state, other),
                 cue.Notes,
             });
         }
@@ -239,7 +239,7 @@ public static class CueSheet
             "blackout" or "black" => CueActionKind.BlackoutOn,
             "countdown" or "timer" => CueActionKind.CountdownStart,
             "message" or "ticker" => CueActionKind.MessageOn,
-            "lowerthird" or "lt" or "name" => CueActionKind.LowerThirdShow,
+            "lowerthird" or "lt" or "name" or "person" or "speaker" => CueActionKind.LowerThirdShow,
             "stream" or "golive" => CueActionKind.StreamStart,
             _ => null,
         };
@@ -290,6 +290,12 @@ public static class CueSheet
             _ => a.Target,
         };
     }
+
+    /// <summary>A value as a person reads it: a library entry's id goes out as its name.</summary>
+    private static string ValueName(ShowState state, CueActionConfig a)
+        => CueActionSpec.For(a.Kind).Value == ValueKind.Person && a.Value.Length > 0
+            ? state.LowerThirds.FindEntry(a.Value)?.Name ?? a.Value
+            : a.Value;
 
     private static bool IsYes(string s)
     {

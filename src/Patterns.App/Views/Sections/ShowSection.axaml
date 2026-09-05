@@ -132,6 +132,25 @@
         <Button Grid.Column="2" Classes="mini" Content="■ Hide" Command="{Binding HideLowerThirdCommand}" />
       </Grid>
       <TextBlock Classes="hint tip" Text="A design goes on air over whatever is showing, on every screen, send and the stream, and leaves the way it was designed to. Build them on the Lower thirds page (BUILD)." />
+      <StackPanel IsVisible="{Binding State.LowerThirds.Entries.Count, Converter={StaticResource Positive}}">
+        <TextBlock Classes="h2" Text="PEOPLE" />
+        <ItemsControl ItemsSource="{Binding State.LowerThirds.Entries}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="2" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="lt:LowerThirdEntry">
+              <Button Classes="chip" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="{Binding Summary}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ShowEntryOnAirCommand}" CommandParameter="{Binding}">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="hint tip" Text="A person goes into the design on air (else the last shown, else the first) — name, role, company and photo — and it arrives again: the next speaker in one press." />
+      </StackPanel>
     </StackPanel>
 
     <Border Classes="runBanner" IsVisible="{Binding StingerHolding}">

@@ -352,7 +352,59 @@ public sealed class LowerThirdDesign : Observable
     }
 }
 
-/// <summary>The show's lower thirds: the designs, and which one is on air since when.</summary>
+/// <summary>
+/// A person — or a line of information — the library keeps ready: recalled into any design it
+/// fills the name, the role and the company the design's text elements read, and puts its
+/// picture into the design's picture element. Never drawn on its own; a design is the look.
+/// </summary>
+public sealed class LowerThirdEntry : Observable
+{
+    private string _id = Guid.NewGuid().ToString("N");
+    private string _name = "";
+    private string _role = "";
+    private string _company = "";
+    private string _photo = "";
+    private string _note = "";
+
+    public string Id { get => _id; set => Set(ref _id, string.IsNullOrWhiteSpace(value) ? _id : value); }
+
+    /// <summary>What the Name element shows: a person, or a headline ("Doors open 19:00").</summary>
+    public string Name { get => _name; set => Set(ref _name, value ?? ""); }
+
+    /// <summary>What the Role element shows: a job title, a second line.</summary>
+    public string Role { get => _role; set => Set(ref _role, value ?? ""); }
+
+    /// <summary>What the Company element shows; empty = the brand kit's company.</summary>
+    public string Company { get => _company; set => Set(ref _company, value ?? ""); }
+
+    /// <summary>A headshot or a badge file for the design's picture element; empty leaves the design's picture as it is.</summary>
+    public string Photo { get => _photo; set => Set(ref _photo, value ?? ""); }
+
+    /// <summary>For the operator: pronunciation, the session, anything — never drawn.</summary>
+    public string Note { get => _note; set => Set(ref _note, value ?? ""); }
+
+    /// <summary>"Chief Executive · Acme Ltd" — the role and the company, whichever are there.</summary>
+    [JsonIgnore]
+    public string Summary
+    {
+        get
+        {
+            var parts = new List<string>(2);
+            if (Role.Length > 0) parts.Add(Role);
+            if (Company.Length > 0) parts.Add(Company);
+            return string.Join(" · ", parts);
+        }
+    }
+
+    public LowerThirdEntry Clone(bool newId = false)
+    {
+        var copy = JsonUtil.Clone(this);
+        if (newId) copy.Id = Guid.NewGuid().ToString("N");
+        return copy;
+    }
+}
+
+/// <summary>The show's lower thirds: the designs, the library of people, and which design is on air since when.</summary>
 public sealed class LowerThirdsConfig : Observable
 {
     private string _activeId = "";
@@ -360,6 +412,9 @@ public sealed class LowerThirdsConfig : Observable
     private DateTime? _hiddenAtUtc;
 
     public ObservableCollection<LowerThirdDesign> Designs { get; init; } = new();
+
+    /// <summary>The library: people and lines ready to recall into any design, in the page's order (the remote's PERSON n).</summary>
+    public ObservableCollection<LowerThirdEntry> Entries { get; init; } = new();
 
     /// <summary>The design on air (or last on air).</summary>
     public string ActiveId { get => _activeId; set => Set(ref _activeId, value ?? ""); }
@@ -391,6 +446,62 @@ public sealed class LowerThirdsConfig : Observable
         }
         if (int.TryParse(idOrName, out var n) && n >= 1 && n <= Designs.Count) return Designs[n - 1];
         return null;
+    }
+
+    /// <summary>A library entry by id, then by name (case-insensitive), then by 1-based number (page order).</summary>
+    public LowerThirdEntry? FindEntry(string idOrName)
+    {
+        if (string.IsNullOrWhiteSpace(idOrName)) return null;
+        var key = idOrName.Trim();
+        foreach (var e in Entries)
+        {
+            if (e.Id == key) return e;
+        }
+        foreach (var e in Entries)
+        {
+            if (string.Equals(e.Name, key, StringComparison.OrdinalIgnoreCase)) return e;
+        }
+        if (int.TryParse(key, out var n) && n >= 1 && n <= Entries.Count) return Entries[n - 1];
+        return null;
+    }
+
+    private static readonly string[] PhotoWords = { "photo", "headshot", "picture", "portrait", "face", "mug" };
+
+    /// <summary>
+    /// The element a person's picture goes into: the first Image element whose name says so
+    /// (photo, headshot, picture, portrait), else the first Image element; null when the design has none.
+    /// </summary>
+    public static LowerThirdElement? PhotoElement(LowerThirdDesign design)
+    {
+        LowerThirdElement? first = null;
+        foreach (var e in design.Elements)
+        {
+            if (e.Kind != LowerThirdElementKind.Image) continue;
+            first ??= e;
+            foreach (var word in PhotoWords)
+            {
+                if (e.Name.Contains(word, StringComparison.OrdinalIgnoreCase)) return e;
+            }
+        }
+        return first;
+    }
+
+    /// <summary>
+    /// Puts an entry into a design: the name, the role and the company its text elements read
+    /// (an empty company lets the brand kit's through), and the photo into the picture element
+    /// when the entry has one. Returns the element that took the photo, or null (no photo, or
+    /// no picture element to take it — the design's picture stays as it was).
+    /// </summary>
+    public static LowerThirdElement? Fill(LowerThirdDesign design, LowerThirdEntry entry)
+    {
+        design.PersonName = entry.Name;
+        design.PersonRole = entry.Role;
+        design.Company = entry.Company;
+        if (entry.Photo.Length == 0) return null;
+        var picture = PhotoElement(design);
+        if (picture is null) return null;
+        picture.Path = entry.Photo;
+        return picture;
     }
 
     /// <summary>Puts a design on air now (showing it again restarts its way in).</summary>
