@@ -1611,6 +1611,7 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedPageIndex));
         SetRunLayout(run);
         RaiseShell();
+        Raise(nameof(PageWantsRoom));
     }
 
     /// <summary>A group button: the group's last page, or its first; SHOW pressed while in Run goes to the panel.</summary>
@@ -3299,6 +3300,62 @@ public sealed class MainViewModel : Observable
 
     /// <summary>The Copy support info payload (also used by tests to sanity-check content).</summary>
     public string BuildSupportInfo() => _services.Metrics.SupportInfo();
+
+    // ---- the super-check ----------------------------------------------------------------------
+
+    private RelayCommand? _runSuperCheck;
+    private string _superCheckHeadline = "";
+    private string _superCheckLevelText = "";
+    private string _superCheckSavedText = "";
+    private string _superCheckText = "";
+    private Avalonia.Media.IBrush _superCheckDot = Avalonia.Media.Brushes.Gray;
+
+    public RelayCommand RunSuperCheckCommand => _runSuperCheck ??= new RelayCommand(RunSuperCheck);
+
+    public ObservableCollection<CheckRowView> SuperCheckRows { get; } = new();
+
+    public string SuperCheckHeadline { get => _superCheckHeadline; private set => Set(ref _superCheckHeadline, value); }
+    public string SuperCheckLevelText { get => _superCheckLevelText; private set => Set(ref _superCheckLevelText, value); }
+    public string SuperCheckSavedText { get => _superCheckSavedText; private set => Set(ref _superCheckSavedText, value); }
+
+    /// <summary>The report as plain text (the Copy button's payload).</summary>
+    public string SuperCheckText { get => _superCheckText; private set => Set(ref _superCheckText, value); }
+
+    public Avalonia.Media.IBrush SuperCheckDot { get => _superCheckDot; private set => Set(ref _superCheckDot, value); }
+
+    public bool HasSuperCheck => SuperCheckRows.Count > 0;
+
+    /// <summary>One press: every fact, every light, the level — on the page and in a file beside the exe.</summary>
+    public void RunSuperCheck()
+    {
+        var report = _services.Metrics.RunSuperCheck();
+        SuperCheckRows.Clear();
+        foreach (var row in report.Rows)
+        {
+            SuperCheckRows.Add(new CheckRowView(row.Section, row.Item, row.Value, row.Note, LightBrush(row.Light)));
+        }
+        SuperCheckHeadline = report.Headline;
+        SuperCheckDot = LightBrush(report.Overall);
+        SuperCheckLevelText = report.Level.Reasons.Count > 0
+            ? $"Level: {report.Level.Name} (score {report.Level.Score}) — {string.Join("; ", report.Level.Reasons)}"
+            : $"Level: {report.Level.Name} (score {report.Level.Score})";
+        SuperCheckText = SuperCheck.ToText(report);
+        var path = _services.Metrics.LastReportPath;
+        SuperCheckSavedText = path.Length > 0 ? $"Saved: {path}" : "The report could not be written beside the exe — copy it instead.";
+        Raise(nameof(HasSuperCheck));
+        StatusMessage = $"Super-check: {report.Headline}";
+    }
+
+    private static Avalonia.Media.IBrush LightBrush(CheckLight light) => light switch
+    {
+        CheckLight.Green => Avalonia.Media.Brush.Parse("#2EE68A"),
+        CheckLight.Amber => Avalonia.Media.Brush.Parse("#FFC24D"),
+        CheckLight.Red => Avalonia.Media.Brush.Parse("#E0342E"),
+        _ => Avalonia.Media.Brush.Parse("#4A505E"),
+    };
+
+    /// <summary>The Admin pages (the machine, help) take the room: the screens reduce to a strip while one is selected.</summary>
+    public bool PageWantsRoom => !_isRunLayout && Shell.Pages[_page].Group == ShellGroup.Admin;
 
     private void OnGraphicsChoiceChanged()
     {

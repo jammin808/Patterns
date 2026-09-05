@@ -11,15 +11,26 @@ public partial class AdminSection : UserControl
         InitializeComponent();
     }
 
-    private async void CopySupportInfo(object? sender, RoutedEventArgs e)
+    private void CopySupportInfo(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
+        _ = CopyAsync(vm, vm.BuildSupportInfo(), "Support info copied — paste it into an email or ticket.");
+    }
+
+    private void CopySuperCheck(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+        _ = CopyAsync(vm, vm.SuperCheckText, "Super-check report copied — paste it into an email or ticket.");
+    }
+
+    private async Task CopyAsync(MainViewModel vm, string text, string done)
+    {
         try
         {
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard is null) return;
-            await clipboard.SetTextAsync(vm.BuildSupportInfo());
-            vm.StatusMessage = "Support info copied — paste it into an email or ticket.";
+            await clipboard.SetTextAsync(text);
+            vm.StatusMessage = done;
         }
         catch (Exception ex)
         {

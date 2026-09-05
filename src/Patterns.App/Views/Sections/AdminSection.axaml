@@ -9,6 +9,47 @@
     <TextBlock Classes="hint"
                Text="The machine room: live and historical performance, plain-language suggestions when something needs attention, the graphics card choice, and the tools for keeping a show machine healthy." />
 
+    <TextBlock Classes="h2" Text="SUPER-CHECK" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="One button: the machine, the graphics card, every display and its mode, the outputs and their frame rate, NDI, the stream, audio, the remote, video playback and the advice — each with a light — and the level of show this hardware is good for. The report is saved beside the exe and can be copied into an email." />
+    <WrapPanel>
+      <Button Classes="go" Content="RUN SUPER-CHECK" Padding="14,8" Margin="0,0,8,6" Command="{Binding RunSuperCheckCommand}"
+              ToolTip.Tip="Checks everything now and writes patterns.supercheck.txt beside the exe" />
+      <Button Classes="chip" Content="Copy report" Click="CopySuperCheck" Margin="0,0,8,6" IsVisible="{Binding HasSuperCheck}"
+              ToolTip.Tip="The whole report as text — paste it into an email or ticket" />
+    </WrapPanel>
+    <Border Classes="panel" Padding="12" IsVisible="{Binding HasSuperCheck}">
+      <StackPanel Spacing="6">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Ellipse Width="12" Height="12" Fill="{Binding SuperCheckDot}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding SuperCheckHeadline}" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </StackPanel>
+        <TextBlock Classes="label" Text="{Binding SuperCheckLevelText}" TextWrapping="Wrap" />
+        <TextBlock Classes="hint" Text="{Binding SuperCheckSavedText}" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding SuperCheckRows}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:CheckRowView">
+              <Border Width="330" Background="{StaticResource PanelBg2Brush}" CornerRadius="6" Padding="8,6" Margin="0,0,6,6">
+                <Grid ColumnDefinitions="Auto,8,*">
+                  <Ellipse Width="9" Height="9" Fill="{Binding Dot}" VerticalAlignment="Top" Margin="0,4,0,0" />
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Classes="hint" Text="{Binding Section}" />
+                    <TextBlock FontWeight="SemiBold" TextWrapping="Wrap">
+                      <Run Text="{Binding Item}" /><Run Text=" — " /><Run Text="{Binding Value}" />
+                    </TextBlock>
+                    <TextBlock Classes="hint" Text="{Binding Note}" TextWrapping="Wrap" IsVisible="{Binding HasNote}" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
     <TextBlock Classes="h2" Text="LIVE PERFORMANCE (LAST 3 MINUTES)" />
     <Grid ColumnDefinitions="86,*" Margin="0,2">
       <TextBlock Classes="label" Text="CPU" VerticalAlignment="Top" Margin="0,2,0,0" />

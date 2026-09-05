@@ -218,6 +218,201 @@ public sealed class SystemMetricsService : IDisposable
         }
     }
 
+    // ---- the super-check ----------------------------------------------------------------------
+
+    /// <summary>The last report run (the Admin page shows it; the file beside the exe carries it).</summary>
+    public CheckReport? LastReport { get; private set; }
+
+    /// <summary>Where the last report was written, or "" when the write failed.</summary>
+    public string LastReportPath { get; private set; } = "";
+
+    /// <summary>
+    /// One button: gathers every fact the app can reach right now — the machine, the card, the
+    /// displays, the outputs, NDI, the stream, audio, the remote, video, the advice — runs the
+    /// pure rules and writes the report beside the exe. Never throws; a probe that fails leaves
+    /// its row unknown.
+    /// </summary>
+    public CheckReport RunSuperCheck()
+    {
+        var report = SuperCheck.Run(GatherFacts());
+        LastReport = report;
+        try
+        {
+            var path = Path.Combine(_services.Store.BaseDirectory, SuperCheck.FileName);
+            File.WriteAllText(path, SuperCheck.ToText(report));
+            LastReportPath = path;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Super-check report write failed.", ex);
+            LastReportPath = "";
+        }
+        Log.Info($"Super-check: {report.Overall} — {report.Headline}");
+        return report;
+    }
+
+    /// <summary>The facts as the app sees them now. Every probe is guarded; unknown stays unknown.</summary>
+    public CheckFacts GatherFacts()
+    {
+        var s = Current;
+        var state = _services.State;
+        var version = "";
+        double uptime = -1;
+        try
+        {
+            version = typeof(SystemMetricsService).Assembly.GetName().Version?.ToString() ?? "dev";
+            uptime = (DateTime.Now - _process.StartTime).TotalSeconds;
+        }
+        catch
+        {
+            // A process probe that refuses leaves the row unknown.
+        }
+
+        var cpuName = "";
+        try
+        {
+            cpuName = WinRegistry.ReadCpuName();
+        }
+        catch
+        {
+            // Registry access can refuse.
+        }
+
+        double ramTotal = s?.RamTotalMB ?? -1, ramPct = s?.RamSystemPct ?? -1;
+        if (ramTotal <= 0 && Win32Perf.TryGetMemoryStatus(out var load, out var total, out _))
+        {
+            ramTotal = total;
+            ramPct = load;
+        }
+
+        double diskFree = -1;
+        try
+        {
+            var root = Path.GetPathRoot(_services.Store.BaseDirectory);
+            if (!string.IsNullOrEmpty(root)) diskFree = new DriveInfo(root).AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0);
+        }
+        catch
+        {
+            // Network/removable drives can refuse.
+        }
+
+        var (onBattery, batteryPct) = Win32Perf.GetPowerStatus();
+
+        var displays = new List<CheckDisplay>();
+        try
+        {
+            foreach (var sc in _services.Screens.All)
+            {
+                var placement = state.Output.Placements.FirstOrDefault(p => p.ScreenId == sc.Id);
+                var hz = -1;
+                if (!sc.IsPlanned && DisplayModes.Supported)
+                {
+                    try
+                    {
+                        var device = DisplayModes.DeviceFor(sc.Bounds);
+                        if (device is not null && DisplayModes.Current(device) is { } mode) hz = mode.Hz;
+                    }
+                    catch
+                    {
+                        // The mode probe is a courtesy.
+                    }
+                }
+                displays.Add(new CheckDisplay(placement is null ? sc.Label : Rig.LabelFor(placement, sc), sc.Bounds.Width, sc.Bounds.Height, sc.Scaling, sc.IsPrimary,
+                    placement?.Enabled ?? false, sc.IsPlanned, hz));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Super-check: display probe failed.", ex);
+        }
+
+        var senders = state.Ndi.Senders.Where(x => x.Enabled).ToList();
+        var senderLines = new List<string>();
+        foreach (var cfg in senders)
+        {
+            var status = _services.Ndi.StatusFor(cfg.Id);
+            senderLines.Add($"{cfg.Name} · {cfg.Width}×{cfg.Height}{(status.Length > 0 ? $" · {status}" : "")}");
+        }
+
+        var audioDevices = -1;
+        try
+        {
+            if (OperatingSystem.IsWindows()) audioDevices = AudioPlayerService.OutputDevices().Count;
+        }
+        catch
+        {
+            // No audio stack — unknown.
+        }
+
+        var remoteUrl = "";
+        try
+        {
+            if (state.Control.Enabled) remoteUrl = _services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls().FirstOrDefault() ?? "";
+        }
+        catch
+        {
+            // The remote's address list is a courtesy.
+        }
+
+        var video = false;
+        try
+        {
+            video = _services.Video.SharedVlc is not null;
+        }
+        catch
+        {
+            // libVLC missing: the note says so.
+        }
+
+        return new CheckFacts
+        {
+            AppVersion = version.Length > 0 ? $"Patterns {version}" : "",
+            Os = RuntimeInformation.OSDescription,
+            Machine = Environment.MachineName,
+            CpuName = cpuName,
+            CpuThreads = Environment.ProcessorCount,
+            RamTotalMB = ramTotal,
+            RamUsedPct = ramPct,
+            DiskFreeGB = diskFree,
+            OnBattery = onBattery,
+            BatteryPct = batteryPct,
+            UptimeSeconds = uptime,
+            CpuSystemPct = s?.CpuSystemPct ?? -1,
+            CpuAppPct = s?.CpuAppPct ?? -1,
+            Gpus = GpuService.Adapters,
+            ActiveGpu = GpuService.ActiveAdapterName.Length > 0 ? GpuService.ActiveAdapterName : GpuService.RequestedName,
+            UsingBestGpu = GpuService.UsingBestGpu,
+            VramUsedMB = s?.VramUsedMB ?? -1,
+            VramTotalMB = s?.VramTotalMB ?? -1,
+            GpuBusyPct = s?.GpuBusyPct ?? -1,
+            Displays = displays,
+            OutputsLive = _services.Outputs.IsLive,
+            OutputWindows = s?.OutputWindows ?? -1,
+            OutputFps = History.Recent.Count > 0 ? History.AvgRecent(60, x => x.OutputFps) : -1,
+            TargetFps = state.Output.MasterFps > 0 ? state.Output.MasterFps : 60,
+            WorstFrameMs = s?.WorstFrameMs ?? -1,
+            SlowFrames = s?.SlowFrames ?? -1,
+            Faults = (int)Math.Min(int.MaxValue, HealthMonitor.Faults),
+            WatchdogEnabled = state.Watchdog.Enabled,
+            WatchdogRestarts = HealthMonitor.Restarts,
+            NdiRuntime = Patterns.Core.Ndi.NdiSender.RuntimeAvailable,
+            NdiSendersConfigured = senders.Count,
+            NdiSendersActive = _services.Ndi.ActiveCount,
+            NdiSenderLines = senderLines,
+            StreamActive = state.Stream.Active,
+            StreamDestinations = state.Stream.Destinations.Count,
+            StreamStatus = _services.Stream.Status,
+            AudioOutputDevices = audioDevices,
+            AudioStatus = _services.AudioPlayer.Status,
+            ToneStatus = _services.Audio.Status,
+            RemoteEnabled = state.Control.Enabled,
+            RemoteUrl = remoteUrl,
+            VideoPlayback = video,
+            VideoNote = Patterns.Core.Media.VideoService.AvailabilityNote,
+            Advice = Suggestions,
+        };
+    }
+
     // ---- support info -----------------------------------------------------------------------
 
     /// <summary>Everything a support email needs, as plain text (the Copy button's payload).</summary>

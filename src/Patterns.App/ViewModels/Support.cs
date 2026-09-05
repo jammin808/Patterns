@@ -261,6 +261,12 @@ public sealed record EnumItem(object Value, string Label)
 /// <summary>One advisor line on the Admin tab, with its severity colour resolved.</summary>
 public sealed record SuggestionRow(string Title, string Detail, Avalonia.Media.IBrush Dot);
 
+/// <summary>One row of the super-check on the Admin page: the section, the item, its light as a brush, the value and a note.</summary>
+public sealed record CheckRowView(string Section, string Item, string Value, string Note, Avalonia.Media.IBrush Dot)
+{
+    public bool HasNote => Note.Length > 0;
+}
+
 /// <summary>One detected graphics adapter row on the Admin tab.</summary>
 public sealed record GpuRow(string Name, string Detail);
 

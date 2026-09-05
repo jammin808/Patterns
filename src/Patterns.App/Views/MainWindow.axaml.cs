@@ -91,6 +91,7 @@ public partial class MainWindow : Window
     // ---- the desk's dividers: the page column, the PROGRAM/PREVIEW share, WIDE --------------------
 
     private DeskLayoutConfig? _desk;
+    private MainViewModel? _deskVm;
     private bool _applyingDesk;
 
     /// <summary>The page column's width as laid out (the show's value, held back by the window's width).</summary>
@@ -115,10 +116,11 @@ public partial class MainWindow : Window
         var desk = vm.State.Desk;
         if (ReferenceEquals(_desk, desk)) return;
         _desk = desk;
+        _deskVm = vm;
         desk.PropertyChanged += (_, _) => ApplyDeskLayout();
         vm.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(MainViewModel.WideWorkArea)) ApplyDeskLayout();
+            if (e.PropertyName is nameof(MainViewModel.WideWorkArea) or nameof(MainViewModel.PageWantsRoom)) ApplyDeskLayout();
         };
         ApplyDeskLayout();
     }
@@ -135,7 +137,8 @@ public partial class MainWindow : Window
         {
             var columns = WorkArea.ColumnDefinitions;
             var rows = SwitcherRows.RowDefinitions;
-            if (_desk.WideWorkArea)
+            // WIDE by the operator's choice, or because the page (the machine, help) wants the room.
+            if (_desk.WideWorkArea || _deskVm?.PageWantsRoom == true)
             {
                 columns[0].MinWidth = DeskLayoutConfig.MinEditorWidth;
                 columns[0].Width = new GridLength(1, GridUnitType.Star);
