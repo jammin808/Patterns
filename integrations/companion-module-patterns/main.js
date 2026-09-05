@@ -116,6 +116,7 @@ class PatternsInstance extends InstanceBase {
 			stinger: this.state.stingerPlaying ?? '',
 			sting_hold: this.state.stingHold ?? '',
 			duck: this.state.duck ? 'DUCK' : 'off',
+			lower_third: this.state.lowerThird ?? '',
 			music: this.state.music?.now ?? '',
 			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
 			music_level: String(this.state.music?.level ?? 0),
@@ -127,7 +128,7 @@ class PatternsInstance extends InstanceBase {
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing', 'music_playing',
-			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -238,6 +239,18 @@ class PatternsInstance extends InstanceBase {
 				callback: (a) => send(`STINGER ${a.options.name}`),
 			},
 			stinger_stop: { name: 'Stop VOG / stinger (a held frame reverts; the ending is cancelled)', options: [], callback: () => send('STINGER STOP') },
+			// Lower thirds: a design by number (Lower thirds page order) or name goes on air over the show; OFF takes it off.
+			lower_third: {
+				name: 'Lower third on (by number, Lower thirds page order)',
+				options: [{ type: 'number', id: 'n', label: 'Design number', default: 1, min: 1, max: 64 }],
+				callback: (a) => send(`LT ${a.options.n}`),
+			},
+			lower_third_name: {
+				name: 'Lower third on (by name)',
+				options: [{ type: 'textinput', id: 'name', label: 'Design name', default: '' }],
+				callback: (a) => send(`LT ${a.options.name}`),
+			},
+			lower_third_off: { name: 'Lower third off (leaves the way it was designed to)', options: [], callback: () => send('LT OFF') },
 			// VOG / STING name the same library by the same number and only assert the kind: a key
 			// that says VOG never fires a stinger — Patterns refuses and names the item.
 			vog: {
@@ -348,6 +361,16 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => !!this.state.duck,
 			},
+			lower_third_on: {
+				type: 'boolean',
+				name: 'A lower third is on screen (any, or a named one)',
+				defaultStyle: { bgcolor: combineRgb(224, 52, 46), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'textinput', id: 'name', label: 'Design name (blank = any)', default: '' }],
+				callback: (fb) => {
+					const on = this.state.lowerThird ?? ''
+					return on !== '' && (!fb.options.name || on === fb.options.name)
+				},
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -403,6 +426,7 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'stinger', name: 'VOG or stinger on air (name)' },
 			{ variableId: 'sting_hold', name: 'Stinger holding the screens (name)' },
 			{ variableId: 'duck', name: 'Live duck (DUCK/off)' },
+			{ variableId: 'lower_third', name: 'Lower third on screen (name, or empty)' },
 			{ variableId: 'music', name: 'Break music — now playing' },
 			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
 			{ variableId: 'music_level', name: 'Break music level (0–100)' },
@@ -492,6 +516,19 @@ class PatternsInstance extends InstanceBase {
 			style: { text: 'DUCK\n$(patterns:duck)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'duck', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'duck_on', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
+		}
+		const lowerOn = { feedbackId: 'lower_third_on', options: { name: '' }, style: { bgcolor: combineRgb(224, 52, 46) } }
+		presets.lower_third_off = {
+			type: 'button', category: 'Lower thirds', name: 'Lower third off',
+			style: { text: 'LT\\nOFF\\n$(patterns:lower_third)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'lower_third_off', options: {} }], up: [] }], feedbacks: [lowerOn],
+		}
+		for (let n = 1; n <= 6; n++) {
+			presets[`lower_third_${n}`] = {
+				type: 'button', category: 'Lower thirds', name: `Lower third ${n}`,
+				style: { text: `LT\\n${n}`, size: '18', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third', options: { n } }], up: [] }], feedbacks: [lowerOn],
+			}
 		}
 		const musicOn = { feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }
 		presets.music_play = {

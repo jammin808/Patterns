@@ -17,6 +17,12 @@ public sealed class LookData
     /// saved before this field existed — applying those leaves the flags alone.
     /// </summary>
     public List<string>? CustomScreens { get; init; }
+
+    /// <summary>
+    /// The lower third on air when the look was saved (its id), "" for none. Null in looks saved
+    /// before lower thirds existed — applying those leaves whatever is on alone.
+    /// </summary>
+    public string? LowerThirdId { get; init; }
 }
 
 /// <summary>Capture/apply logic for looks, plus cue-firing arithmetic. Pure and unit tested.</summary>
@@ -34,6 +40,7 @@ public static class LookService
         CustomScreens = state.Output.Placements.Where(p => p.UseCustomPattern).Select(p => p.ScreenId)
             .Concat(state.Output.CanvasNames.Where(c => c.UseCustomPattern).Select(c => c.MemberKey))
             .ToList(),
+        LowerThirdId = state.LowerThirds.IsShowing ? state.LowerThirds.ActiveId : "",
     };
 
     /// <summary>
@@ -76,6 +83,7 @@ public static class LookService
             Countdown = data.Countdown,
             Blackout = data.Blackout,
             CustomScreens = custom.OrderBy(x => x, StringComparer.Ordinal).ToList(),
+            LowerThirdId = data.LowerThirdId ?? "",
         };
         return JsonUtil.Serialize(normalised);
     }
@@ -173,6 +181,21 @@ public static class LookService
         if (rearmCountdown && state.Countdown.Enabled && state.Countdown.TargetKind == CountdownTargetKind.Duration)
         {
             state.Countdown.ArmedAtUtc = DateTime.UtcNow;
+        }
+
+        // The lower third is part of the picture: a recall shows the look's design afresh (or takes
+        // the one on air off when the look had none); a state transfer only makes sure it is on.
+        if (data.LowerThirdId is { } lowerThird)
+        {
+            var lowers = state.LowerThirds;
+            if (lowerThird.Length == 0)
+            {
+                lowers.Hide(ShowClock.UtcNow);
+            }
+            else if (lowers.Find(lowerThird) is { } design)
+            {
+                if (rearmCountdown || lowers.ActiveId != design.Id || !lowers.IsShowing) lowers.Show(design, ShowClock.UtcNow);
+            }
         }
 
         // Looks captured before playlist sections existed carry flat lists — lift them.

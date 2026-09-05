@@ -74,6 +74,8 @@ public static class CueSummary
             case CueActionKind.SpotifyVolume: return $"Break music {a.Value}%";
             case CueActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
             case CueActionKind.MessageOff: return "Message off";
+            case CueActionKind.LowerThirdShow: return $"Lower third '{state.LowerThirds.Find(a.Target)?.Name ?? a.Target}'";
+            case CueActionKind.LowerThirdHide: return "Lower third off";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
             case CueActionKind.DuckOn: return "Duck for announcement";

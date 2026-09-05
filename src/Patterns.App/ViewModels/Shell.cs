@@ -55,6 +55,7 @@ public static class Shell
         ("Pattern", ShellGroup.Build, "#3EC1F3"),
         ("Media", ShellGroup.Build, "#FF6EC7"),
         ("Overlays", ShellGroup.Build, "#FFC24D"),
+        ("Lower thirds", ShellGroup.Build, "#FFC24D"),
         ("Countdown", ShellGroup.Build, "#FFC24D"),
         ("Particles", ShellGroup.Build, "#FFC24D"),
         ("Branding", ShellGroup.Build, "#FFC24D"),

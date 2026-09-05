@@ -134,6 +134,7 @@ public sealed class ActionRow : Observable
         TargetKind.Canvas => "Which canvas…",
         TargetKind.Stack => "Which list…",
         TargetKind.Music => "Which break music… (blank = resume)",
+        TargetKind.LowerThird => "Which lower third…",
         _ => "",
     };
 
@@ -457,6 +458,8 @@ public sealed class CueEditor : Observable
                 return state.Stacks.Select(s => new PickItem(s.Id, s.Name));
             case TargetKind.Music:
                 return state.Spotify.Items.Select(m => new PickItem(m.Id, m.DisplayName));
+            case TargetKind.LowerThird:
+                return state.LowerThirds.Designs.Select(d => new PickItem(d.Id, d.Name));
             default:
                 return Array.Empty<PickItem>();
         }

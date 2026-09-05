@@ -164,6 +164,7 @@
               <TabItem Header="Pattern"><ScrollViewer><v:PatternSection /></ScrollViewer></TabItem>
               <TabItem Header="Media"><ScrollViewer><v:MediaSection /></ScrollViewer></TabItem>
               <TabItem Header="Overlays"><ScrollViewer><v:OverlaysSection /></ScrollViewer></TabItem>
+              <TabItem Header="Lower thirds"><ScrollViewer><v:LowerThirdsSection /></ScrollViewer></TabItem>
               <TabItem Header="Countdown"><ScrollViewer><v:CountdownSection /></ScrollViewer></TabItem>
               <TabItem Header="Particles"><ScrollViewer><v:ParticlesSection /></ScrollViewer></TabItem>
               <TabItem Header="Branding"><ScrollViewer><v:BrandingSection /></ScrollViewer></TabItem>

@@ -42,6 +42,16 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Lower thirds (module 1.4.0)
+
+The **Lower thirds** category puts a design from the Lower thirds page on air over whatever is
+showing — on every screen, NDI send and the stream at once — and takes it off the way it was
+designed to. Actions `lower_third` (by number, Lower thirds page order: `LT n` on the wire),
+`lower_third_name` (by name) and `lower_third_off` (`LT OFF`); pressing a design's key again
+restarts its way in. Feedback `lower_third_on` (red; a blank name means any design, a name means
+that one) and `$(patterns:lower_third)` (the design on screen, or empty). Presets: keys 1–6 and
+OFF. Every existing action, feedback and variable id is unchanged.
+
 ## Live duck (module 1.3.0)
 
 The **DUCK** key (`duck` action: toggle / on / off, `DUCK …` on the wire) makes way for an

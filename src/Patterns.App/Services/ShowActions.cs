@@ -300,6 +300,27 @@ public sealed class ShowActions
             case ShowActionKind.ClockOff:
                 _s.EditAir(air => air.Overlays.Clock.Enabled = false);
                 return ActionResult.Done("Clock off.");
+            case ShowActionKind.LowerThirdShow:
+            {
+                var design = State.LowerThirds.Find(a.Target) ?? _s.AirState.LowerThirds.Find(a.Target);
+                if (design is null) return ActionResult.Refused($"Lower third '{a.Target}' not found.");
+                var now = ShowClock.UtcNow;
+                _s.EditAir(air =>
+                {
+                    // A design made while the sandbox is open is not in the frozen program yet: it goes over as a copy.
+                    var onAir = air.LowerThirds.Find(design.Id);
+                    if (onAir is null)
+                    {
+                        onAir = design.Clone(newId: false);
+                        air.LowerThirds.Designs.Add(onAir);
+                    }
+                    air.LowerThirds.Show(onAir, now);
+                });
+                return ActionResult.Done($"Lower third '{design.Name}' on.");
+            }
+            case ShowActionKind.LowerThirdHide:
+                _s.EditAir(air => air.LowerThirds.Hide(ShowClock.UtcNow));
+                return ActionResult.Done("Lower third off.");
             case ShowActionKind.AudioVolume:
             {
                 // The track is not in the snapshot: the player reads the live model every poll,
@@ -699,6 +720,8 @@ public sealed class ShowActions
         CueActionKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
         CueActionKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
         CueActionKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
+        CueActionKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, a.Target),
+        CueActionKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
         CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
         CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
         CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),

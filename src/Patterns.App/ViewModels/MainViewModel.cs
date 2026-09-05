@@ -11,6 +11,8 @@ using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 
+using Patterns.Core.LowerThirds;
+
 namespace Patterns.App.ViewModels;
 
 /// <summary>Target chooser entries for the pattern editor ("Program" or one custom screen).</summary>
@@ -203,6 +205,29 @@ public sealed class MainViewModel : Observable
         });
         StopAudioCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.AudioStop, ActionOrigin.Desk));
         RefreshAudioDevicesCommand = new RelayCommand(RefreshAudioDevices);
+        NewLowerThirdCommand = new RelayCommand(() => NewLowerThird(NewLowerThirdPreset));
+        DuplicateLowerThirdCommand = new RelayCommand<LowerThirdDesign>(DuplicateLowerThird);
+        DeleteLowerThirdCommand = new RelayCommand<LowerThirdDesign>(DeleteLowerThird);
+        ShowLowerThirdCommand = new RelayCommand<LowerThirdDesign>(d => { if (d is not null) ShowLowerThird(d); });
+        HideLowerThirdCommand = new RelayCommand(HideLowerThird);
+        AddElementCommand = new RelayCommand<string>(kind =>
+        {
+            if (Enum.TryParse<LowerThirdElementKind>(kind, true, out var k)) AddElement(k);
+        });
+        RemoveElementCommand = new RelayCommand<LowerThirdElement>(RemoveElement);
+        MoveElementUpCommand = new RelayCommand<LowerThirdElement>(e => MoveElement(e, -1));
+        MoveElementDownCommand = new RelayCommand<LowerThirdElement>(e => MoveElement(e, +1));
+        MotionInCommand = new RelayCommand<string>(m => ApplyMotion(m, true));
+        MotionOutCommand = new RelayCommand<string>(m => ApplyMotion(m, false));
+        AddInKeyCommand = new RelayCommand(() => AddKey(true));
+        AddOutKeyCommand = new RelayCommand(() => AddKey(false));
+        RemoveInKeyCommand = new RelayCommand<LowerThirdKeyframe>(k => RemoveKey(k, true));
+        RemoveOutKeyCommand = new RelayCommand<LowerThirdKeyframe>(k => RemoveKey(k, false));
+        ElementColorWordCommand = new RelayCommand<string>(SetElementColorWord);
+        PickElementFileCommand = new RelayCommand(() => _ = PickElementFileAsync());
+        SaveLowerThirdFileCommand = new RelayCommand(SaveLowerThirdFile);
+        LoadLowerThirdFileCommand = new RelayCommand<string>(path => LoadLowerThirdFile(path));
+        PreviewRestartCommand = new RelayCommand(() => PreviewTimeMs = 0);
         ResetWarpCommand = new RelayCommand(() =>
         {
             if (_selectedPlacement is null) return;
@@ -2563,13 +2588,13 @@ public sealed class MainViewModel : Observable
     public void RefreshTallies()
     {
         RefreshLookTallies();
-        var live = RefreshStingerTallies();
+        var live = RefreshStingerTallies() | RefreshLowerThirdTallies();
         if (live && _tallyTimer is null)
         {
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             timer.Tick += (_, _) =>
             {
-                if (RefreshStingerTallies()) return;
+                if (RefreshStingerTallies() | RefreshLowerThirdTallies()) return;
                 timer.Stop();
                 if (ReferenceEquals(_tallyTimer, timer)) _tallyTimer = null;
             };
@@ -3051,6 +3076,26 @@ public sealed class MainViewModel : Observable
     public RelayCommand PlayAudioCommand { get; }
     public RelayCommand StopAudioCommand { get; }
     public RelayCommand RefreshAudioDevicesCommand { get; }
+    public RelayCommand NewLowerThirdCommand { get; }
+    public RelayCommand<LowerThirdDesign> DuplicateLowerThirdCommand { get; }
+    public RelayCommand<LowerThirdDesign> DeleteLowerThirdCommand { get; }
+    public RelayCommand<LowerThirdDesign> ShowLowerThirdCommand { get; }
+    public RelayCommand HideLowerThirdCommand { get; }
+    public RelayCommand<string> AddElementCommand { get; }
+    public RelayCommand<LowerThirdElement> RemoveElementCommand { get; }
+    public RelayCommand<LowerThirdElement> MoveElementUpCommand { get; }
+    public RelayCommand<LowerThirdElement> MoveElementDownCommand { get; }
+    public RelayCommand<string> MotionInCommand { get; }
+    public RelayCommand<string> MotionOutCommand { get; }
+    public RelayCommand AddInKeyCommand { get; }
+    public RelayCommand AddOutKeyCommand { get; }
+    public RelayCommand<LowerThirdKeyframe> RemoveInKeyCommand { get; }
+    public RelayCommand<LowerThirdKeyframe> RemoveOutKeyCommand { get; }
+    public RelayCommand<string> ElementColorWordCommand { get; }
+    public RelayCommand PickElementFileCommand { get; }
+    public RelayCommand SaveLowerThirdFileCommand { get; }
+    public RelayCommand<string> LoadLowerThirdFileCommand { get; }
+    public RelayCommand PreviewRestartCommand { get; }
     public RelayCommand ResetWarpCommand { get; }
     public RelayCommand ResetBlendCommand { get; }
     public RelayCommand AddStingerFilesCommand { get; }
@@ -3406,6 +3451,374 @@ public sealed class MainViewModel : Observable
 
     /// <summary>The Copy support info payload (also used by tests to sanity-check content).</summary>
     public string BuildSupportInfo() => _services.Metrics.SupportInfo();
+
+    // ---- lower thirds --------------------------------------------------------------------------
+
+    private LowerThirdDesign? _selectedLowerThird;
+    private LowerThirdElement? _selectedElement;
+    private string _newLowerThirdPreset = "Clean";
+    private double _previewTimeMs;
+    private bool _previewPlaying;
+    private DispatcherTimer? _previewTimer;
+    private string _lowerThirdStatus = "No lower third on air.";
+
+    /// <summary>The presets a new design starts from, plus an empty box.</summary>
+    public IReadOnlyList<string> LowerThirdPresetNames { get; } = LowerThirdPresets.Names.Concat(new[] { "Blank" }).ToList();
+
+    public string NewLowerThirdPreset { get => _newLowerThirdPreset; set => Set(ref _newLowerThirdPreset, string.IsNullOrWhiteSpace(value) ? "Clean" : value); }
+
+    /// <summary>Designs saved as files in the lowerthirds folder (Id = the path).</summary>
+    public ObservableCollection<PickItem> LowerThirdFiles { get; } = new();
+
+    /// <summary>What is on screen, for the pages.</summary>
+    public string LowerThirdStatus { get => _lowerThirdStatus; private set => Set(ref _lowerThirdStatus, value); }
+
+    public LowerThirdDesign? SelectedLowerThird
+    {
+        get => _selectedLowerThird;
+        set
+        {
+            var old = _selectedLowerThird;
+            if (!Set(ref _selectedLowerThird, value)) return;
+            if (old is not null) old.PropertyChanged -= OnSelectedLowerThirdChanged;
+            if (value is not null) value.PropertyChanged += OnSelectedLowerThirdChanged;
+            SelectedElement = value?.Elements.FirstOrDefault();
+            PreviewTimeMs = value?.InMs ?? 0;
+            Raise(nameof(HasLowerThird));
+            Raise(nameof(PreviewLengthMs));
+        }
+    }
+
+    private void OnSelectedLowerThirdChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(LowerThirdDesign.InMs) or nameof(LowerThirdDesign.HoldMs) or nameof(LowerThirdDesign.OutMs))
+        {
+            Raise(nameof(PreviewLengthMs));
+            PreviewTimeMs = Math.Min(PreviewTimeMs, PreviewLengthMs);
+        }
+    }
+
+    public bool HasLowerThird => _selectedLowerThird is not null;
+
+    public LowerThirdElement? SelectedElement
+    {
+        get => _selectedElement;
+        set
+        {
+            var old = _selectedElement;
+            if (!Set(ref _selectedElement, value)) return;
+            if (old is not null) old.PropertyChanged -= OnSelectedElementChanged;
+            if (value is not null) value.PropertyChanged += OnSelectedElementChanged;
+            RaiseElementKind();
+        }
+    }
+
+    private void OnSelectedElementChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(LowerThirdElement.Kind)) RaiseElementKind();
+    }
+
+    private void RaiseElementKind()
+    {
+        Raise(nameof(HasElement));
+        Raise(nameof(ElementIsText));
+        Raise(nameof(ElementHasFile));
+        Raise(nameof(ElementIsMedia));
+        Raise(nameof(ElementIsParticles));
+        Raise(nameof(ElementIsFractal));
+    }
+
+    public bool HasElement => _selectedElement is not null;
+    public bool ElementIsText => _selectedElement?.Kind == LowerThirdElementKind.Text;
+    public bool ElementHasFile => _selectedElement?.Kind is LowerThirdElementKind.Image or LowerThirdElementKind.Media;
+    public bool ElementIsMedia => _selectedElement?.Kind == LowerThirdElementKind.Media;
+    public bool ElementIsParticles => _selectedElement?.Kind == LowerThirdElementKind.Particles;
+    public bool ElementIsFractal => _selectedElement?.Kind == LowerThirdElementKind.Fractal;
+
+    /// <summary>The scrubber's range: the way in, a hold (its own, or 1.5 s when it waits to be hidden), the way out.</summary>
+    public double PreviewLengthMs
+        => _selectedLowerThird is null ? 1000 : _selectedLowerThird.InMs + (_selectedLowerThird.HoldMs > 0 ? _selectedLowerThird.HoldMs : 1500) + _selectedLowerThird.OutMs;
+
+    /// <summary>Where the preview stands on the design's own timeline.</summary>
+    public double PreviewTimeMs { get => _previewTimeMs; set => Set(ref _previewTimeMs, Math.Clamp(value, 0, Math.Max(1, PreviewLengthMs))); }
+
+    /// <summary>Runs the preview round and round.</summary>
+    public bool PreviewPlaying
+    {
+        get => _previewPlaying;
+        set
+        {
+            if (!Set(ref _previewPlaying, value)) return;
+            if (value)
+            {
+                _previewTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+                _previewTimer.Tick -= PreviewTick;
+                _previewTimer.Tick += PreviewTick;
+                _previewTimer.Start();
+            }
+            else
+            {
+                _previewTimer?.Stop();
+            }
+        }
+    }
+
+    private void PreviewTick(object? sender, EventArgs e)
+    {
+        var next = _previewTimeMs + 33;
+        PreviewTimeMs = next >= PreviewLengthMs ? 0 : next;
+    }
+
+    /// <summary>A new design from a preset (or an empty box), named so it never collides, selected.</summary>
+    public LowerThirdDesign NewLowerThird(string preset)
+    {
+        var design = preset == "Blank" ? LowerThirdPresets.Blank() : LowerThirdPresets.Create(preset);
+        design.Name = UniqueLowerThirdName(design.Name);
+        State.LowerThirds.Designs.Add(design);
+        SelectedLowerThird = design;
+        StatusMessage = $"Lower third '{design.Name}' added.";
+        return design;
+    }
+
+    private string UniqueLowerThirdName(string name)
+    {
+        var candidate = name;
+        var n = 2;
+        while (State.LowerThirds.Designs.Any(d => string.Equals(d.Name, candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate = $"{name} {n++}";
+        }
+        return candidate;
+    }
+
+    private void DuplicateLowerThird(LowerThirdDesign? design)
+    {
+        if (design is null) return;
+        var copy = design.Clone();
+        copy.Name = UniqueLowerThirdName(design.Name);
+        State.LowerThirds.Designs.Add(copy);
+        SelectedLowerThird = copy;
+    }
+
+    private void DeleteLowerThird(LowerThirdDesign? design)
+    {
+        if (design is null) return;
+        if (State.LowerThirds.ActiveId == design.Id) State.LowerThirds.Hide(ShowClock.UtcNow);
+        var index = State.LowerThirds.Designs.IndexOf(design);
+        // The page's list clears its selection the moment the item goes: decide before, reselect after.
+        var wasSelected = ReferenceEquals(SelectedLowerThird, design);
+        State.LowerThirds.Designs.Remove(design);
+        if (wasSelected)
+        {
+            var designs = State.LowerThirds.Designs;
+            SelectedLowerThird = designs.Count == 0 ? null : designs[Math.Clamp(index, 0, designs.Count - 1)];
+        }
+        StatusMessage = $"Lower third '{design.Name}' deleted.";
+    }
+
+    /// <summary>On air now, through the action layer (journaled, sandbox-aware).</summary>
+    public void ShowLowerThird(LowerThirdDesign design)
+        => _services.Actions.Execute(ShowActionKind.LowerThirdShow, ActionOrigin.Desk, design.Id);
+
+    public void HideLowerThird() => _services.Actions.Execute(ShowActionKind.LowerThirdHide, ActionOrigin.Desk);
+
+    /// <summary>A new element of a kind, sized to the design and given a plain fade both ways, selected.</summary>
+    public LowerThirdElement? AddElement(LowerThirdElementKind kind)
+    {
+        var d = SelectedLowerThird;
+        if (d is null) return null;
+        var bar = kind == LowerThirdElementKind.Bar;
+        var full = kind is LowerThirdElementKind.Bar or LowerThirdElementKind.Particles or LowerThirdElementKind.Fractal or LowerThirdElementKind.Media;
+        var e = new LowerThirdElement
+        {
+            Kind = kind,
+            Name = kind.ToString(),
+            X = 0,
+            Y = 0,
+            W = full ? d.Width : Math.Min(kind == LowerThirdElementKind.Text ? 600 : 200, d.Width),
+            H = full ? d.Height : Math.Min(kind == LowerThirdElementKind.Text ? 80 : 200, d.Height),
+            Fill = bar ? LowerThirdFill.Solid : LowerThirdFill.None,
+        };
+        if (kind == LowerThirdElementKind.Text) e.Text = "Text";
+        LowerThirdMotions.Apply(e, d, LowerThirdMotion.Fade, LowerThirdMotion.Fade);
+        d.Elements.Add(e);
+        SelectedElement = e;
+        return e;
+    }
+
+    private void RemoveElement(LowerThirdElement? e)
+    {
+        var d = SelectedLowerThird;
+        if (d is null || e is null) return;
+        var index = d.Elements.IndexOf(e);
+        var wasSelected = ReferenceEquals(SelectedElement, e);
+        d.Elements.Remove(e);
+        if (wasSelected)
+        {
+            SelectedElement = d.Elements.Count == 0 ? null : d.Elements[Math.Clamp(index, 0, d.Elements.Count - 1)];
+        }
+    }
+
+    private void MoveElement(LowerThirdElement? e, int delta)
+    {
+        var d = SelectedLowerThird;
+        if (d is null || e is null) return;
+        var index = d.Elements.IndexOf(e);
+        var target = index + delta;
+        if (index < 0 || target < 0 || target >= d.Elements.Count) return;
+        // The page's list sees a move as a removal and an insert and drops its selection on the way: put it back.
+        var selected = SelectedElement;
+        d.Elements.Move(index, target);
+        if (selected is not null && !ReferenceEquals(SelectedElement, selected)) SelectedElement = selected;
+    }
+
+    /// <summary>A motion chip: the ready-made keys for the way in or out, editable afterwards.</summary>
+    public void ApplyMotion(string? motionName, bool isIn)
+    {
+        var d = SelectedLowerThird;
+        var e = SelectedElement;
+        if (d is null || e is null || !Enum.TryParse<LowerThirdMotion>(motionName, true, out var motion)) return;
+        LowerThirdMotions.Apply(e, motion, isIn, LowerThirdMotions.DefaultDistance(motion, d));
+        PreviewTimeMs = isIn ? d.InMs * 0.5 : d.InMs + (d.HoldMs > 0 ? d.HoldMs : 1500) + d.OutMs * 0.5;
+    }
+
+    private void AddKey(bool isIn)
+    {
+        var e = SelectedElement;
+        if (e is null) return;
+        var keys = isIn ? e.In : e.Out;
+        var last = keys.Count == 0 ? null : keys[^1];
+        var key = last?.Clone() ?? new LowerThirdKeyframe { U = isIn ? 0 : 1 };
+        if (last is not null) key.U = Math.Min(1, last.U + 0.25);
+        keys.Add(key);
+    }
+
+    private void RemoveKey(LowerThirdKeyframe? key, bool isIn)
+    {
+        var e = SelectedElement;
+        if (e is null || key is null) return;
+        (isIn ? e.In : e.Out).Remove(key);
+    }
+
+    /// <summary>"TextColor:primary" — a brand word into one of the element's colour fields.</summary>
+    private void SetElementColorWord(string? spec)
+    {
+        var e = SelectedElement;
+        if (e is null || string.IsNullOrWhiteSpace(spec)) return;
+        var parts = spec.Split(':', 2);
+        if (parts.Length != 2) return;
+        var word = parts[1];
+        switch (parts[0])
+        {
+            case nameof(LowerThirdElement.TextColor): e.TextColor = word; break;
+            case nameof(LowerThirdElement.FillColor): e.FillColor = word; break;
+            case nameof(LowerThirdElement.FillColor2): e.FillColor2 = word; break;
+            case nameof(LowerThirdElement.BorderColor): e.BorderColor = word; break;
+            case nameof(LowerThirdElement.GlowColor): e.GlowColor = word; break;
+            case nameof(LowerThirdElement.ChaserColor): e.ChaserColor = word; break;
+            case nameof(LowerThirdElement.ShadowColor): e.ShadowColor = word; break;
+        }
+    }
+
+    private async Task PickElementFileAsync()
+    {
+        var e = SelectedElement;
+        var window = _services.MainWindow;
+        if (e is null || window is null) return;
+        try
+        {
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = e.Kind == LowerThirdElementKind.Media ? "Choose a clip or still for this element" : "Choose a picture for this element",
+                AllowMultiple = false,
+                FileTypeFilter = new[] { MediaTypes, FilePickerFileTypes.All },
+            });
+            var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            if (path is null) return;
+            e.Path = path;
+            AddToMediaLibrary(path, isVideo: PlaylistSequencer.IsVideoPath(path));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Element file pick failed.", ex);
+        }
+    }
+
+    /// <summary>The selected design as a file of its own in the lowerthirds folder (its name is the file name).</summary>
+    public void SaveLowerThirdFile()
+    {
+        var d = SelectedLowerThird;
+        if (d is null) return;
+        try
+        {
+            var path = _services.Store.SaveLowerThird(d.Name, d);
+            RefreshLowerThirdFiles();
+            StatusMessage = $"Saved '{Path.GetFileName(path)}' in the lowerthirds folder.";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Lower third save failed.", ex);
+            StatusMessage = $"Could not save the lower third: {ex.Message}";
+        }
+    }
+
+    /// <summary>A saved file into the show as a new design (fresh ids, a name that never collides), selected.</summary>
+    public LowerThirdDesign? LoadLowerThirdFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        var loaded = _services.Store.LoadLowerThird(path);
+        if (loaded is null)
+        {
+            StatusMessage = $"Could not read '{Path.GetFileName(path)}'.";
+            return null;
+        }
+        var design = loaded.Clone();
+        design.Name = UniqueLowerThirdName(loaded.Name.Length > 0 ? loaded.Name : Path.GetFileNameWithoutExtension(path));
+        State.LowerThirds.Designs.Add(design);
+        SelectedLowerThird = design;
+        StatusMessage = $"Lower third '{design.Name}' loaded from file.";
+        return design;
+    }
+
+    public void RefreshLowerThirdFiles()
+    {
+        LowerThirdFiles.Clear();
+        foreach (var (name, path) in _services.Store.ListLowerThirds())
+        {
+            LowerThirdFiles.Add(new PickItem(path, name));
+        }
+    }
+
+    /// <summary>The tally: the design on screen lights its row and chip with its phase; true while one is on.</summary>
+    private bool RefreshLowerThirdTallies()
+    {
+        var air = _services.AirState.LowerThirds;
+        var now = ShowClock.UtcNow;
+        var active = air.Active;
+        var phase = LowerThirdPhase.Gone;
+        if (active is not null && LowerThirdClock.Instants(air) is { } at)
+        {
+            phase = LowerThirdClock.Evaluate(active, at.ShownAt, at.HiddenAt, ShowClock.SecondsAt(now)).Phase;
+        }
+        var live = phase is LowerThirdPhase.In or LowerThirdPhase.Hold or LowerThirdPhase.Out;
+        var text = phase switch
+        {
+            LowerThirdPhase.In => "ARRIVING",
+            LowerThirdPhase.Out => "LEAVING",
+            LowerThirdPhase.Hold => "ON AIR",
+            _ => "",
+        };
+        foreach (var d in State.LowerThirds.Designs)
+        {
+            var on = live && active is not null && d.Id == active.Id;
+            d.IsOnAir = on;
+            d.OnAirText = on ? text : "";
+        }
+        LowerThirdStatus = live && active is not null
+            ? $"On air: {active.Name} ({text.ToLowerInvariant()})."
+            : "No lower third on air.";
+        return live;
+    }
 
     // ---- the super-check ----------------------------------------------------------------------
 

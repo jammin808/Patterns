@@ -14,6 +14,8 @@ public enum TargetKind
     Stack,
     /// <summary>A break-music library entry (blank = resume what is loaded).</summary>
     Music,
+    /// <summary>A lower third design.</summary>
+    LowerThird,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -49,6 +51,7 @@ public static class CueActionSpec
         CueActionKind.AudioVolume => (TargetKind.None, ValueKind.Percent),
         CueActionKind.SpotifyPlay => (TargetKind.Music, ValueKind.None),
         CueActionKind.SpotifyVolume => (TargetKind.None, ValueKind.Level),
+        CueActionKind.LowerThirdShow => (TargetKind.LowerThird, ValueKind.None),
         CueActionKind.ListArm or CueActionKind.ListDisarm or CueActionKind.ListGo
             or CueActionKind.ListBack or CueActionKind.ListReset => (TargetKind.Stack, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),
@@ -86,6 +89,8 @@ public static class CueActionSpec
         CueActionKind.ClockOff => "Clock off",
         CueActionKind.DuckOn => "Duck for an announcement",
         CueActionKind.DuckOff => "Lift the duck",
+        CueActionKind.LowerThirdShow => "Lower third on",
+        CueActionKind.LowerThirdHide => "Lower third off",
         CueActionKind.ListArm => "Arm a list",
         CueActionKind.ListDisarm => "Disarm a list",
         CueActionKind.ListGo => "GO on a list",
@@ -109,6 +114,7 @@ public static class CueActionSpec
         CueActionKind.CountdownStart, CueActionKind.CountdownStop,
         CueActionKind.MessageOn, CueActionKind.MessageOff,
         CueActionKind.ClockOn, CueActionKind.ClockOff,
+        CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide,
         CueActionKind.DuckOn, CueActionKind.DuckOff,
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };

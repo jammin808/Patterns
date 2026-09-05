@@ -2,6 +2,8 @@ using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Patterns.Core.Model;
 
+using Patterns.Core.LowerThirds;
+
 namespace Patterns.App.ViewModels;
 
 public sealed class RelayCommand : ICommand
@@ -382,6 +384,63 @@ public static class Lists
     };
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();
+
+    // ---- lower thirds ----
+    public static readonly EnumItem[] LowerThirdKinds =
+    {
+        new(LowerThirdElementKind.Text, "Text"),
+        new(LowerThirdElementKind.Bar, "Bar / panel"),
+        new(LowerThirdElementKind.Image, "Picture (a file)"),
+        new(LowerThirdElementKind.Logo, "Brand logo"),
+        new(LowerThirdElementKind.Media, "Clip or still (a file)"),
+        new(LowerThirdElementKind.Particles, "Particles"),
+        new(LowerThirdElementKind.Fractal, "Fractal"),
+    };
+
+    public static readonly EnumItem[] LowerThirdTextKinds =
+    {
+        new(LowerThirdTextKind.Custom, "Your own words"),
+        new(LowerThirdTextKind.Name, "The name"),
+        new(LowerThirdTextKind.Role, "The role"),
+        new(LowerThirdTextKind.Company, "The company (brand kit when empty)"),
+        new(LowerThirdTextKind.Date, "The date"),
+        new(LowerThirdTextKind.Time, "The time"),
+        new(LowerThirdTextKind.DateAndTime, "Date and time"),
+    };
+
+    public static readonly EnumItem[] LowerThirdAligns = Of<LowerThirdAlign>();
+
+    public static readonly EnumItem[] LowerThirdFills =
+    {
+        new(LowerThirdFill.None, "None"),
+        new(LowerThirdFill.Solid, "Solid colour"),
+        new(LowerThirdFill.Gradient, "Gradient"),
+    };
+
+    public static readonly EnumItem[] LowerThirdGradients =
+    {
+        new(LowerThirdGradient.LeftRight, "Left to right"),
+        new(LowerThirdGradient.TopBottom, "Top to bottom"),
+        new(LowerThirdGradient.Diagonal, "Diagonal"),
+    };
+
+    public static readonly EnumItem[] EaseKinds =
+    {
+        new(EaseKind.Linear, "Linear"),
+        new(EaseKind.EaseIn, "Ease in"),
+        new(EaseKind.EaseOut, "Ease out"),
+        new(EaseKind.EaseInOut, "Ease in and out"),
+        new(EaseKind.Back, "Back (a little overshoot)"),
+        new(EaseKind.Bounce, "Bounce"),
+        new(EaseKind.Elastic, "Elastic"),
+    };
+
+    /// <summary>The ready-made ways in and out, as the motion chips name them.</summary>
+    public static readonly string[] LowerThirdMotionNames = Enum.GetNames<LowerThirdMotion>();
+
+    public static readonly EnumItem[] LowerThirdEmitters = Of<ParticleEmitter>();
+    public static readonly EnumItem[] LowerThirdFractalKinds = Of<FractalKind>();
+    public static readonly EnumItem[] LowerThirdQualities = Of<FractalQuality>();
     public static readonly EnumItem[] MessageBackgrounds =
     {
         new(MessageBackground.Auto, "Auto — chip when static, none when scrolling"),

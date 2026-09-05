@@ -141,8 +141,17 @@ public sealed class CommandRouter
             RemoteCommandKind.PlaylistSection => new ShowAction(ShowActionKind.PlaylistPart, byNumberOrName),
             RemoteCommandKind.StreamOn => new ShowAction(ShowActionKind.StreamStart),
             RemoteCommandKind.StreamOff => new ShowAction(ShowActionKind.StreamStop),
+            RemoteCommandKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, byNumberOrName),
+            RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
             _ => null,
         };
+    }
+
+    /// <summary>The lower third on screen (arriving, holding or leaving), by name; "" when none.</summary>
+    private string LowerThirdOnAir()
+    {
+        var air = _services.AirState.LowerThirds;
+        return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(air, ShowClock.UtcNow) ? air.Active?.Name ?? "" : "";
     }
 
     /// <summary>State summary for remotes. UI thread only.</summary>
@@ -176,6 +185,8 @@ public sealed class CommandRouter
                 items = s.Spotify.Items.Select((i, n) => new { n = n + 1, name = i.DisplayName }).ToArray(),
             },
             tone = s.Tone.Enabled,
+            lowerThirds = s.LowerThirds.Designs.Select((d, n) => new { n = n + 1, name = d.Name }).ToArray(),
+            lowerThird = LowerThirdOnAir(),                                // the design on screen right now, or ""
             stingers = s.Stingers.Items.Select((i, n) => new
             {
                 n = n + 1,

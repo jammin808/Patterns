@@ -58,6 +58,10 @@ public enum RemoteCommandKind
     DuckOn,
     DuckOff,
     DuckToggle,
+    /// <summary>"LOWERTHIRD n" / "LOWERTHIRD name" (alias "LT") — the design goes on air; by number (IntArg, Lower thirds page order) or name (TextArg).</summary>
+    LowerThirdShow,
+    /// <summary>"LOWERTHIRD OFF" (or "HIDE") — the one on air leaves.</summary>
+    LowerThirdHide,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module).</summary>
@@ -238,6 +242,18 @@ public static class ControlProtocol
                     "OFF" => new(RemoteCommandKind.DuckOff, 0, ""),
                     _ => new(RemoteCommandKind.DuckToggle, 0, ""),
                 };
+
+            // A lower third by number (Lower thirds page order) or name; OFF / HIDE takes the one on air off.
+            case "LOWERTHIRD":
+            case "LT":
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                if (arg.Equals("OFF", StringComparison.OrdinalIgnoreCase) || arg.Equals("HIDE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new(RemoteCommandKind.LowerThirdHide, 0, "");
+                }
+                return int.TryParse(arg, out var lower)
+                    ? new(RemoteCommandKind.LowerThirdShow, lower, "")
+                    : new(RemoteCommandKind.LowerThirdShow, 0, arg);
 
             case "STREAM":
                 return arg.ToUpperInvariant() switch

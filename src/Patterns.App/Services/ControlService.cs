@@ -721,6 +721,10 @@ setInterval(function () {
 <div id="stings" class="grid row2"></div>
 <div id="stingnow" class="grid" style="margin-top:10px"></div>
 
+<div class="sec" id="ltsec" hidden>LOWER THIRDS</div>
+<div id="lts" class="grid row2"></div>
+<div id="ltnow" class="grid" style="margin-top:10px"></div>
+
 <div class="sec" id="musicsec" hidden>BREAK MUSIC</div>
 <div id="music" class="grid row2"></div>
 <div id="musicctl" class="grid row3" style="margin-top:10px" hidden>
@@ -812,6 +816,26 @@ function render(s) {
     b2.textContent = '■ Stop: ' + s.stingerPlaying;
     b2.onclick = function(){ cmd('STINGER STOP'); };
     sn.appendChild(b2);
+  }
+
+  // Lower thirds: one button per design (LT n, page order); the one on screen lights and gets a HIDE.
+  var lts = document.getElementById('lts'); lts.innerHTML = '';
+  var ltList = s.lowerThirds || [];
+  document.getElementById('ltsec').hidden = ltList.length === 0;
+  ltList.forEach(function(x){
+    var b = document.createElement('button');
+    b.textContent = x.name;
+    if (s.lowerThird && s.lowerThird === x.name) { b.style.borderColor = 'var(--good)'; b.style.color = 'var(--good)'; }
+    b.onclick = function(){ cmd('LT ' + x.n); };
+    lts.appendChild(b);
+  });
+  var ln = document.getElementById('ltnow'); ln.innerHTML = '';
+  if (s.lowerThird) {
+    var b4 = document.createElement('button');
+    b4.className = 'stop';
+    b4.textContent = '■ Hide: ' + s.lowerThird;
+    b4.onclick = function(){ cmd('LT OFF'); };
+    ln.appendChild(b4);
   }
 
   var m = s.music || {};

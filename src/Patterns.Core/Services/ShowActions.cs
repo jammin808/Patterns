@@ -84,6 +84,10 @@ public enum ShowActionKind
     DuckOn,
     DuckOff,
     DuckToggle,
+    /// <summary>Target = a lower third's id, name or 1-based number (Lower thirds page order): it goes on air (again restarts its way in).</summary>
+    LowerThirdShow,
+    /// <summary>The lower third on air leaves the way it was designed to.</summary>
+    LowerThirdHide,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

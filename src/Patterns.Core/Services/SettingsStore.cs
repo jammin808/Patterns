@@ -14,12 +14,16 @@ public sealed class SettingsStore
     public string PresetsDirectory { get; }
     public string BrandKitsDirectory { get; }
 
+    /// <summary>Lower-third designs saved as files of their own, so a creation travels between shows and machines.</summary>
+    public string LowerThirdsDirectory { get; }
+
     public SettingsStore(string? baseDirectory = null)
     {
         BaseDirectory = baseDirectory ?? ResolvePortableDirectory();
         SettingsPath = Path.Combine(BaseDirectory, "patterns.settings.json");
         PresetsDirectory = Path.Combine(BaseDirectory, "presets");
         BrandKitsDirectory = Path.Combine(BaseDirectory, "brandkits");
+        LowerThirdsDirectory = Path.Combine(BaseDirectory, "lowerthirds");
     }
 
     public static string ResolvePortableDirectory()
@@ -282,6 +286,42 @@ public sealed class SettingsStore
     {
         try { return JsonUtil.Deserialize<BrandKit>(File.ReadAllText(path)); }
         catch { return null; }
+    }
+
+    // ---- Lower thirds -------------------------------------------------------
+
+    public IReadOnlyList<(string Name, string Path)> ListLowerThirds()
+    {
+        try
+        {
+            if (!Directory.Exists(LowerThirdsDirectory)) return Array.Empty<(string, string)>();
+            return Directory.EnumerateFiles(LowerThirdsDirectory, "*.json")
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .Select(p => (Path.GetFileNameWithoutExtension(p), p))
+                .ToList();
+        }
+        catch
+        {
+            return Array.Empty<(string, string)>();
+        }
+    }
+
+    /// <summary>Writes a design as its own file (the name is the file name); returns the path.</summary>
+    public string SaveLowerThird(string name, LowerThirds.LowerThirdDesign design)
+    {
+        var path = Path.Combine(LowerThirdsDirectory, Sanitize(name) + ".json");
+        WriteAtomic(path, JsonUtil.Serialize(design));
+        return path;
+    }
+
+    public LowerThirds.LowerThirdDesign? LoadLowerThird(string path)
+    {
+        try { return JsonUtil.Deserialize<LowerThirds.LowerThirdDesign>(File.ReadAllText(path)); }
+        catch (Exception ex)
+        {
+            Log.Warn($"Lower third '{path}' unreadable.", ex);
+            return null;
+        }
     }
 
     private static string Sanitize(string name)

@@ -75,7 +75,7 @@ public class ShellTests
             vm.SelectGroup(ShellGroup.Build);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(ShellGroup.Build, vm.SelectedGroup);
-            Assert.Equal(new[] { "Pattern", "Media", "Overlays", "Countdown", "Particles", "Branding", "Library" }, vm.PageStrip.Select(p => p.Header));
+            Assert.Equal(new[] { "Pattern", "Media", "Overlays", "Lower thirds", "Countdown", "Particles", "Branding", "Library" }, vm.PageStrip.Select(p => p.Header));
             Assert.Equal("Pattern", vm.PageStrip.Single(p => p.IsCurrent).Header);
             Assert.Equal(Shell.IndexOf("Pattern"), tabs.SelectedIndex);
             Assert.Equal("BUILD", vm.GroupStrip.Single(g => g.IsCurrent).Label);

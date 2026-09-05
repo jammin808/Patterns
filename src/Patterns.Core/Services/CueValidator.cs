@@ -184,6 +184,13 @@ public static class CueValidator
                 case CueActionKind.MessageOn:
                     if (string.IsNullOrWhiteSpace(a.Value)) Soft($"{where}: the message text is empty.");
                     break;
+                case CueActionKind.LowerThirdShow:
+                {
+                    var design = state.LowerThirds.Find(a.Target);
+                    if (design is null) Hard($"{where}: lower third '{a.Target}' not found.");
+                    else if (design.Elements.Count == 0) Soft($"{where}: lower third '{design.Name}' has nothing in it.");
+                    break;
+                }
                 case CueActionKind.AudioVolume:
                     if (!CueActionSpec.TryParsePercent(a.Value, out _))
                     {

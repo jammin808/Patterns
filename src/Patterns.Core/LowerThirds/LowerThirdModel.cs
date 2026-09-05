@@ -329,6 +329,17 @@ public sealed class LowerThirdDesign : Observable
     [JsonIgnore]
     public int TotalMs => InMs + HoldMs + OutMs;
 
+    private bool _isOnAir;
+    private string _onAirText = "";
+
+    /// <summary>Runtime tally: this design is on screen right now (never saved).</summary>
+    [JsonIgnore]
+    public bool IsOnAir { get => _isOnAir; set => Set(ref _isOnAir, value); }
+
+    /// <summary>Runtime tally: "ON AIR", "ARRIVING", "LEAVING", or "" (never saved).</summary>
+    [JsonIgnore]
+    public string OnAirText { get => _onAirText; set => Set(ref _onAirText, value ?? ""); }
+
     public LowerThirdDesign Clone(bool newId = true)
     {
         var copy = JsonUtil.Clone(this);

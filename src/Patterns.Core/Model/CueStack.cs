@@ -64,6 +64,9 @@ public enum CueActionKind
     /// <summary>The live duck for an announcement from the room: everything but a VOG makes way, and comes back with DuckOff.</summary>
     DuckOn,
     DuckOff,
+    /// <summary>Target = lower third id: it goes on air; hide takes the one on air off.</summary>
+    LowerThirdShow,
+    LowerThirdHide,
 }
 
 /// <summary>One typed step of a cue.</summary>
