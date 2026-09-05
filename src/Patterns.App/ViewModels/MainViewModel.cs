@@ -130,6 +130,8 @@ public sealed class MainViewModel : Observable
         });
         DeckNextCommand = new RelayCommand(() => TurnDeskDeck("next"));
         DeckPrevCommand = new RelayCommand(() => TurnDeskDeck("prev"));
+        VideoToEndCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.VideoToEnd, ActionOrigin.Desk)));
+        VideoRestartCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.VideoRestart, ActionOrigin.Desk)));
         DeckFirstCommand = new RelayCommand(() => TurnDeskDeck("first"));
         DeckLastCommand = new RelayCommand(() => TurnDeskDeck("last"));
         BrowseLogoCommand = new RelayCommand(() => _ = PickFileAsync("Choose logo (PNG with alpha)", FilePickerFileTypes.ImageAll, p => State.Brand.LogoPath = p));
@@ -2872,6 +2874,64 @@ public sealed class MainViewModel : Observable
         }
     }
 
+    // ---- the caller's VT clock: the clip on air, what is left, the rehearsal's skip --------------
+
+    private string _videoClockTag = "";
+    private string _videoClockName = "";
+    private string _videoClockTimes = "";
+    private string _videoClockCall = "";
+    private double _videoClockFraction;
+    private bool _videoClockOut;
+    private bool _hasVideoClock;
+
+    /// <summary>"VT", "AUDIO", "STINGER CLIP", "PLAYLIST" — what kind of clip the clock reads.</summary>
+    public string VideoClockTag { get => _videoClockTag; private set => Set(ref _videoClockTag, value); }
+
+    /// <summary>The clip's file name.</summary>
+    public string VideoClockName { get => _videoClockName; private set => Set(ref _videoClockName, value); }
+
+    /// <summary>"1:02 / 3:30 · 2:28 left", "1:02 · loop", "ended".</summary>
+    public string VideoClockTimes { get => _videoClockTimes; private set => Set(ref _videoClockTimes, value); }
+
+    /// <summary>"OUT IN 7" in the clip's last ten seconds; empty before that.</summary>
+    public string VideoClockCall { get => _videoClockCall; private set => Set(ref _videoClockCall, value); }
+
+    /// <summary>How far through the clip is, 0–1 — the bar under the words.</summary>
+    public double VideoClockFraction { get => _videoClockFraction; private set => Set(ref _videoClockFraction, value); }
+
+    /// <summary>The clip is in its last ten seconds and will end: the row goes red.</summary>
+    public bool VideoClockOut { get => _videoClockOut; private set => Set(ref _videoClockOut, value); }
+
+    /// <summary>A clip is on air: the panel shows the clock.</summary>
+    public bool HasVideoClock { get => _hasVideoClock; private set => Set(ref _hasVideoClock, value); }
+
+    /// <summary>The one line: "VT sponsor.mp4 · 1:02 / 3:30 · 2:28 left".</summary>
+    public string VideoClockText => HasVideoClock ? $"{VideoClockTag} {VideoClockName} · {VideoClockTimes}" : "";
+
+    /// <summary>Every second: the reading, and only the words that changed are raised — the panel never flinches for a clip that is not moving.</summary>
+    private void RefreshVideoClock()
+    {
+        var r = _services.VideoOnAir();
+        if (r is null)
+        {
+            HasVideoClock = false;
+            VideoClockTag = "";
+            VideoClockName = "";
+            VideoClockTimes = "";
+            VideoClockCall = "";
+            VideoClockFraction = 0;
+            VideoClockOut = false;
+            return;
+        }
+        VideoClockTag = VideoClock.Tag(r);
+        VideoClockName = r.Name;
+        VideoClockTimes = VideoClock.Times(r);
+        VideoClockCall = VideoClock.Call(r);
+        VideoClockFraction = r.Fraction;
+        VideoClockOut = r.InLast(VideoClock.OutWarningSeconds);
+        HasVideoClock = true;
+    }
+
     /// <summary>The clicker list's arm — a runtime chip, never saved: the app always opens disarmed.</summary>
     // ---- decks: a PDF presentation, a page at a time ------------------------------
 
@@ -4652,6 +4712,8 @@ public sealed class MainViewModel : Observable
     public RelayCommand ReloadDeckCommand { get; }
     public RelayCommand DeckNextCommand { get; }
     public RelayCommand DeckPrevCommand { get; }
+    public RelayCommand VideoToEndCommand { get; }
+    public RelayCommand VideoRestartCommand { get; }
     public RelayCommand DeckFirstCommand { get; }
     public RelayCommand DeckLastCommand { get; }
     public RelayCommand BrowseLogoCommand { get; }
@@ -6081,6 +6143,7 @@ public sealed class MainViewModel : Observable
         RefreshActiveInputs();
         RefreshSwitcherTiles();
         Run.Tick();
+        RefreshVideoClock();
         var progression = ProgressionText;
         if (progression != _progressionSeen)
         {

@@ -57,8 +57,26 @@ internal sealed class FakeSource : IMountedSource
     public SKSizeI? FrameSize => null;
     public bool IsPlaying => !Disposed && !Ended;
     public bool IsEnded => Ended;
-    public double DurationSeconds => 10;
+    public double DurationSeconds => Length;
     public string StatusText => "fake";
+
+    /// <summary>The clip's timeline as a test sets it: its length, where it is, and where it was last told to go.</summary>
+    public double Length = 10;
+    public double Position;
+    public double? SeekedTo;
+    public bool Seekable = true;
+
+    public double PositionSeconds => Position;
+    public bool CanSeek => Seekable && !Disposed;
+
+    public bool Seek(double seconds)
+    {
+        if (!CanSeek) return false;
+        SeekedTo = seconds;
+        Position = Math.Min(seconds, Length);
+        Ended = false;
+        return true;
+    }
 
     public void SetAudio(bool mute, double volumePct)
     {

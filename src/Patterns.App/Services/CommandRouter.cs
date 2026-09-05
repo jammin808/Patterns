@@ -176,6 +176,9 @@ public sealed class CommandRouter
             RemoteCommandKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
             RemoteCommandKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
             RemoteCommandKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : cmd.TextArg),
+            RemoteCommandKind.VideoToEnd => new ShowAction(ShowActionKind.VideoToEnd, "",
+                cmd.IntArg > 0 ? (cmd.IntArg / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : ""),
+            RemoteCommandKind.VideoRestart => new ShowAction(ShowActionKind.VideoRestart),
             RemoteCommandKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, cmd.Extra, cmd.TextArg),
             RemoteCommandKind.Announce => new ShowAction(ShowActionKind.Announce, "", cmd.TextArg),
             RemoteCommandKind.AnnounceOff => new ShowAction(ShowActionKind.AnnounceOff),
@@ -208,6 +211,32 @@ public sealed class CommandRouter
             endsWithGo = ends,
             converting = deck is PendingDeckSource { Failed: false },        // LibreOffice is still making the PDF
             status = deck?.StatusText ?? "Opening the deck…",
+        };
+    }
+
+    /// <summary>The clip on air — the caller's VT clock: the file, where it is, what is left, the ten-second word — or null when none.</summary>
+    private object? VideoRow()
+    {
+        var r = _services.VideoOnAir();
+        if (r is null) return null;
+        return new
+        {
+            file = r.Name,
+            role = r.Role.ToString().ToLowerInvariant(),                   // program, playlist, stinger, layer
+            tag = VideoClock.Tag(r),                                       // VT, AUDIO, STINGER CLIP, PLAYLIST
+            position = (int)Math.Round(r.PositionSeconds),
+            length = (int)Math.Round(r.LengthSeconds),                     // 0 while the decoder has not said
+            remaining = (int)Math.Round(r.RemainingSeconds),
+            positionText = VideoClock.Format(r.PositionSeconds),
+            lengthText = r.HasLength ? VideoClock.Format(r.LengthSeconds) : "",
+            remainingText = r.HasLength && !r.Loops ? VideoClock.Format(r.RemainingSeconds) : "",
+            text = VideoClock.Describe(r),                                 // "VT sponsor.mp4 · 1:02 / 3:30 · 2:28 left"
+            chip = VideoClock.Chip(r),                                     // "VT 2:28"
+            playing = r.Playing,
+            ended = r.Ended,
+            loops = r.Loops,                                               // a loop never comes out
+            @out = r.InLast(VideoClock.OutWarningSeconds),                 // the last ten seconds
+            call = VideoClock.Call(r),                                     // "OUT IN 7"
         };
     }
 
@@ -310,6 +339,7 @@ public sealed class CommandRouter
             lowerThirdEdited = _services.LowerThirdAirEdited(),            // the design on air differs from the edited one: LT UPDATE
             web = WebRow(),                                                // the web page on air and its service's actions, or null
             deck = DeckRow(),                                              // the deck on air: file, page, count, ended — or null
+            video = VideoRow(),                                            // the clip on air: file, where it is, what is left, the ten-second word — or null
             interactive = s.Interactive.Enabled,                           // the Interactive area is on: devices open
             devices = _services.Devices.Rows(),                            // every device: name, link, address, open, status, the last lines
             install = _services.Install.StateRow(DateTime.Now),            // the install: the schedule's switch, the programme on, the override on, the next change, the rows, the update

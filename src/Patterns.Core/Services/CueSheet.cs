@@ -259,6 +259,8 @@ public static class CueSheet
             "scheduleoff" or "installoff" or "installscheduleoff" or "schedulestop" => CueActionKind.ScheduleOff,
             "screenlook" or "lookonscreen" or "lookon" or "sendlook" or "screensend" or "own" or "ownlook" => CueActionKind.ScreenLook,
             "screenprogram" or "screenpgm" or "backtoprogram" or "toprogram" or "program" or "pgm" or "follow" => CueActionKind.ScreenProgram,
+            "videoend" or "videotoend" or "vtend" or "clipend" or "lastseconds" or "skiptoend" or "videolast" or "vtlast" => CueActionKind.VideoToEnd,
+            "videorestart" or "vtrestart" or "cliprestart" or "restartvideo" or "restartclip" or "videostart" or "vtstart" or "rewind" => CueActionKind.VideoRestart,
             _ => null,
         };
     }

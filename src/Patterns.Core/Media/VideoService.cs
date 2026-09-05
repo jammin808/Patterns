@@ -32,6 +32,18 @@ public interface IVideoFrameSource
 
     /// <summary>Human-readable state for the placeholder card ("opening…", "libVLC not found", …).</summary>
     string StatusText { get; }
+
+    /// <summary>Where the media is, in seconds from its start; 0 when unknown, or for a source with no timeline (a camera, a feed, a page).</summary>
+    double PositionSeconds => 0;
+
+    /// <summary>The media has a timeline that can be moved along — a file, never a camera, a feed or a page.</summary>
+    bool CanSeek => false;
+
+    /// <summary>
+    /// Moves the media to a time from its start (the decoder clamps it to the file); a media that
+    /// has ended plays again from there. False when this source cannot be moved.
+    /// </summary>
+    bool Seek(double seconds) => false;
 }
 
 /// <summary>

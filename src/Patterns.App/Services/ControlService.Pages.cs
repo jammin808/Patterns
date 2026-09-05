@@ -78,6 +78,7 @@ public sealed partial class ControlService
   #gobtn.confirm { background:var(--hold); color:#0E0F13; }
   .cuerow { display:grid; grid-template-columns:1fr 1fr 2fr 1fr; gap:8px; margin-top:10px; }
   .line { margin-top:6px; font-size:14px; color:var(--mut); }
+  .line.out { color:var(--pgm); font-weight:800; }
   .center { text-align:center; }
   #err { position:fixed; left:0; right:0; bottom:0; padding:6px; background:var(--bg); color:var(--bad); font-size:13px; min-height:18px; text-align:center; }
   a.link { display:flex; align-items:center; justify-content:center; min-height:56px; border:1px solid var(--line); border-radius:12px; color:var(--acc); text-decoration:none; font-weight:700; background:var(--panel); }
@@ -116,6 +117,11 @@ public sealed partial class ControlService
   </div>
   <div id="step" class="line center"></div>
   <div id="deck" class="line center" hidden></div>
+  <div id="vt" class="line center" hidden></div>
+  <div id="vtrow" class="grid row2" hidden>
+    <button onclick="cmd('VIDEO RESTART')">⟲ Clip from the top</button>
+    <button class="warm" onclick="cmd('VIDEO END')">⏭ Last 10 s</button>
+  </div>
   <div class="sec">TRANSPORT</div>
   <div class="grid row3">
     <button class="go" onclick="cmd('OUTPUTS ON')">OUTPUTS ON</button>
@@ -322,6 +328,11 @@ function render(s) {
   var dk = s.deck || null, dke = document.getElementById('deck');
   dke.hidden = !dk;
   dke.textContent = dk ? ('Deck: ' + (dk.count ? 'page ' + dk.page + ' / ' + dk.count : dk.status) + ' — ' + dk.file + (dk.ended ? (dk.endsWithGo ? ' — the last: Next GOes the standby cue' : ' — the last') : '')) : '';
+  // THE CLIP ON AIR — the caller's VT clock: what is left, red for the last ten seconds; the rehearsal's skip and the top.
+  var vt = s.video || null, vte = document.getElementById('vt'), vtr = document.getElementById('vtrow');
+  vte.hidden = !vt; vtr.hidden = !vt;
+  vte.textContent = vt ? (vt.text + (vt.call ? ' — ' + vt.call : '')) : '';
+  vte.classList.toggle('out', !!(vt && vt.out));
   // PAGE ON AIR — the web page the program shows and its service's own actions (NEXT, PRESENT, PLAY…): WEB KEY <action>.
   var w = s.web || null;
   document.getElementById('websec').hidden = !w;

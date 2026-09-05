@@ -33,6 +33,39 @@ public sealed class PlaylistSequencer
     public double ItemDurationSeconds => _scheduledOverride is not null ? (_overrideEndsUtc - _overrideStartUtc).TotalSeconds : _itemDuration;
     private DateTime _overrideStartUtc;
 
+    /// <summary>
+    /// The item on screen ends in <paramref name="seconds"/> — its clock is wound forward so a
+    /// timed item, or a scheduled interruption, moves on when the picture does. A video item held
+    /// to its natural end needs nothing: the decoder's end moves it. False with no item on.
+    /// </summary>
+    public bool EndItemIn(double seconds, DateTime utcNow)
+    {
+        seconds = Math.Max(0, seconds);
+        if (_scheduledOverride is not null)
+        {
+            _overrideEndsUtc = utcNow.AddSeconds(seconds);
+            return true;
+        }
+        if (_index < 0 || _index >= _order.Count) return false;
+        if (_itemDuration > 0) _itemStartedUtc = utcNow.AddSeconds(-Math.Max(0, _itemDuration - seconds));
+        return true;
+    }
+
+    /// <summary>The item on screen starts its clock again — with the clip put back to its top. False with no item on.</summary>
+    public bool RestartItem(DateTime utcNow)
+    {
+        if (_scheduledOverride is not null)
+        {
+            var length = (_overrideEndsUtc - _overrideStartUtc).TotalSeconds;
+            _overrideStartUtc = utcNow;
+            _overrideEndsUtc = utcNow.AddSeconds(Math.Max(1, length));
+            return true;
+        }
+        if (_index < 0 || _index >= _order.Count) return false;
+        _itemStartedUtc = utcNow;
+        return true;
+    }
+
     public static bool IsVideoPath(string path)
         => VideoExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
 

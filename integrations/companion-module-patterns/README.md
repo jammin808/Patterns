@@ -2,7 +2,8 @@
 
 Stream Deck / Companion control for the Patterns show display suite: fast look recall,
 presenter next/back, transport, blackout with live feedback, individual screens and
-canvas groups, VOGs and stingers (one-press sounds and clips), break music (Spotify) and the audio track.
+canvas groups, VOGs and stingers (one-press sounds and clips), break music (Spotify), the audio track,
+and the caller's VT clock — what is left of the clip on air, red for its last ten seconds.
 
 ## Setup
 
@@ -16,6 +17,23 @@ canvas groups, VOGs and stingers (one-press sounds and clips), break music (Spot
    from the show and dim while empty), then Cue stack (GO, standby ▲ ▼, HOLD, ARM, STOP ALL),
    Transport, Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music, and the
    *… — this show* categories with a preset per item of the show that is loaded.
+
+## The VT clock: what is left, the last ten seconds, the top (module 2.4.0)
+
+While a clip is on air — the program's video, a playlist's video, a stinger's clip, an audio file —
+Patterns now reads the caller's VT clock into STATE (`video{file,tag,position,length,remaining,
+positionText,lengthText,remainingText,text,chip,playing,ended,loops,out,call}`) and pushes it every
+second while the clip runs (only then, and only while a controller is connected). The variables:
+`$(patterns:video_chip)` reads `VT 2:28` (what is left; `VT LOOP 1:02` for a loop that never comes
+out, `VT ENDED` after the end), `video_remaining`, `video_remaining_seconds`, `video_position`,
+`video_length`, `video_file`, `video_tag` (VT, AUDIO, STINGER CLIP, PLAYLIST), `video_text` (the whole
+line), and `video_call` — the caller's word in the clip's last ten seconds (`OUT IN 7`). The
+feedback `video_on_air` lights a key while a clip is on air, or — with *only in its last ten seconds*
+ticked — red for the out. Two actions: `video_end` sends `VIDEO END <seconds>` (the rehearsal's
+skip: the clip jumps to its last ten seconds, its end still plays, the out is still heard, and
+whatever follows it — the playlist's next item, a stinger's ending — happens for real) and
+`video_restart` sends `VIDEO RESTART`. Presets under *Presenter*: the VT clock key (reads what
+is left, goes red for the last ten seconds, and pressing it is the skip), LAST 10 s and TOP.
 
 ## The cue stack (module 1.1.0)
 

@@ -28,6 +28,7 @@
                 ToolTip.Tip="A stinger landed and is holding the screens — TAKE the preview or GO the next cue"><TextBlock Text="{Binding Run.StingHoldText}" /></Border>
         <Border Grid.Column="8" Classes="runChip holdChip" IsVisible="{Binding Run.IsDucked}" ToolTip.Tip="{Binding Run.DuckTip}"><TextBlock Text="DUCK" /></Border>
         <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0">
+          <Border Classes="runChip vtChip" Classes.out="{Binding Run.VideoOut}" IsVisible="{Binding Run.HasVideo}" ToolTip.Tip="{Binding Run.VideoTip}"><TextBlock Text="{Binding Run.VideoChip}" /></Border>
           <Border Classes="runChip holdChip" IsVisible="{Binding Run.IsLate}" ToolTip.Tip="Behind the running order — the last GO against its planned start (or the standby cue's expected start against its plan)"><TextBlock Text="{Binding Run.OffsetText}" /></Border>
           <Border Classes="runChip armedChip" IsVisible="{Binding Run.IsOnPlan}" ToolTip.Tip="On or ahead of the running order"><TextBlock Text="{Binding Run.OffsetText}" /></Border>
           <TextBlock Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />

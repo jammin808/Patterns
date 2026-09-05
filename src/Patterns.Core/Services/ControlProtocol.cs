@@ -137,6 +137,10 @@ public enum RemoteCommandKind
     ScreenLook,
     /// <summary>"SCREEN &lt;n&gt; PROGRAM" (PGM / FOLLOW) — screen n shows the program again.</summary>
     ScreenProgram,
+    /// <summary>"VIDEO END [seconds]" (VT / CLIP are aliases; LAST / OUT too) — the clip on air jumps to its last seconds (IntArg: milliseconds; 0 = ten seconds).</summary>
+    VideoToEnd,
+    /// <summary>"VIDEO RESTART" (START / TOP / REWIND) — the clip on air plays again from its start.</summary>
+    VideoRestart,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -476,6 +480,35 @@ public static class ControlProtocol
                     "first" or "last" => new(RemoteCommandKind.DeckPage, 0, which),
                     _ => new(RemoteCommandKind.DeckPage, page, ""),
                 };
+            }
+
+            // The clip on air: "VIDEO END", "VIDEO END 5", "VT END", "VIDEO RESTART", "CLIP START" — the rehearsal's skip and the top.
+            case "VIDEO":
+            case "VT":
+            case "CLIP":
+            {
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                var words = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                switch (words[0].ToUpperInvariant())
+                {
+                    case "END":
+                    case "LAST":
+                    case "OUT":
+                    case "TAIL":
+                    {
+                        var rest = words.Length > 1 ? words[1] : "";
+                        if (!TryParseSeconds(rest, out var ms)) return new(RemoteCommandKind.Unknown, 0, s);
+                        return new(RemoteCommandKind.VideoToEnd, ms, "");
+                    }
+                    case "RESTART":
+                    case "START":
+                    case "TOP":
+                    case "BEGIN":
+                    case "REWIND":
+                        return new(RemoteCommandKind.VideoRestart, 0, "");
+                    default:
+                        return new(RemoteCommandKind.Unknown, 0, s);
+                }
             }
 
             // A line to a device of the Interactive area: "DEVICE Arduino RELAY 1", "DEVICE * PING", "SEND pi SHOW 3".

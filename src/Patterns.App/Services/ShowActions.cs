@@ -429,6 +429,9 @@ public sealed class ShowActions
                 return DeckTurn("prev");
             case ShowActionKind.DeckPage:
                 return DeckTurn(a.Value);
+            case ShowActionKind.VideoToEnd:
+            case ShowActionKind.VideoRestart:
+                return VideoJump(a);
             case ShowActionKind.DeviceSend:
                 return _s.Devices.Send(a.Target, a.Value);
             case ShowActionKind.AudioVolume:
@@ -904,6 +907,45 @@ public sealed class ShowActions
     }
 
     /// <summary>
+    /// VIDEO END / VIDEO RESTART on the clip on air — from the panel, a cue, the wire or a phone.
+    /// The rehearsal's skip: the clip jumps to its last seconds, its end still plays, the out is
+    /// still heard, and whatever follows it — a playlist's next item, a stinger's ending — happens
+    /// for real, because nothing here fakes the end; the decoder reaches it. A playlist item's own
+    /// clock is wound forward with it, so a timed item moves on when the picture does.
+    /// </summary>
+    private ActionResult VideoJump(ShowAction a)
+    {
+        var reading = _s.VideoOnAir();
+        if (reading is null)
+        {
+            return ActionResult.Refused("No video is on air — put a clip on the pattern of the look on air, or fire a video stinger, first.");
+        }
+        var source = Patterns.Core.Media.InputBus.For(reading.Key);
+        if (source is null || !source.CanSeek)
+        {
+            return ActionResult.Failed($"'{reading.Name}' cannot be moved — a live source, or its decoder is not open yet.");
+        }
+        if (a.Kind == ShowActionKind.VideoRestart)
+        {
+            if (!source.Seek(0)) return ActionResult.Failed($"'{reading.Name}' would not restart.");
+            if (reading.Role == VideoRole.Playlist) _s.Playlist.RestartCurrent();
+            return ActionResult.Done($"'{reading.Name}' from the top.");
+        }
+        if (!VideoClock.TryParseBeforeEnd(a.Value, out var before))
+        {
+            return ActionResult.Refused($"VIDEO END wants a number of seconds before the end (blank = 10) — not '{a.Value}'.");
+        }
+        if (!reading.HasLength)
+        {
+            return ActionResult.Failed($"'{reading.Name}' has not said how long it is yet — try again in a moment.");
+        }
+        var target = Math.Max(0, reading.LengthSeconds - before);
+        if (!source.Seek(target)) return ActionResult.Failed($"'{reading.Name}' would not move.");
+        if (reading.Role == VideoRole.Playlist) _s.Playlist.EndCurrentIn(Math.Min(before, reading.LengthSeconds));
+        return ActionResult.Done($"'{reading.Name}' to its last {before:0.#} s — {VideoClock.Format(target)} of {VideoClock.Format(reading.LengthSeconds)}.");
+    }
+
+    /// <summary>
     /// Steps a list: the next (or previous) cue that can run is fired; a disabled or broken cue
     /// is skipped in the direction of travel — the list never sticks on one mid-show — and the
     /// status line says what was skipped.
@@ -1065,6 +1107,8 @@ public sealed class ShowActions
         CueActionKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
         CueActionKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
         CueActionKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", a.Value),
+        CueActionKind.VideoToEnd => new ShowAction(ShowActionKind.VideoToEnd, "", a.Value),
+        CueActionKind.VideoRestart => new ShowAction(ShowActionKind.VideoRestart),
         CueActionKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, a.Target, a.Value),
         CueActionKind.Announce => new ShowAction(ShowActionKind.Announce, a.Target, a.Value),
         CueActionKind.AnnounceOff => new ShowAction(ShowActionKind.AnnounceOff),

@@ -192,6 +192,15 @@ class PatternsInstance extends InstanceBase {
 			deck_page: this.state.deck?.count ? String(this.state.deck.page) : '',
 			deck_count: this.state.deck?.count ? String(this.state.deck.count) : '',
 			deck_file: this.state.deck?.file ?? '',
+			video_file: this.state.video?.file ?? '',
+			video_tag: this.state.video?.tag ?? '',
+			video_position: this.state.video?.positionText ?? '',
+			video_length: this.state.video?.lengthText ?? '',
+			video_remaining: this.state.video?.remainingText ?? '',
+			video_remaining_seconds: String(this.state.video?.remaining ?? 0),
+			video_text: this.state.video?.text ?? '',
+			video_chip: this.state.video?.chip ?? '',
+			video_call: this.state.video?.call ?? '',
 			web_page: this.state.web?.page ?? '',
 			web_title: this.state.web?.title ?? '',
 			web_service: this.state.web?.service ?? '',
@@ -220,7 +229,7 @@ class PatternsInstance extends InstanceBase {
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'screen_armed', 'screen_own', 'audio_playing', 'stinger_playing', 'music_playing',
 			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'lower_third_preview', 'lower_third_edited',
 			'review_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
-			'web_on_air', 'deck_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty',
+			'web_on_air', 'deck_on_air', 'video_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty',
 			'schedule_on', 'announcement_on', 'advert_on')
 		this.refreshShowPresets()
 	}
@@ -590,6 +599,14 @@ class PatternsInstance extends InstanceBase {
 				],
 				callback: (a) => send(a.options.mode === 'PAGE' ? `DECK PAGE ${a.options.n}` : `DECK ${a.options.mode}`),
 			},
+			// The clip on air — the caller's VT clock: the rehearsal's skip to its last seconds, and the top again.
+			// The clip's end still plays and whatever follows it (a playlist's next item, a stinger's ending) happens for real.
+			video_end: {
+				name: 'Video — jump to the clip\'s last seconds (rehearsal)',
+				options: [{ type: 'number', id: 'seconds', label: 'Seconds before the end', default: 10, min: 0, max: 3600 }],
+				callback: (a) => send(`VIDEO END ${a.options.seconds}`),
+			},
+			video_restart: { name: 'Video — the clip on air from the top', options: [], callback: () => send('VIDEO RESTART') },
 			// VOG / STING name the same library by the same number and only assert the kind: a key
 			// that says VOG never fires a stinger — Patterns refuses and names the item.
 			vog: {
@@ -874,6 +891,17 @@ class PatternsInstance extends InstanceBase {
 					return fb.options.ended ? !!d.ended : true
 				},
 			},
+			video_on_air: {
+				type: 'boolean',
+				name: 'A clip is on air — or in its last ten seconds',
+				defaultStyle: { bgcolor: combineRgb(0, 90, 130), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'checkbox', id: 'out', label: 'Only in its last ten seconds (the caller\'s "ten seconds on VT")', default: false }],
+				callback: (fb) => {
+					const v = this.state.video
+					if (!v) return false
+					return fb.options.out ? v.out === true : true
+				},
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -961,6 +989,15 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
 			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
+			{ variableId: 'video_file', name: 'The clip on air — its file (or empty)' },
+			{ variableId: 'video_tag', name: 'The clip on air — VT, AUDIO, STINGER CLIP or PLAYLIST' },
+			{ variableId: 'video_position', name: 'The clip on air — where it is (m:ss)' },
+			{ variableId: 'video_length', name: 'The clip on air — how long it is (m:ss, empty until known)' },
+			{ variableId: 'video_remaining', name: 'The clip on air — what is left (m:ss; empty for a loop)' },
+			{ variableId: 'video_remaining_seconds', name: 'The clip on air — what is left, in whole seconds' },
+			{ variableId: 'video_text', name: 'The clip on air — the whole line ("VT sponsor.mp4 · 1:02 / 3:30 · 2:28 left")' },
+			{ variableId: 'video_chip', name: 'The clip on air — the short chip ("VT 2:28")' },
+			{ variableId: 'video_call', name: 'The clip on air — the caller\'s word in its last ten seconds ("OUT IN 7")' },
 			{ variableId: 'deck_page', name: 'Deck on air — the page on show (or empty)' },
 			{ variableId: 'deck_count', name: 'Deck on air — its page count (or empty)' },
 			{ variableId: 'deck_file', name: 'Deck on air — its file name (or empty)' },
@@ -1270,6 +1307,24 @@ class PatternsInstance extends InstanceBase {
 				steps: [{ down: [{ actionId: 'deck_page', options: { mode, n: 1 } }], up: [] }],
 				feedbacks: id === 'next' ? [deckOn, deckEnded] : [deckOn],
 			}
+		}
+		// The caller's VT clock: a key that reads what is left and goes red for the last ten seconds; the rehearsal's skip; the top.
+		const vtOn = { feedbackId: 'video_on_air', options: { out: false }, style: { bgcolor: combineRgb(0, 90, 130) } }
+		const vtOut = { feedbackId: 'video_on_air', options: { out: true }, style: { bgcolor: combineRgb(224, 52, 46) } }
+		presets.video_clock = {
+			type: 'button', category: 'Presenter', name: 'VT clock — what is left of the clip on air (red for its last ten seconds); press for its last ten seconds',
+			style: { text: '$(patterns:video_chip)', size: '18', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'video_end', options: { seconds: 10 } }], up: [] }], feedbacks: [vtOn, vtOut],
+		}
+		presets.video_end = {
+			type: 'button', category: 'Presenter', name: 'VT — jump to the clip\'s last ten seconds (rehearsal)',
+			style: { text: 'VT\\n⏭ LAST 10 s', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'video_end', options: { seconds: 10 } }], up: [] }], feedbacks: [vtOn, vtOut],
+		}
+		presets.video_restart = {
+			type: 'button', category: 'Presenter', name: 'VT — the clip on air from the top',
+			style: { text: 'VT\\n⟲ TOP', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'video_restart', options: {} }], up: [] }], feedbacks: [vtOn],
 		}
 		const webOn = { feedbackId: 'web_on_air', options: { word: '' }, style: { bgcolor: combineRgb(0, 90, 130) } }
 		for (const [id, text, action] of [

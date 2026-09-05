@@ -341,6 +341,7 @@ public sealed class VlcFrameSource : IMountedSource
     private int _width;
     private int _height;
     private bool _disposed;
+    private readonly bool _isCapture;
     private volatile bool _mute;
     private volatile float _volumePct;
 
@@ -395,6 +396,7 @@ public sealed class VlcFrameSource : IMountedSource
 
     public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "")
     {
+        _isCapture = isCapture;
         if (isCapture)
         {
             _media = new Media(vlc, "dshow://", FromType.FromLocation);
@@ -541,6 +543,68 @@ public sealed class VlcFrameSource : IMountedSource
         {
             var ms = _player.Length;
             return ms > 0 ? ms / 1000.0 : 0;
+        }
+    }
+
+    /// <summary>Where the decoder is, seconds from the start; 0 for a capture device, or before the first frame.</summary>
+    public double PositionSeconds
+    {
+        get
+        {
+            if (_disposed || _isCapture) return 0;
+            try
+            {
+                var ms = _player.Time;
+                return ms > 0 ? ms / 1000.0 : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+    }
+
+    /// <summary>A file can be moved along its timeline; a capture device has none.</summary>
+    public bool CanSeek
+    {
+        get
+        {
+            if (_disposed || _isCapture) return false;
+            try
+            {
+                return _player.IsSeekable || _player.State is VLCState.Ended or VLCState.Stopped;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Moves the clip: a playing clip jumps, an ended one plays again (the callbacks are still
+    /// wired) and jumps once it rolls. libVLC clamps the time to the file, so a time past the end
+    /// ends the clip — which is what "the last ten seconds" of a shorter clip means.
+    /// </summary>
+    public bool Seek(double seconds)
+    {
+        if (_disposed || _isCapture) return false;
+        try
+        {
+            var ms = (long)Math.Round(Math.Max(0, seconds) * 1000);
+            if (_player.State is VLCState.Ended or VLCState.Stopped)
+            {
+                _player.Play();
+                if (ms > 0) _player.Time = ms;
+                return true;
+            }
+            _player.Time = ms;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Moving a clip failed.", ex);
+            return false;
         }
     }
 

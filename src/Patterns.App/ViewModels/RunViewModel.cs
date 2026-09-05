@@ -232,6 +232,47 @@ public sealed class RunViewModel : Observable
 
     public bool HasFollow => FollowText.Length > 0;
 
+    // ---- the caller's VT clock ----------------------------------------------------------
+
+    private string _videoChip = "";
+    private string _videoTip = "";
+    private bool _videoOut;
+
+    /// <summary>The LIVE strip's chip: "VT 2:28" — what is left of the clip on air; "VT ENDED"; "VT LOOP 1:02".</summary>
+    public string VideoChip => _videoChip;
+
+    public bool HasVideo => _videoChip.Length > 0;
+
+    /// <summary>The clip is in its last ten seconds and will end: the chip goes red.</summary>
+    public bool VideoOut => _videoOut;
+
+    public string VideoTip => _videoTip;
+
+    private void RefreshVideo()
+    {
+        var r = _s.VideoOnAir();
+        var chip = r is null ? "" : VideoClock.Chip(r);
+        var outNow = r is not null && r.InLast(VideoClock.OutWarningSeconds);
+        var tip = r is null ? "" : $"{VideoClock.Describe(r)} — the panel's ⏭ LAST 10 s and ⟲ RESTART move it; VIDEO END / VIDEO RESTART on the wire";
+        if (chip != _videoChip)
+        {
+            var had = HasVideo;
+            _videoChip = chip;
+            Raise(nameof(VideoChip));
+            if (had != HasVideo) Raise(nameof(HasVideo));
+        }
+        if (outNow != _videoOut)
+        {
+            _videoOut = outNow;
+            Raise(nameof(VideoOut));
+        }
+        if (tip != _videoTip)
+        {
+            _videoTip = tip;
+            Raise(nameof(VideoTip));
+        }
+    }
+
     private void RefreshTiming()
     {
         _timing = _s.CueStack.Timing();
@@ -321,6 +362,7 @@ public sealed class RunViewModel : Observable
     {
         _s.CueStack.Poll();
         RefreshTiming();
+        RefreshVideo();
         Raise(nameof(RunningText));
         Raise(nameof(RunningOverPlanned));
         Raise(nameof(NextAutoText));

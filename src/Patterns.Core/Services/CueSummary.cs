@@ -99,6 +99,9 @@ public static class CueSummary
             case CueActionKind.DeckNext: return "Deck: the next page";
             case CueActionKind.DeckPrev: return "Deck: the previous page";
             case CueActionKind.DeckPage: return $"Deck: {Decks.DescribePage(a.Value)}";
+            case CueActionKind.VideoToEnd:
+                return VideoClock.TryParseBeforeEnd(a.Value, out var before) ? $"Video: to its last {before:0.#} s" : $"Video: to its last '{a.Value}' (not seconds)";
+            case CueActionKind.VideoRestart: return "Video: restart from the top";
             case CueActionKind.DeviceSend: return $"Device {(Interactive.Find(state.Interactive, a.Target)?.Name ?? (a.Target.Length > 0 ? a.Target : "?"))}: {a.Value}";
             case CueActionKind.Announce:
             {

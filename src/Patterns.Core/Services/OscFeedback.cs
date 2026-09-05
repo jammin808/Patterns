@@ -85,6 +85,17 @@ public static class OscFeedback
                     list.Add(OscMessage.Of(Prefix + "deck/file", ""));
                 }
             }
+            // The clip on air: its file, where it is, what is left (whole seconds) and the ten-second word — a countdown a desk can read.
+            if (root.TryGetProperty("video", out var video))
+            {
+                var isClip = video.ValueKind == JsonValueKind.Object;
+                list.Add(OscMessage.Of(Prefix + "video/file", isClip ? Str(video, "file") : ""));
+                list.Add(OscMessage.Of(Prefix + "video/position", isClip ? Int(video, "position") : 0));
+                list.Add(OscMessage.Of(Prefix + "video/length", isClip ? Int(video, "length") : 0));
+                list.Add(OscMessage.Of(Prefix + "video/remaining", isClip ? Int(video, "remaining") : 0));
+                list.Add(OscMessage.Of(Prefix + "video/text", isClip ? Str(video, "text") : ""));
+                list.Add(OscMessage.Of(Prefix + "video/out", isClip ? Bit(video, "out") : 0));
+            }
             // The install: the schedule's switch, the programme on, the override on and until when, the next change.
             if (root.TryGetProperty("install", out var install) && install.ValueKind == JsonValueKind.Object)
             {

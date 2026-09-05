@@ -106,6 +106,10 @@ public enum CueActionKind
     ScreenLook,
     /// <summary>Target = a screen id (or a canvas key): back to the program.</summary>
     ScreenProgram,
+    /// <summary>The clip on air jumps to its last seconds (Value = how many; blank = ten) — the rehearsal's skip.</summary>
+    VideoToEnd,
+    /// <summary>The clip on air plays again from its start.</summary>
+    VideoRestart,
 }
 
 /// <summary>

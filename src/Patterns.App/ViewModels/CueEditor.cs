@@ -206,6 +206,7 @@ public sealed class ActionRow : Observable
         ValueKind.Look => "which look's picture lands on that screen alone",
         ValueKind.WebKey => "an action — next · prev · first · last · present · exit · play · pause · mute · restart · black · white — or a key: ArrowRight · Space · k · Ctrl+Shift+F5",
         ValueKind.Point => "x y in percent of the page, e.g. 50 50",
+        ValueKind.Seconds => "seconds before the end, e.g. 10 (blank = 10)",
         _ => "",
     };
 

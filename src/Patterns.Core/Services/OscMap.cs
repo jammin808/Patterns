@@ -51,6 +51,8 @@ public static class OscMap
         ("/patterns/deck/next, /patterns/deck/prev", "DECK NEXT / PREV — the deck (PDF) on air turns a page"),
         ("/patterns/deck/first, /patterns/deck/last", "DECK FIRST / LAST"),
         ("/patterns/deck/page <n>", "DECK PAGE n — the deck on air turns to page n (also /patterns/deck/page/<n>, /patterns/deck <n>)"),
+        ("/patterns/video/end [seconds]", "VIDEO END — the clip on air jumps to its last seconds (none: ten) — the rehearsal's skip (also /patterns/video/end/5, /patterns/vt/end)"),
+        ("/patterns/video/restart", "VIDEO RESTART — the clip on air plays again from its start (also /patterns/video/start, /patterns/vt/restart)"),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
         ("/patterns/device/<name> <text>", "DEVICE name text — a line to a device of the Interactive area (also /patterns/device \"name\" \"text\", /patterns/send/…; * is the first device)"),
         ("/patterns/announce <name|words>", "ANNOUNCE — an announcement of the Install page by name, else the words as a free-text announcement (also /patterns/announce/<name>); /patterns/announce/off ends it"),
@@ -223,6 +225,25 @@ public static class OscMap
                 }
             }
             case "section": return Named("SECTION", m, seg);
+            // /patterns/video/end · /patterns/video/end 5 · /patterns/video/end/5 · /patterns/video/restart (vt and clip are aliases)
+            case "video":
+            case "vt":
+            case "clip":
+            {
+                var what = Sub(m, seg);
+                switch (what)
+                {
+                    case "end": case "last": case "out": case "tail":
+                    {
+                        var secs = seg2.Length > 0 ? seg2 : seg.Length > 0 ? (m.Number()?.ToString(CultureInfo.InvariantCulture) ?? m.Text() ?? "") : m.Text(1) ?? "";
+                        return secs.Length > 0 ? "VIDEO END " + secs : "VIDEO END";
+                    }
+                    case "restart": case "start": case "top": case "begin": case "rewind":
+                        return "VIDEO RESTART";
+                    default:
+                        return null;
+                }
+            }
             // /patterns/deck/next · /prev · /first · /last · /page 5 · /page/5 · /patterns/deck 5
             case "deck":
             case "pdf":

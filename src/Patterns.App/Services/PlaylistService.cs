@@ -156,6 +156,31 @@ public sealed class PlaylistService : IDisposable
         return files;
     }
 
+    /// <summary>
+    /// The item on screen ends in <paramref name="seconds"/>: a timed item's clock is wound forward
+    /// so the running order moves when the clip does (VIDEO END on a playlist video).
+    /// </summary>
+    public void EndCurrentIn(double seconds)
+    {
+        if (_sequencer.EndItemIn(seconds, DateTime.UtcNow)) Republish();
+    }
+
+    /// <summary>The item on screen starts its clock again (VIDEO RESTART on a playlist video).</summary>
+    public void RestartCurrent()
+    {
+        if (_sequencer.RestartItem(DateTime.UtcNow)) Republish();
+    }
+
+    /// <summary>The item as it is now onto the bus — its start moved, so every "left" reads the new clock.</summary>
+    private void Republish()
+    {
+        var current = _sequencer.Current;
+        if (current is null) return;
+        _services.Bus.PlaylistNow = new PlaylistNow(current.Path, current.IsVideo, _sequencer.CurrentIndex, _sequencer.Count,
+            _sequencer.ItemStartedUtc, _sequencer.ItemDurationSeconds);
+        _services.PublishRuntime();
+    }
+
     /// <summary>Status line for the Media panel.</summary>
     public string Status
     {

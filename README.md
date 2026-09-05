@@ -23,6 +23,15 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The caller's VT clock** — while a clip is on air (the program's video, a playlist's, a
+  stinger's clip, an audio file) the Show panel's PROGRESSION block, the Run strip, the phone,
+  Companion and OSC all read one clock: the clip's name, where it is, how long it is and what is
+  left, from the decoder itself; the last ten seconds go red with the caller's word (OUT IN 7), a
+  loop reads LOOP and never calls an out. ⏭ LAST 10 s is the rehearsal's skip — the clip jumps to
+  its last ten seconds and everything still happens for real (the end plays, the out is heard, the
+  playlist moves on, a stinger runs its ending); ⟲ RESTART plays it from the top. `VIDEO END
+  [seconds]` and `VIDEO RESTART` on the wire, `/patterns/video/end` over OSC, two cue actions,
+  Companion 2.4.0's VT clock key that reads what is left and goes red for the out.
 - **Field research, the operational review and the multi-core answer** — round 12 went to the
   places operators talk (ControlBooth, the vMix, Resolume and NewTek forums, the QLab list, AVS
   Forum, the Companion issue tracker, the production companies' own field guides) and wrote up the
@@ -767,7 +776,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 985 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
+dotnet test                      # 994 tests: the caller's VT clock (the reading's priority and roles, the words, the ten-second out, the loop, the wire and OSC, the cue actions, the sequencer's clock; on a live desk the same seconds on the panel, the Run strip and STATE, the skip and the top from the wire, a cue and the keys), permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

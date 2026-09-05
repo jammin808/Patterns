@@ -250,6 +250,19 @@ public static class CueValidator
                     }
                     break;
                 }
+                case CueActionKind.VideoToEnd:
+                case CueActionKind.VideoRestart:
+                {
+                    if (a.Kind == CueActionKind.VideoToEnd && !VideoClock.TryParseBeforeEnd(a.Value, out _))
+                    {
+                        Hard($"{where}: the seconds before the end must be a number (blank = 10) — not '{a.Value}'.");
+                    }
+                    if (MediaLocator.FindActiveMedia(sim, MediaSource.Video) is null && MediaLocator.FindActivePlaylist(sim) is null)
+                    {
+                        Soft($"{where}: no video is on air at this cue as far as the checks can see — the action reaches whatever clip is on when it fires.");
+                    }
+                    break;
+                }
                 case CueActionKind.DeviceSend:
                 {
                     if (a.Value.Trim().Length == 0) Hard($"{where}: nothing to send — the line the device expects, e.g. RELAY 1.");

@@ -46,6 +46,8 @@ public enum ValueKind
     DeckPage,
     /// <summary>A look of the show (id or name) — a picker, not a text box.</summary>
     Look,
+    /// <summary>A number of seconds (decimals allowed); empty means the action's own default.</summary>
+    Seconds,
 }
 
 /// <summary>
@@ -82,6 +84,7 @@ public static class CueActionSpec
         CueActionKind.AdvertPlay => (TargetKind.Slot, ValueKind.None),
         CueActionKind.ScreenLook => (TargetKind.Screen, ValueKind.Look),
         CueActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
+        CueActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
         _ => (TargetKind.None, ValueKind.None),
     };
 
@@ -144,6 +147,8 @@ public static class CueActionSpec
         CueActionKind.ScheduleOff => "Install schedule off",
         CueActionKind.ScreenLook => "Screen — its own look",
         CueActionKind.ScreenProgram => "Screen — back to the program",
+        CueActionKind.VideoToEnd => "Video — jump to its last seconds",
+        CueActionKind.VideoRestart => "Video — restart from the top",
         _ => kind.ToString(),
     };
 
@@ -167,6 +172,7 @@ public static class CueActionSpec
         CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide, CueActionKind.LowerThirdPreview, CueActionKind.LowerThirdTake,
         CueActionKind.WebKey, CueActionKind.WebClick, CueActionKind.WebType, CueActionKind.WebReload,
         CueActionKind.DeckNext, CueActionKind.DeckPrev, CueActionKind.DeckPage,
+        CueActionKind.VideoRestart, CueActionKind.VideoToEnd,
         CueActionKind.DeviceSend,
         CueActionKind.Announce, CueActionKind.AnnounceOff, CueActionKind.AdvertPlay, CueActionKind.AdvertOff,
         CueActionKind.ScheduleOn, CueActionKind.ScheduleOff,

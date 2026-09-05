@@ -50,10 +50,42 @@ public sealed partial class ControlService : IDisposable
             if (!_pushTimer.IsEnabled) _pushTimer.Start();
         };
         _router.Rev = () => Interlocked.Read(ref _rev);
+
+        // The caller's VT clock moves every second while a clip is on air: the remotes get a push
+        // each second then — only then, and only while someone listens — so a phone, a Stream Deck
+        // and an OSC desk count down with the desk. Nothing else is rebuilt for it.
+        _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _clockTimer.Tick += (_, _) => ClockTick();
+        _clockTimer.Start();
     }
 
     private long _rev; // bumped on the UI thread, read by the HTTP long-poll threads
     private bool _stackHooked;
+    private readonly DispatcherTimer _clockTimer;
+    private int _longPollers;
+
+    private void ClockTick()
+    {
+        try
+        {
+            if (_services.VideoOnAir() is null) return;
+            bool listening;
+            lock (_gate)
+            {
+                listening = _tcpClients.Count > 0;
+            }
+            listening |= Volatile.Read(ref _longPollers) > 0 || _services.Osc is { FeedbackEndpoint: not null };
+            if (!listening) return;
+            Interlocked.Increment(ref _rev);
+            _pushPending = true;
+            if (!_pushTimer.IsEnabled) _pushTimer.Start();
+            _services.Osc?.MarkChanged();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The VT clock push failed.", ex);
+        }
+    }
 
     /// <summary>
     /// The stack's runtime is deliberately not in the snapshot, so STANDBY, ARM, HOLD and a
@@ -308,9 +340,17 @@ public sealed partial class ControlService : IDisposable
                 if (long.TryParse(since, out var seen))
                 {
                     var deadline = DateTime.UtcNow.AddSeconds(25);
-                    while (Interlocked.Read(ref _rev) == seen && DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                    Interlocked.Increment(ref _longPollers); // a tablet is waiting: the VT clock's second ticks reach it
+                    try
                     {
-                        await Task.Delay(150, ct);
+                        while (Interlocked.Read(ref _rev) == seen && DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                        {
+                            await Task.Delay(150, ct);
+                        }
+                    }
+                    finally
+                    {
+                        Interlocked.Decrement(ref _longPollers);
                     }
                 }
                 payload = await _router.StateJsonAsync();
@@ -532,6 +572,7 @@ public sealed partial class ControlService : IDisposable
     public void Dispose()
     {
         _pushTimer.Stop();
+        _clockTimer.Stop();
         StopListeners();
         lock (_mvGate)
         {

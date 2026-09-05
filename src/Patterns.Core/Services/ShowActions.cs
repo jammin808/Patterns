@@ -176,6 +176,14 @@ public enum ShowActionKind
     ScreenLook,
     /// <summary>Target = a screen or canvas: its own pattern is dropped and it shows the program again.</summary>
     ScreenProgram,
+    /// <summary>
+    /// The clip on air jumps to its last seconds (Value = how many; empty = ten) — a rehearsal
+    /// skips the body of a video and still sees its end, hears the out and lets whatever follows
+    /// it (a playlist's next item, a stinger's ending) happen for real.
+    /// </summary>
+    VideoToEnd,
+    /// <summary>The clip on air plays again from its start; an ended clip comes back.</summary>
+    VideoRestart,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

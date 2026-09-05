@@ -70,7 +70,8 @@ public sealed class OscService : IDisposable
         }
     }
 
-    private void MarkChanged()
+    /// <summary>Something a controller should hear changed: the next throttled bundle goes out. The snapshot bus calls this; so does the VT clock each second.</summary>
+    public void MarkChanged()
     {
         if (_udp is null || _feedback is null) return;
         _pushPending = true;

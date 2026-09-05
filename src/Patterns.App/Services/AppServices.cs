@@ -634,6 +634,14 @@ public sealed class AppServices
         return wanted is null ? null : InputBus.For(wanted.Key) as IDeckSource;
     }
 
+    /// <summary>
+    /// The clip on air as the caller's clock reads it — the file, where it is, what is left, whether
+    /// it will end — or null when nothing on air is a file whose decoder is open. Read every second
+    /// by the desk, the Run strip, the remotes and OSC, so every surface counts the same seconds.
+    /// </summary>
+    public VideoReading? VideoOnAir()
+        => VideoClock.Read(Bus.Current, InputBus.For, Stingers is { ClipActive: true });
+
     /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
     public static string StableFolderKey(string path)
     {
