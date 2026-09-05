@@ -60,6 +60,18 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
     /// <summary>What the checkbox shows.</summary>
     public string Label { get; }
 
+    /// <summary>The lip-sync offset of this output, ms (Audio page slider): the track, VOGs and stingers on it leave this much later.</summary>
+    public int DelayMs
+    {
+        get => _vm.State.AudioPlayer.DelayFor(Name);
+        set
+        {
+            if (value == DelayMs) return;
+            _vm.State.AudioPlayer.SetDelay(Name, value);
+            Raise(nameof(DelayMs));
+        }
+    }
+
     public bool IsSelected
     {
         get => _isSelected;

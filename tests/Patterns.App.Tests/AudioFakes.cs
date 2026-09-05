@@ -74,6 +74,10 @@ internal sealed class FakeSource : IMountedSource
 
     public void Pump(DateTime nowUtc) => Pumps++;
 
+    public int AudioDelayMs = int.MinValue;
+
+    public void SetAudioDelay(int ms) => AudioDelayMs = ms;
+
     public void Dispose() => Disposed = true;
 }
 

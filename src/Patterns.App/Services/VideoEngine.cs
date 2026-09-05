@@ -50,6 +50,19 @@ public sealed class VideoEngine : IDisposable
         }
     }
 
+    private int _audioDelayMs;
+
+    /// <summary>The lip-sync offset every clip's soundtrack carries; every source is told, and a source mounted later is told on mount.</summary>
+    public int AudioDelayMs => _audioDelayMs;
+
+    public void ApplyAudioDelay(int ms)
+    {
+        ms = Math.Clamp(ms, -1000, 2000);
+        if (_audioDelayMs == ms) return;
+        _audioDelayMs = ms;
+        foreach (var mount in _mounts.Values) mount.Source.SetAudioDelay(ms);
+    }
+
     /// <summary>
     /// Opens a source for a wanted input. Null = the libVLC path (the default); tests inject a
     /// fake so the retirement bookkeeping — the fade, the hold, the sweep, a re-fire inside the
@@ -71,7 +84,7 @@ public sealed class VideoEngine : IDisposable
     /// </summary>
     public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? ShowClock.UtcNow;
         SweepRetired(now);
 
         var wanted = WantedVideoInputs(snap, sandbox);
@@ -168,7 +181,7 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Fades and silences every retired source, then sweeps. Runs at 50 ms only while something is retired.</summary>
     public void Pump(DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? ShowClock.UtcNow;
         foreach (var (_, source, _, _) in _retired)
         {
             try
@@ -186,7 +199,7 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Also called from the app's 1 s poll so a retired decoder never lingers.</summary>
     public void SweepRetired(DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? ShowClock.UtcNow;
         for (var i = _retired.Count - 1; i >= 0; i--)
         {
             if ((now - _retired[i].RetiredUtc).TotalMilliseconds <= _retired[i].HoldMs) continue;
@@ -298,6 +311,11 @@ public interface IMountedSource : IVideoFrameSource, IDisposable
 
     /// <summary>Advances the fade and, once silent, keeps asserting silence — a dropped write must not become a sound.</summary>
     void Pump(DateTime nowUtc);
+
+    /// <summary>The lip-sync offset of the soundtrack, ms (negative = earlier). A source with no sound ignores it.</summary>
+    void SetAudioDelay(int ms)
+    {
+    }
 }
 
 /// <summary>One playing video: libVLC decodes into our BGRA buffer; renderers draw the newest frame.</summary>
@@ -423,6 +441,16 @@ public sealed class VlcFrameSource : IMountedSource
         ApplyAudio();
     }
 
+    private int _audioDelayMs;
+
+    /// <summary>The soundtrack's lip-sync offset: libVLC shifts its audio clock against the picture, live.</summary>
+    public void SetAudioDelay(int ms)
+    {
+        if (_audioDelayMs == ms) return;
+        _audioDelayMs = ms;
+        ApplyAudio();
+    }
+
     public void BeginFadeOut(DateTime nowUtc, int ms)
     {
         if (_fadeMs >= 0) return;
@@ -484,6 +512,7 @@ public sealed class VlcFrameSource : IMountedSource
         {
             _player.Mute = _mute;
             _player.Volume = (int)Math.Clamp(_volumePct, 0, 125);
+            _player.SetAudioDelay(_audioDelayMs * 1000L); // microseconds
         }
         catch (Exception ex)
         {

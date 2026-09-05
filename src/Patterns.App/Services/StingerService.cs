@@ -145,7 +145,7 @@ public sealed class StingerService : IDisposable
         || (_duckMs > 0 && Math.Abs(_duckFrom - _duckTo) > 0.0001 && MusicLevel.Progress(_duckStartUtc, nowUtc, _duckMs) < 1);
 
     /// <summary>The clock behind every ramp, so a test can read a fade at an exact instant instead of racing the wall clock.</summary>
-    public Func<DateTime> NowUtc { get; set; } = () => DateTime.UtcNow;
+    public Func<DateTime> NowUtc { get; set; } = () => ShowClock.UtcNow; // the master clock: a wall-clock step never stalls a fade
 
     // ---- the live duck ----------------------------------------------------------------
 

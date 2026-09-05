@@ -43,7 +43,7 @@ public sealed class AudioAnalyserService : IDisposable
     public bool Listening => _capture is not null;
 
     /// <summary>The clock the levels are stamped with; a test holds it.</summary>
-    public Func<DateTime> NowUtc { get; set; } = () => DateTime.UtcNow;
+    public Func<DateTime> NowUtc { get; set; } = () => ShowClock.UtcNow;
 
     /// <summary>The timer body, callable directly.</summary>
     public void Poll()
@@ -201,7 +201,9 @@ public sealed class AudioAnalyserService : IDisposable
         _ring[_fill++] = sample;
         if (_fill < Spectrum.Window) return;
         var now = NowUtc();
-        var dt = _lastUtc == default ? 0.02 : Math.Clamp((now - _lastUtc).TotalSeconds, 0.001, 0.5);
+        // The hop is a known number of samples on the device's clock: the smoother's time comes
+        // from the samples, not from the wall, so a stalled callback cannot stretch a level.
+        var dt = Math.Clamp((_lastUtc == default ? Spectrum.Window : Spectrum.Window / 2) / (double)Math.Max(1, sampleRate), 0.001, 0.5);
         _lastUtc = now;
         var raw = Spectrum.Analyse(_ring, sampleRate);
         AudioLevels.Publish(_smoother.Follow(raw, dt), now);

@@ -35,8 +35,11 @@ public sealed class WasapiStingerVoice : IStingerVoice
     {
     }
 
-    /// <summary>Opens the file on every resolved device. Null when nothing opened (no device, unreadable file).</summary>
-    public static WasapiStingerVoice? Open(string path, double volumePct, IReadOnlyList<string> deviceNames)
+    /// <summary>
+    /// Opens the file on every resolved device, each behind its lip-sync delay (<paramref name="delayFor"/>
+    /// answers a device key with milliseconds). Null when nothing opened (no device, unreadable file).
+    /// </summary>
+    public static WasapiStingerVoice? Open(string path, double volumePct, IReadOnlyList<string> deviceNames, Func<string, int>? delayFor = null)
     {
         var voice = new WasapiStingerVoice();
         using var enumerator = new MMDeviceEnumerator();
@@ -46,8 +49,10 @@ public sealed class WasapiStingerVoice : IStingerVoice
             {
                 var reader = new AudioFileReader(path) { Volume = (float)Math.Clamp(volumePct / 100.0, 0, 1.25) };
                 var gain = new GainSampleProvider(reader);
+                var delayMs = delayFor?.Invoke(AudioPlayerService.DelayKeyFor(device, deviceNames)) ?? 0;
+                ISampleProvider tail = delayMs > 0 ? new DelaySampleProvider(gain, delayMs) : gain;
                 var output = new WasapiOut(device, AudioClientShareMode.Shared, true, 200);
-                output.Init(new SampleToWaveProvider(gain));
+                output.Init(new SampleToWaveProvider(tail));
                 output.Play();
                 voice._outputs.Add((output, reader, gain, device)); // the device stays alive until Dispose
             }

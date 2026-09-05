@@ -78,6 +78,15 @@ public sealed class CheckFacts
     public string AudioStatus { get; init; } = "";
     public string ToneStatus { get; init; } = "";
 
+    /// <summary>The outputs locked to the master clock (the show's setting).</summary>
+    public bool SyncLock { get; init; } = true;
+
+    /// <summary>One line per playing output: its clock against the master, the correction, the lag.</summary>
+    public IReadOnlyList<string> SyncLines { get; init; } = Array.Empty<string>();
+
+    /// <summary>The worst lag of any playing output, ms; -1 when nothing plays.</summary>
+    public double SyncWorstLagMs { get; init; } = -1;
+
     public bool RemoteEnabled { get; init; }
     public string RemoteUrl { get; init; } = "";
 
@@ -405,6 +414,20 @@ public static class SuperCheck
         });
         if (f.AudioStatus.Length > 0) rows.Add(new CheckRow(s, "Audio track", StatusWords.ReadsAsFailure(f.AudioStatus) ? CheckLight.Amber : CheckLight.Grey, f.AudioStatus));
         if (f.ToneStatus.Length > 0) rows.Add(new CheckRow(s, "Tone", CheckLight.Grey, f.ToneStatus));
+        if (!f.SyncLock)
+        {
+            rows.Add(new CheckRow(s, "Master clock", CheckLight.Amber, "outputs free-run", "the sync lock is off (Audio page) — a long track drifts against the pictures"));
+        }
+        else if (f.SyncLines.Count == 0)
+        {
+            rows.Add(new CheckRow(s, "Master clock", CheckLight.Grey, "locked · nothing playing to measure", "play the track for a few seconds to see each output's clock"));
+        }
+        else
+        {
+            var light = f.SyncWorstLagMs < 0 ? CheckLight.Grey : Math.Abs(f.SyncWorstLagMs) <= 2 ? CheckLight.Green : CheckLight.Amber;
+            rows.Add(new CheckRow(s, "Master clock", light, string.Join(" · ", f.SyncLines),
+                light == CheckLight.Amber ? "an output is still pulling into lock — give it a moment, or check the device" : ""));
+        }
     }
 
     private static void Remote(CheckFacts f, List<CheckRow> rows)

@@ -176,6 +176,12 @@ public sealed class PatternEngine
         canvas.RestoreToCount(save);
 
         OverlayRenderer.RenderViewportOverlays(canvas, snap, ctx, sink, palette, blackout: false, cfg);
+
+        // The sync check: a white frame on the master clock's grid, on every sink that shows the show.
+        if (ctx.Sink != SinkKind.Thumbnail && Effects.SyncMarks.IsFlash(ctx.Time))
+        {
+            canvas.DrawRect(SKRect.Create(0, 0, ctx.ViewportSize.Width, ctx.ViewportSize.Height), sink.Paints.Fill(SKColors.White));
+        }
     }
 
     // ---- multiview ----------------------------------------------------------
@@ -467,6 +473,7 @@ public sealed class PatternEngine
     {
         var s = snap.State;
         if (snap.IdentifyUntilUtc is { } until && until > utcNow) return RedrawCadence.Continuous;
+        if (Effects.SyncMarks.Enabled) return RedrawCadence.Continuous; // the flash lands on the frame it is due
         if (s.Blackout)
         {
             return RedrawCadence.Static;

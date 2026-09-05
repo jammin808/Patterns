@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using NAudio.Wave;
+using Patterns.Core.Effects;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -36,9 +37,49 @@ public sealed class ToneSampleProvider : ISampleProvider
 
     public static float DbToAmplitude(double db) => (float)Math.Pow(10, Math.Clamp(db, -60, 0) / 20.0);
 
+    // ---- the sync check's clicks: short 1 kHz bursts at scheduled frames of this stream ----------
+
+    /// <summary>A click's length in frames (5 ms at 48 kHz).</summary>
+    public const int ClickFrames = 240;
+
+    private const float ClickAmplitude = 0.5f;
+    private readonly object _clickGate = new();
+    private readonly Queue<long> _clicks = new();
+    private long _framesRendered;
+
+    /// <summary>Frames this stream has rendered so far — the timeline clicks are scheduled on.</summary>
+    public long FramesRendered => Interlocked.Read(ref _framesRendered);
+
+    /// <summary>Schedules a click starting at a frame of this stream; one already past is dropped.</summary>
+    public void ScheduleClick(long atFrame)
+    {
+        lock (_clickGate)
+        {
+            if (atFrame < FramesRendered) return;
+            if (_clicks.Contains(atFrame)) return;
+            _clicks.Enqueue(atFrame);
+        }
+    }
+
+    public int PendingClicks
+    {
+        get
+        {
+            lock (_clickGate) return _clicks.Count;
+        }
+    }
+
     public int Read(float[] buffer, int offset, int count)
     {
         var step = 2 * Math.PI * _frequency / WaveFormat.SampleRate;
+        var clickStep = 2 * Math.PI * 1000 / WaveFormat.SampleRate;
+        long clickStart = -1;
+        lock (_clickGate)
+        {
+            while (_clicks.Count > 0 && _clicks.Peek() + ClickFrames < _framesRendered) _clicks.Dequeue(); // missed entirely
+            if (_clicks.Count > 0) clickStart = _clicks.Peek();
+        }
+        var frame = _framesRendered;
         for (var i = 0; i < count; i += 2)
         {
             _ampLeft += (_targetLeft - _ampLeft) * RampPerSample * 32;
@@ -46,9 +87,29 @@ public sealed class ToneSampleProvider : ISampleProvider
             var s = (float)Math.Sin(_phase);
             _phase += step;
             if (_phase > 2 * Math.PI) _phase -= 2 * Math.PI;
-            buffer[offset + i] = s * _ampLeft;
-            buffer[offset + i + 1] = s * _ampRight;
+            var left = s * _ampLeft;
+            var right = s * _ampRight;
+            if (clickStart >= 0 && frame >= clickStart && frame < clickStart + ClickFrames)
+            {
+                var k = frame - clickStart;
+                var env = (float)Math.Sin(Math.PI * k / ClickFrames); // a soft burst, no pop
+                var click = (float)Math.Sin(clickStep * k) * ClickAmplitude * env;
+                left += click;
+                right += click;
+                if (k == ClickFrames - 1)
+                {
+                    lock (_clickGate)
+                    {
+                        if (_clicks.Count > 0 && _clicks.Peek() == clickStart) _clicks.Dequeue();
+                        clickStart = _clicks.Count > 0 ? _clicks.Peek() : -1;
+                    }
+                }
+            }
+            buffer[offset + i] = left;
+            buffer[offset + i + 1] = right;
+            frame++;
         }
+        Interlocked.Exchange(ref _framesRendered, frame);
         return count;
     }
 }
@@ -90,12 +151,43 @@ public sealed class AudioService : IDisposable
 
     public string Status => _status;
 
+    /// <summary>The device's latency, ms: a click scheduled on the stream sounds this much later.</summary>
+    private const int DeviceLatencyMs = 90;
+
+    private double _streamStartMaster = double.NaN; // the master instant the first frame of the stream sounds
+
+    /// <summary>
+    /// The sync check's clicks: for every mark on the master grid due within the next second, a
+    /// click at the stream frame that sounds at that instant — the frame the stream started on,
+    /// plus the device's latency. Public for the test; the timer calls it while the check is on.
+    /// </summary>
+    public void ScheduleSyncClicks(double masterNow)
+    {
+        if (_provider is null || double.IsNaN(_streamStartMaster)) return;
+        var rate = _provider.WaveFormat.SampleRate;
+        var mark = SyncMarks.NextMark(masterNow);
+        for (var i = 0; i < 2 && mark <= masterNow + 1.5; i++)
+        {
+            var frame = (long)Math.Round((mark - _streamStartMaster) * rate);
+            if (frame >= 0) _provider.ScheduleClick(frame);
+            mark += SyncMarks.PeriodSeconds;
+        }
+    }
+
+    /// <summary>Test seam: pretend the stream started sounding at this master instant.</summary>
+    public void SeedForTests(ToneSampleProvider provider, double streamStartMaster)
+    {
+        _provider = provider;
+        _streamStartMaster = streamStartMaster;
+    }
+
     private void Tick()
     {
         var cfg = _services.State.Tone;
+        var syncCheck = SyncMarks.Enabled;
         try
         {
-            if (!cfg.Enabled)
+            if (!cfg.Enabled && !syncCheck)
             {
                 StopDevice();
                 SetIndicator("");
@@ -113,11 +205,23 @@ public sealed class AudioService : IDisposable
             if (_device is null)
             {
                 _provider = new ToneSampleProvider();
-                _device = new WaveOutEvent { DesiredLatency = 90 };
+                _device = new WaveOutEvent { DesiredLatency = DeviceLatencyMs };
                 _device.Init(_provider);
                 _device.Play();
+                _streamStartMaster = ShowClock.Seconds + DeviceLatencyMs / 1000.0;
                 _identStep = -1;
                 Log.Info("Tone generator started.");
+            }
+
+            if (syncCheck) ScheduleSyncClicks(ShowClock.Seconds);
+
+            if (!cfg.Enabled)
+            {
+                // Only the sync check wants the device: silent but for the clicks.
+                _provider!.SetTargets(0, 0);
+                SetIndicator("");
+                _status = "Sync check: a click on every flash.";
+                return;
             }
 
             _provider!.Frequency = (float)cfg.FrequencyHz;
@@ -182,6 +286,7 @@ public sealed class AudioService : IDisposable
         }
         _device = null;
         _provider = null;
+        _streamStartMaster = double.NaN;
     }
 
     public void Dispose()

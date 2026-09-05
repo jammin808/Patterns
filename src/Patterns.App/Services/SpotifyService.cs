@@ -140,7 +140,7 @@ public sealed class SpotifyService : IDisposable
     public Func<SpotifyRequest, CancellationToken, Task<SpotifyReply>> Transport { get; set; }
 
     /// <summary>The clock, so token expiry, rate limits and backoff are testable without sleeping.</summary>
-    public Func<DateTime> NowUtc { get; set; } = () => DateTime.UtcNow;
+    public Func<DateTime> NowUtc { get; set; } = () => ShowClock.UtcNow;
 
     // ---- the reconciler ---------------------------------------------------------------
 

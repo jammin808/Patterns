@@ -75,6 +75,8 @@ public static class StreamMrl
             options.Add(":input-slave=dshow://");
             options.Add(":dshow-vdev=none");
             options.Add($":dshow-adev={cfg.AudioDevice.Trim()}");
+            // The lip-sync offset: libVLC shifts the sound against the picture inside the encode.
+            if (cfg.AudioDelayMs != 0) options.Add($":audio-desync={cfg.AudioDelayMs}");
         }
 
         var venc = $"venc=x264{{preset=veryfast,tune=zerolatency,keyint={fps * 2}}}";

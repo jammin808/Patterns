@@ -1990,6 +1990,34 @@ public sealed class MainViewModel : Observable
     private string _audioPlayerStatus = "";
     public string AudioPlayerStatus { get => _audioPlayerStatus; private set => Set(ref _audioPlayerStatus, value); }
 
+    private string _syncStatus = "";
+
+    /// <summary>The master clock's line on the Audio page: the lock, and every playing output's clock against it.</summary>
+    public string SyncStatus { get => _syncStatus; private set => Set(ref _syncStatus, value); }
+
+    private string BuildSyncStatus()
+    {
+        var head = State.AudioPlayer.SyncLock ? "Locked to the master clock." : "Outputs free-run (lock off).";
+        var lines = _services.AudioPlayer.SyncReport();
+        return lines.Count == 0 ? head + " Play the track to measure each output's clock." : head + " " + string.Join(" · ", lines);
+    }
+
+    /// <summary>The sync check: a flash on every sink and a click on the tone output at the same master instants.</summary>
+    public bool SyncCheck
+    {
+        get => SyncMarks.Enabled;
+        set
+        {
+            if (SyncMarks.Enabled == value) return;
+            SyncMarks.Enabled = value;
+            Raise(nameof(SyncCheck));
+            _services.RepublishNow(); // the sinks switch to continuous redraw so the flash lands on its frame
+            StatusMessage = value
+                ? "Sync check on: every sink flashes and the tone output clicks every two seconds on the master clock."
+                : "Sync check off.";
+        }
+    }
+
     private string _remoteStatus = "";
     public string RemoteStatus { get => _remoteStatus; private set => Set(ref _remoteStatus, value); }
 
@@ -3591,6 +3619,7 @@ public sealed class MainViewModel : Observable
         FeedStatus = _services.Feeds.Status;
         WebStatus = _services.Web.Status;
         AudioPlayerStatus = _services.AudioPlayer.Status;
+        SyncStatus = BuildSyncStatus();
         StingerStatus = _services.Stingers.Status;
         RefreshStingerGroups();
         RefreshAfterChoices();

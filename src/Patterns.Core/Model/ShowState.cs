@@ -595,6 +595,19 @@ public sealed class PresenterStepConfig : Observable
     public string Label { get => _label; set => Set(ref _label, value); }
 }
 
+/// <summary>The lip-sync offset of one audio output device: its sound leaves this much later.</summary>
+public sealed class OutputDelayConfig : Observable
+{
+    private string _device = "";
+    private int _delayMs;
+
+    /// <summary>The device's friendly name, or the computer-output key.</summary>
+    public string Device { get => _device; set => Set(ref _device, value ?? ""); }
+
+    /// <summary>0–2000 ms.</summary>
+    public int DelayMs { get => _delayMs; set => Set(ref _delayMs, Math.Clamp(value, 0, 2000)); }
+}
+
 /// <summary>
 /// Presenter click-through: an ordered list of looks a presenter advances with a clicker
 /// (Page Down / Page Up — the keys USB presentation remotes send).
@@ -644,6 +657,39 @@ public sealed class AudioPlayerConfig : Observable
     /// <summary>Runtime-only: playback never auto-starts with the app.</summary>
     [JsonIgnore]
     public bool Playing { get => _playing; set => Set(ref _playing, value); }
+
+    private bool _syncLock = true;
+    private int _videoAudioDelayMs;
+
+    /// <summary>
+    /// Lock every output to the master clock: each device's sound is resampled by the drift its
+    /// clock shows against the show's, so a two-hour track ends when the pictures do. Off, the
+    /// devices free-run as they used to.
+    /// </summary>
+    public bool SyncLock { get => _syncLock; set => Set(ref _syncLock, value); }
+
+    /// <summary>The lip-sync offset of every video clip's soundtrack (libVLC), −1000–2000 ms; negative plays the sound earlier.</summary>
+    public int VideoAudioDelayMs { get => _videoAudioDelayMs; set => Set(ref _videoAudioDelayMs, Math.Clamp(value, -1000, 2000)); }
+
+    /// <summary>Per-output lip-sync offsets: the track, VOGs and stingers on that device leave this much later.</summary>
+    public ObservableCollection<OutputDelayConfig> OutputDelays { get; init; } = new();
+
+    /// <summary>The delay set for a device (its friendly name or the computer-output key), 0 when none.</summary>
+    public int DelayFor(string device)
+        => OutputDelays.FirstOrDefault(d => string.Equals(d.Device, device, StringComparison.OrdinalIgnoreCase))?.DelayMs ?? 0;
+
+    /// <summary>Sets a device's delay; 0 removes the entry.</summary>
+    public void SetDelay(string device, int ms)
+    {
+        var entry = OutputDelays.FirstOrDefault(d => string.Equals(d.Device, device, StringComparison.OrdinalIgnoreCase));
+        if (ms <= 0)
+        {
+            if (entry is not null) OutputDelays.Remove(entry);
+            return;
+        }
+        if (entry is null) OutputDelays.Add(new OutputDelayConfig { Device = device, DelayMs = ms });
+        else entry.DelayMs = ms;
+    }
 }
 
 /// <summary>
@@ -1045,6 +1091,11 @@ public sealed class StreamConfig : Observable
 
     /// <summary>Optional DirectShow audio capture device name ("" = video only).</summary>
     public string AudioDevice { get => _audioDevice; set => Set(ref _audioDevice, value); }
+
+    private int _audioDelayMs;
+
+    /// <summary>The stream's lip-sync offset, −1000–2000 ms: the sound is held back (or brought forward) against the picture in the encode.</summary>
+    public int AudioDelayMs { get => _audioDelayMs; set => Set(ref _audioDelayMs, Math.Clamp(value, -1000, 2000)); }
 
     public ObservableCollection<StreamDestinationConfig> Destinations { get; init; } = new();
 

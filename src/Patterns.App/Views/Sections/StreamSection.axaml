@@ -55,8 +55,16 @@
       <TextBox Grid.Column="1" Watermark="DirectShow audio device — empty = video only"
                Text="{Binding State.Stream.AudioDevice}" />
     </Grid>
+    <Grid ColumnDefinitions="110,*,58" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Audio delay" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="-1000" Maximum="2000" TickFrequency="10"
+              Value="{Binding State.Stream.AudioDelayMs, Mode=TwoWay, Converter={StaticResource Num}}"
+              ToolTip.Tip="The stream's lip-sync offset: the sound is held back (or brought forward) against the picture inside the encode. Applies on the next start." />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Stream.AudioDelayMs, StringFormat={}{0} ms}" />
+    </Grid>
     <TextBlock Classes="hint"
-               Text="Audio comes from a capture device (a mixer/interface input, or a virtual cable like VB-Audio carrying the computer's sound). Leave empty to stream video only." />
+               Text="Audio comes from a capture device (a mixer/interface input, or a virtual cable like VB-Audio carrying the computer's sound). Leave empty to stream video only. The sync check on the Audio page flashes the stream and clicks at the same master instant — measure the gap on the far end and set the delay." />
 
     <TextBlock Classes="h2" Text="DESTINATIONS (UP TO 2, SAME ENCODE)" />
     <ItemsControl ItemsSource="{Binding State.Stream.Destinations}">

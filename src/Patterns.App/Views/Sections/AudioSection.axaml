@@ -36,12 +36,39 @@
     <ItemsControl ItemsSource="{Binding AudioDevices}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:AudioDeviceChoice">
-          <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,1" />
+          <Grid ColumnDefinitions="*,12,160,8,58" Margin="0,1">
+            <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center" />
+            <Slider Grid.Column="2" Minimum="0" Maximum="2000" TickFrequency="10" VerticalAlignment="Center"
+                    Value="{Binding DelayMs, Mode=TwoWay, Converter={StaticResource Num}}"
+                    ToolTip.Tip="Audio delay offset for this output: its sound leaves this much later, so a picture that arrives late (a projector, an LED processor, an IMAG chain) and the room's sound line up" />
+            <TextBlock Grid.Column="4" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                       Text="{Binding DelayMs, StringFormat={}{0} ms}" />
+          </Grid>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <TextBlock Classes="hint"
-               Text="The computer audio output is the default Windows device — usually the jack or interface feeding the venue sound system — and it combines with HDMI screens (tick both to play everywhere at once). Multi-device playback starts the outputs together; over very long tracks separate devices can drift a little. Device changes apply on the next play." />
+               Text="The computer audio output is the default Windows device — usually the jack or interface feeding the venue sound system — and it combines with HDMI screens (tick both to play everywhere at once). Each output has its own delay offset for lip sync. Device changes apply on the next play." />
+
+    <TextBlock Classes="h2" Text="MASTER CLOCK &amp; SYNC" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Every audio device runs on a clock of its own, and none of them is the show's: over two hours a sound card fifty parts per million off is a third of a second out. With the lock on, every output's sound is resampled by the drift its clock shows against the master clock — the same clock the pictures, the fades and the ducks run on — so a two-hour track ends when the pictures do. The offsets above hold a picture and its sound together; the sync check lets you measure them." />
+    <CheckBox Content="Lock the outputs to the master clock (resample away the drift)" IsChecked="{Binding State.AudioPlayer.SyncLock}" />
+    <TextBlock Classes="label" Text="{Binding SyncStatus}" TextWrapping="Wrap" />
+    <Grid ColumnDefinitions="130,*,58">
+      <TextBlock Classes="label" Text="Video sound delay" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="-1000" Maximum="2000" TickFrequency="10"
+              Value="{Binding State.AudioPlayer.VideoAudioDelayMs, Mode=TwoWay, Converter={StaticResource Num}}"
+              ToolTip.Tip="The soundtrack of every video clip, capture and stinger clip against its picture (libVLC): negative plays the sound earlier" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.AudioPlayer.VideoAudioDelayMs, StringFormat={}{0} ms}" />
+    </Grid>
+    <Grid ColumnDefinitions="Auto,12,*">
+      <ToggleButton Classes="mini" Content="SYNC CHECK" IsChecked="{Binding SyncCheck, Mode=TwoWay}"
+                    ToolTip.Tip="Every two seconds on the master clock, every screen, NDI send and the stream flash white and the tone output clicks. Film a screen with a phone (or watch the stream and the room together): the gap between the flash and the click is the offset to dial in above" />
+      <TextBlock Grid.Column="2" Classes="hint" VerticalAlignment="Center" TextWrapping="Wrap"
+                 Text="A flash on every sink and a click on the tone output at the same master instant, every two seconds — measure the gap, set the offsets, switch it off." />
+    </Grid>
 
     <TextBlock Classes="h2" Text="BREAK MUSIC (SPOTIFY)" />
     <TextBlock Classes="hint"

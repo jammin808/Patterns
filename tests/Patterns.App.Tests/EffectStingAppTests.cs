@@ -145,8 +145,10 @@ public class EffectStingAppTests
             Dispatcher.UIThread.RunJobs();
             var sliders = host.GetVisualDescendants().OfType<Slider>().ToList();
             Slider One(double max) => sliders.Single(s => Math.Abs(s.Maximum - max) < 0.5);
-            var fades = sliders.Where(s => Math.Abs(s.Maximum - 2000) < 0.5).ToList(); // live duck fade, then the sting fade
+            // The two fades run 0–2000 in steps of 50; the lip-sync delays share the top but start below zero or step by 10.
+            var fades = sliders.Where(s => Math.Abs(s.Maximum - 2000) < 0.5 && Math.Abs(s.Minimum) < 0.5 && Math.Abs(s.TickFrequency - 50) < 0.5).ToList(); // live duck fade, then the sting fade
             Assert.Equal(2, fades.Count);
+            var videoDelay = sliders.Single(s => Math.Abs(s.Minimum + 1000) < 0.5);
 
             Assert.Equal(900, One(5000).Value);
             One(5000).Value = 2400;
@@ -154,12 +156,14 @@ public class EffectStingAppTests
             fades[1].Value = 1250;
             One(1000).Value = 450;
             One(600).Value = 120;
+            videoDelay.Value = -120;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(2400, item.PulseMs);
             Assert.Equal(750, vm.State.Stingers.DuckFadeMs);
             Assert.Equal(1250, vm.State.Stingers.FadeMs);
             Assert.Equal(450, vm.State.Stingers.StopFadeMs);
             Assert.Equal(120, vm.State.Stingers.HoldSeconds);
+            Assert.Equal(-120, vm.State.AudioPlayer.VideoAudioDelayMs);
 
             // The model still drives the slider, and the pulse fires at its new length.
             item.PulseMs = 3100;
