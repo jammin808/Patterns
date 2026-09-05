@@ -11,9 +11,11 @@ namespace Patterns.App.Services;
 /// one with no hardware behind it yet (<see cref="IsPlanned"/>).
 /// </summary>
 public sealed record ScreenInfo(string Id, string Label, PixelRect Bounds, double Scaling, bool IsPrimary, int Index,
-    bool IsPlanned = false)
+    bool IsPlanned = false, bool IsVirtual = false)
 {
-    public string Description => IsPlanned
+    public string Description => IsVirtual
+        ? $"{Bounds.Width}×{Bounds.Height} · {(Id.StartsWith("ndi:", StringComparison.Ordinal) ? "NDI send" : "stream")}'s own screen"
+        : IsPlanned
         ? $"{Bounds.Width}×{Bounds.Height} · planned (no display yet)"
         : $"{Bounds.Width}×{Bounds.Height} @ {Bounds.X},{Bounds.Y}{(IsPrimary ? " · primary" : "")}";
 }

@@ -68,6 +68,6 @@ Every key acts once per press — holding a key down never repeats it.</TextBloc
 
     <TextBlock Classes="h2" Text="EXTRAS" />
     <TextBlock Classes="hint" TextWrapping="Wrap"
-               Text="NDI: install the free NDI runtime (ndi.video) or drop Processing.NDI.Lib.x64.dll beside the exe — then send as many outputs as you need (8-bit BGRX or 10-bit P216) and receive any NDI feed as a media source. Video/audio and HDMI/SDI capture devices: the 'full' download bundles libVLC; the lean exe uses an installed 64-bit VLC or a 'libvlc' folder beside it. Web pages open on any screen via installed Edge or Chrome. All optional — the app runs without them." />
+               Text="NDI: install the free NDI runtime (ndi.video) or drop Processing.NDI.Lib.x64.dll beside the exe — then send as many outputs as you need (8-bit BGRX or 10-bit P216) and receive any NDI feed as a media source. Every send owns a screen of its own on the rig (Screens page: FEED SCREENS; the wall): the send shows the program, a mirror of any screen or joined canvas at that target's shape, or its own screen with a look of its own. The stream (Stream page) gets the same — a display is captured off the desktop, its own screen or a canvas is rendered by the engine into the same encode. Video/audio and HDMI/SDI capture devices: the 'full' download bundles libVLC; the lean exe uses an installed 64-bit VLC or a 'libvlc' folder beside it. Web pages open on any screen via installed Edge or Chrome. All optional — the app runs without them." />
   </StackPanel>
 </UserControl>

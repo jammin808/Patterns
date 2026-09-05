@@ -21,11 +21,14 @@
 
     <TextBlock Classes="h2" Text="SOURCE &amp; QUALITY" />
     <Grid ColumnDefinitions="110,*">
-      <TextBlock Classes="label" Text="Screen" VerticalAlignment="Center" />
+      <TextBlock Classes="label" Text="Source" VerticalAlignment="Center" />
       <ComboBox Grid.Column="1" SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
-                ItemsSource="{Binding WebScreens}"
-                SelectedValue="{Binding State.Stream.SourceScreenId, Mode=TwoWay}" />
+                ItemsSource="{Binding StreamSources}"
+                SelectedValue="{Binding State.Stream.SourceScreenId, Mode=TwoWay}"
+                ToolTip.Tip="A display is captured off the desktop (everything on it, cheapest). Its own screen, a joined canvas or a planned screen is rendered by the engine — the stream's own screen takes a look of its own on the Screens page and the wall." />
     </Grid>
+    <TextBlock Classes="hint"
+               Text="Its own screen: the stream becomes a screen on the rig with a look of its own — arrange it, OWN it on the wall, give it its own pattern, put it in a cue — at the stream's size. Nothing on the desktop can wander into it." />
     <Grid ColumnDefinitions="110,86,8,86" Margin="0,4,0,0">
       <TextBlock Classes="label" Text="Size (px)" VerticalAlignment="Center" />
       <NumericUpDown Grid.Column="1" Minimum="320" Maximum="3840" Increment="2" FormatString="0" ShowButtonSpinner="False"

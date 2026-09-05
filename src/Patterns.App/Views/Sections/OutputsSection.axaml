@@ -23,7 +23,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:ScreenPlacement">
           <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="9,7" Margin="0,3"
-                  IsVisible="{Binding Planned}">
+                  IsVisible="{Binding IsPlannedDisplay}">
             <StackPanel Spacing="5">
               <Grid ColumnDefinitions="*,8,Auto">
                 <TextBox Grid.Column="0" Watermark="Name (e.g. Main wall)" Text="{Binding CustomLabel}" />
@@ -60,6 +60,28 @@
       <Button Classes="chip" Content="+ Plan a screen" Command="{Binding AddPlannedScreenCommand}" />
       <Button Classes="chip" Content="Refresh displays" Command="{Binding RefreshAdoptTargetsCommand}" />
     </StackPanel>
+
+    <TextBlock Classes="h2" Text="FEED SCREENS (NDI SENDS, THE STREAM)" IsVisible="{Binding VirtualScreenCount, Converter={StaticResource Positive}}" />
+    <TextBlock Classes="hint" IsVisible="{Binding VirtualScreenCount, Converter={StaticResource Positive}}"
+               Text="Every NDI send owns a screen of its own, and the stream does while it is set to its own screen. They are screens like any other — arrange them, OWN them on the wall, give them a look of their own, put them in a multiview or a cue — but never a window, never adopted onto a display, never joined to one by touching. A send that mirrors another target still owns one; what the send shows is chosen on the NDI page, the stream's source on the Stream page. The size follows the feed." />
+    <ItemsControl ItemsSource="{Binding State.Output.Placements}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:ScreenPlacement">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="9,7" Margin="0,3"
+                  IsVisible="{Binding IsVirtual}">
+            <Grid ColumnDefinitions="Auto,10,*,10,Auto">
+              <Border Grid.Column="0" Background="#20242E" CornerRadius="6" Padding="7,2" VerticalAlignment="Center">
+                <TextBlock Text="{Binding VirtualKind}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+              </Border>
+              <TextBox Grid.Column="2" Watermark="Name" Text="{Binding CustomLabel}" ToolTip.Tip="What the wall and the pickers call this screen" />
+              <TextBlock Grid.Column="4" Classes="label" VerticalAlignment="Center">
+                <Run Text="{Binding PlannedWidth}" /><Run Text="×" /><Run Text="{Binding PlannedHeight}" /><Run Text=" · follows the feed" />
+              </TextBlock>
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
 
     <Border Background="#0B0C10" CornerRadius="10" BorderBrush="{StaticResource HairlineBrush}"
             BorderThickness="1" Height="320" ClipToBounds="True">

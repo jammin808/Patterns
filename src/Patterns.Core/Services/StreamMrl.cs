@@ -29,10 +29,44 @@ public static class StreamMrl
             $":screen-fps={fps}",
             $":screen-left={screenRect.Left}",
             $":screen-top={screenRect.Top}",
-            $":screen-width={screenRect.Width}",
             $":screen-height={screenRect.Height}",
         };
+        options.Insert(3, $":screen-width={screenRect.Width}");
+        return Finish(cfg, fps, options, dests, "screen://");
+    }
 
+    /// <summary>
+    /// The engine-fed plan: the stream's own screen (or any rig target) rendered by the engine at
+    /// the stream's size and rate and handed to libVLC as raw BGRA frames through a memory
+    /// input — the same encode and destinations as the desktop capture. Null when there is
+    /// nothing to stream to.
+    /// </summary>
+    public static Plan? BuildRendered(StreamConfig cfg, IReadOnlyList<string> destinations, int masterFps = 0)
+    {
+        var dests = destinations.Where(d => !string.IsNullOrWhiteSpace(d)).Take(2).ToList();
+        if (dests.Count == 0) return null;
+        var fps = EffectiveFps(cfg, masterFps);
+        return Finish(cfg, fps, RawVideoOptions(cfg.Width, cfg.Height, fps), dests, RenderedMrl);
+    }
+
+    /// <summary>What a rendered plan's MRL reads (the frames come through the memory input, not a location).</summary>
+    public const string RenderedMrl = "imem://patterns";
+
+    /// <summary>The raw-video demuxer's options for a BGRA frame feed of this size and rate.</summary>
+    public static List<string> RawVideoOptions(int width, int height, int fps) => new()
+    {
+        ":demux=rawvideo",
+        $":rawvid-width={width}",
+        $":rawvid-height={height}",
+        ":rawvid-chroma=RV32",
+        $":rawvid-fps={fps}",
+    };
+
+    /// <summary>Bytes per BGRA frame at this size.</summary>
+    public static int FrameBytes(int width, int height) => Math.Max(1, width) * Math.Max(1, height) * 4;
+
+    private static Plan Finish(StreamConfig cfg, int fps, List<string> options, List<string> dests, string mrl)
+    {
         var audio = cfg.AudioDevice.Trim().Length > 0;
         if (audio)
         {
@@ -55,7 +89,7 @@ public static class StreamMrl
 
         options.Add(":sout=" + chain);
         options.Add(":sout-mux-caching=1500");
-        return new Plan("screen://", options.ToArray());
+        return new Plan(mrl, options.ToArray());
     }
 
     /// <summary>One destination module: RTMP gets the FLV mux, SRT/UDP get MPEG-TS.</summary>

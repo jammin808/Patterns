@@ -7,7 +7,7 @@ namespace Patterns.Core.Rendering;
 /// marks a projector whose edges blend automatically: it may overlap its neighbours, and the
 /// overlap joins them into one canvas instead of being a mistake.
 /// </summary>
-public readonly record struct ArrangedScreen(string Id, SKRectI Rect, bool Blend = false);
+public readonly record struct ArrangedScreen(string Id, SKRectI Rect, bool Blend = false, bool Solo = false);
 
 /// <summary>
 /// Pure math for the graphical screen arrangement: edge snapping while dragging,
@@ -59,7 +59,7 @@ public static class ScreenLayout
     /// blending projector never regroups on an overlap.
     /// </summary>
     public static bool Connected(in ArrangedScreen a, in ArrangedScreen b)
-        => Touching(a.Rect, b.Rect) || ((a.Blend || b.Blend) && Overlapping(a.Rect, b.Rect));
+        => !a.Solo && !b.Solo && (Touching(a.Rect, b.Rect) || ((a.Blend || b.Blend) && Overlapping(a.Rect, b.Rect)));
 
     /// <summary>Connected components of touching (or blend-overlapping) screens. Singletons are their own group.</summary>
     public static List<List<ArrangedScreen>> Groups(IReadOnlyList<ArrangedScreen> screens)

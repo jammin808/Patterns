@@ -185,25 +185,10 @@ public sealed class NdiSender : IDisposable
                     var surface = useA ? surfaceA : surfaceB!;
                     useA = !useA;
 
-                    var screenId = string.IsNullOrEmpty(cfg.SourceScreenId) ? null : cfg.SourceScreenId;
-                    var ctx = new RenderContext
-                    {
-                        ViewportSize = size,
-                        ReferenceSize = size,
-                        ViewportOrigin = default,
-                        Time = ShowClock.Seconds,
-                        Now = DateTime.Now,
-                        UtcNow = DateTime.UtcNow,
-                        Frame = frame++,
-                        Sink = SinkKind.Ndi,
-                        SinkIndex = 0,
-                        SinkLabel = $"NDI {name}",
-                        ScreenId = screenId,
-                        MeasuredFps = sink.Fps.Fps,
-                    };
-                    sink.Fps.Tick(ctx.Time);
-
-                    _engine.Render(surface.Canvas, snap, in ctx, sink);
+                    var time = ShowClock.Seconds;
+                    sink.Fps.Tick(time);
+                    // The program fills the frame; a mirrored target keeps its shape; the sender's own screen fills it.
+                    NdiFrame.Render(_engine, snap, sink, surface.Canvas, size, cfg.SourceScreenId, SinkKind.Ndi, $"NDI {name}", frame++, time);
                     surface.Canvas.Flush();
 
                     var (rateN, rateD) = NdiRateTable.Resolve(cfg.RateKey, snap.State.Output.MasterFps);

@@ -117,8 +117,9 @@ public sealed class RigGeometry
             // A size of zero would make every miniature's scale infinite.
             raw = new SKSizeI(Math.Max(1, raw.Width), Math.Max(1, raw.Height));
             var eff = EffectiveSize(p, raw);
-            // Enabled is not geometry: the wall shows switched-off targets too.
-            placed.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, eff.Width, eff.Height), p.BlendAuto));
+            // Enabled is not geometry: the wall shows switched-off targets too. A virtual screen
+            // (a feed's own picture) never joins a canvas, wherever it is dragged.
+            placed.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, eff.Width, eff.Height), p.BlendAuto, Solo: p.IsVirtual));
             labels.Add(label);
         }
 

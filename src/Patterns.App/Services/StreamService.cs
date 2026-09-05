@@ -64,14 +64,27 @@ public sealed class StreamService : IDisposable
                 return;
             }
 
-            var rect = SourceRect(cfg.SourceScreenId);
+            var rendered = IsRendered(cfg.SourceScreenId);
+            var rect = rendered ? SKRectI.Empty : SourceRect(cfg.SourceScreenId);
             var fps = StreamMrl.EffectiveFps(cfg, _services.State.Output.MasterFps);
-            var key = $"{rect}|{cfg.Width}x{cfg.Height}@{fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{string.Join(";", urls)}";
+            var key = $"{(rendered ? "render:" + cfg.SourceScreenId : rect.ToString())}|{cfg.Width}x{cfg.Height}@{fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{string.Join(";", urls)}";
             if (key != _activeKey)
             {
                 Stop();
-                if (StreamMrl.Build(cfg, rect, urls, _services.State.Output.MasterFps) is not { } plan) return;
-                _media = new Media(vlc, plan.Mrl, FromType.FromLocation, plan.Options);
+                if (rendered)
+                {
+                    // The engine draws the target into raw frames; libVLC pulls them through the memory input.
+                    if (StreamMrl.BuildRendered(cfg, urls, _services.State.Output.MasterFps) is not { } renderedPlan) return;
+                    _renderer = new StreamRenderer(_services.Bus, cfg.SourceScreenId, cfg.Width, cfg.Height, fps);
+                    _renderer.Start();
+                    _input = new FeedMediaInput(_renderer.Feed);
+                    _media = new Media(vlc, _input, renderedPlan.Options);
+                }
+                else
+                {
+                    if (StreamMrl.Build(cfg, rect, urls, _services.State.Output.MasterFps) is not { } plan) return;
+                    _media = new Media(vlc, plan.Mrl, FromType.FromLocation, plan.Options);
+                }
                 _player = new MediaPlayer(_media);
                 if (!_player.Play())
                 {
@@ -96,7 +109,8 @@ public sealed class StreamService : IDisposable
                 }
                 var up = DateTime.UtcNow - _startedUtc;
                 _status = $"LIVE · {_destinations} destination{(_destinations == 1 ? "" : "s")} · " +
-                          $"{cfg.Width}×{cfg.Height}@{fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}";
+                          $"{cfg.Width}×{cfg.Height}@{fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}" +
+                          (_renderer is not null ? " · rendered" : " · desktop capture");
             }
         }
         catch (Exception ex)
@@ -107,6 +121,23 @@ public sealed class StreamService : IDisposable
             Stop();
         }
     }
+
+    /// <summary>
+    /// A real display is captured off the desktop (cheapest, and it shows everything on that
+    /// display); anything else — the stream's own screen, a joined canvas, a planned screen — is
+    /// rendered by the engine.
+    /// </summary>
+    public bool IsRendered(string sourceId)
+    {
+        if (string.IsNullOrEmpty(sourceId)) return false;
+        return _services.Screens.Real.All(s => s.Id != sourceId);
+    }
+
+    /// <summary>The engine-fed source while one runs (tests and the super-check read it).</summary>
+    public StreamRenderer? Renderer => _renderer;
+
+    private StreamRenderer? _renderer;
+    private FeedMediaInput? _input;
 
     /// <summary>Pixel rect of the streamed screen on the OS desktop (screen:// crops to it).</summary>
     private SKRectI SourceRect(string screenId)
@@ -123,12 +154,14 @@ public sealed class StreamService : IDisposable
 
     private void Stop()
     {
-        if (_player is null && _media is null) return;
+        if (_player is null && _media is null && _renderer is null) return;
         try
         {
             _player?.Stop();
             _player?.Dispose();
             _media?.Dispose();
+            _renderer?.Dispose();
+            _input?.Dispose();
         }
         catch (Exception ex)
         {
@@ -136,6 +169,8 @@ public sealed class StreamService : IDisposable
         }
         _player = null;
         _media = null;
+        _renderer = null;
+        _input = null;
         _activeKey = "";
     }
 

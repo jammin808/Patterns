@@ -166,6 +166,11 @@ public sealed class SettingsStore
             if (media.AddedUtc == default) media.AddedUtc = DateTime.UtcNow;
         }
 
+        // Every NDI sender owns a virtual screen (and the stream, while set to its own): brought
+        // in step on every load, idempotently — an older show's senders get theirs, mirroring
+        // exactly what they mirrored before.
+        VirtualScreens.Sync(state);
+
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }
 

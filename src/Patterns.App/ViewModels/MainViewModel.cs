@@ -112,7 +112,9 @@ public sealed class MainViewModel : Observable
         AddNdiSenderCommand = new RelayCommand(AddNdiSender);
         RemoveNdiSenderCommand = new RelayCommand<NdiSenderConfig>(cfg =>
         {
-            if (cfg is not null) State.Ndi.Senders.Remove(cfg);
+            if (cfg is null) return;
+            State.Ndi.Senders.Remove(cfg);
+            SyncVirtualScreens(); // its screen, and that screen's own content, go with it
         });
 
         // Playlist
@@ -1448,6 +1450,7 @@ public sealed class MainViewModel : Observable
             WebScreens.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
         }
         State.Web.TargetScreenId = current;
+        RebuildStreamSources();
 
         RebuildMultiviewTargets();
     }
@@ -2787,8 +2790,15 @@ public sealed class MainViewModel : Observable
         }
         foreach (var s in _services.Screens.All)
         {
+            if (s.IsVirtual) continue; // the feeds' own screens are listed by their feed below
             wanted.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
         }
+        foreach (var sender in State.Ndi.Senders)
+        {
+            var name = string.IsNullOrWhiteSpace(sender.Name) ? "Patterns" : sender.Name.Trim();
+            wanted.Add(new EditTarget($"Its own screen — NDI · {name} (a look of its own)", sender.OwnScreenId));
+        }
+        if (State.Stream.UsesOwnScreen) wanted.Add(new EditTarget("The stream's own screen", StreamConfig.OwnScreenId));
         ReplaceIfChanged(NdiSources, wanted);
     }
 
@@ -2800,6 +2810,8 @@ public sealed class MainViewModel : Observable
             Name = n == 1 ? "Patterns" : $"Patterns {n}",
             Enabled = false,
         });
+        SyncVirtualScreens(); // every send owns a screen of its own from the moment it exists
+        StatusMessage = "NDI sender added — it owns a screen on the rig: mirror any target, or give it a look of its own.";
     }
 
     // ---- lists for the views ------------------------------------------------
@@ -3110,8 +3122,47 @@ public sealed class MainViewModel : Observable
         ? "PREP MODE — pre-programming; outputs are held closed"
         : "SHOW MODE";
 
-    /// <summary>Planned screens that have no display behind them yet (blocks a clean GO).</summary>
-    public int PlannedScreenCount => State.Output.Placements.Count(p => p.Planned);
+    /// <summary>Planned screens that have no display behind them yet (blocks a clean GO). A feed's own screen is not one.</summary>
+    public int PlannedScreenCount => State.Output.Placements.Count(p => p.IsPlannedDisplay);
+
+    /// <summary>The feeds' own screens on the rig: one per NDI send, one for the stream while it is set to its own.</summary>
+    public int VirtualScreenCount => State.Output.Placements.Count(p => p.IsVirtual);
+
+    /// <summary>Keeps the feeds' screens in step with the senders and the stream; on the poll, and after every add or remove.</summary>
+    public void SyncVirtualScreens()
+    {
+        if (!VirtualScreens.Sync(State)) return;
+        _services.Screens.Refresh();
+        RebuildEditTargets();
+        RebuildNdiSources();
+        RebuildStreamSources();
+        Raise(nameof(VirtualScreenCount));
+        Raise(nameof(PlannedScreenCount));
+        RaiseModeChanged();
+    }
+
+    /// <summary>What the stream can show: a display captured off the desktop, or a rig target rendered by the engine.</summary>
+    public ObservableCollection<EditTarget> StreamSources { get; } = new() { new EditTarget("Primary screen (desktop capture)", "") };
+
+    private void RebuildStreamSources()
+    {
+        var wanted = new List<EditTarget> { new("Primary screen (desktop capture)", "") };
+        foreach (var s in _services.Screens.Real)
+        {
+            wanted.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label} (desktop capture)", s.Id));
+        }
+        wanted.Add(new EditTarget("Its own screen — rendered, a look of its own", StreamConfig.OwnScreenId));
+        var geo = Rig.Geometry(State, _services.Screens.All);
+        foreach (var key in geo.Targets)
+        {
+            if (ContentTargets.IsCanvasKey(key)) wanted.Add(new EditTarget($"{geo.LabelFor(State, key)} (rendered)", key));
+        }
+        foreach (var p in State.Output.Placements)
+        {
+            if (p.IsPlannedDisplay) wanted.Add(new EditTarget($"{LabelFor(p)} (planned, rendered)", p.ScreenId));
+        }
+        ReplaceIfChanged(StreamSources, wanted);
+    }
 
     public string PrepSummary
     {
@@ -3168,7 +3219,7 @@ public sealed class MainViewModel : Observable
 
     public void RemovePlannedScreen(ScreenPlacement placement)
     {
-        if (!placement.Planned) return;
+        if (!placement.IsPlannedDisplay) return; // a feed's own screen goes with its feed, never on its own
         State.Output.Placements.Remove(placement);
         var assignment = State.Independent.FirstOrDefault(a => a.ScreenId == placement.ScreenId);
         if (assignment is not null) State.Independent.Remove(assignment);
@@ -3185,7 +3236,7 @@ public sealed class MainViewModel : Observable
     /// </summary>
     public bool AdoptPlannedScreen(ScreenPlacement planned, string realScreenId)
     {
-        if (!planned.Planned || realScreenId.Length == 0) return false;
+        if (!planned.IsPlannedDisplay || realScreenId.Length == 0) return false; // a feed's own screen is never a display
         if (_services.Screens.Real.All(s => s.Id != realScreenId)) return false;
 
         var oldId = planned.ScreenId;
@@ -3544,6 +3595,7 @@ public sealed class MainViewModel : Observable
         RefreshStingerGroups();
         RefreshAfterChoices();
         RefreshTallies();
+        SyncVirtualScreens();
         StingerHolding = _services.Stingers.Holding;
         StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";
         SpotifyStatus = _services.Spotify.Status;
@@ -3633,6 +3685,7 @@ public sealed class MainViewModel : Observable
         Raise(nameof(IsPrepMode));
         Raise(nameof(ModeBanner));
         Raise(nameof(PlannedScreenCount));
+        Raise(nameof(VirtualScreenCount));
         Raise(nameof(PrepSummary));
     }
 

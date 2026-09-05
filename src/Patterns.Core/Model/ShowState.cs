@@ -100,6 +100,40 @@ public sealed class ScreenPlacement : Observable
     /// <summary>Id prefix that marks a placement as planned rather than a detected display.</summary>
     public const string PlannedIdPrefix = "planned:";
 
+    private string _virtual = "";
+
+    /// <summary>
+    /// The feed this screen is the picture of — "ndi:&lt;sender id&gt;" or "stream" — or "" for a
+    /// display. A virtual screen is planned (sized from the model, never opens a window) but
+    /// owned: it follows its feed's size, is never adopted onto a display, never joins a canvas
+    /// by touching one, and goes when its feed goes. It takes content like any screen — its own
+    /// look, or the program.
+    /// </summary>
+    public string Virtual
+    {
+        get => _virtual;
+        set
+        {
+            if (Set(ref _virtual, value ?? ""))
+            {
+                Raise(nameof(IsVirtual));
+                Raise(nameof(IsPlannedDisplay));
+                Raise(nameof(VirtualKind));
+            }
+        }
+    }
+
+    [JsonIgnore]
+    public bool IsVirtual => _virtual.Length > 0;
+
+    /// <summary>Planned and waiting for a display — the adoption list; a virtual screen never is.</summary>
+    [JsonIgnore]
+    public bool IsPlannedDisplay => _planned && _virtual.Length == 0;
+
+    /// <summary>"NDI" or "STREAM" for a virtual screen, "" otherwise.</summary>
+    [JsonIgnore]
+    public string VirtualKind => _virtual.StartsWith("ndi:", StringComparison.Ordinal) ? "NDI" : _virtual.Length > 0 ? "STREAM" : "";
+
     private string _adoptTargetId = "";
 
     /// <summary>Runtime-only: the display chosen in the adopt picker for this planned screen.</summary>
@@ -399,8 +433,28 @@ public sealed class NdiSenderConfig : Observable
     public int Height { get => _height; set => Set(ref _height, Math.Clamp(value, 16, 8192)); }
     /// <summary>Frame-rate key from <c>NdiRateTable</c> ("23.98"…"60").</summary>
     public string RateKey { get => _rateKey; set => Set(ref _rateKey, value); }
-    /// <summary>Empty = program; otherwise the screen or joined canvas (member key) whose pattern this sender mirrors.</summary>
-    public string SourceScreenId { get => _sourceScreenId; set => Set(ref _sourceScreenId, value ?? ""); }
+    /// <summary>
+    /// Empty = program; otherwise the screen or joined canvas (member key) whose pattern this
+    /// sender mirrors — or its <see cref="OwnScreenId"/>, the sender's own screen with a look of its own.
+    /// </summary>
+    public string SourceScreenId
+    {
+        get => _sourceScreenId;
+        set
+        {
+            if (Set(ref _sourceScreenId, value ?? "")) Raise(nameof(UsesOwnScreen));
+        }
+    }
+
+    /// <summary>Every sender owns a virtual screen on the rig; this is its id.</summary>
+    [JsonIgnore]
+    public string OwnScreenId => OwnScreenIdFor(_id);
+
+    public static string OwnScreenIdFor(string senderId) => "ndi:" + senderId;
+
+    /// <summary>The sender shows its own screen's look rather than mirroring another target.</summary>
+    [JsonIgnore]
+    public bool UsesOwnScreen => _sourceScreenId == OwnScreenId;
     /// <summary>Send 10-bit P216 (renders internally at 10 bpc; heavier on CPU).</summary>
     public bool TenBit { get => _tenBit; set => Set(ref _tenBit, value); }
 
@@ -958,8 +1012,25 @@ public sealed class StreamConfig : Observable
     private string _audioDevice = "";
     private bool _active;
 
-    /// <summary>Screen whose output is streamed ("" = the first enabled screen).</summary>
-    public string SourceScreenId { get => _sourceScreenId; set => Set(ref _sourceScreenId, value); }
+    /// <summary>
+    /// What is streamed: "" = the first enabled display, captured off the desktop; a display's id,
+    /// captured the same way; <see cref="OwnScreenId"/> = the stream's own screen, rendered by the
+    /// engine with a look of its own; a joined canvas key, rendered by the engine.
+    /// </summary>
+    public string SourceScreenId
+    {
+        get => _sourceScreenId;
+        set
+        {
+            if (Set(ref _sourceScreenId, value ?? _sourceScreenId)) Raise(nameof(UsesOwnScreen));
+        }
+    }
+
+    /// <summary>The stream's own virtual screen on the rig — present while the stream is set to it.</summary>
+    public const string OwnScreenId = "stream:own";
+
+    [JsonIgnore]
+    public bool UsesOwnScreen => _sourceScreenId == OwnScreenId;
     public int Width { get => _width; set => Set(ref _width, Math.Clamp(value, 320, 3840)); }
     public int Height { get => _height; set => Set(ref _height, Math.Clamp(value, 180, 2160)); }
     public int Fps { get => _fps; set => Set(ref _fps, Math.Clamp(value, 10, 60)); }

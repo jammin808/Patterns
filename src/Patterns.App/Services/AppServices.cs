@@ -458,9 +458,9 @@ public sealed class AppServices
             if (!p.Planned) continue;
             yield return new ScreenInfo(
                 p.ScreenId,
-                p.CustomLabel.Length > 0 ? p.CustomLabel : "Planned screen",
+                p.CustomLabel.Length > 0 ? p.CustomLabel : p.IsVirtual ? p.VirtualKind : "Planned screen",
                 new Avalonia.PixelRect(p.X, p.Y, p.PlannedWidth, p.PlannedHeight),
-                1.0, false, 0, IsPlanned: true);
+                1.0, false, 0, IsPlanned: true, IsVirtual: p.IsVirtual);
         }
     }
 
@@ -493,7 +493,7 @@ public sealed class AppServices
     {
         var key = string.Join('|', State.Output.Placements
             .Where(p => p.Planned)
-            .Select(p => $"{p.ScreenId}:{p.PlannedWidth}x{p.PlannedHeight}:{p.CustomLabel}"));
+            .Select(p => $"{p.ScreenId}:{p.PlannedWidth}x{p.PlannedHeight}:{p.CustomLabel}:{p.Virtual}"));
         if (key == _plannedKey) return;
         _plannedKey = key;
         Screens.Refresh();
