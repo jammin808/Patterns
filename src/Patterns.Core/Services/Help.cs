@@ -101,9 +101,10 @@ public static class HelpTopics
                 "Set up the rig (SETUP → Screens…): at home with planned screens, at the venue adopt them; then audio, NDI, the stream, the remote.",
                 "Run it from the Show panel (SHOW → Panel), or hand the caller the Run page.",
                 "Before doors, read the Machine page (ADMIN) and run the super-check.",
+                "Short of time? BUILD → Assistant drafts the screens, the looks, the cues and the lower thirds from a description of the day; APPLY what you want, then finish by hand.",
             },
             "Every verb a remote can send is in docs/REMOTE.md. STATE (the STATUS verb) carries the whole show as JSON, so a controller can read what a key should say.",
-            new[] { "Panel", "Looks", "Cues", "Screens", "Machine" },
+            new[] { "Panel", "Looks", "Cues", "Screens", "Machine", "Assistant" },
             new[] { "overview", "map", "start", "begin", "first", "stages", "groups", "action layer", "journal", "show file", "program", "preview", "edit safe", "take", "look", "cue", "rig", "how it works" }),
 
         new HelpTopic("shell", HelpGroup.StartHere,

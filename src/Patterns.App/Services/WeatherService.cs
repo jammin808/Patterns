@@ -42,6 +42,13 @@ public sealed class WeatherService : IDisposable
     /// <summary>How many fetches went out this session (the tests count them).</summary>
     public int Fetches { get; private set; }
 
+    /// <summary>
+    /// A fetch is in flight. A tick that falls due while one is running is skipped and comes back
+    /// on the next tick (the key is not taken until a fetch starts); a test that changes the source
+    /// waits for this to clear before it polls again.
+    /// </summary>
+    public bool Fetching => _fetching;
+
     /// <summary>Forces a fetch on the next tick.</summary>
     public void RefreshNow() => _lastFetchUtc = DateTime.MinValue;
 

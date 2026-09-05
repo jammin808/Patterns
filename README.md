@@ -881,6 +881,14 @@ constructor and the commands); its once-a-second tick is nineteen guarded, timed
 budget the Machine page and the super-check read — the audit, the numbers and what was kept on
 purpose are in [`docs/PLAN.md`](docs/PLAN.md) §16.1.
 
+Is that a "game-play architecture with corporate stability"? The mapping — a fixed cadence with a
+budget, state as immutable frames, systems that cannot take the frame down, instrumentation,
+assets ready before the cut, scaling to the machine, back in seconds without a hand — and where
+Patterns still falls short of a game engine (a render-side frame budget, pre-rolling the standby
+cue's clip, an adaptive quality ladder, a start-up fence, memory ceilings in numbers) are argued in
+[`docs/PLAN.md`](docs/PLAN.md) §16.4. The assistant's cloud-not-local decision and how it is fenced
+are §16.3; the weather source's choice is §16.2.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Third-party components: [THIRDPARTY-NOTICES.md](THIRDPARTY-NOTICES.md).

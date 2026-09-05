@@ -457,13 +457,14 @@ What is still slow on purpose: opening a deck (LibreOffice renders once, with a 
 the super-check (probes the machine, a second), and the first frame of a web page (the browser
 warms). Each says so on its page while it works.
 
-## 16. Round 13 — the answers: the desk's tick
+## 16. Round 13 — the answers
 
 Round 13 asked for the whole as well as for features: *is `MainViewModel` a candidate for
-streamlining and efficiency and stability*, with the rule that every menu change, view update
-and UX update must be instant. This section carries that answer; the round's other answers (the
-game-play architecture with corporate stability, the weather source, the assistant's home) are
-added as their commits land.
+streamlining and efficiency and stability* (§16.1), *which weather source* (§16.2), *a cloud
+assistant or an embedded local model* (§16.3), and the standing brief — *high-level game-play
+architecture and speed coupled with pro-grade corporate stability, resilience and ease of use at
+each stage; every menu change, view update and UX update instant* — answered from the code as it
+stands, with what is in place and what is still short (§16.4).
 
 ### 16.1 Is MainViewModel a candidate for streamlining, efficiency and stability? Yes — for the tick, not the size
 
@@ -654,3 +655,56 @@ assistant builds, it never runs a show.
 **Not built, and why.** Streaming the reply word by word (a proposal is applied whole; the wait is
 seconds); the assistant reading the machine's health or the journal (a later round if a show asks
 — the brief would grow, and so would what leaves the machine); a local model (above).
+
+### 16.4 "Game-play architecture and speed, with corporate stability": what it means here, what is in place, what is still short
+
+**The brief, read as an engineer.** A game engine is admired for six habits: it runs on a fixed
+cadence with a *budget* per frame and knows when it misses; its world is *data*, drawn each frame
+from an immutable state rather than mutated while it is drawn; its systems are *isolated*, so a
+sound that fails cannot take the frame; it is *instrumented*, so the budget is seen and the
+offender named; its assets are *ready before they are needed*; and it *scales to the machine it
+runs on*. "Corporate-grade" adds four: never lose the show; every failure named in words; back
+in seconds without a hand; boring on a bad day. The rule under both — every selection instant —
+is the frame budget applied to the desk. Here is where Patterns stands against each, with the
+proof the suite carries on every push.
+
+| The habit | In Patterns | The proof |
+| --- | --- | --- |
+| **State as immutable frames.** | Every edit publishes a `ShowSnapshot`; every sink — the preview, each output, an NDI send, the stream, a thumbnail — draws the same snapshot on its own thread; runtime facts (the playlist item, the feed text, the forecast) ride the snapshot too, so no sink reads a live object. | The stitching and snapshot tests; the weather test asserting the chip on the snapshot every sink draws. |
+| **A fixed cadence with a budget.** | The engine: static pictures cost nothing idle, clocks tick once a second, motion runs at vsync at the show's frame rate. The desk: one tick a second in nineteen guarded, timed areas with a minute's budget read on the STABILITY line, the super-check's *Desk tick* row and the RENDER tile — 0.3–1.6 ms a tick against a 16 ms frame (§16.1). | `DeskPollTests` with its fence; `TickBudgetTests`. |
+| **Systems isolated.** | A renderer that throws is an error card on that sink, the show runs; a desk area that throws is carried past, counted and told once a minute; the native edges (video, web, PDF, the stream, serial) sit behind seams with fakes; the stingers pin the air look so a relaunch mid-clip puts the show back, not the clip. | The guarded-tick tests; the renderer error-card test; the recovery tests. |
+| **Input answered in the frame.** | One action layer for the desk, the keyboard, the phone, Companion, OSC, the schedule and the devices: an action is accepted, journaled and returned before the picture moves; the executor's gate (armed, hold, standby fence, 300 ms lockout, the confirm window) is the input filter; every selection on the desk is an index change or a property set, never a rebuild (§14.3). | `EveryPageRendersAndTheStripNamesIt`, the fit test, the executor tests. |
+| **Instrumented.** | The Machine page's twelve tiles and the verdict, the super-check's grade and report, the desk tick's worst area, the sparklines, the journal with every action's origin, the log that names the area that failed. | `HealthDashboardTests`, `SuperCheckTests`. |
+| **Assets ready before they are needed.** | The input pool mounts every source the program *and* the sandboxed preview reference, so a TAKE finds its decoder open; a deck renders the pages either side of the one on show; the audio folders are re-read on a timer, never on the cut; the forecast is fetched on its interval, never on the cue. | The input-pool, deck and playlist tests. |
+| **Scaling to the machine.** | The graphics preference and direct output per screen, the show's frame rate and display modes, 10-bit NDI opt-in, headless operation on a machine without a sound card, the super-check saying what level of show the hardware is good for, the watchdog's memory-growth and disk signals. | `SuperCheckTests`, the GPU selector tests. |
+| **Never lose the show; back in seconds.** | The supervisor watches, restarts, updates and rolls back; the recovery sidecar carries the air look and the caller's place; the settings never brick a start (an unreadable file is quarantined, a newer enum is the first member with a warning); the show file's earlier versions on the Machine page. | The watchdog, recovery and settings tests. |
+| **Ease of use at each stage.** | The rail in the order of a day (SHOW · PLAN · BUILD · SETUP · ADMIN), PREP → SHOW → RUN as modes rather than pages, looks and cues imported from a sheet, the walkthroughs by role, the Help catalogue with the wire's words, ? TIPS on every strip — and this round the assistant as the on-ramp: describe the day, APPLY the plan, finish by hand. | `HelpTests`, `WalkthroughAppTests`, `AssistantAppTests`. |
+
+**Where it is still short of a game engine — ranked, with the shape of the fix.**
+
+1. *A render-side budget like the desk's.* The RENDER tile reads frames per second; a game engine
+   reads the *worst* frame and who took it. `TickBudget` is pure and per-area already — a ring
+   per sink (the pattern, the layers, the overlays, the lower third, the encode) would put *worst
+   34 ms (lower third)* on the RENDER tile and in the super-check. Small; the next round's first
+   commit.
+2. *Pre-rolling the standby cue.* The pool mounts what the program and the preview reference; a
+   standby cue's clip is opened when its look lands, not before GO. A third "next" want — the
+   standby cue's first look resolved and mounted while the caller's finger is on the key — makes
+   the cut to a clip the same cost as the cut to a still. Medium; the biggest felt win left.
+3. *An adaptive quality ladder.* Particle counts, fractal iterations and the multiview's tile
+   rasters are settings; an engine lowers them itself when a frame misses and raises them back.
+   The frame-time ring above is the signal it needs; the ladder is a round of its own.
+4. *A start-up budget with a fence.* The suite boots the whole app headlessly in every test; a
+   fence on the boot time (services up, first snapshot published) would catch a slow start the
+   way `DeskPollTests` catches a slow tick. Cheap.
+5. *Memory ceilings said in numbers.* Thumbnails, decoded frames and the metrics history are
+   capped by count; a game engine says how many megabytes and reads it back. The watchdog's
+   growth signal is the half already there.
+
+What is not going to change, and why: one process (§14.2 — the orchestrator is the supervisor,
+redundancy is a second machine), a once-a-second desk tick (faster buys nothing the eye sees),
+the immutable snapshot as the one hand-over between the desk and the engine (the property that
+makes everything above testable headlessly). The instant-UX rules of §14.3 stand as the checklist
+for every page added from here: never build a page on entry, a tick sets properties and never
+rebuilds a collection, edits are debounced, actions return before the picture moves, nothing on
+the UI thread waits on the network or a file.

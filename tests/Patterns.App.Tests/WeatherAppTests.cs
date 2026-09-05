@@ -100,6 +100,10 @@ public class WeatherAppTests
             services.Weather.Poll();
             PumpUntil(() => asked.Count == 2);
             Assert.Equal(2, asked.Count);
+            // The transport is counted when a fetch starts; the fetch itself lands on the UI thread a
+            // moment later, and a poll while it is in flight is skipped by design — wait for it.
+            PumpUntil(() => !services.Weather.Fetching);
+            Assert.False(services.Weather.Fetching);
 
             // STATE carries the chip for remotes; the words are the desk's.
             var router = new CommandRouter(services);
@@ -114,6 +118,7 @@ public class WeatherAppTests
             vm.State.Weather.ApiKey = "abc";
             services.Weather.Poll();
             PumpUntil(() => asked.Count == 3);
+            Assert.Equal(3, asked.Count);
             Assert.StartsWith("https://customer-api.open-meteo.com/v1/forecast?latitude=53.4795", asked[2]);
             Assert.EndsWith("&apikey=abc", asked[2]);
         }
