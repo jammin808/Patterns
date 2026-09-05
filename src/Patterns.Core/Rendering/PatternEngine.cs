@@ -268,6 +268,24 @@ public sealed class PatternEngine
             return;
         }
 
+        if (f.Snapshot.ReviewOnMultiview)
+        {
+            // A review: the preview fills the whole multiview, with a chip that says so — the
+            // caller checks the next look on the monitor wall before the TAKE.
+            canvas.Clear(MultiviewBg);
+            var full = SKRect.Create(0, 0, f.W, f.H);
+            DrawPreview(canvas, in f, sink, full);
+            var chipH = Math.Clamp(f.H * 0.06f, 14f, 34f);
+            var chip = SKRect.Create(chipH * 0.5f, chipH * 0.5f, chipH * 7.2f, chipH);
+            canvas.DrawRoundRect(chip, chipH * 0.25f, chipH * 0.25f, f.Paints.FillAA(new SKColor(0x10, 0x12, 0x18, 0xD8)));
+            canvas.DrawRoundRect(chip, chipH * 0.25f, chipH * 0.25f, f.Paints.StrokeAA(TallyIdle, 1.5f));
+            var chipFont = f.Paints.FontBold;
+            chipFont.Size = chipH * 0.55f;
+            DrawUtil.TextCentered(canvas, "REVIEW · PREVIEW", chip.MidX, chip.MidY + chipFont.Size * 0.35f,
+                chipFont, f.Paints.Text(new SKColor(0x2E, 0xE6, 0x8A)));
+            return;
+        }
+
         var tiles = opts.Tiles.Count > 0 ? opts.Tiles.ToList() : DefaultTiles(f.Snapshot);
         canvas.Clear(MultiviewBg);
         if (tiles.Count == 0)
@@ -404,6 +422,10 @@ public sealed class PatternEngine
                 }
                 break;
 
+            case MultiviewSource.Preview:
+                DrawPreview(canvas, in f, sink, rect);
+                break;
+
             case MultiviewSource.Pip:
             {
                 var pipCfg = f.Snapshot.State.Overlays.Pip;
@@ -439,6 +461,54 @@ public sealed class PatternEngine
         }
     }
 
+    /// <summary>
+    /// The sandboxed preview — the program target as the desk is building it — fitted into a
+    /// rect, rendered from the preview's own snapshot through the sink's preview sub-sink so the
+    /// program's fault gate and caches never see another snapshot's versions. A slate while
+    /// EDIT SAFE is off (there is no preview then), and while the preview has no program target.
+    /// </summary>
+    private void DrawPreview(SKCanvas canvas, in PatternFrame f, SinkState sink, SKRect rect)
+    {
+        var preview = f.Snapshot.PreviewSource?.Invoke();
+        if (preview is null)
+        {
+            DrawTileSlate(canvas, f, rect, "Preview — EDIT SAFE is off");
+            return;
+        }
+        var v = preview.Rig.ViewportForTarget(null);
+        if (v.ViewportSize.Width <= 0 || v.ViewportSize.Height <= 0)
+        {
+            DrawTileSlate(canvas, f, rect, "Preview — no program target");
+            return;
+        }
+        var video = FitRect(rect, v.Aspect);
+        var scale = Math.Min(video.Width / v.ViewportSize.Width, video.Height / v.ViewportSize.Height);
+        var sub = f.Ctx with
+        {
+            ViewportSize = v.ViewportSize,
+            ReferenceSize = v.ReferenceSize,
+            ViewportOrigin = v.Origin,
+            ScreenId = null,
+            InMultiview = true,
+            Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
+            SinkIndex = 0,
+            SinkLabel = "PREVIEW",
+        };
+        var save = canvas.Save();
+        try
+        {
+            canvas.Translate(video.Left + (video.Width - v.ViewportSize.Width * scale) / 2f,
+                             video.Top + (video.Height - v.ViewportSize.Height * scale) / 2f);
+            canvas.Scale(scale);
+            canvas.ClipRect(SKRect.Create(0, 0, v.ViewportSize.Width, v.ViewportSize.Height));
+            RenderContent(canvas, preview, in sub, sink.Preview);
+        }
+        finally
+        {
+            canvas.RestoreToCount(save);
+        }
+    }
+
     private static void DrawTileSlate(SKCanvas canvas, in PatternFrame f, SKRect rect, string text)
     {
         canvas.DrawRect(rect, f.Paints.Fill(new SKColor(0x11, 0x13, 0x1A)));
@@ -471,6 +541,7 @@ public sealed class PatternEngine
             MultiviewSource.Program => snap.Rig.ViewportForTarget(null),
             MultiviewSource.Screen when ContentTargets.IsInRig(snap.State, tile.ScreenId)
                 => snap.Rig.ViewportForTile(tile.ScreenId),
+            MultiviewSource.Preview => snap.PreviewSource?.Invoke()?.Rig.ViewportForTarget(null),
             _ => null,
         };
 
@@ -505,6 +576,8 @@ public sealed class PatternEngine
                 return tile.Input.Length > 0 ? snap.State.InputLabel("cap:" + tile.Input, tile.Input) : "CAPTURE";
             case MultiviewSource.Pip:
                 return "PIP";
+            case MultiviewSource.Preview:
+                return "PREVIEW";
             default:
                 return "CLOCK";
         }

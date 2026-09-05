@@ -42,6 +42,15 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Review on the multiview (module 1.7.0)
+
+The **Transport** category gains **REVIEW** (`review` action: toggle / on / off, `REVIEW …` on the
+wire): every multiview — a screen's own multiview pattern, an NDI send of it, `/multiview` — draws
+the desk's sandboxed preview full-frame with a REVIEW chip until it is switched off, so the next
+look is checked on the monitor wall before the TAKE; the audience's screens do not change.
+Feedback `review_on` (green) and `$(patterns:review)` (`ON` / `off`). Every existing action,
+feedback and variable id is unchanged.
+
 ## The people library (module 1.6.0)
 
 The **Lower thirds** category gains the library from the Lower thirds page: `lower_third_person`

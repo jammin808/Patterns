@@ -42,6 +42,7 @@ public static class OscMap
         ("/patterns/cue/standby <number|name>", "CUE STANDBY — a cue by number or name"),
         ("/patterns/cue/hold 1|0", "CUE HOLD ON / OFF"),
         ("/patterns/cue/arm 1|0", "CUE ARM ON / OFF — only while the Remote page allows remotes to arm"),
+        ("/patterns/review [1|0]", "REVIEW ON / OFF — the preview full-frame on every multiview; no argument toggles"),
         ("/patterns/stopall", "STOPALL"),
         ("/patterns/ping", "PING — answered with /patterns/pong to the sender"),
     };
@@ -140,6 +141,7 @@ public static class OscMap
                     default: return null;
                 }
             }
+            case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
             case "stopall": case "stop-all": return "STOPALL";
             case "ping": return "PING";
             case "status": return "STATUS";

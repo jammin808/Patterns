@@ -38,6 +38,17 @@ public sealed class ShowSnapshot
     public double PublishedClock { get; init; }
 
     /// <summary>
+    /// Runtime-only: the way to the sandboxed preview as it is right now (null result = no
+    /// sandbox). An accessor rather than the snapshot itself: the preview republishes on every
+    /// edit while the program stays frozen, so a copy taken at the program's publish would
+    /// show the desk a stale picture.
+    /// </summary>
+    public Func<ShowSnapshot?>? PreviewSource { get; init; }
+
+    /// <summary>Runtime-only: every multiview draws the preview full-frame instead of its tiles — a review before the TAKE.</summary>
+    public bool ReviewOnMultiview { get; init; }
+
+    /// <summary>
     /// Runtime-only: the message ticker's travel line, shared by every sink so a span, an NDI
     /// sender and a late-opened output all draw the same train. Null for a snapshot built
     /// outside the bus (thumbnails, tests): the renderer then runs the plain line from clock 0.
@@ -186,6 +197,7 @@ public sealed class SnapshotBus
         _clock = clock ?? (static () => ShowClock.Seconds);
         _ticker = Rendering.TickerLine.From(initial.Overlays.Message.ScrollPxPerSec);
         _sandboxTicker = _ticker;
+        _previewSource = () => _sandbox;
         var now = _clock();
         _current = new ShowSnapshot
         {
@@ -193,13 +205,19 @@ public sealed class SnapshotBus
             Version = 0,
             PublishedClock = now,
             Ticker = _ticker,
+            PreviewSource = _previewSource,
         };
     }
+
+    private readonly Func<ShowSnapshot?> _previewSource;
 
     public ShowSnapshot Current => _current;
 
     /// <summary>Set by the publisher before <see cref="Publish"/> to flash screen badges.</summary>
     public DateTime? IdentifyUntilUtc { get; set; }
+
+    /// <summary>Set by the review toggle; carried on every snapshot — every multiview then draws the preview full-frame.</summary>
+    public bool ReviewOnMultiview { get; set; }
 
     /// <summary>Set by the playlist service; carried on every snapshot.</summary>
     public PlaylistNow? PlaylistNow { get; set; }
@@ -299,6 +317,8 @@ public sealed class SnapshotBus
             FadeOverrideMs = _fadeMs,
             FadeOverrideVersion = _fadeVersion,
             Rig = RigGeometry.Build(clone, Displays),
+            PreviewSource = _previewSource,
+            ReviewOnMultiview = ReviewOnMultiview,
         };
     }
 }

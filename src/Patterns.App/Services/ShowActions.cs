@@ -481,6 +481,24 @@ public sealed class ShowActions
                 State.Spotify.LevelPct = level;
                 return ActionResult.Done($"Break music level {level:0}%.");
             }
+            case ShowActionKind.ReviewOn:
+            case ShowActionKind.ReviewOff:
+            case ShowActionKind.ReviewToggle:
+            {
+                // A runtime flag on the bus, never in the show file: PublishRuntime carries it to the
+                // frozen program's snapshot too, which is the one every multiview renders.
+                var on = a.Kind switch
+                {
+                    ShowActionKind.ReviewOn => true,
+                    ShowActionKind.ReviewOff => false,
+                    _ => !_s.Bus.ReviewOnMultiview,
+                };
+                if (on == _s.Bus.ReviewOnMultiview) return ActionResult.Done(on ? "Review is already on." : "Review is already off.");
+                _s.Bus.ReviewOnMultiview = on;
+                _s.PublishRuntime();
+                return ActionResult.Done(on ? "Review: the preview fills every multiview." : "Review off: the multiviews show their tiles.");
+            }
+
             case ShowActionKind.ToneOn:
                 State.Tone.Enabled = true;
                 return ActionResult.Done("Tone on.");

@@ -127,6 +127,9 @@ public sealed partial class ControlService
   </div>
   <div id="nowrow" class="grid" style="margin-top:10px"></div>
   <div class="line">STOP ALL stops the audio track, break music, VOGs, stingers and the tone — never the outputs, blackout or the stream. Press it twice.</div>
+  <div class="sec">REVIEW</div>
+  <div class="grid"><button id="review" onclick="cmd('REVIEW TOGGLE')">PREVIEW ON THE MULTIVIEW</button></div>
+  <div class="line">Every multiview shows what the desk is building until you switch it off — the audience's screens do not change.</div>
 </section>
 
 <section id="tab-cues">
@@ -286,6 +289,8 @@ function render(s) {
   if (s.stingHold) now.appendChild(btn('■ Holding: ' + esc(s.stingHold) + ' — put it back', 'stop', function(){ cmd('STINGER STOP'); }));
   else if (s.stingerPlaying) now.appendChild(btn('■ Stop: ' + esc(s.stingerPlaying), 'stop', function(){ cmd('STINGER STOP'); }));
   if (s.lowerThird) now.appendChild(btn('■ Hide lower third: ' + esc(s.lowerThird) + (s.lowerThirdPerson ? ' — ' + esc(s.lowerThirdPerson) : ''), 'stop', function(){ cmd('LT OFF'); }));
+  var rv = document.getElementById('review');
+  rv.classList.toggle('lit', !!s.review); rv.textContent = s.review ? 'REVIEW — ON: the preview fills every multiview' : 'PREVIEW ON THE MULTIVIEW';
 
   // CUES
   var sb = c.standby; standbyId = sb ? sb.id : '';

@@ -101,6 +101,10 @@ public enum ShowActionKind
     ScreenLock,
     ScreenUnlock,
     ScreenLockToggle,
+    /// <summary>Every multiview draws the sandboxed preview full-frame — a review before the TAKE — or its tiles again. A runtime flag, never saved.</summary>
+    ReviewOn,
+    ReviewOff,
+    ReviewToggle,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

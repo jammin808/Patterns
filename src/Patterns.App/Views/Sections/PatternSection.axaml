@@ -494,6 +494,10 @@
         <CheckBox Content="Labels" IsChecked="{Binding ActivePattern.Multiview.ShowLabels}" />
         <CheckBox Content="On-air tally borders" IsChecked="{Binding ActivePattern.Multiview.ShowTally}" />
       </StackPanel>
+      <ToggleButton Classes="chip" Content="REVIEW: THE PREVIEW FULL SCREEN" IsChecked="{Binding ReviewOnMultiview, Mode=TwoWay}" HorizontalAlignment="Left" Margin="0,8,0,0"
+                    ToolTip.Tip="Every multiview — this pattern on a screen, an NDI send of it, /multiview — draws the sandboxed preview full-frame with a REVIEW chip until you switch it off: check the next look on the monitor wall before the TAKE. Never saved with the show" />
+      <TextBlock Classes="hint tip"
+                 Text="A Preview tile shows what the desk is building beside the program — a slate while EDIT SAFE is off. REVIEW puts the preview over the whole multiview for a moment (the Show panel, the phone remote, REVIEW ON / OFF on the wire, /patterns/review and Companion do the same)." />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="SAVE AS PRESET" />

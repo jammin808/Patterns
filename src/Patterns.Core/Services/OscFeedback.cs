@@ -47,6 +47,7 @@ public static class OscFeedback
             if (root.TryGetProperty("stream", out var stream)) Flag(list, stream, "active", "stream");
             Text(list, root, "playlist", "playlist");
             Text(list, root, "health", "health");
+            Flag(list, root, "review", "review");
             if (root.TryGetProperty("rev", out var rev) && rev.ValueKind == JsonValueKind.Number) list.Add(OscMessage.Of(Prefix + "rev", (int)(rev.GetInt64() & 0x7FFFFFFF)));
 
             if (root.TryGetProperty("screens", out var screens) && screens.ValueKind == JsonValueKind.Array)

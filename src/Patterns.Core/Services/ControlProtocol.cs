@@ -71,6 +71,10 @@ public enum RemoteCommandKind
     /// page order, or name) fills the design (TextArg: number or name; "" = the one on air, else the first) and it goes on air.
     /// </summary>
     LowerThirdPerson,
+    /// <summary>"REVIEW ON" / "REVIEW OFF" / "REVIEW TOGGLE" (bare "REVIEW" toggles) — the preview fills every multiview, or the tiles come back.</summary>
+    ReviewOn,
+    ReviewOff,
+    ReviewToggle,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -289,6 +293,15 @@ public static class ControlProtocol
                     ? new(RemoteCommandKind.LowerThirdShow, lower, "")
                     : new(RemoteCommandKind.LowerThirdShow, 0, arg);
             }
+
+            // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
+            case "REVIEW":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" => new(RemoteCommandKind.ReviewOn, 0, ""),
+                    "OFF" => new(RemoteCommandKind.ReviewOff, 0, ""),
+                    _ => new(RemoteCommandKind.ReviewToggle, 0, ""),
+                };
 
             // A person from the library into the lower third on air (else the first design), and on air.
             case "PERSON":

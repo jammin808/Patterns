@@ -221,6 +221,12 @@
                  Text="Spotify plays the room during breaks. It ducks under a stinger sound and STOP ALL pauses it. Set it up on the Audio page (SETUP)." />
     </StackPanel>
 
+    <TextBlock Classes="h2" Text="REVIEW" />
+    <ToggleButton Classes="chip" Content="THE PREVIEW ON EVERY MULTIVIEW" IsChecked="{Binding ReviewOnMultiview, Mode=TwoWay}" HorizontalAlignment="Left"
+                  ToolTip.Tip="Every multiview draws the sandboxed preview full-frame with a REVIEW chip until you switch it off — the next look checked on the monitor wall before the TAKE. Never saved" />
+    <TextBlock Classes="hint tip"
+               Text="A multiview on a screen, an NDI send of it and /multiview all show the preview while this is on; the program on the audience's screens does not change. The phone remote and Companion have the same switch." />
+
     <TextBlock Classes="h2" Text="STATUS" />
     <TextBlock Classes="label" Text="{Binding OutputsStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding NextCueText}" TextWrapping="Wrap" />

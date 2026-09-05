@@ -93,8 +93,19 @@ public sealed class SinkState : IDisposable
 
     public SKSizeI LastCanvasSize { get; set; }
 
+    private SinkState? _preview;
+
+    /// <summary>
+    /// A sink of its own for the preview a multiview tile (or a review) renders on this sink:
+    /// the preview is another snapshot with its own versions, so it must not share this sink's
+    /// fault gate or caches with the program. Created on first use, disposed with this one.
+    /// </summary>
+    public SinkState Preview => _preview ??= new SinkState();
+
     public void Dispose()
     {
+        _preview?.Dispose();
+        _preview = null;
         foreach (var cache in LowerThirds.Values) cache.Dispose();
         LowerThirds.Clear();
         foreach (var fx in FractalEffects.Values) fx.Dispose();

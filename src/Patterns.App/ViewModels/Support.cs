@@ -388,6 +388,7 @@ public static class Lists
         new(MultiviewSource.Capture, "Capture device"),
         new(MultiviewSource.Pip, "PiP input"),
         new(MultiviewSource.Clock, "Clock"),
+        new(MultiviewSource.Preview, "Preview (what the desk is building)"),
     };
 
     public static readonly EnumItem[] GpuPreferences =

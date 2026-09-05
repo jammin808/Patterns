@@ -3,7 +3,7 @@
   "name": "jammin808-patterns",
   "shortname": "patterns",
   "description": "Control the Patterns show display suite (cue stack GO / standby / hold, looks, lower thirds, presenter steps, transport, screens, audio, break music)",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "license": "MIT",
   "repository": "https://github.com/jammin808/Patterns",
   "bugs": "https://github.com/jammin808/Patterns/issues",

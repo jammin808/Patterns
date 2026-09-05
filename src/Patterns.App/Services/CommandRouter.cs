@@ -146,6 +146,9 @@ public sealed class CommandRouter
             RemoteCommandKind.StreamOff => new ShowAction(ShowActionKind.StreamStop),
             RemoteCommandKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, byNumberOrName),
             RemoteCommandKind.LowerThirdPerson => new ShowAction(ShowActionKind.LowerThirdShow, cmd.TextArg, cmd.Extra),
+            RemoteCommandKind.ReviewOn => new ShowAction(ShowActionKind.ReviewOn),
+            RemoteCommandKind.ReviewOff => new ShowAction(ShowActionKind.ReviewOff),
+            RemoteCommandKind.ReviewToggle => new ShowAction(ShowActionKind.ReviewToggle),
             RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
             _ => null,
         };
@@ -177,6 +180,8 @@ public sealed class CommandRouter
             cuestack = CueStackJson(),
             blackout = s.Blackout,
             live = _services.Outputs.IsLive,
+            review = _services.Bus.ReviewOnMultiview,                      // the preview fills every multiview
+
             looks = s.LooksAndCues.Looks.Select(l => new { name = l.Name, slot = l.Hotkey }).ToArray(),
             presenter = PresenterState(s),
             screens = _services.Actions.RemoteScreens(),

@@ -118,6 +118,7 @@ class PatternsInstance extends InstanceBase {
 			duck: this.state.duck ? 'DUCK' : 'off',
 			lower_third: this.state.lowerThird ?? '',
 			lower_third_person: this.state.lowerThirdPerson ?? '',
+			review: this.state.review ? 'ON' : 'off',
 			music: this.state.music?.now ?? '',
 			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
 			music_level: String(this.state.music?.level ?? 0),
@@ -129,7 +130,7 @@ class PatternsInstance extends InstanceBase {
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'audio_playing', 'stinger_playing', 'music_playing',
-			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'review_on', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -199,6 +200,12 @@ class PatternsInstance extends InstanceBase {
 						choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] },
 				],
 				callback: (a) => send(`SCREEN ${a.options.n} ${a.options.mode}`),
+			},
+			// The review latch: the sandboxed preview full-frame on every multiview until it is switched off.
+			review: {
+				name: 'Review — the preview on every multiview (toggle / on / off)',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
+				callback: (a) => send(`REVIEW ${a.options.mode}`),
 			},
 			screen_lock: {
 				name: 'Screen lock / unlock (locked, it keeps its picture through looks, cues and TAKE)',
@@ -406,6 +413,13 @@ class PatternsInstance extends InstanceBase {
 					return on !== '' && (!fb.options.name || on === fb.options.name)
 				},
 			},
+			review_on: {
+				type: 'boolean',
+				name: 'Review is on (the preview fills every multiview)',
+				defaultStyle: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.review,
+			},
 			lower_third_person_is: {
 				type: 'boolean',
 				name: 'A given person is on screen (the name the lower third on air carries)',
@@ -473,6 +487,7 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'duck', name: 'Live duck (DUCK/off)' },
 			{ variableId: 'lower_third', name: 'Lower third on screen (name, or empty)' },
 			{ variableId: 'lower_third_person', name: 'The name the lower third on screen carries (or empty)' },
+			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
 			{ variableId: 'music', name: 'Break music — now playing' },
 			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
 			{ variableId: 'music_level', name: 'Break music level (0–100)' },
@@ -564,6 +579,12 @@ class PatternsInstance extends InstanceBase {
 			feedbacks: [{ feedbackId: 'duck_on', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
 		}
 		const lowerOn = { feedbackId: 'lower_third_on', options: { name: '' }, style: { bgcolor: combineRgb(224, 52, 46) } }
+		presets.review = {
+			type: 'button', category: 'Transport', name: 'REVIEW — the preview on every multiview',
+			style: { text: 'REVIEW\\n$(patterns:review)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'review', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'review_on', options: {}, style: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) } }],
+		}
 		presets.lower_third_off = {
 			type: 'button', category: 'Lower thirds', name: 'Lower third off',
 			style: { text: 'LT\\nOFF\\n$(patterns:lower_third)', size: '14', color: white, bgcolor: dark },

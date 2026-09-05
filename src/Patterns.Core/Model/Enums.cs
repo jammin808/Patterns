@@ -30,6 +30,8 @@ public enum MultiviewSource
     Pip,
     Clock,
     Capture,
+    /// <summary>The sandboxed preview — what the desk is building, before a CUT or TAKE (a slate while EDIT SAFE is off).</summary>
+    Preview,
 }
 
 /// <summary>How a pattern canvas maps onto a differently sized sink.</summary>

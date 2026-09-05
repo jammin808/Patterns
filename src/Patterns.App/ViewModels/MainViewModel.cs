@@ -2448,6 +2448,25 @@ public sealed class MainViewModel : Observable
     /// <summary>The beacon going out, the listener, and what it makes of the main machine — the Machine page's line.</summary>
     public string BeaconStatus { get => _beaconStatus; private set => Set(ref _beaconStatus, value); }
 
+    private bool _reviewSeen;
+
+    /// <summary>
+    /// The preview fills every multiview — a screen's own multiview pattern, an NDI send of it,
+    /// /multiview — so the next look is checked on the monitor wall before the TAKE. A runtime
+    /// flag on the bus (never saved), set through the action layer like every switch on the desk.
+    /// </summary>
+    public bool ReviewOnMultiview
+    {
+        get => _services.Bus.ReviewOnMultiview;
+        set
+        {
+            if (value == _services.Bus.ReviewOnMultiview) return;
+            _services.Actions.Execute(value ? ShowActionKind.ReviewOn : ShowActionKind.ReviewOff, ActionOrigin.Desk);
+            _reviewSeen = _services.Bus.ReviewOnMultiview;
+            Raise(nameof(ReviewOnMultiview));
+        }
+    }
+
     private string _stingerStatus = "Ready.";
     public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
 
@@ -4627,6 +4646,11 @@ public sealed class MainViewModel : Observable
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";
         OscStatus = _services.Osc.StatusLine;
+        if (_reviewSeen != _services.Bus.ReviewOnMultiview)
+        {
+            _reviewSeen = _services.Bus.ReviewOnMultiview; // a remote flipped it: the desk's toggles follow
+            Raise(nameof(ReviewOnMultiview));
+        }
         var beacon = _services.Beacon;
         BeaconStatus = beacon.Sending || beacon.Listening
             ? $"{beacon.Status}{(beacon.Sent > 0 ? $" {beacon.Sent} sent." : "")}{(beacon.Listening ? " " + beacon.WatchText : "")}"
