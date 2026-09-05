@@ -23,6 +23,18 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Help reorganised: a searchable catalogue, in the order a show happens** — the Help page is now
+  a catalogue of 37 topics filed in six sections (START HERE, RUNNING THE SHOW, CONTENT, THE RIG,
+  CONTROL, THE MACHINE), each a card with *where it sits in the workflow*, *how it works* in depth,
+  *do this* in order, *on the wire* (the verbs, the OSC addresses, the Companion keys) and *pages*
+  (GO opens one). Search for a word, a key or a verb (`stinger`, `F5`, `SCREEN LOOK`, `spotify`,
+  `arduino`): every word must be found, the title and the search words weigh most, the strongest
+  topic comes first with the words around the match; section chips narrow the list; READ ALL opens
+  everything for reading through. A new opening topic, *How a show flows through Patterns*, is the
+  map the rest hangs on — the five groups as the stages of a day, and the three ideas that hold it
+  together (the show file, the action layer, program and preview). ? TIPS on any page now lists the
+  topics that page belongs to, one press away. The walkthroughs by role stay, as the same guide in
+  checklist form. The catalogue is pure data (`HelpTopics`, `HelpSearch`), so the tests read it too.
 - **The Show panel as the control surface** — one page runs the show beside the switcher. CUES is
   the caller's stack in a strip (STANDBY with its planned and expected time, NEXT, GO / HOLD / ARM,
   ▲ ▼, an auto-follow's CANCEL); LOOKS are one press each with a PVW key that loads the look into
@@ -729,7 +741,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 977 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
+dotnet test                      # 981 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

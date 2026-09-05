@@ -437,6 +437,13 @@ public sealed class MainViewModel : Observable
         RebuildWalkList();
         if (Walkthroughs.For(_walkRole).FirstOrDefault() is { } firstWalk) StartWalkthrough(firstWalk.Id);
 
+        // Help: the catalogue's section chips, the search, every card
+        HelpGroups = new[] { new HelpGroupChip(this, null) }
+            .Concat(HelpTopics.Groups.Select(g => new HelpGroupChip(this, g)))
+            .ToList();
+        ClearHelpCommand = new RelayCommand(() => HelpQuery = "");
+        RefreshHelpRows();
+
         // Stingers
         AddStingerFilesCommand = new RelayCommand(() => _ = AddStingerFilesAsync());
         RemoveStingerCommand = new RelayCommand<StingerItemConfig>(item =>
@@ -1664,6 +1671,104 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedSeamGapY));
         Raise(nameof(GapSummary));
         RebuildSwitcherTiles();   // the tiles' shapes follow the surface the content lays out on
+    }
+
+    // ---- help: the catalogue, its sections and the search ----------------------------
+
+    private string _helpQuery = "";
+    private HelpGroup? _helpGroup;
+    private bool _helpReadAll;
+    private string _helpResultText = "";
+
+    /// <summary>The section chips on the Help page: ALL, then one per group of the catalogue.</summary>
+    public IReadOnlyList<HelpGroupChip> HelpGroups { get; }
+
+    /// <summary>The cards shown: the section's topics in catalogue order, or a search's hits strongest first.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<HelpRow> HelpRows { get; } = new();
+
+    public RelayCommand ClearHelpCommand { get; }
+
+    /// <summary>The words typed into the Help search; blank shows the section again.</summary>
+    public string HelpQuery
+    {
+        get => _helpQuery;
+        set
+        {
+            if (!Set(ref _helpQuery, value ?? "")) return;
+            Raise(nameof(IsHelpSearching));
+            RefreshHelpRows();
+        }
+    }
+
+    public bool IsHelpSearching => _helpQuery.Trim().Length > 0;
+
+    /// <summary>The section shown; null = every topic.</summary>
+    public HelpGroup? HelpGroupFilter
+    {
+        get => _helpGroup;
+        set
+        {
+            if (_helpGroup == value) return;
+            _helpGroup = value;
+            Raise(nameof(HelpGroupFilter));
+            RefreshHelpRows();
+        }
+    }
+
+    /// <summary>Every card open, for reading the guide through.</summary>
+    public bool HelpReadAll
+    {
+        get => _helpReadAll;
+        set
+        {
+            if (!Set(ref _helpReadAll, value)) return;
+            foreach (var row in HelpRows) row.IsOpen = value || row.HasSnippet;
+        }
+    }
+
+    /// <summary>"37 topics in the order a show happens…" / "6 topics match 'stinger'…".</summary>
+    public string HelpResultText { get => _helpResultText; private set => Set(ref _helpResultText, value); }
+
+    /// <summary>The catalogue topics that live on a page, for its ? TIPS flyout.</summary>
+    public IReadOnlyList<HelpTopic> HelpTopicsFor(string pageHeader) => HelpTopics.ForPage(pageHeader);
+
+    /// <summary>Opens the Help page on one topic — its card open, the search cleared, every section shown.</summary>
+    public void OpenHelpTopic(string id)
+    {
+        if (HelpTopics.Find(id) is not { } topic) return;
+        _helpQuery = "";
+        Raise(nameof(HelpQuery));
+        Raise(nameof(IsHelpSearching));
+        _helpGroup = null;
+        Raise(nameof(HelpGroupFilter));
+        RefreshHelpRows();
+        foreach (var row in HelpRows) row.IsOpen = _helpReadAll || row.Id == topic.Id;
+        HelpResultText = $"{topic.Title} — in {HelpTopics.GroupLabel(topic.Group)}.";
+        SelectPage(Shell.IndexOf("Help"));
+    }
+
+    private void RefreshHelpRows()
+    {
+        var open = HelpRows.Where(r => r.IsOpen && !r.HasSnippet).Select(r => r.Id).ToHashSet(StringComparer.Ordinal);
+        HelpRows.Clear();
+        var query = _helpQuery.Trim();
+        if (query.Length > 0)
+        {
+            var hits = HelpSearch.Find(query);
+            foreach (var hit in hits) HelpRows.Add(new HelpRow(this, hit.Topic) { Snippet = hit.Snippet, IsOpen = true });
+            HelpResultText = hits.Count == 0
+                ? $"Nothing matches '{query}' — try another word, a key, or a verb from the wire."
+                : $"{hits.Count} topic{(hits.Count == 1 ? "" : "s")} match{(hits.Count == 1 ? "es" : "")} '{query}', the strongest first.";
+        }
+        else
+        {
+            var topics = _helpGroup is { } group ? HelpTopics.In(group) : HelpTopics.All;
+            foreach (var topic in topics) HelpRows.Add(new HelpRow(this, topic) { IsOpen = _helpReadAll || open.Contains(topic.Id) });
+            HelpResultText = _helpGroup is { } shown
+                ? $"{topics.Count} topics in {HelpTopics.GroupLabel(shown)} — {HelpTopics.GroupBlurb(shown)}"
+                : $"{topics.Count} topics in the order a show happens — pick a section, search, or open a card.";
+        }
+        foreach (var chip in HelpGroups) chip.Refresh(chip.Group == _helpGroup);
     }
 
     // ---- walkthroughs: the Help page's step-through scenarios, by role ---------------

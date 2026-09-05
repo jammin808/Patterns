@@ -527,6 +527,27 @@ public partial class MainWindow : Window
         }
 
         var flyout = new Flyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+
+        // The catalogue topics this page belongs to: one press opens the Help page on that card.
+        var related = vm.HelpTopicsFor(header);
+        if (related.Count > 0)
+        {
+            panel.Children.Add(new TextBlock { Classes = { "tipHead" }, Text = "IN HELP" });
+            var links = new WrapPanel();
+            foreach (var topic in related)
+            {
+                var id = topic.Id;
+                var link = new Button { Classes = { "mini" }, Content = topic.Title, Margin = new Thickness(0, 0, 6, 6) };
+                link.Click += (_, _) =>
+                {
+                    flyout.Hide();
+                    vm.OpenHelpTopic(id);
+                };
+                links.Children.Add(link);
+            }
+            panel.Children.Add(links);
+        }
+
         var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 12, 0, 4) };
         var inline = new CheckBox { Content = "Show hints on the pages", IsChecked = vm.ShowHints, VerticalAlignment = VerticalAlignment.Center };
         inline.IsCheckedChanged += (_, _) => vm.ShowHints = inline.IsChecked == true;
