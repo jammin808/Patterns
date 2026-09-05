@@ -18,6 +18,7 @@ public class OscMapTests
             (Of("/patterns/blackout", "off"), "BLACKOUT OFF"), (Of("/patterns/blackout/toggle"), "BLACKOUT TOGGLE"), (Of("/patterns/blackout", true), "BLACKOUT ON"),
             (Of("/patterns/identify"), "IDENTIFY"),
             (Of("/patterns/look", 3), "LOOK 3"), (Of("/patterns/look", "Walk-in"), "LOOK Walk-in"), (Of("/patterns/look/2"), "LOOK 2"), (Of("/patterns/look"), null),
+            (Of("/patterns/look/index/3"), "LOOK #3"), (Of("/patterns/look/index", 2), "LOOK #2"), (Of("/patterns/look/bank/4"), "LOOK #4"), (Of("/patterns/look/index"), null), (Of("/patterns/look/index/x"), null),
             (Of("/patterns/next"), "NEXT"), (Of("/patterns/prev"), "PREV"), (Of("/patterns/back"), "PREV"),
             (Of("/patterns/screen/2", 1), "SCREEN 2 ON"), (Of("/patterns/screen/2"), "SCREEN 2 TOGGLE"), (Of("/patterns/screen/2/off"), "SCREEN 2 OFF"), (Of("/patterns/screen/x"), null), (Of("/patterns/screen"), null),
             (Of("/patterns/lock/1", 0), "LOCK 1 OFF"), (Of("/patterns/lock/1"), "LOCK 1 TOGGLE"), (Of("/patterns/lock/1/on"), "LOCK 1 ON"),
@@ -98,5 +99,70 @@ public class OscMapTests
         var back = OscCodec.Decode(bundle);
         Assert.Equal(messages.Select(m => m.Address), back.Select(m => m.Address));
         Assert.Equal(messages.Select(m => m.ToString()), back.Select(m => m.ToString()));
+    }
+
+    [Fact]
+    public void ALookByItsPlaceInTheListIsAVerbOfItsOwn()
+    {
+        var byIndex = ControlProtocol.Parse("LOOK #3");
+        Assert.Equal(RemoteCommandKind.Look, byIndex.Kind);
+        Assert.Equal(3, byIndex.IntArg);
+        Assert.Equal("#", byIndex.Extra);
+        var bySlot = ControlProtocol.Parse("LOOK 3");
+        Assert.Equal("", bySlot.Extra);
+        Assert.Equal(3, bySlot.IntArg);
+        var byName = ControlProtocol.Parse("LOOK #hashtag");     // not a number after the hash: a look named that
+        Assert.Equal("#hashtag", byName.TextArg);
+        Assert.Equal("", byName.Extra);
+        Assert.Equal(RemoteCommandKind.Look, ControlProtocol.Parse("LOOK #0").Kind);
+        Assert.Equal("#0", ControlProtocol.Parse("LOOK #0").TextArg);  // #0 is no place: a name, refused later as unknown
+    }
+
+    [Fact]
+    public void TheShowsListsAndTheLookOnAirGoOutForABankOfKeys()
+    {
+        const string json = "{\"airLook\":\"Walk-in\",\"previewLook\":\"Awards\",\"pattern\":\"Media\"," +
+                            "\"looks\":[{\"n\":1,\"name\":\"Walk-in\",\"slot\":1,\"air\":true,\"preview\":false},{\"n\":2,\"name\":\"Awards\",\"slot\":0,\"air\":false,\"preview\":true}]," +
+                            "\"lowerThirds\":[{\"n\":1,\"name\":\"Neon\"}],\"people\":[{\"n\":1,\"name\":\"Jane Doe\",\"role\":\"CEO\"}]," +
+                            "\"stingers\":[{\"n\":1,\"name\":\"Whoosh\",\"kind\":\"sting\"},{\"n\":2,\"name\":\"Welcome\",\"kind\":\"vog\"}]," +
+                            "\"sections\":[{\"n\":1,\"name\":\"Walk-in\",\"active\":true}],\"music\":{\"playing\":false,\"items\":[{\"n\":1,\"name\":\"Interval bed\"}]}," +
+                            "\"screens\":[{\"n\":1,\"label\":\"Main\",\"enabled\":true,\"locked\":false,\"armed\":true}]," +
+                            "\"deck\":{\"file\":\"talk.pdf\",\"page\":3,\"count\":12,\"ended\":false},\"web\":{\"page\":\"youtube\",\"service\":\"YouTube\"}," +
+                            "\"cuestack\":{\"armed\":true,\"hold\":false,\"standby\":{\"number\":\"01.020\",\"name\":\"Welcome\"},\"next\":[{\"number\":\"01.030\",\"name\":\"Coffee\"},{\"number\":\"01.040\",\"name\":\"Keynote\"}]}}";
+        var messages = OscFeedback.FromState(json);
+        OscMessage One(string address) => Assert.Single(messages, m => m.Address == OscFeedback.Prefix + address);
+        Assert.Equal("Walk-in", One("look/air").Args[0]);
+        Assert.Equal("Awards", One("look/preview").Args[0]);
+        Assert.Equal("Media", One("pattern").Args[0]);
+        Assert.Equal("Walk-in", One("looks/1").Args[0]);
+        Assert.Equal(1, One("looks/1/air").Args[0]);
+        Assert.Equal("Awards", One("looks/2").Args[0]);
+        Assert.Equal(0, One("looks/2/air").Args[0]);
+        Assert.Equal("", One("looks/3").Args[0]);                // a bank key past the list goes blank
+        Assert.Equal("", One("looks/16").Args[0]);
+        Assert.Equal("Neon", One("lowerthirds/1").Args[0]);
+        Assert.Equal("Jane Doe", One("people/1").Args[0]);
+        Assert.Equal("Whoosh", One("stingers/1").Args[0]);
+        Assert.Equal("Welcome", One("stingers/2").Args[0]);
+        Assert.Equal("Walk-in", One("sections/1").Args[0]);
+        Assert.Equal("Interval bed", One("music/items/1").Args[0]);
+        Assert.Equal("Main", One("screen/1/name").Args[0]);
+        Assert.Equal(1, One("armed/1").Args[0]);
+        Assert.Equal(3, One("deck/page").Args[0]);
+        Assert.Equal(12, One("deck/count").Args[0]);
+        Assert.Equal(0, One("deck/ended").Args[0]);
+        Assert.Equal("talk.pdf", One("deck/file").Args[0]);
+        Assert.Equal("youtube", One("web/page").Args[0]);
+        Assert.Equal("YouTube", One("web/service").Args[0]);
+        Assert.Equal(new object?[] { "01.030", "Coffee" }, One("cue/next").Args);
+        Assert.Equal(new object?[] { "01.030", "Coffee" }, One("cue/next/1").Args);
+        Assert.Equal(new object?[] { "01.040", "Keynote" }, One("cue/next/2").Args);
+        Assert.DoesNotContain(messages, m => m.Address == OscFeedback.Prefix + "cue/next/3");
+
+        // With no deck and no page the same addresses read empty, so a controller's display clears.
+        var none = OscFeedback.FromState("{\"deck\":null,\"web\":null}");
+        Assert.Equal(0, Assert.Single(none, m => m.Address == OscFeedback.Prefix + "deck/count").Args[0]);
+        Assert.Equal("", Assert.Single(none, m => m.Address == OscFeedback.Prefix + "web/page").Args[0]);
+        Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/look/index"));
     }
 }

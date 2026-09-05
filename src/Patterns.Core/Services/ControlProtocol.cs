@@ -255,6 +255,12 @@ public static class ControlProtocol
 
             case "LOOK":
                 if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                // "LOOK #3": the third look in the show's order (Extra "#") — a bank key that follows the
+                // list as looks are made, whatever their names and F-keys.
+                if (arg.StartsWith('#') && int.TryParse(arg[1..], out var index) && index > 0)
+                {
+                    return new(RemoteCommandKind.Look, index, "", "#");
+                }
                 return int.TryParse(arg, out var slot)
                     ? new(RemoteCommandKind.Look, slot, "")
                     : new(RemoteCommandKind.Look, 0, arg);

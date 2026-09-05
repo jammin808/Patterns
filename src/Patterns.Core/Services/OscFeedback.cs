@@ -55,7 +55,42 @@ public static class OscFeedback
             Flag(list, root, "frozen", "freeze");
             Flag(list, root, "editSafe", "editsafe");
             Text(list, root, "previousLook", "look/previous");
+            Text(list, root, "airLook", "look/air");
+            Text(list, root, "previewLook", "look/preview");
+            Text(list, root, "pattern", "pattern");
             if (root.TryGetProperty("rev", out var rev) && rev.ValueKind == JsonValueKind.Number) list.Add(OscMessage.Of(Prefix + "rev", (int)(rev.GetInt64() & 0x7FFFFFFF)));
+
+            // The show's lists by number — what a bank of keys reads to label itself: /looks/3 "Walk-in" …
+            Names(list, root, "looks", "looks", 16, withAir: true);
+            Names(list, root, "lowerThirds", "lowerthirds", 8);
+            Names(list, root, "people", "people", 8);
+            Names(list, root, "stingers", "stingers", 8);
+            Names(list, root, "sections", "sections", 6);
+            if (root.TryGetProperty("music", out var musicList) && musicList.ValueKind == JsonValueKind.Object) Names(list, musicList, "items", "music/items", 6);
+
+            if (root.TryGetProperty("deck", out var deck))
+            {
+                if (deck.ValueKind == JsonValueKind.Object)
+                {
+                    list.Add(OscMessage.Of(Prefix + "deck/page", Int(deck, "page")));
+                    list.Add(OscMessage.Of(Prefix + "deck/count", Int(deck, "count")));
+                    list.Add(OscMessage.Of(Prefix + "deck/ended", Bit(deck, "ended")));
+                    list.Add(OscMessage.Of(Prefix + "deck/file", Str(deck, "file")));
+                }
+                else
+                {
+                    list.Add(OscMessage.Of(Prefix + "deck/page", 0));
+                    list.Add(OscMessage.Of(Prefix + "deck/count", 0));
+                    list.Add(OscMessage.Of(Prefix + "deck/ended", 0));
+                    list.Add(OscMessage.Of(Prefix + "deck/file", ""));
+                }
+            }
+            if (root.TryGetProperty("web", out var web))
+            {
+                var isPage = web.ValueKind == JsonValueKind.Object;
+                list.Add(OscMessage.Of(Prefix + "web/page", isPage ? Str(web, "page") : ""));
+                list.Add(OscMessage.Of(Prefix + "web/service", isPage ? Str(web, "service") : ""));
+            }
 
             if (root.TryGetProperty("screens", out var screens) && screens.ValueKind == JsonValueKind.Array)
             {
@@ -66,6 +101,7 @@ public static class OscFeedback
                     list.Add(OscMessage.Of($"{Prefix}screen/{number}", Bit(s, "enabled")));
                     list.Add(OscMessage.Of($"{Prefix}lock/{number}", Bit(s, "locked")));
                     if (s.TryGetProperty("armed", out _)) list.Add(OscMessage.Of($"{Prefix}armed/{number}", Bit(s, "armed")));
+                    if (s.TryGetProperty("label", out _)) list.Add(OscMessage.Of($"{Prefix}screen/{number}/name", Str(s, "label")));
                 }
             }
 
@@ -80,6 +116,13 @@ public static class OscFeedback
                 {
                     var first = next[0];
                     list.Add(OscMessage.Of(Prefix + "cue/next", Str(first, "number"), Str(first, "name")));
+                    // The cues after the standby, by place — a bank of keys: /cue/next/1 "01.030" "Coffee" …
+                    var k = 0;
+                    foreach (var row in next.EnumerateArray())
+                    {
+                        if (++k > 6) break;
+                        list.Add(OscMessage.Of($"{Prefix}cue/next/{k}", Str(row, "number"), Str(row, "name")));
+                    }
                 }
                 else
                 {
@@ -120,6 +163,27 @@ public static class OscFeedback
             ? OscMessage.Of(Prefix + address, Str(v, "number"), Str(v, "name"))
             : OscMessage.Of(Prefix + address, "", ""));
     }
+
+    /// <summary>A list's names by number: /address/1 "name" … up to <paramref name="max"/>, and /address/n/air 1|0 when asked; a shorter list sends "" for the rest, so a key that lost its item goes blank.</summary>
+    private static void Names(List<OscMessage> list, JsonElement e, string property, string address, int max, bool withAir = false)
+    {
+        if (!e.TryGetProperty(property, out var items) || items.ValueKind != JsonValueKind.Array) return;
+        var n = 0;
+        foreach (var item in items.EnumerateArray())
+        {
+            if (++n > max) break;
+            list.Add(OscMessage.Of($"{Prefix}{address}/{n}", Str(item, "name")));
+            if (withAir) list.Add(OscMessage.Of($"{Prefix}{address}/{n}/air", Bit(item, "air")));
+        }
+        for (var blank = n + 1; blank <= max; blank++)
+        {
+            list.Add(OscMessage.Of($"{Prefix}{address}/{blank}", ""));
+            if (withAir) list.Add(OscMessage.Of($"{Prefix}{address}/{blank}/air", 0));
+        }
+    }
+
+    private static int Int(JsonElement e, string property)
+        => e.TryGetProperty(property, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) ? i : 0;
 
     private static int Bit(JsonElement e, string property)
         => e.TryGetProperty(property, out var v) && v.ValueKind == JsonValueKind.True ? 1 : 0;

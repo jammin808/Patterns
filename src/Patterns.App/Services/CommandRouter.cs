@@ -96,6 +96,14 @@ public sealed class CommandRouter
             }
         }
 
+        // "LOOK #n": the nth look in the show's order — a bank key that follows the list as looks are made.
+        if (cmd.Kind == RemoteCommandKind.Look && cmd.Extra == "#")
+        {
+            var looks = _services.State.LooksAndCues.Looks;
+            if (cmd.IntArg > looks.Count) return ControlProtocol.Err($"no look #{cmd.IntArg} — the show has {looks.Count}");
+            cmd = new RemoteCommand(RemoteCommandKind.Look, 0, looks[cmd.IntArg - 1].Id);
+        }
+
         if (ToAction(cmd) is not { } action) return ControlProtocol.Err($"unknown command '{cmd.Kind}'");
         var result = _services.Actions.Execute(action, origin);
         return result.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(result.Message);
@@ -243,6 +251,8 @@ public sealed class CommandRouter
     public string StateJson()
     {
         var s = _services.State;
+        var airLook = LookService.Find(s, _services.AirLookId)?.Name ?? "";
+        var previewLook = _services.Sandbox.Active ? LookService.Find(s, _services.PreviewLookId)?.Name ?? "" : "";
         var payload = new
         {
             show = s.Name,
@@ -255,8 +265,12 @@ public sealed class CommandRouter
             frozen = _services.Bus.Frozen,                                 // every output holds its frame
             editSafe = _services.Sandbox.Active,                           // EDIT SAFE open: there is a preview, and a TAKE to come
             previousLook = LookService.Find(s, _services.PreviousAirLookId)?.Name ?? "",   // what LOOKBACK returns to
+            airLook = airLook,                                             // the look on air, by name ("" = none recorded, or the picture moved on)
+            previewLook = previewLook,                                     // the look loaded into the preview, by name
+            pattern = _services.AirState.Pattern.Kind.ToString(),          // what kind of picture is on air: Media, LedWall, ProjectionBlend…
 
-            looks = s.LooksAndCues.Looks.Select(l => new { name = l.Name, slot = l.Hotkey }).ToArray(),
+            // The show's looks in order — a bank of keys labels itself from these: n, the name, the F-key, on air, in the preview.
+            looks = s.LooksAndCues.Looks.Select((l, i) => new { n = i + 1, name = l.Name, slot = l.Hotkey, air = l.Name == airLook && airLook.Length > 0, preview = l.Name == previewLook && previewLook.Length > 0 }).ToArray(),
             presenter = PresenterState(s),
             screens = _services.Actions.RemoteScreens(),
             audio = new

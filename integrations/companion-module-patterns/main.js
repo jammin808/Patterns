@@ -16,6 +16,73 @@ class PatternsInstance extends InstanceBase {
 		this.state = { blackout: false, looks: [], screens: [], presenter: { index: -1, count: 0 } }
 		this.buffer = ''
 		this.standbyId = '' // the standby id this instance last saw — every cue_go sends it
+		this.showSignature = '' // the show's lists as last turned into presets — rebuilt only when they change
+	}
+
+	// ---- the show's lists, by place: what a bank key reads to label itself -------------------
+
+	/** The name at a place in one of the show's lists, or '' when nothing is there. */
+	bankName(kind, n) {
+		const s = this.state
+		switch (kind) {
+			case 'look': return s.looks?.[n - 1]?.name ?? ''
+			case 'look_f': return s.looks?.find((l) => l.slot === n)?.name ?? ''
+			case 'lt': return s.lowerThirds?.[n - 1]?.name ?? ''
+			case 'person': return s.people?.[n - 1]?.name ?? ''
+			case 'stinger': return s.stingers?.[n - 1]?.name ?? ''
+			case 'music': return s.music?.items?.[n - 1]?.name ?? ''
+			case 'section': return s.sections?.[n - 1]?.name ?? ''
+			case 'screen': return s.screens?.[n - 1]?.label ?? ''
+			case 'cue': return this.upcoming()[n - 1]?.number ?? ''
+			default: return ''
+		}
+	}
+
+	/** The standby cue and the cues after it, in order — the cue bank's places 1… */
+	upcoming() {
+		const c = this.state.cuestack ?? {}
+		return [c.standby, ...(c.next ?? [])].filter(Boolean)
+	}
+
+	/** Every bank variable from the state: look_1…16, look_f1…12, lt_1…8, person_1…8, stinger_1…8, music_1…6, section_1…6, screen_1…8, cue_1…7. */
+	bankVariables() {
+		const vars = {}
+		for (let n = 1; n <= 16; n++) vars[`look_${n}`] = this.bankName('look', n)
+		for (let f = 1; f <= 12; f++) vars[`look_f${f}`] = this.bankName('look_f', f)
+		for (let n = 1; n <= 8; n++) {
+			vars[`lt_${n}`] = this.bankName('lt', n)
+			vars[`person_${n}`] = this.bankName('person', n)
+			vars[`stinger_${n}`] = this.bankName('stinger', n)
+			vars[`screen_${n}`] = this.bankName('screen', n)
+		}
+		for (let n = 1; n <= 6; n++) {
+			vars[`music_${n}`] = this.bankName('music', n)
+			vars[`section_${n}`] = this.bankName('section', n)
+		}
+		const up = this.upcoming()
+		for (let k = 1; k <= 7; k++) {
+			const row = up[k - 1]
+			vars[`cue_${k}`] = row ? `${row.number ?? ''}\n${row.name ?? ''}`.trim() : ''
+			vars[`cue_${k}_number`] = row?.number ?? ''
+			vars[`cue_${k}_name`] = row?.name ?? ''
+		}
+		return vars
+	}
+
+	/** The show's lists as one string: when it changes, the per-show presets are built again. */
+	showSignatureNow() {
+		const s = this.state
+		const names = (list) => (list ?? []).map((x) => x.name ?? x.label ?? '').join('|')
+		return [names(s.looks), names(s.lowerThirds), names(s.people), (s.stingers ?? []).map((x) => `${x.kind}:${x.name}`).join('|'),
+			names(s.music?.items), names(s.sections), names(s.screens), this.upcoming().map((c) => `${c.number} ${c.name}`).join('|')].join('#')
+	}
+
+	/** Presets built from the show itself — one key per look, design, person, stinger, track, part, screen and upcoming cue — rebuilt when the lists change. */
+	refreshShowPresets() {
+		const signature = this.showSignatureNow()
+		if (signature === this.showSignature) return
+		this.showSignature = signature
+		this.setPresetDefinitions({ ...this.buildPresets(), ...this.buildShowPresets() })
 	}
 
 	async init(config) {
@@ -140,10 +207,16 @@ class PatternsInstance extends InstanceBase {
 			machine_fps: String(this.state.machine?.fps ?? 0),
 			machine_power: this.state.machine?.battery ? 'BATTERY' : 'mains',
 			machine_advice: String(this.state.machine?.advice ?? 0),
+			air_look: this.state.airLook ?? '',
+			preview_look: this.state.previewLook ?? '',
+			pattern: this.state.pattern ?? '',
+			...this.bankVariables(),
 		})
-		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'audio_playing', 'stinger_playing', 'music_playing',
+		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'screen_armed', 'screen_own', 'audio_playing', 'stinger_playing', 'music_playing',
 			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'lower_third_preview', 'lower_third_edited',
-			'review_on', 'frozen','cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'review_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
+			'web_on_air', 'deck_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty')
+		this.refreshShowPresets()
 	}
 
 	send(cmd) {
@@ -174,6 +247,35 @@ class PatternsInstance extends InstanceBase {
 				name: 'Apply look by name',
 				options: [{ type: 'textinput', id: 'name', label: 'Look name', default: '' }],
 				callback: (a) => send(`LOOK ${a.options.name}`),
+			},
+			// A bank key: the look at a place in the show's list — LOOK #n — so a row of keys labels itself
+			// ($(patterns:look_n)) as looks are made, renamed or reordered, with no key to edit.
+			look_bank: {
+				name: 'Look — by its place in the show\'s list (bank key n; the name is $(patterns:look_n))',
+				options: [{ type: 'number', id: 'n', label: 'Place in the list (1–16)', default: 1, min: 1, max: 16 }],
+				callback: (a) => send(`LOOK #${a.options.n}`),
+			},
+			// The cue bank: place 1 is the standby cue, 2… the cues after it — a key per upcoming cue that
+			// relabels itself on every GO. STANDBY moves the standby there; GO moves it and fires it.
+			cue_bank: {
+				name: 'Cue bank — the cue at a place (1 = the standby cue, 2… = the cues after it): standby, or standby and GO',
+				options: [
+					{ type: 'number', id: 'k', label: 'Place (1–7)', default: 1, min: 1, max: 7 },
+					{ type: 'dropdown', id: 'mode', label: 'Do', default: 'STANDBY',
+						choices: [{ id: 'STANDBY', label: 'Put it on standby' }, { id: 'GO', label: 'Standby and GO' }] },
+				],
+				callback: (a) => {
+					const row = this.upcoming()[a.options.k - 1]
+					if (!row) return this.log('warn', `Cue bank ${a.options.k}: no cue at that place`)
+					if (a.options.k !== 1) send(`CUE STANDBY ${row.number || row.name}`)
+					if (a.options.mode === 'GO') send(`CUE GO ${row.id ?? ''}`.trim())
+				},
+			},
+			stream: {
+				name: 'Stream on / off',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'ON',
+					choices: [{ id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
+				callback: (a) => send(`STREAM ${a.options.mode}`),
 			},
 			presenter_next: { name: 'Presenter — next step', options: [], callback: () => send('NEXT') },
 			presenter_prev: { name: 'Presenter — previous step', options: [], callback: () => send('PREV') },
@@ -502,6 +604,71 @@ class PatternsInstance extends InstanceBase {
 				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
 				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.locked) === true,
 			},
+			screen_armed: {
+				type: 'boolean',
+				name: 'Screen is armed — the next CUT / TAKE changes it',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
+				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.armed) === true,
+			},
+			screen_own: {
+				type: 'boolean',
+				name: 'Screen shows a picture of its own, not the program\'s',
+				defaultStyle: { bgcolor: combineRgb(0, 90, 130), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
+				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.own) === true,
+			},
+			// Looks: which one is on air (by name, by its place in the list, or by its F-key) and which is in the preview.
+			look_on_air: {
+				type: 'boolean',
+				name: 'A look is on air (a named one, or any)',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'textinput', id: 'name', label: 'Look name (blank = any look)', default: '' }],
+				callback: (fb) => {
+					const on = this.state.airLook ?? ''
+					return on !== '' && (!fb.options.name || on === fb.options.name)
+				},
+			},
+			look_bank_on_air: {
+				type: 'boolean',
+				name: 'The look at a place in the show\'s list is on air (bank key n)',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'number', id: 'n', label: 'Place in the list (1–16)', default: 1, min: 1, max: 16 }],
+				callback: (fb) => !!this.state.looks?.[fb.options.n - 1]?.air,
+			},
+			look_f_on_air: {
+				type: 'boolean',
+				name: 'The look on an F-key is on air',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'number', id: 'slot', label: 'F-key (1–12)', default: 1, min: 1, max: 12 }],
+				callback: (fb) => !!this.state.looks?.find((l) => l.slot === fb.options.slot)?.air,
+			},
+			look_preview: {
+				type: 'boolean',
+				name: 'A look is loaded in the preview (a named one, or any)',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'textinput', id: 'name', label: 'Look name (blank = any look)', default: '' }],
+				callback: (fb) => {
+					const on = this.state.previewLook ?? ''
+					return on !== '' && (!fb.options.name || on === fb.options.name)
+				},
+			},
+			// A bank key with nothing behind it dims, so a page of sixteen look keys shows only the looks the show has.
+			slot_empty: {
+				type: 'boolean',
+				name: 'Bank key has nothing behind it (dim the key)',
+				defaultStyle: { bgcolor: combineRgb(12, 13, 16), color: combineRgb(80, 84, 94) },
+				options: [
+					{ type: 'dropdown', id: 'kind', label: 'Bank', default: 'look',
+						choices: [
+							{ id: 'look', label: 'Looks by place' }, { id: 'look_f', label: 'Looks by F-key' }, { id: 'lt', label: 'Lower thirds' },
+							{ id: 'person', label: 'People' }, { id: 'stinger', label: 'VOGs and stingers' }, { id: 'music', label: 'Break music' },
+							{ id: 'section', label: 'Playlist parts' }, { id: 'screen', label: 'Screens' }, { id: 'cue', label: 'Upcoming cues' },
+						] },
+					{ type: 'number', id: 'n', label: 'Place', default: 1, min: 1, max: 32 },
+				],
+				callback: (fb) => this.bankName(fb.options.kind, fb.options.n) === '',
+			},
 			audio_playing: {
 				type: 'boolean',
 				name: 'Audio track is playing',
@@ -664,7 +831,30 @@ class PatternsInstance extends InstanceBase {
 	}
 
 	buildVariables() {
+		const banks = [
+			{ variableId: 'air_look', name: 'The look on air, by name (or empty)' },
+			{ variableId: 'preview_look', name: 'The look loaded in the preview, by name (or empty)' },
+			{ variableId: 'pattern', name: 'What kind of picture is on air (Media, LedWall, ProjectionBlend…)' },
+		]
+		for (let n = 1; n <= 16; n++) banks.push({ variableId: `look_${n}`, name: `Look at place ${n} in the show's list (name, or empty)` })
+		for (let f = 1; f <= 12; f++) banks.push({ variableId: `look_f${f}`, name: `Look on F${f} (name, or empty)` })
+		for (let n = 1; n <= 8; n++) {
+			banks.push({ variableId: `lt_${n}`, name: `Lower third design ${n} (name, or empty)` })
+			banks.push({ variableId: `person_${n}`, name: `Person ${n} in the library (name, or empty)` })
+			banks.push({ variableId: `stinger_${n}`, name: `VOG / stinger ${n} (name, or empty)` })
+			banks.push({ variableId: `screen_${n}`, name: `Screen ${n} (its label, or empty)` })
+		}
+		for (let n = 1; n <= 6; n++) {
+			banks.push({ variableId: `music_${n}`, name: `Break music entry ${n} (name, or empty)` })
+			banks.push({ variableId: `section_${n}`, name: `Playlist part ${n} (name, or empty)` })
+		}
+		for (let k = 1; k <= 7; k++) {
+			banks.push({ variableId: `cue_${k}`, name: `Cue bank ${k} — number and name (1 = the standby cue, 2… the cues after it)` })
+			banks.push({ variableId: `cue_${k}_number`, name: `Cue bank ${k} — number` })
+			banks.push({ variableId: `cue_${k}_name`, name: `Cue bank ${k} — name` })
+		}
 		return [
+			...banks,
 			{ variableId: 'blackout', name: 'Blackout state' },
 			{ variableId: 'presenter_step', name: 'Presenter step number' },
 			{ variableId: 'presenter_count', name: 'Presenter step count' },
@@ -713,10 +903,130 @@ class PatternsInstance extends InstanceBase {
 		]
 	}
 
+	/** The dim style for a bank key with nothing behind it. */
+	static empty(kind, n) {
+		return { feedbackId: 'slot_empty', options: { kind, n }, style: { bgcolor: combineRgb(12, 13, 16), color: combineRgb(80, 84, 94) } }
+	}
+
+	/** Presets built from the show's own lists — one key per item, named for it — under "… — this show" categories. */
+	buildShowPresets() {
+		const presets = {}
+		const white = combineRgb(255, 255, 255)
+		const dark = combineRgb(20, 22, 28)
+		const green = combineRgb(30, 158, 90)
+		const amber = { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) }
+		const s = this.state
+		const key = (text) => String(text ?? '').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 40)
+		;(s.looks ?? []).forEach((l, i) => {
+			presets[`show_look_${i + 1}_${key(l.name)}`] = {
+				type: 'button', category: 'Looks — this show', name: `Look: ${l.name}${l.slot ? ` (F${l.slot})` : ''}`,
+				style: { text: l.name, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'look_name', options: { name: l.name } }], up: [] }],
+				feedbacks: [
+					{ feedbackId: 'look_on_air', options: { name: l.name }, style: { bgcolor: green } },
+					{ feedbackId: 'look_preview', options: { name: l.name }, style: amber },
+				],
+			}
+		})
+		;(s.lowerThirds ?? []).forEach((d) => {
+			presets[`show_lt_${d.n}_${key(d.name)}`] = {
+				type: 'button', category: 'Lower thirds — this show', name: `Lower third: ${d.name}`,
+				style: { text: `LT\\n${d.name}`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third', options: { n: d.n } }], up: [] }],
+				feedbacks: [{ feedbackId: 'lower_third_on', options: { name: d.name }, style: { bgcolor: combineRgb(224, 52, 46) } }],
+			}
+		})
+		;(s.people ?? []).forEach((p) => {
+			presets[`show_person_${p.n}_${key(p.name)}`] = {
+				type: 'button', category: 'People — this show', name: `Person: ${p.name}${p.role ? ` — ${p.role}` : ''}`,
+				style: { text: p.name, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third_person', options: { n: p.n, design: '' } }], up: [] }],
+				feedbacks: [{ feedbackId: 'lower_third_person_is', options: { name: p.name }, style: { bgcolor: combineRgb(224, 52, 46) } }],
+			}
+		})
+		;(s.stingers ?? []).forEach((it) => {
+			const vog = it.kind === 'vog'
+			presets[`show_stinger_${it.n}_${key(it.name)}`] = {
+				type: 'button', category: vog ? 'VOGs — this show' : 'Stingers — this show', name: `${vog ? 'VOG' : 'Stinger'}: ${it.name}`,
+				style: { text: `${vog ? 'VOG' : 'STING'}\\n${it.name}`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: vog ? 'vog' : 'sting', options: { n: it.n } }], up: [] }],
+				feedbacks: vog
+					? [{ feedbackId: 'vog_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }]
+					: [{ feedbackId: 'sting_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } }, { feedbackId: 'sting_hold', options: {}, style: amber }],
+			}
+		})
+		;(s.music?.items ?? []).forEach((m) => {
+			presets[`show_music_${m.n}_${key(m.name)}`] = {
+				type: 'button', category: 'Break music — this show', name: `Break music: ${m.name}`,
+				style: { text: `♫\\n${m.name}`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'music_item', options: { n: m.n } }], up: [] }],
+				feedbacks: [{ feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }],
+			}
+		})
+		;(s.sections ?? []).forEach((p) => {
+			presets[`show_section_${p.n}_${key(p.name)}`] = {
+				type: 'button', category: 'Playlist parts — this show', name: `Part: ${p.name}`,
+				style: { text: `PART\\n${p.name}`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'section', options: { n: p.n } }], up: [] }], feedbacks: [],
+			}
+		})
+		;(s.screens ?? []).forEach((sc) => {
+			presets[`show_screen_${sc.n}_${key(sc.label)}`] = {
+				type: 'button', category: 'Screens — this show', name: `Screen ${sc.n}: ${sc.label}`,
+				style: { text: sc.label, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'screen', options: { n: sc.n, mode: 'TOGGLE' } }], up: [] }],
+				feedbacks: [
+					{ feedbackId: 'screen_enabled', options: { n: sc.n }, style: { bgcolor: combineRgb(0, 120, 60) } },
+					{ feedbackId: 'screen_locked', options: { n: sc.n }, style: { bgcolor: combineRgb(160, 110, 0) } },
+				],
+			}
+		})
+		this.upcoming().forEach((c, i) => {
+			presets[`show_cue_${i + 1}_${key(c.number)}`] = {
+				type: 'button', category: 'Upcoming cues — this show', name: `${i === 0 ? 'Standby' : 'Cue'}: ${c.number} ${c.name}`,
+				style: { text: `${c.number}\\n${c.name}`, size: 'auto', color: white, bgcolor: i === 0 ? green : dark },
+				steps: [{ down: [{ actionId: 'cue_bank', options: { k: i + 1, mode: 'STANDBY' } }], up: [] }],
+				feedbacks: [{ feedbackId: 'cue_standby_is', options: { cue: c.number }, style: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) } }],
+			}
+		})
+		return presets
+	}
+
 	buildPresets() {
 		const presets = {}
 		const white = combineRgb(255, 255, 255)
 		const dark = combineRgb(20, 22, 28)
+		const green = combineRgb(30, 158, 90)
+		const empty = PatternsInstance.empty
+
+		// Banks: keys that label themselves from the show — drag a row once and every look, design,
+		// person, stinger, track, part, screen or upcoming cue made later appears on the next key.
+		for (let n = 1; n <= 16; n++) {
+			presets[`look_bank_${n}`] = {
+				type: 'button', category: 'Look bank (labels itself)', name: `Look bank ${n} — the look at place ${n} in the show's list`,
+				style: { text: `$(patterns:look_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'look_bank', options: { n } }], up: [] }],
+				feedbacks: [
+					{ feedbackId: 'look_bank_on_air', options: { n }, style: { bgcolor: green } },
+					empty('look', n),
+				],
+			}
+		}
+		for (let k = 1; k <= 7; k++) {
+			presets[`cue_bank_${k}`] = {
+				type: 'button', category: 'Cue bank (labels itself)', name: k === 1 ? 'Cue bank 1 — the standby cue' : `Cue bank ${k} — the cue ${k - 1} after the standby: press to put it on standby`,
+				style: { text: `$(patterns:cue_${k})`, size: 'auto', color: white, bgcolor: k === 1 ? green : dark },
+				steps: [{ down: [{ actionId: 'cue_bank', options: { k, mode: 'STANDBY' } }], up: [] }],
+				feedbacks: [empty('cue', k)],
+			}
+		}
+		for (let n = 1; n <= 6; n++) {
+			presets[`section_${n}`] = {
+				type: 'button', category: 'Playlist parts', name: `Playlist part ${n} on air`,
+				style: { text: `PART ${n}\\n$(patterns:section_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'section', options: { n } }], up: [] }], feedbacks: [empty('section', n)],
+			}
+		}
 
 		presets.go = {
 			type: 'button', category: 'Transport', name: 'Outputs on',
@@ -816,16 +1126,16 @@ class PatternsInstance extends InstanceBase {
 		}
 		for (let n = 1; n <= 6; n++) {
 			presets[`lower_third_${n}`] = {
-				type: 'button', category: 'Lower thirds', name: `Lower third ${n}`,
-				style: { text: `LT\\n${n}`, size: '18', color: white, bgcolor: dark },
-				steps: [{ down: [{ actionId: 'lower_third', options: { n } }], up: [] }], feedbacks: [lowerOn],
+				type: 'button', category: 'Lower thirds', name: `Lower third ${n} (labels itself)`,
+				style: { text: `LT ${n}\\n$(patterns:lt_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third', options: { n } }], up: [] }], feedbacks: [lowerOn, empty('lt', n)],
 			}
 		}
 		for (let n = 1; n <= 6; n++) {
 			presets[`person_${n}`] = {
-				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) into the lower third on air`,
-				style: { text: `PERSON\\n${n}`, size: '14', color: white, bgcolor: dark },
-				steps: [{ down: [{ actionId: 'lower_third_person', options: { n, design: '' } }], up: [] }], feedbacks: [lowerOn],
+				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) into the lower third on air (labels itself)`,
+				style: { text: `$(patterns:person_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third_person', options: { n, design: '' } }], up: [] }], feedbacks: [lowerOn, empty('person', n)],
 			}
 		}
 		const lowerPvw = { feedbackId: 'lower_third_preview', options: { name: '' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }
@@ -897,9 +1207,9 @@ class PatternsInstance extends InstanceBase {
 		}
 		for (let n = 1; n <= 6; n++) {
 			presets[`music_${n}`] = {
-				type: 'button', category: 'Break music', name: `Break music ${n}`,
-				style: { text: `BREAK\\n${n}`, size: '14', color: white, bgcolor: dark },
-				steps: [{ down: [{ actionId: 'music_item', options: { n } }], up: [] }], feedbacks: [musicOn],
+				type: 'button', category: 'Break music', name: `Break music ${n} (labels itself)`,
+				style: { text: `♫ ${n}\\n$(patterns:music_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'music_item', options: { n } }], up: [] }], feedbacks: [musicOn, empty('music', n)],
 			}
 		}
 		presets.next = {
@@ -914,17 +1224,28 @@ class PatternsInstance extends InstanceBase {
 		}
 		for (let slot = 1; slot <= 12; slot++) {
 			presets[`look_${slot}`] = {
-				type: 'button', category: 'Looks', name: `Look F${slot}`,
-				style: { text: `LOOK\\nF${slot}`, size: '14', color: white, bgcolor: dark },
-				steps: [{ down: [{ actionId: 'look_slot', options: { slot } }], up: [] }], feedbacks: [],
+				type: 'button', category: 'Looks', name: `Look F${slot} (labels itself)`,
+				style: { text: `F${slot}\\n$(patterns:look_f${slot})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'look_slot', options: { slot } }], up: [] }],
+				feedbacks: [{ feedbackId: 'look_f_on_air', options: { slot }, style: { bgcolor: green } }, empty('look_f', slot)],
 			}
 		}
 		for (let n = 1; n <= 8; n++) {
 			presets[`screen_${n}`] = {
-				type: 'button', category: 'Screens', name: `Screen ${n} toggle`,
-				style: { text: `SCR\\n${n}`, size: '14', color: white, bgcolor: dark },
+				type: 'button', category: 'Screens', name: `Screen ${n} toggle (labels itself)`,
+				style: { text: `$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'screen', options: { n, mode: 'TOGGLE' } }], up: [] }],
-				feedbacks: [{ feedbackId: 'screen_enabled', options: { n }, style: { bgcolor: combineRgb(0, 120, 60) } }],
+				feedbacks: [
+					{ feedbackId: 'screen_enabled', options: { n }, style: { bgcolor: combineRgb(0, 120, 60) } },
+					{ feedbackId: 'screen_locked', options: { n }, style: { bgcolor: combineRgb(160, 110, 0) } },
+					empty('screen', n),
+				],
+			}
+			presets[`screen_${n}_lock`] = {
+				type: 'button', category: 'Screens', name: `Screen ${n} lock / unlock`,
+				style: { text: `LOCK\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'screen_lock', options: { n, mode: 'TOGGLE' } }], up: [] }],
+				feedbacks: [{ feedbackId: 'screen_locked', options: { n }, style: { bgcolor: combineRgb(160, 110, 0) } }, empty('screen', n)],
 			}
 		}
 		for (const letter of ['A', 'B', 'C', 'D']) {
@@ -941,10 +1262,10 @@ class PatternsInstance extends InstanceBase {
 		}
 		for (let n = 1; n <= 8; n++) {
 			presets[`stinger_${n}`] = {
-				type: 'button', category: 'Stingers', name: `Stinger ${n}`,
-				style: { text: `STING\\n${n}`, size: '14', color: white, bgcolor: dark },
+				type: 'button', category: 'Stingers', name: `Stinger ${n} (labels itself)`,
+				style: { text: `$(patterns:stinger_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'stinger', options: { n } }], up: [] }],
-				feedbacks: [{ feedbackId: 'stinger_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } }],
+				feedbacks: [{ feedbackId: 'stinger_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } }, empty('stinger', n)],
 			}
 		}
 		presets.stinger_stop = {
@@ -954,14 +1275,14 @@ class PatternsInstance extends InstanceBase {
 		}
 		for (let n = 1; n <= 8; n++) {
 			presets[`vog_${n}`] = {
-				type: 'button', category: 'VOG', name: `VOG ${n}`,
-				style: { text: `VOG\\n${n}`, size: '14', color: white, bgcolor: dark },
+				type: 'button', category: 'VOG', name: `VOG ${n} (labels itself)`,
+				style: { text: `VOG\\n$(patterns:stinger_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'vog', options: { n } }], up: [] }],
-				feedbacks: [{ feedbackId: 'vog_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }],
+				feedbacks: [{ feedbackId: 'vog_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }, empty('stinger', n)],
 			}
 			presets[`sting_${n}`] = {
-				type: 'button', category: 'Stingers', name: `Stinger ${n} (kind-checked)`,
-				style: { text: `STING\\n${n}`, size: '14', color: white, bgcolor: dark },
+				type: 'button', category: 'Stingers', name: `Stinger ${n} (kind-checked, labels itself)`,
+				style: { text: `STING\\n$(patterns:stinger_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'sting', options: { n } }], up: [] }],
 				feedbacks: [
 					{ feedbackId: 'sting_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } },

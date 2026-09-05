@@ -12,8 +12,10 @@ canvas groups, VOGs and stingers (one-press sounds and clips), break music (Spot
    (`Settings → Developer modules path` pointing at this folder after `yarn && yarn package`,
    or copy the folder into your dev modules directory), then add the **Patterns** connection
    with the machine's IP and port.
-3. Drag presets onto keys: Cue stack (GO, standby ▲ ▼, HOLD, ARM, STOP ALL), Transport,
-   Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music.
+3. Drag presets onto keys: the **banks** first (Look bank, Cue bank — keys that label themselves
+   from the show and dim while empty), then Cue stack (GO, standby ▲ ▼, HOLD, ARM, STOP ALL),
+   Transport, Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music, and the
+   *… — this show* categories with a preset per item of the show that is loaded.
 
 ## The cue stack (module 1.1.0)
 
@@ -41,6 +43,35 @@ screens lights every sting key until the caller TAKEs, GOes, or presses the *Hel
 it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. Note that the
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
+
+## Keys that fill themselves from the show (module 2.0.0)
+
+Companion cannot place keys on a page by itself, so the module does the next best thing: a
+**bank** is a row of keys you drag once, each of which labels itself from the show and fires
+whatever sits at its place. Patterns pushes the show's lists in every `STATE`, and the module
+turns them into variables that stay fresh — `$(patterns:look_1)`…`look_16` (the looks in the
+order of the Looks page), `look_f1`…`f12` (by F-key), `lt_1`…`8`, `person_1`…`8`,
+`stinger_1`…`8` (VOGs and stingers, one library), `music_1`…`6`, `section_1`…`6`,
+`screen_1`…`8` (labels) and `cue_1`…`7` (the standby cue and the six after it, number and
+name; `cue_k_number` / `cue_k_name` on their own) — plus `air_look`, `preview_look` and
+`pattern` (what kind of picture is on air). The presets under **Look bank (labels itself)**,
+**Cue bank (labels itself)**, **Looks** (F-keys), **Lower thirds**, **Stingers**, **VOG**,
+**Break music**, **Playlist parts** and **Screens** carry the variable as their text, the
+matching action (`look_bank` sends `LOOK #n`, the *n*th look in the show's order whatever its
+name or F-key; `cue_bank` puts the cue at place *k* on standby — or on standby and GO — using
+the number and id it last saw; `lower_third n`, `lower_third_person n`, `stinger n`,
+`music_item n`, `section n`, `screen n`, `screen_lock n`), a lit feedback (`look_bank_on_air`,
+`look_f_on_air`, `look_on_air` by name — green; `look_preview` — amber while a look is loaded
+in the preview; `screen_enabled`, `screen_locked`, and the new `screen_armed` / `screen_own`)
+and the `slot_empty` feedback, which dims a key while nothing sits behind it. Save a look in
+Patterns and the next dim key on the bank lights up with its name; rename or reorder and the
+keys follow; delete and the key dims again.
+
+The module also builds a preset **per item** — *Looks — this show*, *Lower thirds — this
+show*, *People — this show*, *Stingers — this show*, *VOGs — this show*, *Break music — this
+show*, *Playlist parts — this show*, *Screens — this show* and *Upcoming cues — this show* —
+named for the item and rebuilt the moment the show's lists change, so a key with a fixed name
+is one drag away. A `stream` action (STREAM ON / OFF) joins the transport.
 
 ## Decks: a PDF presentation from a key (module 1.11.0)
 

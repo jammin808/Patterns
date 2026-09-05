@@ -20,6 +20,7 @@ public static class OscMap
         ("/patterns/blackout [1|0]", "BLACKOUT ON / OFF; no argument toggles (also /on, /off, /toggle)"),
         ("/patterns/identify", "IDENTIFY"),
         ("/patterns/look <n|name>", "LOOK n / LOOK name (also /patterns/look/<n>)"),
+        ("/patterns/look/index <n>", "LOOK #n — the nth look in the show's order, whatever its name or F-key (also /patterns/look/index/<n>, /patterns/look/bank/<n>)"),
         ("/patterns/next, /patterns/prev", "NEXT / PREV — the clicker list"),
         ("/patterns/screen/<n> [1|0]", "SCREEN n ON / OFF; no argument toggles"),
         ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
@@ -78,7 +79,14 @@ public static class OscMap
             case "outputs": return "OUTPUTS " + Switch(m, seg, "ON", toggles: false);
             case "blackout": return "BLACKOUT " + Switch(m, seg, "TOGGLE", toggles: true);
             case "identify": return "IDENTIFY";
-            case "look": return Named("LOOK", m, seg);
+            case "look":
+                // /patterns/look/index/3 · /patterns/look/index 3 · /patterns/look/bank/3: the third look in the show's order.
+                if (seg.ToLowerInvariant() is "index" or "bank")
+                {
+                    var index = seg2.Length > 0 ? seg2 : m.Number() is { } n ? ((int)Math.Round(n)).ToString(CultureInfo.InvariantCulture) : m.Text() ?? "";
+                    return int.TryParse(index, NumberStyles.None, CultureInfo.InvariantCulture, out var i) && i > 0 ? $"LOOK #{i}" : null;
+                }
+                return Named("LOOK", m, seg);
             case "next": return "NEXT";
             case "prev": case "back": return "PREV";
             case "screen": return Numbered("SCREEN", seg, m, seg2, "TOGGLE", toggles: true);

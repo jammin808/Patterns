@@ -34,6 +34,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `IDENTIFY` | Flash screen numbers |
 | `LOOK <1–12>` | Apply the look on that F-key slot |
 | `LOOK <name>` | Apply a look by name (case-insensitive) |
+| `LOOK #<n>` | Apply the *n*th look in the show's order, whatever its name or F-key — a bank key that follows the list as looks are made (`ERR no look #7 — the show has 4`) |
 | `NEXT` / `PREV` | The presenter click-through: a deck (PDF) on air turns its pages first — past the last page the caller's stack resumes with GO on the standby cue when the deck asks for it — else the clicker list forward / back |
 | `DECK NEXT` / `PREV` / `FIRST` / `LAST` / `PAGE <n>` / `<n>` | The deck on air turns a page (`PDF` and `SLIDES` are aliases; `ERR` with no deck on air or a page that is not a number, first or last) |
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
@@ -97,7 +98,7 @@ is on — lift it first`, `standby moved`, `too soon after the last GO`, or the 
 State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel` (what is on air, by name),
 `cuestack{armed,hold,seq,listRev,confirm,program{label},previous{id,number,name},standby{id,number,name,requireConfirm,notes,plannedStart,followSeconds},next[6]{id,number,name},last{id,number,name,outcome,error,at,origin,actionsDone,actionsTotal},history[8],timing{offsetSeconds,offset,nextBreak{number,name,expected,planned,deltaSeconds,atLeast,text},lunch{…},end{…},follow}}`
 (`timing` is the caller's clock: `offset` reads "ON TIME", "3 MIN LATE" or "2 MIN EARLY" from the last GO against its planned start; `nextBreak`, `lunch` and `end` say when the marked cues are expected — `atLeast` when a cue has overrun or has no planned length; `follow` reads "AUTO 01.030 in 0:07" while the next cue is going to fire by itself)
-(the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `frozen` (every output holds its frame), `previousLook` (the name `LOOKBACK` returns to, or empty), `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
+(the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `frozen` (every output holds its frame), `previousLook` (the name `LOOKBACK` returns to, or empty), `airLook` (the look on air, by name — empty when none was recorded or the picture moved on), `previewLook` (the look loaded in the preview while EDIT SAFE is open), `pattern` (the kind of picture on air: `Media`, `LedWall`, `ProjectionBlend`…), `looks[{n,name,slot,air,preview}]` (the show's looks in order — `n` is the place `LOOK #n` uses, `slot` the F-key or 0, `air` / `preview` where it is), `presenter{armed,index,count,steps[]}`,
 `screens[{n,label,enabled,group,locked,role,armed,own}]` (labels honour operator names; `role` is main, confidence, info or repeater; `armed` = the next CUT / TAKE changes it; `own` = it shows a picture of its own, not the program's), `editSafe` (EDIT SAFE is open: there is a preview and a TAKE to come), `audio{playing,track}`, `tone`,
 `stingers[{n,name,kind,source}]` (`kind` is `vog` or `sting`; `source` is `file`, or `pulse` for an effect pulse — a surge through the particles and fractals on screen that owns nothing), `stingerPlaying` (whatever owns the show), `stingerKind`
 (`vog` / `sting` / empty), `vogSound` (a VOG sound playing over the show — over a stinger too, which it ducks
@@ -142,12 +143,17 @@ for up to 25 seconds, so it updates within the push throttle instead of polling.
 
 ## Bitfocus Companion
 
-Use the **Patterns module** in `integrations/companion-module-patterns/` (1.2.0: cue stack
-GO / standby / HOLD / ARM / STOP ALL with feedbacks and variables, a **Break music** category —
-play / pause / skip and entries 1–6, lit while music plays — a **VOG** category and kind-checked
-stinger keys with a STING HOLD feedback and a *put it back* key, plus presets for
-transport/looks/screens/groups/presenter/audio — see its README for install), or the
-built-in **Generic TCP** connection sending the raw commands above (no feedback).
+Use the **Patterns module** in `integrations/companion-module-patterns/` (2.0.0: **banks** —
+keys that label themselves from the show through variables Patterns keeps fresh, so a row of
+sixteen look keys, seven cue keys, eight lower-third / people / stinger / screen keys and six
+music / part keys fills itself as the show is built, each key firing the item at its place
+(`LOOK #n`, `LT n`, `PERSON n`, `STINGER n`, `MUSIC PLAY n`, `SECTION n`, `SCREEN n`, the cue
+bank's standby or GO), lit while its item is on air and dim while empty; a preset per item
+under *… — this show* categories rebuilt when the lists change; the cue stack GO / standby /
+HOLD / ARM / STOP ALL with feedbacks and variables; Break music, VOG, kind-checked stingers,
+lower thirds with the sign-off flow, web pages, decks, review, freeze, the timed fade, the
+previous look, screen locks and arming — see its README for install), or the built-in
+**Generic TCP** connection sending the raw commands above (no feedback).
 
 ## OSC
 
@@ -166,6 +172,7 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/blackout [1\|0]` | BLACKOUT ON / OFF; no argument toggles (also `/on`, `/off`, `/toggle`) |
 | `/patterns/identify` | IDENTIFY |
 | `/patterns/look <n\|name>` | LOOK n / LOOK name (also `/patterns/look/<n>`) |
+| `/patterns/look/index <n>` | LOOK #n — the *n*th look in the show's order, whatever its name or F-key (also `/patterns/look/index/<n>`, `/patterns/look/bank/<n>`) |
 | `/patterns/next`, `/patterns/prev` | NEXT / PREV — the clicker list |
 | `/patterns/screen/<n> [1\|0]` | SCREEN n ON / OFF; no argument toggles |
 | `/patterns/lock/<n> [1\|0]` | LOCK n ON / OFF; no argument toggles |
@@ -216,10 +223,14 @@ there — throttled to 200 ms like the STATE pushes — carrying `/patterns/stat
 `/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/music i`, `/music/now s`,
 `/music/level i`, `/stinger s`, `/stinger/hold s`, `/lowerthird s`, `/lowerthird/person s`, `/lowerthird/preview s`,
 `/lowerthird/preview/person s`, `/lowerthird/default s`, `/lowerthird/edited i`,
-`/stream i`, `/playlist s`, `/health s`, `/review i`, `/freeze i`, `/editsafe i`, `/look/previous s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/armed/<n> i`, `/cue/armed i`,
+`/stream i`, `/playlist s`, `/health s`, `/review i`, `/freeze i`, `/editsafe i`, `/look/previous s`, `/look/air s`, `/look/preview s`, `/pattern s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/armed/<n> i`, `/screen/<n>/name s`, `/cue/armed i`,
 `/cue/hold i`, `/cue/confirm s`, `/cue/standby s s` (number, name), `/cue/previous s s`,
-`/cue/next s s`, `/cue/last s s` (number, outcome), `/cue/offset s`, `/cue/follow s`. TouchOSC:
-send to the machine on 9698, receive on 9699 with the tablet's address as the feedback host.
+`/cue/next s s`, `/cue/next/<k> s s` (the cues after the standby, k = 1…6), `/cue/last s s` (number, outcome), `/cue/offset s`, `/cue/follow s`,
+and the show's lists by place for a bank of keys on the controller — `/looks/<n> s` (n = 1…16, `""` past the list) with `/looks/<n>/air i`,
+`/lowerthirds/<n> s` (1…8), `/people/<n> s` (1…8), `/stingers/<n> s` (1…8), `/sections/<n> s` (1…6), `/music/items/<n> s` (1…6) —
+plus `/deck/page i`, `/deck/count i`, `/deck/ended i`, `/deck/file s`, `/web/page s`, `/web/service s` (zeros and empty strings with none on air). TouchOSC:
+send to the machine on 9698, receive on 9699 with the tablet's address as the feedback host — a label bound to
+`/patterns/state/looks/3` and a button sending `/patterns/look/index/3` make a look key that names itself.
 QLab: a Network cue with an OSC message per line above. Companion: the generic OSC module for a
 key or two; the Patterns module (TCP) for the full feedback.
 
