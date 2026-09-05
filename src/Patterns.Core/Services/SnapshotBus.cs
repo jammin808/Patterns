@@ -101,17 +101,21 @@ public sealed class ShowSnapshot
     }
 
     /// <summary>
-    /// The pattern a given sink should draw: a content target (a single screen, or a joined
-    /// canvas by its member key) with "own pattern" on uses its assignment; everything else
-    /// shows the program. Hot path: plain loops, no allocation.
+    /// The pattern a given sink should draw: a repeater draws its source's; a content target (a
+    /// single screen, or a joined canvas by its member key) with "own pattern" on uses its
+    /// assignment; everything else shows the program. Hot path: plain loops, no allocation.
     /// </summary>
     public PatternConfig PatternFor(string? targetId)
     {
-        if (targetId is not null && ContentTargets.UsesOwnPattern(State, targetId))
+        if (targetId is not null)
         {
-            foreach (var a in State.Independent)
+            targetId = ScreenRoles.ResolveMirror(State, targetId);
+            if (ContentTargets.UsesOwnPattern(State, targetId))
             {
-                if (a.ScreenId == targetId) return a.Pattern;
+                foreach (var a in State.Independent)
+                {
+                    if (a.ScreenId == targetId) return a.Pattern;
+                }
             }
         }
         return State.Pattern;

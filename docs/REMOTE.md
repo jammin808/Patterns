@@ -26,6 +26,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `LOOK <name>` | Apply a look by name (case-insensitive) |
 | `NEXT` / `PREV` | Clicker list forward / back (the presenter click-through) |
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
+| `LOCK <n> ON` / `OFF` / `TOGGLE` | Lock screen *n*: it keeps its picture through looks, cues, TAKE ALL and stingers (a confidence monitor, an info screen); unlock lets it follow again. Bare `LOCK <n>` toggles |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
 | `AUDIO PLAY` / `STOP` | The independent audio track |
 | `MUSIC PLAY` | Break music (Spotify): resume, or start the library's first entry |
@@ -69,7 +70,7 @@ is on — lift it first`, `standby moved`, `too soon after the last GO`, or the 
 State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel` (what is on air, by name),
 `cuestack{armed,hold,seq,listRev,confirm,program{label},previous{id,number,name},standby{id,number,name,requireConfirm,notes},next[6]{id,number,name},last{id,number,name,outcome,error,at,origin,actionsDone,actionsTotal},history[8]}`
 (the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `looks[{name,slot}]`, `presenter{armed,index,count,steps[]}`,
-`screens[{n,label,enabled,group}]` (labels honour operator names), `audio{playing,track}`, `tone`,
+`screens[{n,label,enabled,group,locked,role}]` (labels honour operator names; `role` is main, confidence, info or repeater), `audio{playing,track}`, `tone`,
 `stingers[{n,name,kind,source}]` (`kind` is `vog` or `sting`; `source` is `file`, or `pulse` for an effect pulse — a surge through the particles and fractals on screen that owns nothing), `stingerPlaying` (whatever owns the show), `stingerKind`
 (`vog` / `sting` / empty), `vogSound` (a VOG sound playing over the show — over a stinger too, which it ducks
 rather than stops; empty when none), `stingHold` (the name of a stinger holding the screens, or empty), `duck` (the live duck is on),

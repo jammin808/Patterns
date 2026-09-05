@@ -299,11 +299,13 @@ public sealed class StingerService : IDisposable
             media.VolumePct = item.VolumePct;
             foreach (var p in air.Output.Placements)
             {
-                p.UseCustomPattern = false; // the clip owns every screen
+                if (!p.FollowsCues) continue;   // a locked monitor keeps its picture through the clip
+                p.UseCustomPattern = false;     // the clip owns every other screen
             }
             foreach (var c in air.Output.CanvasNames)
             {
-                c.UseCustomPattern = false; // and every joined canvas
+                if (ScreenRoles.IsLocked(air, c.MemberKey)) continue;
+                c.UseCustomPattern = false;     // and every joined canvas
             }
         });
         _overrideKey = ContentKey(_services.AirState);

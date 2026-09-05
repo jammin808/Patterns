@@ -776,7 +776,7 @@ function render(s) {
   s.screens.forEach(function(x){
     var b = document.createElement('button');
     b.className = 'scr' + (x.enabled ? '' : ' off');
-    b.innerHTML = esc(x.n + ' · ' + x.label) + (x.group ? ' <span class="k">[' + x.group + ']</span>' : '');
+    b.innerHTML = esc(x.n + ' · ' + x.label) + (x.locked ? ' <span class="k">LOCKED</span>' : '') + (x.group ? ' <span class="k">[' + x.group + ']</span>' : '');
     b.onclick = function(){ cmd('SCREEN ' + x.n + ' TOGGLE'); };
     sc.appendChild(b);
   });

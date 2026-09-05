@@ -1109,8 +1109,93 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedIsDisplay));
         Raise(nameof(SelectedDirectOutput));
         Raise(nameof(DirectOutputStatus));
+        Raise(nameof(SelectedRole));
+        Raise(nameof(SelectedFollowsCues));
+        Raise(nameof(SelectedMirrorOf));
+        RebuildMirrorSources();
         RaiseBlend();
         RefreshDisplayModes();
+    }
+
+    // ---- roles, locks and repeaters ---------------------------------------------
+
+    public EnumItem[] ScreenRoleItems => Lists.ScreenRoles;
+
+    /// <summary>What the selected screen is for; picking a role also picks its follow default.</summary>
+    public ScreenRole SelectedRole
+    {
+        get => _selectedPlacement?.Role ?? ScreenRole.Main;
+        set
+        {
+            if (_selectedPlacement is null || _selectedPlacement.Role == value) return;
+            _selectedPlacement.Role = value;
+            var follows = ScreenRoles.DefaultFollows(value);
+            if (_selectedPlacement.FollowsCues != follows) SetLocked(_selectedPlacement.ScreenId, !follows);
+            RaiseSelection();
+        }
+    }
+
+    /// <summary>Off = locked: the screen keeps its picture through looks, cues, TAKE ALL and stingers.</summary>
+    public bool SelectedFollowsCues
+    {
+        get => _selectedPlacement?.FollowsCues ?? true;
+        set
+        {
+            if (_selectedPlacement is null || _selectedPlacement.FollowsCues == value) return;
+            SetLocked(_selectedPlacement.ScreenId, !value);
+            RaiseSelection();
+        }
+    }
+
+    /// <summary>The target the selected screen repeats ("" = its own content); a repeater has no picture of its own.</summary>
+    public string SelectedMirrorOf
+    {
+        get => _selectedPlacement?.MirrorOf ?? "";
+        set
+        {
+            var wanted = value ?? "";
+            if (_selectedPlacement is null || _selectedPlacement.MirrorOf == wanted) return;
+            var placement = _selectedPlacement;
+            _services.BulkEdit(() =>
+            {
+                placement.MirrorOf = wanted;
+                if (wanted.Length > 0) placement.UseCustomPattern = false;
+            });
+            RebuildEditTargets();
+            RaiseSelection();
+        }
+    }
+
+    /// <summary>What the selected screen may repeat: nothing, or any other target that does not repeat it back.</summary>
+    public ObservableCollection<EditTarget> MirrorSources { get; } = new();
+
+    private void RebuildMirrorSources()
+    {
+        var wanted = new List<EditTarget> { new("— its own content", "") };
+        var me = _selectedPlacement?.ScreenId;
+        var geo = Rig.Geometry(State, _services.Screens.All);
+        foreach (var key in geo.Targets)
+        {
+            if (key == me) continue;
+            if (ContentTargets.IsCanvasKey(key))
+            {
+                if (me is not null && ContentTargets.Members(key).Contains(me)) continue;
+            }
+            else if (State.Output.Placements.FirstOrDefault(p => p.ScreenId == key)?.MirrorOf == me)
+            {
+                continue;
+            }
+            wanted.Add(new EditTarget(geo.LabelFor(State, key), key));
+        }
+        ReplaceIfChanged(MirrorSources, wanted);
+    }
+
+    /// <summary>A lock goes through the action layer (journaled, the sandbox and the air agree); OWN lights up when the lock gave the target its picture.</summary>
+    private void SetLocked(string targetId, bool locked)
+    {
+        _services.Actions.Execute(new ShowAction(locked ? ShowActionKind.ScreenLock : ShowActionKind.ScreenUnlock, targetId), ActionOrigin.Desk);
+        RebuildEditTargets();
+        RefreshTakeScope();
     }
 
     // ---- custom labels ------------------------------------------------------
@@ -1793,7 +1878,8 @@ public sealed class MainViewModel : Observable
     }
 
     /// <summary>How many targets the next CUT / TAKE leaves alone — shown beside the buttons.</summary>
-    public int HeldCount => SwitcherTiles.Count(t => !t.IsProgramTile && !t.IsArmed);
+    /// <summary>Tiles the next CUT / TAKE leaves alone: un-armed, or locked (a confidence or info screen).</summary>
+    public int HeldCount => SwitcherTiles.Count(t => !t.IsProgramTile && (!t.IsArmed || t.IsLocked));
 
     public bool AnyHeld => HeldCount > 0;
 
@@ -1893,6 +1979,7 @@ public sealed class MainViewModel : Observable
         SwitcherTiles.Clear();
 
         var arming = _services.Arming;
+        var geo = Rig.Geometry(State, known);
         var groups = CanvasGroups(known);
         var grouped = groups.SelectMany(g => g).Select(p => p.ScreenId).ToHashSet();
         var ordered = OrderedLivePlacements(known);
@@ -1921,7 +2008,9 @@ public sealed class MainViewModel : Observable
                 members.All(m => m.Enabled),
                 isSelected: _selectedTargetId == key,
                 isOwn: ContentTargets.UsesOwnPattern(State, key),
-                isArmed: arming.IsArmed(key))
+                isArmed: arming.IsArmed(key),
+                isLocked: ScreenRoles.IsLocked(State, key),
+                roleBadge: members.Select(m => m.Role).Distinct().Count() == 1 ? ScreenRoles.Badge(members[0].Role) : "")
             {
                 IsSendTarget = keepTargets.Contains(key),
                 IsMonitored = !monitorOff.Contains(key),
@@ -1941,7 +2030,12 @@ public sealed class MainViewModel : Observable
                 placement.Enabled,
                 isSelected: _selectedTargetId == id,
                 isOwn: placement.UseCustomPattern,
-                isArmed: arming.IsArmed(id))
+                isArmed: arming.IsArmed(id),
+                isLocked: !placement.FollowsCues,
+                roleBadge: ScreenRoles.Badge(placement.Role),
+                mirrorNote: placement.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, placement.MirrorOf)
+                    ? "↳ " + geo.LabelFor(State, placement.MirrorOf)
+                    : "")
             {
                 IsSendTarget = keepTargets.Contains(id),
                 IsMonitored = !monitorOff.Contains(id),
@@ -1956,6 +2050,7 @@ public sealed class MainViewModel : Observable
         RefreshTakeScope();
         // A join creates and destroys canvases, so the tile picker's targets move with the wall.
         RebuildMultiviewTargets();
+        RebuildMirrorSources();
     }
 
     /// <summary>Live refresh without rebuilding (keeps ticks, focus and MON; called each poll and on every change that moves a tally).</summary>
@@ -1968,16 +2063,41 @@ public sealed class MainViewModel : Observable
         {
             if (tile.TargetId is not { } target)
             {
-                tile.RefreshExternal(true, _selectedTargetId is null, isOwn: false, isArmed: true, onAir: live, held: false);
+                tile.RefreshExternal(true, _selectedTargetId is null, isOwn: false, isArmed: true, onAir: live, held: false, locked: false);
                 continue;
             }
             var members = tile.MemberIds.Select(id => byId.GetValueOrDefault(id)).Where(p => p is not null).ToList();
             var enabled = members.Count > 0 && members.All(p => p!.Enabled);
             var armed = _services.Arming.IsArmed(target);
+            var locked = ScreenRoles.IsLocked(State, target);
             tile.RefreshExternal(enabled, target == _selectedTargetId,
                 ContentTargets.UsesOwnPattern(State, target), armed,
-                onAir: live && enabled, held: building && !armed);
+                onAir: live && enabled, held: building && (!armed || locked), locked: locked);
         }
+    }
+
+    /// <summary>LOCK on a tile: the target keeps its picture through looks, cues, TAKE ALL and stingers; through the action layer, so it is journaled.</summary>
+    internal void SetTileLocked(SwitcherTile tile, bool locked)
+    {
+        if (tile.TargetId is not { } target) return;
+        if (ScreenRoles.IsLocked(State, target) == locked) return;
+        SetLocked(target, locked);
+    }
+
+    /// <summary>SEND on a tile: the preview lands on this target alone as its own pattern; everything else stays.</summary>
+    internal void SendSandboxToTile(SwitcherTile tile)
+    {
+        if (tile.TargetId is not { } target) return;
+        if (!_services.Sandbox.Active)
+        {
+            StatusMessage = "Open EDIT SAFE and build the picture first — then SEND puts it on this tile alone.";
+            return;
+        }
+        _services.Sandbox.SendToTargets(new[] { target });
+        ClearSendTargets();
+        Raise(nameof(IsSandboxActive));
+        RebuildEditTargets(); // the target now shows its own pattern — OWN lights up
+        StatusMessage = $"Sent to {tile.Title} as its own pattern — every other target stays as it was.";
     }
 
     /// <summary>A tile's on/off switch: every member screen follows, pinned as a user choice.</summary>

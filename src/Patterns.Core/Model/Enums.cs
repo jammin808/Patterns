@@ -121,6 +121,23 @@ public enum PipSource
     Capture,
 }
 
+/// <summary>
+/// What a screen is for. The role labels the wall tile and picks the default for whether the
+/// screen follows looks and cues; it never changes what a screen can show. First member is the
+/// fallback for a value this build does not know.
+/// </summary>
+public enum ScreenRole
+{
+    /// <summary>The audience's picture: follows looks, cues, TAKE and a stinger.</summary>
+    Main,
+    /// <summary>A stage comfort / confidence monitor — notes, the clock, the next cue: its own picture, left alone by looks and cues.</summary>
+    Confidence,
+    /// <summary>A foyer or info screen: its own picture, left alone by looks and cues.</summary>
+    Info,
+    /// <summary>A repeater: shows another target's picture ("Mirror of").</summary>
+    Repeater,
+}
+
 /// <summary>Physical output rotation (content is pre-rotated so viewers see it upright).</summary>
 public enum OutputRotation
 {

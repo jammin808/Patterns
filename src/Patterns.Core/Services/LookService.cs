@@ -147,6 +147,10 @@ public static class LookService
         }
         if (data is null) return false;
 
+        // A locked target — a confidence monitor, an info screen — keeps the picture it has
+        // through every look; read what it keeps before the look moves anything.
+        var held = ScreenRoles.Held(state);
+
         ModelCopier.Copy(data.Pattern, state.Pattern);
         state.Independent.Clear();
         foreach (var a in data.Independent)
@@ -176,6 +180,15 @@ public static class LookService
             {
                 if (ContentTargets.IsCanvasKey(key)) ContentTargets.SetOwnPattern(state, key, true);
             }
+        }
+
+        // The locked targets get their pictures back as their own patterns, whatever the look said.
+        foreach (var (id, kept) in held)
+        {
+            var brought = state.Independent.FirstOrDefault(a => a.ScreenId == id);
+            if (brought is not null) state.Independent.Remove(brought);
+            state.Independent.Add(kept);
+            ContentTargets.SetOwnPattern(state, id, true);
         }
 
         if (rearmCountdown && state.Countdown.Enabled && state.Countdown.TargetKind == CountdownTargetKind.Duration)

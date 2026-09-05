@@ -127,7 +127,7 @@ class PatternsInstance extends InstanceBase {
 			machine_power: this.state.machine?.battery ? 'BATTERY' : 'mains',
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
-		this.checkFeedbacks('blackout', 'screen_enabled', 'audio_playing', 'stinger_playing', 'music_playing',
+		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'audio_playing', 'stinger_playing', 'music_playing',
 			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
@@ -198,6 +198,15 @@ class PatternsInstance extends InstanceBase {
 						choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] },
 				],
 				callback: (a) => send(`SCREEN ${a.options.n} ${a.options.mode}`),
+			},
+			screen_lock: {
+				name: 'Screen lock / unlock (locked, it keeps its picture through looks, cues and TAKE)',
+				options: [
+					{ type: 'number', id: 'n', label: 'Screen number (overview order)', default: 1, min: 1, max: 32 },
+					{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE',
+						choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'Lock' }, { id: 'OFF', label: 'Unlock' }] },
+				],
+				callback: (a) => send(`LOCK ${a.options.n} ${a.options.mode}`),
 			},
 			group: {
 				name: 'Canvas group on/off',
@@ -318,6 +327,13 @@ class PatternsInstance extends InstanceBase {
 				defaultStyle: { bgcolor: combineRgb(0, 120, 60), color: combineRgb(255, 255, 255) },
 				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
 				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.enabled) === true,
+			},
+			screen_locked: {
+				type: 'boolean',
+				name: 'Screen is locked (keeps its picture through looks, cues and TAKE)',
+				defaultStyle: { bgcolor: combineRgb(160, 110, 0), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
+				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.locked) === true,
 			},
 			audio_playing: {
 				type: 'boolean',

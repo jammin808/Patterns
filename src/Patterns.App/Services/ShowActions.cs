@@ -84,6 +84,17 @@ public sealed class ShowActions
         return true;
     }
 
+    /// <summary>A screen by overview number (1-based), a placement id, or a canvas key — as a content target the rig has; null when it does not.</summary>
+    private string? ResolveScreenTarget(string target)
+    {
+        if (int.TryParse(target, out var number))
+        {
+            var ordered = Rig.OrderedLivePlacements(State, _s.Screens.All);
+            return number >= 1 && number <= ordered.Count ? ordered[number - 1].Placement.ScreenId : null;
+        }
+        return ContentTargets.IsInRig(State, target) ? target : null;
+    }
+
     /// <summary>Every screen of canvas 'A'/'B'… on or off at once. False = no such canvas.</summary>
     public bool SetGroupEnabled(string letter, bool enabled, IReadOnlyList<ScreenInfo>? screens = null)
     {
@@ -111,6 +122,8 @@ public sealed class ShowActions
                 label = Rig.LabelFor(x.Placement, x.Info),
                 enabled = x.Placement.Enabled,
                 group = Rig.LetterOf(groups, x.Placement),
+                locked = !x.Placement.FollowsCues,
+                role = x.Placement.Role.ToString().ToLowerInvariant(),
             })
             .ToArray();
     }
@@ -353,6 +366,34 @@ public sealed class ShowActions
                 placement.UserPinned = true;
                 return ActionResult.Done();
             }
+            case ShowActionKind.ScreenLock:
+            case ShowActionKind.ScreenUnlock:
+            case ShowActionKind.ScreenLockToggle:
+            {
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var locked = a.Kind switch
+                {
+                    ShowActionKind.ScreenLock => true,
+                    ShowActionKind.ScreenUnlock => false,
+                    _ => !ScreenRoles.IsLocked(State, target),
+                };
+                // "Keep what you show": the picture on air for the target, whichever state holds
+                // it — the live model, or the frozen program while the sandbox is open. Both get
+                // the lock, so a look to air and the next TAKE agree.
+                var air = _s.AirState;
+                var source = ScreenRoles.ResolveMirror(air, target);
+                var showing = ContentTargets.UsesOwnPattern(air, source)
+                    ? air.Independent.FirstOrDefault(x => x.ScreenId == source)?.Pattern ?? air.Pattern
+                    : air.Pattern;
+                var picture = JsonUtil.ClonePattern(showing);
+                _s.BulkEdit(() => ScreenRoles.SetLocked(State, target, locked, picture));
+                if (_s.Sandbox.Active) _s.EditAir(program => ScreenRoles.SetLocked(program, target, locked, picture));
+                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                return ActionResult.Done(locked
+                    ? $"{label} locked — it keeps its picture through looks, cues, TAKE ALL and stingers."
+                    : $"{label} follows looks, cues and TAKE again.");
+            }
             case ShowActionKind.CanvasOn:
             case ShowActionKind.CanvasOff:
             {
@@ -490,10 +531,13 @@ public sealed class ShowActions
                     return ActionResult.Refused("Open EDIT SAFE (the sandbox) first — build the look, then CUT or TAKE it to air.");
                 }
                 var cut = a.Kind == ShowActionKind.Cut;
+                // Un-armed tiles and locked screens (a confidence monitor, an info screen) keep their picture.
                 var unarmed = _s.Arming.Unarmed;
-                _s.Sandbox.SendAll(cut, unarmed);
+                var locked = ScreenRoles.LockedTargets(State, Rig.Targets(State, _s.Screens.All));
+                IReadOnlyCollection<string> held = locked.Count == 0 ? unarmed : unarmed.Concat(locked).ToHashSet(StringComparer.Ordinal);
+                _s.Sandbox.SendAll(cut, held);
                 var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
-                var scope = unarmed.Count == 0 ? "on every screen" : $"on the armed tiles ({unarmed.Count} kept their picture)";
+                var scope = held.Count == 0 ? "on every screen" : $"on the armed tiles ({held.Count} kept their picture)";
                 return ActionResult.Done((cut
                     ? $"CUT — sandbox is now the program {scope}."
                     : $"TAKE — sandbox faded up {scope}.") + rearmed);
@@ -712,6 +756,8 @@ public sealed class ShowActions
         CueActionKind.BlackoutOff => new ShowAction(ShowActionKind.BlackoutOff),
         CueActionKind.ScreenOn => new ShowAction(ShowActionKind.ScreenOn, a.Target),
         CueActionKind.ScreenOff => new ShowAction(ShowActionKind.ScreenOff, a.Target),
+        CueActionKind.ScreenLock => new ShowAction(ShowActionKind.ScreenLock, a.Target),
+        CueActionKind.ScreenUnlock => new ShowAction(ShowActionKind.ScreenUnlock, a.Target),
         CueActionKind.CanvasOn => new ShowAction(ShowActionKind.CanvasOn, a.Target),
         CueActionKind.CanvasOff => new ShowAction(ShowActionKind.CanvasOff, a.Target),
         CueActionKind.CountdownStart => new ShowAction(ShowActionKind.CountdownStart, "", a.Value),

@@ -164,6 +164,10 @@ public static class CueValidator
                     hasContent = true;
                     if (state.Output.Placements.All(p => p.ScreenId != a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     break;
+                case CueActionKind.ScreenLock:
+                case CueActionKind.ScreenUnlock:
+                    if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    break;
                 case CueActionKind.CanvasOn:
                 case CueActionKind.CanvasOff:
                 {

@@ -88,6 +88,14 @@ public enum ShowActionKind
     LowerThirdShow,
     /// <summary>The lower third on air leaves the way it was designed to.</summary>
     LowerThirdHide,
+    /// <summary>
+    /// Target = screen number (arrangement order, 1-based), a placement screen id or a canvas
+    /// key: locked, it keeps its picture through looks, cues, TAKE ALL and a stinger; unlocked,
+    /// it follows them again.
+    /// </summary>
+    ScreenLock,
+    ScreenUnlock,
+    ScreenLockToggle,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

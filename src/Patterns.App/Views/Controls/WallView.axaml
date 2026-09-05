@@ -19,11 +19,15 @@
         <DataTemplate x:DataType="vm:SwitcherTile">
           <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Width="188" Padding="6,4">
             <StackPanel Spacing="3">
-              <Grid ColumnDefinitions="Auto,*,Auto">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto">
                 <Ellipse Classes="tally" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                          Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
                          ToolTip.Tip="Tally: red = the audience sees it, amber = held through the next send, grey = not on air" />
-                <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="0,2" Cursor="Hand"
+                <!-- The role badge: CONF, INFO or REP; a main screen wears none -->
+                <Border Grid.Column="1" Classes="roleBadge" IsVisible="{Binding HasBadge}" ToolTip.Tip="{Binding BadgeTip}">
+                  <TextBlock Text="{Binding RoleBadge}" />
+                </Border>
+                <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="0,2" Cursor="Hand"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectTileCommand}"
                         CommandParameter="{Binding}"
@@ -31,10 +35,15 @@
                   <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                              Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
                 </Button>
-                <Panel Grid.Column="2" IsVisible="{Binding !IsProgramTile}">
-                  <CheckBox IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Padding="0" MinWidth="0" Margin="4,0,0,0"
-                            IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsSandboxActive}"
-                            ToolTip.Tip="Send the sandbox to this tile as its own pattern (SEND TO TICKED)" />
+                <!-- With the sandbox open: SEND puts the preview on this tile alone; the tick joins SEND TO TICKED -->
+                <Panel Grid.Column="3" IsVisible="{Binding !IsProgramTile}">
+                  <StackPanel Orientation="Horizontal" Spacing="2"
+                              IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsSandboxActive}">
+                    <Button Classes="wall" Content="SEND" Command="{Binding SendHereCommand}" Focusable="False"
+                            ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern — every other target stays as it is" />
+                    <CheckBox IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Padding="0" MinWidth="0" Margin="4,0,0,0"
+                              ToolTip.Tip="Tick to include this tile in SEND TO TICKED" />
+                  </StackPanel>
                 </Panel>
               </Grid>
               <Grid ColumnDefinitions="*,4,*" Height="54" IsVisible="{Binding IsMonitored}">
@@ -49,15 +58,18 @@
                   </Border>
                 </ctl:AspectBox>
               </Grid>
-              <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                <ToggleButton Classes="wall" Content="OWN" IsChecked="{Binding IsOwn, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}"
-                              ToolTip.Tip="OWN: this target shows its own pattern instead of the program (starts as a copy of the program, so nothing jumps)" />
+              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                <ToggleButton Classes="wall" Content="OWN" IsChecked="{Binding IsOwn, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}" IsEnabled="{Binding !IsMirror}"
+                              ToolTip.Tip="OWN: this target shows its own pattern instead of the program (starts as a copy of the program, so nothing jumps). A repeater draws its source's picture and has none of its own" />
                 <ToggleButton Grid.Column="1" Classes="wall" Content="MON" IsChecked="{Binding IsMonitored, Mode=TwoWay}"
                               ToolTip.Tip="MON: draw this target's PGM and PVW miniatures (off saves GPU on a big rig; changes nothing on air)" />
                 <ToggleButton Grid.Column="2" Classes="wall" Content="ARM" IsChecked="{Binding IsArmed, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}"
                               ToolTip.Tip="ARM: the next CUT / TAKE changes this target. Un-armed, it keeps the picture the audience is seeing" />
-                <TextBlock Grid.Column="3" Classes="hint" Text="{Binding SizeText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis" />
-                <ToggleSwitch Grid.Column="4" IsChecked="{Binding Enabled, Mode=TwoWay}" OnContent="" OffContent=""
+                <ToggleButton Grid.Column="3" Classes="wall lock" Content="LOCK" IsChecked="{Binding IsLocked, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}"
+                              ToolTip.Tip="LOCK: this target keeps its picture through every look, cue, clicker step, TAKE ALL and stinger — a confidence monitor, an info screen. SEND to it, or OWN and edit, when it should change. Saved with the show" />
+                <TextBlock Grid.Column="4" Classes="hint" Text="{Binding FootText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding FootText}" />
+                <ToggleSwitch Grid.Column="5" IsChecked="{Binding Enabled, Mode=TwoWay}" OnContent="" OffContent=""
                               MinWidth="0" Margin="0,-4" IsVisible="{Binding !IsProgramTile}"
                               ToolTip.Tip="OUTPUT: screen on / off (live)" />
               </Grid>

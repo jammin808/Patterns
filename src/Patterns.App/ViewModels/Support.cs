@@ -128,9 +128,11 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     private bool _isMonitored = true;
     private bool _isOnAir;
     private bool _isHeld;
+    private bool _isLocked;
 
     public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
-        SkiaSharp.SKSizeI size, bool enabled, bool isSelected, bool isOwn, bool isArmed)
+        SkiaSharp.SKSizeI size, bool enabled, bool isSelected, bool isOwn, bool isArmed,
+        bool isLocked = false, string roleBadge = "", string mirrorNote = "")
     {
         _vm = vm;
         Title = title;
@@ -141,9 +143,37 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         _isSelected = isSelected;
         _isOwn = isOwn;
         _isArmed = isArmed;
+        _isLocked = isLocked;
+        RoleBadge = roleBadge;
+        MirrorNote = mirrorNote;
+        SendHereCommand = new RelayCommand(() => _vm.SendSandboxToTile(this));
         PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false);
         PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true);
     }
+
+    /// <summary>CONF / INFO / REP for a screen with a role; empty for a main screen.</summary>
+    public string RoleBadge { get; }
+
+    public bool HasBadge => RoleBadge.Length > 0;
+
+    public string BadgeTip => RoleBadge switch
+    {
+        "CONF" => "Confidence — a stage monitor: its own picture, left alone by looks and cues",
+        "INFO" => "Info — a foyer or info screen: its own picture, left alone by looks and cues",
+        "REP" => "Repeater — a copy of another target",
+        _ => "",
+    };
+
+    /// <summary>"↳ A · Main wall" when this screen repeats another target; empty otherwise.</summary>
+    public string MirrorNote { get; }
+
+    public bool IsMirror => MirrorNote.Length > 0;
+
+    /// <summary>The bottom line of the tile: what it repeats, or its size.</summary>
+    public string FootText => IsMirror ? MirrorNote : SizeText;
+
+    /// <summary>SEND: the preview lands on this tile alone (the sandbox must be open).</summary>
+    public RelayCommand SendHereCommand { get; }
 
     /// <summary>"PGM", "A · Main wall" or "2 · Stage left".</summary>
     public string Title { get; }
@@ -220,6 +250,16 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         }
     }
 
+    /// <summary>LOCK: this target keeps its picture through looks, cues, TAKE ALL and stingers (a confidence or info screen). Saved with the show.</summary>
+    public bool IsLocked
+    {
+        get => _isLocked;
+        set
+        {
+            if (Set(ref _isLocked, value)) _vm.SetTileLocked(this, value);
+        }
+    }
+
     /// <summary>MON: the wall draws this target's PGM and PVW miniatures (off saves GPU on a big rig).</summary>
     public bool IsMonitored
     {
@@ -242,8 +282,13 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     }
 
     /// <summary>Refreshes live state without rebuilding the wall (keeps focus, ticks and MON).</summary>
-    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held)
+    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held, bool locked)
     {
+        if (_isLocked != locked)
+        {
+            _isLocked = locked;
+            Raise(nameof(IsLocked)); // reflects — no SetTileLocked echo
+        }
         if (_enabled != enabled)
         {
             _enabled = enabled;
@@ -530,6 +575,14 @@ public static class Lists
     {
         new(CanvasScaleMode.Fit, "Fit output (letterbox)"),
         new(CanvasScaleMode.OneToOne, "1:1 pixels (centre)"),
+    };
+
+    public static readonly EnumItem[] ScreenRoles =
+    {
+        new(ScreenRole.Main, Patterns.Core.Services.ScreenRoles.Label(ScreenRole.Main)),
+        new(ScreenRole.Confidence, Patterns.Core.Services.ScreenRoles.Label(ScreenRole.Confidence)),
+        new(ScreenRole.Info, Patterns.Core.Services.ScreenRoles.Label(ScreenRole.Info)),
+        new(ScreenRole.Repeater, Patterns.Core.Services.ScreenRoles.Label(ScreenRole.Repeater)),
     };
 
     public static readonly EnumItem[] Rotations =

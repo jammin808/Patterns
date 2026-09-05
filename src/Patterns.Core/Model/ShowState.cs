@@ -153,6 +153,26 @@ public sealed class ScreenPlacement : Observable
     /// <summary>Physical rotation — content is pre-rotated so a rotated display reads upright.</summary>
     public OutputRotation Rotation { get => _rotation; set => Set(ref _rotation, value); }
 
+    private ScreenRole _role = ScreenRole.Main;
+    private bool _followsCues = true;
+    private string _mirrorOf = "";
+
+    /// <summary>What the screen is for: the wall tile's badge, and the default for <see cref="FollowsCues"/>.</summary>
+    public ScreenRole Role { get => _role; set => Set(ref _role, value); }
+
+    /// <summary>
+    /// Looks, cues, the clicker, TAKE / CUT to all and a stinger's takeover change this screen.
+    /// Off — locked — it keeps its own picture until something is sent to it by name: a
+    /// confidence monitor or an info screen that must not change on a cue.
+    /// </summary>
+    public bool FollowsCues { get => _followsCues; set => Set(ref _followsCues, value); }
+
+    /// <summary>
+    /// The target this screen duplicates — a screen id or a joined canvas's key — or "" for its
+    /// own content. A repeater draws its source's picture wherever the source's picture goes.
+    /// </summary>
+    public string MirrorOf { get => _mirrorOf; set => Set(ref _mirrorOf, value ?? ""); }
+
     private int _fpsOverride;
 
     /// <summary>This output's own frame rate; 0 = the show's master rate (or the display's refresh when that is 0 too).</summary>

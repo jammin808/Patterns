@@ -346,8 +346,8 @@
   <Style Selector="Ellipse.cueDot.current"><Setter Property="Fill" Value="{StaticResource TallyPvwBrush}" /></Style>
   <Style Selector="Ellipse.cueDot.broken"><Setter Property="Fill" Value="{StaticResource TallyPgmBrush}" /></Style>
 
-  <!-- OWN / MON / ARM on a wall tile: small, lit when on -->
-  <Style Selector="ToggleButton.wall">
+  <!-- OWN / MON / ARM / LOCK (and SEND) on a wall tile: small, lit when on; a lock reads amber, held -->
+  <Style Selector="ToggleButton.wall, Button.wall">
     <Setter Property="Padding" Value="5,1" />
     <Setter Property="Margin" Value="0,0,3,0" />
     <Setter Property="MinHeight" Value="0" />
@@ -361,6 +361,25 @@
   <Style Selector="ToggleButton.wall:checked /template/ ContentPresenter">
     <Setter Property="Background" Value="{StaticResource AccentDimBrush}" />
     <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="ToggleButton.wall.lock:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource TallyHoldBrush}" />
+    <Setter Property="Foreground" Value="#0E0F13" />
+  </Style>
+  <Style Selector="Border.roleBadge">
+    <Setter Property="Background" Value="#14232E" />
+    <Setter Property="BorderBrush" Value="{StaticResource AccentDimBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="4,0" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.roleBadge > TextBlock">
+    <Setter Property="FontSize" Value="9" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="1" />
+    <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
   </Style>
 
   <Style Selector="TextBlock.h2">

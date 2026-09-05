@@ -36,6 +36,7 @@ public static class ContentTargets
         foreach (var p in state.Output.Placements)
         {
             if (p.ScreenId == oldId) p.ScreenId = newId;
+            if (p.MirrorOf.Length > 0) p.MirrorOf = Rekey(p.MirrorOf);
         }
         foreach (var a in state.Independent) a.ScreenId = Rekey(a.ScreenId);
         foreach (var canvas in state.Output.CanvasNames) canvas.MemberKey = Rekey(canvas.MemberKey);

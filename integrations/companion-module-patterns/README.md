@@ -42,6 +42,14 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Screen locks (module 1.5.0)
+
+The **Screens** category gains `screen_lock` (toggle / lock / unlock, `LOCK n …` on the wire): a
+locked screen keeps its picture through every look, cue, TAKE ALL and stinger — a confidence
+monitor or an info screen that must not change on a cue — and follows again when unlocked. The
+`screen_locked` feedback lights amber while it is locked, and the state's `screens[]` rows carry
+`locked` and `role`. Every existing action, feedback and variable id is unchanged.
+
 ## Lower thirds (module 1.4.0)
 
 The **Lower thirds** category puts a design from the Lower thirds page on air over whatever is

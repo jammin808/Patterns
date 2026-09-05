@@ -62,6 +62,10 @@ public enum RemoteCommandKind
     LowerThirdShow,
     /// <summary>"LOWERTHIRD OFF" (or "HIDE") — the one on air leaves.</summary>
     LowerThirdHide,
+    /// <summary>"LOCK n ON" / "LOCK n OFF" / "LOCK n TOGGLE" (bare "LOCK n" toggles) — screen n keeps its picture through looks, cues and TAKE, or follows them again.</summary>
+    ScreenLock,
+    ScreenUnlock,
+    ScreenLockToggle,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module).</summary>
@@ -202,6 +206,19 @@ public static class ControlProtocol
                     "ON" => new(RemoteCommandKind.ScreenOn, n, ""),
                     "OFF" => new(RemoteCommandKind.ScreenOff, n, ""),
                     _ => new(RemoteCommandKind.ScreenToggle, n, ""),
+                };
+            }
+
+            case "LOCK":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                if (sub.Length < 1 || !int.TryParse(sub[0], out var n)) return new(RemoteCommandKind.Unknown, 0, s);
+                var action = sub.Length > 1 ? sub[1].ToUpperInvariant() : "TOGGLE";
+                return action switch
+                {
+                    "ON" => new(RemoteCommandKind.ScreenLock, n, ""),
+                    "OFF" => new(RemoteCommandKind.ScreenUnlock, n, ""),
+                    _ => new(RemoteCommandKind.ScreenLockToggle, n, ""),
                 };
             }
 

@@ -67,6 +67,9 @@ public enum CueActionKind
     /// <summary>Target = lower third id: it goes on air; hide takes the one on air off.</summary>
     LowerThirdShow,
     LowerThirdHide,
+    /// <summary>Target = screen id (or a canvas key): lock keeps its picture through looks, cues and TAKE; unlock lets it follow again.</summary>
+    ScreenLock,
+    ScreenUnlock,
 }
 
 /// <summary>One typed step of a cue.</summary>
