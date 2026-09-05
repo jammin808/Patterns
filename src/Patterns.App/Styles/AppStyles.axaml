@@ -426,6 +426,50 @@
     <Setter Property="CornerRadius" Value="14" />
     <Setter Property="FontSize" Value="12" />
     <Setter Property="Background" Value="#20242E" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <!-- The tally on the Show panel's chips: green in the preview, red on air (air wins when both). -->
+  <Style Selector="Button.chip.pvw">
+    <Setter Property="Background" Value="#10241B" />
+    <Setter Property="BorderBrush" Value="{StaticResource TallyPvwBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button.chip.air">
+    <Setter Property="Background" Value="#2A1316" />
+    <Setter Property="BorderBrush" Value="{StaticResource TallyPgmBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+
+  <!-- Library rows (Looks, Audio) with a tally edge, and the chip that names it. -->
+  <Style Selector="Border.lookRow, Border.stingerRow">
+    <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Border.lookRow.pvw">
+    <Setter Property="Background" Value="#10241B" />
+    <Setter Property="BorderBrush" Value="{StaticResource TallyPvwBrush}" />
+  </Style>
+  <Style Selector="Border.lookRow.air, Border.stingerRow.air">
+    <Setter Property="Background" Value="#2A1316" />
+    <Setter Property="BorderBrush" Value="{StaticResource TallyPgmBrush}" />
+  </Style>
+  <Style Selector="Border.tallyChip">
+    <Setter Property="Padding" Value="7,2" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="{StaticResource TallyOffBrush}" />
+  </Style>
+  <Style Selector="Border.tallyChip.pvw">
+    <Setter Property="Background" Value="{StaticResource TallyPvwBrush}" />
+  </Style>
+  <Style Selector="Border.tallyChip.air">
+    <Setter Property="Background" Value="{StaticResource TallyPgmBrush}" />
+  </Style>
+  <Style Selector="Border.tallyChip > TextBlock">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="#FFFFFF" />
   </Style>
 
   <Style Selector="Button.mini">

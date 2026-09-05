@@ -78,6 +78,17 @@ public sealed class AppServices
     public event Action? AirLabelChanged;
 
     /// <summary>
+    /// The look last put on air, by id ("" = none recorded): a recall from anywhere sets it, a
+    /// playlist part clears it, a TAKE carries the preview's over. The desk's tally lights that
+    /// look — exactly, or "edited" once the program no longer matches its picture — and with
+    /// nothing recorded (a fresh start) lights whichever look the picture matches.
+    /// </summary>
+    public string AirLookId { get; set; } = "";
+
+    /// <summary>The look loaded into the sandboxed preview, by id ("" = none): set by → PVW, cleared when the sandbox closes.</summary>
+    public string PreviewLookId { get; set; } = "";
+
+    /// <summary>
     /// What makes background music duck — a VOG announcement playing over it. One source, read by
     /// every gain rule (the music players, a stinger sound, a clip's soundtrack) so they duck
     /// together. A Func so a headless test can drive it without a voice.

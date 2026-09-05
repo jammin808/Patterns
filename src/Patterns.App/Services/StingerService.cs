@@ -33,9 +33,14 @@ public sealed class StingerService : IDisposable
     private DateTime _firedUtc;
     private bool _stingSoundActive;                                // the session is a sting sound (no clip)
     private string _sessionName = "";                              // the item that owns the session, "" = none
+    private string _sessionId = "";
+    private DateTime _sessionStartUtc;
     private StingerKind? _sessionKind;
     private bool _vogSoundActive;                                  // a VOG sound plays — alone, or over the session
     private string _vogSoundName = "";
+    private string _vogSoundId = "";
+    private DateTime _vogSoundStartUtc;
+    private string _pulseId = "";                                  // the last effect sting fired (the channel says whether it still runs)
     private bool _vogSoundHasLabel;                                // it named the air (nothing else was on)
     private string _status = "Ready.";
     private string _ourLabel = "";                                 // the LIVE strip's label while something plays
@@ -89,6 +94,27 @@ public sealed class StingerService : IDisposable
 
     /// <summary>A VOG sound playing right now, by name, or "" — over the show, or over a stinger it ducks.</summary>
     public string VogSoundOnAir => _vogSoundName;
+
+    // ---- the tally: which library items are playing, by id ------------------------------------
+
+    /// <summary>The item that owns the session (a clip, a held frame, a sting sound), by id; "" = none.</summary>
+    public string SessionId => _sessionId;
+
+    /// <summary>When the session's item was fired (UTC, the service's clock).</summary>
+    public DateTime SessionStartUtc => _sessionStartUtc;
+
+    /// <summary>The VOG sound playing, by id; "" = none.</summary>
+    public string VogSoundId => _vogSoundId;
+
+    public DateTime VogSoundStartUtc => _vogSoundStartUtc;
+
+    /// <summary>The effect sting last fired, by id — <see cref="EffectImpulses.Current"/> says whether it is still running.</summary>
+    public string PulseId => _pulseId;
+
+    /// <summary>Raised on the UI thread whenever something starts or stops playing, so a tally can follow at once.</summary>
+    public event Action? Changed;
+
+    private void NotifyChanged() => Changed?.Invoke();
 
     /// <summary>A clip, a held frame or a sting sound owns the show's session (a VOG sound never does).</summary>
     private bool SessionOpen => ClipActive || _holding || _stingSoundActive;
@@ -163,7 +189,18 @@ public sealed class StingerService : IDisposable
 
     public bool Fire(StingerItemConfig item, DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? NowUtc();
+        try
+        {
+            return FireCore(item, nowUtc ?? NowUtc());
+        }
+        finally
+        {
+            NotifyChanged();
+        }
+    }
+
+    private bool FireCore(StingerItemConfig item, DateTime now)
+    {
         var name = item.DisplayName;
         if (item.Source == StingerSource.EffectPulse)
         {
@@ -171,6 +208,7 @@ public sealed class StingerService : IDisposable
             // no after-policy, no change to the music. It fires over anything, and anything fires
             // over it; a re-press restarts the surge from its own rise.
             EffectImpulses.Fire(item.PulsePreset, ShowClock.Seconds, item.PulseMs / 1000.0);
+            _pulseId = item.Id;
             _status = $"Pulse: {name}";
             Log.Info($"Effect pulse fired: {name}");
             return true;
@@ -296,6 +334,8 @@ public sealed class StingerService : IDisposable
         }
         _vogSoundActive = true;
         _vogSoundName = name;
+        _vogSoundId = item.Id;
+        _vogSoundStartUtc = now;
         if (!SessionOpen)
         {
             TakeLabel($"VOG: {name}");
@@ -319,6 +359,8 @@ public sealed class StingerService : IDisposable
     {
         _vogSoundActive = false;
         _vogSoundName = "";
+        _vogSoundId = "";
+        NotifyChanged();
         if (_vogSoundHasLabel)
         {
             _vogSoundHasLabel = false;
@@ -339,6 +381,8 @@ public sealed class StingerService : IDisposable
             ? new AfterPlan(item.DisplayName, item.After, item.AfterTarget, item.MusicReturns)
             : null;
         _sessionName = item.DisplayName;
+        _sessionId = item.Id;
+        _sessionStartUtc = now;
         _sessionKind = item.Kind;
         RefreshNames();
         TakeLabel(item.Kind == StingerKind.Sting ? $"STING: {item.DisplayName}" : $"VOG: {item.DisplayName}");
@@ -351,11 +395,23 @@ public sealed class StingerService : IDisposable
     /// </summary>
     public void Stop(DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? NowUtc();
+        try
+        {
+            StopCore(nowUtc ?? NowUtc());
+        }
+        finally
+        {
+            NotifyChanged();
+        }
+    }
+
+    private void StopCore(DateTime now)
+    {
         _services.AudioPlayer.ReleaseStingers();
         _stingSoundActive = false;
         _vogSoundActive = false;
         _vogSoundName = "";
+        _vogSoundId = "";
         _vogSoundHasLabel = false;       // the session's close gives the label back below
         _holding = false;
         _holdUntilUtc = null;
@@ -632,9 +688,11 @@ public sealed class StingerService : IDisposable
     {
         _after = null;
         _sessionName = "";
+        _sessionId = "";
         _sessionKind = null;
         RefreshNames();
         _services.PinAirLook(null);
+        NotifyChanged();
         if (giveLabelBack)
         {
             GiveLabelBack();
@@ -689,11 +747,13 @@ public sealed class StingerService : IDisposable
         _holdUntilUtc = null;
         _after = null;
         _sessionName = "";
+        _sessionId = "";
         _sessionKind = null;
         RefreshNames();    // an announcement still playing keeps its name
         _status = status;
         StartGain(1, now);
         _services.PinAirLook(null);
+        NotifyChanged();
         _labelBefore = null; // the operator's own action named what is on air now
         _ourLabel = "";
         _vogSoundHasLabel = false;

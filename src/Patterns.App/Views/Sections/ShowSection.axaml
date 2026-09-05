@@ -18,8 +18,11 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:LookConfig">
-          <Button Classes="chip" Margin="0,0,6,6" Height="52" HorizontalAlignment="Stretch"
+          <!-- Lit red while it is the picture on air, green while it is loaded in the preview. -->
+          <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}"
+                  Margin="0,0,6,6" Height="52" HorizontalAlignment="Stretch"
                   HorizontalContentAlignment="Center"
+                  ToolTip.Tip="{Binding TallyText}"
                   Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
                   CommandParameter="{Binding}">
             <StackPanel>
@@ -58,8 +61,8 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:StingerItemConfig">
-            <Button Classes="chip" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
+            <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" ToolTip.Tip="{Binding OnAirText}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireVogCommand}"
                     CommandParameter="{Binding}">
               <StackPanel Orientation="Horizontal" Spacing="8">
@@ -84,8 +87,8 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:StingerItemConfig">
-            <Button Classes="chip" Margin="0,0,6,6" Height="56" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center"
+            <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="56" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" ToolTip.Tip="{Binding OnAirText}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireStingCommand}"
                     CommandParameter="{Binding}">
               <StackPanel Spacing="2">

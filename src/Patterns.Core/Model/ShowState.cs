@@ -461,6 +461,39 @@ public sealed class LookConfig : Observable
     /// items writes one) keeps the choice: only "" means "leave the music alone".
     /// </summary>
     public string MusicItemId { get => _musicItemId; set => Set(ref _musicItemId, value ?? _musicItemId); }
+
+    private bool _isOnAir;
+    private bool _isInPreview;
+    private string _tallyText = "";
+
+    /// <summary>Runtime-only tally: this look is the picture on air (exactly, or edited since — see <see cref="TallyText"/>).</summary>
+    [JsonIgnore]
+    public bool IsOnAir
+    {
+        get => _isOnAir;
+        set
+        {
+            if (Set(ref _isOnAir, value)) Raise(nameof(HasTally));
+        }
+    }
+
+    /// <summary>Runtime-only tally: this look was loaded into the sandboxed preview and is what the operator is building on.</summary>
+    [JsonIgnore]
+    public bool IsInPreview
+    {
+        get => _isInPreview;
+        set
+        {
+            if (Set(ref _isInPreview, value)) Raise(nameof(HasTally));
+        }
+    }
+
+    /// <summary>"PROGRAM", "PROGRAM · EDITED", "PREVIEW", "PREVIEW · EDITED", both, or "" — what the tally chip reads.</summary>
+    [JsonIgnore]
+    public string TallyText { get => _tallyText; set => Set(ref _tallyText, value ?? ""); }
+
+    [JsonIgnore]
+    public bool HasTally => _isOnAir || _isInPreview;
 }
 
 /// <summary>A scheduled recall: apply a look at a time of day, daily.</summary>
@@ -646,6 +679,32 @@ public sealed class StingerItemConfig : Observable
 
     [JsonIgnore]
     public bool IsFile => _source == StingerSource.File;
+
+    private bool _isOnAir;
+    private string _onAirText = "";
+    private double _onAirProgress = -1;
+
+    /// <summary>Runtime-only tally: this item is playing right now — its sound, its clip, its held frame, or its surge.</summary>
+    [JsonIgnore]
+    public bool IsOnAir { get => _isOnAir; set => Set(ref _isOnAir, value); }
+
+    /// <summary>"ON AIR · 12 s", "HOLDING", "SURGING · 0.4 s left", or "" — what the row's chip reads.</summary>
+    [JsonIgnore]
+    public string OnAirText { get => _onAirText; set => Set(ref _onAirText, value ?? ""); }
+
+    /// <summary>A surge's progress, 0–1; −1 when there is no bar to show (a sound or clip has no known end here).</summary>
+    [JsonIgnore]
+    public double OnAirProgress
+    {
+        get => _onAirProgress;
+        set
+        {
+            if (Set(ref _onAirProgress, value)) Raise(nameof(ShowsProgress));
+        }
+    }
+
+    [JsonIgnore]
+    public bool ShowsProgress => _onAirProgress >= 0;
 
     /// <summary>Button label ("Take your seats"); empty = the file name.</summary>
     public string Name

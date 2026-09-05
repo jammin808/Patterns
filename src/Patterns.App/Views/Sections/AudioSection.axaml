@@ -162,15 +162,22 @@
     <ItemsControl ItemsSource="{Binding State.Stingers.Items}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:StingerItemConfig">
-          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
-            <Grid ColumnDefinitions="Auto,8,Auto,8,*,6,Auto" RowDefinitions="Auto,4,Auto,4,Auto,4,Auto">
+          <!-- The row lights red while its item plays: the chip says how long, a surge shows its bar. -->
+          <Border Classes="stingerRow" Classes.air="{Binding IsOnAir}" CornerRadius="8" Padding="8,6" Margin="0,2">
+            <Grid ColumnDefinitions="Auto,8,Auto,8,*,6,Auto" RowDefinitions="Auto,4,Auto,4,Auto,4,Auto,Auto">
               <Button Grid.Column="0" Classes="go" Content="▶ FIRE" Padding="10,6"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireStingerCommand}"
                       CommandParameter="{Binding}" />
               <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <TextBlock Classes="label" Text="{Binding KindLabel}" Foreground="{StaticResource AccentBrush}" />
                 <TextBlock Classes="label" Text="{Binding Path, Converter={StaticResource MediaKind}}" IsVisible="{Binding IsFile}" />
+                <Border Classes="tallyChip air" IsVisible="{Binding IsOnAir}" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding OnAirText}" />
+                </Border>
               </StackPanel>
+              <ProgressBar Grid.Row="7" Grid.ColumnSpan="7" Height="3" Minimum="0" Maximum="1" Margin="0,4,0,0"
+                           Value="{Binding OnAirProgress}" IsVisible="{Binding ShowsProgress}"
+                           Foreground="{StaticResource TallyPgmBrush}" Background="#30000000" />
               <TextBox Grid.Column="4" Text="{Binding Name}" MinWidth="60"
                        Watermark="{Binding DisplayName}"
                        ToolTip.Tip="{Binding Path}" />

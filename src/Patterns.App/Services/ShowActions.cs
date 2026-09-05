@@ -216,9 +216,15 @@ public sealed class ShowActions
                 var ok = false;
                 _s.BulkEdit(() => ok = LookService.Apply(look.Json, State));
                 if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be loaded.");
-                return ActionResult.Done(_s.Sandbox.Active
-                    ? $"Look '{look.Name}' loaded into the preview — CUT or TAKE to put it on air."
-                    : $"Look '{look.Name}' applied.");
+                if (_s.Sandbox.Active)
+                {
+                    _s.PreviewLookId = look.Id;
+                    return ActionResult.Done($"Look '{look.Name}' loaded into the preview — CUT or TAKE to put it on air.");
+                }
+                // No sandbox: the live model is the program, so the look went on air.
+                _s.AirLookId = look.Id;
+                _s.AirLabel = look.Name;
+                return ActionResult.Done($"Look '{look.Name}' applied.");
             }
 
             case ShowActionKind.PresenterNext:
@@ -444,6 +450,7 @@ public sealed class ShowActions
                 if (index < 0 || index >= options.Sections.Count) return ActionResult.Refused($"No playlist part '{a.Target}'.");
                 _s.EditAir(_ => options.ActiveSection = index);
                 _s.AirLabel = $"PART: {options.Sections[index].Name}";
+                _s.AirLookId = ""; // a part replaced the look's picture; the tally follows the picture from here
                 return ActionResult.Done($"Playlist part '{options.Sections[index].Name}' is on air.");
             }
 
@@ -502,6 +509,7 @@ public sealed class ShowActions
         _s.EditAir(air => ok = LookService.Apply(look.Json, air, rearmCountdown: true));
         if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be applied.");
         _s.AirLabel = look.Name;
+        _s.AirLookId = look.Id;
         // "cue 18:00" from the schedule: the status line says which cue fired, as it used to.
         var prefix = value.StartsWith("cue ", StringComparison.OrdinalIgnoreCase) ? $"Cue {value[4..]}: " : "";
         var text = prefix + (sandboxed

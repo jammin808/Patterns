@@ -22,20 +22,62 @@ public sealed class LookData
 /// <summary>Capture/apply logic for looks, plus cue-firing arithmetic. Pure and unit tested.</summary>
 public static class LookService
 {
-    public static string Capture(ShowState state)
+    public static string Capture(ShowState state) => JsonUtil.Serialize(Snapshot(state));
+
+    private static LookData Snapshot(ShowState state) => new()
     {
-        var data = new LookData
+        Pattern = JsonUtil.Clone(state.Pattern),
+        Independent = JsonUtil.Clone(state.Independent),
+        Overlays = JsonUtil.Clone(state.Overlays),
+        Countdown = JsonUtil.Clone(state.Countdown),
+        Blackout = state.Blackout,
+        CustomScreens = state.Output.Placements.Where(p => p.UseCustomPattern).Select(p => p.ScreenId)
+            .Concat(state.Output.CanvasNames.Where(c => c.UseCustomPattern).Select(c => c.MemberKey))
+            .ToList(),
+    };
+
+    /// <summary>
+    /// The picture a state shows, in a form two captures of the same picture share: a countdown's
+    /// arm time is dropped (a duration countdown re-arms on every recall) and a look saved before
+    /// the screen flags existed reads as none. Two equal fingerprints are the same look on screen.
+    /// </summary>
+    public static string Fingerprint(ShowState state) => Normalise(Snapshot(state));
+
+    /// <summary>The fingerprint of a saved look; "" when its JSON cannot be read.</summary>
+    public static string Fingerprint(string lookJson)
+    {
+        try
         {
-            Pattern = JsonUtil.Clone(state.Pattern),
-            Independent = JsonUtil.Clone(state.Independent),
-            Overlays = JsonUtil.Clone(state.Overlays),
-            Countdown = JsonUtil.Clone(state.Countdown),
-            Blackout = state.Blackout,
-            CustomScreens = state.Output.Placements.Where(p => p.UseCustomPattern).Select(p => p.ScreenId)
-                .Concat(state.Output.CanvasNames.Where(c => c.UseCustomPattern).Select(c => c.MemberKey))
-                .ToList(),
+            var data = JsonUtil.Deserialize<LookData>(lookJson);
+            return data is null ? "" : Normalise(data);
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    /// <summary>True when the state shows exactly the look's picture — the look is in use, unedited.</summary>
+    public static bool Matches(string lookJson, ShowState state)
+    {
+        var look = Fingerprint(lookJson);
+        return look.Length > 0 && look == Fingerprint(state);
+    }
+
+    private static string Normalise(LookData data)
+    {
+        data.Countdown.ArmedAtUtc = null;
+        var custom = data.CustomScreens ?? new List<string>();
+        var normalised = new LookData
+        {
+            Pattern = data.Pattern,
+            Independent = data.Independent,
+            Overlays = data.Overlays,
+            Countdown = data.Countdown,
+            Blackout = data.Blackout,
+            CustomScreens = custom.OrderBy(x => x, StringComparer.Ordinal).ToList(),
         };
-        return JsonUtil.Serialize(data);
+        return JsonUtil.Serialize(normalised);
     }
 
     /// <summary>

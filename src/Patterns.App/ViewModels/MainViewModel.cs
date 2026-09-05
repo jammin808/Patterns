@@ -338,6 +338,7 @@ public sealed class MainViewModel : Observable
         });
         RefreshStingerGroups();
         RefreshAfterChoices();
+        _services.Stingers.Changed += RefreshTallies; // a session ending on the service's own timer lights the rows off
 
         // Streaming
         while (State.Stream.Destinations.Count < 2)
@@ -2410,6 +2411,7 @@ public sealed class MainViewModel : Observable
     private void OnActionPerformed(ShowAction action, ActionOrigin origin, ActionResult result)
     {
         if (result.Message.Length > 0) StatusMessage = result.Message;
+        RefreshTallies(); // a look from anywhere, a TAKE, a fired stinger: the desk lights up at once
         switch (action.Kind)
         {
             case ShowActionKind.ApplyLook:
@@ -2475,6 +2477,126 @@ public sealed class MainViewModel : Observable
     /// <summary>Loads a look into the editors (the sandboxed preview) instead of putting it on air.</summary>
     public void ApplyLookToPreview(LookConfig look)
         => _services.Actions.Execute(ShowActionKind.ApplyLookToPreview, ActionOrigin.Desk, look.Id);
+
+    // ---- the tally: which look is in use, which VOG, stinger or sting is playing ----------------
+
+    private DispatcherTimer? _tallyTimer;
+    private readonly Dictionary<string, string> _lookFingerprints = new();
+
+    /// <summary>
+    /// Lights the rows and chips: the look on air (exactly, or edited since), the look loaded into
+    /// the preview, and every VOG, stinger or effect sting playing right now. Runs on the status
+    /// poll, after every action, on the stinger service's changes — and on its own 200 ms timer
+    /// while something plays, so a surge's bar and a clip's seconds move.
+    /// </summary>
+    public void RefreshTallies()
+    {
+        RefreshLookTallies();
+        var live = RefreshStingerTallies();
+        if (live && _tallyTimer is null)
+        {
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            timer.Tick += (_, _) =>
+            {
+                if (RefreshStingerTallies()) return;
+                timer.Stop();
+                if (ReferenceEquals(_tallyTimer, timer)) _tallyTimer = null;
+            };
+            _tallyTimer = timer;
+            timer.Start();
+        }
+        else if (!live && _tallyTimer is { } running)
+        {
+            running.Stop();
+            _tallyTimer = null;
+        }
+    }
+
+    private string FingerprintOf(LookConfig look)
+    {
+        if (_lookFingerprints.TryGetValue(look.Json, out var fp)) return fp;
+        if (_lookFingerprints.Count > 256) _lookFingerprints.Clear();
+        fp = LookService.Fingerprint(look.Json);
+        _lookFingerprints[look.Json] = fp;
+        return fp;
+    }
+
+    private void RefreshLookTallies()
+    {
+        var looks = State.LooksAndCues.Looks;
+        if (looks.Count == 0) return;
+
+        // Program: the look last put on air, edited or not; with none recorded, the look whose picture this is.
+        var airFingerprint = LookService.Fingerprint(_services.AirState);
+        var onAir = looks.FirstOrDefault(l => l.Id == _services.AirLookId);
+        var airEdited = false;
+        if (onAir is not null) airEdited = FingerprintOf(onAir) != airFingerprint;
+        else onAir = looks.FirstOrDefault(l => FingerprintOf(l) == airFingerprint);
+
+        // Preview: only a look loaded with → PVW, while the sandbox is open.
+        LookConfig? inPreview = null;
+        var previewEdited = false;
+        if (_services.Sandbox.Active && _services.PreviewLookId is { Length: > 0 } previewId)
+        {
+            inPreview = looks.FirstOrDefault(l => l.Id == previewId);
+            if (inPreview is not null) previewEdited = FingerprintOf(inPreview) != LookService.Fingerprint(State);
+        }
+
+        foreach (var look in looks)
+        {
+            var air = ReferenceEquals(look, onAir);
+            var pvw = ReferenceEquals(look, inPreview);
+            look.IsOnAir = air;
+            look.IsInPreview = pvw;
+            look.TallyText = (air, pvw) switch
+            {
+                (true, true) => airEdited || previewEdited ? "PROGRAM · PREVIEW · EDITED" : "PROGRAM · PREVIEW",
+                (true, false) => airEdited ? "PROGRAM · EDITED" : "PROGRAM",
+                (false, true) => previewEdited ? "PREVIEW · EDITED" : "PREVIEW",
+                _ => "",
+            };
+        }
+    }
+
+    /// <summary>Lights the library rows and the panel chips; true while anything is playing.</summary>
+    private bool RefreshStingerTallies()
+    {
+        var stingers = _services.Stingers;
+        var now = stingers.NowUtc();
+        var clock = ShowClock.Seconds;
+        var pulse = EffectImpulses.Current;
+        var any = false;
+        foreach (var item in State.Stingers.Items)
+        {
+            var on = false;
+            var text = "";
+            var progress = -1.0;
+            if (item.IsPulse)
+            {
+                if (stingers.PulseId == item.Id && !pulse.IsNone && clock >= pulse.StartSeconds && clock < pulse.EndSeconds)
+                {
+                    on = true;
+                    progress = Math.Clamp((clock - pulse.StartSeconds) / pulse.LengthSeconds, 0, 1);
+                    text = $"SURGING · {pulse.EndSeconds - clock:0.0} s left";
+                }
+            }
+            else if (stingers.SessionId == item.Id)
+            {
+                on = true;
+                text = stingers.Holding ? "HOLDING" : $"ON AIR · {Math.Max(0, (now - stingers.SessionStartUtc).TotalSeconds):0} s";
+            }
+            else if (stingers.VogSoundId == item.Id)
+            {
+                on = true;
+                text = $"ON AIR · {Math.Max(0, (now - stingers.VogSoundStartUtc).TotalSeconds):0} s";
+            }
+            item.IsOnAir = on;
+            item.OnAirText = text;
+            item.OnAirProgress = progress;
+            any |= on;
+        }
+        return any;
+    }
 
     /// <summary>F1–F12 from the main window or an output window. False = no look on that key.</summary>
     public bool ApplyLookHotkey(int slot) => _services.Actions.ApplyLookHotkey(slot, ActionOrigin.Keyboard);
@@ -3352,6 +3474,7 @@ public sealed class MainViewModel : Observable
         StingerStatus = _services.Stingers.Status;
         RefreshStingerGroups();
         RefreshAfterChoices();
+        RefreshTallies();
         StingerHolding = _services.Stingers.Holding;
         StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";
         SpotifyStatus = _services.Spotify.Status;

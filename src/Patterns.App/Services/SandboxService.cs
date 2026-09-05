@@ -58,6 +58,8 @@ public sealed class SandboxService
         // setting around the publish stopped working inside a bulk edit (the intermediate
         // publish is suppressed, so the only snapshot the outputs saw carried "fade").
         if (cut) _services.Bus.CutOnNextPublish();
+        // The preview's look is now the program's (edited or not — the tally says which).
+        _services.AirLookId = _services.PreviewLookId;
         Exit(reenterIfDefault: false);
         ReArmIfDefault();
         _services.AirLabel = Modified(_services.AirLabel);
@@ -187,6 +189,7 @@ public sealed class SandboxService
         Active = false;
         _program = null;
         _contentBefore = null;
+        _services.PreviewLookId = ""; // a fresh sandbox mirrors the program; only → PVW names a preview look
         _services.Bus.ClearSandbox();
         _services.RepublishNow(); // outputs pick up the live state again (side effects included)
         if (reenterIfDefault)

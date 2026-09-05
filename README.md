@@ -248,6 +248,13 @@ fault containment, and settings that can never brick startup.
   Deck, in a cue) and the music track, break music, a playing stinger and a clip's soundtrack
   drop to the level you set, ramping, until you lift it — a VOG never ducks. A latch, not a
   programme source: STOP ALL and look recalls leave it, and a restart never comes up ducked.
+- **Tally on the desk** — the look in use lights on the Looks page and the Show panel: red
+  **PROGRAM** for the picture on air (or **PROGRAM · EDITED** once it has been changed since the
+  recall), green **PREVIEW** for the look loaded into the sandboxed preview with → PVW, and both
+  when they are the same look. Nothing recalled yet — a fresh start — lights whichever look the
+  picture matches. Every VOG, stinger and effect sting lights its row on the Audio page and its
+  chip on the Show panel while it plays, with the seconds on air, **HOLDING** for a held frame,
+  and a bar that runs down a sting's length.
 - **Effect stings** — a stinger with no file, in twelve shapes. Four **pulses** (an explosion,
   a rush, a flash, a bloom: a rise and a settle) and eight **scored stings** whose settings change
   in phases over the length you set: a **shockwave** (a hit, then a ring rolls out through the
@@ -410,7 +417,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 776 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, effect stings through particles and fractals (every shape settles, the scored phases, the sliders that write back), arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 778 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, effect stings through particles and fractals (every shape settles, the scored phases, the sliders that write back), the tally (the look on air, edited, in the preview, taken; a playing VOG and a sting's bar), arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```
