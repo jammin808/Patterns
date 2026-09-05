@@ -240,6 +240,15 @@ public static class CueValidator
                     }
                     break;
                 }
+                case CueActionKind.DeviceSend:
+                {
+                    if (a.Value.Trim().Length == 0) Hard($"{where}: nothing to send — the line the device expects, e.g. RELAY 1.");
+                    var device = Interactive.Find(state.Interactive, a.Target);
+                    if (device is null) Hard(a.Target.Length == 0 ? $"{where}: the show has no device (Interactive page)." : $"{where}: device '{a.Target}' is not on the Interactive page.");
+                    else if (!state.Interactive.Enabled) Soft($"{where}: the Interactive area is switched off — the line goes nowhere until it is on.");
+                    else if (!device.Enabled) Soft($"{where}: device '{device.Name}' is switched off on the Interactive page.");
+                    break;
+                }
                 case CueActionKind.LowerThirdShow:
                 case CueActionKind.LowerThirdPreview:
                 {

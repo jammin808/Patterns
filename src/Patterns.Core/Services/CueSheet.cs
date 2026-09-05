@@ -250,6 +250,7 @@ public static class CueSheet
             "decknext" or "nextpage" or "nextslide" or "deckforward" => CueActionKind.DeckNext,
             "deckprev" or "deckprevious" or "prevpage" or "previouspage" or "prevslide" or "previousslide" or "deckback" => CueActionKind.DeckPrev,
             "deck" or "deckpage" or "gotopage" or "deckgoto" or "pdf" => CueActionKind.DeckPage,
+            "device" or "devicesend" or "send" or "arduino" or "serial" or "relay" => CueActionKind.DeviceSend,
             _ => null,
         };
     }

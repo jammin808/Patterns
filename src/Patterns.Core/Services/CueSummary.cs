@@ -97,6 +97,7 @@ public static class CueSummary
             case CueActionKind.DeckNext: return "Deck: the next page";
             case CueActionKind.DeckPrev: return "Deck: the previous page";
             case CueActionKind.DeckPage: return $"Deck: {Decks.DescribePage(a.Value)}";
+            case CueActionKind.DeviceSend: return $"Device {(Interactive.Find(state.Interactive, a.Target)?.Name ?? (a.Target.Length > 0 ? a.Target : "?"))}: {a.Value}";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
             case CueActionKind.DuckOn: return "Duck for announcement";

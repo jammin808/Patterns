@@ -115,6 +115,8 @@ public enum RemoteCommandKind
     DeckPrev,
     /// <summary>"DECK PAGE &lt;n&gt;" / "DECK &lt;n&gt;" / "DECK FIRST" / "DECK LAST" — the deck on air turns to a page (IntArg, or TextArg first / last).</summary>
     DeckPage,
+    /// <summary>"DEVICE &lt;name|*&gt; &lt;text&gt;" (alias SEND) — a line (TextArg) to a device of the Interactive area (Extra: its name, or * for the first).</summary>
+    DeviceSend,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -445,6 +447,15 @@ public static class ControlProtocol
                     "first" or "last" => new(RemoteCommandKind.DeckPage, 0, which),
                     _ => new(RemoteCommandKind.DeckPage, page, ""),
                 };
+            }
+
+            // A line to a device of the Interactive area: "DEVICE Arduino RELAY 1", "DEVICE * PING", "SEND pi SHOW 3".
+            case "DEVICE":
+            case "SEND":
+            {
+                var split = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                if (split.Length < 2) return new(RemoteCommandKind.Unknown, 0, s);
+                return new(RemoteCommandKind.DeviceSend, 0, split[1], split[0]);
             }
 
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.

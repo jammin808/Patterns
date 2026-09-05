@@ -189,6 +189,7 @@
               <TabItem Header="NDI"><ScrollViewer><v:NdiSection /></ScrollViewer></TabItem>
               <TabItem Header="Stream"><ScrollViewer><v:StreamSection /></ScrollViewer></TabItem>
               <TabItem Header="Remote"><ScrollViewer><v:WebSection /></ScrollViewer></TabItem>
+              <TabItem Header="Interactive"><ScrollViewer><v:InteractiveSection /></ScrollViewer></TabItem>
               <TabItem Header="Machine"><ScrollViewer><v:AdminSection /></ScrollViewer></TabItem>
               <TabItem Header="Help"><ScrollViewer><v:HelpSection /></ScrollViewer></TabItem>
             </TabControl>

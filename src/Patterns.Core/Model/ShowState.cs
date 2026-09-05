@@ -1366,6 +1366,105 @@ public sealed class ControlConfig : Observable
     public int OscFeedbackPort { get => _oscFeedbackPort; set => Set(ref _oscFeedbackPort, Math.Clamp(value, 1, 65535)); }
 }
 
+/// <summary>How a device is reached: an Arduino on a serial port, or a Raspberry Pi, ESP32 or show controller over IP.</summary>
+public enum DeviceLink
+{
+    Serial,
+    Tcp,
+    Udp,
+}
+
+/// <summary>The line break a device expects at the end of every line Patterns writes.</summary>
+public enum LineEnding
+{
+    Lf,
+    CrLf,
+    Cr,
+    None,
+}
+
+/// <summary>A line the device sends ("BTN1", "SENSOR *") and the show command it means ("CUE GO", "LOOK Walk-in", "MESSAGE *").</summary>
+public sealed class DeviceTriggerConfig : Observable
+{
+    private string _match = "";
+    private string _command = "";
+
+    /// <summary>The device's line, whole and case-blind, or a prefix ending in *.</summary>
+    public string Match { get => _match; set => Set(ref _match, value ?? ""); }
+
+    /// <summary>The protocol line it fires; a command ending in * takes the rest of a prefix match as its tail.</summary>
+    public string Command { get => _command; set => Set(ref _command, value ?? ""); }
+}
+
+/// <summary>
+/// One device of the Interactive area: where it is, how its lines are framed, what its words
+/// mean, and whether it hears the show back. The status is runtime, read from the service.
+/// </summary>
+public sealed class DeviceConfig : Observable
+{
+    private string _id = Guid.NewGuid().ToString("N");
+    private string _name = "Arduino";
+    private DeviceLink _link = DeviceLink.Serial;
+    private string _port = "";
+    private int _baud = 115200;
+    private int _netPort = 7000;
+    private bool _enabled = true;
+    private LineEnding _lineEnding = LineEnding.Lf;
+    private bool _speaksProtocol = true;
+    private bool _hearsShow = true;
+    private bool _echoReplies = true;
+    private string _testText = "PING";
+    private string _status = "";
+
+    public string Id { get => _id; set => Set(ref _id, value ?? ""); }
+
+    /// <summary>What the cues and the wire call it: DEVICE Arduino RELAY 1.</summary>
+    public string Name { get => _name; set => Set(ref _name, value ?? ""); }
+
+    public DeviceLink Link { get => _link; set => Set(ref _link, value); }
+
+    /// <summary>The serial port (COM3, /dev/ttyUSB0) or the host (192.168.1.50, pi.local, host:7000).</summary>
+    public string Port { get => _port; set => Set(ref _port, (value ?? "").Trim()); }
+
+    /// <summary>Serial speed; 115200 is what Arduino sketches usually open, 9600 the older habit.</summary>
+    public int Baud { get => _baud; set => Set(ref _baud, Math.Clamp(value, 300, 4_000_000)); }
+
+    /// <summary>The TCP or UDP port when the host carries none of its own.</summary>
+    public int NetPort { get => _netPort; set => Set(ref _netPort, Math.Clamp(value, 1, 65535)); }
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    public LineEnding LineEnding { get => _lineEnding; set => Set(ref _lineEnding, value); }
+
+    /// <summary>A line with no trigger row of its own is taken as a protocol command when it is one (GO, LOOK 3, BLACKOUT ON).</summary>
+    public bool SpeaksProtocol { get => _speaksProtocol; set => Set(ref _speaksProtocol, value); }
+
+    /// <summary>The device hears the show: BLACKOUT 1, LOOK Walk-in, CUE 01.020 … whenever a value changes.</summary>
+    public bool HearsShow { get => _hearsShow; set => Set(ref _hearsShow, value); }
+
+    /// <summary>The answer to a device's command — OK, or ERR and why — goes back to it.</summary>
+    public bool EchoReplies { get => _echoReplies; set => Set(ref _echoReplies, value); }
+
+    /// <summary>The line the page's SEND button writes — a handshake to try the wiring.</summary>
+    public string TestText { get => _testText; set => Set(ref _testText, value ?? ""); }
+
+    public ObservableCollection<DeviceTriggerConfig> Triggers { get; init; } = new();
+
+    /// <summary>Runtime: open, reconnecting, the last line in and out — set by the service, never saved.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Status { get => _status; set => Set(ref _status, value ?? ""); }
+}
+
+/// <summary>The Interactive area: devices over serial and IP that fire commands and hear the show. Off by default — opening ports is a deliberate act.</summary>
+public sealed class InteractiveConfig : Observable
+{
+    private bool _enabled;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    public ObservableCollection<DeviceConfig> Devices { get; init; } = new();
+}
+
 /// <summary>Web pages opened on outputs (managed browser windows, not engine-composited).</summary>
 public sealed class WebConfig : Observable
 {
@@ -1438,6 +1537,9 @@ public sealed class ShowState : Observable
     public ObservableCollection<CueStackConfig> Stacks { get; init; } = new();
     public AudioPlayerConfig AudioPlayer { get; init; } = new();
     public ControlConfig Control { get; init; } = new();
+
+    /// <summary>The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP — commands in, the show back out.</summary>
+    public InteractiveConfig Interactive { get; init; } = new();
     public StingerConfig Stingers { get; init; } = new();
 
     /// <summary>Break music (Spotify) — background sound between the show's own content.</summary>

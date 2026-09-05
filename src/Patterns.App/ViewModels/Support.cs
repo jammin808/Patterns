@@ -542,6 +542,19 @@ public static class Lists
     };
     public static readonly EnumItem[] BlendCurves = Of<BlendCurve>();
     public static readonly EnumItem[] BlendOrientations = Of<BlendOrientation>();
+    public static readonly EnumItem[] DeviceLinks =
+    {
+        new(DeviceLink.Serial, "Serial (USB) — Arduino, Teensy, RS-232"),
+        new(DeviceLink.Tcp, "TCP — Raspberry Pi, ESP32, a controller on the network"),
+        new(DeviceLink.Udp, "UDP — datagrams on the network, no connection"),
+    };
+    public static readonly EnumItem[] LineEndings =
+    {
+        new(LineEnding.Lf, "LF  (\\n — Arduino println)"),
+        new(LineEnding.CrLf, "CR LF  (\\r\\n)"),
+        new(LineEnding.Cr, "CR  (\\r)"),
+        new(LineEnding.None, "none"),
+    };
     public static readonly EnumItem[] TileNumberings =
     {
         new(TileNumbering.RowCol, "Row-column (2-3)"),

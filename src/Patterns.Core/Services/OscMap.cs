@@ -50,6 +50,7 @@ public static class OscMap
         ("/patterns/deck/first, /patterns/deck/last", "DECK FIRST / LAST"),
         ("/patterns/deck/page <n>", "DECK PAGE n — the deck on air turns to page n (also /patterns/deck/page/<n>, /patterns/deck <n>)"),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
+        ("/patterns/device/<name> <text>", "DEVICE name text — a line to a device of the Interactive area (also /patterns/device \"name\" \"text\", /patterns/send/…; * is the first device)"),
         ("/patterns/stream 1|0", "STREAM ON / OFF"),
         ("/patterns/cue/go [id]", "CUE GO — the standby id you last saw, or none"),
         ("/patterns/cue/standby/next, /patterns/cue/standby/prev", "CUE STANDBY NEXT / PREV"),
@@ -218,6 +219,17 @@ public static class OscMap
                 return what.Length == 0 ? null : "DECK " + what.ToUpperInvariant();
             }
             case "stream": return "STREAM " + Switch(m, seg, "ON", toggles: false);
+            // /patterns/device/Arduino "RELAY 1" · /patterns/device "Arduino" "RELAY 1" · /patterns/device/Arduino/RELAY 1: a line to a device.
+            case "device":
+            case "send":
+            {
+                var name = seg.Length > 0 ? seg : m.Text() ?? "";
+                var text = seg.Length > 0
+                    ? (seg2.Length > 0 ? string.Join(" ", parts.Skip(2)) + (m.Args.Count > 0 ? " " + string.Join(" ", m.Args.Select(Word)) : "") : string.Join(" ", m.Args.Select(Word)))
+                    : string.Join(" ", m.Args.Skip(1).Select(Word));
+                text = text.Trim();
+                return name.Length == 0 || text.Length == 0 ? null : $"DEVICE {name} {text}";
+            }
             case "cue":
             {
                 var what = seg.ToLowerInvariant();
@@ -259,6 +271,18 @@ public static class OscMap
             default: return null;
         }
     }
+
+    /// <summary>An argument as a device would read it: a string as it is, a number in plain digits, a bool as 1 or 0.</summary>
+    private static string Word(object? arg) => arg switch
+    {
+        null => "",
+        string s => s,
+        bool b => b ? "1" : "0",
+        float f => f.ToString(CultureInfo.InvariantCulture),
+        double d => d.ToString(CultureInfo.InvariantCulture),
+        IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
+        _ => arg.ToString() ?? "",
+    };
 
     /// <summary>"VERB x" where x is the segment after the verb, else the first argument; null without either.</summary>
     private static string? Named(string verb, OscMessage m, string seg)

@@ -42,6 +42,9 @@ public sealed class AppServices
 
     public ControlService Control { get; }
     public OscService Osc { get; }
+
+    /// <summary>The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP — commands in, the show back out.</summary>
+    public DeviceService Devices { get; }
     public BeaconService Beacon { get; }
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
@@ -219,6 +222,7 @@ public sealed class AppServices
         Spotify = new SpotifyService(this, SpotifyCredentials);
         Control = new ControlService(this);
         Osc = new OscService(this);
+        Devices = new DeviceService(this);
         Beacon = new BeaconService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
@@ -586,6 +590,7 @@ public sealed class AppServices
         // Remote control server follows its config; OSC and the beacon beside it.
         Control.Reconcile();
         Osc.Reconcile();
+        Devices.Reconcile();
         Beacon.Reconcile();
     }
 
@@ -678,6 +683,7 @@ public sealed class AppServices
             Spotify.Dispose();
             Control.Dispose();
             Osc.Dispose();
+            Devices.Dispose();
             Beacon.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();

@@ -176,6 +176,7 @@ public sealed class CommandRouter
             RemoteCommandKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
             RemoteCommandKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
             RemoteCommandKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : cmd.TextArg),
+            RemoteCommandKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, cmd.Extra, cmd.TextArg),
             _ => null,
         };
     }
@@ -299,6 +300,9 @@ public sealed class CommandRouter
             lowerThirdEdited = _services.LowerThirdAirEdited(),            // the design on air differs from the edited one: LT UPDATE
             web = WebRow(),                                                // the web page on air and its service's actions, or null
             deck = DeckRow(),                                              // the deck on air: file, page, count, ended — or null
+            interactive = s.Interactive.Enabled,                           // the Interactive area is on: devices open
+            devices = _services.Devices.Rows(),                            // every device: name, link, address, open, status, the last lines
+
             stingers = s.Stingers.Items.Select((i, n) => new
             {
                 n = n + 1,

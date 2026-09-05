@@ -44,6 +44,14 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## A line to an Arduino or an IP device (module 2.1.0)
+
+`device_send` writes a line to a device of Patterns' Interactive page — `DEVICE Arduino RELAY 1`
+on the wire — so a Stream Deck key can fire a relay, a lamp or a script in the room through the
+same board a cue would use; `*` names the first device. What a device sends back becomes show
+commands on the Patterns side (its triggers, or the protocol as it is), and every key here lights
+from the same STATE the device hears.
+
 ## Keys that fill themselves from the show (module 2.0.0)
 
 Companion cannot place keys on a page by itself, so the module does the next best thing: a

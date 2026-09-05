@@ -429,6 +429,8 @@ public sealed class ShowActions
                 return DeckTurn("prev");
             case ShowActionKind.DeckPage:
                 return DeckTurn(a.Value);
+            case ShowActionKind.DeviceSend:
+                return _s.Devices.Send(a.Target, a.Value);
             case ShowActionKind.AudioVolume:
             {
                 // The track is not in the snapshot: the player reads the live model every poll,
@@ -991,6 +993,7 @@ public sealed class ShowActions
         CueActionKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
         CueActionKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
         CueActionKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", a.Value),
+        CueActionKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, a.Target, a.Value),
         CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
         CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
         CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),

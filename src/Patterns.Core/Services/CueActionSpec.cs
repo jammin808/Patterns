@@ -18,6 +18,8 @@ public enum TargetKind
     LowerThird,
     /// <summary>A web page in the show, by nickname, address or a word of it (blank = the page on air).</summary>
     Page,
+    /// <summary>A device of the Interactive area, by name or place (blank = the first enabled one).</summary>
+    Device,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -71,6 +73,7 @@ public static class CueActionSpec
         CueActionKind.WebType => (TargetKind.Page, ValueKind.Text),
         CueActionKind.WebReload => (TargetKind.Page, ValueKind.None),
         CueActionKind.DeckPage => (TargetKind.None, ValueKind.DeckPage),
+        CueActionKind.DeviceSend => (TargetKind.Device, ValueKind.Text),
         _ => (TargetKind.None, ValueKind.None),
     };
 
@@ -124,6 +127,7 @@ public static class CueActionSpec
         CueActionKind.DeckNext => "Deck — next page",
         CueActionKind.DeckPrev => "Deck — previous page",
         CueActionKind.DeckPage => "Deck — go to page",
+        CueActionKind.DeviceSend => "Device — send a line",
         _ => kind.ToString(),
     };
 
@@ -146,6 +150,7 @@ public static class CueActionSpec
         CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide, CueActionKind.LowerThirdPreview, CueActionKind.LowerThirdTake,
         CueActionKind.WebKey, CueActionKind.WebClick, CueActionKind.WebType, CueActionKind.WebReload,
         CueActionKind.DeckNext, CueActionKind.DeckPrev, CueActionKind.DeckPage,
+        CueActionKind.DeviceSend,
         CueActionKind.DuckOn, CueActionKind.DuckOff,
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };

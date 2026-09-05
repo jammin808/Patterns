@@ -147,6 +147,8 @@ public enum ShowActionKind
     DeckPrev,
     /// <summary>The deck on air turns to a page: Value = a number (1-based), first, last, next or prev.</summary>
     DeckPage,
+    /// <summary>A line to a device of the Interactive area: Target = the device's name (or "" / * for the first), Value = the text.</summary>
+    DeviceSend,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>
@@ -174,6 +176,8 @@ public enum OriginKind
     Follow,
     /// <summary>An OSC message over UDP (QLab, TouchOSC, a lighting desk, Companion's OSC).</summary>
     Osc,
+    /// <summary>A device of the Interactive area — an Arduino's button, a sensor, a controller over IP.</summary>
+    Device,
 }
 
 public sealed record ActionOrigin(OriginKind Kind, string Name = "", string Endpoint = "")

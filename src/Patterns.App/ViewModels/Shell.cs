@@ -65,6 +65,7 @@ public static class Shell
         ("NDI", ShellGroup.Setup, "#8FA5FF"),
         ("Stream", ShellGroup.Setup, "#FF5C7A"),
         ("Remote", ShellGroup.Setup, "#35E0D0"),
+        ("Interactive", ShellGroup.Setup, "#7CF5C8"),
         ("Machine", ShellGroup.Admin, "#B8E356"),
         ("Help", ShellGroup.Admin, "#C0CBDB"));
 

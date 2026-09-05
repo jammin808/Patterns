@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.InteractiveSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-remote" Text="Interactive" />
+    <TextBlock Classes="hint tip"
+               Text="Buttons, sensors and lights in the room: an Arduino on a USB cable, a Raspberry Pi or an ESP32 on the network, a show controller with a TCP port. A device sends short text lines — BTN1, SENSOR 42 — and each one fires a show command through the same action layer as the desk, the cues and Companion; the show sends lines back — BLACKOUT 1, LOOK Walk-in, CUE 01.020 — whenever something changes, so a lamp on the lectern can follow the cue stack. A cue can send a line of its own (Device — send a line), and so can the wire (DEVICE Arduino RELAY 1), OSC and Companion. The sketch and the wiring are in docs/ARDUINO.md." />
+
+    <TextBlock Classes="h2" Text="DEVICES" />
+    <CheckBox Content="Interactive area on — open the devices' ports" IsChecked="{Binding State.Interactive.Enabled}"
+              ToolTip.Tip="Off by default: opening a serial port or a network connection is a deliberate act. Off, every device stays closed and a cue's line goes nowhere." />
+    <TextBlock Classes="label" Text="{Binding InteractiveStatus}" />
+    <TextBlock Classes="label" Text="{Binding SerialPortsText}" IsVisible="{Binding SerialPortsText, Converter={StaticResource NotEmpty}}" />
+    <WrapPanel Margin="0,4,0,4">
+      <Button Classes="chip" Content="+ ARDUINO (SERIAL)" Command="{Binding AddSerialDeviceCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="A board on a USB cable: type its port (COM3 on Windows, /dev/ttyUSB0 or /dev/ttyACM0 elsewhere) and the speed the sketch opens" />
+      <Button Classes="chip" Content="+ DEVICE OVER IP" Command="{Binding AddIpDeviceCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="A Raspberry Pi, an ESP32, a show controller: type its address and port; TCP connects and reconnects by itself, UDP sends datagrams" />
+    </WrapPanel>
+
+    <ItemsControl ItemsSource="{Binding State.Interactive.Devices}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:DeviceConfig">
+          <Border Classes="card" Margin="0,0,0,10" Padding="10">
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="Auto,8,*,8,Auto,8,Auto">
+                <CheckBox Grid.Column="0" IsChecked="{Binding Enabled, Mode=TwoWay}" ToolTip.Tip="Off keeps this device closed while the others run" />
+                <TextBox Grid.Column="2" Text="{Binding Name, Mode=TwoWay}" Watermark="Name — what cues and the wire call it (DEVICE Arduino …)" />
+                <Button Grid.Column="4" Classes="mini" Content="RESEND ALL" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ResendDeviceCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="Send every fact of the show to this device now — after it was reset, or to see what it hears" />
+                <Button Grid.Column="6" Classes="mini" Content="REMOVE" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveDeviceCommand}" CommandParameter="{Binding}" />
+              </Grid>
+              <Grid ColumnDefinitions="130,*,8,Auto,8,90" Margin="0,2,0,0">
+                <TextBlock Classes="label" Text="Link" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" ItemsSource="{x:Static vm:Lists.DeviceLinks}"
+                          SelectedValue="{Binding Link, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Line ending" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="5" ItemsSource="{x:Static vm:Lists.LineEndings}"
+                          SelectedValue="{Binding LineEnding, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                          ToolTip.Tip="What ends every line Patterns writes; an Arduino's Serial.println expects LF" />
+              </Grid>
+              <Grid ColumnDefinitions="130,*,8,Auto,8,100,8,Auto,8,90">
+                <TextBlock Classes="label" Text="Port / address" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding Port, Mode=TwoWay}" Watermark="COM3 · /dev/ttyUSB0 · 192.168.1.50 · pi.local:7000" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Baud" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="5" Minimum="300" Maximum="4000000" Increment="9600" FormatString="0" ShowButtonSpinner="False"
+                               Value="{Binding Baud, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Serial only: the speed the sketch opens (Serial.begin(115200))" />
+                <TextBlock Grid.Column="7" Classes="label" Text="IP port" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="9" Minimum="1" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                               Value="{Binding NetPort, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="TCP / UDP only: the port, when the address carries none of its own" />
+              </Grid>
+              <WrapPanel>
+                <CheckBox Content="Its lines may be show commands as they are (GO, LOOK 3, BLACKOUT ON…)" IsChecked="{Binding SpeaksProtocol, Mode=TwoWay}" Margin="0,0,12,0"
+                          ToolTip.Tip="A line with no trigger row below is taken as a protocol command when it is one; off, only the triggers fire" />
+                <CheckBox Content="Hears the show (BLACKOUT 1, LOOK …, CUE …)" IsChecked="{Binding HearsShow, Mode=TwoWay}" Margin="0,0,12,0"
+                          ToolTip.Tip="The show's facts go to the device as KEY VALUE lines whenever one changes" />
+                <CheckBox Content="Answers go back (OK / ERR …)" IsChecked="{Binding EchoReplies, Mode=TwoWay}"
+                          ToolTip.Tip="The answer to a device's command is written back to it — OK, or ERR and why" />
+              </WrapPanel>
+              <TextBlock Classes="label" Text="{Binding Status}" TextWrapping="Wrap" />
+              <Grid ColumnDefinitions="130,*,8,Auto">
+                <TextBlock Classes="label" Text="Send a line" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding TestText, Mode=TwoWay}" Watermark="PING · RELAY 1 · SHOW 3" />
+                <Button Grid.Column="3" Classes="chip" Content="SEND" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).TestDeviceCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="Write this line to the device now — the same as DEVICE name text on the wire or a cue's Device — send a line" />
+              </Grid>
+              <TextBlock Classes="label" Text="TRIGGERS — what the device's lines mean" Margin="0,4,0,0" />
+              <ItemsControl ItemsSource="{Binding Triggers}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="m:DeviceTriggerConfig">
+                    <Grid ColumnDefinitions="*,8,Auto,8,2*,8,Auto" Margin="0,2">
+                      <TextBox Grid.Column="0" Text="{Binding Match, Mode=TwoWay}" Watermark="The device says… BTN1, SENSOR *" ToolTip.Tip="The whole line, case-blind; ending in * it matches the start, and the rest rides into a command ending in *" />
+                      <TextBlock Grid.Column="2" Classes="label" Text="→" VerticalAlignment="Center" />
+                      <TextBox Grid.Column="4" Text="{Binding Command, Mode=TwoWay}" Watermark="…and Patterns does: CUE GO · NEXT · LOOK Walk-in · BLACKOUT ON · MESSAGE *" ToolTip.Tip="Any line of the wire protocol (docs/REMOTE.md)" />
+                      <Button Grid.Column="6" Classes="mini" Content="✕" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveTriggerCommand}" CommandParameter="{Binding}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Classes="mini" Content="+ TRIGGER" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AddTriggerCommand}" CommandParameter="{Binding}" HorizontalAlignment="Left" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="WHAT A DEVICE HEARS" />
+    <TextBlock Classes="hint tip"
+               Text="One KEY VALUE line per fact, only when it changes: BLACKOUT 1|0 · LIVE 1|0 · DUCK 1|0 · FROZEN 1|0 · REVIEW 1|0 · LOOK name · PROGRAM what is on air · STINGER name · LOWERTHIRD name · ARMED 1|0 · HOLD 1|0 · CUE the standby number · DECK page count · STEP index count. A device that has just connected hears everything once; RESEND ALL sends it again. A command the device sent is answered OK or ERR and the reason — the same answers the wire gives — unless the answers are switched off above. Lines a device sends are fired through the action layer with the device's name as their origin, so the journal reads 'CUE GO from device Arduino'." />
+  </StackPanel>
+</UserControl>

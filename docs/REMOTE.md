@@ -37,6 +37,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `LOOK #<n>` | Apply the *n*th look in the show's order, whatever its name or F-key — a bank key that follows the list as looks are made (`ERR no look #7 — the show has 4`) |
 | `NEXT` / `PREV` | The presenter click-through: a deck (PDF) on air turns its pages first — past the last page the caller's stack resumes with GO on the standby cue when the deck asks for it — else the clicker list forward / back |
 | `DECK NEXT` / `PREV` / `FIRST` / `LAST` / `PAGE <n>` / `<n>` | The deck on air turns a page (`PDF` and `SLIDES` are aliases; `ERR` with no deck on air or a page that is not a number, first or last) |
+| `DEVICE <name\|*> <text>` | A line to a device of the Interactive area — an Arduino's relay, a Pi's script (`SEND` is an alias; `*` is the first device; `ERR` while the area or the device is off, or the name is unknown). What devices send back and hear is in `docs/ARDUINO.md` |
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
 | `LOCK <n> ON` / `OFF` / `TOGGLE` | Lock screen *n*: it keeps its picture through looks, cues, TAKE ALL and stingers (a confidence monitor, an info screen); unlock lets it follow again. Bare `LOCK <n>` toggles |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
@@ -109,6 +110,7 @@ rather than stops; empty when none), `stingHold` (the name of a stinger holding 
 `lowerThirdEdited` (true while the design on air differs from the edited one — `LOWERTHIRD UPDATE` pushes the edit),
 `web{page,url,title,service,actions[{id,label}]}` (the web page the program shows — its nickname or host, its address and title, its service when Patterns knows it (YouTube, Vimeo, Google Slides, PowerPoint for the web) and the actions `WEB KEY <id>` takes on it; `null` with no page on air),
 `deck{file,kind,page,count,ended,endsWithGo,converting,status}` (the deck the program shows: its file and its kind — `PDF`, `PowerPoint`, `Keynote`, `Impress` — the page on show and the count, `ended` on its last page, `endsWithGo` when the next click there GOes the standby cue, `converting` while LibreOffice is still making the PDF of a PowerPoint (the count is 0 and `status` reads *Converting…*, or why it could not); `null` with no deck on air),
+`interactive` (the Interactive area is on) and `devices[{n,name,link,address,enabled,open,status,lastIn,lastOut}]` (every device of the Interactive page — its link is `serial`, `tcp` or `udp`, `open` while its wire is up, `status` the page's words, the last line each way),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),
@@ -201,6 +203,7 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/deck/next`, `/prev`, `/first`, `/last` | DECK NEXT / PREV / FIRST / LAST — the deck (PDF) on air turns a page |
 | `/patterns/deck/page <n>` | DECK PAGE n (also `/patterns/deck/page/5`, `/patterns/deck 5`) |
 | `/patterns/section <n\|name>` | SECTION — a playlist part |
+| `/patterns/device/<name> "text"` | DEVICE name text — a line to a device of the Interactive area (also `/patterns/device "name" "text"`, `/patterns/device/Arduino/RELAY 1`, `/patterns/send/…`; `*` is the first device) |
 | `/patterns/stream 1\|0` | STREAM ON / OFF |
 | `/patterns/cue/go [id]` | CUE GO — the standby id you last saw, or none |
 | `/patterns/cue/standby/next`, `/patterns/cue/standby/prev` | CUE STANDBY NEXT / PREV |

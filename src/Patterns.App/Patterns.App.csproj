@@ -31,6 +31,7 @@
          Patterns.exe — the publish scripts copy it. -->
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3595.46" />
     <PackageReference Include="PDFtoImage" Version="5.0.0" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     <!-- Restore vehicle for the "full" build (build/publish-win-x64-full.*): the scripts
          restore with BundleVlc=true and copy the libvlc payload from this package into
          the publish folder themselves — its build-time copy items don't survive a

@@ -88,6 +88,8 @@ public enum CueActionKind
     DeckPrev,
     /// <summary>The deck on air turns to a page: Value = a number (1-based), first or last.</summary>
     DeckPage,
+    /// <summary>A line to a device of the Interactive area: Target = the device (blank = the first), Value = the text.</summary>
+    DeviceSend,
 }
 
 /// <summary>

@@ -385,6 +385,20 @@ public sealed class MainViewModel : Observable
             RaiseSelection();
         });
         ResetBlendCommand = new RelayCommand(ResetBlend);
+
+        // The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP.
+        AddSerialDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Serial));
+        AddIpDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Tcp));
+        RemoveDeviceCommand = new RelayCommand<DeviceConfig>(RemoveDevice);
+        TestDeviceCommand = new RelayCommand<DeviceConfig>(TestDevice);
+        ResendDeviceCommand = new RelayCommand<DeviceConfig>(d =>
+        {
+            if (d is null) return;
+            _services.Devices.Resend(d);
+            StatusMessage = $"{d.Name}: every fact of the show sent again.";
+        });
+        AddTriggerCommand = new RelayCommand<DeviceConfig>(AddTrigger);
+        RemoveTriggerCommand = new RelayCommand<DeviceTriggerConfig>(RemoveTrigger);
         AddGapCommand = new RelayCommand(AddGap);
         RemoveGapCommand = new RelayCommand<WallGap>(RemoveGap);
         SetGapsFromGridCommand = new RelayCommand(SetGapsFromGrid);
@@ -1229,6 +1243,74 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedBlendCurve));
         Raise(nameof(SelectedBlendGamma));
         Raise(nameof(SelectedBlendAuto));
+    }
+
+    // ---- the Interactive area: devices over serial and IP -----------------------
+
+    private string _serialPortsText = "";
+
+    /// <summary>"COM3, COM7" — the serial ports this machine has, refreshed every few seconds while the page is open.</summary>
+    public string SerialPortsText { get => _serialPortsText; private set => Set(ref _serialPortsText, value); }
+
+    private string _interactiveStatus = "";
+
+    /// <summary>"Interactive on · 2 devices, 1 open" — the page's status line.</summary>
+    public string InteractiveStatus { get => _interactiveStatus; private set => Set(ref _interactiveStatus, value); }
+
+    private void AddDevice(DeviceLink link)
+    {
+        var n = State.Interactive.Devices.Count + 1;
+        var device = new DeviceConfig
+        {
+            Name = link == DeviceLink.Serial ? (n == 1 ? "Arduino" : $"Arduino {n}") : (n == 1 ? "Pi" : $"Device {n}"),
+            Link = link,
+        };
+        device.Triggers.Add(new DeviceTriggerConfig { Match = "BTN1", Command = "CUE GO" });
+        device.Triggers.Add(new DeviceTriggerConfig { Match = "BTN2", Command = "NEXT" });
+        BulkEdit(() => State.Interactive.Devices.Add(device));
+        StatusMessage = link == DeviceLink.Serial
+            ? $"{device.Name} added — type its port (COM3, or /dev/ttyUSB0), then switch the Interactive area on."
+            : $"{device.Name} added — type its address (192.168.1.50, or host:7000), then switch the Interactive area on.";
+    }
+
+    private void RemoveDevice(DeviceConfig? device)
+    {
+        if (device is null) return;
+        BulkEdit(() => State.Interactive.Devices.Remove(device));
+        StatusMessage = $"{device.Name} removed.";
+    }
+
+    private void TestDevice(DeviceConfig? device)
+    {
+        if (device is null) return;
+        Report(_services.Devices.Send(device.Name, device.TestText));
+    }
+
+    private void AddTrigger(DeviceConfig? device)
+    {
+        if (device is null) return;
+        var n = device.Triggers.Count + 1;
+        BulkEdit(() => device.Triggers.Add(new DeviceTriggerConfig { Match = $"BTN{n}", Command = n == 1 ? "CUE GO" : "" }));
+    }
+
+    private void RemoveTrigger(DeviceTriggerConfig? trigger)
+    {
+        if (trigger is null) return;
+        var owner = State.Interactive.Devices.FirstOrDefault(d => d.Triggers.Contains(trigger));
+        if (owner is null) return;
+        BulkEdit(() => owner.Triggers.Remove(trigger));
+    }
+
+    /// <summary>The 1 s poll: links reconciled and their status words fresh; the serial port list every few seconds.</summary>
+    private void PollDevices()
+    {
+        _services.Devices.Poll();
+        var config = State.Interactive;
+        var open = _services.Devices.OpenCount;
+        InteractiveStatus = !config.Enabled
+            ? config.Devices.Count == 0 ? "Interactive area off — add a device below." : $"Interactive area off — {config.Devices.Count} device{(config.Devices.Count == 1 ? "" : "s")} waiting."
+            : $"Interactive on · {config.Devices.Count} device{(config.Devices.Count == 1 ? "" : "s")}, {open} open.";
+        if (_statusTicks % 5 == 0 && SelectedPageIndex == Shell.IndexOf("Interactive")) SerialPortsText = "Serial ports on this machine: " + DeviceService.SerialPortsText();
     }
 
     private void ResetBlend()
@@ -4314,6 +4396,13 @@ public sealed class MainViewModel : Observable
     public RelayCommand PreviewRestartCommand { get; }
     public RelayCommand ResetWarpCommand { get; }
     public RelayCommand ResetBlendCommand { get; }
+    public RelayCommand AddSerialDeviceCommand { get; }
+    public RelayCommand AddIpDeviceCommand { get; }
+    public RelayCommand<DeviceConfig> RemoveDeviceCommand { get; }
+    public RelayCommand<DeviceConfig> TestDeviceCommand { get; }
+    public RelayCommand<DeviceConfig> ResendDeviceCommand { get; }
+    public RelayCommand<DeviceConfig> AddTriggerCommand { get; }
+    public RelayCommand<DeviceTriggerConfig> RemoveTriggerCommand { get; }
     public RelayCommand AddGapCommand { get; }
     public RelayCommand<WallGap> RemoveGapCommand { get; }
     public RelayCommand SetGapsFromGridCommand { get; }
@@ -5568,6 +5657,7 @@ public sealed class MainViewModel : Observable
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";
         OscStatus = _services.Osc.StatusLine;
+        PollDevices();
         if (_reviewSeen != _services.Bus.ReviewOnMultiview)
         {
             _reviewSeen = _services.Bus.ReviewOnMultiview; // a remote flipped it: the desk's toggles follow

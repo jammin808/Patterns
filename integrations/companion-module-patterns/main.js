@@ -271,6 +271,19 @@ class PatternsInstance extends InstanceBase {
 					if (a.options.mode === 'GO') send(`CUE GO ${row.id ?? ''}`.trim())
 				},
 			},
+			// The Interactive area: a line to a device — an Arduino's relay, a Pi's script, a controller's command.
+			device_send: {
+				name: 'Device — send a line to an Arduino or an IP device (the Interactive page)',
+				options: [
+					{ type: 'textinput', id: 'device', label: 'Device name (blank or * = the first)', default: '*' },
+					{ type: 'textinput', id: 'text', label: 'The line the device expects', default: 'RELAY 1' },
+				],
+				callback: (a) => {
+					const text = String(a.options.text || '').trim()
+					if (!text) return
+					send(`DEVICE ${String(a.options.device || '*').trim() || '*'} ${text}`)
+				},
+			},
 			stream: {
 				name: 'Stream on / off',
 				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'ON',

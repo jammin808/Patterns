@@ -170,6 +170,7 @@ public sealed class ActionRow : Observable
         TargetKind.Music => "Which break music… (blank = resume)",
         TargetKind.LowerThird => "Which lower third…",
         TargetKind.Page => "Which page… (blank = the page on air)",
+        TargetKind.Device => "Which device… (blank = the first)",
         _ => "",
     };
 
@@ -177,7 +178,12 @@ public sealed class ActionRow : Observable
     {
         ValueKind.Transition => "blank = show default · cut · fade in ms (e.g. 800)",
         ValueKind.Minutes => "minutes, e.g. 5",
-        ValueKind.Text => Action.Kind == CueActionKind.WebType ? "the text typed into the field that has the page's focus" : "the message text",
+        ValueKind.Text => Action.Kind switch
+        {
+            CueActionKind.WebType => "the text typed into the field that has the page's focus",
+            CueActionKind.DeviceSend => "the line the device expects, e.g. RELAY 1 or SHOW 3",
+            _ => "the message text",
+        },
         ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
         ValueKind.Level => "percent, 0–100 (the Spotify device's own volume)",
         ValueKind.Person => "who: a library entry (blank = as designed)",
@@ -317,7 +323,7 @@ public sealed class CueEditor : Observable
             if (SelectedCue is null || name is null || !Enum.TryParse<CueActionKind>(name, out var kind)) return;
             SelectedCue.Actions.Add(new CueActionConfig { Kind = kind });
             OnCueEdited();
-            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page);
+            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device);
             _status($"{SelectedCue.Number}: {CueActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
         });
 
@@ -707,6 +713,9 @@ public sealed class CueEditor : Observable
                 return state.Spotify.Items.Select(m => new PickItem(m.Id, m.DisplayName));
             case TargetKind.LowerThird:
                 return state.LowerThirds.Designs.Select(d => new PickItem(d.Id, d.Name));
+            case TargetKind.Device:
+                // A cue names a device by its name, so a sheet reads "Arduino: RELAY 1" and survives a re-add.
+                return state.Interactive.Devices.Select(d => new PickItem(d.Name, $"{d.Name} · {DeviceAddress.Describe(d)}"));
             case TargetKind.Page:
             {
                 // The pages the show has now, then the remembered ones: a cue names a page by its address (its nickname or a word of it reads the same).
