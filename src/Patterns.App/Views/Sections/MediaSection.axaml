@@ -398,6 +398,52 @@
                  Text="The playlist loops continuously while this pattern is live. '⏱ HH:mm' items interrupt daily at that time, then the cycle resumes." />
     </StackPanel>
 
+    <!-- The area of interest: crop, flip, turn — any source -->
+    <TextBlock Classes="h2" Text="AREA OF INTEREST — CROP, FLIP, TURN" />
+    <Grid ColumnDefinitions="Auto,8,Auto,8,*">
+      <ToggleButton Classes="chip" Content="PICK ON PREVIEW" IsChecked="{Binding CropPickActive, Mode=TwoWay}"
+                    ToolTip.Tip="Then drag a box on the PREVIEW pane around the part of the picture to keep — the slide, the shared screen, the caller — and the rest is cut away; a second pick refines the first" />
+      <Button Grid.Column="2" Classes="mini" Content="Clear" Command="{Binding ClearCropCommand}" ToolTip.Tip="The whole picture again" />
+      <TextBlock Grid.Column="4" Classes="label" Text="{Binding CropSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
+    </Grid>
+    <WrapPanel Margin="0,4,0,0">
+      <TextBlock Classes="hint" Text="Start from: " VerticalAlignment="Center" Margin="0,0,6,6" />
+      <Button Classes="mini" Content="Top bar off" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="top:8" ToolTip.Tip="Cut 8% from the top — a title bar, a tab strip" />
+      <Button Classes="mini" Content="Side panel off" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="right:25" ToolTip.Tip="Cut 25% from the right — a participants strip, a chat panel" />
+      <Button Classes="mini" Content="Bottom strip off" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="bottom:12" ToolTip.Tip="Cut 12% from the bottom — a toolbar, presenter notes" />
+      <Button Classes="mini" Content="Centre 80%" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="centre:80" ToolTip.Tip="Keep the middle 80% — a light zoom that loses every edge" />
+    </WrapPanel>
+    <Grid ColumnDefinitions="130,*,44" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4,0,0">
+      <TextBlock Grid.Row="0" Classes="label" Text="Cut left" VerticalAlignment="Center" />
+      <Slider Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="90" Value="{Binding ActivePattern.Media.CropLeftPct, Mode=TwoWay}" />
+      <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding ActivePattern.Media.CropLeftPct, StringFormat={}{0:0}%}" />
+      <TextBlock Grid.Row="1" Classes="label" Text="Cut right" VerticalAlignment="Center" />
+      <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="90" Value="{Binding ActivePattern.Media.CropRightPct, Mode=TwoWay}" />
+      <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding ActivePattern.Media.CropRightPct, StringFormat={}{0:0}%}" />
+      <TextBlock Grid.Row="2" Classes="label" Text="Cut top" VerticalAlignment="Center" />
+      <Slider Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="90" Value="{Binding ActivePattern.Media.CropTopPct, Mode=TwoWay}" />
+      <TextBlock Grid.Row="2" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding ActivePattern.Media.CropTopPct, StringFormat={}{0:0}%}" />
+      <TextBlock Grid.Row="3" Classes="label" Text="Cut bottom" VerticalAlignment="Center" />
+      <Slider Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="90" Value="{Binding ActivePattern.Media.CropBottomPct, Mode=TwoWay}" />
+      <TextBlock Grid.Row="3" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding ActivePattern.Media.CropBottomPct, StringFormat={}{0:0}%}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,8,Auto,8,Auto" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Turn" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" SelectedIndex="{Binding ActivePattern.Media.RotateQuarters, Mode=TwoWay}"
+                ToolTip.Tip="A portrait feed on a landscape screen, a camera on its side">
+        <ComboBoxItem Content="Upright" />
+        <ComboBoxItem Content="90° clockwise" />
+        <ComboBoxItem Content="180°" />
+        <ComboBoxItem Content="90° anticlockwise" />
+      </ComboBox>
+      <CheckBox Grid.Column="3" Content="Mirror" IsChecked="{Binding ActivePattern.Media.FlipHorizontal, Mode=TwoWay}"
+                ToolTip.Tip="Left and right swapped — a confidence monitor read in a mirror, a camera that flips" />
+      <CheckBox Grid.Column="5" Content="Upside down" IsChecked="{Binding ActivePattern.Media.FlipVertical, Mode=TwoWay}"
+                ToolTip.Tip="Top and bottom swapped — a camera mounted the wrong way up" />
+    </Grid>
+    <TextBlock Classes="hint tip"
+               Text="An input rarely arrives clean: a Teams call keeps its participants strip beside the shared screen, Google Slides in a browser keeps its filmstrip and notes, a presenter view keeps its toolbar. The area of interest cuts all of that away before the picture is fitted, so the room sees the slide alone, edge to edge — on every screen, NDI send and the stream, and in every look and cue that carries this pattern. PICK ON PREVIEW is the quick way: drag a box on the PREVIEW pane around the part to keep; a second pick refines it, and the sliders fine-tune to the percent (each side up to 90%; a twentieth of the picture always survives). Turn and the flips put a sideways or mirrored feed the right way up. The same crop sits on the PiP inset and on a layer in their own settings; a web page keeps its clicks through the crop while it is upright." />
+
     <!-- Sound (video, audio, playlist) -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:MediaSource.Image}}">
       <TextBlock Classes="h2" Text="SOUND" />

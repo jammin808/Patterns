@@ -380,6 +380,13 @@ public sealed class MediaOptions : Observable
     private int _webHeight = 1080;
     private double _webZoomPct = 100;
     private bool _webShowPointer = true;
+    private double _cropLeftPct;
+    private double _cropTopPct;
+    private double _cropRightPct;
+    private double _cropBottomPct;
+    private bool _flipHorizontal;
+    private bool _flipVertical;
+    private int _rotateQuarters;
 
     public MediaSource Source { get => _source; set => Set(ref _source, value); }
     public string ImagePath { get => _imagePath; set => Set(ref _imagePath, value); }
@@ -405,6 +412,35 @@ public sealed class MediaOptions : Observable
     [TransitionNeutral] public double WebZoomPct { get => _webZoomPct; set => Set(ref _webZoomPct, Math.Clamp(value, 25, 400)); }
     /// <summary>Draw the desk's pointer and its clicks on the page wherever it is shown — off for a page nobody drives.</summary>
     [TransitionNeutral] public bool WebShowPointer { get => _webShowPointer; set => Set(ref _webShowPointer, value); }
+
+    /// <summary>
+    /// The area of interest: what to cut away on each side of the input's picture (0–90 % each;
+    /// a twentieth of every axis always survives), so a shared screen's side panel, a title bar or
+    /// presenter notes never reach the room. The part that survives is then fitted like the whole
+    /// picture was. Applies to every source — an image, a clip, an NDI feed, a capture, a web page,
+    /// the playlist.
+    /// </summary>
+    public double CropLeftPct { get => _cropLeftPct; set => Set(ref _cropLeftPct, Math.Clamp(value, 0, Media.FrameCrop.MaxPct)); }
+    public double CropTopPct { get => _cropTopPct; set => Set(ref _cropTopPct, Math.Clamp(value, 0, Media.FrameCrop.MaxPct)); }
+    public double CropRightPct { get => _cropRightPct; set => Set(ref _cropRightPct, Math.Clamp(value, 0, Media.FrameCrop.MaxPct)); }
+    public double CropBottomPct { get => _cropBottomPct; set => Set(ref _cropBottomPct, Math.Clamp(value, 0, Media.FrameCrop.MaxPct)); }
+
+    /// <summary>Left and right swapped — a confidence monitor read in a mirror, a camera that flips.</summary>
+    public bool FlipHorizontal { get => _flipHorizontal; set => Set(ref _flipHorizontal, value); }
+
+    /// <summary>Top and bottom swapped — a camera mounted the wrong way up.</summary>
+    public bool FlipVertical { get => _flipVertical; set => Set(ref _flipVertical, value); }
+
+    /// <summary>Quarter turns clockwise (0–3): a portrait feed on a landscape screen, a camera on its side. The flips apply before the turn.</summary>
+    public int RotateQuarters { get => _rotateQuarters; set => Set(ref _rotateQuarters, ((value % 4) + 4) % 4); }
+
+    /// <summary>The area of interest as the sources draw it.</summary>
+    [JsonIgnore]
+    public Media.FrameCrop Crop => new(_cropLeftPct, _cropTopPct, _cropRightPct, _cropBottomPct);
+
+    /// <summary>Anything about the picture changed: a crop, a flip or a turn.</summary>
+    [JsonIgnore]
+    public bool HasAdjustments => Crop.Any || _flipHorizontal || _flipVertical || _rotateQuarters != 0;
 
     public PlaylistOptions Playlist { get; init; } = new();
 }

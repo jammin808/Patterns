@@ -326,6 +326,8 @@ public sealed class MainViewModel : Observable
         ExportPeopleCommand = new RelayCommand(() => _ = SaveTextAsync("Export the people library", "people.csv", ExportPeopleCsv(), "People exported"));
         SavePeopleTemplateCommand = new RelayCommand(() => _ = SaveTextAsync("Save the people template", "people-template.csv", LowerThirdLibrary.Template(), "Template saved"));
         PreviewRestartCommand = new RelayCommand(() => PreviewTimeMs = 0);
+        ClearCropCommand = new RelayCommand(ClearCrop);
+        CropPresetCommand = new RelayCommand<string>(p => ApplyCropPreset(p ?? ""));
         ResetWarpCommand = new RelayCommand(() =>
         {
             if (_selectedPlacement is null) return;
@@ -1628,6 +1630,104 @@ public sealed class MainViewModel : Observable
             case HitKind.Pip: o.Pip.OffsetXPct = x; o.Pip.OffsetYPct = y; break;
         }
     }
+
+    // ---- the area of interest: a crop picked on the PREVIEW pane ----------------------------
+
+    private bool _cropPickActive;
+    private string _cropSummary = "The whole picture.";
+
+    /// <summary>PICK ON PREVIEW: the next drag on the PREVIEW pane draws a box around the part of the input to keep.</summary>
+    public bool CropPickActive
+    {
+        get => _cropPickActive;
+        set
+        {
+            if (!Set(ref _cropPickActive, value)) return;
+            if (value) StatusMessage = "Drag a box on the PREVIEW pane around the part of the picture to keep — a second pick refines it.";
+        }
+    }
+
+    /// <summary>What the area of interest keeps, in words, for the Media page.</summary>
+    public string CropSummary { get => _cropSummary; private set => Set(ref _cropSummary, value); }
+
+    /// <summary>
+    /// A box drawn on the picture as the PREVIEW pane showed it — its sides as shares (0–1) of the
+    /// visible part — becomes the area of interest of the pattern the pane shows; the sides compose
+    /// with any crop already there, so a second pick refines the first.
+    /// </summary>
+    public void ApplyCropBand(double left01, double top01, double right01, double bottom01)
+    {
+        var m = PreviewPattern.Media;
+        var next = m.Crop.Within(left01, top01, right01, bottom01);
+        BulkEdit(() =>
+        {
+            m.CropLeftPct = next.LeftPct;
+            m.CropTopPct = next.TopPct;
+            m.CropRightPct = next.RightPct;
+            m.CropBottomPct = next.BottomPct;
+        });
+        CropPickActive = false;
+        RefreshCropSummary();
+        StatusMessage = $"Area of interest set — {CropSummary} {(IsSandboxActive ? "In the preview; CUT or TAKE puts it on air." : "On air.")}";
+    }
+
+    /// <summary>The whole picture again.</summary>
+    public void ClearCrop()
+    {
+        var m = ActivePattern.Media;
+        BulkEdit(() =>
+        {
+            m.CropLeftPct = 0;
+            m.CropTopPct = 0;
+            m.CropRightPct = 0;
+            m.CropBottomPct = 0;
+        });
+        RefreshCropSummary();
+        StatusMessage = "The whole picture again.";
+    }
+
+    /// <summary>A starting point to refine with a pick: "top:8", "right:25", "bottom:12", "left:20" cut one side; "centre:80" keeps the middle share.</summary>
+    public void ApplyCropPreset(string preset)
+    {
+        var parts = preset.Split(':');
+        if (parts.Length != 2 || !double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pct)) return;
+        var m = ActivePattern.Media;
+        BulkEdit(() =>
+        {
+            switch (parts[0].Trim().ToLowerInvariant())
+            {
+                case "top": m.CropTopPct = pct; break;
+                case "bottom": m.CropBottomPct = pct; break;
+                case "left": m.CropLeftPct = pct; break;
+                case "right": m.CropRightPct = pct; break;
+                case "centre":
+                case "center":
+                {
+                    var cut = Math.Max(0, (100 - pct) / 2);
+                    m.CropLeftPct = cut;
+                    m.CropRightPct = cut;
+                    m.CropTopPct = cut;
+                    m.CropBottomPct = cut;
+                    break;
+                }
+            }
+        });
+        RefreshCropSummary();
+    }
+
+    private void RefreshCropSummary()
+    {
+        var m = ActivePattern.Media;
+        var words = m.Crop.Summary();
+        var quarter = m.RotateQuarters % 4;
+        var turn = quarter != 0 ? $" Turned {quarter * 90}°." : "";
+        var flip = m.FlipHorizontal && m.FlipVertical ? " Mirrored and upside down."
+            : m.FlipHorizontal ? " Mirrored."
+            : m.FlipVertical ? " Upside down." : "";
+        CropSummary = words + turn + flip;
+    }
+
+    private void BulkEdit(Action edit) => _services.BulkEdit(edit);
 
     // ---- web pages inside the engine -----------------------------------------------
 
@@ -3964,6 +4064,8 @@ public sealed class MainViewModel : Observable
     public RelayCommand PickElementFileCommand { get; }
     public RelayCommand SaveLowerThirdFileCommand { get; }
     public RelayCommand<string> LoadLowerThirdFileCommand { get; }
+    public RelayCommand ClearCropCommand { get; }
+    public RelayCommand<string> CropPresetCommand { get; }
     public RelayCommand NewEntryCommand { get; }
     public RelayCommand<LowerThirdEntry> DeleteEntryCommand { get; }
     public RelayCommand<LowerThirdEntry> UseEntryCommand { get; }
@@ -5202,6 +5304,7 @@ public sealed class MainViewModel : Observable
         RefreshStingerGroups();
         RefreshAfterChoices();
         RefreshTallies();
+        RefreshCropSummary();
         SyncVirtualScreens();
         StingerHolding = _services.Stingers.Holding;
         StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";

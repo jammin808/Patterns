@@ -33,10 +33,9 @@ public sealed class MediaPattern : IPatternRenderer
                     AudioCard(c, in f, now.Path);
                     return;
                 }
-                var video = InputBus.Resolve(InputKeys.Video(now.Path), f.Ctx.IsFadeSource);
-                var vsize = video?.FrameSize;
-                var vdest = vsize is { } vs ? DrawUtil.Fit(vs, bounds, o.Fit) : bounds;
-                if (video is null || !video.DrawFrame(c, vdest, pc.FillAA(SKColors.White)))
+                var key = InputKeys.Video(now.Path);
+                var video = InputBus.Resolve(key, f.Ctx.IsFadeSource);
+                if (video is null || !DrawInput(c, in f, o, video, bounds, o.Fit, pc.FillAA(SKColors.White), key, out _))
                 {
                     PlaceholderCard(c, in f, System.IO.Path.GetFileName(now.Path), video?.StatusText ?? "Starting video…");
                 }
@@ -50,8 +49,7 @@ public sealed class MediaPattern : IPatternRenderer
                 }
                 else
                 {
-                    var dest = DrawUtil.Fit(new SKSizeI(img.Width, img.Height), bounds, o.Fit);
-                    c.DrawImage(img, dest, DrawUtil.Smooth, pc.FillAA(SKColors.White));
+                    DrawImageInput(c, in f, o, img, bounds, o.Fit, pc.FillAA(SKColors.White));
                 }
             }
             return;
@@ -64,7 +62,8 @@ public sealed class MediaPattern : IPatternRenderer
                 AudioCard(c, in f, o.VideoPath);
                 return;
             }
-            var video = InputBus.Resolve(InputKeys.Video(o.VideoPath), f.Ctx.IsFadeSource);
+            var key = InputKeys.Video(o.VideoPath);
+            var video = InputBus.Resolve(key, f.Ctx.IsFadeSource);
             if (video is null)
             {
                 var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)
@@ -73,10 +72,7 @@ public sealed class MediaPattern : IPatternRenderer
                 PlaceholderCard(c, in f, "No video playing", note);
                 return;
             }
-
-            var size = video.FrameSize;
-            var dest = size is { } s ? DrawUtil.Fit(s, bounds, o.Fit) : bounds;
-            if (!video.DrawFrame(c, dest, pc.FillAA(SKColors.White)))
+            if (!DrawInput(c, in f, o, video, bounds, o.Fit, pc.FillAA(SKColors.White), key, out _))
             {
                 PlaceholderCard(c, in f, "Video", video.StatusText);
             }
@@ -85,7 +81,8 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Source == MediaSource.NdiFeed)
         {
-            var feed = InputBus.Resolve(InputKeys.Ndi(o.NdiSourceName), f.Ctx.IsFadeSource);
+            var key = InputKeys.Ndi(o.NdiSourceName);
+            var feed = InputBus.Resolve(key, f.Ctx.IsFadeSource);
             if (feed is null)
             {
                 var note = string.IsNullOrEmpty(NdiInput.AvailabilityNote)
@@ -94,9 +91,7 @@ public sealed class MediaPattern : IPatternRenderer
                 PlaceholderCard(c, in f, "No NDI feed", note);
                 return;
             }
-            var nsize = feed.FrameSize;
-            var ndest = nsize is { } ns ? DrawUtil.Fit(ns, bounds, o.Fit) : bounds;
-            if (!feed.DrawFrame(c, ndest, pc.FillAA(SKColors.White)))
+            if (!DrawInput(c, in f, o, feed, bounds, o.Fit, pc.FillAA(SKColors.White), key, out _))
             {
                 PlaceholderCard(c, in f, o.NdiSourceName.Length > 0 ? o.NdiSourceName : "NDI", feed.StatusText);
             }
@@ -105,7 +100,8 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Source == MediaSource.Capture)
         {
-            var cap = InputBus.Resolve(InputKeys.Capture(o.CaptureDevice), f.Ctx.IsFadeSource);
+            var key = InputKeys.Capture(o.CaptureDevice);
+            var cap = InputBus.Resolve(key, f.Ctx.IsFadeSource);
             if (cap is null)
             {
                 var note = string.IsNullOrEmpty(VideoService.AvailabilityNote)
@@ -114,9 +110,7 @@ public sealed class MediaPattern : IPatternRenderer
                 PlaceholderCard(c, in f, "No capture device", note);
                 return;
             }
-            var csize = cap.FrameSize;
-            var cdest = csize is { } cs ? DrawUtil.Fit(cs, bounds, o.Fit) : bounds;
-            if (!cap.DrawFrame(c, cdest, pc.FillAA(SKColors.White)))
+            if (!DrawInput(c, in f, o, cap, bounds, o.Fit, pc.FillAA(SKColors.White), key, out _))
             {
                 PlaceholderCard(c, in f, o.CaptureDevice.Length > 0 ? o.CaptureDevice : "Capture", cap.StatusText);
             }
@@ -136,19 +130,22 @@ public sealed class MediaPattern : IPatternRenderer
                 PlaceholderCard(c, in f, name, note);
                 return;
             }
-            var wsize = page.FrameSize;
-            var wdest = wsize is { } ws ? DrawUtil.Fit(ws, bounds, o.Fit == FitMode.Tile ? FitMode.Fit : o.Fit) : bounds;
-            if (!page.DrawFrame(c, wdest, pc.FillAA(SKColors.White)))
+            if (!DrawInput(c, in f, o, page, bounds, o.Fit == FitMode.Tile ? FitMode.Fit : o.Fit, pc.FillAA(SKColors.White), key, out var placed))
             {
                 PlaceholderCard(c, in f, name, page.StatusText);
                 return;
             }
-            // The desk clicks into the page through this box; the room sees the pointer when asked.
-            if (!f.Ctx.IsFadeSource && !f.Ctx.InMultiview && !f.Ctx.InLayer)
+            // The desk clicks into the page through this box, and the room sees the pointer when
+            // asked — while the page is the right way up: a turned or mirrored page has no pointer.
+            if (!placed.Transformed)
             {
-                f.Sink.Hits.Add(new HitRect(HitKind.WebPage, wdest, false, key, FrameCrop.None, bounds));
+                var crop = o.Crop;
+                if (!f.Ctx.IsFadeSource && !f.Ctx.InMultiview && !f.Ctx.InLayer)
+                {
+                    f.Sink.Hits.Add(new HitRect(HitKind.WebPage, placed.Dest, false, key, crop, bounds));
+                }
+                if (o.WebShowPointer && page is IWebSource web) WebPointer.Draw(c, placed.Dest, in crop, web, f.Ctx.UtcNow, pc);
             }
-            if (o.WebShowPointer && page is IWebSource web) WebPointer.Draw(c, wdest, FrameCrop.None, web, f.Ctx.UtcNow, pc);
             return;
         }
 
@@ -164,19 +161,95 @@ public sealed class MediaPattern : IPatternRenderer
 
         if (o.Fit == FitMode.Tile)
         {
-            for (float y = 0; y < f.H; y += image.Height)
+            // Tiles repeat the area of interest at its own size (a turn or a flip does not apply to a tiling).
+            var src = o.Crop.SourceRect(new SKSizeI(image.Width, image.Height));
+            var tw = Math.Max(1f, src.Width);
+            var th = Math.Max(1f, src.Height);
+            for (float y = 0; y < f.H; y += th)
             {
-                for (float x = 0; x < f.W; x += image.Width)
+                for (float x = 0; x < f.W; x += tw)
                 {
-                    c.DrawImage(image, SKRect.Create(x, y, image.Width, image.Height), DrawUtil.Smooth, pc.FillAA(SKColors.White));
+                    c.DrawImage(image, src, SKRect.Create(x, y, tw, th), DrawUtil.Smooth, pc.FillAA(SKColors.White));
                 }
             }
         }
         else
         {
-            var dest = DrawUtil.Fit(new SKSizeI(image.Width, image.Height), bounds, o.Fit);
-            c.DrawImage(image, dest, DrawUtil.Smooth, pc.FillAA(SKColors.White));
+            DrawImageInput(c, in f, o, image, bounds, o.Fit, pc.FillAA(SKColors.White));
         }
+    }
+
+    /// <summary>
+    /// Where an input's picture lands through its area of interest, flips and turn: the box on
+    /// the canvas, and — once the canvas is centred on that box and turned — the box of the
+    /// picture's own (unturned) shape around the origin to draw into.
+    /// </summary>
+    internal readonly record struct InputPlacement(SKRect Dest, SKRect Local, bool Transformed);
+
+    /// <summary>The placement for a frame of this size: the part that survives the crop takes the picture's place, turned when asked.</summary>
+    internal static InputPlacement Place(MediaOptions o, SKSizeI frame, SKRect bounds, FitMode fit)
+    {
+        var src = o.Crop.SourceRect(frame);
+        var cw = Math.Max(1, (int)Math.Round(src.Width));
+        var ch = Math.Max(1, (int)Math.Round(src.Height));
+        var quarter = o.RotateQuarters & 3;
+        var swapped = quarter is 1 or 3;
+        var shown = swapped ? new SKSizeI(ch, cw) : new SKSizeI(cw, ch);
+        var dest = DrawUtil.Fit(shown, bounds, fit);
+        var transformed = quarter != 0 || o.FlipHorizontal || o.FlipVertical;
+        var local = swapped
+            ? SKRect.Create(-dest.Height / 2, -dest.Width / 2, dest.Height, dest.Width)
+            : SKRect.Create(-dest.Width / 2, -dest.Height / 2, dest.Width, dest.Height);
+        return new InputPlacement(dest, local, transformed);
+    }
+
+    /// <summary>Centres the canvas on the box and turns and flips it; -1 when nothing is to be done (the flips apply before the turn).</summary>
+    private static int BeginTransform(SKCanvas c, in InputPlacement p, MediaOptions o)
+    {
+        if (!p.Transformed) return -1;
+        var save = c.Save();
+        c.Translate(p.Dest.MidX, p.Dest.MidY);
+        c.RotateDegrees(90 * (o.RotateQuarters & 3));
+        c.Scale(o.FlipHorizontal ? -1 : 1, o.FlipVertical ? -1 : 1);
+        return save;
+    }
+
+    /// <summary>A live input's newest frame through the area of interest, flips and turn; false when the source has no frame yet.</summary>
+    private static bool DrawInput(SKCanvas c, in PatternFrame f, MediaOptions o, IVideoFrameSource source, SKRect bounds, FitMode fit, SKPaint paint, string key, out InputPlacement placed)
+    {
+        if (source.FrameSize is not { } size)
+        {
+            // No frame yet: nothing to place; a source paints its own waiting state into the bounds, if any.
+            placed = new InputPlacement(bounds, bounds, false);
+            return source.DrawFrame(c, bounds, paint);
+        }
+        placed = Place(o, size, bounds, fit);
+        var crop = o.Crop;
+        var save = BeginTransform(c, in placed, o);
+        var drew = source.DrawFrame(c, placed.Transformed ? placed.Local : placed.Dest, paint, in crop);
+        if (save >= 0) c.RestoreToCount(save);
+        NoteInput(in f, in placed, key, in crop, bounds);
+        return drew;
+    }
+
+    /// <summary>A still through the area of interest, flips and turn.</summary>
+    private static void DrawImageInput(SKCanvas c, in PatternFrame f, MediaOptions o, SKImage image, SKRect bounds, FitMode fit, SKPaint paint)
+    {
+        var size = new SKSizeI(image.Width, image.Height);
+        var placed = Place(o, size, bounds, fit);
+        var crop = o.Crop;
+        var src = crop.SourceRect(size);
+        var save = BeginTransform(c, in placed, o);
+        c.DrawImage(image, src, placed.Transformed ? placed.Local : placed.Dest, DrawUtil.Smooth, paint);
+        if (save >= 0) c.RestoreToCount(save);
+        NoteInput(in f, in placed, "", in crop, bounds);
+    }
+
+    /// <summary>The desk's handle on the picture — the area-of-interest pick reads where it is and what it already cuts; only the top-level draw records it.</summary>
+    private static void NoteInput(in PatternFrame f, in InputPlacement placed, string key, in FrameCrop crop, SKRect bounds)
+    {
+        if (f.Ctx.IsFadeSource || f.Ctx.InMultiview || f.Ctx.InLayer) return;
+        f.Sink.Hits.Add(new HitRect(HitKind.MediaPicture, placed.Dest, false, key, crop, bounds));
     }
 
     /// <summary>Audio-only media shows a clean card instead of "waiting for first frame".</summary>

@@ -15,6 +15,8 @@ public enum HitKind
     Pip,
     /// <summary>A web page's picture — a press goes to the page as a click rather than moving anything.</summary>
     WebPage,
+    /// <summary>An input's picture as the Media pattern placed it (through its area of interest) — never a drag handle; the desk's crop pick reads it.</summary>
+    MediaPicture,
 }
 
 /// <summary>
@@ -68,6 +70,7 @@ public static class HitTester
         for (var i = hits.Count - 1; i >= 0; i--)
         {
             var h = hits[i];
+            if (h.Kind == HitKind.MediaPicture) continue;   // the picture itself is never a handle
             if (!includeWeb && h.Kind == HitKind.WebPage) continue;
             if (h.Contains(h.ViewportSpace ? targetPoint : canvasPoint)) return h;
         }
@@ -109,9 +112,5 @@ public static class WebPointerMap
         return new SKPoint(dest.Left + (float)nx * dest.Width, dest.Top + (float)ny * dest.Height);
     }
 
-    private static (double L, double T, double R, double B) Fractions(in FrameCrop c) => (
-        Math.Clamp(c.LeftPct, 0, FrameCrop.MaxPct) / 100.0,
-        Math.Clamp(c.TopPct, 0, FrameCrop.MaxPct) / 100.0,
-        Math.Clamp(c.RightPct, 0, FrameCrop.MaxPct) / 100.0,
-        Math.Clamp(c.BottomPct, 0, FrameCrop.MaxPct) / 100.0);
+    private static (double L, double T, double R, double B) Fractions(in FrameCrop c) => c.Fractions();
 }

@@ -318,7 +318,13 @@
                     BorderBrush="#2EE68A"
                     BorderThickness="{Binding IsSandboxActive, Converter={StaticResource SandboxBorder}}">
               <ctl:AspectBox Ratio="{Binding SelectedTargetRatio}">
-                <r:SkiaCanvasControl x:Name="PreviewCanvas" />
+                <Panel>
+                  <r:SkiaCanvasControl x:Name="PreviewCanvas" />
+                  <!-- The area-of-interest pick: the box being drawn over the picture -->
+                  <Canvas IsHitTestVisible="False">
+                    <Rectangle x:Name="CropBand" IsVisible="False" Stroke="#FFC24D" StrokeThickness="2" StrokeDashArray="4,3" Fill="#22FFC24D" />
+                  </Canvas>
+                </Panel>
               </ctl:AspectBox>
             </Border>
 

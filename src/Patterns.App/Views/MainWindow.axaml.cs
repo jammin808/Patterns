@@ -231,6 +231,13 @@ public partial class MainWindow : Window
         {
             if (!e.GetCurrentPoint(PreviewCanvas).Properties.IsLeftButtonPressed) return;
             var pos = e.GetPosition(PreviewCanvas);
+            // PICK ON PREVIEW: the drag draws the area of interest instead of clicking or dragging anything.
+            if (BeginCropPick(pos))
+            {
+                e.Pointer.Capture(PreviewCanvas);
+                e.Handled = true;
+                return;
+            }
             // A press on a web page clicks into it; Alt takes hold of a web layer's box instead.
             var alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             if (!alt && PreviewWebPress(pos))
@@ -246,6 +253,12 @@ public partial class MainWindow : Window
         PreviewCanvas.PointerMoved += (_, e) =>
         {
             var pos = e.GetPosition(PreviewCanvas);
+            if (_cropPicking && ReferenceEquals(e.Pointer.Captured, PreviewCanvas))
+            {
+                MoveCropPick(pos);
+                e.Handled = true;
+                return;
+            }
             if (_webPress is not null && ReferenceEquals(e.Pointer.Captured, PreviewCanvas))
             {
                 PreviewWebMove(pos);
@@ -262,6 +275,13 @@ public partial class MainWindow : Window
         };
         PreviewCanvas.PointerReleased += (_, e) =>
         {
+            if (_cropPicking)
+            {
+                e.Pointer.Capture(null);
+                EndCropPick(e.GetPosition(PreviewCanvas));
+                e.Handled = true;
+                return;
+            }
             if (_webPress is not null)
             {
                 e.Pointer.Capture(null);
@@ -333,6 +353,60 @@ public partial class MainWindow : Window
     {
         var scaling = RenderScaling;
         return new SKPoint((float)(dip.X * scaling), (float)(dip.Y * scaling));
+    }
+
+    // ---- the area of interest: a box drawn on the PREVIEW pane around the part to keep --------
+
+    private bool _cropPicking;
+    private Point _cropStart;
+
+    /// <summary>PICK ON PREVIEW: a press starts the box while the pane shows an input's picture; false otherwise (the press then does what it always did).</summary>
+    public bool BeginCropPick(Point dip)
+    {
+        if (DataContext is not MainViewModel { CropPickActive: true } || _previewPipeline is not { LastMap: not null } pipeline) return false;
+        if (!pipeline.LastHits.Any(h => h.Kind == HitKind.MediaPicture)) return false;
+        _cropPicking = true;
+        _cropStart = dip;
+        ShowCropBand(dip, dip);
+        return true;
+    }
+
+    public void MoveCropPick(Point dip)
+    {
+        if (_cropPicking) ShowCropBand(_cropStart, dip);
+    }
+
+    /// <summary>The box becomes the area of interest — its sides as shares of the picture as the pane showed it; a box too small to mean anything is ignored. True when applied.</summary>
+    public bool EndCropPick(Point dip)
+    {
+        if (!_cropPicking) return false;
+        _cropPicking = false;
+        CropBand.IsVisible = false;
+        if (_previewPipeline is not { LastMap: { } map } pipeline || DataContext is not MainViewModel vm) return false;
+        var hit = pipeline.LastHits.LastOrDefault(h => h.Kind == HitKind.MediaPicture);
+        if (hit.Rect.Width <= 0 || hit.Rect.Height <= 0) return false;
+        var a = map.ToCanvas(ToDevice(_cropStart));
+        var b = map.ToCanvas(ToDevice(dip));
+        var left = Math.Clamp((Math.Min(a.X, b.X) - hit.Rect.Left) / hit.Rect.Width, 0, 1);
+        var right = Math.Clamp((Math.Max(a.X, b.X) - hit.Rect.Left) / hit.Rect.Width, 0, 1);
+        var top = Math.Clamp((Math.Min(a.Y, b.Y) - hit.Rect.Top) / hit.Rect.Height, 0, 1);
+        var bottom = Math.Clamp((Math.Max(a.Y, b.Y) - hit.Rect.Top) / hit.Rect.Height, 0, 1);
+        if (right - left < 0.02 || bottom - top < 0.02)
+        {
+            vm.StatusMessage = "Too small a box to keep — drag around the part of the picture you want.";
+            return false;
+        }
+        vm.ApplyCropBand(left, top, right, bottom);
+        return true;
+    }
+
+    private void ShowCropBand(Point a, Point b)
+    {
+        Canvas.SetLeft(CropBand, Math.Min(a.X, b.X));
+        Canvas.SetTop(CropBand, Math.Min(a.Y, b.Y));
+        CropBand.Width = Math.Abs(a.X - b.X);
+        CropBand.Height = Math.Abs(a.Y - b.Y);
+        CropBand.IsVisible = true;
     }
 
     // ---- web pages on the PREVIEW pane: clicks, drags and the wheel go to the page ----------

@@ -64,12 +64,14 @@ public class PipCropTests
         Assert.Equal(new SKRect(192, 0, 1536, 1026), crop.SourceRect(frame));
         Assert.Equal(1344f / 1026f, crop.AspectOf(frame), 4);
 
-        // Opposite sides at the model's ceiling still leave a tenth; wild values are clamped.
+        // Opposite sides at the inset's ceiling still leave a tenth; wild values are clamped to a
+        // side's 90 %, and two sides that would meet leave a twentieth (the left wins).
         var tight = new FrameCrop(45, 45, 45, 45).SourceRect(frame);
         Assert.Equal(192f, tight.Width, 2);
         Assert.Equal(108f, tight.Height, 2);
         var wild = new FrameCrop(90, -5, 200, 0).SourceRect(frame);
-        Assert.Equal(192f, wild.Width, 2);
+        Assert.Equal(96f, wild.Width, 2);
+        Assert.Equal(1728f, wild.Left, 2);
         Assert.Equal(1080f, wild.Height, 2);
 
         var pip = new PipOverlay { CropLeftPct = 80, CropTopPct = -3, CropRightPct = 12.5, CropBottomPct = 0 };
