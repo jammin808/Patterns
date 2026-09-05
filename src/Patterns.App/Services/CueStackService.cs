@@ -56,7 +56,11 @@ public sealed class CueStackService
         if (rt.Armed == armed) return;
         rt.Armed = armed;
         if (armed && rt.StandbyCueId is null) StandbyFirst();
-        if (!armed) CancelConfirm();
+        if (!armed)
+        {
+            CancelConfirm();
+            CancelFollow();
+        }
         Bump();
         _s.Journal.Record(origin.Label, armed ? ShowActionKind.ListArm.ToString() : ShowActionKind.ListDisarm.ToString(),
             Stack.Name, ActionStatus.Done.ToString(), armed ? "Cue stack armed." : "Cue stack disarmed.");
@@ -69,6 +73,7 @@ public sealed class CueStackService
         if (rt.StandbyCueId == cueId) return;
         rt.StandbyCueId = cueId;
         CancelConfirm();
+        CancelFollow(); // the caller chose another cue: nothing fires by itself now
         Bump();
     }
 
@@ -97,6 +102,7 @@ public sealed class CueStackService
         var rt = Runtime;
         if (rt.Hold == hold) return;
         rt.Hold = hold;
+        if (hold) CancelFollow(); // HOLD stops an auto-follow too — it is a GO like any other
         Bump();
         _s.Journal.Record(origin.Label, "CueHold", Stack.Name, ActionStatus.Done.ToString(), hold ? "HOLD — GO is refused until released." : "HOLD released.");
     }
@@ -110,6 +116,52 @@ public sealed class CueStackService
         Bump();
     }
 
+    // ---- auto-follow --------------------------------------------------------------------
+
+    /// <summary>The pending auto-follow's cue, or null.</summary>
+    public RunCueConfig? FollowCue => Runtime.FollowCueId is { } id && Runtime.FollowDueUtc is not null ? Stack.Cues.FirstOrDefault(c => c.Id == id) : null;
+
+    /// <summary>"AUTO in 0:07" while a follow is pending, else empty.</summary>
+    public string FollowText(DateTime? nowUtc = null)
+    {
+        if (FollowCue is not { } cue || Runtime.FollowDueUtc is not { } due) return "";
+        var left = due - (nowUtc ?? DateTime.UtcNow);
+        if (left < TimeSpan.Zero) left = TimeSpan.Zero;
+        return $"AUTO {cue.Number} in {(int)left.TotalMinutes}:{left.Seconds:00}";
+    }
+
+    public void CancelFollow()
+    {
+        var rt = Runtime;
+        if (rt.FollowDueUtc is null && rt.FollowCueId is null) return;
+        rt.FollowDueUtc = null;
+        rt.FollowCueId = null;
+    }
+
+    /// <summary>
+    /// After a cue with a follow fired: the cue now on standby GOes by itself when the delay is
+    /// up — from the poll for a delay, at once for zero — as long as the caller has not moved
+    /// standby, held or disarmed in between. The gate still decides; a refusal is recorded like
+    /// any other and the follow is spent.
+    /// </summary>
+    private void ArmFollow(RunCueConfig fired, DateTime now)
+    {
+        var rt = Runtime;
+        if (fired.FollowSeconds is not { } delay || rt.StandbyCueId is not { } next) return;
+        rt.FollowCueId = next;
+        rt.FollowDueUtc = now + TimeSpan.FromSeconds(delay);
+    }
+
+    private void FireDueFollow(DateTime now)
+    {
+        var rt = Runtime;
+        if (rt.FollowDueUtc is not { } due || now < due) return;
+        var expected = rt.FollowCueId;
+        CancelFollow();
+        if (expected is null || rt.StandbyCueId != expected || !rt.Armed || rt.Hold) return;
+        Go(ActionOrigin.Follow, expected, now);
+    }
+
     // ---- GO -------------------------------------------------------------------------
 
     /// <summary>
@@ -121,9 +173,11 @@ public sealed class CueStackService
         var now = nowUtc ?? DateTime.UtcNow;
         var rt = Runtime;
         var standby = StandbyCue;
+        // The double-press lockout is for fingers; a follow is the cue's own doing and may land on the same tick.
+        var lastGo = origin.Kind == OriginKind.Follow ? null : rt.LastGoUtc;
         var (decision, reason) = GoGate.Check(new GoGate.Inputs(
             rt.Armed, rt.Hold, _s.State.Blackout, rt.Executing,
-            standby?.Id, seenStandbyId, rt.LastGoUtc, now,
+            standby?.Id, seenStandbyId, lastGo, now,
             standby?.RequireConfirm ?? false, rt.ConfirmPendingCueId, rt.ConfirmDeadlineUtc));
 
         switch (decision)
@@ -164,6 +218,7 @@ public sealed class CueStackService
             _ => CueOutcome.Refused,
         };
         var done = outcome is CueOutcome.Done or CueOutcome.Requested ? standby!.Actions.Count : ActionsDoneFrom(result.Message);
+        CancelFollow(); // a GO of any origin spends a pending follow
         if (outcome is not CueOutcome.Refused)
         {
             // The place moves first, so the sidecar the record writes already points past this cue.
@@ -171,9 +226,12 @@ public sealed class CueStackService
             rt.CurrentIndex = Stack.Cues.IndexOf(standby);
             if (result.Ok) _s.AirLabel = $"{standby.Number} {standby.Name}";
             AdvanceStandbyAfter(standby);
+            if (result.Ok) ArmFollow(standby, now);
         }
         Record(standby, outcome, origin, done, standby!.Actions.Count, result.Message, now);
         Bump();
+        // A zero-second follow fires the next cue now, through the same gate, as its own GO.
+        if (rt.FollowDueUtc is { } due && due <= now) FireDueFollow(now);
         return result;
     }
 
@@ -263,6 +321,7 @@ public sealed class CueStackService
         {
             CancelConfirm();
         }
+        FireDueFollow(now);
         for (var i = 0; i < History.Count; i++)
         {
             var row = History[i];
@@ -294,6 +353,80 @@ public sealed class CueStackService
             if (StatusWords.ReadsAsFailure(status)) return status;
         }
         return null;
+    }
+
+    // ---- the day's clock -------------------------------------------------------------------
+
+    /// <summary>Where the day stands against the running order, from the last GO and the clock. Pure underneath; cheap enough for every tick.</summary>
+    public TimingReport Timing(DateTime? nowLocal = null)
+    {
+        var rt = Runtime;
+        return CueTiming.Estimate(Stack.Cues, rt.LastCueId, rt.LastGoUtc?.ToLocalTime(), rt.StandbyCueId, nowLocal ?? DateTime.Now);
+    }
+
+    /// <summary>The cue the day's edits start from: standby, else the one after the last GO, else the first.</summary>
+    public int EditFromIndex()
+    {
+        var cues = Stack.Cues;
+        if (Runtime.StandbyCueId is { } standby)
+        {
+            var i = cues.ToList().FindIndex(c => c.Id == standby);
+            if (i >= 0) return i;
+        }
+        if (Runtime.LastCueId is { } last)
+        {
+            var i = cues.ToList().FindIndex(c => c.Id == last);
+            if (i >= 0) return Math.Min(i + 1, cues.Count);
+        }
+        return 0;
+    }
+
+    /// <summary>Pushes or pulls every planned start from the standby cue on by a delta; says what it did.</summary>
+    public string ShiftPlan(TimeSpan delta, ActionOrigin origin)
+    {
+        var moved = 0;
+        _s.BulkEdit(() => moved = CueTiming.Shift(Stack.Cues, EditFromIndex(), delta));
+        var text = moved == 0
+            ? "No planned start times from the standby cue on — set them on the Cues page or import a running order."
+            : $"{moved} planned start{(moved == 1 ? "" : "s")} moved {CueTiming.FormatDelta(delta)} from the standby cue on.";
+        _s.Journal.Record(origin.Label, "PlanShift", Stack.Name, ActionStatus.Done.ToString(), text);
+        Bump();
+        return text;
+    }
+
+    /// <summary>"We resume now": the standby cue's planned start becomes the clock and the rest of the day moves with it.</summary>
+    public string ResumeNow(ActionOrigin origin, DateTime? nowLocal = null)
+    {
+        var from = EditFromIndex();
+        if (from >= Stack.Cues.Count) return "No cue to resume from.";
+        var cue = Stack.Cues[from];
+        var before = cue.PlannedStart;
+        var now = (nowLocal ?? DateTime.Now).TimeOfDay;
+        var changed = 0;
+        _s.BulkEdit(() => changed = CueTiming.Rebase(Stack.Cues, from, now));
+        var text = before.Length > 0
+            ? $"{cue.Number} now planned for {CueTiming.FormatClock(now)} (was {before}); {Math.Max(0, changed - 1)} later start{(changed - 1 == 1 ? "" : "s")} moved with it."
+            : $"{cue.Number} now planned for {CueTiming.FormatClock(now)}.";
+        _s.Journal.Record(origin.Label, "PlanResume", Stack.Name, ActionStatus.Done.ToString(), text);
+        Bump();
+        return text;
+    }
+
+    /// <summary>Makes up the lateness before the next mark by squeezing the planned lengths in proportion; says how much was found.</summary>
+    public string CatchUp(ActionOrigin origin, DateTime? nowLocal = null)
+    {
+        var timing = Timing(nowLocal);
+        if (timing.Offset is not { } offset || offset <= CueTiming.Tolerance) return "Not behind the plan — nothing to catch up.";
+        var recovered = 0;
+        _s.BulkEdit(() => recovered = CueTiming.CatchUp(Stack.Cues, EditFromIndex(), offset));
+        var text = recovered == 0
+            ? "Nothing to squeeze before the next mark — the cues there have no planned lengths above 30 s."
+            : recovered >= (int)offset.TotalSeconds - 1
+                ? $"Caught up: {CueTiming.FormatDuration(recovered)} taken off the planned lengths before the next mark."
+                : $"{CueTiming.FormatDuration(recovered)} found before the next mark — still {CueTiming.FormatDuration((int)offset.TotalSeconds - recovered)} behind.";
+        _s.Journal.Record(origin.Label, "PlanCatchUp", Stack.Name, ActionStatus.Done.ToString(), text);
+        Bump();
+        return text;
     }
 
     /// <summary>"no auto" or "HELD: next auto 19:45 'Break'" — whether anything else can move the picture.</summary>

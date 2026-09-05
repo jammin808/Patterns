@@ -89,6 +89,11 @@ public static class CueValidator
         void Hard(string text) => report.Add(new CueIssue(cue.Id, IssueSeverity.Hard, text));
         void Soft(string text) => report.Add(new CueIssue(cue.Id, IssueSeverity.Soft, text));
 
+        if (cue.PlannedStart.Length > 0 && CueTiming.ParseClock(cue.PlannedStart) is null)
+        {
+            Soft($"planned start '{cue.PlannedStart}' is not a clock time (HH:mm) — the estimates ignore it.");
+        }
+
         var hasVideoTakeover = false;
         var hasContent = false;
         var hasBlackoutOn = false;

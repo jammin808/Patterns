@@ -20,6 +20,22 @@
     </Grid>
     <TextBlock Classes="label" Text="{Binding Cues.ValidationSummary}" />
 
+    <!-- The caller's home: a running order in and out -->
+    <WrapPanel Margin="0,2,0,0">
+      <Button Classes="chip" Content="IMPORT SHEET…" Command="{Binding ImportCueSheetCommand}" Margin="0,0,6,4"
+              ToolTip.Tip="A CSV or Excel running order replaces this list — the columns are read by their header names (see the template)" />
+      <Button Classes="mini" Content="Append sheet…" Command="{Binding ImportCueSheetAppendCommand}" Margin="0,0,6,4"
+              ToolTip.Tip="The sheet's rows go after the last cue, numbering continued" />
+      <Button Classes="mini" Content="Export CSV" Command="{Binding ExportCueSheetCommand}" Margin="0,0,6,4"
+              ToolTip.Tip="This list as a sheet — for Excel, a printout, or a round trip" />
+      <Button Classes="mini" Content="Template CSV" Command="{Binding SaveCueTemplateCommand}" Margin="0,0,6,4"
+              ToolTip.Tip="The columns with example rows to copy from: Number, Name, Track, Start, Duration, Follow, Mark, Confirm, Look, Action, Target, Value, Notes" />
+    </WrapPanel>
+    <TextBlock Classes="label" Text="{Binding Cues.LastImportReport}" TextWrapping="Wrap"
+               IsVisible="{Binding Cues.LastImportReport, Converter={StaticResource NotEmpty}}" />
+    <TextBlock Classes="hint tip"
+               Text="A running order from Excel or a CSV becomes the list in one go: Number, Name, Track, Start (HH:mm), Duration (mm:ss, 5 min), Follow (blank, 0 or a delay), Mark (break, lunch, end), Confirm, a Look by name, an Action with its Target and Value, and Notes — any of them, in any order, by header. Looks and targets are matched by name; an unknown one is kept and reads as broken until it exists. Export writes the same columns back." />
+
     <ItemsControl ItemsSource="{Binding Cues.Rows}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:CueRow">
@@ -83,6 +99,39 @@
         <CheckBox Grid.Column="4" Content="Confirm" IsChecked="{Binding Cues.SelectedCue.RequireConfirm, Mode=TwoWay}" ToolTip.Tip="GO asks for a second press (the Run page)" />
       </Grid>
       <TextBox Text="{Binding Cues.SelectedCue.Notes, Mode=TwoWay}" Watermark="Notes for the caller — “Take only when foyer doors close.”" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="44" />
+
+      <TextBlock Classes="label" Text="Running order" Margin="0,4,0,0" />
+      <Grid ColumnDefinitions="Auto,6,78,10,Auto,6,78,10,Auto,6,66,10,Auto,6,*">
+        <TextBlock Grid.Column="0" Classes="label" Text="Start" VerticalAlignment="Center" />
+        <TextBox Grid.Column="2" Text="{Binding Cues.SelectedStartText, Mode=TwoWay}" Watermark="10:35"
+                 ToolTip.Tip="The planned clock time (HH:mm) — the Run surface reads early / late against it" />
+        <TextBlock Grid.Column="4" Classes="label" Text="Length" VerticalAlignment="Center" />
+        <TextBox Grid.Column="6" Text="{Binding Cues.SelectedDurationText, Mode=TwoWay}" Watermark="12:00"
+                 ToolTip.Tip="The planned length (mm:ss, 5 min, 90 s) — drives the running clock and the estimates" />
+        <TextBlock Grid.Column="8" Classes="label" Text="Follow" VerticalAlignment="Center" />
+        <TextBox Grid.Column="10" Text="{Binding Cues.SelectedFollowText, Mode=TwoWay}" Watermark="—"
+                 ToolTip.Tip="Auto-follow: blank = the caller presses GO; 0 = the next cue fires at once; 5 s or 1:30 = after that long. HOLD, moving standby or disarming stops it." />
+        <TextBlock Grid.Column="12" Classes="label" Text="Mark" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="14" ItemsSource="{Binding Cues.Marks}" SelectedItem="{Binding Cues.SelectedMark, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                  ToolTip.Tip="A break, lunch or the end of the day — what the Run surface's estimates count down to" />
+      </Grid>
+
+      <TextBlock Classes="label" Text="Quick: the cue's look in one pick, an action in one press" Margin="0,4,0,0" />
+      <ComboBox ItemsSource="{Binding Cues.QuickLooks}" SelectedItem="{Binding Cues.QuickLook, Mode=TwoWay}"
+                PlaceholderText="Apply look… (sets or adds the cue's Apply look action)" HorizontalAlignment="Stretch" />
+      <WrapPanel>
+        <Button Classes="mini" Content="+ Audio" Command="{Binding Cues.QuickActionCommand}" CommandParameter="AudioPlay" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Stop audio" Command="{Binding Cues.QuickActionCommand}" CommandParameter="AudioStop" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ VOG / sting" Command="{Binding Cues.QuickActionCommand}" CommandParameter="StingerFire" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Part" Command="{Binding Cues.QuickActionCommand}" CommandParameter="PlaylistPart" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Countdown" Command="{Binding Cues.QuickActionCommand}" CommandParameter="CountdownStart" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Message" Command="{Binding Cues.QuickActionCommand}" CommandParameter="MessageOn" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Lower third" Command="{Binding Cues.QuickActionCommand}" CommandParameter="LowerThirdShow" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Blackout" Command="{Binding Cues.QuickActionCommand}" CommandParameter="BlackoutOn" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Lift blackout" Command="{Binding Cues.QuickActionCommand}" CommandParameter="BlackoutOff" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Screen lock" Command="{Binding Cues.QuickActionCommand}" CommandParameter="ScreenLock" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Stream" Command="{Binding Cues.QuickActionCommand}" CommandParameter="StreamStart" Margin="0,0,4,4" />
+      </WrapPanel>
       <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
         <Button Grid.Column="0" Classes="mini" Content="↑" Command="{Binding Cues.MoveCueUpCommand}" ToolTip.Tip="Move the cue up" />
         <Button Grid.Column="1" Classes="mini" Content="↓" Command="{Binding Cues.MoveCueDownCommand}" ToolTip.Tip="Move the cue down" />

@@ -598,6 +598,13 @@ public sealed class MainViewModel : Observable
         };
         Cues = new CueEditor(_services, message => StatusMessage = message);
         Run = new RunViewModel(_services, this);
+
+        // The caller's home: a running order in and out of the Cues page
+        var cues = Cues;
+        ImportCueSheetCommand = new RelayCommand(() => _ = ImportCueSheetAsync(append: false));
+        ImportCueSheetAppendCommand = new RelayCommand(() => _ = ImportCueSheetAsync(append: true));
+        ExportCueSheetCommand = new RelayCommand(() => _ = SaveTextAsync("Export the cue list", (cues.SelectedStack?.Name ?? "cues") + ".csv", cues.ExportCsv(), "Cue list exported"));
+        SaveCueTemplateCommand = new RelayCommand(() => _ = SaveTextAsync("Save the cue sheet template", "cue-sheet-template.csv", CueSheet.Template(), "Template saved"));
         _services.Cues.Changed += () =>
         {
             Raise(nameof(ClickerArmed));
@@ -3426,6 +3433,10 @@ public sealed class MainViewModel : Observable
     public RelayCommand WebReloadCommand { get; }
     public RelayCommand RememberWebUrlCommand { get; }
     public RelayCommand PutWebPageOnPatternCommand { get; }
+    public RelayCommand ImportCueSheetCommand { get; }
+    public RelayCommand ImportCueSheetAppendCommand { get; }
+    public RelayCommand ExportCueSheetCommand { get; }
+    public RelayCommand SaveCueTemplateCommand { get; }
     public RelayCommand PresenterNextCommand { get; }
     public RelayCommand PresenterPrevCommand { get; }
     public RelayCommand PresenterResetCommand { get; }
@@ -4846,6 +4857,59 @@ public sealed class MainViewModel : Observable
     {
         var path = await PickOpenPathAsync(title, type, null);
         if (path is not null) assign(path);
+    }
+
+    private static readonly FilePickerFileType CueSheetTypes = new("Cue sheet (CSV or Excel)") { Patterns = new[] { "*.csv", "*.xlsx", "*.txt" } };
+    private static readonly FilePickerFileType CsvTypes = new("CSV") { Patterns = new[] { "*.csv" } };
+
+    private async Task ImportCueSheetAsync(bool append)
+    {
+        var path = await PickOpenPathAsync(append ? "Append a cue sheet" : "Import a cue sheet", CueSheetTypes, null);
+        if (path is null) return;
+        StatusMessage = ImportCueSheetFrom(path, append);
+    }
+
+    /// <summary>Reads a CSV or the first sheet of an .xlsx into the selected list; returns the words for the status line.</summary>
+    public string ImportCueSheetFrom(string path, bool append)
+    {
+        TableData table;
+        try
+        {
+            table = path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+                ? XlsxTable.Read(File.ReadAllBytes(path))
+                : CsvTable.Parse(File.ReadAllText(path));
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Cue sheet read failed.", ex);
+            return $"Could not read {Path.GetFileName(path)}: {ex.Message}";
+        }
+        var report = Cues.ImportRows(table, append);
+        return $"{report.Split('\n')[0]} ({Path.GetFileName(path)})";
+    }
+
+    private async Task SaveTextAsync(string title, string suggestedName, string text, string doneWord)
+    {
+        var window = _services.MainWindow;
+        if (window is null) return;
+        try
+        {
+            var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = title,
+                SuggestedFileName = suggestedName,
+                FileTypeChoices = new[] { CsvTypes },
+            });
+            var path = file?.TryGetLocalPath();
+            if (path is null) return;
+            File.WriteAllText(path, text, new System.Text.UTF8Encoding(false)); // the text carries its own BOM for Excel
+            StatusMessage = $"{doneWord}: {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"{title} failed.", ex);
+            StatusMessage = $"{title} failed: {ex.Message}";
+        }
     }
 
     private async Task<string?> PickOpenPathAsync(string title, FilePickerFileType type, string? suggestedDir)

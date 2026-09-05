@@ -261,6 +261,14 @@ public sealed class CueEditor : Observable
         });
         MoveActionUpCommand = new RelayCommand<ActionRow>(row => MoveAction(row, -1));
         MoveActionDownCommand = new RelayCommand<ActionRow>(row => MoveAction(row, +1));
+        QuickActionCommand = new RelayCommand<string>(name =>
+        {
+            if (SelectedCue is null || name is null || !Enum.TryParse<CueActionKind>(name, out var kind)) return;
+            SelectedCue.Actions.Add(new CueActionConfig { Kind = kind });
+            OnCueEdited();
+            var needsTarget = CueActionSpec.For(kind).Target != TargetKind.None;
+            _status($"{SelectedCue.Number}: {CueActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
+        });
 
         _s.SnapshotPublished += ScheduleRevalidate; // any edit anywhere can change what resolves
         _s.Cues.Changed += RefreshMarkers;
@@ -324,11 +332,194 @@ public sealed class CueEditor : Observable
             RebuildActionRows();
             Raise(nameof(SelectedCue));
             Raise(nameof(HasSelection));
+            RaisePlan();
             RefreshMarkers();
         }
     }
 
     public bool HasSelection => _selectedCue is not null;
+
+    // ---- the running order: the selected cue's plan --------------------------------------
+
+    public static readonly IReadOnlyList<PickItem> MarkChoices = new[]
+    {
+        new PickItem(nameof(CueMark.None), "—"),
+        new PickItem(nameof(CueMark.Break), "Break"),
+        new PickItem(nameof(CueMark.Lunch), "Lunch"),
+        new PickItem(nameof(CueMark.End), "End of the day"),
+    };
+
+    public IReadOnlyList<PickItem> Marks => MarkChoices;
+
+    /// <summary>"10:35" — the planned start; blank clears it; a time in any usual spelling is tidied, anything else is kept and flagged.</summary>
+    public string SelectedStartText
+    {
+        get => _selectedCue?.PlannedStart ?? "";
+        set
+        {
+            if (_selectedCue is null) return;
+            var text = (value ?? "").Trim();
+            _selectedCue.PlannedStart = text.Length > 0 && CueTiming.ParseClock(text) is { } at ? CueTiming.FormatClock(at) : text;
+            Raise(nameof(SelectedStartText));
+            OnCueEdited();
+        }
+    }
+
+    /// <summary>"12:00" — the planned length; blank clears it.</summary>
+    public string SelectedDurationText
+    {
+        get => _selectedCue?.PlannedSeconds is { } p ? CueTiming.FormatDuration(p) : "";
+        set
+        {
+            if (_selectedCue is null) return;
+            var text = (value ?? "").Trim();
+            if (text.Length == 0)
+            {
+                _selectedCue.PlannedSeconds = null;
+            }
+            else if (CueTiming.ParseDuration(text) is { } seconds)
+            {
+                _selectedCue.PlannedSeconds = seconds;
+            }
+            else
+            {
+                _status($"'{text}' is not a length — use mm:ss, 5 min or 90 s.");
+                Raise(nameof(SelectedDurationText));
+                return;
+            }
+            Raise(nameof(SelectedDurationText));
+            OnCueEdited();
+        }
+    }
+
+    /// <summary>Blank = the caller presses GO; "0" = the next cue fires at once; "5 s" or "1:30" = after that long.</summary>
+    public string SelectedFollowText
+    {
+        get => _selectedCue?.FollowSeconds is { } f ? (f == 0 ? "0" : CueTiming.FormatDuration(f)) : "";
+        set
+        {
+            if (_selectedCue is null) return;
+            var text = (value ?? "").Trim();
+            if (text.Length == 0)
+            {
+                _selectedCue.FollowSeconds = null;
+            }
+            else if (CueTiming.ParseDuration(text) is { } seconds)
+            {
+                _selectedCue.FollowSeconds = seconds;
+            }
+            else
+            {
+                _status($"'{text}' is not a delay — blank, 0, 5 s or 1:30.");
+                Raise(nameof(SelectedFollowText));
+                return;
+            }
+            Raise(nameof(SelectedFollowText));
+            OnCueEdited();
+        }
+    }
+
+    public PickItem SelectedMark
+    {
+        get => MarkChoices.First(m => m.Id == (_selectedCue?.Mark ?? CueMark.None).ToString());
+        set
+        {
+            if (value is null || _selectedCue is null || !Enum.TryParse<CueMark>(value.Id, out var mark) || mark == _selectedCue.Mark) return;
+            _selectedCue.Mark = mark;
+            Raise(nameof(SelectedMark));
+            OnCueEdited();
+        }
+    }
+
+    // ---- quick: a look or an action in one pick ----------------------------------------------
+
+    public IReadOnlyList<PickItem> QuickLooks => _s.State.LooksAndCues.Looks.Select(l => new PickItem(l.Id, l.Name)).ToList();
+
+    /// <summary>The selected cue's look — its first Apply look action; picking one sets it, or adds it ahead of the other actions.</summary>
+    public PickItem? QuickLook
+    {
+        get
+        {
+            var a = _selectedCue?.Actions.FirstOrDefault(x => x.Kind == CueActionKind.ApplyLook);
+            if (a is null) return null;
+            return QuickLooks.FirstOrDefault(l => l.Id == a.Target) ?? new PickItem(a.Target, $"{a.Target} (not found)");
+        }
+        set
+        {
+            if (value is null || _selectedCue is null) return;
+            SetLook(_selectedCue, value.Id);
+            Raise(nameof(QuickLook));
+            OnCueEdited();
+            _status($"{_selectedCue.Number} applies '{value.Label}'.");
+        }
+    }
+
+    /// <summary>Gives a cue a look: its first Apply look action retargeted, else one added ahead of the rest.</summary>
+    public static void SetLook(RunCueConfig cue, string lookId)
+    {
+        var existing = cue.Actions.FirstOrDefault(a => a.Kind == CueActionKind.ApplyLook);
+        if (existing is not null) existing.Target = lookId;
+        else cue.Actions.Insert(0, new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = lookId });
+    }
+
+    private void RaisePlan()
+    {
+        Raise(nameof(SelectedStartText));
+        Raise(nameof(SelectedDurationText));
+        Raise(nameof(SelectedFollowText));
+        Raise(nameof(SelectedMark));
+        Raise(nameof(QuickLook));
+    }
+
+    // ---- a running order in and out ------------------------------------------------------------
+
+    private string _lastImportReport = "";
+
+    /// <summary>What the last import made of its sheet, with the notes an operator should read.</summary>
+    public string LastImportReport { get => _lastImportReport; private set => Set(ref _lastImportReport, value); }
+
+    /// <summary>
+    /// A sheet's rows into the selected list — replacing it, or appended after its last cue with
+    /// the numbering continued. A replaced caller's stack loses its place (standby, last cue, a
+    /// pending follow): the old cues are gone. Returns the report (first line = the summary).
+    /// </summary>
+    public string ImportRows(TableData table, bool append)
+    {
+        var stack = SelectedStack ?? CueStacks.Caller(_s.State);
+        var previous = append && stack.Cues.Count > 0 ? stack.Cues[^1].Number : null;
+        var result = CueSheet.Import(table, _s.State, previous);
+        var lines = new List<string>();
+        if (result.Cues.Count == 0)
+        {
+            lines.Add("Nothing imported — " + (result.Notes.Count > 0 ? result.Notes[0] : "the sheet has no rows under its header."));
+            lines.AddRange(result.Notes.Skip(1));
+            LastImportReport = string.Join("\n", lines);
+            return LastImportReport;
+        }
+        _s.BulkEdit(() =>
+        {
+            if (!append) stack.Cues.Clear();
+            foreach (var cue in result.Cues) stack.Cues.Add(cue);
+        });
+        if (!append)
+        {
+            var rt = _s.Cues.For(stack);
+            rt.StandbyCueId = null;
+            rt.LastCueId = null;
+            rt.CurrentIndex = -1;
+            rt.FollowDueUtc = null;
+            rt.FollowCueId = null;
+        }
+        SelectedCue = result.Cues[0];
+        Refresh();
+        lines.Add($"{(append ? "Appended" : "Imported")} {result.Summary} into {stack.Name}.");
+        lines.AddRange(result.Notes);
+        LastImportReport = string.Join("\n", lines);
+        return LastImportReport;
+    }
+
+    /// <summary>The selected list as a sheet.</summary>
+    public string ExportCsv() => CueSheet.Export(_s.State, SelectedStack ?? CueStacks.Caller(_s.State));
 
     /// <summary>"All 12 cues can run." or "2 of 12 cues are broken."</summary>
     public string ValidationSummary { get => _validationSummary; private set => Set(ref _validationSummary, value); }
@@ -352,6 +543,7 @@ public sealed class CueEditor : Observable
     public RelayCommand<ActionRow> RemoveActionCommand { get; }
     public RelayCommand<ActionRow> MoveActionUpCommand { get; }
     public RelayCommand<ActionRow> MoveActionDownCommand { get; }
+    public RelayCommand<string> QuickActionCommand { get; }
 
     /// <summary>A show was loaded (or the app booted): both lists exist; start on the caller's stack.</summary>
     public void OnShowLoaded()
@@ -513,6 +705,8 @@ public sealed class CueEditor : Observable
         StackNotesText = string.Join("  ", _report.StackNotes);
         RefreshMarkers();
         foreach (var row in ActionRows) row.RefreshChoices();
+        Raise(nameof(QuickLooks));
+        RaisePlan();
     }
 
     private void RefreshMarkers()

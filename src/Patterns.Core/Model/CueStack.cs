@@ -72,6 +72,18 @@ public enum CueActionKind
     ScreenUnlock,
 }
 
+/// <summary>
+/// What a cue marks in the day, so the caller's estimates know where the next break, lunch
+/// and the end are. First member is the fallback for a value this build does not know.
+/// </summary>
+public enum CueMark
+{
+    None,
+    Break,
+    Lunch,
+    End,
+}
+
 /// <summary>One typed step of a cue.</summary>
 public sealed class CueActionConfig : Observable
 {
@@ -99,6 +111,9 @@ public sealed class RunCueConfig : Observable
     private bool _requireConfirm;
     private bool _ready;
     private int? _plannedSeconds;
+    private string _plannedStart = "";
+    private int? _followSeconds;
+    private CueMark _mark;
 
     /// <summary>Never shown; the runtime, the remote fence and the history use it.</summary>
     public string Id { get => _id; set => Set(ref _id, value); }
@@ -112,8 +127,17 @@ public sealed class RunCueConfig : Observable
     public bool RequireConfirm { get => _requireConfirm; set => Set(ref _requireConfirm, value); }
     /// <summary>Set by the visual operator: "this one is built". Not a gate.</summary>
     public bool Ready { get => _ready; set => Set(ref _ready, value); }
-    /// <summary>Drives the running row's elapsed / planned display.</summary>
-    public int? PlannedSeconds { get => _plannedSeconds; set => Set(ref _plannedSeconds, value); }
+    /// <summary>The planned length: drives the running row's elapsed / planned display and the day's estimates.</summary>
+    public int? PlannedSeconds { get => _plannedSeconds; set => Set(ref _plannedSeconds, value is { } v ? Math.Max(0, v) : null); }
+
+    /// <summary>The running order's clock time for this cue, "HH:mm" (empty = none); the estimates compare it with the clock.</summary>
+    public string PlannedStart { get => _plannedStart; set => Set(ref _plannedStart, value ?? ""); }
+
+    /// <summary>Auto-follow: after this cue fires, the next one GOes by itself this many seconds later (0 = at once; null = the caller presses GO).</summary>
+    public int? FollowSeconds { get => _followSeconds; set => Set(ref _followSeconds, value is { } v ? Math.Clamp(v, 0, 86400) : null); }
+
+    /// <summary>A break, lunch or the end of the day — what the caller's estimates count down to.</summary>
+    public CueMark Mark { get => _mark; set => Set(ref _mark, value); }
 
     public ObservableCollection<CueActionConfig> Actions { get; init; } = new();
 }

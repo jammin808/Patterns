@@ -27,7 +27,11 @@
         <Border Grid.Column="7" Classes="runChip holdChip" IsVisible="{Binding Run.IsStingHolding}"
                 ToolTip.Tip="A stinger landed and is holding the screens — TAKE the preview or GO the next cue"><TextBlock Text="{Binding Run.StingHoldText}" /></Border>
         <Border Grid.Column="8" Classes="runChip holdChip" IsVisible="{Binding Run.IsDucked}" ToolTip.Tip="{Binding Run.DuckTip}"><TextBlock Text="DUCK" /></Border>
-        <TextBlock Grid.Column="9" Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Margin="12,0" Foreground="{StaticResource TextDimBrush}" />
+        <StackPanel Grid.Column="9" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="12,0">
+          <Border Classes="runChip holdChip" IsVisible="{Binding Run.IsLate}" ToolTip.Tip="Behind the running order — the last GO against its planned start (or the standby cue's expected start against its plan)"><TextBlock Text="{Binding Run.OffsetText}" /></Border>
+          <Border Classes="runChip armedChip" IsVisible="{Binding Run.IsOnPlan}" ToolTip.Tip="On or ahead of the running order"><TextBlock Text="{Binding Run.OffsetText}" /></Border>
+          <TextBlock Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
+        </StackPanel>
         <StackPanel Grid.Column="10" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <Button Classes="mini" Content="POP OUT" Command="{Binding PopOutRunCommand}" Focusable="False"
                   ToolTip.Tip="Open the Run surface as a second window for the caller's own monitor" />
@@ -64,12 +68,28 @@
         </ItemsControl>
       </Grid>
 
-      <Grid Grid.Column="2" RowDefinitions="Auto,*">
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,2,6">
           <TextBlock Classes="runTag" Text="CUE STACK" />
           <TextBlock Grid.Column="1" Classes="runNotes" Text="{Binding Run.ValidationSummary}" Foreground="{StaticResource TextDimBrush}" />
         </Grid>
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <!-- The day's clock: where the marks are expected, and the caller's four quick edits -->
+        <Border Grid.Row="1" Classes="runBanner" IsVisible="{Binding Run.HasPlan}" Margin="0,0,0,6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="runNotes" Text="{Binding Run.ScheduleSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+              <Button Classes="mini" Content="−1 MIN" Command="{Binding Run.ShiftEarlierCommand}" Focusable="False"
+                      ToolTip.Tip="Pull every planned start from the standby cue on a minute earlier" />
+              <Button Classes="mini" Content="+1 MIN" Command="{Binding Run.ShiftLaterCommand}" Focusable="False"
+                      ToolTip.Tip="Push every planned start from the standby cue on a minute later" />
+              <Button Classes="mini" Content="RESUME NOW" Command="{Binding Run.ResumeNowCommand}" Focusable="False"
+                      ToolTip.Tip="The standby cue is planned for now; the rest of the day moves with it" />
+              <Button Classes="mini" Content="CATCH UP" Command="{Binding Run.CatchUpCommand}" Focusable="False"
+                      ToolTip.Tip="Behind the plan: squeeze the planned lengths before the next break, lunch or end, in proportion (never under 30 s), until the time is made up" />
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
           <ItemsControl ItemsSource="{Binding Run.Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:RunRow">
@@ -80,10 +100,21 @@
                           Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Run.SelectRowCommand}" CommandParameter="{Binding}"
                           ToolTip.Tip="Click: put this cue on standby (changes nothing on air)">
                     <Grid ColumnDefinitions="88,Auto,*">
-                      <TextBlock Grid.Column="0" Classes="runNumber" Text="{Binding Number}" VerticalAlignment="Top" />
-                      <Border Grid.Column="1" Classes="runTagChip" IsVisible="{Binding Tag, Converter={StaticResource NotEmpty}}" VerticalAlignment="Top">
-                        <TextBlock Text="{Binding Tag}" />
-                      </Border>
+                      <StackPanel Grid.Column="0" VerticalAlignment="Top">
+                        <TextBlock Classes="runNumber" Text="{Binding Number}" />
+                        <TextBlock Classes="runNotes" Text="{Binding Plan}" IsVisible="{Binding HasPlan}" Foreground="{StaticResource TextDimBrush}" FontFamily="Consolas,Menlo,monospace" TextWrapping="Wrap" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Top">
+                        <Border Classes="runTagChip" IsVisible="{Binding Tag, Converter={StaticResource NotEmpty}}">
+                          <TextBlock Text="{Binding Tag}" />
+                        </Border>
+                        <Border Classes="runTagChip" IsVisible="{Binding HasMark}" ToolTip.Tip="A break, lunch or the end — what the estimates count down to">
+                          <TextBlock Text="{Binding MarkTag}" />
+                        </Border>
+                        <Border Classes="runTagChip" IsVisible="{Binding HasFollow}" ToolTip.Tip="Auto-follow: after this cue fires, the next GOes by itself after this delay">
+                          <TextBlock Text="{Binding FollowTag}" />
+                        </Border>
+                      </StackPanel>
                       <StackPanel Grid.Column="2" Spacing="2" Margin="10,0,0,0">
                         <TextBlock Classes="runName" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Classes="runNotes" Text="{Binding Summary}" Foreground="{StaticResource TextDimBrush}" TextTrimming="CharacterEllipsis" />
@@ -113,6 +144,11 @@
             <Border Grid.Column="3" Classes="runChip holdChip" IsVisible="{Binding Run.StandbyReadyText, Converter={StaticResource NotEmpty}}" VerticalAlignment="Center"><TextBlock Text="{Binding Run.StandbyReadyText}" /></Border>
           </Grid>
           <TextBlock Classes="runNotes runCueNotes" Text="{Binding Run.StandbyNotes}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Run.StandbyNotes, Converter={StaticResource NotEmpty}}" />
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Run.StandbyPlanText, Converter={StaticResource NotEmpty}}">
+            <TextBlock Classes="runNotes" Text="{Binding Run.StandbyPlanText}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+            <Border Classes="runChip holdChip" IsVisible="{Binding Run.HasFollow}" ToolTip.Tip="The next cue fires by itself when this runs out — press STOP FOLLOW, HOLD, or move standby to keep it"><TextBlock Text="{Binding Run.FollowText}" /></Border>
+            <Button Classes="mini" Content="STOP FOLLOW" Command="{Binding Run.CancelFollowCommand}" IsVisible="{Binding Run.HasFollow}" Focusable="False" />
+          </StackPanel>
           <TextBlock Classes="runNotes" Foreground="{StaticResource TallyPgmBrush}" Text="{Binding Run.StandbyProblem}" IsVisible="{Binding Run.StandbyIsBroken}" />
           <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Run.RunningText, Converter={StaticResource NotEmpty}}">
             <TextBlock Classes="runTag" Text="RUNNING" Foreground="{StaticResource TallyPgmBrush}" VerticalAlignment="Center" />

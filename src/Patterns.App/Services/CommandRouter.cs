@@ -259,11 +259,42 @@ public sealed class CommandRouter
             ready = c.Ready,
             track = c.Track,
             notes = c.Notes,
+            plannedStart = c.PlannedStart,
+            plannedSeconds = c.PlannedSeconds,
+            followSeconds = c.FollowSeconds,
+            mark = c.Mark == CueMark.None ? "" : c.Mark.ToString().ToLowerInvariant(),
             summary = CueSummary.Describe(_services.State, c),
             broken = report.ReasonFor(c.Id),
         }).ToArray();
         return JsonSerializer.Serialize(new { name = stack.Stack.Name, listRev = ListRev(), cues = rows });
     }
+
+    /// <summary>Where the day stands — the block a remote shows beside the standby card.</summary>
+    private object TimingJson()
+    {
+        var stack = _services.CueStack;
+        var t = stack.Timing();
+        return new
+        {
+            offsetSeconds = t.Offset is { } o ? (int?)Math.Round(o.TotalSeconds) : null,
+            offset = t.OffsetText,
+            nextBreak = MarkJson(t.NextBreak),
+            lunch = MarkJson(t.Lunch),
+            end = MarkJson(t.End),
+            follow = stack.FollowText(),
+        };
+    }
+
+    private static object? MarkJson(MarkEstimate? m) => m is null ? null : new
+    {
+        number = m.Cue.Number,
+        name = m.Cue.Name,
+        expected = CueTiming.FormatClock(m.EstimatedAt),
+        planned = m.PlannedAt is { } p ? CueTiming.FormatClock(p) : null,
+        deltaSeconds = m.Delta is { } d ? (int?)Math.Round(d.TotalSeconds) : null,
+        atLeast = m.Uncertain,
+        text = m.Text,
+    };
 
     public Task<string> CueListJsonAsync() => Dispatcher.UIThread.InvokeAsync(CueListJson).GetTask();
 
@@ -294,11 +325,12 @@ public sealed class CommandRouter
             next = next.ToArray(),
             last = LastRow(stack),
             history = stack.History.Take(8).Select(RowJson).ToArray(),
+            timing = TimingJson(),
         };
     }
 
     private static object? StandbyRow(RunCueConfig? cue)
-        => cue is null ? null : new { id = cue.Id, number = cue.Number, name = cue.Name, requireConfirm = cue.RequireConfirm, notes = cue.Notes };
+        => cue is null ? null : new { id = cue.Id, number = cue.Number, name = cue.Name, requireConfirm = cue.RequireConfirm, notes = cue.Notes, plannedStart = cue.PlannedStart, followSeconds = cue.FollowSeconds };
 
     private static object? LastRow(CueStackService stack) => stack.History.Count == 0 ? null : RowJson(stack.History[0]);
 
@@ -323,7 +355,7 @@ public sealed class CommandRouter
             long h = 1469598103934665603;
             foreach (var c in _services.CueStack.Stack.Cues)
             {
-                foreach (var ch in $"{c.Id}|{c.Number}|{c.Name}|{c.Enabled}|{c.RequireConfirm}|{c.Ready}|")
+                foreach (var ch in $"{c.Id}|{c.Number}|{c.Name}|{c.Enabled}|{c.RequireConfirm}|{c.Ready}|{c.PlannedStart}|{c.PlannedSeconds}|{c.FollowSeconds}|{c.Mark}|")
                 {
                     h = (h ^ ch) * 1099511628211;
                 }

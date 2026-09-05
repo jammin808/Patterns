@@ -13,12 +13,32 @@ public sealed class RunRow : Observable
     private bool _isLast;
     private bool _isNext;
     private string _problem = "";
+    private string _plan = "";
 
     public RunRow(RunCueConfig cue, string summary)
     {
         Cue = cue;
         Summary = summary;
     }
+
+    /// <summary>"10:35 → 10:42 · 12:00": planned start, expected start, planned length — whichever the cue has.</summary>
+    public string Plan { get => _plan; set { if (Set(ref _plan, value)) Raise(nameof(HasPlan)); } }
+
+    public bool HasPlan => _plan.Length > 0;
+
+    public bool HasFollow => Cue.FollowSeconds is not null;
+
+    public string FollowTag => Cue.FollowSeconds is { } f ? (f == 0 ? "AUTO" : $"AUTO {CueTiming.FormatDuration(f)}") : "";
+
+    public string MarkTag => Cue.Mark switch
+    {
+        CueMark.Break => "BREAK",
+        CueMark.Lunch => "LUNCH",
+        CueMark.End => "END",
+        _ => "",
+    };
+
+    public bool HasMark => Cue.Mark != CueMark.None;
 
     public RunCueConfig Cue { get; }
     public string Number => Cue.Number;
@@ -78,6 +98,16 @@ public sealed class RunViewModel : Observable
         StandbyDownCommand = new RelayCommand(() => _s.CueStack.StandbyMove(+1));
         SelectRowCommand = new RelayCommand<RunRow>(row => { if (row is not null) _s.CueStack.Standby(row.Cue.Id); });
         DismissBannerCommand = new RelayCommand(() => Banner = "");
+        ShiftLaterCommand = new RelayCommand(() => _vm.StatusMessage = _s.CueStack.ShiftPlan(TimeSpan.FromMinutes(1), ActionOrigin.Desk));
+        ShiftEarlierCommand = new RelayCommand(() => _vm.StatusMessage = _s.CueStack.ShiftPlan(TimeSpan.FromMinutes(-1), ActionOrigin.Desk));
+        ResumeNowCommand = new RelayCommand(() => _vm.StatusMessage = _s.CueStack.ResumeNow(ActionOrigin.Desk));
+        CatchUpCommand = new RelayCommand(() => _vm.StatusMessage = _s.CueStack.CatchUp(ActionOrigin.Desk));
+        CancelFollowCommand = new RelayCommand(() =>
+        {
+            _s.CueStack.CancelFollow();
+            _vm.StatusMessage = "Auto-follow cancelled — the next cue waits for GO.";
+            RefreshTiming();
+        });
 
         _s.CueStack.Changed += OnRuntimeChanged;
         _s.AirLabelChanged += () => Raise(nameof(LiveLabel));
@@ -151,6 +181,77 @@ public sealed class RunViewModel : Observable
     public bool RunningOverPlanned
         => _s.CueStack.LastCue is { PlannedSeconds: { } p } && _s.CueStack.Runtime.LastGoUtc is { } at && (DateTime.UtcNow - at).TotalSeconds > p;
 
+    // ---- the day's clock -------------------------------------------------------------
+
+    private TimingReport _timing = TimingReport.Empty;
+
+    /// <summary>Where the day stands, refreshed every second and on every GO.</summary>
+    public TimingReport Timing => _timing;
+
+    /// <summary>"ON TIME", "3 MIN LATE", "2 MIN EARLY" — empty until something is planned.</summary>
+    public string OffsetText => _timing.OffsetText;
+
+    public bool IsLate => _timing.IsLate;
+
+    public bool IsOnPlan => _timing.OffsetText.Length > 0 && !_timing.IsLate;
+
+    /// <summary>"Next break ≈ 10:42 (planned 10:35, +7 min) · Lunch … · End …".</summary>
+    public string ScheduleSummary => _timing.Summary;
+
+    /// <summary>The list carries a running order: planned starts or lengths, or a break, lunch or end.</summary>
+    public bool HasPlan => _s.CueStack.Stack.Cues.Any(c => c.PlannedStart.Length > 0 || c.PlannedSeconds is not null || c.Mark != CueMark.None);
+
+    /// <summary>The standby cue's plan: "planned 10:35 · expected 10:42 (+7 min) · 12:00".</summary>
+    public string StandbyPlanText
+    {
+        get
+        {
+            if (_s.CueStack.StandbyCue is not { } cue) return "";
+            var e = _timing.For(cue.Id);
+            var parts = new List<string>();
+            if (e?.PlannedAt is { } p) parts.Add($"planned {CueTiming.FormatClock(p)}");
+            if (e is { Past: false })
+            {
+                var expected = $"expected {(e.Uncertain ? "≥ " : "")}{CueTiming.FormatClock(e.EstimatedAt)}";
+                if (e.Delta is { } d && Math.Abs(d.TotalSeconds) >= 30) expected += $" ({CueTiming.FormatDelta(d)})";
+                parts.Add(expected);
+            }
+            if (cue.PlannedSeconds is { } len) parts.Add(CueTiming.FormatDuration(len));
+            return string.Join("  ·  ", parts);
+        }
+    }
+
+    /// <summary>"AUTO 01.030 in 0:07" while the next cue is going to fire by itself.</summary>
+    public string FollowText => _s.CueStack.FollowText();
+
+    public bool HasFollow => FollowText.Length > 0;
+
+    private void RefreshTiming()
+    {
+        _timing = _s.CueStack.Timing();
+        foreach (var row in Rows)
+        {
+            var e = _timing.For(row.Cue.Id);
+            var parts = new List<string>();
+            if (e?.PlannedAt is { } p) parts.Add(CueTiming.FormatClock(p));
+            if (e is { Past: false } && (e.PlannedAt is null || Math.Abs(e.Delta!.Value.TotalSeconds) >= 30))
+            {
+                parts.Add($"{(e.PlannedAt is null ? "≈ " : "→ ")}{(e.Uncertain ? "≥ " : "")}{CueTiming.FormatClock(e.EstimatedAt)}");
+            }
+            if (row.Cue.PlannedSeconds is { } len) parts.Add(CueTiming.FormatDuration(len));
+            row.Plan = string.Join("  ", parts);
+        }
+        Raise(nameof(Timing));
+        Raise(nameof(OffsetText));
+        Raise(nameof(IsLate));
+        Raise(nameof(IsOnPlan));
+        Raise(nameof(ScheduleSummary));
+        Raise(nameof(HasPlan));
+        Raise(nameof(StandbyPlanText));
+        Raise(nameof(FollowText));
+        Raise(nameof(HasFollow));
+    }
+
     public string GoText => _s.CueStack.ConfirmText ?? (_s.CueStack.StandbyCue is { } cue ? $"GO  {cue.Number}" : "GO");
     public bool IsConfirming => _s.CueStack.ConfirmText is not null;
     public string ArmText => IsArmed ? "DISARM" : "ARM";
@@ -173,6 +274,11 @@ public sealed class RunViewModel : Observable
     public RelayCommand StandbyDownCommand { get; }
     public RelayCommand<RunRow> SelectRowCommand { get; }
     public RelayCommand DismissBannerCommand { get; }
+    public RelayCommand ShiftLaterCommand { get; }
+    public RelayCommand ShiftEarlierCommand { get; }
+    public RelayCommand ResumeNowCommand { get; }
+    public RelayCommand CatchUpCommand { get; }
+    public RelayCommand CancelFollowCommand { get; }
 
     /// <summary>GO from the desk or the Enter key: the standby the sender sees is the one right now.</summary>
     public ActionResult Go(ActionOrigin origin)
@@ -208,6 +314,7 @@ public sealed class RunViewModel : Observable
     public void Tick()
     {
         _s.CueStack.Poll();
+        RefreshTiming();
         Raise(nameof(RunningText));
         Raise(nameof(RunningOverPlanned));
         Raise(nameof(NextAutoText));
@@ -222,6 +329,7 @@ public sealed class RunViewModel : Observable
     private void OnRuntimeChanged()
     {
         RefreshFlags();
+        RefreshTiming();
         RaiseLive();
     }
 
@@ -270,6 +378,7 @@ public sealed class RunViewModel : Observable
             Rows.Add(new RunRow(cue, CueSummary.Describe(_s.State, cue)) { Problem = _report.ReasonFor(cue.Id) ?? "" });
         }
         RefreshFlags();
+        RefreshTiming();
         RaiseLive();
     }
 

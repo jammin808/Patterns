@@ -119,11 +119,14 @@ public enum OriginKind
     Stinger,
     Recovery,
     Cue,
+    /// <summary>A cue's auto-follow: the next cue GOing by itself after the delay the cue carries.</summary>
+    Follow,
 }
 
 public sealed record ActionOrigin(OriginKind Kind, string Name = "", string Endpoint = "")
 {
     public static readonly ActionOrigin Desk = new(OriginKind.Desk);
+    public static readonly ActionOrigin Follow = new(OriginKind.Follow);
     public static readonly ActionOrigin Keyboard = new(OriginKind.Keyboard);
     public static readonly ActionOrigin Clicker = new(OriginKind.Clicker);
     public static readonly ActionOrigin Schedule = new(OriginKind.Schedule);

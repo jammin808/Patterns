@@ -15,6 +15,8 @@ public sealed class StackRuntime : Observable
     private string? _confirmPendingCueId;
     private DateTime? _confirmDeadlineUtc;
     private DateTime? _lastGoUtc;
+    private DateTime? _followDueUtc;
+    private string? _followCueId;
     private long _seq;
 
     /// <summary>A runtime chip: the list answers its keys / GO only while armed. Always off at launch.</summary>
@@ -42,6 +44,12 @@ public sealed class StackRuntime : Observable
     public DateTime? ConfirmDeadlineUtc { get => _confirmDeadlineUtc; set => Set(ref _confirmDeadlineUtc, value); }
 
     public DateTime? LastGoUtc { get => _lastGoUtc; set => Set(ref _lastGoUtc, value); }
+
+    /// <summary>An auto-follow is pending: the standby cue GOes by itself at this time, unless the caller moves standby, holds or disarms first.</summary>
+    public DateTime? FollowDueUtc { get => _followDueUtc; set => Set(ref _followDueUtc, value); }
+
+    /// <summary>The cue the pending follow expects on standby — a different one there cancels the follow.</summary>
+    public string? FollowCueId { get => _followCueId; set => Set(ref _followCueId, value); }
 
     /// <summary>Bumps on every runtime change; remotes long-poll on it.</summary>
     public long Seq { get => _seq; set => Set(ref _seq, value); }
@@ -85,6 +93,8 @@ public sealed class CueRuntime
             rt.ConfirmPendingCueId = null;
             rt.ConfirmDeadlineUtc = null;
             rt.LastGoUtc = null;
+            rt.FollowDueUtc = null;
+            rt.FollowCueId = null;
         }
         Changed?.Invoke();
     }
