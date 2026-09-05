@@ -739,19 +739,63 @@ public sealed class PresenterConfig : Observable
     public int CurrentIndex { get => _currentIndex; set => Set(ref _currentIndex, value); }
 }
 
+/// <summary>One row of the audio playlist: a file, and the name the desk reads for it.</summary>
+public sealed class AudioTrackConfig : Observable
+{
+    private string _id = Guid.NewGuid().ToString("N");
+    private string _path = "";
+    private string _name = "";
+    private bool _isNowPlaying;
+
+    /// <summary>Stable identity: a cue names a track by it, so a rename or a re-order never breaks the cue.</summary>
+    public string Id { get => _id; set => Set(ref _id, value); }
+
+    public string Path { get => _path; set { if (Set(ref _path, value ?? "")) Raise(nameof(DisplayName)); } }
+
+    /// <summary>An operator name for the row; empty = the file's name without its extension.</summary>
+    public string Name { get => _name; set { if (Set(ref _name, value ?? "")) Raise(nameof(DisplayName)); } }
+
+    [JsonIgnore]
+    public string DisplayName => _name.Length > 0 ? _name : System.IO.Path.GetFileNameWithoutExtension(_path);
+
+    /// <summary>Runtime-only: the row the player is on right now (the ▶ NOW marker).</summary>
+    [JsonIgnore]
+    public bool IsNowPlaying { get => _isNowPlaying; set => Set(ref _isNowPlaying, value); }
+}
+
 /// <summary>
-/// Independent audio track player — plays regardless of what is on screen, to the default
-/// device or any set of Windows audio outputs (HDMI screens are audio devices too).
+/// The audio playlist — an independent bed of music or announcements that plays whatever is on
+/// screen, to the default device or any set of Windows audio outputs (HDMI screens are audio
+/// devices too): the rows in their order, then every audio file of the folders named, in name
+/// order; shuffled by a seed when asked; the list looping at its end or stopping there. One
+/// file written before the list existed (<see cref="Path"/>) becomes its first row on load.
 /// </summary>
 public sealed class AudioPlayerConfig : Observable
 {
     private string _path = "";
     private bool _loop = true;
+    private bool _shuffle;
+    private int _shuffleSeed = 1;
     private double _volumePct = 100;
     private bool _playing;
 
-    public string Path { get => _path; set => Set(ref _path, value); }
+    /// <summary>The single track of a file written before the list existed (schema 7 and older); migrated into <see cref="Items"/> and cleared.</summary>
+    public string Path { get => _path; set => Set(ref _path, value ?? ""); }
+
+    /// <summary>The rows, in the order they play (unless shuffled).</summary>
+    public ObservableCollection<AudioTrackConfig> Items { get; init; } = new();
+
+    /// <summary>Folders whose audio files play after the rows, in name order — dropped in live, they are seen within half a minute.</summary>
+    public ObservableCollection<string> Folders { get; init; } = new();
+
+    /// <summary>The list loops at its end; off, it stops there.</summary>
     public bool Loop { get => _loop; set => Set(ref _loop, value); }
+
+    /// <summary>The order shuffled by <see cref="ShuffleSeed"/> — the same order every time until the seed changes (RESHUFFLE).</summary>
+    public bool Shuffle { get => _shuffle; set => Set(ref _shuffle, value); }
+
+    public int ShuffleSeed { get => _shuffleSeed; set => Set(ref _shuffleSeed, value); }
+
     public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
 
     /// <summary>Output device names to play on; empty = the default device.</summary>
@@ -1659,7 +1703,7 @@ public sealed class CaptureFormatConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 7;
+    public const int CurrentSchemaVersion = 8;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run

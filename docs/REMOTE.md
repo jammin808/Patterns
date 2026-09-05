@@ -51,7 +51,11 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `SCREEN <n> PROGRAM` (`PGM`, `FOLLOW`) | Screen *n* drops its own picture and shows the program again |
 | `LOCK <n> ON` / `OFF` / `TOGGLE` | Lock screen *n*: it keeps its picture through looks, cues, TAKE ALL and stingers (a confidence monitor, an info screen); unlock lets it follow again. Bare `LOCK <n>` toggles |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
-| `AUDIO PLAY` / `STOP` | The independent audio track |
+| `AUDIO PLAY` | The audio playlist plays — from where it stopped, or its first track (`TRACK` is an alias of `AUDIO`; `ERR` with an empty list) |
+| `AUDIO PLAY <n>` / `AUDIO PLAY <name>` | A track by its place in the order (the rows first, then the folders' files in name order), a row's name, or a file's name with or without its extension (`ERR` for a track that is not there) |
+| `AUDIO NEXT` / `AUDIO PREV` | The next or the previous track (`SKIP` / `BACK` are the same); they wrap, so a key never dead-ends |
+| `AUDIO STOP` | The list stops (it resumes at the same track) |
+| `AUDIO VOL <0–125>` | The list's level (`VOLUME` / `LEVEL` are the same; out of range is `ERR`) |
 | `MUSIC PLAY` | Break music (Spotify): resume, or start the library's first entry |
 | `MUSIC PLAY <n>` / `MUSIC PLAY <name>` | Play break-music entry *n* (Audio-page order) or by name (`MUSIC <n>` / `MUSIC <name>` do the same) |
 | `MUSIC PAUSE` | Pause break music (alias `MUSIC STOP`) |
@@ -110,7 +114,8 @@ State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel
 `cuestack{armed,hold,seq,listRev,confirm,program{label},previous{id,number,name},standby{id,number,name,requireConfirm,notes,plannedStart,followSeconds},next[6]{id,number,name},last{id,number,name,outcome,error,at,origin,actionsDone,actionsTotal},history[8],timing{offsetSeconds,offset,nextBreak{number,name,expected,planned,deltaSeconds,atLeast,text},lunch{…},end{…},follow}}`
 (`timing` is the caller's clock: `offset` reads "ON TIME", "3 MIN LATE" or "2 MIN EARLY" from the last GO against its planned start; `nextBreak`, `lunch` and `end` say when the marked cues are expected — `atLeast` when a cue has overrun or has no planned length; `follow` reads "AUTO 01.030 in 0:07" while the next cue is going to fire by itself)
 (the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `frozen` (every output holds its frame), `previousLook` (the name `LOOKBACK` returns to, or empty), `airLook` (the look on air, by name — empty when none was recorded or the picture moved on), `previewLook` (the look loaded in the preview while EDIT SAFE is open), `pattern` (the kind of picture on air: `Media`, `LedWall`, `ProjectionBlend`…), `looks[{n,name,slot,air,preview}]` (the show's looks in order — `n` is the place `LOOK #n` uses, `slot` the F-key or 0, `air` / `preview` where it is), `presenter{armed,index,count,steps[]}`,
-`screens[{n,label,enabled,group,locked,role,armed,own}]` (labels honour operator names; `role` is main, confidence, info or repeater; `armed` = the next CUT / TAKE changes it; `own` = it shows a picture of its own, not the program's), `editSafe` (EDIT SAFE is open: there is a preview and a TAKE to come), `audio{playing,track}`, `tone`,
+`screens[{n,label,enabled,group,locked,role,armed,own}]` (labels honour operator names; `role` is main, confidence, info or repeater; `armed` = the next CUT / TAKE changes it; `own` = it shows a picture of its own, not the program's), `editSafe` (EDIT SAFE is open: there is a preview and a TAKE to come),
+`audio{playing,track,n,count,next,position,length,remaining,positionText,lengthText,remainingText,shuffle,loop,level,status,items[{n,name}]}` (the audio playlist: `track` is the track on — or, stopped, the one PLAY would start — `n` its place (0 with nothing on) of `count`, `next` the one after it, the clock in whole seconds and as `m:ss`, the list's flags and level, its status line, and the rows by place — `AUDIO PLAY <n>`), `tone`,
 `stingers[{n,name,kind,source}]` (`kind` is `vog` or `sting`; `source` is `file`, or `pulse` for an effect pulse — a surge through the particles and fractals on screen that owns nothing), `stingerPlaying` (whatever owns the show), `stingerKind`
 (`vog` / `sting` / empty), `vogSound` (a VOG sound playing over the show — over a stinger too, which it ducks
 rather than stops; empty when none), `stingHold` (the name of a stinger holding the screens, or empty), `duck` (the live duck is on),
@@ -193,7 +198,9 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/screen/<n>/program` (or `/pgm`, `/follow`) | SCREEN n PROGRAM — screen n back to the program |
 | `/patterns/lock/<n> [1\|0]` | LOCK n ON / OFF; no argument toggles |
 | `/patterns/group/<letter> 1\|0` | GROUP A ON / OFF — a joined canvas |
-| `/patterns/audio/play`, `/patterns/audio/stop` | AUDIO PLAY / STOP — the audio track |
+| `/patterns/audio/play [n\|name]` | AUDIO PLAY — the audio playlist plays: a track by its place or its name, or the list resumes (also `/patterns/audio/play/<n>`, `/patterns/track/…`) |
+| `/patterns/audio/stop`, `/patterns/audio/next`, `/patterns/audio/prev` | AUDIO STOP / NEXT / PREV |
+| `/patterns/audio/volume <level>` | AUDIO VOL: an integer is percent (0–125), a float from 0.0 to 1.0 is a fader (× 100) |
 | `/patterns/music/play [n\|name]` | MUSIC PLAY — break music (Spotify), an entry by number or name |
 | `/patterns/music/pause`, `/patterns/music/next` | MUSIC PAUSE / NEXT |
 | `/patterns/music/volume <level>` | MUSIC VOL: an integer is percent, a float from 0.0 to 1.0 is a fader (× 100) |
@@ -242,7 +249,7 @@ Answers go to whoever sent the message, from the same port: `/patterns/pong` for
 same `ERR …` sentence the TCP port would write) or an address is not one Patterns knows. With
 **Feedback to** set to a host or address and a port (default 9699), every change sends one bundle
 there — throttled to 200 ms like the STATE pushes — carrying `/patterns/state/live i`,
-`/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/music i`, `/music/now s`,
+`/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/audio/track s`, `/audio/next s`, `/audio/n i`, `/audio/count i`, `/audio/remaining i`, `/audio/items/<n> s` (1…8), `/music i`, `/music/now s`,
 `/music/level i`, `/stinger s`, `/stinger/hold s`, `/lowerthird s`, `/lowerthird/person s`, `/lowerthird/preview s`,
 `/lowerthird/preview/person s`, `/lowerthird/default s`, `/lowerthird/edited i`,
 `/stream i`, `/playlist s`, `/health s`, `/review i`, `/freeze i`, `/editsafe i`, `/look/previous s`, `/look/air s`, `/look/preview s`, `/pattern s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/armed/<n> i`, `/screen/<n>/name s`, `/cue/armed i`,

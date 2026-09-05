@@ -188,6 +188,10 @@ public sealed class SettingsStore
         // exactly what they mirrored before.
         VirtualScreens.Sync(state);
 
+        // v8: the audio track became the audio playlist — the one file an older show named is
+        // the list's first row, and every row carries an id.
+        AudioPlaylist.Migrate(state.AudioPlayer);
+
         state.SchemaVersion = ShowState.CurrentSchemaVersion;
     }
 

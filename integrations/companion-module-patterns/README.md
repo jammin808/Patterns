@@ -35,6 +35,20 @@ whatever follows it — the playlist's next item, a stinger's ending — happens
 `video_restart` sends `VIDEO RESTART`. Presets under *Presenter*: the VT clock key (reads what
 is left, goes red for the last ten seconds, and pressing it is the skip), LAST 10 s and TOP.
 
+## The audio playlist (module 2.4.0)
+
+The audio track became a playlist — rows of tracks and whole folders, in order or shuffled, looping
+or not — and the module follows it. The `audio` action gained *Next track* and *Previous track*
+(`AUDIO NEXT` / `AUDIO PREV`; they wrap, so a key never dead-ends); `audio_item` plays a track by
+its place in the list (`AUDIO PLAY <n>` — the rows first, then the folders' files), `audio_name`
+by a row's name or its file's (`AUDIO PLAY <name>`), `audio_level` sets the level (`AUDIO VOL
+0–125`). STATE's `audio{playing,track,n,count,next,position,length,remaining,…,items[{n,name}]}`
+feeds the variables `audio_track` (the track on, or up next when stopped), `audio_next`,
+`audio_n`, `audio_count`, `audio_position`, `audio_remaining`, `audio_state`, and the bank
+`track_1…8` for keys that label themselves (`slot_empty` with *Audio playlist* dims an empty
+place). Presets under *Audio*: ⏭ and ⏮, a *what is on* key that plays or resumes, and eight bank
+keys; under *Audio playlist — this show*, a key per track of the show that is loaded.
+
 ## The cue stack (module 1.1.0)
 
 The **GO** preset fires the cue on standby and shows its number and name; it is green while

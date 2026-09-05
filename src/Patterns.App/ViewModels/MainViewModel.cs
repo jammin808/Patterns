@@ -312,12 +312,33 @@ public sealed class MainViewModel : Observable
             Raise(nameof(ProgressionText));
         });
 
-        // Audio track player
-        BrowseAudioTrackCommand = new RelayCommand(() => _ = PickFileAsync("Choose audio track", AudioTypes, p =>
+        // The audio playlist
+        AddAudioFilesCommand = new RelayCommand(() => _ = AddAudioFilesAsync());
+        AddAudioFolderCommand = new RelayCommand(() => _ = AddAudioFolderAsync());
+        RemoveAudioItemCommand = new RelayCommand<AudioTrackConfig>(item =>
         {
-            State.AudioPlayer.Path = p;
-            AddToMediaLibrary(p, isVideo: true);
-        }));
+            if (item is not null) State.AudioPlayer.Items.Remove(item);
+        });
+        RemoveAudioFolderCommand = new RelayCommand<string>(folder =>
+        {
+            if (folder is not null) State.AudioPlayer.Folders.Remove(folder);
+        });
+        PlayAudioItemCommand = new RelayCommand<AudioTrackConfig>(item =>
+        {
+            if (item is null) return;
+            if (AudioDevices.Count == 0) RefreshAudioDevices();
+            Report(_services.Actions.Execute(ShowActionKind.AudioPlay, ActionOrigin.Desk, item.Id));
+        });
+        MoveAudioItemUpCommand = new RelayCommand<AudioTrackConfig>(item => MoveAudioItem(item, -1));
+        MoveAudioItemDownCommand = new RelayCommand<AudioTrackConfig>(item => MoveAudioItem(item, +1));
+        AudioNextCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.AudioNext, ActionOrigin.Desk)));
+        AudioPrevCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.AudioPrev, ActionOrigin.Desk)));
+        ReshuffleAudioCommand = new RelayCommand(() =>
+        {
+            State.AudioPlayer.ShuffleSeed = Random.Shared.Next(1, int.MaxValue);
+            State.AudioPlayer.Shuffle = true;
+            StatusMessage = "The audio playlist dealt a new order.";
+        });
         PlayAudioCommand = new RelayCommand(() =>
         {
             if (AudioDevices.Count == 0) RefreshAudioDevices();
@@ -2687,6 +2708,71 @@ public sealed class MainViewModel : Observable
         }
     }
 
+    /// <summary>Tracks for the audio playlist: every audio file picked becomes a row (and a library entry); a file already in the list is left where it is.</summary>
+    private async Task AddAudioFilesAsync()
+    {
+        var window = _services.MainWindow;
+        if (window is null) return;
+        try
+        {
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Add audio tracks",
+                AllowMultiple = true,
+                FileTypeFilter = new[] { AudioTypes, FilePickerFileTypes.All },
+            });
+            var added = 0;
+            foreach (var file in files)
+            {
+                var path = file.TryGetLocalPath();
+                if (path is null || !PlaylistSequencer.IsAudioPath(path)) continue;
+                if (State.AudioPlayer.Items.Any(i => string.Equals(i.Path, path, StringComparison.OrdinalIgnoreCase))) continue;
+                State.AudioPlayer.Items.Add(new AudioTrackConfig { Path = path });
+                AddToMediaLibrary(path, isVideo: true);
+                added++;
+            }
+            if (added > 0) StatusMessage = $"{added} track{(added == 1 ? "" : "s")} added to the audio playlist.";
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Audio track picker failed.", ex);
+        }
+    }
+
+    /// <summary>A folder for the audio playlist: its audio files play after the rows, in name order, and files dropped in later are seen.</summary>
+    private async Task AddAudioFolderAsync()
+    {
+        var window = _services.MainWindow;
+        if (window is null) return;
+        try
+        {
+            var folders = await window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Add a folder of audio tracks",
+                AllowMultiple = true,
+            });
+            foreach (var folder in folders)
+            {
+                var path = folder.TryGetLocalPath();
+                if (path is not null && !State.AudioPlayer.Folders.Contains(path)) State.AudioPlayer.Folders.Add(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Audio folder picker failed.", ex);
+        }
+    }
+
+    private void MoveAudioItem(AudioTrackConfig? item, int delta)
+    {
+        if (item is null) return;
+        var items = State.AudioPlayer.Items;
+        var index = items.IndexOf(item);
+        var target = index + delta;
+        if (index < 0 || target < 0 || target >= items.Count) return;
+        items.Move(index, target);
+    }
+
     private void MovePlaylistItem(PlaylistItemConfig? item, int delta)
     {
         if (item is null) return;
@@ -4767,7 +4853,16 @@ public sealed class MainViewModel : Observable
     public RelayCommand PresenterNextCommand { get; }
     public RelayCommand PresenterPrevCommand { get; }
     public RelayCommand PresenterResetCommand { get; }
-    public RelayCommand BrowseAudioTrackCommand { get; }
+    public RelayCommand AddAudioFilesCommand { get; }
+    public RelayCommand AddAudioFolderCommand { get; }
+    public RelayCommand<AudioTrackConfig> RemoveAudioItemCommand { get; }
+    public RelayCommand<string> RemoveAudioFolderCommand { get; }
+    public RelayCommand<AudioTrackConfig> PlayAudioItemCommand { get; }
+    public RelayCommand<AudioTrackConfig> MoveAudioItemUpCommand { get; }
+    public RelayCommand<AudioTrackConfig> MoveAudioItemDownCommand { get; }
+    public RelayCommand AudioNextCommand { get; }
+    public RelayCommand AudioPrevCommand { get; }
+    public RelayCommand ReshuffleAudioCommand { get; }
     public RelayCommand PlayAudioCommand { get; }
     public RelayCommand StopAudioCommand { get; }
     public RelayCommand RefreshAudioDevicesCommand { get; }

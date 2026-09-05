@@ -17,8 +17,14 @@ public enum RemoteCommandKind
     ScreenToggle,
     GroupOn,     // TextArg = canvas letter A/B/…
     GroupOff,
+    /// <summary>"AUDIO PLAY [n|name]" — the audio playlist plays: a track by its place (IntArg) or its name / file (TextArg); empty resumes or starts the list.</summary>
     AudioPlay,
     AudioStop,
+    /// <summary>"AUDIO NEXT" (SKIP) / "AUDIO PREV" (BACK) — the audio playlist steps a track.</summary>
+    AudioNext,
+    AudioPrev,
+    /// <summary>"AUDIO VOL 80" — the audio playlist's volume, 0–125 (TextArg carries the number, like MUSIC VOL).</summary>
+    AudioVolume,
     ToneOn,
     ToneOff,
     Stinger,     // by number (IntArg 1-based) or name (TextArg)
@@ -339,13 +345,42 @@ public static class ControlProtocol
                 };
             }
 
+            // The audio playlist: "AUDIO PLAY", "AUDIO PLAY 3", "AUDIO PLAY Walk-in", "AUDIO NEXT", "AUDIO PREV", "AUDIO VOL 80", "AUDIO STOP".
             case "AUDIO":
-                return arg.ToUpperInvariant() switch
+            case "TRACK":
+            {
+                var words = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                var what = words.Length > 0 ? words[0].ToUpperInvariant() : "";
+                var rest = words.Length > 1 ? words[1] : "";
+                switch (what)
                 {
-                    "PLAY" => new(RemoteCommandKind.AudioPlay, 0, ""),
-                    "STOP" => new(RemoteCommandKind.AudioStop, 0, ""),
-                    _ => new(RemoteCommandKind.Unknown, 0, s),
-                };
+                    case "PLAY":
+                    case "RESUME":
+                    case "START":
+                        if (rest.Length == 0) return new(RemoteCommandKind.AudioPlay, 0, "");
+                        return int.TryParse(rest, out var track) && track > 0
+                            ? new(RemoteCommandKind.AudioPlay, track, "")
+                            : new(RemoteCommandKind.AudioPlay, 0, rest);
+                    case "STOP":
+                    case "OFF":
+                        return new(RemoteCommandKind.AudioStop, 0, "");
+                    case "NEXT":
+                    case "SKIP":
+                        return new(RemoteCommandKind.AudioNext, 0, "");
+                    case "PREV":
+                    case "PREVIOUS":
+                    case "BACK":
+                        return new(RemoteCommandKind.AudioPrev, 0, "");
+                    case "VOL":
+                    case "VOLUME":
+                    case "LEVEL":
+                        return int.TryParse(rest, out var level) && level is >= 0 and <= 125
+                            ? new(RemoteCommandKind.AudioVolume, 0, rest)
+                            : new(RemoteCommandKind.Unknown, 0, s);
+                    default:
+                        return new(RemoteCommandKind.Unknown, 0, s);
+                }
+            }
 
             case "TONE":
                 return arg.ToUpperInvariant() switch

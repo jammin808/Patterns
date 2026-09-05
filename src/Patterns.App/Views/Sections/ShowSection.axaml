@@ -287,14 +287,16 @@
     <TextBlock Classes="hint tip"
                Text="A VOG plays over everything (the music ducks, and so does a stinger that is playing) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. Set them up on the Audio page (SETUP)." />
 
-    <TextBlock Classes="h2" Text="AUDIO TRACK" />
-    <Grid ColumnDefinitions="*,8,Auto,Auto">
+    <TextBlock Classes="h2" Text="AUDIO PLAYLIST" />
+    <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto">
       <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center" TextWrapping="Wrap"
                  Text="{Binding AudioPlayerStatus}" />
-      <Button Grid.Column="2" Classes="mini" Content="▶ Play" Command="{Binding PlayAudioCommand}" />
-      <Button Grid.Column="3" Classes="mini" Content="■ Stop" Command="{Binding StopAudioCommand}" />
+      <Button Grid.Column="2" Classes="mini" Content="⏮" Command="{Binding AudioPrevCommand}" ToolTip.Tip="The previous track" />
+      <Button Grid.Column="3" Classes="mini" Content="▶ Play" Command="{Binding PlayAudioCommand}" ToolTip.Tip="The list from where it stopped, or its first track" />
+      <Button Grid.Column="4" Classes="mini" Content="■ Stop" Command="{Binding StopAudioCommand}" />
+      <Button Grid.Column="5" Classes="mini" Content="⏭" Command="{Binding AudioNextCommand}" ToolTip.Tip="The next track" />
     </Grid>
-    <TextBlock Classes="hint tip" Text="The message, clock, countdown and this track's volume are in the SHOW CONTROLS drawer under the wall." />
+    <TextBlock Classes="hint tip" Text="The bed of tracks and folders built on the Audio page (SETUP): what is on, where it is and what comes next; ⏮ ⏭ step it, a cue can play a track by name. The message, clock, countdown and the list's volume are in the SHOW CONTROLS drawer under the wall." />
 
     <StackPanel x:Name="BreakMusicBlock" IsVisible="{Binding State.Spotify.Enabled}">
       <TextBlock Classes="h2" Text="BREAK MUSIC" />

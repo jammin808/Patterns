@@ -313,6 +313,22 @@ public static class HelpTopics
             new[] { "Audio", "Panel", "Looks" },
             new[] { "spotify", "music", "break", "walk-in", "playlist", "track", "pause", "skip", "volume", "level", "duck", "room" }),
 
+        new HelpTopic("audio-playlist", HelpGroup.RunningTheShow,
+            "The audio playlist: a bed of tracks and folders, in order or shuffled",
+            "The Audio page builds the list; the Show panel, a cue, the phone and a Stream Deck play, skip and stop it while the show runs.",
+            HelpBodies.AudioPlaylist,
+            new[]
+            {
+                "Audio page → AUDIO PLAYLIST: + FILES for tracks, + FOLDER for a whole folder of them (its files play after the rows, in name order, and a file dropped in live is seen within half a minute).",
+                "Name a row if the file's name is not what the desk should read; ▲ ▼ order them; tick Shuffle (RESHUFFLE deals a new order) and Loop the list.",
+                "▶ PLAY starts the list where it stopped (or the first row); ⏭ NEXT and ⏮ PREV step it; ▶ on a row plays that track now; ■ STOP.",
+                "The Show panel's AUDIO block has the same keys with the line: 3/12 walk-in — 1:02 / 3:30 · next: intro.",
+                "A cue's Play audio names a track (or none for the list), Audio — next / previous track step it; a VOG ducks it, a stinger fades it, STOP ALL stops it.",
+            },
+            "AUDIO PLAY [n|name] · AUDIO NEXT · AUDIO PREV · AUDIO STOP · AUDIO VOL <0–125> · /patterns/audio/play [n|name] · /patterns/audio/next · /patterns/audio/prev · STATE audio{…}",
+            new[] { "Audio", "Panel" },
+            new[] { "audio", "playlist", "track", "tracks", "folder", "music bed", "walk-in", "shuffle", "loop", "next", "previous", "skip", "volume", "duck", "outputs", "hdmi" }),
+
         new HelpTopic("freeze-fade", HelpGroup.RunningTheShow,
             "Freeze, the timed fade, the previous look, earlier versions",
             "The emergency and finesse keys of a show operator, on the panel and on the wire.",

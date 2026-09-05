@@ -8,17 +8,63 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-audio" Text="Audio" />
 
-    <TextBlock Classes="h2" Text="AUDIO TRACK" />
+    <TextBlock Classes="h2" Text="AUDIO PLAYLIST" />
     <TextBlock Classes="hint tip"
-               Text="An independent music/announcement track — plays whatever is on screen, to the default output or any set of devices (each HDMI screen is an audio device, so a track can follow all screens, one, or a group)." />
-    <Grid ColumnDefinitions="*,8,Auto">
-      <TextBox Grid.Column="0" Watermark="MP3, WAV, FLAC…" Text="{Binding State.AudioPlayer.Path}" />
-      <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseAudioTrackCommand}" />
-    </Grid>
-    <Grid ColumnDefinitions="Auto,8,Auto,16,Auto,*">
-      <Button Grid.Column="0" Classes="go" Content="▶ PLAY" Command="{Binding PlayAudioCommand}" />
-      <Button Grid.Column="2" Classes="stop" Content="■ STOP" Command="{Binding StopAudioCommand}" />
-      <CheckBox Grid.Column="4" Content="Loop" IsChecked="{Binding State.AudioPlayer.Loop}" />
+               Text="An independent bed of music or announcements — plays whatever is on screen, to the default output or any set of devices (each HDMI screen is an audio device, so it can follow all screens, one, or a group). Add tracks one at a time or whole folders: a folder's audio files play after the rows, in name order, and a file dropped in live is seen within half a minute. Shuffle deals the order by a seed the show keeps (RESHUFFLE deals again); Loop the list starts it over at its end, off it stops there. A VOG ducks it, a stinger fades it out and back, STOP ALL stops it. On the wire: AUDIO PLAY [n or name], AUDIO NEXT, AUDIO PREV, AUDIO STOP, AUDIO VOL." />
+    <WrapPanel>
+      <Button Classes="chip" Content="+ Add tracks…" Command="{Binding AddAudioFilesCommand}" Margin="0,0,8,6" />
+      <Button Classes="chip" Content="+ Add folder…" Command="{Binding AddAudioFolderCommand}" Margin="0,0,8,6" />
+      <CheckBox Content="Shuffle" IsChecked="{Binding State.AudioPlayer.Shuffle}" Margin="0,0,8,6" VerticalAlignment="Center" />
+      <Button Classes="mini" Content="RESHUFFLE" Command="{Binding ReshuffleAudioCommand}" Margin="0,0,8,6" VerticalAlignment="Center"
+              ToolTip.Tip="Deal a new order — the same shuffle plays at the rehearsal and the show until you do" />
+      <CheckBox Content="Loop the list" IsChecked="{Binding State.AudioPlayer.Loop}" Margin="0,0,0,6" VerticalAlignment="Center" />
+    </WrapPanel>
+    <ItemsControl ItemsSource="{Binding State.AudioPlayer.Items}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:AudioTrackConfig">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="7,6" Margin="0,2">
+            <Grid ColumnDefinitions="Auto,8,Auto,8,*,6,Auto,6,Auto,6,Auto">
+              <Button Grid.Column="0" Classes="mini" Content="▶" ToolTip.Tip="Play this track now"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlayAudioItemCommand}"
+                      CommandParameter="{Binding}" />
+              <Border Grid.Column="2" Background="#123A26" CornerRadius="7" Padding="6,2" VerticalAlignment="Center"
+                      IsVisible="{Binding IsNowPlaying}">
+                <TextBlock Text="▶ NOW" FontSize="10" FontWeight="SemiBold" Foreground="#2EE68A" />
+              </Border>
+              <TextBox Grid.Column="4" Text="{Binding Name}" MinWidth="60"
+                       Watermark="{Binding Path, Converter={StaticResource FileName}}" ToolTip.Tip="{Binding Path}" />
+              <Button Grid.Column="6" Classes="mini" Content="▲" ToolTip.Tip="Earlier in the list"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MoveAudioItemUpCommand}"
+                      CommandParameter="{Binding}" />
+              <Button Grid.Column="8" Classes="mini" Content="▼" ToolTip.Tip="Later in the list"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MoveAudioItemDownCommand}"
+                      CommandParameter="{Binding}" />
+              <Button Grid.Column="10" Classes="mini" Content="✕" ToolTip.Tip="Remove from the list"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveAudioItemCommand}"
+                      CommandParameter="{Binding}" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <ItemsControl ItemsSource="{Binding State.AudioPlayer.Folders}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <Grid ColumnDefinitions="Auto,8,*,6,Auto" Margin="0,2">
+            <TextBlock Classes="label" Text="FOLDER" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}" />
+            <Button Grid.Column="4" Classes="mini" Content="✕" ToolTip.Tip="Remove the folder from the list"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveAudioFolderCommand}"
+                    CommandParameter="{Binding}" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Grid ColumnDefinitions="Auto,8,Auto,8,Auto,8,Auto,*">
+      <Button Grid.Column="0" Classes="chip" Content="⏮ PREV" Command="{Binding AudioPrevCommand}" ToolTip.Tip="The previous track (the list wraps)" />
+      <Button Grid.Column="2" Classes="go" Content="▶ PLAY" Command="{Binding PlayAudioCommand}" ToolTip.Tip="The list from where it stopped, or its first track" />
+      <Button Grid.Column="4" Classes="stop" Content="■ STOP" Command="{Binding StopAudioCommand}" />
+      <Button Grid.Column="6" Classes="chip" Content="⏭ NEXT" Command="{Binding AudioNextCommand}" ToolTip.Tip="The next track (the list wraps)" />
     </Grid>
     <Grid ColumnDefinitions="130,*,44">
       <TextBlock Classes="label" Text="Volume" VerticalAlignment="Center" />

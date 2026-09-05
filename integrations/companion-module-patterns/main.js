@@ -31,6 +31,7 @@ class PatternsInstance extends InstanceBase {
 			case 'person': return s.people?.[n - 1]?.name ?? ''
 			case 'stinger': return s.stingers?.[n - 1]?.name ?? ''
 			case 'music': return s.music?.items?.[n - 1]?.name ?? ''
+			case 'track': return s.audio?.items?.[n - 1]?.name ?? ''
 			case 'section': return s.sections?.[n - 1]?.name ?? ''
 			case 'screen': return s.screens?.[n - 1]?.label ?? ''
 			case 'cue': return this.upcoming()[n - 1]?.number ?? ''
@@ -54,6 +55,7 @@ class PatternsInstance extends InstanceBase {
 			vars[`person_${n}`] = this.bankName('person', n)
 			vars[`stinger_${n}`] = this.bankName('stinger', n)
 			vars[`screen_${n}`] = this.bankName('screen', n)
+			vars[`track_${n}`] = this.bankName('track', n)
 		}
 		for (let n = 1; n <= 6; n++) {
 			vars[`music_${n}`] = this.bankName('music', n)
@@ -74,7 +76,7 @@ class PatternsInstance extends InstanceBase {
 		const s = this.state
 		const names = (list) => (list ?? []).map((x) => x.name ?? x.label ?? '').join('|')
 		return [names(s.looks), names(s.lowerThirds), names(s.people), (s.stingers ?? []).map((x) => `${x.kind}:${x.name}`).join('|'),
-			names(s.music?.items), names(s.sections), names(s.screens), this.upcoming().map((c) => `${c.number} ${c.name}`).join('|')].join('#')
+			names(s.music?.items), names(s.audio?.items), names(s.sections), names(s.screens), this.upcoming().map((c) => `${c.number} ${c.name}`).join('|')].join('#')
 	}
 
 	/** Presets built from the show itself — one key per look, design, person, stinger, track, part, screen and upcoming cue — rebuilt when the lists change. */
@@ -201,6 +203,13 @@ class PatternsInstance extends InstanceBase {
 			video_text: this.state.video?.text ?? '',
 			video_chip: this.state.video?.chip ?? '',
 			video_call: this.state.video?.call ?? '',
+			audio_track: this.state.audio?.track ?? '',
+			audio_next: this.state.audio?.next ?? '',
+			audio_n: this.state.audio?.count ? String(this.state.audio.n || 0) : '',
+			audio_count: String(this.state.audio?.count ?? 0),
+			audio_position: this.state.audio?.positionText ?? '',
+			audio_remaining: this.state.audio?.remainingText ?? '',
+			audio_state: this.state.audio?.playing ? 'PLAYING' : 'stopped',
 			web_page: this.state.web?.page ?? '',
 			web_title: this.state.web?.title ?? '',
 			web_service: this.state.web?.service ?? '',
@@ -431,11 +440,27 @@ class PatternsInstance extends InstanceBase {
 				],
 				callback: (a) => send(`GROUP ${a.options.letter} ${a.options.mode}`),
 			},
+			// The audio playlist: play / resume the list, stop, step it, a track by its place or its name, the level.
 			audio: {
-				name: 'Audio track',
+				name: 'Audio playlist',
 				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'PLAY',
-					choices: [{ id: 'PLAY', label: 'Play' }, { id: 'STOP', label: 'Stop' }] }],
+					choices: [{ id: 'PLAY', label: 'Play / resume the list' }, { id: 'STOP', label: 'Stop' }, { id: 'NEXT', label: 'Next track' }, { id: 'PREV', label: 'Previous track' }] }],
 				callback: (a) => send(`AUDIO ${a.options.mode}`),
+			},
+			audio_item: {
+				name: 'Audio playlist — play track (by number, its place in the list)',
+				options: [{ type: 'number', id: 'n', label: 'Track number (Audio page order, the folders\' files after the rows)', default: 1, min: 1, max: 999 }],
+				callback: (a) => send(`AUDIO PLAY ${a.options.n}`),
+			},
+			audio_name: {
+				name: 'Audio playlist — play track (by name)',
+				options: [{ type: 'textinput', id: 'name', label: 'Track name (a row\'s name, or the file\'s)', default: '' }],
+				callback: (a) => { if (a.options.name) send(`AUDIO PLAY ${String(a.options.name).trim()}`) },
+			},
+			audio_level: {
+				name: 'Audio playlist level',
+				options: [{ type: 'number', id: 'n', label: 'Level (0–125 %)', default: 100, min: 0, max: 125 }],
+				callback: (a) => send(`AUDIO VOL ${a.options.n}`),
 			},
 			tone: {
 				name: 'Soundcheck tone',
@@ -768,7 +793,7 @@ class PatternsInstance extends InstanceBase {
 					{ type: 'dropdown', id: 'kind', label: 'Bank', default: 'look',
 						choices: [
 							{ id: 'look', label: 'Looks by place' }, { id: 'look_f', label: 'Looks by F-key' }, { id: 'lt', label: 'Lower thirds' },
-							{ id: 'person', label: 'People' }, { id: 'stinger', label: 'VOGs and stingers' }, { id: 'music', label: 'Break music' },
+							{ id: 'person', label: 'People' }, { id: 'stinger', label: 'VOGs and stingers' }, { id: 'music', label: 'Break music' }, { id: 'track', label: 'Audio playlist' },
 							{ id: 'section', label: 'Playlist parts' }, { id: 'screen', label: 'Screens' }, { id: 'cue', label: 'Upcoming cues' },
 						] },
 					{ type: 'number', id: 'n', label: 'Place', default: 1, min: 1, max: 32 },
@@ -963,6 +988,7 @@ class PatternsInstance extends InstanceBase {
 		}
 		for (let n = 1; n <= 6; n++) {
 			banks.push({ variableId: `music_${n}`, name: `Break music entry ${n} (name, or empty)` })
+			if (n <= 8) banks.push({ variableId: `track_${n}`, name: `Audio playlist track ${n} (name, or empty)` })
 			banks.push({ variableId: `section_${n}`, name: `Playlist part ${n} (name, or empty)` })
 		}
 		for (let k = 1; k <= 7; k++) {
@@ -989,6 +1015,13 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
 			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
+			{ variableId: 'audio_track', name: 'Audio playlist — the track on (or up next when stopped)' },
+			{ variableId: 'audio_next', name: 'Audio playlist — the track after it' },
+			{ variableId: 'audio_n', name: 'Audio playlist — the place of the track on (1…)' },
+			{ variableId: 'audio_count', name: 'Audio playlist — how many tracks' },
+			{ variableId: 'audio_position', name: 'Audio playlist — where the track is (m:ss)' },
+			{ variableId: 'audio_remaining', name: 'Audio playlist — what is left of the track (m:ss)' },
+			{ variableId: 'audio_state', name: 'Audio playlist — PLAYING or stopped' },
 			{ variableId: 'video_file', name: 'The clip on air — its file (or empty)' },
 			{ variableId: 'video_tag', name: 'The clip on air — VT, AUDIO, STINGER CLIP or PLAYLIST' },
 			{ variableId: 'video_position', name: 'The clip on air — where it is (m:ss)' },
@@ -1084,6 +1117,14 @@ class PatternsInstance extends InstanceBase {
 				feedbacks: vog
 					? [{ feedbackId: 'vog_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }]
 					: [{ feedbackId: 'sting_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } }, { feedbackId: 'sting_hold', options: {}, style: amber }],
+			}
+		})
+		;(s.audio?.items ?? []).forEach((t) => {
+			presets[`show_track_${t.n}_${key(t.name)}`] = {
+				type: 'button', category: 'Audio playlist — this show', name: `Audio track: ${t.name}`,
+				style: { text: `♪\\n${t.name}`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'audio_item', options: { n: t.n } }], up: [] }],
+				feedbacks: [{ feedbackId: 'audio_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }],
 			}
 		})
 		;(s.music?.items ?? []).forEach((m) => {
@@ -1461,6 +1502,30 @@ class PatternsInstance extends InstanceBase {
 			type: 'button', category: 'Audio', name: 'Audio stop',
 			style: { text: '♪ STOP', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'audio', options: { mode: 'STOP' } }], up: [] }], feedbacks: [],
+		}
+		// The audio playlist: step it, a key that reads what is on, and a bank of tracks by place that labels itself.
+		const audioOn = { feedbackId: 'audio_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }
+		presets.audio_next = {
+			type: 'button', category: 'Audio', name: 'Audio playlist — next track',
+			style: { text: '♪ ⏭\\n$(patterns:audio_next)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'audio', options: { mode: 'NEXT' } }], up: [] }], feedbacks: [audioOn],
+		}
+		presets.audio_prev = {
+			type: 'button', category: 'Audio', name: 'Audio playlist — previous track',
+			style: { text: '♪ ⏮', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'audio', options: { mode: 'PREV' } }], up: [] }], feedbacks: [audioOn],
+		}
+		presets.audio_now = {
+			type: 'button', category: 'Audio', name: 'Audio playlist — what is on (press: play / resume)',
+			style: { text: '♪ $(patterns:audio_n)/$(patterns:audio_count)\\n$(patterns:audio_track)\\n$(patterns:audio_remaining)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'audio', options: { mode: 'PLAY' } }], up: [] }], feedbacks: [audioOn],
+		}
+		for (let n = 1; n <= 8; n++) {
+			presets[`track_bank_${n}`] = {
+				type: 'button', category: 'Audio', name: `Audio playlist track ${n} (labels itself)`,
+				style: { text: `♪ ${n}\\n$(patterns:track_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'audio_item', options: { n } }], up: [] }], feedbacks: [audioOn, empty('track', n)],
+			}
 		}
 		// The install: the schedule's switch, an announcement by name, an advert by number, the END keys.
 		presets.install_schedule = {

@@ -127,8 +127,35 @@ public static class CueValidator
                     break;
                 }
                 case CueActionKind.AudioPlay:
-                    if (string.IsNullOrWhiteSpace(state.AudioPlayer.Path)) Hard($"{where}: no audio track is chosen (Audio tab).");
-                    else if (!ctx.FileExists(state.AudioPlayer.Path)) Hard($"{where}: audio file missing — {Path.GetFileName(state.AudioPlayer.Path)}.");
+                {
+                    var list = state.AudioPlayer;
+                    if (!AudioPlaylist.HasTracks(list))
+                    {
+                        Hard($"{where}: the audio playlist is empty (Audio page).");
+                        break;
+                    }
+                    if (a.Target.Length > 0)
+                    {
+                        // A named track must be a row; a number is a place in the order, which the folders can still fill at show time.
+                        var track = AudioPlaylist.FindItem(list, a.Target);
+                        if (track is null && !int.TryParse(a.Target, out _)) Hard($"{where}: audio track '{a.Target}' is not in the list.");
+                        else if (track is not null && !ctx.FileExists(track.Path)) Hard($"{where}: audio file missing — {track.DisplayName}.");
+                        break;
+                    }
+                    var rows = list.Items.Where(i => i.Path.Length > 0).ToList();
+                    if (rows.Count > 0 && list.Folders.Count == 0 && rows.All(i => !ctx.FileExists(i.Path)))
+                    {
+                        Hard($"{where}: no audio file of the list is on disk — {rows[0].DisplayName}{(rows.Count > 1 ? " and the others" : "")}.");
+                    }
+                    else if (rows.Count == 0 && list.Folders.Count == 0 && list.Path.Length > 0 && !ctx.FileExists(list.Path))
+                    {
+                        Hard($"{where}: audio file missing — {Path.GetFileName(list.Path)}.");
+                    }
+                    break;
+                }
+                case CueActionKind.AudioNext:
+                case CueActionKind.AudioPrev:
+                    if (!AudioPlaylist.HasTracks(state.AudioPlayer)) Soft($"{where}: the audio playlist is empty — nothing to step through.");
                     break;
                 case CueActionKind.StingerFire:
                 {

@@ -186,6 +186,7 @@ public sealed class ActionRow : Observable
         TargetKind.Page => "Which page… (blank = the page on air)",
         TargetKind.Device => "Which device… (blank = the first)",
         TargetKind.Slot => Action.Kind == CueActionKind.Announce ? "Which announcement… (blank = the words below)" : "Which advert…",
+        TargetKind.Track => "Which track… (blank = play or resume the list)",
         _ => "",
     };
 
@@ -736,6 +737,9 @@ public sealed class CueEditor : Observable
                 return state.Stacks.Select(s => new PickItem(s.Id, s.Name));
             case TargetKind.Music:
                 return state.Spotify.Items.Select(m => new PickItem(m.Id, m.DisplayName));
+            case TargetKind.Track:
+                // A cue names a row by its id, so a rename or a re-order never breaks it; the folders' files are reached by number on the wire.
+                return state.AudioPlayer.Items.Where(t => t.Path.Length > 0).Select((t, i) => new PickItem(t.Id, $"{i + 1} · {t.DisplayName}"));
             case TargetKind.LowerThird:
                 return state.LowerThirds.Designs.Select(d => new PickItem(d.Id, d.Name));
             case TargetKind.Device:

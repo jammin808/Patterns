@@ -33,7 +33,17 @@ public static class OscFeedback
             Text(list, root, "airLabel", "program");
             Flag(list, root, "duck", "duck");
             Flag(list, root, "tone", "tone");
-            if (root.TryGetProperty("audio", out var audio)) Flag(list, audio, "playing", "audio");
+            if (root.TryGetProperty("audio", out var audio))
+            {
+                // The audio playlist: playing, the track on (or up next when stopped), the one after it, the place, what is left, and the rows by place for a bank of keys.
+                Flag(list, audio, "playing", "audio");
+                Text(list, audio, "track", "audio/track");
+                Text(list, audio, "next", "audio/next");
+                if (audio.TryGetProperty("n", out _)) list.Add(OscMessage.Of(Prefix + "audio/n", Int(audio, "n")));
+                if (audio.TryGetProperty("count", out _)) list.Add(OscMessage.Of(Prefix + "audio/count", Int(audio, "count")));
+                if (audio.TryGetProperty("remaining", out _)) list.Add(OscMessage.Of(Prefix + "audio/remaining", Int(audio, "remaining")));
+                Names(list, audio, "items", "audio/items", 8);
+            }
             if (root.TryGetProperty("music", out var music))
             {
                 Flag(list, music, "playing", "music");

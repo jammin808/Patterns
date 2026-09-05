@@ -39,8 +39,15 @@ public static class CueSummary
                 }
                 return sb.ToString();
             }
-            case CueActionKind.AudioPlay: return "Play audio";
+            case CueActionKind.AudioPlay:
+            {
+                if (a.Target.Length == 0) return "Play audio";
+                var track = AudioPlaylist.FindItem(state.AudioPlayer, a.Target);
+                return track is not null ? $"Play audio: {track.DisplayName}" : int.TryParse(a.Target, out var n) ? $"Play audio track {n}" : $"Play audio: '{a.Target}' (not in the list)";
+            }
             case CueActionKind.AudioStop: return "Stop audio";
+            case CueActionKind.AudioNext: return "Audio: the next track";
+            case CueActionKind.AudioPrev: return "Audio: the previous track";
             case CueActionKind.StingerFire:
             {
                 var s = FindStinger(state, a.Target);

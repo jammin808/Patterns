@@ -31,8 +31,13 @@ public enum ShowActionKind
     /// <summary>Target = canvas letter (A, B…) or a canvas member key.</summary>
     CanvasOn,
     CanvasOff,
+    /// <summary>The audio playlist plays: Target = a track by number (its place in the order), a row's id or name, or a file's name; empty resumes, or starts the list.</summary>
     AudioPlay,
     AudioStop,
+    /// <summary>The audio playlist moves to the next track (the list wraps for a key that must never dead-end).</summary>
+    AudioNext,
+    /// <summary>The audio playlist moves back a track.</summary>
+    AudioPrev,
     ToneOn,
     ToneOff,
     /// <summary>

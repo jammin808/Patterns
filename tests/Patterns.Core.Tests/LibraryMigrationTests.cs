@@ -25,7 +25,7 @@ public class LibraryMigrationTests
         SettingsStore.Migrate(state);
 
         Assert.Equal(ShowState.CurrentSchemaVersion, state.SchemaVersion);
-        Assert.Equal(7, ShowState.CurrentSchemaVersion);
+        Assert.Equal(8, ShowState.CurrentSchemaVersion);
         var lib = state.MediaLibrary;
         Assert.Equal(4, lib.Count);
         Assert.All(lib, m => Assert.False(string.IsNullOrWhiteSpace(m.Id)));

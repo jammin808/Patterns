@@ -23,6 +23,17 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The audio playlist** — the audio track was one file with a loop, which a stinger could do,
+  so it became a playlist: tracks added one at a time and whole folders whose audio files play
+  after the rows in name order (a file dropped in live is seen within half a minute), the same
+  file never twice, shuffle by a seed the show keeps (RESHUFFLE deals again), loop the list or
+  stop at its end; a missing file is skipped and the running order carries on. The Audio page
+  builds it (▶ NOW marks the row, ▶ on a row plays it, ⏮ ⏭), the Show panel's AUDIO block reads
+  *3/12 walk-in — 1:02 / 3:30 · next: intro* with the same keys; `AUDIO PLAY [n or name]`,
+  `AUDIO NEXT` / `PREV` / `STOP` / `VOL` on the wire and over OSC, a cue's *Play audio* naming
+  a track and *Audio — next / previous track*, Companion keys and a track bank that labels
+  itself, the phone's AUDIO tab. A VOG ducks it, a stinger fades it, STOP ALL stops it; an older
+  show's one track becomes the first row (schema 8).
 - **The caller's VT clock** — while a clip is on air (the program's video, a playlist's, a
   stinger's clip, an audio file) the Show panel's PROGRESSION block, the Run strip, the phone,
   Companion and OSC all read one clock: the clip's name, where it is, how long it is and what is
@@ -776,7 +787,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 994 tests: the caller's VT clock (the reading's priority and roles, the words, the ten-second out, the loop, the wire and OSC, the cue actions, the sequencer's clock; on a live desk the same seconds on the panel, the Run strip and STATE, the skip and the top from the wire, a cue and the keys), permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
+dotnet test                      # 1004 tests: the audio playlist (the order and its fallback, shuffle by seed, folders through the enumerator and the cap, stepping and finding, the migration, the verbs, OSC in and out, the cue actions; on a live desk rows and a folder in one order, PLAY with the marker, NEXT / PREV wrapping, a track by number, name and id, a cue and the panel, the natural end, a vanished file skipped, the empty list refused, the old single track), the caller's VT clock (the reading's priority and roles, the words, the ten-second out, the loop, the wire and OSC, the cue actions, the sequencer's clock; on a live desk the same seconds on the panel, the Run strip and STATE, the skip and the top from the wire, a cue and the keys), permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

@@ -557,8 +557,28 @@ public sealed class ShowActions
             }
 
             case ShowActionKind.AudioPlay:
+            {
+                // The list is not in the snapshot: the player reads the live model every poll, sandbox or not.
+                if (!AudioPlaylist.HasTracks(State.AudioPlayer)) return ActionResult.Refused("The audio playlist is empty — add tracks or a folder on the Audio page.");
+                if (a.Target.Length > 0)
+                {
+                    var index = _s.AudioPlayer.Resolve(a.Target);
+                    if (index < 0) return ActionResult.Refused($"No audio track '{a.Target}' in the list.");
+                    _s.AudioPlayer.PlayAt(index);
+                    return ActionResult.Requested($"Audio: {_s.AudioPlayer.CurrentName} playing.");
+                }
                 State.AudioPlayer.Playing = true;
-                return ActionResult.Requested("Audio track playing.");
+                _s.AudioPlayer.Poll();
+                return ActionResult.Requested($"Audio playlist playing{(_s.AudioPlayer.CurrentName.Length > 0 ? ": " + _s.AudioPlayer.CurrentName : "")}.");
+            }
+            case ShowActionKind.AudioNext:
+            case ShowActionKind.AudioPrev:
+            {
+                var moved = a.Kind == ShowActionKind.AudioNext ? _s.AudioPlayer.Next() : _s.AudioPlayer.Previous();
+                return moved
+                    ? ActionResult.Done($"Audio: {_s.AudioPlayer.CurrentName} ({_s.AudioPlayer.NowIndex + 1}/{_s.AudioPlayer.Count}).")
+                    : ActionResult.Refused("The audio playlist is empty — add tracks or a folder on the Audio page.");
+            }
             case ShowActionKind.AudioStop:
                 State.AudioPlayer.Playing = false;
                 return ActionResult.Done("Audio track stopped.");
@@ -1068,7 +1088,9 @@ public sealed class ShowActions
     public static ShowAction ToShowAction(CueActionConfig a) => a.Kind switch
     {
         CueActionKind.ApplyLook => new ShowAction(ShowActionKind.ApplyLook, a.Target, a.Value),
-        CueActionKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay),
+        CueActionKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay, a.Target),
+        CueActionKind.AudioNext => new ShowAction(ShowActionKind.AudioNext),
+        CueActionKind.AudioPrev => new ShowAction(ShowActionKind.AudioPrev),
         CueActionKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
         CueActionKind.AudioVolume => new ShowAction(ShowActionKind.AudioVolume, "", a.Value),
         CueActionKind.SpotifyPlay => new ShowAction(ShowActionKind.SpotifyPlay, a.Target),

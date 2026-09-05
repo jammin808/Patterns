@@ -187,10 +187,15 @@ public sealed partial class ControlService
 </section>
 
 <section id="tab-audio">
-  <div class="sec">AUDIO TRACK</div>
+  <div class="sec">AUDIO PLAYLIST</div>
+  <div id="audioline" class="line center"></div>
   <div class="grid row2">
     <button class="go" onclick="cmd('AUDIO PLAY')">▶ Play</button>
     <button class="stop" onclick="cmd('AUDIO STOP')">■ Stop</button>
+  </div>
+  <div class="grid row2" style="margin-top:8px">
+    <button onclick="cmd('AUDIO PREV')">⏮ Previous</button>
+    <button onclick="cmd('AUDIO NEXT')">⏭ Next</button>
   </div>
   <div class="sec" id="musicsec" hidden>BREAK MUSIC</div>
   <div id="musicctl" class="grid row3" hidden>
@@ -333,6 +338,12 @@ function render(s) {
   vte.hidden = !vt; vtr.hidden = !vt;
   vte.textContent = vt ? (vt.text + (vt.call ? ' — ' + vt.call : '')) : '';
   vte.classList.toggle('out', !!(vt && vt.out));
+  // THE AUDIO PLAYLIST — what is on, where it is, what comes next (the AUDIO tab's line).
+  var au = s.audio || {};
+  document.getElementById('audioline').textContent = au.count
+    ? ((au.playing ? 'Playing ' : 'Stopped — ') + (au.n > 0 ? au.n + '/' + au.count + ': ' : 'next up: ') + (au.track || '')
+       + (au.playing && au.lengthText ? ' — ' + au.positionText + ' / ' + au.lengthText : '') + (au.next ? ' · then: ' + au.next : ''))
+    : 'No tracks — add them on the Audio page.';
   // PAGE ON AIR — the web page the program shows and its service's own actions (NEXT, PRESENT, PLAY…): WEB KEY <action>.
   var w = s.web || null;
   document.getElementById('websec').hidden = !w;

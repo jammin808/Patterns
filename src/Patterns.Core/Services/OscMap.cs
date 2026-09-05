@@ -27,7 +27,9 @@ public static class OscMap
         ("/patterns/screen/<n>/program", "SCREEN n PROGRAM — the screen shows the program again (also /pgm, /follow)"),
         ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
         ("/patterns/group/<letter> 1|0", "GROUP A ON / OFF — a joined canvas"),
-        ("/patterns/audio/play, /patterns/audio/stop", "AUDIO PLAY / STOP — the audio track"),
+        ("/patterns/audio/play [n|name]", "AUDIO PLAY — the audio playlist plays: a track by its place or its name, or the list resumes (also /patterns/audio/play/<n>)"),
+        ("/patterns/audio/stop, /patterns/audio/next, /patterns/audio/prev", "AUDIO STOP / NEXT / PREV"),
+        ("/patterns/audio/volume <level>", "AUDIO VOL: an integer is percent (0–125), a float from 0.0 to 1.0 is a fader"),
         ("/patterns/music/play [n|name]", "MUSIC PLAY — break music (Spotify), an entry by number or name"),
         ("/patterns/music/pause, /patterns/music/next", "MUSIC PAUSE / NEXT"),
         ("/patterns/music/volume <level>", "MUSIC VOL: an integer is percent, a float from 0.0 to 1.0 is a fader"),
@@ -115,8 +117,29 @@ public static class OscMap
             case "group":
                 if (seg.Length == 0) return null;
                 return $"GROUP {seg.ToUpperInvariant()} {Switch(m, seg2, "ON", toggles: false)}";
+            // /patterns/audio/play · /patterns/audio/play 3 · /patterns/audio/play/3 · /patterns/audio/play "Walk-in" · /next · /prev · /volume 80 · /stop
             case "audio":
-                return Sub(m, seg) switch { "play" or "on" => "AUDIO PLAY", "stop" or "off" => "AUDIO STOP", _ => null };
+            case "track":
+            {
+                var what = Sub(m, seg);
+                switch (what)
+                {
+                    case "play": case "on": case "resume":
+                    {
+                        var pick = seg2.Length > 0 ? seg2 : seg.Length > 0 ? (m.Text() ?? m.Number()?.ToString(CultureInfo.InvariantCulture) ?? "") : m.Text(1) ?? "";
+                        return pick.Length == 0 ? "AUDIO PLAY" : "AUDIO PLAY " + pick;
+                    }
+                    case "stop": case "off": return "AUDIO STOP";
+                    case "next": case "skip": return "AUDIO NEXT";
+                    case "prev": case "previous": case "back": return "AUDIO PREV";
+                    case "volume": case "vol": case "level":
+                    {
+                        var level = Level(m, seg2);
+                        return level is null ? null : "AUDIO VOL " + level.Value.ToString(CultureInfo.InvariantCulture);
+                    }
+                    default: return null;
+                }
+            }
             case "music":
             {
                 var what = seg.ToLowerInvariant();

@@ -22,6 +22,8 @@ public enum TargetKind
     Device,
     /// <summary>An announcement or an advert of the Install page, by name (blank: the words in the value are the announcement).</summary>
     Slot,
+    /// <summary>A track of the audio playlist — a row's id, its name, a file's name or its number in the order (blank = play or resume the list).</summary>
+    Track,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -59,6 +61,7 @@ public static class CueActionSpec
     public static (TargetKind Target, ValueKind Value) For(CueActionKind kind) => kind switch
     {
         CueActionKind.ApplyLook => (TargetKind.Look, ValueKind.Transition),
+        CueActionKind.AudioPlay => (TargetKind.Track, ValueKind.None),
         CueActionKind.StingerFire => (TargetKind.Stinger, ValueKind.None),
         CueActionKind.StingerStop => (TargetKind.None, ValueKind.None),
         CueActionKind.PlaylistPart => (TargetKind.Part, ValueKind.None),
@@ -94,9 +97,11 @@ public static class CueActionSpec
         CueActionKind.Unknown => "Unknown (newer build)",
         CueActionKind.Note => "Note only",
         CueActionKind.ApplyLook => "Apply look",
-        CueActionKind.AudioPlay => "Play audio track",
-        CueActionKind.AudioStop => "Stop audio track",
+        CueActionKind.AudioPlay => "Play audio (the list, or a track)",
+        CueActionKind.AudioStop => "Stop audio",
         CueActionKind.AudioVolume => "Audio volume",
+        CueActionKind.AudioNext => "Audio — next track",
+        CueActionKind.AudioPrev => "Audio — previous track",
         CueActionKind.SpotifyPlay => "Break music — play",
         CueActionKind.SpotifyPause => "Break music — pause",
         CueActionKind.SpotifyNext => "Break music — skip track",
@@ -156,7 +161,7 @@ public static class CueActionSpec
     public static readonly IReadOnlyList<CueActionKind> Editable = new[]
     {
         CueActionKind.ApplyLook, CueActionKind.Note,
-        CueActionKind.AudioPlay, CueActionKind.AudioStop, CueActionKind.AudioVolume,
+        CueActionKind.AudioPlay, CueActionKind.AudioStop, CueActionKind.AudioNext, CueActionKind.AudioPrev, CueActionKind.AudioVolume,
         CueActionKind.SpotifyPlay, CueActionKind.SpotifyPause, CueActionKind.SpotifyNext, CueActionKind.SpotifyVolume,
         CueActionKind.StingerFire, CueActionKind.StingerStop,
         CueActionKind.PlaylistPart,

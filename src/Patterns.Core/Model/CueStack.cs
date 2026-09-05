@@ -110,6 +110,10 @@ public enum CueActionKind
     VideoToEnd,
     /// <summary>The clip on air plays again from its start.</summary>
     VideoRestart,
+    /// <summary>The audio playlist moves to its next track.</summary>
+    AudioNext,
+    /// <summary>The audio playlist moves back a track.</summary>
+    AudioPrev,
 }
 
 /// <summary>

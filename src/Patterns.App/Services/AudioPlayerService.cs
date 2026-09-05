@@ -9,10 +9,13 @@ using Patterns.Core.Services;
 namespace Patterns.App.Services;
 
 /// <summary>
-/// Independent audio track player: plays a file regardless of the visual source, to the
-/// default device or any set of outputs at once (HDMI screens are audio devices too — so a
-/// track can follow all screens, one screen, or a group). One reader+output per device;
-/// starts together, drift over very long tracks is accepted for v1. Windows-only playback.
+/// The audio playlist's player: an independent bed that plays whatever the screens show, to the
+/// default device or any set of outputs at once (HDMI screens are audio devices too — so a bed can
+/// follow all screens, one screen, or a group). The list — the rows, then the folders' files,
+/// shuffled when asked — is <see cref="AudioPlaylist"/>'s; this owns the devices: one reader and
+/// one output per device, started together, each locked to the master clock; the next track when
+/// one ends, the list looping or stopping at its end. Windows-only playback; the list itself, its
+/// place and its words work everywhere, so a rehearsal at a desk without a sound card still reads.
 /// </summary>
 public sealed class AudioPlayerService : IDisposable
 {
@@ -20,7 +23,17 @@ public sealed class AudioPlayerService : IDisposable
     private readonly DispatcherTimer _timer;
     private readonly List<Player> _players = new();
     private string _activeKey = "";
-    private string _status = "Stopped.";
+    private string _status = "Add tracks or a folder.";
+
+    // The list as the player runs it: the order, its key, the folders' files and when they were last read, the place.
+    private List<string> _order = new();
+    private string _orderKey = "";
+    private List<string> _folderFiles = new();
+    private string _folderKey = "";
+    private DateTime _lastScanUtc = DateTime.MinValue;
+    private int _index = -1;
+    private int _pendingIndex = -1;
+    private string _nowPath = "";
 
     /// <summary>One output of the track: the device, its chain, and its lock to the master clock.</summary>
     private sealed class Player
@@ -59,6 +72,10 @@ public sealed class AudioPlayerService : IDisposable
     /// </summary>
     public const string DefaultDeviceKey = "(computer output)";
 
+    /// <summary>Reads a folder's files; the app's file system by default, a list in tests.</summary>
+    public Func<string, IEnumerable<string>> EnumerateFiles { get; set; } = folder =>
+        Directory.Exists(folder) ? Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories) : Array.Empty<string>();
+
     /// <summary>Active output device friendly names (WASAPI). Empty off-Windows.</summary>
     public static IReadOnlyList<string> OutputDevices()
     {
@@ -83,6 +100,176 @@ public sealed class AudioPlayerService : IDisposable
         }
     }
 
+    // ---- the list ----------------------------------------------------------------------------
+
+    /// <summary>The order the player runs right now: the rows, then the folders' files; shuffled when asked.</summary>
+    public IReadOnlyList<string> Order => _order;
+
+    public int Count => _order.Count;
+
+    /// <summary>The place in the order that is on (0-based), or -1 with nothing on.</summary>
+    public int NowIndex => _index;
+
+    /// <summary>The file on, or "" with nothing on.</summary>
+    public string NowPath => _nowPath;
+
+    /// <summary>The name of the track on — or, stopped, of the track ▶ PLAY would start — for a key that labels itself; "" with an empty list.</summary>
+    public string CurrentName
+    {
+        get
+        {
+            if (_nowPath.Length > 0) return AudioPlaylist.NameOf(_services.State.AudioPlayer, _nowPath);
+            var at = _index >= 0 && _index < _order.Count ? _index : 0;
+            return at < _order.Count ? AudioPlaylist.NameOf(_services.State.AudioPlayer, _order[at]) : "";
+        }
+    }
+
+    /// <summary>The file after the one on, by the list's rule (the loop wraps it); "" at the end without loop.</summary>
+    public string NextPath
+    {
+        get
+        {
+            if (_order.Count == 0) return "";
+            var next = AudioPlaylist.Step(_index, _order.Count, +1, _services.State.AudioPlayer.Loop);
+            return next is { } n && n < _order.Count ? _order[n] : "";
+        }
+    }
+
+    public string NextName => AudioPlaylist.NameOf(_services.State.AudioPlayer, NextPath);
+
+    /// <summary>The names of the order by place, for the remotes' banks.</summary>
+    public IReadOnlyList<string> Names()
+    {
+        var cfg = _services.State.AudioPlayer;
+        return _order.Select(p => AudioPlaylist.NameOf(cfg, p)).ToList();
+    }
+
+    /// <summary>Where the track is and how long it is, from the first output's reader; zeros with nothing on.</summary>
+    public double PositionSeconds => _players.Count > 0 ? SafeSeconds(() => _players[0].Reader.CurrentTime) : 0;
+
+    public double LengthSeconds => _players.Count > 0 ? SafeSeconds(() => _players[0].Reader.TotalTime) : 0;
+
+    private static double SafeSeconds(Func<TimeSpan> read)
+    {
+        try
+        {
+            return read().TotalSeconds;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>A track's place by its number, a row's id or name, or a file's name; -1 when none (the folders are read first).</summary>
+    public int Resolve(string target)
+    {
+        RefreshOrder(_services.State.AudioPlayer);
+        return AudioPlaylist.Find(_services.State.AudioPlayer, _order, target);
+    }
+
+    /// <summary>The track at a place plays now; false past the list.</summary>
+    public bool PlayAt(int index)
+    {
+        var cfg = _services.State.AudioPlayer;
+        RefreshOrder(cfg);
+        if (index < 0 || index >= _order.Count) return false;
+        _pendingIndex = index;
+        cfg.Playing = true;
+        Tick();
+        return true;
+    }
+
+    /// <summary>The next track, wrapping — a NEXT key never dead-ends; false with an empty list.</summary>
+    public bool Next() => Move(+1);
+
+    /// <summary>The previous track, wrapping; false with an empty list.</summary>
+    public bool Previous() => Move(-1);
+
+    private bool Move(int delta)
+    {
+        var cfg = _services.State.AudioPlayer;
+        RefreshOrder(cfg);
+        if (_order.Count == 0) return false;
+        var next = AudioPlaylist.Step(_index, _order.Count, delta, loop: true);
+        if (next is null) return false;
+        _pendingIndex = next.Value;
+        cfg.Playing = true;
+        Tick();
+        return true;
+    }
+
+    /// <summary>
+    /// The track on reached its natural end: the next one plays, or the list stops at its end
+    /// without loop. The outputs' stop event lands here; a test calls it directly.
+    /// </summary>
+    public void TrackEnded()
+    {
+        var cfg = _services.State.AudioPlayer;
+        var next = AudioPlaylist.Step(_index, _order.Count, +1, cfg.Loop);
+        StopAll();
+        if (next is null)
+        {
+            cfg.Playing = false;
+            _index = -1;
+            _nowPath = "";
+            MarkNowPlaying(cfg, "");
+            _status = "The list ended.";
+            return;
+        }
+        _index = next.Value;
+        Tick();
+    }
+
+    /// <summary>
+    /// The folders read (at most every 30 s, or when they change) and the order rebuilt when
+    /// anything in it would differ; the track on keeps its place through an edit of the rows.
+    /// </summary>
+    private void RefreshOrder(AudioPlayerConfig cfg)
+    {
+        var folderKey = string.Join('|', cfg.Folders);
+        var now = DateTime.UtcNow;
+        if (folderKey != _folderKey || (now - _lastScanUtc).TotalSeconds > 30)
+        {
+            _folderKey = folderKey;
+            _lastScanUtc = now;
+            _folderFiles = cfg.Folders.Count == 0 ? new List<string>() : AudioPlaylist.AudioFilesIn(cfg.Folders, EnumerateFiles);
+        }
+        var key = AudioPlaylist.OrderKey(cfg, _folderFiles);
+        if (key == _orderKey) return;
+        _orderKey = key;
+        var current = _nowPath;
+        _order = AudioPlaylist.BuildOrder(cfg, _folderFiles);
+        if (current.Length > 0)
+        {
+            var kept = AudioPlaylist.IndexOf(_order, current);
+            _index = kept >= 0 ? kept : Math.Min(Math.Max(_index, 0), Math.Max(0, _order.Count - 1)); // the track on was removed: its place plays on
+            if (kept < 0) _activeKey = "";
+        }
+        else if (_index >= _order.Count)
+        {
+            _index = _order.Count - 1;
+        }
+    }
+
+    private void MarkNowPlaying(AudioPlayerConfig cfg, string path)
+    {
+        foreach (var item in cfg.Items)
+        {
+            var on = path.Length > 0 && string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase);
+            if (item.IsNowPlaying != on) item.IsNowPlaying = on;
+        }
+    }
+
+    /// <summary>"3/12: walk-in · next: intro · shuffle · loop" — the words every surface shows.</summary>
+    private string Words(AudioPlayerConfig cfg)
+    {
+        var next = NextPath;
+        var after = next.Length > 0 ? " · next: " + AudioPlaylist.NameOf(cfg, next) : " · the last";
+        var flags = (cfg.Shuffle ? " · shuffle" : "") + (cfg.Loop ? " · loop" : "");
+        return $"{_index + 1}/{_order.Count}: {AudioPlaylist.NameOf(cfg, _nowPath)}{after}{flags}";
+    }
+
     /// <summary>The timer body, callable directly (tests drive it without waiting on the clock).</summary>
     public void Poll() => Tick();
 
@@ -102,36 +289,71 @@ public sealed class AudioPlayerService : IDisposable
         _services.Video.ApplyAudioDelay(cfg.VideoAudioDelayMs); // every clip's soundtrack follows the lip-sync offset
         try
         {
-            if (!cfg.Playing || string.IsNullOrWhiteSpace(cfg.Path))
+            RefreshOrder(cfg);
+            if (!cfg.Playing)
             {
                 StopAll();
-                _status = OperatingSystem.IsWindows()
-                    ? string.IsNullOrWhiteSpace(cfg.Path) ? "Choose a track." : "Stopped."
-                    : "Audio output is Windows-only.";
+                _nowPath = "";
+                MarkNowPlaying(cfg, "");
+                _status = _order.Count == 0 ? "Add tracks or a folder." : OperatingSystem.IsWindows() ? "Stopped." : "Stopped (audio output is Windows-only).";
                 return;
+            }
+            if (_order.Count == 0)
+            {
+                StopAll();
+                cfg.Playing = false;
+                _nowPath = "";
+                _status = "Add tracks or a folder.";
+                return;
+            }
+
+            if (_pendingIndex >= 0)
+            {
+                _index = Math.Clamp(_pendingIndex, 0, _order.Count - 1);
+                _pendingIndex = -1;
+                _activeKey = ""; // the same file asked for again starts again
+            }
+            if (_index < 0 || _index >= _order.Count) _index = 0;
+
+            // A file that is not on disk is skipped in the direction of travel; a list with nothing on disk stops and says so.
+            var tries = 0;
+            while (tries < _order.Count && !File.Exists(_order[_index]))
+            {
+                _index = AudioPlaylist.Step(_index, _order.Count, +1, loop: true) ?? 0;
+                tries++;
+            }
+            if (tries >= _order.Count)
+            {
+                StopAll();
+                cfg.Playing = false;
+                _nowPath = "";
+                MarkNowPlaying(cfg, "");
+                _status = "No track of the list is on disk.";
+                return;
+            }
+
+            var path = _order[_index];
+            if (!string.Equals(_nowPath, path, StringComparison.OrdinalIgnoreCase))
+            {
+                _nowPath = path;
+                MarkNowPlaying(cfg, path);
+                Log.Info($"Audio playlist: {Words(cfg)}");
             }
 
             if (!OperatingSystem.IsWindows())
             {
-                _status = "Audio output is Windows-only.";
+                _status = $"Playing {Words(cfg)} — audio output is Windows-only, so no sound here.";
                 return;
             }
 
-            if (!File.Exists(cfg.Path))
-            {
-                StopAll();
-                cfg.Playing = false;
-                _status = $"Track not found: {Path.GetFileName(cfg.Path)}";
-                return;
-            }
-
+            var loopSingle = cfg.Loop && _order.Count == 1; // one track on a loop is seamless, as the track always was
             var delays = string.Join(";", cfg.OutputDelays.Select(d => $"{d.Device}={d.DelayMs}"));
-            var key = $"{cfg.Path}|{cfg.Loop}|{string.Join(";", cfg.Devices)}|{delays}";
+            var key = $"{path}|{loopSingle}|{string.Join(";", cfg.Devices)}|{delays}";
             if (key != _activeKey)
             {
                 StopAll();
                 _activeKey = key;
-                StartAll(cfg.Path, cfg.Loop, cfg.Devices, cfg.DelayFor);
+                StartAll(path, loopSingle, cfg.Devices, cfg.DelayFor);
             }
 
             // Volume applies live (AudioFileReader.Volume is a linear gain; 1.25 ≈ +2 dB). A VOG's
@@ -149,7 +371,12 @@ public sealed class AudioPlayerService : IDisposable
                 var pos = _players[0].Reader.CurrentTime;
                 var total = _players[0].Reader.TotalTime;
                 var where = cfg.Devices.Count == 0 ? "default output" : $"{_players.Count} output{(_players.Count == 1 ? "" : "s")}";
-                _status = $"Playing {Path.GetFileName(cfg.Path)} — {pos:mm\\:ss} / {total:mm\\:ss} on {where}{(cfg.Loop ? " · loop" : "")}";
+                _status = $"Playing {_index + 1}/{_order.Count}: {AudioPlaylist.NameOf(cfg, path)} — {pos:mm\\:ss} / {total:mm\\:ss} on {where}" +
+                          $"{(NextPath.Length > 0 ? " · next: " + NextName : " · the last")}{(cfg.Shuffle ? " · shuffle" : "")}{(cfg.Loop ? " · loop" : "")}";
+            }
+            else
+            {
+                _status = $"No output opened for {AudioPlaylist.NameOf(cfg, path)} — check the devices.";
             }
         }
         catch (Exception ex)
@@ -327,14 +554,12 @@ public sealed class AudioPlayerService : IDisposable
 
     private void OnPlaybackStopped()
     {
-        // Natural end without loop: flip the model off so the UI reflects it.
+        // Natural end: every output stopped — the next track, or the list's end.
         Dispatcher.UIThread.Post(() =>
         {
             var cfg = _services.State.AudioPlayer;
-            if (!cfg.Loop && cfg.Playing && _players.All(p => p.Output.PlaybackState == PlaybackState.Stopped))
-            {
-                cfg.Playing = false;
-            }
+            if (!cfg.Playing || _players.Count == 0) return;
+            if (_players.All(p => p.Output.PlaybackState == PlaybackState.Stopped)) TrackEnded();
         });
     }
 
@@ -452,7 +677,11 @@ public sealed class AudioPlayerService : IDisposable
 
     private void StopAll()
     {
-        if (_players.Count == 0) return;
+        if (_players.Count == 0)
+        {
+            _activeKey = "";
+            return;
+        }
         foreach (var p in _players)
         {
             try

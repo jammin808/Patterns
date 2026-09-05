@@ -232,8 +232,10 @@ public static class CueSheet
         return key switch
         {
             "look" or "applylook" or "recalllook" => CueActionKind.ApplyLook,
-            "audio" or "playaudio" or "music" => CueActionKind.AudioPlay,
+            "audio" or "playaudio" or "music" or "track" or "playtrack" or "playaudiotrack" or "audiotrack" or "audioplay" => CueActionKind.AudioPlay,
             "stopaudio" or "audiooff" => CueActionKind.AudioStop,
+            "audionext" or "nexttrack" or "tracknext" or "skiptrack" or "audioskip" => CueActionKind.AudioNext,
+            "audioprev" or "audioprevious" or "prevtrack" or "previoustrack" or "trackback" or "audioback" => CueActionKind.AudioPrev,
             "sting" or "stinger" or "vog" or "fire" => CueActionKind.StingerFire,
             "part" or "playlist" or "section" => CueActionKind.PlaylistPart,
             "blackout" or "black" => CueActionKind.BlackoutOn,
@@ -271,11 +273,14 @@ public static class CueSheet
         if (targetKind == TargetKind.None) return ("", null);
         if (target.Length == 0)
         {
-            // Break music resumes with no entry; a web action with no page reaches the page on air; an announcement with no slot says its value.
-            return targetKind is TargetKind.Music or TargetKind.Page || kind == CueActionKind.Announce ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
+            // Break music resumes with no entry; the audio playlist plays with no track; a web action with no page reaches the page on air; an announcement with no slot says its value.
+            return targetKind is TargetKind.Music or TargetKind.Page or TargetKind.Track || kind == CueActionKind.Announce ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
         }
         switch (targetKind)
         {
+            case TargetKind.Track:
+                // A row by its name or file becomes its id (a rename or a re-order never breaks the cue); a number or a folder's file is used as written.
+                return AudioPlaylist.FindItem(state.AudioPlayer, target) is { } row ? (row.Id, null) : (target, null);
             case TargetKind.Look:
                 return LookService.Find(state, target) is { } look ? (look.Id, null) : (target, $"look '{target}' not found — the cue reads as broken until it exists.");
             case TargetKind.Stinger:

@@ -134,8 +134,11 @@ public sealed class CommandRouter
             RemoteCommandKind.ScreenLockToggle => new ShowAction(ShowActionKind.ScreenLockToggle, cmd.IntArg.ToString()),
             RemoteCommandKind.GroupOn => new ShowAction(ShowActionKind.CanvasOn, cmd.TextArg),
             RemoteCommandKind.GroupOff => new ShowAction(ShowActionKind.CanvasOff, cmd.TextArg),
-            RemoteCommandKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay),
+            RemoteCommandKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay, byNumberOrName),
             RemoteCommandKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
+            RemoteCommandKind.AudioNext => new ShowAction(ShowActionKind.AudioNext),
+            RemoteCommandKind.AudioPrev => new ShowAction(ShowActionKind.AudioPrev),
+            RemoteCommandKind.AudioVolume => new ShowAction(ShowActionKind.AudioVolume, "", cmd.TextArg),
             RemoteCommandKind.MusicPlay => new ShowAction(ShowActionKind.SpotifyPlay, byNumberOrName),
             RemoteCommandKind.MusicPause => new ShowAction(ShowActionKind.SpotifyPause),
             RemoteCommandKind.MusicNext => new ShowAction(ShowActionKind.SpotifyNext),
@@ -211,6 +214,33 @@ public sealed class CommandRouter
             endsWithGo = ends,
             converting = deck is PendingDeckSource { Failed: false },        // LibreOffice is still making the PDF
             status = deck?.StatusText ?? "Opening the deck…",
+        };
+    }
+
+    /// <summary>The audio playlist for remotes: playing, the track on (or up next when stopped), its place and the count, the next, the clock, the rows by place.</summary>
+    private object AudioRow(ShowState s)
+    {
+        var p = _services.AudioPlayer;
+        var length = p.LengthSeconds;
+        var position = p.PositionSeconds;
+        return new
+        {
+            playing = s.AudioPlayer.Playing,
+            track = p.CurrentName,
+            n = p.NowIndex + 1,
+            count = p.Count,
+            next = p.NextName,
+            position = (int)Math.Round(position),
+            length = (int)Math.Round(length),
+            remaining = length > 0 ? (int)Math.Round(Math.Max(0, length - position)) : 0,
+            positionText = VideoClock.Format(position),
+            lengthText = length > 0 ? VideoClock.Format(length) : "",
+            remainingText = length > 0 ? VideoClock.Format(Math.Max(0, length - position)) : "",
+            shuffle = s.AudioPlayer.Shuffle,
+            loop = s.AudioPlayer.Loop,
+            level = (int)Math.Round(s.AudioPlayer.VolumePct),
+            status = p.Status,
+            items = p.Names().Select((name, i) => new { n = i + 1, name }).ToArray(),
         };
     }
 
@@ -313,11 +343,7 @@ public sealed class CommandRouter
             looks = s.LooksAndCues.Looks.Select((l, i) => new { n = i + 1, name = l.Name, slot = l.Hotkey, air = l.Name == airLook && airLook.Length > 0, preview = l.Name == previewLook && previewLook.Length > 0 }).ToArray(),
             presenter = PresenterState(s),
             screens = _services.Actions.RemoteScreens(),
-            audio = new
-            {
-                playing = s.AudioPlayer.Playing,
-                track = System.IO.Path.GetFileName(s.AudioPlayer.Path),
-            },
+            audio = AudioRow(s),                                           // the audio playlist: the track on, its place, what is left, the rows
             music = new
             {
                 on = s.Spotify.Enabled,

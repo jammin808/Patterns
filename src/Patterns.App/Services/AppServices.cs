@@ -514,7 +514,7 @@ public sealed class AppServices
             }
 
             if (was.Live && !Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
-            if (was.AudioPlaying && File.Exists(State.AudioPlayer.Path)) State.AudioPlayer.Playing = true;
+            if (was.AudioPlaying && AudioPlaylist.HasTracks(State.AudioPlayer)) State.AudioPlayer.Playing = true;
 
             var restored = was.Live || was.AudioPlaying;
             vm.StatusMessage = restored
