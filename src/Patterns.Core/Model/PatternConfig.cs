@@ -216,13 +216,15 @@ public sealed class VideoWallOptions : Observable
     public bool ShowInfo { get => _showInfo; set => Set(ref _showInfo, value); }
 }
 
-/// <summary>Edge-blended projection row/column.</summary>
+/// <summary>Edge-blended projection row/column — or a grid of rows, each blended across as well as along.</summary>
 public sealed class BlendOptions : Observable
 {
     private int _projectors = 2;
+    private int _rows = 1;
     private int _nativeWidth = 1920;
     private int _nativeHeight = 1200;
     private int _overlapPx = 320;
+    private int _overlapAcrossPx = 240;
     private BlendOrientation _orientation = BlendOrientation.Horizontal;
     private BlendCurve _curve = BlendCurve.SCurve;
     private bool _showGrids = true;
@@ -233,10 +235,16 @@ public sealed class BlendOptions : Observable
     private bool _grayCheck = false;
     private bool _showInfo = true;
 
+    /// <summary>Projectors along the row (or the column, when vertical).</summary>
     public int Projectors { get => _projectors; set => Set(ref _projectors, Math.Clamp(value, 2, 12)); }
+    /// <summary>Rows across the row's direction: 1 is a single row, 2 a 2×N grid blended both ways.</summary>
+    public int Rows { get => _rows; set => Set(ref _rows, Math.Clamp(value, 1, 6)); }
     public int NativeWidth { get => _nativeWidth; set => Set(ref _nativeWidth, Math.Clamp(value, 320, 8192)); }
     public int NativeHeight { get => _nativeHeight; set => Set(ref _nativeHeight, Math.Clamp(value, 240, 8192)); }
+    /// <summary>The overlap between neighbours along the row.</summary>
     public int OverlapPx { get => _overlapPx; set => Set(ref _overlapPx, Math.Clamp(value, 8, 4096)); }
+    /// <summary>The overlap between the rows, when there is more than one.</summary>
+    public int OverlapAcrossPx { get => _overlapAcrossPx; set => Set(ref _overlapAcrossPx, Math.Clamp(value, 8, 4096)); }
     public BlendOrientation Orientation { get => _orientation; set => Set(ref _orientation, value); }
     public BlendCurve Curve { get => _curve; set => Set(ref _curve, value); }
     public bool ShowGrids { get => _showGrids; set => Set(ref _showGrids, value); }

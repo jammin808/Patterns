@@ -8,11 +8,21 @@ public readonly record struct LedLayout(int Columns, int Rows, int TileWidth, in
     public int TileCount => Columns * Rows;
 }
 
-public readonly record struct BlendLayout(int Projectors, int NativeW, int NativeH, int Overlap, BlendOrientation Orientation, SKSizeI Canvas)
+public readonly record struct BlendLayout(int Projectors, int NativeW, int NativeH, int Overlap, BlendOrientation Orientation, SKSizeI Canvas, int Rows = 1, int OverlapAcross = 0)
 {
     /// <summary>Origin of projector i along the blend axis.</summary>
     public int OriginOf(int i) => i * (AxisNative - Overlap);
     public int AxisNative => Orientation == BlendOrientation.Horizontal ? NativeW : NativeH;
+
+    /// <summary>Origin of row j across the blend axis (0 for a single row).</summary>
+    public int OriginAcrossOf(int j) => j * (AcrossNative - OverlapAcross);
+    public int AcrossNative => Orientation == BlendOrientation.Horizontal ? NativeH : NativeW;
+
+    /// <summary>Every projector in the rig: the row's count times the rows.</summary>
+    public int Count => Projectors * Math.Max(1, Rows);
+
+    /// <summary>The number a projector shows — 1-based, along the first row first.</summary>
+    public int NumberOf(int i, int j) => j * Projectors + i + 1;
 }
 
 /// <summary>Pure layout math shared by renderers, the UI (readouts) and tests.</summary>
@@ -50,15 +60,21 @@ public static class CanvasResolver
         return new SKSizeI(o.Columns * w, o.Rows * h);
     }
 
+    /// <summary>A row of projectors along the orientation — and, with rows across it, a grid blended both ways.</summary>
     public static BlendLayout Blend(BlendOptions o)
     {
-        var axisNative = o.Orientation == BlendOrientation.Horizontal ? o.NativeWidth : o.NativeHeight;
+        var horizontal = o.Orientation == BlendOrientation.Horizontal;
+        var axisNative = horizontal ? o.NativeWidth : o.NativeHeight;
+        var acrossNative = horizontal ? o.NativeHeight : o.NativeWidth;
         var overlap = Math.Min(o.OverlapPx, axisNative - 8);
+        var rows = Math.Max(1, o.Rows);
+        var overlapAcross = rows > 1 ? Math.Min(o.OverlapAcrossPx, acrossNative - 8) : 0;
         var total = o.Projectors * axisNative - (o.Projectors - 1) * overlap;
-        var canvas = o.Orientation == BlendOrientation.Horizontal
-            ? new SKSizeI(total, o.NativeHeight)
-            : new SKSizeI(o.NativeWidth, total);
-        return new BlendLayout(o.Projectors, o.NativeWidth, o.NativeHeight, overlap, o.Orientation, canvas);
+        var totalAcross = rows * acrossNative - (rows - 1) * overlapAcross;
+        var canvas = horizontal
+            ? new SKSizeI(total, totalAcross)
+            : new SKSizeI(totalAcross, total);
+        return new BlendLayout(o.Projectors, o.NativeWidth, o.NativeHeight, overlap, o.Orientation, canvas, rows, overlapAcross);
     }
 
     /// <summary>

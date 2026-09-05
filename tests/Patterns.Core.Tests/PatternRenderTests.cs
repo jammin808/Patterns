@@ -180,6 +180,44 @@ public class PatternRenderTests
     }
 
     [Fact]
+    public void BlendGridMarksItsZonesAlongAndAcross()
+    {
+        // 2 × 2 of 400×240 with 100 px along and 60 px across: canvas 700×420; the zone edges are marked
+        // in the accent colour both ways, the corner where the zones cross included, and the rest is black.
+        var state = RenderTestHarness.State(s =>
+        {
+            s.Pattern.Kind = PatternKind.ProjectionBlend;
+            s.Pattern.Blend.Projectors = 2;
+            s.Pattern.Blend.Rows = 2;
+            s.Pattern.Blend.NativeWidth = 400;
+            s.Pattern.Blend.NativeHeight = 240;
+            s.Pattern.Blend.OverlapPx = 100;
+            s.Pattern.Blend.OverlapAcrossPx = 60;
+            s.Pattern.Blend.ShowGrids = false;
+            s.Pattern.Blend.ShowRamps = false;
+            s.Pattern.Blend.HueCode = false;
+            s.Pattern.Blend.ShowInfo = false;
+            s.Pattern.Blend.ShowMarkers = true;
+        });
+        using var bmp = RenderTestHarness.Render(state, 700, 420);
+        static bool Lit(SKColor c) => c.Red + c.Green + c.Blue > 120;
+        Assert.True(Lit(bmp.GetPixel(300, 40)), "left edge of the along zone");
+        Assert.True(Lit(bmp.GetPixel(399, 40)), "right edge of the along zone");
+        Assert.True(Lit(bmp.GetPixel(40, 180)), "top edge of the across zone");
+        Assert.True(Lit(bmp.GetPixel(40, 239)), "bottom edge of the across zone");
+        Assert.True(Lit(bmp.GetPixel(300, 200)), "the along zone's edge runs through the across zone");
+        Assert.False(Lit(bmp.GetPixel(150, 120)), "inside P1, away from its frame");
+        Assert.False(Lit(bmp.GetPixel(550, 330)), "inside P4, away from its frame");
+
+        // The grey check is flat through both zones and their corner.
+        state.Pattern.Blend.GrayCheck = true;
+        using var grey = RenderTestHarness.Render(state, 700, 420);
+        Assert.Equal(new SKColor(128, 128, 128), grey.GetPixel(350, 210));
+        Assert.Equal(new SKColor(128, 128, 128), grey.GetPixel(350, 100));
+        Assert.Equal(new SKColor(128, 128, 128), grey.GetPixel(100, 210));
+    }
+
+    [Fact]
     public void BlackoutBeatsEverything()
     {
         var state = RenderTestHarness.State(s =>

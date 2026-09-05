@@ -67,6 +67,44 @@ public class LayoutMathTests
     }
 
     [Fact]
+    public void BlendRowsMakeAGridBlendedBothWays()
+    {
+        var grid = CanvasResolver.Blend(new BlendOptions
+        {
+            Projectors = 2, Rows = 2, NativeWidth = 1920, NativeHeight = 1200, OverlapPx = 320, OverlapAcrossPx = 240,
+        });
+        Assert.Equal(new SKSizeI(2 * 1920 - 320, 2 * 1200 - 240), grid.Canvas);
+        Assert.Equal(2, grid.Rows);
+        Assert.Equal(240, grid.OverlapAcross);
+        Assert.Equal(4, grid.Count);
+        Assert.Equal(0, grid.OriginAcrossOf(0));
+        Assert.Equal(960, grid.OriginAcrossOf(1));
+        Assert.Equal(1200, grid.AcrossNative);
+        Assert.Equal(1, grid.NumberOf(0, 0));
+        Assert.Equal(2, grid.NumberOf(1, 0));
+        Assert.Equal(3, grid.NumberOf(0, 1));
+        Assert.Equal(4, grid.NumberOf(1, 1));
+
+        // A single row is exactly what it was: no across overlap, the old canvas.
+        var row = CanvasResolver.Blend(new BlendOptions { Projectors = 3, NativeWidth = 1920, NativeHeight = 1200, OverlapPx = 400, OverlapAcrossPx = 240 });
+        Assert.Equal(1, row.Rows);
+        Assert.Equal(0, row.OverlapAcross);
+        Assert.Equal(new SKSizeI(3 * 1920 - 2 * 400, 1200), row.Canvas);
+        Assert.Equal(3, row.Count);
+
+        // A vertical column with rows across: the rows sit side by side, the across axis is the width.
+        var column = CanvasResolver.Blend(new BlendOptions
+        {
+            Projectors = 3, Rows = 2, NativeWidth = 1920, NativeHeight = 1200, OverlapPx = 200, OverlapAcrossPx = 320,
+            Orientation = BlendOrientation.Vertical,
+        });
+        Assert.Equal(new SKSizeI(2 * 1920 - 320, 3 * 1200 - 2 * 200), column.Canvas);
+        Assert.Equal(1920, column.AcrossNative);
+        Assert.Equal(1600, column.OriginAcrossOf(1));
+        Assert.Equal(6, column.Count);
+    }
+
+    [Fact]
     public void VideoWallHonoursPortrait()
     {
         var o = new VideoWallOptions { ElementWidth = 1920, ElementHeight = 1080, Columns = 3, Rows = 2, Portrait = true };

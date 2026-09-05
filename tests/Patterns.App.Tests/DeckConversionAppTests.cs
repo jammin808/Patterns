@@ -62,15 +62,19 @@ public class DeckConversionAppTests
         doc.Close();
     }
 
-    /// <summary>A stand-in for LibreOffice: waits at the gate (a real conversion takes seconds), then writes the PDF where soffice would, named as soffice names it.</summary>
-    private static DeckConverter.Runner FakeLibreOffice(List<string> sources, Task gate)
+    /// <summary>
+    /// A stand-in for LibreOffice: waits at the gate the test holds at that moment (a real
+    /// conversion takes seconds, and the test must see the deck pending), then writes the PDF
+    /// where soffice would, named as soffice names it.
+    /// </summary>
+    private static DeckConverter.Runner FakeLibreOffice(List<string> sources, Func<Task> gate)
         => async (exe, args, ct) =>
         {
             var list = args.ToList();
             var outDir = list[list.IndexOf("--outdir") + 1];
             var source = list[^1];
             sources.Add(source);
-            await gate.WaitAsync(ct);
+            await gate().WaitAsync(ct);
             WriteTwoPagePdf(Path.Combine(outDir, DeckConversion.ProducedName(source)));
             return (true, "");
         };
@@ -94,7 +98,7 @@ public class DeckConversionAppTests
             var sources = new List<string>();
             var gate = new TaskCompletionSource();
             services.DeckIn.Converter.Locator = () => "/fake/soffice";
-            services.DeckIn.Converter.RunnerOverride = FakeLibreOffice(sources, gate.Task);
+            services.DeckIn.Converter.RunnerOverride = FakeLibreOffice(sources, () => gate.Task);
 
             var pptx = Path.Combine(b.Dir, "keynote talk.pptx");
             File.WriteAllText(pptx, "not really a PowerPoint — the stand-in never reads it");
@@ -153,10 +157,15 @@ public class DeckConversionAppTests
             Assert.Equal(2, again.PageCount);
             Assert.Single(sources);
 
-            // RELOAD drops the cached PDF and converts afresh; an edited file (a new size) converts by itself.
+            // RELOAD drops the cached PDF and converts afresh — held at a new gate, so the drop and the
+            // pending deck are seen before the stand-in lands; an edited file (a new size) converts by itself.
+            gate = new TaskCompletionSource();
             vm.ReloadDeckCommand.Execute(null);
             Assert.Null(services.DeckIn.Converter.Cached(pptx));
             Settle(window);
+            Assert.IsType<PendingDeckSource>(services.DeckIn.For(key));
+            Assert.Equal(2, sources.Count);
+            gate.SetResult();
             WaitForConversions(services, window);
             var reloaded = Assert.IsType<PdfDeckSource>(services.DeckIn.For(key));
             Assert.NotSame(again, reloaded);

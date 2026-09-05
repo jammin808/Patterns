@@ -296,6 +296,17 @@
       <ComboBox ItemsSource="{Binding BlendOrientations}"
                 SelectedValue="{Binding ActivePattern.Blend.Orientation, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <!-- A grid: rows across the row's direction, each blended into the next by its own overlap -->
+      <Grid ColumnDefinitions="130,*,12,130,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Rows across" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="6" Increment="1" FormatString="0"
+                       Value="{Binding ActivePattern.Blend.Rows, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="1 is a single row; 2 makes a grid (2 rows of the projectors above), blended across as well as along" />
+        <TextBlock Grid.Column="3" Classes="label" Text="Overlap across (px)" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="4" Minimum="8" Maximum="4096" Increment="8" FormatString="0"
+                       Value="{Binding ActivePattern.Blend.OverlapAcrossPx, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="The overlap between one row and the next" />
+      </Grid>
       <ComboBox ItemsSource="{Binding BlendCurves}"
                 SelectedValue="{Binding ActivePattern.Blend.Curve, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />

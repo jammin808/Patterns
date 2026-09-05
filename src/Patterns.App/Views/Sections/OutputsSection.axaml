@@ -278,7 +278,7 @@
           <Button Classes="chip" Content="Reset blend" Command="{Binding ResetBlendCommand}" />
         </StackPanel>
         <TextBlock Classes="hint tip"
-                   Text="Two projectors that overlap on the wall: tick Automatic on both, drag one over the other by the overlap, and the overlap becomes a joined canvas that both draw, each fading its shared edge to black so the light adds up to one picture. Put the Projection blend pattern's grey check on the canvas and turn the gamma until the overlap reads as flat as the rest. Only this output fades; NDI, monitors and the preview never do." />
+                   Text="Projectors that overlap on the wall — two, a row of three or four, a stack, a 2×2 grid: tick Automatic on every one, drag each over its neighbour by the overlap, and the overlaps become one joined canvas they all draw, each fading every shared edge to black so the light adds up to one picture; a middle projector fades both sides, a grid's projector a side and a top or bottom, and where two zones meet in a corner the fades multiply, which is what four projectors sharing a corner need. The lines above audit each join of the selected screen — the neighbour must fade the facing edge by the same width with the same curve — so a rig is checked join by join before doors. Put the Projection blend pattern's grey check on the canvas and turn the gamma until the overlaps read as flat as the rest. Only this output fades; NDI, monitors and the preview never do." />
 
         <TextBlock Classes="label" Text="Wall gaps — bezels, the air between LED pillars" Margin="0,8,0,0" />
         <Grid ColumnDefinitions="86,*,12,86,*" IsVisible="{Binding SelectedIsInCanvas}" Margin="0,2,0,4">

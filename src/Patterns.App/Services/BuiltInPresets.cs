@@ -70,6 +70,17 @@ public static class BuiltInPresets
             p.Kind = PatternKind.ProjectionBlend;
             p.Blend.Projectors = 3; p.Blend.NativeWidth = 1920; p.Blend.NativeHeight = 1200; p.Blend.OverlapPx = 400;
         });
+        Add("Walls & blend", "Blend 4× WUXGA · 400 px", p =>
+        {
+            p.Kind = PatternKind.ProjectionBlend;
+            p.Blend.Projectors = 4; p.Blend.NativeWidth = 1920; p.Blend.NativeHeight = 1200; p.Blend.OverlapPx = 400;
+        });
+        Add("Walls & blend", "Blend 2×2 WUXGA · 320/240 px", p =>
+        {
+            p.Kind = PatternKind.ProjectionBlend;
+            p.Blend.Projectors = 2; p.Blend.Rows = 2; p.Blend.NativeWidth = 1920; p.Blend.NativeHeight = 1200;
+            p.Blend.OverlapPx = 320; p.Blend.OverlapAcrossPx = 240;
+        });
 
         // Motion
         Add("Motion", "Moving bar 480 px/s", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.MovingBar; p.Motion.PxPerFrame = 0; });

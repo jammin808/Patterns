@@ -184,4 +184,99 @@ public class EdgeBlendPipelineTests
         Assert.Equal(SKSizeI.Empty, a.ReferenceSize);
         Assert.Equal("a", a.ScreenId);
     }
+
+    // ---- beyond two projectors ---------------------------------------------------------------
+
+    private static ScreenPlacement Blending(string id, int x, int y)
+        => new() { ScreenId = id, X = x, Y = y, BlendAuto = true, BlendCurve = BlendCurve.Linear };
+
+    [Fact]
+    public void ARowOfThreeIsOneCanvasAndEveryJoinAddsUpToOneFlatPicture()
+    {
+        // Three 400×200 projectors, each 100 px into the next: a 1000×200 canvas, the middle one fading both sides.
+        var screens = new List<ScreenInfo> { Info("a", 0, 0, 400, 200), Info("b", 400, 0, 400, 200), Info("c", 800, 0, 400, 200) };
+        var placements = new[] { Blending("a", 0, 0), Blending("b", 300, 0), Blending("c", 600, 0) };
+        var result = OutputWindowManager.BuildViewports(placements, screens);
+        var a = result.First(x => x.Screen.Id == "a").Viewport;
+        var b = result.First(x => x.Screen.Id == "b").Viewport;
+        var c = result.First(x => x.Screen.Id == "c").Viewport;
+        Assert.Equal(new SKSizeI(1000, 200), b.ReferenceSize);
+        Assert.Equal(a.ScreenId, b.ScreenId);
+        Assert.Equal(b.ScreenId, c.ScreenId);
+        Assert.Equal(new SKPointI(300, 0), b.ViewportOrigin);
+        Assert.Equal((0, 100), (a.BlendLeftPx, a.BlendRightPx));
+        Assert.Equal((100, 100), (b.BlendLeftPx, b.BlendRightPx));
+        Assert.Equal((100, 0), (c.BlendLeftPx, c.BlendRightPx));
+
+        var bus = WhiteBus();
+        using var left = Frame(bus, a, 400, 200);
+        using var middle = Frame(bus, b, 400, 200);
+        using var right = Frame(bus, c, 400, 200);
+        Assert.Equal(255, middle.GetPixel(200, 100).Red);        // the middle projector's own picture, full
+        Assert.Equal(255, left.GetPixel(100, 100).Red);
+        for (var i = 0; i < 100; i += 4)
+        {
+            Assert.InRange(left.GetPixel(300 + i, 100).Red + middle.GetPixel(i, 100).Red, 250, 260);     // the A|B join
+            Assert.InRange(middle.GetPixel(300 + i, 100).Red + right.GetPixel(i, 100).Red, 250, 260);    // the B|C join
+        }
+
+        // The rig on the snapshot agrees: one canvas, the union's size, every member inside it.
+        var state = new ShowState();
+        foreach (var p in placements) state.Output.Placements.Add(p);
+        var rig = RigGeometry.Build(state, new Dictionary<string, ScreenGeometry>
+        {
+            ["a"] = new(400, 200, "A"),
+            ["b"] = new(400, 200, "B"),
+            ["c"] = new(400, 200, "C"),
+        });
+        Assert.Equal(new SKSizeI(1000, 200), rig.SizeOf(b.ScreenId!));
+        Assert.Equal(b.ScreenId, rig.TargetOf("c"));
+    }
+
+    [Fact]
+    public void AGridOfFourAddsUpToOneFlatPictureInTheCornerAllFourShare()
+    {
+        // 2 × 2 of 400×200, 100 px along and 50 px across: every projector fades a side and a top or
+        // bottom, and in the shared corner the four products sum to one — (l + r) × (t + b) = 1.
+        var screens = new List<ScreenInfo>
+        {
+            Info("tl", 0, 0, 400, 200), Info("tr", 400, 0, 400, 200), Info("bl", 0, 200, 400, 200), Info("br", 400, 200, 400, 200),
+        };
+        var placements = new[] { Blending("tl", 0, 0), Blending("tr", 300, 0), Blending("bl", 0, 150), Blending("br", 300, 150) };
+        var result = OutputWindowManager.BuildViewports(placements, screens);
+        PipelineViewport Of(string id) => result.First(x => x.Screen.Id == id).Viewport;
+        var tl = Of("tl");
+        var tr = Of("tr");
+        var bl = Of("bl");
+        var br = Of("br");
+        Assert.Equal(new SKSizeI(700, 350), tl.ReferenceSize);
+        Assert.All(new[] { tr, bl, br }, v => Assert.Equal(tl.ScreenId, v.ScreenId));
+        Assert.Equal((0, 0, 100, 50), (tl.BlendLeftPx, tl.BlendTopPx, tl.BlendRightPx, tl.BlendBottomPx));
+        Assert.Equal((100, 0, 0, 50), (tr.BlendLeftPx, tr.BlendTopPx, tr.BlendRightPx, tr.BlendBottomPx));
+        Assert.Equal((0, 50, 100, 0), (bl.BlendLeftPx, bl.BlendTopPx, bl.BlendRightPx, bl.BlendBottomPx));
+        Assert.Equal((100, 50, 0, 0), (br.BlendLeftPx, br.BlendTopPx, br.BlendRightPx, br.BlendBottomPx));
+
+        var bus = WhiteBus();
+        using var fTl = Frame(bus, tl, 400, 200);
+        using var fTr = Frame(bus, tr, 400, 200);
+        using var fBl = Frame(bus, bl, 400, 200);
+        using var fBr = Frame(bus, br, 400, 200);
+        // The corner region is canvas x 300..399, y 150..199: in each projector's own pixels …
+        foreach (var i in new[] { 0, 25, 50, 75, 99 })
+        {
+            foreach (var j in new[] { 0, 12, 25, 37, 49 })
+            {
+                var sum = fTl.GetPixel(300 + i, 150 + j).Red + fTr.GetPixel(i, 150 + j).Red
+                        + fBl.GetPixel(300 + i, j).Red + fBr.GetPixel(i, j).Red;
+                Assert.InRange(sum, 244, 266);
+            }
+        }
+        // … and along a plain side join (outside the corner) two projectors still make one.
+        for (var i = 0; i < 100; i += 10)
+        {
+            Assert.InRange(fTl.GetPixel(300 + i, 60).Red + fTr.GetPixel(i, 60).Red, 250, 260);
+            Assert.InRange(fTl.GetPixel(100, 150 + i / 2).Red + fBl.GetPixel(100, i / 2).Red, 250, 260);
+        }
+        Assert.Equal(255, fBr.GetPixel(300, 150).Red);   // the bottom-right projector's own picture, full
+    }
 }

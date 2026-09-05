@@ -36,8 +36,8 @@ public static class BlendMath
 /// <summary>
 /// Edge-blend setup pattern: a continuous alignment grid over the whole canvas, hue-coded
 /// projector regions, hatched overlap zones with centerlines, and the blend curve drawn as
-/// opposing fade ramps inside each zone. GrayCheck mode fills flat 50% grey to expose
-/// double brightness where a blend is off.
+/// opposing fade ramps inside each zone — along the row, and across it for a grid of rows.
+/// GrayCheck mode fills flat 50% grey to expose double brightness where a blend is off.
 /// </summary>
 public sealed class BlendPattern : IPatternRenderer
 {
@@ -48,7 +48,7 @@ public sealed class BlendPattern : IPatternRenderer
         var pc = f.Paints;
         int w = f.W, h = f.H;
         var horizontal = layout.Orientation == BlendOrientation.Horizontal;
-        var axisLen = horizontal ? w : h;
+        var rows = layout.Rows;
 
         if (o.GrayCheck)
         {
@@ -61,6 +61,13 @@ public sealed class BlendPattern : IPatternRenderer
                 var z1 = layout.OriginOf(i - 1) + layout.AxisNative;
                 DrawTick(c, tick, z0, horizontal, w, h);
                 DrawTick(c, tick, z1 - 1, horizontal, w, h);
+            }
+            for (var j = 1; j < rows; j++)
+            {
+                var z0 = layout.OriginAcrossOf(j);
+                var z1 = layout.OriginAcrossOf(j - 1) + layout.AcrossNative;
+                DrawTick(c, tick, z0, !horizontal, w, h);
+                DrawTick(c, tick, z1 - 1, !horizontal, w, h);
             }
             if (o.ShowInfo) InfoChip(c, in f, layout);
             return;
@@ -83,70 +90,91 @@ public sealed class BlendPattern : IPatternRenderer
             }
         }
 
-        // Per-projector dashed frame + label, hue-coded.
-        for (var i = 0; i < layout.Projectors; i++)
+        // Per-projector dashed frame + label, hue-coded — every projector of every row.
+        for (var j = 0; j < rows; j++)
         {
-            var color = o.HueCode ? DrawUtil.Hue(i, layout.Projectors) : f.Palette.Accent;
-            var a0 = layout.OriginOf(i);
-            var a1 = a0 + layout.AxisNative;
-            var rect = horizontal
-                ? SKRect.Create(a0 + 1.5f, 1.5f, a1 - a0 - 3, h - 3)
-                : SKRect.Create(1.5f, a0 + 1.5f, w - 3, a1 - a0 - 3);
-            c.DrawRect(rect, pc.StrokeAA(color, 3, DrawUtil.DashLong));
+            for (var i = 0; i < layout.Projectors; i++)
+            {
+                var n = layout.NumberOf(i, j);
+                var color = o.HueCode ? DrawUtil.Hue(n - 1, layout.Count) : f.Palette.Accent;
+                var a0 = layout.OriginOf(i);
+                var a1 = a0 + layout.AxisNative;
+                var b0 = layout.OriginAcrossOf(j);
+                var b1 = b0 + layout.AcrossNative;
+                var rect = horizontal
+                    ? SKRect.Create(a0 + 1.5f, b0 + 1.5f, a1 - a0 - 3, b1 - b0 - 3)
+                    : SKRect.Create(b0 + 1.5f, a0 + 1.5f, b1 - b0 - 3, a1 - a0 - 3);
+                c.DrawRect(rect, pc.StrokeAA(color, 3, DrawUtil.DashLong));
 
-            var font = pc.FontBold;
-            font.Size = Math.Clamp(h * 0.05f, 14, 90);
-            var cxP = horizontal ? (a0 + a1) / 2f : w / 2f;
-            var cyP = horizontal ? h * 0.12f : (a0 + a1) / 2f;
-            DrawUtil.TextCentered(c, $"P{i + 1}", cxP + 2, cyP + 2, font, pc.Text(SKColors.Black));
-            DrawUtil.TextCentered(c, $"P{i + 1}", cxP, cyP, font, pc.Text(color));
+                var font = pc.FontBold;
+                font.Size = Math.Clamp(Math.Min(rect.Width, rect.Height) * 0.08f, 14, 90);
+                var cxP = rect.MidX;
+                var cyP = rect.Top + rect.Height * 0.14f;
+                DrawUtil.TextCentered(c, $"P{n}", cxP + 2, cyP + 2, font, pc.Text(SKColors.Black));
+                DrawUtil.TextCentered(c, $"P{n}", cxP, cyP, font, pc.Text(color));
+            }
         }
 
-        // Overlap zones.
+        // Overlap zones along the row — the full height (or width) of the canvas, through every row.
         for (var i = 1; i < layout.Projectors; i++)
         {
             var z0 = layout.OriginOf(i);                                // right/lower proj start
             var z1 = layout.OriginOf(i - 1) + layout.AxisNative;        // left/upper proj end
-            var zoneRect = horizontal
-                ? SKRect.Create(z0, 0, z1 - z0, h)
-                : SKRect.Create(0, z0, w, z1 - z0);
+            DrawZone(c, in f, o, z0, z1, horizontal, w, h);
+        }
 
-            DrawUtil.Hatch(c, zoneRect, 24, pc.StrokeAA(new SKColor(0xFF, 0xFF, 0xFF, 0x2A), 1));
-
-            if (o.ShowMarkers)
-            {
-                var edge = pc.Fill(f.Palette.Accent);
-                if (horizontal)
-                {
-                    DrawUtil.LineV(c, z0, 0, h, 1, edge);
-                    DrawUtil.LineV(c, z1 - 1, 0, h, 1, edge);
-                    var mid = (z0 + z1) / 2;
-                    c.DrawLine(mid + 0.5f, 0, mid + 0.5f, h, pc.StrokeAA(f.Palette.Secondary, 1, DrawUtil.DashShort));
-                }
-                else
-                {
-                    DrawUtil.LineH(c, z0, 0, w, 1, edge);
-                    DrawUtil.LineH(c, z1 - 1, 0, w, 1, edge);
-                    var mid = (z0 + z1) / 2;
-                    c.DrawLine(0, mid + 0.5f, w, mid + 0.5f, pc.StrokeAA(f.Palette.Secondary, 1, DrawUtil.DashShort));
-                }
-            }
-
-            if (o.ShowRamps)
-            {
-                DrawRamps(c, pc, o.Curve, z0, z1, horizontal, w, h);
-            }
-
-            var zfont = pc.FontRegular;
-            zfont.Size = Math.Clamp(h * 0.022f, 10, 30);
-            var label = $"OVERLAP {z1 - z0}px";
-            var lx = horizontal ? (z0 + z1) / 2f : w / 2f;
-            var ly = horizontal ? h * 0.94f : (z0 + z1) / 2f;
-            DrawUtil.TextCentered(c, label, lx + 1, ly + 1, zfont, pc.Text(SKColors.Black));
-            DrawUtil.TextCentered(c, label, lx, ly, zfont, pc.Text(f.Palette.Text));
+        // Overlap zones across the rows — the full length of the canvas, through every column.
+        for (var j = 1; j < rows; j++)
+        {
+            var z0 = layout.OriginAcrossOf(j);
+            var z1 = layout.OriginAcrossOf(j - 1) + layout.AcrossNative;
+            DrawZone(c, in f, o, z0, z1, !horizontal, w, h);
         }
 
         if (o.ShowInfo) InfoChip(c, in f, layout);
+    }
+
+    /// <summary>One overlap zone: hatched, its edges and centreline marked, the curve as ramps, its width named.</summary>
+    private static void DrawZone(SKCanvas c, in PatternFrame f, BlendOptions o, int z0, int z1, bool horizontal, int w, int h)
+    {
+        var pc = f.Paints;
+        var zoneRect = horizontal
+            ? SKRect.Create(z0, 0, z1 - z0, h)
+            : SKRect.Create(0, z0, w, z1 - z0);
+
+        DrawUtil.Hatch(c, zoneRect, 24, pc.StrokeAA(new SKColor(0xFF, 0xFF, 0xFF, 0x2A), 1));
+
+        if (o.ShowMarkers)
+        {
+            var edge = pc.Fill(f.Palette.Accent);
+            if (horizontal)
+            {
+                DrawUtil.LineV(c, z0, 0, h, 1, edge);
+                DrawUtil.LineV(c, z1 - 1, 0, h, 1, edge);
+                var mid = (z0 + z1) / 2;
+                c.DrawLine(mid + 0.5f, 0, mid + 0.5f, h, pc.StrokeAA(f.Palette.Secondary, 1, DrawUtil.DashShort));
+            }
+            else
+            {
+                DrawUtil.LineH(c, z0, 0, w, 1, edge);
+                DrawUtil.LineH(c, z1 - 1, 0, w, 1, edge);
+                var mid = (z0 + z1) / 2;
+                c.DrawLine(0, mid + 0.5f, w, mid + 0.5f, pc.StrokeAA(f.Palette.Secondary, 1, DrawUtil.DashShort));
+            }
+        }
+
+        if (o.ShowRamps)
+        {
+            DrawRamps(c, pc, o.Curve, z0, z1, horizontal, w, h);
+        }
+
+        var zfont = pc.FontRegular;
+        zfont.Size = Math.Clamp(Math.Min(w, h) * 0.022f, 10, 30);
+        var label = $"OVERLAP {z1 - z0}px";
+        var lx = horizontal ? (z0 + z1) / 2f : w / 2f;
+        var ly = horizontal ? h * 0.94f : (z0 + z1) / 2f;
+        DrawUtil.TextCentered(c, label, lx + 1, ly + 1, zfont, pc.Text(SKColors.Black));
+        DrawUtil.TextCentered(c, label, lx, ly, zfont, pc.Text(f.Palette.Text));
     }
 
     /// <summary>
@@ -206,7 +234,9 @@ public sealed class BlendPattern : IPatternRenderer
     private static void InfoChip(SKCanvas c, in PatternFrame f, BlendLayout layout)
     {
         var o = f.Config.Blend;
-        var text = $"{layout.Projectors} × {o.NativeWidth}×{o.NativeHeight} · overlap {layout.Overlap}px · {o.Curve} · canvas {f.W}×{f.H}";
+        var rig = layout.Rows > 1 ? $"{layout.Projectors}×{layout.Rows}" : $"{layout.Projectors}";
+        var overlap = layout.Rows > 1 ? $"overlap {layout.Overlap}/{layout.OverlapAcross}px" : $"overlap {layout.Overlap}px";
+        var text = $"{rig} × {o.NativeWidth}×{o.NativeHeight} · {overlap} · {o.Curve} · canvas {f.W}×{f.H}";
         DrawUtil.Chip(c, text, f.Canvas, Anchor9.TopCenter, GridPattern.ChipText(f), f.Paints,
             f.Palette.Text, f.Palette.ChipBg);
     }

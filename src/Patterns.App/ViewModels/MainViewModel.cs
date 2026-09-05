@@ -1184,7 +1184,11 @@ public sealed class MainViewModel : Observable
         set { if (_selectedPlacement is { } p) { p.BlendGamma = value; RaiseBlend(); } }
     }
 
-    /// <summary>The zones this output will actually fade, in its own pixels — derived from the overlaps when automatic.</summary>
+    /// <summary>
+    /// The zones this output will actually fade, in its own pixels — derived from the overlaps
+    /// when automatic — and the audit of every join it has: whether the neighbour fades the
+    /// facing edge by the same width with the same curve, and whether the zones leave a picture.
+    /// </summary>
     public string BlendReadback
     {
         get
@@ -1196,11 +1200,23 @@ public sealed class MainViewModel : Observable
             var derived = EdgeBlend.Derive(mine.Rect, arranged.Where(a => a.Id != mine.Id).Select(a => a.Rect));
             var used = EdgeBlend.Resolve(p, derived);
             var words = $"left {used.Left} · top {used.Top} · right {used.Right} · bottom {used.Bottom} px";
-            if (!p.BlendAuto) return used.Any ? $"Fading {words}." : "No blend on this output.";
-            return used.Any
-                ? $"Overlaps found: {words} — both projectors draw the overlap, faded."
-                : "No overlap with another screen yet — drag this screen over its neighbour by the overlap width.";
+            var head = !p.BlendAuto
+                ? used.Any ? $"Fading {words}." : "No blend on this output."
+                : used.Any
+                    ? $"Overlaps found: {words} — every projector that shares them draws them, faded."
+                    : "No overlap with another screen yet — drag this screen over its neighbour by the overlap width.";
+            var notes = BlendAudit.For(p.ScreenId, arranged, id => State.Output.Placements.FirstOrDefault(x => x.ScreenId == id), NameOfScreen);
+            return notes.Count == 0 ? head : head + "\n" + BlendAudit.Summary(notes);
         }
+    }
+
+    /// <summary>A screen's name for the blend audit: its label on the wall, else its id.</summary>
+    private string NameOfScreen(string screenId)
+    {
+        var p = State.Output.Placements.FirstOrDefault(x => x.ScreenId == screenId);
+        if (p is { CustomLabel.Length: > 0 }) return p.CustomLabel;
+        var info = p is null ? null : LiveInfo(p);
+        return info?.Label is { Length: > 0 } label ? label : screenId;
     }
 
     private void RaiseBlend()
