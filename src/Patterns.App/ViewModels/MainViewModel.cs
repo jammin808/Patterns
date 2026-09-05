@@ -2440,6 +2440,10 @@ public sealed class MainViewModel : Observable
     private string _remoteStatus = "";
     public string RemoteStatus { get => _remoteStatus; private set => Set(ref _remoteStatus, value); }
 
+    private string _oscStatus = "";
+    /// <summary>The OSC port, where feedback goes, the counts and the last message — the Remote page's line.</summary>
+    public string OscStatus { get => _oscStatus; private set => Set(ref _oscStatus, value); }
+
     private string _stingerStatus = "Ready.";
     public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
 
@@ -4617,6 +4621,7 @@ public sealed class MainViewModel : Observable
         RemoteStatus = State.Control.Enabled
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";
+        OscStatus = _services.Osc.StatusLine;
         _services.Video.SweepRetired();
         _services.NdiIn.SweepRetired();
         _services.WebIn.SweepRetired();

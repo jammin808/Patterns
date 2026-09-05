@@ -1,0 +1,204 @@
+using System.Globalization;
+
+namespace Patterns.Core.Services;
+
+/// <summary>
+/// OSC addresses onto the one-line protocol: every address starts /patterns/, the rest names
+/// the verb the way the TCP line does, and a number, a name or a switch rides either as the
+/// next address segment or as the first argument. Pure — what comes out is a line
+/// <see cref="ControlProtocol.Parse"/> reads, so OSC has exactly the TCP protocol's meaning,
+/// checks and answers.
+/// </summary>
+public static class OscMap
+{
+    public const string Prefix = "/patterns/";
+
+    /// <summary>The addresses, for the docs and the page: what to send, and what it means.</summary>
+    public static readonly IReadOnlyList<(string Address, string Means)> Reference = new[]
+    {
+        ("/patterns/outputs 1|0", "OUTPUTS ON / OFF (also /patterns/outputs/on, /off)"),
+        ("/patterns/blackout [1|0]", "BLACKOUT ON / OFF; no argument toggles (also /on, /off, /toggle)"),
+        ("/patterns/identify", "IDENTIFY"),
+        ("/patterns/look <n|name>", "LOOK n / LOOK name (also /patterns/look/<n>)"),
+        ("/patterns/next, /patterns/prev", "NEXT / PREV — the clicker list"),
+        ("/patterns/screen/<n> [1|0]", "SCREEN n ON / OFF; no argument toggles"),
+        ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
+        ("/patterns/group/<letter> 1|0", "GROUP A ON / OFF — a joined canvas"),
+        ("/patterns/audio/play, /patterns/audio/stop", "AUDIO PLAY / STOP — the audio track"),
+        ("/patterns/music/play [n|name]", "MUSIC PLAY — break music (Spotify), an entry by number or name"),
+        ("/patterns/music/pause, /patterns/music/next", "MUSIC PAUSE / NEXT"),
+        ("/patterns/music/volume <level>", "MUSIC VOL: an integer is percent, a float from 0.0 to 1.0 is a fader"),
+        ("/patterns/tone 1|0", "TONE ON / OFF"),
+        ("/patterns/duck [1|0]", "DUCK ON / OFF; no argument toggles"),
+        ("/patterns/stinger <n|name>", "STINGER n / name (also /patterns/stinger/<n>); /patterns/stinger/stop"),
+        ("/patterns/vog <n|name>, /patterns/sting <n|name>", "VOG / STING — kind-checked, like the TCP verbs"),
+        ("/patterns/lowerthird <n|name> [person]", "LOWERTHIRD n / name, with a library entry when a second argument names one (also /patterns/lt)"),
+        ("/patterns/lowerthird/off", "LOWERTHIRD OFF"),
+        ("/patterns/person <n|name>", "PERSON — a library entry into the lower third on air"),
+        ("/patterns/section <n|name>", "SECTION — a playlist part"),
+        ("/patterns/stream 1|0", "STREAM ON / OFF"),
+        ("/patterns/cue/go [id]", "CUE GO — the standby id you last saw, or none"),
+        ("/patterns/cue/standby/next, /patterns/cue/standby/prev", "CUE STANDBY NEXT / PREV"),
+        ("/patterns/cue/standby <number|name>", "CUE STANDBY — a cue by number or name"),
+        ("/patterns/cue/hold 1|0", "CUE HOLD ON / OFF"),
+        ("/patterns/cue/arm 1|0", "CUE ARM ON / OFF — only while the Remote page allows remotes to arm"),
+        ("/patterns/stopall", "STOPALL"),
+        ("/patterns/ping", "PING — answered with /patterns/pong to the sender"),
+    };
+
+    /// <summary>The protocol line for a message, or null when the address is not one Patterns knows.</summary>
+    public static string? ToLine(OscMessage m)
+    {
+        if (!m.Address.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) return null;
+        var parts = m.Address[Prefix.Length..].Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return null;
+        var verb = parts[0].ToLowerInvariant();
+        var seg = parts.Length > 1 ? parts[1] : "";
+        var seg2 = parts.Length > 2 ? parts[2] : "";
+        switch (verb)
+        {
+            case "outputs": return "OUTPUTS " + Switch(m, seg, "ON", toggles: false);
+            case "blackout": return "BLACKOUT " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "identify": return "IDENTIFY";
+            case "look": return Named("LOOK", m, seg);
+            case "next": return "NEXT";
+            case "prev": case "back": return "PREV";
+            case "screen": return Numbered("SCREEN", seg, m, seg2, "TOGGLE", toggles: true);
+            case "lock": return Numbered("LOCK", seg, m, seg2, "TOGGLE", toggles: true);
+            case "group":
+                if (seg.Length == 0) return null;
+                return $"GROUP {seg.ToUpperInvariant()} {Switch(m, seg2, "ON", toggles: false)}";
+            case "audio":
+                return Sub(m, seg) switch { "play" or "on" => "AUDIO PLAY", "stop" or "off" => "AUDIO STOP", _ => null };
+            case "music":
+            {
+                var what = seg.ToLowerInvariant();
+                switch (what)
+                {
+                    case "play":
+                    case "resume":
+                    {
+                        var pick = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                        return pick.Length == 0 ? "MUSIC PLAY" : "MUSIC PLAY " + pick;
+                    }
+                    case "pause": case "stop": return "MUSIC PAUSE";
+                    case "next": case "skip": return "MUSIC NEXT";
+                    case "volume": case "vol": case "level":
+                    {
+                        var level = Level(m, seg2);
+                        return level is null ? null : "MUSIC VOL " + level.Value.ToString(CultureInfo.InvariantCulture);
+                    }
+                    default:
+                        return what.Length > 0 ? "MUSIC PLAY " + seg : null;
+                }
+            }
+            case "tone": return "TONE " + Switch(m, seg, "ON", toggles: false);
+            case "duck": return "DUCK " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "stinger":
+                if (seg.Equals("stop", StringComparison.OrdinalIgnoreCase)) return "STINGER STOP";
+                return Named("STINGER", m, seg);
+            case "vog":
+                if (seg.Equals("stop", StringComparison.OrdinalIgnoreCase)) return "VOG STOP";
+                return Named("VOG", m, seg);
+            case "sting":
+                if (seg.Equals("stop", StringComparison.OrdinalIgnoreCase)) return "STING STOP";
+                return Named("STING", m, seg);
+            case "lowerthird":
+            case "lt":
+            {
+                if (seg.Equals("off", StringComparison.OrdinalIgnoreCase) || seg.Equals("hide", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD OFF";
+                var design = seg.Length > 0 ? seg : m.Text() ?? "";
+                if (design.Length == 0) return null;
+                if (design.Equals("off", StringComparison.OrdinalIgnoreCase) || design.Equals("hide", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD OFF";
+                // The person rides the next segment, or the argument after the design — or the first when the design came from the address.
+                var person = seg2.Length > 0 ? seg2 : seg.Length > 0 ? m.Text() ?? "" : m.Text(1) ?? "";
+                return person.Length == 0 ? "LOWERTHIRD " + design : $"LOWERTHIRD {design} WITH {person}";
+            }
+            case "person": return Named("PERSON", m, seg);
+            case "section": return Named("SECTION", m, seg);
+            case "stream": return "STREAM " + Switch(m, seg, "ON", toggles: false);
+            case "cue":
+            {
+                var what = seg.ToLowerInvariant();
+                switch (what)
+                {
+                    case "go": return "CUE GO" + (seg2.Length > 0 ? " " + seg2 : m.Text() is { Length: > 0 } id ? " " + id : "");
+                    case "standby":
+                    {
+                        var which = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                        if (which.Length == 0) return null;
+                        return which.ToLowerInvariant() switch
+                        {
+                            "next" => "CUE STANDBY NEXT",
+                            "prev" or "back" => "CUE STANDBY PREV",
+                            _ => "CUE STANDBY " + which,
+                        };
+                    }
+                    case "hold": return "CUE HOLD " + Switch(m, seg2, "ON", toggles: false);
+                    case "arm": return "CUE ARM " + Switch(m, seg2, "ON", toggles: false);
+                    case "list": return "CUE LIST";
+                    default: return null;
+                }
+            }
+            case "stopall": case "stop-all": return "STOPALL";
+            case "ping": return "PING";
+            case "status": return "STATUS";
+            default: return null;
+        }
+    }
+
+    /// <summary>"VERB x" where x is the segment after the verb, else the first argument; null without either.</summary>
+    private static string? Named(string verb, OscMessage m, string seg)
+    {
+        var x = seg.Length > 0 ? seg : m.Text() ?? "";
+        return x.Length == 0 ? null : $"{verb} {x}";
+    }
+
+    /// <summary>"VERB n SWITCH" for /verb/n [switch].</summary>
+    private static string? Numbered(string verb, string seg, OscMessage m, string seg2, string whenMissing, bool toggles)
+    {
+        if (!int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var n)) return null;
+        return $"{verb} {n} {Switch(m, seg2, whenMissing, toggles)}";
+    }
+
+    /// <summary>The sub-verb: a segment, else the first argument as text, lower-cased.</summary>
+    private static string Sub(OscMessage m, string seg) => (seg.Length > 0 ? seg : m.Text() ?? "").ToLowerInvariant();
+
+    /// <summary>
+    /// ON / OFF / TOGGLE from a segment ("on", "off", "toggle") or the first argument (a number:
+    /// above a half is on; a bool; the words), else what a bare address means for this verb.
+    /// </summary>
+    private static string Switch(OscMessage m, string seg, string whenMissing, bool toggles)
+    {
+        var word = seg.Length > 0 ? seg : m.Text() ?? "";
+        switch (word.ToLowerInvariant())
+        {
+            case "on": case "true": case "yes": return "ON";
+            case "off": case "false": case "no": return "OFF";
+            case "toggle": return toggles ? "TOGGLE" : whenMissing;
+            case "": return whenMissing;
+        }
+        var number = m.Number();
+        if (number is { } v) return v > 0.5 ? "ON" : "OFF";
+        return whenMissing;
+    }
+
+    /// <summary>A level in percent: an integer as it is, a float between 0.0 and 1.0 as a fader (× 100), a larger float rounded.</summary>
+    private static int? Level(OscMessage m, string seg)
+    {
+        if (seg.Length > 0)
+        {
+            return int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null;
+        }
+        if (m.Args.Count == 0) return null;
+        return m.Args[0] switch
+        {
+            int i => i,
+            long l => (int)Math.Clamp(l, 0, 100),
+            float f => f <= 1.0f && f >= 0 ? (int)Math.Round(f * 100) : (int)Math.Round(f),
+            double d => d <= 1.0 && d >= 0 ? (int)Math.Round(d * 100) : (int)Math.Round(d),
+            string s => int.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null,
+            _ => null,
+        };
+    }
+}

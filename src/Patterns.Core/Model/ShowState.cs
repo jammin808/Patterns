@@ -1280,6 +1280,19 @@ public sealed class ControlConfig : Observable
 
     /// <summary>A remote may ARM / disarm the caller's cue stack (CUE ARM ON / OFF). Off by default: arming is a deliberate act at the desk.</summary>
     public bool RemotesMayArm { get => _remotesMayArm; set => Set(ref _remotesMayArm, value); }
+
+    private bool _oscEnabled;
+    private int _oscPort = 9698;
+    private string _oscFeedbackHost = "";
+    private int _oscFeedbackPort = 9699;
+
+    /// <summary>OSC in over UDP on <see cref="OscPort"/> while remote control is on. Off by default: another open port is a deliberate act.</summary>
+    public bool OscEnabled { get => _oscEnabled; set => Set(ref _oscEnabled, value); }
+    public int OscPort { get => _oscPort; set => Set(ref _oscPort, Math.Clamp(value, 1024, 65535)); }
+
+    /// <summary>Where OSC feedback goes on every change — a host name or address; empty sends none (replies still go to whoever sent a command).</summary>
+    public string OscFeedbackHost { get => _oscFeedbackHost; set => Set(ref _oscFeedbackHost, (value ?? "").Trim()); }
+    public int OscFeedbackPort { get => _oscFeedbackPort; set => Set(ref _oscFeedbackPort, Math.Clamp(value, 1, 65535)); }
 }
 
 /// <summary>Web pages opened on outputs (managed browser windows, not engine-composited).</summary>

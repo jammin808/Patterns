@@ -38,6 +38,7 @@ public sealed class AppServices
     public SpotifyService Spotify { get; }
 
     public ControlService Control { get; }
+    public OscService Osc { get; }
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
     public StreamService Stream { get; }
@@ -182,6 +183,7 @@ public sealed class AppServices
         SpotifyCredentials = new SpotifyCredentialStore(Store.BaseDirectory);
         Spotify = new SpotifyService(this, SpotifyCredentials);
         Control = new ControlService(this);
+        Osc = new OscService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -513,8 +515,9 @@ public sealed class AppServices
         // The live-input pool follows everything the program (and sandbox) references.
         ReconcileInputs();
 
-        // Remote control server follows its config.
+        // Remote control server follows its config; OSC beside it.
         Control.Reconcile();
+        Osc.Reconcile();
     }
 
     /// <summary>
@@ -597,6 +600,7 @@ public sealed class AppServices
             Stingers.Dispose();
             Spotify.Dispose();
             Control.Dispose();
+            Osc.Dispose();
             Web.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();

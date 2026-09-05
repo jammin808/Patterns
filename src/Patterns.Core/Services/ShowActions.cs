@@ -126,6 +126,8 @@ public enum OriginKind
     Cue,
     /// <summary>A cue's auto-follow: the next cue GOing by itself after the delay the cue carries.</summary>
     Follow,
+    /// <summary>An OSC message over UDP (QLab, TouchOSC, a lighting desk, Companion's OSC).</summary>
+    Osc,
 }
 
 public sealed record ActionOrigin(OriginKind Kind, string Name = "", string Endpoint = "")

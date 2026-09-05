@@ -8,6 +8,10 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
   every command answers `OK`, `OK <json>` or `ERR <reason>`. On connect — and on every
   change — the server pushes `STATE <json>` so controllers can show live feedback.
+- **OSC** — UDP port 9698 (configurable; off by default — tick **OSC in** on the Remote page).
+  Every address starts `/patterns/` and means exactly the TCP line it maps to; a refused command
+  answers `/patterns/error` to the sender, and with a feedback host set every change sends one
+  bundle of `/patterns/state/…` messages. See **OSC** below.
 
 > There is no password. Anyone on the network can control the show while remote control
 > is enabled — that's the same trust model as most stage-control protocols. Turn it off
@@ -116,6 +120,63 @@ play / pause / skip and entries 1–6, lit while music plays — a **VOG** categ
 stinger keys with a STING HOLD feedback and a *put it back* key, plus presets for
 transport/looks/screens/groups/presenter/audio — see its README for install), or the
 built-in **Generic TCP** connection sending the raw commands above (no feedback).
+
+## OSC
+
+Tick **OSC in** on the Remote page (SETUP) and Patterns listens on UDP port 9698 (configurable)
+while remote control is on — for QLab's network cues, TouchOSC, a lighting desk with OSC out, or
+Companion's generic OSC module. Every address starts `/patterns/` and maps onto the one-line
+protocol above, so a message means exactly what its line means, with the same checks, the same
+journal entry (the origin reads `osc 10.0.0.5:53001`) and the same answers. A number, a name or a
+switch rides as the next address segment or as the first argument — `/patterns/look/3`,
+`/patterns/look 3` and `/patterns/look "Walk-in"` are the same — and a switch is `1` / `0`, a
+float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read in order.
+
+| Address | Means |
+|---|---|
+| `/patterns/outputs 1\|0` | OUTPUTS ON / OFF (also `/patterns/outputs/on`, `/off`) |
+| `/patterns/blackout [1\|0]` | BLACKOUT ON / OFF; no argument toggles (also `/on`, `/off`, `/toggle`) |
+| `/patterns/identify` | IDENTIFY |
+| `/patterns/look <n\|name>` | LOOK n / LOOK name (also `/patterns/look/<n>`) |
+| `/patterns/next`, `/patterns/prev` | NEXT / PREV — the clicker list |
+| `/patterns/screen/<n> [1\|0]` | SCREEN n ON / OFF; no argument toggles |
+| `/patterns/lock/<n> [1\|0]` | LOCK n ON / OFF; no argument toggles |
+| `/patterns/group/<letter> 1\|0` | GROUP A ON / OFF — a joined canvas |
+| `/patterns/audio/play`, `/patterns/audio/stop` | AUDIO PLAY / STOP — the audio track |
+| `/patterns/music/play [n\|name]` | MUSIC PLAY — break music (Spotify), an entry by number or name |
+| `/patterns/music/pause`, `/patterns/music/next` | MUSIC PAUSE / NEXT |
+| `/patterns/music/volume <level>` | MUSIC VOL: an integer is percent, a float from 0.0 to 1.0 is a fader (× 100) |
+| `/patterns/tone 1\|0` | TONE ON / OFF |
+| `/patterns/duck [1\|0]` | DUCK ON / OFF; no argument toggles |
+| `/patterns/stinger <n\|name>` | STINGER n / name (also `/patterns/stinger/<n>`); `/patterns/stinger/stop` |
+| `/patterns/vog <n\|name>`, `/patterns/sting <n\|name>` | VOG / STING — kind-checked, like the TCP verbs |
+| `/patterns/lowerthird <n\|name> [person]` | LOWERTHIRD n / name, with a library entry when a second argument names one (also `/patterns/lt`; `/patterns/lowerthird/2/3` is design 2 with person 3) |
+| `/patterns/lowerthird/off` | LOWERTHIRD OFF |
+| `/patterns/person <n\|name>` | PERSON — a library entry into the lower third on air |
+| `/patterns/section <n\|name>` | SECTION — a playlist part |
+| `/patterns/stream 1\|0` | STREAM ON / OFF |
+| `/patterns/cue/go [id]` | CUE GO — the standby id you last saw, or none |
+| `/patterns/cue/standby/next`, `/patterns/cue/standby/prev` | CUE STANDBY NEXT / PREV |
+| `/patterns/cue/standby <number\|name>` | CUE STANDBY — a cue by number or name |
+| `/patterns/cue/hold 1\|0` | CUE HOLD ON / OFF |
+| `/patterns/cue/arm 1\|0` | CUE ARM ON / OFF — only while the Remote page allows remotes to arm |
+| `/patterns/stopall` | STOPALL |
+| `/patterns/ping` | PING — answered with `/patterns/pong` to the sender |
+| `/patterns/status` | STATUS — answered with `/patterns/status <json>` to the sender |
+
+Answers go to whoever sent the message, from the same port: `/patterns/pong` for a ping,
+`/patterns/status <json>` for a status, `/patterns/error <text>` when a command is refused (the
+same `ERR …` sentence the TCP port would write) or an address is not one Patterns knows. With
+**Feedback to** set to a host or address and a port (default 9699), every change sends one bundle
+there — throttled to 200 ms like the STATE pushes — carrying `/patterns/state/live i`,
+`/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/music i`, `/music/now s`,
+`/music/level i`, `/stinger s`, `/stinger/hold s`, `/lowerthird s`, `/lowerthird/person s`,
+`/stream i`, `/playlist s`, `/health s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/cue/armed i`,
+`/cue/hold i`, `/cue/confirm s`, `/cue/standby s s` (number, name), `/cue/previous s s`,
+`/cue/next s s`, `/cue/last s s` (number, outcome), `/cue/offset s`, `/cue/follow s`. TouchOSC:
+send to the machine on 9698, receive on 9699 with the tablet's address as the feedback host.
+QLab: a Network cue with an OSC message per line above. Companion: the generic OSC module for a
+key or two; the Patterns module (TCP) for the full feedback.
 
 ## HTTP API (anything else)
 
