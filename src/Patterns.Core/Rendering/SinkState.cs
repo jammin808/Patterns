@@ -73,8 +73,16 @@ public sealed class SinkState : IDisposable
     /// <summary>Message ticker caches: the measured text width and the fade-band shader.</summary>
     public TickerCache Ticker { get; } = new();
 
+    /// <summary>The lower third's per-element caches on this sink (sims, rasters, gradients, blurs), by element id.</summary>
+    public Dictionary<string, LowerThirds.LowerThirdElementCache> LowerThirds { get; } = new();
+
+    /// <summary>The snapshot version the lower-third caches were last swept for gone elements at.</summary>
+    public long LowerThirdsSweptVersion { get; set; } = -1;
+
     public void Dispose()
     {
+        foreach (var cache in LowerThirds.Values) cache.Dispose();
+        LowerThirds.Clear();
         foreach (var fx in FractalEffects.Values) fx.Dispose();
         FractalEffects.Clear();
         Fractal?.Dispose();

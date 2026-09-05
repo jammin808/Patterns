@@ -155,6 +155,19 @@ public static class MediaLocator
             else Add(WantedKind.Capture, pip.CaptureDevice, false, true, 0);
         }
 
+        // The lower third on air: a media element's clip mounts too (silent b-roll unless told otherwise).
+        var lower = state.LowerThirds;
+        if (lower.ShownAtUtc is not null && lower.HiddenAtUtc is null && lower.Active is { } design)
+        {
+            foreach (var e in design.Elements)
+            {
+                if (e.Enabled && e.Kind == LowerThirds.LowerThirdElementKind.Media && PlaylistSequencer.IsVideoPath(e.Path))
+                {
+                    Add(WantedKind.VideoFile, e.Path, true, e.MediaMute, e.MediaVolumePct);
+                }
+            }
+        }
+
         return list;
     }
 }

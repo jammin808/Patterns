@@ -37,6 +37,9 @@ public static class OverlayRenderer
         {
             DrawMessage(c, in f, msg);
         }
+
+        // The lower third on air sits over every other overlay, on every sink that shows the canvas.
+        LowerThirds.LowerThirdRenderer.Render(c, in f);
     }
 
     private static void DrawLogo(SKCanvas c, in PatternFrame f, LogoOverlay o)

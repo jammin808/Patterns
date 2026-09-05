@@ -1308,6 +1308,9 @@ public sealed class ShowState : Observable
     public SwitcherConfig Switcher { get; init; } = new();
     public DeskLayoutConfig Desk { get; init; } = new();
 
+    /// <summary>The lower thirds: the designs, and the one on air since when.</summary>
+    public global::Patterns.Core.LowerThirds.LowerThirdsConfig LowerThirds { get; init; } = new();
+
     /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
     public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();
 

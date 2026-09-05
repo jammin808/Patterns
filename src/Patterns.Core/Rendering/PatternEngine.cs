@@ -484,7 +484,8 @@ public sealed class PatternEngine
             || (p.Kind == PatternKind.Checkerboard && p.Checker.Animate)
             || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture)
             || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)
-            || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll);
+            || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll)
+            || LowerThirds.LowerThirdClock.IsLive(s.LowerThirds, utcNow);
 
         if (!continuous && s.Countdown.Enabled && s.Countdown.EndBehavior == CountdownEndBehavior.Flash)
         {
