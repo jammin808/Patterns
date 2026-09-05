@@ -995,6 +995,49 @@ public sealed class SwitcherConfig : Observable
     public bool EditSafeByDefault { get => _editSafeByDefault; set => Set(ref _editSafeByDefault, value); }
 }
 
+/// <summary>
+/// How the desk is laid out: the dividers the operator dragged (the page column's width, how the
+/// PROGRAM and PREVIEW panes share their column) and whether the page has the room with the
+/// screens reduced to a strip on the right. Travels with the show file; absent in an older file,
+/// so every value has the classic layout as its default.
+/// </summary>
+public sealed class DeskLayoutConfig : Observable
+{
+    public const double DefaultEditorWidth = 470;
+    public const double MinEditorWidth = 360;
+    public const double MaxEditorWidth = 1400;
+    public const double DefaultProgramShare = 0.4;
+    public const double MinProgramShare = 0.2;
+    public const double MaxProgramShare = 0.8;
+
+    /// <summary>The screens column never goes narrower than this in the classic layout — the wall's TAKE stays on screen.</summary>
+    public const double MinScreensWidth = 420;
+
+    /// <summary>The screens column's width with the work area wide: the wall and the panes, reduced.</summary>
+    public const double WideScreensWidth = 300;
+
+    private double _editorWidth = DefaultEditorWidth;
+    private double _programShare = DefaultProgramShare;
+    private bool _wideWorkArea;
+
+    /// <summary>The page column's width in pixels (the divider between the page and the screens).</summary>
+    public double EditorWidth
+    {
+        get => _editorWidth;
+        set => Set(ref _editorWidth, Math.Clamp(double.IsFinite(value) ? value : DefaultEditorWidth, MinEditorWidth, MaxEditorWidth));
+    }
+
+    /// <summary>How much of the screens column's flexible height the PROGRAM pane takes; the PREVIEW pane takes the rest.</summary>
+    public double ProgramShare
+    {
+        get => _programShare;
+        set => Set(ref _programShare, Math.Clamp(double.IsFinite(value) ? value : DefaultProgramShare, MinProgramShare, MaxProgramShare));
+    }
+
+    /// <summary>The page takes the room; the screens shrink to a strip on the right.</summary>
+    public bool WideWorkArea { get => _wideWorkArea; set => Set(ref _wideWorkArea, value); }
+}
+
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>
 public sealed class WatchdogConfig : Observable
 {
@@ -1131,6 +1174,7 @@ public sealed class ShowState : Observable
     public StreamConfig Stream { get; init; } = new();
     public AdminConfig Admin { get; init; } = new();
     public SwitcherConfig Switcher { get; init; } = new();
+    public DeskLayoutConfig Desk { get; init; } = new();
 
     /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
     public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();

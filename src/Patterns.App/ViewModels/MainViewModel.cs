@@ -1763,6 +1763,18 @@ public sealed class MainViewModel : Observable
     }
 
     /// <summary>The EDIT toggle: on = open the sandbox, off = discard. CUT/TAKE close it too.</summary>
+    /// <summary>The page takes the room and the screens reduce to a strip on the right (the show remembers it).</summary>
+    public bool WideWorkArea
+    {
+        get => State.Desk.WideWorkArea;
+        set
+        {
+            if (State.Desk.WideWorkArea == value) return;
+            State.Desk.WideWorkArea = value;
+            Raise(nameof(WideWorkArea));
+        }
+    }
+
     public bool IsSandboxActive
     {
         get => _services.Sandbox.Active;

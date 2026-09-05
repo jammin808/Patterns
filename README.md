@@ -248,6 +248,12 @@ fault containment, and settings that can never brick startup.
   Deck, in a cue) and the music track, break music, a playing stinger and a clip's soundtrack
   drop to the level you set, ramping, until you lift it — a VOG never ducks. A latch, not a
   programme source: STOP ALL and look recalls leave it, and a restart never comes up ducked.
+- **A desk that resizes** — drag the divider between the page and the screens for more room
+  either way, drag the handle between PROGRAM and PREVIEW to give one pane more of the column,
+  or press **◧ WIDE** to reduce the screens to a strip on the right and give the page the room
+  (the wall, PROGRAM and PREVIEW stay, small). The layout travels with the show file, a wide page
+  is held back rather than pushing the wall's TAKE off a small window, and the Run layout is
+  untouched.
 - **Tally on the desk** — the look in use lights on the Looks page and the Show panel: red
   **PROGRAM** for the picture on air (or **PROGRAM · EDITED** once it has been changed since the
   recall), green **PREVIEW** for the look loaded into the sandboxed preview with → PVW, and both
@@ -417,7 +423,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 778 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, effect stings through particles and fractals (every shape settles, the scored phases, the sliders that write back), the tally (the look on air, edited, in the preview, taken; a playing VOG and a sting's bar), arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
+dotnet test                      # 779 tests: pixel-exact rendering, the ticker's seamless loop, the stop fade, the gain buses, the live duck, edge blend, the PiP crop, frame pacing, capture formats, a screen's rename across a mode change, the library's sections and search and its schema-7 upgrade, particle coverage under wind and every scene pack, every fractal family on both render paths and the sound analysis behind it, effect stings through particles and fractals (every shape settles, the scored phases, the sliders that write back), the tally (the look on air, edited, in the preview, taken; a playing VOG and a sting's bar), the desk's dividers (moved, clamped, held back on a small window, WIDE, remembered in the show), arrangement math, target geometry, playlists, input pool, DSP, remote protocol, watchdog policy, VOGs and stingers (the split, the fade, every after-policy, the hold), break music (Spotify, offline through a fake transport: the verbs, browsing and search, music on a look), switcher, sandbox/air routing, prep mode + screen adoption, playlist parts, multiview pixels, stream MRLs, GPU selection, health advisor, metrics, headless UI
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

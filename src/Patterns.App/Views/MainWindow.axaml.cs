@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Patterns.App.Rendering;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Views;
@@ -48,6 +49,7 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm) return;
 
         var services = vm.Services;
+        HookDeskLayout(vm);
 
         // PREVIEW (bottom): follows the selected target (own pattern or program) and the
         // sandbox while it is open — a true miniature of that target, letterboxed to fit.
@@ -85,6 +87,121 @@ public partial class MainWindow : Window
             _programPipeline?.Dispose();
         };
     }
+
+    // ---- the desk's dividers: the page column, the PROGRAM/PREVIEW share, WIDE --------------------
+
+    private DeskLayoutConfig? _desk;
+    private bool _applyingDesk;
+
+    /// <summary>The page column's width as laid out (the show's value, held back by the window's width).</summary>
+    public double EditorColumnWidth => WorkArea.ColumnDefinitions[0].Width.Value;
+
+    /// <summary>PROGRAM's share of the panes' flexible height as laid out.</summary>
+    public double ProgramShareApplied
+    {
+        get
+        {
+            var pgm = SwitcherRows.RowDefinitions[1].Height.Value;
+            var pvw = SwitcherRows.RowDefinitions[6].Height.Value;
+            return pgm + pvw > 0 ? pgm / (pgm + pvw) : DeskLayoutConfig.DefaultProgramShare;
+        }
+    }
+
+    /// <summary>The screens are reduced to a strip and the page takes the room.</summary>
+    public bool IsWideApplied => WorkArea.ColumnDefinitions[0].Width.IsStar;
+
+    private void HookDeskLayout(MainViewModel vm)
+    {
+        var desk = vm.State.Desk;
+        if (ReferenceEquals(_desk, desk)) return;
+        _desk = desk;
+        desk.PropertyChanged += (_, _) => ApplyDeskLayout();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.WideWorkArea)) ApplyDeskLayout();
+        };
+        ApplyDeskLayout();
+    }
+
+    /// <summary>
+    /// Lays the work area out from the show's desk settings. Idempotent, and re-run when the
+    /// window's size changes: the page column never pushes the wall's TAKE off the window.
+    /// </summary>
+    public void ApplyDeskLayout()
+    {
+        if (_desk is null || _applyingDesk) return;
+        _applyingDesk = true;
+        try
+        {
+            var columns = WorkArea.ColumnDefinitions;
+            var rows = SwitcherRows.RowDefinitions;
+            if (_desk.WideWorkArea)
+            {
+                columns[0].MinWidth = DeskLayoutConfig.MinEditorWidth;
+                columns[0].Width = new GridLength(1, GridUnitType.Star);
+                columns[2].MinWidth = 0;
+                columns[2].Width = new GridLength(DeskLayoutConfig.WideScreensWidth);
+            }
+            else
+            {
+                var room = WorkArea.Bounds.Width;
+                var width = _desk.EditorWidth;
+                if (room > 0) width = Math.Max(DeskLayoutConfig.MinEditorWidth, Math.Min(width, room - columns[1].Width.Value - DeskLayoutConfig.MinScreensWidth));
+                columns[0].MinWidth = DeskLayoutConfig.MinEditorWidth;
+                columns[0].Width = new GridLength(width);
+                columns[2].MinWidth = DeskLayoutConfig.MinScreensWidth;
+                columns[2].Width = new GridLength(1, GridUnitType.Star);
+            }
+            var share = _desk.ProgramShare;
+            rows[1].Height = new GridLength(share, GridUnitType.Star);
+            rows[6].Height = new GridLength(1 - share, GridUnitType.Star);
+        }
+        finally
+        {
+            _applyingDesk = false;
+        }
+    }
+
+    /// <summary>The page column's width, as a drag of the divider sets it; remembered in the show.</summary>
+    public void SetEditorWidth(double px)
+    {
+        if (_desk is null) return;
+        _desk.EditorWidth = px;   // clamps; the change event re-applies
+        ApplyDeskLayout();
+    }
+
+    /// <summary>PROGRAM's share of the panes, as a drag of the handle sets it; remembered in the show.</summary>
+    public void SetProgramShare(double share)
+    {
+        if (_desk is null) return;
+        _desk.ProgramShare = share;
+        ApplyDeskLayout();
+    }
+
+    private void OnWorkAreaSizeChanged(object? sender, SizeChangedEventArgs e) => ApplyDeskLayout();
+
+    private void OnColumnSplitterDragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)
+    {
+        if (_desk is null || _desk.WideWorkArea) return;
+        SetEditorWidth(WorkArea.ColumnDefinitions[0].ActualWidth);
+    }
+
+    private void OnPaneHandleDragDelta(object? sender, Avalonia.Input.VectorEventArgs e)
+    {
+        var rows = SwitcherRows.RowDefinitions;
+        var pgm = rows[1].ActualHeight;
+        var pvw = rows[6].ActualHeight;
+        var total = pgm + pvw;
+        if (total <= 0) return;
+        var share = (pgm + e.Vector.Y) / total;
+        // Live while dragging: the rows follow the pointer; the show remembers it at the end.
+        share = Math.Clamp(share, DeskLayoutConfig.MinProgramShare, DeskLayoutConfig.MaxProgramShare);
+        rows[1].Height = new GridLength(share, GridUnitType.Star);
+        rows[6].Height = new GridLength(1 - share, GridUnitType.Star);
+    }
+
+    private void OnPaneHandleDragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)
+        => SetProgramShare(ProgramShareApplied);
 
     private static PipelineViewport ProgramViewport(MainViewModel vm)
         => PipelineViewport.Monitor(vm.SelectedTargetId, vm.SelectedTargetSize, "PGM", previewSide: false);

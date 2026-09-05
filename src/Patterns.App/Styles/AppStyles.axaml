@@ -42,6 +42,40 @@
     <Setter Property="Margin" Value="0" />
   </Style>
 
+  <!-- The desk's dividers: a column splitter between the page and the screens, a handle between the panes. -->
+  <Style Selector="GridSplitter.deskDivider">
+    <Setter Property="Width" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Cursor" Value="SizeWestEast" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}">
+          <Border Name="Bar" Width="2" Height="48" CornerRadius="1" Background="{StaticResource HairlineBrush}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="GridSplitter.deskDivider:pointerover /template/ Border#Bar">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+  </Style>
+  <Style Selector="Thumb.paneHandle">
+    <Setter Property="Height" Value="8" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Setter Property="Cursor" Value="SizeNorthSouth" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent">
+          <Border Name="Bar" Width="48" Height="2" CornerRadius="1" Background="{StaticResource HairlineBrush}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Thumb.paneHandle:pointerover /template/ Border#Bar">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+  </Style>
+
   <!-- Switcher strip tiles -->
   <Style Selector="Border.tile">
     <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
