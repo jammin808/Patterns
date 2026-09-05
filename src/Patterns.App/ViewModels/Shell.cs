@@ -42,7 +42,7 @@ public static class Shell
     {
         new ShellGroupInfo(ShellGroup.Show, "SHOW", "#2EE68A", "Show time: the panel beside the switcher, and the Run surface for the caller"),
         new ShellGroupInfo(ShellGroup.Plan, "PLAN", "#6E9BFF", "Before the show: the cue stack, looks, and the install's clock — programmes, adverts, announcements"),
-        new ShellGroupInfo(ShellGroup.Build, "BUILD", "#3EC1F3", "Making content: patterns, media, overlays, countdown, particles, branding, the library"),
+        new ShellGroupInfo(ShellGroup.Build, "BUILD", "#3EC1F3", "Making content: patterns, media, overlays, countdown, particles, branding, the library, the assistant"),
         new ShellGroupInfo(ShellGroup.Setup, "SETUP", "#B18CFF", "At the rig: screens, audio, NDI, streaming, remote control"),
         new ShellGroupInfo(ShellGroup.Admin, "ADMIN", "#B8E356", "The machine: performance, GPU, the watchdog — and Help"),
     };
@@ -61,6 +61,7 @@ public static class Shell
         ("Particles", ShellGroup.Build, "#FFC24D"),
         ("Branding", ShellGroup.Build, "#FFC24D"),
         ("Library", ShellGroup.Build, "#C0CBDB"),
+        ("Assistant", ShellGroup.Build, "#7CF5C8"),
         ("Screens", ShellGroup.Setup, "#B18CFF"),
         ("Audio", ShellGroup.Setup, "#FF9E58"),
         ("NDI", ShellGroup.Setup, "#8FA5FF"),

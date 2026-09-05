@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.AssistantSection"
+             x:DataType="vm:MainViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="Border.turn">
+      <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,8" />
+      <Setter Property="Margin" Value="0,3" />
+    </Style>
+    <Style Selector="Border.turn.mine">
+      <Setter Property="BorderBrush" Value="#3EC1F3" />
+    </Style>
+    <Style Selector="Border.turn.declined">
+      <Setter Property="BorderBrush" Value="#FF9E58" />
+    </Style>
+    <Style Selector="Border.proposal">
+      <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="#7CF5C8" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="9,7" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="Border.proposal.applied">
+      <Setter Property="Opacity" Value="0.72" />
+    </Style>
+    <Style Selector="TextBlock.who">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Opacity" Value="0.7" />
+    </Style>
+    <Style Selector="TextBlock.turnText">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="LineHeight" Value="20" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.proposalTitle">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Assistant" />
+    <TextBlock Classes="hint tip"
+               Text="An assistant for building the show: say how many screens you have, what the day looks like, which overlays you want, and it drafts planned screens, looks, cues, lower thirds and a brand as proposals — APPLY the ones you want; nothing changes until you do, and nothing it says goes on air. It talks about Patterns and live-event AV only, never about how Patterns works inside. It needs the internet and your own Anthropic API key; the key lives beside the settings file on this machine, never in a show file. What it sees of your show: names and counts — screens, looks, cues, designs, overlays, the brand's colours — never a file, an address, a passcode or a key." />
+
+    <TextBlock Classes="h2" Text="KEY" />
+    <TextBlock Classes="hint" Text="{Binding AssistantKeyText}" TextWrapping="Wrap" />
+    <Grid ColumnDefinitions="*,6,Auto,6,Auto">
+      <TextBox Text="{Binding AssistantKeyDraft, Mode=TwoWay}" PasswordChar="•" Watermark="Paste an Anthropic API key (sk-ant-…) — from your own account at console.anthropic.com" />
+      <Button Grid.Column="2" Classes="mini" Content="SAVE KEY" Command="{Binding SaveAssistantKeyCommand}" ToolTip.Tip="Kept beside the settings file on this machine; nothing is sent until a question is asked" />
+      <Button Grid.Column="4" Classes="mini" Content="FORGET" Command="{Binding ForgetAssistantKeyCommand}" IsVisible="{Binding HasAssistantKey}" ToolTip.Tip="The key leaves this machine; the assistant is off" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="ASK" />
+    <Grid ColumnDefinitions="*,6,Auto">
+      <TextBox Text="{Binding AssistantInput, Mode=TwoWay}" IsEnabled="{Binding CanAskAssistant}"
+               Watermark="Two screens, a walk-in look, a keynote at ten and a break at eleven — plan it for me…">
+        <TextBox.KeyBindings>
+          <KeyBinding Gesture="Enter" Command="{Binding AskAssistantCommand}" />
+        </TextBox.KeyBindings>
+      </TextBox>
+      <Button Grid.Column="2" Content="ASK" Command="{Binding AskAssistantCommand}" IsEnabled="{Binding CanAskAssistant}" ToolTip.Tip="Enter asks too" />
+    </Grid>
+    <ItemsControl ItemsSource="{Binding AssistantStarters}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <Button Classes="mini" Margin="0,0,6,6" Content="{Binding}"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AssistantStarterCommand}"
+                  CommandParameter="{Binding}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint" Text="{Binding AssistantStatus}" TextWrapping="Wrap" />
+
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasAssistantRows}">
+      <TextBlock Classes="h2" Text="CONVERSATION" />
+      <Button Grid.Column="1" Classes="mini" Content="CLEAR" Command="{Binding ClearAssistantCommand}" ToolTip.Tip="Start afresh — the assistant forgets this session's turns" />
+    </Grid>
+    <ItemsControl ItemsSource="{Binding AssistantRows}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:AssistantRow">
+          <Border Classes="turn" Classes.mine="{Binding IsMine}" Classes.declined="{Binding IsDeclined}">
+            <StackPanel Spacing="4">
+              <TextBlock Classes="who" Text="{Binding Who}" />
+              <TextBlock Classes="turnText" Text="{Binding Text}" />
+              <TextBlock Classes="turnText" Text="{Binding QuestionsText}" IsVisible="{Binding HasQuestions}" Foreground="#FFC24D" />
+              <ItemsControl ItemsSource="{Binding Chips}" IsVisible="{Binding HasChips}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:AssistantChip">
+                    <Border Classes="proposal" Classes.applied="{Binding IsApplied}">
+                      <Grid ColumnDefinitions="*,8,Auto">
+                        <StackPanel Spacing="3">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Classes="who" Text="{Binding Kind}" Foreground="#7CF5C8" VerticalAlignment="Center" />
+                            <TextBlock Classes="proposalTitle" Text="{Binding Title}" />
+                          </StackPanel>
+                          <TextBlock Classes="turnText" Text="{Binding Summary}" IsVisible="{Binding HasSummary}" />
+                          <TextBlock Classes="hint" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" TextWrapping="Wrap" />
+                          <TextBlock Classes="turnText" Text="{Binding StepsText}" IsVisible="{Binding HasSteps}" />
+                          <TextBlock Classes="hint" Text="{Binding AppliedText}" IsVisible="{Binding IsApplied}" Foreground="#2EE68A" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button Grid.Column="2" Content="APPLY" Command="{Binding ApplyCommand}" IsVisible="{Binding CanApply}" VerticalAlignment="Top"
+                                ToolTip.Tip="Into the show now — planned screens, the brand, the overlays, looks saved, designs added, cues appended to the caller's stack" />
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="WHAT IT WILL AND WILL NOT DO" />
+    <TextBlock Classes="hint" TextWrapping="Wrap"
+               Text="Will: plan screens by size and role, propose looks with their overlays, write a cue stack for the day with planned times, draft lower thirds from the presets, set the brand's colours, explain the workflow on Patterns' pages, and answer questions about live-event AV. Will not: touch the show without APPLY, put anything on air, pick files or addresses (those are yours, by hand), talk about anything outside Patterns and the show, or say how Patterns works inside. Every answer is checked on this side too: a question about its own instructions or Patterns' internals never leaves the machine." />
+  </StackPanel>
+</UserControl>

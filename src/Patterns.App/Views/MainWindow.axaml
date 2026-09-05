@@ -185,6 +185,7 @@
               <TabItem Header="Particles"><ScrollViewer><v:ParticlesSection /></ScrollViewer></TabItem>
               <TabItem Header="Branding"><ScrollViewer><v:BrandingSection /></ScrollViewer></TabItem>
               <TabItem Header="Library"><v:LibrarySection /></TabItem>
+              <TabItem Header="Assistant"><ScrollViewer><v:AssistantSection /></ScrollViewer></TabItem>
               <TabItem Header="Screens"><ScrollViewer><v:OutputsSection /></ScrollViewer></TabItem>
               <TabItem Header="Audio"><ScrollViewer><v:AudioSection /></ScrollViewer></TabItem>
               <TabItem Header="NDI"><ScrollViewer><v:NdiSection /></ScrollViewer></TabItem>

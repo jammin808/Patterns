@@ -43,6 +43,12 @@ public sealed class AppServices
     /// <summary>Break music: Patterns drives Spotify, Spotify makes the sound.</summary>
     public SpotifyService Spotify { get; }
 
+    /// <summary>The assistant's key for this machine, beside the settings file — never in a show.</summary>
+    public AssistantKeyStore AssistantKeys { get; }
+
+    /// <summary>The assistant: a fenced model that drafts looks, cues, designs and a show plan as proposals the desk applies.</summary>
+    public AssistantService Assistant { get; }
+
     public ControlService Control { get; }
     public OscService Osc { get; }
 
@@ -242,6 +248,8 @@ public sealed class AppServices
         MusicDuckSource = () => AudioPlayer.VogSoundPlaying;
         SpotifyCredentials = new SpotifyCredentialStore(Store.BaseDirectory);
         Spotify = new SpotifyService(this, SpotifyCredentials);
+        AssistantKeys = new AssistantKeyStore(Store.BaseDirectory);
+        Assistant = new AssistantService(this, AssistantKeys);
         Control = new ControlService(this);
         Osc = new OscService(this);
         Devices = new DeviceService(this);
