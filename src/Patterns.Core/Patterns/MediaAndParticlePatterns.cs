@@ -123,6 +123,35 @@ public sealed class MediaPattern : IPatternRenderer
             return;
         }
 
+        if (o.Source == MediaSource.Web)
+        {
+            var key = InputKeys.Web(o.WebUrl);
+            var page = InputBus.Resolve(key, f.Ctx.IsFadeSource);
+            var name = o.WebUrl.Length > 0 ? Services.WebAddress.ShortName(o.WebUrl) : "No web page";
+            if (page is null)
+            {
+                var note = WebInput.AvailabilityNote.Length > 0
+                    ? WebInput.AvailabilityNote
+                    : o.WebUrl.Length == 0 ? "Enter a page address in the Media panel." : "Opening the page…";
+                PlaceholderCard(c, in f, name, note);
+                return;
+            }
+            var wsize = page.FrameSize;
+            var wdest = wsize is { } ws ? DrawUtil.Fit(ws, bounds, o.Fit == FitMode.Tile ? FitMode.Fit : o.Fit) : bounds;
+            if (!page.DrawFrame(c, wdest, pc.FillAA(SKColors.White)))
+            {
+                PlaceholderCard(c, in f, name, page.StatusText);
+                return;
+            }
+            // The desk clicks into the page through this box; the room sees the pointer when asked.
+            if (!f.Ctx.IsFadeSource && !f.Ctx.InMultiview && !f.Ctx.InLayer)
+            {
+                f.Sink.Hits.Add(new HitRect(HitKind.WebPage, wdest, false, key, FrameCrop.None, bounds));
+            }
+            if (o.WebShowPointer && page is IWebSource web) WebPointer.Draw(c, wdest, FrameCrop.None, web, f.Ctx.UtcNow, pc);
+            return;
+        }
+
         var image = ImageCache.Get(o.ImagePath);
         if (image is null)
         {

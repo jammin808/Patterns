@@ -7,6 +7,7 @@ using Patterns.Core.Effects;
 using Patterns.Core.Model;
 using Patterns.Core.Ndi;
 using Patterns.Core.Particles;
+using Patterns.Core.Media;
 using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -203,6 +204,53 @@ public sealed class MainViewModel : Observable
         RemoveWebUrlCommand = new RelayCommand<string>(url =>
         {
             if (url is not null) State.Web.SavedUrls.Remove(url);
+        });
+
+        // Web pages inside the engine: the page the desk last pointed at (else the pattern's) takes typed text and keys
+        SendWebTextCommand = new RelayCommand(() =>
+        {
+            if (CurrentWebSource() is not { } page)
+            {
+                StatusMessage = "No web page to type into — put one on the pattern or a layer first, then click into it on the PREVIEW pane.";
+                return;
+            }
+            var text = WebTypedText;
+            if (text.Length == 0) return;
+            page.TypeText(text);
+            WebTypedText = "";
+            StatusMessage = $"Typed into {WebAddress.ShortName(page.CurrentUrl)} — Enter sends it, if the page wants that.";
+        });
+        WebKeyCommand = new RelayCommand<string>(key =>
+        {
+            if (key is not null && CurrentWebSource() is { } page) page.PressKey(key);
+        });
+        WebBackCommand = new RelayCommand(() => CurrentWebSource()?.GoBack());
+        WebForwardCommand = new RelayCommand(() => CurrentWebSource()?.GoForward());
+        WebReloadCommand = new RelayCommand(() => CurrentWebSource()?.Reload());
+        RememberWebUrlCommand = new RelayCommand(() =>
+        {
+            var url = WebAddress.Normalize(ActivePattern.Media.WebUrl);
+            if (url.Length == 0) return;
+            if (!State.Web.SavedUrls.Contains(url)) State.Web.SavedUrls.Add(url);
+            StatusMessage = $"Remembered {WebAddress.ShortName(url)} — it is in the saved pages here and on the Remote & web page.";
+        });
+        PutWebPageOnPatternCommand = new RelayCommand(() =>
+        {
+            var url = WebAddress.Normalize(State.Web.Url);
+            if (url.Length == 0)
+            {
+                StatusMessage = "Enter a page address first.";
+                return;
+            }
+            _services.BulkEdit(() =>
+            {
+                ActivePattern.Kind = PatternKind.Media;
+                ActivePattern.Media.Source = MediaSource.Web;
+                ActivePattern.Media.WebUrl = url;
+            });
+            if (!State.Web.SavedUrls.Contains(url)) State.Web.SavedUrls.Add(url);
+            RefreshWebControls();
+            StatusMessage = $"{WebAddress.ShortName(url)} is the pattern now — drive it on the PREVIEW pane; its settings are on the Media page.";
         });
 
         // Presenter click-through: the clicker list on the Cues page, stepped from here
@@ -1168,6 +1216,7 @@ public sealed class MainViewModel : Observable
         HitKind.Countdown => "The countdown",
         HitKind.Message => "The message",
         HitKind.Pip => "The PiP inset",
+        HitKind.WebPage => "The web page",
         _ => "The element",
     };
 
@@ -1204,6 +1253,81 @@ public sealed class MainViewModel : Observable
             case HitKind.Message: o.Message.OffsetXPct = x; o.Message.OffsetYPct = y; break;
             case HitKind.Pip: o.Pip.OffsetXPct = x; o.Pip.OffsetYPct = y; break;
         }
+    }
+
+    // ---- web pages inside the engine -----------------------------------------------
+
+    private string _webTypedText = "";
+    public string WebTypedText { get => _webTypedText; set => Set(ref _webTypedText, value ?? ""); }
+
+    private string _webControlsTarget = "";
+    /// <summary>Which page the PAGE CONTROLS drive, in words.</summary>
+    public string WebControlsTarget { get => _webControlsTarget; private set => Set(ref _webControlsTarget, value); }
+
+    private string _webPageStatus = "";
+    public string WebPageStatus { get => _webPageStatus; private set => Set(ref _webPageStatus, value); }
+
+    private string _lastWebKey = "";
+
+    /// <summary>The desk pointed at a page on the PREVIEW pane: the controls follow it.</summary>
+    public void NoteWebPage(string key)
+    {
+        if (key.Length == 0 || key == _lastWebKey) return;
+        _lastWebKey = key;
+        RefreshWebControls();
+    }
+
+    /// <summary>The page the controls drive: the one last pointed at while it is mounted, else the pattern's page, else its first web layer.</summary>
+    public string CurrentWebKey()
+    {
+        if (_lastWebKey.Length > 0 && InputBus.For(_lastWebKey) is IWebSource) return _lastWebKey;
+        var p = ActivePattern;
+        if (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Web && p.Media.WebUrl.Length > 0) return InputKeys.Web(p.Media.WebUrl);
+        foreach (var l in new[] { p.Layer1, p.Layer2 })
+        {
+            if (l.Enabled && l.Source == LayerSource.Web && l.WebUrl.Length > 0) return InputKeys.Web(l.WebUrl);
+        }
+        return "";
+    }
+
+    public IWebSource? CurrentWebSource() => InputBus.For(CurrentWebKey()) as IWebSource;
+
+    /// <summary>The Media page shows the page controls while a page is in play somewhere the desk can reach.</summary>
+    public bool HasWebPage => CurrentWebKey().Length > 0;
+
+    private string _savedWebPick = "";
+
+    /// <summary>The saved pages combo on the Media page: picking one puts it in the pattern's page box.</summary>
+    public string? SavedWebPick
+    {
+        get => _savedWebPick;
+        set
+        {
+            var pick = value ?? "";
+            if (pick == _savedWebPick) return;
+            _savedWebPick = pick;
+            if (pick.Length > 0) ActivePattern.Media.WebUrl = pick;
+            Raise(nameof(SavedWebPick));
+        }
+    }
+
+    /// <summary>Keeps the PAGE CONTROLS block honest: which page, whether it is up, what it shows. Cheap; runs on the 1 s poll.</summary>
+    private void RefreshWebControls()
+    {
+        var key = CurrentWebKey();
+        Raise(nameof(HasWebPage));
+        if (key.Length == 0)
+        {
+            WebControlsTarget = "";
+            WebPageStatus = "";
+            return;
+        }
+        var page = InputBus.For(key) as IWebSource;
+        var name = State.InputLabel(key, WebAddress.ShortName(key[4..]));
+        WebControlsTarget = $"Controls drive: {name}" + (_lastWebKey == key ? " (the page you pointed at)" : "");
+        WebPageStatus = page is null
+            ? WebInput.AvailabilityNote.Length > 0 ? WebInput.AvailabilityNote : "Opening…"
+            : $"{page.StatusText}{(page.Title.Length > 0 ? " — " + page.Title : "")} · {page.CurrentUrl}";
     }
 
     // ---- roles, locks and repeaters ---------------------------------------------
@@ -1359,6 +1483,7 @@ public sealed class MainViewModel : Observable
     {
         MediaSource.NdiFeed when ActivePattern.Media.NdiSourceName.Length > 0 => "ndi:" + ActivePattern.Media.NdiSourceName,
         MediaSource.Capture when ActivePattern.Media.CaptureDevice.Length > 0 => "cap:" + ActivePattern.Media.CaptureDevice,
+        MediaSource.Web when ActivePattern.Media.WebUrl.Length > 0 => InputKeys.Web(ActivePattern.Media.WebUrl),
         _ => null,
     };
 
@@ -3294,6 +3419,13 @@ public sealed class MainViewModel : Observable
     public RelayCommand CloseWebCommand { get; }
     public RelayCommand<string> LoadWebUrlCommand { get; }
     public RelayCommand<string> RemoveWebUrlCommand { get; }
+    public RelayCommand SendWebTextCommand { get; }
+    public RelayCommand<string> WebKeyCommand { get; }
+    public RelayCommand WebBackCommand { get; }
+    public RelayCommand WebForwardCommand { get; }
+    public RelayCommand WebReloadCommand { get; }
+    public RelayCommand RememberWebUrlCommand { get; }
+    public RelayCommand PutWebPageOnPatternCommand { get; }
     public RelayCommand PresenterNextCommand { get; }
     public RelayCommand PresenterPrevCommand { get; }
     public RelayCommand PresenterResetCommand { get; }
@@ -3620,16 +3752,18 @@ public sealed class MainViewModel : Observable
     private void RefreshActiveInputs()
     {
         var rows = new List<string>();
-        foreach (var (key, status) in _services.Video.MountStatuses.Concat(_services.NdiIn.MountStatuses))
+        foreach (var (key, status) in _services.Video.MountStatuses.Concat(_services.NdiIn.MountStatuses).Concat(_services.WebIn.MountStatuses))
         {
             var bare = key.Length > 4 ? key[4..] : key;
             var label = key.StartsWith("vid:", StringComparison.Ordinal)
                 ? Path.GetFileName(bare)
-                : State.InputLabel(key, bare);
+                : key.StartsWith("web:", StringComparison.Ordinal)
+                    ? State.InputLabel(key, WebAddress.ShortName(bare))
+                    : State.InputLabel(key, bare);
             rows.Add($"{label} — {status}");
         }
         var notes = string.Join("  ",
-            new[] { _services.Video.LimitNote, _services.NdiIn.LimitNote }.Where(s => s.Length > 0));
+            new[] { _services.Video.LimitNote, _services.NdiIn.LimitNote, _services.WebIn.LimitNote }.Where(s => s.Length > 0));
         var text = rows.Count == 0
             ? "No live inputs mounted."
             : $"Live inputs ({rows.Count}): {string.Join("  ·  ", rows)}";
@@ -4319,6 +4453,7 @@ public sealed class MainViewModel : Observable
             : "Remote control off.";
         _services.Video.SweepRetired();
         _services.NdiIn.SweepRetired();
+        _services.WebIn.SweepRetired();
         CheckCues();
 
         // Now-playing marker on explicit playlist rows.
@@ -4342,6 +4477,7 @@ public sealed class MainViewModel : Observable
         // The Format pickers follow their device; a refresh is free while the device is unchanged.
         if (ActivePattern.Media.Source == MediaSource.Capture) CaptureFormat.Refresh();
         if (State.Overlays.Pip.Enabled && State.Overlays.Pip.Source == PipSource.Capture) PipCaptureFormat.Refresh();
+        RefreshWebControls();
         Raise(nameof(CanvasInfo));
         Raise(nameof(HeaderClock));
         Raise(nameof(CountdownPreview));

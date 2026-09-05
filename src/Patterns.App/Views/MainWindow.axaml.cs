@@ -8,6 +8,7 @@ using Patterns.App.Rendering;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.App.Views.Controls;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
 using Patterns.Core.Services;
@@ -229,31 +230,63 @@ public partial class MainWindow : Window
         PreviewCanvas.PointerPressed += (_, e) =>
         {
             if (!e.GetCurrentPoint(PreviewCanvas).Properties.IsLeftButtonPressed) return;
-            if (!BeginPreviewDrag(e.GetPosition(PreviewCanvas))) return;
+            var pos = e.GetPosition(PreviewCanvas);
+            // A press on a web page clicks into it; Alt takes hold of a web layer's box instead.
+            var alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+            if (!alt && PreviewWebPress(pos))
+            {
+                e.Pointer.Capture(PreviewCanvas);
+                e.Handled = true;
+                return;
+            }
+            if (!BeginPreviewDrag(pos)) return;
             e.Pointer.Capture(PreviewCanvas);
             e.Handled = true;
         };
         PreviewCanvas.PointerMoved += (_, e) =>
         {
-            if (_dragHit is null || !ReferenceEquals(e.Pointer.Captured, PreviewCanvas)) return;
-            MovePreviewDrag(e.GetPosition(PreviewCanvas));
-            e.Handled = true;
+            var pos = e.GetPosition(PreviewCanvas);
+            if (_webPress is not null && ReferenceEquals(e.Pointer.Captured, PreviewCanvas))
+            {
+                PreviewWebMove(pos);
+                e.Handled = true;
+                return;
+            }
+            if (_dragHit is not null && ReferenceEquals(e.Pointer.Captured, PreviewCanvas))
+            {
+                MovePreviewDrag(pos);
+                e.Handled = true;
+                return;
+            }
+            PreviewWebHover(pos);
         };
         PreviewCanvas.PointerReleased += (_, e) =>
         {
+            if (_webPress is not null)
+            {
+                e.Pointer.Capture(null);
+                PreviewWebRelease(e.GetPosition(PreviewCanvas));
+                e.Handled = true;
+                return;
+            }
             if (_dragHit is null) return;
             e.Pointer.Capture(null);
             EndPreviewDrag();
             e.Handled = true;
         };
+        PreviewCanvas.PointerWheelChanged += (_, e) =>
+        {
+            if (PreviewWebWheel(e.GetPosition(PreviewCanvas), e.Delta.Y, e.Delta.X)) e.Handled = true;
+        };
+        PreviewCanvas.PointerExited += (_, _) => PreviewWebLeave();
     }
 
-    /// <summary>Takes hold of the layer or overlay under a point on the PREVIEW pane (DIPs); false when the pointer is on the picture itself.</summary>
+    /// <summary>Takes hold of the layer or overlay under a point on the PREVIEW pane (DIPs); false when the pointer is on the picture itself (a web page included).</summary>
     public bool BeginPreviewDrag(Point dip)
     {
         if (_previewPipeline is not { LastMap: { } map } pipeline || DataContext is not MainViewModel vm) return false;
         var device = ToDevice(dip);
-        var hit = HitTester.Find(pipeline.LastHits, in map, device);
+        var hit = HitTester.Find(pipeline.LastHits, in map, device, includeWeb: false);
         if (hit is null) return false;
         _dragHit = hit;
         _dragStart = device;
@@ -300,6 +333,84 @@ public partial class MainWindow : Window
     {
         var scaling = RenderScaling;
         return new SKPoint((float)(dip.X * scaling), (float)(dip.Y * scaling));
+    }
+
+    // ---- web pages on the PREVIEW pane: clicks, drags and the wheel go to the page ----------
+
+    private HitRect? _webPress;
+    private string _webHoverKey = "";
+
+    private HitRect? WebHitAt(Point dip, out PaneMap map)
+    {
+        map = default;
+        if (_previewPipeline is not { LastMap: { } m } pipeline) return null;
+        map = m;
+        var hit = HitTester.Find(pipeline.LastHits, in m, ToDevice(dip));
+        return hit is { Kind: HitKind.WebPage } ? hit : null;
+    }
+
+    private static IWebSource? SourceOf(in HitRect hit) => InputBus.For(hit.Key) as IWebSource;
+
+    /// <summary>A press on a page: the page gets the click and keeps the pointer until the release. False when nothing web is under the point.</summary>
+    public bool PreviewWebPress(Point dip)
+    {
+        if (WebHitAt(dip, out var map) is not { } hit || SourceOf(in hit) is not { } page) return false;
+        var at = WebPointerMap.ToPageUnbounded(in hit, map.ToCanvas(ToDevice(dip)));
+        _webPress = hit;
+        _webHoverKey = hit.Key;
+        page.PointerDown(at.X, at.Y);
+        if (DataContext is MainViewModel vm) vm.NoteWebPage(hit.Key);
+        return true;
+    }
+
+    /// <summary>The pointer moving while a page holds it — a drag on a slider or a map keeps going past the box's edge.</summary>
+    public void PreviewWebMove(Point dip)
+    {
+        if (_webPress is not { } hit || _previewPipeline is not { LastMap: { } map } || SourceOf(in hit) is not { } page) return;
+        var at = WebPointerMap.ToPageUnbounded(in hit, map.ToCanvas(ToDevice(dip)));
+        page.PointerMove(at.X, at.Y);
+    }
+
+    public void PreviewWebRelease(Point dip)
+    {
+        if (_webPress is { } hit && _previewPipeline is { LastMap: { } map } && SourceOf(in hit) is { } page)
+        {
+            var at = WebPointerMap.ToPageUnbounded(in hit, map.ToCanvas(ToDevice(dip)));
+            page.PointerUp(at.X, at.Y);
+        }
+        _webPress = null;
+    }
+
+    /// <summary>The pointer passing over the pane: a page under it sees the move (hover effects, the drawn pointer); leaving a page tells it so.</summary>
+    public bool PreviewWebHover(Point dip)
+    {
+        if (WebHitAt(dip, out var map) is { } hit && SourceOf(in hit) is { } page)
+        {
+            if (_webHoverKey.Length > 0 && _webHoverKey != hit.Key) (InputBus.For(_webHoverKey) as IWebSource)?.PointerLeave();
+            _webHoverKey = hit.Key;
+            var at = WebPointerMap.ToPageUnbounded(in hit, map.ToCanvas(ToDevice(dip)));
+            page.PointerMove(at.X, at.Y);
+            return true;
+        }
+        PreviewWebLeave();
+        return false;
+    }
+
+    public void PreviewWebLeave()
+    {
+        if (_webHoverKey.Length == 0) return;
+        (InputBus.For(_webHoverKey) as IWebSource)?.PointerLeave();
+        _webHoverKey = "";
+    }
+
+    /// <summary>A wheel step over a page scrolls it (a notch up is +1, as the desk's wheel reports it).</summary>
+    public bool PreviewWebWheel(Point dip, double deltaY, double deltaX)
+    {
+        if (WebHitAt(dip, out var map) is not { } hit || SourceOf(in hit) is not { } page) return false;
+        var at = WebPointerMap.ToPageUnbounded(in hit, map.ToCanvas(ToDevice(dip)));
+        if (Math.Abs(deltaY) > 0.001) page.Wheel(at.X, at.Y, (float)deltaY, horizontal: false);
+        if (Math.Abs(deltaX) > 0.001) page.Wheel(at.X, at.Y, (float)deltaX, horizontal: true);
+        return true;
     }
 
     // ---- ? TIPS: the page's explanations behind one button ---------------------------------

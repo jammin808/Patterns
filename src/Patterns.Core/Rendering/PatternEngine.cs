@@ -549,7 +549,7 @@ public sealed class PatternEngine
         var p = snap.PatternFor(screenId);
         var continuous = p.Kind is PatternKind.Motion or PatternKind.ColorCycle or PatternKind.Particles or PatternKind.Multiview or PatternKind.Fractal
             || (p.Kind == PatternKind.Checkerboard && p.Checker.Animate)
-            || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture)
+            || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture or MediaSource.Web)
             || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)
             || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll)
             || LowerThirds.LowerThirdClock.IsLive(s.LowerThirds, utcNow)
@@ -571,7 +571,7 @@ public sealed class PatternEngine
     private static bool LayerIsLive(ShowSnapshot snap, LayerConfig l, string? screenId, DateTime utcNow, int depth)
     {
         if (!l.Enabled) return false;
-        if (l.Source is LayerSource.Video or LayerSource.NdiFeed or LayerSource.Capture) return true;
+        if (l.Source is LayerSource.Video or LayerSource.NdiFeed or LayerSource.Capture or LayerSource.Web) return true;
         if (l.Source != LayerSource.Screen || l.TargetId.Length == 0 || l.TargetId == screenId || depth >= 2) return false;
         return CadenceOf(snap, l.TargetId, utcNow, depth + 1) == RedrawCadence.Continuous;
     }

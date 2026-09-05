@@ -155,7 +155,7 @@ public sealed class VideoEngine : IDisposable
             var seen = list.Select(w => w.Key).ToHashSet();
             list.AddRange(MediaLocator.FindWantedInputs(sandbox).Where(w => seen.Add(w.Key)));
         }
-        list.RemoveAll(w => w.Kind == MediaLocator.WantedKind.Ndi);
+        list.RemoveAll(w => w.Kind is MediaLocator.WantedKind.Ndi or MediaLocator.WantedKind.Web);
         return list;
     }
 

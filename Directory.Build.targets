@@ -1,0 +1,13 @@
+<Project>
+
+  <!-- The WebView2 package (web pages inside the engine) also hands every project that sees it its
+       WinForms and WPF hosts; Patterns hosts the Core in a window of its own, and the WPF host drags
+       a WindowsBase conflict (MSB3277) into a plain net8.0 build — the app and the test projects
+       that reference it alike. -->
+  <Target Name="DropWebView2Hosts" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf' Or '%(Filename)' == 'Microsoft.Web.WebView2.WinForms'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

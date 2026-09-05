@@ -65,10 +65,16 @@ public static class MediaLocator
         VideoFile,
         Capture,
         Ndi,
+        /// <summary>A web page rendered by the app's browser engine.</summary>
+        Web,
     }
 
-    /// <summary>One input the show wants mounted right now, in priority order. <paramref name="Format"/> is a capture device's chosen mode ("1920x1080@60"; empty = the device's default).</summary>
-    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "");
+    /// <summary>
+    /// One input the show wants mounted right now, in priority order. <paramref name="Format"/> is a
+    /// capture device's chosen mode ("1920x1080@60"; empty = the device's default) or a web page's
+    /// viewport ("1920x1080"); <paramref name="Zoom"/> is a web page's zoom in per cent.
+    /// </summary>
+    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "", double Zoom = 100);
 
     /// <summary>
     /// Every input the snapshot references — the program pattern, each enabled custom-pattern
@@ -83,23 +89,27 @@ public static class MediaLocator
         var seen = new HashSet<string>();
         var state = snap.State;
 
-        void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct)
+        void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100)
         {
             if (string.IsNullOrWhiteSpace(target)) return;
+            if (kind == WantedKind.Web) target = WebAddress.Normalize(target);
             var key = kind switch
             {
                 WantedKind.VideoFile => Media.InputKeys.Video(target),
                 WantedKind.Capture => Media.InputKeys.Capture(target),
+                WantedKind.Web => Media.InputKeys.Web(target),
                 _ => Media.InputKeys.Ndi(target),
             };
             if (!seen.Add(key)) return;
-            var format = kind == WantedKind.Capture ? state.CaptureFormatFor(target) : "";
-            list.Add(new WantedInput(key, kind, target, loop, mute, volumePct, format));
+            if (kind == WantedKind.Capture) format = state.CaptureFormatFor(target);
+            list.Add(new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom));
         }
 
         void FromPattern(PatternConfig p)
         {
-            // The two layers ride over any kind of pattern.
+            // The pattern's own source first, then the two layers that ride over it: when a layer
+            // shows the same clip or page as the pattern, the pattern's settings are the ones kept.
+            FromMedia(p);
             foreach (var l in new[] { p.Layer1, p.Layer2 })
             {
                 if (!l.Enabled) continue;
@@ -114,8 +124,15 @@ public static class MediaLocator
                     case LayerSource.NdiFeed:
                         Add(WantedKind.Ndi, l.NdiSourceName, false, true, 0);
                         break;
+                    case LayerSource.Web:
+                        Add(WantedKind.Web, l.WebUrl, false, l.Mute, 0, $"{l.WebWidth}x{l.WebHeight}", l.WebZoomPct);
+                        break;
                 }
             }
+        }
+
+        void FromMedia(PatternConfig p)
+        {
             if (p.Kind == PatternKind.Media)
             {
                 var m = p.Media;
@@ -130,6 +147,9 @@ public static class MediaLocator
                         break;
                     case MediaSource.NdiFeed:
                         Add(WantedKind.Ndi, m.NdiSourceName, false, true, 0);
+                        break;
+                    case MediaSource.Web:
+                        Add(WantedKind.Web, m.WebUrl, false, m.Mute, 0, $"{m.WebWidth}x{m.WebHeight}", m.WebZoomPct);
                         break;
                     case MediaSource.Playlist:
                         // Only the active playlist has a "now playing" item; videos never

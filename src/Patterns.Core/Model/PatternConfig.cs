@@ -375,6 +375,11 @@ public sealed class MediaOptions : Observable
     private string _backgroundColor = "#000000";
     private string _ndiSourceName = "";
     private string _captureDevice = "";
+    private string _webUrl = "";
+    private int _webWidth = 1920;
+    private int _webHeight = 1080;
+    private double _webZoomPct = 100;
+    private bool _webShowPointer = true;
 
     public MediaSource Source { get => _source; set => Set(ref _source, value); }
     public string ImagePath { get => _imagePath; set => Set(ref _imagePath, value); }
@@ -390,6 +395,16 @@ public sealed class MediaOptions : Observable
     public string NdiSourceName { get => _ndiSourceName; set => Set(ref _ndiSourceName, value); }
     /// <summary>DirectShow video device name (HDMI/SDI capture) when <see cref="Source"/> is Capture.</summary>
     public string CaptureDevice { get => _captureDevice; set => Set(ref _captureDevice, value); }
+
+    /// <summary>The page shown when <see cref="Source"/> is Web: https://… (a bare host is taken as https) or a local HTML file.</summary>
+    public string WebUrl { get => _webUrl; set => Set(ref _webUrl, value ?? ""); }
+    /// <summary>The page's own viewport in CSS pixels — what it lays itself out for; the picture is then fitted like any other.</summary>
+    public int WebWidth { get => _webWidth; set => Set(ref _webWidth, Math.Clamp(value, 320, 7680)); }
+    public int WebHeight { get => _webHeight; set => Set(ref _webHeight, Math.Clamp(value, 240, 4320)); }
+    /// <summary>The browser's zoom (25–400 %): larger type for a schedule on a big screen without touching the page. Applied live.</summary>
+    [TransitionNeutral] public double WebZoomPct { get => _webZoomPct; set => Set(ref _webZoomPct, Math.Clamp(value, 25, 400)); }
+    /// <summary>Draw the desk's pointer and its clicks on the page wherever it is shown — off for a page nobody drives.</summary>
+    [TransitionNeutral] public bool WebShowPointer { get => _webShowPointer; set => Set(ref _webShowPointer, value); }
 
     public PlaylistOptions Playlist { get; init; } = new();
 }
@@ -501,6 +516,8 @@ public enum LayerSource
     Capture,
     /// <summary>Another target's picture — a screen or a joined canvas, by id.</summary>
     Screen,
+    /// <summary>A web page rendered inside the engine (WebView2), driven from the desk's PREVIEW pane.</summary>
+    Web,
 }
 
 /// <summary>
@@ -519,6 +536,11 @@ public sealed class LayerConfig : Observable
     private string _ndiSourceName = "";
     private string _captureDevice = "";
     private string _targetId = "";
+    private string _webUrl = "";
+    private int _webWidth = 1280;
+    private int _webHeight = 720;
+    private double _webZoomPct = 100;
+    private bool _webShowPointer = true;
     private double _xPct = 5;
     private double _yPct = 5;
     private double _wPct = 40;
@@ -541,6 +563,15 @@ public sealed class LayerConfig : Observable
     public string CaptureDevice { get => _captureDevice; set => Set(ref _captureDevice, value ?? ""); }
     /// <summary>The screen id or canvas key a Screen layer shows.</summary>
     public string TargetId { get => _targetId; set => Set(ref _targetId, value ?? ""); }
+
+    /// <summary>The page a Web layer shows (https://…, a bare host taken as https, or a local HTML file).</summary>
+    public string WebUrl { get => _webUrl; set => Set(ref _webUrl, value ?? ""); }
+    /// <summary>The page's own viewport in CSS pixels; the picture is then fitted into the box like any other.</summary>
+    public int WebWidth { get => _webWidth; set => Set(ref _webWidth, Math.Clamp(value, 320, 7680)); }
+    public int WebHeight { get => _webHeight; set => Set(ref _webHeight, Math.Clamp(value, 240, 4320)); }
+    [TransitionNeutral] public double WebZoomPct { get => _webZoomPct; set => Set(ref _webZoomPct, Math.Clamp(value, 25, 400)); }
+    /// <summary>Draw the desk's pointer and its clicks on the page wherever the layer is shown.</summary>
+    [TransitionNeutral] public bool WebShowPointer { get => _webShowPointer; set => Set(ref _webShowPointer, value); }
 
     /// <summary>The box, as a share of the canvas: its top-left (may sit partly off the canvas) and its size.</summary>
     [TransitionNeutral] public double XPct { get => _xPct; set => Set(ref _xPct, Math.Clamp(value, -100, 100)); }
@@ -576,6 +607,7 @@ public sealed class LayerConfig : Observable
         LayerSource.Video => _videoPath.Length > 0,
         LayerSource.NdiFeed => _ndiSourceName.Length > 0,
         LayerSource.Capture => _captureDevice.Length > 0,
+        LayerSource.Web => _webUrl.Length > 0,
         _ => _targetId.Length > 0,
     };
 }

@@ -31,7 +31,7 @@
                Text="Watchdog, performance monitoring, GPU choice and machine health live on the Machine page (ADMIN)." />
 
     <TextBlock Classes="hint tip"
-               Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Pages open as managed browser windows (Edge or Chrome, private profile), so they never touch your own browser and close from here with one click." />
+               Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Two ways: inside the engine (SHOW THIS PAGE ON THE PATTERN, or Media → Web page), where it joins spans and trims, reaches NDI and the stream, rides with looks and cues and takes clicks from the PREVIEW pane; or as a managed browser window on top of a screen (OPEN FULL SCREEN), for a page that must keep its own keyboard and mouse." />
 
     <TextBlock Classes="h2" Text="PAGE" />
     <TextBox Watermark="https://example.com/schedule — or a local HTML file" Text="{Binding State.Web.Url}" />
@@ -54,6 +54,14 @@
     <TextBlock Classes="hint tip"
                Text="Full screen = kiosk (in), windowed = out; Esc inside a kiosk window also exits its full screen. Opened pages are remembered below." />
 
+    <TextBlock Classes="h2" Text="IN THE ENGINE" />
+    <WrapPanel>
+      <Button Classes="go" Content="SHOW THIS PAGE ON THE PATTERN" Command="{Binding PutWebPageOnPatternCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="The selected target's pattern becomes a Media pattern showing this page inside the engine — spans, NDI, the stream, looks and cues all carry it; drive it on the PREVIEW pane" />
+    </WrapPanel>
+    <TextBlock Classes="hint tip"
+               Text="Inside the engine the page is a picture like any other: it fits the canvas, crossfades, sits under the overlays and the lower third, and can be a layer over another pattern too (Media page → LAYERS → Web page). Click, drag and scroll it on the PREVIEW pane; the pointer is drawn for the room or hidden per page; PAGE CONTROLS on the Media page type into it. Needs the WebView2 runtime, which Windows 10 and 11 keep current." />
+
     <TextBlock Classes="h2" Text="SAVED PAGES" />
     <ItemsControl ItemsSource="{Binding State.Web.SavedUrls}">
       <ItemsControl.ItemTemplate>
@@ -75,6 +83,6 @@
 
     <TextBlock Classes="h2" Text="GOOD TO KNOW" />
     <TextBlock Classes="hint tip"
-               Text="Web windows sit on top of the operating system, not inside the pattern engine — they don't join spans, take trims, or reach NDI outputs. For that, open the page on another machine and bring it in as an NDI feed (Media page)." />
+               Text="A browser window (OPEN FULL SCREEN) sits on top of the operating system, not inside the pattern engine — it doesn't join spans, take trims, or reach NDI outputs, but it keeps a real keyboard and mouse for someone at that screen. A page inside the engine does all of those and is driven from the desk; a page with sound plays it on the default device unless muted." />
   </StackPanel>
 </UserControl>

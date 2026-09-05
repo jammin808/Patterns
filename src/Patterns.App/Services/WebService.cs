@@ -29,14 +29,8 @@ public sealed class WebService : IDisposable
         return $"--app={quotedUrl} {common} --window-size={w},{h}";
     }
 
-    /// <summary>Normalises operator input: bare "example.com" becomes https.</summary>
-    public static string NormalizeUrl(string input)
-    {
-        var s = input.Trim();
-        if (s.Length == 0) return s;
-        if (s.Contains("://") || File.Exists(s)) return s;
-        return "https://" + s;
-    }
+    /// <summary>Normalises operator input: bare "example.com" becomes https (the engine's pages use the same rule).</summary>
+    public static string NormalizeUrl(string input) => WebAddress.Normalize(input);
 
     public void Open(string url, ScreenInfo? screen, bool kiosk)
     {

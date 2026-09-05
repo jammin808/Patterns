@@ -112,6 +112,8 @@ public enum MediaSource
     NdiFeed,
     /// <summary>A capture device (HDMI/SDI cards, webcams) via DirectShow.</summary>
     Capture,
+    /// <summary>A web page rendered inside the engine (WebView2), driven from the desk's PREVIEW pane.</summary>
+    Web,
 }
 
 /// <summary>What a picture-in-picture inset shows.</summary>

@@ -34,12 +34,171 @@ public interface IVideoFrameSource
     string StatusText { get; }
 }
 
-/// <summary>Canonical mount keys — the same "ndi:"/"cap:" scheme the operator input labels use.</summary>
+/// <summary>
+/// A web page the engine shows: a frame source the desk can also drive. The pointer, clicks, the
+/// wheel, typed text and a few named keys go in; where the pointer is and when it last clicked
+/// come out, so every sink can draw them for the room. The app layer provides the browser; the
+/// engine and the desk only ever see this.
+/// </summary>
+public interface IWebSource : IVideoFrameSource
+{
+    /// <summary>The page's own size in CSS pixels (what it lays itself out for).</summary>
+    SKSizeI PageSize { get; }
+
+    /// <summary>Where the desk's pointer is on the page (0–1 of its width and height), or null when it is not over the page.</summary>
+    SKPoint? PointerNorm { get; }
+
+    /// <summary>When the page was last clicked — a ripple is drawn for a moment after — or null.</summary>
+    DateTime? LastClickUtc { get; }
+
+    /// <summary>The address the page is at now (after redirects) and its title, for the desk.</summary>
+    string CurrentUrl { get; }
+
+    string Title { get; }
+
+    /// <summary>The browser zoom, 25–400 %. Applied live.</summary>
+    double ZoomPct { get; set; }
+
+    /// <summary>The page's sound, off or on.</summary>
+    bool IsMuted { get; set; }
+
+    void PointerMove(float nx, float ny);
+    void PointerDown(float nx, float ny);
+    void PointerUp(float nx, float ny);
+    void PointerLeave();
+
+    /// <summary>A wheel step over the page: positive lines scroll up (Windows' sign), negative down; horizontal for a sideways wheel.</summary>
+    void Wheel(float nx, float ny, float deltaLines, bool horizontal);
+
+    /// <summary>Text for the field that has the page's focus.</summary>
+    void TypeText(string text);
+
+    /// <summary>A named key: Enter, Escape, Tab, Backspace, Space, ArrowUp/Down/Left/Right, PageUp, PageDown, Home, End.</summary>
+    void PressKey(string key);
+
+    void Navigate(string url);
+    void GoBack();
+    void GoForward();
+    void Reload();
+}
+
+/// <summary>See <see cref="VideoService"/> — the web page side's availability note.</summary>
+public static class WebInput
+{
+    /// <summary>Availability text when pages cannot be shown (no WebView2 runtime, not Windows); empty = fine.</summary>
+    public static volatile string AvailabilityNote = "";
+}
+
+/// <summary>
+/// The newest frame of a live source: published from any thread, drawn from any render thread.
+/// A replaced frame is kept for a moment before it is disposed, so a draw in flight never touches
+/// a dead image — the same discipline the NDI receiver keeps.
+/// </summary>
+public sealed class FrameSlot : IDisposable
+{
+    private static readonly object RetiredGate = new();
+    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Retired = new();
+    public static readonly TimeSpan RetireHold = TimeSpan.FromSeconds(2);
+
+    private readonly object _gate = new();
+    private SKImage? _latest;
+    private long _publishedUtcTicks;
+
+    /// <summary>Takes ownership of <paramref name="image"/>; the previous frame retires.</summary>
+    public void Publish(SKImage image)
+    {
+        lock (_gate)
+        {
+            Retire(_latest);
+            _latest = image;
+        }
+        Interlocked.Exchange(ref _publishedUtcTicks, DateTime.UtcNow.Ticks);
+    }
+
+    public bool HasFrame
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _latest is not null;
+            }
+        }
+    }
+
+    public SKSizeI? Size
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _latest is { } img ? new SKSizeI(img.Width, img.Height) : null;
+            }
+        }
+    }
+
+    /// <summary>When the newest frame arrived (UTC ticks; 0 = never).</summary>
+    public long PublishedUtcTicks => Interlocked.Read(ref _publishedUtcTicks);
+
+    public bool Draw(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
+    {
+        SKImage? image;
+        lock (_gate)
+        {
+            image = _latest;
+        }
+        if (image is null) return false;
+        if (crop.Any)
+        {
+            canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Rendering.DrawUtil.Smooth, paint);
+        }
+        else
+        {
+            canvas.DrawImage(image, dest, Rendering.DrawUtil.Smooth, paint);
+        }
+        return true;
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            Retire(_latest);
+            _latest = null;
+        }
+    }
+
+    private static void Retire(SKImage? image)
+    {
+        lock (RetiredGate)
+        {
+            if (image is not null) Retired.Add((image, DateTime.UtcNow));
+            var cutoff = DateTime.UtcNow - RetireHold;
+            for (var i = Retired.Count - 1; i >= 0; i--)
+            {
+                if (Retired[i].RetiredUtc < cutoff)
+                {
+                    Retired[i].Image.Dispose();
+                    Retired.RemoveAt(i);
+                }
+            }
+        }
+    }
+}
+
+/// <summary>Canonical mount keys — the same "ndi:"/"cap:"/"web:" scheme the operator input labels use.</summary>
 public static class InputKeys
 {
     public static string Video(string path) => path.Length == 0 ? "" : "vid:" + path;
     public static string Capture(string device) => device.Length == 0 ? "" : "cap:" + device;
     public static string Ndi(string source) => source.Length == 0 ? "" : "ndi:" + source;
+
+    /// <summary>A page's key is its normalised address, so "example.com" and "https://example.com" share one browser.</summary>
+    public static string Web(string url)
+    {
+        var normalized = Services.WebAddress.Normalize(url);
+        return normalized.Length == 0 ? "" : "web:" + normalized;
+    }
 }
 
 /// <summary>

@@ -57,6 +57,24 @@
                   SelectedValue="{Binding TargetId, Mode=TwoWay}"
                   SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
                   PlaceholderText="Which screen or canvas…" />
+        <StackPanel Spacing="4" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Web}}">
+          <TextBox Watermark="https://example.com/live — or a local HTML file" Text="{Binding WebUrl, Mode=TwoWay}" />
+          <Grid ColumnDefinitions="86,*,8,Auto,*">
+            <TextBlock Classes="label" Text="Page (px)" VerticalAlignment="Center" ToolTip.Tip="The page's own viewport — what it lays itself out for; the picture is then fitted into the box" />
+            <NumericUpDown Grid.Column="1" Minimum="320" Maximum="7680" Increment="10" FormatString="0" Value="{Binding WebWidth, Mode=TwoWay, Converter={StaticResource Num}}" />
+            <TextBlock Grid.Column="3" Classes="label" Text="×" VerticalAlignment="Center" Margin="4,0" />
+            <NumericUpDown Grid.Column="4" Minimum="240" Maximum="4320" Increment="10" FormatString="0" Value="{Binding WebHeight, Mode=TwoWay, Converter={StaticResource Num}}" />
+          </Grid>
+          <Grid ColumnDefinitions="86,*,44">
+            <TextBlock Classes="label" Text="Zoom" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Minimum="25" Maximum="400" TickFrequency="25" Value="{Binding WebZoomPct, Mode=TwoWay}" />
+            <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding WebZoomPct, StringFormat={}{0:0}%}" />
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <CheckBox Content="Show the pointer" IsChecked="{Binding WebShowPointer, Mode=TwoWay}" ToolTip.Tip="Draw the desk's pointer and its clicks on the page wherever this layer is shown" />
+            <CheckBox Content="Mute" IsChecked="{Binding Mute, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
 
         <TextBlock Classes="label" Text="Box (% of the canvas — or drag it on the PREVIEW pane)" Margin="0,6,0,0" />
         <Grid ColumnDefinitions="86,*,44" RowDefinitions="Auto,Auto,Auto,Auto">
@@ -186,6 +204,46 @@
       </Grid>
       <TextBlock Classes="hint tip"
                  Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default." />
+    </StackPanel>
+
+    <!-- Web page inside the engine -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Web}}">
+      <TextBlock Classes="h2" Text="WEB PAGE" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <TextBox Grid.Column="0" Watermark="https://example.com/schedule — or a local HTML file"
+                 Text="{Binding ActivePattern.Media.WebUrl, Mode=TwoWay}" />
+        <Button Grid.Column="2" Classes="chip" Content="Remember" Command="{Binding RememberWebUrlCommand}"
+                ToolTip.Tip="Keep this address in the saved pages (shared with the Remote &amp; web page)" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Saved pages" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding State.Web.SavedUrls}" SelectedItem="{Binding SavedWebPick, Mode=TwoWay}"
+                  PlaceholderText="Pick a remembered address…" HorizontalAlignment="Stretch" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,Auto,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Page size (px)" VerticalAlignment="Center"
+                   ToolTip.Tip="The page's own viewport — what it lays itself out for; the picture is then fitted like any other" />
+        <NumericUpDown Grid.Column="1" Minimum="320" Maximum="7680" Increment="10" FormatString="0"
+                       Value="{Binding ActivePattern.Media.WebWidth, Mode=TwoWay, Converter={StaticResource Num}}" />
+        <TextBlock Grid.Column="3" Classes="label" Text="×" VerticalAlignment="Center" Margin="4,0" />
+        <NumericUpDown Grid.Column="4" Minimum="240" Maximum="4320" Increment="10" FormatString="0"
+                       Value="{Binding ActivePattern.Media.WebHeight, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,44" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Zoom" VerticalAlignment="Center" />
+        <Slider Grid.Column="1" Minimum="25" Maximum="400" TickFrequency="25" Value="{Binding ActivePattern.Media.WebZoomPct, Mode=TwoWay}" />
+        <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   Text="{Binding ActivePattern.Media.WebZoomPct, StringFormat={}{0:0}%}" />
+      </Grid>
+      <CheckBox Content="Show the pointer and clicks on the page (every output)" IsChecked="{Binding ActivePattern.Media.WebShowPointer, Mode=TwoWay}"
+                ToolTip.Tip="Off for a page nobody drives — a kiosk schedule, a dashboard" />
+      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Watermark="e.g. Schedule (shown in the multiview and status)"
+                 Text="{Binding InputNickname, Mode=TwoWay}" />
+      </Grid>
+      <TextBlock Classes="hint tip"
+                 Text="The page renders inside the engine through WebView2 (the browser engine Windows 10 and 11 ship), so it joins spans and trims, reaches NDI and the stream, and travels with looks and cues like any pattern. Drive it on the PREVIEW pane: clicks, drags and the wheel land on the page; type with the PAGE CONTROLS below. Its sound follows Mute (SOUND, below). The same address on several targets costs one browser; up to four pages run at once." />
     </StackPanel>
 
     <!-- Playlist -->
@@ -383,5 +441,37 @@
         <ContentControl Content="{Binding ActivePattern.Layer2}" ContentTemplate="{StaticResource LayerEditor}" />
       </StackPanel>
     </Border>
+
+    <!-- Page controls: the keyboard for a web page shown by the pattern or a layer -->
+    <StackPanel IsVisible="{Binding HasWebPage}">
+      <TextBlock Classes="h2" Text="PAGE CONTROLS" />
+      <TextBlock Classes="label" Text="{Binding WebControlsTarget}" TextWrapping="Wrap" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <TextBox Grid.Column="0" Watermark="Type into the page — the field you last clicked on the PREVIEW pane…"
+                 Text="{Binding WebTypedText, Mode=TwoWay}" />
+        <Button Grid.Column="2" Classes="chip" Content="SEND" Command="{Binding SendWebTextCommand}" />
+      </Grid>
+      <WrapPanel Margin="0,4,0,0">
+        <Button Classes="mini" Content="Enter" Command="{Binding WebKeyCommand}" CommandParameter="Enter" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Tab" Command="{Binding WebKeyCommand}" CommandParameter="Tab" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Esc" Command="{Binding WebKeyCommand}" CommandParameter="Escape" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="⌫" Command="{Binding WebKeyCommand}" CommandParameter="Backspace" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Space" Command="{Binding WebKeyCommand}" CommandParameter="Space" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="↑" Command="{Binding WebKeyCommand}" CommandParameter="ArrowUp" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="↓" Command="{Binding WebKeyCommand}" CommandParameter="ArrowDown" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="←" Command="{Binding WebKeyCommand}" CommandParameter="ArrowLeft" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="→" Command="{Binding WebKeyCommand}" CommandParameter="ArrowRight" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="PgUp" Command="{Binding WebKeyCommand}" CommandParameter="PageUp" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="PgDn" Command="{Binding WebKeyCommand}" CommandParameter="PageDown" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Home" Command="{Binding WebKeyCommand}" CommandParameter="Home" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="End" Command="{Binding WebKeyCommand}" CommandParameter="End" Margin="0,0,12,4" />
+        <Button Classes="mini" Content="◀ Back" Command="{Binding WebBackCommand}" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Forward ▶" Command="{Binding WebForwardCommand}" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Reload" Command="{Binding WebReloadCommand}" Margin="0,0,4,4" />
+      </WrapPanel>
+      <TextBlock Classes="label" Text="{Binding WebPageStatus}" TextWrapping="Wrap" />
+      <TextBlock Classes="hint tip"
+                 Text="The controls drive the page you last clicked on the PREVIEW pane (else the pattern's page, else its first web layer). Typing goes to the field that has the page's focus — click it first. Hold Alt while pressing on a web layer to drag its box instead of clicking into the page. A frame from another site inside the page (an embedded player, a map) takes clicks and the wheel, not typed text." />
+    </StackPanel>
   </StackPanel>
 </UserControl>

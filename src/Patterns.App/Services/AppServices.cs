@@ -23,6 +23,9 @@ public sealed class AppServices
     public VideoEngine Video { get; }
     public NdiInputEngine NdiIn { get; }
     public WebService Web { get; }
+
+    /// <summary>Web pages inside the engine — one browser per page the show references.</summary>
+    public WebEngine WebIn { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
     public AudioService Audio { get; }
@@ -168,6 +171,7 @@ public sealed class AppServices
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
         Web = new WebService();
+        WebIn = new WebEngine(Store.BaseDirectory);
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);
@@ -522,6 +526,7 @@ public sealed class AppServices
     {
         Video.Reconcile(Bus.Current, Bus.Sandbox);
         NdiIn.Reconcile(Bus.Current, Bus.Sandbox);
+        WebIn.Reconcile(Bus.Current, Bus.Sandbox);
     }
 
     /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
@@ -595,6 +600,7 @@ public sealed class AppServices
             Web.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();
+            WebIn.Dispose();
             Audio.Dispose();
             AudioPlayer.Dispose();
             Playlist.Dispose();

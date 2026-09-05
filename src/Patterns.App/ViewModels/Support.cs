@@ -551,6 +551,7 @@ public static class Lists
         new(MediaSource.Playlist, "Playlist"),
         new(MediaSource.NdiFeed, "NDI feed (network)"),
         new(MediaSource.Capture, "Capture device (HDMI / SDI / webcam)"),
+        new(MediaSource.Web, "Web page (inside the engine)"),
     };
     public static readonly EnumItem[] ParticleShapes = Of<ParticleShape>();
     public static readonly EnumItem[] ParticleEmitters =
@@ -584,6 +585,7 @@ public static class Lists
         new(LayerSource.NdiFeed, "NDI feed (network)"),
         new(LayerSource.Capture, "Capture device (HDMI / SDI / webcam)"),
         new(LayerSource.Screen, "Another screen or canvas"),
+        new(LayerSource.Web, "Web page"),
     };
 
     public static readonly EnumItem[] ScreenRoles =

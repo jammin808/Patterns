@@ -42,11 +42,12 @@ public static class LayerRenderer
 
         var save = c.Save();
         bool drew;
+        var picture = rect;
         try
         {
             if (corner > 0) c.ClipRoundRect(new SKRoundRect(rect, corner, corner), SKClipOperation.Intersect, antialias: true);
             else c.ClipRect(rect);
-            drew = DrawSource(c, in f, l, rect, alpha, drawScreen);
+            drew = DrawSource(c, in f, l, rect, alpha, drawScreen, out picture);
         }
         finally
         {
@@ -79,8 +80,19 @@ public static class LayerRenderer
             c.DrawRoundRect(inner, r, r, pc.StrokeAA(f.Color(l.BorderColor, SKColors.White).WithAlpha(alpha), bw));
         }
 
-        if (!f.Ctx.IsFadeSource && !f.Ctx.InMultiview && !f.Ctx.InLayer) f.Sink.Hits.Add(new HitRect(kind, rect, false));
+        if (!f.Ctx.IsFadeSource && !f.Ctx.InMultiview && !f.Ctx.InLayer)
+        {
+            f.Sink.Hits.Add(new HitRect(kind, rect, false));
+            // A web layer's page sits on top of its own box: a plain press clicks into the page,
+            // Alt takes hold of the box (HitTester looks through pages then).
+            if (drew && l.Source == LayerSource.Web)
+            {
+                f.Sink.Hits.Add(new HitRect(HitKind.WebPage, picture, false, InputKeys.Web(l.WebUrl), CropOf(l), rect));
+            }
+        }
     }
+
+    private static FrameCrop CropOf(LayerConfig l) => new(l.CropLeftPct, l.CropTopPct, l.CropRightPct, l.CropBottomPct);
 
     private static string Status(LayerConfig l) => l.Source switch
     {
@@ -88,12 +100,17 @@ public static class LayerRenderer
         LayerSource.Video => l.VideoPath.Length == 0 ? "choose a clip" : "opening…",
         LayerSource.NdiFeed => l.NdiSourceName.Length == 0 ? "choose an NDI source" : "waiting for the feed",
         LayerSource.Capture => l.CaptureDevice.Length == 0 ? "choose a device" : "opening…",
+        LayerSource.Web => l.WebUrl.Length == 0
+            ? "enter a page address"
+            : WebInput.AvailabilityNote.Length > 0 ? WebInput.AvailabilityNote : "opening the page…",
         _ => l.TargetId.Length == 0 ? "choose a screen" : "not in this rig",
     };
 
-    private static bool DrawSource(SKCanvas c, in PatternFrame f, LayerConfig l, SKRect rect, byte alpha, LayerScreenDrawer? drawScreen)
+    /// <summary>Draws the layer's picture inside its clipped box; <paramref name="picture"/> is where the picture itself landed (the box when nothing drew).</summary>
+    private static bool DrawSource(SKCanvas c, in PatternFrame f, LayerConfig l, SKRect rect, byte alpha, LayerScreenDrawer? drawScreen, out SKRect picture)
     {
-        var crop = new FrameCrop(l.CropLeftPct, l.CropTopPct, l.CropRightPct, l.CropBottomPct);
+        picture = rect;
+        var crop = CropOf(l);
         switch (l.Source)
         {
             case LayerSource.Image:
@@ -103,6 +120,7 @@ public static class LayerRenderer
                 var src = crop.SourceRect(new SKSizeI(image.Width, image.Height));
                 var dest = DrawUtil.Fit(new SKSizeI(Math.Max(1, (int)src.Width), Math.Max(1, (int)src.Height)), rect, l.Fit);
                 c.DrawImage(image, src, dest, DrawUtil.Smooth, f.Paints.FillAA(SKColors.White.WithAlpha(alpha)));
+                picture = dest;
                 return true;
             }
             case LayerSource.Screen:
@@ -126,6 +144,7 @@ public static class LayerRenderer
                 {
                     LayerSource.Video => InputKeys.Video(l.VideoPath),
                     LayerSource.NdiFeed => InputKeys.Ndi(l.NdiSourceName),
+                    LayerSource.Web => InputKeys.Web(l.WebUrl),
                     _ => InputKeys.Capture(l.CaptureDevice),
                 };
                 var source = InputBus.Resolve(key, f.Ctx.IsFadeSource);
@@ -133,7 +152,13 @@ public static class LayerRenderer
                 var cropped = crop.SourceRect(size);
                 var dest = DrawUtil.Fit(new SKSizeI(Math.Max(1, (int)cropped.Width), Math.Max(1, (int)cropped.Height)), rect, l.Fit);
                 using var paint = new SKPaint { Color = new SKColor(255, 255, 255, alpha), IsAntialias = true };
-                return source.DrawFrame(c, dest, paint, in crop);
+                if (!source.DrawFrame(c, dest, paint, in crop)) return false;
+                picture = dest;
+                if (l.Source == LayerSource.Web && l.WebShowPointer && source is IWebSource web)
+                {
+                    WebPointer.Draw(c, dest, in crop, web, f.Ctx.UtcNow, f.Paints);
+                }
+                return true;
             }
         }
     }

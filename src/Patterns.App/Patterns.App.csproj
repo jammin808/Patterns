@@ -26,6 +26,10 @@
     <PackageReference Include="LibVLCSharp" Version="3.10.1" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <!-- Web pages inside the engine: the WebView2 SDK (Core only — no WinForms/WPF host). Runs on
+         the Evergreen runtime Windows 10/11 ship; the loader (WebView2Loader.dll) travels beside
+         Patterns.exe — the publish scripts copy it. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3595.46" />
     <!-- Restore vehicle for the "full" build (build/publish-win-x64-full.*): the scripts
          restore with BundleVlc=true and copy the libvlc payload from this package into
          the publish folder themselves — its build-time copy items don't survive a
