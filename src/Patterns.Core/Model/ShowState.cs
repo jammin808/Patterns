@@ -140,6 +140,16 @@ public sealed class ScreenPlacement : Observable
     [JsonIgnore]
     public string AdoptTargetId { get => _adoptTargetId; set => Set(ref _adoptTargetId, value); }
 
+    private bool _directOutput;
+
+    /// <summary>
+    /// Bypass the desktop compositor on this output: the window is handed straight to its
+    /// display by Windows' flip path (no composition frame, no compositor jitter) when a
+    /// hardware card drives the show and the window covers the display alone. The swap chain
+    /// that makes it possible is chosen when Patterns starts, so a change takes the next start.
+    /// </summary>
+    public bool DirectOutput { get => _directOutput; set => Set(ref _directOutput, value); }
+
     /// <summary>Physical rotation — content is pre-rotated so a rotated display reads upright.</summary>
     public OutputRotation Rotation { get => _rotation; set => Set(ref _rotation, value); }
 

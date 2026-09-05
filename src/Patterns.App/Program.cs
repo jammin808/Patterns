@@ -21,6 +21,8 @@ internal static class Program
 
         // Pick the GPU before Avalonia creates its D3D device (and before libVLC decodes).
         Services.GpuService.Initialize();
+        // Then whether this start asks for the low-latency swap chain (direct output).
+        Services.DirectOutputService.Initialize();
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             Log.Error("Unhandled exception.", e.ExceptionObject as Exception);
@@ -49,6 +51,9 @@ internal static class Program
                 // Called when the compositor creates its D3D11 device (AngleEgl, the default):
                 // answer with the adapter the settings resolved to (best card by default).
                 GraphicsAdapterSelectionCallback = Services.GpuService.SelectAdapter,
+                // Direct output: the flip-model swap chain first when an output asked for it at the
+                // last save (and the card and the fuse allow it); the defaults are the fallbacks.
+                CompositionMode = Services.DirectOutputService.CompositionModes(),
             })
             .WithInterFont()
             .LogToTrace();

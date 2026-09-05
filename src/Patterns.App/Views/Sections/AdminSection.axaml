@@ -126,6 +126,11 @@
       <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding GpuAdapterNames}"
                 SelectedItem="{Binding State.Admin.Graphics.AdapterName, Mode=TwoWay}" />
     </Grid>
+    <Grid ColumnDefinitions="60,*" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Direct" VerticalAlignment="Top" Margin="0,2,0,0"
+                 ToolTip.Tip="Direct output: outputs that bypass the desktop compositor (Screens page, the selected screen)" />
+      <TextBlock Grid.Column="1" Classes="hint" Text="{Binding DirectOutputSummary}" TextWrapping="Wrap" />
+    </Grid>
     <TextBlock Classes="label" Text="{Binding GpuActiveText}" />
     <TextBlock Classes="label" Text="{Binding GraphicsApplyStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="hint"

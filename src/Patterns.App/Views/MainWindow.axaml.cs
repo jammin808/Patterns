@@ -50,6 +50,7 @@ public partial class MainWindow : Window
 
         var services = vm.Services;
         HookDeskLayout(vm);
+        Services.DirectOutputService.MarkStarted(); // the desk is up: a start with the swap chain worked
 
         // PREVIEW (bottom): follows the selected target (own pattern or program) and the
         // sandbox while it is open — a true miniature of that target, letterboxed to fit.

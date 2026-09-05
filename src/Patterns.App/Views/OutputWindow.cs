@@ -57,11 +57,16 @@ public sealed class OutputWindow : Window
         KeyUp += OnKeyUp;
     }
 
+    /// <summary>Whether this output asked to bypass the compositor; its window-side part is applied on every ApplyOptions.</summary>
+    public bool IsDirect { get; private set; }
+
     public void ApplyOptions()
     {
         var output = _services.State.Output;
         Topmost = output.Topmost;
         Cursor = output.HideCursor ? new Cursor(StandardCursorType.None) : Cursor.Default;
+        IsDirect = output.Placements.FirstOrDefault(p => p.ScreenId == TargetScreenId)?.DirectOutput == true;
+        DirectOutputService.Prepare(this, IsDirect);
     }
 
     public void NotifySnapshot() => _canvas.NotifyChanged();

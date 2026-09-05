@@ -124,6 +124,12 @@
                   IsEnabled="{Binding !SelectedIsGrouped}" />
         <TextBlock Classes="hint" IsVisible="{Binding SelectedIsGrouped}"
                    Text="This screen is part of a joined canvas — the canvas shows the program pattern. Drag it away to give it its own pattern." />
+        <CheckBox Margin="0,4,0,0" Content="Direct output — bypass the desktop compositor"
+                  IsChecked="{Binding SelectedDirectOutput, Mode=TwoWay}" IsVisible="{Binding SelectedIsDisplay}"
+                  ToolTip.Tip="Windows hands this window straight to its display through the flip path — no composition frame, no compositor jitter. The swap chain behind it is chosen when Patterns starts." />
+        <TextBlock Classes="hint" Text="{Binding DirectOutputStatus}" TextWrapping="Wrap" IsVisible="{Binding SelectedIsDisplay}" />
+        <TextBlock Classes="hint" IsVisible="{Binding SelectedIsDisplay}"
+                   Text="With it, a hardware card renders and Windows flips this window straight to its display while it covers the display alone — the compositor's frame of latency and its jitter go. The swap chain behind it is process-wide and chosen at start: tick, save, restart Patterns. A start that fails to reach the desk with it is held off next time and the line above says so; untick and tick to try again." />
 
         <TextBlock Classes="label" Text="Orientation" Margin="0,8,0,0" />
         <ComboBox ItemsSource="{Binding Rotations}"

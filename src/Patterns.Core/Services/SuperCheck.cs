@@ -53,6 +53,11 @@ public sealed class CheckFacts
     public double VramTotalMB { get; init; } = -1;
     public double GpuBusyPct { get; init; } = -1;
 
+    /// <summary>Direct output: how many outputs ask, whether the swap chain is in force, and the summary line.</summary>
+    public int DirectOutputsAsking { get; init; }
+    public bool DirectOutputInForce { get; init; }
+    public string DirectOutputSummary { get; init; } = "";
+
     public IReadOnlyList<CheckDisplay> Displays { get; init; } = Array.Empty<CheckDisplay>();
 
     public bool OutputsLive { get; init; }
@@ -299,6 +304,17 @@ public static class SuperCheck
                 light = CheckLight.Grey;
             }
             rows.Add(new CheckRow(s, i == best ? "Best card" : "Card", light, value, note));
+        }
+        if (f.DirectOutputsAsking > 0 || f.DirectOutputInForce)
+        {
+            // Asked and in force is the flip path; asked and not in force wants a restart or a card.
+            var light = f.DirectOutputInForce ? CheckLight.Green : CheckLight.Amber;
+            var note = f.DirectOutputInForce ? "" : "asked for, not in force — Screens page, the selected screen's status says why";
+            rows.Add(new CheckRow(s, "Direct output", light, f.DirectOutputSummary, note));
+        }
+        else if (f.DirectOutputSummary.Length > 0)
+        {
+            rows.Add(new CheckRow(s, "Direct output", CheckLight.Grey, f.DirectOutputSummary, ""));
         }
         if (f.VramTotalMB > 0 && f.VramUsedMB >= 0)
         {

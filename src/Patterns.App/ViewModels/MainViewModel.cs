@@ -881,6 +881,30 @@ public sealed class MainViewModel : Observable
         }
     }
 
+    /// <summary>A display with hardware behind it — the only kind an output window opens on, so the only kind direct output applies to.</summary>
+    public bool SelectedIsDisplay => _selectedPlacement is { Planned: false } p && LiveInfo(p) is { IsPlanned: false, IsVirtual: false };
+
+    /// <summary>Bypass the desktop compositor on the selected output (the Screens page's tick).</summary>
+    public bool SelectedDirectOutput
+    {
+        get => _selectedPlacement?.DirectOutput ?? false;
+        set
+        {
+            if (_selectedPlacement is null || _selectedPlacement.DirectOutput == value) return;
+            _selectedPlacement.DirectOutput = value;
+            if (value) DirectOutputService.ClearFuse(); // ticking again after a held-off start is the retry
+            _services.Outputs.OnScreensChanged();       // a live window takes its window-side part now
+            RaiseSelection();
+            Raise(nameof(DirectOutputSummary));
+        }
+    }
+
+    /// <summary>The selected output's direct-output line: in force, waiting for a restart, or why not.</summary>
+    public string DirectOutputStatus => _selectedPlacement is null ? "" : DirectOutputService.Status(State, _selectedPlacement);
+
+    /// <summary>The Machine page's line: how many outputs ask, what is in force, what the next start does.</summary>
+    public string DirectOutputSummary => DirectOutputService.Summary(State);
+
     /// <summary>Custom patterns only make sense on stand-alone screens (groups span the program).</summary>
     public bool SelectedIsGrouped
     {
@@ -1057,6 +1081,9 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedCanvasName));
         Raise(nameof(SelectedIsInCanvas));
         Raise(nameof(SelectedFpsOverride));
+        Raise(nameof(SelectedIsDisplay));
+        Raise(nameof(SelectedDirectOutput));
+        Raise(nameof(DirectOutputStatus));
         RaiseBlend();
         RefreshDisplayModes();
     }
@@ -3620,6 +3647,7 @@ public sealed class MainViewModel : Observable
         WebStatus = _services.Web.Status;
         AudioPlayerStatus = _services.AudioPlayer.Status;
         SyncStatus = BuildSyncStatus();
+        Raise(nameof(DirectOutputSummary));
         StingerStatus = _services.Stingers.Status;
         RefreshStingerGroups();
         RefreshAfterChoices();
