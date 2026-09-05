@@ -159,7 +159,7 @@ public sealed class MediaPattern : IPatternRenderer
             {
                 var note = DeckInput.AvailabilityNote.Length > 0
                     ? DeckInput.AvailabilityNote
-                    : o.DeckPath.Length == 0 ? "Choose a PDF deck in the Media panel." : "Opening the deck…";
+                    : o.DeckPath.Length == 0 ? "Choose a deck — a PDF or a PowerPoint — in the Media panel." : "Opening the deck…";
                 PlaceholderCard(c, in f, name, note);
                 return;
             }

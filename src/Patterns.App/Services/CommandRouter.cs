@@ -182,10 +182,12 @@ public sealed class CommandRouter
         return new
         {
             file = System.IO.Path.GetFileName(wanted.Target),
+            kind = DeckConversion.KindOf(wanted.Target),                    // PDF, PowerPoint, Keynote, Impress
             page = deck?.Page ?? 0,
             count = deck?.PageCount ?? 0,
             ended = deck is { PageCount: > 0 } d && d.AtEnd,
             endsWithGo = ends,
+            converting = deck is PendingDeckSource { Failed: false },        // LibreOffice is still making the PDF
             status = deck?.StatusText ?? "Opening the deck…",
         };
     }

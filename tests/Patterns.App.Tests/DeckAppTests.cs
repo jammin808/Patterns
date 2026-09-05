@@ -184,7 +184,7 @@ public class DeckAppTests
             // The Media page carries the block.
             vm.SelectPage(Shell.IndexOf("Media"));
             Settle(window);
-            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "DECK — A PDF PRESENTATION");
+            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "DECK — A PDF OR POWERPOINT PRESENTATION");
             Assert.Contains(window.GetVisualDescendants().OfType<Button>(), x => x.Content as string == "NEXT PAGE ▶");
         }
         finally

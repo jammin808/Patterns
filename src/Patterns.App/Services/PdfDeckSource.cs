@@ -44,16 +44,19 @@ public sealed class PdfDeckSource : IDeckSource, IDisposable
     /// Opens a deck at a page; a file that is missing or not a PDF gives a source with no pages
     /// whose status says why, so the placeholder card reads the reason and nothing throws.
     /// </summary>
-    public static PdfDeckSource Open(string path, int startPage, SKSizeI ceiling)
+    public static PdfDeckSource Open(string path, int startPage, SKSizeI ceiling) => Open(path, path, startPage, ceiling);
+
+    /// <summary>Opens the PDF at <paramref name="pdfPath"/> as the deck <paramref name="path"/> — the same file, or the PDF LibreOffice made of a PowerPoint.</summary>
+    public static PdfDeckSource Open(string path, string pdfPath, int startPage, SKSizeI ceiling)
     {
         var name = System.IO.Path.GetFileName(path);
-        if (!File.Exists(path))
+        if (!File.Exists(pdfPath))
         {
-            return new PdfDeckSource(path, 0, new SKSize(16, 9), ceiling, null, $"PDF not found: {name}");
+            return new PdfDeckSource(path, 0, new SKSize(16, 9), ceiling, null, $"Deck not found: {name}");
         }
         try
         {
-            var bytes = File.ReadAllBytes(path);
+            var bytes = File.ReadAllBytes(pdfPath);
             int count;
             SKSize shape;
             lock (Gate)

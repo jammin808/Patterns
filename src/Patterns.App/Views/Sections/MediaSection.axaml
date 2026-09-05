@@ -206,12 +206,21 @@
                  Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default." />
     </StackPanel>
 
-    <!-- A deck: a PDF presentation, a page at a time; the click-through turns it -->
+    <!-- A deck: a PDF — or a PowerPoint through LibreOffice — a page at a time; the click-through turns it -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Deck}}">
-      <TextBlock Classes="h2" Text="DECK — A PDF PRESENTATION" />
-      <Grid ColumnDefinitions="*,8,Auto">
-        <TextBox Grid.Column="0" Watermark="A PDF — export the deck from PowerPoint, Keynote or Slides as PDF" Text="{Binding ActivePattern.Media.DeckPath, Mode=TwoWay}" />
+      <TextBlock Classes="h2" Text="DECK — A PDF OR POWERPOINT PRESENTATION" />
+      <Grid ColumnDefinitions="*,8,Auto,4,Auto">
+        <TextBox Grid.Column="0" Watermark="A PDF, or a PowerPoint (.pptx) — Keynote and Impress files too; a PowerPoint converts through LibreOffice once" Text="{Binding ActivePattern.Media.DeckPath, Mode=TwoWay}" />
         <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseDeckCommand}" />
+        <Button Grid.Column="4" Classes="mini" Content="RELOAD" Command="{Binding ReloadDeckCommand}"
+                ToolTip.Tip="Read the file again — after you edit it, or to convert a PowerPoint afresh" />
+      </Grid>
+      <!-- A PowerPoint: where LibreOffice was found, or what to do (and a box for its path when it is nowhere Patterns looks) -->
+      <TextBlock Classes="label" Text="{Binding DeckToolText}" TextWrapping="Wrap" Margin="0,4,0,0" IsVisible="{Binding DeckToolText, Converter={StaticResource NotEmpty}}" />
+      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0" IsVisible="{Binding DeckToolMissing}">
+        <TextBlock Classes="label" Text="LibreOffice path" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Watermark="C:\Program Files\LibreOffice\program\soffice.exe — or the LibreOffice folder" Text="{Binding LibreOfficePath, Mode=TwoWay}"
+                 ToolTip.Tip="Where LibreOffice is on this machine when Patterns cannot find it by itself; kept in Admin" />
       </Grid>
       <Grid ColumnDefinitions="130,90,16,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Start at page" VerticalAlignment="Center" />
@@ -230,7 +239,7 @@
         <Button Classes="mini" Content="Last ⏭" Command="{Binding DeckLastCommand}" Margin="0,0,12,4" />
       </WrapPanel>
       <TextBlock Classes="hint tip"
-                 Text="The page shows full frame at its own shape — a 4:3 deck gets bars on a 16:9 screen, never a stretch — rendered as sharp as the largest screen needs, on every output, NDI send and the stream. Once the deck is on air (through a cue, a look, or by hand) it is the click-through: the clicker's keys, NEXT / BACK on the phone, Companion's presenter keys and NEXT on the wire turn its pages, and at the last page the next click GOes the standby cue, so the cue stack resumes. A cue can turn pages too (Deck — next page / go to page), and DECK NEXT / PREV / PAGE n on the wire, OSC and Companion. The area of interest, the flips and the turn apply to a page like any picture." />
+                 Text="The page shows full frame at its own shape — a 4:3 deck gets bars on a 16:9 screen, never a stretch — rendered as sharp as the largest screen needs, on every output, NDI send and the stream. A PowerPoint (.pptx, .ppt, .ppsx), a Keynote or an Impress file goes through LibreOffice Impress once — headless, in the background, the PDF kept under decks/ beside the show — and the card says Converting… until the pages arrive; an edited file converts again by itself, RELOAD forces it. Once the deck is on air (through a cue, a look, or by hand) it is the click-through: the clicker's keys, NEXT / BACK on the phone, Companion's presenter keys and NEXT on the wire turn its pages, and at the last page the next click GOes the standby cue, so the cue stack resumes. A cue can turn pages too (Deck — next page / go to page), and DECK NEXT / PREV / PAGE n on the wire, OSC and Companion. The area of interest, the flips and the turn apply to a page like any picture. Animations and transitions inside a PowerPoint are not kept — a slide is a page — and fonts the machine lacks are substituted, so check the pages once before the show." />
     </StackPanel>
 
     <!-- Web page inside the engine -->

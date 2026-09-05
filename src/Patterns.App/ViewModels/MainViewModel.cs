@@ -98,8 +98,8 @@ public sealed class MainViewModel : Observable
             ActivePattern.Media.Source = MediaSource.Video;
             AddToMediaLibrary(p, isVideo: true);
         }));
-        // A deck: a PDF presentation, a page at a time; the desk's buttons turn the deck the pattern shows.
-        BrowseDeckCommand = new RelayCommand(() => _ = PickFileAsync("Choose a PDF deck", DeckTypes, p =>
+        // A deck: a PDF — or a PowerPoint through LibreOffice — a page at a time; the desk's buttons turn the deck the pattern shows.
+        BrowseDeckCommand = new RelayCommand(() => _ = PickFileAsync("Choose a deck — a PDF or a PowerPoint", DeckTypes, p =>
         {
             BulkEdit(() =>
             {
@@ -108,8 +108,26 @@ public sealed class MainViewModel : Observable
                 ActivePattern.Media.DeckPath = p;
             });
             AddToMediaLibrary(p, isVideo: false);
-            StatusMessage = $"{System.IO.Path.GetFileName(p)} is the pattern — the click-through turns its pages once it is on air.";
+            StatusMessage = DeckConversion.NeedsConversion(p)
+                ? $"{System.IO.Path.GetFileName(p)} is the pattern — LibreOffice converts it to PDF once, then the click-through turns its pages on air."
+                : $"{System.IO.Path.GetFileName(p)} is the pattern — the click-through turns its pages once it is on air.";
         }));
+        ReloadDeckCommand = new RelayCommand(() =>
+        {
+            var path = ActivePattern.Media.DeckPath;
+            if (path.Length == 0)
+            {
+                StatusMessage = "Choose a deck first.";
+                return;
+            }
+            _services.DeckIn.Reload(path);
+            _services.ReconcileInputs();
+            _services.PublishRuntime();
+            RefreshDeck();
+            StatusMessage = DeckConversion.NeedsConversion(path)
+                ? $"{System.IO.Path.GetFileName(path)} is being read and converted again."
+                : $"{System.IO.Path.GetFileName(path)} is being read again.";
+        });
         DeckNextCommand = new RelayCommand(() => TurnDeskDeck("next"));
         DeckPrevCommand = new RelayCommand(() => TurnDeskDeck("prev"));
         DeckFirstCommand = new RelayCommand(() => TurnDeskDeck("first"));
@@ -2442,6 +2460,30 @@ public sealed class MainViewModel : Observable
     /// <summary>The Media page's readout for the deck the pattern shows: "Page 3 / 12", or why there is none.</summary>
     public string DeckPageText { get => _deckPageText; private set => Set(ref _deckPageText, value); }
 
+    private string _deckToolText = "";
+
+    /// <summary>For a PowerPoint, Keynote or Impress deck: where LibreOffice was found, or what to do — "" for a PDF.</summary>
+    public string DeckToolText { get => _deckToolText; private set => Set(ref _deckToolText, value); }
+
+    private bool _deckToolMissing;
+
+    /// <summary>The deck needs LibreOffice and none was found: the path box shows.</summary>
+    public bool DeckToolMissing { get => _deckToolMissing; private set => Set(ref _deckToolMissing, value); }
+
+    /// <summary>Admin → the operator's own path to LibreOffice (soffice.exe or its folder); a change searches again at once.</summary>
+    public string LibreOfficePath
+    {
+        get => State.Admin.LibreOfficePath;
+        set
+        {
+            if (State.Admin.LibreOfficePath == (value ?? "")) return;
+            State.Admin.LibreOfficePath = value ?? "";
+            _services.DeckIn.Converter.ForgetProbe();
+            Raise(nameof(LibreOfficePath));
+            RefreshDeck();
+        }
+    }
+
     /// <summary>The deck the pattern on the desk shows — the one the page buttons turn — or null.</summary>
     private IDeckSource? DeskDeck()
     {
@@ -2454,7 +2496,7 @@ public sealed class MainViewModel : Observable
     {
         if (DeskDeck() is not { } deck)
         {
-            StatusMessage = ActivePattern.Media.DeckPath.Length == 0 ? "Choose a PDF deck first." : "The deck is still opening.";
+            StatusMessage = ActivePattern.Media.DeckPath.Length == 0 ? "Choose a deck first." : "The deck is still opening.";
             return;
         }
         if (deck.PageCount == 0)
@@ -2473,13 +2515,26 @@ public sealed class MainViewModel : Observable
     {
         DeckOnAir = _services.DeckOnAir() is { PageCount: > 0 };
         var m = ActivePattern.Media;
-        if (ActivePattern.Kind != PatternKind.Media || m.Source != MediaSource.Deck)
+        var isDeck = ActivePattern.Kind == PatternKind.Media && m.Source == MediaSource.Deck;
+        if (isDeck && DeckConversion.NeedsConversion(m.DeckPath))
+        {
+            // The converter's word for a PowerPoint: found where, or what to do (the search itself repeats at most every 20 s).
+            var tool = _services.DeckIn.Converter.LibreOffice;
+            DeckToolText = DeckConversion.Describe(tool);
+            DeckToolMissing = tool is null;
+        }
+        else
+        {
+            DeckToolText = "";
+            DeckToolMissing = false;
+        }
+        if (!isDeck)
         {
             DeckPageText = "";
         }
         else if (m.DeckPath.Length == 0)
         {
-            DeckPageText = "Choose a PDF deck — the click-through turns its pages once it is on air.";
+            DeckPageText = "Choose a deck — a PDF, or a PowerPoint that LibreOffice converts — the click-through turns its pages once it is on air.";
         }
         else if (DeskDeck() is not { } deck)
         {
@@ -4140,6 +4195,7 @@ public sealed class MainViewModel : Observable
     public RelayCommand BrowseImageCommand { get; }
     public RelayCommand BrowseVideoCommand { get; }
     public RelayCommand BrowseDeckCommand { get; }
+    public RelayCommand ReloadDeckCommand { get; }
     public RelayCommand DeckNextCommand { get; }
     public RelayCommand DeckPrevCommand { get; }
     public RelayCommand DeckFirstCommand { get; }
@@ -5906,12 +5962,12 @@ public sealed class MainViewModel : Observable
         Patterns = Glob(PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions),
     };
 
-    private static readonly FilePickerFileType MediaTypes = new("Images, video, audio & PDF decks")
+    private static readonly FilePickerFileType MediaTypes = new("Images, video, audio & decks (PDF, PowerPoint)")
     {
         Patterns = Glob(PlaylistSequencer.ImageExtensions, PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions, PlaylistSequencer.DeckExtensions),
     };
 
-    private static readonly FilePickerFileType DeckTypes = new("PDF deck")
+    private static readonly FilePickerFileType DeckTypes = new("Deck — PDF, PowerPoint, Keynote or Impress")
     {
         Patterns = Glob(PlaylistSequencer.DeckExtensions),
     };

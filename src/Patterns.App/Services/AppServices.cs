@@ -199,7 +199,15 @@ public sealed class AppServices
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
         WebIn = new WebEngine(Store.BaseDirectory);
-        DeckIn = new DeckEngine();
+        DeckIn = new DeckEngine(Store.BaseDirectory);
+        DeckIn.Converter.ConfiguredPath = () => State.Admin.LibreOfficePath;
+        // A conversion lands on a background thread; the swap to the PDF happens with the inputs, on the UI thread.
+        DeckIn.Changed = () => Dispatcher.UIThread.Post(() =>
+        {
+            if (DeckIn.IsDisposed) return;
+            ReconcileInputs();
+            PublishRuntime();
+        });
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);

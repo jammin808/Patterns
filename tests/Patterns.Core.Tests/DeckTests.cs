@@ -98,7 +98,8 @@ public class DeckTests
         Assert.Equal("deck:C:\\show\\deck.pdf", InputKeys.Deck("C:\\show\\deck.pdf"));
         Assert.Equal("", InputKeys.Deck(" "));
         Assert.True(PlaylistSequencer.IsDeckPath("talk.PDF"));
-        Assert.False(PlaylistSequencer.IsDeckPath("talk.pptx"));
+        Assert.True(PlaylistSequencer.IsDeckPath("talk.pptx"));    // a PowerPoint is a deck too — through LibreOffice
+        Assert.False(PlaylistSequencer.IsDeckPath("talk.docx"));
         Assert.Equal(LibraryMediaKind.Deck, MediaLibraryEntry.KindOf("talk.pdf", false));
     }
 

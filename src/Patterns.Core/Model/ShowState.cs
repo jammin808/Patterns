@@ -1326,11 +1326,15 @@ public sealed class GraphicsConfig : Observable
 public sealed class AdminConfig : Observable
 {
     private bool _metricsCsv = true;
+    private string _libreOfficePath = "";
 
     public GraphicsConfig Graphics { get; init; } = new();
 
     /// <summary>Append a performance sample to patterns.metrics.csv every 30 s (rotated at 1 MB).</summary>
     public bool MetricsCsv { get => _metricsCsv; set => Set(ref _metricsCsv, value); }
+
+    /// <summary>Where LibreOffice is on this machine when Patterns cannot find it by itself (soffice.exe, or its folder) — PowerPoint decks convert through it.</summary>
+    public string LibreOfficePath { get => _libreOfficePath; set => Set(ref _libreOfficePath, value ?? ""); }
 }
 
 /// <summary>Remote control server: web remote + TCP line protocol (Companion).</summary>

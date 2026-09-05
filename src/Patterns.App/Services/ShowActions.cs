@@ -822,7 +822,7 @@ public sealed class ShowActions
     {
         if (_s.DeckOnAir() is not { } deck)
         {
-            return ActionResult.Refused("No deck is on air — put a PDF on the pattern or a layer of the look on air first.");
+            return ActionResult.Refused("No deck is on air — put a PDF or a PowerPoint on the pattern of the look on air first.");
         }
         if (deck.PageCount == 0) return ActionResult.Refused($"The deck is not open: {deck.StatusText}");
         var target = Decks.Resolve(value, deck.Page, deck.PageCount);

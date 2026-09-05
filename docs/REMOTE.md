@@ -107,7 +107,7 @@ rather than stops; empty when none), `stingHold` (the name of a stinger holding 
 `lowerThirdPreview` / `lowerThirdPreviewPerson` (the design and the name in the preview for a sign-off, or empty), `lowerThirdDefault` (the show's ★ design),
 `lowerThirdEdited` (true while the design on air differs from the edited one — `LOWERTHIRD UPDATE` pushes the edit),
 `web{page,url,title,service,actions[{id,label}]}` (the web page the program shows — its nickname or host, its address and title, its service when Patterns knows it (YouTube, Vimeo, Google Slides, PowerPoint for the web) and the actions `WEB KEY <id>` takes on it; `null` with no page on air),
-`deck{file,page,count,ended,endsWithGo,status}` (the deck — the PDF — the program shows: its file, the page on show and the count, `ended` on its last page, `endsWithGo` when the next click there GOes the standby cue; `null` with no deck on air),
+`deck{file,kind,page,count,ended,endsWithGo,converting,status}` (the deck the program shows: its file and its kind — `PDF`, `PowerPoint`, `Keynote`, `Impress` — the page on show and the count, `ended` on its last page, `endsWithGo` when the next click there GOes the standby cue, `converting` while LibreOffice is still making the PDF of a PowerPoint (the count is 0 and `status` reads *Converting…*, or why it could not); `null` with no deck on air),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),
