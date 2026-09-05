@@ -243,6 +243,10 @@ public static class CueSheet
             "ltpreview" or "previewlt" or "lowerthirdpreview" or "namepreview" or "previewname" => CueActionKind.LowerThirdPreview,
             "lttake" or "takelt" or "lowerthirdtake" or "nametake" or "takename" => CueActionKind.LowerThirdTake,
             "stream" or "golive" => CueActionKind.StreamStart,
+            "web" or "page" or "webkey" or "pagekey" or "key" or "webaction" or "pageaction" or "slide" => CueActionKind.WebKey,
+            "webclick" or "pageclick" or "click" => CueActionKind.WebClick,
+            "webtype" or "pagetype" or "type" => CueActionKind.WebType,
+            "webreload" or "pagereload" or "reload" => CueActionKind.WebReload,
             _ => null,
         };
     }
@@ -253,7 +257,8 @@ public static class CueSheet
         if (targetKind == TargetKind.None) return ("", null);
         if (target.Length == 0)
         {
-            return targetKind == TargetKind.Music ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
+            // Break music resumes with no entry; a web action with no page reaches the page on air.
+            return targetKind is TargetKind.Music or TargetKind.Page ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
         }
         switch (targetKind)
         {

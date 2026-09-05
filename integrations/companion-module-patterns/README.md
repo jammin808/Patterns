@@ -42,6 +42,25 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Web pages: next slide, present, play — YouTube, Google Slides, PowerPoint (module 1.10.0)
+
+A **Web page** category drives the web page on air — the one the program shows — from a key.
+`web_action` sends a page action Patterns maps to the page's service: **NEXT** / **PREV** /
+**FIRST** / **LAST** are the slide keys of a Google Slides deck or a PowerPoint for the web,
+**PRESENT** starts the deck (Ctrl+Shift+F5 on Slides, F5 on PowerPoint), **BLACK** / **WHITE**
+blank it, **EXIT** leaves; on YouTube **PLAY**, **PAUSE**, **MUTE**, **RESTART**, +10 s and −10 s
+go through the player itself, so they work whether or not the page has focus; on any other page
+the arrows and page keys. *A key of your own* sends a chord — `ArrowRight`, `Space`, `k`,
+`Ctrl+Shift+F5`. A page other than the one on air is named by its nickname or a word of its
+address (`WEB KEY next ON slides` on the wire). `web_click` clicks a spot in percent of the page,
+`web_type` types into the field that has the page's focus, `web_open` sends the page's browser to
+another address. The `web_on_air` feedback lights a key while a page is on air (any, or one whose
+address carries a word); `$(patterns:web_page)`, `$(patterns:web_title)` and
+`$(patterns:web_service)` name it. Presets: PAGE NEXT, PREV, FIRST, LAST, PRESENT, EXIT, PLAY,
+MUTE, BLACK, RELOAD. On the wire: `WEB KEY <key|action> [ON <page>]`, `WEB NEXT` (any action
+word), `WEB CLICK x y`, `WEB TYPE text`, `WEB RELOAD [page]`, `WEB OPEN address`; `PAGE` is an
+alias of `WEB`.
+
 ## Lower thirds: preview, take, update, the show's default (module 1.9.0)
 
 The sign-off flow from a key. **LT PVW n** (`lower_third_preview`) puts design *n* — with a

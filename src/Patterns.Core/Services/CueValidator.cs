@@ -196,6 +196,36 @@ public static class CueValidator
                 case CueActionKind.LowerThirdTake:
                     if (state.LowerThirds.Designs.Count == 0) Soft($"{where}: the show has no lower third design to take.");
                     break;
+                case CueActionKind.WebKey:
+                case CueActionKind.WebClick:
+                case CueActionKind.WebType:
+                case CueActionKind.WebReload:
+                {
+                    // The page is looked for in what the preceding cues leave on air (the look a cue recalls is simulated first).
+                    var pages = WebPresets.PagesIn(sim);
+                    if (a.Target.Length > 0)
+                    {
+                        if (!pages.Any(p => WebPresets.Matches(p.Key, p.Url, sim.InputLabel(p.Key, ""), a.Target)))
+                        {
+                            Hard($"{where}: web page '{a.Target}' is not in what will be on air — put it on the pattern or a layer of the look before this cue, or leave the page blank for the page on air.");
+                        }
+                    }
+                    else if (pages.Count == 0)
+                    {
+                        Soft($"{where}: no web page is on air at this cue as far as the checks can see — the action reaches whatever page is on when it fires.");
+                    }
+                    if (a.Kind == CueActionKind.WebKey)
+                    {
+                        if (a.Value.Length == 0) Hard($"{where}: a web page key needs a key (ArrowRight, Space, Ctrl+Shift+F5) or an action (next, prev, play, present, exit, black…).");
+                        else if (!WebPresets.IsActionOrKey(a.Value)) Hard($"{where}: '{a.Value}' is neither a key (ArrowRight, Space, k, Ctrl+Shift+F5) nor a page action (next, prev, first, last, present, exit, play, pause, mute, restart, black, white…).");
+                    }
+                    if (a.Kind == CueActionKind.WebClick && !WebPresets.TryParsePoint(a.Value, out _, out _))
+                    {
+                        Hard($"{where}: a web page click needs 'x y' in percent of the page, e.g. 50 50.");
+                    }
+                    if (a.Kind == CueActionKind.WebType && a.Value.Length == 0) Soft($"{where}: nothing to type.");
+                    break;
+                }
                 case CueActionKind.LowerThirdShow:
                 case CueActionKind.LowerThirdPreview:
                 {

@@ -416,6 +416,12 @@ public sealed class ShowActions
                 _s.EditAir(a2 => a2.LowerThirds.Put(edited.Clone(newId: false)));
                 return ActionResult.Done($"Lower third '{edited.Name}' updated on air.");
             }
+            case ShowActionKind.WebKey:
+            case ShowActionKind.WebClick:
+            case ShowActionKind.WebType:
+            case ShowActionKind.WebReload:
+            case ShowActionKind.WebOpen:
+                return WebActions.Execute(_s, a);
             case ShowActionKind.AudioVolume:
             {
                 // The track is not in the snapshot: the player reads the live model every poll,
@@ -916,6 +922,10 @@ public sealed class ShowActions
         CueActionKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
         CueActionKind.LowerThirdPreview => new ShowAction(ShowActionKind.LowerThirdPreview, a.Target, a.Value),
         CueActionKind.LowerThirdTake => new ShowAction(ShowActionKind.LowerThirdTake),
+        CueActionKind.WebKey => new ShowAction(ShowActionKind.WebKey, a.Target, a.Value),
+        CueActionKind.WebClick => new ShowAction(ShowActionKind.WebClick, a.Target, a.Value),
+        CueActionKind.WebType => new ShowAction(ShowActionKind.WebType, a.Target, a.Value),
+        CueActionKind.WebReload => new ShowAction(ShowActionKind.WebReload, a.Target),
         CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
         CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
         CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),

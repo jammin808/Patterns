@@ -74,6 +74,14 @@ public enum CueActionKind
     LowerThirdPreview,
     /// <summary>The lower third in the preview goes to air and the preview clears.</summary>
     LowerThirdTake,
+    /// <summary>Target = a web page (blank = the page on air), Value = a key chord or a page action (next, play, present…).</summary>
+    WebKey,
+    /// <summary>Target = a web page, Value = "x y" in percent of the page.</summary>
+    WebClick,
+    /// <summary>Target = a web page, Value = the text typed into the field that has its focus.</summary>
+    WebType,
+    /// <summary>Target = a web page: reloaded.</summary>
+    WebReload,
 }
 
 /// <summary>

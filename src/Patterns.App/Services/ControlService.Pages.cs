@@ -137,6 +137,9 @@ public sealed partial class ControlService
   <div class="sec">REVIEW</div>
   <div class="grid"><button id="review" onclick="cmd('REVIEW TOGGLE')">PREVIEW ON THE MULTIVIEW</button></div>
   <div class="line">Every multiview shows what the desk is building until you switch it off — the audience's screens do not change.</div>
+  <div class="sec" id="websec" hidden>PAGE ON AIR</div>
+  <div id="webname" class="line"></div>
+  <div id="webacts" class="grid row3"></div>
 </section>
 
 <section id="tab-cues">
@@ -313,6 +316,12 @@ function render(s) {
   var lb = document.getElementById('lookback');
   lb.textContent = s.previousLook ? '◀ BACK TO: ' + s.previousLook : '◀ PREVIOUS LOOK';
   lb.disabled = !s.previousLook;
+  // PAGE ON AIR — the web page the program shows and its service's own actions (NEXT, PRESENT, PLAY…): WEB KEY <action>.
+  var w = s.web || null;
+  document.getElementById('websec').hidden = !w;
+  document.getElementById('webname').textContent = w ? ((w.service ? w.service + ' · ' : '') + (w.title || w.page)) : '';
+  var wa = document.getElementById('webacts'); wa.innerHTML = '';
+  if (w) (w.actions || []).forEach(function(a){ wa.appendChild(btn(esc(a.label), '', function(){ cmd('WEB KEY ' + a.id); })); });
 
   // CUES
   var sb = c.standby; standbyId = sb ? sb.id : '';

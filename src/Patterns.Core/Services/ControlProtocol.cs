@@ -96,6 +96,19 @@ public enum RemoteCommandKind
     LowerThirdTake,
     /// <summary>"LT UPDATE" — the design on air is replaced by the design as it is now, in place.</summary>
     LowerThirdUpdate,
+    /// <summary>
+    /// "WEB KEY &lt;key|action&gt; [ON &lt;page&gt;]" and "WEB NEXT" / "WEB PLAY" / "WEB PRESENT"… — a key chord or a page
+    /// action (TextArg) to the web page on air, or to the page Extra names (a nickname, an address or a word of it). PAGE is an alias of WEB.
+    /// </summary>
+    WebKey,
+    /// <summary>"WEB CLICK &lt;x&gt; &lt;y&gt; [ON &lt;page&gt;]" — a click at a point in percent of the page (TextArg = "x y").</summary>
+    WebClick,
+    /// <summary>"WEB TYPE &lt;text&gt;" — the text (TextArg) typed into the field that has the page's focus.</summary>
+    WebType,
+    /// <summary>"WEB RELOAD [&lt;page&gt;]" — the page reloaded (Extra names it).</summary>
+    WebReload,
+    /// <summary>"WEB OPEN &lt;address&gt; [ON &lt;page&gt;]" — the page's browser sent to another address (TextArg).</summary>
+    WebOpen,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -357,6 +370,54 @@ public static class ControlProtocol
                     : new(RemoteCommandKind.LowerThirdShow, 0, arg);
             }
 
+            // The web page on air — or the one "ON <page>" names: a key chord or a page action, a click, typed
+            // text, a reload, another address. "WEB NEXT" is "WEB KEY NEXT"; PAGE is an alias of WEB.
+            case "WEB":
+            case "PAGE":
+            {
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                var what = sub[0].ToUpperInvariant();
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "KEY":
+                    case "PRESS":
+                    case "ACTION":
+                    {
+                        var (value, page) = SplitOn(rest);
+                        return value.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.WebKey, 0, value, page);
+                    }
+                    case "CLICK":
+                    {
+                        var (value, page) = SplitOn(rest);
+                        return value.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.WebClick, 0, value, page);
+                    }
+                    case "TYPE":
+                        // The text is the text, spaces and all — no "ON <page>" here: typing goes to the page on air.
+                        return rest.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.WebType, 0, rest, "");
+                    case "RELOAD":
+                    case "REFRESH":
+                    {
+                        var page = rest.StartsWith("ON ", StringComparison.OrdinalIgnoreCase) ? rest[3..].Trim() : rest;
+                        return new(RemoteCommandKind.WebReload, 0, "", page);
+                    }
+                    case "OPEN":
+                    case "GO":
+                    case "NAVIGATE":
+                    {
+                        var (value, page) = SplitOn(rest);
+                        return value.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.WebOpen, 0, value, page);
+                    }
+                    default:
+                    {
+                        // "WEB NEXT", "WEB PLAY ON youtube", "WEB Ctrl+Shift+F5": an action word or a key as the verb.
+                        var (value, page) = SplitOn(arg);
+                        return value.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.WebKey, 0, value, page);
+                    }
+                }
+            }
+
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
             case "REVIEW":
                 return arg.ToUpperInvariant() switch
@@ -449,6 +510,14 @@ public static class ControlProtocol
             default:
                 return new(RemoteCommandKind.Unknown, 0, s);
         }
+    }
+
+    /// <summary>"value ON page" → (value, page); no ON → (text, ""). The last ON wins, so a value with the word in it survives.</summary>
+    private static (string Value, string Page) SplitOn(string text)
+    {
+        var t = text.Trim();
+        var i = t.LastIndexOf(" ON ", StringComparison.OrdinalIgnoreCase);
+        return i < 0 ? (t, "") : (t[..i].Trim(), t[(i + 4)..].Trim());
     }
 
     public static string Ok(string? payload = null) => payload is null ? "OK" : "OK " + payload;

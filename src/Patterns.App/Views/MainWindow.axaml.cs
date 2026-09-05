@@ -28,6 +28,8 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnPreviewKeyUp, RoutingStrategies.Tunnel);
+        // KEYS → PAGE: the characters a key would type go to the page, never into a desk control.
+        AddHandler(TextInputEvent, (_, e) => { if (DataContext is MainViewModel { KeysToPage: true }) e.Handled = true; }, RoutingStrategies.Tunnel);
         Deactivated += (_, _) => _down.Clear(); // a key-up missed during Alt+Tab must not jam a key
         DataContextChanged += (_, _) => HookShell();
     }
@@ -565,6 +567,25 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainViewModel vm) return;
         var actions = vm.Services.Actions;
+
+        // KEYS → PAGE: the keyboard belongs to the web page the desk drives — F5 starts a PowerPoint,
+        // the arrows move a deck, k plays a YouTube video — until Ctrl+Alt+K or the chip ends it. Every
+        // press goes, repeats included: a held arrow keeps a page scrolling the way a keyboard would.
+        if (vm.KeysToPage)
+        {
+            if (e.Key == Key.K && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt))
+            {
+                e.Handled = true;
+                vm.KeysToPage = false;
+                return;
+            }
+            if (WebKeyboard.ChordFor(e.Key, e.KeyModifiers) is { } chord)
+            {
+                e.Handled = true;
+                vm.SendKeyToPage(chord);
+                return;
+            }
+        }
 
         // The transport KeyBindings (Shift+F5–F8) fire on every repeat of a held key; the
         // first press is latched here and the repeats are swallowed before they reach them.

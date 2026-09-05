@@ -190,13 +190,6 @@ public sealed class MainViewModel : Observable
         // Live inputs & web pages
         RefreshNdiSourcesCommand = new RelayCommand(() => RefreshNdiSources());
         RefreshCaptureDevicesCommand = new RelayCommand(() => RefreshCaptureDevices());
-        OpenWebFullscreenCommand = new RelayCommand(() => OpenWeb(kiosk: true));
-        OpenWebWindowedCommand = new RelayCommand(() => OpenWeb(kiosk: false));
-        CloseWebCommand = new RelayCommand(() =>
-        {
-            _services.Web.CloseAll();
-            WebStatus = _services.Web.Status;
-        });
         LoadWebUrlCommand = new RelayCommand<string>(url =>
         {
             if (url is not null) State.Web.Url = url;
@@ -236,22 +229,42 @@ public sealed class MainViewModel : Observable
         });
         PutWebPageOnPatternCommand = new RelayCommand(() =>
         {
-            var url = WebAddress.Normalize(State.Web.Url);
-            if (url.Length == 0)
+            var typed = WebAddress.Normalize(State.Web.Url);
+            if (typed.Length == 0)
             {
                 StatusMessage = "Enter a page address first.";
                 return;
             }
+            // A YouTube, Vimeo or Slides link goes on as the player or the deck alone — the streamlined path;
+            // the Media page shows the address and can put the typed one back.
+            var url = WebPresets.FullFrame(typed);
+            var preset = WebPresets.For(url);
             _services.BulkEdit(() =>
             {
                 ActivePattern.Kind = PatternKind.Media;
                 ActivePattern.Media.Source = MediaSource.Web;
                 ActivePattern.Media.WebUrl = url;
             });
-            if (!State.Web.SavedUrls.Contains(url)) State.Web.SavedUrls.Add(url);
+            if (!State.Web.SavedUrls.Contains(typed)) State.Web.SavedUrls.Add(typed);
             RefreshWebControls();
-            StatusMessage = $"{WebAddress.ShortName(url)} is the pattern now — drive it on the PREVIEW pane; its settings are on the Media page.";
+            StatusMessage = preset.Service == PageService.Page
+                ? $"{WebAddress.ShortName(url)} is the pattern now — drive it on the PREVIEW pane; its settings are on the Media page."
+                : $"{preset.Name} is the pattern now{(url == typed ? "" : ", full frame — the player or the deck alone")}. Drive it on the PREVIEW pane, with PAGE CONTROLS, the phone, cues or KEYS → PAGE.";
         });
+        WebFullFrameCommand = new RelayCommand(() =>
+        {
+            var url = WebAddress.Normalize(ActivePattern.Media.WebUrl);
+            var full = WebPresets.FullFrame(url);
+            if (url.Length == 0 || full == url)
+            {
+                StatusMessage = url.Length == 0 ? "Enter a page address first." : "That address is already the page alone.";
+                return;
+            }
+            BulkEdit(() => ActivePattern.Media.WebUrl = full);
+            RefreshWebControls();
+            StatusMessage = $"{WebPresets.For(full).Name} full frame: {full}";
+        });
+        WebActionCommand = new RelayCommand<string>(id => RunWebAction(id ?? ""));
 
         // Presenter click-through: the clicker list on the Cues page, stepped from here
         PresenterNextCommand = new RelayCommand(() => _services.Actions.PresenterAdvance(+1, ActionOrigin.Desk));
@@ -967,7 +980,8 @@ public sealed class MainViewModel : Observable
         EnsureAssignmentsForCustomScreens();
         RebuildEditTargets();
         RebuildNdiSources();
-        RebuildWebScreens();
+        RebuildStreamSources();
+        RebuildMultiviewTargets();
         RaiseArrangement();
         // Loading a show, or plugging a display in, can change the mode and the planned set.
         RefreshOutputsStatus();
@@ -1769,6 +1783,81 @@ public sealed class MainViewModel : Observable
     /// <summary>The Media page shows the page controls while a page is in play somewhere the desk can reach.</summary>
     public bool HasWebPage => CurrentWebKey().Length > 0;
 
+    private bool _keysToPage;
+
+    /// <summary>
+    /// KEYS → PAGE: the keyboard belongs to the page the controls drive — F5 starts a PowerPoint,
+    /// the arrows move a deck, k plays a YouTube video, a search box or a sign-in takes typing —
+    /// until the chip or Ctrl+Alt+K ends it. The desk's own shortcuts (F-keys, Space, D, Enter) wait meanwhile.
+    /// </summary>
+    public bool KeysToPage
+    {
+        get => _keysToPage;
+        set
+        {
+            if (value && CurrentWebSource() is null)
+            {
+                Raise(nameof(KeysToPage));   // the chip springs back
+                StatusMessage = HasWebPage
+                    ? "The page is still opening — try KEYS → PAGE again in a moment."
+                    : "No web page to type at — put one on the pattern or a layer first.";
+                return;
+            }
+            if (_keysToPage == value) return;
+            _keysToPage = value;
+            Raise(nameof(KeysToPage));
+            StatusMessage = value
+                ? $"KEYS → PAGE: every key goes to {WebAddress.ShortName(CurrentWebKey()[4..])} — F-keys, Space and Enter too. Press the chip or Ctrl+Alt+K to get the desk's keys back."
+                : "KEYS → PAGE off — the desk has its keys again.";
+        }
+    }
+
+    /// <summary>A chord from the desk's keyboard to the page the controls drive (KEYS → PAGE).</summary>
+    public void SendKeyToPage(string chord)
+    {
+        if (CurrentWebSource() is { } page) page.PressKey(chord);
+        else KeysToPage = false;
+    }
+
+    private string _webPresetNote = "";
+    /// <summary>The pattern's page service — YouTube, Google Slides… — and what FULL FRAME does to its address; "" for a plain page.</summary>
+    public string WebPresetNote { get => _webPresetNote; private set => Set(ref _webPresetNote, value); }
+
+    private bool _webCanFullFrame;
+    public bool WebCanFullFrame { get => _webCanFullFrame; private set => Set(ref _webCanFullFrame, value); }
+
+    /// <summary>The actions the page the controls drive answers to — NEXT, PLAY, PRESENT… — from its service.</summary>
+    public ObservableCollection<WebActionChip> WebPageActions { get; } = new();
+
+    private string _webActionsFor = "";
+
+    /// <summary>An action chip on the page the controls drive: "next", "play", "present"… or a key chord.</summary>
+    public void RunWebAction(string idOrKey)
+    {
+        if (CurrentWebSource() is not { } page)
+        {
+            StatusMessage = "No web page to drive — put one on the pattern or a layer first.";
+            return;
+        }
+        var name = State.InputLabel(CurrentWebKey(), WebAddress.ShortName(page.CurrentUrl));
+        Report(WebActions.Press(page, name, idOrKey));
+    }
+
+    private void SyncWebActions(string url)
+    {
+        var preset = url.Length == 0 ? null : WebPresets.For(url);
+        var stamp = preset?.Service.ToString() ?? "";
+        if (stamp == _webActionsFor) return;
+        _webActionsFor = stamp;
+        WebPageActions.Clear();
+        if (preset is null) return;
+        foreach (var a in preset.Actions)
+        {
+            var hint = a.Hint.Length > 0 ? a.Hint : a.IsScript ? $"Through {preset.Name}'s own player" : "Key " + a.Chord;
+            WebPageActions.Add(new WebActionChip(a.Id, a.Label.ToUpperInvariant(), hint));
+        }
+    }
+
     private string _savedWebPick = "";
 
     /// <summary>The saved pages combo on the Media page: picking one puts it in the pattern's page box.</summary>
@@ -1789,11 +1878,17 @@ public sealed class MainViewModel : Observable
     private void RefreshWebControls()
     {
         var key = CurrentWebKey();
+        // The service line and the FULL FRAME offer follow the pattern's address, not the page pointed at.
+        var address = ActivePattern.Kind == PatternKind.Media && ActivePattern.Media.Source == MediaSource.Web ? ActivePattern.Media.WebUrl : "";
+        WebPresetNote = address.Length > 0 ? WebPresets.Note(address) : "";
+        WebCanFullFrame = address.Length > 0 && WebPresets.CanFullFrame(address);
         Raise(nameof(HasWebPage));
         if (key.Length == 0)
         {
             WebControlsTarget = "";
             WebPageStatus = "";
+            if (KeysToPage) KeysToPage = false;
+            SyncWebActions("");
             return;
         }
         var page = InputBus.For(key) as IWebSource;
@@ -1802,6 +1897,7 @@ public sealed class MainViewModel : Observable
         WebPageStatus = page is null
             ? WebInput.AvailabilityNote.Length > 0 ? WebInput.AvailabilityNote : "Opening…"
             : $"{page.StatusText}{(page.Title.Length > 0 ? " — " + page.Title : "")} · {page.CurrentUrl}";
+        SyncWebActions(page?.CurrentUrl is { Length: > 0 } current ? current : key[4..]);
     }
 
     // ---- roles, locks and repeaters ---------------------------------------------
@@ -2257,28 +2353,6 @@ public sealed class MainViewModel : Observable
         }
     }
 
-    // ---- web pages ----------------------------------------------------------
-
-    public ObservableCollection<EditTarget> WebScreens { get; } = new();
-
-    private string _webStatus = "";
-    public string WebStatus { get => _webStatus; private set => Set(ref _webStatus, value); }
-
-    private void RebuildWebScreens()
-    {
-        var current = State.Web.TargetScreenId;
-        WebScreens.Clear();
-        WebScreens.Add(new EditTarget("Primary screen", ""));
-        // Real displays only: a browser window or a stream capture needs somewhere to land.
-        foreach (var s in _services.Screens.Real)
-        {
-            WebScreens.Add(new EditTarget($"Screen {s.Index + 1} — {s.Label}", s.Id));
-        }
-        State.Web.TargetScreenId = current;
-        RebuildStreamSources();
-
-        RebuildMultiviewTargets();
-    }
 
     // ---- multiview ----------------------------------------------------------
 
@@ -3383,21 +3457,6 @@ public sealed class MainViewModel : Observable
         if (!choice.IsSelected) devices.Remove(choice.Name);
     }
 
-    private void OpenWeb(bool kiosk)
-    {
-        var screens = _services.Screens.All;
-        var screen = screens.FirstOrDefault(s => s.Id == State.Web.TargetScreenId)
-                     ?? screens.FirstOrDefault(s => s.IsPrimary)
-                     ?? screens.FirstOrDefault();
-        _services.Web.Open(State.Web.Url, screen, kiosk);
-        var normalized = WebService.NormalizeUrl(State.Web.Url);
-        if (!string.IsNullOrWhiteSpace(normalized) && !State.Web.SavedUrls.Contains(normalized))
-        {
-            State.Web.SavedUrls.Add(normalized);
-        }
-        WebStatus = _services.Web.Status;
-    }
-
     // ---- looks & cues -------------------------------------------------------
 
     private string _newLookName = "";
@@ -4014,9 +4073,6 @@ public sealed class MainViewModel : Observable
     public RelayCommand ImportGridToMapCommand { get; }
     public RelayCommand RefreshNdiSourcesCommand { get; }
     public RelayCommand RefreshCaptureDevicesCommand { get; }
-    public RelayCommand OpenWebFullscreenCommand { get; }
-    public RelayCommand OpenWebWindowedCommand { get; }
-    public RelayCommand CloseWebCommand { get; }
     public RelayCommand<string> LoadWebUrlCommand { get; }
     public RelayCommand<string> RemoveWebUrlCommand { get; }
     public RelayCommand SendWebTextCommand { get; }
@@ -4026,6 +4082,8 @@ public sealed class MainViewModel : Observable
     public RelayCommand WebReloadCommand { get; }
     public RelayCommand RememberWebUrlCommand { get; }
     public RelayCommand PutWebPageOnPatternCommand { get; }
+    public RelayCommand WebFullFrameCommand { get; }
+    public RelayCommand<string> WebActionCommand { get; }
     public RelayCommand ImportCueSheetCommand { get; }
     public RelayCommand ImportCueSheetAppendCommand { get; }
     public RelayCommand ExportCueSheetCommand { get; }
@@ -5296,7 +5354,6 @@ public sealed class MainViewModel : Observable
         PlaylistStatus = _services.Playlist.Status;
         ToneStatus = _services.Audio.Status;
         FeedStatus = _services.Feeds.Status;
-        WebStatus = _services.Web.Status;
         AudioPlayerStatus = _services.AudioPlayer.Status;
         SyncStatus = BuildSyncStatus();
         Raise(nameof(DirectOutputSummary));

@@ -22,39 +22,6 @@ public class LaunchArgumentTests
         Assert.Contains(opts, o => o.StartsWith(":live-caching="));
     }
 
-    [Fact]
-    public void KioskArgsFillTheChosenScreen()
-    {
-        var args = WebService.BuildArgs("https://example.com/schedule", kiosk: true,
-            x: 1920, y: 0, w: 1920, h: 1080, userDataDir: @"C:\tmp\web1", isEdge: true);
-
-        Assert.Contains("--kiosk \"https://example.com/schedule\"", args);
-        Assert.Contains("--edge-kiosk-type=fullscreen", args);
-        Assert.Contains("--window-position=1920,0", args);
-        Assert.Contains("--user-data-dir=\"C:\\tmp\\web1\"", args);
-        Assert.DoesNotContain("--window-size", args); // kiosk sizes itself
-    }
-
-    [Fact]
-    public void WindowedArgsUseAnAppWindowWithASize()
-    {
-        var args = WebService.BuildArgs("https://example.com", kiosk: false,
-            x: 100, y: 50, w: 1280, h: 720, userDataDir: "/tmp/web", isEdge: false);
-
-        Assert.Contains("--app=\"https://example.com\"", args);
-        Assert.Contains("--window-size=1280,720", args);
-        Assert.DoesNotContain("--kiosk", args);
-        Assert.DoesNotContain("--edge-kiosk-type", args);
-    }
-
-    [Fact]
-    public void UrlQuotesCannotEscapeTheArgument()
-    {
-        var args = WebService.BuildArgs("https://x/\" --evil", kiosk: true, 0, 0, 1, 1, "d", false);
-        Assert.DoesNotContain("\" --evil", args); // no raw quote survives inside the URL argument
-        Assert.Contains("%22", args);
-    }
-
     [Theory]
     [InlineData("example.com/schedule", "https://example.com/schedule")]
     [InlineData("  example.com  ", "https://example.com")]
@@ -62,7 +29,7 @@ public class LaunchArgumentTests
     [InlineData("https://x.y", "https://x.y")]
     [InlineData("", "")]
     public void BareAddressesBecomeHttps(string input, string expected)
-        => Assert.Equal(expected, WebService.NormalizeUrl(input));
+        => Assert.Equal(expected, WebAddress.Normalize(input));
 
     [Fact]
     public void CaptureListNeverThrows()
@@ -169,14 +136,14 @@ public class InputsWebViewModelTests
     }
 
     [AvaloniaFact]
-    public void WebScreensListTargetsAndKeepsTheChoice()
+    public void SavedWebPagesAreKeptAndRecalled()
     {
         var (services, vm, window) = Boot();
         try
         {
-            Assert.Contains(vm.WebScreens, t => t.ScreenId == "");
+            // The old browser-window screen choice survives in an old show file and changes nothing.
             vm.State.Web.TargetScreenId = "some-screen";
-            vm.ReconcilePlacements(); // triggers RebuildWebScreens
+            vm.ReconcilePlacements();
             Assert.Equal("some-screen", vm.State.Web.TargetScreenId);
 
             vm.State.Web.Url = "example.com";

@@ -32,6 +32,7 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public List<(string Kind, float X, float Y)> Events { get; } = new();
     public List<string> Typed { get; } = new();
     public List<string> Keys { get; } = new();
+    public List<string> Scripts { get; } = new();
     public int Backs, Forwards, Reloads;
     public bool Disposed { get; private set; }
 
@@ -80,6 +81,7 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public void Wheel(float nx, float ny, float deltaLines, bool horizontal) => Events.Add((horizontal ? "hwheel" : "wheel", deltaLines, 0));
     public void TypeText(string text) => Typed.Add(text);
     public void PressKey(string key) => Keys.Add(key);
+    public void RunScript(string script) => Scripts.Add(script);
     public void Navigate(string url) => CurrentUrl = url;
     public void GoBack() => Backs++;
     public void GoForward() => Forwards++;
@@ -326,7 +328,7 @@ public class WebAppTests
             Assert.Contains("PAGE CONTROLS", texts);
             vm.SelectPage(Shell.IndexOf("Remote"));
             Settle(window);
-            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "IN THE ENGINE");
+            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "A WEB PAGE ON THE PATTERN");
 
             // Without a page anywhere, the controls say so instead of throwing.
             vm.State.Pattern.Media.Source = MediaSource.Image;

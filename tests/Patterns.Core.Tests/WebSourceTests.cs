@@ -23,6 +23,7 @@ public sealed class FakeWebSource : IWebSource
     public List<(string Kind, float X, float Y)> Events { get; } = new();
     public List<string> Typed { get; } = new();
     public List<string> Keys { get; } = new();
+    public List<string> Scripts { get; } = new();
     public int Backs, Forwards, Reloads;
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
@@ -70,6 +71,7 @@ public sealed class FakeWebSource : IWebSource
     public void Wheel(float nx, float ny, float deltaLines, bool horizontal) => Events.Add((horizontal ? "hwheel" : "wheel", deltaLines, 0));
     public void TypeText(string text) => Typed.Add(text);
     public void PressKey(string key) => Keys.Add(key);
+    public void RunScript(string script) => Scripts.Add(script);
     public void Navigate(string url) => CurrentUrl = url;
     public void GoBack() => Backs++;
     public void GoForward() => Forwards++;

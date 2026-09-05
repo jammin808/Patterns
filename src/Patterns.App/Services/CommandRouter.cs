@@ -160,7 +160,30 @@ public sealed class CommandRouter
             RemoteCommandKind.LowerThirdPreviewOff => new ShowAction(ShowActionKind.LowerThirdPreviewOff),
             RemoteCommandKind.LowerThirdTake => new ShowAction(ShowActionKind.LowerThirdTake),
             RemoteCommandKind.LowerThirdUpdate => new ShowAction(ShowActionKind.LowerThirdUpdate),
+            RemoteCommandKind.WebKey => new ShowAction(ShowActionKind.WebKey, cmd.Extra, cmd.TextArg),
+            RemoteCommandKind.WebClick => new ShowAction(ShowActionKind.WebClick, cmd.Extra, cmd.TextArg),
+            RemoteCommandKind.WebType => new ShowAction(ShowActionKind.WebType, cmd.Extra, cmd.TextArg),
+            RemoteCommandKind.WebReload => new ShowAction(ShowActionKind.WebReload, cmd.Extra),
+            RemoteCommandKind.WebOpen => new ShowAction(ShowActionKind.WebOpen, cmd.Extra, cmd.TextArg),
             _ => null,
+        };
+    }
+
+    /// <summary>The web page the program shows — what WEB KEY / CLICK / TYPE reach with no page named — with its service's actions; null when none.</summary>
+    private object? WebRow()
+    {
+        var wanted = MediaLocator.FindWantedInputs(_services.Bus.Current).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.Web);
+        if (wanted is null) return null;
+        var page = Patterns.Core.Media.InputBus.For(wanted.Key) as Patterns.Core.Media.IWebSource;
+        var url = page?.CurrentUrl is { Length: > 0 } current ? current : wanted.Target;
+        var preset = WebPresets.For(url);
+        return new
+        {
+            page = _services.State.InputLabel(wanted.Key, WebAddress.ShortName(url)),
+            url,
+            title = page?.Title ?? "",
+            service = preset.Service == PageService.Page ? "" : preset.Name,
+            actions = preset.Actions.Select(a => new { id = a.Id, label = a.Label }).ToArray(),
         };
     }
 
@@ -237,6 +260,7 @@ public sealed class CommandRouter
             lowerThirdPreviewPerson = LowerThirdPersonInPreview(),
             lowerThirdDefault = s.LowerThirds.DefaultDesign?.Name ?? "",   // the show's ★ design — where a person goes with none on air
             lowerThirdEdited = _services.LowerThirdAirEdited(),            // the design on air differs from the edited one: LT UPDATE
+            web = WebRow(),                                                // the web page on air and its service's actions, or null
             stingers = s.Stingers.Items.Select((i, n) => new
             {
                 n = n + 1,

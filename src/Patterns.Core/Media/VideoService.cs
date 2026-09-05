@@ -73,8 +73,11 @@ public interface IWebSource : IVideoFrameSource
     /// <summary>Text for the field that has the page's focus.</summary>
     void TypeText(string text);
 
-    /// <summary>A named key: Enter, Escape, Tab, Backspace, Space, ArrowUp/Down/Left/Right, PageUp, PageDown, Home, End.</summary>
+    /// <summary>A key chord as <see cref="Services.WebKeys"/> reads it: "Enter", "ArrowRight", "k", "Shift+N", "Ctrl+Shift+F5".</summary>
     void PressKey(string key);
+
+    /// <summary>A line of script run in the page — a service's own player driven directly (YouTube's play, seek, mute).</summary>
+    void RunScript(string script);
 
     void Navigate(string url);
     void GoBack();

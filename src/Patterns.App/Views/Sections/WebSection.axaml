@@ -24,7 +24,7 @@
       <TextBox Text="{Binding RemoteUrlsText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                FontFamily="Consolas,monospace" />
       <TextBlock Classes="hint tip"
-                 Text="The web remote drives presenter next/back, looks, transport, blackout, screens and the audio track — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens and canvas groups map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
+                 Text="The web remote drives presenter next/back, looks, transport, blackout, screens, the audio track, lower thirds and the web page on air — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens, canvas groups and page actions map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
 
       <TextBlock Classes="h2" Text="OSC" />
       <CheckBox Content="OSC in (UDP) — QLab, TouchOSC, a lighting desk, Companion's OSC" IsChecked="{Binding State.Control.OscEnabled}"
@@ -41,43 +41,22 @@
       </Grid>
       <TextBlock Classes="label" Text="{Binding OscStatus}" TextWrapping="Wrap" />
       <TextBlock Classes="hint tip"
-                 Text="Addresses: /patterns/outputs 1|0 · /patterns/blackout [1|0] · /patterns/identify · /patterns/look n|name · /patterns/next, /prev · /patterns/screen/n [1|0] · /patterns/lock/n [1|0] · /patterns/group/A 1|0 · /patterns/audio/play, /stop · /patterns/music/play [n|name], /pause, /next, /volume level · /patterns/tone 1|0 · /patterns/duck [1|0] · /patterns/stinger n|name, /stinger/stop, /vog, /sting · /patterns/lowerthird n|name [person], /lowerthird/off · /patterns/person n|name · /patterns/section n|name · /patterns/stream 1|0 · /patterns/cue/go [id], /cue/standby/next, /prev, /cue/standby number|name, /cue/hold 1|0, /cue/arm 1|0 · /patterns/stopall · /patterns/ping. A number or a name rides as the next address segment or as the first argument; a switch is 1/0, a float above 0.5, a bool, or on/off/toggle; a fader's 0.0–1.0 float is a music level. A refused command answers /patterns/error to the sender, ping answers /patterns/pong. The feedback bundle carries /patterns/state/live, /blackout, /program, /duck, /tone, /audio, /music, /music/now, /music/level, /stinger, /stinger/hold, /lowerthird, /lowerthird/person, /stream, /playlist, /health, /rev, /screen/n, /lock/n, /cue/armed, /cue/hold, /cue/confirm, /cue/standby (number, name), /cue/previous, /cue/next, /cue/last (number, outcome), /cue/offset, /cue/follow. The full list with the meanings is in docs/REMOTE.md." />
+                 Text="Addresses: /patterns/outputs 1|0 · /patterns/blackout [1|0] · /patterns/identify · /patterns/look n|name · /patterns/next, /prev · /patterns/screen/n [1|0] · /patterns/lock/n [1|0] · /patterns/group/A 1|0 · /patterns/audio/play, /stop · /patterns/music/play [n|name], /pause, /next, /volume level · /patterns/tone 1|0 · /patterns/duck [1|0] · /patterns/stinger n|name, /stinger/stop, /vog, /sting · /patterns/lowerthird n|name [person], /lowerthird/off · /patterns/person n|name · /patterns/web/key key|action [page], /web/next, /prev, /present, /play…, /web/click x y, /web/type text, /web/reload, /web/open address · /patterns/section n|name · /patterns/stream 1|0 · /patterns/cue/go [id], /cue/standby/next, /prev, /cue/standby number|name, /cue/hold 1|0, /cue/arm 1|0 · /patterns/stopall · /patterns/ping. A number or a name rides as the next address segment or as the first argument; a switch is 1/0, a float above 0.5, a bool, or on/off/toggle; a fader's 0.0–1.0 float is a music level. A refused command answers /patterns/error to the sender, ping answers /patterns/pong. The feedback bundle carries /patterns/state/live, /blackout, /program, /duck, /tone, /audio, /music, /music/now, /music/level, /stinger, /stinger/hold, /lowerthird, /lowerthird/person, /stream, /playlist, /health, /rev, /screen/n, /lock/n, /cue/armed, /cue/hold, /cue/confirm, /cue/standby (number, name), /cue/previous, /cue/next, /cue/last (number, outcome), /cue/offset, /cue/follow. The full list with the meanings is in docs/REMOTE.md." />
     </StackPanel>
 
     <TextBlock Classes="hint tip"
                Text="Watchdog, performance monitoring, GPU choice and machine health live on the Machine page (ADMIN)." />
 
+    <TextBlock Classes="h2" Text="A WEB PAGE ON THE PATTERN" />
     <TextBlock Classes="hint tip"
-               Text="Put a web page on any screen — session schedules, dashboards, wayfinding, streams. Two ways: inside the engine (SHOW THIS PAGE ON THE PATTERN, or Media → Web page), where it joins spans and trims, reaches NDI and the stream, rides with looks and cues and takes clicks from the PREVIEW pane; or as a managed browser window on top of a screen (OPEN FULL SCREEN), for a page that must keep its own keyboard and mouse." />
-
-    <TextBlock Classes="h2" Text="PAGE" />
-    <TextBox Watermark="https://example.com/schedule — or a local HTML file" Text="{Binding State.Web.Url}" />
-    <Grid ColumnDefinitions="130,*">
-      <TextBlock Classes="label" Text="On screen" VerticalAlignment="Center" />
-      <ComboBox Grid.Column="1" ItemsSource="{Binding WebScreens}"
-                SelectedValue="{Binding State.Web.TargetScreenId, Mode=TwoWay}"
-                SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}" />
-    </Grid>
+               Text="Session schedules, dashboards, wayfinding, a YouTube video, a Google Slides deck, a PowerPoint on Office 365: paste the address and put it on the pattern. It renders inside the engine — it joins spans and trims, reaches NDI and the stream, rides with looks and cues, takes clicks, keys and typing from the desk — and nothing opens outside Patterns. A YouTube, Vimeo or Slides link goes on as the player or the deck alone." />
+    <TextBox Watermark="https://example.com/schedule — a YouTube, Vimeo, Google Slides or PowerPoint link — or a local HTML file" Text="{Binding State.Web.Url}" />
     <WrapPanel Margin="0,4,0,0">
-      <Button Classes="go" Content="OPEN FULL SCREEN" Command="{Binding OpenWebFullscreenCommand}"
-              Margin="0,0,8,6" ToolTip.Tip="Kiosk mode — no browser chrome, fills the chosen screen" />
-      <Button Classes="chip" Content="Windowed" Command="{Binding OpenWebWindowedCommand}"
-              Margin="0,0,8,6" VerticalAlignment="Center"
-              ToolTip.Tip="A movable window on the chosen screen (drag it, or close and reopen full screen)" />
-      <Button Classes="stop" Content="CLOSE" Command="{Binding CloseWebCommand}"
-              Margin="0,0,0,6" ToolTip.Tip="Close every web window Patterns opened" />
-    </WrapPanel>
-    <TextBlock Classes="label" Text="{Binding WebStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint tip"
-               Text="Full screen = kiosk (in), windowed = out; Esc inside a kiosk window also exits its full screen. Opened pages are remembered below." />
-
-    <TextBlock Classes="h2" Text="IN THE ENGINE" />
-    <WrapPanel>
       <Button Classes="go" Content="SHOW THIS PAGE ON THE PATTERN" Command="{Binding PutWebPageOnPatternCommand}" Margin="0,0,8,6"
-              ToolTip.Tip="The selected target's pattern becomes a Media pattern showing this page inside the engine — spans, NDI, the stream, looks and cues all carry it; drive it on the PREVIEW pane" />
+              ToolTip.Tip="The selected target's pattern becomes a Media pattern showing this page inside the engine — spans, NDI, the stream, looks and cues all carry it; drive it on the PREVIEW pane and with the PAGE CONTROLS on the Media page" />
     </WrapPanel>
     <TextBlock Classes="hint tip"
-               Text="Inside the engine the page is a picture like any other: it fits the canvas, crossfades, sits under the overlays and the lower third, and can be a layer over another pattern too (Media page → LAYERS → Web page). Click, drag and scroll it on the PREVIEW pane; the pointer is drawn for the room or hidden per page; PAGE CONTROLS on the Media page type into it. Needs the WebView2 runtime, which Windows 10 and 11 keep current." />
+               Text="Inside the engine the page is a picture like any other: it fits the canvas, crossfades, sits under the overlays and the lower third, and can be a layer over another pattern too (Media page → LAYERS → Web page). Click, drag and scroll it on the PREVIEW pane; PAGE CONTROLS on the Media page type into it and carry the page's own actions (NEXT, PRESENT, PLAY…); KEYS → PAGE hands it the whole keyboard; the pointer is drawn for the room or hidden per page. The same actions run from cues, the wire, OSC, the phone and Companion. Needs the WebView2 runtime, which Windows 10 and 11 keep current." />
 
     <TextBlock Classes="h2" Text="SAVED PAGES" />
     <ItemsControl ItemsSource="{Binding State.Web.SavedUrls}">
@@ -100,6 +79,6 @@
 
     <TextBlock Classes="h2" Text="GOOD TO KNOW" />
     <TextBlock Classes="hint tip"
-               Text="A browser window (OPEN FULL SCREEN) sits on top of the operating system, not inside the pattern engine — it doesn't join spans, take trims, or reach NDI outputs, but it keeps a real keyboard and mouse for someone at that screen. A page inside the engine does all of those and is driven from the desk; a page with sound plays it on the default device unless muted." />
+               Text="Every page lives inside the engine and is driven from the desk, a cue, the phone or a Stream Deck; a link that wants a new window opens in the same page instead, so the show never leaves Patterns. A page with sound plays it on the default device unless muted (Media page → SOUND). PowerPoint for the web and a Google Slides deck of your own need a sign-in once: KEYS → PAGE on the Media page, type, and the account stays signed in on this machine." />
   </StackPanel>
 </UserControl>

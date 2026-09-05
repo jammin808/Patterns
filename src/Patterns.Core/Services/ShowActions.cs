@@ -127,6 +127,20 @@ public enum ShowActionKind
     LowerThirdTake,
     /// <summary>The design on air is replaced by the design as it is now — every edit, the words too — without leaving and arriving again.</summary>
     LowerThirdUpdate,
+    /// <summary>
+    /// Target = a web page in the show ("" = the page the program shows; else its nickname, its
+    /// address or a word of it); Value = a key chord ("ArrowRight", "Ctrl+Shift+F5") or a page
+    /// action ("next", "play", "present"…) the page's service maps to its key or its script.
+    /// </summary>
+    WebKey,
+    /// <summary>A click on the page: Value = "x y" in percent of the page.</summary>
+    WebClick,
+    /// <summary>Value typed into the field that has the page's focus.</summary>
+    WebType,
+    /// <summary>The page reloaded.</summary>
+    WebReload,
+    /// <summary>The page's browser sent to another address (Value); the pattern keeps its own address.</summary>
+    WebOpen,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

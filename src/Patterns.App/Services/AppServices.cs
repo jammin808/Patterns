@@ -22,9 +22,8 @@ public sealed class AppServices
     public OutputWindowManager Outputs { get; }
     public VideoEngine Video { get; }
     public NdiInputEngine NdiIn { get; }
-    public WebService Web { get; }
 
-    /// <summary>Web pages inside the engine — one browser per page the show references.</summary>
+    /// <summary>Web pages inside the engine — one browser per page the show references. Nothing opens outside Patterns.</summary>
     public WebEngine WebIn { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
@@ -195,7 +194,6 @@ public sealed class AppServices
         var video = Video;
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
-        Web = new WebService();
         WebIn = new WebEngine(Store.BaseDirectory);
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
@@ -660,7 +658,6 @@ public sealed class AppServices
             Control.Dispose();
             Osc.Dispose();
             Beacon.Dispose();
-            Web.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();
             WebIn.Dispose();

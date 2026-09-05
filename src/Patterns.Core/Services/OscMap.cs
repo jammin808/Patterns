@@ -39,6 +39,12 @@ public static class OscMap
         ("/patterns/lowerthird/take", "LOWERTHIRD TAKE — the lower third in the preview goes to air"),
         ("/patterns/lowerthird/update", "LOWERTHIRD UPDATE — the design on air replaced by the design as it is now, in place"),
         ("/patterns/person <n|name>", "PERSON — a library entry into the lower third on air (else the show's default design)"),
+        ("/patterns/web/key <key|action> [page]", "WEB KEY — a key chord (ArrowRight, Space, Ctrl+Shift+F5) or a page action (next, play, present…) to the web page on air, or to the page a second argument names (also /patterns/web/key/<key>)"),
+        ("/patterns/web/next, /prev, /first, /last, /present, /exit, /play, /pause, /mute, /restart, /black, /white… [page]", "WEB <action> — the page actions as addresses of their own"),
+        ("/patterns/web/click <x> <y>", "WEB CLICK — a click at a point in percent of the page (also /patterns/web/click/50/50; floats up to 1.0 are fractions)"),
+        ("/patterns/web/type <text>", "WEB TYPE — text into the field that has the page's focus"),
+        ("/patterns/web/reload [page]", "WEB RELOAD"),
+        ("/patterns/web/open <address> [page]", "WEB OPEN — the page's browser sent to another address"),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
         ("/patterns/stream 1|0", "STREAM ON / OFF"),
         ("/patterns/cue/go [id]", "CUE GO — the standby id you last saw, or none"),
@@ -135,6 +141,57 @@ public static class OscMap
                 return person.Length == 0 ? "LOWERTHIRD " + design : $"LOWERTHIRD {design} WITH {person}";
             }
             case "person": return Named("PERSON", m, seg);
+            // /patterns/web/key <key|action> [page] · /patterns/web/next [page] (any action word) · /patterns/web/click x y ·
+            // /patterns/web/type "text" · /patterns/web/reload [page] · /patterns/web/open "address" [page]
+            case "web":
+            case "page":
+            {
+                var what = seg.ToLowerInvariant();
+                if (what.Length == 0) return null;
+                switch (what)
+                {
+                    case "key":
+                    case "press":
+                    case "action":
+                    {
+                        var key = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                        if (key.Length == 0) return null;
+                        var page = seg3.Length > 0 ? seg3 : seg2.Length > 0 ? m.Text() ?? "" : m.Text(1) ?? "";
+                        return page.Length == 0 ? "WEB KEY " + key : $"WEB KEY {key} ON {page}";
+                    }
+                    case "click":
+                    {
+                        var x = seg2.Length > 0 ? seg2 : Coordinate(m, 0);
+                        var y = seg3.Length > 0 ? seg3 : Coordinate(m, seg2.Length > 0 ? 0 : 1);
+                        return x is null || y is null ? null : $"WEB CLICK {x} {y}";
+                    }
+                    case "type":
+                    {
+                        var text = m.Text() ?? "";
+                        return text.Length == 0 ? null : "WEB TYPE " + text;
+                    }
+                    case "reload":
+                    case "refresh":
+                    {
+                        var page = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                        return page.Length == 0 ? "WEB RELOAD" : "WEB RELOAD " + page;
+                    }
+                    case "open":
+                    case "go":
+                    case "navigate":
+                    {
+                        var address = m.Text() ?? "";
+                        if (address.Length == 0) return null;
+                        var page = m.Text(1) ?? "";
+                        return page.Length == 0 ? "WEB OPEN " + address : $"WEB OPEN {address} ON {page}";
+                    }
+                    default:
+                    {
+                        var page = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                        return page.Length == 0 ? "WEB KEY " + what.ToUpperInvariant() : $"WEB KEY {what.ToUpperInvariant()} ON {page}";
+                    }
+                }
+            }
             case "section": return Named("SECTION", m, seg);
             case "stream": return "STREAM " + Switch(m, seg, "ON", toggles: false);
             case "cue":
@@ -213,6 +270,22 @@ public static class OscMap
         var number = m.Number();
         if (number is { } v) return v > 0.5 ? "ON" : "OFF";
         return whenMissing;
+    }
+
+    /// <summary>A coordinate in percent from an argument: an integer as it is, a float up to 1.0 as a fraction (× 100); null without one.</summary>
+    private static string? Coordinate(OscMessage m, int index)
+    {
+        if (index >= m.Args.Count) return null;
+        var value = m.Args[index] switch
+        {
+            int i => i,
+            long l => (double)l,
+            float f => f is >= 0 and <= 1 ? f * 100 : f,
+            double d => d is >= 0 and <= 1 ? d * 100 : d,
+            string s => double.TryParse(s.TrimEnd('%'), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : double.NaN,
+            _ => double.NaN,
+        };
+        return double.IsNaN(value) ? null : Math.Round(value, 2).ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>A level in percent: an integer as it is, a float between 0.0 and 1.0 as a fader (× 100), a larger float rounded.</summary>

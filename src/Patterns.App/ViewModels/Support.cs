@@ -311,6 +311,9 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     }
 }
 
+/// <summary>A page action chip under PAGE CONTROLS: the action's id for the wire, its label for the key, its hint.</summary>
+public sealed record WebActionChip(string Id, string Label, string Hint);
+
 /// <summary>A labelled enum value for combo boxes.</summary>
 public sealed record EnumItem(object Value, string Label)
 {

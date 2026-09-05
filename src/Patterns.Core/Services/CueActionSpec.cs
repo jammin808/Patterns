@@ -16,6 +16,8 @@ public enum TargetKind
     Music,
     /// <summary>A lower third design.</summary>
     LowerThird,
+    /// <summary>A web page in the show, by nickname, address or a word of it (blank = the page on air).</summary>
+    Page,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -32,6 +34,10 @@ public enum ValueKind
     Level,
     /// <summary>A lower-thirds library entry (id, name or number) to fill the design with first; empty = as designed.</summary>
     Person,
+    /// <summary>A key chord ("ArrowRight", "Space", "Ctrl+Shift+F5") or a page action ("next", "play", "present"…).</summary>
+    WebKey,
+    /// <summary>"x y" in percent of a page.</summary>
+    Point,
 }
 
 /// <summary>
@@ -58,6 +64,10 @@ public static class CueActionSpec
         CueActionKind.LowerThirdPreview => (TargetKind.LowerThird, ValueKind.Person),
         CueActionKind.ListArm or CueActionKind.ListDisarm or CueActionKind.ListGo
             or CueActionKind.ListBack or CueActionKind.ListReset => (TargetKind.Stack, ValueKind.None),
+        CueActionKind.WebKey => (TargetKind.Page, ValueKind.WebKey),
+        CueActionKind.WebClick => (TargetKind.Page, ValueKind.Point),
+        CueActionKind.WebType => (TargetKind.Page, ValueKind.Text),
+        CueActionKind.WebReload => (TargetKind.Page, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),
     };
 
@@ -104,6 +114,10 @@ public static class CueActionSpec
         CueActionKind.ListGo => "GO on a list",
         CueActionKind.ListBack => "Back on a list",
         CueActionKind.ListReset => "Reset a list",
+        CueActionKind.WebKey => "Web page — key or action",
+        CueActionKind.WebClick => "Web page — click",
+        CueActionKind.WebType => "Web page — type text",
+        CueActionKind.WebReload => "Web page — reload",
         _ => kind.ToString(),
     };
 
@@ -124,6 +138,7 @@ public static class CueActionSpec
         CueActionKind.MessageOn, CueActionKind.MessageOff,
         CueActionKind.ClockOn, CueActionKind.ClockOff,
         CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide, CueActionKind.LowerThirdPreview, CueActionKind.LowerThirdTake,
+        CueActionKind.WebKey, CueActionKind.WebClick, CueActionKind.WebType, CueActionKind.WebReload,
         CueActionKind.DuckOn, CueActionKind.DuckOff,
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };

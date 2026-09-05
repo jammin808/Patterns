@@ -122,6 +122,9 @@ class PatternsInstance extends InstanceBase {
 			lower_third_preview_person: this.state.lowerThirdPreviewPerson ?? '',
 			lower_third_default: this.state.lowerThirdDefault ?? '',
 			lower_third_edited: this.state.lowerThirdEdited ? 'EDITED' : 'off',
+			web_page: this.state.web?.page ?? '',
+			web_title: this.state.web?.title ?? '',
+			web_service: this.state.web?.service ?? '',
 			review: this.state.review ? 'ON' : 'off',
 			freeze: this.state.frozen ? 'FROZEN' : 'off',
 			previous_look: this.state.previousLook ?? '',
@@ -341,6 +344,67 @@ class PatternsInstance extends InstanceBase {
 			lower_third_take: { name: 'Lower third TAKE — the one in the preview to air (the preview clears)', options: [], callback: () => send('LT TAKE') },
 			lower_third_update: { name: 'Lower third UPDATE — the design on air replaced by the design as it is now, in place', options: [], callback: () => send('LT UPDATE') },
 			lower_third_preview_off: { name: 'Lower third preview clear', options: [], callback: () => send('LT PREVIEW OFF') },
+			// The web page on air (or one named by its nickname or a word of its address): a page action the
+			// page's service maps to its key or its player — next / present on a deck, play / mute on YouTube —
+			// or a key of your own; a click in percent; typed text; a reload; another address.
+			web_action: {
+				name: 'Web page — an action on the page on air (next slide, present, play, black…)',
+				options: [
+					{
+						type: 'dropdown', id: 'action', label: 'Action', default: 'next',
+						choices: [
+							{ id: 'next', label: 'Next (slide / video)' },
+							{ id: 'prev', label: 'Previous' },
+							{ id: 'first', label: 'First slide' },
+							{ id: 'last', label: 'Last slide' },
+							{ id: 'present', label: 'Present — start the deck' },
+							{ id: 'exit', label: 'Exit (Escape)' },
+							{ id: 'play', label: 'Play / pause' },
+							{ id: 'pause', label: 'Pause' },
+							{ id: 'mute', label: 'Mute / unmute' },
+							{ id: 'restart', label: 'Restart the video' },
+							{ id: 'forward', label: '+10 s' },
+							{ id: 'rewind', label: '−10 s' },
+							{ id: 'black', label: 'Black slide' },
+							{ id: 'white', label: 'White slide' },
+							{ id: 'captions', label: 'Captions' },
+							{ id: 'fullscreen', label: 'Full screen' },
+							{ id: 'reload', label: 'Reload the page' },
+							{ id: 'key', label: 'A key of your own (below)' },
+						],
+					},
+					{ type: 'textinput', id: 'key', label: 'Key, when the action is "a key of your own": ArrowRight, Space, k, Ctrl+Shift+F5', default: '' },
+					{ type: 'textinput', id: 'page', label: 'Page (blank = the page on air; else its nickname or a word of its address)', default: '' },
+				],
+				callback: (a) => {
+					const on = a.options.page ? ` ON ${String(a.options.page).trim()}` : ''
+					if (a.options.action === 'reload') return send(`WEB RELOAD${on}`)
+					const key = a.options.action === 'key' ? String(a.options.key || '').trim() : a.options.action
+					if (key) send(`WEB KEY ${key}${on}`)
+				},
+			},
+			web_click: {
+				name: 'Web page — click at a spot (percent of the page)',
+				options: [
+					{ type: 'number', id: 'x', label: 'X (% from the left)', default: 50, min: 0, max: 100 },
+					{ type: 'number', id: 'y', label: 'Y (% from the top)', default: 50, min: 0, max: 100 },
+					{ type: 'textinput', id: 'page', label: 'Page (blank = the page on air)', default: '' },
+				],
+				callback: (a) => send(`WEB CLICK ${a.options.x} ${a.options.y}${a.options.page ? ` ON ${String(a.options.page).trim()}` : ''}`),
+			},
+			web_type: {
+				name: 'Web page — type text into the field that has the page\'s focus',
+				options: [{ type: 'textinput', id: 'text', label: 'Text', default: '' }],
+				callback: (a) => { if (a.options.text) send(`WEB TYPE ${a.options.text}`) },
+			},
+			web_open: {
+				name: 'Web page — send the page\'s browser to another address',
+				options: [
+					{ type: 'textinput', id: 'address', label: 'Address', default: '' },
+					{ type: 'textinput', id: 'page', label: 'Page (blank = the page on air)', default: '' },
+				],
+				callback: (a) => { if (a.options.address) send(`WEB OPEN ${String(a.options.address).trim()}${a.options.page ? ` ON ${String(a.options.page).trim()}` : ''}`) },
+			},
 			// VOG / STING name the same library by the same number and only assert the kind: a key
 			// that says VOG never fires a stinger — Patterns refuses and names the item.
 			vog: {
@@ -509,6 +573,18 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => !!this.state.lowerThirdEdited,
 			},
+			web_on_air: {
+				type: 'boolean',
+				name: 'A web page is on air (any, or one whose address carries a word)',
+				defaultStyle: { bgcolor: combineRgb(0, 90, 130), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'textinput', id: 'word', label: 'A word of the address (blank = any page)', default: '' }],
+				callback: (fb) => {
+					const w = this.state.web
+					if (!w || !w.page) return false
+					const word = String(fb.options.word || '').trim().toLowerCase()
+					return !word || String(w.url || '').toLowerCase().includes(word) || String(w.page || '').toLowerCase().includes(word)
+				},
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -573,6 +649,9 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
 			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
+			{ variableId: 'web_page', name: 'Web page on air (its nickname or host, or empty)' },
+			{ variableId: 'web_title', name: 'Web page on air — its title' },
+			{ variableId: 'web_service', name: 'Web page on air — its service (YouTube, Google Slides…), or empty' },
 			{ variableId: 'music', name: 'Break music — now playing' },
 			{ variableId: 'music_state', name: 'Break music state (PLAYING/paused)' },
 			{ variableId: 'music_level', name: 'Break music level (0–100)' },
@@ -740,6 +819,18 @@ class PatternsInstance extends InstanceBase {
 				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) to preview, into the design in the preview, on air, or the default`,
 				style: { text: `PVW\\nPERSON ${n}`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n: 0, person: String(n) } }], up: [] }], feedbacks: [lowerPvw],
+			}
+		}
+		const webOn = { feedbackId: 'web_on_air', options: { word: '' }, style: { bgcolor: combineRgb(0, 90, 130) } }
+		for (const [id, text, action] of [
+			['next', 'PAGE\\nNEXT ▶', 'next'], ['prev', 'PAGE\\n◀ PREV', 'prev'], ['first', 'PAGE\\nFIRST', 'first'], ['last', 'PAGE\\nLAST', 'last'],
+			['present', 'PAGE\\nPRESENT', 'present'], ['exit', 'PAGE\\nEXIT', 'exit'], ['play', 'PAGE\\nPLAY ❚❚', 'play'], ['mute', 'PAGE\\nMUTE', 'mute'],
+			['black', 'PAGE\\nBLACK', 'black'], ['reload', 'PAGE\\nRELOAD', 'reload'],
+		]) {
+			presets[`web_${id}`] = {
+				type: 'button', category: 'Web page', name: `Web page — ${action} (the page on air: $(patterns:web_page))`,
+				style: { text, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'web_action', options: { action, key: '', page: '' } }], up: [] }], feedbacks: [webOn],
 			}
 		}
 		const musicOn = { feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }

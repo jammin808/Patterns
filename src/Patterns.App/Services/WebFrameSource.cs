@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text.Json;
@@ -12,17 +13,23 @@ namespace Patterns.App.Services;
 /// <summary>
 /// A web page as an engine input. WebView2 — the browser engine Windows 10 and 11 ship — renders
 /// into a window of its own kept off every screen; its picture is grabbed at a steady rate and
-/// published through a <see cref="FrameSlot"/> for any sink to draw. The desk's pointer, wheel
-/// and clicks are posted to the browser's window as real mouse messages, so links, players,
-/// sliders and embedded frames all respond; typed text and named keys go by script to the field
-/// the page has focused. Everything WebView2 happens on the UI thread (it is apartment-bound);
-/// the render threads only read the slot.
+/// published through a <see cref="FrameSlot"/> for any sink to draw. The desk's pointer, wheel,
+/// clicks and keys go in through the browser's own input protocol (the DevTools Input domain —
+/// what every browser automation tool uses), so they are trusted events that reach links,
+/// players, sliders and frames from other sites alike, whatever window has the focus. Everything
+/// WebView2 happens on the UI thread (it is apartment-bound); the render threads only read the slot.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class WebFrameSource : IWebSource, IDisposable
 {
     /// <summary>How often the page's picture is grabbed. A grab encodes and decodes a frame, so this is a ceiling, not a promise.</summary>
     public const int CaptureFps = 20;
+
+    /// <summary>What one wheel notch scrolls, in page pixels — the browser's own default.</summary>
+    public const float WheelPixelsPerLine = 100;
+
+    /// <summary>Presses at one spot within this count as a double (then a triple) click.</summary>
+    public static readonly TimeSpan MultiClickWindow = TimeSpan.FromMilliseconds(500);
 
     public const string RuntimeMissingNote =
         "WebView2 runtime not found — Windows Update brings it, or install the Evergreen runtime from microsoft.com/edge/webview2.";
@@ -39,11 +46,13 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private readonly string _userDataFolder;
     private readonly int _width;
     private readonly int _height;
+    private readonly LinkedList<(string Method, string Json)> _input = new();
     private IntPtr _hwnd;
     private CoreWebView2Controller? _controller;
     private CoreWebView2? _core;
     private DispatcherTimer? _timer;
     private bool _capturing;
+    private bool _pumping;
     private volatile bool _disposed;
     private volatile string _status = "Starting the browser…";
     private volatile string _title = "";
@@ -53,6 +62,11 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private SKPoint? _pointer;
     private long _lastClickTicks;
     private int _grabFailures;
+    private int _inputFailures;
+    private bool _pressed;
+    private int _clickCount;
+    private long _lastPressTicks;
+    private (int X, int Y) _lastPress;
 
     private WebFrameSource(string url, int width, int height, string userDataFolder)
     {
@@ -165,12 +179,23 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             _core.DocumentTitleChanged += (_, _) => _title = _core.DocumentTitle ?? "";
             _core.NewWindowRequested += (_, e) =>
             {
-                // A link that wants a new window opens here instead — there is only this window.
+                // Nothing opens outside Patterns: a link that wants a new window opens here instead.
                 e.Handled = true;
                 _core.Navigate(e.Uri);
             };
             _core.ProcessFailed += (_, _) => _status = "The page's process failed — press Reload.";
-            await _core.AddScriptToExecuteOnDocumentCreatedAsync(DeskScript);
+
+            // The page believes it is the focused, active window even though ours never takes the
+            // focus (that would steal it from the desk): a caret blinks in a field, a player's
+            // shortcuts listen, document.hasFocus() is true — the way a browser automation session sees it.
+            try
+            {
+                await _core.CallDevToolsProtocolMethodAsync("Emulation.setFocusEmulationEnabled", "{\"enabled\":true}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Web page focus emulation not enabled.", ex);
+            }
             if (_disposed) return;
 
             NavigateCore(_currentUrl);
@@ -179,6 +204,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             _timer.Tick += (_, _) => _ = GrabAsync();
             _timer.Start();
             Log.Info($"Web page opened in the engine: {_currentUrl} ({_width}×{_height}).");
+            _ = PumpAsync();   // anything the desk sent while the browser was starting
         }
         catch (WebView2RuntimeNotFoundException)
         {
@@ -297,52 +323,90 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     public void PointerMove(float nx, float ny)
     {
         _pointer = new SKPoint(nx, ny);
-        Post(WM_MOUSEMOVE, nx, ny, 0);
+        Mouse("mouseMoved", nx, ny);
     }
 
     public void PointerDown(float nx, float ny)
     {
         _pointer = new SKPoint(nx, ny);
         Interlocked.Exchange(ref _lastClickTicks, DateTime.UtcNow.Ticks);
-        Post(WM_LBUTTONDOWN, nx, ny, MK_LBUTTON);
+        var at = ToPixels(nx, ny);
+        var now = DateTime.UtcNow.Ticks;
+        var again = now - _lastPressTicks < MultiClickWindow.Ticks && Math.Abs(at.X - _lastPress.X) <= 4 && Math.Abs(at.Y - _lastPress.Y) <= 4;
+        _clickCount = again ? Math.Min(3, _clickCount + 1) : 1;
+        _lastPressTicks = now;
+        _lastPress = at;
+        _pressed = true;
+        Mouse("mousePressed", nx, ny);
     }
 
     public void PointerUp(float nx, float ny)
     {
         _pointer = new SKPoint(nx, ny);
-        Post(WM_LBUTTONUP, nx, ny, 0);
+        Mouse("mouseReleased", nx, ny);
+        _pressed = false;
     }
 
-    public void PointerLeave()
-    {
-        _pointer = null;
-        if (_hwnd != IntPtr.Zero) PostMessageW(DeepestChild(_hwnd, 0, 0), WM_MOUSELEAVE, IntPtr.Zero, IntPtr.Zero);
-    }
+    public void PointerLeave() => _pointer = null;
 
     public void Wheel(float nx, float ny, float deltaLines, bool horizontal)
     {
         _pointer = new SKPoint(nx, ny);
-        if (_hwnd == IntPtr.Zero) return;
         var (x, y) = ToPixels(nx, ny);
-        var target = DeepestChild(_hwnd, x, y);
-        // The wheel message carries screen coordinates; the window sits off-screen, so ask where that is.
-        var pt = new POINT { X = x, Y = y };
-        ClientToScreen(_hwnd, ref pt);
-        var delta = (short)Math.Clamp(Math.Round(deltaLines * WHEEL_DELTA), short.MinValue, short.MaxValue);
-        var wParam = (IntPtr)(((ushort)delta << 16) | 0);
-        PostMessageW(target, horizontal ? WM_MOUSEHWHEEL : WM_MOUSEWHEEL, wParam, MakeLParam(pt.X, pt.Y));
+        // The desk's wheel reports a notch up as +1; the browser scrolls down for a positive delta.
+        var px = -deltaLines * WheelPixelsPerLine;
+        Enqueue("Input.dispatchMouseEvent", JsonSerializer.Serialize(new
+        {
+            type = "mouseWheel",
+            x,
+            y,
+            deltaX = horizontal ? px : 0f,
+            deltaY = horizontal ? 0f : px,
+            button = "none",
+            buttons = _pressed ? 1 : 0,
+            modifiers = 0,
+        }));
     }
 
     public void TypeText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
-        RunScript($"window.__patterns && window.__patterns.type({JsonSerializer.Serialize(text)})");
+        var elements = StringInfo.GetTextElementEnumerator(text);
+        while (elements.MoveNext())
+        {
+            var element = elements.GetTextElement();
+            if (element == "\r") continue;
+            // A character a US key types goes as that key — the page sees a real keystroke; anything else is inserted as text, as an IME would.
+            if (element.Length == 1 && WebKeys.ForChar(element[0]) is { } press) Key(press);
+            else Enqueue("Input.insertText", JsonSerializer.Serialize(new { text = element }));
+        }
     }
 
     public void PressKey(string key)
     {
-        if (string.IsNullOrWhiteSpace(key)) return;
-        RunScript($"window.__patterns && window.__patterns.key({JsonSerializer.Serialize(key.Trim())})");
+        if (!WebKeys.TryParse(key, out var press))
+        {
+            Log.Warn($"Web page key not understood: '{key}'.");
+            return;
+        }
+        Key(press);
+    }
+
+    public void RunScript(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script)) return;
+        OnUi(async () =>
+        {
+            if (_core is null || _disposed) return;
+            try
+            {
+                await _core.ExecuteScriptAsync(script);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Web page script failed.", ex);
+            }
+        });
     }
 
     public void Navigate(string url) => OnUi(() => NavigateCore(WebAddress.Normalize(url)));
@@ -352,6 +416,94 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     public void GoForward() => OnUi(() => { if (_core is { CanGoForward: true }) _core.GoForward(); });
 
     public void Reload() => OnUi(() => _core?.Reload());
+
+    // ---- input, in order -----------------------------------------------------------------------
+
+    private void Mouse(string type, float nx, float ny)
+    {
+        var (x, y) = ToPixels(nx, ny);
+        var down = _pressed || type == "mousePressed";
+        Enqueue("Input.dispatchMouseEvent", JsonSerializer.Serialize(new
+        {
+            type,
+            x,
+            y,
+            button = down || type == "mouseReleased" ? "left" : "none",
+            buttons = down && type != "mouseReleased" ? 1 : 0,
+            clickCount = type == "mouseMoved" ? 0 : _clickCount,
+            modifiers = 0,
+        }));
+    }
+
+    private void Key(in WebKeyPress press)
+    {
+        var down = new Dictionary<string, object>
+        {
+            ["type"] = press.HasText ? "keyDown" : "rawKeyDown",
+            ["modifiers"] = press.Modifiers,
+            ["key"] = press.Key,
+            ["code"] = press.Code,
+            ["windowsVirtualKeyCode"] = press.VirtualKey,
+            ["nativeVirtualKeyCode"] = press.VirtualKey,
+        };
+        if (press.HasText)
+        {
+            down["text"] = press.Text;
+            down["unmodifiedText"] = press.Text;
+        }
+        Enqueue("Input.dispatchKeyEvent", JsonSerializer.Serialize(down));
+        Enqueue("Input.dispatchKeyEvent", JsonSerializer.Serialize(new
+        {
+            type = "keyUp",
+            modifiers = press.Modifiers,
+            key = press.Key,
+            code = press.Code,
+            windowsVirtualKeyCode = press.VirtualKey,
+            nativeVirtualKeyCode = press.VirtualKey,
+        }));
+    }
+
+    /// <summary>Queues one protocol call; a move that follows a move replaces it, so a fast hand never builds a backlog.</summary>
+    private void Enqueue(string method, string json)
+    {
+        if (_disposed) return;
+        OnUi(() =>
+        {
+            if (_disposed) return;
+            if (json.Contains("\"mouseMoved\"", StringComparison.Ordinal) && _input.Last is { } last && last.Value.Json.Contains("\"mouseMoved\"", StringComparison.Ordinal))
+            {
+                _input.RemoveLast();
+            }
+            _input.AddLast((method, json));
+            if (!_pumping) _ = PumpAsync();
+        });
+    }
+
+    /// <summary>Sends the queued calls one after another, so a press never overtakes the move before it.</summary>
+    private async Task PumpAsync()
+    {
+        if (_pumping) return;
+        _pumping = true;
+        try
+        {
+            while (_input.First is { } next && !_disposed && _core is { } core)
+            {
+                _input.RemoveFirst();
+                try
+                {
+                    await core.CallDevToolsProtocolMethodAsync(next.Value.Method, next.Value.Json);
+                }
+                catch (Exception ex)
+                {
+                    if (_inputFailures++ % 100 == 0) Log.Warn($"Web page input failed ({next.Value.Method}).", ex);
+                }
+            }
+        }
+        finally
+        {
+            _pumping = false;
+        }
+    }
 
     // ---- plumbing ------------------------------------------------------------------------------
 
@@ -396,22 +548,6 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
     }
 
-    private void RunScript(string script)
-    {
-        OnUi(async () =>
-        {
-            if (_core is null || _disposed) return;
-            try
-            {
-                await _core.ExecuteScriptAsync(script);
-            }
-            catch (Exception ex)
-            {
-                Log.Warn("Web page script failed.", ex);
-            }
-        });
-    }
-
     private static void OnUi(Action action)
     {
         if (Dispatcher.UIThread.CheckAccess()) action();
@@ -422,36 +558,6 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         (int)Math.Round(Math.Clamp(nx, 0, 1) * (_width - 1)),
         (int)Math.Round(Math.Clamp(ny, 0, 1) * (_height - 1)));
 
-    private void Post(uint message, float nx, float ny, int keys)
-    {
-        if (_hwnd == IntPtr.Zero) return;
-        var (x, y) = ToPixels(nx, ny);
-        var target = DeepestChild(_hwnd, x, y);
-        var pt = new POINT { X = x, Y = y };
-        ClientToScreen(_hwnd, ref pt);
-        ScreenToClient(target, ref pt);
-        PostMessageW(target, message, (IntPtr)keys, MakeLParam(pt.X, pt.Y));
-    }
-
-    /// <summary>The browser's innermost window under a point of ours — the one that handles mouse messages.</summary>
-    private static IntPtr DeepestChild(IntPtr root, int x, int y)
-    {
-        var current = root;
-        var screen = new POINT { X = x, Y = y };
-        ClientToScreen(root, ref screen);
-        for (var depth = 0; depth < 8; depth++)
-        {
-            var local = screen;
-            ScreenToClient(current, ref local);
-            var next = RealChildWindowFromPoint(current, local);
-            if (next == IntPtr.Zero || next == current) break;
-            current = next;
-        }
-        return current;
-    }
-
-    private static IntPtr MakeLParam(int x, int y) => (IntPtr)((y << 16) | (x & 0xFFFF));
-
     public void Dispose()
     {
         if (_disposed) return;
@@ -460,6 +566,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         {
             _timer?.Stop();
             _timer = null;
+            _input.Clear();
             _controller?.Close();
             _controller = null;
             _core = null;
@@ -476,81 +583,12 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         _slot.Dispose();
     }
 
-    /// <summary>
-    /// Runs in every document the page loads: typed text goes into the focused field, named keys
-    /// do what a keyboard would — submit a form, follow a link, delete, move focus, scroll.
-    /// Frames from another site are out of reach (the browser keeps them apart); the mouse
-    /// messages still reach them.
-    /// </summary>
-    private const string DeskScript = """
-        window.__patterns = {
-          type: function (t) {
-            var a = document.activeElement;
-            if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) {
-              if (!document.execCommand('insertText', false, t)) {
-                a.value = (a.value || '') + t;
-                a.dispatchEvent(new Event('input', { bubbles: true }));
-              }
-              return 1;
-            }
-            return 0;
-          },
-          key: function (k) {
-            var a = document.activeElement || document.body;
-            var mk = function (type) { return new KeyboardEvent(type, { key: k, code: k, bubbles: true, cancelable: true }); };
-            var swallowed = !a.dispatchEvent(mk('keydown'));
-            a.dispatchEvent(mk('keypress'));
-            a.dispatchEvent(mk('keyup'));
-            if (swallowed) return 1;
-            var editable = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
-            if (k === 'Enter') {
-              if (a && a.tagName === 'INPUT' && a.form) { if (a.form.requestSubmit) a.form.requestSubmit(); else a.form.submit(); }
-              else if (a && (a.tagName === 'A' || a.tagName === 'BUTTON')) a.click();
-              else if (editable && a.tagName !== 'INPUT') document.execCommand('insertText', false, '\n');
-            } else if (k === 'Backspace') {
-              if (editable) document.execCommand('delete');
-            } else if (k === 'Escape') {
-              if (a && a.blur) a.blur();
-            } else if (k === 'Tab') {
-              var f = Array.prototype.filter.call(document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]'),
-                function (e) { return !e.disabled && e.tabIndex >= 0 && e.offsetParent !== null; });
-              if (f.length) f[(f.indexOf(a) + 1) % f.length].focus();
-            } else if (!editable) {
-              var page = window.innerHeight * 0.9;
-              var d = { ArrowDown: [0, 60], ArrowUp: [0, -60], ArrowLeft: [-60, 0], ArrowRight: [60, 0],
-                        PageDown: [0, page], PageUp: [0, -page], Space: [0, page] }[k];
-              if (d) window.scrollBy(d[0], d[1]);
-              else if (k === 'Home') window.scrollTo(0, 0);
-              else if (k === 'End') window.scrollTo(0, document.body.scrollHeight);
-            } else if (k === 'Space') {
-              document.execCommand('insertText', false, ' ');
-            }
-            return 1;
-          }
-        };
-        """;
-
     // ---- Win32 ---------------------------------------------------------------------------------
 
     private const uint WS_POPUP = 0x80000000;
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
     private const uint WS_EX_NOACTIVATE = 0x08000000;
     private const int SW_SHOWNOACTIVATE = 4;
-    private const uint WM_MOUSEMOVE = 0x0200;
-    private const uint WM_LBUTTONDOWN = 0x0201;
-    private const uint WM_LBUTTONUP = 0x0202;
-    private const uint WM_MOUSEWHEEL = 0x020A;
-    private const uint WM_MOUSEHWHEEL = 0x020E;
-    private const uint WM_MOUSELEAVE = 0x02A3;
-    private const int MK_LBUTTON = 0x0001;
-    private const int WHEEL_DELTA = 120;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct POINT
-    {
-        public int X;
-        public int Y;
-    }
 
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern IntPtr CreateWindowExW(uint exStyle, string className, string windowName, uint style,
@@ -561,16 +599,4 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hwnd, int command);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool PostMessageW(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr RealChildWindowFromPoint(IntPtr parent, POINT point);
-
-    [DllImport("user32.dll")]
-    private static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
-
-    [DllImport("user32.dll")]
-    private static extern bool ScreenToClient(IntPtr hwnd, ref POINT point);
 }

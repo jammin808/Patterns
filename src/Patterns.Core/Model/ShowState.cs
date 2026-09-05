@@ -1368,9 +1368,9 @@ public sealed class WebConfig : Observable
     private string _url = "";
     private string _targetScreenId = "";
 
-    /// <summary>The page to open (https://… or a local file path).</summary>
+    /// <summary>The page the Remote &amp; web page puts on the pattern (https://… or a local file path).</summary>
     public string Url { get => _url; set => Set(ref _url, value); }
-    /// <summary>Screen the browser window opens on ("" = primary).</summary>
+    /// <summary>Kept for show files from before pages lived inside the engine; nothing opens outside Patterns any more.</summary>
     public string TargetScreenId { get => _targetScreenId; set => Set(ref _targetScreenId, value); }
 
     /// <summary>Quick-recall URLs (session schedules, dashboards, wayfinding pages).</summary>

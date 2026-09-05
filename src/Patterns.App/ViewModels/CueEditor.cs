@@ -169,6 +169,7 @@ public sealed class ActionRow : Observable
         TargetKind.Stack => "Which list…",
         TargetKind.Music => "Which break music… (blank = resume)",
         TargetKind.LowerThird => "Which lower third…",
+        TargetKind.Page => "Which page… (blank = the page on air)",
         _ => "",
     };
 
@@ -176,10 +177,12 @@ public sealed class ActionRow : Observable
     {
         ValueKind.Transition => "blank = show default · cut · fade in ms (e.g. 800)",
         ValueKind.Minutes => "minutes, e.g. 5",
-        ValueKind.Text => "the message text",
+        ValueKind.Text => Action.Kind == CueActionKind.WebType ? "the text typed into the field that has the page's focus" : "the message text",
         ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
         ValueKind.Level => "percent, 0–100 (the Spotify device's own volume)",
         ValueKind.Person => "who: a library entry (blank = as designed)",
+        ValueKind.WebKey => "an action — next · prev · first · last · present · exit · play · pause · mute · restart · black · white — or a key: ArrowRight · Space · k · Ctrl+Shift+F5",
+        ValueKind.Point => "x y in percent of the page, e.g. 50 50",
         _ => "",
     };
 
@@ -314,7 +317,7 @@ public sealed class CueEditor : Observable
             if (SelectedCue is null || name is null || !Enum.TryParse<CueActionKind>(name, out var kind)) return;
             SelectedCue.Actions.Add(new CueActionConfig { Kind = kind });
             OnCueEdited();
-            var needsTarget = CueActionSpec.For(kind).Target != TargetKind.None;
+            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page);
             _status($"{SelectedCue.Number}: {CueActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
         });
 
@@ -704,6 +707,22 @@ public sealed class CueEditor : Observable
                 return state.Spotify.Items.Select(m => new PickItem(m.Id, m.DisplayName));
             case TargetKind.LowerThird:
                 return state.LowerThirds.Designs.Select(d => new PickItem(d.Id, d.Name));
+            case TargetKind.Page:
+            {
+                // The pages the show has now, then the remembered ones: a cue names a page by its address (its nickname or a word of it reads the same).
+                var items = new List<PickItem>();
+                foreach (var (key, url) in WebPresets.PagesIn(state))
+                {
+                    var nickname = state.InputLabel(key, "");
+                    items.Add(new PickItem(url, nickname.Length > 0 ? $"{nickname} · {WebAddress.ShortName(url)}" : $"{WebAddress.ShortName(url)} · {url}"));
+                }
+                foreach (var saved in state.Web.SavedUrls)
+                {
+                    var url = WebAddress.Normalize(saved);
+                    if (url.Length > 0 && items.All(i => i.Id != url)) items.Add(new PickItem(url, $"{WebAddress.ShortName(url)} · {url}"));
+                }
+                return items;
+            }
             default:
                 return Array.Empty<PickItem>();
         }

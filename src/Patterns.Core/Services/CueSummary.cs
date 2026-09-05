@@ -90,6 +90,10 @@ public static class CueSummary
             }
             case CueActionKind.LowerThirdHide: return "Lower third off";
             case CueActionKind.LowerThirdTake: return "Lower third take (preview to air)";
+            case CueActionKind.WebKey: return $"Page: {WebPresets.LabelFor(a.Value)}{PageSuffix(a)}";
+            case CueActionKind.WebClick: return $"Page: click at {a.Value}{PageSuffix(a)}";
+            case CueActionKind.WebType: return $"Page: type '{Shorten(a.Value)}'{PageSuffix(a)}";
+            case CueActionKind.WebReload: return $"Page: reload{PageSuffix(a)}";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
             case CueActionKind.DuckOn: return "Duck for announcement";
@@ -105,6 +109,10 @@ public static class CueSummary
 
     /// <summary>A library item by number, id, then display name (case-insensitive) — either kind.</summary>
     public static StingerItemConfig? FindStinger(ShowState state, string idOrName) => StingerLibrary.Find(state, idOrName);
+
+    /// <summary>" → the page" when a web action names one; "" for the page on air.</summary>
+    private static string PageSuffix(CueActionConfig a)
+        => a.Target.Length == 0 ? "" : $" → {(a.Target.Contains("://") ? WebAddress.ShortName(a.Target) : a.Target)}";
 
     private static string ScreenLabel(ShowState state, string id)
     {

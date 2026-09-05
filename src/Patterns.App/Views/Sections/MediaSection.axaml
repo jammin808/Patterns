@@ -215,6 +215,12 @@
         <Button Grid.Column="2" Classes="chip" Content="Remember" Command="{Binding RememberWebUrlCommand}"
                 ToolTip.Tip="Keep this address in the saved pages (shared with the Remote &amp; web page)" />
       </Grid>
+      <!-- A YouTube, Vimeo, Slides or PowerPoint link: the service named, and FULL FRAME for the player or the deck alone -->
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0" IsVisible="{Binding WebPresetNote, Converter={StaticResource NotEmpty}}">
+        <Button Classes="chip" Content="FULL FRAME" Command="{Binding WebFullFrameCommand}" IsVisible="{Binding WebCanFullFrame}" VerticalAlignment="Top"
+                ToolTip.Tip="Rewrite the address for the show: the player or the deck alone, no page furniture" />
+        <TextBlock Classes="label" Text="{Binding WebPresetNote}" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="560" />
+      </StackPanel>
       <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Saved pages" VerticalAlignment="Center" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding State.Web.SavedUrls}" SelectedItem="{Binding SavedWebPick, Mode=TwoWay}"
@@ -243,7 +249,7 @@
                  Text="{Binding InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint tip"
-                 Text="The page renders inside the engine through WebView2 (the browser engine Windows 10 and 11 ship), so it joins spans and trims, reaches NDI and the stream, and travels with looks and cues like any pattern. Drive it on the PREVIEW pane: clicks, drags and the wheel land on the page; type with the PAGE CONTROLS below. Its sound follows Mute (SOUND, below). The same address on several targets costs one browser; up to four pages run at once." />
+                 Text="The page renders inside the engine through WebView2 (the browser engine Windows 10 and 11 ship), so it joins spans and trims, reaches NDI and the stream, and travels with looks and cues like any pattern; nothing opens outside Patterns. Drive it on the PREVIEW pane: clicks, drags and the wheel land on the page as real events; type and press keys with the PAGE CONTROLS below, or hand it the whole keyboard with KEYS → PAGE. Paste a YouTube, Vimeo, Google Slides or PowerPoint link and the line above names the service: FULL FRAME shows the player or the deck alone, and the service's own actions (NEXT, PRESENT, PLAY…) come to the PAGE CONTROLS, the phone, cues and Companion. Its sound follows Mute (SOUND, below). The same address on several targets costs one browser; up to four pages run at once." />
     </StackPanel>
 
     <!-- Playlist -->
@@ -492,6 +498,22 @@
     <StackPanel IsVisible="{Binding HasWebPage}">
       <TextBlock Classes="h2" Text="PAGE CONTROLS" />
       <TextBlock Classes="label" Text="{Binding WebControlsTarget}" TextWrapping="Wrap" />
+      <WrapPanel Margin="0,4,0,0">
+        <ToggleButton Classes="chip" Content="⌨ KEYS → PAGE" Margin="0,0,8,4" IsChecked="{Binding KeysToPage, Mode=TwoWay}"
+                      ToolTip.Tip="The keyboard belongs to the page — F5 starts a PowerPoint, the arrows move a deck, k plays a YouTube video, a search box or a sign-in takes typing. Press again or Ctrl+Alt+K to get the desk's keys back" />
+        <!-- The page's own actions, from its service: YouTube's player, a deck's slides, a plain page's keys -->
+        <ItemsControl ItemsSource="{Binding WebPageActions}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:WebActionChip">
+              <Button Classes="mini" Content="{Binding Label}" Margin="0,0,4,4" ToolTip.Tip="{Binding Hint}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).WebActionCommand}" CommandParameter="{Binding Id}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </WrapPanel>
       <Grid ColumnDefinitions="*,8,Auto">
         <TextBox Grid.Column="0" Watermark="Type into the page — the field you last clicked on the PREVIEW pane…"
                  Text="{Binding WebTypedText, Mode=TwoWay}" />
@@ -517,7 +539,7 @@
       </WrapPanel>
       <TextBlock Classes="label" Text="{Binding WebPageStatus}" TextWrapping="Wrap" />
       <TextBlock Classes="hint tip"
-                 Text="The controls drive the page you last clicked on the PREVIEW pane (else the pattern's page, else its first web layer). Typing goes to the field that has the page's focus — click it first. Hold Alt while pressing on a web layer to drag its box instead of clicking into the page. A frame from another site inside the page (an embedded player, a map) takes clicks and the wheel, not typed text." />
+                 Text="The controls drive the page you last clicked on the PREVIEW pane (else the pattern's page, else its first web layer). Typing goes to the field that has the page's focus — click it first. The action chips are the page's own: on YouTube they drive the player itself, on Google Slides and PowerPoint for the web they are the slide keys, on any other page the arrows and page keys. KEYS → PAGE hands the page the whole keyboard until you press it again or Ctrl+Alt+K. Hold Alt while pressing on a web layer to drag its box instead of clicking into the page. The same actions run from a cue (Web page — key or action), the wire (WEB NEXT, WEB KEY …), OSC, the phone's SHOW tab and Companion." />
     </StackPanel>
   </StackPanel>
 </UserControl>

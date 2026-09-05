@@ -58,6 +58,12 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `LOWERTHIRD PREVIEW OFF` | The preview's lower third leaves (also `CLEAR`); nothing changes on air |
 | `LOWERTHIRD TAKE` | The lower third in the preview goes to air afresh — it arrives the way it was designed to — and the preview clears for the next name |
 | `LOWERTHIRD UPDATE` | With EDIT SAFE open the audience sees a copy of the design: this replaces the copy on air by the design as it is now, in place — every edit, the words too — without it leaving and arriving again (`AIR` / `LT n` again restarts it instead) |
+| `WEB KEY <key\|action> [ON <page>]` | A key chord (`ArrowRight`, `Space`, `k`, `Shift+N`, `Ctrl+Shift+F5`) or a page action to the web page on air — the one the program shows — or to the page `ON` names (its nickname, its address or a word of it). A page action is what the page's service makes of it: `next` / `prev` / `first` / `last` are the slide keys of a Google Slides deck or a PowerPoint for the web, `present` starts the deck (Ctrl+Shift+F5 on Slides, F5 on PowerPoint), `black` / `white` blank it, `exit` leaves; on YouTube `play` / `pause` / `mute` / `restart` / `forward` / `rewind` / `next` / `prev` drive the player itself; on any other page the arrows, page keys, Enter and Escape. `PAGE` is an alias of `WEB`; a key nobody knows or a page not on the desk answers `ERR` |
+| `WEB NEXT` / `PREV` / `FIRST` / `LAST` / `PRESENT` / `EXIT` / `PLAY` / `PAUSE` / `MUTE` / `RESTART` / `FORWARD` / `REWIND` / `BLACK` / `WHITE` / `CAPTIONS` / `FULLSCREEN` `[ON <page>]` | The page actions as verbs of their own — `WEB NEXT` is `WEB KEY next` |
+| `WEB CLICK <x> <y> [ON <page>]` | A click at a point in percent of the page (`WEB CLICK 50 50` is its centre) |
+| `WEB TYPE <text>` | The text — spaces and all — typed into the field that has the page's focus (click it first); a character no US key types is inserted as text |
+| `WEB RELOAD [<page>]` | The page reloaded (also `WEB KEY reload`) |
+| `WEB OPEN <address> [ON <page>]` | The page's browser sent to another address; the pattern keeps its own, so a look recall brings the first page back |
 | `FREEZE ON` / `OFF` / `TOGGLE` | Every output — the windows, the NDI sends, the stream — holds the frame it shows until released; the desk's own views keep moving, a blackout still takes a frozen output. A latch (bare `FREEZE` toggles), never saved |
 | `FADE [seconds]` / `FADE UP [seconds]` (also `FADEUP`) | A blackout with a fade of its own: down over the seconds given (`FADE 2`, `FADE 2.5`, `FADE 1500ms`; none = the show's transition time), or up again the same way. Refused with `ERR` when the show is already there |
 | `LOOKBACK [cut\|ms]` | The look that was on air before the current one, back on air with the show's transition (or a cut, or a fade in ms); a second `LOOKBACK` swaps back. `ERR` when there is none yet |
@@ -99,6 +105,7 @@ rather than stops; empty when none), `stingHold` (the name of a stinger holding 
 `people[{n,name,role}]` (the library, page order — `PERSON n`), `lowerThirdPerson` (the name the lower third on screen carries, or empty),
 `lowerThirdPreview` / `lowerThirdPreviewPerson` (the design and the name in the preview for a sign-off, or empty), `lowerThirdDefault` (the show's ★ design),
 `lowerThirdEdited` (true while the design on air differs from the edited one — `LOWERTHIRD UPDATE` pushes the edit),
+`web{page,url,title,service,actions[{id,label}]}` (the web page the program shows — its nickname or host, its address and title, its service when Patterns knows it (YouTube, Vimeo, Google Slides, PowerPoint for the web) and the actions `WEB KEY <id>` takes on it; `null` with no page on air),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),
@@ -176,6 +183,12 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/lowerthird/take` | LOWERTHIRD TAKE — the lower third in the preview to air |
 | `/patterns/lowerthird/update` | LOWERTHIRD UPDATE — the design on air replaced by the design as it is now, in place |
 | `/patterns/person <n\|name>` | PERSON — a library entry into the lower third on air (else the show's ★ default design) |
+| `/patterns/web/key <key\|action> [page]` | WEB KEY — a key chord or a page action to the web page on air, or to the page a second argument names (also `/patterns/web/key/ArrowRight`, `/patterns/page/…`) |
+| `/patterns/web/next`, `/prev`, `/first`, `/last`, `/present`, `/exit`, `/play`, `/pause`, `/mute`, `/restart`, `/black`, `/white`… `[page]` | WEB <action> — the page actions as addresses of their own |
+| `/patterns/web/click <x> <y>` | WEB CLICK — a click at a point in percent of the page (also `/patterns/web/click/50/50`; floats up to 1.0 are fractions) |
+| `/patterns/web/type "text"` | WEB TYPE — text into the field that has the page's focus |
+| `/patterns/web/reload [page]` | WEB RELOAD |
+| `/patterns/web/open "address" [page]` | WEB OPEN — the page's browser sent to another address |
 | `/patterns/section <n\|name>` | SECTION — a playlist part |
 | `/patterns/stream 1\|0` | STREAM ON / OFF |
 | `/patterns/cue/go [id]` | CUE GO — the standby id you last saw, or none |
