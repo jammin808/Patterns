@@ -71,6 +71,9 @@ public sealed class AppServices
     /// <summary>The show journal: every air change with its origin, on disk beside the settings.</summary>
     public ShowLog Journal { get; }
 
+    /// <summary>The desk's tick budget: what the once-a-second poll costs on the UI thread, its worst minute, the areas that failed.</summary>
+    public TickBudget DeskTick { get; } = new();
+
     /// <summary>The one way to do something to the show — see <see cref="ShowActions"/>.</summary>
     public ShowActions Actions { get; }
 

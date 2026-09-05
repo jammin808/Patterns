@@ -241,6 +241,8 @@
               IsChecked="{Binding State.Watchdog.AutoRestore}"
               IsEnabled="{Binding State.Watchdog.Enabled}" />
     <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding DeskTickText}" TextWrapping="Wrap"
+               ToolTip.Tip="The desk's once-a-second poll runs on the same thread as every click: what it costs, its worst minute and the area that took the time. Past 16 ms the desk skipped a frame; past 50 ms it stutters — the super-check's Desk tick row says the same" />
     <Button Classes="stop" Content="RESTART APP (SHOW COMES BACK)" Padding="14,8" Margin="0,6,0,0"
             Command="{Binding RestartAppCommand}"
             ToolTip.Tip="Exits and relaunches through the watchdog — outputs and the audio track are restored in seconds. Use it to apply a GPU change or clear a suspected leak at a break." />

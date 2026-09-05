@@ -57,6 +57,29 @@ public class HealthDashboardTests
     private static readonly HealthSuggestion AllClear = new("all-clear", HealthSeverity.Info, "All clear", "");
 
     [Fact]
+    public void TheRenderTileCarriesTheDeskTickAndGoesAmberWhenTheDeskStutters()
+    {
+        // Unknown: the tile reads as before.
+        Assert.DoesNotContain("desk", Tile(Facts(), "render").Detail);
+
+        var fine = Tile(new CheckFacts { OutputsLive = true, OutputWindows = 2, WorstFrameMs = 12, Faults = 0, DeskTickWorstMs = 3.4, DeskTickWorstArea = "tallies" }, "render");
+        Assert.Equal(CheckLight.Green, fine.Light);
+        Assert.Equal("12 ms", fine.Value);
+        Assert.Equal("worst frame · no faults · desk tick worst 3 ms", fine.Detail);
+
+        var stutters = Tile(new CheckFacts { OutputsLive = true, OutputWindows = 2, WorstFrameMs = 12, Faults = 0, DeskTickWorstMs = 120, DeskTickWorstArea = "remote" }, "render");
+        Assert.Equal(CheckLight.Amber, stutters.Light);
+        Assert.Contains("desk tick worst 120 ms (remote)", stutters.Detail);
+
+        // Outputs closed: the desk still counts — a rehearsal at the desk stutters just the same.
+        var idle = Tile(new CheckFacts { OutputsLive = false, Faults = 0, DeskTickWorstMs = 120, DeskTickWorstArea = "devices" }, "render");
+        Assert.Equal(CheckLight.Amber, idle.Light);
+        Assert.Equal("idle", idle.Value);
+        Assert.Contains("desk tick worst 120 ms (devices)", idle.Detail);
+        Assert.Equal(CheckLight.Grey, Tile(new CheckFacts { OutputsLive = false, Faults = 0, DeskTickWorstMs = 2 }, "render").Light);
+    }
+
+    [Fact]
     public void AHealthyMachineIsAllGreenAndTheVerdictSaysSo()
     {
         var tiles = HealthDashboard.Tiles(Facts());

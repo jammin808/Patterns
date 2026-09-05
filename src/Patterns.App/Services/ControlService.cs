@@ -106,10 +106,24 @@ public sealed partial class ControlService : IDisposable
 
     public string Status => _status;
 
-    /// <summary>LAN URLs the web remote answers on (for the settings panel / QR-by-eye).</summary>
+    /// <summary>How long the remote's addresses are kept before the machine is asked again.</summary>
+    public static readonly TimeSpan RemoteUrlsKeptFor = TimeSpan.FromSeconds(30);
+
+    private IReadOnlyList<string>? _urls;
+    private int _urlsPort;
+    private DateTime _urlsAtUtc;
+
+    /// <summary>
+    /// LAN URLs the web remote answers on (for the settings panel / QR-by-eye). The desk reads
+    /// these every second for its status line and the Install page; the machine's own addresses
+    /// come from the resolver, which can block the UI thread for as long as a venue's DNS wants —
+    /// so the list is kept for half a minute and asked again only then, or when the port changes.
+    /// </summary>
     public IReadOnlyList<string> RemoteUrls()
     {
         var port = _services.State.Control.HttpPort;
+        var now = DateTime.UtcNow;
+        if (_urls is not null && _urlsPort == port && now - _urlsAtUtc < RemoteUrlsKeptFor) return _urls;
         var urls = new List<string> { $"http://localhost:{port}/" };
         try
         {
@@ -126,8 +140,14 @@ public sealed partial class ControlService : IDisposable
         {
             // Name resolution trouble just means fewer suggestions.
         }
+        _urls = urls;
+        _urlsPort = port;
+        _urlsAtUtc = now;
         return urls;
     }
+
+    /// <summary>Drops the kept addresses so the next read asks the machine again (the listeners rebound, a test).</summary>
+    public void ForgetRemoteUrls() => _urls = null;
 
     /// <summary>Starts/stops/rebinds the listeners to match the config (UI thread).</summary>
     public void Reconcile()
@@ -137,6 +157,7 @@ public sealed partial class ControlService : IDisposable
         var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}" : "";
         if (key == _activeKey) return;
         _activeKey = key;
+        ForgetRemoteUrls();
 
         StopListeners();
         if (!cfg.Enabled)

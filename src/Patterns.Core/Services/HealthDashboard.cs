@@ -117,17 +117,20 @@ public static class HealthDashboard
     {
         var faults = now is not null ? (int)Math.Min(int.MaxValue, now.Faults) : Math.Max(0, f.Faults);
         var faultsText = faults > 0 ? $"{faults} fault{(faults == 1 ? "" : "s")} contained" : "no faults";
+        // The desk's tick rides on this tile: the UI thread is the other place a show is felt to stutter.
+        var deskStutters = f.DeskTickWorstMs > TickBudget.StutterMs;
+        var desk = f.DeskTickWorstMs >= 0 ? $" · desk tick worst {f.DeskTickWorstMs:0} ms{(deskStutters && f.DeskTickWorstArea.Length > 0 ? $" ({f.DeskTickWorstArea})" : "")}" : "";
         if (!f.OutputsLive)
         {
             return faults > 0
-                ? new DashboardTile("render", "RENDER", CheckLight.Amber, $"{faults} fault{(faults == 1 ? "" : "s")}", "contained per frame — the log says which pattern")
-                : new DashboardTile("render", "RENDER", CheckLight.Grey, "idle", "outputs closed · no faults");
+                ? new DashboardTile("render", "RENDER", CheckLight.Amber, $"{faults} fault{(faults == 1 ? "" : "s")}", "contained per frame — the log says which pattern" + desk)
+                : new DashboardTile("render", "RENDER", deskStutters ? CheckLight.Amber : CheckLight.Grey, "idle", "outputs closed · no faults" + desk);
         }
         var worst = Pick(now?.WorstFrameMs, f.WorstFrameMs);
         var slow = now?.SlowFrames ?? f.SlowFrames;
-        if (worst < 0) return new DashboardTile("render", "RENDER", faults > 0 ? CheckLight.Amber : CheckLight.Green, "—", faultsText);
-        var light = worst > 50 || faults > 0 ? CheckLight.Amber : CheckLight.Green;
-        return new DashboardTile("render", "RENDER", light, $"{worst:0} ms", $"worst frame{(slow > 0 ? $" · {slow} slow" : "")} · {faultsText}");
+        if (worst < 0) return new DashboardTile("render", "RENDER", faults > 0 || deskStutters ? CheckLight.Amber : CheckLight.Green, "—", faultsText + desk);
+        var light = worst > 50 || faults > 0 || deskStutters ? CheckLight.Amber : CheckLight.Green;
+        return new DashboardTile("render", "RENDER", light, $"{worst:0} ms", $"worst frame{(slow > 0 ? $" · {slow} slow" : "")} · {faultsText}{desk}");
     }
 
     private static DashboardTile Cpu(CheckFacts f, MetricSample? now)

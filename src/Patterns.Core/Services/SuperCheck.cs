@@ -67,6 +67,17 @@ public sealed class CheckFacts
     public double WorstFrameMs { get; init; } = -1;
     public int SlowFrames { get; init; } = -1;
     public int Faults { get; init; } = -1;
+
+    /// <summary>
+    /// The desk's tick — the once-a-second poll on the UI thread: its average and worst over the
+    /// last minute (ms; -1 unknown), the slowest area inside the worst, the ticks past a desk
+    /// frame this session (-1 unknown) and the areas that threw and were carried past.
+    /// </summary>
+    public double DeskTickAverageMs { get; init; } = -1;
+    public double DeskTickWorstMs { get; init; } = -1;
+    public string DeskTickWorstArea { get; init; } = "";
+    public int DeskSlowTicks { get; init; } = -1;
+    public int DeskTickFaults { get; init; }
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
 
@@ -389,6 +400,7 @@ public static class SuperCheck
         }
         if (f.Faults > 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Amber, $"{f.Faults} this session", "contained per frame; the log says which pattern"));
         else if (f.Faults == 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Green, "none"));
+        DeskTick(f, rows, s);
         rows.Add(f.WatchdogEnabled
             ? new CheckRow(s, "Watchdog", f.WatchdogRestarts > 0 ? CheckLight.Amber : CheckLight.Green, f.WatchdogRestarts > 0 ? $"on · {f.WatchdogRestarts} restart(s)" : "on",
                 f.WatchdogRestarts > 0 ? "it restarted the app — see patterns.watchdog.log" : "")
@@ -401,6 +413,34 @@ public static class SuperCheck
             rows.Add(new CheckRow(s, "Main machine", silent ? CheckLight.Red : waiting ? CheckLight.Amber : CheckLight.Green,
                 silent ? "silent" : waiting ? "not heard yet" : "alive", f.BeaconWatch));
         }
+    }
+
+    /// <summary>
+    /// The desk's tick: green under a desk frame, amber past one (the desk skipped a frame), red
+    /// past a stutter — with the area that took the time, so a probe that blocks the UI thread is
+    /// named here before it is felt at the desk. An area that threw turns a green row amber.
+    /// </summary>
+    private static void DeskTick(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.DeskTickWorstMs < 0) return;
+        var worst = f.DeskTickWorstMs;
+        var area = f.DeskTickWorstArea.Length > 0 ? $" ({f.DeskTickWorstArea})" : "";
+        var light = worst > TickBudget.StutterMs ? CheckLight.Red : worst > TickBudget.SlowMs ? CheckLight.Amber : CheckLight.Green;
+        var value = $"{(f.DeskTickAverageMs >= 0 ? $"{f.DeskTickAverageMs:0.0} ms" : "—")} · worst {worst:0.0} ms{area}"
+                    + (f.DeskSlowTicks > 0 ? $" · {f.DeskSlowTicks} past {TickBudget.SlowMs:0} ms" : "");
+        var note = light switch
+        {
+            CheckLight.Red => $"the desk stutters — something on the UI thread blocks the tick{area}; the log names it",
+            CheckLight.Amber => "the desk skipped a frame in the last minute — a probe that blocks would show here first",
+            _ => "",
+        };
+        if (f.DeskTickFaults > 0)
+        {
+            if (light == CheckLight.Green) light = CheckLight.Amber;
+            var failed = $"{f.DeskTickFaults} area{(f.DeskTickFaults == 1 ? "" : "s")} failed and the tick carried on — see the log";
+            note = note.Length > 0 ? $"{note}; {failed}" : failed;
+        }
+        rows.Add(new CheckRow(section, "Desk tick", light, value, note));
     }
 
     private static void Ndi(CheckFacts f, List<CheckRow> rows)

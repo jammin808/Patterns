@@ -173,6 +173,43 @@ public class SuperCheckTests
     }
 
     [Fact]
+    public void TheDeskTickRowNamesTheAreaThatBlocksTheDesk()
+    {
+        // Unknown: no row at all.
+        Assert.DoesNotContain(SuperCheck.Run(Strong()).Rows, r => r.Item == "Desk tick");
+
+        static CheckRow Row(double worst, string area, double avg = 1.2, int slow = 0, int faults = 0)
+            => SuperCheck.Run(new CheckFacts { DeskTickAverageMs = avg, DeskTickWorstMs = worst, DeskTickWorstArea = area, DeskSlowTicks = slow, DeskTickFaults = faults })
+                .Rows.Single(r => r.Item == "Desk tick");
+
+        var fine = Row(4, "tallies");
+        Assert.Equal(CheckLight.Green, fine.Light);
+        Assert.Equal("SHOW", fine.Section);
+        Assert.Equal("1.2 ms · worst 4.0 ms (tallies)", fine.Value);
+        Assert.Equal("", fine.Note);
+
+        var skipped = Row(30, "install", slow: 3);
+        Assert.Equal(CheckLight.Amber, skipped.Light);
+        Assert.Equal("1.2 ms · worst 30.0 ms (install) · 3 past 16 ms", skipped.Value);
+        Assert.Contains("skipped a frame", skipped.Note);
+
+        var blocked = Row(140, "remote", avg: 9, slow: 12);
+        Assert.Equal(CheckLight.Red, blocked.Light);
+        Assert.Contains("stutters", blocked.Note);
+        Assert.Contains("(remote)", blocked.Note);
+
+        // An area that threw turns a green row amber and says so; the light past that is the timing's.
+        var failed = Row(4, "audio", faults: 2);
+        Assert.Equal(CheckLight.Amber, failed.Light);
+        Assert.Equal("2 areas failed and the tick carried on — see the log", failed.Note);
+        var failedAndBlocked = Row(140, "remote", faults: 1);
+        Assert.Equal(CheckLight.Red, failedAndBlocked.Light);
+        Assert.Contains("stutters", failedAndBlocked.Note);
+        Assert.Contains("1 area failed", failedAndBlocked.Note);
+        Assert.Contains("Desk tick", SuperCheck.ToText(SuperCheck.Run(new CheckFacts { DeskTickWorstMs = 4 })));
+    }
+
+    [Fact]
     public void UnknownFactsStayGreyAndNeverDecideTheLight()
     {
         var report = SuperCheck.Run(new CheckFacts());

@@ -23,6 +23,17 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The desk's tick, budgeted and guarded** — the desk polls every service once a second on
+  the same thread as every click, so that tick is now nineteen guarded areas: one that fails
+  (a sound card gone, a serial device dying, a resolver that will not answer) is carried past,
+  counted, and logged once a minute while the cues, the tallies and the clock keep moving —
+  before, it took the app down to the watchdog. The tick is timed with the area that took the
+  time and read on the Machine page's STABILITY block (*Desk tick 1.2 ms · worst 4.1 ms
+  (tallies) in the last minute*), the super-check's *Desk tick* row (green under a desk frame,
+  amber past 16 ms, red past 50 ms) and the RENDER tile. What it no longer does every second:
+  ask the resolver for the machine's own addresses (kept for half a minute), serialise the show
+  for the tallies (kept by snapshot version), or raise a chip that did not move. The view model
+  behind the desk is nine partial files by area, one of them the tick.
 - **The audio playlist** — the audio track was one file with a loop, which a stinger could do,
   so it became a playlist: tracks added one at a time and whole folders whose audio files play
   after the rows in name order (a file dropped in live is seen within half a minute), the same
@@ -787,7 +798,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 1004 tests: the audio playlist (the order and its fallback, shuffle by seed, folders through the enumerator and the cap, stepping and finding, the migration, the verbs, OSC in and out, the cue actions; on a live desk rows and a folder in one order, PLAY with the marker, NEXT / PREV wrapping, a track by number, name and id, a cue and the panel, the natural end, a vanished file skipped, the empty list refused, the old single track), the caller's VT clock (the reading's priority and roles, the words, the ten-second out, the loop, the wire and OSC, the cue actions, the sequencer's clock; on a live desk the same seconds on the panel, the Run strip and STATE, the skip and the top from the wire, a cue and the keys), permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
+dotnet test                      # 1016 tests: the desk's tick (the budget's window, worst, area, slow count, faults and words; the super-check row and the tile; a failing area carried past and told once a minute; the remote's addresses kept and following the port; the tick read on the page, the super-check and the dashboard; a quiet second raising only the clock; the benchmark's fence), the audio playlist (the order and its fallback, shuffle by seed, folders through the enumerator and the cap, stepping and finding, the migration, the verbs, OSC in and out, the cue actions; on a live desk rows and a folder in one order, PLAY with the marker, NEXT / PREV wrapping, a track by number, name and id, a cue and the panel, the natural end, a vanished file skipped, the empty list refused, the old single track), the caller's VT clock (the reading's priority and roles, the words, the ten-second out, the loop, the wire and OSC, the cue actions, the sequencer's clock; on a live desk the same seconds on the panel, the Run strip and STATE, the skip and the top from the wire, a cue and the keys), permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```
@@ -841,6 +852,12 @@ encoder, the web renderer, video decoding — sit behind seams with fakes and mo
 the same supervisor when a real fault says so; redundancy is a second machine listening for the
 beacon, not a second process. The field research behind round 12's choices is in
 [`docs/FIELD-RESEARCH.md`](docs/FIELD-RESEARCH.md).
+
+The desk itself is one view model in nine partial files by area (the rig, the content, the show,
+the sound, lower thirds, the machine and the install, help, the tick, and the head with the
+constructor and the commands); its once-a-second tick is nineteen guarded, timed areas whose
+budget the Machine page and the super-check read — the audit, the numbers and what was kept on
+purpose are in [`docs/PLAN.md`](docs/PLAN.md) §16.1.
 
 ## License
 

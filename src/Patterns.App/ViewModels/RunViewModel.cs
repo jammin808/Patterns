@@ -273,6 +273,20 @@ public sealed class RunViewModel : Observable
         }
     }
 
+    private readonly Dictionary<string, object?> _seen = new();
+
+    /// <summary>
+    /// Raises a computed property only when its value moved since it was last raised from here:
+    /// the strip's chips and the cards re-read nothing on a quiet second. An event-driven raise
+    /// elsewhere is never blocked by this — at worst it is repeated once.
+    /// </summary>
+    private void RaiseIfChanged(string name, object? value)
+    {
+        if (_seen.TryGetValue(name, out var seen) && Equals(seen, value)) return;
+        _seen[name] = value;
+        Raise(name);
+    }
+
     private void RefreshTiming()
     {
         _timing = _s.CueStack.Timing();
@@ -288,15 +302,19 @@ public sealed class RunViewModel : Observable
             if (row.Cue.PlannedSeconds is { } len) parts.Add(CueTiming.FormatDuration(len));
             row.Plan = string.Join("  ", parts);
         }
-        Raise(nameof(Timing));
-        Raise(nameof(OffsetText));
-        Raise(nameof(IsLate));
-        Raise(nameof(IsOnPlan));
-        Raise(nameof(ScheduleSummary));
-        Raise(nameof(HasPlan));
-        Raise(nameof(StandbyPlanText));
-        Raise(nameof(FollowText));
-        Raise(nameof(HasFollow));
+        // The report is new every second; what is drawn from it mostly is not.
+        var offset = _timing.OffsetText;
+        var summary = _timing.Summary;
+        RaiseIfChanged(nameof(OffsetText), offset);
+        RaiseIfChanged(nameof(IsLate), _timing.IsLate);
+        RaiseIfChanged(nameof(IsOnPlan), IsOnPlan);
+        RaiseIfChanged(nameof(ScheduleSummary), summary);
+        RaiseIfChanged(nameof(HasPlan), HasPlan);
+        RaiseIfChanged(nameof(StandbyPlanText), StandbyPlanText);
+        var follow = FollowText;
+        RaiseIfChanged(nameof(FollowText), follow);
+        RaiseIfChanged(nameof(HasFollow), follow.Length > 0);
+        RaiseIfChanged(nameof(Timing), $"{offset}|{summary}");
     }
 
     public string GoText => _s.CueStack.ConfirmText ?? (_s.CueStack.StandbyCue is { } cue ? $"GO  {cue.Number}" : "GO");
@@ -357,21 +375,24 @@ public sealed class RunViewModel : Observable
         _vm.StatusMessage = "Press Esc again within a second to STOP ALL (audio, break music, VOGs, stingers, tone — never outputs or blackout).";
     }
 
-    /// <summary>Each second: the running clock, confirm expiry and asynchronous settling.</summary>
+    /// <summary>
+    /// Each second: the running clock, confirm expiry and asynchronous settling. Only what moved
+    /// is raised — the running cue's elapsed seconds every tick, the chips when they flip.
+    /// </summary>
     public void Tick()
     {
         _s.CueStack.Poll();
         RefreshTiming();
         RefreshVideo();
-        Raise(nameof(RunningText));
-        Raise(nameof(RunningOverPlanned));
-        Raise(nameof(NextAutoText));
-        Raise(nameof(IsMusicPlaying));
-        Raise(nameof(MusicTip));     // follows the track
-        Raise(nameof(IsStingHolding));
-        Raise(nameof(StingHoldText));
-        Raise(nameof(IsDucked));
-        Raise(nameof(DuckTip));
+        RaiseIfChanged(nameof(RunningText), RunningText);
+        RaiseIfChanged(nameof(RunningOverPlanned), RunningOverPlanned);
+        RaiseIfChanged(nameof(NextAutoText), NextAutoText);
+        RaiseIfChanged(nameof(IsMusicPlaying), IsMusicPlaying);
+        RaiseIfChanged(nameof(MusicTip), MusicTip);     // follows the track
+        RaiseIfChanged(nameof(IsStingHolding), IsStingHolding);
+        RaiseIfChanged(nameof(StingHoldText), StingHoldText);
+        RaiseIfChanged(nameof(IsDucked), IsDucked);
+        RaiseIfChanged(nameof(DuckTip), DuckTip);
     }
 
     private void OnRuntimeChanged()

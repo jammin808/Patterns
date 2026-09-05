@@ -868,6 +868,11 @@ public class SpotifyAppTests
         Assert.Equal(10, Grid.GetColumn(clock));
         Assert.Equal(strip.ColumnDefinitions.Count - 1, Grid.GetColumn(clock));
 
+        // Paused: Spotify reports it so on the next poll — the service's own 400 ms timer can run
+        // inside RunJobs, and a fake still saying "playing" would put the flag back.
+        r.Fake.Answer = q => q.Method == "GET" && q.Url.EndsWith("/me/player")
+            ? new SpotifyReply(200, "{\"is_playing\":false,\"item\":{\"name\":\"Kerala\",\"artists\":[{\"name\":\"Bonobo\"}]},\"device\":{\"id\":\"d1\",\"name\":\"Desk\",\"volume_percent\":60}}")
+            : null;
         r.Execute(ShowActionKind.SpotifyPause);
         b.Vm.Run.Tick();
         Dispatcher.UIThread.RunJobs();

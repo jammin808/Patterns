@@ -184,6 +184,7 @@ first.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 3 | The desk's view model streamlined (the answer in §16.1). `MainViewModel` — 6,800 lines, one file, fifty-three sections — is nine partial files by area: the rig (`.Rig`), the content (`.Content`), the show (`.Show`), the sound (`.Audio`), lower thirds (`.LowerThirds`), the machine and the install (`.Admin`), help (`.Help`), the tick (`.Poll`) and the head (the constructor, the commands, the status, the file dialogs) — the same members of one class, so no binding, page or test moved. The tick: `PollStatus` is nineteen guarded areas run in order — `Guard(area, work)`: an area that throws is carried past, counted (`TickBudget.Faults`), and logged and told to the health line once a minute per area, so the cue schedule, the tallies and the clock never wait on a broken probe (before, the exception left the timer and ended the process; the watchdog brought it back with the outputs dark for those seconds); the whole tick and the slowest area inside it are timed into `AppServices.DeskTick` (`TickBudget`, Core, pure: a ring of sixty ticks, the worst and the average over the minute with the area that took it, the slow ticks and the faults for the session, `Describe()`), read on the STABILITY block (*Desk tick 1.2 ms · worst 4.1 ms (tallies) in the last minute · 0 past 16 ms this session*), the super-check's *Desk tick* row (green under a desk frame of 16 ms, amber past it, red past 50 ms — the area named; an area that failed turns a green row amber) and the RENDER tile's detail (amber past a stutter); `PollAreaProbe` is the test seam. What the tick no longer does every second: ask the resolver for the machine's own addresses (`ControlService.RemoteUrls` keeps its list for half a minute and asks again only then or when the port changes — the one call in the tick that could block for as long as a venue's DNS wanted, and it ran up to four times a second with the Install page's passcode set), serialise the whole show for the air fingerprint (kept by the snapshot version it was taken at; the preview's by the sandbox snapshot's), raise `CanvasInfo` (raised on the publish and on the edit target instead), or raise the Run strip's nine chips and the day's eight timing words unconditionally (`RaiseIfChanged`: the running cue's seconds move every tick, the chips only when they flip). Kept on purpose: the string keys the stinger chips and the after-pickers compare (a few KB a second, microseconds — a hash would trade a correctness risk for nothing), the header clock's raise, the switcher tiles' refresh (a dictionary and a loop). The numbers, from the benchmark test's own log (`DeskPollTests`: a corporate show — twelve looks, six stingers, forty cues, break music, a twenty-item playlist — two hundred ticks after twenty warm ones, this Linux box, headless): before 3.1–3.7 ms a tick on average and 3.9–4.9 ms at the 95th percentile; after 1.2–1.6 ms and 1.4–2.1 ms in a cold process, 0.3–0.4 ms once the process is warm. The resolver was invisible on this box; caching it is for the venue where it is not. Tests: the budget (the window, the worst and its area, the slow count, the faults, the words, reset), the super-check row and the tile, a failing area carried past and told once a minute, the addresses kept and following the port, the tick read on the page / the super-check / the dashboard, a quiet second raising only the clock and a moving one raising what moved, the benchmark's fence. | done |
 | 2 | The audio playlist. Core: `AudioTrackConfig` (id, path, a name, the runtime ▶ NOW marker) and `AudioPlayerConfig` gaining `Items`, `Folders`, `Shuffle`, `ShuffleSeed`, `Loop` now the list's loop (schema 8: the old single `Path` becomes the first row and is cleared, rows get ids); `AudioPlaylist` (pure: the order — rows, then the folders' files in name order, no file twice, the old track as a fallback, a shuffle that repeats by its seed; the folders read through an enumerator and capped at 2000; `Step` on the clicker's arithmetic; `Find` by place, id, name or file; `NameOf`; `HasTracks`; the migration); `ShowActionKind.AudioPlay` with a target, `AudioNext`, `AudioPrev`; cue actions *Play audio (the list, or a track)* (`TargetKind.Track`, validated: an empty list, a named track not in it, a file missing, nothing on disk; a number left to the folders) and *Audio — next / previous track*, the sheet's aliases; the wire `AUDIO PLAY [n|name]`, `AUDIO NEXT` (SKIP), `AUDIO PREV` (BACK), `AUDIO STOP`, `AUDIO VOL 0–125` (TRACK an alias); OSC `/patterns/audio/play [n|name]`, `/next`, `/prev`, `/volume`; feedback `/audio/track`, `/next`, `/n`, `/count`, `/remaining`, `/audio/items/<n>`. App: `AudioPlayerService` runs the list — the folders re-read every 30 s or on change, the order rebuilt only when its key changes with the track on keeping its place, the pending place, a file not on disk skipped in the direction of travel, one track on a loop still seamless, the natural end moving on or stopping at the end without loop, `Next` / `Previous` wrapping, `PlayAt`, `Resolve`, the words (*3/12: walk-in — 1:02 / 3:30 on 2 outputs · next: intro · shuffle · loop*), the list itself working headless so a desk without a sound card still reads; STATE `audio{…}` with the rows; recovery restarts a list with tracks. Desk: the Audio page's AUDIO PLAYLIST (+ tracks, + folder, Shuffle, RESHUFFLE, Loop the list, a row per track with ▶ / ▶ NOW / a name box / ▲ ▼ / ✕, the folders, ⏮ PLAY STOP ⏭, the level, the status), the Show panel's AUDIO PLAYLIST block with ⏮ ⏭, the phone's AUDIO tab with its line and keys, the cue editor's track picker, Companion 2.4.0 (`audio` NEXT / PREV, `audio_item`, `audio_name`, `audio_level`, seven variables and the `track_1…8` bank, ⏭ ⏮ / what-is-on / bank presets, a key per track of the show), the Help topic. Tests: the order and its fallback, the shuffle by seed, the folders through the enumerator and the cap, stepping and finding, the migration, the verbs, OSC in and out, the cue actions through spec / sheet / summary / checks; on a live desk rows and a folder read into one order, PLAY on the first row with the marker, NEXT / PREV wrapping, a track by number, name and id from the wire, a cue and the panel, the natural end moving on and the list stopping at its end or starting over, a vanished file skipped, STOP, the empty list refused, the old single track still playing, the pages and the cue editor. | done |
 | 1 | The caller's VT clock. Core, pure: `IVideoFrameSource` gains a timeline — `PositionSeconds`, `CanSeek`, `Seek` (defaults, so a camera, a feed and a page keep compiling and say no); `VideoReading` (the clip on air: key, file, role — program, playlist, stinger, layer — position, length, playing, ended, loops, seekable; what is left, the fraction, `InLast`, an audio-only file), `VideoClock` (`Read` picks the first file the program references in priority order and names its role, `Format` reads like a metre, `Tag` / `Times` / `Describe` / `Chip` / `Call` are the one set of words every surface shows, `TryParseBeforeEnd`); `ShowActionKind.VideoToEnd` (Value = seconds before the end, empty = ten) and `VideoRestart`; cue actions *Video — jump to its last seconds* (`ValueKind.Seconds`, validated, a soft note with no clip in sight) and *Video — restart from the top*, the sheet's aliases; the wire `VIDEO END [seconds]` and `VIDEO RESTART` (VT and CLIP aliases; LAST / OUT / TAIL; START / TOP / REWIND); OSC `/patterns/video/end [s]`, `/patterns/video/restart`; feedback `/patterns/state/video/file`, `/position`, `/length`, `/remaining`, `/text`, `/out`; `PlaylistSequencer.EndItemIn` / `RestartItem` (a timed item's clock wound forward or back so the running order moves when the picture does). App: `VlcFrameSource` reads libVLC's time and moves it (an ended clip plays again), `AppServices.VideoOnAir()`, the action handler (the decoder moved, a playlist item's clock with it; refusals with the reason: no clip, a live source, a length not yet known, a word that is not seconds), STATE `video{…}` pushed every second while a clip runs — only then, and only while a TCP client, a long-polling tablet or an OSC feedback target listens (`ControlService` clock tick, `OscService.MarkChanged`). Desk: the Show panel's VT row under PROGRESSION (tag, name, `1:02 / 3:30 · 2:28 left`, a bar, ⏭ LAST 10 s, ⟲ RESTART; red with OUT IN 7 for the last ten seconds; loop and ended said), the Run strip's chip (`VT 2:28`, red for the out), the phone's SHOW tab (the line and two keys), Companion 2.4.0 (`video_end`, `video_restart`, nine variables, `video_on_air` with an out-only option, the VT clock preset), the Help topic *The VT clock*, the panel topic's step. Tests: the words, the reading's priority and roles, the out and the loop, the wire and its aliases, OSC in and out, the cue actions through spec / sheet / summary / checks, the sequencer's clock; on a live desk a fake decoder read on the panel, the Run strip and STATE with the same seconds, the wire, a cue and the panel's keys moving it, the last ten seconds red everywhere, ended and back from the top, the refusals, no clip, the page and the cue editor's hint. | done |
 
@@ -453,3 +454,90 @@ What was checked this round, and the rule each check turned into:
 What is still slow on purpose: opening a deck (LibreOffice renders once, with a status line),
 the super-check (probes the machine, a second), and the first frame of a web page (the browser
 warms). Each says so on its page while it works.
+
+## 16. Round 13 — the answers: the desk's tick
+
+Round 13 asked for the whole as well as for features: *is `MainViewModel` a candidate for
+streamlining and efficiency and stability*, with the rule that every menu change, view update
+and UX update must be instant. This section carries that answer; the round's other answers (the
+game-play architecture with corporate stability, the weather source, the assistant's home) are
+added as their commits land.
+
+### 16.1 Is MainViewModel a candidate for streamlining, efficiency and stability? Yes — for the tick, not the size
+
+**What it was.** One class of 6,800 lines in one file, fifty-three `// ---- section ----` blocks:
+the view model for every page of the desk. The size itself costs nothing at runtime — a partial
+class compiles to the same type — but it hid the one thing that does cost: `PollStatus`, the
+method a `DispatcherTimer` calls once a second on the UI thread, which touched every service in
+the app in forty-odd lines. The UI thread is where every click, slider, keystroke and GO is
+handled; whatever that method spends is taken from them, and a probe that *blocks* in it (a name
+resolver, a serial device, a disk) is felt at the desk before it shows anywhere else.
+
+**The audit.** Read line by line, the tick did, every second:
+
+- asked the resolver for the machine's own addresses (`Dns.GetHostAddresses(Dns.GetHostName())`)
+  twice for the status line and twice more for the Install page's ADMIN address when a passcode
+  was set — the only call in the tick that can block for as long as a venue's DNS wants;
+- serialised the whole show to fingerprint the picture on air, and again for the preview while
+  the sandbox was open, to light the PROGRAM / PREVIEW tallies — the same answer as the second
+  before unless something had been published;
+- raised nine Run-strip chips and eight timing words whether or not they had moved, and
+  `CanvasInfo` (a canvas resolve) though it changes only when the pattern or the edit target does;
+- rebuilt two string keys (the stinger chips, the after-pickers) to see whether their lists had
+  moved — a few kilobytes, microseconds, correct;
+- everything else was already keyed, debounced or a plain read of a status string.
+
+And one thing it did *not* do: catch. An exception in any of those reads left the timer, and
+Avalonia's dispatcher ends the process on an unhandled exception — the watchdog brought the show
+back in seconds, with the outputs dark for those seconds and the cue schedule stopped until then.
+One failing area stopped every other area, and the show.
+
+**What changed (commit 3).**
+
+- *Partial files by area* — `MainViewModel.Rig / Content / Show / Audio / LowerThirds / Admin /
+  Help / Poll .cs` and the head — cut by the section markers, verbatim, so the change is reviewable
+  as a move and nothing bound or tested moved. The tick has a file of its own.
+- *Nineteen guarded areas.* `Guard(area, work)` runs each area, times it, and carries past one
+  that throws: the fault is counted (`TickBudget.Faults`), logged and told to the health line once
+  a minute per area — a probe that fails every second is one story an hour, not three thousand
+  lines. The cues, the tallies and the clock run after a broken area as they ran before it.
+- *A budget.* `TickBudget` (Core, pure) keeps the last sixty ticks with the slowest area inside
+  each: the worst and the average over the minute, the slow ticks (past a desk frame, 16 ms) and
+  the faults for the session, and the words. It is read on the STABILITY block, as the
+  super-check's *Desk tick* row (green / amber past 16 ms / red past 50 ms, the area named) and
+  on the RENDER tile — so a venue's slow resolver or a dying serial device reads *worst 900 ms
+  (devices)* before anyone feels it, and the log names the area.
+- *The resolver asked once a half-minute* (`ControlService.RemoteUrls` keeps its list by port and
+  time); *the fingerprints kept by snapshot version* (every edit that reaches the air publishes a
+  new version; the sandbox opening or closing swaps which state is the air, so that is in the key
+  too); *raise on change* for the Run strip and the timing words (`RaiseIfChanged`) and for the
+  countdown's preview; `CanvasInfo` raised on the publish and the edit target.
+
+**What was kept on purpose.** The string keys (a hash would trade a one-in-four-billion stale
+picker for a few microseconds); the header clock's raise (it changes every second); the switcher
+tiles' refresh (a dictionary and a loop, and it is the tally); the once-a-second cadence itself —
+a faster timer would buy nothing the eye can see and cost every page. And no global
+`Dispatcher.UnhandledException` net: a guard per area names the area; a net would hide it.
+
+**The numbers.** The benchmark test (`DeskPollTests.TheTickStaysInsideItsBudgetOnACorporateShow`)
+fills a corporate-sized show — twelve looks, six stingers, forty cues, break music, a twenty-item
+playlist — warms twenty ticks and times two hundred, remote off and then on with a passcode set.
+On this Linux box, headless:
+
+| | average | p95 | max |
+| --- | --- | --- | --- |
+| before, cold process | 3.1–3.7 ms | 3.9–4.9 ms | 13–38 ms |
+| after, cold process | 1.2–1.6 ms | 1.4–2.1 ms | 12–17 ms |
+| after, warm process | 0.3–0.4 ms | 0.4 ms | 6–10 ms |
+
+The max is the JIT and the test host, not the tick (the budget names the area: *machine*, the
+dashboard's five-second fact gathering). The resolver was invisible here — a container answers its
+own name at once — and that is the point of caching it: on the venue network it is the one number
+in the row that can be nine hundred. A tick under a desk frame is a desk that never waits on its
+own status.
+
+**What the answer is not.** The desk's speed is not the tick alone: page switches are index changes
+and every page is built at start (§14.3), edits publish a snapshot and return, and the engine draws
+on its own threads. If the desk ever feels slow, the next candidates are already keyed or debounced
+— the switcher tiles' rebuild on a rig change, the library's thumbnails, the Help search — and the
+STABILITY line is where to look first, because it now says which area took the time.

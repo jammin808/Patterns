@@ -609,10 +609,11 @@ public static class HelpTopics
                 "WARNINGS AND RECOMMENDATIONS: each card is what is wrong, why it matters mid-show and the next thing to do, worst first.",
                 "The lines: the last three minutes beside the day so far — a memory line that only climbs is a leak; run SUPER-CHECK for the graded report.",
                 "Pick the GPU the outputs render on; set the frame rate the machine can hold; copy the report when asking for help.",
+                "STABILITY: the desk's tick — what the once-a-second poll costs on the UI thread, its worst minute and the area that took it; the super-check's Desk tick row and the RENDER tile say the same.",
             },
             "STATUS carries the health line.",
             new[] { "Machine" },
-            new[] { "machine", "performance", "gpu", "cpu", "memory", "fps", "drops", "super-check", "health", "report", "suggestion", "recommendation", "slow" }),
+            new[] { "machine", "performance", "gpu", "cpu", "memory", "fps", "drops", "super-check", "health", "report", "suggestion", "recommendation", "slow", "desk tick", "stutter", "ui thread", "lag" }),
 
         new HelpTopic("watchdog", HelpGroup.TheMachine,
             "The watchdog, and a beacon for a second machine",

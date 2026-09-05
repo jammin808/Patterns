@@ -213,7 +213,9 @@ public class CallerHomeTests
             Dispatcher.UIThread.RunJobs();
 
             var cues = services.CueStack;
-            var t = new DateTime(2026, 9, 5, 19, 0, 0, DateTimeKind.Utc);
+            // An hour ahead of the real clock: the Run surface's own tick polls with UtcNow, and a
+            // follow due at a fixed past time would fire under it.
+            var t = DateTime.UtcNow.AddHours(1);
             cues.SetArmed(true, ActionOrigin.Desk);
             Assert.True(cues.Go(ActionOrigin.Desk, nowUtc: t).Ok);
             Dispatcher.UIThread.RunJobs();
