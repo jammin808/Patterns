@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Patterns.App.Services;
 using Patterns.App.Views.Sections;
 using Patterns.Core.Effects;
@@ -117,6 +118,67 @@ public class EffectStingAppTests
             Assert.Equal("opening.mp4", file.DisplayName);
             Assert.True(file.IsFile);
             Assert.Equal("VOG", file.KindLabel);
+        }
+        finally
+        {
+            EffectImpulses.Clear();
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The sliders bound through the number converter (a pulse's length, the fades, the hold
+    /// limit) write back to the model: a Slider's double is not a NumericUpDown's decimal, and
+    /// the converter used to answer it with "do nothing".
+    /// </summary>
+    [AvaloniaFact]
+    public void TheIntegerSlidersOnTheAudioPageWriteBackToTheModel()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var item = new StingerItemConfig { Source = StingerSource.EffectPulse, PulsePreset = PulsePreset.Vortex, PulseMs = 900, Kind = StingerKind.Sting };
+            vm.State.Stingers.Items.Add(item);
+            var host = new Window { DataContext = vm, Width = 900, Height = 1600, Content = new ScrollViewer { Content = new AudioSection() } };
+            host.Show();
+            Dispatcher.UIThread.RunJobs();
+            var sliders = host.GetVisualDescendants().OfType<Slider>().ToList();
+            Slider One(double max) => sliders.Single(s => Math.Abs(s.Maximum - max) < 0.5);
+            var fades = sliders.Where(s => Math.Abs(s.Maximum - 2000) < 0.5).ToList(); // live duck fade, then the sting fade
+            Assert.Equal(2, fades.Count);
+
+            Assert.Equal(900, One(5000).Value);
+            One(5000).Value = 2400;
+            fades[0].Value = 750;
+            fades[1].Value = 1250;
+            One(1000).Value = 450;
+            One(600).Value = 120;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2400, item.PulseMs);
+            Assert.Equal(750, vm.State.Stingers.DuckFadeMs);
+            Assert.Equal(1250, vm.State.Stingers.FadeMs);
+            Assert.Equal(450, vm.State.Stingers.StopFadeMs);
+            Assert.Equal(120, vm.State.Stingers.HoldSeconds);
+
+            // The model still drives the slider, and the pulse fires at its new length.
+            item.PulseMs = 3100;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(3100, One(5000).Value);
+            EffectImpulses.Clear();
+            vm.FireStingerCommand.Execute(item);
+            Assert.Equal(3.1, EffectImpulses.Current.LengthSeconds, 3);
+            Assert.Equal(PulsePreset.Vortex, EffectImpulses.Current.Preset);
+            host.Close();
+
+            // The number boxes keep their decimal path.
+            var conv = new Converters.NumberConverter();
+            Assert.Equal(900.0, conv.Convert(900, typeof(double), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(5m, conv.Convert(5, typeof(decimal?), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(2400, conv.ConvertBack(2400.0, typeof(int), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(3.5, conv.ConvertBack(3.5m, typeof(double), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(Avalonia.Data.BindingOperations.DoNothing, conv.ConvertBack(null, typeof(int), null, System.Globalization.CultureInfo.InvariantCulture));
+            Assert.Equal(12, Patterns.App.ViewModels.Lists.PulsePresets.Length);
         }
         finally
         {

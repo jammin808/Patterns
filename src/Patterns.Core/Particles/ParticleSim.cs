@@ -134,10 +134,18 @@ public sealed class ParticleSim : IDisposable
     /// </summary>
     public void StepFixed(float dt, in EffectSurge surge)
     {
-        var speedMul = 1 + 3f * surge.Speed;
+        // Slow motion holds the field (never quite still, so it keeps breathing); speed rushes it.
+        var speedMul = (1 + 3f * surge.Speed) * (1 - 0.95f * surge.Slow);
+        var gravity = (float)_o.GravityY * (1 - 2f * surge.Lift);        // lift reverses gravity: 0.5 weightless, 1 falls up
+        var windAccel = (float)_o.WindX * 0.35f + surge.Gust * 900f;      // a gust is a side wind slam
         var starfield = _o.Emitter == ParticleEmitter.Center;
         float cx = _w / 2, cy = _h / 2;
         var maxDist = MathF.Sqrt(cx * cx + cy * cy) + 1;
+        var swirl = surge.Swirl;
+        var swirlAngle = swirl * 2.2f * dt;                                // the whirl: the field turns round the centre…
+        var swirlPull = MathF.Abs(swirl) * 110f * dt;                     // …and is drawn inward
+        var swirlCos = MathF.Cos(swirlAngle);
+        var swirlSin = MathF.Sin(swirlAngle);
 
         for (var i = 0; i < _count; i++)
         {
@@ -156,10 +164,22 @@ public sealed class ParticleSim : IDisposable
             }
             else
             {
-                p.Vx += (float)_o.WindX * dt * 0.35f;
-                p.Vy += (float)_o.GravityY * dt;
+                p.Vx += windAccel * dt;
+                p.Vy += gravity * dt;
                 p.X += p.Vx * dt * speedMul + MathF.Sin(p.Age * p.WobFreq + p.WobPhase) * (float)_o.Wobble * 42f * dt;
                 p.Y += p.Vy * dt * speedMul;
+            }
+
+            if (swirl != 0)
+            {
+                var dx = p.X - cx;
+                var dy = p.Y - cy;
+                var dist = MathF.Sqrt(dx * dx + dy * dy) + 0.01f;
+                var rx = dx * swirlCos - dy * swirlSin;
+                var ry = dx * swirlSin + dy * swirlCos;
+                var inward = MathF.Max(0f, 1f - swirlPull / dist);
+                p.X = cx + rx * inward;
+                p.Y = cy + ry * inward;
             }
 
             p.Rot += p.RotV * dt;
@@ -262,19 +282,33 @@ public sealed class ParticleSim : IDisposable
         var maxDist = MathF.Sqrt(cx * cx + cy * cy) + 1;
         var sprite = SKRect.Create(0, 0, SpriteSize, SpriteSize);
         var streaky = _o.Shape == ParticleShape.Streak;
+        var surge = _surge;
+
+        // Sprites drawn at 2×size px: bigger under a glow, bigger again under a scale, and a
+        // ripple is a ring of enlarged sprites rolling out from the centre as the sting runs.
+        var sizeMul = 2 * (1 + 0.6f * surge.Glow) * (1 + 1.5f * surge.Scale);
+        var ripple = surge.Ripple;
+        var ringRadius = surge.Progress * maxDist * 1.2f;
+        var ringWidth = MathF.Max(1f, maxDist * 0.12f);
+        var colors = surge.Hue != 0 && EffectColor.HueStrength(surge.Hue) > 0.002f ? Turned(surge.Hue) : _colors;
 
         for (var i = 0; i < _count; i++)
         {
             ref var p = ref _pool[i];
             _spriteRects[i] = sprite;
 
-            var scalePx = p.Size * 2 * (1 + 0.6f * _surge.Glow); // sprite drawn at 2×size px, bigger under a pulse's glow
-            if (starfield)
+            var scalePx = p.Size * sizeMul;
+            if (starfield || ripple > 0.001f)
             {
                 var dx = p.X - cx;
                 var dy = p.Y - cy;
                 var dist = MathF.Sqrt(dx * dx + dy * dy);
-                scalePx *= 0.25f + dist / maxDist * 1.6f;
+                if (starfield) scalePx *= 0.25f + dist / maxDist * 1.6f;
+                if (ripple > 0.001f)
+                {
+                    var d = (dist - ringRadius) / ringWidth;
+                    scalePx *= 1 + 2.5f * ripple * MathF.Exp(-d * d);
+                }
             }
             var scale = scalePx / SpriteSize;
 
@@ -288,15 +322,43 @@ public sealed class ParticleSim : IDisposable
 
             _xforms[i] = SKRotationScaleMatrix.Create(scale, rot, p.X, p.Y, SpriteSize / 2f, SpriteSize / 2f);
 
-            var col = _colors[p.ColorIdx % _colors.Length];
+            var col = colors[p.ColorIdx % colors.Length];
             var alpha = Math.Min(1f, p.Age * 2.5f); // quick fade-in avoids spawn pops
             _tints[i] = col.WithAlpha((byte)(col.Alpha * alpha));
         }
 
+        var shaking = surge.Shake > 0.01f;
+        if (shaking)
+        {
+            // The same offset on every sink for the same instant — a function of the sting's phase.
+            var (dx, dy) = ShakeOffset(surge, _h);
+            c.Save();
+            c.Translate(dx, dy);
+        }
         var paint = pc.FillAA(SKColors.White);
-        paint.BlendMode = _o.Glow || _surge.Glow > 0.25f ? SKBlendMode.Plus : SKBlendMode.SrcOver;
+        paint.BlendMode = _o.Glow || surge.Glow > 0.25f ? SKBlendMode.Plus : SKBlendMode.SrcOver;
         c.DrawAtlas(_atlas, _spriteRects, _xforms, _tints, SKBlendMode.Modulate, DrawUtil.Smooth, paint);
         paint.BlendMode = SKBlendMode.SrcOver;
+        if (shaking) c.Restore();
+    }
+
+    /// <summary>Where a shaking picture sits at this instant: a pseudo-random offset that is a pure function of the sting's phase.</summary>
+    public static (float Dx, float Dy) ShakeOffset(in EffectSurge surge, float height)
+    {
+        var amp = surge.Shake * 0.025f * height;
+        return (amp * MathF.Sin(surge.Phase * 71f), amp * MathF.Cos(surge.Phase * 53f));
+    }
+
+    private SKColor[] _turned = Array.Empty<SKColor>();
+    private float _turnedHue = float.NaN;
+
+    private SKColor[] Turned(float hue)
+    {
+        if (_turned.Length == _colors.Length && _turnedHue == hue) return _turned;
+        if (_turned.Length != _colors.Length) _turned = new SKColor[_colors.Length];
+        for (var i = 0; i < _colors.Length; i++) _turned[i] = EffectColor.Turn(_colors[i], hue);
+        _turnedHue = hue;
+        return _turned;
     }
 
     private void BuildAtlas(ShowSnapshot snap)
@@ -385,4 +447,6 @@ public sealed class ParticleSim : IDisposable
     public int Count => _count;
     public (float X, float Y) PositionOf(int i) => (_pool[i].X, _pool[i].Y);
     public float AgeOf(int i) => _pool[i].Age;
+    /// <summary>Tests: a particle's velocity (a starfield particle carries its base speed in X).</summary>
+    public (float Vx, float Vy) VelocityOf(int i) => (_pool[i].Vx, _pool[i].Vy);
 }

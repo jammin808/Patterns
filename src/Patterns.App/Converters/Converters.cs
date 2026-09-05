@@ -42,28 +42,45 @@ public sealed class StingerAfterTextConverter : IValueConverter
 /// </summary>
 public sealed class NumberConverter : IValueConverter
 {
+    /// <summary>
+    /// To the control: a NumericUpDown wants a decimal?, a Slider a double. The target type
+    /// decides — a Slider fed a decimal shows the value but its double never comes back.
+    /// </summary>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value switch
-        {
-            int i => (decimal?)i,
-            double d => double.IsFinite(d) ? (decimal?)(decimal)d : null,
-            decimal m => (decimal?)m,
-            null => null,
-            _ => BindingOperations.DoNothing,
-        };
+    {
+        if (value is null) return null;
+        var number = AsDouble(value);
+        if (number is null) return BindingOperations.DoNothing;
+        var t = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (t == typeof(double)) return number.Value;
+        if (t == typeof(float)) return (float)number.Value;
+        return (decimal)number.Value;
+    }
 
+    /// <summary>Back to the model: from a decimal (NumericUpDown) or a double (Slider) to the property's type.</summary>
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not decimal m)
+        var number = AsDouble(value);
+        if (number is null)
         {
             return BindingOperations.DoNothing; // empty box — keep the current model value
         }
         var t = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        if (t == typeof(int)) return (int)Math.Round(m);
-        if (t == typeof(double)) return (double)m;
-        if (t == typeof(decimal)) return m;
+        if (t == typeof(int)) return (int)Math.Round(number.Value);
+        if (t == typeof(double)) return number.Value;
+        if (t == typeof(decimal)) return (decimal)number.Value;
         return BindingOperations.DoNothing;
     }
+
+    private static double? AsDouble(object? value) => value switch
+    {
+        int i => i,
+        long l => l,
+        float f => float.IsFinite(f) ? f : null,
+        double d => double.IsFinite(d) ? d : null,
+        decimal m => (double)m,
+        _ => null,
+    };
 }
 
 /// <summary>Model hex string ("#RRGGBB") ⇄ Avalonia Color for the colour pickers.</summary>

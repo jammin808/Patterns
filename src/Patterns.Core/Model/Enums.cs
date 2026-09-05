@@ -296,11 +296,23 @@ public enum StingerSource
     EffectPulse,
 }
 
-/// <summary>The shape of an effect pulse: what surges, and how.</summary>
+/// <summary>
+/// The shape of an effect sting: what surges, and how. The first four are pulses — a rise and a
+/// settle; the rest are scored — the settings change over the length of the sting in several
+/// phases (a freeze that releases, a vortex that spins up and lets go, eight strobe hits…).
+/// </summary>
 public enum PulsePreset
 {
     Explosion,
     Rush,
     Flash,
     Bloom,
+    Shockwave,
+    Vortex,
+    Strobe,
+    Supernova,
+    Freeze,
+    Gust,
+    Rainbow,
+    Quake,
 }

@@ -155,7 +155,7 @@
     <WrapPanel>
       <Button Classes="chip" Content="+ Add sounds / clips…" Command="{Binding AddStingerFilesCommand}" Margin="0,0,8,6" />
       <Button Classes="chip" Content="+ Add effect pulse" Command="{Binding AddEffectPulseCommand}" Margin="0,0,8,6"
-              ToolTip.Tip="A stinger with no file: a surge through the particles and fractals on screen — an explosion, a rush, a flash, a bloom — that settles back by itself" />
+              ToolTip.Tip="A stinger with no file: a shape that runs through the particles and fractals on screen for the length you set and settles back by itself — a pulse (explosion, rush, flash, bloom) or a scored sting that changes the picture in phases (shockwave, vortex, strobe, supernova, freeze, gust, rainbow, quake)" />
       <Button Classes="stop" Content="■ STOP" Command="{Binding StopStingerCommand}" Margin="0,0,0,6"
               ToolTip.Tip="Stops whatever is on air: a clip or a held frame reverts, and a stinger's ending is cancelled, never run" />
     </WrapPanel>

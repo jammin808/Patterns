@@ -13,7 +13,7 @@ public static class FractalMath
     /// set). Newton returns the root it converged to in thirds — 0, ⅓, ⅔ — plus how slowly, as a
     /// fraction of that third. Domain warp returns a noise value in 0..1 that drifts with time.
     /// </summary>
-    public static double Sample(FractalKind kind, double x, double y, double cr, double ci, int maxIter, double time)
+    public static double Sample(FractalKind kind, double x, double y, double cr, double ci, int maxIter, double time, double warp = 0)
     {
         switch (kind)
         {
@@ -24,7 +24,7 @@ public static class FractalMath
             case FractalKind.Newton:
                 return Newton(x, y, maxIter);
             case FractalKind.DomainWarp:
-                return Warp(x, y, time);
+                return Warp(x, y, time, warp);
             default:
                 return Escape(0, 0, x, y, maxIter, ship: false);
         }
@@ -82,12 +82,14 @@ public static class FractalMath
 
     // ---- domain warp: value noise, three folds ------------------------------------------
 
-    public static double Warp(double x, double y, double time)
+    /// <summary><paramref name="warp"/> (0–1) folds the second warp deeper — a sting's morph; the shader does the same.</summary>
+    public static double Warp(double x, double y, double time, double warp = 0)
     {
         var px = x * 1.5;
         var py = y * 1.5;
+        var fold = 3 + 3 * warp;
         var q = Fbm(px + time * 0.11, py + time * 0.07);
-        var r = Fbm(px + 3 * q + 1.7 - time * 0.05, py + 3 * q + 9.2 - time * 0.05);
+        var r = Fbm(px + fold * q + 1.7 - time * 0.05, py + fold * q + 9.2 - time * 0.05);
         return Math.Clamp(Fbm(px + 3 * r, py + 3 * r), 0, 1);
     }
 

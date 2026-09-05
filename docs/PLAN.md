@@ -175,6 +175,19 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 10. Round 10 — the desk asks for more
+
+Bugs first, then show-critical capability, then creative surface; one green commit per item. The
+lower thirds are built as a module inside Patterns (`Patterns.Core/LowerThirds` and a page), not a
+bundled second app: a second process would need its own clock, install and watchdog, and a copy of
+every media path the elements draw — the particles, fractals, stings and video live in the sinks —
+while looks, cues, the remote and the journal want to drive it directly; a design is a portable
+JSON file, so one made on another machine still travels.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| Sliders that write back; effect stings in twelve shapes | The pulse length, the live-duck fade, the sting fade, the stop fade and the hold limit are sliders bound through the number converter, which answered a Slider's double with "do nothing" (it was written for a NumericUpDown's decimal) — the model never changed. The converter now follows the target type both ways. Then the stings: `EffectSurge` gains channels beyond the five pulse ones — Hue (a turn of the colours), Lift (gravity reversed), Swirl (the field spins round the centre and is drawn in), Gust (a side wind), Scale, Ripple (a ring rolling out with the sting's progress), Shake, Slow (slow motion), Rotate and Morph (the fractal plane turns; the Julia constant wanders and the domain warp folds deeper) plus Progress/Phase for the things that travel; eight scored shapes (`EffectScores`: keys through the sting, blended with an ease, every score ending at nothing) beside the four pulses, which read exactly as before. `ParticleSim` applies them in the fixed step (deterministic across sinks) and at the draw (sizes, a hue-turned palette cached per turn, the shake as a pure function of the phase); `FractalView` carries `Angle` and `Warp`, the shader maps pixels through a `plane()` with a rotation uniform, the CPU path inlines the same turn, a shaking fractal draws a little larger and offset. | done |
+
 ## 9. Round 9 — heard from the desk
 
 Bugs first, then show-critical capability, then creative surface; one green commit per item.

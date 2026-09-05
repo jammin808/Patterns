@@ -34,6 +34,13 @@ public sealed class FractalPattern : IPatternRenderer
         uniform float3 p3;
         uniform float3 p4;
         uniform float t;
+        uniform float2 rot;
+        uniform float warp;
+        float2 plane(float2 px) {
+            float2 d = px - res * 0.5;
+            d = float2(d.x * rot.x - d.y * rot.y, d.x * rot.y + d.y * rot.x);
+            return center + d * upp;
+        }
         float3 pick(float i) {
             if (i < 0.5) return p0;
             if (i < 1.5) return p1;
@@ -59,7 +66,7 @@ public sealed class FractalPattern : IPatternRenderer
 
     private const string Mandelbrot = Common + """
         half4 main(float2 px) {
-            float2 c0 = center + (px - res * 0.5) * upp;
+            float2 c0 = plane(px);
             float2 z = float2(0.0, 0.0);
             float n = 0.0;
             float inside = 1.0;
@@ -75,7 +82,7 @@ public sealed class FractalPattern : IPatternRenderer
 
     private const string Julia = Common + """
         half4 main(float2 px) {
-            float2 z = center + (px - res * 0.5) * upp;
+            float2 z = plane(px);
             float n = 0.0;
             float inside = 1.0;
             for (int i = 0; i < 256; ++i) {
@@ -90,7 +97,7 @@ public sealed class FractalPattern : IPatternRenderer
 
     private const string BurningShip = Common + """
         half4 main(float2 px) {
-            float2 c0 = center + (px - res * 0.5) * upp;
+            float2 c0 = plane(px);
             float2 z = float2(0.0, 0.0);
             float n = 0.0;
             float inside = 1.0;
@@ -107,7 +114,7 @@ public sealed class FractalPattern : IPatternRenderer
 
     private const string Newton = Common + """
         half4 main(float2 px) {
-            float2 z = center + (px - res * 0.5) * upp;
+            float2 z = plane(px);
             float n = 0.0;
             for (int i = 0; i < 256; ++i) {
                 if (float(i) >= iters) break;
@@ -157,9 +164,9 @@ public sealed class FractalPattern : IPatternRenderer
             return v;
         }
         half4 main(float2 px) {
-            float2 p = (center + (px - res * 0.5) * upp) * 1.5;
+            float2 p = plane(px) * 1.5;
             float q = fbm(p + float2(t * 0.11, t * 0.07));
-            float r = fbm(p + 3.0 * q + float2(1.7, 9.2) - t * 0.05);
+            float r = fbm(p + (3.0 + 3.0 * warp) * q + float2(1.7, 9.2) - t * 0.05);
             float v = fbm(p + 3.0 * r);
             float3 col = clamp(pal(v * 1.5 + offset) * bright, 0.0, 1.0);
             return half4(half3(col), 1.0);
@@ -187,6 +194,18 @@ public sealed class FractalPattern : IPatternRenderer
         var surge = EffectImpulses.SurgeAt(f.Ctx.Time);
         int w = f.W, h = f.H;
 
+        // A shaking picture is drawn a little larger and offset, so no edge ever shows.
+        var shaking = surge.Shake > 0.01f;
+        var dest = SKRect.Create(0, 0, w, h);
+        if (shaking)
+        {
+            var (dx, dy) = Particles.ParticleSim.ShakeOffset(surge, h);
+            var margin = surge.Shake * 0.025f * h + 1;
+            dest = SKRect.Create(-margin, -margin, w + 2 * margin, h + 2 * margin);
+            c.Save();
+            c.Translate(dx, dy);
+        }
+
         if (UsesShader(f.Ctx.Sink) && Shader(sink, o.Kind) is { } fx)
         {
             var view = FractalView.Of(o, f.Ctx.Time, audio, ShaderIterationCap, surge);
@@ -206,12 +225,15 @@ public sealed class FractalPattern : IPatternRenderer
                 ["p3"] = Rgb(palette, 3),
                 ["p4"] = Rgb(palette, 4),
                 ["t"] = (float)view.Time,
+                ["rot"] = new[] { (float)Math.Cos(view.Angle), (float)Math.Sin(view.Angle) },
+                ["warp"] = (float)view.Warp,
             };
             using var shader = fx.ToShader(uniforms);
             var paint = f.Paints.Fill(SKColors.White);
             paint.Shader = shader;
-            c.DrawRect(SKRect.Create(0, 0, w, h), paint);
+            c.DrawRect(dest, paint);
             paint.Shader = null;
+            if (shaking) c.Restore();
             EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
             return;
         }
@@ -220,7 +242,8 @@ public sealed class FractalPattern : IPatternRenderer
         var size = FractalRaster.SizeFor(o.Quality, f.Canvas);
         sink.Fractal = FractalRaster.Render(sink.Fractal, size, o.Kind, palette, cpuView);
         using var image = SKImage.FromBitmap(sink.Fractal.Bitmap);
-        if (image is not null) c.DrawImage(image, SKRect.Create(0, 0, w, h), DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
+        if (image is not null) c.DrawImage(image, dest, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
+        if (shaking) c.Restore();
         EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
     }
 

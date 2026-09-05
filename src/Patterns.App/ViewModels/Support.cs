@@ -345,6 +345,14 @@ public static class Lists
         new(PulsePreset.Rush, "Rush — everything speeds up and dives in"),
         new(PulsePreset.Flash, "Flash — a white hit and a glow"),
         new(PulsePreset.Bloom, "Bloom — a swell of size and glow"),
+        new(PulsePreset.Shockwave, "Shockwave — a hit, then a ring rolls out through the field and the fractal punches out and back"),
+        new(PulsePreset.Vortex, "Vortex — the field spins up into a whirl, the fractal turns, then it all lets go"),
+        new(PulsePreset.Strobe, "Strobe — eight hits with the colours flipping between them"),
+        new(PulsePreset.Supernova, "Supernova — a blast, everything falls upward and the colours sweep the wheel"),
+        new(PulsePreset.Freeze, "Freeze — slow motion and a cold shift, then the release"),
+        new(PulsePreset.Gust, "Gust — a wind slams through one way and back the other"),
+        new(PulsePreset.Rainbow, "Rainbow — a full turn of the colours with a glow, no hit"),
+        new(PulsePreset.Quake, "Quake — the picture shakes, a ripple runs, it settles"),
     };
 
     public static readonly EnumItem[] StingerAfters =

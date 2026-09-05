@@ -21,12 +21,23 @@ public readonly record struct FractalView(double CenterX, double CenterY, double
         var speed = o.Speed;
         var pulse = 1 + 0.08 * Math.Sin(time * speed * 0.6) + audio.Level * 0.35 * amount + surge.Zoom * 0.6;
         var span = BaseSpan / (o.Zoom * Math.Max(0.5, pulse));
-        var cr = o.JuliaReal + 0.06 * Math.Sin(time * speed) * (1 + audio.Mid * amount);
-        var ci = o.JuliaImag + 0.06 * Math.Cos(time * speed * 0.77);
-        var offset = time * speed * 0.05 + audio.Low * 0.3 * amount + surge.Speed * 0.15;
+        var morph = surge.Morph;
+        var cr = o.JuliaReal + 0.06 * Math.Sin(time * speed) * (1 + audio.Mid * amount) + morph * 0.22 * Math.Sin(time * 1.7 + 0.5);
+        var ci = o.JuliaImag + 0.06 * Math.Cos(time * speed * 0.77) + morph * 0.22 * Math.Cos(time * 1.3);
+        var offset = time * speed * 0.05 + audio.Low * 0.3 * amount + surge.Speed * 0.15 + surge.Hue;
         var bright = 1 + audio.High * 0.5 * amount + surge.Glow * 0.8;
-        return new FractalView(o.CenterX, o.CenterY, span, cr, ci, Math.Min(o.Iterations, iterationCap), offset, bright, time);
+        return new FractalView(o.CenterX, o.CenterY, span, cr, ci, Math.Min(o.Iterations, iterationCap), offset, bright, time)
+        {
+            Angle = surge.Rotate * Math.PI / 2,
+            Warp = morph,
+        };
     }
+
+    /// <summary>The plane turned about the centre, radians — a sting's rotate channel.</summary>
+    public double Angle { get; init; }
+
+    /// <summary>0–1: how much deeper the domain warp folds — a sting's morph channel.</summary>
+    public double Warp { get; init; }
 
     /// <summary>Plane units per pixel on a canvas of this height.</summary>
     public double UnitsPerPixel(int height) => Span / Math.Max(1, height);
@@ -34,7 +45,15 @@ public readonly record struct FractalView(double CenterX, double CenterY, double
     public (double X, double Y) ToPlane(double px, double py, int w, int h)
     {
         var upp = UnitsPerPixel(h);
-        return (CenterX + (px - w / 2.0) * upp, CenterY + (py - h / 2.0) * upp);
+        var dx = px - w / 2.0;
+        var dy = py - h / 2.0;
+        if (Angle != 0)
+        {
+            var c = Math.Cos(Angle);
+            var s = Math.Sin(Angle);
+            (dx, dy) = (dx * c - dy * s, dx * s + dy * c);
+        }
+        return (CenterX + dx * upp, CenterY + dy * upp);
     }
 }
 
@@ -129,13 +148,19 @@ public static class FractalRaster
         var h = size.Height;
         var pixels = surface.Pixels;
         var colors = palette.Count > 0 ? palette : new[] { SKColors.White };
+        var upp = view.UnitsPerPixel(h);
+        var cos = Math.Cos(view.Angle);
+        var sin = Math.Sin(view.Angle);
         Parallel.For(0, h, y =>
         {
             var row = y * w;
+            var dy = y + 0.5 - h / 2.0;
             for (var x = 0; x < w; x++)
             {
-                var (px, py) = view.ToPlane(x + 0.5, y + 0.5, w, h);
-                var v = FractalMath.Sample(kind, px, py, view.JuliaRe, view.JuliaIm, view.Iterations, view.Time);
+                var dx = x + 0.5 - w / 2.0;
+                var px = view.CenterX + (dx * cos - dy * sin) * upp;
+                var py = view.CenterY + (dx * sin + dy * cos) * upp;
+                var v = FractalMath.Sample(kind, px, py, view.JuliaRe, view.JuliaIm, view.Iterations, view.Time, view.Warp);
                 pixels[row + x] = (int)(uint)FractalColor.Map(kind, v, colors, view.PaletteOffset, view.Brightness);
             }
         });
