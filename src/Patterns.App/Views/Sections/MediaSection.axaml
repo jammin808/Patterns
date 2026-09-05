@@ -206,6 +206,33 @@
                  Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default." />
     </StackPanel>
 
+    <!-- A deck: a PDF presentation, a page at a time; the click-through turns it -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Deck}}">
+      <TextBlock Classes="h2" Text="DECK — A PDF PRESENTATION" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <TextBox Grid.Column="0" Watermark="A PDF — export the deck from PowerPoint, Keynote or Slides as PDF" Text="{Binding ActivePattern.Media.DeckPath, Mode=TwoWay}" />
+        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseDeckCommand}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,90,16,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Start at page" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Minimum="1" Maximum="9999" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                       Value="{Binding ActivePattern.Media.DeckStartPage, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="The page the deck opens at when a look or a cue brings it on" />
+        <CheckBox Grid.Column="3" Content="At the last page, the next click GOes the standby cue (the cue stack resumes)"
+                  IsChecked="{Binding ActivePattern.Media.DeckEndsWithGo, Mode=TwoWay}" VerticalAlignment="Center"
+                  ToolTip.Tip="Off: the deck holds its last page and the caller GOes by hand" />
+      </Grid>
+      <TextBlock Classes="label" Text="{Binding DeckPageText}" TextWrapping="Wrap" Margin="0,6,0,0" />
+      <WrapPanel Margin="0,4,0,0">
+        <Button Classes="mini" Content="⏮ First" Command="{Binding DeckFirstCommand}" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="◀ Previous" Command="{Binding DeckPrevCommand}" Margin="0,0,4,4" />
+        <Button Classes="chip" Content="NEXT PAGE ▶" Command="{Binding DeckNextCommand}" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Last ⏭" Command="{Binding DeckLastCommand}" Margin="0,0,12,4" />
+      </WrapPanel>
+      <TextBlock Classes="hint tip"
+                 Text="The page shows full frame at its own shape — a 4:3 deck gets bars on a 16:9 screen, never a stretch — rendered as sharp as the largest screen needs, on every output, NDI send and the stream. Once the deck is on air (through a cue, a look, or by hand) it is the click-through: the clicker's keys, NEXT / BACK on the phone, Companion's presenter keys and NEXT on the wire turn its pages, and at the last page the next click GOes the standby cue, so the cue stack resumes. A cue can turn pages too (Deck — next page / go to page), and DECK NEXT / PREV / PAGE n on the wire, OSC and Companion. The area of interest, the flips and the turn apply to a page like any picture." />
+    </StackPanel>
+
     <!-- Web page inside the engine -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Web}}">
       <TextBlock Classes="h2" Text="WEB PAGE" />

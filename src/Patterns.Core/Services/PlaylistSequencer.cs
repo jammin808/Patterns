@@ -15,6 +15,8 @@ public sealed class PlaylistSequencer
     public static readonly string[] ImageExtensions = { ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif" };
     public static readonly string[] VideoExtensions = { ".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".mpg", ".mpeg", ".wmv" };
     public static readonly string[] AudioExtensions = { ".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma", ".aiff", ".aif" };
+    /// <summary>Decks — presentations shown a page at a time by the PDF renderer.</summary>
+    public static readonly string[] DeckExtensions = { ".pdf" };
 
     private List<PlaylistEntry> _order = new();
     private int _index = -1;
@@ -39,6 +41,10 @@ public sealed class PlaylistSequencer
 
     /// <summary>Media that needs the libVLC decoder and plays to a natural end (video or audio).</summary>
     public static bool IsDecodedPath(string path) => IsVideoPath(path) || IsAudioPath(path);
+
+    /// <summary>A deck: a PDF presentation, shown a page at a time.</summary>
+    public static bool IsDeckPath(string path)
+        => DeckExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
 
     public static bool IsMediaPath(string path)
     {

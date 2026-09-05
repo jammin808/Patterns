@@ -635,8 +635,9 @@ public partial class MainWindow : Window
         }
 
         // Presenter clicker: USB presentation remotes send Page Down / Page Up (and often
-        // the arrow keys — those only count when the operator isn't in a control).
-        if (vm.ClickerArmed && e.KeyModifiers == KeyModifiers.None)
+        // the arrow keys — those only count when the operator isn't in a control). A deck on
+        // air is a click-through of its own, armed list or not.
+        if ((vm.ClickerArmed || vm.DeckOnAir) && e.KeyModifiers == KeyModifiers.None)
         {
             var forward = e.Key is Key.PageDown || (!typing && e.Key is Key.Right);
             var back = e.Key is Key.PageUp || (!typing && e.Key is Key.Left);

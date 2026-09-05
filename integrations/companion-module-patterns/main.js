@@ -122,6 +122,9 @@ class PatternsInstance extends InstanceBase {
 			lower_third_preview_person: this.state.lowerThirdPreviewPerson ?? '',
 			lower_third_default: this.state.lowerThirdDefault ?? '',
 			lower_third_edited: this.state.lowerThirdEdited ? 'EDITED' : 'off',
+			deck_page: this.state.deck?.count ? String(this.state.deck.page) : '',
+			deck_count: this.state.deck?.count ? String(this.state.deck.count) : '',
+			deck_file: this.state.deck?.file ?? '',
 			web_page: this.state.web?.page ?? '',
 			web_title: this.state.web?.title ?? '',
 			web_service: this.state.web?.service ?? '',
@@ -405,6 +408,25 @@ class PatternsInstance extends InstanceBase {
 				],
 				callback: (a) => { if (a.options.address) send(`WEB OPEN ${String(a.options.address).trim()}${a.options.page ? ` ON ${String(a.options.page).trim()}` : ''}`) },
 			},
+			// The deck (a PDF presentation) on air: its pages from a key. Presenter NEXT / BACK turn it too,
+			// and past the last page the caller's stack resumes.
+			deck_page: {
+				name: 'Deck — turn the PDF on air',
+				options: [
+					{
+						type: 'dropdown', id: 'mode', label: 'Turn', default: 'NEXT',
+						choices: [
+							{ id: 'NEXT', label: 'Next page' },
+							{ id: 'PREV', label: 'Previous page' },
+							{ id: 'FIRST', label: 'First page' },
+							{ id: 'LAST', label: 'Last page' },
+							{ id: 'PAGE', label: 'A page number (below)' },
+						],
+					},
+					{ type: 'number', id: 'n', label: 'Page (when Turn is a page number)', default: 1, min: 1, max: 9999 },
+				],
+				callback: (a) => send(a.options.mode === 'PAGE' ? `DECK PAGE ${a.options.n}` : `DECK ${a.options.mode}`),
+			},
 			// VOG / STING name the same library by the same number and only assert the kind: a key
 			// that says VOG never fires a stinger — Patterns refuses and names the item.
 			vog: {
@@ -585,6 +607,17 @@ class PatternsInstance extends InstanceBase {
 					return !word || String(w.url || '').toLowerCase().includes(word) || String(w.page || '').toLowerCase().includes(word)
 				},
 			},
+			deck_on_air: {
+				type: 'boolean',
+				name: 'A deck (PDF) is on air — or on its last page',
+				defaultStyle: { bgcolor: combineRgb(0, 90, 130), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'checkbox', id: 'ended', label: 'Only on its last page (the next click GOes the standby cue)', default: false }],
+				callback: (fb) => {
+					const d = this.state.deck
+					if (!d || !d.count) return false
+					return fb.options.ended ? !!d.ended : true
+				},
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -649,6 +682,9 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
 			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
+			{ variableId: 'deck_page', name: 'Deck on air — the page on show (or empty)' },
+			{ variableId: 'deck_count', name: 'Deck on air — its page count (or empty)' },
+			{ variableId: 'deck_file', name: 'Deck on air — its file name (or empty)' },
 			{ variableId: 'web_page', name: 'Web page on air (its nickname or host, or empty)' },
 			{ variableId: 'web_title', name: 'Web page on air — its title' },
 			{ variableId: 'web_service', name: 'Web page on air — its service (YouTube, Google Slides…), or empty' },
@@ -819,6 +855,16 @@ class PatternsInstance extends InstanceBase {
 				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) to preview, into the design in the preview, on air, or the default`,
 				style: { text: `PVW\\nPERSON ${n}`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n: 0, person: String(n) } }], up: [] }], feedbacks: [lowerPvw],
+			}
+		}
+		const deckOn = { feedbackId: 'deck_on_air', options: { ended: false }, style: { bgcolor: combineRgb(0, 90, 130) } }
+		const deckEnded = { feedbackId: 'deck_on_air', options: { ended: true }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }
+		for (const [id, text, mode] of [['next', 'DECK\\n▶ $(patterns:deck_page)/$(patterns:deck_count)', 'NEXT'], ['prev', 'DECK\\n◀', 'PREV'], ['first', 'DECK\\nFIRST', 'FIRST'], ['last', 'DECK\\nLAST', 'LAST']]) {
+			presets[`deck_${id}`] = {
+				type: 'button', category: 'Presenter', name: `Deck — ${mode.toLowerCase()} page`,
+				style: { text, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'deck_page', options: { mode, n: 1 } }], up: [] }],
+				feedbacks: id === 'next' ? [deckOn, deckEnded] : [deckOn],
 			}
 		}
 		const webOn = { feedbackId: 'web_on_air', options: { word: '' }, style: { bgcolor: combineRgb(0, 90, 130) } }

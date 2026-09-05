@@ -109,6 +109,12 @@ public enum RemoteCommandKind
     WebReload,
     /// <summary>"WEB OPEN &lt;address&gt; [ON &lt;page&gt;]" — the page's browser sent to another address (TextArg).</summary>
     WebOpen,
+    /// <summary>"DECK NEXT" — the deck on air turns to its next page (PDF and SLIDES are aliases of DECK).</summary>
+    DeckNext,
+    /// <summary>"DECK PREV" (or BACK) — the deck on air turns back a page.</summary>
+    DeckPrev,
+    /// <summary>"DECK PAGE &lt;n&gt;" / "DECK &lt;n&gt;" / "DECK FIRST" / "DECK LAST" — the deck on air turns to a page (IntArg, or TextArg first / last).</summary>
+    DeckPage,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -416,6 +422,23 @@ public static class ControlProtocol
                         return value.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.WebKey, 0, value, page);
                     }
                 }
+            }
+
+            // The deck on air: "DECK NEXT", "DECK PREV", "DECK FIRST", "DECK LAST", "DECK PAGE 5", "DECK 5". PDF / SLIDES are aliases.
+            case "DECK":
+            case "PDF":
+            case "SLIDES":
+            {
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                var word = arg.StartsWith("PAGE ", StringComparison.OrdinalIgnoreCase) ? arg[5..].Trim() : arg;
+                if (!Decks.TryParsePage(word, out var page, out var which)) return new(RemoteCommandKind.Unknown, 0, s);
+                return which switch
+                {
+                    "next" => new(RemoteCommandKind.DeckNext, 0, ""),
+                    "prev" => new(RemoteCommandKind.DeckPrev, 0, ""),
+                    "first" or "last" => new(RemoteCommandKind.DeckPage, 0, which),
+                    _ => new(RemoteCommandKind.DeckPage, page, ""),
+                };
             }
 
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.

@@ -93,6 +93,40 @@ public static class WebInput
 }
 
 /// <summary>
+/// A deck — a PDF presentation — as an engine input: the current page is the frame every sink
+/// draws, and the click-through turns the pages. The app layer renders the pages; the engine,
+/// the desk, cues and the remotes only ever see this.
+/// </summary>
+public interface IDeckSource : IVideoFrameSource
+{
+    /// <summary>The deck's file.</summary>
+    string Path { get; }
+
+    /// <summary>How many pages the deck has; 0 while it is opening or when it could not be opened.</summary>
+    int PageCount { get; }
+
+    /// <summary>The page on show, 1-based; 0 while nothing is loaded.</summary>
+    int Page { get; }
+
+    /// <summary>The page's own shape (its width and height in points) — what the fit keeps.</summary>
+    SKSize PageShape { get; }
+
+    bool AtStart => Page <= 1;
+
+    bool AtEnd => PageCount > 0 && Page >= PageCount;
+
+    /// <summary>Turns to a page (clamped to the deck); false when the page did not change.</summary>
+    bool GoTo(int page);
+}
+
+/// <summary>See <see cref="VideoService"/> — the deck side's availability note.</summary>
+public static class DeckInput
+{
+    /// <summary>Availability text when decks cannot be shown (the PDF renderer missing); empty = fine.</summary>
+    public static volatile string AvailabilityNote = "";
+}
+
+/// <summary>
 /// The newest frame of a live source: published from any thread, drawn from any render thread.
 /// A replaced frame is kept for a moment before it is disposed, so a draw in flight never touches
 /// a dead image — the same discipline the NDI receiver keeps.
@@ -202,6 +236,9 @@ public static class InputKeys
         var normalized = Services.WebAddress.Normalize(url);
         return normalized.Length == 0 ? "" : "web:" + normalized;
     }
+
+    /// <summary>A deck's key is its file: the same deck on two screens is one deck, on one page.</summary>
+    public static string Deck(string path) => string.IsNullOrWhiteSpace(path) ? "" : "deck:" + path.Trim();
 }
 
 /// <summary>

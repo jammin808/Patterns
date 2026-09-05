@@ -1,4 +1,5 @@
 using Patterns.Core.LowerThirds;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -422,6 +423,12 @@ public sealed class ShowActions
             case ShowActionKind.WebReload:
             case ShowActionKind.WebOpen:
                 return WebActions.Execute(_s, a);
+            case ShowActionKind.DeckNext:
+                return DeckTurn("next");
+            case ShowActionKind.DeckPrev:
+                return DeckTurn("prev");
+            case ShowActionKind.DeckPage:
+                return DeckTurn(a.Value);
             case ShowActionKind.AudioVolume:
             {
                 // The track is not in the snapshot: the player reads the live model every poll,
@@ -766,8 +773,63 @@ public sealed class ShowActions
     }
 
     /// <summary>The clicker: Page Down / Up, NEXT / PREV and the Show page drive the clicker list.</summary>
+    /// <summary>
+    /// The click-through. A deck on air comes first: NEXT and PREV turn its pages; past the last
+    /// page the caller's stack resumes — GO on the standby cue when the deck asks for it and the
+    /// stack is armed — else the clicker list steps as it always did. With no deck on air, the
+    /// clicker list alone.
+    /// </summary>
     private ActionResult Presenter(int delta, ActionOrigin origin)
-        => RunList(CueStacks.Clicker(State), delta, origin);
+    {
+        if (_s.DeckOnAir() is { PageCount: > 0 } deck)
+        {
+            if (delta > 0 ? !deck.AtEnd : !deck.AtStart)
+            {
+                deck.GoTo(deck.Page + Math.Sign(delta));
+                return ActionResult.Done(DeckWords(deck));
+            }
+            if (delta < 0) return ActionResult.Done($"Deck: the first page of {deck.PageCount} — nothing before it.");
+            var ends = MediaLocator.FindActiveMedia(_s.AirState, MediaSource.Deck)?.DeckEndsWithGo ?? true;
+            if (ends && _s.CueStack.Armed && _s.CueStack.StandbyCue is { } standby)
+            {
+                // The deck has ended: the cue stack resumes through the same gate a GO from the desk goes through.
+                var go = Execute(new ShowAction(ShowActionKind.CueGo), origin);
+                return go.Ok ? ActionResult.Done($"Deck ended — GO {standby.Number} {standby.Name}.") : go;
+            }
+            var clicker = CueStacks.Clicker(State);
+            if (!ends || clicker.Cues.Count == 0 || !_s.Cues.For(clicker).Armed)
+            {
+                return ActionResult.Done(ends
+                    ? $"Deck: the last page of {deck.PageCount} — nothing follows: arm the cue stack with a cue on standby, GO a cue, or recall a look."
+                    : $"Deck: the last page of {deck.PageCount}.");
+            }
+        }
+        return RunList(CueStacks.Clicker(State), delta, origin);
+    }
+
+    /// <summary>"Deck: page 3 / 12", with a word about what the next click does at the end.</summary>
+    private string DeckWords(IDeckSource deck)
+    {
+        if (!deck.AtEnd) return $"Deck: page {deck.Page} / {deck.PageCount}.";
+        var ends = MediaLocator.FindActiveMedia(_s.AirState, MediaSource.Deck)?.DeckEndsWithGo ?? true;
+        return ends && _s.CueStack.Armed && _s.CueStack.StandbyCue is { } standby
+            ? $"Deck: the last page ({deck.PageCount}) — the next click GOes {standby.Number} {standby.Name}."
+            : $"Deck: the last page ({deck.PageCount}).";
+    }
+
+    /// <summary>DECK NEXT / PREV / PAGE on the deck on air, from a cue, the wire or a phone.</summary>
+    private ActionResult DeckTurn(string value)
+    {
+        if (_s.DeckOnAir() is not { } deck)
+        {
+            return ActionResult.Refused("No deck is on air — put a PDF on the pattern or a layer of the look on air first.");
+        }
+        if (deck.PageCount == 0) return ActionResult.Refused($"The deck is not open: {deck.StatusText}");
+        var target = Decks.Resolve(value, deck.Page, deck.PageCount);
+        if (target == 0) return ActionResult.Refused($"A deck page is a number (1-based), first, last, next or prev — not '{value}'.");
+        deck.GoTo(target);
+        return ActionResult.Done(DeckWords(deck));
+    }
 
     /// <summary>
     /// Steps a list: the next (or previous) cue that can run is fired; a disabled or broken cue
@@ -926,6 +988,9 @@ public sealed class ShowActions
         CueActionKind.WebClick => new ShowAction(ShowActionKind.WebClick, a.Target, a.Value),
         CueActionKind.WebType => new ShowAction(ShowActionKind.WebType, a.Target, a.Value),
         CueActionKind.WebReload => new ShowAction(ShowActionKind.WebReload, a.Target),
+        CueActionKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
+        CueActionKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
+        CueActionKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", a.Value),
         CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
         CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
         CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),

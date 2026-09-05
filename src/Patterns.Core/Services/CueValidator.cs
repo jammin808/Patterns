@@ -226,6 +226,20 @@ public static class CueValidator
                     if (a.Kind == CueActionKind.WebType && a.Value.Length == 0) Soft($"{where}: nothing to type.");
                     break;
                 }
+                case CueActionKind.DeckNext:
+                case CueActionKind.DeckPrev:
+                case CueActionKind.DeckPage:
+                {
+                    if (a.Kind == CueActionKind.DeckPage && !Decks.TryParsePage(a.Value, out _, out _))
+                    {
+                        Hard($"{where}: a deck page is a number (1-based), first or last — not '{a.Value}'.");
+                    }
+                    if (MediaLocator.FindActiveMedia(sim, MediaSource.Deck) is null)
+                    {
+                        Soft($"{where}: no deck is on air at this cue as far as the checks can see — the action reaches whatever deck is on when it fires.");
+                    }
+                    break;
+                }
                 case CueActionKind.LowerThirdShow:
                 case CueActionKind.LowerThirdPreview:
                 {

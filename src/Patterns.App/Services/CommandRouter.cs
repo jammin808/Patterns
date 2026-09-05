@@ -165,7 +165,28 @@ public sealed class CommandRouter
             RemoteCommandKind.WebType => new ShowAction(ShowActionKind.WebType, cmd.Extra, cmd.TextArg),
             RemoteCommandKind.WebReload => new ShowAction(ShowActionKind.WebReload, cmd.Extra),
             RemoteCommandKind.WebOpen => new ShowAction(ShowActionKind.WebOpen, cmd.Extra, cmd.TextArg),
+            RemoteCommandKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
+            RemoteCommandKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
+            RemoteCommandKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : cmd.TextArg),
             _ => null,
+        };
+    }
+
+    /// <summary>The deck the program shows — the click-through's pages — or null when none is on air.</summary>
+    private object? DeckRow()
+    {
+        var wanted = MediaLocator.FindWantedInputs(_services.Bus.Current).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.Deck);
+        if (wanted is null) return null;
+        var deck = Patterns.Core.Media.InputBus.For(wanted.Key) as Patterns.Core.Media.IDeckSource;
+        var ends = MediaLocator.FindActiveMedia(_services.AirState, MediaSource.Deck)?.DeckEndsWithGo ?? true;
+        return new
+        {
+            file = System.IO.Path.GetFileName(wanted.Target),
+            page = deck?.Page ?? 0,
+            count = deck?.PageCount ?? 0,
+            ended = deck is { PageCount: > 0 } d && d.AtEnd,
+            endsWithGo = ends,
+            status = deck?.StatusText ?? "Opening the deck…",
         };
     }
 
@@ -261,6 +282,7 @@ public sealed class CommandRouter
             lowerThirdDefault = s.LowerThirds.DefaultDesign?.Name ?? "",   // the show's ★ design — where a person goes with none on air
             lowerThirdEdited = _services.LowerThirdAirEdited(),            // the design on air differs from the edited one: LT UPDATE
             web = WebRow(),                                                // the web page on air and its service's actions, or null
+            deck = DeckRow(),                                              // the deck on air: file, page, count, ended — or null
             stingers = s.Stingers.Items.Select((i, n) => new
             {
                 n = n + 1,

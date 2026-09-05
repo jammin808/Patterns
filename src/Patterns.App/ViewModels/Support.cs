@@ -556,6 +556,7 @@ public static class Lists
         new(MediaSource.NdiFeed, "NDI feed (network)"),
         new(MediaSource.Capture, "Capture device (HDMI / SDI / webcam)"),
         new(MediaSource.Web, "Web page (inside the engine)"),
+        new(MediaSource.Deck, "Deck — a PDF presentation, a page at a time"),
     };
     public static readonly EnumItem[] ParticleShapes = Of<ParticleShape>();
     public static readonly EnumItem[] ParticleEmitters =

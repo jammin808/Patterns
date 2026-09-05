@@ -754,7 +754,7 @@ public sealed class PatternEngine
         var p = snap.PatternFor(screenId);
         var continuous = p.Kind is PatternKind.Motion or PatternKind.ColorCycle or PatternKind.Particles or PatternKind.Multiview or PatternKind.Fractal
             || (p.Kind == PatternKind.Checkerboard && p.Checker.Animate)
-            || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture or MediaSource.Web)
+            || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture or MediaSource.Web or MediaSource.Deck)
             || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)
             || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll)
             || LowerThirds.LowerThirdClock.IsLive(s.LowerThirds, utcNow)

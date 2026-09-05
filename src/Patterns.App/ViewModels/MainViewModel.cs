@@ -98,6 +98,22 @@ public sealed class MainViewModel : Observable
             ActivePattern.Media.Source = MediaSource.Video;
             AddToMediaLibrary(p, isVideo: true);
         }));
+        // A deck: a PDF presentation, a page at a time; the desk's buttons turn the deck the pattern shows.
+        BrowseDeckCommand = new RelayCommand(() => _ = PickFileAsync("Choose a PDF deck", DeckTypes, p =>
+        {
+            BulkEdit(() =>
+            {
+                ActivePattern.Kind = PatternKind.Media;
+                ActivePattern.Media.Source = MediaSource.Deck;
+                ActivePattern.Media.DeckPath = p;
+            });
+            AddToMediaLibrary(p, isVideo: false);
+            StatusMessage = $"{System.IO.Path.GetFileName(p)} is the pattern — the click-through turns its pages once it is on air.";
+        }));
+        DeckNextCommand = new RelayCommand(() => TurnDeskDeck("next"));
+        DeckPrevCommand = new RelayCommand(() => TurnDeskDeck("prev"));
+        DeckFirstCommand = new RelayCommand(() => TurnDeskDeck("first"));
+        DeckLastCommand = new RelayCommand(() => TurnDeskDeck("last"));
         BrowseLogoCommand = new RelayCommand(() => _ = PickFileAsync("Choose logo (PNG with alpha)", FilePickerFileTypes.ImageAll, p => State.Brand.LogoPath = p));
         BrowseLayerImageCommand = new RelayCommand<LayerConfig>(layer =>
         {
@@ -2395,6 +2411,14 @@ public sealed class MainViewModel : Observable
     {
         get
         {
+            // A deck on air is the click-through: its page first, the list after it.
+            if (_services.DeckOnAir() is { PageCount: > 0 } deck)
+            {
+                var ends = MediaLocator.FindActiveMedia(_services.AirState, MediaSource.Deck)?.DeckEndsWithGo ?? true;
+                return deck.AtEnd
+                    ? $"Deck: the last page ({deck.PageCount}){(ends ? " — the next click GOes the standby cue" : "")}"
+                    : $"Deck: page {deck.Page} of {deck.PageCount} — NEXT turns it";
+            }
             var clicker = CueStacks.Clicker(State);
             var rt = _services.Cues.For(clicker);
             var count = clicker.Cues.Count;
@@ -2406,6 +2430,75 @@ public sealed class MainViewModel : Observable
     }
 
     /// <summary>The clicker list's arm — a runtime chip, never saved: the app always opens disarmed.</summary>
+    // ---- decks: a PDF presentation, a page at a time ------------------------------
+
+    private bool _deckOnAir;
+
+    /// <summary>A deck is on air: the clicker's keys turn its pages whether or not a list is armed (kept fresh with the tallies).</summary>
+    public bool DeckOnAir { get => _deckOnAir; private set => Set(ref _deckOnAir, value); }
+
+    private string _deckPageText = "";
+
+    /// <summary>The Media page's readout for the deck the pattern shows: "Page 3 / 12", or why there is none.</summary>
+    public string DeckPageText { get => _deckPageText; private set => Set(ref _deckPageText, value); }
+
+    /// <summary>The deck the pattern on the desk shows — the one the page buttons turn — or null.</summary>
+    private IDeckSource? DeskDeck()
+    {
+        var m = ActivePattern.Media;
+        if (ActivePattern.Kind != PatternKind.Media || m.Source != MediaSource.Deck || m.DeckPath.Length == 0) return null;
+        return InputBus.For(InputKeys.Deck(m.DeckPath)) as IDeckSource;
+    }
+
+    private void TurnDeskDeck(string page)
+    {
+        if (DeskDeck() is not { } deck)
+        {
+            StatusMessage = ActivePattern.Media.DeckPath.Length == 0 ? "Choose a PDF deck first." : "The deck is still opening.";
+            return;
+        }
+        if (deck.PageCount == 0)
+        {
+            StatusMessage = deck.StatusText;
+            return;
+        }
+        var target = Decks.Resolve(page, deck.Page, deck.PageCount);
+        if (target > 0) deck.GoTo(target);
+        RefreshDeck();
+        StatusMessage = DeckPageText;
+    }
+
+    /// <summary>Keeps the deck readout and the click-through flag honest; cheap, runs with the tallies.</summary>
+    private void RefreshDeck()
+    {
+        DeckOnAir = _services.DeckOnAir() is { PageCount: > 0 };
+        var m = ActivePattern.Media;
+        if (ActivePattern.Kind != PatternKind.Media || m.Source != MediaSource.Deck)
+        {
+            DeckPageText = "";
+        }
+        else if (m.DeckPath.Length == 0)
+        {
+            DeckPageText = "Choose a PDF deck — the click-through turns its pages once it is on air.";
+        }
+        else if (DeskDeck() is not { } deck)
+        {
+            DeckPageText = DeckInput.AvailabilityNote.Length > 0 ? DeckInput.AvailabilityNote : "Opening the deck…";
+        }
+        else if (deck.PageCount == 0)
+        {
+            DeckPageText = deck.StatusText;
+        }
+        else
+        {
+            var tail = deck.AtEnd
+                ? m.DeckEndsWithGo ? " — the last page: the next click GOes the standby cue" : " — the last page"
+                : "";
+            DeckPageText = $"Page {deck.Page} / {deck.PageCount} · {deck.PageShape.Width:0}×{deck.PageShape.Height:0} pt{tail}";
+        }
+        Raise(nameof(PresenterStepText));
+    }
+
     public bool ClickerArmed
     {
         get => _services.Cues.For(CueStacks.Clicker(State)).Armed;
@@ -3535,11 +3628,17 @@ public sealed class MainViewModel : Observable
                     Raise(nameof(ActivePattern));
                 }
                 break;
+            case ShowActionKind.DeckNext:
+            case ShowActionKind.DeckPrev:
+            case ShowActionKind.DeckPage:
+                RefreshDeck();
+                break;
             case ShowActionKind.PresenterNext:
             case ShowActionKind.PresenterPrev:
             case ShowActionKind.ListGo:
             case ShowActionKind.ListBack:
             case ShowActionKind.CueFire:
+                RefreshDeck();
                 Raise(nameof(PresenterStepText));
                 if (result.Ok && !_services.Sandbox.Active)
                 {
@@ -4040,6 +4139,11 @@ public sealed class MainViewModel : Observable
     public RelayCommand SavePresetCommand { get; }
     public RelayCommand BrowseImageCommand { get; }
     public RelayCommand BrowseVideoCommand { get; }
+    public RelayCommand BrowseDeckCommand { get; }
+    public RelayCommand DeckNextCommand { get; }
+    public RelayCommand DeckPrevCommand { get; }
+    public RelayCommand DeckFirstCommand { get; }
+    public RelayCommand DeckLastCommand { get; }
     public RelayCommand BrowseLogoCommand { get; }
     public RelayCommand<string> ApplyParticlePresetCommand { get; }
     public RelayCommand<string> ApplyCountdownLabelCommand { get; }
@@ -5362,6 +5466,7 @@ public sealed class MainViewModel : Observable
         RefreshAfterChoices();
         RefreshTallies();
         RefreshCropSummary();
+        RefreshDeck();
         SyncVirtualScreens();
         StingerHolding = _services.Stingers.Holding;
         StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";
@@ -5616,6 +5721,7 @@ public sealed class MainViewModel : Observable
             {
                 LibraryMediaKind.Video => ("Videos", "My videos"),
                 LibraryMediaKind.Audio => ("Audio", "My audio"),
+                LibraryMediaKind.Deck => ("Decks", "My decks"),
                 _ => ("Images", "My images"),
             };
             LibraryAll.Add(new PresetItem
@@ -5680,7 +5786,7 @@ public sealed class MainViewModel : Observable
         LibraryThumbnails = RenderThumbnailsAsync(LibraryAll.ToList());
     }
 
-    /// <summary>A media tile on a pattern: an image shows; a video or an audio file plays through the decoder.</summary>
+    /// <summary>A media tile on a pattern: an image shows; a deck opens at its first page; a video or an audio file plays through the decoder.</summary>
     private static void ApplyMedia(PatternConfig target, MediaLibraryEntry entry, LibraryMediaKind kind)
     {
         target.Kind = PatternKind.Media;
@@ -5688,6 +5794,11 @@ public sealed class MainViewModel : Observable
         {
             target.Media.Source = MediaSource.Image;
             target.Media.ImagePath = entry.Path;
+        }
+        else if (kind == LibraryMediaKind.Deck)
+        {
+            target.Media.Source = MediaSource.Deck;
+            target.Media.DeckPath = entry.Path;
         }
         else
         {
@@ -5795,9 +5906,14 @@ public sealed class MainViewModel : Observable
         Patterns = Glob(PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions),
     };
 
-    private static readonly FilePickerFileType MediaTypes = new("Images, video & audio")
+    private static readonly FilePickerFileType MediaTypes = new("Images, video, audio & PDF decks")
     {
-        Patterns = Glob(PlaylistSequencer.ImageExtensions, PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions),
+        Patterns = Glob(PlaylistSequencer.ImageExtensions, PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions, PlaylistSequencer.DeckExtensions),
+    };
+
+    private static readonly FilePickerFileType DeckTypes = new("PDF deck")
+    {
+        Patterns = Glob(PlaylistSequencer.DeckExtensions),
     };
 
     private static readonly FilePickerFileType ShowTypes = new("Patterns show")

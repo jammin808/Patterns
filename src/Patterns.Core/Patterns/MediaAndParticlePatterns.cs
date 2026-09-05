@@ -149,6 +149,27 @@ public sealed class MediaPattern : IPatternRenderer
             return;
         }
 
+        if (o.Source == MediaSource.Deck)
+        {
+            // A deck's page is a picture at its own shape — fitted, never tiled — and the click-through turns it.
+            var key = InputKeys.Deck(o.DeckPath);
+            var deck = InputBus.Resolve(key, f.Ctx.IsFadeSource);
+            var name = o.DeckPath.Length > 0 ? System.IO.Path.GetFileName(o.DeckPath) : "No deck";
+            if (deck is null)
+            {
+                var note = DeckInput.AvailabilityNote.Length > 0
+                    ? DeckInput.AvailabilityNote
+                    : o.DeckPath.Length == 0 ? "Choose a PDF deck in the Media panel." : "Opening the deck…";
+                PlaceholderCard(c, in f, name, note);
+                return;
+            }
+            if (!DrawInput(c, in f, o, deck, bounds, o.Fit == FitMode.Tile ? FitMode.Fit : o.Fit, pc.FillAA(SKColors.White), key, out _))
+            {
+                PlaceholderCard(c, in f, name, deck.StatusText);
+            }
+            return;
+        }
+
         var image = ImageCache.Get(o.ImagePath);
         if (image is null)
         {

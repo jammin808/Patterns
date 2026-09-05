@@ -141,6 +141,12 @@ public enum ShowActionKind
     WebReload,
     /// <summary>The page's browser sent to another address (Value); the pattern keeps its own address.</summary>
     WebOpen,
+    /// <summary>The deck on air turns to its next page (the click-through's NEXT does this first while a deck is on).</summary>
+    DeckNext,
+    /// <summary>The deck on air turns back a page.</summary>
+    DeckPrev,
+    /// <summary>The deck on air turns to a page: Value = a number (1-based), first, last, next or prev.</summary>
+    DeckPage,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

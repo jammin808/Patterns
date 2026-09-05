@@ -67,12 +67,14 @@ public static class MediaLocator
         Ndi,
         /// <summary>A web page rendered by the app's browser engine.</summary>
         Web,
+        /// <summary>A PDF deck rendered a page at a time by the app's PDF renderer.</summary>
+        Deck,
     }
 
     /// <summary>
     /// One input the show wants mounted right now, in priority order. <paramref name="Format"/> is a
-    /// capture device's chosen mode ("1920x1080@60"; empty = the device's default) or a web page's
-    /// viewport ("1920x1080"); <paramref name="Zoom"/> is a web page's zoom in per cent.
+    /// capture device's chosen mode ("1920x1080@60"; empty = the device's default), a web page's
+    /// viewport ("1920x1080") or a deck's start page ("1"); <paramref name="Zoom"/> is a web page's zoom in per cent.
     /// </summary>
     public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "", double Zoom = 100);
 
@@ -98,6 +100,7 @@ public static class MediaLocator
                 WantedKind.VideoFile => Media.InputKeys.Video(target),
                 WantedKind.Capture => Media.InputKeys.Capture(target),
                 WantedKind.Web => Media.InputKeys.Web(target),
+                WantedKind.Deck => Media.InputKeys.Deck(target),
                 _ => Media.InputKeys.Ndi(target),
             };
             if (!seen.Add(key)) return;
@@ -150,6 +153,9 @@ public static class MediaLocator
                         break;
                     case MediaSource.Web:
                         Add(WantedKind.Web, m.WebUrl, false, m.Mute, 0, $"{m.WebWidth}x{m.WebHeight}", m.WebZoomPct);
+                        break;
+                    case MediaSource.Deck:
+                        Add(WantedKind.Deck, m.DeckPath, false, true, 0, m.DeckStartPage.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         break;
                     case MediaSource.Playlist:
                         // Only the active playlist has a "now playing" item; videos never

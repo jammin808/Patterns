@@ -45,6 +45,9 @@ public static class OscMap
         ("/patterns/web/type <text>", "WEB TYPE — text into the field that has the page's focus"),
         ("/patterns/web/reload [page]", "WEB RELOAD"),
         ("/patterns/web/open <address> [page]", "WEB OPEN — the page's browser sent to another address"),
+        ("/patterns/deck/next, /patterns/deck/prev", "DECK NEXT / PREV — the deck (PDF) on air turns a page"),
+        ("/patterns/deck/first, /patterns/deck/last", "DECK FIRST / LAST"),
+        ("/patterns/deck/page <n>", "DECK PAGE n — the deck on air turns to page n (also /patterns/deck/page/<n>, /patterns/deck <n>)"),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
         ("/patterns/stream 1|0", "STREAM ON / OFF"),
         ("/patterns/cue/go [id]", "CUE GO — the standby id you last saw, or none"),
@@ -193,6 +196,19 @@ public static class OscMap
                 }
             }
             case "section": return Named("SECTION", m, seg);
+            // /patterns/deck/next · /prev · /first · /last · /page 5 · /page/5 · /patterns/deck 5
+            case "deck":
+            case "pdf":
+            case "slides":
+            {
+                var what = seg.Length > 0 ? seg : m.Text() ?? m.Number()?.ToString(CultureInfo.InvariantCulture) ?? "";
+                if (what.Equals("page", StringComparison.OrdinalIgnoreCase))
+                {
+                    what = seg2.Length > 0 ? seg2 : m.Text() ?? m.Number()?.ToString(CultureInfo.InvariantCulture) ?? "";
+                    return what.Length == 0 ? null : "DECK PAGE " + what;
+                }
+                return what.Length == 0 ? null : "DECK " + what.ToUpperInvariant();
+            }
             case "stream": return "STREAM " + Switch(m, seg, "ON", toggles: false);
             case "cue":
             {

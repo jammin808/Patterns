@@ -1523,6 +1523,7 @@ public sealed class MediaLibraryEntry : Observable
     /// <summary>What a path is, by its extension — the decoded flag decides only when the extension says nothing.</summary>
     public static LibraryMediaKind KindOf(string path, bool isVideo)
     {
+        if (Services.PlaylistSequencer.IsDeckPath(path)) return LibraryMediaKind.Deck;
         if (Services.PlaylistSequencer.IsVideoPath(path)) return LibraryMediaKind.Video;
         if (Services.PlaylistSequencer.IsAudioPath(path)) return LibraryMediaKind.Audio;
         if (Services.PlaylistSequencer.IsMediaPath(path)) return LibraryMediaKind.Image; // a known picture extension

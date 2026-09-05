@@ -387,8 +387,18 @@ public sealed class MediaOptions : Observable
     private bool _flipHorizontal;
     private bool _flipVertical;
     private int _rotateQuarters;
+    private string _deckPath = "";
+    private int _deckStartPage = 1;
+    private bool _deckEndsWithGo = true;
 
     public MediaSource Source { get => _source; set => Set(ref _source, value); }
+
+    /// <summary>The PDF deck shown when <see cref="Source"/> is Deck.</summary>
+    public string DeckPath { get => _deckPath; set => Set(ref _deckPath, value ?? ""); }
+    /// <summary>The page the deck opens at when it comes on (1-based) — a look that recalls the deck lands here.</summary>
+    public int DeckStartPage { get => _deckStartPage; set => Set(ref _deckStartPage, Math.Max(1, value)); }
+    /// <summary>At the last page, the next click GOes the caller's standby cue — the cue stack resumes when the deck ends.</summary>
+    [TransitionNeutral] public bool DeckEndsWithGo { get => _deckEndsWithGo; set => Set(ref _deckEndsWithGo, value); }
     public string ImagePath { get => _imagePath; set => Set(ref _imagePath, value); }
     public string VideoPath { get => _videoPath; set => Set(ref _videoPath, value); }
     public FitMode Fit { get => _fit; set => Set(ref _fit, value); }

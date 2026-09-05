@@ -116,6 +116,8 @@ public enum MediaSource
     Capture,
     /// <summary>A web page rendered inside the engine (WebView2), driven from the desk's PREVIEW pane.</summary>
     Web,
+    /// <summary>A PDF deck — a presentation — shown a page at a time, full frame at its own shape; the click-through turns its pages.</summary>
+    Deck,
 }
 
 /// <summary>What a picture-in-picture inset shows.</summary>
@@ -284,6 +286,8 @@ public enum LibraryMediaKind
     Image,
     Video,
     Audio,
+    /// <summary>A PDF deck — a presentation shown a page at a time.</summary>
+    Deck,
 }
 
 /// <summary>The fractal families the Fractal pattern draws.</summary>

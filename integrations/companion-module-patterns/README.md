@@ -42,6 +42,17 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Decks: a PDF presentation from a key (module 1.11.0)
+
+A deck — a PDF on the pattern — is the click-through while it is on air: the **Presenter**
+NEXT / BACK keys turn its pages before they step the clicker list, and past the last page the
+caller's stack resumes (GO on the standby cue) when the deck asks for it. `deck_page` turns it
+on its own — NEXT, PREV, FIRST, LAST or a page number (`DECK NEXT`, `DECK PAGE 5` on the wire).
+The `deck_on_air` feedback lights a key while a deck is on air, or amber only on its last page
+(the *only on its last page* option) so the caller sees the GO coming; `$(patterns:deck_page)`,
+`$(patterns:deck_count)` and `$(patterns:deck_file)` read the page. Presets: DECK ▶ (with the
+page count), DECK ◀, FIRST, LAST.
+
 ## Web pages: next slide, present, play — YouTube, Google Slides, PowerPoint (module 1.10.0)
 
 A **Web page** category drives the web page on air — the one the program shows — from a key.

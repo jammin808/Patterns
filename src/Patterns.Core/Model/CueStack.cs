@@ -82,6 +82,12 @@ public enum CueActionKind
     WebType,
     /// <summary>Target = a web page: reloaded.</summary>
     WebReload,
+    /// <summary>The deck on air turns to its next page.</summary>
+    DeckNext,
+    /// <summary>The deck on air turns back a page.</summary>
+    DeckPrev,
+    /// <summary>The deck on air turns to a page: Value = a number (1-based), first or last.</summary>
+    DeckPage,
 }
 
 /// <summary>

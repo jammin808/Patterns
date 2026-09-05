@@ -94,6 +94,9 @@ public static class CueSummary
             case CueActionKind.WebClick: return $"Page: click at {a.Value}{PageSuffix(a)}";
             case CueActionKind.WebType: return $"Page: type '{Shorten(a.Value)}'{PageSuffix(a)}";
             case CueActionKind.WebReload: return $"Page: reload{PageSuffix(a)}";
+            case CueActionKind.DeckNext: return "Deck: the next page";
+            case CueActionKind.DeckPrev: return "Deck: the previous page";
+            case CueActionKind.DeckPage: return $"Deck: {Decks.DescribePage(a.Value)}";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
             case CueActionKind.DuckOn: return "Duck for announcement";

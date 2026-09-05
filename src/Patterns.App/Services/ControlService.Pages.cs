@@ -115,6 +115,7 @@ public sealed partial class ControlService
     <button class="big go" onclick="cmd('NEXT')">Next ⟩</button>
   </div>
   <div id="step" class="line center"></div>
+  <div id="deck" class="line center" hidden></div>
   <div class="sec">TRANSPORT</div>
   <div class="grid row3">
     <button class="go" onclick="cmd('OUTPUTS ON')">OUTPUTS ON</button>
@@ -316,6 +317,10 @@ function render(s) {
   var lb = document.getElementById('lookback');
   lb.textContent = s.previousLook ? '◀ BACK TO: ' + s.previousLook : '◀ PREVIOUS LOOK';
   lb.disabled = !s.previousLook;
+  // DECK ON AIR — the PDF the program shows: Next / Back above turn its pages; past the last page the cue stack resumes.
+  var dk = s.deck || null, dke = document.getElementById('deck');
+  dke.hidden = !dk;
+  dke.textContent = dk ? ('Deck: ' + (dk.count ? 'page ' + dk.page + ' / ' + dk.count : dk.status) + ' — ' + dk.file + (dk.ended ? (dk.endsWithGo ? ' — the last: Next GOes the standby cue' : ' — the last') : '')) : '';
   // PAGE ON AIR — the web page the program shows and its service's own actions (NEXT, PRESENT, PLAY…): WEB KEY <action>.
   var w = s.web || null;
   document.getElementById('websec').hidden = !w;

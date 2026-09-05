@@ -38,6 +38,8 @@ public enum ValueKind
     WebKey,
     /// <summary>"x y" in percent of a page.</summary>
     Point,
+    /// <summary>A deck page: a number (1-based), first or last.</summary>
+    DeckPage,
 }
 
 /// <summary>
@@ -68,6 +70,7 @@ public static class CueActionSpec
         CueActionKind.WebClick => (TargetKind.Page, ValueKind.Point),
         CueActionKind.WebType => (TargetKind.Page, ValueKind.Text),
         CueActionKind.WebReload => (TargetKind.Page, ValueKind.None),
+        CueActionKind.DeckPage => (TargetKind.None, ValueKind.DeckPage),
         _ => (TargetKind.None, ValueKind.None),
     };
 
@@ -118,6 +121,9 @@ public static class CueActionSpec
         CueActionKind.WebClick => "Web page — click",
         CueActionKind.WebType => "Web page — type text",
         CueActionKind.WebReload => "Web page — reload",
+        CueActionKind.DeckNext => "Deck — next page",
+        CueActionKind.DeckPrev => "Deck — previous page",
+        CueActionKind.DeckPage => "Deck — go to page",
         _ => kind.ToString(),
     };
 
@@ -139,6 +145,7 @@ public static class CueActionSpec
         CueActionKind.ClockOn, CueActionKind.ClockOff,
         CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide, CueActionKind.LowerThirdPreview, CueActionKind.LowerThirdTake,
         CueActionKind.WebKey, CueActionKind.WebClick, CueActionKind.WebType, CueActionKind.WebReload,
+        CueActionKind.DeckNext, CueActionKind.DeckPrev, CueActionKind.DeckPage,
         CueActionKind.DuckOn, CueActionKind.DuckOff,
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };

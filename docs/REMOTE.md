@@ -34,7 +34,8 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `IDENTIFY` | Flash screen numbers |
 | `LOOK <1–12>` | Apply the look on that F-key slot |
 | `LOOK <name>` | Apply a look by name (case-insensitive) |
-| `NEXT` / `PREV` | Clicker list forward / back (the presenter click-through) |
+| `NEXT` / `PREV` | The presenter click-through: a deck (PDF) on air turns its pages first — past the last page the caller's stack resumes with GO on the standby cue when the deck asks for it — else the clicker list forward / back |
+| `DECK NEXT` / `PREV` / `FIRST` / `LAST` / `PAGE <n>` / `<n>` | The deck on air turns a page (`PDF` and `SLIDES` are aliases; `ERR` with no deck on air or a page that is not a number, first or last) |
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
 | `LOCK <n> ON` / `OFF` / `TOGGLE` | Lock screen *n*: it keeps its picture through looks, cues, TAKE ALL and stingers (a confidence monitor, an info screen); unlock lets it follow again. Bare `LOCK <n>` toggles |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
@@ -106,6 +107,7 @@ rather than stops; empty when none), `stingHold` (the name of a stinger holding 
 `lowerThirdPreview` / `lowerThirdPreviewPerson` (the design and the name in the preview for a sign-off, or empty), `lowerThirdDefault` (the show's ★ design),
 `lowerThirdEdited` (true while the design on air differs from the edited one — `LOWERTHIRD UPDATE` pushes the edit),
 `web{page,url,title,service,actions[{id,label}]}` (the web page the program shows — its nickname or host, its address and title, its service when Patterns knows it (YouTube, Vimeo, Google Slides, PowerPoint for the web) and the actions `WEB KEY <id>` takes on it; `null` with no page on air),
+`deck{file,page,count,ended,endsWithGo,status}` (the deck — the PDF — the program shows: its file, the page on show and the count, `ended` on its last page, `endsWithGo` when the next click there GOes the standby cue; `null` with no deck on air),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),
@@ -189,6 +191,8 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/web/type "text"` | WEB TYPE — text into the field that has the page's focus |
 | `/patterns/web/reload [page]` | WEB RELOAD |
 | `/patterns/web/open "address" [page]` | WEB OPEN — the page's browser sent to another address |
+| `/patterns/deck/next`, `/prev`, `/first`, `/last` | DECK NEXT / PREV / FIRST / LAST — the deck (PDF) on air turns a page |
+| `/patterns/deck/page <n>` | DECK PAGE n (also `/patterns/deck/page/5`, `/patterns/deck 5`) |
 | `/patterns/section <n\|name>` | SECTION — a playlist part |
 | `/patterns/stream 1\|0` | STREAM ON / OFF |
 | `/patterns/cue/go [id]` | CUE GO — the standby id you last saw, or none |

@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using Patterns.App.Views;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Ndi;
 using Patterns.Core.Services;
@@ -25,6 +26,9 @@ public sealed class AppServices
 
     /// <summary>Web pages inside the engine — one browser per page the show references. Nothing opens outside Patterns.</summary>
     public WebEngine WebIn { get; }
+
+    /// <summary>PDF decks inside the engine — one per deck the show references, a page at a time.</summary>
+    public DeckEngine DeckIn { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
     public AudioService Audio { get; }
@@ -195,6 +199,7 @@ public sealed class AppServices
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
         WebIn = new WebEngine(Store.BaseDirectory);
+        DeckIn = new DeckEngine();
         Screens = new ScreenService();
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);
@@ -586,6 +591,14 @@ public sealed class AppServices
         Video.Reconcile(Bus.Current, Bus.Sandbox);
         NdiIn.Reconcile(Bus.Current, Bus.Sandbox);
         WebIn.Reconcile(Bus.Current, Bus.Sandbox);
+        DeckIn.Reconcile(Bus.Current, Bus.Sandbox);
+    }
+
+    /// <summary>The deck the program shows — the click-through's pages — or null when none is on air (or still opening).</summary>
+    public IDeckSource? DeckOnAir()
+    {
+        var wanted = MediaLocator.FindWantedInputs(Bus.Current).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.Deck);
+        return wanted is null ? null : InputBus.For(wanted.Key) as IDeckSource;
     }
 
     /// <summary>Stable across processes and case-insensitive, unlike string.GetHashCode.</summary>
@@ -661,6 +674,7 @@ public sealed class AppServices
             Ndi.StopAll();
             NdiIn.Dispose();
             WebIn.Dispose();
+            DeckIn.Dispose();
             Audio.Dispose();
             AudioPlayer.Dispose();
             Playlist.Dispose();

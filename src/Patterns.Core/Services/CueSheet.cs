@@ -247,6 +247,9 @@ public static class CueSheet
             "webclick" or "pageclick" or "click" => CueActionKind.WebClick,
             "webtype" or "pagetype" or "type" => CueActionKind.WebType,
             "webreload" or "pagereload" or "reload" => CueActionKind.WebReload,
+            "decknext" or "nextpage" or "nextslide" or "deckforward" => CueActionKind.DeckNext,
+            "deckprev" or "deckprevious" or "prevpage" or "previouspage" or "prevslide" or "previousslide" or "deckback" => CueActionKind.DeckPrev,
+            "deck" or "deckpage" or "gotopage" or "deckgoto" or "pdf" => CueActionKind.DeckPage,
             _ => null,
         };
     }
