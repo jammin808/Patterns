@@ -4,10 +4,93 @@
              x:Class="Patterns.App.Views.Sections.HelpSection"
              x:DataType="vm:MainViewModel">
 
+  <UserControl.Styles>
+    <Style Selector="Border.step">
+      <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="9,7" />
+      <Setter Property="Margin" Value="0,3" />
+    </Style>
+    <Style Selector="Border.step.current">
+      <Setter Property="BorderBrush" Value="#2EE68A" />
+    </Style>
+    <Style Selector="Border.step.done">
+      <Setter Property="Opacity" Value="0.72" />
+    </Style>
+  </UserControl.Styles>
+
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1" Text="Help" />
     <CheckBox Content="Show hints on the pages" IsChecked="{Binding ShowHints, Mode=TwoWay}"
               ToolTip.Tip="The explanations that sit behind ? TIPS on the page strip, inline on every page again. Remembered in the show." />
+
+    <TextBlock Classes="h2" Text="WALKTHROUGHS — STEP BY STEP, BY ROLE" />
+    <ItemsControl ItemsSource="{Binding WalkRoles}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:WalkRoleChip">
+          <ToggleButton Classes="mini" Margin="0,0,6,6" Content="{Binding Label}" ToolTip.Tip="{Binding Blurb}"
+                        IsChecked="{Binding IsCurrent, Mode=OneWay}" Command="{Binding PickCommand}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint" Text="{Binding WalkRoleBlurb}" TextWrapping="Wrap" />
+    <ItemsControl ItemsSource="{Binding WalkChoices}" Margin="0,4,0,0">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:WalkChoice">
+          <ToggleButton Classes="mini" Margin="0,0,6,6" Content="{Binding Title}" ToolTip.Tip="{Binding Goal}"
+                        IsChecked="{Binding IsCurrent, Mode=OneWay}" Command="{Binding StartCommand}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" IsVisible="{Binding HasWalk}">
+      <StackPanel Spacing="6">
+        <TextBlock Text="{Binding WalkTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Classes="hint" Text="{Binding WalkGoal}" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="label" Text="{Binding WalkWords}" VerticalAlignment="Center" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+            <Button Classes="chip" Content="◀ Back" Command="{Binding WalkBackCommand}" ToolTip.Tip="The step before" />
+            <Button Classes="chip" Content="Done, next ▶" Command="{Binding WalkNextCommand}" ToolTip.Tip="Tick this step and move to the next" />
+            <Button Classes="chip" Content="Restart" Command="{Binding WalkRestartCommand}" ToolTip.Tip="From the first step; what the show already has stays ticked" />
+          </StackPanel>
+        </Grid>
+        <ProgressBar Minimum="0" Maximum="1" Value="{Binding WalkFraction}" Height="6" />
+        <ItemsControl ItemsSource="{Binding WalkSteps}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:WalkStepRow">
+              <Border Classes="step" Classes.current="{Binding IsCurrent}" Classes.done="{Binding IsDone}">
+                <Grid ColumnDefinitions="26,*,Auto,Auto">
+                  <TextBlock Grid.Column="0" Classes="label" Text="{Binding Number}" VerticalAlignment="Top" />
+                  <StackPanel Grid.Column="1" Spacing="2">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Classes="hint" Text="{Binding Detail}" TextWrapping="Wrap" />
+                    <TextBlock Classes="label" Text="{Binding PageWords}" />
+                  </StackPanel>
+                  <Button Grid.Column="2" Classes="chip" Content="GO" Margin="6,0,0,0" VerticalAlignment="Top"
+                          Command="{Binding GoCommand}" ToolTip.Tip="Open the page this step happens on" />
+                  <Button Grid.Column="3" Classes="chip" Content="{Binding TickText}" Margin="6,0,0,0" VerticalAlignment="Top"
+                          Command="{Binding DoneCommand}" ToolTip.Tip="{Binding TickTip}" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+    <TextBlock Classes="hint tip"
+               Text="Pick who you are and what you are about to do: each scenario is the steps in order, each on the page it happens on — GO opens that page, the tick button marks the step done by hand, Done, next ticks and moves on. A step the show already has (screens adopted, outputs on, looks saved, the stack armed, remote control on…) ticks itself as you do the work, so the list is a live checklist, not a leaflet. Restart clears the hand ticks; what the show has stays ticked. Nothing here changes the show." />
 
     <TextBlock Classes="h2" Text="THE SHELL" />
     <TextBlock Classes="hint" TextWrapping="Wrap"

@@ -323,6 +323,14 @@ public sealed class MainViewModel : Observable
         SetGapsFromGridCommand = new RelayCommand(SetGapsFromGrid);
         ClearGapsCommand = new RelayCommand(ClearGaps);
 
+        // Walkthroughs on the Help page: the roles, the first role's scenarios, the first scenario open.
+        WalkNextCommand = new RelayCommand(WalkNext);
+        WalkBackCommand = new RelayCommand(WalkBack);
+        WalkRestartCommand = new RelayCommand(WalkRestart);
+        WalkRoles = Enum.GetValues<DeskRole>().Select(r => new WalkRoleChip(this, r)).ToList();
+        RebuildWalkList();
+        if (Walkthroughs.For(_walkRole).FirstOrDefault() is { } firstWalk) StartWalkthrough(firstWalk.Id);
+
         // Stingers
         AddStingerFilesCommand = new RelayCommand(() => _ = AddStingerFilesAsync());
         RemoveStingerCommand = new RelayCommand<StingerItemConfig>(item =>
@@ -1282,6 +1290,178 @@ public sealed class MainViewModel : Observable
         Raise(nameof(GapSummary));
         RebuildSwitcherTiles();   // the tiles' shapes follow the surface the content lays out on
     }
+
+    // ---- walkthroughs: the Help page's step-through scenarios, by role ---------------
+
+    private DeskRole _walkRole = DeskRole.ShowCaller;
+    private WalkthroughProgress? _walk;
+
+    /// <summary>The role chips on the Help page.</summary>
+    public IReadOnlyList<WalkRoleChip> WalkRoles { get; }
+
+    /// <summary>The picked role's scenarios.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<WalkChoice> WalkChoices { get; } = new();
+
+    /// <summary>The open scenario's steps, in order.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<WalkStepRow> WalkSteps { get; } = new();
+
+    /// <summary>Who is at the desk: picking a role lists its scenarios and opens the first.</summary>
+    public DeskRole WalkRole
+    {
+        get => _walkRole;
+        set
+        {
+            if (!Set(ref _walkRole, value)) return;
+            Raise(nameof(WalkRoleBlurb));
+            RebuildWalkList();
+            if (Walkthroughs.For(value).FirstOrDefault() is { } first) StartWalkthrough(first.Id);
+        }
+    }
+
+    public string WalkRoleBlurb => Walkthroughs.RoleBlurb(_walkRole);
+    public bool HasWalk => _walk is not null;
+    public string? WalkId => _walk?.Walkthrough.Id;
+    public string WalkTitle => _walk?.Walkthrough.Title ?? "";
+    public string WalkGoal => _walk?.Walkthrough.Goal ?? "";
+    public string WalkWords => _walk?.Words ?? "";
+    public double WalkFraction => _walk?.Fraction ?? 0;
+    public int WalkCurrent => _walk?.Current ?? -1;
+
+    /// <summary>Opens a scenario (its role's chip follows); the steps the show already has are ticked at once.</summary>
+    public void StartWalkthrough(string id)
+    {
+        if (Walkthroughs.Find(id) is not { } w) return;
+        _walk = new WalkthroughProgress(w);
+        if (w.Role != _walkRole)
+        {
+            _walkRole = w.Role;
+            Raise(nameof(WalkRole));
+            Raise(nameof(WalkRoleBlurb));
+            RebuildWalkList();
+        }
+        WalkSteps.Clear();
+        for (var i = 0; i < w.Steps.Count; i++) WalkSteps.Add(new WalkStepRow(this, i, w.Steps[i]));
+        ObserveWalkChecks(raise: false);
+        RaiseWalk();
+    }
+
+    private void RebuildWalkList()
+    {
+        WalkChoices.Clear();
+        foreach (var w in Walkthroughs.For(_walkRole)) WalkChoices.Add(new WalkChoice(this, w));
+        foreach (var chip in WalkRoles) chip.Refresh(chip.Role == _walkRole);
+        foreach (var c in WalkChoices) c.Refresh(_walk?.Walkthrough.Id == c.Id);
+    }
+
+    /// <summary>GO on a step: the step becomes the current one and the desk opens its page.</summary>
+    internal void WalkGo(int index)
+    {
+        if (_walk is null) return;
+        _walk.Go(index);
+        var page = Shell.Pages.FirstOrDefault(p => p.Header == _walk.Walkthrough.Steps[index].Page);
+        if (page is not null) SelectPage(page.Index);
+        RaiseWalk();
+    }
+
+    /// <summary>A hand tick (or its removal) on a step.</summary>
+    internal void WalkMark(int index, bool done)
+    {
+        if (_walk is null) return;
+        if (done) _walk.MarkDone(index);
+        else _walk.Unmark(index);
+        RaiseWalk();
+    }
+
+    private void WalkNext()
+    {
+        if (_walk is null) return;
+        _walk.Next();
+        RaiseWalk();
+    }
+
+    private void WalkBack()
+    {
+        if (_walk is null) return;
+        _walk.Back();
+        RaiseWalk();
+    }
+
+    private void WalkRestart()
+    {
+        if (_walk is null) return;
+        _walk.Restart();
+        RaiseWalk();
+    }
+
+    /// <summary>The app's answers for the open scenario's checks, read from the show and the services: a step ticks itself as the desk does the work.</summary>
+    private void ObserveWalkChecks(bool raise = true)
+    {
+        if (_walk is null) return;
+        var changed = false;
+        for (var i = 0; i < _walk.Count; i++)
+        {
+            var check = _walk.Walkthrough.Steps[i].Check;
+            if (check.Length == 0) continue;
+            var met = EvaluateWalkCheck(check) ?? false;
+            if (_walk.IsDoneByApp(i) != met)
+            {
+                _walk.Observe(i, met);
+                changed = true;
+            }
+        }
+        if (changed && raise) RaiseWalk();
+    }
+
+    private void RaiseWalk()
+    {
+        Raise(nameof(HasWalk));
+        Raise(nameof(WalkId));
+        Raise(nameof(WalkTitle));
+        Raise(nameof(WalkGoal));
+        Raise(nameof(WalkWords));
+        Raise(nameof(WalkFraction));
+        Raise(nameof(WalkCurrent));
+        if (_walk is not null)
+        {
+            foreach (var row in WalkSteps) row.Refresh(_walk.Current == row.Index, _walk.IsDone(row.Index), _walk.IsDoneByApp(row.Index));
+        }
+        foreach (var c in WalkChoices) c.Refresh(_walk?.Walkthrough.Id == c.Id);
+    }
+
+    /// <summary>
+    /// What the show already has, by the name a walkthrough step asks for (<see cref="Walkthroughs.Checks"/>);
+    /// null for a name the desk does not know. Public so the tests pin every name to an answer.
+    /// </summary>
+    public bool? EvaluateWalkCheck(string check) => check switch
+    {
+        "mode-prep" => State.Mode == ShowMode.Prep,
+        "mode-show" => State.Mode == ShowMode.Show,
+        "planned-screens" => State.Output.Placements.Any(p => p.IsPlannedDisplay),
+        "planned-adopted" => State.Output.Placements.Count > 0 && State.Output.Placements.All(p => !p.IsPlannedDisplay),
+        "screens-present" => State.Output.Placements.Any(p => p.Enabled && LiveInfo(p) is not null),
+        "canvas-joined" => CanvasGroups().Count > 0,
+        "wall-gaps" => State.Output.Placements.Any(p => p.Gaps.Count > 0) || State.Output.CanvasNames.Any(c => c.SeamGapX > 0 || c.SeamGapY > 0),
+        "blend-auto" => State.Output.Placements.Any(p => p.BlendAuto),
+        "outputs-on" => _services.Outputs.IsLive,
+        "looks-saved" => State.LooksAndCues.Looks.Count > 0,
+        "cues-present" => State.Stacks.Any(s => s.Cues.Count > 0),
+        "cues-timed" => State.Stacks.Any(s => s.Cues.Any(c => c.PlannedStart.Length > 0 || c.PlannedSeconds is not null)),
+        "stack-armed" => _services.CueStack.Armed,
+        "edit-safe" => _services.Sandbox.Active,
+        "remote-on" => State.Control.Enabled,
+        "osc-on" => State.Control.OscEnabled,
+        "ndi-on" => State.Ndi.Senders.Any(s => s.Enabled),
+        "stream-armed" => State.Stream.Active || State.Stream.Destinations.Any(d => d.Enabled),
+        "vogs-present" => State.Stingers.Items.Any(i => i.Kind == StingerKind.Vog),
+        "stingers-present" => State.Stingers.Items.Any(i => i.Kind != StingerKind.Vog),
+        "lower-thirds-designed" => State.LowerThirds.Designs.Count > 0,
+        "people-library" => State.LowerThirds.Entries.Count > 0,
+        "web-source" => ActivePattern.Kind == PatternKind.Media && ActivePattern.Media.Source == MediaSource.Web,
+        "layers-on" => ActivePattern.Layer1.Enabled || ActivePattern.Layer2.Enabled,
+        "beacon-on" => State.Watchdog.BeaconEnabled || State.Watchdog.BeaconListen,
+        "multiview-present" => State.Pattern.Kind == PatternKind.Multiview || State.Independent.Any(a => a.Pattern.Kind == PatternKind.Multiview),
+        _ => null,
+    };
 
     public string GroupSummary
     {
@@ -3668,6 +3848,9 @@ public sealed class MainViewModel : Observable
     public RelayCommand<WallGap> RemoveGapCommand { get; }
     public RelayCommand SetGapsFromGridCommand { get; }
     public RelayCommand ClearGapsCommand { get; }
+    public RelayCommand WalkNextCommand { get; }
+    public RelayCommand WalkBackCommand { get; }
+    public RelayCommand WalkRestartCommand { get; }
     public RelayCommand AddStingerFilesCommand { get; }
     public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
@@ -4807,6 +4990,7 @@ public sealed class MainViewModel : Observable
             Raise(nameof(ReviewOnMultiview));
         }
         if (_selectedPlacement is { Gaps.Count: > 0 }) Raise(nameof(GapSummary)); // a gap row edited in place: the words follow
+        ObserveWalkChecks();                                                          // a walkthrough step ticks itself as the desk does the work
         var beacon = _services.Beacon;
         BeaconStatus = beacon.Sending || beacon.Listening
             ? $"{beacon.Status}{(beacon.Sent > 0 ? $" {beacon.Sent} sent." : "")}{(beacon.Listening ? " " + beacon.WatchText : "")}"
