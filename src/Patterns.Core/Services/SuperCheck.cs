@@ -70,6 +70,13 @@ public sealed class CheckFacts
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
 
+    /// <summary>The heartbeat beacon is going out (this is the main machine).</summary>
+    public bool BeaconSending { get; init; }
+    /// <summary>This machine listens for the main machine's beacon (this is the backup).</summary>
+    public bool BeaconListening { get; init; }
+    /// <summary>What the listener makes of it — <see cref="BeaconWatch.Describe"/>'s words.</summary>
+    public string BeaconWatch { get; init; } = "";
+
     public bool NdiRuntime { get; init; }
     public int NdiSendersConfigured { get; init; }
     public int NdiSendersActive { get; init; }
@@ -386,6 +393,14 @@ public static class SuperCheck
             ? new CheckRow(s, "Watchdog", f.WatchdogRestarts > 0 ? CheckLight.Amber : CheckLight.Green, f.WatchdogRestarts > 0 ? $"on · {f.WatchdogRestarts} restart(s)" : "on",
                 f.WatchdogRestarts > 0 ? "it restarted the app — see patterns.watchdog.log" : "")
             : new CheckRow(s, "Watchdog", CheckLight.Amber, "off", "a crash would end the show — switch it on below"));
+        if (f.BeaconSending) rows.Add(new CheckRow(s, "Beacon", CheckLight.Green, "sending", "a second machine can watch this one"));
+        if (f.BeaconListening)
+        {
+            var silent = f.BeaconWatch.StartsWith("MAIN MACHINE", StringComparison.Ordinal);
+            var waiting = f.BeaconWatch.StartsWith("Listening", StringComparison.Ordinal);
+            rows.Add(new CheckRow(s, "Main machine", silent ? CheckLight.Red : waiting ? CheckLight.Amber : CheckLight.Green,
+                silent ? "silent" : waiting ? "not heard yet" : "alive", f.BeaconWatch));
+        }
     }
 
     private static void Ndi(CheckFacts f, List<CheckRow> rows)

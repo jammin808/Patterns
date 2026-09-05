@@ -299,6 +299,8 @@ public sealed class AdvisorContext
     public bool DiscreteGpuPresent { get; init; }
     public bool UsingDiscreteGpu { get; init; } = true;
     public string BestGpuName { get; init; } = "";
+    /// <summary>Why the stream stopped by itself, when it did; "" otherwise.</summary>
+    public string StreamError { get; init; } = "";
 }
 
 /// <summary>
@@ -377,7 +379,17 @@ public static class HealthAdvisor
         if (ctx.OutputsLive && ctx.ContentContinuous)
         {
             var fps = history.AvgRecent(60, s => s.OutputFps);
-            if (fps > 0 && fps < ctx.TargetFps * 0.8)
+            if (history.Recent.Count >= 30 && history.SumRecent(30, s => s.OutputFps) <= 0)
+            {
+                // The watchdog's heartbeat is the UI thread's, so a render path that has stopped while the
+                // desk still answers is exactly what it cannot see — this rule is the eye it lacks.
+                list.Add(new HealthSuggestion("outputs-frozen", HealthSeverity.Warning,
+                    "Outputs are open but drew no frames for 30 s",
+                    "Moving content is up and nothing is being drawn: the render path is stuck while the desk still " +
+                    "responds. OUTPUTS OFF and ON first; if the picture stays frozen, RESTART APP (Stability below) puts " +
+                    "the show back in seconds."));
+            }
+            else if (fps > 0 && fps < ctx.TargetFps * 0.8)
             {
                 list.Add(new HealthSuggestion("fps-low", HealthSeverity.Advice,
                     $"Outputs are averaging {fps:0} fps",
@@ -391,6 +403,14 @@ public static class HealthAdvisor
                     "Average rate is fine but some frames run long — close background apps and set the Windows " +
                     "power plan to High performance."));
             }
+        }
+
+        if (ctx.StreamError.Length > 0)
+        {
+            list.Add(new HealthSuggestion("stream-stopped", HealthSeverity.Warning,
+                $"The stream stopped by itself: {ctx.StreamError}",
+                "It switched itself off so a dead encoder could not take the app down, and nothing else noticed. " +
+                "Check the destination URL, the key and the bandwidth on the Stream page, then start it again."));
         }
 
         if (now is { DiskFreeGB: >= 0 and < 2 })

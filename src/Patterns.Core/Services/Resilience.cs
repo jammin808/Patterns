@@ -161,6 +161,9 @@ public static class HealthMonitor
     public static string? LastFault { get; private set; }
     public static DateTime? LastFaultLocal { get; private set; }
 
+    /// <summary>What the last supervisor left behind when it stood down (it gave up, it could not start the app) — shown until the next reset.</summary>
+    public static string WatchdogNote { get; set; } = "";
+
     public static long Faults => Interlocked.Read(ref _faults);
 
     public static void Record(string message)
@@ -179,6 +182,7 @@ public static class HealthMonitor
         var upText = up.TotalHours >= 1 ? $"{(int)up.TotalHours}h {up.Minutes:00}m" : $"{up.Minutes}m {up.Seconds:00}s";
         var parts = new List<string> { $"Up {upText}" };
         if (Restarts > 0) parts.Add($"watchdog restarts: {Restarts}");
+        if (WatchdogNote.Length > 0) parts.Add(WatchdogNote);
         if (Faults == 0)
         {
             parts.Add("no faults");
@@ -203,5 +207,45 @@ public static class HealthMonitor
         }
         StartedUtc = DateTime.UtcNow;
         Restarts = 0;
+        WatchdogNote = "";
+    }
+}
+
+/// <summary>
+/// The note a supervisor leaves beside the settings when it stands down — it gave up on a
+/// crash loop, or could not start the app — so the next start says so on the health line
+/// instead of the operator finding a silent watchdog log. Read once and cleared.
+/// </summary>
+public static class WatchdogMarker
+{
+    public const string FileName = "patterns.watchdog.gaveup";
+
+    public static void Write(string directory, string note)
+    {
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, FileName), note);
+        }
+        catch
+        {
+            // Best-effort, like the watchdog log.
+        }
+    }
+
+    /// <summary>The note, and the file is gone so it shows once; "" when there is none.</summary>
+    public static string ReadAndClear(string directory)
+    {
+        var path = Path.Combine(directory, FileName);
+        try
+        {
+            if (!File.Exists(path)) return "";
+            var note = File.ReadAllText(path).Trim();
+            File.Delete(path);
+            return note;
+        }
+        catch
+        {
+            return "";
+        }
     }
 }

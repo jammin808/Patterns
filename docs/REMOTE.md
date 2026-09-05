@@ -92,7 +92,10 @@ sandboxed preview.
 
 State JSON also carries `stream{active,status}`, `health`, `machine{cpu,ram,fps,battery,advice}` — machine load
 (percent, -1 = unknown), output frame rate, whether the computer is on battery, and how
-many Machine-page suggestions currently need attention.
+many Machine-page suggestions currently need attention — and `beacon{sending,listening,main}`:
+whether this machine sends its heartbeat beacon, whether it listens for a main machine's, and
+what it makes of it ("Main machine MAIN seen 1 s ago: live · Walk-in", "MAIN MACHINE MAIN SILENT
+for 6 s — … Take over?", or empty when not listening).
 
 ## Remote multiview
 

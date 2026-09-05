@@ -39,6 +39,7 @@ public sealed class AppServices
 
     public ControlService Control { get; }
     public OscService Osc { get; }
+    public BeaconService Beacon { get; }
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
     public StreamService Stream { get; }
@@ -165,6 +166,13 @@ public sealed class AppServices
         }
 
         Journal = new ShowLog(Store.BaseDirectory);
+        // A supervisor that stood down last time left a note: it goes on the health line, once.
+        var standDown = WatchdogMarker.ReadAndClear(Store.BaseDirectory);
+        if (standDown.Length > 0)
+        {
+            HealthMonitor.WatchdogNote = standDown;
+            Log.Warn(standDown);
+        }
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
         Video = new VideoEngine();
@@ -184,6 +192,7 @@ public sealed class AppServices
         Spotify = new SpotifyService(this, SpotifyCredentials);
         Control = new ControlService(this);
         Osc = new OscService(this);
+        Beacon = new BeaconService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -515,9 +524,10 @@ public sealed class AppServices
         // The live-input pool follows everything the program (and sandbox) references.
         ReconcileInputs();
 
-        // Remote control server follows its config; OSC beside it.
+        // Remote control server follows its config; OSC and the beacon beside it.
         Control.Reconcile();
         Osc.Reconcile();
+        Beacon.Reconcile();
     }
 
     /// <summary>
@@ -601,6 +611,7 @@ public sealed class AppServices
             Spotify.Dispose();
             Control.Dispose();
             Osc.Dispose();
+            Beacon.Dispose();
             Web.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();

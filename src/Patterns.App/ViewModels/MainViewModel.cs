@@ -2444,6 +2444,10 @@ public sealed class MainViewModel : Observable
     /// <summary>The OSC port, where feedback goes, the counts and the last message — the Remote page's line.</summary>
     public string OscStatus { get => _oscStatus; private set => Set(ref _oscStatus, value); }
 
+    private string _beaconStatus = "";
+    /// <summary>The beacon going out, the listener, and what it makes of the main machine — the Machine page's line.</summary>
+    public string BeaconStatus { get => _beaconStatus; private set => Set(ref _beaconStatus, value); }
+
     private string _stingerStatus = "Ready.";
     public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
 
@@ -4611,7 +4615,8 @@ public sealed class MainViewModel : Observable
         RefreshLookMusicChoices(); // a renamed or added entry, a loaded show
         FractalAudioStatus = _services.Analyser.Status;
         if (ActivePattern.Kind == PatternKind.Fractal) RefreshAudioCaptureDevices();
-        HealthText = HealthMonitor.Summary(DateTime.UtcNow);
+        var watch = _services.Beacon.WatchText;
+        HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);
         StreamStatus = _services.Stream.Status;
         _statusTicks++;
         PollAdmin();
@@ -4622,6 +4627,10 @@ public sealed class MainViewModel : Observable
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";
         OscStatus = _services.Osc.StatusLine;
+        var beacon = _services.Beacon;
+        BeaconStatus = beacon.Sending || beacon.Listening
+            ? $"{beacon.Status}{(beacon.Sent > 0 ? $" {beacon.Sent} sent." : "")}{(beacon.Listening ? " " + beacon.WatchText : "")}"
+            : beacon.Status;
         _services.Video.SweepRetired();
         _services.NdiIn.SweepRetired();
         _services.WebIn.SweepRetired();

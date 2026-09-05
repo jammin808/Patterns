@@ -219,6 +219,7 @@ public sealed class CommandRouter
             stream = new { active = s.Stream.Active, status = _services.Stream.Status },
             health = HealthMonitor.Summary(DateTime.UtcNow),
             machine = MachineRow(),
+            beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
         };
         return JsonSerializer.Serialize(payload);
     }

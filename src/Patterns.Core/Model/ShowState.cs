@@ -1162,6 +1162,12 @@ public sealed class StreamConfig : Observable
     /// <summary>Runtime-only: streaming never auto-starts with the app.</summary>
     [JsonIgnore]
     public bool Active { get => _active; set => Set(ref _active, value); }
+
+    private string _lastError = "";
+
+    /// <summary>Runtime-only: why the stream stopped by itself (the encoder failed, the destination refused); "" while it runs or after a start.</summary>
+    [JsonIgnore]
+    public string LastError { get => _lastError; set => Set(ref _lastError, value ?? ""); }
 }
 
 /// <summary>The program/preview switcher's behaviour.</summary>
@@ -1237,6 +1243,24 @@ public sealed class WatchdogConfig : Observable
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     /// <summary>After a watchdog restart, put live outputs (and a playing track) back automatically.</summary>
     public bool AutoRestore { get => _autoRestore; set => Set(ref _autoRestore, value); }
+
+    private bool _beaconEnabled;
+    private string _beaconHost = "255.255.255.255";
+    private int _beaconPort = 9700;
+    private bool _beaconListen;
+    private int _beaconListenPort = 9700;
+    private string _beaconName = "";
+
+    /// <summary>Send a heartbeat beacon once a second — this is the main machine, and a second machine may watch it.</summary>
+    public bool BeaconEnabled { get => _beaconEnabled; set => Set(ref _beaconEnabled, value); }
+    /// <summary>Where the beacon goes: a host, an address, or the broadcast address (everyone on this network).</summary>
+    public string BeaconHost { get => _beaconHost; set => Set(ref _beaconHost, (value ?? "").Trim()); }
+    public int BeaconPort { get => _beaconPort; set => Set(ref _beaconPort, Math.Clamp(value, 1, 65535)); }
+    /// <summary>Listen for another machine's beacon — this is the backup, and the health line says whether the main is alive.</summary>
+    public bool BeaconListen { get => _beaconListen; set => Set(ref _beaconListen, value); }
+    public int BeaconListenPort { get => _beaconListenPort; set => Set(ref _beaconListenPort, Math.Clamp(value, 1024, 65535)); }
+    /// <summary>How this machine names itself in its beacon; empty = the computer's name.</summary>
+    public string BeaconName { get => _beaconName; set => Set(ref _beaconName, (value ?? "").Trim()); }
 }
 
 /// <summary>Which GPU renders the show. Applied at startup — changing it needs an app restart.</summary>

@@ -106,6 +106,7 @@ internal static class Supervisor
             catch (Exception ex)
             {
                 WLog($"Could not start the app: {ex.Message}");
+                StandDown($"The watchdog could not start the app at {DateTime.Now:HH:mm}: {ex.Message} — see patterns.watchdog.log", "could-not-start");
                 return 1;
             }
             pipe.DisposeLocalCopyOfClientHandle();
@@ -171,6 +172,7 @@ internal static class Supervisor
 
                 case SupervisorAction.GiveUp:
                     WLog("Crash loop: too many restarts in a short window. Standing down — check patterns.log.");
+                    StandDown($"The watchdog gave up at {DateTime.Now:HH:mm} after {restarts} restart{(restarts == 1 ? "" : "s")} in a short window — see patterns.watchdog.log", "gave-up");
                     return exitCode == 0 ? 1 : exitCode;
 
                 default:
@@ -183,6 +185,26 @@ internal static class Supervisor
                     Thread.Sleep(verdict.Delay);
                     break;
             }
+        }
+    }
+
+    /// <summary>
+    /// Standing down is never silent: a note beside the settings that the next start reads onto
+    /// the health line, and — when the beacon is on — one last datagram so a backup machine hears
+    /// that the show is down here, not merely quiet.
+    /// </summary>
+    private static void StandDown(string note, string eventName)
+    {
+        try
+        {
+            var store = new SettingsStore();
+            WatchdogMarker.Write(store.BaseDirectory, note);
+            var cfg = store.Load().Watchdog;
+            if (cfg.BeaconEnabled) Services.BeaconService.SendEvent(cfg, eventName);
+        }
+        catch (Exception ex)
+        {
+            WLog($"Could not leave the stand-down note: {ex.Message}");
         }
     }
 

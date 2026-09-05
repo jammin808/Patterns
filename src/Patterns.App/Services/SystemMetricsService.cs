@@ -71,7 +71,10 @@ public sealed class SystemMetricsService : IDisposable
     public AdvisorContext BuildContext(MetricSample sample) => new()
     {
         OutputsLive = _services.Outputs.IsLive,
-        ContentContinuous = sample.OutputWindows > 0 && sample.OutputFps > 15,
+        // Continuous by what the content asks for, not only by what was drawn: a render path that has
+        // stopped draws nothing, and that is the one case the frozen-outputs rule must still see.
+        ContentContinuous = sample.OutputWindows > 0 && (sample.OutputFps > 15 || ContentWantsFrames()),
+        StreamError = _services.State.Stream.LastError,
         TargetFps = _services.State.Output.MasterFps > 0 ? _services.State.Output.MasterFps : 60,
         WatchdogEnabled = _services.State.Watchdog.Enabled,
         WatchdogRestarts = HealthMonitor.Restarts,
@@ -79,6 +82,19 @@ public sealed class SystemMetricsService : IDisposable
         UsingDiscreteGpu = GpuService.UsingBestGpu,
         BestGpuName = GpuService.BestGpuName,
     };
+
+    /// <summary>Whether the program on air is continuously animated (a clip, a feed, motion, particles…).</summary>
+    private bool ContentWantsFrames()
+    {
+        try
+        {
+            return Patterns.Core.Rendering.PatternEngine.CadenceOf(_services.Bus.Current, null, DateTime.UtcNow) == Patterns.Core.Rendering.RedrawCadence.Continuous;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     // ---- the real sampler -------------------------------------------------------------------
 
@@ -398,6 +414,9 @@ public sealed class SystemMetricsService : IDisposable
             Faults = (int)Math.Min(int.MaxValue, HealthMonitor.Faults),
             WatchdogEnabled = state.Watchdog.Enabled,
             WatchdogRestarts = HealthMonitor.Restarts,
+            BeaconSending = _services.Beacon.Sending,
+            BeaconListening = _services.Beacon.Listening,
+            BeaconWatch = _services.Beacon.WatchText,
             NdiRuntime = Patterns.Core.Ndi.NdiSender.RuntimeAvailable,
             NdiSendersConfigured = senders.Count,
             NdiSendersActive = _services.Ndi.ActiveCount,

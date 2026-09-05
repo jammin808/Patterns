@@ -105,6 +105,7 @@ public sealed class StreamService : IDisposable
                 _activeKey = key;
                 _startedUtc = DateTime.UtcNow;
                 _destinations = urls.Count;
+                cfg.LastError = "";
                 Log.Info($"Streaming started: {cfg.Width}x{cfg.Height}@{fps}, {cfg.VideoKbps} kbps, {urls.Count} destination(s).");
             }
 
@@ -113,6 +114,7 @@ public sealed class StreamService : IDisposable
                 if (player.State == VLCState.Error)
                 {
                     _status = "Stream error — check URL/key and bandwidth, then start again.";
+                    cfg.LastError = "the encoder reported an error"; // the health advisor says so; the tick alone is easy to miss
                     cfg.Active = false;
                     Stop();
                     return;
@@ -127,6 +129,7 @@ public sealed class StreamService : IDisposable
         {
             Log.Error("Streaming failed.", ex);
             _status = $"Stream error: {ex.Message}";
+            cfg.LastError = ex.Message;
             cfg.Active = false;
             Stop();
         }
