@@ -4,10 +4,94 @@
              x:Class="Patterns.App.Views.Sections.AdminSection"
              x:DataType="vm:MainViewModel">
 
+  <UserControl.Styles>
+    <Style Selector="Border.hTile">
+      <Setter Property="Width" Value="156" />
+      <Setter Property="MinHeight" Value="92" />
+      <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="11,8,11,9" />
+      <Setter Property="Margin" Value="0,0,8,8" />
+      <Setter Property="BorderThickness" Value="0,0,0,3" />
+    </Style>
+    <Style Selector="TextBlock.hTitle">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="1.5" />
+      <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+    </Style>
+    <Style Selector="TextBlock.hValue">
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+    <Style Selector="Border.spark">
+      <Setter Property="Width" Value="304" />
+      <Setter Property="Height" Value="60" />
+      <Setter Property="BorderBrush" Value="#33FFFFFF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+    </Style>
+  </UserControl.Styles>
+
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-admin" Text="Machine" />
     <TextBlock Classes="hint tip"
-               Text="The machine room: live and historical performance, plain-language suggestions when something needs attention, the graphics card choice, and the tools for keeping a show machine healthy." />
+               Text="The machine room, read at a glance: one headline over twelve lit tiles (outputs, render, CPU, memory, GPU, NDI, stream, audio, remote, watchdog, power, disk), the warnings and what to do about them, the last three minutes and the day so far as lines, then the one-button super-check, the graphics card choice, and the tools for keeping a show machine healthy." />
+
+    <TextBlock Classes="h2" Text="HEALTH AT A GLANCE" />
+    <Border Classes="runRow">
+      <Grid ColumnDefinitions="Auto,12,*,12,Auto">
+        <Ellipse Width="18" Height="18" Fill="{Binding DashboardDot}" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="2" Spacing="2">
+          <TextBlock Text="{Binding DashboardHeadline}" FontSize="17" FontWeight="Bold" TextWrapping="Wrap" />
+          <TextBlock Classes="hint" Text="{Binding DashboardDetail}" TextWrapping="Wrap" />
+        </StackPanel>
+        <TextBlock Grid.Column="4" Classes="runTag" Text="{Binding DashboardUptime}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+    <ItemsControl ItemsSource="{Binding DashboardTiles}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:DashboardTileView">
+          <!-- One tile: the light on the bottom edge and beside the title, the big value, a line, a bar when the value is a share. -->
+          <Border Classes="hTile" BorderBrush="{Binding Dot}">
+            <StackPanel Spacing="2">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="hTitle" Text="{Binding Title}" VerticalAlignment="Center" />
+                <Ellipse Grid.Column="1" Width="9" Height="9" Fill="{Binding Dot}" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Classes="hValue" Text="{Binding Value}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Classes="hint" Text="{Binding Detail}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Detail}" />
+              <ProgressBar IsVisible="{Binding HasBar}" Minimum="0" Maximum="1" Value="{Binding Fraction}" Height="4" Foreground="{Binding Dot}" Margin="0,3,0,0" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint tip"
+               Text="Green is fine, amber wants a look, red needs fixing now, grey is not in use or not known. The values are live (every second); the rig's facts — sends, the stream, the audio devices, the remote, the watchdog — are read every five seconds. The headline is the worst of the tiles and the advice below, naming the tiles that set it; the same thresholds as the super-check." />
+
+    <TextBlock Classes="h2" Text="WARNINGS AND RECOMMENDATIONS" />
+    <ItemsControl ItemsSource="{Binding AdminSuggestions}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:SuggestionRow">
+          <Border Classes="runRow" BorderBrush="{Binding Dot}" BorderThickness="4,1,1,1">
+            <StackPanel Spacing="2">
+              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+              <TextBlock Classes="hint" Text="{Binding Detail}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint tip"
+               Text="Each card is what is wrong, why it matters mid-show and the next thing to do — red for a warning, amber for advice, grey for a note. The list is ordered worst first and changes as the numbers move; a leak, a frozen render path, a stream that stopped by itself and a machine on battery all appear here before they appear on a screen." />
 
     <TextBlock Classes="h2" Text="SUPER-CHECK" />
     <TextBlock Classes="hint tip" TextWrapping="Wrap"
@@ -50,31 +134,49 @@
       </StackPanel>
     </Border>
 
-    <TextBlock Classes="h2" Text="LIVE PERFORMANCE (LAST 3 MINUTES)" />
-    <Grid ColumnDefinitions="86,*" Margin="0,2">
+    <TextBlock Classes="h2" Text="LIVE PERFORMANCE — THE LAST 3 MINUTES, AND THE DAY SO FAR" />
+    <Grid ColumnDefinitions="86,Auto,12,Auto" Margin="0,2">
       <TextBlock Classes="label" Text="CPU" VerticalAlignment="Top" Margin="0,2,0,0" />
       <StackPanel Grid.Column="1" Spacing="3">
-        <TextBlock Classes="label" Text="{Binding AdminCpuText}" TextWrapping="Wrap" />
-        <Border Width="200" Height="44" HorizontalAlignment="Left" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="3">
-          <Polyline Points="{Binding AdminCpuSpark}" Stroke="#3EC1F3" StrokeThickness="1.5" Margin="1" />
+        <TextBlock Classes="hint" Text="{Binding AdminCpuText}" Width="304" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AdminCpuText}" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminCpuSpark}" Stroke="#3EC1F3" StrokeThickness="1.5" Margin="2" />
+        </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="3" Spacing="3">
+        <TextBlock Classes="hint" Text="today · whole computer" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminCpuDaySpark}" Stroke="#3EC1F3" StrokeThickness="1.5" Margin="2" />
         </Border>
       </StackPanel>
     </Grid>
-    <Grid ColumnDefinitions="86,*" Margin="0,4">
+    <Grid ColumnDefinitions="86,Auto,12,Auto" Margin="0,4">
       <TextBlock Classes="label" Text="Memory" VerticalAlignment="Top" Margin="0,2,0,0" />
       <StackPanel Grid.Column="1" Spacing="3">
-        <TextBlock Classes="label" Text="{Binding AdminMemText}" TextWrapping="Wrap" />
-        <Border Width="200" Height="44" HorizontalAlignment="Left" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="3">
-          <Polyline Points="{Binding AdminRamSpark}" Stroke="#B18CFF" StrokeThickness="1.5" Margin="1" />
+        <TextBlock Classes="hint" Text="{Binding AdminMemText}" Width="304" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AdminMemText}" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminRamSpark}" Stroke="#B18CFF" StrokeThickness="1.5" Margin="2" />
+        </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="3" Spacing="3">
+        <TextBlock Classes="hint" Text="today · this app — a line that only climbs is a leak" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminRamDaySpark}" Stroke="#B18CFF" StrokeThickness="1.5" Margin="2" />
         </Border>
       </StackPanel>
     </Grid>
-    <Grid ColumnDefinitions="86,*" Margin="0,4">
+    <Grid ColumnDefinitions="86,Auto,12,Auto" Margin="0,4">
       <TextBlock Classes="label" Text="Rendering" VerticalAlignment="Top" Margin="0,2,0,0" />
       <StackPanel Grid.Column="1" Spacing="3">
-        <TextBlock Classes="label" Text="{Binding AdminRenderText}" TextWrapping="Wrap" />
-        <Border Width="200" Height="44" HorizontalAlignment="Left" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="3">
-          <Polyline Points="{Binding AdminFpsSpark}" Stroke="#2EE68A" StrokeThickness="1.5" Margin="1" />
+        <TextBlock Classes="hint" Text="{Binding AdminRenderText}" Width="304" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AdminRenderText}" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminFpsSpark}" Stroke="#2EE68A" StrokeThickness="1.5" Margin="2" />
+        </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="3" Spacing="3">
+        <TextBlock Classes="hint" Text="today · frames per second" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminFpsDaySpark}" Stroke="#2EE68A" StrokeThickness="1.5" Margin="2" />
         </Border>
       </StackPanel>
     </Grid>
@@ -83,25 +185,11 @@
       <TextBlock Grid.Column="1" Classes="label" Text="{Binding AdminGpuText}" VerticalAlignment="Center" TextWrapping="Wrap" />
     </Grid>
     <TextBlock Classes="hint" Text="{Binding AdminExtrasText}" />
+    <TextBlock Classes="hint" Text="{Binding AdminDayText}" />
     <TextBlock Classes="hint tip"
                Text="A 30-second summary is appended to patterns.metrics.csv beside the exe (rotated at 1 MB) — after a bad night, the record shows what CPU, memory and frame rate were doing." />
     <CheckBox Content="Keep the on-disk performance record (patterns.metrics.csv)"
               IsChecked="{Binding State.Admin.MetricsCsv}" />
-
-    <TextBlock Classes="h2" Text="SUGGESTIONS" />
-    <ItemsControl ItemsSource="{Binding AdminSuggestions}">
-      <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="vm:SuggestionRow">
-          <Grid ColumnDefinitions="Auto,8,*" Margin="0,3">
-            <Ellipse Width="8" Height="8" Fill="{Binding Dot}" VerticalAlignment="Top" Margin="0,5,0,0" />
-            <StackPanel Grid.Column="2">
-              <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock Classes="hint" Text="{Binding Detail}" TextWrapping="Wrap" Margin="0,1,0,0" />
-            </StackPanel>
-          </Grid>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
 
     <TextBlock Classes="h2" Text="GRAPHICS CARD" />
     <ItemsControl ItemsSource="{Binding GpuRows}">

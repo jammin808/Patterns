@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -238,6 +239,63 @@ public class AdminTests
         }
         finally
         {
+            services.Shutdown();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheDashboardReadsTheMachineAtAGlanceAndMovesWithTheNumbers()
+    {
+        var (services, vm, window, _) = Boot();
+        try
+        {
+            for (var i = 0; i < 70; i++) services.Metrics.Ingest(Healthy(i));
+            vm.PollNow();
+
+            Assert.Equal(12, vm.DashboardTiles.Count);
+            var cpu = vm.DashboardTiles.Single(t => t.Id == "cpu");
+            Assert.Equal("22%", cpu.Value);
+            Assert.True(cpu.HasBar);
+            Assert.Equal(CheckLight.Green, cpu.Light);
+            Assert.Equal("closed", vm.DashboardTiles.Single(t => t.Id == "outputs").Value);   // no output window on the headless desk
+            Assert.Equal("mains", vm.DashboardTiles.Single(t => t.Id == "power").Value);
+            Assert.Equal("All clear", vm.DashboardHeadline);
+            Assert.Contains("closed", vm.DashboardDetail);
+
+            // The same tile objects, updated in place as the numbers move: a battery and a pinned CPU.
+            var first = vm.DashboardTiles[0];
+            for (var i = 70; i < 140; i++)
+            {
+                services.Metrics.Ingest(Healthy(i) with { OnBattery = true, BatteryPct = 41, CpuSystemPct = 96 });
+            }
+            vm.PollNow();
+            Assert.Same(first, vm.DashboardTiles[0]);
+            Assert.Equal("96%", cpu.Value);
+            Assert.Equal(CheckLight.Red, cpu.Light);
+            Assert.Equal("battery 41%", vm.DashboardTiles.Single(t => t.Id == "power").Value);
+            Assert.StartsWith("Attention needed", vm.DashboardHeadline);
+            Assert.Contains("CPU", vm.DashboardHeadline);
+            Assert.Contains("POWER", vm.DashboardHeadline);
+            Assert.Contains("warning", vm.DashboardDetail);
+            Assert.True(vm.AdminCpuSpark.Count > 10);
+
+            // The page: the banner, the tiles and the warnings render.
+            vm.SelectPage(Shell.IndexOf("Machine"));
+            for (var i = 0; i < 6; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            }
+            var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Contains("HEALTH AT A GLANCE", texts);
+            Assert.Contains("WARNINGS AND RECOMMENDATIONS", texts);
+            Assert.Contains("CPU", texts);
+            Assert.Contains("96%", texts);
+            Assert.Contains(vm.DashboardHeadline, texts);
+        }
+        finally
+        {
+            window.Close();
             services.Shutdown();
         }
     }

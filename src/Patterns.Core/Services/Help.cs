@@ -568,14 +568,15 @@ public static class HelpTopics
 
         // ---- THE MACHINE ------------------------------------------------------------------
         new HelpTopic("machine", HelpGroup.TheMachine,
-            "The Machine page: performance, the GPU, the super-check",
-            "ADMIN → Machine before doors and whenever something feels slow: the rate, the GPU, the memory, and what to change.",
+            "The Machine page: health at a glance, the GPU, the super-check",
+            "ADMIN → Machine before doors and whenever something feels slow: one headline over twelve lit tiles says what needs attention, the cards under it say what to do, the lines show the last three minutes and the day.",
             HelpBodies.Machine,
             new[]
             {
-                "Read the health line and the suggestions; run SUPER-CHECK for a graded report.",
-                "Pick the GPU the outputs render on; set the frame rate the machine can hold.",
-                "Save or copy the report when asking for help.",
+                "HEALTH AT A GLANCE: green is fine, amber wants a look, red needs fixing now — outputs, render, CPU, memory, GPU, NDI, stream, audio, remote, watchdog, power, disk; the headline names the tiles that set it.",
+                "WARNINGS AND RECOMMENDATIONS: each card is what is wrong, why it matters mid-show and the next thing to do, worst first.",
+                "The lines: the last three minutes beside the day so far — a memory line that only climbs is a leak; run SUPER-CHECK for the graded report.",
+                "Pick the GPU the outputs render on; set the frame rate the machine can hold; copy the report when asking for help.",
             },
             "STATUS carries the health line.",
             new[] { "Machine" },

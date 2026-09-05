@@ -23,6 +23,17 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **The Machine page as a health dashboard** — ADMIN → Machine opens on HEALTH AT A GLANCE: one
+  headline over twelve lit tiles (outputs, render, CPU, memory, GPU, NDI, stream, audio, remote,
+  watchdog, power, disk), each a big value with a bar and a line under it, green / amber / red /
+  grey with the super-check's thresholds; the headline is the worst of the tiles and the advice,
+  naming the tiles that set it ("Attention needed — CPU, POWER") and counting what is below. The
+  tiles update in place every second from the live sample; the rig's facts are read every five.
+  WARNINGS AND RECOMMENDATIONS are cards worst first — what is wrong, why it matters mid-show, the
+  next thing to do — and LIVE PERFORMANCE draws the last three minutes beside the day so far (the
+  30-second averages: a memory line that only climbs is a leak). The super-check, the graphics
+  card, the watchdog, the beacon and the earlier versions follow as before. Pure and tested:
+  `HealthDashboard.Tiles`, `Overall`, `Verdict`.
 - **Help reorganised: a searchable catalogue, in the order a show happens** — the Help page is now
   a catalogue of 37 topics filed in six sections (START HERE, RUNNING THE SHOW, CONTENT, THE RIG,
   CONTROL, THE MACHINE), each a card with *where it sits in the workflow*, *how it works* in depth,
@@ -741,7 +752,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 981 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
+dotnet test                      # 985 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

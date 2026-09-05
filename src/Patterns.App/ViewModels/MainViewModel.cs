@@ -5098,8 +5098,8 @@ public sealed class MainViewModel : Observable
 
     // ---- admin ---------------------------------------------------------------
 
-    private const double SparkW = 196;
-    private const double SparkH = 40;
+    private const double SparkW = 300;
+    private const double SparkH = 56;
 
     private string _adminCpuText = "—";
     private string _adminMemText = "—";
@@ -5127,6 +5127,33 @@ public sealed class MainViewModel : Observable
     public Avalonia.Points AdminCpuSpark { get => _adminCpuSpark; private set => Set(ref _adminCpuSpark, value); }
     public Avalonia.Points AdminRamSpark { get => _adminRamSpark; private set => Set(ref _adminRamSpark, value); }
     public Avalonia.Points AdminFpsSpark { get => _adminFpsSpark; private set => Set(ref _adminFpsSpark, value); }
+
+    // ---- the dashboard: HEALTH AT A GLANCE ---------------------------------------------
+
+    private CheckFacts? _dashboardFacts;
+    private string _dashboardHeadline = "Reading the machine…";
+    private string _dashboardDetail = "the first numbers arrive within a second.";
+    private string _dashboardUptime = "";
+    private Avalonia.Media.IBrush _dashboardDot = LightBrushes.For(CheckLight.Grey);
+    private Avalonia.Points _adminCpuDaySpark = new();
+    private Avalonia.Points _adminRamDaySpark = new();
+    private Avalonia.Points _adminFpsDaySpark = new();
+    private string _adminDayText = "the day's lines appear after the first minute";
+
+    /// <summary>The twelve tiles — outputs, render, CPU, memory, GPU, NDI, stream, audio, remote, watchdog, power, disk — updated in place.</summary>
+    public ObservableCollection<DashboardTileView> DashboardTiles { get; } = new();
+
+    /// <summary>"All clear" / "Ready, with cautions — NDI" / "Attention needed — CPU, POWER".</summary>
+    public string DashboardHeadline { get => _dashboardHeadline; private set => Set(ref _dashboardHeadline, value); }
+    public string DashboardDetail { get => _dashboardDetail; private set => Set(ref _dashboardDetail, value); }
+    public string DashboardUptime { get => _dashboardUptime; private set => Set(ref _dashboardUptime, value); }
+    public Avalonia.Media.IBrush DashboardDot { get => _dashboardDot; private set => Set(ref _dashboardDot, value); }
+
+    /// <summary>The day so far: the 30-second aggregates as lines beside the last three minutes.</summary>
+    public Avalonia.Points AdminCpuDaySpark { get => _adminCpuDaySpark; private set => Set(ref _adminCpuDaySpark, value); }
+    public Avalonia.Points AdminRamDaySpark { get => _adminRamDaySpark; private set => Set(ref _adminRamDaySpark, value); }
+    public Avalonia.Points AdminFpsDaySpark { get => _adminFpsDaySpark; private set => Set(ref _adminFpsDaySpark, value); }
+    public string AdminDayText { get => _adminDayText; private set => Set(ref _adminDayText, value); }
 
     public ObservableCollection<SuggestionRow> AdminSuggestions { get; } = new();
     public ObservableCollection<GpuRow> GpuRows { get; } = new();
@@ -5882,6 +5909,7 @@ public sealed class MainViewModel : Observable
     private void PollAdmin()
     {
         var metrics = _services.Metrics;
+        RefreshDashboard(metrics.Current);
         if (metrics.Current is not { } s) return;
 
         AdminCpuText = $"this app {Pct(s.CpuAppPct)} · whole computer {Pct(s.CpuSystemPct)}";
@@ -5921,6 +5949,41 @@ public sealed class MainViewModel : Observable
 
         static string Pct(double v) => v < 0 ? "n/a" : $"{v:0}%";
         static string Mb(double v) => v < 0 ? "n/a" : v >= 1024 ? $"{v / 1024.0:0.0} GB" : $"{v:0} MB";
+    }
+
+    /// <summary>
+    /// HEALTH AT A GLANCE: the facts every five seconds (a probe or two), the live sample every
+    /// second, the tiles updated in place, the verdict over them and the advice, and the day's lines.
+    /// </summary>
+    private void RefreshDashboard(MetricSample? now)
+    {
+        if (_dashboardFacts is null || _statusTicks % 5 == 0) _dashboardFacts = _services.Metrics.GatherFacts();
+        var facts = _dashboardFacts;
+        var tiles = HealthDashboard.Tiles(facts, now);
+        if (DashboardTiles.Count != tiles.Count)
+        {
+            DashboardTiles.Clear();
+            foreach (var tile in tiles) DashboardTiles.Add(new DashboardTileView(tile));
+        }
+        else
+        {
+            for (var i = 0; i < tiles.Count; i++) DashboardTiles[i].Update(tiles[i]);
+        }
+        var verdict = HealthDashboard.Verdict(tiles, _services.Metrics.Suggestions);
+        DashboardHeadline = verdict.Headline;
+        DashboardDetail = verdict.Detail;
+        DashboardDot = LightBrushes.For(verdict.Light);
+        DashboardUptime = HealthDashboard.Uptime(facts.UptimeSeconds);
+
+        var day = _services.Metrics.History.LongTerm;
+        if (day.Count >= 2)
+        {
+            AdminCpuDaySpark = Spark(SparklinePath.Downsample(day.Select(x => Math.Max(0, x.CpuSystemPct)).ToList(), 180), 100);
+            AdminRamDaySpark = Spark(SparklinePath.Downsample(day.Select(x => Math.Max(0, x.RamAppMB)).ToList(), 180), null);
+            AdminFpsDaySpark = Spark(SparklinePath.Downsample(day.Select(x => x.OutputWindows > 0 ? x.OutputFps : x.PreviewFps).ToList(), 180), 66);
+            var minutes = day.Count * MetricsHistory.AggregateEvery / 60;
+            AdminDayText = minutes >= 60 ? $"the day so far: {minutes / 60} h {minutes % 60:00} min of 30-second averages" : $"the day so far: {minutes} min of 30-second averages";
+        }
     }
 
     private static Avalonia.Media.IBrush SeverityBrush(HealthSuggestion s) => s switch

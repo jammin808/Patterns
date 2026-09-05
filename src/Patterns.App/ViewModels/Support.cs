@@ -360,6 +360,79 @@ public sealed record CheckRowView(string Section, string Item, string Value, str
 /// <summary>One detected graphics adapter row on the Admin tab.</summary>
 public sealed record GpuRow(string Name, string Detail);
 
+/// <summary>The lights of the super-check and the dashboard as brushes: green, amber, red, and grey for unknown or not in use.</summary>
+public static class LightBrushes
+{
+    private static readonly Avalonia.Media.IBrush Green = Avalonia.Media.Brush.Parse("#2EE68A");
+    private static readonly Avalonia.Media.IBrush Amber = Avalonia.Media.Brush.Parse("#FFC24D");
+    private static readonly Avalonia.Media.IBrush Red = Avalonia.Media.Brush.Parse("#E0342E");
+    private static readonly Avalonia.Media.IBrush Grey = Avalonia.Media.Brush.Parse("#4A505E");
+
+    public static Avalonia.Media.IBrush For(Patterns.Core.Services.CheckLight light) => light switch
+    {
+        Patterns.Core.Services.CheckLight.Green => Green,
+        Patterns.Core.Services.CheckLight.Amber => Amber,
+        Patterns.Core.Services.CheckLight.Red => Red,
+        _ => Grey,
+    };
+}
+
+/// <summary>
+/// One tile of the Machine page's HEALTH AT A GLANCE, updated in place every second so the wall
+/// never rebuilds: the title stays, the light, the value, the line and the bar follow the numbers.
+/// </summary>
+public sealed class DashboardTileView : Patterns.Core.Model.Observable
+{
+    private Patterns.Core.Services.CheckLight _light;
+    private string _value = "";
+    private string _detail = "";
+    private double _fraction = -1;
+    private Avalonia.Media.IBrush _dot = LightBrushes.For(Patterns.Core.Services.CheckLight.Grey);
+
+    public DashboardTileView(Patterns.Core.Services.DashboardTile tile)
+    {
+        Id = tile.Id;
+        Title = tile.Title;
+        Update(tile);
+    }
+
+    public string Id { get; }
+    public string Title { get; }
+
+    public Patterns.Core.Services.CheckLight Light
+    {
+        get => _light;
+        private set
+        {
+            if (Set(ref _light, value)) Dot = LightBrushes.For(value);
+        }
+    }
+
+    public string Value { get => _value; private set => Set(ref _value, value); }
+    public string Detail { get => _detail; private set => Set(ref _detail, value); }
+    public Avalonia.Media.IBrush Dot { get => _dot; private set => Set(ref _dot, value); }
+
+    /// <summary>0..1 for a bar under the value; -1 for none.</summary>
+    public double Fraction
+    {
+        get => _fraction;
+        private set
+        {
+            if (Set(ref _fraction, value)) Raise(nameof(HasBar));
+        }
+    }
+
+    public bool HasBar => _fraction >= 0;
+
+    public void Update(Patterns.Core.Services.DashboardTile tile)
+    {
+        Light = tile.Light;
+        Value = tile.Value;
+        Detail = tile.Detail;
+        Fraction = tile.Fraction;
+    }
+}
+
 public sealed record ResolutionPreset(string Label, int W, int H)
 {
     public override string ToString() => Label;
