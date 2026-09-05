@@ -44,6 +44,24 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Installs: announcements, adverts, the schedule (module 2.2.0)
+
+A permanent install runs from Patterns' Install page (PLAN) — programmes on a rota, adverts at
+their times, announcements by the clock or by hand — and a Stream Deck at the reception desk
+or the shop's till gets the by-hand part: `announce` sends `ANNOUNCE <name or words>` (an
+announcement of the Install page by its name, else the words themselves on the message overlay
+for the site's announcement seconds), `announce_off` ends it; `advert` sends `ADVERT <name or
+number>` (its look for its seconds, on its screens, the programme back after) and `advert_off`
+ends it early; `schedule` sends `SCHEDULE ON` / `OFF`. Feedbacks `schedule_on` (green),
+`announcement_on` and `advert_on` (amber and blue; blank = any, or a named one) light the keys
+from the `install` block every STATE carries; variables `install` (ON/off), `install_programme`,
+`install_over` (the announcement or advert on), `install_next` ("12:30 advert Lunch offer") and
+`install_status` (the Install page's line). Presets under *Install*: SCHEDULE (a latch: press
+on, press off), ANNOUNCE Closing time (edit the name), ANNOUNCE OFF, ADVERT 1–4 (the advert at
+that place on the Install page), ADVERT OFF, and a status key. RESTART and UPDATE APPLY are
+deliberately not here — they take the admin passcode, from the phone's ADMIN page or a
+Generic TCP line of your own.
+
 ## A line to an Arduino or an IP device (module 2.1.0)
 
 `device_send` writes a line to a device of Patterns' Interactive page — `DEVICE Arduino RELAY 1`

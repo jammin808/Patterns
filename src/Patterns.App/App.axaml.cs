@@ -31,6 +31,12 @@ public sealed class App : Application
             // first second without it reaching the audience.
             services.StartDefaultSandbox();
 
+            // RESTART and UPDATE APPLY from a remote (or the management server) leave through the same door as the Machine page's button.
+            services.ExitRequest = code =>
+            {
+                Dispatcher.UIThread.Post(() => desktop.Shutdown(code));
+                return true;
+            };
             desktop.ShutdownRequested += (_, _) => services.Shutdown();
             desktop.Exit += (_, _) =>
             {

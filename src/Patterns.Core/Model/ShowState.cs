@@ -1465,6 +1465,169 @@ public sealed class InteractiveConfig : Observable
     public ObservableCollection<DeviceConfig> Devices { get; init; } = new();
 }
 
+/// <summary>What a slot of a permanent install's schedule is.</summary>
+public enum SlotKind
+{
+    /// <summary>The content of a stretch of the day: its look on air from its start to its end, on its days, between its dates.</summary>
+    Programme,
+    /// <summary>A placement: its look for its seconds — at its start, then every so many minutes until its end — and the programme back underneath. Optionally on named screens only.</summary>
+    Advert,
+    /// <summary>Words over the programme — a message, a VOG sound, a look of its own — for its seconds; fired by the clock or by hand (ANNOUNCE).</summary>
+    Announcement,
+}
+
+/// <summary>
+/// One row of an install's schedule. Days read like a rota ("Mon–Fri", "weekends", "every day"),
+/// dates fence a seasonal row ("2026-12-01" to "2026-12-31"), times are "HH:mm" and a window
+/// that ends at or before it starts runs past midnight (22:00–02:00). The status is runtime.
+/// </summary>
+public sealed class ScheduleSlotConfig : Observable
+{
+    private string _id = Guid.NewGuid().ToString("N");
+    private string _name = "Programme";
+    private SlotKind _kind = SlotKind.Programme;
+    private bool _enabled = true;
+    private string _days = "";
+    private string _from = "";
+    private string _until = "";
+    private string _start = "09:00";
+    private string _end = "17:00";
+    private int _everyMinutes;
+    private int _durationSeconds = 30;
+    private string _look = "";
+    private string _text = "";
+    private string _sound = "";
+    private string _screens = "";
+    private string _status = "";
+
+    public string Id { get => _id; set => Set(ref _id, value ?? ""); }
+
+    /// <summary>What the page, the cues and the wire call it: ANNOUNCE Closing time, ADVERT Lunch offer.</summary>
+    public string Name { get => _name; set => Set(ref _name, value ?? ""); }
+
+    public SlotKind Kind
+    {
+        get => _kind;
+        set
+        {
+            if (Set(ref _kind, value))
+            {
+                Raise(nameof(IsProgramme));
+                Raise(nameof(IsAdvert));
+                Raise(nameof(IsAnnouncement));
+                Raise(nameof(Repeats));
+            }
+        }
+    }
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    /// <summary>"" = every day; "Mon–Fri", "weekdays", "Sat Sun", "Mon, Wed, Fri", "weekends".</summary>
+    public string Days { get => _days; set => Set(ref _days, value ?? ""); }
+
+    /// <summary>First calendar day, "yyyy-MM-dd" ("" = open).</summary>
+    public string From { get => _from; set => Set(ref _from, (value ?? "").Trim()); }
+
+    /// <summary>Last calendar day, inclusive ("" = open).</summary>
+    public string Until { get => _until; set => Set(ref _until, (value ?? "").Trim()); }
+
+    /// <summary>"HH:mm": when the programme starts, or the first firing of an advert or announcement.</summary>
+    public string Start { get => _start; set => Set(ref _start, (value ?? "").Trim()); }
+
+    /// <summary>"HH:mm": when the programme ends, or the last moment an advert or announcement may fire.</summary>
+    public string End { get => _end; set => Set(ref _end, (value ?? "").Trim()); }
+
+    /// <summary>Advert / announcement: fires again every so many minutes until the end; 0 = once, at the start.</summary>
+    public int EveryMinutes { get => _everyMinutes; set => Set(ref _everyMinutes, Math.Clamp(value, 0, 24 * 60)); }
+
+    /// <summary>Advert / announcement: how long it holds before the programme comes back.</summary>
+    public int DurationSeconds { get => _durationSeconds; set => Set(ref _durationSeconds, Math.Clamp(value, 1, 24 * 3600)); }
+
+    /// <summary>The look (by name) — the programme's content, the advert's picture, an announcement's own picture (optional).</summary>
+    public string Look { get => _look; set => Set(ref _look, (value ?? "").Trim()); }
+
+    /// <summary>Announcement: the words — the message overlay's text while it runs.</summary>
+    public string Text { get => _text; set => Set(ref _text, value ?? ""); }
+
+    /// <summary>Announcement: a VOG from the Audio page's library, by name or number, played as it starts.</summary>
+    public string Sound { get => _sound; set => Set(ref _sound, (value ?? "").Trim()); }
+
+    /// <summary>Advert placement: the screens it goes to, by number or label ("1, 3" or "Window, Till") — "" = every screen. The others keep their picture.</summary>
+    public string Screens { get => _screens; set => Set(ref _screens, value ?? ""); }
+
+    /// <summary>Runtime: "on air since 09:00", "fired 12:30", "look not found" — set by the service, never saved.</summary>
+    [JsonIgnore]
+    public string Status { get => _status; set => Set(ref _status, value ?? ""); }
+
+    /// <summary>A free-text announcement fired by hand (ANNOUNCE The store closes in 15 minutes) — never in the list.</summary>
+    [JsonIgnore]
+    public bool IsAdHoc { get; init; }
+
+    [JsonIgnore]
+    public bool IsProgramme => _kind == SlotKind.Programme;
+
+    [JsonIgnore]
+    public bool IsAdvert => _kind == SlotKind.Advert;
+
+    [JsonIgnore]
+    public bool IsAnnouncement => _kind == SlotKind.Announcement;
+
+    /// <summary>Row-level visibility: the repeat and duration boxes belong to adverts and announcements.</summary>
+    [JsonIgnore]
+    public bool Repeats => _kind != SlotKind.Programme;
+}
+
+/// <summary>
+/// A permanent install — a shop, a hotel lobby, a museum wall, a reception screen: the clock runs
+/// the site. Off by default: on a show machine the schedule must never move the picture by itself.
+/// Remote administration (a passcode for the web remote's ADMIN page), a management server the
+/// site checks in with, and updates the watchdog applies at a quiet hour live here too.
+/// </summary>
+public sealed class InstallConfig : Observable
+{
+    private bool _enabled;
+    private string _siteName = "";
+    private string _idleLook = "";
+    private int _announcementSeconds = 20;
+    private string _adminPasscode = "";
+    private string _managementUrl = "";
+    private string _managementToken = "";
+    private int _checkInMinutes = 5;
+    private bool _autoUpdate;
+    private string _updateWindow = "03:00";
+
+    /// <summary>The schedule runs: programmes come and go by the clock, adverts and announcements fire at their times.</summary>
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    /// <summary>How this site names itself to the management server and in the support bundle ("Lobby wall", "Store 12 window").</summary>
+    public string SiteName { get => _siteName; set => Set(ref _siteName, (value ?? "").Trim()); }
+
+    /// <summary>The look on air when no programme is scheduled (outside opening hours); "" = black.</summary>
+    public string IdleLook { get => _idleLook; set => Set(ref _idleLook, (value ?? "").Trim()); }
+
+    /// <summary>How long a free-text announcement (ANNOUNCE some words) stays up.</summary>
+    public int AnnouncementSeconds { get => _announcementSeconds; set => Set(ref _announcementSeconds, Math.Clamp(value, 1, 3600)); }
+
+    public ObservableCollection<ScheduleSlotConfig> Slots { get; init; } = new();
+
+    /// <summary>The passcode the web remote's ADMIN page, RESTART and UPDATE APPLY ask for; "" = remote administration off.</summary>
+    public string AdminPasscode { get => _adminPasscode; set => Set(ref _adminPasscode, (value ?? "").Trim()); }
+
+    /// <summary>Where the site checks in (https://…/patterns/checkin); "" = it does not. The reply may carry commands and an update.</summary>
+    public string ManagementUrl { get => _managementUrl; set => Set(ref _managementUrl, (value ?? "").Trim()); }
+
+    /// <summary>A shared secret sent as X-Patterns-Token and expected back in every reply; "" = none.</summary>
+    public string ManagementToken { get => _managementToken; set => Set(ref _managementToken, (value ?? "").Trim()); }
+
+    public int CheckInMinutes { get => _checkInMinutes; set => Set(ref _checkInMinutes, Math.Clamp(value, 1, 24 * 60)); }
+
+    /// <summary>A staged package (updates/*.zip) is applied by itself at the update window's minute.</summary>
+    public bool AutoUpdate { get => _autoUpdate; set => Set(ref _autoUpdate, value); }
+
+    /// <summary>"HH:mm" — the quiet hour an automatic update lands in.</summary>
+    public string UpdateWindow { get => _updateWindow; set => Set(ref _updateWindow, (value ?? "").Trim()); }
+}
+
 /// <summary>Web pages opened on outputs (managed browser windows, not engine-composited).</summary>
 public sealed class WebConfig : Observable
 {
@@ -1540,6 +1703,9 @@ public sealed class ShowState : Observable
 
     /// <summary>The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP — commands in, the show back out.</summary>
     public InteractiveConfig Interactive { get; init; } = new();
+
+    /// <summary>A permanent install: the schedule, adverts and announcements, remote administration, updates. Off by default.</summary>
+    public InstallConfig Install { get; init; } = new();
     public StingerConfig Stingers { get; init; } = new();
 
     /// <summary>Break music (Spotify) — background sound between the show's own content.</summary>

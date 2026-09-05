@@ -19,9 +19,10 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   answers `/patterns/error` to the sender, and with a feedback host set every change sends one
   bundle of `/patterns/state/…` messages. See **OSC** below.
 
-> There is no password. Anyone on the network can control the show while remote control
-> is enabled — that's the same trust model as most stage-control protocols. Turn it off
-> on the Remote page (SETUP) when it isn't needed.
+> There is no password on the show's commands. Anyone on the network can control the show while
+> remote control is enabled — that's the same trust model as most stage-control protocols. Turn it
+> off on the Remote page (SETUP) when it isn't needed. Administration — `RESTART`, `UPDATE APPLY`
+> and the `/admin` page — sits behind the Install page's passcode (`docs/INSTALLS.md`).
 
 ## Commands
 
@@ -38,6 +39,11 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `NEXT` / `PREV` | The presenter click-through: a deck (PDF) on air turns its pages first — past the last page the caller's stack resumes with GO on the standby cue when the deck asks for it — else the clicker list forward / back |
 | `DECK NEXT` / `PREV` / `FIRST` / `LAST` / `PAGE <n>` / `<n>` | The deck on air turns a page (`PDF` and `SLIDES` are aliases; `ERR` with no deck on air or a page that is not a number, first or last) |
 | `DEVICE <name\|*> <text>` | A line to a device of the Interactive area — an Arduino's relay, a Pi's script (`SEND` is an alias; `*` is the first device; `ERR` while the area or the device is off, or the name is unknown). What devices send back and hear is in `docs/ARDUINO.md` |
+| `ANNOUNCE <name or words>` | An announcement of the Install page by name — its words on the message overlay, its VOG, its look, for its seconds — else the words themselves for the site's announcement seconds; the programme comes back by itself. `ANNOUNCE OFF` (`STOP` / `END`) ends it (`ERR` while an advert is on instead — `ADVERT OFF` ends that). Works with the schedule on or off; refused while the caller's stack is armed or a stinger holds the screens |
+| `ADVERT <name\|n>` | An advert of the Install page plays now for its seconds, on its screens (`AD` is an alias; `ERR` for an unknown name, a row that is not an advert, or one with no look). `ADVERT OFF` (`STOP` / `SKIP` / `END`) ends it and the programme comes back |
+| `SCHEDULE ON` / `OFF` | The install's clock runs the site — programmes by the clock, adverts and announcements at their times — or stops with the picture where it is. `docs/INSTALLS.md` has the rules |
+| `RESTART <passcode>` | The app restarts under the watchdog with the show put back — the Install page's admin passcode; `ERR` with none set, a wrong one (five wrong tries lock the gate for a minute), or without the watchdog |
+| `UPDATE APPLY <passcode>` | The staged update (`updates/*.zip`) applied by the watchdog between two starts of the app, rolled back if the new build does not stay up; the same gate as `RESTART` |
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
 | `LOCK <n> ON` / `OFF` / `TOGGLE` | Lock screen *n*: it keeps its picture through looks, cues, TAKE ALL and stingers (a confidence monitor, an info screen); unlock lets it follow again. Bare `LOCK <n>` toggles |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
@@ -111,6 +117,7 @@ rather than stops; empty when none), `stingHold` (the name of a stinger holding 
 `web{page,url,title,service,actions[{id,label}]}` (the web page the program shows — its nickname or host, its address and title, its service when Patterns knows it (YouTube, Vimeo, Google Slides, PowerPoint for the web) and the actions `WEB KEY <id>` takes on it; `null` with no page on air),
 `deck{file,kind,page,count,ended,endsWithGo,converting,status}` (the deck the program shows: its file and its kind — `PDF`, `PowerPoint`, `Keynote`, `Impress` — the page on show and the count, `ended` on its last page, `endsWithGo` when the next click there GOes the standby cue, `converting` while LibreOffice is still making the PDF of a PowerPoint (the count is 0 and `status` reads *Converting…*, or why it could not); `null` with no deck on air),
 `interactive` (the Interactive area is on) and `devices[{n,name,link,address,enabled,open,status,lastIn,lastOut}]` (every device of the Interactive page — its link is `serial`, `tcp` or `udp`, `open` while its wire is up, `status` the page's words, the last line each way),
+`install{on,site,programme,idle,over,overKind,overUntil,next,status,slots[{n,name,kind,enabled,status}],problems,update{staged,version,ok,running,supervised,status,last},management}` (the Install page: the schedule's switch, the programme on, the announcement or advert on and until when, the next change, every row and its state, the staged update, the check-in's line — see `docs/INSTALLS.md`),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),
@@ -204,6 +211,9 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/deck/page <n>` | DECK PAGE n (also `/patterns/deck/page/5`, `/patterns/deck 5`) |
 | `/patterns/section <n\|name>` | SECTION — a playlist part |
 | `/patterns/device/<name> "text"` | DEVICE name text — a line to a device of the Interactive area (also `/patterns/device "name" "text"`, `/patterns/device/Arduino/RELAY 1`, `/patterns/send/…`; `*` is the first device) |
+| `/patterns/announce "name or words"` | ANNOUNCE — an announcement of the Install page by name, else the words (also `/patterns/announce/<name>`); `/patterns/announce/off` ends it |
+| `/patterns/advert "name"` | ADVERT — an advert of the Install page now (also `/patterns/advert/<name>`, `/patterns/advert/<n>`); `/patterns/advert/off` ends it |
+| `/patterns/schedule 1\|0` | SCHEDULE ON / OFF (also `/patterns/schedule/on`, `/off`) |
 | `/patterns/stream 1\|0` | STREAM ON / OFF |
 | `/patterns/cue/go [id]` | CUE GO — the standby id you last saw, or none |
 | `/patterns/cue/standby/next`, `/patterns/cue/standby/prev` | CUE STANDBY NEXT / PREV |
@@ -248,3 +258,14 @@ key or two; the Patterns module (TCP) for the full feedback.
 
 `curl -d "LOOK Walk-in" http://<ip>:9696/api/cmd`
 `curl -H "X-Patterns-Client: curl" -d "CUE STANDBY NEXT" http://<ip>:9696/api/cmd`
+
+Behind the Install page's admin passcode (`docs/INSTALLS.md`):
+
+- `GET /admin` → the ADMIN page.
+- `POST /api/admin` with `<passcode>\n<command line>` as the body → `{"ok":…,"msg":"…"}`; a body with the
+  passcode alone checks it (the page unlocking). A wrong passcode answers 403 and, after five wrong
+  tries, a minute's lock.
+- `GET /api/admin/log?pass=<passcode>` → the last eighty lines of `patterns.log`.
+- `GET /support-bundle.zip?pass=<passcode>` → the support bundle, written beside the settings and sent.
+
+`curl -d $'open-sesame\nANNOUNCE Closing time' http://<ip>:9696/api/admin`

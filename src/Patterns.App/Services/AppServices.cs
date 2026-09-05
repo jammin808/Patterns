@@ -45,6 +45,21 @@ public sealed class AppServices
 
     /// <summary>The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP — commands in, the show back out.</summary>
     public DeviceService Devices { get; }
+
+    /// <summary>A permanent install's clock: programmes, adverts and announcements through the action layer.</summary>
+    public InstallService Install { get; }
+
+    /// <summary>Update packages staged beside the settings, applied by the watchdog between two starts.</summary>
+    public UpdateService Updates { get; }
+
+    /// <summary>The site's check-in with its management server: commands back, updates down.</summary>
+    public ManagementService Management { get; }
+
+    /// <summary>The passcode gate in front of remote administration (the web remote's ADMIN page, RESTART, UPDATE APPLY).</summary>
+    public AdminGate Gate { get; } = new();
+
+    /// <summary>How the app leaves with an exit code the watchdog reads — set by the desktop lifetime; null in a headless test.</summary>
+    public Func<int, bool>? ExitRequest { get; set; }
     public BeaconService Beacon { get; }
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
@@ -223,6 +238,9 @@ public sealed class AppServices
         Control = new ControlService(this);
         Osc = new OscService(this);
         Devices = new DeviceService(this);
+        Install = new InstallService(this);
+        Updates = new UpdateService(this);
+        Management = new ManagementService(this);
         Beacon = new BeaconService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
@@ -394,15 +412,17 @@ public sealed class AppServices
     /// <summary>
     /// Admin restart: freeze the recovery sidecar to the current live state so the relaunch
     /// puts the show back, and return the exit code to shut down with (the supervisor's
-    /// restart-request code when supervised, 0 when not).
+    /// restart-request code when supervised — its update code when the restart is to apply a
+    /// staged update — 0 when not).
     /// </summary>
-    public int PrepareRestart()
+    public int PrepareRestart(bool forUpdate = false)
     {
         Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
         _restartRequested = true;
         Recovery.Write(Outputs.IsLive, State.AudioPlayer.Playing);
         SaveNow();
-        return LaunchOptions.IsChild ? SupervisorPolicy.RestartRequestExitCode : 0;
+        if (!(Updates.Supervised)) return 0;
+        return forUpdate ? SupervisorPolicy.UpdateRequestExitCode : SupervisorPolicy.RestartRequestExitCode;
     }
 
     /// <summary>Keeps the recovery sidecar current: present while something is live, gone otherwise.</summary>
@@ -684,6 +704,7 @@ public sealed class AppServices
             Control.Dispose();
             Osc.Dispose();
             Devices.Dispose();
+            Management.Dispose();
             Beacon.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();

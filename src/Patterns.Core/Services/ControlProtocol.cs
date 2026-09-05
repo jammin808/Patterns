@@ -117,6 +117,22 @@ public enum RemoteCommandKind
     DeckPage,
     /// <summary>"DEVICE &lt;name|*&gt; &lt;text&gt;" (alias SEND) — a line (TextArg) to a device of the Interactive area (Extra: its name, or * for the first).</summary>
     DeviceSend,
+    /// <summary>"ANNOUNCE &lt;name or words&gt;" — an announcement of the Install page by name, else the words as a free-text announcement (TextArg).</summary>
+    Announce,
+    /// <summary>"ANNOUNCE OFF" (STOP / END) — the announcement on ends now.</summary>
+    AnnounceOff,
+    /// <summary>"ADVERT &lt;name|n&gt;" (alias AD) — an advert of the Install page plays now (TextArg or IntArg).</summary>
+    AdvertPlay,
+    /// <summary>"ADVERT OFF" (STOP / SKIP / END) — the advert on ends now.</summary>
+    AdvertOff,
+    /// <summary>"SCHEDULE ON" — the install's schedule runs.</summary>
+    ScheduleOn,
+    /// <summary>"SCHEDULE OFF" — it stops; what is on stays.</summary>
+    ScheduleOff,
+    /// <summary>"UPDATE APPLY &lt;passcode&gt;" — the staged update applied by the watchdog (TextArg: the admin passcode).</summary>
+    UpdateApply,
+    /// <summary>"RESTART &lt;passcode&gt;" — the app restarted under the watchdog with the show put back (TextArg: the admin passcode).</summary>
+    Restart,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -457,6 +473,42 @@ public static class ControlProtocol
                 if (split.Length < 2) return new(RemoteCommandKind.Unknown, 0, s);
                 return new(RemoteCommandKind.DeviceSend, 0, split[1], split[0]);
             }
+
+            // The Install page: an announcement by name or as words, an advert by name, the schedule's switch.
+            case "ANNOUNCE":
+            case "ANNOUNCEMENT":
+            {
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                return arg.ToUpperInvariant() is "OFF" or "STOP" or "END"
+                    ? new(RemoteCommandKind.AnnounceOff, 0, "")
+                    : new(RemoteCommandKind.Announce, 0, arg);
+            }
+            case "ADVERT":
+            case "AD":
+            {
+                if (arg.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                if (arg.ToUpperInvariant() is "OFF" or "STOP" or "SKIP" or "END") return new(RemoteCommandKind.AdvertOff, 0, "");
+                return int.TryParse(arg, out var advert)
+                    ? new(RemoteCommandKind.AdvertPlay, advert, "")
+                    : new(RemoteCommandKind.AdvertPlay, 0, arg);
+            }
+            case "SCHEDULE":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" or "START" or "RUN" => new(RemoteCommandKind.ScheduleOn, 0, ""),
+                    "OFF" or "STOP" or "HOLD" => new(RemoteCommandKind.ScheduleOff, 0, ""),
+                    _ => new(RemoteCommandKind.Unknown, 0, s),
+                };
+
+            // Remote administration: the passcode rides the line, the gate decides.
+            case "UPDATE":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries);
+                if (sub[0].ToUpperInvariant() != "APPLY") return new(RemoteCommandKind.Unknown, 0, s);
+                return new(RemoteCommandKind.UpdateApply, 0, sub.Length > 1 ? sub[1] : "");
+            }
+            case "RESTART":
+                return new(RemoteCommandKind.Restart, 0, arg);
 
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
             case "REVIEW":

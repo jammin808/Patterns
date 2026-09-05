@@ -177,6 +177,14 @@ public sealed class CommandRouter
             RemoteCommandKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
             RemoteCommandKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : cmd.TextArg),
             RemoteCommandKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, cmd.Extra, cmd.TextArg),
+            RemoteCommandKind.Announce => new ShowAction(ShowActionKind.Announce, "", cmd.TextArg),
+            RemoteCommandKind.AnnounceOff => new ShowAction(ShowActionKind.AnnounceOff),
+            RemoteCommandKind.AdvertPlay => new ShowAction(ShowActionKind.AdvertPlay, byNumberOrName),
+            RemoteCommandKind.AdvertOff => new ShowAction(ShowActionKind.AdvertOff),
+            RemoteCommandKind.ScheduleOn => new ShowAction(ShowActionKind.ScheduleOn),
+            RemoteCommandKind.ScheduleOff => new ShowAction(ShowActionKind.ScheduleOff),
+            RemoteCommandKind.UpdateApply => new ShowAction(ShowActionKind.UpdateApply, cmd.TextArg),
+            RemoteCommandKind.Restart => new ShowAction(ShowActionKind.Restart, cmd.TextArg),
             _ => null,
         };
     }
@@ -302,6 +310,7 @@ public sealed class CommandRouter
             deck = DeckRow(),                                              // the deck on air: file, page, count, ended — or null
             interactive = s.Interactive.Enabled,                           // the Interactive area is on: devices open
             devices = _services.Devices.Rows(),                            // every device: name, link, address, open, status, the last lines
+            install = _services.Install.StateRow(DateTime.Now),            // the install: the schedule's switch, the programme on, the override on, the next change, the rows, the update
 
             stingers = s.Stingers.Items.Select((i, n) => new
             {

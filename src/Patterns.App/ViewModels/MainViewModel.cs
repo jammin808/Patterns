@@ -399,6 +399,21 @@ public sealed class MainViewModel : Observable
         });
         AddTriggerCommand = new RelayCommand<DeviceConfig>(AddTrigger);
         RemoveTriggerCommand = new RelayCommand<DeviceTriggerConfig>(RemoveTrigger);
+
+        // The Install page: the rota, adverts and announcements, remote administration, updates.
+        AddProgrammeCommand = new RelayCommand(() => AddSlot(SlotKind.Programme));
+        AddAdvertCommand = new RelayCommand(() => AddSlot(SlotKind.Advert));
+        AddAnnouncementCommand = new RelayCommand(() => AddSlot(SlotKind.Announcement));
+        RemoveSlotCommand = new RelayCommand<ScheduleSlotConfig>(RemoveSlot);
+        PlaySlotCommand = new RelayCommand<ScheduleSlotConfig>(PlaySlot);
+        EndInstallOverrideCommand = new RelayCommand(EndInstallOverride);
+        SupportBundleCommand = new RelayCommand(BuildSupportBundle);
+        CheckInNowCommand = new RelayCommand(() =>
+        {
+            _services.Management.CheckInNow();
+            StatusMessage = State.Install.ManagementUrl.Length == 0 ? "Type the management server's check-in URL first." : "Checking in…";
+        });
+        ApplyUpdateCommand = new RelayCommand(ApplyUpdate);
         AddGapCommand = new RelayCommand(AddGap);
         RemoveGapCommand = new RelayCommand<WallGap>(RemoveGap);
         SetGapsFromGridCommand = new RelayCommand(SetGapsFromGrid);
@@ -1311,6 +1326,189 @@ public sealed class MainViewModel : Observable
             ? config.Devices.Count == 0 ? "Interactive area off — add a device below." : $"Interactive area off — {config.Devices.Count} device{(config.Devices.Count == 1 ? "" : "s")} waiting."
             : $"Interactive on · {config.Devices.Count} device{(config.Devices.Count == 1 ? "" : "s")}, {open} open.";
         if (_statusTicks % 5 == 0 && SelectedPageIndex == Shell.IndexOf("Interactive")) SerialPortsText = "Serial ports on this machine: " + DeviceService.SerialPortsText();
+    }
+
+    // ---- the Install page: a permanent install's clock, remote administration, updates ------------
+
+    private string _installStatus = "";
+    private string _installLastEvent = "";
+    private string _installProblems = "";
+    private string _adminUrlText = "";
+    private string _updateStatus = "";
+    private string _updateLastNote = "";
+    private string _managementStatus = "";
+    private string _supportBundleText = "";
+    private string _installSignature = "";
+    private List<string> _installLookChoices = new();
+    private List<string> _installSoundChoices = new();
+
+    /// <summary>"Schedule on · programme 'Daytime' until 17:00 · next: advert Lunch offer at 12:30." — the page's line.</summary>
+    public string InstallStatus { get => _installStatus; private set => Set(ref _installStatus, value); }
+
+    /// <summary>The last thing the clock did, with its time.</summary>
+    public string InstallLastEvent { get => _installLastEvent; private set => Set(ref _installLastEvent, value); }
+
+    /// <summary>Every row that cannot do what it says, one line each; "" when all is well.</summary>
+    public string InstallProblems { get => _installProblems; private set => Set(ref _installProblems, value); }
+
+    /// <summary>Where the ADMIN page is, or why there is none.</summary>
+    public string AdminUrlText { get => _adminUrlText; private set => Set(ref _adminUrlText, value); }
+
+    public string UpdateStatus { get => _updateStatus; private set => Set(ref _updateStatus, value); }
+
+    public string UpdateLastNote { get => _updateLastNote; private set => Set(ref _updateLastNote, value); }
+
+    public string ManagementStatus { get => _managementStatus; private set => Set(ref _managementStatus, value); }
+
+    public string SupportBundleText { get => _supportBundleText; private set => Set(ref _supportBundleText, value); }
+
+    /// <summary>The day's rows: programme windows and firings in time order, with NOW and done.</summary>
+    public ObservableCollection<InstallRow> InstallTimeline { get; } = new();
+
+    /// <summary>The show's look names, for the rows' pickers.</summary>
+    public List<string> InstallLookChoices { get => _installLookChoices; private set => Set(ref _installLookChoices, value); }
+
+    /// <summary>The VOGs of the Audio page's library, by name, for an announcement's sound.</summary>
+    public List<string> InstallSoundChoices { get => _installSoundChoices; private set => Set(ref _installSoundChoices, value); }
+
+    private void AddSlot(SlotKind kind)
+    {
+        var count = State.Install.Slots.Count(s => s.Kind == kind) + 1;
+        var slot = new ScheduleSlotConfig
+        {
+            Kind = kind,
+            Name = kind switch
+            {
+                SlotKind.Programme => count == 1 ? "Daytime" : $"Programme {count}",
+                SlotKind.Advert => count == 1 ? "Offer" : $"Advert {count}",
+                _ => count == 1 ? "Closing time" : $"Announcement {count}",
+            },
+            Start = kind == SlotKind.Programme ? "09:00" : "12:00",
+            End = kind == SlotKind.Programme ? "17:00" : "18:00",
+            EveryMinutes = kind == SlotKind.Programme ? 0 : 60,
+            DurationSeconds = kind == SlotKind.Announcement ? 20 : 30,
+            Text = kind == SlotKind.Announcement ? "The store closes in 15 minutes" : "",
+            Look = kind == SlotKind.Announcement ? "" : State.LooksAndCues.Looks.FirstOrDefault()?.Name ?? "",
+        };
+        BulkEdit(() => State.Install.Slots.Add(slot));
+        StatusMessage = kind switch
+        {
+            SlotKind.Programme => $"{slot.Name} added — pick its look, its days and its hours; switch the schedule on when the rota is right.",
+            SlotKind.Advert => $"{slot.Name} added — pick its look, when it fires and for how long; name screens to keep the others as they are.",
+            _ => $"{slot.Name} added — its words, a VOG, when it fires; ANNOUNCE {slot.Name} fires it by hand.",
+        };
+        RefreshInstallTimeline(force: true);
+    }
+
+    private void RemoveSlot(ScheduleSlotConfig? slot)
+    {
+        if (slot is null) return;
+        BulkEdit(() => State.Install.Slots.Remove(slot));
+        StatusMessage = $"{slot.Name} removed.";
+        RefreshInstallTimeline(force: true);
+    }
+
+    private void PlaySlot(ScheduleSlotConfig? slot)
+    {
+        if (slot is null) return;
+        Report(slot.Kind == SlotKind.Advert
+            ? _services.Actions.Execute(new ShowAction(ShowActionKind.AdvertPlay, slot.Name), ActionOrigin.Desk)
+            : _services.Actions.Execute(new ShowAction(ShowActionKind.Announce, slot.Name), ActionOrigin.Desk));
+    }
+
+    private void EndInstallOverride()
+    {
+        var on = _services.Install.Runtime.Override;
+        if (on is null)
+        {
+            StatusMessage = "Nothing is on over the programme.";
+            return;
+        }
+        Report(_services.Actions.Execute(on.Kind == SlotKind.Advert ? ShowActionKind.AdvertOff : ShowActionKind.AnnounceOff, ActionOrigin.Desk));
+    }
+
+    private void BuildSupportBundle()
+    {
+        try
+        {
+            var dir = _services.Store.BaseDirectory;
+            var path = System.IO.Path.Combine(dir, SupportBundle.FileNameFor(DateTime.Now));
+            var info = string.Join(Environment.NewLine,
+                $"Patterns support bundle — {DateTime.Now:yyyy-MM-dd HH:mm}",
+                $"Site: {(State.Install.SiteName.Length > 0 ? State.Install.SiteName : "(unnamed)")} · machine {Environment.MachineName}",
+                $"Build: {UpdateService.RunningVersion} · .NET {Environment.Version} · {Environment.OSVersion}",
+                $"Show: {State.Name} · folder {dir}",
+                $"Health: {HealthMonitor.Summary(DateTime.UtcNow)}",
+                $"Install: {_services.Install.Status}",
+                $"Update: {_services.Updates.Status}",
+                $"Management: {_services.Management.Status}");
+            var entries = SupportBundle.Build(dir, path, info);
+            SupportBundleText = $"Written: {path} ({entries.Count} entries — {string.Join(", ", entries)}).";
+            StatusMessage = $"Support bundle written beside the settings: {System.IO.Path.GetFileName(path)}.";
+            Log.Info($"Support bundle written: {path}");
+        }
+        catch (Exception ex)
+        {
+            SupportBundleText = $"Could not write the bundle: {ex.Message}";
+            Log.Warn("Support bundle failed.", ex);
+        }
+    }
+
+    private void ApplyUpdate()
+    {
+        // The desk's own button needs no passcode: whoever sits at the machine owns it.
+        Report(_services.Updates.Apply("", ActionOrigin.Desk, byPolicy: true));
+    }
+
+    /// <summary>The 1 s poll: the clock ticks, the folders and the check-in follow, the page's words refresh.</summary>
+    private void PollInstall()
+    {
+        _services.Install.Tick();
+        if (_statusTicks % 5 == 0) _services.Updates.Scan();
+        _services.Updates.TickWindow(DateTime.Now);
+        _services.Management.Tick(DateTime.UtcNow);
+        InstallStatus = _services.Install.Status;
+        InstallLastEvent = _services.Install.LastEvent;
+        UpdateStatus = _services.Updates.Status;
+        UpdateLastNote = _services.Updates.LastNote;
+        ManagementStatus = _services.Management.Status;
+        var passcode = State.Install.AdminPasscode;
+        AdminUrlText = passcode.Length == 0
+            ? "No passcode: the web remote has no ADMIN page and RESTART / UPDATE APPLY on the wire are refused."
+            : State.Control.Enabled
+                ? $"ADMIN page: {(_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0])}admin"
+                : "ADMIN page: switch remote control on (Remote page) to reach it.";
+        RefreshInstallTimeline(force: false);
+    }
+
+    /// <summary>The day's rows and the pickers, rebuilt when the rows or the lists change (a cheap signature) and every few seconds for NOW / done.</summary>
+    private void RefreshInstallTimeline(bool force)
+    {
+        var cfg = State.Install;
+        var sb = new System.Text.StringBuilder();
+        foreach (var s in cfg.Slots) sb.Append(s.Id).Append(s.Name).Append(s.Kind).Append(s.Enabled).Append(s.Days).Append(s.From).Append(s.Until).Append(s.Start).Append(s.End).Append(s.EveryMinutes).Append(s.DurationSeconds).Append(s.Look).Append(s.Text).Append(s.Sound).Append(s.Screens).Append('|');
+        sb.Append(cfg.IdleLook).Append('|');
+        foreach (var l in State.LooksAndCues.Looks) sb.Append(l.Name).Append(',');
+        sb.Append('|');
+        foreach (var i in State.Stingers.Items) sb.Append(i.DisplayName).Append(i.Kind).Append(',');
+        var signature = sb.ToString();
+        var changed = signature != _installSignature;
+        if (!force && !changed && _statusTicks % 10 != 0) return;
+        _installSignature = signature;
+        var now = DateTime.Now;
+        InstallTimeline.Clear();
+        foreach (var row in Schedule.Timeline(cfg, DateOnly.FromDateTime(now)))
+        {
+            InstallTimeline.Add(new InstallRow(row.TimeText, row.KindText, row.Name, row.Detail, row.StateAt(now)));
+        }
+        Raise(nameof(InstallTimeline));
+        var problems = Schedule.Problems(cfg, State);
+        InstallProblems = problems.Count == 0 ? "" : string.Join(Environment.NewLine, problems.Select(p => "⚠ " + p));
+        if (changed || force)
+        {
+            InstallLookChoices = State.LooksAndCues.Looks.Select(l => l.Name).ToList();
+            InstallSoundChoices = State.Stingers.Items.Where(i => i.Kind == StingerKind.Vog).Select(i => i.DisplayName).ToList();
+        }
     }
 
     private void ResetBlend()
@@ -4403,6 +4601,15 @@ public sealed class MainViewModel : Observable
     public RelayCommand<DeviceConfig> ResendDeviceCommand { get; }
     public RelayCommand<DeviceConfig> AddTriggerCommand { get; }
     public RelayCommand<DeviceTriggerConfig> RemoveTriggerCommand { get; }
+    public RelayCommand AddProgrammeCommand { get; }
+    public RelayCommand AddAdvertCommand { get; }
+    public RelayCommand AddAnnouncementCommand { get; }
+    public RelayCommand<ScheduleSlotConfig> RemoveSlotCommand { get; }
+    public RelayCommand<ScheduleSlotConfig> PlaySlotCommand { get; }
+    public RelayCommand EndInstallOverrideCommand { get; }
+    public RelayCommand SupportBundleCommand { get; }
+    public RelayCommand CheckInNowCommand { get; }
+    public RelayCommand ApplyUpdateCommand { get; }
     public RelayCommand AddGapCommand { get; }
     public RelayCommand<WallGap> RemoveGapCommand { get; }
     public RelayCommand SetGapsFromGridCommand { get; }
@@ -5658,6 +5865,7 @@ public sealed class MainViewModel : Observable
             : "Remote control off.";
         OscStatus = _services.Osc.StatusLine;
         PollDevices();
+        PollInstall();
         if (_reviewSeen != _services.Bus.ReviewOnMultiview)
         {
             _reviewSeen = _services.Bus.ReviewOnMultiview; // a remote flipped it: the desk's toggles follow

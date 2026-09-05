@@ -51,6 +51,9 @@ public static class OscMap
         ("/patterns/deck/page <n>", "DECK PAGE n — the deck on air turns to page n (also /patterns/deck/page/<n>, /patterns/deck <n>)"),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
         ("/patterns/device/<name> <text>", "DEVICE name text — a line to a device of the Interactive area (also /patterns/device \"name\" \"text\", /patterns/send/…; * is the first device)"),
+        ("/patterns/announce <name|words>", "ANNOUNCE — an announcement of the Install page by name, else the words as a free-text announcement (also /patterns/announce/<name>); /patterns/announce/off ends it"),
+        ("/patterns/advert <name|n>", "ADVERT — an advert of the Install page plays now (also /patterns/advert/<name>, /patterns/advert/<n>); /patterns/advert/off ends it"),
+        ("/patterns/schedule 1|0", "SCHEDULE ON / OFF — the install's clock runs the site, or stops (also /on, /off)"),
         ("/patterns/stream 1|0", "STREAM ON / OFF"),
         ("/patterns/cue/go [id]", "CUE GO — the standby id you last saw, or none"),
         ("/patterns/cue/standby/next, /patterns/cue/standby/prev", "CUE STANDBY NEXT / PREV"),
@@ -253,6 +256,23 @@ public static class OscMap
                     default: return null;
                 }
             }
+            // The Install page: /patterns/announce "The store closes in 15 minutes" · /patterns/announce/Closing · /patterns/announce/off ·
+            // /patterns/advert "Lunch offer" · /patterns/advert/2 · /patterns/advert/off · /patterns/schedule 1|0 (also /on, /off).
+            case "announce":
+            case "announcement":
+            {
+                var what = seg.Length > 0 ? string.Join(" ", parts.Skip(1)) : string.Join(" ", m.Args.Select(Word)).Trim();
+                if (what.Length == 0) return null;
+                return what.ToLowerInvariant() is "off" or "stop" or "end" ? "ANNOUNCE OFF" : "ANNOUNCE " + what;
+            }
+            case "advert":
+            case "ad":
+            {
+                var what = seg.Length > 0 ? string.Join(" ", parts.Skip(1)) : m.Text() ?? m.Number()?.ToString(CultureInfo.InvariantCulture) ?? "";
+                if (what.Length == 0) return null;
+                return what.ToLowerInvariant() is "off" or "stop" or "skip" or "end" ? "ADVERT OFF" : "ADVERT " + what;
+            }
+            case "schedule": return "SCHEDULE " + Switch(m, seg, "ON", toggles: false);
             case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
             case "freeze": return "FREEZE " + Switch(m, seg, "TOGGLE", toggles: true);
             // /patterns/fade 2 · /patterns/fade/up 2 · /patterns/fade/down: the seconds as the argument or the next segment.

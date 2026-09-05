@@ -700,6 +700,33 @@ public sealed class ShowActions
                     : $"TAKE — sandbox faded up {scope}.") + rearmed);
             }
 
+            // The Install page: announcements and adverts by hand, the schedule's switch.
+            case ShowActionKind.Announce:
+                return _s.Install.Announce(a.Target, a.Value, origin);
+            case ShowActionKind.AnnounceOff:
+                return _s.Install.EndOverride(SlotKind.Announcement, origin);
+            case ShowActionKind.AdvertPlay:
+                return _s.Install.PlayAdvert(a.Target, origin);
+            case ShowActionKind.AdvertOff:
+                return _s.Install.EndOverride(SlotKind.Advert, origin);
+            case ShowActionKind.ScheduleOn:
+                return _s.Install.SetSchedule(true, origin);
+            case ShowActionKind.ScheduleOff:
+                return _s.Install.SetSchedule(false, origin);
+
+            // Remote administration: the passcode rides the target, the gate decides.
+            case ShowActionKind.UpdateApply:
+                return _s.Updates.Apply(a.Target, origin);
+            case ShowActionKind.Restart:
+            {
+                if (!_s.Gate.Check(State.Install.AdminPasscode, a.Target, DateTime.UtcNow)) return ActionResult.Refused($"Restart refused — {_s.Gate.Reason}.");
+                if (!_s.Updates.Supervised) return ActionResult.Refused("A restart in place needs the watchdog — start Patterns normally, with the watchdog on under Machine → Stability.");
+                if (_s.ExitRequest is null) return ActionResult.Refused("No way to restart in this session.");
+                var code = _s.PrepareRestart();
+                Log.Info($"Restart requested from {origin.Label}.");
+                return _s.ExitRequest(code) ? ActionResult.Requested("Restarting — the show comes straight back.") : ActionResult.Failed("The app did not accept the exit request.");
+            }
+
             case ShowActionKind.StopAll:
                 _s.Stingers.Stop();              // both kinds; a clip or a held frame reverts; an after is cancelled, never fired
                 State.AudioPlayer.Playing = false;
@@ -994,6 +1021,12 @@ public sealed class ShowActions
         CueActionKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
         CueActionKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", a.Value),
         CueActionKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, a.Target, a.Value),
+        CueActionKind.Announce => new ShowAction(ShowActionKind.Announce, a.Target, a.Value),
+        CueActionKind.AnnounceOff => new ShowAction(ShowActionKind.AnnounceOff),
+        CueActionKind.AdvertPlay => new ShowAction(ShowActionKind.AdvertPlay, a.Target),
+        CueActionKind.AdvertOff => new ShowAction(ShowActionKind.AdvertOff),
+        CueActionKind.ScheduleOn => new ShowAction(ShowActionKind.ScheduleOn),
+        CueActionKind.ScheduleOff => new ShowAction(ShowActionKind.ScheduleOff),
         CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
         CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
         CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),

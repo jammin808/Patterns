@@ -149,6 +149,26 @@ public enum ShowActionKind
     DeckPage,
     /// <summary>A line to a device of the Interactive area: Target = the device's name (or "" / * for the first), Value = the text.</summary>
     DeviceSend,
+    /// <summary>
+    /// An announcement now: Target = an announcement of the Install page by name (or ""), Value = the
+    /// words when no announcement is named (a name in the value finds the announcement too) — for its
+    /// seconds, over the programme; the programme comes back by itself.
+    /// </summary>
+    Announce,
+    /// <summary>The announcement on ends now.</summary>
+    AnnounceOff,
+    /// <summary>An advert of the Install page (Target: by name or number) plays now for its seconds, on its screens; the programme comes back.</summary>
+    AdvertPlay,
+    /// <summary>The advert on ends now.</summary>
+    AdvertOff,
+    /// <summary>The install's schedule runs: programmes by the clock, adverts and announcements at their times.</summary>
+    ScheduleOn,
+    /// <summary>The schedule stops moving the picture; what is on stays.</summary>
+    ScheduleOff,
+    /// <summary>Target = the admin passcode: the staged update is applied by the watchdog — the app exits, the files are swapped, the show comes back.</summary>
+    UpdateApply,
+    /// <summary>Target = the admin passcode: the app restarts under the watchdog with the show put back.</summary>
+    Restart,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>
@@ -178,6 +198,8 @@ public enum OriginKind
     Osc,
     /// <summary>A device of the Interactive area — an Arduino's button, a sensor, a controller over IP.</summary>
     Device,
+    /// <summary>The management server an install checks in with: a command it sent back.</summary>
+    Management,
 }
 
 public sealed record ActionOrigin(OriginKind Kind, string Name = "", string Endpoint = "")

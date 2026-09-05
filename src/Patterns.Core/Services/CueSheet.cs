@@ -251,6 +251,12 @@ public static class CueSheet
             "deckprev" or "deckprevious" or "prevpage" or "previouspage" or "prevslide" or "previousslide" or "deckback" => CueActionKind.DeckPrev,
             "deck" or "deckpage" or "gotopage" or "deckgoto" or "pdf" => CueActionKind.DeckPage,
             "device" or "devicesend" or "send" or "arduino" or "serial" or "relay" => CueActionKind.DeviceSend,
+            "announce" or "announcement" or "announcementon" or "announceon" or "pa" => CueActionKind.Announce,
+            "announceoff" or "announcementoff" or "announcestop" or "endannouncement" => CueActionKind.AnnounceOff,
+            "advert" or "ad" or "advertisement" or "commercial" or "advertplay" or "playadvert" or "spot" => CueActionKind.AdvertPlay,
+            "advertoff" or "adoff" or "advertend" or "endadvert" or "skipadvert" or "advertstop" => CueActionKind.AdvertOff,
+            "schedule" or "scheduleon" or "install" or "installon" or "installschedule" or "installscheduleon" => CueActionKind.ScheduleOn,
+            "scheduleoff" or "installoff" or "installscheduleoff" or "schedulestop" => CueActionKind.ScheduleOff,
             _ => null,
         };
     }
@@ -261,8 +267,8 @@ public static class CueSheet
         if (targetKind == TargetKind.None) return ("", null);
         if (target.Length == 0)
         {
-            // Break music resumes with no entry; a web action with no page reaches the page on air.
-            return targetKind is TargetKind.Music or TargetKind.Page ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
+            // Break music resumes with no entry; a web action with no page reaches the page on air; an announcement with no slot says its value.
+            return targetKind is TargetKind.Music or TargetKind.Page || kind == CueActionKind.Announce ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
         }
         switch (targetKind)
         {
@@ -282,6 +288,9 @@ public static class CueSheet
                 return SpotifyLibrary.Find(state, target) is { } music ? (music.Id, null) : (target, $"break music '{target}' not found.");
             case TargetKind.LowerThird:
                 return state.LowerThirds.Find(target) is { } design ? (design.Id, null) : (target, $"lower third '{target}' not found.");
+            case TargetKind.Slot:
+                // A slot is named by its name, so a sheet reads "Advert: Lunch offer" and survives a re-add.
+                return Schedule.Find(state.Install, target) is { } slot ? (slot.Name, null) : (target, $"'{target}' is not on the Install page.");
             default:
                 return (target, null); // a part name or a canvas key is used as written
         }

@@ -324,6 +324,63 @@ public sealed partial class ControlService : IDisposable
             {
                 payload = RunPage;
             }
+            else if (method == "GET" && path == "/admin")
+            {
+                payload = AdminPage;
+            }
+            else if (method == "POST" && path == "/api/admin")
+            {
+                // "<passcode>\n<command line>": the gate first, then the line through the router with the admin as its origin.
+                contentType = "application/json";
+                var cut = body.IndexOf('\n');
+                var passcode = (cut < 0 ? body : body[..cut]).Trim();
+                var line = cut < 0 ? "" : body[(cut + 1)..].Trim();
+                var adminOrigin = new ActionOrigin(OriginKind.Http, "admin", client.Client.RemoteEndPoint?.ToString() ?? "");
+                string response;
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
+                {
+                    status = "403 Forbidden";
+                    response = ControlProtocol.Err(_services.Gate.Reason);
+                }
+                else if (line.Length == 0)
+                {
+                    response = ControlProtocol.Ok();        // a passcode check on its own: the page unlocking
+                }
+                else
+                {
+                    response = await _router.ExecuteAsync(ControlProtocol.Parse(line), adminOrigin);
+                }
+                var ok = response.StartsWith("OK");
+                payload = $"{{\"ok\":{(ok ? "true" : "false")},\"msg\":{System.Text.Json.JsonSerializer.Serialize(response)}}}";
+            }
+            else if (method == "GET" && path.StartsWith("/api/admin/log"))
+            {
+                contentType = "text/plain; charset=utf-8";
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                {
+                    status = "403 Forbidden";
+                    payload = _services.Gate.Reason;
+                }
+                else
+                {
+                    payload = LogTail(80);
+                }
+            }
+            else if (method == "GET" && path.StartsWith("/support-bundle.zip"))
+            {
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                {
+                    status = "403 Forbidden";
+                    contentType = "text/plain";
+                    payload = _services.Gate.Reason;
+                }
+                else
+                {
+                    contentType = "application/zip";
+                    payload = "";
+                    binary = await Task.Run(BuildSupportBundle);
+                }
+            }
             else if (method == "GET" && path.StartsWith("/pgm.jpg"))
             {
                 contentType = "image/jpeg";
@@ -375,6 +432,42 @@ public sealed partial class ControlService : IDisposable
         RemoteCommandKind.CueGo or RemoteCommandKind.CueStandby or RemoteCommandKind.CueStandbyNext or RemoteCommandKind.CueStandbyPrev or
         RemoteCommandKind.CueHoldOn or RemoteCommandKind.CueHoldOff or RemoteCommandKind.CueArmOn or RemoteCommandKind.CueArmOff or
         RemoteCommandKind.StopAll;
+
+    /// <summary>The last lines of patterns.log, for the ADMIN page — read with a shared lock, the app keeps writing.</summary>
+    private string LogTail(int lines)
+    {
+        try
+        {
+            var path = Path.Combine(_services.Store.BaseDirectory, "patterns.log");
+            if (!File.Exists(path)) return "(no log yet)";
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            var all = reader.ReadToEnd().Split('\n');
+            return string.Join("\n", all.Skip(Math.Max(0, all.Length - lines)));
+        }
+        catch (Exception ex)
+        {
+            return "(the log could not be read: " + ex.Message + ")";
+        }
+    }
+
+    /// <summary>The support bundle as bytes for the ADMIN page's download: written beside the settings, then read back.</summary>
+    private byte[] BuildSupportBundle()
+    {
+        var dir = _services.Store.BaseDirectory;
+        var path = Path.Combine(dir, SupportBundle.FileNameFor(DateTime.Now));
+        var info = string.Join(Environment.NewLine,
+            $"Patterns support bundle — {DateTime.Now:yyyy-MM-dd HH:mm} (from the ADMIN page)",
+            $"Site: {(_services.State.Install.SiteName.Length > 0 ? _services.State.Install.SiteName : "(unnamed)")} · machine {Environment.MachineName}",
+            $"Build: {UpdateService.RunningVersion} · .NET {Environment.Version} · {Environment.OSVersion}",
+            $"Health: {HealthMonitor.Summary(DateTime.UtcNow)}",
+            $"Install: {_services.Install.Status}",
+            $"Update: {_services.Updates.Status}",
+            $"Management: {_services.Management.Status}");
+        SupportBundle.Build(dir, path, info);
+        Log.Info($"Support bundle written for the ADMIN page: {path}");
+        return File.ReadAllBytes(path);
+    }
 
     private static string? QueryValue(string path, string key)
     {

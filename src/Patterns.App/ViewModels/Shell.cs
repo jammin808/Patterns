@@ -41,7 +41,7 @@ public static class Shell
     public static readonly IReadOnlyList<ShellGroupInfo> Groups = new[]
     {
         new ShellGroupInfo(ShellGroup.Show, "SHOW", "#2EE68A", "Show time: the panel beside the switcher, and the Run surface for the caller"),
-        new ShellGroupInfo(ShellGroup.Plan, "PLAN", "#6E9BFF", "Before the show: the cue stack, looks and every wall-clock automation"),
+        new ShellGroupInfo(ShellGroup.Plan, "PLAN", "#6E9BFF", "Before the show: the cue stack, looks, and the install's clock — programmes, adverts, announcements"),
         new ShellGroupInfo(ShellGroup.Build, "BUILD", "#3EC1F3", "Making content: patterns, media, overlays, countdown, particles, branding, the library"),
         new ShellGroupInfo(ShellGroup.Setup, "SETUP", "#B18CFF", "At the rig: screens, audio, NDI, streaming, remote control"),
         new ShellGroupInfo(ShellGroup.Admin, "ADMIN", "#B8E356", "The machine: performance, GPU, the watchdog — and Help"),
@@ -52,6 +52,7 @@ public static class Shell
         ("Run", ShellGroup.Show, "#2EE68A"),
         ("Cues", ShellGroup.Plan, "#6E9BFF"),
         ("Looks", ShellGroup.Plan, "#6E9BFF"),
+        ("Install", ShellGroup.Plan, "#9AB4FF"),
         ("Pattern", ShellGroup.Build, "#3EC1F3"),
         ("Media", ShellGroup.Build, "#FF6EC7"),
         ("Overlays", ShellGroup.Build, "#FFC24D"),

@@ -249,6 +249,29 @@ public static class CueValidator
                     else if (!device.Enabled) Soft($"{where}: device '{device.Name}' is switched off on the Interactive page.");
                     break;
                 }
+                case CueActionKind.Announce:
+                {
+                    // A named announcement, or the words themselves; a name in the value finds the announcement too.
+                    var slot = a.Target.Length > 0 ? Schedule.Find(state.Install, a.Target) : a.Value.Length > 0 ? Schedule.Find(state.Install, a.Value, SlotKind.Announcement) : null;
+                    if (a.Target.Length > 0 && slot is null) Hard($"{where}: announcement '{a.Target}' is not on the Install page — or leave it blank and put the words in the value.");
+                    else if (slot is { Kind: SlotKind.Programme }) Hard($"{where}: '{slot.Name}' is a programme, not an announcement.");
+                    else if (slot is null && a.Value.Trim().Length == 0) Hard($"{where}: nothing to announce — choose an announcement or type the words.");
+                    else if (slot is not null && slot.Look.Length > 0 && LookService.Find(state, slot.Look) is null) Hard($"{where}: announcement '{slot.Name}' names look '{slot.Look}', which is not in the show.");
+                    else if (slot is not null && slot.Sound.Length > 0 && StingerLibrary.Find(state, slot.Sound) is null) Soft($"{where}: announcement '{slot.Name}' names VOG '{slot.Sound}', which is not in the library — the words still go up.");
+                    break;
+                }
+                case CueActionKind.AdvertPlay:
+                {
+                    var slot = Schedule.Find(state.Install, a.Target, SlotKind.Advert);
+                    if (a.Target.Length == 0) Hard($"{where}: which advert? Choose one from the Install page.");
+                    else if (slot is null) Hard($"{where}: advert '{a.Target}' is not on the Install page.");
+                    else if (slot.Look.Length == 0) Hard($"{where}: advert '{slot.Name}' has no look.");
+                    else if (LookService.Find(state, slot.Look) is null) Hard($"{where}: advert '{slot.Name}' names look '{slot.Look}', which is not in the show.");
+                    break;
+                }
+                case CueActionKind.ScheduleOn:
+                    if (state.Install.Slots.Count == 0) Soft($"{where}: the Install page has no rows — the schedule has nothing to run.");
+                    break;
                 case CueActionKind.LowerThirdShow:
                 case CueActionKind.LowerThirdPreview:
                 {

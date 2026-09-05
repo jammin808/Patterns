@@ -320,6 +320,13 @@ public sealed record EnumItem(object Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>One line of the Install page's day: "09:00–17:00 · PROGRAMME · Daytime · look Daytime · NOW".</summary>
+public sealed record InstallRow(string TimeText, string KindText, string Name, string Detail, string State)
+{
+    public bool IsNow => State == "NOW";
+    public bool IsPast => State == "done";
+}
+
 /// <summary>One advisor line on the Admin tab, with its severity colour resolved.</summary>
 public sealed record SuggestionRow(string Title, string Detail, Avalonia.Media.IBrush Dot);
 
@@ -554,6 +561,12 @@ public static class Lists
         new(LineEnding.CrLf, "CR LF  (\\r\\n)"),
         new(LineEnding.Cr, "CR  (\\r)"),
         new(LineEnding.None, "none"),
+    };
+    public static readonly EnumItem[] SlotKinds =
+    {
+        new(SlotKind.Programme, "Programme — a look from a start to an end"),
+        new(SlotKind.Advert, "Advert — a look for some seconds, then the programme back"),
+        new(SlotKind.Announcement, "Announcement — words, a VOG, a look, for some seconds"),
     };
     public static readonly EnumItem[] TileNumberings =
     {

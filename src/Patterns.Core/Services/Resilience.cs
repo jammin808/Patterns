@@ -41,6 +41,13 @@ public sealed class SupervisorPolicy
     /// </summary>
     public const int RestartRequestExitCode = 82;
 
+    /// <summary>
+    /// Exit code the app uses to ask the supervisor to apply the staged update before the
+    /// relaunch: the files swap between the two starts, and a new build that does not stay up
+    /// through its proving period is rolled back. Otherwise a restart request.
+    /// </summary>
+    public const int UpdateRequestExitCode = 83;
+
     /// <summary>Hung = the child was beating and then went silent past the timeout.</summary>
     public static bool IsHung(DateTime? lastBeatUtc, DateTime utcNow)
         => lastBeatUtc is { } beat && utcNow - beat > HangTimeout;
@@ -62,7 +69,7 @@ public sealed class SupervisorPolicy
             return new SupervisorVerdict(SupervisorAction.GiveUp, TimeSpan.Zero);
         }
 
-        if (exitCode == RestartRequestExitCode && !killedForHang)
+        if (exitCode is RestartRequestExitCode or UpdateRequestExitCode && !killedForHang)
         {
             return new SupervisorVerdict(SupervisorAction.Restart, TimeSpan.Zero);
         }

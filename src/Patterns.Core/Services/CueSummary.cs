@@ -98,6 +98,17 @@ public static class CueSummary
             case CueActionKind.DeckPrev: return "Deck: the previous page";
             case CueActionKind.DeckPage: return $"Deck: {Decks.DescribePage(a.Value)}";
             case CueActionKind.DeviceSend: return $"Device {(Interactive.Find(state.Interactive, a.Target)?.Name ?? (a.Target.Length > 0 ? a.Target : "?"))}: {a.Value}";
+            case CueActionKind.Announce:
+            {
+                var slot = a.Target.Length > 0 ? Schedule.Find(state.Install, a.Target) : Schedule.Find(state.Install, a.Value, SlotKind.Announcement);
+                if (slot is not null) return $"Announcement '{slot.Name}'";
+                return a.Target.Length > 0 ? $"Announcement '{a.Target}' (not on the Install page)" : a.Value.Length > 0 ? $"Announce: '{Shorten(a.Value)}'" : "Announce: (nothing)";
+            }
+            case CueActionKind.AnnounceOff: return "Announcement off";
+            case CueActionKind.AdvertPlay: return $"Advert '{Schedule.Find(state.Install, a.Target, SlotKind.Advert)?.Name ?? (a.Target.Length > 0 ? a.Target + " (not found)" : "?")}' now";
+            case CueActionKind.AdvertOff: return "Advert ends";
+            case CueActionKind.ScheduleOn: return "Install schedule on";
+            case CueActionKind.ScheduleOff: return "Install schedule off";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
             case CueActionKind.DuckOn: return "Duck for announcement";

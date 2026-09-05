@@ -210,12 +210,18 @@ class PatternsInstance extends InstanceBase {
 			air_look: this.state.airLook ?? '',
 			preview_look: this.state.previewLook ?? '',
 			pattern: this.state.pattern ?? '',
+			install: this.state.install?.on ? 'ON' : 'off',
+			install_programme: this.state.install?.programme ?? '',
+			install_over: this.state.install?.over ?? '',
+			install_next: this.state.install?.next ?? '',
+			install_status: this.state.install?.status ?? '',
 			...this.bankVariables(),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'screen_armed', 'screen_own', 'audio_playing', 'stinger_playing', 'music_playing',
 			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'lower_third_preview', 'lower_third_edited',
 			'review_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
-			'web_on_air', 'deck_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty')
+			'web_on_air', 'deck_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty',
+			'schedule_on', 'announcement_on', 'advert_on')
 		this.refreshShowPresets()
 	}
 
@@ -283,6 +289,30 @@ class PatternsInstance extends InstanceBase {
 					if (!text) return
 					send(`DEVICE ${String(a.options.device || '*').trim() || '*'} ${text}`)
 				},
+			},
+			// The Install page: an announcement by name or as words, an advert by name, the schedule's switch.
+			announce: {
+				name: 'Announcement — by name from the Install page, or the words themselves',
+				options: [{ type: 'textinput', id: 'what', label: 'Announcement name, or the words on screen', default: 'Closing time' }],
+				callback: (a) => {
+					const what = String(a.options.what || '').trim()
+					if (what) send(`ANNOUNCE ${what}`)
+				},
+			},
+			announce_off: { name: 'Announcement — end now', options: [], callback: () => send('ANNOUNCE OFF') },
+			advert: {
+				name: 'Advert — play now (by name or number, from the Install page)',
+				options: [{ type: 'textinput', id: 'name', label: 'Advert name or number', default: '1' }],
+				callback: (a) => {
+					const name = String(a.options.name || '').trim()
+					if (name) send(`ADVERT ${name}`)
+				},
+			},
+			advert_off: { name: 'Advert — end now (the programme comes back)', options: [], callback: () => send('ADVERT OFF') },
+			schedule: {
+				name: 'Install schedule on / off (the clock runs the site, or stops)',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'ON', choices: [{ id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
+				callback: (a) => send(`SCHEDULE ${a.options.mode}`),
 			},
 			stream: {
 				name: 'Stream on / off',
@@ -656,6 +686,34 @@ class PatternsInstance extends InstanceBase {
 				options: [{ type: 'number', id: 'slot', label: 'F-key (1–12)', default: 1, min: 1, max: 12 }],
 				callback: (fb) => !!this.state.looks?.find((l) => l.slot === fb.options.slot)?.air,
 			},
+			// The install: the clock running, an announcement or an advert over the programme.
+			schedule_on: {
+				type: 'boolean',
+				name: 'The install schedule is on (the clock runs the site)',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.install?.on === true,
+			},
+			announcement_on: {
+				type: 'boolean',
+				name: 'An announcement is on (any, or a named one)',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'textinput', id: 'name', label: 'Announcement name (blank = any)', default: '' }],
+				callback: (fb) => {
+					const i = this.state.install ?? {}
+					return i.overKind === 'announcement' && (!fb.options.name || i.over === fb.options.name)
+				},
+			},
+			advert_on: {
+				type: 'boolean',
+				name: 'An advert is on (any, or a named one)',
+				defaultStyle: { bgcolor: combineRgb(0, 90, 130), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'textinput', id: 'name', label: 'Advert name (blank = any)', default: '' }],
+				callback: (fb) => {
+					const i = this.state.install ?? {}
+					return i.overKind === 'advert' && (!fb.options.name || i.over === fb.options.name)
+				},
+			},
 			look_preview: {
 				type: 'boolean',
 				name: 'A look is loaded in the preview (a named one, or any)',
@@ -913,6 +971,11 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'cue_last_outcome', name: 'Last GO outcome' },
 			{ variableId: 'cue_confirm', name: 'Pending confirm (CONFIRM 03.020) or empty' },
 			{ variableId: 'last_error', name: 'Last ERR line from Patterns' },
+			{ variableId: 'install', name: 'The install schedule (ON/off)' },
+			{ variableId: 'install_programme', name: 'The programme on, by name (or empty)' },
+			{ variableId: 'install_over', name: 'The announcement or advert on (its name or its words, or empty)' },
+			{ variableId: 'install_next', name: 'The next change of the install\'s clock ("12:30 advert Lunch offer")' },
+			{ variableId: 'install_status', name: 'The install\'s status line' },
 		]
 	}
 
@@ -1319,6 +1382,44 @@ class PatternsInstance extends InstanceBase {
 			type: 'button', category: 'Audio', name: 'Audio stop',
 			style: { text: '♪ STOP', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'audio', options: { mode: 'STOP' } }], up: [] }], feedbacks: [],
+		}
+		// The install: the schedule's switch, an announcement by name, an advert by number, the END keys.
+		presets.install_schedule = {
+			type: 'button', category: 'Install', name: 'SCHEDULE — the clock runs the site (green while on)',
+			style: { text: 'SCHEDULE\\n$(patterns:install)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'schedule', options: { mode: 'ON' } }], up: [] }, { down: [{ actionId: 'schedule', options: { mode: 'OFF' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'schedule_on', options: {}, style: { bgcolor: green, color: white } }],
+		}
+		presets.install_announce = {
+			type: 'button', category: 'Install', name: 'ANNOUNCE — an announcement by name (edit the name)',
+			style: { text: 'ANNOUNCE\\nClosing time', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'announce', options: { what: 'Closing time' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'announcement_on', options: { name: 'Closing time' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
+		}
+		presets.install_announce_off = {
+			type: 'button', category: 'Install', name: 'ANNOUNCE OFF — the announcement on ends',
+			style: { text: 'ANNOUNCE\\nOFF', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'announce_off', options: {} }], up: [] }],
+			feedbacks: [{ feedbackId: 'announcement_on', options: { name: '' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
+		}
+		for (let n = 1; n <= 4; n++) {
+			presets[`install_advert_${n}`] = {
+				type: 'button', category: 'Install', name: `ADVERT ${n} — the advert at place ${n} of the Install page, now`,
+				style: { text: `ADVERT\\n${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'advert', options: { name: String(n) } }], up: [] }],
+				feedbacks: [{ feedbackId: 'advert_on', options: { name: '' }, style: { bgcolor: combineRgb(0, 90, 130), color: white } }],
+			}
+		}
+		presets.install_advert_off = {
+			type: 'button', category: 'Install', name: 'ADVERT OFF — the advert on ends, the programme comes back',
+			style: { text: 'ADVERT\\nOFF', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'advert_off', options: {} }], up: [] }],
+			feedbacks: [{ feedbackId: 'advert_on', options: { name: '' }, style: { bgcolor: combineRgb(0, 90, 130), color: white } }],
+		}
+		presets.install_status = {
+			type: 'button', category: 'Install', name: 'The install: the programme on and the next change',
+			style: { text: '$(patterns:install_programme)\\n$(patterns:install_next)', size: 'auto', color: white, bgcolor: dark },
+			steps: [], feedbacks: [],
 		}
 		return presets
 	}

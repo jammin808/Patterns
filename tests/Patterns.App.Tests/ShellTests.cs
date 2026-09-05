@@ -44,7 +44,7 @@ public class ShellTests
                 Assert.Contains(Shell.Pages, p => p.Group == group);
                 Assert.Contains(Shell.Groups, g => g.Group == group);
             }
-            Assert.Equal(new[] { "Cues", "Looks" }, Shell.Pages.Where(p => p.Group == ShellGroup.Plan).Select(p => p.Header));
+            Assert.Equal(new[] { "Cues", "Looks", "Install" }, Shell.Pages.Where(p => p.Group == ShellGroup.Plan).Select(p => p.Header));
             Assert.Equal(new[] { "Screens", "Audio", "NDI", "Stream", "Remote", "Interactive" }, Shell.Pages.Where(p => p.Group == ShellGroup.Setup).Select(p => p.Header));
             Assert.Equal(new[] { "Machine", "Help" }, Shell.Pages.Where(p => p.Group == ShellGroup.Admin).Select(p => p.Header));
 

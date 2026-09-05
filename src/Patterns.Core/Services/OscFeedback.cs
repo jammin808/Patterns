@@ -85,6 +85,15 @@ public static class OscFeedback
                     list.Add(OscMessage.Of(Prefix + "deck/file", ""));
                 }
             }
+            // The install: the schedule's switch, the programme on, the override on and until when, the next change.
+            if (root.TryGetProperty("install", out var install) && install.ValueKind == JsonValueKind.Object)
+            {
+                list.Add(OscMessage.Of(Prefix + "install/on", Bit(install, "on")));
+                list.Add(OscMessage.Of(Prefix + "install/programme", Str(install, "programme")));
+                list.Add(OscMessage.Of(Prefix + "install/over", Str(install, "over")));
+                list.Add(OscMessage.Of(Prefix + "install/until", Str(install, "overUntil")));
+                list.Add(OscMessage.Of(Prefix + "install/next", Str(install, "next")));
+            }
             if (root.TryGetProperty("web", out var web))
             {
                 var isPage = web.ValueKind == JsonValueKind.Object;

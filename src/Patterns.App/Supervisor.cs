@@ -74,10 +74,24 @@ internal static class Supervisor
         var exe = Environment.ProcessPath!;
         var policy = new SupervisorPolicy();
         var restarts = 0;
+        UpdateRequest? pendingUpdate = null;   // the app exited to be updated: swap the files before the next start
+        string? provingBackup = null;          // an update just landed: where the old files are, until the new app proves itself
+        var provingVersion = "";
         WLog($"Watchdog supervising {Path.GetFileName(exe)} (pid {Environment.ProcessId}).");
 
         while (true)
         {
+            if (pendingUpdate is { } update)
+            {
+                pendingUpdate = null;
+                var (backup, version) = ApplyUpdate(update, exe);
+                if (backup is not null)
+                {
+                    provingBackup = backup;
+                    provingVersion = version;
+                }
+            }
+
             using var pipe = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
             var psi = new ProcessStartInfo(exe)
             {
@@ -162,8 +176,36 @@ internal static class Supervisor
                 exitCode = -1;
             }
             child.Dispose();
+            var ranFor = DateTime.UtcNow - startedUtc;
 
-            var verdict = policy.OnExit(killedForHang ? 1 : exitCode, killedForHang, DateTime.UtcNow - startedUtc, DateTime.UtcNow);
+            // The first run of an updated build: it stays when it ran through the proving period (or was closed cleanly); otherwise the old files come back.
+            if (provingBackup is { } proving)
+            {
+                var updatesDir = UpdatesDirectory();
+                if (UpdateApply.Verdict(exitCode, killedForHang, ranFor) == "rollback")
+                {
+                    var back = UpdateApply.RollBack(proving, Path.GetDirectoryName(exe)!, Array.Empty<string>());
+                    var note = $"Update to {provingVersion} rolled back at {DateTime.Now:HH:mm}: the new build {(killedForHang ? "hung" : $"exited with {exitCode}")} after {ranFor.TotalSeconds:0} s — {back.Message}";
+                    WLog(note);
+                    UpdateApply.WriteNote(updatesDir, note);
+                    WatchdogMarker.Write(new SettingsStore().BaseDirectory, note);
+                    provingBackup = null;
+                    restarts++;
+                    continue;   // the old build, straight away
+                }
+                var kept = $"Updated to {provingVersion} at {DateTime.Now:HH:mm} — the old files are in {proving}";
+                WLog(kept);
+                UpdateApply.WriteNote(updatesDir, kept);
+                provingBackup = null;
+            }
+
+            if (exitCode == SupervisorPolicy.UpdateRequestExitCode && !killedForHang)
+            {
+                pendingUpdate = UpdateApply.ReadRequest(UpdatesDirectory());
+                if (pendingUpdate is null) WLog("The app asked for an update but left no request — restarting as it is.");
+            }
+
+            var verdict = policy.OnExit(killedForHang ? 1 : exitCode, killedForHang, ranFor, DateTime.UtcNow);
             switch (verdict.Action)
             {
                 case SupervisorAction.Stop:
@@ -179,6 +221,7 @@ internal static class Supervisor
                     restarts++;
                     var why = killedForHang ? "hung"
                         : exitCode == SupervisorPolicy.RestartRequestExitCode ? "asked to restart (Machine page)"
+                        : exitCode == SupervisorPolicy.UpdateRequestExitCode ? "asked to be updated"
                         : $"crashed (exit {exitCode})";
                     WLog($"App {why} after {(DateTime.UtcNow - startedUtc).TotalSeconds:0}s — " +
                          $"restart #{restarts} in {verdict.Delay.TotalSeconds:0}s.");
@@ -186,6 +229,49 @@ internal static class Supervisor
                     break;
             }
         }
+    }
+
+    private static string UpdatesDirectory() => UpdatePackage.Folder(new SettingsStore().BaseDirectory);
+
+    /// <summary>
+    /// The swap, between two starts of the app: the package's files in, the old ones into a backup
+    /// folder (a rename, which Windows allows for the exe this very process runs from). Returns
+    /// the backup folder to prove the new build against, or null when nothing changed — a package
+    /// that does not read, a file that would not move — with the reason logged and noted.
+    /// </summary>
+    private static (string? Backup, string Version) ApplyUpdate(UpdateRequest request, string exe)
+    {
+        var updatesDir = UpdatesDirectory();
+        UpdateApply.ClearRequest(updatesDir);
+        var appDir = Path.GetDirectoryName(exe)!;
+        var info = UpdatePackage.Inspect(request.Package, Path.GetFileName(exe));
+        if (!info.Ok)
+        {
+            var refused = $"Update refused at {DateTime.Now:HH:mm}: {string.Join("; ", info.Problems)}";
+            WLog(refused);
+            UpdateApply.WriteNote(updatesDir, refused);
+            return (null, info.Version);
+        }
+        var backup = UpdateApply.BackupFolderFor(updatesDir, DateTime.Now);
+        WLog($"Applying update {info.Version} from {info.FileName}: {info.Files.Count} file(s), the old ones into {backup}.");
+        var report = UpdateApply.Run(request.Package, appDir, backup, Path.GetFileName(exe));
+        if (!report.Ok)
+        {
+            var failed = $"Update to {info.Version} failed at {DateTime.Now:HH:mm}: {report.Message}";
+            WLog(failed);
+            UpdateApply.WriteNote(updatesDir, failed);
+            return (null, info.Version);
+        }
+        WLog($"Update {info.Version} in place: {report.Message}. Starting it — it has {UpdateApply.ProvingPeriod.TotalMinutes:0} minutes to prove itself.");
+        try
+        {
+            File.Delete(request.Package);   // applied; a second apply would be the same files again
+        }
+        catch
+        {
+            // A package that cannot be deleted stays; the page reads it as staged and the same version.
+        }
+        return (backup, info.Version);
     }
 
     /// <summary>

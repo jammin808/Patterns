@@ -1,0 +1,156 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.InstallSection"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-plan" Text="Install" />
+    <TextBlock Classes="hint tip"
+               Text="A permanent install — a shop window, a hotel lobby, a museum wall, a reception screen — runs itself from this page. Programmes are looks on a rota: which look is on from when to when, on which days, between which dates. Adverts are placements: a look for some seconds at set times, on every screen or only the ones you name, with the programme back underneath by itself. Announcements are words over the programme — the message overlay, a VOG from the Audio page, a look of their own — at set times or by hand: ANNOUNCE on the wire, a cue, a Companion key, the phone's ADMIN page. Outside every programme the screens show the idle look, or black. Remote administration, the site's check-in with a management server and updates the watchdog applies at a quiet hour live at the bottom. Off by default — on a show machine the clock must never move the picture by itself." />
+
+    <TextBlock Classes="h2" Text="THIS SITE" />
+    <CheckBox Content="Schedule on — the clock runs the site" IsChecked="{Binding State.Install.Enabled}"
+              ToolTip.Tip="Programmes come and go by the clock, adverts and announcements fire at their times. Off: nothing moves by itself; announcements and adverts by hand still work" />
+    <TextBlock Classes="label" Text="{Binding InstallStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding InstallLastEvent}" TextWrapping="Wrap" IsVisible="{Binding InstallLastEvent, Converter={StaticResource NotEmpty}}" />
+    <TextBlock Classes="label" Foreground="#FFC24D" Text="{Binding InstallProblems}" TextWrapping="Wrap" IsVisible="{Binding InstallProblems, Converter={StaticResource NotEmpty}}" />
+    <Grid ColumnDefinitions="130,*,8,Auto,8,220" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Site name" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Install.SiteName, Mode=TwoWay}" Watermark="Lobby wall · Store 12 window — how the site names itself" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Idle look" VerticalAlignment="Center" />
+      <AutoCompleteBox Grid.Column="5" Text="{Binding State.Install.IdleLook, Mode=TwoWay}" ItemsSource="{Binding InstallLookChoices}" FilterMode="Contains" MinimumPrefixLength="0" Watermark="blank = black"
+                       ToolTip.Tip="On air when no programme is scheduled — outside opening hours. Blank: black" />
+    </Grid>
+    <Grid ColumnDefinitions="130,120,8,Auto" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Words stay up" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="1" Maximum="3600" Increment="5" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Install.AnnouncementSeconds, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="How long a free-text announcement (ANNOUNCE some words) stays on screen, in seconds" />
+      <Button Grid.Column="3" Classes="chip" Content="END WHAT IS ON" Command="{Binding EndInstallOverrideCommand}" Margin="0,0,0,0"
+              ToolTip.Tip="The advert or announcement on ends now — the programme comes back" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="TODAY" />
+    <ItemsControl ItemsSource="{Binding InstallTimeline}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:InstallRow">
+          <Grid ColumnDefinitions="110,110,*,Auto" Margin="0,1">
+            <TextBlock Classes="label" Text="{Binding TimeText}" />
+            <TextBlock Grid.Column="1" Classes="label" Text="{Binding KindText}" />
+            <TextBlock Grid.Column="2" Classes="label" TextWrapping="Wrap">
+              <Run Text="{Binding Name}" FontWeight="Bold" /><Run Text=" · " /><Run Text="{Binding Detail}" />
+            </TextBlock>
+            <TextBlock Grid.Column="3" Classes="label" Text="{Binding State}" Foreground="#2EE68A" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="label" Text="Nothing scheduled today." IsVisible="{Binding !InstallTimeline.Count}" />
+
+    <TextBlock Classes="h2" Text="PROGRAMMES, ADVERTS AND ANNOUNCEMENTS" />
+    <WrapPanel Margin="0,4,0,4">
+      <Button Classes="chip" Content="+ PROGRAMME" Command="{Binding AddProgrammeCommand}" Margin="0,0,8,6" ToolTip.Tip="A look on a rota: from a start to an end, on its days, between its dates" />
+      <Button Classes="chip" Content="+ ADVERT" Command="{Binding AddAdvertCommand}" Margin="0,0,8,6" ToolTip.Tip="A look for some seconds at its times — every so many minutes in a window — on every screen or the ones you name" />
+      <Button Classes="chip" Content="+ ANNOUNCEMENT" Command="{Binding AddAnnouncementCommand}" Margin="0,0,8,6" ToolTip.Tip="Words over the programme, a VOG, a look of its own — at its times, or by hand with ANNOUNCE" />
+    </WrapPanel>
+    <ItemsControl ItemsSource="{Binding State.Install.Slots}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:ScheduleSlotConfig">
+          <Border Classes="card" Margin="0,0,0,10" Padding="10">
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="Auto,8,*,8,Auto,8,Auto,8,Auto">
+                <CheckBox Grid.Column="0" IsChecked="{Binding Enabled, Mode=TwoWay}" ToolTip.Tip="Off keeps this row out of the clock; it can still be fired by hand" />
+                <TextBox Grid.Column="2" Text="{Binding Name, Mode=TwoWay}" Watermark="Name — what cues and the wire call it (ANNOUNCE Closing time, ADVERT Lunch offer)" />
+                <ComboBox Grid.Column="4" ItemsSource="{x:Static vm:Lists.SlotKinds}" MinWidth="220"
+                          SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                <Button Grid.Column="6" Classes="mini" Content="PLAY NOW" IsVisible="{Binding Repeats}" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlaySlotCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="This advert or announcement now, for its seconds — the same as ADVERT / ANNOUNCE by name on the wire" />
+                <Button Grid.Column="8" Classes="mini" Content="REMOVE" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveSlotCommand}" CommandParameter="{Binding}" />
+              </Grid>
+              <Grid ColumnDefinitions="130,*,8,Auto,8,120,8,Auto,8,120" Margin="0,2,0,0">
+                <TextBlock Classes="label" Text="Days" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding Days, Mode=TwoWay}" Watermark="every day · Mon–Fri · weekends · Sat Sun · Mon, Wed, Fri" ToolTip.Tip="Blank = every day" />
+                <TextBlock Grid.Column="3" Classes="label" Text="From" VerticalAlignment="Center" />
+                <TextBox Grid.Column="5" Text="{Binding From, Mode=TwoWay}" Watermark="2026-12-01" ToolTip.Tip="First calendar day (blank = open) — a seasonal row" />
+                <TextBlock Grid.Column="7" Classes="label" Text="Until" VerticalAlignment="Center" />
+                <TextBox Grid.Column="9" Text="{Binding Until, Mode=TwoWay}" Watermark="2026-12-31" ToolTip.Tip="Last calendar day, inclusive (blank = open)" />
+              </Grid>
+              <Grid ColumnDefinitions="130,90,8,Auto,8,90,8,Auto,8,90,8,Auto,8,90">
+                <TextBlock Classes="label" Text="Start" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding Start, Mode=TwoWay}" Watermark="09:00" ToolTip.Tip="When the programme starts, or the first firing" />
+                <TextBlock Grid.Column="3" Classes="label" Text="End" VerticalAlignment="Center" />
+                <TextBox Grid.Column="5" Text="{Binding End, Mode=TwoWay}" Watermark="17:00" ToolTip.Tip="When the programme ends, or the last moment a firing may happen. At or before the start: the window runs past midnight" />
+                <TextBlock Grid.Column="7" Classes="label" Text="Every (min)" VerticalAlignment="Center" IsVisible="{Binding Repeats}" />
+                <NumericUpDown Grid.Column="9" Minimum="0" Maximum="1440" Increment="5" FormatString="0" ShowButtonSpinner="False" IsVisible="{Binding Repeats}"
+                               Value="{Binding EveryMinutes, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Fires again every so many minutes until the end; 0 = once, at the start" />
+                <TextBlock Grid.Column="11" Classes="label" Text="For (s)" VerticalAlignment="Center" IsVisible="{Binding Repeats}" />
+                <NumericUpDown Grid.Column="13" Minimum="1" Maximum="86400" Increment="5" FormatString="0" ShowButtonSpinner="False" IsVisible="{Binding Repeats}"
+                               Value="{Binding DurationSeconds, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="How long it holds before the programme comes back" />
+              </Grid>
+              <Grid ColumnDefinitions="130,*,8,Auto,8,*">
+                <TextBlock Classes="label" Text="Look" VerticalAlignment="Center" />
+                <AutoCompleteBox Grid.Column="1" Text="{Binding Look, Mode=TwoWay}" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).InstallLookChoices}" FilterMode="Contains" MinimumPrefixLength="0"
+                                 Watermark="a look from the Looks page (a programme's content, an advert's picture, an announcement's own — optional)" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Screens" VerticalAlignment="Center" IsVisible="{Binding IsAdvert}" />
+                <TextBox Grid.Column="5" Text="{Binding Screens, Mode=TwoWay}" IsVisible="{Binding IsAdvert}" Watermark="blank = every screen · 1, 3 · Window, Till"
+                         ToolTip.Tip="The placement: the screens this advert goes to, by number or label; the others keep their picture (locked for the advert, freed after)" />
+              </Grid>
+              <Grid ColumnDefinitions="130,*,8,Auto,8,220" IsVisible="{Binding IsAnnouncement}">
+                <TextBlock Classes="label" Text="Words" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding Text, Mode=TwoWay}" Watermark="The store closes in 15 minutes — the message overlay's text while it runs" />
+                <TextBlock Grid.Column="3" Classes="label" Text="VOG" VerticalAlignment="Center" />
+                <AutoCompleteBox Grid.Column="5" Text="{Binding Sound, Mode=TwoWay}" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).InstallSoundChoices}" FilterMode="Contains" MinimumPrefixLength="0"
+                                 Watermark="a VOG from the Audio page" ToolTip.Tip="Played as the announcement starts; the music ducks under it" />
+              </Grid>
+              <TextBlock Classes="label" Text="{Binding Status}" TextWrapping="Wrap" IsVisible="{Binding Status, Converter={StaticResource NotEmpty}}" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="REMOTE ADMIN AND ASSISTANCE" />
+    <TextBlock Classes="hint tip"
+               Text="With a passcode set, the web remote gains an ADMIN page (the address below): the health line, the schedule's switch, every announcement and advert as a key, a free-text announcement, RESTART, the staged update and APPLY, a support bundle to download, the log's tail and a console for any line of the protocol. The same passcode rides RESTART &lt;passcode&gt; and UPDATE APPLY &lt;passcode&gt; on the wire. Five wrong tries lock the gate for a minute. The passcode travels on the LAN in the clear like every remote command — it is a fence around a site, not a secret across the internet. A support bundle is a zip beside the settings: the logs, the journal, the settings with every secret blanked, the last super-check and the metrics — what to send with a question." />
+    <Grid ColumnDefinitions="130,220,8,*" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Admin passcode" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Install.AdminPasscode, Mode=TwoWay}" Watermark="blank = admin off" PasswordChar="•" />
+      <TextBlock Grid.Column="3" Classes="label" Text="{Binding AdminUrlText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+    </Grid>
+    <WrapPanel Margin="0,4,0,4">
+      <Button Classes="chip" Content="SUPPORT BUNDLE" Command="{Binding SupportBundleCommand}" Margin="0,0,8,6" ToolTip.Tip="Writes patterns-support-&lt;date&gt;.zip beside the settings — the logs, the journal, the redacted settings, the last super-check, the metrics" />
+      <Button Classes="chip" Content="OPEN THE FOLDER" Command="{Binding OpenAppFolderCommand}" Margin="0,0,8,6" />
+    </WrapPanel>
+    <TextBlock Classes="label" Text="{Binding SupportBundleText}" TextWrapping="Wrap" IsVisible="{Binding SupportBundleText, Converter={StaticResource NotEmpty}}" />
+
+    <TextBlock Classes="h2" Text="MANAGEMENT SERVER (CHECK-IN)" />
+    <TextBlock Classes="hint tip"
+               Text="A site behind a shop's router needs no port opened: it checks in — one POST every few minutes with its name, its build, its health and the same STATE every remote reads — and the reply may carry protocol lines to run (ANNOUNCE …, SCHEDULE OFF, LOOK Sale), an update to download into the updates folder (kept only when its SHA-256 matches), an apply or a restart. HTTPS across the internet; plain http only to this machine or a private network. The shared token goes out as X-Patterns-Token and must come back in the reply, or the reply is ignored. The contract is in docs/INSTALLS.md." />
+    <Grid ColumnDefinitions="130,*,8,Auto,8,200,8,Auto,8,80" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Check-in URL" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Install.ManagementUrl, Mode=TwoWay}" Watermark="https://signage.example.com/patterns/checkin — blank = no check-in" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Token" VerticalAlignment="Center" />
+      <TextBox Grid.Column="5" Text="{Binding State.Install.ManagementToken, Mode=TwoWay}" Watermark="shared secret" PasswordChar="•" />
+      <TextBlock Grid.Column="7" Classes="label" Text="Every (min)" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="9" Minimum="1" Maximum="1440" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Install.CheckInMinutes, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <WrapPanel Margin="0,4,0,4">
+      <Button Classes="chip" Content="CHECK IN NOW" Command="{Binding CheckInNowCommand}" Margin="0,0,8,6" />
+    </WrapPanel>
+    <TextBlock Classes="label" Text="{Binding ManagementStatus}" TextWrapping="Wrap" />
+
+    <TextBlock Classes="h2" Text="UPDATES" />
+    <TextBlock Classes="hint tip"
+               Text="An update is a zip in the updates folder beside the settings: Patterns.exe at its root, whatever the build ships beside it, and a patterns.update.json with the version. Drop one in over the network share, or let the management server deliver it. APPLY (or UPDATE APPLY &lt;passcode&gt; on the wire, or the update window with automatic updates on) asks the watchdog to do the swap: the app saves and exits, the watchdog moves the old files into a backup folder, puts the new ones in place and starts the app with the show put back. A new build that does not stay up for two minutes is rolled back and the old one comes back by itself, with a note here and on the health line. Needs the watchdog (Machine → Stability)." />
+    <TextBlock Classes="label" Text="{Binding UpdateStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding UpdateLastNote}" TextWrapping="Wrap" IsVisible="{Binding UpdateLastNote, Converter={StaticResource NotEmpty}}" />
+    <Grid ColumnDefinitions="Auto,8,Auto,8,90,8,Auto" Margin="0,4,0,0">
+      <Button Classes="chip" Content="APPLY THE STAGED UPDATE" Command="{Binding ApplyUpdateCommand}" ToolTip.Tip="The watchdog swaps the files and brings the show back — a few seconds of black" />
+      <CheckBox Grid.Column="2" Content="Apply by itself at" IsChecked="{Binding State.Install.AutoUpdate}" ToolTip.Tip="A usable package staged is applied at the update window's minute, once a day" />
+      <TextBox Grid.Column="4" Text="{Binding State.Install.UpdateWindow, Mode=TwoWay}" Watermark="03:00" />
+      <TextBlock Grid.Column="6" Classes="label" Text="(a quiet hour — the screens go black for a few seconds)" VerticalAlignment="Center" />
+    </Grid>
+  </StackPanel>
+</UserControl>

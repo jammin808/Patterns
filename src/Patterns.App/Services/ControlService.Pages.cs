@@ -234,6 +234,7 @@ public sealed partial class ControlService
     <div class="grid row2">
       <a class="link" href="/run">Caller's page ⟩</a>
       <a class="link" href="/multiview">Multiview ⟩</a>
+      <a class="link" href="/admin">Admin (passcode) ⟩</a>
     </div>
   </div>
   <div class="card">

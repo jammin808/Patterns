@@ -27,6 +27,7 @@
   <Style Selector="TextBlock.h1.neon-pattern"><Setter Property="Foreground" Value="#3EC1F3" /></Style>
   <Style Selector="TextBlock.h1.neon-media"><Setter Property="Foreground" Value="#FF6EC7" /></Style>
   <Style Selector="TextBlock.h1.neon-looks"><Setter Property="Foreground" Value="#6E9BFF" /></Style>
+  <Style Selector="TextBlock.h1.neon-plan"><Setter Property="Foreground" Value="#9AB4FF" /></Style>
   <Style Selector="TextBlock.h1.neon-lower"><Setter Property="Foreground" Value="#FFC24D" /></Style>
   <Style Selector="TextBlock.h1.neon-outputs"><Setter Property="Foreground" Value="#B18CFF" /></Style>
   <Style Selector="TextBlock.h1.neon-audio"><Setter Property="Foreground" Value="#FF9E58" /></Style>

@@ -20,6 +20,8 @@ public enum TargetKind
     Page,
     /// <summary>A device of the Interactive area, by name or place (blank = the first enabled one).</summary>
     Device,
+    /// <summary>An announcement or an advert of the Install page, by name (blank: the words in the value are the announcement).</summary>
+    Slot,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -74,6 +76,8 @@ public static class CueActionSpec
         CueActionKind.WebReload => (TargetKind.Page, ValueKind.None),
         CueActionKind.DeckPage => (TargetKind.None, ValueKind.DeckPage),
         CueActionKind.DeviceSend => (TargetKind.Device, ValueKind.Text),
+        CueActionKind.Announce => (TargetKind.Slot, ValueKind.Text),
+        CueActionKind.AdvertPlay => (TargetKind.Slot, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),
     };
 
@@ -128,6 +132,12 @@ public static class CueActionSpec
         CueActionKind.DeckPrev => "Deck — previous page",
         CueActionKind.DeckPage => "Deck — go to page",
         CueActionKind.DeviceSend => "Device — send a line",
+        CueActionKind.Announce => "Announcement on",
+        CueActionKind.AnnounceOff => "Announcement off",
+        CueActionKind.AdvertPlay => "Advert — play now",
+        CueActionKind.AdvertOff => "Advert — end now",
+        CueActionKind.ScheduleOn => "Install schedule on",
+        CueActionKind.ScheduleOff => "Install schedule off",
         _ => kind.ToString(),
     };
 
@@ -151,6 +161,8 @@ public static class CueActionSpec
         CueActionKind.WebKey, CueActionKind.WebClick, CueActionKind.WebType, CueActionKind.WebReload,
         CueActionKind.DeckNext, CueActionKind.DeckPrev, CueActionKind.DeckPage,
         CueActionKind.DeviceSend,
+        CueActionKind.Announce, CueActionKind.AnnounceOff, CueActionKind.AdvertPlay, CueActionKind.AdvertOff,
+        CueActionKind.ScheduleOn, CueActionKind.ScheduleOff,
         CueActionKind.DuckOn, CueActionKind.DuckOff,
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };

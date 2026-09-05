@@ -171,6 +171,7 @@ public sealed class ActionRow : Observable
         TargetKind.LowerThird => "Which lower third…",
         TargetKind.Page => "Which page… (blank = the page on air)",
         TargetKind.Device => "Which device… (blank = the first)",
+        TargetKind.Slot => Action.Kind == CueActionKind.Announce ? "Which announcement… (blank = the words below)" : "Which advert…",
         _ => "",
     };
 
@@ -182,6 +183,7 @@ public sealed class ActionRow : Observable
         {
             CueActionKind.WebType => "the text typed into the field that has the page's focus",
             CueActionKind.DeviceSend => "the line the device expects, e.g. RELAY 1 or SHOW 3",
+            CueActionKind.Announce => "the words on screen (when no announcement is chosen above)",
             _ => "the message text",
         },
         ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
@@ -323,7 +325,7 @@ public sealed class CueEditor : Observable
             if (SelectedCue is null || name is null || !Enum.TryParse<CueActionKind>(name, out var kind)) return;
             SelectedCue.Actions.Add(new CueActionConfig { Kind = kind });
             OnCueEdited();
-            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device);
+            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device) && kind != CueActionKind.Announce;
             _status($"{SelectedCue.Number}: {CueActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
         });
 
@@ -716,6 +718,10 @@ public sealed class CueEditor : Observable
             case TargetKind.Device:
                 // A cue names a device by its name, so a sheet reads "Arduino: RELAY 1" and survives a re-add.
                 return state.Interactive.Devices.Select(d => new PickItem(d.Name, $"{d.Name} · {DeviceAddress.Describe(d)}"));
+            case TargetKind.Slot:
+                // Announcements and adverts of the Install page, by name — never a programme (the clock owns those).
+                return state.Install.Slots.Where(s => s.Kind != SlotKind.Programme)
+                    .Select(s => new PickItem(s.Name, $"{(s.Kind == SlotKind.Advert ? "ADVERT" : "ANNOUNCEMENT")} · {s.Name} — {Schedule.DetailOf(s)}"));
             case TargetKind.Page:
             {
                 // The pages the show has now, then the remembered ones: a cue names a page by its address (its nickname or a word of it reads the same).

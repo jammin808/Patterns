@@ -23,6 +23,21 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Permanent installs: the clock runs the site** — a new PLAN page for the machine nobody sits
+  at: a shop window, a hotel lobby, a museum wall. Programmes are looks on a rota (a start, an end,
+  the days — `Mon–Fri`, `weekends` — the dates of a season, a window past midnight); adverts are a
+  look for some seconds at their times, on every screen or only the screens they name (the others
+  keep their picture); announcements are words on the message overlay, a VOG and a look of their
+  own, by the clock or by hand — `ANNOUNCE Closing time`, `ANNOUNCE some words`, `ADVERT Offer`,
+  a cue, a Companion 2.2.0 key, OSC, the phone. Announcements beat adverts, a firing waits while
+  the caller's stack is armed, the idle look or black outside hours, TODAY lists the day as the
+  clock will run it, and every change is journaled *from schedule*. Remote administration behind a
+  passcode: the web remote's ADMIN page (health, the schedule, every announcement and advert as a
+  key, RESTART, updates, a support bundle, the log, a console) and `RESTART` / `UPDATE APPLY` on the
+  wire; a support bundle with the logs and the settings with every secret blanked; a management
+  server the site checks in with (commands back, updates down, no inbound port); and updates the
+  watchdog applies between two starts — the old files kept, the new build rolled back by itself if
+  it does not stay up. Off by default. `docs/INSTALLS.md` has the rules and the contracts.
 - **The Interactive area: Arduino over USB, Raspberry Pi and devices over IP** — a new SETUP
   page where buttons, sensors and lights in the room join the show. A device is a name, a link
   (serial at a baud, TCP, or UDP) and an address; it sends short text lines and each one fires a
@@ -704,7 +719,7 @@ older build does not know falls back to its plain default with a warning in the 
 ## Building
 
 ```bash
-dotnet test                      # 953 tests: the Interactive area (line framing and splitting with a binary flood dropped, triggers whole or by prefix with the tail carried and the protocol as it is, the facts and the changes a device hears, addresses, the finder, the DEVICE verb, the OSC address, the cue action through spec, checks, summary and sheet; on a live desk a fake wire — off by default and refused, on and open with every fact heard once, BTN1 firing BLACKOUT ON with OK back and the change following, a stranger's ERR, a refused GO said back, the wire, the cue and the page's SEND writing the same framed line, STATE's rows, the page, the link closed when the area goes off), and everything before it
+dotnet test                      # 970 tests: permanent installs (days and dates as people write them, windows past midnight, the programme that wins, firings and the next change, the day's timeline, the runtime's every rule — a programme once, an advert at its minute and the programme back, announcements beating adverts, a deferred advert fired or missed, the desk owning the screens, idle outside hours, the clock off — the verbs, the addresses, the cue actions, the passcode gate and its lock, the support bundle's redaction, an update package read, refused, applied and rolled back, the check-in contract; on a live desk the programme landing from the schedule, the advert and the announcement by the clock and by hand, idle black lifted by the morning, STATE, the page, RESTART and UPDATE APPLY behind the passcode with a staged package handed to the watchdog, and a real HTTP check-in whose reply runs commands from the server), and everything before it
 build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, self-contained)
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```

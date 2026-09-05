@@ -90,6 +90,18 @@ public enum CueActionKind
     DeckPage,
     /// <summary>A line to a device of the Interactive area: Target = the device (blank = the first), Value = the text.</summary>
     DeviceSend,
+    /// <summary>An announcement of the Install page (Target, by name; blank = the words in Value) now, for its seconds.</summary>
+    Announce,
+    /// <summary>The announcement on ends.</summary>
+    AnnounceOff,
+    /// <summary>An advert of the Install page (Target, by name) plays now for its seconds; the programme comes back.</summary>
+    AdvertPlay,
+    /// <summary>The advert on ends.</summary>
+    AdvertOff,
+    /// <summary>The install's schedule runs.</summary>
+    ScheduleOn,
+    /// <summary>The install's schedule stops; what is on stays.</summary>
+    ScheduleOff,
 }
 
 /// <summary>

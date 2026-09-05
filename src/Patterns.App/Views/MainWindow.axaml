@@ -176,6 +176,7 @@
               </TabItem>
               <TabItem Header="Cues"><ScrollViewer><v:CuesSection /></ScrollViewer></TabItem>
               <TabItem Header="Looks"><ScrollViewer><v:LooksSection /></ScrollViewer></TabItem>
+              <TabItem Header="Install"><ScrollViewer><v:InstallSection /></ScrollViewer></TabItem>
               <TabItem Header="Pattern"><ScrollViewer><v:PatternSection /></ScrollViewer></TabItem>
               <TabItem Header="Media"><ScrollViewer><v:MediaSection /></ScrollViewer></TabItem>
               <TabItem Header="Overlays"><ScrollViewer><v:OverlaysSection /></ScrollViewer></TabItem>
