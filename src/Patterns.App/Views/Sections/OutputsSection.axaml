@@ -279,6 +279,56 @@
         </StackPanel>
         <TextBlock Classes="hint tip"
                    Text="Two projectors that overlap on the wall: tick Automatic on both, drag one over the other by the overlap, and the overlap becomes a joined canvas that both draw, each fading its shared edge to black so the light adds up to one picture. Put the Projection blend pattern's grey check on the canvas and turn the gamma until the overlap reads as flat as the rest. Only this output fades; NDI, monitors and the preview never do." />
+
+        <TextBlock Classes="label" Text="Wall gaps — bezels, the air between LED pillars" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="86,*,12,86,*" IsVisible="{Binding SelectedIsInCanvas}" Margin="0,2,0,4">
+          <TextBlock Grid.Column="0" Classes="label" Text="Bezel H px" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Column="1" Minimum="0" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedSeamGapX, Mode=TwoWay, Converter={StaticResource Num}}"
+                         ToolTip.Tip="Bezel compensation for this joined canvas: the dead width between two of its displays side by side — both bezels and any air — in pixels" />
+          <TextBlock Grid.Column="3" Classes="label" Text="Bezel V px" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Column="4" Minimum="0" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding SelectedSeamGapY, Mode=TwoWay, Converter={StaticResource Num}}"
+                         ToolTip.Tip="The dead height between two displays of this canvas one above the other, in pixels" />
+        </Grid>
+        <ItemsControl ItemsSource="{Binding SelectedGaps}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="m:WallGap">
+              <Grid ColumnDefinitions="*,6,Auto,6,Auto,6,Auto" Margin="0,2">
+                <ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).GapAxes}"
+                          SelectedValue="{Binding Axis, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                <NumericUpDown Grid.Column="2" Width="96" Minimum="1" Maximum="16384" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                               Value="{Binding At, Mode=TwoWay, Converter={StaticResource Num}}"
+                               ToolTip.Tip="The first raster pixel after the gap: a vertical gap's x, a horizontal gap's y" />
+                <NumericUpDown Grid.Column="4" Width="96" Minimum="1" Maximum="16384" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                               Value="{Binding Size, Mode=TwoWay, Converter={StaticResource Num}}"
+                               ToolTip.Tip="How wide the gap is, in the wall's own pixels (the physical gap measured in pixel pitches)" />
+                <Button Grid.Column="6" Classes="mini" Content="✕" ToolTip.Tip="Remove this gap"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveGapCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+          <Button Classes="chip" Content="+ Gap" Command="{Binding AddGapCommand}" ToolTip.Tip="A vertical gap in the middle of the raster, to move and size" />
+          <TextBlock Classes="label" Text="Grid" VerticalAlignment="Center" Margin="6,0,0,0" />
+          <NumericUpDown Width="72" Minimum="1" Maximum="64" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding GapGridColumns, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Columns of panels packed in this raster" />
+          <TextBlock Classes="label" Text="×" VerticalAlignment="Center" />
+          <NumericUpDown Width="72" Minimum="1" Maximum="64" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding GapGridRows, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Rows of panels packed in this raster" />
+          <NumericUpDown Width="84" Minimum="1" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding GapGridPx, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The gap between them, in the wall's pixels" />
+          <Button Classes="chip" Content="Set from grid" Command="{Binding SetGapsFromGridCommand}"
+                  ToolTip.Tip="Replace the list with the seams of an even grid of panels packed in this screen's raster" />
+          <Button Classes="chip" Content="Clear" Command="{Binding ClearGapsCommand}" ToolTip.Tip="No gaps: the picture is the raster again" />
+        </StackPanel>
+        <TextBlock Classes="hint" Text="{Binding GapSummary}" TextWrapping="Wrap" />
+        <TextBlock Classes="hint tip"
+                   Text="Where the wall has no pixels. For a wall of displays joined into one canvas, Bezel H / V is the dead width between neighbours (both bezels plus any air, in pixels): content is laid out as if the strips were there and each display shows its own real pixels, so a line across the wall is straight in the room. For one output whose raster packs panels that stand apart — three LED pillars side by side in a 1152-wide raster, a wall controller's four displays in one 4K — add a gap where each strip stands (before which raster pixel, and how wide, in the wall's own pixel pitch), or Set from grid for an even wall. Every pattern, video, web page, layer, overlay and lower third spans the gaps; the LED wall and video wall patterns put their tiles on the real panels when their raster matches this screen's, and draw the gaps black with GAP n px in them; the PREVIEW and PROGRAM panes, the multiview tiles and the phone's thumbnail shade the strips so you see where they are; NDI senders of this target carry the whole surface for a processor that maps the gaps itself. Processors that map the gaps in the raster themselves need no gaps here — describe the wall in the LED wall pattern's Irregular map instead." />
       </StackPanel>
     </Border>
     <TextBlock Classes="hint" IsVisible="{Binding !HasSelection}" Text="Click a screen tile to select it." />

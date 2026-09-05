@@ -102,10 +102,32 @@ public sealed class SinkState : IDisposable
     /// </summary>
     public SinkState Preview => _preview ??= new SinkState();
 
+    private SKSurface? _wall;
+    private SKSizeI _wallSize;
+
+    /// <summary>
+    /// The surface an output of a wall with dead strips draws its whole span on before the runs
+    /// of real pixels are placed (<see cref="PatternEngine.RenderWall"/>): kept frame to frame,
+    /// remade when the span changes, disposed with this sink.
+    /// </summary>
+    public SKSurface WallSurface(SKSizeI size)
+    {
+        size = new SKSizeI(Math.Max(1, size.Width), Math.Max(1, size.Height));
+        if (_wall is null || _wallSize != size)
+        {
+            _wall?.Dispose();
+            _wall = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
+            _wallSize = size;
+        }
+        return _wall!;
+    }
+
     public void Dispose()
     {
         _preview?.Dispose();
         _preview = null;
+        _wall?.Dispose();
+        _wall = null;
         foreach (var cache in LowerThirds.Values) cache.Dispose();
         LowerThirds.Clear();
         foreach (var fx in FractalEffects.Values) fx.Dispose();

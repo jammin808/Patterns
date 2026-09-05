@@ -76,6 +76,19 @@ public sealed record PipelineViewport(
     /// <summary>The rate this sink presents at (0 = every vsync). Outputs only; the preview and monitors stay unpaced.</summary>
     public int TargetFps { get; init; }
 
+    /// <summary>
+    /// The dead strips of the target this output renders through (bezels, the air between LED
+    /// pillars): <see cref="ReferenceSize"/> is then the surface with them put back, and the
+    /// engine cuts them out of this output's picture. Empty for a plain screen.
+    /// </summary>
+    public GapMap Gaps { get; init; } = GapMap.Empty;
+
+    /// <summary>This output's real pixels inside its target's raster (only read when <see cref="Gaps"/> has strips).</summary>
+    public SKRectI RasterRegion { get; init; }
+
+    /// <summary>How many runs of real pixels this output is cut into — 1 when no strip runs through it.</summary>
+    public int WallSlices => Gaps.IsEmpty ? 1 : Gaps.Slices(RasterRegion).Count;
+
     /// <summary>Only a real output fades its edges — never a monitor, a preview, NDI or a thumbnail.</summary>
     public bool HasBlend => Kind == SinkKind.Output &&
         (BlendLeftPx > 0 || BlendTopPx > 0 || BlendRightPx > 0 || BlendBottomPx > 0);
@@ -233,7 +246,7 @@ public sealed class RenderPipeline : IDisposable
                 // Keystone path: content renders to an offscreen surface at the effective
                 // size, then blits through warp ∘ rotation as one perspective image draw.
                 var surface = EnsureOffscreen(effectivePx);
-                _engine.Render(surface.Canvas, SnapshotFor(vp), in ctx, _sink);
+                DrawContent(surface.Canvas, vp, in ctx);
                 surface.Canvas.Flush();
                 using var image = surface.Snapshot();
 
@@ -253,7 +266,7 @@ public sealed class RenderPipeline : IDisposable
             {
                 var turned = canvas.Save();
                 canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                _engine.Render(canvas, SnapshotFor(vp), in ctx, _sink);
+                DrawContent(canvas, vp, in ctx);
                 canvas.RestoreToCount(turned);
             }
 
@@ -295,6 +308,19 @@ public sealed class RenderPipeline : IDisposable
     }
 
     private static readonly SKColor LetterboxColor = new(0x0A, 0x0A, 0x0F);
+
+    /// <summary>The output's picture in arrangement space: straight, or with the wall's dead strips cut out.</summary>
+    private void DrawContent(SKCanvas target, PipelineViewport vp, in RenderContext ctx)
+    {
+        if (vp.Gaps.IsEmpty)
+        {
+            _engine.Render(target, SnapshotFor(vp), in ctx, _sink);
+        }
+        else
+        {
+            _engine.RenderWall(target, SnapshotFor(vp), in ctx, _sink, vp.Gaps, vp.RasterRegion);
+        }
+    }
 
     /// <summary>
     /// Monitor rendering: the engine draws the target at its real size into a canvas scaled

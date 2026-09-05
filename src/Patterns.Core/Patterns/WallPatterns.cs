@@ -7,7 +7,9 @@ namespace Patterns.Core.Patterns;
 /// <summary>
 /// LED wall mapping pattern: per-tile borders, numbering in data-run order, optional
 /// pixel grid. Canvas is either columns×rows of tiles or a given raster with derived
-/// (possibly partial) edge tiles — exactly like a real wall.
+/// (possibly partial) edge tiles — exactly like a real wall. On a screen whose raster this
+/// wall is, and which has dead strips (the air between pillars), the tiles lay out across
+/// the strips and the strips are drawn as what they are: nothing.
 /// </summary>
 public sealed class LedWallPattern : IPatternRenderer
 {
@@ -21,8 +23,10 @@ public sealed class LedWallPattern : IPatternRenderer
         }
 
         var layout = CanvasResolver.Led(o);
+        var g = CanvasResolver.WallSpansGaps(f.Config, f.Gaps, layout.Canvas) ? f.Gaps : GapMap.Empty;
         var pc = f.Paints;
-        int w = f.W, h = f.H;
+        int w = f.W, h = f.H;                       // the canvas: the surface with the strips put back when g has any
+        int rw = layout.Canvas.Width, rh = layout.Canvas.Height;   // the raster the tiles are counted in
 
         c.Clear(f.Palette.Bg);
 
@@ -35,7 +39,7 @@ public sealed class LedWallPattern : IPatternRenderer
             {
                 for (var col = 0; col < layout.Columns; col++)
                 {
-                    var rect = TileRect(layout, col, r, w, h);
+                    var rect = TileRect(layout, col, r, rw, rh, g);
                     if (rect.IsEmpty) continue;
                     c.DrawRect(rect, pc.Fill(((r + col) & 1) == 0 ? tintA : tintB));
                 }
@@ -63,7 +67,7 @@ public sealed class LedWallPattern : IPatternRenderer
             {
                 for (var col = 0; col < layout.Columns; col++)
                 {
-                    var rect = TileRect(layout, col, r, w, h);
+                    var rect = TileRect(layout, col, r, rw, rh, g);
                     if (rect.IsEmpty) continue;
                     c.DrawLine(rect.Left, rect.Top, rect.Right, rect.Bottom, diag);
                     c.DrawLine(rect.Right, rect.Top, rect.Left, rect.Bottom, diag);
@@ -71,19 +75,35 @@ public sealed class LedWallPattern : IPatternRenderer
             }
         }
 
-        // Tile borders as global 1px grid lines — the outermost lines sit on the canvas edge pixels.
         if (o.ShowTileBorders)
         {
             var line = pc.Fill(f.Palette.Line);
-            for (var col = 0; col <= layout.Columns; col++)
+            if (g.IsEmpty)
             {
-                var x = Math.Min(col * layout.TileWidth, w - 1);
-                DrawUtil.LineV(c, x, 0, h, 1, line);
+                // Tile borders as global 1px grid lines — the outermost lines sit on the canvas edge pixels.
+                for (var col = 0; col <= layout.Columns; col++)
+                {
+                    var x = Math.Min(col * layout.TileWidth, w - 1);
+                    DrawUtil.LineV(c, x, 0, h, 1, line);
+                }
+                for (var r = 0; r <= layout.Rows; r++)
+                {
+                    var y = Math.Min(r * layout.TileHeight, h - 1);
+                    DrawUtil.LineH(c, y, 0, w, 1, line);
+                }
             }
-            for (var r = 0; r <= layout.Rows; r++)
+            else
             {
-                var y = Math.Min(r * layout.TileHeight, h - 1);
-                DrawUtil.LineH(c, y, 0, w, 1, line);
+                // Past a strip the grid lines no longer share an x, so each tile draws its own border.
+                for (var r = 0; r < layout.Rows; r++)
+                {
+                    for (var col = 0; col < layout.Columns; col++)
+                    {
+                        var rect = TileRect(layout, col, r, rw, rh, g);
+                        if (rect.IsEmpty) continue;
+                        DrawUtil.BorderInside(c, SKRectI.Round(rect), 1, line);
+                    }
+                }
             }
         }
 
@@ -96,7 +116,7 @@ public sealed class LedWallPattern : IPatternRenderer
             {
                 for (var col = 0; col < layout.Columns; col++)
                 {
-                    var rect = TileRect(layout, col, r, w, h);
+                    var rect = TileRect(layout, col, r, rw, rh, g);
                     if (rect.Width < 20 || rect.Height < 12) continue;
                     var label = TileLabel(o.Numbering, layout, col, r);
                     // Shadowed text — readable on any tint without a chip per tile.
@@ -111,11 +131,13 @@ public sealed class LedWallPattern : IPatternRenderer
             DrawUtil.Cross(c, w / 2, h / 2, Math.Min(w, h) / 6, 3, pc.Fill(f.Palette.Accent));
         }
 
+        WallStrips.Draw(c, in f, g);
+
         if (o.ShowInfo)
         {
             var partial = o.DefineByCanvas &&
-                          (layout.Columns * layout.TileWidth != w || layout.Rows * layout.TileHeight != h);
-            var info = $"{layout.Columns} × {layout.Rows} tiles · {layout.TileWidth}×{layout.TileHeight} px · {w}×{h}{(partial ? " · partial edge tiles" : "")}";
+                          (layout.Columns * layout.TileWidth != rw || layout.Rows * layout.TileHeight != rh);
+            var info = $"{layout.Columns} × {layout.Rows} tiles · {layout.TileWidth}×{layout.TileHeight} px · {rw}×{rh}{(partial ? " · partial edge tiles" : "")}{WallStrips.Words(g)}";
             DrawUtil.Chip(c, info, f.Canvas, Anchor9.BottomCenter, GridPattern.ChipText(f), pc,
                 f.Palette.Text, f.Palette.ChipBg);
         }
@@ -181,14 +203,17 @@ public sealed class LedWallPattern : IPatternRenderer
         }
     }
 
-    private static SKRect TileRect(LedLayout l, int col, int row, int w, int h)
+    /// <summary>A tile's rect on the canvas: its raster place, moved past the strips before it when the wall has any. Shared with tests.</summary>
+    public static SKRect TileRect(LedLayout l, int col, int row, int w, int h, GapMap g)
     {
         var x0 = col * l.TileWidth;
         var y0 = row * l.TileHeight;
         var x1 = Math.Min(x0 + l.TileWidth, w);
         var y1 = Math.Min(y0 + l.TileHeight, h);
         if (x1 <= x0 || y1 <= y0) return SKRect.Empty;
-        return new SKRect(x0, y0, x1, y1);
+        if (g.IsEmpty) return new SKRect(x0, y0, x1, y1);
+        var v = g.VirtualRect(new SKRectI(x0, y0, x1, y1));
+        return new SKRect(v.Left, v.Top, v.Right, v.Bottom);
     }
 
     /// <summary>Label for a tile — shared with tests.</summary>
@@ -201,7 +226,13 @@ public sealed class LedWallPattern : IPatternRenderer
     };
 }
 
-/// <summary>Video wall of standard-resolution display elements with bezel visualisation.</summary>
+/// <summary>
+/// Video wall of standard-resolution display elements with bezel visualisation. On a screen
+/// (or a joined canvas) whose raster this wall is, and which has dead strips — the bezels the
+/// Screens page compensates — the elements lay out past the strips, and a ring and the wall's
+/// diagonals are drawn across all of them: round and straight in the room when the wall is
+/// compensated, stepped at every bezel when it is not.
+/// </summary>
 public sealed class VideoWallPattern : IPatternRenderer
 {
     public void Render(SKCanvas c, in PatternFrame f)
@@ -210,6 +241,7 @@ public sealed class VideoWallPattern : IPatternRenderer
         var pc = f.Paints;
         int w = f.W, h = f.H;
         var (ew, eh) = o.Portrait ? (o.ElementHeight, o.ElementWidth) : (o.ElementWidth, o.ElementHeight);
+        var g = CanvasResolver.WallSpansGaps(f.Config, f.Gaps, CanvasResolver.VideoWall(o)) ? f.Gaps : GapMap.Empty;
 
         c.Clear(f.Palette.Bg);
 
@@ -218,7 +250,7 @@ public sealed class VideoWallPattern : IPatternRenderer
         {
             for (var col = 0; col < o.Columns; col++, num++)
             {
-                var rect = new SKRectI(col * ew, r * eh, (col + 1) * ew, (r + 1) * eh);
+                var rect = ElementRect(col, r, ew, eh, g);
 
                 if (o.ShowDiagonals)
                 {
@@ -265,13 +297,78 @@ public sealed class VideoWallPattern : IPatternRenderer
             }
         }
 
+        if (!g.IsEmpty)
+        {
+            // The compensation check: one ring and two diagonals across the whole wall. Drawn on
+            // the surface with the bezels put back, so on a compensated wall they read as one
+            // round ring and two straight lines through every display in the room.
+            var ring = pc.StrokeAA(f.Palette.Accent, 3);
+            c.DrawCircle(w / 2f, h / 2f, Math.Min(w, h) * 0.42f, ring);
+            var across = pc.StrokeAA(f.Palette.Accent.WithAlpha(0xB0), 2);
+            c.DrawLine(0, 0, w, h, across);
+            c.DrawLine(w, 0, 0, h, across);
+        }
+
         DrawUtil.Cross(c, w / 2, h / 2, Math.Min(w, h) / 10, 3, pc.Fill(f.Palette.Accent));
+
+        WallStrips.Draw(c, in f, g);
 
         if (o.ShowInfo)
         {
             var bezel = o.BezelPx > 0 ? $" · bezel {o.BezelPx}px" : "";
-            DrawUtil.Chip(c, $"{o.Columns} × {o.Rows} displays · {ew}×{eh}{bezel} · {w}×{h}",
+            var raster = CanvasResolver.VideoWall(o);
+            DrawUtil.Chip(c, $"{o.Columns} × {o.Rows} displays · {ew}×{eh}{bezel} · {raster.Width}×{raster.Height}{WallStrips.Words(g)}",
                 f.Canvas, Anchor9.BottomCenter, GridPattern.ChipText(f), pc, f.Palette.Text, f.Palette.ChipBg);
         }
     }
+
+    /// <summary>An element's rect on the canvas: its raster place, moved past the strips before it when the wall has any. Shared with tests.</summary>
+    public static SKRectI ElementRect(int col, int row, int ew, int eh, GapMap g)
+    {
+        var rect = new SKRectI(col * ew, row * eh, (col + 1) * ew, (row + 1) * eh);
+        return g.IsEmpty ? rect : g.VirtualRect(rect);
+    }
+}
+
+/// <summary>The dead strips of a wall as a test pattern draws them: black, hatched, named — nothing the room will show, and the desk sees why.</summary>
+internal static class WallStrips
+{
+    private static readonly SKColor StripFill = new(0x03, 0x04, 0x06);
+    private static readonly SKColor StripHatch = new(0xFF, 0xB0, 0x20, 0x50);
+    private static readonly SKColor StripText = new(0xFF, 0xB0, 0x20, 0xC0);
+
+    public static void Draw(SKCanvas c, in PatternFrame f, GapMap g)
+    {
+        if (g.IsEmpty) return;
+        var pc = f.Paints;
+        var fill = pc.Fill(StripFill);
+        var hatch = pc.StrokeAA(StripHatch, 1);
+        var font = pc.FontBold;
+        foreach (var strip in g.StripsIn(SKRectI.Create(0, 0, f.W, f.H)))
+        {
+            c.DrawRect(strip, fill);
+            DrawUtil.Hatch(c, strip, 12, hatch);
+            var vertical = strip.Width < strip.Height;
+            var size = vertical ? strip.Width : strip.Height;
+            var words = $"GAP {size} px";
+            font.Size = Math.Clamp(Math.Min(strip.Width, strip.Height) * 0.5f, 8, 28);
+            if (vertical && strip.Width >= 40 && strip.Width < 110 || !vertical && strip.Height >= 40 && strip.Height < 110)
+            {
+                // A narrow strip reads its words along its length.
+                c.Save();
+                c.Translate(strip.MidX, strip.MidY);
+                if (vertical) c.RotateDegrees(-90);
+                DrawUtil.TextCentered(c, words, 0, font.Size * 0.35f, font, pc.Text(StripText));
+                c.Restore();
+            }
+            else if (strip.Width >= 110 && strip.Height >= 20 || strip.Height >= 110 && strip.Width >= 20)
+            {
+                DrawUtil.TextCentered(c, words, strip.MidX, strip.MidY + font.Size * 0.35f, font, pc.Text(StripText));
+            }
+        }
+    }
+
+    /// <summary>The chip's words for a wall with strips.</summary>
+    public static string Words(GapMap g)
+        => g.IsEmpty ? "" : $" · {g.Count} gap{(g.Count == 1 ? "" : "s")} · {g.Virtual.Width}×{g.Virtual.Height} laid out";
 }

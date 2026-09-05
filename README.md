@@ -23,6 +23,15 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Bezels and gaps: the wall the content spans** — tell a screen where its wall has no
+  pixels (the Screens page's **Wall gaps**: a bezel width for a canvas of joined displays, or a
+  list of strips — before which raster pixel, how wide — for one output that packs LED pillars
+  or a wall controller's displays; **Set from grid** for an even wall). Every pattern, video,
+  web page, layer, overlay and lower third is laid out across the strips and the output leaves
+  them out, so a line across the wall is straight in the room and a thing that moves across a
+  gap goes behind it. The LED wall and video wall patterns put their tiles on the real panels
+  and draw the gaps black with their width; the PGM/PVW panes, the multiview tiles and the
+  phone's thumbnail shade the strips; NDI senders carry the whole surface.
 - **Review on the multiview** — a multiview tile can show the **Preview** (what the desk is
   building in EDIT SAFE) beside the program, and **REVIEW** — on the Show panel, the Pattern
   page, the phone remote, `REVIEW ON / OFF` on the wire, `/patterns/review` over OSC and a

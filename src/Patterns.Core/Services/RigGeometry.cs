@@ -50,6 +50,7 @@ public sealed class RigGeometry
     private readonly Dictionary<string, string> _letters;
     private readonly Dictionary<string, string> _canvasOf;
     private readonly Dictionary<string, SKPointI> _originOf;
+    private readonly Dictionary<string, GapMap> _gapsOf;
     private readonly SKSizeI _programSize;
 
     private RigGeometry()
@@ -61,6 +62,7 @@ public sealed class RigGeometry
         _letters = new Dictionary<string, string>(StringComparer.Ordinal);
         _canvasOf = new Dictionary<string, string>(StringComparer.Ordinal);
         _originOf = new Dictionary<string, SKPointI>(StringComparer.Ordinal);
+        _gapsOf = new Dictionary<string, GapMap>(StringComparer.Ordinal);
         _programSize = FallbackTargetSize;
     }
 
@@ -71,7 +73,8 @@ public sealed class RigGeometry
         Dictionary<string, string[]> members,
         Dictionary<string, string> letters,
         Dictionary<string, string> canvasOf,
-        Dictionary<string, SKPointI> originOf)
+        Dictionary<string, SKPointI> originOf,
+        Dictionary<string, GapMap> gapsOf)
     {
         _screens = screens;
         _displayLabels = displayLabels;
@@ -80,6 +83,7 @@ public sealed class RigGeometry
         _letters = letters;
         _canvasOf = canvasOf;
         _originOf = originOf;
+        _gapsOf = gapsOf;
         // The program takes the first target's shape, so the panes and the tiles show something
         // true. Measured last: SizeOf reads the arrays above and never the size being assigned.
         _programSize = targets.Length > 0 ? SizeOf(targets[0]) : FallbackTargetSize;
@@ -146,7 +150,10 @@ public sealed class RigGeometry
         var letters = new Dictionary<string, string>(StringComparer.Ordinal);
         var canvasOf = new Dictionary<string, string>(StringComparer.Ordinal);
         var originOf = new Dictionary<string, SKPointI>(StringComparer.Ordinal);
+        var gapsOf = new Dictionary<string, GapMap>(StringComparer.Ordinal);
         var targets = new List<string>();
+        var placementOf = new Dictionary<string, ScreenPlacement>(StringComparer.Ordinal);
+        foreach (var p in state.Output.Placements) placementOf[p.ScreenId] = p;
 
         for (var i = 0; i < canvases.Count; i++)
         {
@@ -161,13 +168,28 @@ public sealed class RigGeometry
                 originOf[m.Id] = new SKPointI(m.Rect.Left - union.Left, m.Rect.Top - union.Top);
             }
             targets.Add(key);
+            // The wall's dead strips: the seams the canvas compensates, and each member's own.
+            var cfg = state.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key);
+            var map = GapMap.ForCanvas(
+                new SKSizeI(union.Width, union.Height),
+                group.Select(m => (
+                    SKRectI.Create(m.Rect.Left - union.Left, m.Rect.Top - union.Top, m.Rect.Width, m.Rect.Height),
+                    (IEnumerable<WallGap>)(placementOf.TryGetValue(m.Id, out var mp) ? mp.Gaps : Array.Empty<WallGap>()))),
+                cfg?.SeamGapX ?? 0, cfg?.SeamGapY ?? 0);
+            if (!map.IsEmpty) gapsOf[key] = map;
         }
         foreach (var s in screens)
         {
-            if (!canvasOf.ContainsKey(s.Id)) targets.Add(s.Id);
+            if (canvasOf.ContainsKey(s.Id)) continue;
+            targets.Add(s.Id);
+            if (placementOf.TryGetValue(s.Id, out var p) && p.Gaps.Count > 0)
+            {
+                var map = GapMap.ForScreen(new SKSizeI(s.Rect.Width, s.Rect.Height), p.Gaps);
+                if (!map.IsEmpty) gapsOf[s.Id] = map;
+            }
         }
 
-        return new RigGeometry(screens, displayLabels, targets.ToArray(), members, letters, canvasOf, originOf);
+        return new RigGeometry(screens, displayLabels, targets.ToArray(), members, letters, canvasOf, originOf, gapsOf);
     }
 
     /// <summary>Every placement with a size behind it, in wall order: left to right, then top down.</summary>
@@ -209,12 +231,54 @@ public sealed class RigGeometry
     }
 
     /// <summary>
-    /// The pixel size of a content target: a canvas's union, a screen's effective (rotation-aware)
-    /// size, the program (null) taking the first target's shape. Never zero on either axis.
+    /// The pixel size of a content target — the surface its content is laid out on: a canvas's
+    /// union, a screen's effective (rotation-aware) size, either grown by the wall's dead strips
+    /// when it has any (<see cref="GapsOf"/>), the program (null) taking the first target's
+    /// shape. Never zero on either axis.
     /// </summary>
     public SKSizeI SizeOf(string? targetId)
     {
         if (targetId is null) return _programSize;
+        return _gapsOf.TryGetValue(targetId, out var gaps) ? gaps.Virtual : RasterSizeOf(targetId);
+    }
+
+    /// <summary>
+    /// The dead strips of a content target — bezels, the air between LED pillars — resolved
+    /// against its raster; the program (null) reads the first target's; <see cref="GapMap.Empty"/>
+    /// for a target without any, or one this rig does not know.
+    /// </summary>
+    public GapMap GapsOf(string? targetId)
+    {
+        targetId ??= _targets.Length > 0 ? _targets[0] : null;
+        return targetId is not null && _gapsOf.TryGetValue(targetId, out var gaps) ? gaps : GapMap.Empty;
+    }
+
+    /// <summary>
+    /// Where a screen's real pixels sit in the raster of the target it renders through: its
+    /// slice of the canvas it joined, or the whole of itself. Empty for a screen not in the rig.
+    /// </summary>
+    public SKRectI RasterRectOf(string screenId)
+    {
+        if (_canvasOf.ContainsKey(screenId))
+        {
+            var o = _originOf[screenId];
+            var size = RasterSizeOf(screenId);
+            return SKRectI.Create(o.X, o.Y, size.Width, size.Height);
+        }
+        foreach (var s in _screens)
+        {
+            if (s.Id == screenId) return SKRectI.Create(0, 0, s.Rect.Width, s.Rect.Height);
+        }
+        return SKRectI.Empty;
+    }
+
+    /// <summary>
+    /// The pixels a content target is fed — the raster, with no dead strip put back: a canvas's
+    /// union, a screen's effective size, the program (null) the first target's. Never zero.
+    /// </summary>
+    public SKSizeI RasterSizeOf(string? targetId)
+    {
+        if (targetId is null) return _targets.Length > 0 ? RasterSizeOf(_targets[0]) : FallbackTargetSize;
         if (ContentTargets.IsCanvasKey(targetId))
         {
             // Not required to be one group: a canvas dragged apart still measures its members.
@@ -253,7 +317,10 @@ public sealed class RigGeometry
         }
         if (_canvasOf.TryGetValue(targetId, out var key))
         {
-            return new TargetViewport(key, SizeOf(key), _originOf[targetId], SizeOf(targetId));
+            // The member's own pixels on the canvas's surface: moved past the seams before it,
+            // and grown by any strip that runs through it.
+            var span = GapsOf(key).VirtualRect(RasterRectOf(targetId));
+            return new TargetViewport(key, SizeOf(key), new SKPointI(span.Left, span.Top), new SKSizeI(span.Width, span.Height));
         }
         var size = SizeOf(targetId);
         return new TargetViewport(targetId, size, default, size);

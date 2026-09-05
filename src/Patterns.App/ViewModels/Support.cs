@@ -605,6 +605,12 @@ public static class Lists
         new(OutputRotation.Rot180, "Upside down (180°)"),
     };
 
+    public static readonly EnumItem[] GapAxes =
+    {
+        new(GapAxis.Vertical, "Vertical (between columns, at an x)"),
+        new(GapAxis.Horizontal, "Horizontal (between rows, at a y)"),
+    };
+
     public static readonly EnumItem[] ToneModes =
     {
         new(ToneMode.ChannelIdent, "Channel ident (L pip · R pip-pip)"),

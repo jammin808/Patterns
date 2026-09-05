@@ -16,6 +16,15 @@ public readonly struct PatternFrame
     public required SKSizeI Canvas { get; init; }
     public required Palette Palette { get; init; }
 
+    /// <summary>
+    /// The dead strips of the target this frame draws (bezels, the air between LED pillars);
+    /// <see cref="GapMap.Empty"/> for a plain screen. The wall patterns lay their tiles out
+    /// across them when they were built for this very raster.
+    /// </summary>
+    public GapMap Gaps { get => _gaps ?? GapMap.Empty; init => _gaps = value; }
+
+    private readonly GapMap? _gaps;
+
     public int W => Canvas.Width;
     public int H => Canvas.Height;
     public PaintCache Paints => Sink.Paints;

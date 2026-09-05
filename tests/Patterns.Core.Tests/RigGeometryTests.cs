@@ -222,6 +222,45 @@ public class RigGeometryTests
     }
 
     [Fact]
+    public void AWallsDeadStripsGrowItsSurfaceAndMoveItsMembersPastThem()
+    {
+        var state = Rig();
+        state.Output.CanvasNames.Add(new CanvasNameConfig { MemberKey = Key, SeamGapX = 40 });
+        state.Output.Placements.First(p => p.ScreenId == "c").Gaps.Add(new WallGap { Axis = GapAxis.Horizontal, At = 540, Size = 60 });
+        var geo = RigGeometry.Build(state, Displays());
+
+        // The canvas: 40 px of bezel between a and b — the surface is wider, the raster is not.
+        Assert.Equal(new SKSizeI(3880, 1080), geo.SizeOf(Key));
+        Assert.Equal(new SKSizeI(3840, 1080), geo.RasterSizeOf(Key));
+        Assert.Equal(new SKSizeI(3880, 1080), geo.SizeOf(null));      // the program's shape follows the surface
+        Assert.Equal(new SKSizeI(3840, 1080), geo.RasterSizeOf(null));
+        Assert.Same(geo.GapsOf(Key), geo.GapsOf(null));
+        Assert.Single(geo.GapsOf(Key).Vertical);
+
+        var b = geo.ViewportForTile("b");
+        Assert.Equal(new SKPointI(1960, 0), b.Origin);                // moved past the bezel
+        Assert.Equal(new SKSizeI(1920, 1080), b.ViewportSize);
+        Assert.Equal(new SKSizeI(3880, 1080), b.ReferenceSize);
+        Assert.Equal(new SKPointI(0, 0), geo.ViewportForTile("a").Origin);
+        Assert.Equal(SKRectI.Create(1920, 0, 1920, 1080), geo.RasterRectOf("b"));
+        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf("a"));         // a member's own size is its raster
+
+        // The stand-alone screen: a strip through it — its surface is taller, its raster rect the whole of it.
+        Assert.Equal(new SKSizeI(1920, 1140), geo.SizeOf("c"));
+        Assert.Equal(new SKSizeI(1920, 1080), geo.RasterSizeOf("c"));
+        Assert.Equal(SKRectI.Create(0, 0, 1920, 1080), geo.RasterRectOf("c"));
+        Assert.Equal(new SKSizeI(1920, 1140), geo.ViewportForTarget("c").ViewportSize);
+        Assert.Equal(2, geo.GapsOf("c").Slices(geo.RasterRectOf("c")).Count);
+
+        // Nothing for what has no strips, or is not here.
+        Assert.True(geo.GapsOf("a").IsEmpty);
+        Assert.True(geo.GapsOf("ghost").IsEmpty);
+        Assert.Equal(SKRectI.Empty, geo.RasterRectOf("ghost"));
+        Assert.True(RigGeometry.Empty.GapsOf(null).IsEmpty);
+        Assert.Equal(RigGeometry.FallbackTargetSize, RigGeometry.Empty.RasterSizeOf(null));
+    }
+
+    [Fact]
     public void ASplitCanvasKeyStillMeasuresTheBoundingBoxOfItsMembers()
     {
         var state = Rig();

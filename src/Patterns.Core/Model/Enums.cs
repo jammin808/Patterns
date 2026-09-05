@@ -339,3 +339,13 @@ public enum PulsePreset
     Rainbow,
     Quake,
 }
+
+/// <summary>
+/// Which way a wall's dead strip runs: a vertical gap stands between two columns of panels
+/// (it sits at an x), a horizontal one between two rows (it sits at a y).
+/// </summary>
+public enum GapAxis
+{
+    Vertical,
+    Horizontal,
+}

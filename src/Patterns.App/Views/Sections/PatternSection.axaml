@@ -217,6 +217,9 @@
                    Text="Drag panels into place — they snap flush to neighbours. Gaps and mixed sizes are fine; the wall canvas is the bounding box of all panels." />
       </StackPanel>
 
+      <TextBlock Classes="hint tip"
+                 Text="Panels that stand apart with the raster packed (LED pillars, a gap in a wall): give the screen its gaps on the Screens page (Wall gaps). When this wall's raster matches the screen's, the tiles land on the real panels, the gaps are drawn black with their width in them, and every other pattern spans them too." />
+
       <TextBlock Classes="h2" Text="LED WALL — MARKINGS" />
       <ComboBox ItemsSource="{Binding TileNumberings}"
                 SelectedValue="{Binding ActivePattern.LedWall.Numbering, Mode=TwoWay}"
@@ -261,6 +264,8 @@
         <NumericUpDown Grid.Column="1" Minimum="0" Maximum="512" Increment="2" FormatString="0"
                        Value="{Binding ActivePattern.VideoWall.BezelPx, Mode=TwoWay, Converter={StaticResource Num}}" />
       </Grid>
+      <TextBlock Classes="hint tip"
+                 Text="Bezel (px) only hatches each element's edge. To compensate the bezels — content laid out across them, so a line is straight in the room — set Bezel H / V on the Screens page for a canvas of joined displays, or add gaps to the one screen that feeds a wall controller. When this wall's raster matches the screen's, the elements land on the real displays and a ring with two diagonals is drawn across the whole wall: round and straight through every bezel when the compensation is right, stepped when it is not." />
       <CheckBox Content="Numbers" IsChecked="{Binding ActivePattern.VideoWall.ShowNumbers}" />
       <CheckBox Content="Borders" IsChecked="{Binding ActivePattern.VideoWall.ShowBorders}" />
       <CheckBox Content="Diagonals" IsChecked="{Binding ActivePattern.VideoWall.ShowDiagonals}" />

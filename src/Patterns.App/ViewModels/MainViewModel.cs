@@ -318,6 +318,10 @@ public sealed class MainViewModel : Observable
             RaiseSelection();
         });
         ResetBlendCommand = new RelayCommand(ResetBlend);
+        AddGapCommand = new RelayCommand(AddGap);
+        RemoveGapCommand = new RelayCommand<WallGap>(RemoveGap);
+        SetGapsFromGridCommand = new RelayCommand(SetGapsFromGrid);
+        ClearGapsCommand = new RelayCommand(ClearGaps);
 
         // Stingers
         AddStingerFilesCommand = new RelayCommand(() => _ = AddStingerFilesAsync());
@@ -1137,6 +1141,148 @@ public sealed class MainViewModel : Observable
         RaiseSelection();
     }
 
+    // ---- wall gaps: bezels, the air between LED pillars -----------------------
+
+    public EnumItem[] GapAxes => Lists.GapAxes;
+
+    /// <summary>The selected screen's own dead strips — the rows on the page edit the model directly.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<WallGap>? SelectedGaps => _selectedPlacement?.Gaps;
+
+    /// <summary>The joined canvas the selected screen is in (its stored entry, made on demand), or null for a stand-alone screen.</summary>
+    private CanvasNameConfig? SelectedCanvasConfig(bool create)
+    {
+        if (_selectedPlacement is not { } p) return null;
+        var group = CanvasGroups().FirstOrDefault(g => g.Any(m => m.ScreenId == p.ScreenId));
+        if (group is null) return null;
+        var key = CanvasNameConfig.KeyFor(group.Select(m => m.ScreenId));
+        var entry = State.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key);
+        if (entry is null && create)
+        {
+            entry = new CanvasNameConfig { MemberKey = key };
+            State.Output.CanvasNames.Add(entry);
+        }
+        return entry;
+    }
+
+    /// <summary>Bezel compensation of the canvas the selected screen is in: the dead width between two members side by side.</summary>
+    public int SelectedSeamGapX
+    {
+        get => SelectedCanvasConfig(create: false)?.SeamGapX ?? 0;
+        set
+        {
+            if (SelectedCanvasConfig(create: true) is { } e && e.SeamGapX != value)
+            {
+                e.SeamGapX = value;
+                RaiseGaps();
+            }
+        }
+    }
+
+    /// <summary>…and between two members one above the other.</summary>
+    public int SelectedSeamGapY
+    {
+        get => SelectedCanvasConfig(create: false)?.SeamGapY ?? 0;
+        set
+        {
+            if (SelectedCanvasConfig(create: true) is { } e && e.SeamGapY != value)
+            {
+                e.SeamGapY = value;
+                RaiseGaps();
+            }
+        }
+    }
+
+    private int _gapGridColumns = 2;
+    private int _gapGridRows = 2;
+    private int _gapGridPx = 40;
+
+    /// <summary>The grid helper: panels packed in the selected screen's raster, and the gap between them.</summary>
+    public int GapGridColumns { get => _gapGridColumns; set => Set(ref _gapGridColumns, Math.Clamp(value, 1, 64)); }
+    public int GapGridRows { get => _gapGridRows; set => Set(ref _gapGridRows, Math.Clamp(value, 1, 64)); }
+    public int GapGridPx { get => _gapGridPx; set => Set(ref _gapGridPx, Math.Clamp(value, 1, 4096)); }
+
+    /// <summary>The selected screen's raster as the room sees it: the display's rotation-aware size, or the planned one.</summary>
+    private SKSizeI SelectedRasterSize()
+    {
+        if (_selectedPlacement is not { } p) return SKSizeI.Empty;
+        var info = LiveInfo(p);
+        return info is null ? new SKSizeI(p.PlannedWidth, p.PlannedHeight) : OutputWindowManager.EffectiveSize(p, info);
+    }
+
+    private void AddGap()
+    {
+        if (_selectedPlacement is not { } p) return;
+        var size = SelectedRasterSize();
+        p.Gaps.Add(new WallGap { Axis = GapAxis.Vertical, At = Math.Max(1, size.Width / 2), Size = 100 });
+        RaiseGaps();
+    }
+
+    private void RemoveGap(WallGap? gap)
+    {
+        if (_selectedPlacement is not { } p || gap is null) return;
+        p.Gaps.Remove(gap);
+        RaiseGaps();
+    }
+
+    /// <summary>The strips of an even grid of panels packed in this screen's raster: columns − 1 vertical, rows − 1 horizontal, each the grid's gap wide.</summary>
+    private void SetGapsFromGrid()
+    {
+        if (_selectedPlacement is not { } p) return;
+        var size = SelectedRasterSize();
+        _services.BulkEdit(() =>
+        {
+            p.Gaps.Clear();
+            for (var k = 1; k < _gapGridColumns; k++)
+            {
+                p.Gaps.Add(new WallGap { Axis = GapAxis.Vertical, At = (int)Math.Round(size.Width * (double)k / _gapGridColumns), Size = _gapGridPx });
+            }
+            for (var k = 1; k < _gapGridRows; k++)
+            {
+                p.Gaps.Add(new WallGap { Axis = GapAxis.Horizontal, At = (int)Math.Round(size.Height * (double)k / _gapGridRows), Size = _gapGridPx });
+            }
+        });
+        RaiseGaps();
+        StatusMessage = $"{p.Gaps.Count} gap{(p.Gaps.Count == 1 ? "" : "s")} set from a {_gapGridColumns} × {_gapGridRows} grid, {_gapGridPx} px each.";
+    }
+
+    private void ClearGaps()
+    {
+        if (_selectedPlacement is not { } p) return;
+        _services.BulkEdit(() =>
+        {
+            p.Gaps.Clear();
+            if (SelectedCanvasConfig(create: false) is { } e)
+            {
+                e.SeamGapX = 0;
+                e.SeamGapY = 0;
+            }
+        });
+        RaiseGaps();
+    }
+
+    /// <summary>What the selected screen's target lays out and shows — the same maths the outputs and the monitors use.</summary>
+    public string GapSummary
+    {
+        get
+        {
+            if (_selectedPlacement is not { } p) return "";
+            var geo = Rig.Geometry(State, _services.Screens.All);
+            var map = geo.GapsOf(geo.TargetOf(p.ScreenId));
+            if (map.IsEmpty) return map.Summary;
+            var runs = map.Slices(geo.RasterRectOf(p.ScreenId)).Count;
+            return runs > 1 ? $"{map.Summary} This output is cut into {runs} runs of pixels." : map.Summary;
+        }
+    }
+
+    private void RaiseGaps()
+    {
+        Raise(nameof(SelectedGaps));
+        Raise(nameof(SelectedSeamGapX));
+        Raise(nameof(SelectedSeamGapY));
+        Raise(nameof(GapSummary));
+        RebuildSwitcherTiles();   // the tiles' shapes follow the surface the content lays out on
+    }
+
     public string GroupSummary
     {
         get
@@ -1201,6 +1347,10 @@ public sealed class MainViewModel : Observable
         Raise(nameof(SelectedMirrorOf));
         RebuildMirrorSources();
         RaiseBlend();
+        Raise(nameof(SelectedGaps));
+        Raise(nameof(SelectedSeamGapX));
+        Raise(nameof(SelectedSeamGapY));
+        Raise(nameof(GapSummary));
         RefreshDisplayModes();
     }
 
@@ -2257,7 +2407,8 @@ public sealed class MainViewModel : Observable
                 $"{numberOf[id]} · {LabelFor(placement, info)}",
                 id,
                 new[] { id },
-                OutputWindowManager.EffectiveSize(placement, info),
+                // The surface the content lays out on: the raster grown by the wall's dead strips, when it has any.
+                geo.GapsOf(id).IsEmpty ? OutputWindowManager.EffectiveSize(placement, info) : geo.SizeOf(id),
                 placement.Enabled,
                 isSelected: _selectedTargetId == id,
                 isOwn: placement.UseCustomPattern,
@@ -3513,6 +3664,10 @@ public sealed class MainViewModel : Observable
     public RelayCommand PreviewRestartCommand { get; }
     public RelayCommand ResetWarpCommand { get; }
     public RelayCommand ResetBlendCommand { get; }
+    public RelayCommand AddGapCommand { get; }
+    public RelayCommand<WallGap> RemoveGapCommand { get; }
+    public RelayCommand SetGapsFromGridCommand { get; }
+    public RelayCommand ClearGapsCommand { get; }
     public RelayCommand AddStingerFilesCommand { get; }
     public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
@@ -4651,6 +4806,7 @@ public sealed class MainViewModel : Observable
             _reviewSeen = _services.Bus.ReviewOnMultiview; // a remote flipped it: the desk's toggles follow
             Raise(nameof(ReviewOnMultiview));
         }
+        if (_selectedPlacement is { Gaps.Count: > 0 }) Raise(nameof(GapSummary)); // a gap row edited in place: the words follow
         var beacon = _services.Beacon;
         BeaconStatus = beacon.Sending || beacon.Listening
             ? $"{beacon.Status}{(beacon.Sent > 0 ? $" {beacon.Sent} sent." : "")}{(beacon.Listening ? " " + beacon.WatchText : "")}"

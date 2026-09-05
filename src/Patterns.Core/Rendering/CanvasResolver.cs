@@ -61,10 +61,14 @@ public static class CanvasResolver
         return new BlendLayout(o.Projectors, o.NativeWidth, o.NativeHeight, overlap, o.Orientation, canvas);
     }
 
-    /// <summary>The pattern canvas size for a config rendered against a reference (screen/union/NDI) size.</summary>
-    public static SKSizeI Resolve(PatternConfig p, SKSizeI reference)
+    /// <summary>
+    /// The pattern canvas size for a config rendered against a reference (screen/union/NDI)
+    /// size. A wall pattern built for the very raster whose dead strips <paramref name="gaps"/>
+    /// describes takes the surface with the strips put back, so its tiles land on the panels.
+    /// </summary>
+    public static SKSizeI Resolve(PatternConfig p, SKSizeI reference, GapMap? gaps = null)
     {
-        return p.Kind switch
+        var own = p.Kind switch
         {
             PatternKind.LedWall => p.LedWall.UseCustomMap && p.LedWall.CustomTiles.Count > 0
                 ? LedCustomCanvas(p.LedWall)
@@ -75,7 +79,15 @@ public static class CanvasResolver
                 ? reference
                 : new SKSizeI(p.Canvas.Width, p.Canvas.Height),
         };
+        return WallSpansGaps(p, gaps, own) ? gaps!.Virtual : own;
     }
+
+    /// <summary>True when a wall pattern's raster is the target's raster, so its tiles lay out across the target's strips.</summary>
+    public static bool WallSpansGaps(PatternConfig p, GapMap? gaps, SKSizeI ownRaster)
+        => gaps is { IsEmpty: false }
+           && p.Kind is PatternKind.LedWall or PatternKind.VideoWall
+           && !(p.Kind == PatternKind.LedWall && p.LedWall.UseCustomMap && p.LedWall.CustomTiles.Count > 0)
+           && ownRaster == gaps.Raster;
 
     /// <summary>
     /// Maps the canvas into reference space: uniform fit (letterboxed) or centred 1:1.

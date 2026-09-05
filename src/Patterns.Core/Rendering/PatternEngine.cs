@@ -117,7 +117,10 @@ public sealed class PatternEngine
         canvas.Clear(LetterboxColor);
 
         var cfg = snap.PatternFor(ctx.ScreenId);
-        var canvasSize = CanvasResolver.Resolve(cfg, ctx.ReferenceSize);
+        // The target's dead strips: content lays out across them (the reference is the surface
+        // with them put back), a wall pattern built for this raster puts its tiles past them.
+        var gaps = snap.Rig.GapsOf(ctx.ScreenId);
+        var canvasSize = CanvasResolver.Resolve(cfg, ctx.ReferenceSize, gaps);
         var (offset, scale) = CanvasResolver.MapToReference(canvasSize, ctx.ReferenceSize, cfg.Canvas.ScaleMode);
         if (topLevel)
         {
@@ -134,6 +137,7 @@ public sealed class PatternEngine
             Sink = sink,
             Canvas = canvasSize,
             Palette = palette,
+            Gaps = gaps,
         };
 
         var save = canvas.Save();
@@ -204,6 +208,88 @@ public sealed class PatternEngine
         if (ctx.Sink != SinkKind.Thumbnail && Effects.SyncMarks.IsFlash(ctx.Time))
         {
             canvas.DrawRect(SKRect.Create(0, 0, ctx.ViewportSize.Width, ctx.ViewportSize.Height), sink.Paints.Fill(SKColors.White));
+        }
+
+        // A desk view of a wall with dead strips shades them, so the operator sees where the
+        // wall has no pixels; an output cuts them out instead (RenderWall), a feed carries the
+        // whole surface, a layer is content.
+        if (!gaps.IsEmpty && !ctx.InLayer && ctx.Sink is SinkKind.Preview or SinkKind.Monitor or SinkKind.Thumbnail)
+        {
+            DrawGapShade(canvas, gaps, SKRectI.Create(ctx.ViewportOrigin.X, ctx.ViewportOrigin.Y, ctx.ViewportSize.Width, ctx.ViewportSize.Height), sink);
+        }
+    }
+
+    private static readonly SKColor GapShade = new(0x05, 0x06, 0x08, 0xC8);
+    private static readonly SKColor GapEdge = new(0xFF, 0xB0, 0x20, 0x90);
+
+    /// <summary>The wall's dead strips over a desk view of a target: dark, with an amber hairline on each side.</summary>
+    private static void DrawGapShade(SKCanvas canvas, GapMap gaps, SKRectI virtualRegion, SinkState sink)
+    {
+        var fill = sink.Paints.Fill(GapShade);
+        var edge = sink.Paints.Fill(GapEdge);
+        foreach (var strip in gaps.StripsIn(virtualRegion))
+        {
+            canvas.DrawRect(strip, fill);
+            if (strip.Width < strip.Height)
+            {
+                DrawUtil.LineV(canvas, strip.Left, strip.Top, strip.Bottom, 1, edge);
+                DrawUtil.LineV(canvas, strip.Right - 1, strip.Top, strip.Bottom, 1, edge);
+            }
+            else
+            {
+                DrawUtil.LineH(canvas, strip.Top, strip.Left, strip.Right, 1, edge);
+                DrawUtil.LineH(canvas, strip.Bottom - 1, strip.Left, strip.Right, 1, edge);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An output of a wall with dead strips: the content is drawn once across this output's span
+    /// of the surface, then every run of real pixels is put where the raster has it, so a
+    /// picture that crosses a gap goes behind it. An output no strip runs through — strips only
+    /// at its edges, or none inside it — draws straight, moved past the strips before it, with
+    /// no surface in between. <paramref name="rasterRegion"/> is this output's place in its
+    /// target's raster; the viewport is its pixels.
+    /// </summary>
+    public void RenderWall(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink, GapMap gaps, SKRectI rasterRegion)
+    {
+        if (gaps.IsEmpty || rasterRegion.Width <= 0 || rasterRegion.Height <= 0)
+        {
+            Render(canvas, snap, in ctx, sink);
+            return;
+        }
+
+        var span = gaps.VirtualRect(rasterRegion);
+        var slices = gaps.Slices(rasterRegion);
+        if (slices.Count <= 1)
+        {
+            var moved = ctx with { ReferenceSize = gaps.Virtual, ViewportOrigin = new SKPointI(span.Left, span.Top) };
+            Render(canvas, snap, in moved, sink);
+            return;
+        }
+
+        var surface = sink.WallSurface(new SKSizeI(span.Width, span.Height));
+        var wide = ctx with
+        {
+            ReferenceSize = gaps.Virtual,
+            ViewportSize = new SKSizeI(span.Width, span.Height),
+            ViewportOrigin = new SKPointI(span.Left, span.Top),
+        };
+        Render(surface.Canvas, snap, in wide, sink);
+        surface.Canvas.Flush();
+        using var image = surface.Snapshot();
+
+        // The window's pixels per raster pixel: 1 unless the display's mode drifted from the arrangement.
+        var sx = ctx.ViewportSize.Width / (float)rasterRegion.Width;
+        var sy = ctx.ViewportSize.Height / (float)rasterRegion.Height;
+        var exact = Math.Abs(sx - 1f) < 0.0001f && Math.Abs(sy - 1f) < 0.0001f;
+        canvas.Clear(SKColors.Black);
+        foreach (var s in slices)
+        {
+            var src = SKRect.Create(s.Virtual.Left - span.Left, s.Virtual.Top - span.Top, s.Virtual.Width, s.Virtual.Height);
+            var dst = SKRect.Create((s.Raster.Left - rasterRegion.Left) * sx, (s.Raster.Top - rasterRegion.Top) * sy,
+                s.Raster.Width * sx, s.Raster.Height * sy);
+            canvas.DrawImage(image, src, dst, exact ? DrawUtil.Nearest : DrawUtil.Smooth, sink.Paints.Fill(SKColors.White));
         }
     }
 

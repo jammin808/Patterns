@@ -47,8 +47,42 @@ public sealed class CanvasNameConfig : Observable
     /// </summary>
     public bool UseCustomPattern { get => _useCustomPattern; set => Set(ref _useCustomPattern, value); }
 
+    private int _seamGapX;
+    private int _seamGapY;
+
+    /// <summary>
+    /// Bezel compensation for a wall of displays joined into this canvas: the dead width, in
+    /// pixels, between two members side by side (both bezels plus any air), and between two
+    /// members one above the other. Content is laid out as if the strips were there and each
+    /// member shows its own real pixels, so a line across the wall is straight in the room.
+    /// </summary>
+    public int SeamGapX { get => _seamGapX; set => Set(ref _seamGapX, Math.Clamp(value, 0, 4096)); }
+    public int SeamGapY { get => _seamGapY; set => Set(ref _seamGapY, Math.Clamp(value, 0, 4096)); }
+
     public static string KeyFor(IEnumerable<string> memberScreenIds)
         => string.Join('+', memberScreenIds.OrderBy(id => id, StringComparer.Ordinal));
+}
+
+/// <summary>
+/// A strip of a screen's wall with no pixels behind it: the air between two LED pillars, the
+/// bezels of a video-wall controller's displays packed side by side in one raster. It stands
+/// before raster pixel <see cref="At"/> and is <see cref="Size"/> pixels (of the wall's own
+/// pitch) wide. Content is laid out across the strip and the output leaves it out, so a picture
+/// that crosses the gap is continuous in the room.
+/// </summary>
+public sealed class WallGap : Observable
+{
+    private GapAxis _axis = GapAxis.Vertical;
+    private int _at = 960;
+    private int _size = 100;
+
+    public GapAxis Axis { get => _axis; set => Set(ref _axis, value); }
+
+    /// <summary>The first raster pixel after the gap: a vertical gap's x, a horizontal gap's y.</summary>
+    public int At { get => _at; set => Set(ref _at, Math.Clamp(value, 1, 16384)); }
+
+    /// <summary>The gap's width in pixels — the physical gap measured in the wall's pixel pitch.</summary>
+    public int Size { get => _size; set => Set(ref _size, Math.Clamp(value, 1, 16384)); }
 }
 
 /// <summary>One physical screen's place in the arrangement.</summary>
@@ -172,6 +206,15 @@ public sealed class ScreenPlacement : Observable
     /// own content. A repeater draws its source's picture wherever the source's picture goes.
     /// </summary>
     public string MirrorOf { get => _mirrorOf; set => Set(ref _mirrorOf, value ?? ""); }
+
+    /// <summary>
+    /// The dead strips inside this screen's picture — the gaps of an LED wall whose panels are
+    /// packed side by side in the processor's raster, the bezels of a wall controller's
+    /// displays — in the picture's own pixels as the room sees it (after rotation). Content is
+    /// laid out across them and this output leaves them out. A member of a joined canvas adds
+    /// its strips to the canvas's, beside the seams the canvas compensates itself.
+    /// </summary>
+    public ObservableCollection<WallGap> Gaps { get; init; } = new();
 
     private int _fpsOverride;
 
