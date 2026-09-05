@@ -186,6 +186,7 @@ answers. Newest row first.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 14 | Field research, the operational review, the multi-core answer, the instant-UX pass. `docs/FIELD-RESEARCH.md`: fourteen problems as show callers, techs and operators report them (freezes and reboots mid-show, double GO and skipping clickers, dead air, the wrong deck version, laptops and HDMI handshakes, aspect mismatches, confidence monitors, last-minute running-order changes, NDI dropouts, sync drift, unseen machine health, control surfaces losing state, stale signage, rehearsal and the brief) — each with its sources, what Patterns does today, what this round built, and what still stands, ranked. §14 of this plan: the operational areas strong and weak against the peers, area by area; the multi-core question answered from the code as it is (one show core, one render core with its sinks on their threads, the supervisor already the orchestrator) — keep one process, the watchdog watches more rather than runs more, extract native edges at their seams when a fault says so, redundancy is a second machine; the instant-UX pass as rules (pages are index changes, ticks update in place, editing debounced, actions return before the picture moves, nothing on the UI thread waits on the network). README's architecture section points at both. | done |
 | 13 | The Machine page as a health dashboard. Core, pure: `DashboardTile` (id, title, light, a big value, a line, a bar fraction), `DashboardVerdict`, `HealthDashboard.Tiles(CheckFacts, MetricSample?)` — twelve tiles (outputs, render, CPU, memory, GPU, NDI, stream, audio, remote, watchdog, power, disk) with the super-check's thresholds, the live sample winning where it has a reading and the facts otherwise; `Overall` (the worst non-grey light), `Verdict` (the worst of the tiles and the advice, a headline naming the tiles that set it, a line counting the warnings and suggestions below, the outputs' state when all is clear), `Uptime`. App: `DashboardTileView` (a tile updated in place — the light, the value, the line, the bar — never rebuilt), `LightBrushes`; `MainViewModel.DashboardTiles`, `DashboardHeadline` / `Detail` / `Dot` / `Uptime`, the day's lines (`AdminCpuDaySpark`, `AdminRamDaySpark`, `AdminFpsDaySpark` from the 30-second aggregates, `AdminDayText`), `RefreshDashboard` (the facts every five seconds, the sample every second) at the top of `PollAdmin`; the Machine page rebuilt — HEALTH AT A GLANCE (the banner with the light, the headline, the line and the uptime; the tile wall), WARNINGS AND RECOMMENDATIONS (cards worst first with a coloured edge), LIVE PERFORMANCE (the last three minutes beside the day so far, bigger lines), then the super-check, the graphics card, this computer, stability, the beacon, earlier versions; the Help topic. Tests: a healthy machine all green with the values, the bars and the verdict; the live sample overriding the facts and lighting CPU, memory, outputs, render, power and disk with the verdict naming them and counting the advice; every tile's own reasons to go amber or red (outputs closed, a slow frame rate, NDI sends not running or no runtime, a stream in trouble, no audio device, the sync lock off, a lagging output, the watchdog off or restarting, the main machine silent, a tight disk, memory, a hot CPU, the remote off, a battery), the verdict amber from the tiles alone and from advice alone, red from a warning alone; on a live desk twelve tiles from seventy samples, the same tile objects moving with the numbers, the headline and the page. | done |
 | 12 | Help reorganised. Core, pure: `HelpTopic` (id, group, title, where it sits in the workflow, how it works, the steps in order, the words on the wire, the pages it lives on — shell page headers — and the search words), `HelpGroup` (START HERE · RUNNING THE SHOW · CONTENT · THE RIG · CONTROL · THE MACHINE, the order a show happens), `HelpTopics` (37 topics — every explanation the Help page carried, now filed, each with a workflow line, steps and the wire's words; a new opening topic *How a show flows through Patterns*: the five groups as the stages of a day and the three ideas that hold it together — the show file, the action layer, program and preview; `Find`, `In`, `ForPage`), `HelpBodies` (the long explanations, one constant each), `HelpSearch` (words trimmed and lowered, one letter dropped; every word must be found; the title and the search words weigh most, the workflow line next, the steps and the wire after, the explanation least; the strongest first, ties in catalogue order; a snippet of the words around the first match). App: `HelpRow` (a card: closed the title and its place, open how it works / do this / on the wire / pages with GO), `HelpGroupChip`, `HelpPageLink`; `MainViewModel.HelpQuery`, `HelpGroupFilter`, `HelpReadAll`, `HelpRows`, `HelpResultText`, `OpenHelpTopic` (the page on one card, the search cleared, every section shown), `HelpTopicsFor`; the Help page rebuilt — the search box with CLEAR and READ ALL, the section chips, the result line, the walkthroughs (hidden during a search), the cards; the ? TIPS flyout gains IN HELP — the topics the page belongs to, one press opening the Help page on that card. Tests: every topic whole and filed and the sections in show order, the finder, a page's topics; the tokens, every word required, the strongest first (stinger → VOGs and stingers, spotify → break music, F5 → keys, arduino → the Interactive area, projector overlap → edge blend), a stable order, the snippet cut on both sides deep in a body and whole on the workflow line; on a live desk every page a topic names is a shell page, the search filters and opens the cards with snippets, nothing found is said, CLEAR, a section chip, a card's toggle, READ ALL, a page's topics, OpenHelpTopic landing on Help with one card open, GO to a page, the page rendering with its parts. | done |
 | 11 | The Show panel as the control surface. Per-screen sends in the action layer: `ShowActionKind.ScreenLook` (Target a screen by overview number, placement id or canvas key; Value a look by name or id — the look's picture for that target, its own picture in the look if it carried one else the look's program, lands on the target alone as its own pattern with `PinnedByTake` cleared so TAKE leaves it; a whole-look recall or a cue replaces it, a lock keeps it; on the frozen program too while EDIT SAFE is open) and `ScreenProgram` (the target drops its own picture and its assignment and follows the program; already there is said, not an error); cue actions *Screen — its own look* (`ValueKind.Look`, validated: the target in the rig, a look named and found) and *Screen — back to the program*, the summary in words, the sheet's aliases (screenlook, ownlook, sendlook, lookon; screenprogram, pgm, follow, backtoprogram); the wire `SCREEN <n> LOOK <name>` (a multi-word name, no name refused, ON / OFF / TOGGLE untouched) and `SCREEN <n> PROGRAM` (PGM, FOLLOW); OSC `/patterns/screen/<n>/look "<name>"` (or `/look/<name>`) and `/screen/<n>/program`; `LookService.PictureFor`. The cue editor's value picker lists the looks for the own-look action (no "as designed" row, "Which look…", the value kept as the look's id). Desk: the Show panel rebuilt as one control surface — CUES (the caller's stack in a strip: STANDBY with its planned and expected time and its BROKEN reason, NEXT (`RunViewModel.NextText`), GO / HOLD / ARM, ▲ ▼, an auto-follow's CANCEL, the checks' summary), LOOKS (the tiles with a PVW key each that loads the look into the sandboxed preview), SCREENS — EACH ON ITS OWN (a row per screen and canvas from the switcher tiles: ON AIR / OWN / LOCKED / role, a look picker, → THIS SCREEN, PROGRAM, LOCK, ON — `SwitcherTile.PendingLook`, `SendLookCommand`, `ProgramCommand`, through the action layer so the journal reads them), PROGRESSION (the clicker's NEXT / BACK and place, a deck's page, an auto-follow counting down, the playlist's part in one line — `ProgressionText`, refreshed with the tallies), then the VOGs, stingers, lower thirds, audio, break music, FREEZE / FADE / LOOK BACK, REVIEW and STATUS as before. Companion 2.3.0 (`screen_look`, `screen_program`, a PGM preset per screen), the Help section, docs. Tests: the verbs, the OSC addresses and reference rows, the spec, labels, ChangesContent, the sheet's aliases, the checks and the summary, PictureFor (its own, the program, a stranger, bad JSON, a clone); on a live desk a planned screen taking Sponsor alone from the wire while the program keeps Daytime, back to the program, the wrong screen and the wrong look refused, the journal, the cue path by id, the row's picker and keys, a whole-look recall sweeping the send and a lock keeping it, the cue editor's look picker and the people picker unchanged, NEXT in the strip, PROGRESSION and the page. | done |
@@ -320,3 +321,123 @@ above are), keep the supervisor honest about what it can and cannot see (round 1
 outputs-frozen and stream-stopped rules for exactly the faults the heartbeat missed), and keep
 the beacon and a second machine as the answer to the fault no process boundary fixes — the
 machine itself.
+
+## 14. Round 12 — the operational review, the multi-core question, the instant-UX pass
+
+Round 12 asked three things of the whole rather than of a feature: *out of all the operational
+areas, what is weak and what strong compared to peers*; *would splitting the core into several
+cores — with an orchestrator, maybe combined with the watchdog — be useful and efficient*; and
+*every selection, view update and UX update must be instant*. The field research behind the
+first is in [`FIELD-RESEARCH.md`](FIELD-RESEARCH.md).
+
+### 14.1 The operational areas: strong and weak against the peers
+
+The peers are the ones in `PRO-FEATURES.md`: vMix, Barco E2, Analog Way, QLab, PlaybackPro /
+ProPresenter, Resolume, Disguise, Pixera, and for installs the signage CMSs. Honest, area by area:
+
+| Area | Strong | Weak against the peers | Round 12 did |
+| --- | --- | --- | --- |
+| **Running the show** (cue stack, looks, the panel) | One stack read from three surfaces (the Run page, the panel's strip, the phone) with GO gated by the standby id; confirm, hold, follow, planned times and the clock; every GO journaled with its origin; looks one press from anywhere. | No *minimum time between GOs* (QLab has one); no MIDI Show Control / LTC timecode chase (QLab, the theatre desks); no cue "wait" chains beyond auto-follow. | The panel as the control surface (11); the per-screen sends; PROGRESSION in one line. |
+| **Presentations** (decks, web, clickers) | A PDF or PowerPoint deck in the engine at its own aspect with the click-through and the stack resuming; web pages driven inside the engine with keys, clicks and presets; every clicker key acts once. | A PowerPoint's animations and builds are flattened (LibreOffice renders pages); no presenter notes or *next page* view for a confidence screen (ProPresenter, PlaybackPro have them). | Decks (5, 6), web pages (4), the area of interest (3). |
+| **Screens and the rig** (walls, blend, roles, sends) | Canvases, bezels and gaps, edge blend across rows, grids and corners with an audit, roles and locks, a screen's own send, planned screens adopted at the venue, direct output. | Two layers per target (E2 and Analog Way stack more); no frame-accurate multi-machine genlock; no HDCP path; capture limited to what a card and libVLC deliver. | Blend proved beyond two (7); the multiview tally (2); per-screen sends (11). |
+| **Inputs** (files, NDI, capture, web) | Every source mounted once and sent anywhere; the pool with a limit and a status; crop, mirror and turn on any input; PiP. | No SDI router or matrix control; no 4K60 capture guarantee; no ST 2110. | The area of interest (3), web (4). |
+| **Graphics** (lower thirds, overlays) | A designer with keyframes and media elements, a people library, preview / sign-off / take / update in place, the show's default design, reliable on every output. | No data-driven templates beyond people (Singular, CasparCG bind to feeds); no HTML templates. | Lower thirds triage (1). |
+| **Audio** | One master clock, resampling on every path, delay per output, the sync check, VOGs, stingers with an ending, ducking, break music. | No mixer or routing matrix; no Dante. | — |
+| **Control** (TCP, OSC, Companion, devices, the phone) | Every action on the wire with the same gate as the desk; STATE on every change; Companion keys that fill themselves from the show; an Arduino or an IP device as a first-class origin; the phone with every page. | No MIDI / MSC; no Art-Net / sACN. | Companion 2.x and OSC (8), the Interactive area (9). |
+| **Resilience** | A supervisor that restarts a crash or a hang with the show back; fault containment per frame; the advisor's rules for what the heartbeat cannot see; the beacon; the health dashboard. | No automatic failover — by design (two machines both deciding to be the main is the failure worse than one being down); one machine. | The health dashboard (13). |
+| **Installs** | Programmes on a rota, adverts, announcements, the check-in, remote admin, staged updates with roll-back. | No proof-of-play, no multi-site content distribution (the signage CMSs' core). | Installs (10). |
+| **Learning it** | A searchable catalogue with the workflow context per topic, walkthroughs by role, ? TIPS per page. | No video tutorials; English only. | Help reorganised (12). |
+
+The pattern: Patterns is strong wherever one machine, one operator and one show file are the
+whole story, and weak wherever the peers lean on a second box (a router, a genlock, a timecode
+source, a CMS server). The three smallest gaps with the biggest daily effect are the
+minimum-GO interval, the deck's next page for a confidence screen, and MSC/LTC in — all in
+`FIELD-RESEARCH.md`'s list, all fitting the action layer as it is.
+
+### 14.2 The multi-core question, answered
+
+*Should the core be split into several base cores — features that are intimately linked but
+independent — that could also monitor and support each other, with an orchestrator core,
+maybe combined with the watchdog, running efficient and stable multi-processes?*
+
+What the code already is, so the answer starts from facts rather than from a diagram:
+
+- **One show core.** `Patterns.Core` holds the state model, the action layer, the cue stack, the
+  looks, the validator, the schedule, the help — pure C#, no native surface, every rule unit
+  tested. Every change from any origin becomes one `ShowAction`, journaled, and one immutable
+  `ShowSnapshot` on the bus.
+- **One render core, many sinks.** The Skia engine draws that snapshot for every sink — the
+  output windows through the compositor's render thread (`SkiaCanvasControl` → a draw operation
+  on the GPU), each NDI sender on its own thread, the stream encoder on its own thread, the desk's
+  panes and thumbnails. Twenty-one thread or task starts in the whole tree: the render sinks, the
+  network listeners (TCP, OSC, the beacon, devices, the check-in), the web and PDF sources, the
+  supervisor's heartbeat reader. The UI thread runs the desk and the once-a-second heartbeat.
+- **One orchestrator already.** The supervisor *is* an orchestrator core: a separate process,
+  the same exe, that starts the app as its child, reads its heartbeat, restarts it with backoff
+  and a crash-loop cap, applies staged updates between two starts, rolls them back, and sends the
+  last beacon when it gives up. It watches; it does not run show logic — which is exactly why it
+  survives what the app does not.
+
+Splitting the show core into "cores" — a cue core, a looks core, a screens core — would put a
+process boundary through the one object every feature reads on every frame: the snapshot. The
+cue stack fires a look, the look lands on the program, the program is drawn on every sink on the
+same frame, the tally on the multiview reads the same snapshot, the phone's STATE reads it, the
+journal writes what it was. A boundary there means serialising the snapshot on every change,
+a clock per process to reconcile, a handshake per feature to time out, and mocks on one side of
+every pixel test — for isolation of code that cannot fault through a native layer in the first
+place. That is the cost, and there is no benefit in the ledger against it: the show core's
+failures are logic failures, and a logic failure in a separate process is still the wrong picture
+on the wall.
+
+Where a boundary *does* pay is where a native library can take the process down: the stream
+encoder (libVLC), the web renderer (WebView2 — already out of process for its own renderer), and
+video decoding (libVLC). Section 12 lists the seam each sits behind and the fault that would
+justify moving it. The move is mechanical when it comes: a child process fed frames over a pipe
+or shared memory, started and watched by the supervisor with the same heartbeat, backoff and
+recovery record it already gives the app — the orchestrator growing another child, not a new
+kind of thing.
+
+So the recommendation stands, sharper:
+
+1. **Keep one process for the show and the engine.** One snapshot, one clock, one journal, one
+   test suite that reads pixels off the real engine.
+2. **The orchestrator is the watchdog, and it should watch more, not run more.** Round 11 gave the
+   advisor the *outputs frozen* and *stream stopped* rules for what the heartbeat cannot see;
+   round 12 put every signal on the dashboard. The next signals worth a rule: a pending Windows
+   reboot, two active NICs, a deck source that stopped rendering.
+3. **Extract at the seams when a fault says so, one native edge at a time**, the stream encoder
+   first — supervised by the same watchdog, fed by the same snapshot.
+4. **Redundancy is a second machine, not a second process.** The beacon, the backup listening,
+   the same show file on both, the operator's hand on OUTPUTS ON — deliberately not automatic.
+
+"Cores that monitor and support each other" is, in this shape, the supervisor, the advisor and
+the beacon: three watchers with three different eyes (the heartbeat, the numbers, the network),
+none of them holding show state, each able to say what the others cannot see.
+
+### 14.3 The instant-UX pass
+
+*Every user selection change of menu, view update, UX update, or anything must be instant.*
+What was checked this round, and the rule each check turned into:
+
+- **Page changes are index changes.** Every section is built once at start-up and selected by
+  index; the strip and the rail bind to the same integer. The headless suite selects every page
+  in turn on every push (`EveryPageRendersAndTheStripNamesIt`) and the fit test lays the desk
+  out at the smallest supported window. Rule: never build a page on entry.
+- **Ticks update in place.** The switcher tiles refresh their live flags without rebuilding
+  (`RefreshExternal`); the dashboard's twelve tiles are the same objects every second
+  (`DashboardTileView.Update`); the rig's facts are gathered every five seconds, the sample every
+  second; sparklines are downsampled to at most 180 points. Rule: a one-second tick may set
+  properties, never rebuild a collection.
+- **Editing is debounced, never blocking.** The cue editor re-validates 300 ms after the last
+  keystroke; the Help search filters on every keystroke because the catalogue is 37 records; the
+  install's timeline is recomputed on the schedule's change, not on the clock.
+- **Actions return before the picture moves.** A look recall publishes a snapshot and returns;
+  every sink draws it on its next frame; the transition runs in the engine. The wire answers OK
+  as soon as the action is accepted.
+- **Nothing on the UI thread waits on the network or a file.** Listeners, the check-in, the
+  beacon, the devices, the web and PDF sources run on their own threads and post results; the
+  show file is saved on a timer after five quiet minutes.
+
+What is still slow on purpose: opening a deck (LibreOffice renders once, with a status line),
+the super-check (probes the machine, a second), and the first frame of a web page (the browser
+warms). Each says so on its page while it works.

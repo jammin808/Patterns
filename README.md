@@ -23,6 +23,21 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Field research, the operational review and the multi-core answer** — round 12 went to the
+  places operators talk (ControlBooth, the vMix, Resolume and NewTek forums, the QLab list, AVS
+  Forum, the Companion issue tracker, the production companies' own field guides) and wrote up the
+  fourteen problems show callers, techs and operators keep reporting — freezes and reboots
+  mid-show, double GO and skipping clickers, dead air, the wrong deck version, laptops that will
+  not handshake, aspect mismatches, confidence monitors, last-minute running-order changes, NDI
+  dropouts, sync drift, unseen machine health, control surfaces losing state, stale signage, the
+  missing rehearsal — each with its sources, what Patterns does today, what this round built for
+  it and what still stands, ranked ([`docs/FIELD-RESEARCH.md`](docs/FIELD-RESEARCH.md)).
+  [`docs/PLAN.md`](docs/PLAN.md) §14 then says, area by area, where Patterns is strong and weak
+  against its peers, answers the multi-core / orchestrator question from the code as it is (one
+  show core, one render core with its sinks on their own threads, the supervisor already the
+  orchestrator: keep one process, watch more, extract native edges at their seams when a fault
+  says so, redundancy is a second machine), and writes down the instant-UX rules every page now
+  follows.
 - **The Machine page as a health dashboard** — ADMIN → Machine opens on HEALTH AT A GLANCE: one
   headline over twelve lit tiles (outputs, render, CPU, memory, GPU, NDI, stream, audio, remote,
   watchdog, power, disk), each a big value with a bar and a line under it, green / amber / red /
@@ -795,6 +810,17 @@ antialiasing off for alignment content; spans use union-rect viewports and are c
 stitching test. Redraw is demand-driven: static patterns cost ~0 when idle, clocks tick once a
 second, animation runs at vsync. A renderer that throws is contained to an on-screen error card —
 the show keeps running. See [`docs/PLAN.md`](docs/PLAN.md) for the full design.
+
+Should the core be split into several cores with an orchestrator? No — and the reasons are argued
+from the code in [`docs/PLAN.md`](docs/PLAN.md) §12 and §14: one show core (the state, the action
+layer, the cue stack — pure C#, no native surface) and one render core with its sinks on their own
+threads share one snapshot, one clock and one journal; the supervisor is already the orchestrator
+(a separate process that starts, watches, restarts, updates and rolls back the app) and should
+watch more rather than run more; the native edges that can take a process down — the stream
+encoder, the web renderer, video decoding — sit behind seams with fakes and move out to a child of
+the same supervisor when a real fault says so; redundancy is a second machine listening for the
+beacon, not a second process. The field research behind round 12's choices is in
+[`docs/FIELD-RESEARCH.md`](docs/FIELD-RESEARCH.md).
 
 ## License
 
