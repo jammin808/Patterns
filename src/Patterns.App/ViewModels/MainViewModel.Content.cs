@@ -46,6 +46,7 @@ public sealed partial class MainViewModel
         HitKind.Countdown => "The countdown",
         HitKind.Message => "The message",
         HitKind.Pip => "The PiP inset",
+        HitKind.Weather => "The weather",
         HitKind.WebPage => "The web page",
         _ => "The element",
     };
@@ -64,6 +65,7 @@ public sealed partial class MainViewModel
             HitKind.Countdown => (State.Countdown.OffsetXPct, State.Countdown.OffsetYPct),
             HitKind.Message => (o.Message.OffsetXPct, o.Message.OffsetYPct),
             HitKind.Pip => (o.Pip.OffsetXPct, o.Pip.OffsetYPct),
+            HitKind.Weather => (o.Weather.OffsetXPct, o.Weather.OffsetYPct),
             _ => (0, 0),
         };
     }
@@ -82,6 +84,7 @@ public sealed partial class MainViewModel
             case HitKind.Countdown: State.Countdown.OffsetXPct = x; State.Countdown.OffsetYPct = y; break;
             case HitKind.Message: o.Message.OffsetXPct = x; o.Message.OffsetYPct = y; break;
             case HitKind.Pip: o.Pip.OffsetXPct = x; o.Pip.OffsetYPct = y; break;
+            case HitKind.Weather: o.Weather.OffsetXPct = x; o.Weather.OffsetYPct = y; break;
         }
     }
 

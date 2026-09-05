@@ -77,6 +77,12 @@ public enum RemoteCommandKind
     /// page order, or name) fills the design (TextArg: number or name; "" = the one on air, else the first) and it goes on air.
     /// </summary>
     LowerThirdPerson,
+    /// <summary>"WEATHER ON" / "WEATHER OFF" / "WEATHER TOGGLE" (bare "WEATHER" toggles) — the weather chip on air, or gone (FORECAST is an alias).</summary>
+    WeatherOn,
+    WeatherOff,
+    WeatherToggle,
+    /// <summary>"WEATHER NOW" / "WEATHER DAY" / "WEATHER TOMORROW" — the chip's view (TextArg: now / day / tomorrow).</summary>
+    WeatherView,
     /// <summary>"REVIEW ON" / "REVIEW OFF" / "REVIEW TOGGLE" (bare "REVIEW" toggles) — the preview fills every multiview, or the tiles come back.</summary>
     ReviewOn,
     ReviewOff,
@@ -592,6 +598,19 @@ public static class ControlProtocol
                 return new(RemoteCommandKind.Restart, 0, arg);
 
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
+            case "WEATHER":
+            case "FORECAST":
+            {
+                var w = arg.Trim();
+                return w.ToUpperInvariant() switch
+                {
+                    "ON" or "SHOW" => new(RemoteCommandKind.WeatherOn, 0, ""),
+                    "OFF" or "HIDE" => new(RemoteCommandKind.WeatherOff, 0, ""),
+                    "" or "TOGGLE" => new(RemoteCommandKind.WeatherToggle, 0, ""),
+                    _ => WeatherWords.ParseView(w) is not null ? new(RemoteCommandKind.WeatherView, 0, w.ToLowerInvariant()) : new(RemoteCommandKind.Unknown, 0, w),
+                };
+            }
+
             case "REVIEW":
                 return arg.ToUpperInvariant() switch
                 {

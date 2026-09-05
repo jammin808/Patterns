@@ -535,6 +535,25 @@ public static class Lists
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();
 
+    public static readonly EnumItem[] WeatherViews =
+    {
+        new(WeatherView.Now, "Now — this hour"),
+        new(WeatherView.RestOfDay, "Rest of today"),
+        new(WeatherView.Tomorrow, "Tomorrow"),
+    };
+
+    public static readonly EnumItem[] WeatherUnits =
+    {
+        new(Patterns.Core.Model.WeatherUnits.Celsius, "°C · km/h"),
+        new(Patterns.Core.Model.WeatherUnits.Fahrenheit, "°F · mph"),
+    };
+
+    public static readonly EnumItem[] WeatherProviders =
+    {
+        new(WeatherProvider.MetNorway, "MET Norway (free, no key, a credit)"),
+        new(WeatherProvider.OpenMeteo, "Open-Meteo (free non-commercial; a key for commercial use)"),
+    };
+
     // ---- lower thirds ----
     public static readonly EnumItem[] LowerThirdKinds =
     {

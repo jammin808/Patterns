@@ -141,6 +141,102 @@
       </StackPanel>
     </StackPanel>
 
+    <TextBlock Classes="h2" Text="WEATHER" />
+    <CheckBox Content="Show the weather" IsChecked="{Binding State.Overlays.Weather.Enabled}" />
+    <Grid ColumnDefinitions="130,*,8,Auto">
+      <TextBlock Classes="label" Text="Find the place" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Watermark="a town and a country — Manchester, UK" Text="{Binding WeatherQuery, Mode=TwoWay}" />
+      <Button Grid.Column="3" Classes="mini" Content="SEARCH" Command="{Binding SearchWeatherPlaceCommand}"
+              ToolTip.Tip="OpenStreetMap's place search — one request per press; picking a result fills the name and the coordinates" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*" IsVisible="{Binding HasWeatherPlaces}">
+      <TextBlock Classes="label" Text="Found" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding WeatherPlaces}" SelectedItem="{Binding SelectedWeatherPlace, Mode=TwoWay}"
+                PlaceholderText="Pick the place…" HorizontalAlignment="Stretch" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,8,*">
+      <TextBlock Classes="label" Text="Name on screen" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Weather.Place}" Watermark="Manchester" />
+      <TextBlock Grid.Column="3" Classes="hint" Text="{Binding WeatherCoordinatesText}" VerticalAlignment="Center" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,8,*">
+      <TextBlock Classes="label" Text="Latitude / longitude" VerticalAlignment="Center"
+                 ToolTip.Tip="Decimal degrees — a search fills them; type them for a venue the search does not know" />
+      <NumericUpDown Grid.Column="1" Minimum="-90" Maximum="90" Increment="0.01" FormatString="0.####"
+                     Value="{Binding State.Weather.Latitude, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <NumericUpDown Grid.Column="3" Minimum="-180" Maximum="180" Increment="0.01" FormatString="0.####"
+                     Value="{Binding State.Weather.Longitude, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="View" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding WeatherViews}"
+                SelectedValue="{Binding State.Overlays.Weather.View, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Units" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding WeatherUnitChoices}"
+                SelectedValue="{Binding State.Weather.Units, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Source" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding WeatherProviderChoices}"
+                SelectedValue="{Binding State.Weather.Provider, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*"
+          IsVisible="{Binding State.Weather.Provider, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:WeatherProvider.OpenMeteo}}">
+      <TextBlock Classes="label" Text="API key" VerticalAlignment="Center"
+                 ToolTip.Tip="Open-Meteo's commercial key — blank uses the free endpoint, which is for non-commercial use" />
+      <TextBox Grid.Column="1" Text="{Binding State.Weather.ApiKey}" PasswordChar="•" Watermark="blank = the free, non-commercial endpoint" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Contact" VerticalAlignment="Center"
+                 ToolTip.Tip="Sent with every request as who is calling — MET Norway asks for it: an email or a site" />
+      <TextBox Grid.Column="1" Text="{Binding State.Weather.Contact}" Watermark="you@example.com" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Refresh (min)" />
+      <NumericUpDown Grid.Column="1" Minimum="10" Maximum="1440" Increment="5" FormatString="0"
+                     Value="{Binding State.Weather.RefreshMinutes, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <StackPanel IsEnabled="{Binding State.Overlays.Weather.Enabled}">
+      <CheckBox Content="Place name" IsChecked="{Binding State.Overlays.Weather.ShowPlace}" />
+      <CheckBox Content="Details — the sky in words, the wind, the rain, the hours" IsChecked="{Binding State.Overlays.Weather.ShowDetail}" />
+      <CheckBox Content="Credit the source in small type (its licence asks for it)" IsChecked="{Binding State.Overlays.Weather.ShowCredit}" />
+      <CheckBox Content="Pill background" IsChecked="{Binding State.Overlays.Weather.Pill}" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Text colour" />
+        <c:ColorField Grid.Column="1" Value="{Binding State.Overlays.Weather.TextColor, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Position" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
+                  SelectedValue="{Binding State.Overlays.Weather.Anchor, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,*">
+        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the chip on the PREVIEW pane" />
+        <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Weather.OffsetXPct, Mode=TwoWay}" />
+        <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Weather.OffsetYPct, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Size (% height)" />
+        <Slider Grid.Column="1" Minimum="2" Maximum="40" Value="{Binding State.Overlays.Weather.SizePct, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Opacity" />
+        <Slider Grid.Column="1" Minimum="0.05" Maximum="1" Value="{Binding State.Overlays.Weather.Opacity, Mode=TwoWay}" />
+      </Grid>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="chip" Content="Refresh now" Command="{Binding RefreshWeatherCommand}" />
+    </StackPanel>
+    <TextBlock Classes="label" Text="{Binding WeatherStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip"
+               Text="MET Norway's forecast is free the world over, needs no key, and asks only to be credited (the chip's small line) and told who is calling (the contact). Open-Meteo is free for non-commercial use and sells a key for commercial shows. The place search is OpenStreetMap's: a town and a country finds it; a venue it does not know takes its coordinates typed in. A look carries the chip and its view; the place and the source are the show's. The Show panel's drawer, a cue (Weather on / off / the view), WEATHER on the wire and Companion switch it live." />
+
     <TextBlock Classes="h2" Text="PICTURE-IN-PICTURE (LIVE INSET)" />
     <CheckBox Content="Show a live inset over the content" IsChecked="{Binding State.Overlays.Pip.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Pip.Enabled}">

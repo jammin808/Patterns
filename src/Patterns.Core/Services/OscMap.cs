@@ -67,6 +67,7 @@ public static class OscMap
         ("/patterns/cue/hold 1|0", "CUE HOLD ON / OFF"),
         ("/patterns/cue/arm 1|0", "CUE ARM ON / OFF — only while the Remote page allows remotes to arm"),
         ("/patterns/review [1|0]", "REVIEW ON / OFF — the preview full-frame on every multiview; no argument toggles"),
+        ("/patterns/weather [1|0|now|day|tomorrow]", "WEATHER ON / OFF — the weather chip on air; no argument toggles; a view word (also /patterns/weather/tomorrow) picks what it shows"),
         ("/patterns/freeze [1|0]", "FREEZE ON / OFF — every output holds its frame; no argument toggles"),
         ("/patterns/fade [seconds]", "FADE — blackout with a fade of that many seconds (none: the show's transition time); /fade/up [seconds] lifts it"),
         ("/patterns/lookback", "LOOKBACK — the look that was on air before the current one, back on air"),
@@ -333,6 +334,16 @@ public static class OscMap
             }
             case "schedule": return "SCHEDULE " + Switch(m, seg, "ON", toggles: false);
             case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
+            // /patterns/weather 1|0 · /patterns/weather/on · /patterns/weather/tomorrow · /patterns/weather "day": the switch, or the view.
+            case "weather": case "forecast":
+            {
+                var word = seg.Length > 0 ? seg : m.Text() ?? "";
+                if (WeatherWords.ParseView(word) is { } view)
+                {
+                    return "WEATHER " + view switch { Model.WeatherView.RestOfDay => "DAY", Model.WeatherView.Tomorrow => "TOMORROW", _ => "NOW" };
+                }
+                return "WEATHER " + Switch(m, seg, "TOGGLE", toggles: true);
+            }
             case "freeze": return "FREEZE " + Switch(m, seg, "TOGGLE", toggles: true);
             // /patterns/fade 2 · /patterns/fade/up 2 · /patterns/fade/down: the seconds as the argument or the next segment.
             case "fade":

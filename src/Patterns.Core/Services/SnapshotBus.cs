@@ -31,6 +31,9 @@ public sealed class ShowSnapshot
     /// <summary>Runtime-only: live ticker text from the configured feed (empty = use static text).</summary>
     public string FeedText { get; init; } = "";
 
+    /// <summary>Runtime-only: the forecast the weather overlay draws (null = none fetched yet); immutable, so safe on every render thread.</summary>
+    public WeatherReport? Weather { get; init; }
+
     /// <summary>Runtime-only: output windows are open (drives multiview tally).</summary>
     public bool OutputsLive { get; init; }
 
@@ -248,6 +251,9 @@ public sealed class SnapshotBus
     /// <summary>Set by the feed service; carried on every snapshot.</summary>
     public string FeedText { get; set; } = "";
 
+    /// <summary>Set by the weather service; carried on every snapshot.</summary>
+    public WeatherReport? Weather { get; set; }
+
     /// <summary>Set by the output manager; carried on every snapshot (multiview tally).</summary>
     public bool OutputsLive { get; set; }
 
@@ -330,6 +336,7 @@ public sealed class SnapshotBus
             PlaylistNow = PlaylistNow,
             ToneIndicator = ToneIndicator,
             FeedText = FeedText,
+            Weather = Weather,
             OutputsLive = OutputsLive,
             PublishedClock = now,
             Ticker = ticker,

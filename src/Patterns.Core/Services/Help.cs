@@ -473,6 +473,21 @@ public static class HelpTopics
             new[] { "playlist", "part", "section", "multiview", "stream", "streaming", "rtmp", "srt", "destination", "arm" }),
 
         // ---- THE RIG ----------------------------------------------------------------------
+        new HelpTopic("weather", HelpGroup.Content,
+            "The weather chip: now, the rest of today, tomorrow",
+            "Overlays → WEATHER: search for the venue, pick the view, and the engine draws the forecast on every screen like the clock — from MET Norway (free, credited) or Open-Meteo; the Show panel, a cue, the wire and Companion switch it live.",
+            HelpBodies.Weather,
+            new[]
+            {
+                "Overlays → WEATHER: type a town and a country, press SEARCH, pick the place — the name and the coordinates fill in (or type the coordinates for a venue the search does not know).",
+                "Choose the view — Now, Rest of today, Tomorrow — the units, and where the chip sits; drag it on the PREVIEW pane like the clock.",
+                "Leave the source on MET Norway unless the show needs Open-Meteo's commercial plan (paste its key); put a contact in — the sources ask who is calling.",
+                "Show time: the Show panel's drawer (SHOW / HIDE, NOW / TODAY / TOMORROW), a cue's Weather on / off / view, WEATHER on the wire and OSC, a Companion key that reads the figure.",
+            },
+            "A look carries the chip and its view; the place and the source are the show's.",
+            new[] { "Overlays" },
+            new[] { "weather", "forecast", "temperature", "rain", "sun", "cloud", "tomorrow", "today", "place", "location", "venue", "met norway", "open-meteo", "degrees", "celsius", "fahrenheit", "overlay", "chip" }),
+
         new HelpTopic("screen-roles", HelpGroup.TheRig,
             "Screen roles, locks and repeaters",
             "SETUP → Screens: what each screen is for — main, confidence, info — and whether looks and cues may touch it.",

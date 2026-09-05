@@ -18,6 +18,17 @@ and the caller's VT clock — what is left of the clip on air, red for its last 
    Transport, Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music, and the
    *… — this show* categories with a preset per item of the show that is loaded.
 
+## The weather chip (module 2.4.0)
+
+The weather overlay Patterns draws on every screen — the venue's forecast for this hour, the
+rest of today or tomorrow — has a key: the **weather** action puts the chip on air, takes it off,
+toggles it, or picks its view (now / the rest of today / tomorrow); the **weather_on** feedback
+lights the key while the chip is on air; and the variables read what the audience sees —
+`weather` (ON/off), `weather_figure` ("18°" or "14–19°"), `weather_place`, `weather_view` and
+`weather_text` ("Manchester · 18° · Light rain · wind 12 km/h"). The *WEATHER* preset reads the
+figure over the place and toggles the chip; *WEATHER — tomorrow* turns the chip to tomorrow. The
+place, the source and the units are set on Patterns' Overlays page.
+
 ## The VT clock: what is left, the last ten seconds, the top (module 2.4.0)
 
 While a clip is on air — the program's video, a playlist's video, a stinger's clip, an audio file —

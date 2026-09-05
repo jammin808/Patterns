@@ -13,6 +13,8 @@ public enum HitKind
     Countdown,
     Message,
     Pip,
+    /// <summary>The weather chip.</summary>
+    Weather,
     /// <summary>A web page's picture — a press goes to the page as a click rather than moving anything.</summary>
     WebPage,
     /// <summary>An input's picture as the Media pattern placed it (through its area of interest) — never a drag handle; the desk's crop pick reads it.</summary>

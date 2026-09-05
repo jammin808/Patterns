@@ -64,6 +64,11 @@ public enum ShowActionKind
     MessageOff,
     ClockOn,
     ClockOff,
+    /// <summary>The weather chip on air; WeatherView's Value names the view: now, day (the rest of today) or tomorrow.</summary>
+    WeatherOn,
+    WeatherOff,
+    WeatherView,
+    WeatherToggle,
     /// <summary>Target = a cue list (stack id or name): the clicker list or the caller's stack.</summary>
     ListArm,
     ListDisarm,

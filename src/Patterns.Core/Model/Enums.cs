@@ -192,6 +192,30 @@ public enum MessageBackground
     Fade,
 }
 
+/// <summary>What the weather overlay shows: the hour, the rest of today, or tomorrow.</summary>
+public enum WeatherView
+{
+    Now,
+    RestOfDay,
+    Tomorrow,
+}
+
+/// <summary>Degrees and wind as the audience reads them: Celsius with km/h, or Fahrenheit with mph.</summary>
+public enum WeatherUnits
+{
+    Celsius,
+    Fahrenheit,
+}
+
+/// <summary>Where the forecast comes from — see <see cref="Services.WeatherSources"/> for what each asks of the user.</summary>
+public enum WeatherProvider
+{
+    /// <summary>The Norwegian Meteorological Institute's Locationforecast: free, the world over, no key, a named User-Agent and a credit.</summary>
+    MetNorway,
+    /// <summary>Open-Meteo: free for non-commercial use, a key for commercial use (the Overlays page takes it).</summary>
+    OpenMeteo,
+}
+
 public enum Anchor9
 {
     TopLeft,

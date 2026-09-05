@@ -144,6 +144,14 @@ public sealed partial class ControlService
   <div class="sec">REVIEW</div>
   <div class="grid"><button id="review" onclick="cmd('REVIEW TOGGLE')">PREVIEW ON THE MULTIVIEW</button></div>
   <div class="line">Every multiview shows what the desk is building until you switch it off — the audience's screens do not change.</div>
+  <div class="sec">WEATHER</div>
+  <div class="grid"><button id="weather" onclick="cmd('WEATHER TOGGLE')">WEATHER</button></div>
+  <div class="grid row3">
+    <button onclick="cmd('WEATHER NOW')" title="The chip shows this hour">NOW</button>
+    <button onclick="cmd('WEATHER DAY')" title="The chip shows the rest of today">TODAY</button>
+    <button onclick="cmd('WEATHER TOMORROW')" title="The chip shows tomorrow">TOMORROW</button>
+  </div>
+  <div id="weatherline" class="line"></div>
   <div class="sec" id="websec" hidden>PAGE ON AIR</div>
   <div id="webname" class="line"></div>
   <div id="webacts" class="grid row3"></div>
@@ -324,6 +332,9 @@ function render(s) {
   if (s.lowerThird) now.appendChild(btn('■ Hide lower third: ' + esc(s.lowerThird) + (s.lowerThirdPerson ? ' — ' + esc(s.lowerThirdPerson) : ''), 'stop', function(){ cmd('LT OFF'); }));
   var rv = document.getElementById('review');
   rv.classList.toggle('lit', !!s.review); rv.textContent = s.review ? 'REVIEW — ON: the preview fills every multiview' : 'PREVIEW ON THE MULTIVIEW';
+  var wt = document.getElementById('weather'); var wx = s.weather || {};
+  wt.classList.toggle('lit', !!wx.on); wt.textContent = wx.on ? 'WEATHER — ON (hide)' : 'WEATHER';
+  document.getElementById('weatherline').textContent = wx.text ? (wx.text + (wx.on ? '' : ' · off')) : '';
   var fz = document.getElementById('freeze');
   fz.classList.toggle('on', !!s.frozen); fz.textContent = s.frozen ? 'FROZEN — release' : 'FREEZE';
   var lb = document.getElementById('lookback');

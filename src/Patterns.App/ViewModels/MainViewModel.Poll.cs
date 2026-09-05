@@ -119,6 +119,8 @@ public sealed partial class MainViewModel
             : NdiRuntimeFound ? "Off" : "Runtime not found";
         PlaylistStatus = _services.Playlist.Status;
         FeedStatus = _services.Feeds.Status;
+        WeatherStatus = _services.Weather.Status;
+        RaiseIfChanged(nameof(WeatherCoordinatesText), WeatherCoordinatesText);
         RaiseIfChanged(nameof(DirectOutputSummary), DirectOutputSummary);
         RefreshCropSummary();
         RefreshDeck();

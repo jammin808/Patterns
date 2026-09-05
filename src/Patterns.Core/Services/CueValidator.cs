@@ -230,6 +230,12 @@ public static class CueValidator
                 case CueActionKind.MessageOn:
                     if (string.IsNullOrWhiteSpace(a.Value)) Soft($"{where}: the message text is empty.");
                     break;
+                case CueActionKind.WeatherOn:
+                    if (!state.Weather.HasLocation) Soft($"{where}: no place is set for the weather (Overlays page) — the chip will say so.");
+                    break;
+                case CueActionKind.WeatherView:
+                    if (WeatherWords.ParseView(a.Value) is null) Hard($"{where}: weather view '{a.Value}' is not now, day or tomorrow.");
+                    break;
                 case CueActionKind.LowerThirdTake:
                     if (state.LowerThirds.Designs.Count == 0) Soft($"{where}: the show has no lower third design to take.");
                     break;

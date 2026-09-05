@@ -208,6 +208,7 @@ public sealed class ActionRow : Observable
         ValueKind.WebKey => "an action — next · prev · first · last · present · exit · play · pause · mute · restart · black · white — or a key: ArrowRight · Space · k · Ctrl+Shift+F5",
         ValueKind.Point => "x y in percent of the page, e.g. 50 50",
         ValueKind.Seconds => "seconds before the end, e.g. 10 (blank = 10)",
+        ValueKind.WeatherView => "now · day (the rest of today) · tomorrow",
         _ => "",
     };
 

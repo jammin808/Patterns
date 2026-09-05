@@ -123,6 +123,10 @@ public static class CueSummary
             case CueActionKind.ScheduleOff: return "Install schedule off";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
+            case CueActionKind.WeatherOn: return "Weather on";
+            case CueActionKind.WeatherOff: return "Weather off";
+            case CueActionKind.WeatherView:
+                return WeatherWords.ParseView(a.Value) is { } view ? $"Weather: {WeatherWords.ViewName(view).ToLowerInvariant()}" : $"Weather: '{a.Value}' (not a view)";
             case CueActionKind.DuckOn: return "Duck for announcement";
             case CueActionKind.DuckOff: return "Lift the duck";
             case CueActionKind.ListArm: return $"Arm {StackName(state, a.Target)}";

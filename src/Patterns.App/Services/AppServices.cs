@@ -31,6 +31,9 @@ public sealed class AppServices
     public DeckEngine DeckIn { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
+
+    /// <summary>The venue's forecast for the weather overlay, fetched on the show's interval and carried on the snapshot.</summary>
+    public WeatherService Weather { get; }
     public AudioService Audio { get; }
     public AudioPlayerService AudioPlayer { get; }
 
@@ -233,6 +236,7 @@ public sealed class AppServices
         Outputs = new OutputWindowManager(this);
         Playlist = new PlaylistService(this);
         Feeds = new FeedService(this);
+        Weather = new WeatherService(this);
         Audio = new AudioService(this);
         AudioPlayer = new AudioPlayerService(this);
         MusicDuckSource = () => AudioPlayer.VogSoundPlaying;
@@ -725,6 +729,7 @@ public sealed class AppServices
             AudioPlayer.Dispose();
             Playlist.Dispose();
             Feeds.Dispose();
+            Weather.Dispose();
             Video.Dispose();
             Metrics.Dispose();
             Analyser.Dispose();

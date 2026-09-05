@@ -25,6 +25,11 @@ public static class OverlayRenderer
             DrawClock(c, in f, overlays.Clock);
         }
 
+        if (overlays.Weather.Enabled)
+        {
+            DrawWeather(c, in f, overlays.Weather);
+        }
+
         var cd = f.Snapshot.State.Countdown;
         if (cd.Enabled)
         {
@@ -120,6 +125,123 @@ public static class OverlayRenderer
             df.Size = dateFontSize;
             DrawUtil.TextCentered(c, date, rect.MidX, rect.Bottom - padY * 0.5f - dateFontSize * 0.55f,
                 df, pc.Text(textColor.WithAlpha((byte)(alpha * 0.82))));
+        }
+    }
+
+    /// <summary>
+    /// The weather chip: the place over a glyph and the big figure, the sky in words under them,
+    /// the hours as small columns for the rest of today and tomorrow, and the source's credit.
+    /// With no forecast yet the chip still draws — the operator sees where it sits — and says why.
+    /// </summary>
+    private static void DrawWeather(SKCanvas c, in PatternFrame f, WeatherOverlay o)
+    {
+        var pc = f.Paints;
+        var state = f.Snapshot.State;
+        var settings = state.Weather;
+        var report = f.Snapshot.Weather;
+        var card = report is null ? null : WeatherWords.Card(report, o.View, f.Ctx.Now, settings.Units);
+        var family = state.Brand.FontFamily;
+        var s = (float)(f.H * o.SizePct / 100);
+        var alpha = (byte)(o.Opacity * 255);
+        var textColor = f.Color(o.TextColor, f.Palette.Text).WithAlpha(alpha);
+
+        var head = o.ShowPlace && settings.Place.Length > 0 ? settings.Place : "";
+        if (card is not null && o.View != WeatherView.Now) head = head.Length > 0 ? $"{head} · {card.Title}" : card.Title;
+        var figure = card?.Figure ?? "—";
+        var detail = !o.ShowDetail ? ""
+            : card is not null ? card.Detail
+            : !settings.HasLocation ? "Set a place on the Overlays page"
+            : report is null ? "Forecast on its way…"
+            : "No forecast for this view yet";
+        var marks = o.ShowDetail && card is not null ? card.Marks : Array.Empty<WeatherMark>();
+        var credit = o.ShowCredit && report is not null ? WeatherSources.Credit(report.Source) : "";
+
+        var headSize = s * 0.3f;
+        var detailSize = s * 0.3f;
+        var markLabelSize = s * 0.22f;
+        var markFigureSize = s * 0.26f;
+        var markGlyph = s * 0.55f;
+        var creditSize = s * 0.18f;
+        var glyph = s * 1.2f;
+        var gap = s * 0.25f;
+        var padX = s * 0.4f;
+        var padY = s * 0.28f;
+        var rowGap = s * 0.12f;
+
+        var bold = pc.FontFor(family, bold: true);
+        var regular = pc.FontFor(family, bold: false);
+        bold.Size = s;
+        var figureW = bold.MeasureText(figure);
+        regular.Size = headSize;
+        var headW = head.Length > 0 ? regular.MeasureText(head) : 0;
+        regular.Size = detailSize;
+        var detailW = detail.Length > 0 ? regular.MeasureText(detail) : 0;
+        regular.Size = creditSize;
+        var creditW = credit.Length > 0 ? regular.MeasureText(credit) : 0;
+        var column = Math.Max(markGlyph, s * 0.9f) + s * 0.2f;
+        var marksW = marks.Count > 0 ? marks.Count * column : 0;
+
+        var boxW = Math.Max(Math.Max(glyph + gap + figureW, headW), Math.Max(Math.Max(detailW, marksW), creditW)) + padX * 2;
+        var boxH = padY * 2 + (head.Length > 0 ? headSize * 1.3f : 0) + glyph
+                   + (detail.Length > 0 ? rowGap + detailSize * 1.3f : 0)
+                   + (marks.Count > 0 ? rowGap + markLabelSize * 1.2f + markGlyph + markFigureSize * 1.2f : 0)
+                   + (credit.Length > 0 ? rowGap + creditSize * 1.2f : 0);
+        var margin = Math.Max(10f, f.H * 0.03f);
+        var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
+        Hit(in f, HitKind.Weather, rect);
+
+        if (o.Pill)
+        {
+            c.DrawRoundRect(rect, s * 0.22f, s * 0.22f,
+                pc.FillAA(f.Palette.ChipBg.WithAlpha((byte)(f.Palette.ChipBg.Alpha * o.Opacity))));
+        }
+
+        var x = rect.Left + padX;
+        var y = rect.Top + padY;
+        if (head.Length > 0)
+        {
+            regular.Size = headSize;
+            DrawUtil.TextLeft(c, head, x, y + headSize, regular, pc.Text(textColor.WithAlpha((byte)(alpha * 0.82))));
+            y += headSize * 1.3f;
+        }
+
+        var glyphBox = new SKRect(x, y, x + glyph, y + glyph);
+        WeatherGlyphs.Draw(c, pc, card?.Sky ?? WeatherSky.Unknown, card?.Night ?? false, glyphBox, (float)o.Opacity);
+        bold.Size = s;
+        DrawUtil.TextCentered(c, figure, x + glyph + gap + figureW / 2, y + glyph / 2, bold, pc.Text(textColor));
+        y += glyph;
+
+        if (detail.Length > 0)
+        {
+            y += rowGap;
+            regular.Size = detailSize;
+            DrawUtil.TextLeft(c, detail, x, y + detailSize, regular, pc.Text(textColor.WithAlpha((byte)(alpha * 0.88))));
+            y += detailSize * 1.3f;
+        }
+
+        if (marks.Count > 0)
+        {
+            y += rowGap;
+            var mx = x;
+            foreach (var mark in marks)
+            {
+                var cx = mx + column / 2;
+                regular.Size = markLabelSize;
+                DrawUtil.TextCentered(c, mark.Label, cx, y + markLabelSize * 0.6f, regular, pc.Text(textColor.WithAlpha((byte)(alpha * 0.75))));
+                var gy = y + markLabelSize * 1.2f;
+                WeatherGlyphs.Draw(c, pc, mark.Sky, mark.Night, new SKRect(cx - markGlyph / 2, gy, cx + markGlyph / 2, gy + markGlyph), (float)o.Opacity);
+                regular.Size = markFigureSize;
+                DrawUtil.TextCentered(c, mark.Figure, cx, gy + markGlyph + markFigureSize * 0.6f, regular, pc.Text(textColor));
+                mx += column;
+            }
+            y += markLabelSize * 1.2f + markGlyph + markFigureSize * 1.2f;
+        }
+
+        if (credit.Length > 0)
+        {
+            y += rowGap;
+            regular.Size = creditSize;
+            DrawUtil.TextLeft(c, credit, x, y + creditSize, regular, pc.Text(textColor.WithAlpha((byte)(alpha * 0.6))));
         }
     }
 

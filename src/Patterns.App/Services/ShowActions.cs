@@ -323,6 +323,36 @@ public sealed class ShowActions
             case ShowActionKind.ClockOff:
                 _s.EditAir(air => air.Overlays.Clock.Enabled = false);
                 return ActionResult.Done("Clock off.");
+            case ShowActionKind.WeatherOn:
+            {
+                var view = WeatherWords.ParseView(a.Value);
+                _s.EditAir(air =>
+                {
+                    air.Overlays.Weather.Enabled = true;
+                    if (view is { } v) air.Overlays.Weather.View = v;
+                });
+                _s.Weather.RefreshNow();
+                return ActionResult.Done(_s.State.Weather.HasLocation ? "Weather on." : "Weather on — set a place on the Overlays page for a forecast.");
+            }
+            case ShowActionKind.WeatherOff:
+                _s.EditAir(air => air.Overlays.Weather.Enabled = false);
+                return ActionResult.Done("Weather off.");
+            case ShowActionKind.WeatherToggle:
+            {
+                var on = !_s.AirState.Overlays.Weather.Enabled;
+                _s.EditAir(air => air.Overlays.Weather.Enabled = on);
+                if (on) _s.Weather.RefreshNow();
+                return ActionResult.Done(on ? "Weather on." : "Weather off.");
+            }
+            case ShowActionKind.WeatherView:
+            {
+                if (WeatherWords.ParseView(a.Value) is not { } view)
+                {
+                    return ActionResult.Refused($"'{a.Value}' is not a weather view — now, day or tomorrow.");
+                }
+                _s.EditAir(air => air.Overlays.Weather.View = view);
+                return ActionResult.Done($"Weather: {WeatherWords.ViewName(view).ToLowerInvariant()}.");
+            }
             case ShowActionKind.LowerThirdShow:
             case ShowActionKind.LowerThirdPreview:
             {
@@ -1118,6 +1148,9 @@ public sealed class ShowActions
         CueActionKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
         CueActionKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
         CueActionKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
+        CueActionKind.WeatherOn => new ShowAction(ShowActionKind.WeatherOn),
+        CueActionKind.WeatherOff => new ShowAction(ShowActionKind.WeatherOff),
+        CueActionKind.WeatherView => new ShowAction(ShowActionKind.WeatherView, "", a.Value),
         CueActionKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, a.Target, a.Value),
         CueActionKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
         CueActionKind.LowerThirdPreview => new ShowAction(ShowActionKind.LowerThirdPreview, a.Target, a.Value),

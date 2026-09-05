@@ -62,6 +62,15 @@ public static class OscFeedback
             Text(list, root, "playlist", "playlist");
             Text(list, root, "health", "health");
             Flag(list, root, "review", "review");
+            // The weather chip: on air, its view, the place, and the line the desk reads ("Manchester · 18° · Light rain").
+            if (root.TryGetProperty("weather", out var weather) && weather.ValueKind == JsonValueKind.Object)
+            {
+                Flag(list, weather, "on", "weather");
+                Text(list, weather, "view", "weather/view");
+                Text(list, weather, "place", "weather/place");
+                Text(list, weather, "text", "weather/text");
+                Text(list, weather, "figure", "weather/figure");
+            }
             Flag(list, root, "frozen", "freeze");
             Flag(list, root, "editSafe", "editsafe");
             Text(list, root, "previousLook", "look/previous");

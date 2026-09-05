@@ -404,6 +404,92 @@ public sealed class MessageOverlay : Observable
     public double BackgroundStrength { get => _backgroundStrength; set => Set(ref _backgroundStrength, Math.Clamp(value, 0.1, 1)); }
 }
 
+/// <summary>
+/// The weather chip: the hour, the rest of today or tomorrow for the venue, drawn by the engine
+/// on every sink like the clock. What it looks like lives here (a look carries it); where the
+/// venue is and where the forecast comes from live in <see cref="WeatherSettings"/> on the show.
+/// </summary>
+public sealed class WeatherOverlay : Observable
+{
+    private bool _enabled;
+    private WeatherView _view = WeatherView.Now;
+    private Anchor9 _anchor = Anchor9.TopLeft;
+    private double _sizePct = 7;
+    private double _offsetXPct;
+    private double _offsetYPct;
+    private double _opacity = 1.0;
+    private bool _pill = true;
+    private bool _showPlace = true;
+    private bool _showDetail = true;
+    private bool _showCredit = true;
+    private string _textColor = "";
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public WeatherView View { get => _view; set => Set(ref _view, value); }
+    public Anchor9 Anchor { get => _anchor; set => Set(ref _anchor, value); }
+
+    /// <summary>The big figure's height as % of canvas height.</summary>
+    public double SizePct { get => _sizePct; set => Set(ref _sizePct, Math.Clamp(value, 2, 40)); }
+
+    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it.</summary>
+    public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
+    public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
+    public double Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0.05, 1)); }
+
+    /// <summary>Draw a translucent pill behind the chip.</summary>
+    public bool Pill { get => _pill; set => Set(ref _pill, value); }
+
+    /// <summary>The place's name over the figure.</summary>
+    public bool ShowPlace { get => _showPlace; set => Set(ref _showPlace, value); }
+
+    /// <summary>The line under the figure: the sky in words, the wind, the chance of rain, the hours.</summary>
+    public bool ShowDetail { get => _showDetail; set => Set(ref _showDetail, value); }
+
+    /// <summary>The source's credit in small type — both sources' licences ask for it.</summary>
+    public bool ShowCredit { get => _showCredit; set => Set(ref _showCredit, value); }
+
+    /// <summary>Text colour; empty = brand/theme text colour.</summary>
+    public string TextColor { get => _textColor; set => Set(ref _textColor, value); }
+}
+
+/// <summary>
+/// The venue and the forecast's source — the show's, not a look's: the place the operator
+/// picked (a name, and the coordinates a search or a hand filled in), the units the audience
+/// reads, which service answers, its key when one is needed, and how often it is asked.
+/// </summary>
+public sealed class WeatherSettings : Observable
+{
+    private string _place = "";
+    private double _latitude;
+    private double _longitude;
+    private WeatherUnits _units = WeatherUnits.Celsius;
+    private WeatherProvider _provider = WeatherProvider.MetNorway;
+    private string _apiKey = "";
+    private string _contact = "";
+    private double _refreshMinutes = 20;
+
+    /// <summary>The place as the audience reads it ("Manchester") — what a search filled in, or typed over.</summary>
+    public string Place { get => _place; set => Set(ref _place, value ?? ""); }
+
+    /// <summary>Decimal degrees; 0 / 0 together means "not set" (the Gulf of Guinea can be typed as 0.0001).</summary>
+    public double Latitude { get => _latitude; set => Set(ref _latitude, Math.Clamp(value, -90, 90)); }
+    public double Longitude { get => _longitude; set => Set(ref _longitude, Math.Clamp(value, -180, 180)); }
+
+    public bool HasLocation => _latitude != 0 || _longitude != 0;
+
+    public WeatherUnits Units { get => _units; set => Set(ref _units, value); }
+    public WeatherProvider Provider { get => _provider; set => Set(ref _provider, value); }
+
+    /// <summary>Open-Meteo's commercial key (blank = the free, non-commercial endpoint); MET Norway needs none.</summary>
+    public string ApiKey { get => _apiKey; set => Set(ref _apiKey, (value ?? "").Trim()); }
+
+    /// <summary>A contact (an email or a site) sent in the User-Agent — MET Norway asks who is calling.</summary>
+    public string Contact { get => _contact; set => Set(ref _contact, (value ?? "").Trim()); }
+
+    /// <summary>How often the forecast is asked for again; the services update about hourly, so ten minutes is the floor.</summary>
+    public double RefreshMinutes { get => _refreshMinutes; set => Set(ref _refreshMinutes, Math.Clamp(value, 10, 24 * 60)); }
+}
+
 public sealed class OverlaySet : Observable
 {
     public ClockOverlay Clock { get; init; } = new();
@@ -411,6 +497,7 @@ public sealed class OverlaySet : Observable
     public InfoOverlay Info { get; init; } = new();
     public MessageOverlay Message { get; init; } = new();
     public PipOverlay Pip { get; init; } = new();
+    public WeatherOverlay Weather { get; init; } = new();
 }
 
 /// <summary>Picture-in-picture inset: a second live input composited over whatever is showing.</summary>
@@ -1733,6 +1820,9 @@ public sealed class ShowState : Observable
     public OverlaySet Overlays { get; init; } = new();
     public CountdownConfig Countdown { get; init; } = new();
     public BrandKit Brand { get; init; } = new();
+
+    /// <summary>The venue and the forecast's source for the weather overlay — the show's, never a look's.</summary>
+    public WeatherSettings Weather { get; init; } = new();
     public NdiConfig Ndi { get; init; } = new();
     public ToneConfig Tone { get; init; } = new();
     public LooksConfig LooksAndCues { get; init; } = new();

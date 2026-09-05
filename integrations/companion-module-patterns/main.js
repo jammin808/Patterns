@@ -214,6 +214,11 @@ class PatternsInstance extends InstanceBase {
 			web_title: this.state.web?.title ?? '',
 			web_service: this.state.web?.service ?? '',
 			review: this.state.review ? 'ON' : 'off',
+			weather: this.state.weather?.on ? 'ON' : 'off',
+			weather_text: this.state.weather?.text ?? '',
+			weather_place: this.state.weather?.place ?? '',
+			weather_figure: this.state.weather?.figure ?? '',
+			weather_view: this.state.weather?.view ?? '',
 			freeze: this.state.frozen ? 'FROZEN' : 'off',
 			previous_look: this.state.previousLook ?? '',
 			music: this.state.music?.now ?? '',
@@ -237,7 +242,7 @@ class PatternsInstance extends InstanceBase {
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'screen_armed', 'screen_own', 'audio_playing', 'stinger_playing', 'music_playing',
 			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'lower_third_preview', 'lower_third_edited',
-			'review_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
+			'review_on', 'weather_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
 			'web_on_air', 'deck_on_air', 'video_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty',
 			'schedule_on', 'announcement_on', 'advert_on')
 		this.refreshShowPresets()
@@ -400,6 +405,15 @@ class PatternsInstance extends InstanceBase {
 				name: 'Review — the preview on every multiview (toggle / on / off)',
 				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
 				callback: (a) => send(`REVIEW ${a.options.mode}`),
+			},
+			// The weather chip: on air, off, or its view (this hour, the rest of today, tomorrow).
+			weather: {
+				name: 'Weather — the chip on air, off, or its view',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [
+					{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' },
+					{ id: 'NOW', label: 'View: now (this hour)' }, { id: 'DAY', label: 'View: the rest of today' }, { id: 'TOMORROW', label: 'View: tomorrow' },
+				] }],
+				callback: (a) => send(`WEATHER ${a.options.mode}`),
 			},
 			// FREEZE: every output holds its frame until released; the desk keeps moving.
 			freeze: {
@@ -859,6 +873,13 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => !!this.state.review,
 			},
+			weather_on: {
+				type: 'boolean',
+				name: 'The weather chip is on air',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.weather?.on,
+			},
 			frozen: {
 				type: 'boolean',
 				name: 'Frozen (every output holds its frame)',
@@ -1013,6 +1034,11 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'lower_third_default', name: 'The show\'s default lower third design (★)' },
 			{ variableId: 'lower_third_edited', name: 'EDITED when the design on air differs from the edited one, else off' },
 			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
+			{ variableId: 'weather', name: 'The weather chip on air (ON/off)' },
+			{ variableId: 'weather_text', name: 'The weather as the desk reads it ("Manchester · 18° · Light rain · wind 12 km/h")' },
+			{ variableId: 'weather_place', name: 'The weather chip\'s place' },
+			{ variableId: 'weather_figure', name: 'The weather chip\'s figure ("18°", "14–19°")' },
+			{ variableId: 'weather_view', name: 'The weather chip\'s view (now / day / tomorrow)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
 			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
 			{ variableId: 'audio_track', name: 'Audio playlist — the track on (or up next when stopped)' },
@@ -1266,6 +1292,19 @@ class PatternsInstance extends InstanceBase {
 			style: { text: 'REVIEW\\n$(patterns:review)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'review', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'review_on', options: {}, style: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) } }],
+		}
+		// The weather chip: a key that reads the figure and the place, lit while the chip is on air; a second key turns it to tomorrow.
+		presets.weather = {
+			type: 'button', category: 'Overlays', name: 'WEATHER — the chip on air (reads the figure)',
+			style: { text: '$(patterns:weather_figure)\\n$(patterns:weather_place)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'weather', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'weather_on', options: {}, style: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) } }],
+		}
+		presets.weather_tomorrow = {
+			type: 'button', category: 'Overlays', name: 'WEATHER — tomorrow',
+			style: { text: 'WEATHER\\nTOMORROW', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'weather', options: { mode: 'TOMORROW' } }], up: [] }],
+			feedbacks: [],
 		}
 		presets.freeze = {
 			type: 'button', category: 'Transport', name: 'FREEZE — every output holds its frame',

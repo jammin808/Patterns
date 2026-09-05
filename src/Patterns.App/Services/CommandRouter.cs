@@ -157,6 +157,10 @@ public sealed class CommandRouter
             RemoteCommandKind.StreamOff => new ShowAction(ShowActionKind.StreamStop),
             RemoteCommandKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, byNumberOrName),
             RemoteCommandKind.LowerThirdPerson => new ShowAction(ShowActionKind.LowerThirdShow, cmd.TextArg, cmd.Extra),
+            RemoteCommandKind.WeatherOn => new ShowAction(ShowActionKind.WeatherOn),
+            RemoteCommandKind.WeatherOff => new ShowAction(ShowActionKind.WeatherOff),
+            RemoteCommandKind.WeatherToggle => new ShowAction(ShowActionKind.WeatherToggle),
+            RemoteCommandKind.WeatherView => new ShowAction(ShowActionKind.WeatherView, "", cmd.TextArg),
             RemoteCommandKind.ReviewOn => new ShowAction(ShowActionKind.ReviewOn),
             RemoteCommandKind.ReviewOff => new ShowAction(ShowActionKind.ReviewOff),
             RemoteCommandKind.ReviewToggle => new ShowAction(ShowActionKind.ReviewToggle),
@@ -366,6 +370,7 @@ public sealed class CommandRouter
             web = WebRow(),                                                // the web page on air and its service's actions, or null
             deck = DeckRow(),                                              // the deck on air: file, page, count, ended — or null
             video = VideoRow(),                                            // the clip on air: file, where it is, what is left, the ten-second word — or null
+            weather = WeatherRow(),                                        // the weather chip: on air, its view, the place, the line and the figure
             interactive = s.Interactive.Enabled,                           // the Interactive area is on: devices open
             devices = _services.Devices.Rows(),                            // every device: name, link, address, open, status, the last lines
             install = _services.Install.StateRow(DateTime.Now),            // the install: the schedule's switch, the programme on, the override on, the next change, the rows, the update
@@ -392,6 +397,27 @@ public sealed class CommandRouter
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
         };
         return JsonSerializer.Serialize(payload);
+    }
+
+    /// <summary>The weather chip for remotes: on air, the view, the place, the line the desk reads, the figure alone, the source and the status.</summary>
+    private object WeatherRow()
+    {
+        var overlay = _services.AirState.Overlays.Weather;
+        var settings = _services.State.Weather;
+        var report = _services.Bus.Weather;
+        var now = DateTime.Now;
+        var card = report is null ? null : WeatherWords.Card(report, overlay.View, now, settings.Units);
+        return new
+        {
+            on = overlay.Enabled,
+            view = overlay.View switch { WeatherView.RestOfDay => "day", WeatherView.Tomorrow => "tomorrow", _ => "now" },
+            place = settings.Place,
+            text = WeatherWords.Line(report, overlay.View, now, settings.Units, settings.Place),
+            figure = card?.Figure ?? "",
+            sky = card?.Sky.ToString() ?? "",
+            source = report?.Source ?? "",
+            status = _services.Weather.Status,
+        };
     }
 
     /// <summary>Playlist parts for remotes; empty when the playlist has a single unnamed flow.</summary>

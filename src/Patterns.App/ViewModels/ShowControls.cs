@@ -38,6 +38,9 @@ public sealed class ShowControls : Observable
         MessageHideCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.MessageOff)));
         ClockShowCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.ClockOn)));
         ClockHideCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.ClockOff)));
+        WeatherShowCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.WeatherOn)));
+        WeatherHideCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.WeatherOff)));
+        WeatherViewCommand = new RelayCommand<string>(view => Send(new ShowAction(ShowActionKind.WeatherView, "", view ?? "now")));
         CountdownStartCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.CountdownStart, "", _draftMinutesText.Trim())));
         CountdownStopCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.CountdownStop)));
         VolumeSendCommand = new RelayCommand(() => Send(new ShowAction(ShowActionKind.AudioVolume, "", _draftVolume.ToString("0", System.Globalization.CultureInfo.InvariantCulture))));
@@ -87,10 +90,22 @@ public sealed class ShowControls : Observable
     public bool ClockOnAir { get => _clockOnAir; private set => Set(ref _clockOnAir, value); }
     public bool CountdownOnAir { get => _countdownOnAir; private set => Set(ref _countdownOnAir, value); }
 
+    private bool _weatherOnAir;
+    private string _weatherAirText = "off";
+
+    /// <summary>The weather chip is on the air.</summary>
+    public bool WeatherOnAir { get => _weatherOnAir; private set => Set(ref _weatherOnAir, value); }
+
+    /// <summary>"on air · now · Manchester 18°" or "off".</summary>
+    public string WeatherAirText { get => _weatherAirText; private set => Set(ref _weatherAirText, value); }
+
     public RelayCommand MessageShowCommand { get; }
     public RelayCommand MessageHideCommand { get; }
     public RelayCommand ClockShowCommand { get; }
     public RelayCommand ClockHideCommand { get; }
+    public RelayCommand WeatherShowCommand { get; }
+    public RelayCommand WeatherHideCommand { get; }
+    public RelayCommand<string> WeatherViewCommand { get; }
     public RelayCommand CountdownStartCommand { get; }
     public RelayCommand CountdownStopCommand { get; }
     public RelayCommand VolumeSendCommand { get; }
@@ -104,6 +119,20 @@ public sealed class ShowControls : Observable
         MessageAirText = message.Enabled ? $"on air: “{message.Text}”" : "off";
         ClockOnAir = air.Overlays.Clock.Enabled;
         ClockAirText = air.Overlays.Clock.Enabled ? "on air" : "off";
+        var weather = air.Overlays.Weather;
+        WeatherOnAir = weather.Enabled;
+        if (weather.Enabled)
+        {
+            var settings = _s.State.Weather;
+            var card = _s.Bus.Weather is { } report ? WeatherWords.Card(report, weather.View, DateTime.Now, settings.Units) : null;
+            WeatherAirText = $"on air · {WeatherWords.ViewName(weather.View).ToLowerInvariant()}"
+                             + (settings.Place.Length > 0 ? $" · {settings.Place}" : "")
+                             + (card is not null ? $" {card.Figure}" : "");
+        }
+        else
+        {
+            WeatherAirText = "off";
+        }
         var countdown = air.Countdown;
         CountdownOnAir = countdown.Enabled;
         CountdownAirText = !countdown.Enabled

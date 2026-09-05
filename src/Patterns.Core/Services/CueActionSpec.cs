@@ -50,6 +50,8 @@ public enum ValueKind
     Look,
     /// <summary>A number of seconds (decimals allowed); empty means the action's own default.</summary>
     Seconds,
+    /// <summary>The weather chip's view: now, day (the rest of today) or tomorrow.</summary>
+    WeatherView,
 }
 
 /// <summary>
@@ -88,6 +90,7 @@ public static class CueActionSpec
         CueActionKind.ScreenLook => (TargetKind.Screen, ValueKind.Look),
         CueActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
         CueActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
+        CueActionKind.WeatherView => (TargetKind.None, ValueKind.WeatherView),
         _ => (TargetKind.None, ValueKind.None),
     };
 
@@ -125,6 +128,9 @@ public static class CueActionSpec
         CueActionKind.MessageOff => "Message off",
         CueActionKind.ClockOn => "Clock on",
         CueActionKind.ClockOff => "Clock off",
+        CueActionKind.WeatherOn => "Weather on",
+        CueActionKind.WeatherOff => "Weather off",
+        CueActionKind.WeatherView => "Weather — the view (now / day / tomorrow)",
         CueActionKind.DuckOn => "Duck for an announcement",
         CueActionKind.DuckOff => "Lift the duck",
         CueActionKind.LowerThirdShow => "Lower third on",
@@ -174,6 +180,7 @@ public static class CueActionSpec
         CueActionKind.CountdownStart, CueActionKind.CountdownStop,
         CueActionKind.MessageOn, CueActionKind.MessageOff,
         CueActionKind.ClockOn, CueActionKind.ClockOff,
+        CueActionKind.WeatherOn, CueActionKind.WeatherOff, CueActionKind.WeatherView,
         CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide, CueActionKind.LowerThirdPreview, CueActionKind.LowerThirdTake,
         CueActionKind.WebKey, CueActionKind.WebClick, CueActionKind.WebType, CueActionKind.WebReload,
         CueActionKind.DeckNext, CueActionKind.DeckPrev, CueActionKind.DeckPage,
