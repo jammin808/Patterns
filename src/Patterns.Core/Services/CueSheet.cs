@@ -240,6 +240,8 @@ public static class CueSheet
             "countdown" or "timer" => CueActionKind.CountdownStart,
             "message" or "ticker" => CueActionKind.MessageOn,
             "lowerthird" or "lt" or "name" or "person" or "speaker" => CueActionKind.LowerThirdShow,
+            "ltpreview" or "previewlt" or "lowerthirdpreview" or "namepreview" or "previewname" => CueActionKind.LowerThirdPreview,
+            "lttake" or "takelt" or "lowerthirdtake" or "nametake" or "takename" => CueActionKind.LowerThirdTake,
             "stream" or "golive" => CueActionKind.StreamStart,
             _ => null,
         };

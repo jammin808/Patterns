@@ -10,7 +10,7 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-lower" Text="Lower thirds" />
     <TextBlock Classes="hint tip"
-               Text="A name, a role, a date, a logo, a headshot — animated on and off over whatever is showing, on every screen, NDI send and the stream at once. Start from a preset, fill in the fields, and SHOW. Every element is a box you can move, size and style (fill, gradient, corners, border, shadow, glow, a chaser round its edge), and every element has its own way in and out: pick a motion, or edit the keys. Designs live in the show file; save one as a file of its own to carry it to another show." />
+               Text="A name, a role, a date, a logo, a headshot — animated on and off over whatever is showing, on every screen, NDI send and the stream at once. Start from a preset, fill in the fields, PVW it for a sign-off and TAKE TO AIR — or AIR straight away. Every element is a box you can move, size and style (fill, gradient, corners, border, shadow, glow, a chaser round its edge), and every element has its own way in and out: pick a motion, or edit the keys. Designs live in the show file; save one as a file of its own to carry it to another show." />
 
     <TextBlock Classes="h2" Text="DESIGNS" />
     <Grid ColumnDefinitions="*,8,Auto">
@@ -22,27 +22,48 @@
     <ListBox ItemsSource="{Binding State.LowerThirds.Designs}" SelectedItem="{Binding SelectedLowerThird, Mode=TwoWay}" MaxHeight="230">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="lt:LowerThirdDesign">
-          <Grid ColumnDefinitions="*,8,Auto,8,Auto,Auto,Auto">
-            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
-            <Border Grid.Column="2" Classes="tallyChip air" IsVisible="{Binding IsOnAir}" VerticalAlignment="Center">
+          <Grid ColumnDefinitions="Auto,6,*,8,Auto,6,Auto,8,Auto,4,Auto,6,Auto,Auto">
+            <ToggleButton Classes="mini" Content="★" IsChecked="{Binding IsDefault, Mode=OneWay}" VerticalAlignment="Center"
+                          ToolTip.Tip="The show's default design: once a style is chosen it usually serves the whole show, so PERSON n, the PEOPLE chips, the phone and a cue that names a person but no design put the next name into this one when none is on air"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SetDefaultLowerThirdCommand}" CommandParameter="{Binding}" />
+            <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+            <Border Grid.Column="4" Classes="tallyChip pvw" IsVisible="{Binding IsInPreview}" VerticalAlignment="Center">
+              <TextBlock Text="{Binding PreviewText}" />
+            </Border>
+            <Border Grid.Column="6" Classes="tallyChip air" IsVisible="{Binding IsOnAir}" VerticalAlignment="Center">
               <TextBlock Text="{Binding OnAirText}" />
             </Border>
-            <Button Grid.Column="4" Classes="mini" Content="SHOW" ToolTip.Tip="Put this design on air now (again restarts its way in)"
+            <Button Grid.Column="8" Classes="mini" Content="PVW" ToolTip.Tip="Into the preview for a sign-off: the PREVIEW pane, the multiview's Preview tile and REVIEW show it while the audience sees nothing new; TAKE TO AIR when it is right (needs EDIT SAFE)"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PreviewLowerThirdCommand}" CommandParameter="{Binding}" />
+            <Button Grid.Column="10" Classes="mini go" Content="AIR" ToolTip.Tip="On air now, as the design is at this moment — every screen, NDI send and the stream (again restarts its way in)"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ShowLowerThirdCommand}" CommandParameter="{Binding}" />
-            <Button Grid.Column="5" Classes="mini" Content="⧉" ToolTip.Tip="Duplicate"
+            <Button Grid.Column="12" Classes="mini" Content="⧉" ToolTip.Tip="Duplicate"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DuplicateLowerThirdCommand}" CommandParameter="{Binding}" />
-            <Button Grid.Column="6" Classes="mini" Content="✕" ToolTip.Tip="Delete"
+            <Button Grid.Column="13" Classes="mini" Content="✕" ToolTip.Tip="Delete (off the air and the preview if it is on)"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteLowerThirdCommand}" CommandParameter="{Binding}" />
           </Grid>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
-    <Grid ColumnDefinitions="*,8,Auto">
-      <TextBlock Classes="label" Text="{Binding LowerThirdStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
-      <Button Grid.Column="2" Classes="stop" Content="HIDE" Command="{Binding HideLowerThirdCommand}" ToolTip.Tip="The lower third on air leaves the way it was designed to" />
-    </Grid>
+    <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,8" Margin="0,6,0,0">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,8,Auto,6,Auto">
+          <TextBlock Classes="label" Text="{Binding LowerThirdStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <Button Grid.Column="2" Classes="mini" Content="UPDATE ON AIR" IsVisible="{Binding LowerThirdAirEdited}" Command="{Binding UpdateLowerThirdCommand}"
+                  ToolTip.Tip="The design on air has been edited since it went there: push the edit — everything, the words too — without it leaving and arriving again" />
+          <Button Grid.Column="4" Classes="stop" Content="HIDE" Command="{Binding HideLowerThirdCommand}" ToolTip.Tip="The lower third on air leaves the way it was designed to" />
+        </Grid>
+        <Grid ColumnDefinitions="*,8,Auto,6,Auto">
+          <TextBlock Classes="label" Text="{Binding LowerThirdPreviewText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <Button Grid.Column="2" Classes="go" Content="TAKE TO AIR" IsVisible="{Binding HasLowerThirdInPreview}" Command="{Binding TakeLowerThirdCommand}"
+                  ToolTip.Tip="The signed-off lower third to air — it arrives the way it was designed to — and the preview clears for the next name" />
+          <Button Grid.Column="4" Classes="mini" Content="CLEAR PREVIEW" IsVisible="{Binding HasLowerThirdInPreview}" Command="{Binding ClearLowerThirdPreviewCommand}"
+                  ToolTip.Tip="The preview's lower third leaves; nothing changes on air" />
+        </Grid>
+      </StackPanel>
+    </Border>
     <TextBlock Classes="hint tip"
-               Text="SHOW and HIDE go straight to air (sandbox open or not) and are journaled; the Show panel, a cue (Lower third on / off), the phone remote and Companion (LT n) do the same. A look saved while a design is on carries it." />
+               Text="The flow: build a design, PVW it — it shows on the PREVIEW pane, on the multiview's Preview tile and, with REVIEW, full-frame on the multiview, where a show caller or director checks the spelling and signs it off — then TAKE TO AIR. AIR skips the sign-off and puts the design on straight away, as it is at that moment; HIDE takes it off the way it was designed to. With EDIT SAFE open the audience sees a copy of the design: an edit made while it is on air lights EDITED here, and UPDATE ON AIR carries the edit across in place (the words too), or AIR again to restart it. ★ marks the show's default design — once a style is chosen it usually serves the whole show — so PERSON n, the PEOPLE chips, the phone and a cue that names a person but no design put the next name into it when none is on air. A picture TAKE keeps whatever lower third is on air where it is in its life and takes one that is in the preview to air with it. Cues: Lower third on / to preview / take / off; the wire: LT n, LT PREVIEW n, LT TAKE, LT UPDATE, LT OFF. Everything here is journaled." />
 
     <TextBlock Classes="h2" Text="LIBRARY: PEOPLE &amp; LINES" />
     <WrapPanel>
@@ -56,16 +77,18 @@
     <ListBox ItemsSource="{Binding State.LowerThirds.Entries}" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}" MaxHeight="230">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="lt:LowerThirdEntry">
-          <Grid ColumnDefinitions="*,8,Auto,Auto,Auto">
+          <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
               <TextBlock Classes="label" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Summary, Converter={StaticResource NotEmpty}}" />
             </StackPanel>
-            <Button Grid.Column="2" Classes="mini" Content="USE" ToolTip.Tip="Into the selected design — its fields and its photo — without going on air"
+            <Button Grid.Column="2" Classes="mini" Content="USE" ToolTip.Tip="Into the selected design — its fields and its photo — without going anywhere"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UseEntryCommand}" CommandParameter="{Binding}" />
-            <Button Grid.Column="3" Classes="mini" Content="SHOW" ToolTip.Tip="Into the selected design, and on air now"
+            <Button Grid.Column="3" Classes="mini" Content="PVW" ToolTip.Tip="Into the selected design (else the one in the preview, on air, or the show's default) and the preview, for a sign-off"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PreviewEntryCommand}" CommandParameter="{Binding}" />
+            <Button Grid.Column="4" Classes="mini go" Content="AIR" ToolTip.Tip="Into the selected design, and on air now"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ShowEntryCommand}" CommandParameter="{Binding}" />
-            <Button Grid.Column="4" Classes="mini" Content="✕" ToolTip.Tip="Remove from the library"
+            <Button Grid.Column="5" Classes="mini" Content="✕" ToolTip.Tip="Remove from the library"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteEntryCommand}" CommandParameter="{Binding}" />
           </Grid>
         </DataTemplate>
@@ -101,7 +124,7 @@
       </ContentControl.ContentTemplate>
     </ContentControl>
     <TextBlock Classes="hint tip"
-               Text="The library is every person (or line) the show will name, kept apart from the designs so one design serves the whole speaker list. USE puts an entry into the selected design — the Name, Role and Company elements read its fields, the photo lands in the picture element named Photo (else the first picture) — and SHOW does that and puts it on air. A cue (Lower third on) names the design and the person; a person who is not in the library is refused before the show, so a wrong name never reaches the screen. The Show panel's PEOPLE chips, the phone's PEOPLE buttons, PERSON n / LT design WITH person on the wire and Companion put the next speaker into the design on air. Append updates a name that is already there; Photo paths are kept as written." />
+               Text="The library is every person (or line) the show will name, kept apart from the designs so one design serves the whole speaker list. USE puts an entry into the selected design — the Name, Role and Company elements read its fields, the photo lands in the picture element named Photo (else the first picture); PVW does that and puts the design in the preview for a sign-off; AIR does it and puts the design on air. A cue (Lower third on / to preview) names the design and the person; a person who is not in the library is refused before the show, so a wrong name never reaches the screen. The Show panel's PEOPLE chips, the phone's PEOPLE buttons, PERSON n / LT design WITH person on the wire and Companion put the next speaker into the design on air — or, with none on air, the show's ★ default design. Append updates a name that is already there; Photo paths are kept as written." />
 
     <StackPanel IsVisible="{Binding HasLowerThird}">
       <TextBlock Classes="h2" Text="PREVIEW" />

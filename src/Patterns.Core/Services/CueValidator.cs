@@ -193,10 +193,14 @@ public static class CueValidator
                 case CueActionKind.MessageOn:
                     if (string.IsNullOrWhiteSpace(a.Value)) Soft($"{where}: the message text is empty.");
                     break;
+                case CueActionKind.LowerThirdTake:
+                    if (state.LowerThirds.Designs.Count == 0) Soft($"{where}: the show has no lower third design to take.");
+                    break;
                 case CueActionKind.LowerThirdShow:
+                case CueActionKind.LowerThirdPreview:
                 {
-                    // An empty target means the design on air (else the first): a library entry recalled into whatever is showing.
-                    var design = a.Target.Length == 0 ? state.LowerThirds.Designs.FirstOrDefault() : state.LowerThirds.Find(a.Target);
+                    // An empty target means the design on air (else the show's default): a library entry recalled into whatever is showing.
+                    var design = a.Target.Length == 0 ? state.LowerThirds.DefaultDesign : state.LowerThirds.Find(a.Target);
                     if (design is null) Hard(a.Target.Length == 0 ? $"{where}: no lower third design in the show." : $"{where}: lower third '{a.Target}' not found.");
                     else if (design.Elements.Count == 0) Soft($"{where}: lower third '{design.Name}' has nothing in it.");
                     if (a.Value.Length > 0)

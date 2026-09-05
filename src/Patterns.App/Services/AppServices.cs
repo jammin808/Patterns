@@ -285,6 +285,31 @@ public sealed class AppServices
     public ShowState AirState => Sandbox.ProgramState ?? State;
 
     /// <summary>
+    /// The lower third on air has been edited since it went there: EDIT SAFE holds the copy the
+    /// audience sees, and the designer edits the show's own — UPDATE ON AIR (or AIR again) carries
+    /// the edit across. False without the sandbox (the air's design is the edited one).
+    /// </summary>
+    public bool LowerThirdAirEdited()
+    {
+        if (!Sandbox.Active) return false;
+        var air = AirState.LowerThirds;
+        if (!air.IsShowing || air.Active is not { } onAir) return false;
+        var edited = State.LowerThirds.Find(onAir.Id);
+        return edited is not null && !Patterns.Core.LowerThirds.LowerThirdsConfig.SameDesign(edited, onAir);
+    }
+
+    /// <summary>
+    /// A lower third is in the preview for a sign-off: EDIT SAFE open and the edited state showing
+    /// a run of its own — not the program's run mirrored into it when the sandbox opened.
+    /// </summary>
+    public bool LowerThirdInPreview()
+    {
+        if (!Sandbox.Active) return false;
+        var mine = State.LowerThirds;
+        return mine.IsShowing && !mine.IsSameRunAs(AirState.LowerThirds);
+    }
+
+    /// <summary>
     /// Runs an air-targeted edit — a cue, a look recall, a stinger override, a playlist-part
     /// switch. While the sandbox is open it lands on the frozen program (the operator's
     /// in-progress edits stay untouched); otherwise it is a normal live edit.

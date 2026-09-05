@@ -70,6 +70,10 @@ public enum CueActionKind
     /// <summary>Target = screen id (or a canvas key): lock keeps its picture through looks, cues and TAKE; unlock lets it follow again.</summary>
     ScreenLock,
     ScreenUnlock,
+    /// <summary>Target = lower third id (empty: the show's default), Value = a library entry: into the preview for a sign-off (needs EDIT SAFE).</summary>
+    LowerThirdPreview,
+    /// <summary>The lower third in the preview goes to air and the preview clears.</summary>
+    LowerThirdTake,
 }
 
 /// <summary>

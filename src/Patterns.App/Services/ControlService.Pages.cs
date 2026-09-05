@@ -57,6 +57,7 @@ public sealed partial class ControlService
   .bo { background:#3A0F0F; border-color:var(--bad); color:#FFB0B0; }
   .bo.on { background:var(--bad); color:#fff; }
   .lit { border-color:var(--good); color:var(--good); }
+  .pvw { border-color:#FFC24D; color:#FFC24D; }
   .warm { border-color:var(--hold); color:var(--hold); }
   #duck.on, #hold.on { background:var(--hold); color:#0E0F13; }
   .look { padding:18px 6px; }
@@ -202,10 +203,16 @@ public sealed partial class ControlService
 </section>
 
 <section id="tab-lower">
-  <div class="sec">DESIGNS</div>
+  <div class="grid row2">
+    <button id="ltpvwfirst" onclick="ltPvwFirst()" title="The chips go to the preview for a sign-off instead of straight to air (needs EDIT SAFE on the desk)">PVW FIRST</button>
+    <button id="ltupdate" class="stop" onclick="cmd('LT UPDATE')" hidden title="The design on air was edited after it went there: push the edit across in place">UPDATE ON AIR</button>
+  </div>
+  <div class="sec">DESIGNS — ★ is the show's default</div>
   <div id="lts" class="grid row2"></div>
   <div id="ltnow" class="grid" style="margin-top:10px"></div>
-  <div class="sec" id="peoplesec" hidden>PEOPLE — into the lower third on air</div>
+  <div class="sec" id="ltpvwsec" hidden>IN PREVIEW — sign it off, then take</div>
+  <div id="ltpvw" class="grid row2"></div>
+  <div class="sec" id="peoplesec" hidden>PEOPLE — into the lower third on air (else the ★ default)</div>
   <div id="people" class="grid row2"></div>
 </section>
 
@@ -268,6 +275,9 @@ each(document.querySelectorAll('nav button'), function(b){ b.onclick = function(
   show(TABS.indexOf(t) >= 0 ? t : 'show');
 })();
 function btn(html, cls, on){ var b = document.createElement('button'); b.innerHTML = html; if (cls) b.className = cls; b.onclick = on; return b; }
+// PVW FIRST: the lower-third chips go to the preview for a sign-off; remembered on this phone.
+var ltPvw = false; try { ltPvw = localStorage.getItem('patterns.ltpvw') === '1'; } catch (e) {}
+function ltPvwFirst(){ ltPvw = !ltPvw; try { localStorage.setItem('patterns.ltpvw', ltPvw ? '1' : '0'); } catch (e) {} if (st) render(st); }
 function fill(id, html){ document.getElementById(id).innerHTML = html; }
 function render(s) {
   st = s; rev = s.rev || 0;
@@ -380,17 +390,31 @@ function render(s) {
   if (s.stingHold) sn.appendChild(btn('■ Holding: ' + esc(s.stingHold) + ' — put it back', 'stop', function(){ cmd('STINGER STOP'); }));
   else if (s.stingerPlaying) sn.appendChild(btn('■ Stop: ' + esc(s.stingerPlaying), 'stop', function(){ cmd('STINGER STOP'); }));
 
-  // LOWER THIRDS — a design by number (page order); a person into the one on air.
+  // LOWER THIRDS — a design by number (page order) to air, or with PVW FIRST to the preview; a person into the one on air (else the ★ default).
+  var pf = document.getElementById('ltpvwfirst');
+  pf.classList.toggle('lit', ltPvw); pf.textContent = ltPvw ? 'PVW FIRST — ON' : 'PVW FIRST';
+  document.getElementById('ltupdate').hidden = !s.lowerThirdEdited;
   var lts = document.getElementById('lts'); lts.innerHTML = '';
-  (s.lowerThirds || []).forEach(function(x){ lts.appendChild(btn(esc(x.name), s.lowerThird === x.name ? 'lit' : '', function(){ cmd('LT ' + x.n); })); });
+  (s.lowerThirds || []).forEach(function(x){
+    var label = (s.lowerThirdDefault === x.name ? '★ ' : '') + esc(x.name);
+    var cls = s.lowerThird === x.name ? 'lit' : (s.lowerThirdPreview === x.name ? 'pvw' : '');
+    lts.appendChild(btn(label, cls, function(){ cmd((ltPvw ? 'LT PREVIEW ' : 'LT ') + x.n); }));
+  });
   if (!s.lowerThirds || s.lowerThirds.length === 0) lts.innerHTML = '<button disabled>No designs yet — build one on the Lower thirds page</button>';
   var ln = document.getElementById('ltnow'); ln.innerHTML = '';
-  if (s.lowerThird) ln.appendChild(btn('■ Hide: ' + esc(s.lowerThird) + (s.lowerThirdPerson ? ' — ' + esc(s.lowerThirdPerson) : ''), 'stop', function(){ cmd('LT OFF'); }));
+  if (s.lowerThird) ln.appendChild(btn('■ Hide: ' + esc(s.lowerThird) + (s.lowerThirdPerson ? ' — ' + esc(s.lowerThirdPerson) : '') + (s.lowerThirdEdited ? ' (edited)' : ''), 'stop', function(){ cmd('LT OFF'); }));
+  var lp = document.getElementById('ltpvw'); lp.innerHTML = '';
+  document.getElementById('ltpvwsec').hidden = !s.lowerThirdPreview;
+  if (s.lowerThirdPreview) {
+    lp.appendChild(btn('TAKE TO AIR: ' + esc(s.lowerThirdPreview) + (s.lowerThirdPreviewPerson ? ' — ' + esc(s.lowerThirdPreviewPerson) : ''), 'go', function(){ cmd('LT TAKE'); }));
+    lp.appendChild(btn('CLEAR PREVIEW', '', function(){ cmd('LT PREVIEW OFF'); }));
+  }
   var pe = document.getElementById('people'); pe.innerHTML = '';
   var peopleList = s.people || [];
   document.getElementById('peoplesec').hidden = peopleList.length === 0;
   peopleList.forEach(function(x){
-    pe.appendChild(btn(esc(x.name) + (x.role ? '<br><span class="k">' + esc(x.role) + '</span>' : ''), s.lowerThirdPerson === x.name ? 'lit' : '', function(){ cmd('PERSON ' + x.n); }));
+    var cls = s.lowerThirdPerson === x.name ? 'lit' : (s.lowerThirdPreviewPerson === x.name ? 'pvw' : '');
+    pe.appendChild(btn(esc(x.name) + (x.role ? '<br><span class="k">' + esc(x.role) + '</span>' : ''), cls, function(){ cmd(ltPvw ? 'LT PREVIEW WITH ' + x.n : 'PERSON ' + x.n); }));
   });
 
   // SETUP

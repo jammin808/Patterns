@@ -280,6 +280,23 @@ public sealed class MainViewModel : Observable
         DeleteLowerThirdCommand = new RelayCommand<LowerThirdDesign>(DeleteLowerThird);
         ShowLowerThirdCommand = new RelayCommand<LowerThirdDesign>(d => { if (d is not null) ShowLowerThird(d); });
         HideLowerThirdCommand = new RelayCommand(HideLowerThird);
+        PreviewLowerThirdCommand = new RelayCommand<LowerThirdDesign>(d => { if (d is not null) PreviewLowerThird(d); });
+        TakeLowerThirdCommand = new RelayCommand(() => TakeLowerThird());
+        UpdateLowerThirdCommand = new RelayCommand(() => UpdateLowerThird());
+        ClearLowerThirdPreviewCommand = new RelayCommand(() => ClearLowerThirdPreview());
+        SetDefaultLowerThirdCommand = new RelayCommand<LowerThirdDesign>(d => { if (d is not null) SetDefaultLowerThird(d); });
+        ChipLowerThirdCommand = new RelayCommand<LowerThirdDesign>(d =>
+        {
+            if (d is null) return;
+            if (LowerThirdChipsToPreview) PreviewLowerThird(d);
+            else ShowLowerThird(d);
+        });
+        ChipEntryCommand = new RelayCommand<LowerThirdEntry>(e =>
+        {
+            if (e is null) return;
+            if (LowerThirdChipsToPreview) PreviewEntry(e, null);
+            else ShowEntry(e, null);
+        });
         AddElementCommand = new RelayCommand<string>(kind =>
         {
             if (Enum.TryParse<LowerThirdElementKind>(kind, true, out var k)) AddElement(k);
@@ -302,6 +319,7 @@ public sealed class MainViewModel : Observable
         UseEntryCommand = new RelayCommand<LowerThirdEntry>(e => { if (e is not null) UseEntry(e); });
         ShowEntryCommand = new RelayCommand<LowerThirdEntry>(e => { if (e is not null) ShowEntry(e, SelectedLowerThird); });
         ShowEntryOnAirCommand = new RelayCommand<LowerThirdEntry>(e => { if (e is not null) ShowEntry(e, null); });
+        PreviewEntryCommand = new RelayCommand<LowerThirdEntry>(e => { if (e is not null) PreviewEntry(e, SelectedLowerThird); });
         BrowseEntryPhotoCommand = new RelayCommand(() => _ = BrowseEntryPhotoAsync());
         ImportPeopleCommand = new RelayCommand(() => _ = ImportPeopleAsync(append: false));
         ImportPeopleAppendCommand = new RelayCommand(() => _ = ImportPeopleAsync(append: true));
@@ -3924,6 +3942,14 @@ public sealed class MainViewModel : Observable
     public RelayCommand<LowerThirdDesign> DeleteLowerThirdCommand { get; }
     public RelayCommand<LowerThirdDesign> ShowLowerThirdCommand { get; }
     public RelayCommand HideLowerThirdCommand { get; }
+    public RelayCommand<LowerThirdDesign> PreviewLowerThirdCommand { get; }
+    public RelayCommand TakeLowerThirdCommand { get; }
+    public RelayCommand UpdateLowerThirdCommand { get; }
+    public RelayCommand ClearLowerThirdPreviewCommand { get; }
+    public RelayCommand<LowerThirdDesign> SetDefaultLowerThirdCommand { get; }
+    /// <summary>The Show panel's chips: to air, or with PVW FIRST to the preview.</summary>
+    public RelayCommand<LowerThirdDesign> ChipLowerThirdCommand { get; }
+    public RelayCommand<LowerThirdEntry> ChipEntryCommand { get; }
     public RelayCommand<string> AddElementCommand { get; }
     public RelayCommand<LowerThirdElement> RemoveElementCommand { get; }
     public RelayCommand<LowerThirdElement> MoveElementUpCommand { get; }
@@ -3943,6 +3969,7 @@ public sealed class MainViewModel : Observable
     public RelayCommand<LowerThirdEntry> UseEntryCommand { get; }
     public RelayCommand<LowerThirdEntry> ShowEntryCommand { get; }
     public RelayCommand<LowerThirdEntry> ShowEntryOnAirCommand { get; }
+    public RelayCommand<LowerThirdEntry> PreviewEntryCommand { get; }
     public RelayCommand BrowseEntryPhotoCommand { get; }
     public RelayCommand ImportPeopleCommand { get; }
     public RelayCommand ImportPeopleAppendCommand { get; }
@@ -4341,6 +4368,28 @@ public sealed class MainViewModel : Observable
     /// <summary>What is on screen, for the pages.</summary>
     public string LowerThirdStatus { get => _lowerThirdStatus; private set => Set(ref _lowerThirdStatus, value); }
 
+    private string _lowerThirdPreviewText = "Nothing in the preview.";
+    private bool _hasLowerThirdInPreview;
+    private bool _lowerThirdAirEdited;
+    private bool _isLowerThirdOnAir;
+
+    /// <summary>What is in the preview for a sign-off, for the pages.</summary>
+    public string LowerThirdPreviewText { get => _lowerThirdPreviewText; private set => Set(ref _lowerThirdPreviewText, value); }
+
+    /// <summary>A design is showing in the preview: TAKE TO AIR and CLEAR PREVIEW make sense.</summary>
+    public bool HasLowerThirdInPreview { get => _hasLowerThirdInPreview; private set => Set(ref _hasLowerThirdInPreview, value); }
+
+    /// <summary>The design on air has been edited since it went there (EDIT SAFE holds the copy the audience sees): UPDATE ON AIR pushes the edit.</summary>
+    public bool LowerThirdAirEdited { get => _lowerThirdAirEdited; private set => Set(ref _lowerThirdAirEdited, value); }
+
+    /// <summary>A design is arriving, holding or leaving on air.</summary>
+    public bool IsLowerThirdOnAir { get => _isLowerThirdOnAir; private set => Set(ref _isLowerThirdOnAir, value); }
+
+    private bool _lowerThirdChipsToPreview;
+
+    /// <summary>PVW FIRST on the Show panel: its design and people chips go to the preview for a sign-off instead of straight to air (a desk setting, never saved).</summary>
+    public bool LowerThirdChipsToPreview { get => _lowerThirdChipsToPreview; set => Set(ref _lowerThirdChipsToPreview, value); }
+
     private LowerThirdEntry? _selectedEntry;
 
     /// <summary>The library entry being edited on the Lower thirds page.</summary>
@@ -4458,9 +4507,25 @@ public sealed class MainViewModel : Observable
         var design = preset == "Blank" ? LowerThirdPresets.Blank() : LowerThirdPresets.Create(preset);
         design.Name = UniqueLowerThirdName(design.Name);
         State.LowerThirds.Designs.Add(design);
+        AdoptDefaultLowerThird(design);
         SelectedLowerThird = design;
         StatusMessage = $"Lower third '{design.Name}' added.";
         return design;
+    }
+
+    /// <summary>The first design of a show is its default (★) until another is chosen; a default that was deleted moves to the next one added.</summary>
+    private void AdoptDefaultLowerThird(LowerThirdDesign design)
+    {
+        var lowers = State.LowerThirds;
+        if (lowers.DefaultDesignId.Length == 0 || lowers.Find(lowers.DefaultDesignId) is null) lowers.DefaultDesignId = design.Id;
+    }
+
+    /// <summary>The show's default design (★): where PERSON, the PEOPLE chips and a cue with no design named put the next name when none is on air.</summary>
+    public void SetDefaultLowerThird(LowerThirdDesign design)
+    {
+        State.LowerThirds.DefaultDesignId = design.Id;
+        RefreshLowerThirdTallies();
+        StatusMessage = $"'{design.Name}' is the show's default lower third.";
     }
 
     private string UniqueLowerThirdName(string name)
@@ -4486,16 +4551,24 @@ public sealed class MainViewModel : Observable
     private void DeleteLowerThird(LowerThirdDesign? design)
     {
         if (design is null) return;
+        // Off the preview, and off the air when the audience is seeing its copy (through the frozen program or live).
         if (State.LowerThirds.ActiveId == design.Id) State.LowerThirds.Hide(ShowClock.UtcNow);
+        var air = _services.AirState.LowerThirds;
+        if (!ReferenceEquals(air, State.LowerThirds) && air.ActiveId == design.Id && air.IsShowing)
+        {
+            _services.Actions.Execute(ShowActionKind.LowerThirdHide, ActionOrigin.Desk);
+        }
         var index = State.LowerThirds.Designs.IndexOf(design);
         // The page's list clears its selection the moment the item goes: decide before, reselect after.
         var wasSelected = ReferenceEquals(SelectedLowerThird, design);
         State.LowerThirds.Designs.Remove(design);
+        var designs = State.LowerThirds.Designs;
+        if (State.LowerThirds.DefaultDesignId == design.Id) State.LowerThirds.DefaultDesignId = designs.FirstOrDefault()?.Id ?? "";
         if (wasSelected)
         {
-            var designs = State.LowerThirds.Designs;
             SelectedLowerThird = designs.Count == 0 ? null : designs[Math.Clamp(index, 0, designs.Count - 1)];
         }
+        RefreshLowerThirdTallies();
         StatusMessage = $"Lower third '{design.Name}' deleted.";
     }
 
@@ -4504,6 +4577,29 @@ public sealed class MainViewModel : Observable
         => _services.Actions.Execute(ShowActionKind.LowerThirdShow, ActionOrigin.Desk, design.Id);
 
     public void HideLowerThird() => _services.Actions.Execute(ShowActionKind.LowerThirdHide, ActionOrigin.Desk);
+
+    /// <summary>Into the preview for a sign-off (the PREVIEW pane, the multiview's Preview tile, REVIEW); refused without EDIT SAFE.</summary>
+    public ActionResult PreviewLowerThird(LowerThirdDesign design)
+        => Report(_services.Actions.Execute(ShowActionKind.LowerThirdPreview, ActionOrigin.Desk, design.Id));
+
+    /// <summary>The lower third in the preview to air, afresh; the preview clears.</summary>
+    public ActionResult TakeLowerThird() => Report(_services.Actions.Execute(ShowActionKind.LowerThirdTake, ActionOrigin.Desk));
+
+    /// <summary>The design on air replaced by the design as it is now, in place — no leaving, no arriving again.</summary>
+    public ActionResult UpdateLowerThird() => Report(_services.Actions.Execute(ShowActionKind.LowerThirdUpdate, ActionOrigin.Desk));
+
+    public ActionResult ClearLowerThirdPreview() => Report(_services.Actions.Execute(ShowActionKind.LowerThirdPreviewOff, ActionOrigin.Desk));
+
+    /// <summary>The entry into a design and the preview: the given one, else the one in the preview, on air, or the show's default.</summary>
+    public ActionResult PreviewEntry(LowerThirdEntry entry, LowerThirdDesign? design)
+        => Report(_services.Actions.Execute(ShowActionKind.LowerThirdPreview, ActionOrigin.Desk, design?.Id ?? "", entry.Id));
+
+    private ActionResult Report(ActionResult result)
+    {
+        if (result.Message.Length > 0) StatusMessage = result.Message;
+        RefreshLowerThirdTallies();
+        return result;
+    }
 
     /// <summary>A new element of a kind, sized to the design and given a plain fade both ways, selected.</summary>
     public LowerThirdElement? AddElement(LowerThirdElementKind kind)
@@ -4658,6 +4754,7 @@ public sealed class MainViewModel : Observable
         var design = loaded.Clone();
         design.Name = UniqueLowerThirdName(loaded.Name.Length > 0 ? loaded.Name : Path.GetFileNameWithoutExtension(path));
         State.LowerThirds.Designs.Add(design);
+        AdoptDefaultLowerThird(design);
         SelectedLowerThird = design;
         StatusMessage = $"Lower third '{design.Name}' loaded from file.";
         return design;
@@ -4792,35 +4889,72 @@ public sealed class MainViewModel : Observable
 
     public string ExportPeopleCsv() => LowerThirdLibrary.Export(State.LowerThirds.Entries);
 
-    /// <summary>The tally: the design on screen lights its row and chip with its phase; true while one is on.</summary>
+    /// <summary>
+    /// The tally: the design on air lights its row and chip with its phase, the one in the preview
+    /// (EDIT SAFE open) its own, the show's default its ★; true while either is on the move.
+    /// </summary>
     private bool RefreshLowerThirdTallies()
     {
-        var air = _services.AirState.LowerThirds;
         var now = ShowClock.UtcNow;
-        var active = air.Active;
-        var phase = LowerThirdPhase.Gone;
-        if (active is not null && LowerThirdClock.Instants(air) is { } at)
-        {
-            phase = LowerThirdClock.Evaluate(active, at.ShownAt, at.HiddenAt, ShowClock.SecondsAt(now)).Phase;
-        }
-        var live = phase is LowerThirdPhase.In or LowerThirdPhase.Hold or LowerThirdPhase.Out;
-        var text = phase switch
+        var air = _services.AirState.LowerThirds;
+        var (onAir, airPhase) = PhaseOf(air, now);
+        var airLive = airPhase is LowerThirdPhase.In or LowerThirdPhase.Hold or LowerThirdPhase.Out;
+        var airText = airPhase switch
         {
             LowerThirdPhase.In => "ARRIVING",
             LowerThirdPhase.Out => "LEAVING",
             LowerThirdPhase.Hold => "ON AIR",
             _ => "",
         };
-        foreach (var d in State.LowerThirds.Designs)
+
+        var sandboxed = _services.Sandbox.Active;
+        var preview = State.LowerThirds;
+        // A run of the preview's own — not the program's run mirrored into the edited state when the sandbox opened.
+        var (inPreview, previewPhase) = _services.LowerThirdInPreview() ? PhaseOf(preview, now) : (null, LowerThirdPhase.Gone);
+        var previewLive = previewPhase is LowerThirdPhase.In or LowerThirdPhase.Hold or LowerThirdPhase.Out;
+        var previewText = previewPhase switch
         {
-            var on = live && active is not null && d.Id == active.Id;
+            LowerThirdPhase.In => "ARRIVING",
+            LowerThirdPhase.Out => "LEAVING",
+            LowerThirdPhase.Hold => "IN PREVIEW",
+            _ => "",
+        };
+        var defaultId = preview.DefaultDesign?.Id ?? "";
+
+        foreach (var d in preview.Designs)
+        {
+            var on = airLive && onAir is not null && d.Id == onAir.Id;
             d.IsOnAir = on;
-            d.OnAirText = on ? text : "";
+            d.OnAirText = on ? airText : "";
+            var pvw = previewLive && inPreview is not null && d.Id == inPreview.Id;
+            d.IsInPreview = pvw;
+            d.PreviewText = pvw ? previewText : "";
+            d.IsDefault = d.Id == defaultId;
         }
-        LowerThirdStatus = live && active is not null
-            ? $"On air: {active.Name} ({text.ToLowerInvariant()})."
+
+        var edited = airLive && _services.LowerThirdAirEdited();
+        LowerThirdAirEdited = edited;
+        IsLowerThirdOnAir = airLive;
+        HasLowerThirdInPreview = previewLive && preview.HiddenAtUtc is null;
+        var who = onAir is { PersonName.Length: > 0 } ? $" — {onAir.PersonName}" : "";
+        var frozen = _services.Bus.Frozen ? " FROZEN: the outputs hold their frame until the freeze lifts." : "";
+        var stale = edited ? " EDITED since — UPDATE ON AIR carries the edit." : "";
+        LowerThirdStatus = airLive && onAir is not null
+            ? $"On air: {onAir.Name}{who} ({airText.ToLowerInvariant()}).{stale}{frozen}"
             : "No lower third on air.";
-        return live;
+        LowerThirdPreviewText = !sandboxed
+            ? "EDIT SAFE is off — AIR puts a design on straight away; switch it on to sign one off in the preview first."
+            : previewLive && inPreview is not null
+                ? $"In preview: {inPreview.Name}{(inPreview.PersonName.Length > 0 ? $" — {inPreview.PersonName}" : "")} ({previewText.ToLowerInvariant()}) — on the PREVIEW pane, the multiview's Preview tile and REVIEW. TAKE TO AIR when it is signed off."
+                : "Nothing in the preview — PVW a design (or a person) to sign it off before it goes to air.";
+        return airLive || previewLive;
+    }
+
+    private static (LowerThirdDesign? Design, LowerThirdPhase Phase) PhaseOf(LowerThirdsConfig cfg, DateTime now)
+    {
+        var active = cfg.Active;
+        if (active is null || LowerThirdClock.Instants(cfg) is not { } at) return (active, LowerThirdPhase.Gone);
+        return (active, LowerThirdClock.Evaluate(active, at.ShownAt, at.HiddenAt, ShowClock.SecondsAt(now)).Phase);
     }
 
     // ---- the super-check ----------------------------------------------------------------------

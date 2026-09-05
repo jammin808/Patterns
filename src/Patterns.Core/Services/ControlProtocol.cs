@@ -85,6 +85,17 @@ public enum RemoteCommandKind
     FadeUp,
     /// <summary>"LOOKBACK [cut|ms]" — the look that was on air before the current one, back on air.</summary>
     LookBack,
+    /// <summary>
+    /// "LT PREVIEW &lt;n|name&gt; [WITH &lt;person&gt;]" / "LT PREVIEW WITH &lt;person&gt;" (alias PVW) — the design (IntArg or
+    /// TextArg; "" = the one in the preview, else on air, else the show's default), with a library entry (Extra), into the preview.
+    /// </summary>
+    LowerThirdPreview,
+    /// <summary>"LT PREVIEW OFF" (or CLEAR) — the preview's lower third leaves.</summary>
+    LowerThirdPreviewOff,
+    /// <summary>"LT TAKE" — the lower third in the preview goes to air and the preview clears.</summary>
+    LowerThirdTake,
+    /// <summary>"LT UPDATE" — the design on air is replaced by the design as it is now, in place.</summary>
+    LowerThirdUpdate,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -302,6 +313,34 @@ public static class ControlProtocol
                 if (arg.Equals("OFF", StringComparison.OrdinalIgnoreCase) || arg.Equals("HIDE", StringComparison.OrdinalIgnoreCase))
                 {
                     return new(RemoteCommandKind.LowerThirdHide, 0, "");
+                }
+                if (arg.Equals("TAKE", StringComparison.OrdinalIgnoreCase)) return new(RemoteCommandKind.LowerThirdTake, 0, "");
+                if (arg.Equals("UPDATE", StringComparison.OrdinalIgnoreCase)) return new(RemoteCommandKind.LowerThirdUpdate, 0, "");
+                // The sign-off flow: "LT PREVIEW <design> [WITH <person>]", "LT PREVIEW WITH <person>", "LT PREVIEW OFF".
+                var preview = arg.StartsWith("PREVIEW", StringComparison.OrdinalIgnoreCase) ? 7
+                            : arg.StartsWith("PVW", StringComparison.OrdinalIgnoreCase) ? 3 : 0;
+                if (preview > 0 && (arg.Length == preview || arg[preview] == ' '))
+                {
+                    var rest = arg[preview..].Trim();
+                    if (rest.Length == 0) return new(RemoteCommandKind.Unknown, 0, s);
+                    if (rest.Equals("OFF", StringComparison.OrdinalIgnoreCase) || rest.Equals("CLEAR", StringComparison.OrdinalIgnoreCase) || rest.Equals("HIDE", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new(RemoteCommandKind.LowerThirdPreviewOff, 0, "");
+                    }
+                    if (rest.Equals("WITH", StringComparison.OrdinalIgnoreCase)) return new(RemoteCommandKind.Unknown, 0, s);
+                    if (rest.StartsWith("WITH ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var who = rest[5..].Trim();
+                        return who.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.LowerThirdPreview, 0, "", who);
+                    }
+                    if (rest.EndsWith(" WITH", StringComparison.OrdinalIgnoreCase)) return new(RemoteCommandKind.Unknown, 0, s);
+                    var pw = rest.IndexOf(" WITH ", StringComparison.OrdinalIgnoreCase);
+                    var pDesign = pw >= 0 ? rest[..pw].Trim() : rest;
+                    var pPerson = pw >= 0 ? rest[(pw + 6)..].Trim() : "";
+                    if (pDesign.Length == 0 || (pw >= 0 && pPerson.Length == 0)) return new(RemoteCommandKind.Unknown, 0, s);
+                    return int.TryParse(pDesign, out var pn)
+                        ? new(RemoteCommandKind.LowerThirdPreview, pn, "", pPerson)
+                        : new(RemoteCommandKind.LowerThirdPreview, 0, pDesign, pPerson);
                 }
                 if (arg.EndsWith(" WITH", StringComparison.OrdinalIgnoreCase)) return new(RemoteCommandKind.Unknown, 0, s);
                 var with = arg.IndexOf(" WITH ", StringComparison.OrdinalIgnoreCase);

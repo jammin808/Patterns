@@ -114,6 +114,19 @@ public enum ShowActionKind
     FadeUp,
     /// <summary>The look that was on air before the current one, back on air (the value: cut, a fade in ms, or the show default).</summary>
     LookBack,
+    /// <summary>
+    /// Target = a lower third (as LowerThirdShow), Value = a library entry: into the preview — the
+    /// PREVIEW pane, the multiview's Preview tile and REVIEW show it — for a sign-off before it goes
+    /// to air. Needs EDIT SAFE (without it the preview is the air). An empty target is the design in
+    /// the preview, else the one on air, else the show's default.
+    /// </summary>
+    LowerThirdPreview,
+    /// <summary>The lower third in the preview leaves it (the way it was designed to).</summary>
+    LowerThirdPreviewOff,
+    /// <summary>The lower third in the preview goes to air afresh — it arrives the way it was designed to — and the preview clears.</summary>
+    LowerThirdTake,
+    /// <summary>The design on air is replaced by the design as it is now — every edit, the words too — without leaving and arriving again.</summary>
+    LowerThirdUpdate,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

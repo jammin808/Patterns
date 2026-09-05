@@ -58,6 +58,7 @@ public sealed class SandboxService
         // setting around the publish stopped working inside a bulk edit (the intermediate
         // publish is suppressed, so the only snapshot the outputs saw carried "fade").
         if (cut) _services.Bus.CutOnNextPublish();
+        CarryLowerThirdOnSend();
         // The preview's look is now the program's (edited or not — the tally says which).
         _services.AirLookId = _services.PreviewLookId;
         Exit(reenterIfDefault: false);
@@ -137,6 +138,47 @@ public sealed class SandboxService
         Log.Info($"Sandbox sent to {targetIds.Count} target(s).");
     }
 
+    /// <summary>
+    /// The lower third across a TAKE. A design showing in the preview (a PVW for a sign-off) goes
+    /// to air afresh — it arrives the way it was designed to. With nothing in the preview the one
+    /// on air stays exactly where it is in its life: the edited state was never told about a
+    /// design shown to air through the frozen program, and without this the TAKE would drop it.
+    /// </summary>
+    private void CarryLowerThirdOnSend()
+    {
+        var program = _program;
+        if (program is null) return;
+        var state = _services.State;
+        var now = ShowClock.UtcNow;
+        var preview = state.LowerThirds;
+        if (preview.IsShowing && !preview.IsSameRunAs(program.LowerThirds) && preview.Active is { } next
+            && Patterns.Core.LowerThirds.LowerThirdClock.IsLive(preview, now))
+        {
+            _services.BulkEdit(() => preview.Show(next, now));
+            return;
+        }
+        _services.BulkEdit(() => CarryAirLowerThird(program, state));
+    }
+
+    /// <summary>
+    /// The program's lower third into the state that is about to become the program, instants and
+    /// all, so its timeline continues on the outputs instead of starting again. A design deleted from
+    /// the show while its copy was on air is not brought back (the copy goes with the program).
+    /// </summary>
+    private static void CarryAirLowerThird(ShowState program, ShowState state)
+    {
+        var air = program.LowerThirds;
+        var mine = state.LowerThirds;
+        if (air.ActiveId.Length == 0 || mine.Find(air.ActiveId) is null)
+        {
+            if (mine.IsShowing) mine.Hide(ShowClock.UtcNow);
+            return;
+        }
+        mine.ActiveId = air.ActiveId;
+        mine.ShownAtUtc = air.ShownAtUtc;
+        mine.HiddenAtUtc = air.HiddenAtUtc;
+    }
+
     /// <summary>"MODIFIED — last Walk-in": a send changed the picture; the caller's strip stops naming a look it is not.</summary>
     private static string Modified(string previous)
         => previous.StartsWith("MODIFIED", StringComparison.Ordinal) ? previous : $"MODIFIED — last {previous}";
@@ -176,11 +218,14 @@ public sealed class SandboxService
         var json = _program is not null ? LookService.Capture(_program) : _contentBefore;
         if (json is null) return;
         var state = _services.State;
+        var program = _program;
         var blackout = state.Blackout; // keep whatever the operator set during the sandbox
         _services.BulkEdit(() =>
         {
             LookService.Apply(json, state);
             state.Blackout = blackout;
+            // The look's recall would show the air's lower third afresh; the audience must not see it arrive twice.
+            if (program is not null) CarryAirLowerThird(program, state);
         });
     }
 

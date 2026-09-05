@@ -53,7 +53,11 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `LOWERTHIRD <n>` / `LOWERTHIRD <name>` | Put lower third *n* (Lower thirds page order) or the named design on air over whatever is showing; again restarts its way in (`LT` is an alias) |
 | `LOWERTHIRD OFF` | The lower third on air leaves the way it was designed to (`LT HIDE` does the same) |
 | `LOWERTHIRD <design> WITH <person>` | Fill design *n* / the named design from the library first — the person's name, role, company and photo (Lower thirds page, LIBRARY) — then put it on air; *person* is a number (library order) or a name (`LT … WITH …` is the same) |
-| `PERSON <n>` / `PERSON <name>` | The same into the lower third on air (else the last shown, else the first): the next speaker in one command. A name that is not in the library answers `ERR … not in the lower-thirds library` — a wrong name never reaches the screen |
+| `PERSON <n>` / `PERSON <name>` | The same into the lower third on air, else the show's ★ default design (Lower thirds page, the star on a design): the next speaker in one command. A name that is not in the library answers `ERR … not in the lower-thirds library` — a wrong name never reaches the screen |
+| `LOWERTHIRD PREVIEW <n\|name> [WITH <person>]` / `LOWERTHIRD PREVIEW WITH <person>` | The design — with a library entry — into the preview for a sign-off: the desk's PREVIEW pane, the multiview's Preview tile and REVIEW show it while the audience sees nothing new. With no design named, the design already in the preview, else the one on air, else the ★ default. Needs EDIT SAFE on the desk (answers `ERR` without it); `LT PVW …` is the same |
+| `LOWERTHIRD PREVIEW OFF` | The preview's lower third leaves (also `CLEAR`); nothing changes on air |
+| `LOWERTHIRD TAKE` | The lower third in the preview goes to air afresh — it arrives the way it was designed to — and the preview clears for the next name |
+| `LOWERTHIRD UPDATE` | With EDIT SAFE open the audience sees a copy of the design: this replaces the copy on air by the design as it is now, in place — every edit, the words too — without it leaving and arriving again (`AIR` / `LT n` again restarts it instead) |
 | `FREEZE ON` / `OFF` / `TOGGLE` | Every output — the windows, the NDI sends, the stream — holds the frame it shows until released; the desk's own views keep moving, a blackout still takes a frozen output. A latch (bare `FREEZE` toggles), never saved |
 | `FADE [seconds]` / `FADE UP [seconds]` (also `FADEUP`) | A blackout with a fade of its own: down over the seconds given (`FADE 2`, `FADE 2.5`, `FADE 1500ms`; none = the show's transition time), or up again the same way. Refused with `ERR` when the show is already there |
 | `LOOKBACK [cut\|ms]` | The look that was on air before the current one, back on air with the show's transition (or a cut, or a fade in ms); a second `LOOKBACK` swaps back. `ERR` when there is none yet |
@@ -93,6 +97,8 @@ State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel
 rather than stops; empty when none), `stingHold` (the name of a stinger holding the screens, or empty), `duck` (the live duck is on),
 `lowerThirds[{n,name}]` (the designs, Lower thirds page order), `lowerThird` (the design on screen — arriving, holding or leaving — or empty),
 `people[{n,name,role}]` (the library, page order — `PERSON n`), `lowerThirdPerson` (the name the lower third on screen carries, or empty),
+`lowerThirdPreview` / `lowerThirdPreviewPerson` (the design and the name in the preview for a sign-off, or empty), `lowerThirdDefault` (the show's ★ design),
+`lowerThirdEdited` (true while the design on air differs from the edited one — `LOWERTHIRD UPDATE` pushes the edit),
 `sections[{n,name,active}]`, `playlist`, `nextCue`,
 `music{on,playing,level,now,device,status,items[{n,name}]}` (break music — `now` is the track
 Spotify reports, `status` the same sentence the Audio page shows),
@@ -165,7 +171,11 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/vog <n\|name>`, `/patterns/sting <n\|name>` | VOG / STING — kind-checked, like the TCP verbs |
 | `/patterns/lowerthird <n\|name> [person]` | LOWERTHIRD n / name, with a library entry when a second argument names one (also `/patterns/lt`; `/patterns/lowerthird/2/3` is design 2 with person 3) |
 | `/patterns/lowerthird/off` | LOWERTHIRD OFF |
-| `/patterns/person <n\|name>` | PERSON — a library entry into the lower third on air |
+| `/patterns/lowerthird/preview <n\|name> [person]` | LOWERTHIRD PREVIEW — the design (with a library entry) into the preview for a sign-off (also `/patterns/lowerthird/preview/<n>/<person>`, `/patterns/lt/pvw …`) |
+| `/patterns/lowerthird/preview/off` | LOWERTHIRD PREVIEW OFF |
+| `/patterns/lowerthird/take` | LOWERTHIRD TAKE — the lower third in the preview to air |
+| `/patterns/lowerthird/update` | LOWERTHIRD UPDATE — the design on air replaced by the design as it is now, in place |
+| `/patterns/person <n\|name>` | PERSON — a library entry into the lower third on air (else the show's ★ default design) |
 | `/patterns/section <n\|name>` | SECTION — a playlist part |
 | `/patterns/stream 1\|0` | STREAM ON / OFF |
 | `/patterns/cue/go [id]` | CUE GO — the standby id you last saw, or none |
@@ -187,7 +197,8 @@ same `ERR …` sentence the TCP port would write) or an address is not one Patte
 **Feedback to** set to a host or address and a port (default 9699), every change sends one bundle
 there — throttled to 200 ms like the STATE pushes — carrying `/patterns/state/live i`,
 `/blackout i`, `/program s`, `/duck i`, `/tone i`, `/audio i`, `/music i`, `/music/now s`,
-`/music/level i`, `/stinger s`, `/stinger/hold s`, `/lowerthird s`, `/lowerthird/person s`,
+`/music/level i`, `/stinger s`, `/stinger/hold s`, `/lowerthird s`, `/lowerthird/person s`, `/lowerthird/preview s`,
+`/lowerthird/preview/person s`, `/lowerthird/default s`, `/lowerthird/edited i`,
 `/stream i`, `/playlist s`, `/health s`, `/review i`, `/freeze i`, `/look/previous s`, `/rev i`, `/screen/<n> i`, `/lock/<n> i`, `/cue/armed i`,
 `/cue/hold i`, `/cue/confirm s`, `/cue/standby s s` (number, name), `/cue/previous s s`,
 `/cue/next s s`, `/cue/last s s` (number, outcome), `/cue/offset s`, `/cue/follow s`. TouchOSC:

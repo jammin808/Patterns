@@ -156,6 +156,10 @@ public sealed class CommandRouter
             RemoteCommandKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
             RemoteCommandKind.LookBack => new ShowAction(ShowActionKind.LookBack, "", cmd.TextArg),
             RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
+            RemoteCommandKind.LowerThirdPreview => new ShowAction(ShowActionKind.LowerThirdPreview, byNumberOrName, cmd.Extra),
+            RemoteCommandKind.LowerThirdPreviewOff => new ShowAction(ShowActionKind.LowerThirdPreviewOff),
+            RemoteCommandKind.LowerThirdTake => new ShowAction(ShowActionKind.LowerThirdTake),
+            RemoteCommandKind.LowerThirdUpdate => new ShowAction(ShowActionKind.LowerThirdUpdate),
             _ => null,
         };
     }
@@ -172,6 +176,21 @@ public sealed class CommandRouter
     {
         var air = _services.AirState.LowerThirds;
         return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(air, ShowClock.UtcNow) ? air.Active?.PersonName ?? "" : "";
+    }
+
+    /// <summary>The lower third in the preview (EDIT SAFE open, a design showing in the edited state), by name; "" when none.</summary>
+    private string LowerThirdInPreview()
+    {
+        if (!_services.LowerThirdInPreview()) return "";
+        var preview = _services.State.LowerThirds;
+        return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(preview, ShowClock.UtcNow) ? preview.Active?.Name ?? "" : "";
+    }
+
+    private string LowerThirdPersonInPreview()
+    {
+        if (!_services.LowerThirdInPreview()) return "";
+        var preview = _services.State.LowerThirds;
+        return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(preview, ShowClock.UtcNow) ? preview.Active?.PersonName ?? "" : "";
     }
 
     /// <summary>State summary for remotes. UI thread only.</summary>
@@ -213,6 +232,10 @@ public sealed class CommandRouter
             lowerThird = LowerThirdOnAir(),                                // the design on screen right now, or ""
             people = s.LowerThirds.Entries.Select((e, n) => new { n = n + 1, name = e.Name, role = e.Role }).ToArray(),
             lowerThirdPerson = LowerThirdPersonOnAir(),                    // the name on screen right now, or ""
+            lowerThirdPreview = LowerThirdInPreview(),                     // the design in the preview for a sign-off, or ""
+            lowerThirdPreviewPerson = LowerThirdPersonInPreview(),
+            lowerThirdDefault = s.LowerThirds.DefaultDesign?.Name ?? "",   // the show's ★ design — where a person goes with none on air
+            lowerThirdEdited = _services.LowerThirdAirEdited(),            // the design on air differs from the edited one: LT UPDATE
             stingers = s.Stingers.Items.Select((i, n) => new
             {
                 n = n + 1,

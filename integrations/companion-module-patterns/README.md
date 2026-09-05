@@ -42,6 +42,24 @@ it back* key (`stinger_stop`). `$(patterns:sting_hold)` names the held stinger. 
 `program` variable's prefix while something plays is now `VOG:`, `STING:` or `STING HOLD:` —
 a trigger matching `STING:` should match `VOG:` too.
 
+## Lower thirds: preview, take, update, the show's default (module 1.9.0)
+
+The sign-off flow from a key. **LT PVW n** (`lower_third_preview`) puts design *n* — with a
+person from the library when the action names one — into the preview: the desk's PREVIEW pane,
+the multiview's Preview tile and REVIEW show it while the audience sees nothing new, and a show
+caller or director checks the spelling. **PVW PERSON n** puts library entry *n* into the design in
+the preview (else the one on air, else the show's ★ default) and into the preview. **LT TAKE**
+(`lower_third_take`) puts the signed-off lower third on air, arriving the way it was designed to, and
+clears the preview for the next name; the key reads `$(patterns:lower_third_preview)` and lights
+amber (`lower_third_preview` feedback, a design name optional) while something is in the preview.
+**LT UPDATE** (`lower_third_update`) pushes an edit made while a design is on air across in place —
+the words too — with no leaving and arriving again; the key lights amber (`lower_third_edited`,
+`$(patterns:lower_third_edited)` reads EDITED) while the design on air differs from the edited one.
+`$(patterns:lower_third_default)` names the show's ★ design, where PERSON n goes when nothing is on
+air. The preview needs EDIT SAFE on the desk; without it Patterns answers `ERR` and the AIR keys work
+as before. `LT PREVIEW n [WITH person]`, `LT PREVIEW WITH person`, `LT TAKE`, `LT UPDATE`,
+`LT PREVIEW OFF` on the wire.
+
 ## Freeze, the timed fade and the previous look (module 1.8.0)
 
 **FREEZE** (Transport) holds every output's frame — the windows, the NDI sends, the stream —

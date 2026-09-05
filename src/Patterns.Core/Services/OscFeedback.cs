@@ -44,6 +44,10 @@ public static class OscFeedback
             Text(list, root, "stingHold", "stinger/hold");
             Text(list, root, "lowerThird", "lowerthird");
             Text(list, root, "lowerThirdPerson", "lowerthird/person");
+            Text(list, root, "lowerThirdPreview", "lowerthird/preview");
+            Text(list, root, "lowerThirdPreviewPerson", "lowerthird/preview/person");
+            Text(list, root, "lowerThirdDefault", "lowerthird/default");
+            Flag(list, root, "lowerThirdEdited", "lowerthird/edited");
             if (root.TryGetProperty("stream", out var stream)) Flag(list, stream, "active", "stream");
             Text(list, root, "playlist", "playlist");
             Text(list, root, "health", "health");

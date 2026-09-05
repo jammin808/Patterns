@@ -340,6 +340,22 @@ public sealed class LowerThirdDesign : Observable
     [JsonIgnore]
     public string OnAirText { get => _onAirText; set => Set(ref _onAirText, value ?? ""); }
 
+    private bool _isInPreview;
+    private string _previewText = "";
+    private bool _isDefault;
+
+    /// <summary>Runtime tally: this design is in the preview — the PREVIEW pane, the multiview's Preview tile — for a sign-off (never saved).</summary>
+    [JsonIgnore]
+    public bool IsInPreview { get => _isInPreview; set => Set(ref _isInPreview, value); }
+
+    /// <summary>Runtime tally: "IN PREVIEW", "ARRIVING", "LEAVING", or "" (never saved).</summary>
+    [JsonIgnore]
+    public string PreviewText { get => _previewText; set => Set(ref _previewText, value ?? ""); }
+
+    /// <summary>Runtime tally: this is the show's default design — the one a person goes into when no design is named (never saved; the config keeps the id).</summary>
+    [JsonIgnore]
+    public bool IsDefault { get => _isDefault; set => Set(ref _isDefault, value); }
+
     public LowerThirdDesign Clone(bool newId = true)
     {
         var copy = JsonUtil.Clone(this);
@@ -404,10 +420,11 @@ public sealed class LowerThirdEntry : Observable
     }
 }
 
-/// <summary>The show's lower thirds: the designs, the library of people, and which design is on air since when.</summary>
+/// <summary>The show's lower thirds: the designs, the library of people, which design is on air since when, and the show's default design.</summary>
 public sealed class LowerThirdsConfig : Observable
 {
     private string _activeId = "";
+    private string _defaultDesignId = "";
     private DateTime? _shownAtUtc;
     private DateTime? _hiddenAtUtc;
 
@@ -418,6 +435,46 @@ public sealed class LowerThirdsConfig : Observable
 
     /// <summary>The design on air (or last on air).</summary>
     public string ActiveId { get => _activeId; set => Set(ref _activeId, value ?? ""); }
+
+    /// <summary>
+    /// The show's default design (★): once a style is chosen it usually serves the whole show,
+    /// so PERSON n, the PEOPLE chips and a cue that names a person but no design put the next
+    /// name into this one when none is on air. Empty (or a deleted id) = the first design.
+    /// </summary>
+    public string DefaultDesignId { get => _defaultDesignId; set => Set(ref _defaultDesignId, value ?? ""); }
+
+    /// <summary>The default design resolved: the ★ one, else the first; null when the show has none.</summary>
+    [JsonIgnore]
+    public LowerThirdDesign? DefaultDesign => (DefaultDesignId.Length > 0 ? Find(DefaultDesignId) : null) ?? Designs.FirstOrDefault();
+
+    /// <summary>
+    /// Puts a design into the list: the one with the same id is replaced in place (its row keeps
+    /// its number, and an air copy keeps its instants because those live here, not on the design);
+    /// a new id is appended. Returns the instance now in the list.
+    /// </summary>
+    public LowerThirdDesign Put(LowerThirdDesign design)
+    {
+        for (var i = 0; i < Designs.Count; i++)
+        {
+            if (Designs[i].Id != design.Id) continue;
+            if (!ReferenceEquals(Designs[i], design)) Designs[i] = design;
+            return design;
+        }
+        Designs.Add(design);
+        return design;
+    }
+
+    /// <summary>Two designs that would draw the same thing: every saved field equal (the runtime tallies are not compared).</summary>
+    public static bool SameDesign(LowerThirdDesign a, LowerThirdDesign b)
+        => ReferenceEquals(a, b) || JsonUtil.Serialize(a) == JsonUtil.Serialize(b);
+
+    /// <summary>
+    /// The same run as another config's: the same design shown at the same instant. An edited
+    /// state that was cloned from the program carries the program's run — that is a mirror, not a
+    /// preview of its own; a preview is a run the program does not have.
+    /// </summary>
+    public bool IsSameRunAs(LowerThirdsConfig other)
+        => ReferenceEquals(this, other) || (ActiveId == other.ActiveId && ShownAtUtc == other.ShownAtUtc);
 
     /// <summary>When the active design was shown (the master clock's wall time); null = never.</summary>
     public DateTime? ShownAtUtc { get => _shownAtUtc; set => Set(ref _shownAtUtc, value); }

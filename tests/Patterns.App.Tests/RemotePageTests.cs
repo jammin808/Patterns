@@ -66,7 +66,8 @@ public class RemotePageTests
             foreach (var line in new[] { "'PREV'", "'NEXT'", "'OUTPUTS ON'", "'OUTPUTS OFF'", "'IDENTIFY'", "'BLACKOUT TOGGLE'", "'DUCK TOGGLE'", "'STOPALL'",
                                          "'CUE GO '", "'CUE STANDBY PREV'", "'CUE STANDBY NEXT'", "'CUE HOLD '", "'CUE ARM '", "'LOOK '", "'SCREEN '", "'LOCK '", "'SECTION '",
                                          "'AUDIO PLAY'", "'AUDIO STOP'", "'MUSIC PLAY'", "'MUSIC PAUSE'", "'MUSIC NEXT'", "'STINGER '", "'STINGER STOP'", "'TONE ON'", "'TONE OFF'",
-                                         "'LT '", "'LT OFF'", "'PERSON '", "'REVIEW TOGGLE'", "'FREEZE TOGGLE'", "'FADE 2'", "'FADEUP 2'", "'LOOKBACK'" })
+                                         "'LT '", "'LT OFF'", "'PERSON '", "'REVIEW TOGGLE'", "'FREEZE TOGGLE'", "'FADE 2'", "'FADEUP 2'", "'LOOKBACK'",
+                                         "'LT PREVIEW '", "'LT PREVIEW WITH '", "'LT TAKE'", "'LT UPDATE'", "'LT PREVIEW OFF'" })
             {
                 Assert.Contains(line, page);
             }

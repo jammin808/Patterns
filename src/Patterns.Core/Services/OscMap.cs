@@ -34,7 +34,11 @@ public static class OscMap
         ("/patterns/vog <n|name>, /patterns/sting <n|name>", "VOG / STING — kind-checked, like the TCP verbs"),
         ("/patterns/lowerthird <n|name> [person]", "LOWERTHIRD n / name, with a library entry when a second argument names one (also /patterns/lt)"),
         ("/patterns/lowerthird/off", "LOWERTHIRD OFF"),
-        ("/patterns/person <n|name>", "PERSON — a library entry into the lower third on air"),
+        ("/patterns/lowerthird/preview <n|name> [person]", "LOWERTHIRD PREVIEW — the design (with a library entry) into the preview for a sign-off (also /lowerthird/preview/<n>/<person>)"),
+        ("/patterns/lowerthird/preview/off", "LOWERTHIRD PREVIEW OFF — the preview's lower third leaves"),
+        ("/patterns/lowerthird/take", "LOWERTHIRD TAKE — the lower third in the preview goes to air"),
+        ("/patterns/lowerthird/update", "LOWERTHIRD UPDATE — the design on air replaced by the design as it is now, in place"),
+        ("/patterns/person <n|name>", "PERSON — a library entry into the lower third on air (else the show's default design)"),
         ("/patterns/section <n|name>", "SECTION — a playlist part"),
         ("/patterns/stream 1|0", "STREAM ON / OFF"),
         ("/patterns/cue/go [id]", "CUE GO — the standby id you last saw, or none"),
@@ -59,6 +63,7 @@ public static class OscMap
         var verb = parts[0].ToLowerInvariant();
         var seg = parts.Length > 1 ? parts[1] : "";
         var seg2 = parts.Length > 2 ? parts[2] : "";
+        var seg3 = parts.Length > 3 ? parts[3] : "";
         switch (verb)
         {
             case "outputs": return "OUTPUTS " + Switch(m, seg, "ON", toggles: false);
@@ -111,6 +116,17 @@ public static class OscMap
             case "lt":
             {
                 if (seg.Equals("off", StringComparison.OrdinalIgnoreCase) || seg.Equals("hide", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD OFF";
+                if (seg.Equals("take", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD TAKE";
+                if (seg.Equals("update", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD UPDATE";
+                if (seg.Equals("preview", StringComparison.OrdinalIgnoreCase) || seg.Equals("pvw", StringComparison.OrdinalIgnoreCase))
+                {
+                    // /lowerthird/preview/<design>/<person>, /lowerthird/preview <design> [person], /lowerthird/preview/off.
+                    var pDesign = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                    if (pDesign.Length == 0) return null;
+                    if (pDesign.Equals("off", StringComparison.OrdinalIgnoreCase) || pDesign.Equals("clear", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD PREVIEW OFF";
+                    var pPerson = seg3.Length > 0 ? seg3 : seg2.Length > 0 ? m.Text() ?? "" : m.Text(1) ?? "";
+                    return pPerson.Length == 0 ? "LOWERTHIRD PREVIEW " + pDesign : $"LOWERTHIRD PREVIEW {pDesign} WITH {pPerson}";
+                }
                 var design = seg.Length > 0 ? seg : m.Text() ?? "";
                 if (design.Length == 0) return null;
                 if (design.Equals("off", StringComparison.OrdinalIgnoreCase) || design.Equals("hide", StringComparison.OrdinalIgnoreCase)) return "LOWERTHIRD OFF";

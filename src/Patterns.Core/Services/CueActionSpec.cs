@@ -55,6 +55,7 @@ public static class CueActionSpec
         CueActionKind.SpotifyPlay => (TargetKind.Music, ValueKind.None),
         CueActionKind.SpotifyVolume => (TargetKind.None, ValueKind.Level),
         CueActionKind.LowerThirdShow => (TargetKind.LowerThird, ValueKind.Person),
+        CueActionKind.LowerThirdPreview => (TargetKind.LowerThird, ValueKind.Person),
         CueActionKind.ListArm or CueActionKind.ListDisarm or CueActionKind.ListGo
             or CueActionKind.ListBack or CueActionKind.ListReset => (TargetKind.Stack, ValueKind.None),
         _ => (TargetKind.None, ValueKind.None),
@@ -96,6 +97,8 @@ public static class CueActionSpec
         CueActionKind.DuckOff => "Lift the duck",
         CueActionKind.LowerThirdShow => "Lower third on",
         CueActionKind.LowerThirdHide => "Lower third off",
+        CueActionKind.LowerThirdPreview => "Lower third to preview",
+        CueActionKind.LowerThirdTake => "Lower third take (preview to air)",
         CueActionKind.ListArm => "Arm a list",
         CueActionKind.ListDisarm => "Disarm a list",
         CueActionKind.ListGo => "GO on a list",
@@ -120,7 +123,7 @@ public static class CueActionSpec
         CueActionKind.CountdownStart, CueActionKind.CountdownStop,
         CueActionKind.MessageOn, CueActionKind.MessageOff,
         CueActionKind.ClockOn, CueActionKind.ClockOff,
-        CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide,
+        CueActionKind.LowerThirdShow, CueActionKind.LowerThirdHide, CueActionKind.LowerThirdPreview, CueActionKind.LowerThirdTake,
         CueActionKind.DuckOn, CueActionKind.DuckOff,
         CueActionKind.ListArm, CueActionKind.ListDisarm, CueActionKind.ListGo, CueActionKind.ListBack, CueActionKind.ListReset,
     };

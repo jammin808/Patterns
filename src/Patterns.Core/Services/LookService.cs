@@ -64,6 +64,19 @@ public static class LookService
         }
     }
 
+    /// <summary>The lower third a saved look carries, by id: "" for none, null when the look predates the field or cannot be read.</summary>
+    public static string? LowerThirdIdOf(string lookJson)
+    {
+        try
+        {
+            return JsonUtil.Deserialize<LookData>(lookJson)?.LowerThirdId;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>True when the state shows exactly the look's picture — the look is in use, unedited.</summary>
     public static bool Matches(string lookJson, ShowState state)
     {

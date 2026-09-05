@@ -118,6 +118,10 @@ class PatternsInstance extends InstanceBase {
 			duck: this.state.duck ? 'DUCK' : 'off',
 			lower_third: this.state.lowerThird ?? '',
 			lower_third_person: this.state.lowerThirdPerson ?? '',
+			lower_third_preview: this.state.lowerThirdPreview ?? '',
+			lower_third_preview_person: this.state.lowerThirdPreviewPerson ?? '',
+			lower_third_default: this.state.lowerThirdDefault ?? '',
+			lower_third_edited: this.state.lowerThirdEdited ? 'EDITED' : 'off',
 			review: this.state.review ? 'ON' : 'off',
 			freeze: this.state.frozen ? 'FROZEN' : 'off',
 			previous_look: this.state.previousLook ?? '',
@@ -132,7 +136,8 @@ class PatternsInstance extends InstanceBase {
 			machine_advice: String(this.state.machine?.advice ?? 0),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'audio_playing', 'stinger_playing', 'music_playing',
-			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'review_on', 'frozen','cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
+			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'lower_third_preview', 'lower_third_edited',
+			'review_on', 'frozen','cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed')
 	}
 
 	send(cmd) {
@@ -309,6 +314,33 @@ class PatternsInstance extends InstanceBase {
 				],
 				callback: (a) => send(a.options.design ? `LT ${a.options.design} WITH ${a.options.name}` : `PERSON ${a.options.name}`),
 			},
+			// The sign-off flow (needs EDIT SAFE on the desk): a design — with a person — into the preview, where the
+			// PREVIEW pane, the multiview's Preview tile and REVIEW show it; TAKE puts it on air and clears the preview;
+			// UPDATE pushes an edit made while a design is on air across in place.
+			lower_third_preview: {
+				name: 'Lower third to preview (by number; blank person = as designed)',
+				options: [
+					{ type: 'number', id: 'n', label: 'Design number (Lower thirds page order; 0 = the one in the preview, on air, or the default)', default: 1, min: 0, max: 64 },
+					{ type: 'textinput', id: 'person', label: 'Person (number or name; blank = as designed)', default: '' },
+				],
+				callback: (a) => {
+					const design = a.options.n > 0 ? String(a.options.n) : ''
+					const person = a.options.person ? String(a.options.person).trim() : ''
+					if (!design && !person) return
+					send(design ? (person ? `LT PREVIEW ${design} WITH ${person}` : `LT PREVIEW ${design}`) : `LT PREVIEW WITH ${person}`)
+				},
+			},
+			lower_third_preview_name: {
+				name: 'Lower third to preview (by name)',
+				options: [
+					{ type: 'textinput', id: 'name', label: 'Design name', default: '' },
+					{ type: 'textinput', id: 'person', label: 'Person (number or name; blank = as designed)', default: '' },
+				],
+				callback: (a) => send(a.options.person ? `LT PREVIEW ${a.options.name} WITH ${a.options.person}` : `LT PREVIEW ${a.options.name}`),
+			},
+			lower_third_take: { name: 'Lower third TAKE — the one in the preview to air (the preview clears)', options: [], callback: () => send('LT TAKE') },
+			lower_third_update: { name: 'Lower third UPDATE — the design on air replaced by the design as it is now, in place', options: [], callback: () => send('LT UPDATE') },
+			lower_third_preview_off: { name: 'Lower third preview clear', options: [], callback: () => send('LT PREVIEW OFF') },
 			// VOG / STING name the same library by the same number and only assert the kind: a key
 			// that says VOG never fires a stinger — Patterns refuses and names the item.
 			vog: {
@@ -460,6 +492,23 @@ class PatternsInstance extends InstanceBase {
 					return on !== '' && on === fb.options.name
 				},
 			},
+			lower_third_preview: {
+				type: 'boolean',
+				name: 'A lower third is in the preview for a sign-off (any, or a named one)',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'textinput', id: 'name', label: 'Design name (blank = any)', default: '' }],
+				callback: (fb) => {
+					const on = this.state.lowerThirdPreview ?? ''
+					return on !== '' && (!fb.options.name || on === fb.options.name)
+				},
+			},
+			lower_third_edited: {
+				type: 'boolean',
+				name: 'The lower third on air was edited after it went there (UPDATE pushes the edit)',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.lowerThirdEdited,
+			},
 			music_playing: {
 				type: 'boolean',
 				name: 'Break music is playing',
@@ -517,6 +566,10 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'duck', name: 'Live duck (DUCK/off)' },
 			{ variableId: 'lower_third', name: 'Lower third on screen (name, or empty)' },
 			{ variableId: 'lower_third_person', name: 'The name the lower third on screen carries (or empty)' },
+			{ variableId: 'lower_third_preview', name: 'Lower third in the preview for a sign-off (name, or empty)' },
+			{ variableId: 'lower_third_preview_person', name: 'The name the lower third in the preview carries (or empty)' },
+			{ variableId: 'lower_third_default', name: 'The show\'s default lower third design (★)' },
+			{ variableId: 'lower_third_edited', name: 'EDITED when the design on air differs from the edited one, else off' },
 			{ variableId: 'review', name: 'Review on the multiview (ON/off)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
 			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
@@ -658,6 +711,35 @@ class PatternsInstance extends InstanceBase {
 				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) into the lower third on air`,
 				style: { text: `PERSON\\n${n}`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third_person', options: { n, design: '' } }], up: [] }], feedbacks: [lowerOn],
+			}
+		}
+		const lowerPvw = { feedbackId: 'lower_third_preview', options: { name: '' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }
+		presets.lower_third_take = {
+			type: 'button', category: 'Lower thirds', name: 'Lower third TAKE — the one in the preview to air',
+			style: { text: 'LT TAKE\\n$(patterns:lower_third_preview)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'lower_third_take', options: {} }], up: [] }], feedbacks: [lowerPvw],
+		}
+		presets.lower_third_update = {
+			type: 'button', category: 'Lower thirds', name: 'Lower third UPDATE — push an edit to the design on air',
+			style: { text: 'LT\\nUPDATE', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'lower_third_update', options: {} }], up: [] }],
+			feedbacks: [{ feedbackId: 'lower_third_edited', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
+		}
+		presets.lower_third_preview_off = {
+			type: 'button', category: 'Lower thirds', name: 'Lower third preview clear',
+			style: { text: 'LT PVW\\nCLEAR', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'lower_third_preview_off', options: {} }], up: [] }], feedbacks: [lowerPvw],
+		}
+		for (let n = 1; n <= 6; n++) {
+			presets[`lower_third_preview_${n}`] = {
+				type: 'button', category: 'Lower thirds', name: `Lower third ${n} to preview (sign-off)`,
+				style: { text: `LT PVW\\n${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n, person: '' } }], up: [] }], feedbacks: [lowerPvw],
+			}
+			presets[`person_preview_${n}`] = {
+				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) to preview, into the design in the preview, on air, or the default`,
+				style: { text: `PVW\\nPERSON ${n}`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n: 0, person: String(n) } }], up: [] }], feedbacks: [lowerPvw],
 			}
 		}
 		const musicOn = { feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }

@@ -77,13 +77,19 @@ public static class CueSummary
             case CueActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
             case CueActionKind.MessageOff: return "Message off";
             case CueActionKind.LowerThirdShow:
+            case CueActionKind.LowerThirdPreview:
             {
-                var design = a.Target.Length == 0 ? "on air" : $"'{state.LowerThirds.Find(a.Target)?.Name ?? a.Target}'";
-                if (a.Value.Length == 0) return $"Lower third {design}";
+                var preview = a.Kind == CueActionKind.LowerThirdPreview;
+                var design = a.Target.Length == 0
+                    ? (preview ? "(the default)" : "on air")
+                    : $"'{state.LowerThirds.Find(a.Target)?.Name ?? a.Target}'";
+                var head = preview ? $"Lower third to preview {design}" : $"Lower third {design}";
+                if (a.Value.Length == 0) return head;
                 var who = state.LowerThirds.FindEntry(a.Value);
-                return who is null ? $"Lower third {design} — '{a.Value}' (not in the library)" : $"Lower third {design} — {who.Name}";
+                return who is null ? $"{head} — '{a.Value}' (not in the library)" : $"{head} — {who.Name}";
             }
             case CueActionKind.LowerThirdHide: return "Lower third off";
+            case CueActionKind.LowerThirdTake: return "Lower third take (preview to air)";
             case CueActionKind.ClockOn: return "Clock on";
             case CueActionKind.ClockOff: return "Clock off";
             case CueActionKind.DuckOn: return "Duck for announcement";

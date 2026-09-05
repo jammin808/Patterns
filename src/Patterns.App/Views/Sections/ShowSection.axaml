@@ -109,7 +109,11 @@
     </StackPanel>
 
     <StackPanel IsVisible="{Binding State.LowerThirds.Designs.Count, Converter={StaticResource Positive}}">
-      <TextBlock Classes="h2" Text="LOWER THIRDS" />
+      <Grid ColumnDefinitions="*,8,Auto">
+        <TextBlock Classes="h2" Text="LOWER THIRDS" VerticalAlignment="Center" />
+        <ToggleButton Grid.Column="2" Classes="mini" Content="PVW FIRST" IsChecked="{Binding LowerThirdChipsToPreview, Mode=TwoWay}" VerticalAlignment="Center"
+                      ToolTip.Tip="The chips go to the preview for a sign-off instead of straight to air; TAKE TO AIR then puts the signed-off one on (needs EDIT SAFE)" />
+      </Grid>
       <ItemsControl ItemsSource="{Binding State.LowerThirds.Designs}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
@@ -118,20 +122,30 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="lt:LowerThirdDesign">
-            <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
+            <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Center" ToolTip.Tip="{Binding OnAirText}"
-                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ShowLowerThirdCommand}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ChipLowerThirdCommand}"
                     CommandParameter="{Binding}">
-              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              <StackPanel Orientation="Horizontal" Spacing="5">
+                <TextBlock Text="★" IsVisible="{Binding IsDefault}" ToolTip.Tip="The show's default design" />
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
             </Button>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-      <Grid ColumnDefinitions="*,8,Auto">
+      <Grid ColumnDefinitions="*,8,Auto,6,Auto">
         <TextBlock Classes="label" Text="{Binding LowerThirdStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
-        <Button Grid.Column="2" Classes="mini" Content="■ Hide" Command="{Binding HideLowerThirdCommand}" />
+        <Button Grid.Column="2" Classes="mini" Content="UPDATE ON AIR" IsVisible="{Binding LowerThirdAirEdited}" Command="{Binding UpdateLowerThirdCommand}"
+                ToolTip.Tip="The design on air has been edited since it went there: push the edit across in place" />
+        <Button Grid.Column="4" Classes="mini" Content="■ Hide" Command="{Binding HideLowerThirdCommand}" />
       </Grid>
-      <TextBlock Classes="hint tip" Text="A design goes on air over whatever is showing, on every screen, send and the stream, and leaves the way it was designed to. Build them on the Lower thirds page (BUILD)." />
+      <Grid ColumnDefinitions="*,8,Auto,6,Auto" IsVisible="{Binding HasLowerThirdInPreview}">
+        <TextBlock Classes="label" Text="{Binding LowerThirdPreviewText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <Button Grid.Column="2" Classes="go" Content="TAKE TO AIR" Command="{Binding TakeLowerThirdCommand}" ToolTip.Tip="The signed-off lower third to air; the preview clears" />
+        <Button Grid.Column="4" Classes="mini" Content="CLEAR" Command="{Binding ClearLowerThirdPreviewCommand}" ToolTip.Tip="The preview's lower third leaves; nothing changes on air" />
+      </Grid>
+      <TextBlock Classes="hint tip" Text="A chip puts the design on air over whatever is showing, on every screen, send and the stream; with PVW FIRST on it goes to the preview instead — the PREVIEW pane, the multiview's Preview tile and REVIEW — for a sign-off, and TAKE TO AIR puts it on. ★ is the show's default design. EDITED means the design was changed after it went on air: UPDATE ON AIR pushes the change. Build designs on the Lower thirds page (BUILD)." />
       <StackPanel IsVisible="{Binding State.LowerThirds.Entries.Count, Converter={StaticResource Positive}}">
         <TextBlock Classes="h2" Text="PEOPLE" />
         <ItemsControl ItemsSource="{Binding State.LowerThirds.Entries}">
@@ -143,13 +157,13 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="lt:LowerThirdEntry">
               <Button Classes="chip" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="{Binding Summary}"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ShowEntryOnAirCommand}" CommandParameter="{Binding}">
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ChipEntryCommand}" CommandParameter="{Binding}">
                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
               </Button>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <TextBlock Classes="hint tip" Text="A person goes into the design on air (else the last shown, else the first) — name, role, company and photo — and it arrives again: the next speaker in one press." />
+        <TextBlock Classes="hint tip" Text="A person goes into the design on air (else the show's ★ default) — name, role, company and photo — and it arrives again: the next speaker in one press. With PVW FIRST on, into the preview for a sign-off first." />
       </StackPanel>
     </StackPanel>
 
