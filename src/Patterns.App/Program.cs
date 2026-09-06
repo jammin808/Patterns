@@ -25,8 +25,15 @@ internal static class Program
         // Then whether this start asks for the low-latency swap chain (direct output).
         Services.DirectOutputService.Initialize();
 
+        // An exception no handler contained (a worker thread's, or one the UI guard let through)
+        // ends the process: the log gets the stack and the next start's health line gets the
+        // exception's own words through the crash note, beside the exit code the watchdog sees.
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
-            Log.Error("Unhandled exception.", e.ExceptionObject as Exception);
+        {
+            var ex = e.ExceptionObject as Exception;
+            Log.Error($"Unhandled exception — {(ex is null ? e.ExceptionObject?.ToString() ?? "?" : FaultWords.Describe(ex))}", ex);
+            Services.UiFaults.NoteFatal(ex);
+        };
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
             Log.Error("Unobserved task exception.", e.Exception);
@@ -39,8 +46,12 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Log.Error("Fatal startup failure.", ex);
-            return 1;
+            // Before the desk exists this is a start that failed; after it, the main loop ended in an
+            // exception the UI guard could not reach (input arrives outside the dispatcher's jobs).
+            var deskWasUp = Services.AppServices.Instance is not null;
+            Log.Error((deskWasUp ? "The desk's main loop ended in an exception" : "Fatal startup failure") + $" — {FaultWords.Describe(ex)}", ex);
+            Services.UiFaults.NoteFatal(ex);
+            return deskWasUp ? ExitCodes.ClrException : 1;
         }
     }
 

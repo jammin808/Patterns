@@ -301,9 +301,12 @@ public static class ExitCodes
 /// The note the supervisor leaves beside the settings on every crash restart: what the last run
 /// ended in, when, after how long, the mini-dump if one was written, and how many runs in a row
 /// ended in a native fault. The next start reads it onto the health line and into its log — and
-/// decides its safe run from it — then clears it, so it applies to that run alone.
+/// decides its safe run from it — then clears it, so it applies to that run alone. A managed
+/// crash carries the exception's own words (its type, message and the app's frames) in
+/// <paramref name="Detail"/>, written by the app itself on the way down, so the health line names
+/// what threw and where rather than just the runtime's exit code.
 /// </summary>
-public sealed record CrashNote(int ExitCode, string Words, bool NativeFault, bool Hung, DateTime AtUtc, double RanForSeconds, string DumpPath, int NativeFaultsInARow)
+public sealed record CrashNote(int ExitCode, string Words, bool NativeFault, bool Hung, DateTime AtUtc, double RanForSeconds, string DumpPath, int NativeFaultsInARow, string Detail = "")
 {
     /// <summary>One sentence for the health line and the log.</summary>
     public string Sentence
@@ -313,9 +316,91 @@ public sealed record CrashNote(int ExitCode, string Words, bool NativeFault, boo
             var when = AtUtc.ToLocalTime().ToString("HH:mm:ss");
             var ran = RanForSeconds >= 3600 ? $"{RanForSeconds / 3600:0.#} h" : RanForSeconds >= 60 ? $"{RanForSeconds / 60:0} min" : $"{RanForSeconds:0} s";
             var why = Hung ? "a hung UI thread (the watchdog ended it)" : Words;
+            var detail = Detail.Length > 0 ? $" — {Detail} —" : "";
             var dump = DumpPath.Length > 0 ? $"; a mini-dump is at {DumpPath}" : NativeFault ? "; no mini-dump was written (createdump.exe is not beside Patterns.exe)" : "";
-            return $"The last run ended in {why} at {when} after {ran}{dump}.";
+            return $"The last run ended in {why}{detail} at {when} after {ran}{dump}.";
         }
+    }
+}
+
+/// <summary>
+/// An exception in one line for the health line, the crash note and the log's first words: its
+/// type, its message, and the app's own frames it passed through — "InvalidOperationException:
+/// Sequence contains no elements — in MainWindow.ApplyDeskLayout, MainViewModel.SelectPage". The
+/// full stack is in the log beside it; this is what the operator reads without opening it.
+/// </summary>
+public static class FaultWords
+{
+    /// <summary>How many of the app's own frames the line names.</summary>
+    public const int Frames = 2;
+
+    /// <summary>The message is cut to this many characters so a long one never floods the line.</summary>
+    public const int MessageLength = 160;
+
+    public static string Describe(Exception ex)
+    {
+        try
+        {
+            var inner = Unwrap(ex);
+            var message = OneLine(inner.Message);
+            var frames = OwnFrames(inner);
+            var words = message.Length > 0 ? $"{inner.GetType().Name}: {message}" : inner.GetType().Name;
+            return frames.Count > 0 ? $"{words} — in {string.Join(", ", frames)}" : words;
+        }
+        catch
+        {
+            return ex.GetType().Name;
+        }
+    }
+
+    /// <summary>The exception that did the damage: through the wrappers the runtime and reflection add.</summary>
+    public static Exception Unwrap(Exception ex)
+    {
+        for (var i = 0; i < 8; i++)
+        {
+            switch (ex)
+            {
+                case System.Reflection.TargetInvocationException { InnerException: { } t }:
+                    ex = t;
+                    continue;
+                case AggregateException { InnerExceptions.Count: > 0 } a:
+                    ex = a.InnerExceptions[0];
+                    continue;
+                default:
+                    return ex;
+            }
+        }
+        return ex;
+    }
+
+    /// <summary>"Type.Method" for the first frames of the app's own code (Patterns.*), innermost first; empty when the stack never touched it.</summary>
+    public static IReadOnlyList<string> OwnFrames(Exception ex, int max = Frames)
+    {
+        var list = new List<string>();
+        var trace = new System.Diagnostics.StackTrace(ex, false);
+        foreach (var frame in trace.GetFrames())
+        {
+            var method = frame.GetMethod();
+            var type = method?.DeclaringType;
+            if (method is null || type is null) continue;
+            // A lambda or an iterator sits in a compiler-generated nested class: name its owner.
+            while (type.IsNested && type.Name.StartsWith('<') && type.DeclaringType is { } outer) type = outer;
+            if (!(type.FullName ?? "").StartsWith("Patterns.", StringComparison.Ordinal)) continue;
+            var name = method.Name;
+            // "<SelectPage>b__12_0" is the compiler's name for a lambda inside SelectPage.
+            if (name.StartsWith('<') && name.IndexOf('>') is > 1 and var end) name = name[1..end];
+            if (name is ".ctor" or ".cctor") name = "the constructor";
+            var words = $"{type.Name}.{name}";
+            if (!list.Contains(words)) list.Add(words);
+            if (list.Count >= max) break;
+        }
+        return list;
+    }
+
+    private static string OneLine(string message)
+    {
+        var flat = string.Join(" ", message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim())).Trim();
+        return flat.Length > MessageLength ? flat[..(MessageLength - 1)] + "…" : flat;
     }
 }
 

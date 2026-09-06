@@ -175,6 +175,19 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 19. Round 15 — the crash between menus, fade to black per screen, the desk's room
+
+The user's round-15 list, the crash first: "Crash moving between menus. It restarted." Then the
+show-critical asks (fade to black per screen or group with the audio linked; CUT / TAKE with four
+scopes; the editing target never blank), then the desk's room (the Show panel's STOP row and the
+OUTPUT toggle, the Machine page's graphs and pills, the Run area's tiles and cue column, a Layers
+page, the visual separation), and the cloud-processing question. The answers are in §20. Newest
+row first. The checklist for the Windows machine is `docs/CHECKLIST-round15.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The crash between menus, contained (the report's first line; §20.1). A fault on the UI thread used to end the process — the runtime's exit 0xE0434352, the watchdog bringing the desk back seconds later with the show interrupted — and the note it left said only "an unhandled .NET exception". App, `UiFaults`: the dispatcher's `UnhandledException` (with its filter) is hooked once per dispatcher from `AppServices` — a job that throws (a timer's tick, a posted call, a layout pass, a page's *Loaded*) is logged with its stack, counted on the health line through `Log.Error` ("1 fault caught, show kept running (last 21:14 — UI fault contained (a dispatcher job) — InvalidOperationException: … in MainWindow.ApplyDeskLayout)"), put on the status line ("A fault was contained and the desk carried on — …") and marked handled, so the outputs keep rendering and the desk stays up; `Guard(body, where)` wraps what runs outside the dispatcher's jobs — every `RelayCommand` (every button), the window's key handler, the page switch itself (`SelectPage`'s raise, the Run layout, the shell, the room the page wants) and the tab that realises the page's content — and `ApplyDeskLayout` contains its own fault and keeps the columns it had; `IsFatal` (out of memory, a native fault, a bad image) is never swallowed. What cannot be contained leaves a better note: Core `FaultWords.Describe` is the exception in one line — its type, its message on one line, the app's own frames innermost first ("InvalidOperationException: Sequence contains no elements — in MainWindow.ApplyDeskLayout, MainViewModel.SelectPage"), through the wrappers reflection and tasks add; `CrashNote` gains `Detail` (an older note without it still loads); `UiFaults.NoteFatal` writes the note on the way down from `AppDomain.UnhandledException` and from the main loop's catch (which now exits with 0xE0434352 when the desk was up, "Fatal startup failure" only before it), and the supervisor keeps the app's words under the exit code it saw, so the next start's health line and the Machine page's STABILITY read what threw and where. The page-switch audit (§20.1): the desk layout's divider width was read from a `GridLength` that reads as a star weight when the column is not absolute, and a NaN share or width is now the default rather than an exception. Tests: the note's detail in the sentence, round-tripping and absent from an older note; the words for a thrown, a wrapped, a never-thrown and a long-message exception with the frames named; on a live desk a posted job that throws contained (RunJobs returns, the count, the words, the status line, the health line, the log's line and stack, no crash note, the desk still running jobs and rendering), a command and a typed command that throw contained with the place named, a fatal exception not swallowed; every page forward and back at the laptop's size and a desk's with the group buttons and Run in between containing nothing; a fatal note read on the next start naming what threw. | done |
+
 ## 17. Round 14 — the stinger triage, the crash, the next steps, the desk's surfaces
 
 The user's round-14 report and list, the show-stopping bugs first: a stinger that "does not end
@@ -1063,3 +1076,64 @@ faulting module (§18.2, "How to read the dump") before changing anything else.
    place; a per-person feedback by name exists (`lower_third_person_is`) but the bank keys light
    on any person. The "— this show" people presets already light by name; the bank keys should
    read `people[n].name` for theirs.
+
+## 20. Round 15 — the answers
+
+### 20.1 The crash between menus: what a page switch does, what is contained now, what the next one leaves behind
+
+**The report.** "Crash moving between menus. It restarted." No note, no log line and no exit code
+came with it, so — as with §18.2 — the reading is from the code: what a switch between two pages
+does, which of it can end the process, and what the desk does about each from this round on.
+
+**What a page switch does.** The rail's group button or the strip's chip calls `SelectPage`, which
+sets the index, raises `SelectedPageIndex`, sets or leaves the Run layout, raises the shell (the
+strip, the group hint, PREP · SHOW · RUN) and raises `PageWantsRoom`. Three things follow on the
+window: the `TabControl` realises the new page's content and detaches the old one's (every
+`MonitorTileControl` on the old page disposes its render pipeline, every one on the new page makes
+its own and subscribes to the snapshot; the Lower thirds page's *Loaded* re-reads its designs
+folder), the desk layout is re-run (`ApplyDeskLayout`: the page column's width against the window,
+WIDE when the page wants the room), and the Run surface refreshes when the page is Run. None of
+that touches a native component: the WebView2 host is hidden and engine-side, the DXGI and
+performance-counter reads run on the sampler's thread, the serial-port list on the poll. So a
+crash *on the switch itself* is a managed exception on the UI thread until proven otherwise — and
+a managed exception on the UI thread ended the process, because Avalonia's dispatcher rethrows
+what nobody handles and input handlers run outside its jobs altogether. The exit code the watchdog
+saw would have been 0xE0434352 and the note "an unhandled .NET exception (see patterns.log)": true
+and useless, since the log's stack was the only place the cause lived.
+
+**Where the code could throw on that path.** The audit found one honest fault and no smoking gun:
+`ApplyDeskLayout` read the divider column's width through `GridLength.Value`, which is the star
+weight when the column is not absolute — a wrong number rather than an exception, fixed to read
+the actual width. Beyond that the path is property sets and raises; the candidates are the same as
+in any desk of this size — a binding's converter meeting a value it did not expect, a collection
+changed while a list realises it, a page's *Loaded* handler reading state that a remote command has
+just moved — and none of them is provable from here. That is the point of the change: the desk no
+longer has to know which.
+
+**What is contained now.** `UiFaults` hooks the dispatcher's `UnhandledException` once per
+dispatcher (with its filter, so a fatal exception is never requested for catch): a job that throws
+— a timer's tick, a posted call, a layout pass, a page's *Loaded* — is logged with its stack,
+counted on the health line through `Log.Error` (the line reads *1 fault caught, show kept running
+(last 21:14 — UI fault contained (a dispatcher job) — InvalidOperationException: … in
+MainWindow.ApplyDeskLayout)*), put on the status line, and marked handled. What runs outside the
+dispatcher's jobs is guarded at the app's own boundaries: every `RelayCommand` (every button on
+the desk), the window's key handler, the page switch itself, the tab that realises the page, and
+the desk layout. A fault in any of them drops that one press and nothing else: the outputs keep
+rendering (the render thread was never involved), the remotes keep answering, the cue stack keeps
+its place. Out of memory, a native fault and a bad image are never swallowed — the process is not
+sound after those, and the watchdog's restart is the right answer.
+
+**What the next one leaves behind.** A fault that is not contained — a worker thread's, or one of
+the fatal kinds — now writes the crash note itself on the way down, with `FaultWords`: the
+exception's type, its message on one line and the app's own frames innermost first. The
+supervisor keeps those words under the exit code it saw, so the start after it reads *The last run
+ended in an unhandled .NET exception (see patterns.log) — InvalidOperationException: Sequence
+contains no elements — in MainWindow.ApplyDeskLayout, MainViewModel.SelectPage — at 21:14:02
+after 12 min* on the health line and under STABILITY, and the log has the stack. The main loop's
+own catch, which used to log "Fatal startup failure" and exit 1 whatever the stage, now exits
+with 0xE0434352 when the desk was up, so the note is honest about that path too.
+
+**What to do on the machine.** Row 1 of `docs/CHECKLIST-round15.md`: after any restart, read the
+health line before touching anything, and send the sentence with the support bundle. If it names
+a frame of the app's own code, the fault is a fact and the fix is a line; if it is a native exit
+code, §18.2 applies and the mini-dump is the evidence.

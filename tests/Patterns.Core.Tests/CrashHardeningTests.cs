@@ -92,6 +92,75 @@ public class CrashHardeningTests
         Assert.DoesNotContain("mini-dump", managed);
     }
 
+    /// <summary>Round 15: a managed crash's note names what threw and where, and a note from before the detail existed still loads.</summary>
+    [Fact]
+    public void AManagedCrashNoteCarriesTheExceptionsWordsAndAnOldNoteStillLoads()
+    {
+        var detail = "InvalidOperationException: Sequence contains no elements — in MainWindow.ApplyDeskLayout, MainViewModel.SelectPage";
+        var note = new CrashNote(ExitCodes.ClrException, ExitCodes.Describe(ExitCodes.ClrException), false, false, T0, 720, "", 0, detail);
+        Assert.Contains("ended in an unhandled .NET exception (see patterns.log) — " + detail + " — at", note.Sentence);
+        Assert.Contains("after 12 min", note.Sentence);
+
+        var dir = TempDir("patterns-crashdetail-");
+        try
+        {
+            CrashMarker.Write(dir, note);
+            Assert.Equal(note, CrashMarker.ReadAndClear(dir));                  // the detail round-trips
+
+            // A note written by the previous build has no Detail field: it reads as an empty detail, never a failed load.
+            File.WriteAllText(Path.Combine(dir, CrashMarker.FileName),
+                "{\"ExitCode\":-532462766,\"Words\":\"an unhandled .NET exception (see patterns.log)\",\"NativeFault\":false,\"Hung\":false,\"AtUtc\":\"2026-09-06T22:30:00Z\",\"RanForSeconds\":600,\"DumpPath\":\"\",\"NativeFaultsInARow\":0}");
+            var old = CrashMarker.ReadAndClear(dir);
+            Assert.NotNull(old);
+            Assert.Equal("", old!.Detail);
+            Assert.Equal(ExitCodes.ClrException, old.ExitCode);
+            Assert.DoesNotContain(" — ", old.Sentence);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private static void Inner() => throw new InvalidOperationException("Sequence contains\r\n  no elements");
+
+    private static void Outer() => Inner();
+
+    /// <summary>The one line the health line and the note carry: the type, the message on one line, the app's own frames innermost first, the wrappers unwrapped.</summary>
+    [Fact]
+    public void FaultWordsNameTheTypeTheMessageAndTheAppsOwnFrames()
+    {
+        Exception caught;
+        try
+        {
+            Outer();
+            throw new Exception("unreachable");
+        }
+        catch (Exception ex)
+        {
+            caught = ex;
+        }
+        var words = FaultWords.Describe(caught);
+        Assert.StartsWith("InvalidOperationException: Sequence contains no elements — in ", words);
+        Assert.Contains("CrashHardeningTests.Inner", words);
+        Assert.Contains("CrashHardeningTests.Outer", words);
+        Assert.DoesNotContain("\n", words);
+        Assert.Equal(FaultWords.Frames, FaultWords.OwnFrames(caught).Count);
+
+        // Wrapped by reflection or a task: the words are the inner exception's.
+        var wrapped = new System.Reflection.TargetInvocationException(new AggregateException(caught));
+        Assert.Same(caught, FaultWords.Unwrap(wrapped));
+        Assert.Equal(words, FaultWords.Describe(wrapped));
+
+        // No stack (never thrown) and an empty message: the type alone.
+        Assert.Equal("NullReferenceException", FaultWords.Describe(new NullReferenceException("")));
+
+        // A long message is cut so the line stays a line.
+        var longWords = FaultWords.Describe(new ArgumentException(new string('x', 400)));
+        Assert.True(longWords.Length < FaultWords.MessageLength + 40, longWords.Length.ToString());
+        Assert.EndsWith("…", longWords);
+    }
+
     [Fact]
     public void TheDumpEnvironmentAndTheSweepKeepTheNewestThree()
     {

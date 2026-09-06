@@ -48,7 +48,12 @@ public partial class MainWindow : Window
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(MainViewModel.SelectedPageIndex)) return;
-            if (Pages.SelectedIndex != vm.SelectedPageIndex) Pages.SelectedIndex = vm.SelectedPageIndex;
+            if (Pages.SelectedIndex != vm.SelectedPageIndex)
+            {
+                // The tab change realises the page's content: guarded, so a page that fails to
+                // come in is logged and contained rather than ending the desk.
+                UiFaults.Guard(() => Pages.SelectedIndex = vm.SelectedPageIndex, "the page tab");
+            }
         };
     }
 
@@ -160,15 +165,25 @@ public partial class MainWindow : Window
             {
                 var room = WorkArea.Bounds.Width;
                 var width = _desk.EditorWidth;
-                if (room > 0) width = Math.Max(DeskLayoutConfig.MinEditorWidth, Math.Min(width, room - columns[1].Width.Value - DeskLayoutConfig.MinScreensWidth));
+                // The divider column is a fixed width; a star or auto column would read as its weight.
+                var divider = columns[1].Width.IsAbsolute ? columns[1].Width.Value : columns[1].ActualWidth;
+                if (room > 0) width = Math.Max(DeskLayoutConfig.MinEditorWidth, Math.Min(width, room - divider - DeskLayoutConfig.MinScreensWidth));
+                if (double.IsNaN(width) || double.IsInfinity(width)) width = DeskLayoutConfig.MinEditorWidth;
                 columns[0].MinWidth = DeskLayoutConfig.MinEditorWidth;
                 columns[0].Width = new GridLength(width);
                 columns[2].MinWidth = DeskLayoutConfig.MinScreensWidth;
                 columns[2].Width = new GridLength(1, GridUnitType.Star);
             }
             var share = _desk.ProgramShare;
+            if (double.IsNaN(share) || share <= 0 || share >= 1) share = DeskLayoutConfig.DefaultProgramShare;
             rows[1].Height = new GridLength(share, GridUnitType.Star);
             rows[6].Height = new GridLength(1 - share, GridUnitType.Star);
+        }
+        catch (Exception ex) when (!UiFaults.IsFatal(ex))
+        {
+            // The layout is re-run on every size change and page switch: a fault here is contained
+            // and the desk keeps the columns it had.
+            UiFaults.Contain(ex, "the desk layout");
         }
         finally
         {
@@ -584,7 +599,11 @@ public partial class MainWindow : Window
         return true;
     }
 
+    /// <summary>A key on the desk: guarded, so a handler that throws is contained and the key is dropped rather than the desk.</summary>
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
+        => UiFaults.Guard(() => HandleKeyDown(e), $"the {e.Key} key");
+
+    private void HandleKeyDown(KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
         var actions = vm.Services.Actions;

@@ -71,6 +71,11 @@ public sealed partial class MainViewModel : Observable
     {
         _services = services;
 
+        // A contained UI fault reaches the operator at once on the status line; the health line
+        // and the Machine page keep the count and the log has the stack.
+        Patterns.App.Services.UiFaults.Listener = words =>
+            StatusMessage = $"A fault was contained and the desk carried on — {words}. patterns.log has the stack; the Machine page counts it.";
+
         // Every verb goes through the action layer: one code path for the desk, the keyboard,
         // the remotes and the schedule, one journal, one place to resync the editors from.
         _services.Actions.Performed += OnActionPerformed;

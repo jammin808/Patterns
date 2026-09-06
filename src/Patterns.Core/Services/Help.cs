@@ -666,10 +666,11 @@ public static class HelpTopics
                 "Machine page: the beacon on; a second machine shows 'main machine seen'.",
                 "RESTART on the wire (with the passcode) is a clean restart under the watchdog.",
                 "After a crash: the health line names the exit code in words; a native fault (an access violation) makes the next run decode clips in software — Machine → VIDEO DECODING — and leaves a mini-dump in the crashes folder for the support bundle.",
+                "A fault in the desk (a page, a button, a timer) is contained: the status line and the health line say what threw and where, patterns.log has the stack, and the show carries on; after a restart the health line names the exception's type, message and place.",
             },
             "RESTART <passcode>",
             new[] { "Machine", "Install" },
-            new[] { "watchdog", "supervisor", "crash", "restart", "recovery", "beacon", "heartbeat", "backup", "second machine", "failover", "resilience", "access violation", "0xc0000005", "native fault", "mini-dump", "crash dump", "createdump", "safe run", "video decoding", "software decoding", "hardware decoding", "exit code" }),
+            new[] { "watchdog", "supervisor", "crash", "restart", "recovery", "beacon", "heartbeat", "backup", "second machine", "failover", "resilience", "access violation", "0xc0000005", "native fault", "mini-dump", "crash dump", "createdump", "safe run", "video decoding", "software decoding", "hardware decoding", "exit code", "fault contained", "ui fault", "exception", "unhandled", "0xe0434352", "crash between menus", "page crash", "menu crash", "status line" }),
 
         new HelpTopic("portable-files", HelpGroup.TheMachine,
             "Portable files: what is on the stick",

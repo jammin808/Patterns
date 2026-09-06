@@ -176,10 +176,16 @@ public sealed partial class MainViewModel
         _lastPage[page.Group] = index;
         if (!run) _lastBuildPage = index;
         _group = page.Group;
-        Raise(nameof(SelectedPageIndex));
-        SetRunLayout(run);
-        RaiseShell();
-        Raise(nameof(PageWantsRoom));
+        // The switch itself is guarded: a page that fails as it comes in (a binding, the desk's
+        // layout, the Run surface's refresh) is logged and contained, and the desk stays on the
+        // page it moved to rather than the process ending — the round-15 crash between menus.
+        Patterns.App.Services.UiFaults.Guard(() =>
+        {
+            Raise(nameof(SelectedPageIndex));
+            SetRunLayout(run);
+            RaiseShell();
+            Raise(nameof(PageWantsRoom));
+        }, $"the switch to {page.Header}");
     }
 
     /// <summary>A group button: the group's last page, or its first; SHOW pressed while in Run goes to the panel.</summary>

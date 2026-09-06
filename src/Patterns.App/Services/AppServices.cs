@@ -225,6 +225,8 @@ public sealed class AppServices
     {
         Store = store ?? new SettingsStore();
         Log.Init(Store.BaseDirectory);
+        // A fault on the UI thread is contained from here on: logged, counted, the desk kept up.
+        UiFaults.Install();
 
         // The start-up budget: from Main when this process went through it (the runtime, the
         // graphics choice and Avalonia's own start count as "runtime"), else from here.

@@ -247,8 +247,13 @@ internal static class Supervisor
                         // The next start reads this onto its health line and into its log, and after a
                         // native fault decodes clips in software for that run.
                         var dump = native ? CrashDumps.NewestSince(baseDirectory, startedUtc) : "";
+                        // A managed crash: the app wrote a note on its way down with the exception's own
+                        // words — those are kept under the exit code this process saw.
+                        var own = CrashMarker.Peek(baseDirectory);
+                        var detail = own is { } o && o.AtUtc >= startedUtc.AddSeconds(-5) ? o.Detail : "";
                         CrashMarker.Write(baseDirectory, new CrashNote(exitCode, ExitCodes.Describe(exitCode), native, killedForHang,
-                            DateTime.UtcNow, ranFor.TotalSeconds, dump, nativeFaultsInARow));
+                            DateTime.UtcNow, ranFor.TotalSeconds, dump, nativeFaultsInARow, detail));
+                        if (detail.Length > 0) WLog($"The app's own note: {detail}");
                         if (dump.Length > 0) WLog($"Mini-dump written: {dump}");
                     }
                     Thread.Sleep(verdict.Delay);

@@ -6,6 +6,12 @@ using Patterns.Core.LowerThirds;
 
 namespace Patterns.App.ViewModels;
 
+/// <summary>
+/// A button's command. A press runs inside the UI-fault guard: a handler that throws is logged
+/// with its stack and counted on the health line, and the desk carries on — a button can never
+/// end the process (input handlers run outside the dispatcher's jobs, where the dispatcher's own
+/// guard would catch them).
+/// </summary>
 public sealed class RelayCommand : ICommand
 {
     private readonly Action _execute;
@@ -21,7 +27,7 @@ public sealed class RelayCommand : ICommand
 
     public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
 
-    public void Execute(object? parameter) => _execute();
+    public void Execute(object? parameter) => Patterns.App.Services.UiFaults.Guard(_execute, "a command");
 
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
@@ -39,7 +45,11 @@ public sealed class RelayCommand<T> : ICommand
 
     public bool CanExecute(object? parameter) => true;
 
-    public void Execute(object? parameter) => _execute(parameter is T t ? t : default);
+    public void Execute(object? parameter)
+    {
+        var arg = parameter is T t ? t : default;
+        Patterns.App.Services.UiFaults.Guard(() => _execute(arg), "a command");
+    }
 }
 
 /// <summary>One audio output device row with a live selection checkbox.</summary>
