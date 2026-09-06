@@ -184,6 +184,7 @@
               <TabItem Header="Countdown"><ScrollViewer><v:CountdownSection /></ScrollViewer></TabItem>
               <TabItem Header="Particles"><ScrollViewer><v:ParticlesSection /></ScrollViewer></TabItem>
               <TabItem Header="Branding"><ScrollViewer><v:BrandingSection /></ScrollViewer></TabItem>
+              <TabItem Header="Layers"><ScrollViewer><v:LayersSection /></ScrollViewer></TabItem>
               <TabItem Header="Library"><v:LibrarySection /></TabItem>
               <TabItem Header="Assistant"><ScrollViewer><v:AssistantSection /></ScrollViewer></TabItem>
               <TabItem Header="Screens"><ScrollViewer><v:OutputsSection /></ScrollViewer></TabItem>

@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Controls.WebPageControls"
+             x:DataType="vm:MainViewModel">
+
+  <!-- PAGE CONTROLS for the web page on air (the pattern's page, else the first web layer): the keyboard, the
+       page's own actions, typed text and the keys. The Media page and the Layers page both carry it. -->
+  <!-- Page controls: the keyboard for a web page shown by the pattern or a layer -->
+  <StackPanel IsVisible="{Binding HasWebPage}">
+    <TextBlock Classes="h2" Text="PAGE CONTROLS" />
+    <TextBlock Classes="label" Text="{Binding WebControlsTarget}" TextWrapping="Wrap" />
+    <WrapPanel Margin="0,4,0,0">
+      <ToggleButton Classes="chip" Content="⌨ KEYS → PAGE" Margin="0,0,8,4" IsChecked="{Binding KeysToPage, Mode=TwoWay}"
+                    ToolTip.Tip="The keyboard belongs to the page — F5 starts a PowerPoint, the arrows move a deck, k plays a YouTube video, a search box or a sign-in takes typing. Press again or Ctrl+Alt+K to get the desk's keys back" />
+      <!-- The page's own actions, from its service: YouTube's player, a deck's slides, a plain page's keys -->
+      <ItemsControl ItemsSource="{Binding WebPageActions}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:WebActionChip">
+            <Button Classes="mini" Content="{Binding Label}" Margin="0,0,4,4" ToolTip.Tip="{Binding Hint}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).WebActionCommand}" CommandParameter="{Binding Id}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </WrapPanel>
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" Watermark="Type into the page — the field you last clicked on the PREVIEW pane…"
+               Text="{Binding WebTypedText, Mode=TwoWay}" />
+      <Button Grid.Column="2" Classes="chip" Content="SEND" Command="{Binding SendWebTextCommand}" />
+    </Grid>
+    <WrapPanel Margin="0,4,0,0">
+      <Button Classes="mini" Content="Enter" Command="{Binding WebKeyCommand}" CommandParameter="Enter" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="Tab" Command="{Binding WebKeyCommand}" CommandParameter="Tab" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="Esc" Command="{Binding WebKeyCommand}" CommandParameter="Escape" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="⌫" Command="{Binding WebKeyCommand}" CommandParameter="Backspace" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="Space" Command="{Binding WebKeyCommand}" CommandParameter="Space" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="↑" Command="{Binding WebKeyCommand}" CommandParameter="ArrowUp" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="↓" Command="{Binding WebKeyCommand}" CommandParameter="ArrowDown" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="←" Command="{Binding WebKeyCommand}" CommandParameter="ArrowLeft" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="→" Command="{Binding WebKeyCommand}" CommandParameter="ArrowRight" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="PgUp" Command="{Binding WebKeyCommand}" CommandParameter="PageUp" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="PgDn" Command="{Binding WebKeyCommand}" CommandParameter="PageDown" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="Home" Command="{Binding WebKeyCommand}" CommandParameter="Home" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="End" Command="{Binding WebKeyCommand}" CommandParameter="End" Margin="0,0,12,4" />
+      <Button Classes="mini" Content="◀ Back" Command="{Binding WebBackCommand}" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="Forward ▶" Command="{Binding WebForwardCommand}" Margin="0,0,4,4" />
+      <Button Classes="mini" Content="Reload" Command="{Binding WebReloadCommand}" Margin="0,0,4,4" />
+    </WrapPanel>
+    <TextBlock Classes="label" Text="{Binding WebPageStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip"
+               Text="The controls drive the page you last clicked on the PREVIEW pane (else the pattern's page, else its first web layer). Typing goes to the field that has the page's focus — click it first. The action chips are the page's own: on YouTube they drive the player itself, on Google Slides and PowerPoint for the web they are the slide keys, on any other page the arrows and page keys. KEYS → PAGE hands the page the whole keyboard until you press it again or Ctrl+Alt+K. Hold Alt while pressing on a web layer to drag its box instead of clicking into the page. The same actions run from a cue (Web page — key or action), the wire (WEB NEXT, WEB KEY …), OSC, the phone's SHOW tab and Companion." />
+  </StackPanel>
+</UserControl>

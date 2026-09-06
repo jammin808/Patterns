@@ -169,7 +169,7 @@ public static class Walkthroughs
             new[]
             {
                 new WalkStep("Media", "The page", "Source: Web page, the address, the size, the zoom; Show the pointer if the room should see clicks. Click, scroll and type on the PREVIEW pane.", "web-source"),
-                new WalkStep("Media", "Layers", "LAYER 1 and 2: any media, an NDI feed, another screen; crop, border, corners, opacity. Drag the boxes on the PREVIEW pane (Alt-drag over a web page).", "layers-on"),
+                new WalkStep("Layers", "Layers", "LAYER 1 and 2 on their own page: any media, an NDI feed, a web page, another screen; crop, border, corners, opacity. Drag the boxes on the PREVIEW pane (Alt-drag over a web page).", "layers-on"),
                 new WalkStep("Overlays", "Overlays", "The clock, the message ticker, the logo, the PiP inset — dragged from their anchors on the pane."),
                 new WalkStep("Looks", "Keep it as a look", "Save the look: the page, its size and zoom, the layers and the overlays come back with one fade.", "looks-saved"),
             }),

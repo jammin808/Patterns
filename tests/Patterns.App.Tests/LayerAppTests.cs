@@ -171,9 +171,12 @@ public class LayerAppTests
         try
         {
             var (services, vm, window) = b;
-            vm.SelectPage(Shell.IndexOf("Media"));
+            vm.SelectPage(Shell.IndexOf("Layers"));
             Settle(window);
             Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "LAYER 2");
+            vm.SelectPage(Shell.IndexOf("Media"));
+            Settle(window);
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "LAYER 2");   // moved to their own page
             vm.SelectPage(Shell.IndexOf("Overlays"));
             Settle(window);
             Assert.True(window.GetVisualDescendants().OfType<TextBlock>().Count(t => t.Text == "Nudge X / Y (%)") >= 4);

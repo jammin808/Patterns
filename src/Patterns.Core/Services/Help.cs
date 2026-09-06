@@ -456,16 +456,16 @@ public static class HelpTopics
 
         new HelpTopic("layers", HelpGroup.Content,
             "Layers and dragging: two media layers over any picture",
-            "BUILD → Pattern: a logo, a camera, a page or a screen over the picture — sized, cropped, edged and dragged on the preview.",
+            "BUILD → Layers: a logo, a camera, a page or a screen over the picture — sized, cropped, edged and dragged on the preview.",
             HelpBodies.Layers,
             new[]
             {
-                "Pattern page → LAYERS: pick the source for layer 1 and layer 2 (an image, a video, NDI, capture, a web page, a screen).",
+                "Layers page (BUILD, before the library and the assistant): pick the source for layer 1 and layer 2 (an image, a video, NDI, capture, a web page, a screen); EDITING TARGET says whose layers.",
                 "Size, crop, border, corners and opacity; drag the layer on the PREVIEW pane.",
                 "The overlays (message, clock, countdown, ticker) drag the same way.",
             },
             "",
-            new[] { "Pattern", "Overlays" },
+            new[] { "Layers", "Overlays" },
             new[] { "layer", "layers", "overlay", "drag", "move", "position", "border", "corner", "opacity", "logo", "pip", "crop" }),
 
         new HelpTopic("parts-multiview-stream", HelpGroup.Content,
