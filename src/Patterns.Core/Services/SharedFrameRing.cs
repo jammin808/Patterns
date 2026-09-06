@@ -1,5 +1,4 @@
 using System.IO.MemoryMappedFiles;
-using System.Runtime.CompilerServices;
 
 namespace Patterns.Core.Services;
 
@@ -9,7 +8,9 @@ namespace Patterns.Core.Services;
 /// process takes the newest complete one. Three slots, so the slot being read is never the one being
 /// written; a sequence number per slot, written after the pixels, so a torn frame is never taken; the
 /// newest frame wins when the reader is slow. Pagefile-backed and named on Windows (nothing touches
-/// the disk); a file under /dev/shm elsewhere. The parent creates it and passes its
+/// the disk), with a named event beside it that wakes a waiting reader the moment a frame is published
+/// — a sleep of a millisecond is a 15.6 ms tick on Windows, too coarse for 50 or 60 frames a second;
+/// a file under /dev/shm elsewhere, where the reader polls. The parent creates it and passes its
 /// <see cref="Address"/> to the child, which opens it. Built for the stream encoder first and for
 /// the decoders that follow — a decoder is the same ring with the roles swapped.
 /// </summary>
@@ -26,15 +27,17 @@ public sealed unsafe class SharedFrameRing : IDisposable
 
     private readonly MemoryMappedFile _map;
     private readonly MemoryMappedViewAccessor _view;
+    private readonly EventWaitHandle? _frame;   // Windows: set after every frame and by the owner's close; a reader waits on it instead of polling
     private readonly bool _owner;
     private readonly string? _filePath;
     private byte* _base;
     private bool _disposed;
 
-    private SharedFrameRing(string address, MemoryMappedFile map, bool owner, string? filePath, int width, int height)
+    private SharedFrameRing(string address, MemoryMappedFile map, EventWaitHandle? frame, bool owner, string? filePath, int width, int height)
     {
         Address = address;
         _map = map;
+        _frame = frame;
         _owner = owner;
         _filePath = filePath;
         Width = width;
@@ -67,13 +70,13 @@ public sealed unsafe class SharedFrameRing : IDisposable
         if (OperatingSystem.IsWindows())
         {
             var map = MemoryMappedFile.CreateNew(name, capacity, MemoryMappedFileAccess.ReadWrite);
-            ring = new SharedFrameRing(name, map, owner: true, filePath: null, width, height);
+            ring = new SharedFrameRing(name, map, FrameEvent(name, create: true), owner: true, filePath: null, width, height);
         }
         else
         {
             var path = FilePathFor(name);
             var map = MemoryMappedFile.CreateFromFile(path, FileMode.Create, null, capacity, MemoryMappedFileAccess.ReadWrite);
-            ring = new SharedFrameRing(path, map, owner: true, filePath: path, width, height);
+            ring = new SharedFrameRing(path, map, null, owner: true, filePath: path, width, height);
         }
         var h = ring._base;
         *(uint*)h = Magic;
@@ -113,7 +116,26 @@ public sealed unsafe class SharedFrameRing : IDisposable
             width = head.ReadInt32(8);
             height = head.ReadInt32(12);
         }
-        return new SharedFrameRing(address, map, owner: false, filePath, width, height);
+        return new SharedFrameRing(address, map, FrameEvent(address, create: false), owner: false, filePath, width, height);
+    }
+
+    /// <summary>
+    /// The event beside a Windows ring — made with the map by the owner, opened by a reader; null
+    /// where named events do not exist, or where this one cannot be had (the reader then polls).
+    /// </summary>
+    private static EventWaitHandle? FrameEvent(string name, bool create)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            return create
+                ? new EventWaitHandle(false, EventResetMode.AutoReset, name + ".frame")
+                : EventWaitHandle.OpenExisting(name + ".frame");
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Where a file-backed ring lives: shared memory when the system has it, the temp folder otherwise.</summary>
@@ -131,6 +153,9 @@ public sealed unsafe class SharedFrameRing : IDisposable
     /// <summary>Set by the owner on dispose: a reader stops waiting. A disposed ring reads as closed on either side.</summary>
     public bool IsClosed => _disposed || Volatile.Read(ref *(int*)(_base + 32)) != 0;
 
+    /// <summary>Whether a reader is woken by the writer (Windows) rather than polling for the next frame.</summary>
+    public bool Signalled => _frame is not null;
+
     /// <summary>The pixels of a slot, for a surface over them; the slot's first row starts here, <see cref="Stride"/> bytes per row.</summary>
     public IntPtr PixelsOf(int slot) => _disposed ? throw new ObjectDisposedException(nameof(SharedFrameRing)) : (IntPtr)(SlotHeader(slot) + SlotHeaderBytes);
 
@@ -143,10 +168,13 @@ public sealed unsafe class SharedFrameRing : IDisposable
         if (_disposed) throw new ObjectDisposedException(nameof(SharedFrameRing));
         var slot = (int)((LatestSeq + 1) % Slots);
         Volatile.Write(ref *(long*)SlotHeader(slot), -1);
+        // A full fence: the pixels drawn next are never seen before the mark, on any CPU — a release
+        // store alone orders what came before it, not what follows.
+        Interlocked.MemoryBarrier();
         return slot;
     }
 
-    /// <summary>The frame in the slot is whole: it becomes the newest. Returns its sequence number.</summary>
+    /// <summary>The frame in the slot is whole: it becomes the newest, and a waiting reader is woken. Returns its sequence number.</summary>
     public long EndWrite(int slot, long frameIndex)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(SharedFrameRing));
@@ -156,6 +184,7 @@ public sealed unsafe class SharedFrameRing : IDisposable
         *(long*)(h + 16) = frameIndex;
         Volatile.Write(ref *(long*)h, seq);
         Volatile.Write(ref *(long*)(_base + 24), seq);
+        Wake();
         return seq;
     }
 
@@ -186,8 +215,9 @@ public sealed unsafe class SharedFrameRing : IDisposable
 
     /// <summary>
     /// Waits up to <paramref name="timeoutMs"/> for a frame later than <paramref name="afterSeq"/>:
-    /// its sequence number, or −1 when none came in time or the ring closed. A millisecond's poll —
-    /// a frame comes every 16–100 ms, and a cross-process event is Windows-only.
+    /// its sequence number, or −1 when none came in time or the ring closed. On Windows the writer's
+    /// event wakes the wait the moment a frame is published (the owner's close wakes it too; a wait
+    /// is capped at 100 ms for a writer that died without a word); elsewhere a millisecond's poll.
     /// </summary>
     public long WaitForFrame(long afterSeq, int timeoutMs)
     {
@@ -197,8 +227,36 @@ public sealed unsafe class SharedFrameRing : IDisposable
             if (IsClosed) return -1;
             var latest = LatestSeq;
             if (latest > afterSeq) return latest;
-            if (Environment.TickCount64 >= deadline) return -1;
-            Thread.Sleep(1);
+            var left = deadline - Environment.TickCount64;
+            if (left <= 0) return -1;
+            if (_frame is { } frame)
+            {
+                try
+                {
+                    frame.WaitOne((int)Math.Min(left, 100));
+                }
+                catch (ObjectDisposedException)
+                {
+                    return -1;   // this side closed while waiting
+                }
+            }
+            else
+            {
+                Thread.Sleep(1);
+            }
+        }
+    }
+
+    /// <summary>A waiting reader is woken: a frame published, or the owner gone.</summary>
+    private void Wake()
+    {
+        try
+        {
+            _frame?.Set();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Closing already.
         }
     }
 
@@ -216,9 +274,11 @@ public sealed unsafe class SharedFrameRing : IDisposable
         {
             // A map already gone cannot be marked; readers see the missing file instead.
         }
+        if (_owner) Wake();
         _view.SafeMemoryMappedViewHandle.ReleasePointer();
         _view.Dispose();
         _map.Dispose();
+        _frame?.Dispose();
         if (_owner && _filePath is not null)
         {
             try

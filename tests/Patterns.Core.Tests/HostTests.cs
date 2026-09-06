@@ -76,10 +76,14 @@ public class SharedFrameRingTests
             ring.EndWrite(slot, 2);
             Assert.Equal(2, await waiter);
 
-            // The owner closing is the end for the reader.
+            // The owner closing is the end for the reader — a waiting one is woken by it, not left to its timeout.
+            var closing = Task.Run(() => other.WaitForFrame(2, 3000));
+            Thread.Sleep(40);
             ring.Dispose();
             Assert.True(other.IsClosed);
+            Assert.Equal(-1, await closing);
             Assert.Equal(-1, other.WaitForFrame(2, 10));
+            Assert.Equal(OperatingSystem.IsWindows(), other.Signalled);   // the writer's event wakes a Windows reader; elsewhere it polls
         }
         finally
         {
@@ -122,6 +126,7 @@ public class HostProtocolTests
         Assert.Equal((HostProtocol.ErrorStart, "Encoder failed to start"), HostProtocol.SplitError("START Encoder failed to start"));
         Assert.Equal((HostProtocol.ErrorEncoder, ""), HostProtocol.SplitError("encoder"));
         Assert.True(HostProtocol.HelloTimeout > HostProtocol.BeatTimeout);
+        Assert.True(HostProtocol.StartTimeout > HostProtocol.BeatTimeout);
 
         var t = new DateTime(2026, 9, 6, 12, 0, 0, DateTimeKind.Utc);
         Assert.False(HostProtocol.IsSilent(t, t.AddSeconds(5)));

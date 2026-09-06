@@ -12,7 +12,9 @@ namespace Patterns.App.Services;
 /// target — at the stream's size and rate straight into the shared frame ring the encoder process
 /// reads: a Skia surface over each slot's bytes, so a frame costs no copy and no allocation. Paced
 /// by the show clock so the encoder sees a steady rate; the newest frame wins when the encoder
-/// falls behind.
+/// falls behind. The thread owns what it draws with — the surfaces and the ring under them — and
+/// releases both when it ends: a frame still drawing when <see cref="Stop"/> runs out of patience
+/// keeps its memory until it is done, never has it pulled away.
 /// </summary>
 public sealed class StreamRenderer : IDisposable
 {
@@ -34,13 +36,19 @@ public sealed class StreamRenderer : IDisposable
         _fps = Math.Clamp(fps, 1, 120);
     }
 
-    /// <summary>The ring the frames go into — the encoder process reads the other end.</summary>
+    /// <summary>The ring the frames go into — the encoder process reads the other end. Released by this renderer, when its thread ends.</summary>
     public SharedFrameRing Ring { get; }
 
     public long FramesRendered { get; private set; }
 
     /// <summary>Why the renderer stopped drawing on its own, or "" while it draws — the stream service reads it into the status and stops the stream.</summary>
     public string Failure { get; private set; } = "";
+
+    /// <summary>How long <see cref="Stop"/> waits for the frame being drawn; the tests shorten it.</summary>
+    public TimeSpan StopTimeout { get; set; } = TimeSpan.FromSeconds(3);
+
+    /// <summary>Called on the render thread before every frame — the tests hold a frame with it.</summary>
+    public Action? BeforeFrame { get; set; }
 
     public void Start()
     {
@@ -50,13 +58,21 @@ public sealed class StreamRenderer : IDisposable
         _thread.Start();
     }
 
+    /// <summary>
+    /// Ends the drawing and waits <see cref="StopTimeout"/> for the frame in progress. The surfaces and
+    /// the ring go with the thread — at once when it ends in time, when the late frame ends otherwise.
+    /// </summary>
     public void Stop()
     {
         _run = false;
         var t = _thread;
-        _thread = null;
-        if (t is not null && t.IsAlive && !t.Join(TimeSpan.FromSeconds(3))) Log.Warn("Stream render thread did not stop in time.");
-        ReleaseSurfaces();
+        if (t is null)
+        {
+            // Never started (frames drawn by hand): nothing else can be drawing, so the release is here.
+            Release();
+            return;
+        }
+        if (!t.Join(StopTimeout)) Log.Warn("Stream render thread did not stop in time — its surfaces and frame ring are released when the frame ends.");
     }
 
     /// <summary>One frame into the ring's next slot, published; public so a test can drive it without the thread.</summary>
@@ -85,34 +101,44 @@ public sealed class StreamRenderer : IDisposable
 
     private void Loop()
     {
-        using var sink = new SinkState();
-        var interval = 1.0 / _fps;
-        var started = Stopwatch.GetTimestamp();
-        long frame = 0;
-        while (_run)
+        try
         {
-            try
+            using var sink = new SinkState();
+            var interval = 1.0 / _fps;
+            var started = Stopwatch.GetTimestamp();
+            long frame = 0;
+            while (_run)
             {
-                if (!RenderOnce(sink, frame++)) break;
+                try
+                {
+                    BeforeFrame?.Invoke();
+                    if (!RenderOnce(sink, frame++)) break;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("Stream frame failed.", ex);
+                }
+                // Pace on the show clock's grid: the next frame's due time, never a drift of sleeps.
+                var due = started + (long)(frame * interval * Stopwatch.Frequency);
+                var wait = (due - Stopwatch.GetTimestamp()) * 1000.0 / Stopwatch.Frequency;
+                if (wait > 1) Thread.Sleep((int)Math.Min(wait, 100));
             }
-            catch (Exception ex)
-            {
-                Log.Warn("Stream frame failed.", ex);
-            }
-            // Pace on the show clock's grid: the next frame's due time, never a drift of sleeps.
-            var due = started + (long)(frame * interval * Stopwatch.Frequency);
-            var wait = (due - Stopwatch.GetTimestamp()) * 1000.0 / Stopwatch.Frequency;
-            if (wait > 1) Thread.Sleep((int)Math.Min(wait, 100));
+        }
+        finally
+        {
+            // The thread's own: the surfaces first, then the ring they sit over.
+            Release();
         }
     }
 
-    private void ReleaseSurfaces()
+    private void Release()
     {
         for (var i = 0; i < _surfaces.Length; i++)
         {
             _surfaces[i]?.Dispose();
             _surfaces[i] = null;
         }
+        Ring.Dispose();
     }
 
     public void Dispose() => Stop();

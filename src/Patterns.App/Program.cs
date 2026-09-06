@@ -24,6 +24,8 @@ internal static class Program
             return Supervisor.Run();
         }
 
+        // A millisecond timer for the desk's paced loops (a sleep is a 15.6 ms tick without it).
+        Services.TimerResolution.Raise();
         // Pick the GPU before Avalonia creates its D3D device (and before libVLC decodes).
         Services.GpuService.Initialize();
         // Then whether this start asks for the low-latency swap chain (direct output).

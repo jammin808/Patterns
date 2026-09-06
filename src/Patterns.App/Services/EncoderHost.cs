@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 using LibVLCSharp.Shared;
 using Patterns.Core.Services;
 
@@ -19,6 +20,7 @@ public static class HostEntry
     public static int Run(string[] args)
     {
         var role = args[1];
+        TimerResolution.Raise();   // a millisecond timer for the ring's wait and libVLC's own pacing
         try
         {
             return role switch
@@ -29,15 +31,22 @@ public static class HostEntry
         }
         catch (Exception ex)
         {
-            Console.Out.WriteLine(HostProtocol.Line(HostProtocol.Error, $"host {FaultWords.Describe(ex)}"));
+            SayRaw(HostProtocol.Line(HostProtocol.Error, $"host {FaultWords.Describe(ex)}"));
             return 1;
         }
     }
 
     private static int Unknown(string role)
     {
-        Console.Out.WriteLine(HostProtocol.Line(HostProtocol.Error, $"host no such host role '{role}'"));
+        SayRaw(HostProtocol.Line(HostProtocol.Error, $"host no such host role '{role}'"));
         return 2;
+    }
+
+    /// <summary>A line to stdout in UTF-8 — the desk reads UTF-8; Console.Out in a console-less child would write the ANSI code page and turn every dash into a question mark.</summary>
+    private static void SayRaw(string line)
+    {
+        using var stdout = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
+        stdout.WriteLine(line);
     }
 }
 
@@ -292,10 +301,14 @@ public sealed class EncoderHost : IDisposable
             {
                 var vlcState = PlayerState();
                 state = vlcState;
-                if (vlcState == nameof(VLCState.Error) && !_reportedError)
+                // A live encode never ends by itself: Ended is the stream output gone (a destination that
+                // closed the connection, a capture that stopped) as surely as Error — said once, as an error.
+                if (!_reportedError && vlcState is nameof(VLCState.Error) or nameof(VLCState.Ended))
                 {
                     _reportedError = true;
-                    error = $"{HostProtocol.ErrorEncoder} the encoder reported an error";
+                    error = vlcState == nameof(VLCState.Error)
+                        ? $"{HostProtocol.ErrorEncoder} the encoder reported an error"
+                        : $"{HostProtocol.ErrorEncoder} the encoder ended on its own — a destination closed the connection, or the capture stopped";
                 }
             }
         }

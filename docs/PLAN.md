@@ -1750,6 +1750,33 @@ the way. The bugs, all fixed in the commits above:
    publish was reproduced here before the fix went up. The lesson kept: a publish-only failure
    is a class of its own, so the local check before a push that touches process start-up is the
    publish, not only the build and the suite.
+6. A second review of the encoder process, after it had shipped, found six more that the first
+   pass had not — all fixed in the commit after the launcher's. (a) The ring's reader waited by a
+   millisecond's sleep, which on Windows is a 15.6 ms tick in a process that never asked for
+   better: too slow to take every frame of a 50 or 60 fps stream, and a rawvideo input stamped
+   by count then drifts behind the clock. The ring has a named event beside its map now, set
+   after every frame and by the owner's close, so a Windows reader wakes the moment a frame is
+   published (the poll stays where named events do not exist); and both processes ask Windows
+   for a 1 ms timer (`TimerResolution`), which every paced loop in the desk — the NDI senders,
+   the stream renderer — had been in need of all along. (b) A settings change while LIVE
+   started the new encoder before the old process had let go of the destination; a server that
+   takes one publisher per key (nginx-rtmp, an SRT listener) refused the second, and a bitrate
+   edit read as a stream error. The service waits for the old process to be out
+   (`ChildProcess.HostsGone` — 3 s at most: QUIT, then killed) and says so. (c) A frame still
+   drawing when the renderer's stop ran out of patience had its surfaces disposed and its ring
+   unmapped from under it — an access violation, and a desk restart from the watchdog. The
+   render thread owns both and releases them when the frame ends. (d) A host that beat
+   "starting" forever (libVLC's bring-up hung) was supervised forever as starting; a start
+   timeout (30 s) ends it and starts it again with backoff. (e) The mark a slot carries while
+   it is being written was a release store, which on a weakly ordered CPU (an ARM64 build) lets
+   the pixels pass it; a full fence follows it. (f) The host's two fallback ERROR lines went out
+   in the ANSI code page while the desk reads UTF-8. Two more met on the way: with the host's
+   beat carrying libVLC's state, the status says "Connecting to the destination" until the
+   encoder plays — it had said LIVE the moment the process was up, as the in-process encoder
+   had before it — and an encoder that ends by itself (a destination that closed the
+   connection) is reported as the error it is. And the real-process test had assumed more than
+   the ring promises (every one of five frames 15 ms apart counted, a flake on a slow Windows
+   runner); it writes the next frame once the host has counted the last, through PING.
 
 The opportunities, not taken this round, in the order they would pay:
 
@@ -1758,13 +1785,11 @@ The opportunities, not taken this round, in the order they would pay:
 2. *Per-sink render threads* for the output windows, when the frame budget on a real rig with
    six or more outputs says the compositor's one thread is the ceiling (§22.3); the ring and the
    surfaces-over-memory built here are the same mechanism.
-3. *A cross-process event for the ring on Windows* instead of the millisecond poll, if a laptop's
-   power draw while streaming ever matters; the poll is thirty wake-ups a frame, all cheap.
-4. *`PublishReadyToRunExclusions`* for the assistant's SDK and the PDF converter if the exe's
+3. *`PublishReadyToRunExclusions`* for the assistant's SDK and the PDF converter if the exe's
    88 MB ever matters more than the first-use stalls (§22.4).
-5. *Avalonia 12* as its own measured step now that the runtime is .NET 10: the plan's stability
+4. *Avalonia 12* as its own measured step now that the runtime is .NET 10: the plan's stability
    rule still says not yet, and nothing in this round needed it.
-6. *This remote environment* cannot install the .NET 10 SDK (its network policy denies the
+5. *This remote environment* cannot install the .NET 10 SDK (its network policy denies the
    Microsoft download hosts; only NuGet is open), which is why `PatternsTfm` exists — allowing
    `builds.dotnet.microsoft.com` in the environment, or a setup script that installs the SDK,
    would let future sessions build and test on .NET 10 itself rather than through the escape

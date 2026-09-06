@@ -58,6 +58,7 @@ public sealed class ChildProcess : IDisposable
     private DateTime _lastBeatUtc;
     private DateTime _restartDueUtc;
     private bool _heard;   // the host has said anything at all: from then on the beat's own timeout applies
+    private int _releasing;   // hosts ended but not yet out — a moment to leave on QUIT, then killed
 
     /// <param name="clock">UTC now — the tests turn it by hand so a backoff is a step, not a wait.</param>
     public ChildProcess(string role, IChildLauncher launcher, Action<string> log, Func<DateTime>? clock = null)
@@ -99,6 +100,21 @@ public sealed class ChildProcess : IDisposable
 
     /// <summary>Every line the host said, after it was read: the word and the rest. Raised on the reader thread.</summary>
     public event Action<string, string>? Said;
+
+    /// <summary>
+    /// No host of this side is alive: none running, and every one it ended has left its process —
+    /// the moment whatever the old host held (a stream key takes one publisher) is free for a new one.
+    /// </summary>
+    public bool HostsGone => Volatile.Read(ref _handle) is null && Volatile.Read(ref _releasing) == 0;
+
+    /// <summary>PING to the host, which answers with a BEAT at once; false when there is no host to ask.</summary>
+    public bool Ping()
+    {
+        lock (_gate)
+        {
+            return _handle?.WriteLine(HostProtocol.Line(HostProtocol.Ping)) ?? false;
+        }
+    }
 
     /// <summary>Starts the host with this START payload; a later restart sends the same payload again. A host already running is ended first — never two on one plan.</summary>
     public void Start(string payload)
@@ -144,14 +160,19 @@ public sealed class ChildProcess : IDisposable
             var silent = !exited && (_heard
                 ? HostProtocol.IsSilent(_lastBeatUtc, utcNow)
                 : utcNow - _startedUtc > HostProtocol.HelloTimeout);
-            if (!exited && !silent) return;
+            // A host that beats but never says STARTED is stuck in its bring-up (libVLC, a capture device, a
+            // destination that never answers): alive by the beat, hung by any other measure — ended like a silent one.
+            var stuck = !exited && !silent && Phase == ChildPhase.Starting && _heard && utcNow - _startedUtc > HostProtocol.StartTimeout;
+            if (!exited && !silent && !stuck) return;
 
             var code = 0;
-            if (silent)
+            if (silent || stuck)
             {
-                _log(_heard
-                    ? $"The {_role} host's beat went silent for {HostProtocol.BeatTimeout.TotalSeconds:0} s — ending it."
-                    : $"The {_role} host said nothing for {HostProtocol.HelloTimeout.TotalSeconds:0} s — ending it.");
+                _log(stuck
+                    ? $"The {_role} host did not start within {HostProtocol.StartTimeout.TotalSeconds:0} s — ending it."
+                    : _heard
+                        ? $"The {_role} host's beat went silent for {HostProtocol.BeatTimeout.TotalSeconds:0} s — ending it."
+                        : $"The {_role} host said nothing for {HostProtocol.HelloTimeout.TotalSeconds:0} s — ending it.");
                 handle.Kill();
             }
             else
@@ -159,11 +180,14 @@ public sealed class ChildProcess : IDisposable
                 code = handle.ExitCode;
             }
             var ranFor = utcNow - _startedUtc;
-            var why = silent
-                ? (_heard ? $"the {_role}'s beat went silent" : $"the {_role} never came up")
-                : $"the {_role} ended in {ExitCodes.Describe(code)}";
+            var why = stuck
+                ? $"the {_role} did not start within {HostProtocol.StartTimeout.TotalSeconds:0} s"
+                : silent
+                    ? (_heard ? $"the {_role}'s beat went silent" : $"the {_role} never came up")
+                    : $"the {_role} ended in {ExitCodes.Describe(code)}";
             // An exit nobody asked for is a host that is gone, whatever its code: the show wants it back.
-            var verdict = _policy.OnExit(silent || code == 0 ? 1 : code, silent, ranFor, utcNow);
+            var hung = silent || stuck;
+            var verdict = _policy.OnExit(hung || code == 0 ? 1 : code, hung, ranFor, utcNow);
             Release(handle);
             _handle = null;
             if (verdict.Action == SupervisorAction.GiveUp)
@@ -197,7 +221,7 @@ public sealed class ChildProcess : IDisposable
     }
 
     /// <summary>STOP, QUIT, and the handle let go — off the caller's thread.</summary>
-    private static void End(IChildHandle handle)
+    private void End(IChildHandle handle)
     {
         handle.WriteLine(HostProtocol.Line(HostProtocol.Stop));
         handle.WriteLine(HostProtocol.Line(HostProtocol.Quit));
@@ -314,9 +338,10 @@ public sealed class ChildProcess : IDisposable
         }
     }
 
-    /// <summary>Lets a host go: three seconds to leave by itself after QUIT, then it is killed; on a thread of its own, never the desk's.</summary>
-    private static void Release(IChildHandle handle)
+    /// <summary>Lets a host go: three seconds to leave by itself after QUIT, then it is killed; on a thread of its own, never the desk's. <see cref="HostsGone"/> says when it is out.</summary>
+    private void Release(IChildHandle handle)
     {
+        Interlocked.Increment(ref _releasing);
         ThreadPool.QueueUserWorkItem(_ =>
         {
             try
@@ -332,6 +357,7 @@ public sealed class ChildProcess : IDisposable
             finally
             {
                 handle.Dispose();
+                Interlocked.Decrement(ref _releasing);
             }
         });
     }

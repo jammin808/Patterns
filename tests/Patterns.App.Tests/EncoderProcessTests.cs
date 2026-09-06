@@ -22,9 +22,13 @@ internal sealed class FakeHost : IChildHandle
 
     public bool Killed { get; private set; }
 
+    /// <summary>The real host exits on QUIT; a fake that lingers past it is a host that will not let go (killed by the desk after 3 s).</summary>
+    public bool LeavesOnQuit { get; set; } = true;
+
     public bool WriteLine(string line)
     {
         lock (_fromDesk) _fromDesk.Add(line);
+        if (LeavesOnQuit && HostProtocol.Parse(line).Word == HostProtocol.Quit) Die(0);
         return !HasExited;
     }
 
@@ -100,6 +104,19 @@ internal sealed class FakeLauncher : IChildLauncher
 public class EncoderProcessTests
 {
     private static bool Until(Func<bool> condition, int ms = 5000) => SpinWait.SpinUntil(condition, ms);
+
+    /// <summary>Waits for the host's frame count to reach n, asking for a beat every 20 ms: a frame written is a frame taken, whatever the timing between them.</summary>
+    private static bool Counted(ChildProcess child, long n, int ms = 5000)
+    {
+        var deadline = Environment.TickCount64 + ms;
+        while (child.Frames < n)
+        {
+            if (Environment.TickCount64 > deadline) return false;
+            child.Ping();
+            Thread.Sleep(20);
+        }
+        return true;
+    }
 
     [Fact]
     public void TheDeskStartsTheHostSendsThePlanAndReadsWhatItSays()
@@ -309,13 +326,14 @@ public class EncoderProcessTests
         var pid = child.Pid;
         Assert.NotEqual(Environment.ProcessId, pid);
 
+        // Every frame written is taken and counted — the next is written once the host has said so, so no
+        // timing between writer and reader is assumed (the ring promises the newest frame, not every one).
         for (var i = 1; i <= 5; i++)
         {
             var slot = ring.BeginWrite();
             ring.EndWrite(slot, i);
-            Thread.Sleep(15);
+            Assert.True(Counted(child, i), $"frame {i} not counted: {child.Frames} — {Where()}");
         }
-        Assert.True(Until(() => child.Frames >= 5, 10000), $"frames {child.Frames} — {Where()}");
         Assert.Equal("counting", child.HostState);
 
         // Killed from outside: the desk's tick notices, and after the backoff the host is back on the same ring.
@@ -336,14 +354,72 @@ public class EncoderProcessTests
         {
             var slot = ring.BeginWrite();
             ring.EndWrite(slot, i);
-            Thread.Sleep(15);
+            Assert.True(Counted(child, i - 5), $"frame {i} not counted: {child.Frames} — {Where()}");   // the new host counts from zero
         }
-        Assert.True(Until(() => child.Frames >= 3, 10000), $"frames {child.Frames} — {Where()}");   // the new host counts from zero
 
         var second = child.Pid;
         child.Stop();
         Assert.Equal(ChildPhase.Stopped, child.Phase);
         Assert.True(Until(() => !Alive(second), 10000), "the host did not leave on QUIT");
+        Assert.True(Until(() => child.HostsGone, 10000), "the desk's side did not see the host go");
+    }
+
+    /// <summary>
+    /// A host that beats "starting" and never says STARTED is stuck in its bring-up: alive by the beat,
+    /// hung by any other measure — ended after the start's patience and started again; one that said
+    /// STARTED is on the beat's clock alone. And a host is gone only when its process is.
+    /// </summary>
+    [Fact]
+    public void AHostStuckInItsBringUpIsEndedAfterTheStartTimeoutAndOneThatStartedIsNot()
+    {
+        var launcher = new FakeLauncher();
+        var now = new DateTime(2026, 9, 6, 12, 0, 0, DateTimeKind.Utc);
+        using var child = new ChildProcess("encoder", launcher, _ => { }, () => now);
+        child.Start("plan");
+        var host = launcher.Hosts[0];
+        host.Say(HostProtocol.Hello, JsonUtil.Serialize(new HostHello(1000, "encoder", true)));
+        Assert.True(Until(() => child.SaidHello));
+
+        // Beating "starting" keeps it alive through the start's patience…
+        now = now + HostProtocol.StartTimeout - TimeSpan.FromSeconds(1);
+        host.Say(HostProtocol.Beat, JsonUtil.Serialize(new HostBeat(0, "starting")));
+        Assert.True(Until(() => child.HostState == "starting"));
+        child.Poll();
+        Assert.Equal(ChildPhase.Starting, child.Phase);
+        Assert.False(host.Killed);
+
+        // …and not past it: a bring-up that never ends is a hung host, ended and started again with backoff.
+        now = now.AddSeconds(2);
+        host.Say(HostProtocol.Beat, JsonUtil.Serialize(new HostBeat(1, "starting")));
+        Assert.True(Until(() => child.Frames == 1));
+        child.Poll();
+        Assert.True(host.Killed);
+        Assert.Equal(ChildPhase.Restarting, child.Phase);
+        Assert.Contains("did not start within 30 s", child.Words);
+        Assert.Contains("restart #1 in 2 s", child.Words);
+        Assert.False(child.Failed);
+
+        // A host that said STARTED is on the beat's clock only: a minute of beats is a minute of running.
+        now = now.AddSeconds(3);
+        child.Poll();
+        var second = launcher.Hosts[1];
+        second.Say(HostProtocol.Started);
+        Assert.True(Until(() => child.Phase == ChildPhase.Running));
+        now = now + HostProtocol.StartTimeout + TimeSpan.FromSeconds(30);
+        second.Say(HostProtocol.Beat, JsonUtil.Serialize(new HostBeat(9, "Playing")));
+        Assert.True(Until(() => child.Frames == 9));
+        child.Poll();
+        Assert.Equal(ChildPhase.Running, child.Phase);
+        Assert.False(second.Killed);
+
+        // Gone is the process out, not the STOP sent: a host that lingers past QUIT is still there until it is not.
+        second.LeavesOnQuit = false;
+        child.Stop();
+        Assert.True(Until(() => second.SentCount >= 3));
+        Assert.Equal("QUIT", second.Sent(2));
+        Assert.False(child.HostsGone);
+        second.Die(0);
+        Assert.True(Until(() => child.HostsGone));
     }
 
     private static bool Alive(int pid)
@@ -402,14 +478,49 @@ public class EncoderProcessTests
             // The engine's thread draws the stream's screen into the ring while the host comes up.
             Assert.True(Until(() => services.Stream.Ring!.LatestSeq > 0, 5000), "no frame reached the ring");
 
+            // STARTED is the process running its plan, not the destination reached: the status says
+            // "connecting" on libVLC's opening state and LIVE once it plays.
             host.Say(HostProtocol.Started);
+            host.Say(HostProtocol.Beat, JsonUtil.Serialize(new HostBeat(0, "Opening")));
+            Assert.True(Until(() => services.Stream.Encoder!.Phase == ChildPhase.Running && services.Stream.Encoder.HostState == "Opening"));
+            services.Stream.Poll();
+            Assert.StartsWith("Connecting to 1 destination", services.Stream.Status);
             host.Say(HostProtocol.Beat, JsonUtil.Serialize(new HostBeat(3, "Playing")));
-            Assert.True(Until(() => services.Stream.Encoder!.Phase == ChildPhase.Running));
+            Assert.True(Until(() => services.Stream.Encoder!.Frames == 3));
             services.Stream.Poll();
             Assert.StartsWith("LIVE", services.Stream.Status);
             Assert.Contains("rendered", services.Stream.Status);
             Assert.Contains("encoder in its own process", services.Stream.Status);
             Assert.Equal("", vm.State.Stream.LastError);
+
+            // A settings change while LIVE: the old encoder is told to go, and the new one waits until
+            // its process is out — a stream key takes one publisher — then starts with the new plan.
+            host.LeavesOnQuit = false;
+            vm.State.Stream.VideoKbps += 500;
+            var kbps = vm.State.Stream.VideoKbps;
+            services.Stream.Poll();
+            Assert.Contains("let go of the destination", services.Stream.Status);
+            Assert.True(Until(() => host.SentCount >= 3));
+            Assert.Equal("QUIT", host.Sent(2));
+            Assert.Null(services.Stream.Ring);
+            Assert.True(vm.State.Stream.Active);
+            services.Stream.Poll();
+            Assert.Single(launcher.Hosts);   // still waiting: the old process lingers
+            host.Die(0);                     // out: the destination is free
+            Assert.True(Until(() =>
+            {
+                services.Stream.Poll();
+                return launcher.Hosts.Count == 2;
+            }, 10000), services.Stream.Status);
+            host = launcher.Hosts[1];
+            var newPlan = JsonUtil.Deserialize<EncoderPlan>(HostProtocol.Parse(host.Sent(0)).Text)!;
+            Assert.Contains(newPlan.Options, o => o.Contains($"vb={kbps}"));
+            Assert.NotEqual(plan.Ring, newPlan.Ring);
+            host.Say(HostProtocol.Started);
+            host.Say(HostProtocol.Beat, JsonUtil.Serialize(new HostBeat(1, "Playing")));
+            Assert.True(Until(() => services.Stream.Encoder!.Phase == ChildPhase.Running && services.Stream.Encoder.Frames == 1));
+            services.Stream.Poll();
+            Assert.StartsWith("LIVE", services.Stream.Status);
 
             // The host dies: restarting, the show untouched, the stream still on.
             host.Die(unchecked((int)0xC0000005));
@@ -418,16 +529,16 @@ public class EncoderProcessTests
             Assert.Contains("the show is untouched", services.Stream.Status);
             Assert.True(vm.State.Stream.Active);
             Assert.Equal("", vm.State.Stream.LastError);
-            Assert.Single(launcher.Hosts);
+            Assert.Equal(2, launcher.Hosts.Count);
             Assert.True(Until(() =>
             {
                 services.Stream.Poll();
-                return launcher.Hosts.Count == 2;
+                return launcher.Hosts.Count == 3;
             }, 10000), services.Stream.Status);   // the first backoff step is two seconds
             Assert.Contains("started again 1×", services.Stream.Status);
 
             // No libVLC on this machine: said and held, the switch left on, no relaunch every tick.
-            launcher.Hosts[1].Say(HostProtocol.Error, $"{HostProtocol.ErrorLibVlc} Streaming needs libVLC — use the full build (or install VLC).");
+            launcher.Hosts[2].Say(HostProtocol.Error, $"{HostProtocol.ErrorLibVlc} Streaming needs libVLC — use the full build (or install VLC).");
             Assert.True(Until(() => services.Stream.Encoder?.Failed == true));
             services.Stream.Poll();
             Assert.Equal("Streaming needs libVLC — use the full build (or install VLC).", services.Stream.Status);
@@ -435,16 +546,19 @@ public class EncoderProcessTests
             Assert.Null(services.Stream.Encoder);
             services.Stream.Poll();
             services.Stream.Poll();
-            Assert.Equal(2, launcher.Hosts.Count);
+            Assert.Equal(3, launcher.Hosts.Count);
 
-            // Off and on again is a fresh try; the encoder's own failure stops the stream with the reason.
+            // Off and on again is a fresh try (once the held host's process is out); the encoder's own failure stops the stream with the reason.
             vm.State.Stream.Active = false;
             services.Stream.Poll();
             Assert.Equal("Not streaming.", services.Stream.Status);
             vm.State.Stream.Active = true;
-            services.Stream.Poll();
-            Assert.Equal(3, launcher.Hosts.Count);
-            launcher.Hosts[2].Say(HostProtocol.Error, $"{HostProtocol.ErrorEncoder} the encoder reported an error");
+            Assert.True(Until(() =>
+            {
+                services.Stream.Poll();
+                return launcher.Hosts.Count == 4;
+            }, 10000), services.Stream.Status);
+            launcher.Hosts[3].Say(HostProtocol.Error, $"{HostProtocol.ErrorEncoder} the encoder reported an error");
             Assert.True(Until(() => services.Stream.Encoder?.Failed == true));
             services.Stream.Poll();
             Assert.False(vm.State.Stream.Active);
@@ -456,6 +570,56 @@ public class EncoderProcessTests
         finally
         {
             StreamService.RunsHere = runsHere;
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The render thread owns its surfaces and the ring under them: a Stop that runs out of patience
+    /// while a frame is still drawing leaves both to the thread, which releases them when the frame
+    /// ends — never pulled from under a running frame; stopped in time, they go at once.
+    /// </summary>
+    [AvaloniaFact]
+    public void TheRenderThreadOwnsTheRingAndLetsItGoWhenALateFrameEnds()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            b.Services.RepublishNow();
+            var ring = SharedFrameRing.Create(SharedFrameRing.NameFor("late"), 64, 36);
+            var frameStarted = new ManualResetEventSlim(false);
+            var frameMayEnd = new ManualResetEventSlim(false);
+            var renderer = new StreamRenderer(b.Services.Bus, StreamConfig.OwnScreenId, ring, 30)
+            {
+                StopTimeout = TimeSpan.FromMilliseconds(200),
+                BeforeFrame = () =>
+                {
+                    frameStarted.Set();
+                    frameMayEnd.Wait();
+                },
+            };
+            renderer.Start();
+            Assert.True(frameStarted.Wait(5000), "the render thread never drew");
+            renderer.Stop();                      // the wait runs out: the frame is still drawing
+            Assert.False(ring.IsClosed);          // so the ring is still the thread's
+            frameMayEnd.Set();
+            Assert.True(Until(() => ring.IsClosed, 5000), "the ring was not released when the frame ended");
+            Assert.True(renderer.FramesRendered >= 1);
+            renderer.Dispose();                   // nothing left to release twice
+
+            // Stopped in time: released at once, and the ring is closed for the encoder's side too.
+            var quick = SharedFrameRing.Create(SharedFrameRing.NameFor("quick"), 64, 36);
+            using var other = SharedFrameRing.Open(quick.Address);
+            using var prompt = new StreamRenderer(b.Services.Bus, StreamConfig.OwnScreenId, quick, 30);
+            prompt.Start();
+            Assert.True(Until(() => quick.LatestSeq > 0, 5000), "no frame reached the ring");
+            prompt.Stop();
+            Assert.True(quick.IsClosed);
+            Assert.True(other.IsClosed);
+            Assert.Equal(-1, other.WaitForFrame(0, 10));
+        }
+        finally
+        {
             b.Dispose();
         }
     }

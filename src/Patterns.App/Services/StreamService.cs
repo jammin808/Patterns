@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using LibVLCSharp.Shared;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -19,7 +20,10 @@ public sealed class StreamService : IDisposable
 {
     private readonly AppServices _services;
     private readonly DispatcherTimer _timer;
+    private static readonly TimeSpan LeavingPatience = TimeSpan.FromSeconds(10);   // a host is killed 3 s after QUIT; this is for one that will not die
     private ChildProcess? _encoder;
+    private ChildProcess? _leaving;   // the encoder just stopped, until its process is out: a stream key takes one publisher at a time
+    private DateTime _leavingSinceUtc;
     private SharedFrameRing? _ring;
     private StreamRenderer? _renderer;
     private string _activeKey = "";
@@ -103,6 +107,18 @@ public sealed class StreamService : IDisposable
             if (key != _activeKey)
             {
                 Stop();
+                if (_leaving is { } old)
+                {
+                    // The old encoder's process still holds the destination — an RTMP key takes one
+                    // publisher, and a server that refuses the second would fail the new encoder for what
+                    // was a bitrate edit — so the new one waits for it to be out (3 s at most: QUIT, then killed).
+                    if (!old.HostsGone && DateTime.UtcNow - _leavingSinceUtc < LeavingPatience)
+                    {
+                        _status = $"Waiting for the previous encoder (pid {old.Pid}) to let go of the destination before the new one starts…";
+                        return;
+                    }
+                    _leaving = null;
+                }
                 EncoderPlan plan;
                 if (rendered)
                 {
@@ -175,6 +191,9 @@ public sealed class StreamService : IDisposable
             {
                 ChildPhase.Starting => $"Starting the encoder (pid {enc.Pid}{restarts})…",
                 ChildPhase.Restarting => $"Encoder restarting — {enc.Words}; the show is untouched.",
+                // STARTED is the process running its plan; the destination is reached when libVLC plays.
+                ChildPhase.Running when IsConnecting(enc.HostState) =>
+                    $"Connecting to {_destinations} destination{(_destinations == 1 ? "" : "s")} (encoder pid {enc.Pid}{restarts})…",
                 ChildPhase.Running => $"LIVE · {_destinations} destination{(_destinations == 1 ? "" : "s")} · " +
                                       $"{cfg.Width}×{cfg.Height}@{fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}" +
                                       (_rendered ? " · rendered" : " · desktop capture") +
@@ -191,6 +210,10 @@ public sealed class StreamService : IDisposable
             Stop();
         }
     }
+
+    /// <summary>libVLC's state words from the host's beat before its stream output is up: the process runs, the destination is not reached yet.</summary>
+    private static bool IsConnecting(string hostState)
+        => hostState is nameof(VLCState.Opening) or nameof(VLCState.Buffering) or nameof(VLCState.NothingSpecial);
 
     /// <summary>
     /// A real display is captured off the desktop (cheapest, and it shows everything on that
@@ -216,18 +239,14 @@ public sealed class StreamService : IDisposable
         return SKRectI.Create(b.X, b.Y, b.Width, b.Height);
     }
 
-    /// <summary>The renderer first (its surfaces sit over the ring), then the encoder (QUIT, then killed if it lingers), then the ring.</summary>
+    /// <summary>
+    /// The encoder first (STOP and QUIT queued; killed off this thread if it lingers, and remembered
+    /// until its process is out), then the renderer, whose thread owns its surfaces and the ring under
+    /// them and releases both when it ends; the ring by hand only when no renderer ever had it.
+    /// </summary>
     private void Stop()
     {
         if (_encoder is null && _renderer is null && _ring is null) return;
-        try
-        {
-            _renderer?.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Stream renderer stop issue.", ex);
-        }
         try
         {
             _encoder?.Dispose();
@@ -236,13 +255,19 @@ public sealed class StreamService : IDisposable
         {
             Log.Warn("Encoder stop issue.", ex);
         }
+        if (_encoder is { } leaving)
+        {
+            _leaving = leaving;
+            _leavingSinceUtc = DateTime.UtcNow;
+        }
         try
         {
-            _ring?.Dispose();
+            if (_renderer is not null) _renderer.Dispose();
+            else _ring?.Dispose();
         }
         catch (Exception ex)
         {
-            Log.Warn("Frame ring release issue.", ex);
+            Log.Warn("Stream renderer stop issue.", ex);
         }
         _renderer = null;
         _encoder = null;

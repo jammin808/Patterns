@@ -31,6 +31,9 @@ public static class HostProtocol
     /// <summary>A host that has said nothing at all in this long did not come up — a cold start of the exe on a slow disk can take a while, so this is the watchdog's own patience, not the beat's.</summary>
     public static readonly TimeSpan HelloTimeout = TimeSpan.FromSeconds(30);
 
+    /// <summary>A host that has been bringing its plan up for this long without STARTED — beating "starting" all the while — is stuck in libVLC, a capture device or a destination that never answers: the desk ends it and starts another.</summary>
+    public static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(30);
+
     /// <summary>The code word an ERROR line starts with — this machine has no libVLC: not a fault, said and held.</summary>
     public const string ErrorLibVlc = "libvlc";
 
