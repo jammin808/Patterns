@@ -506,7 +506,8 @@ public sealed partial class MainViewModel
             var black = _services.Bus.BlackTargets.Contains(target); // faded to black on its own: the audience sees black, not the picture
             tile.RefreshExternal(enabled, target == _selectedTargetId,
                 ContentTargets.UsesOwnPattern(State, target), armed,
-                onAir: live && enabled && !black, held: building && (!armed || locked), locked: locked, black: black);
+                onAir: live && enabled && !black, held: building && (!armed || locked), locked: locked, black: black,
+                canSend: building);
         }
     }
 
@@ -532,6 +533,24 @@ public sealed partial class MainViewModel
         Raise(nameof(IsSandboxActive));
         RebuildEditTargets(); // the target now shows its own pattern — OWN lights up
         StatusMessage = $"Sent to {tile.Title} as its own pattern — every other target stays as it was, and the preview keeps the picture.";
+    }
+
+    /// <summary>
+    /// → PVW on a tile: the picture this target shows on air — its own, its source's when it repeats
+    /// one, else the program — into the sandboxed preview, through the action layer (journaled). The
+    /// editors work on the program (the preview) and the big panes show PGM and the preview; the
+    /// air is untouched, and EDIT SAFE opens first when it was off.
+    /// </summary>
+    internal void LoadTileIntoPreview(SwitcherTile tile)
+    {
+        if (tile.TargetId is not { } target) return;
+        var result = Report(_services.Actions.Execute(ShowActionKind.ScreenToPreview, ActionOrigin.Desk, target));
+        if (!result.Ok) return;
+        Raise(nameof(IsSandboxActive));
+        RebuildEditTargets();
+        EditTarget = EditTargets[0]; // the program: the preview is what is edited now, not the screen it came from
+        SelectTarget(null);          // the panes show PGM and the preview
+        RefreshSwitcherTiles();
     }
 
     /// <summary>

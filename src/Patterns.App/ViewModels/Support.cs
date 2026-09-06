@@ -141,6 +141,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     private bool _isLocked;
     private bool _isBlack;
     private bool _isCollapsed;
+    private bool _canSend;
     private Patterns.Core.Model.LookConfig? _pendingLook;
 
     public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
@@ -165,6 +166,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         ProgramCommand = new RelayCommand(() => _vm.SendProgramToTile(this));
         CollapseCommand = new RelayCommand(() => IsCollapsed = true);
         ExpandCommand = new RelayCommand(() => IsCollapsed = false);
+        ToPreviewCommand = new RelayCommand(() => _vm.LoadTileIntoPreview(this));
         PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false);
         PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true);
     }
@@ -210,6 +212,23 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
 
     /// <summary>SEND: the preview lands on this tile alone (the sandbox must be open).</summary>
     public RelayCommand SendHereCommand { get; }
+
+    /// <summary>
+    /// → PVW: the picture this target shows on air — its own, its source's when it repeats one,
+    /// else the program — into the sandboxed preview, to edit and SEND back or TAKE; the air is
+    /// untouched.
+    /// </summary>
+    public RelayCommand ToPreviewCommand { get; }
+
+    /// <summary>
+    /// SEND shows: a screen or canvas tile while the sandbox is open. Refreshed with the tile's
+    /// other live facts — a fact on the tile itself, not a binding up the tree to the desk.
+    /// </summary>
+    public bool CanSend
+    {
+        get => _canSend;
+        private set => Set(ref _canSend, value);
+    }
 
     /// <summary>"PGM", "A · Main wall" or "2 · Stage left".</summary>
     public string Title { get; }
@@ -345,9 +364,10 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     }
 
     /// <summary>Refreshes live state without rebuilding the wall (keeps focus, ticks and MON).</summary>
-    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held, bool locked, bool black = false)
+    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held, bool locked, bool black = false, bool canSend = false)
     {
         IsBlack = black;
+        CanSend = canSend && !IsProgramTile;
         if (_isLocked != locked)
         {
             _isLocked = locked;

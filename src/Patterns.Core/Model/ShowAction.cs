@@ -197,6 +197,12 @@ public enum ShowActionKind
     /// <summary>Target = a screen or canvas: its own pattern is dropped and it shows the program again.</summary>
     ScreenProgram,
     /// <summary>
+    /// Target = a screen or canvas: the picture it shows on air — its own pattern, its source's when
+    /// it repeats one, else the program — is loaded into the sandboxed preview to edit, then SEND or
+    /// TAKE. The air is untouched (EDIT SAFE opens first when it was off). The desk's own.
+    /// </summary>
+    ScreenToPreview,
+    /// <summary>
     /// The clip on air jumps to its last seconds (Value = how many; empty = ten) — a rehearsal
     /// skips the body of a video and still sees its end, hears the out and lets whatever follows
     /// it (a playlist's next item, a stinger's ending) happen for real.

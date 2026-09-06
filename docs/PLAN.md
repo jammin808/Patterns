@@ -1815,6 +1815,7 @@ machine is `docs/CHECKLIST-round17.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 6 | Any screen into the preview (§24.6). The desk had one direction between a tile and the preview — SEND and TAKE put the preview on screens — and no verb the other way: a screen's picture could be edited through OWN, on that screen, but never pulled into the preview to work on and send elsewhere. → PVW on every screen and canvas tile is that verb: a `ShowActionKind` of its own (`ScreenToPreview`, the desk's alone — an edit, not a step of the show), through the action layer and the journal. The executor reads the picture the audience sees on the target from the air state (a repeater's source, then the target's own pattern, else the program), clones it, opens EDIT SAFE first when it was off so the load can never go live, copies the clone into the edited state's program pattern and clears the preview look; the desk hands the editors the program, selects the PGM tile so the panes show PGM and the preview, and says whose picture it is and what to do with it. The frozen program never moves. While there: SEND's visibility on a tile was a binding up the tree to the window's view model, the shape §24.4 took out of the tile's faces — it is a fact on the tile now (`CanSend`); SEND and → PVW sit on a row of their own with the tile's foot text, and the title row keeps its room for the name. Tests: a tile's own picture into the preview with the air untouched, the editors on the program, the PGM tile selected, no preview look, the status; the copy edited without touching the screen and sent back to another; a screen on the program loading the program's picture and a repeater its source's; the action by wall number and a screen that is not there refused; EDIT SAFE off — the load opens it first and nothing goes live; the wall's → PVW on every screen tile and never PGM, SEND only while the sandbox is open; the kind's classification and words. | done |
 | 5 | A send keeps the preview (§24.5). SEND on a wall tile and SEND TO TICKED put the sandboxed preview on a target alone as its own pattern — and did it by the sandbox's old book: clone the preview's pattern, restore the frozen program into the edited state, assign the clone, close the sandbox and open a fresh one, which mirrors the program. The picture just built was on one screen and nowhere the operator could edit it; the same look for a second screen meant building it again. A send is an edit of both states now, like a lock or a screen's look from the Show panel: the target's assignment in the frozen program (the audience sees it now) and in the edited state (the next TAKE carries it, OWN lights), in one bulk edit, and nothing else moves — the sandbox stays open with the same pattern, the same preview look and the same editing target. Send it to the next screen, edit and send again, or TAKE it; every other target keeps what it was showing; EDIT SAFE re-arms after a CUT or TAKE as before. The status line, the tooltips and Help say the preview keeps the picture. Tests: a send with the preview kept and the program on air untouched, the target as its own pattern in both states and so resolved by the published snapshot, the preview look and the editing target unmoved; the preview edited and sent to a second screen with the first keeping its picture and the ticks consumed; TAKE putting the preview on every screen but the two with their own. | done |
 | 4 | The switcher's tiles (§24.4). On a rig day the screen tiles — never PGM — showed their name on its side over their body, with the OWN / MON / ARM row pushed to mid-height. A tile chose between its two faces, the body and the vertical title bar, by a binding up the visual tree to the wall (`$parent[ctl:WallView].Collapsed`), and a tile rebuilt after the wall existed — every screen tile: the displays arrive after the window, PGM is made with it — could resolve it late or not at all, so both faces drew: the bar's rotated name over the body, the body's buttons pushed down. The faces are decided by classes on the tree itself now — the wall carries "collapsed" as a class from its property, a tile carries "tileCollapsed" from its own choice — and the wall's styles show one and hide the other, in the document's order; nothing binds up the tree. The body, its title row and its buttons sit at the top of the tile whatever the row's height. The tick was the theme's checkbox, whose template holds a 32 px grid, so every screen tile's title row was 13 px taller than PGM's with its buttons that much lower; it is a wall toggle now (✓, lit while ticked) and every tile's rows line up with PGM's. The two questions, answered on the desk: ▸ at the end of a tile's title row collapses that tile alone to its title bar and ▾ on the bar opens it again (`SwitcherTile.IsCollapsed`, kept in `DeskLayoutConfig.CollapsedTiles` by target id, remembered by the show; the Run area's ▸ COLLAPSE TILES does the whole wall at once and leaves the tiles' own choices under it), and a group is a joined canvas — there is no group setting: on SETUP → Screens a screen dragged flush against another joins it into one canvas with one tile, dragged away it is a screen of its own again — on the tick's and the scope picker's tooltips and in Help. Tests: every tile with one face and its buttons at the top on a row 160 px taller than its content, level with PGM's, with MON on and off; a tile collapsed alone with the rest full, kept through a rebuild and the show file, opened again, PGM too; the Run wall's collapse over a tile's own choice and back; the Help words. | done |
 | 3 | The grid on the switcher tiles (§24.3). A wall tile, a pane and a multiview tile draw a target at its own pixel size into a canvas scaled to fit — a true miniature, the grid with the cell count it has on the wall — and a one-pixel line drawn without antialiasing at a twentieth of a device pixel drops out: no pixel centre falls inside it, so the grid on a tile was a scatter of lines popping in and out. `RenderContext.DeviceScale` carries the sink's scale (1 on an output, NDI and the stream; the fit scale on a wall tile, a pane, a multiview tile, a Screens-page tile), the engine folds the canvas's own map into `PatternFrame.DeviceScale`, and a pattern with hairlines widens them through `f.Hairline(px)` to at least one device pixel — twenty canvas pixels on a 96-pixel tile, one on an output, so an output's pixel-exact lines are what they were — and leaves out minor lines that would sit closer than three device pixels (`f.Resolves`). The Grid, the Geometry crosshair and markers, the Solid border, the LED and video walls' borders and pixel grid, the blend zones' grid, the motion marks and the ramps' markers and hashes read it. Tests: the rule (an output as asked, a tile widened to one device pixel, an upscale never thinned, a hand-built frame as an output; the spacing rule); the grid drawn by the engine into a 96×54 tile keeping all twenty lines with the device scale and next to none without it — the bug, held. | done |
@@ -2021,3 +2022,44 @@ target as its own pattern in both states and resolved so by the published snapsh
 look and the editing target unmoved; the preview edited and sent to a second screen with the
 first keeping its picture and the ticks consumed; TAKE putting the preview on every screen but
 the two with their own.
+
+### 24.6 Any screen into the preview: → PVW on a tile
+
+The desk had one direction between a tile and the preview: SEND (the preview onto a screen as
+its own picture) and TAKE (the preview onto every armed screen). The other direction — take
+what a screen is showing and work on it — had no verb. A screen with its own picture was edited
+through OWN, with the editors on that screen's own pattern and the change reaching that screen
+through a TAKE, and there was no way to pull its picture into the program's preview to send it
+elsewhere, or to pick up the program itself from a screen that follows it. The report asked for
+"a feature to send any screen / canvas to PGM for editing".
+
+→ PVW on every screen and canvas tile (never PGM) is that verb, and a `ShowActionKind` of its
+own — `ScreenToPreview`, the desk's alone: an edit, not a step of the show, since a running order
+never loads the desk's preview — so it goes through the action layer and the journal reads it
+like a lock or a screen's look. The executor resolves the picture the audience sees on the
+target from the air state: a repeater's source first, then the target's own pattern when it has
+one, else the program; clones it; opens EDIT SAFE first when it was off, so the load can never
+go live by itself; copies the clone into the edited state's program pattern; and clears the
+preview look, because the preview holds an edit now, not a look. The desk then hands the editors
+the program, selects the PGM tile so the big panes show PGM and the preview, and says on the
+status line whose picture it is and what to do with it — edit, then SEND it to a screen or
+TAKE. The frozen program never moves; a TAKE later carries the edit as any TAKE does.
+
+What "on air" means with the sandbox open: the executor reads the frozen program, so a repeater
+set on the Screens page after EDIT SAFE opened is read as one once it has gone to air with a
+TAKE — the rule every other air-reading verb keeps, and the test walks it.
+
+While there, SEND's visibility on a tile was a binding up the tree to the window's view model
+(`$parent[Window]…IsSandboxActive`), the shape §24.4 took out of the tile's two faces; it is a
+fact on the tile now (`CanSend`, refreshed with the tile's other live facts), so it can never be
+stale for a tile made after the window. And with SEND and → PVW as a pair, they sit on a row of
+their own under OWN / MON / ARM / LOCK with the tile's foot text, and the title row keeps its
+room for the name.
+
+Tests: a tile's own picture into the preview with the air untouched, the editors on the program,
+the PGM tile selected, no preview look, the status; the copy edited without touching the screen,
+then sent back to another screen; a screen on the program loading the program's picture and a
+repeater its source's, once on air; the action by wall number, and a screen that is not there
+refused; EDIT SAFE off — the load opens it first and the program on air never sees the picture;
+the wall carrying → PVW on every screen tile and never PGM, SEND only while the sandbox is open;
+the kind's classification and words.

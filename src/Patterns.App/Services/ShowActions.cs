@@ -728,6 +728,29 @@ public sealed class ShowActions
                 if (_s.Sandbox.Active) _s.EditAir(Follow);
                 return ActionResult.Done($"{label} shows the program again.");
             }
+            case ShowActionKind.ScreenToPreview:
+            {
+                // → PVW on a tile: the picture the audience sees on the target — its own pattern, its
+                // source's when it repeats one, else the program — into the sandboxed preview, to edit
+                // and SEND back or TAKE. The air is untouched: EDIT SAFE opens first when it was off,
+                // so the load can never go live by itself.
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var air = _s.AirState;
+                var source = ScreenRoles.ResolveMirror(air, target);
+                var showing = ContentTargets.UsesOwnPattern(air, source)
+                    ? air.Independent.FirstOrDefault(x => x.ScreenId == source)?.Pattern ?? air.Pattern
+                    : air.Pattern;
+                var picture = JsonUtil.ClonePattern(showing);
+                var opened = !_s.Sandbox.Active;
+                if (opened) _s.Sandbox.Enter();
+                _s.BulkEdit(() => ModelCopier.Copy(picture, State.Pattern));
+                _s.PreviewLookId = ""; // the preview holds an edit now, not a look
+                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                return ActionResult.Done(opened
+                    ? $"{label}'s picture is in the preview (EDIT SAFE opened, the air untouched) — edit it, then SEND it to a screen or TAKE."
+                    : $"{label}'s picture is in the preview — edit it, then SEND it to a screen or TAKE.");
+            }
             case ShowActionKind.CanvasOn:
             case ShowActionKind.CanvasOff:
             {

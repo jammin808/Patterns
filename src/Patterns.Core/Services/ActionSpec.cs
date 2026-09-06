@@ -113,6 +113,7 @@ public static class ActionSpec
         ShowActionKind.AdvertPlay => (TargetKind.Slot, ValueKind.None),
         ShowActionKind.ScreenLook => (TargetKind.Screen, ValueKind.Look),
         ShowActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
+        ShowActionKind.ScreenToPreview => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
         ShowActionKind.FadeToBlack or ShowActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
         ShowActionKind.WeatherView => (TargetKind.None, ValueKind.WeatherView),
@@ -236,6 +237,7 @@ public static class ActionSpec
         ShowActionKind.ReviewOn => "Review on the multiview",
         ShowActionKind.ReviewOff => "Review off",
         ShowActionKind.ReviewToggle => "Review toggle",
+        ShowActionKind.ScreenToPreview => "Screen — its picture into the preview",
         ShowActionKind.UpdateApply => "Apply the staged update",
         ShowActionKind.Restart => "Restart Patterns",
         _ => kind.ToString(),
@@ -299,6 +301,7 @@ public static class ActionSpec
         ShowActionKind.ApplyLookHotkey => "an F-key's slot — a cue names the look itself",
         ShowActionKind.Identify => "the rig's own identify pass, for the desk at set-up",
         ShowActionKind.ReviewOn or ShowActionKind.ReviewOff or ShowActionKind.ReviewToggle => "the desk's own check of its preview on the multiview",
+        ShowActionKind.ScreenToPreview => "the desk loading its preview from a screen to edit — an edit, not a step of the show",
         ShowActionKind.UpdateApply or ShowActionKind.Restart => "an admin verb behind the passcode",
         _ => null,
     };

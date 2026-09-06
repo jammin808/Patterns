@@ -104,18 +104,12 @@
                   <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                              Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
                 </Button>
-                <!-- SEND (sandbox open) puts the preview on this tile alone; the tick — always there — joins SEND TO TICKED and FADE TO BLACK on the ticked -->
-                <Panel Grid.Column="3" IsVisible="{Binding !IsProgramTile}">
-                  <StackPanel Orientation="Horizontal" Spacing="2">
-                    <Button Classes="wall" Content="SEND" Command="{Binding SendHereCommand}" Focusable="False"
-                            IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsSandboxActive}"
-                            ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern — every other target stays as it is, and the preview keeps the picture for the next send" />
-                    <!-- A wall toggle, not the theme's checkbox: its template holds a 32 px grid that made a screen
-                         tile's title row 13 px taller than PGM's, with its buttons that much lower -->
-                    <ToggleButton Name="TileTick" Classes="wall tick" Content="✓" IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Margin="4,0,0,0" Focusable="False"
-                                  ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS — lit while it is ticked. A group is a joined canvas (A, B…): screens dragged flush together on SETUP → Screens make one, dragged apart leave it" />
-                  </StackPanel>
-                </Panel>
+                <!-- The tick — always there — joins SEND TO TICKED and FADE TO BLACK on the ticked. A wall toggle, not the
+                     theme's checkbox: its template holds a 32 px grid that made a screen tile's title row 13 px taller than
+                     PGM's, with its buttons that much lower -->
+                <ToggleButton Grid.Column="3" Name="TileTick" Classes="wall tick" Content="✓" IsChecked="{Binding IsSendTarget, Mode=TwoWay}"
+                              IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
+                              ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS — lit while it is ticked. A group is a joined canvas (A, B…): screens dragged flush together on SETUP → Screens make one, dragged apart leave it" />
                 <!-- OUTPUT: the screen on or off, live — a wall button that fits the tile (the switch it replaces hung outside it) -->
                 <ToggleButton Grid.Column="4" Classes="wall output" Content="OUT" IsChecked="{Binding Enabled, Mode=TwoWay}"
                               IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
@@ -137,7 +131,7 @@
                   </Border>
                 </ctl:AspectBox>
               </Grid>
-              <Grid Name="TileButtons" ColumnDefinitions="Auto,Auto,Auto,Auto,*" VerticalAlignment="Top">
+              <Grid Name="TileButtons" ColumnDefinitions="Auto,Auto,Auto,Auto" VerticalAlignment="Top">
                 <ToggleButton Classes="wall" Content="OWN" IsChecked="{Binding IsOwn, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}" IsEnabled="{Binding !IsMirror}"
                               ToolTip.Tip="OWN: this target shows its own pattern instead of the program (starts as a copy of the program, so nothing jumps). A repeater draws its source's picture and has none of its own" />
                 <ToggleButton Grid.Column="1" Classes="wall" Content="MON" IsChecked="{Binding IsMonitored, Mode=TwoWay}"
@@ -146,7 +140,15 @@
                               ToolTip.Tip="ARM: the next CUT / TAKE changes this target. Un-armed, it keeps the picture the audience is seeing" />
                 <ToggleButton Grid.Column="3" Classes="wall lock" Content="LOCK" IsChecked="{Binding IsLocked, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}"
                               ToolTip.Tip="LOCK: this target keeps its picture through every look, cue, clicker step, TAKE ALL and stinger — a confidence monitor, an info screen. SEND to it, or OWN and edit, when it should change. Saved with the show" />
-                <TextBlock Grid.Column="4" Classes="hint" Text="{Binding FootText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
+              </Grid>
+              <!-- The two ways between this tile and the preview, then the tile's foot (its size, or what it repeats).
+                   SEND shows while the sandbox is open — a fact on the tile (CanSend), not a binding up the tree -->
+              <Grid Name="TileSends" ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Top">
+                <Button Name="TileSend" Classes="wall" Content="SEND" Command="{Binding SendHereCommand}" Focusable="False" IsVisible="{Binding CanSend}"
+                        ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern, live — every other target stays as it is, and the preview keeps the picture for the next send" />
+                <Button Grid.Column="1" Name="TileToPreview" Classes="wall" Content="→ PVW" Command="{Binding ToPreviewCommand}" Focusable="False" IsVisible="{Binding !IsProgramTile}"
+                        ToolTip.Tip="→ PVW: the picture this target shows on air — its own, or the program's — into the preview, to edit; the air is untouched (EDIT SAFE opens if it was off). Then SEND it to a screen, or TAKE" />
+                <TextBlock Grid.Column="2" Classes="hint" Text="{Binding FootText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding FootText}" />
               </Grid>
             </StackPanel>
