@@ -64,7 +64,7 @@ public class StingerTests
             var item = new StingerItemConfig { Path = clip, Name = "Opening sting" };
             vm.State.Stingers.Items.Add(item);
             var stack = CueStacks.Caller(vm.State);
-            var cue = new RunCueConfig { Number = "1", Name = "Sting", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = item.Id } } };
+            var cue = new RunCueConfig { Number = "1", Name = "Sting", Actions = { new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = item.Id } } };
             stack.Cues.Add(cue);
             vm.State.Blackout = true;
             Dispatcher.UIThread.RunJobs();
@@ -147,7 +147,7 @@ public class StingerTests
             var item = new StingerItemConfig { Path = clip, Name = "Take your seats" };
             vm.State.Stingers.Items.Add(item);
             var stack = CueStacks.Caller(vm.State);
-            stack.Cues.Add(new RunCueConfig { Number = "1", Name = "Call", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = item.Id } } });
+            stack.Cues.Add(new RunCueConfig { Number = "1", Name = "Call", Actions = { new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = item.Id } } });
 
             vm.RemoveStingerCommand.Execute(item);
             Assert.Contains(item, vm.State.Stingers.Items);

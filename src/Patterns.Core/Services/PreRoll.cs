@@ -18,7 +18,7 @@ public static class PreRoll
         if (standby is null) return null;
         foreach (var action in standby.Actions)
         {
-            if (action.Kind != CueActionKind.ApplyLook) continue;
+            if (action.Kind != ShowActionKind.ApplyLook) continue;
             return LookService.Find(state, action.Target);
         }
         return null;

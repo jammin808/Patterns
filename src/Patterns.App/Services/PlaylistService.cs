@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using Avalonia.Threading;
 using Patterns.Core.Media;
 using Patterns.Core.Services;

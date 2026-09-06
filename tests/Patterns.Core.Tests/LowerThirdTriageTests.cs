@@ -176,26 +176,26 @@ public class LowerThirdTriageTests
         Assert.Equal(1, Assert.Single(fed, x => x.Address == "/patterns/state/lowerthird/edited").Args[0]);
 
         // The cue actions: the spec, the words, the checks.
-        Assert.Equal((TargetKind.LowerThird, ValueKind.Person), CueActionSpec.For(CueActionKind.LowerThirdPreview));
-        Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.LowerThirdTake));
-        Assert.Contains(CueActionKind.LowerThirdPreview, CueActionSpec.Editable);
-        Assert.Contains(CueActionKind.LowerThirdTake, CueActionSpec.Editable);
-        Assert.False(CueActionSpec.ChangesContent(CueActionKind.LowerThirdTake));
+        Assert.Equal((TargetKind.LowerThird, ValueKind.Person), ActionSpec.For(ShowActionKind.LowerThirdPreview));
+        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.LowerThirdTake));
+        Assert.Contains(ShowActionKind.LowerThirdPreview, ActionSpec.CueKinds);
+        Assert.Contains(ShowActionKind.LowerThirdTake, ActionSpec.CueKinds);
+        Assert.False(ActionSpec.ChangesContent(ShowActionKind.LowerThirdTake));
         var state = SettingsStore.Fresh();
         var neon = LowerThirdPresets.Create("Neon");
         state.LowerThirds.Designs.Add(neon);
         state.LowerThirds.Entries.Add(new LowerThirdEntry { Name = "Jane Doe", Role = "CEO" });
         var jane = state.LowerThirds.Entries[0];
-        Assert.Equal("Lower third to preview 'Neon' — Jane Doe", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.LowerThirdPreview, Target = neon.Id, Value = jane.Id }));
-        Assert.Equal("Lower third to preview (the default) — Jane Doe", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.LowerThirdPreview, Value = jane.Id }));
-        Assert.Equal("Lower third take (preview to air)", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.LowerThirdTake }));
+        Assert.Equal("Lower third to preview 'Neon' — Jane Doe", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.LowerThirdPreview, Target = neon.Id, Value = jane.Id }));
+        Assert.Equal("Lower third to preview (the default) — Jane Doe", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.LowerThirdPreview, Value = jane.Id }));
+        Assert.Equal("Lower third take (preview to air)", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.LowerThirdTake }));
         var stack = CueStacks.Caller(state);
         var good = new RunCueConfig { Name = "Preview Jane" };
-        good.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdPreview, Target = "", Value = jane.Id });
+        good.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdPreview, Target = "", Value = jane.Id });
         var take = new RunCueConfig { Name = "Take" };
-        take.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdTake });
+        take.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdTake });
         var bad = new RunCueConfig { Name = "Bad" };
-        bad.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdPreview, Target = "no-such" });
+        bad.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdPreview, Target = "no-such" });
         stack.Cues.Add(good);
         stack.Cues.Add(take);
         stack.Cues.Add(bad);

@@ -126,7 +126,7 @@ public static class LookService
         }
         foreach (var (stack, cue, action) in CueStacks.AllActions(state))
         {
-            if (action.Kind != CueActionKind.ApplyLook) continue;
+            if (action.Kind != ShowActionKind.ApplyLook) continue;
             if (string.Equals(action.Target, look.Id, StringComparison.Ordinal) ||
                 string.Equals(action.Target, look.Name, StringComparison.OrdinalIgnoreCase))
             {

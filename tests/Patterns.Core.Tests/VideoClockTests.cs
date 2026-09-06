@@ -203,27 +203,27 @@ public class VideoClockTests
     [Fact]
     public void TheCueActionsAreSpecifiedSummarisedAndChecked()
     {
-        Assert.Equal((TargetKind.None, ValueKind.Seconds), CueActionSpec.For(CueActionKind.VideoToEnd));
-        Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.VideoRestart));
-        Assert.Contains(CueActionKind.VideoToEnd, CueActionSpec.Editable);
-        Assert.Contains(CueActionKind.VideoRestart, CueActionSpec.Editable);
-        Assert.False(CueActionSpec.ChangesContent(CueActionKind.VideoToEnd));
-        Assert.Contains("last seconds", CueActionSpec.Label(CueActionKind.VideoToEnd));
-        Assert.Contains("restart", CueActionSpec.Label(CueActionKind.VideoRestart));
+        Assert.Equal((TargetKind.None, ValueKind.Seconds), ActionSpec.For(ShowActionKind.VideoToEnd));
+        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.VideoRestart));
+        Assert.Contains(ShowActionKind.VideoToEnd, ActionSpec.CueKinds);
+        Assert.Contains(ShowActionKind.VideoRestart, ActionSpec.CueKinds);
+        Assert.False(ActionSpec.ChangesContent(ShowActionKind.VideoToEnd));
+        Assert.Contains("last seconds", ActionSpec.Label(ShowActionKind.VideoToEnd));
+        Assert.Contains("restart", ActionSpec.Label(ShowActionKind.VideoRestart));
 
-        Assert.Equal(CueActionKind.VideoToEnd, CueSheet.ParseKind("Video — jump to its last seconds"));
-        Assert.Equal(CueActionKind.VideoToEnd, CueSheet.ParseKind("vt end"));
-        Assert.Equal(CueActionKind.VideoToEnd, CueSheet.ParseKind("skip to end"));
-        Assert.Equal(CueActionKind.VideoRestart, CueSheet.ParseKind("Video — restart from the top"));
-        Assert.Equal(CueActionKind.VideoRestart, CueSheet.ParseKind("rewind"));
-        Assert.Equal(CueActionKind.VideoRestart, CueSheet.ParseKind("restart video"));
+        Assert.Equal(ShowActionKind.VideoToEnd, CueSheet.ParseKind("Video — jump to its last seconds"));
+        Assert.Equal(ShowActionKind.VideoToEnd, CueSheet.ParseKind("vt end"));
+        Assert.Equal(ShowActionKind.VideoToEnd, CueSheet.ParseKind("skip to end"));
+        Assert.Equal(ShowActionKind.VideoRestart, CueSheet.ParseKind("Video — restart from the top"));
+        Assert.Equal(ShowActionKind.VideoRestart, CueSheet.ParseKind("rewind"));
+        Assert.Equal(ShowActionKind.VideoRestart, CueSheet.ParseKind("restart video"));
 
         var s = new ShowState();
         s.Pattern.Kind = PatternKind.Grid;
         var skip = new RunCueConfig { Number = "1", Name = "Skip the walk-in" };
-        skip.Actions.Add(new CueActionConfig { Kind = CueActionKind.VideoToEnd, Value = "5" });
+        skip.Actions.Add(new CueActionConfig { Kind = ShowActionKind.VideoToEnd, Value = "5" });
         var top = new RunCueConfig { Number = "2", Name = "Loop again" };
-        top.Actions.Add(new CueActionConfig { Kind = CueActionKind.VideoRestart });
+        top.Actions.Add(new CueActionConfig { Kind = ShowActionKind.VideoRestart });
         var stack = new CueStackConfig();
         stack.Cues.Add(skip);
         stack.Cues.Add(top);

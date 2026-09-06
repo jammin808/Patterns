@@ -45,7 +45,7 @@ public class DeskPollTests
         for (var i = 0; i < 40; i++)
         {
             var cue = new RunCueConfig { Number = $"{i / 10 + 1:00}.{i % 10 * 10 + 10:000}", Name = $"Cue {i + 1}", PlannedSeconds = 120 };
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = state.LooksAndCues.Looks[i % 12].Id });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = state.LooksAndCues.Looks[i % 12].Id });
             stack.Cues.Add(cue);
         }
         for (var i = 0; i < 20; i++)

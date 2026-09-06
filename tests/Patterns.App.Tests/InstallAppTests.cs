@@ -125,8 +125,8 @@ public class InstallAppTests
             Assert.Contains(services.Journal.Tail(20), e => e.Kind == "AdvertPlay" && e.Origin.StartsWith("tcp"));
 
             // A cue's Announcement on, through the executor.
-            var cue = new CueActionConfig { Kind = CueActionKind.Announce, Target = "", Value = "Please take your seats" };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(cue), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
+            var cue = new CueActionConfig { Kind = ShowActionKind.Announce, Target = "", Value = "Please take your seats" };
+            Assert.True(services.Actions.Execute(cue.ToAction(), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
             Assert.Equal("Please take your seats", services.AirState.Overlays.Message.Text);
             Assert.True(services.Actions.Execute(ShowActionKind.AnnounceOff, ActionOrigin.Desk).Ok);
 

@@ -22,33 +22,37 @@ public static class CueSummary
         return string.Join(" + ", parts);
     }
 
+    /// <summary>One step in words. Every kind a cue may carry has its own words here (a test holds the door); the desk's own read as their label.</summary>
     public static string DescribeAction(ShowState state, CueActionConfig a)
     {
         switch (a.Kind)
         {
-            case CueActionKind.Unknown: return "Unknown action (newer build)";
-            case CueActionKind.Note: return "Note";
-            case CueActionKind.ApplyLook:
+            case ShowActionKind.Unknown: return "Unknown action (newer build)";
+            case ShowActionKind.Note: return "Note";
+            case ShowActionKind.ApplyLook:
+            case ShowActionKind.ApplyLookToPreview:
             {
                 var look = LookService.Find(state, a.Target);
-                var sb = new StringBuilder($"Apply '{look?.Name ?? a.Target}'");
-                if (CueActionSpec.TryParseTransition(a.Value, out var cut, out var ms))
-                {
-                    if (cut) sb.Append(" (cut)");
-                    else if (ms >= 0) sb.Append($" ({ms} ms)");
-                }
+                var sb = new StringBuilder(a.Kind == ShowActionKind.ApplyLookToPreview ? $"Preview '{look?.Name ?? a.Target}'" : $"Apply '{look?.Name ?? a.Target}'");
+                if (a.Kind == ShowActionKind.ApplyLook) AppendTransition(sb, a.Value);
                 return sb.ToString();
             }
-            case CueActionKind.AudioPlay:
+            case ShowActionKind.LookBack:
+            {
+                var sb = new StringBuilder("The look before");
+                AppendTransition(sb, a.Value);
+                return sb.ToString();
+            }
+            case ShowActionKind.AudioPlay:
             {
                 if (a.Target.Length == 0) return "Play audio";
                 var track = AudioPlaylist.FindItem(state.AudioPlayer, a.Target);
                 return track is not null ? $"Play audio: {track.DisplayName}" : int.TryParse(a.Target, out var n) ? $"Play audio track {n}" : $"Play audio: '{a.Target}' (not in the list)";
             }
-            case CueActionKind.AudioStop: return "Stop audio";
-            case CueActionKind.AudioNext: return "Audio: the next track";
-            case CueActionKind.AudioPrev: return "Audio: the previous track";
-            case CueActionKind.StingerFire:
+            case ShowActionKind.AudioStop: return "Stop audio";
+            case ShowActionKind.AudioNext: return "Audio: the next track";
+            case ShowActionKind.AudioPrev: return "Audio: the previous track";
+            case ShowActionKind.StingerFire:
             {
                 var s = FindStinger(state, a.Target);
                 if (s is null) return $"Sting '{a.Target}'";     // a dead target reads as it always did
@@ -57,46 +61,73 @@ public static class CueSummary
                     ? $"VOG '{s.DisplayName}'"
                     : $"Sting '{s.DisplayName}' ({StingerLibrary.AfterSummary(state, s)})";
             }
-            case CueActionKind.StingerStop: return "Stop VOG / stinger";
-            case CueActionKind.PlaylistPart: return $"Part '{a.Target}'";
-            case CueActionKind.StreamStart: return "Start stream";
-            case CueActionKind.StreamStop: return "Stop stream";
-            case CueActionKind.BlackoutOn: return "Blackout on";
-            case CueActionKind.BlackoutOff: return "Blackout off";
-            case CueActionKind.FadeToBlack:
-            case CueActionKind.FadeUp:
+            case ShowActionKind.StingerStop: return "Stop VOG / stinger";
+            case ShowActionKind.PlaylistPart: return $"Part '{a.Target}'";
+            case ShowActionKind.StreamStart: return "Start stream";
+            case ShowActionKind.StreamStop: return "Stop stream";
+            case ShowActionKind.OutputsOn: return "Outputs on";
+            case ShowActionKind.OutputsOff: return "Outputs off";
+            case ShowActionKind.BlackoutOn: return "Blackout on";
+            case ShowActionKind.BlackoutOff: return "Blackout off";
+            case ShowActionKind.BlackoutToggle: return "Blackout toggle";
+            case ShowActionKind.FadeToBlack:
+            case ShowActionKind.FadeUp:
             {
                 var scope = FadeScope.Parse(a.Target);
                 var where = scope is { } sc ? (sc.Kind == FadeScopeKind.Target ? ScreenLabel(state, sc.Arg) : sc.Label) : $"'{a.Target}'?";
                 var secs = a.Value.Trim().Length > 0 ? $" over {a.Value.Trim()} s" : "";
-                return (a.Kind == CueActionKind.FadeToBlack ? "Fade to black" : "Fade up") + $" — {where}{secs}";
+                return (a.Kind == ShowActionKind.FadeToBlack ? "Fade to black" : "Fade up") + $" — {where}{secs}";
             }
-            case CueActionKind.ScreenOn: return $"Screen '{ScreenLabel(state, a.Target)}' on";
-            case CueActionKind.ScreenOff: return $"Screen '{ScreenLabel(state, a.Target)}' off";
-            case CueActionKind.ScreenLook: return $"Screen '{ScreenLabel(state, a.Target)}' → look '{LookService.Find(state, a.Value)?.Name ?? (a.Value.Length > 0 ? a.Value + " (not found)" : "?")}'";
-            case CueActionKind.ScreenProgram: return $"Screen '{ScreenLabel(state, a.Target)}' → the program";
-            case CueActionKind.ScreenLock: return $"Screen '{ScreenLabel(state, a.Target)}' locked — keeps its picture";
-            case CueActionKind.ScreenUnlock: return $"Screen '{ScreenLabel(state, a.Target)}' follows cues again";
-            case CueActionKind.CanvasOn: return $"Canvas '{CanvasLabel(state, a.Target)}' on";
-            case CueActionKind.CanvasOff: return $"Canvas '{CanvasLabel(state, a.Target)}' off";
-            case CueActionKind.CountdownStart: return $"Countdown {a.Value} min";
-            case CueActionKind.CountdownStop: return "Stop countdown";
-            case CueActionKind.AudioVolume: return $"Audio volume {a.Value}%";
-            case CueActionKind.SpotifyPlay:
+            case ShowActionKind.FreezeOn: return "Freeze every output";
+            case ShowActionKind.FreezeOff: return "Release the freeze";
+            case ShowActionKind.FreezeToggle: return "Freeze toggle";
+            case ShowActionKind.ScreenOn: return $"Screen '{ScreenLabel(state, a.Target)}' on";
+            case ShowActionKind.ScreenOff: return $"Screen '{ScreenLabel(state, a.Target)}' off";
+            case ShowActionKind.ScreenToggle: return $"Screen '{ScreenLabel(state, a.Target)}' on / off";
+            case ShowActionKind.ScreenLook: return $"Screen '{ScreenLabel(state, a.Target)}' → look '{LookService.Find(state, a.Value)?.Name ?? (a.Value.Length > 0 ? a.Value + " (not found)" : "?")}'";
+            case ShowActionKind.ScreenProgram: return $"Screen '{ScreenLabel(state, a.Target)}' → the program";
+            case ShowActionKind.ScreenLock: return $"Screen '{ScreenLabel(state, a.Target)}' locked — keeps its picture";
+            case ShowActionKind.ScreenUnlock: return $"Screen '{ScreenLabel(state, a.Target)}' follows cues again";
+            case ShowActionKind.ScreenLockToggle: return $"Screen '{ScreenLabel(state, a.Target)}' lock toggle";
+            case ShowActionKind.CanvasOn: return $"Canvas '{CanvasLabel(state, a.Target)}' on";
+            case ShowActionKind.CanvasOff: return $"Canvas '{CanvasLabel(state, a.Target)}' off";
+            case ShowActionKind.PatternKind:
+                return ActionSpec.ParsePatternKind(a.Value) is { } kind ? $"Pattern: {kind}" : $"Pattern: '{a.Value}' (not a kind)";
+            case ShowActionKind.CountdownStart: return $"Countdown {a.Value} min";
+            case ShowActionKind.CountdownTo: return $"Countdown to {a.Value.Trim()}";
+            case ShowActionKind.CountdownStop: return "Stop countdown";
+            case ShowActionKind.CountdownLabel: return a.Value.Trim().Length > 0 ? $"Countdown label '{Shorten(a.Value.Trim())}'" : "Countdown label cleared";
+            case ShowActionKind.AudioVolume: return $"Audio volume {a.Value}%";
+            case ShowActionKind.SpotifyPlay:
             {
                 if (a.Target.Length == 0) return "Break music play";
                 var m = SpotifyLibrary.Find(state, a.Target);
                 return $"Break music '{m?.DisplayName ?? a.Target}'";
             }
-            case CueActionKind.SpotifyPause: return "Break music pause";
-            case CueActionKind.SpotifyNext: return "Break music skip";
-            case CueActionKind.SpotifyVolume: return $"Break music {a.Value}%";
-            case CueActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
-            case CueActionKind.MessageOff: return "Message off";
-            case CueActionKind.LowerThirdShow:
-            case CueActionKind.LowerThirdPreview:
+            case ShowActionKind.SpotifyPause: return "Break music pause";
+            case ShowActionKind.SpotifyNext: return "Break music skip";
+            case ShowActionKind.SpotifyVolume: return $"Break music {a.Value}%";
+            case ShowActionKind.MessageOn: return $"Message '{Shorten(a.Value)}'";
+            case ShowActionKind.MessageOff: return "Message off";
+            case ShowActionKind.MessageToggle: return "Message toggle";
+            case ShowActionKind.MessageScroll: return $"Message scroll {SwitchWords(a.Value)}";
+            case ShowActionKind.ClockOn: return "Clock on";
+            case ShowActionKind.ClockOff: return "Clock off";
+            case ShowActionKind.ClockToggle: return "Clock toggle";
+            case ShowActionKind.ClockFormat: return ActionSpec.TryParseHours(a.Value, out var hours) ? $"Clock {hours}-hour" : $"Clock hours '{a.Value}'?";
+            case ShowActionKind.ClockSeconds: return $"Clock seconds {SwitchWords(a.Value)}";
+            case ShowActionKind.ClockDate: return $"Clock date {SwitchWords(a.Value)}";
+            case ShowActionKind.LogoOn: return "Logo on";
+            case ShowActionKind.LogoOff: return "Logo off";
+            case ShowActionKind.LogoToggle: return "Logo toggle";
+            case ShowActionKind.PipOn: return "PiP on";
+            case ShowActionKind.PipOff: return "PiP off";
+            case ShowActionKind.PipToggle: return "PiP toggle";
+            case ShowActionKind.OverlaysOff: return "Overlays off";
+            case ShowActionKind.LowerThirdShow:
+            case ShowActionKind.LowerThirdPreview:
             {
-                var preview = a.Kind == CueActionKind.LowerThirdPreview;
+                var preview = a.Kind == ShowActionKind.LowerThirdPreview;
                 var design = a.Target.Length == 0
                     ? (preview ? "(the default)" : "on air")
                     : $"'{state.LowerThirds.Find(a.Target)?.Name ?? a.Target}'";
@@ -105,49 +136,69 @@ public static class CueSummary
                 var who = state.LowerThirds.FindEntry(a.Value);
                 return who is null ? $"{head} — '{a.Value}' (not in the library)" : $"{head} — {who.Name}";
             }
-            case CueActionKind.LowerThirdHide: return "Lower third off";
-            case CueActionKind.LowerThirdTake: return "Lower third take (preview to air)";
-            case CueActionKind.WebKey: return $"Page: {WebPresets.LabelFor(a.Value)}{PageSuffix(a)}";
-            case CueActionKind.WebClick: return $"Page: click at {a.Value}{PageSuffix(a)}";
-            case CueActionKind.WebType: return $"Page: type '{Shorten(a.Value)}'{PageSuffix(a)}";
-            case CueActionKind.WebReload: return $"Page: reload{PageSuffix(a)}";
-            case CueActionKind.DeckNext: return "Deck: the next page";
-            case CueActionKind.DeckPrev: return "Deck: the previous page";
-            case CueActionKind.DeckPage: return $"Deck: {Decks.DescribePage(a.Value)}";
-            case CueActionKind.VideoToEnd:
+            case ShowActionKind.LowerThirdHide: return "Lower third off";
+            case ShowActionKind.LowerThirdPreviewOff: return "Lower third preview off";
+            case ShowActionKind.LowerThirdTake: return "Lower third take (preview to air)";
+            case ShowActionKind.LowerThirdUpdate: return "Lower third update (edits to air)";
+            case ShowActionKind.WebKey: return $"Page: {WebPresets.LabelFor(a.Value)}{PageSuffix(a)}";
+            case ShowActionKind.WebClick: return $"Page: click at {a.Value}{PageSuffix(a)}";
+            case ShowActionKind.WebType: return $"Page: type '{Shorten(a.Value)}'{PageSuffix(a)}";
+            case ShowActionKind.WebReload: return $"Page: reload{PageSuffix(a)}";
+            case ShowActionKind.WebOpen: return $"Page: open {(a.Value.Contains("://") ? WebAddress.ShortName(a.Value) : Shorten(a.Value))}{PageSuffix(a)}";
+            case ShowActionKind.DeckNext: return "Deck: the next page";
+            case ShowActionKind.DeckPrev: return "Deck: the previous page";
+            case ShowActionKind.DeckPage: return $"Deck: {Decks.DescribePage(a.Value)}";
+            case ShowActionKind.VideoToEnd:
                 return VideoClock.TryParseBeforeEnd(a.Value, out var before) ? $"Video: to its last {before:0.#} s" : $"Video: to its last '{a.Value}' (not seconds)";
-            case CueActionKind.VideoRestart: return "Video: restart from the top";
-            case CueActionKind.DeviceSend: return $"Device {(Interactive.Find(state.Interactive, a.Target)?.Name ?? (a.Target.Length > 0 ? a.Target : "?"))}: {a.Value}";
-            case CueActionKind.Announce:
+            case ShowActionKind.VideoRestart: return "Video: restart from the top";
+            case ShowActionKind.DeviceSend: return $"Device {(Interactive.Find(state.Interactive, a.Target)?.Name ?? (a.Target.Length > 0 ? a.Target : "?"))}: {a.Value}";
+            case ShowActionKind.Announce:
             {
                 var slot = a.Target.Length > 0 ? Schedule.Find(state.Install, a.Target) : Schedule.Find(state.Install, a.Value, SlotKind.Announcement);
                 if (slot is not null) return $"Announcement '{slot.Name}'";
                 return a.Target.Length > 0 ? $"Announcement '{a.Target}' (not on the Install page)" : a.Value.Length > 0 ? $"Announce: '{Shorten(a.Value)}'" : "Announce: (nothing)";
             }
-            case CueActionKind.AnnounceOff: return "Announcement off";
-            case CueActionKind.AdvertPlay: return $"Advert '{Schedule.Find(state.Install, a.Target, SlotKind.Advert)?.Name ?? (a.Target.Length > 0 ? a.Target + " (not found)" : "?")}' now";
-            case CueActionKind.AdvertOff: return "Advert ends";
-            case CueActionKind.ScheduleOn: return "Install schedule on";
-            case CueActionKind.ScheduleOff: return "Install schedule off";
-            case CueActionKind.ClockOn: return "Clock on";
-            case CueActionKind.ClockOff: return "Clock off";
-            case CueActionKind.WeatherOn: return "Weather on";
-            case CueActionKind.WeatherOff: return "Weather off";
-            case CueActionKind.WeatherView:
+            case ShowActionKind.AnnounceOff: return "Announcement off";
+            case ShowActionKind.AdvertPlay: return $"Advert '{Schedule.Find(state.Install, a.Target, SlotKind.Advert)?.Name ?? (a.Target.Length > 0 ? a.Target + " (not found)" : "?")}' now";
+            case ShowActionKind.AdvertOff: return "Advert ends";
+            case ShowActionKind.ScheduleOn: return "Install schedule on";
+            case ShowActionKind.ScheduleOff: return "Install schedule off";
+            case ShowActionKind.WeatherOn: return "Weather on";
+            case ShowActionKind.WeatherOff: return "Weather off";
+            case ShowActionKind.WeatherToggle: return "Weather toggle";
+            case ShowActionKind.WeatherView:
                 return WeatherWords.ParseView(a.Value) is { } view ? $"Weather: {WeatherWords.ViewName(view).ToLowerInvariant()}" : $"Weather: '{a.Value}' (not a view)";
-            case CueActionKind.DuckOn: return "Duck for announcement";
-            case CueActionKind.DuckOff: return "Lift the duck";
-            case CueActionKind.ListArm: return $"Arm {StackName(state, a.Target)}";
-            case CueActionKind.ListDisarm: return $"Disarm {StackName(state, a.Target)}";
-            case CueActionKind.ListGo: return $"GO on {StackName(state, a.Target)}";
-            case CueActionKind.ListBack: return $"Back on {StackName(state, a.Target)}";
-            case CueActionKind.ListReset: return $"Reset {StackName(state, a.Target)}";
-            default: return a.Kind.ToString();
+            case ShowActionKind.DuckOn: return "Duck for announcement";
+            case ShowActionKind.DuckOff: return "Lift the duck";
+            case ShowActionKind.DuckToggle: return "Duck toggle";
+            case ShowActionKind.ToneOn: return "Line-up tone on";
+            case ShowActionKind.ToneOff: return "Line-up tone off";
+            case ShowActionKind.StopAll: return "Stop all";
+            case ShowActionKind.ListArm: return $"Arm {StackName(state, a.Target)}";
+            case ShowActionKind.ListDisarm: return $"Disarm {StackName(state, a.Target)}";
+            case ShowActionKind.ListGo: return $"GO on {StackName(state, a.Target)}";
+            case ShowActionKind.ListBack: return $"Back on {StackName(state, a.Target)}";
+            case ShowActionKind.ListReset: return $"Reset {StackName(state, a.Target)}";
+            default: return ActionSpec.Label(a.Kind);
         }
     }
 
     /// <summary>A library item by number, id, then display name (case-insensitive) — either kind.</summary>
     public static StingerItemConfig? FindStinger(ShowState state, string idOrName) => StingerLibrary.Find(state, idOrName);
+
+    private static void AppendTransition(StringBuilder sb, string value)
+    {
+        if (!ActionSpec.TryParseTransition(value, out var cut, out var ms)) return;
+        if (cut) sb.Append(" (cut)");
+        else if (ms >= 0) sb.Append($" ({ms} ms)");
+    }
+
+    private static string SwitchWords(string value) => value.Trim().ToLowerInvariant() switch
+    {
+        "on" or "1" or "true" or "show" or "yes" => "on",
+        "off" or "0" or "false" or "hide" or "no" => "off",
+        _ => "toggle",
+    };
 
     /// <summary>" → the page" when a web action names one; "" for the page on air.</summary>
     private static string PageSuffix(CueActionConfig a)

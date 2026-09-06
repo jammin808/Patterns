@@ -40,11 +40,11 @@ public class RunTests
         var bb = SaveLook(b.Vm, "B", PatternKind.Focus);
         b.Vm.ActivePattern.Kind = PatternKind.Grid;
         var stack = CueStacks.Caller(b.Vm.State);
-        var cueA = Cue(stack, "01.010", "A", new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = a.Id });
-        var cueB = Cue(stack, "01.020", "B", new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = bb.Id });
+        var cueA = Cue(stack, "01.010", "A", new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = a.Id });
+        var cueB = Cue(stack, "01.020", "B", new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = bb.Id });
         cueB.RequireConfirm = true;
-        var gone = Cue(stack, "01.030", "Gone", new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = "nope" });
-        var clock = Cue(stack, "01.040", "Clock", new CueActionConfig { Kind = CueActionKind.ClockOn });
+        var gone = Cue(stack, "01.030", "Gone", new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = "nope" });
+        var clock = Cue(stack, "01.040", "Clock", new CueActionConfig { Kind = ShowActionKind.ClockOn });
         Dispatcher.UIThread.RunJobs();
         return new Built(stack, a, bb, cueA, cueB, gone, clock);
     }
@@ -417,7 +417,7 @@ public class RunTests
             File.WriteAllBytes(track, new byte[16]);
             b.Vm.State.AudioPlayer.Path = track;
             var stack = b.Services.CueStack;
-            var audio = Cue(stack.Stack, "01.050", "Music", new CueActionConfig { Kind = CueActionKind.AudioPlay });
+            var audio = Cue(stack.Stack, "01.050", "Music", new CueActionConfig { Kind = ShowActionKind.AudioPlay });
             stack.SetArmed(true, ActionOrigin.Desk);
             stack.Standby(audio.Id);
             var t = new DateTime(2026, 9, 3, 19, 0, 0, DateTimeKind.Utc);

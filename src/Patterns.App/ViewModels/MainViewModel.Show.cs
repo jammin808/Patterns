@@ -649,7 +649,8 @@ public sealed partial class MainViewModel
     /// <summary>The seconds the Show panel's FADE TO BLACK and FADE UP take (a desk setting, not the show's).</summary>
     public double FadeSeconds { get => _fadeSeconds; set => Set(ref _fadeSeconds, Math.Clamp(double.IsFinite(value) ? value : 2, 0.1, 60)); }
 
-    private string FadeMsText() => ((int)Math.Round(_fadeSeconds * 1000)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    /// <summary>The panel's seconds as the action's value — the same words a cue's step and the wire's line carry.</summary>
+    private string FadeSecondsText() => _fadeSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Where the Show panel's FADE TO BLACK and FADE UP land, as the picker lists it; the words are what the wire takes.</summary>
     public sealed record FadeScopeChoice(string Label, string Words)

@@ -107,8 +107,8 @@ public class DeckAppTests
             using (var page3 = RenderPane(pipeline, 800, 450)) AssertNear(SKColors.Blue, page3.GetPixel(400, 225));
             Assert.Equal("OK", Send(router, "DECK PREV"));
             Assert.Equal(2, deck.Page);
-            var cue = new CueActionConfig { Kind = CueActionKind.DeckPage, Value = "first" };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(cue), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
+            var cue = new CueActionConfig { Kind = ShowActionKind.DeckPage, Value = "first" };
+            Assert.True(services.Actions.Execute(cue.ToAction(), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
             Assert.Equal(1, deck.Page);
             Assert.True(services.Actions.PresenterAdvance(-1, ActionOrigin.Clicker));
             Assert.Equal(1, deck.Page);
@@ -144,7 +144,7 @@ public class DeckAppTests
             vm.State.Pattern.Media.DeckEndsWithGo = true;
 
             var lights = new RunCueConfig { Number = "01.010", Name = "Lights down" };
-            lights.Actions.Add(new CueActionConfig { Kind = CueActionKind.BlackoutOn });
+            lights.Actions.Add(new CueActionConfig { Kind = ShowActionKind.BlackoutOn });
             services.CueStack.Stack.Cues.Add(lights);
             services.CueStack.SetArmed(true, ActionOrigin.Desk);
             services.CueStack.Standby(lights.Id);

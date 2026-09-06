@@ -66,7 +66,7 @@ public class RemoteCueTests
         RunCueConfig Cue(string number, string name, string look)
         {
             var cue = new RunCueConfig { Number = number, Name = name };
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = LookService.Find(b.Vm.State, look)!.Id });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = LookService.Find(b.Vm.State, look)!.Id });
             stack.Cues.Add(cue);
             return cue;
         }

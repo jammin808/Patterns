@@ -177,7 +177,7 @@ public class ActionLayerTests
 
             var clicker = CueStacks.Clicker(b.Vm.State);
             var cue = new RunCueConfig { Number = "01.010", Name = "Opening" };
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
             clicker.Cues.Add(cue);
             b.Vm.DeleteLookCommand.Execute(look);
             Assert.Single(b.Vm.State.LooksAndCues.Looks);
@@ -286,7 +286,7 @@ public class ActionLayerTests
             foreach (var name in new[] { "One", "Gone", "Three" })
             {
                 var cue = new RunCueConfig { Name = name, Number = CueNumber.Next(clicker.Cues.Count > 0 ? clicker.Cues[^1].Number : null) };
-                cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = name }); // by name: "Gone" never resolves
+                cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = name }); // by name: "Gone" never resolves
                 clicker.Cues.Add(cue);
             }
             var rt = b.Services.Cues.For(clicker);

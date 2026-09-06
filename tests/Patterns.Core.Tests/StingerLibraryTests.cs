@@ -35,9 +35,9 @@ public class StingerLibraryTests
         var a = new StingerItemConfig { Id = "sting-a", Name = "Take your seats", Path = "C:/show/seats.wav" };
         state.Stingers.Items.Add(a);
         var stack = CueStacks.Caller(state);
-        stack.Cues.Add(new RunCueConfig { Number = "03.020", Name = "Five-minute call", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = "sting-a" } } });
-        stack.Cues.Add(new RunCueConfig { Number = "03.030", Name = "By name", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = "take your seats" } } });
-        stack.Cues.Add(new RunCueConfig { Number = "03.040", Name = "Something else", Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = "x" } } });
+        stack.Cues.Add(new RunCueConfig { Number = "03.020", Name = "Five-minute call", Actions = { new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = "sting-a" } } });
+        stack.Cues.Add(new RunCueConfig { Number = "03.030", Name = "By name", Actions = { new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = "take your seats" } } });
+        stack.Cues.Add(new RunCueConfig { Number = "03.040", Name = "Something else", Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = "x" } } });
 
         var refs = StingerLibrary.References(state, a);
         Assert.Equal(2, refs.Count);

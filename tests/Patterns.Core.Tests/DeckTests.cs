@@ -177,13 +177,13 @@ public class DeckTests
     [Fact]
     public void ACueTurnsTheDeckThroughTheSpecTheChecksTheSummaryAndTheSheet()
     {
-        Assert.Equal((TargetKind.None, ValueKind.DeckPage), CueActionSpec.For(CueActionKind.DeckPage));
-        Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.DeckNext));
-        Assert.Contains(CueActionKind.DeckPage, CueActionSpec.Editable);
-        Assert.Equal(CueActionKind.DeckNext, CueSheet.ParseKind("next page"));
-        Assert.Equal(CueActionKind.DeckNext, CueSheet.ParseKind("Deck — next page"));
-        Assert.Equal(CueActionKind.DeckPrev, CueSheet.ParseKind("previous slide"));
-        Assert.Equal(CueActionKind.DeckPage, CueSheet.ParseKind("deck"));
+        Assert.Equal((TargetKind.None, ValueKind.DeckPage), ActionSpec.For(ShowActionKind.DeckPage));
+        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.DeckNext));
+        Assert.Contains(ShowActionKind.DeckPage, ActionSpec.CueKinds);
+        Assert.Equal(ShowActionKind.DeckNext, CueSheet.ParseKind("next page"));
+        Assert.Equal(ShowActionKind.DeckNext, CueSheet.ParseKind("Deck — next page"));
+        Assert.Equal(ShowActionKind.DeckPrev, CueSheet.ParseKind("previous slide"));
+        Assert.Equal(ShowActionKind.DeckPage, CueSheet.ParseKind("deck"));
 
         var state = new ShowState();
         state.Pattern.Kind = PatternKind.Media;
@@ -191,11 +191,11 @@ public class DeckTests
         state.Pattern.Media.DeckPath = "C:\\show\\deck.pdf";
         var stack = new CueStackConfig();
         var next = new RunCueConfig { Number = "01.010", Name = "Next" };
-        next.Actions.Add(new CueActionConfig { Kind = CueActionKind.DeckNext });
+        next.Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeckNext });
         var goTo = new RunCueConfig { Number = "01.020", Name = "Page 5" };
-        goTo.Actions.Add(new CueActionConfig { Kind = CueActionKind.DeckPage, Value = "5" });
+        goTo.Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeckPage, Value = "5" });
         var bad = new RunCueConfig { Number = "01.030", Name = "Bad" };
-        bad.Actions.Add(new CueActionConfig { Kind = CueActionKind.DeckPage, Value = "dance" });
+        bad.Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeckPage, Value = "dance" });
         foreach (var cue in new[] { next, goTo, bad }) stack.Cues.Add(cue);
         var report = CueValidator.Validate(state, stack);
         Assert.False(report.IsBroken(next.Id));
@@ -207,7 +207,7 @@ public class DeckTests
         var bare = new ShowState();
         var bareStack = new CueStackConfig();
         var bareCue = new RunCueConfig { Number = "01.010", Name = "Next" };
-        bareCue.Actions.Add(new CueActionConfig { Kind = CueActionKind.DeckNext });
+        bareCue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeckNext });
         bareStack.Cues.Add(bareCue);
         var bareReport = CueValidator.Validate(bare, bareStack);
         Assert.False(bareReport.IsBroken(bareCue.Id));
@@ -215,7 +215,7 @@ public class DeckTests
 
         Assert.Equal("Deck: the next page", CueSummary.DescribeAction(state, next.Actions[0]));
         Assert.Equal("Deck: page 5", CueSummary.DescribeAction(state, goTo.Actions[0]));
-        Assert.Equal("Deck: the last page", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.DeckPage, Value = "last" }));
-        Assert.Equal("Deck: the previous page", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.DeckPrev }));
+        Assert.Equal("Deck: the last page", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.DeckPage, Value = "last" }));
+        Assert.Equal("Deck: the previous page", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.DeckPrev }));
     }
 }

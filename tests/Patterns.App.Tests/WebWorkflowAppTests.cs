@@ -104,8 +104,8 @@ public class WebWorkflowAppTests
             Assert.StartsWith("ERR", Send(router, "WEB CLICK middle"));
 
             // A cue's web action runs through the same executor; the state names the page on air and its actions.
-            var cue = new CueActionConfig { Kind = CueActionKind.WebKey, Value = "prev" };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(cue), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
+            var cue = new CueActionConfig { Kind = ShowActionKind.WebKey, Value = "prev" };
+            Assert.True(services.Actions.Execute(cue.ToAction(), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
             Assert.Equal("ArrowLeft", deck.Keys.Last());
             var state = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement.GetProperty("web");
             Assert.Equal("Google Slides", state.GetProperty("service").GetString());

@@ -102,14 +102,19 @@ public static class CueValidator
         {
             k++;
             var where = $"action {k}";
+            if (ActionSpec.DeskOnly(a.Kind) is { } deskOnly)
+            {
+                Hard($"{where}: {ActionSpec.Label(a.Kind)} is {deskOnly} — not a step a cue can carry.");
+                continue;
+            }
             switch (a.Kind)
             {
-                case CueActionKind.Unknown:
+                case ShowActionKind.Unknown:
                     Hard($"{where} comes from a newer build and cannot run here.");
                     break;
-                case CueActionKind.Note:
+                case ShowActionKind.Note:
                     break;
-                case CueActionKind.ApplyLook:
+                case ShowActionKind.ApplyLook:
                 {
                     hasContent = true;
                     var look = LookService.Find(sim, a.Target);
@@ -118,7 +123,7 @@ public static class CueValidator
                         Hard($"{where}: look '{a.Target}' not found.");
                         break;
                     }
-                    if (!CueActionSpec.TryParseTransition(a.Value, out _, out _))
+                    if (!ActionSpec.TryParseTransition(a.Value, out _, out _))
                     {
                         Hard($"{where}: transition '{a.Value}' is not 'cut' or a fade in milliseconds.");
                     }
@@ -126,7 +131,7 @@ public static class CueValidator
                     if (simulate) LookService.Apply(look.Json, sim);
                     break;
                 }
-                case CueActionKind.AudioPlay:
+                case ShowActionKind.AudioPlay:
                 {
                     var list = state.AudioPlayer;
                     if (!AudioPlaylist.HasTracks(list))
@@ -153,11 +158,11 @@ public static class CueValidator
                     }
                     break;
                 }
-                case CueActionKind.AudioNext:
-                case CueActionKind.AudioPrev:
+                case ShowActionKind.AudioNext:
+                case ShowActionKind.AudioPrev:
                     if (!AudioPlaylist.HasTracks(state.AudioPlayer)) Soft($"{where}: the audio playlist is empty — nothing to step through.");
                     break;
-                case CueActionKind.StingerFire:
+                case ShowActionKind.StingerFire:
                 {
                     var s = StingerLibrary.Find(state, a.Target);
                     if (s is null)
@@ -177,7 +182,7 @@ public static class CueValidator
                     else if (StingerLibrary.AfterNote(state, s) is { } note) Soft($"{where}: {note}");
                     break;
                 }
-                case CueActionKind.PlaylistPart:
+                case ShowActionKind.PlaylistPart:
                 {
                     hasContent = true;
                     var playlist = MediaLocator.FindActivePlaylist(sim)?.Playlist ?? sim.Pattern.Media.Playlist;
@@ -185,23 +190,23 @@ public static class CueValidator
                     if (!found) Hard($"{where}: playlist part '{a.Target}' is not in the playlist that will be on air.");
                     break;
                 }
-                case CueActionKind.StreamStart:
+                case ShowActionKind.StreamStart:
                     if (!state.Stream.Destinations.Any(d => d.Enabled && d.Url.Length > 0)) Hard($"{where}: no enabled stream destination (Stream tab).");
                     break;
-                case CueActionKind.BlackoutOn:
+                case ShowActionKind.BlackoutOn:
                     hasBlackoutOn = true;
                     break;
-                case CueActionKind.ScreenOn:
-                case CueActionKind.ScreenOff:
+                case ShowActionKind.ScreenOn:
+                case ShowActionKind.ScreenOff:
                     hasContent = true;
                     if (state.Output.Placements.All(p => p.ScreenId != a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     break;
-                case CueActionKind.ScreenLock:
-                case CueActionKind.ScreenUnlock:
+                case ShowActionKind.ScreenLock:
+                case ShowActionKind.ScreenUnlock:
                     if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     break;
-                case CueActionKind.FadeToBlack:
-                case CueActionKind.FadeUp:
+                case ShowActionKind.FadeToBlack:
+                case ShowActionKind.FadeUp:
                 {
                     // Where: nothing (the rig), FOCUSED, TICKED, GROUPS, SCREEN n, GROUP A, or a target in the rig; how long: seconds, or the show's.
                     var scope = FadeScope.Parse(a.Target);
@@ -211,18 +216,18 @@ public static class CueValidator
                         Hard($"{where}: '{a.Value}' is not a number of seconds for the fade.");
                     break;
                 }
-                case CueActionKind.ScreenLook:
-                case CueActionKind.ScreenProgram:
+                case ShowActionKind.ScreenLook:
+                case ShowActionKind.ScreenProgram:
                     hasContent = true;
                     if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
-                    if (a.Kind == CueActionKind.ScreenLook)
+                    if (a.Kind == ShowActionKind.ScreenLook)
                     {
                         if (a.Value.Length == 0) Hard($"{where}: which look? Choose the look this screen shows.");
                         else if (LookService.Find(state, a.Value) is null) Hard($"{where}: look '{a.Value}' not found — the cue reads as broken until it exists.");
                     }
                     break;
-                case CueActionKind.CanvasOn:
-                case CueActionKind.CanvasOff:
+                case ShowActionKind.CanvasOn:
+                case ShowActionKind.CanvasOff:
                 {
                     hasContent = true;
                     var members = ContentTargets.Members(a.Target);
@@ -232,28 +237,28 @@ public static class CueValidator
                     }
                     break;
                 }
-                case CueActionKind.CountdownStart:
+                case ShowActionKind.CountdownStart:
                     if (!double.TryParse(a.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
                     {
                         Hard($"{where}: countdown minutes '{a.Value}' is not a number above zero.");
                     }
                     break;
-                case CueActionKind.MessageOn:
+                case ShowActionKind.MessageOn:
                     if (string.IsNullOrWhiteSpace(a.Value)) Soft($"{where}: the message text is empty.");
                     break;
-                case CueActionKind.WeatherOn:
+                case ShowActionKind.WeatherOn:
                     if (!state.Weather.HasLocation) Soft($"{where}: no place is set for the weather (Overlays page) — the chip will say so.");
                     break;
-                case CueActionKind.WeatherView:
+                case ShowActionKind.WeatherView:
                     if (WeatherWords.ParseView(a.Value) is null) Hard($"{where}: weather view '{a.Value}' is not now, day or tomorrow.");
                     break;
-                case CueActionKind.LowerThirdTake:
+                case ShowActionKind.LowerThirdTake:
                     if (state.LowerThirds.Designs.Count == 0) Soft($"{where}: the show has no lower third design to take.");
                     break;
-                case CueActionKind.WebKey:
-                case CueActionKind.WebClick:
-                case CueActionKind.WebType:
-                case CueActionKind.WebReload:
+                case ShowActionKind.WebKey:
+                case ShowActionKind.WebClick:
+                case ShowActionKind.WebType:
+                case ShowActionKind.WebReload:
                 {
                     // The page is looked for in what the preceding cues leave on air (the look a cue recalls is simulated first).
                     var pages = WebPresets.PagesIn(sim);
@@ -268,23 +273,23 @@ public static class CueValidator
                     {
                         Soft($"{where}: no web page is on air at this cue as far as the checks can see — the action reaches whatever page is on when it fires.");
                     }
-                    if (a.Kind == CueActionKind.WebKey)
+                    if (a.Kind == ShowActionKind.WebKey)
                     {
                         if (a.Value.Length == 0) Hard($"{where}: a web page key needs a key (ArrowRight, Space, Ctrl+Shift+F5) or an action (next, prev, play, present, exit, black…).");
                         else if (!WebPresets.IsActionOrKey(a.Value)) Hard($"{where}: '{a.Value}' is neither a key (ArrowRight, Space, k, Ctrl+Shift+F5) nor a page action (next, prev, first, last, present, exit, play, pause, mute, restart, black, white…).");
                     }
-                    if (a.Kind == CueActionKind.WebClick && !WebPresets.TryParsePoint(a.Value, out _, out _))
+                    if (a.Kind == ShowActionKind.WebClick && !WebPresets.TryParsePoint(a.Value, out _, out _))
                     {
                         Hard($"{where}: a web page click needs 'x y' in percent of the page, e.g. 50 50.");
                     }
-                    if (a.Kind == CueActionKind.WebType && a.Value.Length == 0) Soft($"{where}: nothing to type.");
+                    if (a.Kind == ShowActionKind.WebType && a.Value.Length == 0) Soft($"{where}: nothing to type.");
                     break;
                 }
-                case CueActionKind.DeckNext:
-                case CueActionKind.DeckPrev:
-                case CueActionKind.DeckPage:
+                case ShowActionKind.DeckNext:
+                case ShowActionKind.DeckPrev:
+                case ShowActionKind.DeckPage:
                 {
-                    if (a.Kind == CueActionKind.DeckPage && !Decks.TryParsePage(a.Value, out _, out _))
+                    if (a.Kind == ShowActionKind.DeckPage && !Decks.TryParsePage(a.Value, out _, out _))
                     {
                         Hard($"{where}: a deck page is a number (1-based), first or last — not '{a.Value}'.");
                     }
@@ -294,10 +299,10 @@ public static class CueValidator
                     }
                     break;
                 }
-                case CueActionKind.VideoToEnd:
-                case CueActionKind.VideoRestart:
+                case ShowActionKind.VideoToEnd:
+                case ShowActionKind.VideoRestart:
                 {
-                    if (a.Kind == CueActionKind.VideoToEnd && !VideoClock.TryParseBeforeEnd(a.Value, out _))
+                    if (a.Kind == ShowActionKind.VideoToEnd && !VideoClock.TryParseBeforeEnd(a.Value, out _))
                     {
                         Hard($"{where}: the seconds before the end must be a number (blank = 10) — not '{a.Value}'.");
                     }
@@ -307,7 +312,7 @@ public static class CueValidator
                     }
                     break;
                 }
-                case CueActionKind.DeviceSend:
+                case ShowActionKind.DeviceSend:
                 {
                     if (a.Value.Trim().Length == 0) Hard($"{where}: nothing to send — the line the device expects, e.g. RELAY 1.");
                     var device = Interactive.Find(state.Interactive, a.Target);
@@ -316,7 +321,7 @@ public static class CueValidator
                     else if (!device.Enabled) Soft($"{where}: device '{device.Name}' is switched off on the Interactive page.");
                     break;
                 }
-                case CueActionKind.Announce:
+                case ShowActionKind.Announce:
                 {
                     // A named announcement, or the words themselves; a name in the value finds the announcement too.
                     var slot = a.Target.Length > 0 ? Schedule.Find(state.Install, a.Target) : a.Value.Length > 0 ? Schedule.Find(state.Install, a.Value, SlotKind.Announcement) : null;
@@ -327,7 +332,7 @@ public static class CueValidator
                     else if (slot is not null && slot.Sound.Length > 0 && StingerLibrary.Find(state, slot.Sound) is null) Soft($"{where}: announcement '{slot.Name}' names VOG '{slot.Sound}', which is not in the library — the words still go up.");
                     break;
                 }
-                case CueActionKind.AdvertPlay:
+                case ShowActionKind.AdvertPlay:
                 {
                     var slot = Schedule.Find(state.Install, a.Target, SlotKind.Advert);
                     if (a.Target.Length == 0) Hard($"{where}: which advert? Choose one from the Install page.");
@@ -336,11 +341,11 @@ public static class CueValidator
                     else if (LookService.Find(state, slot.Look) is null) Hard($"{where}: advert '{slot.Name}' names look '{slot.Look}', which is not in the show.");
                     break;
                 }
-                case CueActionKind.ScheduleOn:
+                case ShowActionKind.ScheduleOn:
                     if (state.Install.Slots.Count == 0) Soft($"{where}: the Install page has no rows — the schedule has nothing to run.");
                     break;
-                case CueActionKind.LowerThirdShow:
-                case CueActionKind.LowerThirdPreview:
+                case ShowActionKind.LowerThirdShow:
+                case ShowActionKind.LowerThirdPreview:
                 {
                     // An empty target means the design on air (else the show's default): a library entry recalled into whatever is showing.
                     var design = a.Target.Length == 0 ? state.LowerThirds.DefaultDesign : state.LowerThirds.Find(a.Target);
@@ -354,18 +359,18 @@ public static class CueValidator
                     }
                     break;
                 }
-                case CueActionKind.AudioVolume:
-                    if (!CueActionSpec.TryParsePercent(a.Value, out _))
+                case ShowActionKind.AudioVolume:
+                    if (!ActionSpec.TryParsePercent(a.Value, out _))
                     {
                         Hard($"{where}: audio volume '{a.Value}' is not a number from 0 to 125.");
                     }
                     break;
-                case CueActionKind.SpotifyPlay:
-                case CueActionKind.SpotifyPause:
-                case CueActionKind.SpotifyNext:
-                case CueActionKind.SpotifyVolume:
+                case ShowActionKind.SpotifyPlay:
+                case ShowActionKind.SpotifyPause:
+                case ShowActionKind.SpotifyNext:
+                case ShowActionKind.SpotifyVolume:
                 {
-                    if (a.Kind == CueActionKind.SpotifyPlay && a.Target.Length > 0)
+                    if (a.Kind == ShowActionKind.SpotifyPlay && a.Target.Length > 0)
                     {
                         var m = SpotifyLibrary.Find(state, a.Target);
                         if (m is null)
@@ -379,7 +384,7 @@ public static class CueValidator
                             break;
                         }
                     }
-                    if (a.Kind == CueActionKind.SpotifyVolume && !CueActionSpec.TryParseLevel(a.Value, out _))
+                    if (a.Kind == ShowActionKind.SpotifyVolume && !ActionSpec.TryParseLevel(a.Value, out _))
                     {
                         Hard($"{where}: break music level '{a.Value}' is not a number from 0 to 100.");
                         break;
@@ -396,18 +401,56 @@ public static class CueValidator
                     {
                         Soft($"{where}: Spotify is not connected yet — connect on the Audio page before the show.");
                     }
-                    else if (a.Kind == CueActionKind.SpotifyPlay && state.Spotify.DeviceName.Length == 0)
+                    else if (a.Kind == ShowActionKind.SpotifyPlay && state.Spotify.DeviceName.Length == 0)
                     {
                         Soft($"{where}: no Spotify device chosen — whichever device is active will play.");
                     }
                     break;
                 }
-                case CueActionKind.ListArm:
-                case CueActionKind.ListDisarm:
-                case CueActionKind.ListGo:
-                case CueActionKind.ListBack:
-                case CueActionKind.ListReset:
+                case ShowActionKind.ListArm:
+                case ShowActionKind.ListDisarm:
+                case ShowActionKind.ListGo:
+                case ShowActionKind.ListBack:
+                case ShowActionKind.ListReset:
                     if (CueStacks.Find(state, a.Target) is null) Hard($"{where}: list '{a.Target}' not found.");
+                    break;
+                case ShowActionKind.ApplyLookToPreview:
+                    if (LookService.Find(sim, a.Target) is null) Hard($"{where}: look '{a.Target}' not found.");
+                    break;
+                case ShowActionKind.LookBack:
+                    if (!ActionSpec.TryParseTransition(a.Value, out _, out _)) Hard($"{where}: transition '{a.Value}' is not 'cut' or a fade in milliseconds.");
+                    break;
+                case ShowActionKind.ScreenToggle:
+                    hasContent = true;
+                    if (state.Output.Placements.All(p => p.ScreenId != a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    break;
+                case ShowActionKind.ScreenLockToggle:
+                    if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    break;
+                case ShowActionKind.ClockFormat:
+                    if (!ActionSpec.TryParseHours(a.Value, out _)) Hard($"{where}: the clock's hours are 12 or 24 — not '{a.Value}'.");
+                    break;
+                case ShowActionKind.ClockSeconds:
+                case ShowActionKind.ClockDate:
+                case ShowActionKind.MessageScroll:
+                    if (!ActionSpec.IsSwitchWord(a.Value)) Hard($"{where}: on, off or toggle — not '{a.Value}'.");
+                    break;
+                case ShowActionKind.CountdownTo:
+                    if (CueTiming.ParseClock(a.Value) is null) Hard($"{where}: a countdown to a time of day needs HH:mm (24-hour) — not '{a.Value}'.");
+                    break;
+                case ShowActionKind.CountdownLabel:
+                    if (string.IsNullOrWhiteSpace(a.Value)) Soft($"{where}: the label is empty — the countdown's words are cleared.");
+                    break;
+                case ShowActionKind.PatternKind:
+                    if (ActionSpec.ParsePatternKind(a.Value) is null) Hard($"{where}: '{a.Value}' is not a kind of picture — one of {string.Join(", ", Enum.GetNames<PatternKind>())}.");
+                    else hasContent = true;
+                    break;
+                case ShowActionKind.WebOpen:
+                    if (string.IsNullOrWhiteSpace(a.Value)) Hard($"{where}: which address? A web page to open — https://… or a local HTML file.");
+                    break;
+                case ShowActionKind.LogoOn:
+                case ShowActionKind.LogoToggle:
+                    if (state.Brand.LogoPath.Length == 0) Soft($"{where}: no logo file is set (Branding page) — the logo overlay has nothing to show.");
                     break;
             }
         }

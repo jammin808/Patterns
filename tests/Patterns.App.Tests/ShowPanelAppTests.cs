@@ -87,11 +87,11 @@ public class ShowPanelAppTests
             Assert.False(side.UseCustomPattern);
 
             // A cue's action, by the look's id, through the executor.
-            var own = new CueActionConfig { Kind = CueActionKind.ScreenLook, Target = side.ScreenId, Value = sponsor.Id };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(own), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
+            var own = new CueActionConfig { Kind = ShowActionKind.ScreenLook, Target = side.ScreenId, Value = sponsor.Id };
+            Assert.True(services.Actions.Execute(own.ToAction(), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
             Assert.Equal(PatternKind.ColorBars, OwnKind(vm.State, side.ScreenId));
-            var back = new CueActionConfig { Kind = CueActionKind.ScreenProgram, Target = side.ScreenId };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(back), new ActionOrigin(OriginKind.Cue, "01.020")).Ok);
+            var back = new CueActionConfig { Kind = ShowActionKind.ScreenProgram, Target = side.ScreenId };
+            Assert.True(services.Actions.Execute(back.ToAction(), new ActionOrigin(OriginKind.Cue, "01.020")).Ok);
             Assert.False(side.UseCustomPattern);
 
             // The panel's row: nothing without a look chosen, then the send, then PROGRAM.
@@ -173,7 +173,7 @@ public class ShowPanelAppTests
             vm.Cues.AddActionCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             var row = vm.Cues.ActionRows.Last();
-            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(CueActionKind.ScreenLook));
+            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(ShowActionKind.ScreenLook));
             Assert.True(row.HasPersonValue);
             Assert.True(row.HasLookValue);
             Assert.False(row.HasTextValue);
@@ -184,10 +184,10 @@ public class ShowPanelAppTests
             Assert.Equal("Sponsor", pick.Label);
             row.SelectedPerson = pick;
             Assert.Equal(sponsor.Id, row.Action.Value);
-            Assert.Equal(CueActionKind.ScreenLook, row.Action.Kind);
+            Assert.Equal(ShowActionKind.ScreenLook, row.Action.Kind);
 
             // The people picker is as it was.
-            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(CueActionKind.LowerThirdShow));
+            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(ShowActionKind.LowerThirdShow));
             Assert.True(row.HasPersonValue);
             Assert.False(row.HasLookValue);
             Assert.Contains(row.PersonChoices, p => p.Id.Length == 0);

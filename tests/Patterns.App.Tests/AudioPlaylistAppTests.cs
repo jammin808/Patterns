@@ -97,10 +97,10 @@ public class AudioPlaylistAppTests
             Assert.Equal(closing, services.AudioPlayer.NowPath);
             Assert.Contains("No audio track 'Nobody'", Send(router, "AUDIO PLAY Nobody"));
             Assert.StartsWith("ERR", Send(router, "AUDIO PLAY 9"));
-            var cue = new CueActionConfig { Kind = CueActionKind.AudioPlay, Target = list.Items[1].Id };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(cue), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
+            var cue = new CueActionConfig { Kind = ShowActionKind.AudioPlay, Target = list.Items[1].Id };
+            Assert.True(services.Actions.Execute(cue.ToAction(), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
             Assert.Equal(intro, services.AudioPlayer.NowPath);
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(new CueActionConfig { Kind = CueActionKind.AudioNext }), new ActionOrigin(OriginKind.Cue, "01.020")).Ok);
+            Assert.True(services.Actions.Execute(new CueActionConfig { Kind = ShowActionKind.AudioNext }.ToAction(), new ActionOrigin(OriginKind.Cue, "01.020")).Ok);
             Assert.Equal(opener, services.AudioPlayer.NowPath);
             Assert.Contains(services.Journal.Tail(12), e => e.Kind == nameof(ShowActionKind.AudioNext));
             Assert.StartsWith("OK", Send(router, "AUDIO VOL 40"));
@@ -198,7 +198,7 @@ public class AudioPlaylistAppTests
             vm.Cues.AddActionCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             var row = vm.Cues.ActionRows.Last();
-            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(CueActionKind.AudioPlay));
+            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(ShowActionKind.AudioPlay));
             Assert.Contains(row.TargetChoices, t => t.Id == list.Items[0].Id && t.Label.Contains("Walk-in"));
             Assert.Contains("blank", row.TargetHint);
 

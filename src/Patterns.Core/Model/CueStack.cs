@@ -11,123 +11,6 @@ public enum StackRole
 }
 
 /// <summary>
-/// What one cue action does. Typed, never free text, so the editor, the validator and the
-/// executor read one spec table (<see cref="Services.CueActionSpec"/>). <c>Unknown</c> is
-/// what a newer build's kind becomes here; validation reports it and it never executes.
-/// </summary>
-public enum CueActionKind
-{
-    Unknown,
-    /// <summary>No execution — the cue exists for its notes.</summary>
-    Note,
-    /// <summary>Target = look id; Value = "cut", a fade in ms, or empty for the show default.</summary>
-    ApplyLook,
-    AudioPlay,
-    AudioStop,
-    /// <summary>Target = stinger id; stop reverts a clip.</summary>
-    StingerFire,
-    StingerStop,
-    /// <summary>Target = playlist part name.</summary>
-    PlaylistPart,
-    StreamStart,
-    StreamStop,
-    BlackoutOn,
-    BlackoutOff,
-    /// <summary>Target = placement screen id.</summary>
-    ScreenOn,
-    ScreenOff,
-    /// <summary>Target = canvas member key (a+b).</summary>
-    CanvasOn,
-    CanvasOff,
-    /// <summary>Value = minutes.</summary>
-    CountdownStart,
-    CountdownStop,
-    /// <summary>Value = the text.</summary>
-    MessageOn,
-    MessageOff,
-    ClockOn,
-    ClockOff,
-    /// <summary>The weather chip on or off; WeatherView's Value names the view (now / day / tomorrow).</summary>
-    WeatherOn,
-    WeatherOff,
-    WeatherView,
-    /// <summary>Target = stack id: hand the room to the clicker list and back.</summary>
-    ListArm,
-    ListDisarm,
-    ListGo,
-    ListBack,
-    ListReset,
-    /// <summary>The audio track's volume, 0–125 %, as the SHOW CONTROLS drawer sends it.</summary>
-    AudioVolume,
-    /// <summary>Target = break-music entry id (empty resumes); break music is sound only.</summary>
-    SpotifyPlay,
-    SpotifyPause,
-    SpotifyNext,
-    /// <summary>Value = the break-music level, 0–100 % (the Spotify device's own volume).</summary>
-    SpotifyVolume,
-    /// <summary>The live duck for an announcement from the room: everything but a VOG makes way, and comes back with DuckOff.</summary>
-    DuckOn,
-    DuckOff,
-    /// <summary>Target = lower third id: it goes on air; hide takes the one on air off.</summary>
-    LowerThirdShow,
-    LowerThirdHide,
-    /// <summary>Target = screen id (or a canvas key): lock keeps its picture through looks, cues and TAKE; unlock lets it follow again.</summary>
-    ScreenLock,
-    ScreenUnlock,
-    /// <summary>Target = lower third id (empty: the show's default), Value = a library entry: into the preview for a sign-off (needs EDIT SAFE).</summary>
-    LowerThirdPreview,
-    /// <summary>The lower third in the preview goes to air and the preview clears.</summary>
-    LowerThirdTake,
-    /// <summary>Target = a web page (blank = the page on air), Value = a key chord or a page action (next, play, present…).</summary>
-    WebKey,
-    /// <summary>Target = a web page, Value = "x y" in percent of the page.</summary>
-    WebClick,
-    /// <summary>Target = a web page, Value = the text typed into the field that has its focus.</summary>
-    WebType,
-    /// <summary>Target = a web page: reloaded.</summary>
-    WebReload,
-    /// <summary>The deck on air turns to its next page.</summary>
-    DeckNext,
-    /// <summary>The deck on air turns back a page.</summary>
-    DeckPrev,
-    /// <summary>The deck on air turns to a page: Value = a number (1-based), first or last.</summary>
-    DeckPage,
-    /// <summary>A line to a device of the Interactive area: Target = the device (blank = the first), Value = the text.</summary>
-    DeviceSend,
-    /// <summary>An announcement of the Install page (Target, by name; blank = the words in Value) now, for its seconds.</summary>
-    Announce,
-    /// <summary>The announcement on ends.</summary>
-    AnnounceOff,
-    /// <summary>An advert of the Install page (Target, by name) plays now for its seconds; the programme comes back.</summary>
-    AdvertPlay,
-    /// <summary>The advert on ends.</summary>
-    AdvertOff,
-    /// <summary>The install's schedule runs.</summary>
-    ScheduleOn,
-    /// <summary>The install's schedule stops; what is on stays.</summary>
-    ScheduleOff,
-    /// <summary>Target = a screen id (or a canvas key), Value = a look id: the look's picture on that target alone.</summary>
-    ScreenLook,
-    /// <summary>Target = a screen id (or a canvas key): back to the program.</summary>
-    ScreenProgram,
-    /// <summary>The clip on air jumps to its last seconds (Value = how many; blank = ten) — the rehearsal's skip.</summary>
-    VideoToEnd,
-    /// <summary>The clip on air plays again from its start.</summary>
-    VideoRestart,
-    /// <summary>The audio playlist moves to its next track.</summary>
-    AudioNext,
-    /// <summary>The audio playlist moves back a track.</summary>
-    AudioPrev,
-    /// <summary>
-    /// Target = where the fade lands (empty = the rig, as a blackout with a fade; FOCUSED, TICKED, GROUPS,
-    /// SCREEN n, GROUP A, or a target id); Value = seconds (empty = the show's transition time).
-    /// </summary>
-    FadeToBlack,
-    /// <summary>The same places, faded up again (empty = the rig: the blackout lifted and every screen black on its own brought back).</summary>
-    FadeUp,
-}
-
-/// <summary>
 /// What a cue marks in the day, so the caller's estimates know where the next break, lunch
 /// and the end are. First member is the fallback for a value this build does not know.
 /// </summary>
@@ -139,16 +22,25 @@ public enum CueMark
     End,
 }
 
-/// <summary>One typed step of a cue.</summary>
+/// <summary>
+/// One typed step of a cue: a show action as the desk, the wire and OSC send them — the same kind,
+/// target and value, in the one vocabulary (<see cref="ShowActionKind"/>) — kept observable for the
+/// editor. <see cref="ToAction"/> is the whole translation; a cue has no vocabulary of its own. A
+/// kind this build does not know loads as <see cref="ShowActionKind.Unknown"/>: the checks say so
+/// and it never runs.
+/// </summary>
 public sealed class CueActionConfig : Observable
 {
-    private CueActionKind _kind = CueActionKind.ApplyLook;
+    private ShowActionKind _kind = ShowActionKind.ApplyLook;
     private string _target = "";
     private string _value = "";
 
-    public CueActionKind Kind { get => _kind; set => Set(ref _kind, value); }
+    public ShowActionKind Kind { get => _kind; set => Set(ref _kind, value); }
     public string Target { get => _target; set => Set(ref _target, value); }
     public string Value { get => _value; set => Set(ref _value, value); }
+
+    /// <summary>The step as the action layer runs it — the desk's, the wire's and a cue's are the same thing.</summary>
+    public ShowAction ToAction() => new(Kind, Target, Value);
 }
 
 /// <summary>

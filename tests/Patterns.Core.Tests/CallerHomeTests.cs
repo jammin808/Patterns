@@ -79,7 +79,7 @@ public class CallerHomeTests
         var c0 = result.Cues[0];
         Assert.Equal(("01.010", "Walk-in", "Video", "08:30", 1800, CueMark.None, "Doors"), (c0.Number, c0.Name, c0.Track, c0.PlannedStart, c0.PlannedSeconds, c0.Mark, c0.Notes));
         var look = Assert.Single(c0.Actions);
-        Assert.Equal(CueActionKind.ApplyLook, look.Kind);
+        Assert.Equal(ShowActionKind.ApplyLook, look.Kind);
         Assert.Equal(walkIn.Id, look.Target);
 
         var c1 = result.Cues[1];
@@ -89,20 +89,20 @@ public class CallerHomeTests
         Assert.True(c1.RequireConfirm);
         Assert.Equal(2, c1.Actions.Count);
         Assert.Equal("Keynote", c1.Actions[0].Target);   // kept by name: reads as broken until the look exists
-        Assert.Equal(CueActionKind.AudioPlay, c1.Actions[1].Kind);
+        Assert.Equal(ShowActionKind.AudioPlay, c1.Actions[1].Kind);
         Assert.Contains(result.Notes, n => n.Contains("Keynote"));
 
         var c2 = result.Cues[2];
         Assert.Equal(0, c2.FollowSeconds);
         Assert.Equal(CueMark.None, c2.Mark);             // a Mark column exists, so names are not guessed at
         var countdown = Assert.Single(c2.Actions);
-        Assert.Equal((CueActionKind.CountdownStart, "20"), (countdown.Kind, countdown.Value));
+        Assert.Equal((ShowActionKind.CountdownStart, "20"), (countdown.Kind, countdown.Value));
 
         var c3 = result.Cues[3];
         Assert.Equal(5, c3.FollowSeconds);
         Assert.Equal(CueMark.Lunch, c3.Mark);
         Assert.Equal(3600, c3.PlannedSeconds);
-        Assert.Equal(CueActionKind.LowerThirdShow, Assert.Single(c3.Actions).Kind);
+        Assert.Equal(ShowActionKind.LowerThirdShow, Assert.Single(c3.Actions).Kind);
         Assert.Contains(result.Notes, n => n.Contains("Nobody"));
         Assert.StartsWith("4 cues from 4 rows — 2 notes", result.Summary);
 
@@ -115,9 +115,9 @@ public class CallerHomeTests
         // A sheet without the columns says why nothing came of it.
         Assert.Empty(CueSheet.Import(CsvTable.Parse("Foo,Bar\n1,2\n"), state).Cues);
         Assert.Empty(CueSheet.Import(TableData.Empty, state).Cues);
-        Assert.Equal(CueActionKind.ApplyLook, CueSheet.ParseKind("apply look"));
-        Assert.Equal(CueActionKind.StingerFire, CueSheet.ParseKind("VOG"));
-        Assert.Equal(CueActionKind.LowerThirdShow, CueSheet.ParseKind("LowerThirdShow"));
+        Assert.Equal(ShowActionKind.ApplyLook, CueSheet.ParseKind("apply look"));
+        Assert.Equal(ShowActionKind.StingerFire, CueSheet.ParseKind("VOG"));
+        Assert.Equal(ShowActionKind.LowerThirdShow, CueSheet.ParseKind("LowerThirdShow"));
         Assert.Null(CueSheet.ParseKind("dance"));
     }
 
@@ -132,10 +132,10 @@ public class CallerHomeTests
         Assert.Equal(("01.010", "Walk-in", "08:30", 1800), (imported.Cues[0].Number, imported.Cues[0].Name, imported.Cues[0].PlannedStart, imported.Cues[0].PlannedSeconds));
         Assert.Equal(CueMark.Break, imported.Cues[2].Mark);
         Assert.Equal(3600, imported.Cues[4].PlannedSeconds);
-        Assert.Contains(imported.Cues[4].Actions, a => a.Kind == CueActionKind.CountdownStart && a.Value == "60");
+        Assert.Contains(imported.Cues[4].Actions, a => a.Kind == ShowActionKind.CountdownStart && a.Value == "60");
         Assert.Equal(0, imported.Cues[5].FollowSeconds);
         Assert.Equal(CueMark.End, imported.Cues[5].Mark);
-        Assert.Contains(imported.Cues[6].Actions, a => a.Kind == CueActionKind.BlackoutOff);
+        Assert.Contains(imported.Cues[6].Actions, a => a.Kind == ShowActionKind.BlackoutOff);
 
         var keynote = new LookConfig { Name = "Keynote" };
         state.LooksAndCues.Looks.Add(keynote);
@@ -144,8 +144,8 @@ public class CallerHomeTests
         cue.Track = "Video";
         cue.RequireConfirm = true;
         cue.Notes = "Take on the \"go\" word";
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = keynote.Id });
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.AudioVolume, Value = "80" });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = keynote.Id });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.AudioVolume, Value = "80" });
         stack.Cues.Add(cue);
         stack.Cues.Add(Cue("01.020", "Plain"));
 
@@ -166,7 +166,7 @@ public class CallerHomeTests
         Assert.Equal((cue.Number, cue.Name, cue.Track, cue.PlannedStart, cue.PlannedSeconds, cue.FollowSeconds, cue.Mark, true, cue.Notes),
             (c.Number, c.Name, c.Track, c.PlannedStart, c.PlannedSeconds, c.FollowSeconds, c.Mark, c.RequireConfirm, c.Notes));
         Assert.Equal(keynote.Id, c.Actions[0].Target);
-        Assert.Equal((CueActionKind.AudioVolume, "80"), (c.Actions[1].Kind, c.Actions[1].Value));
+        Assert.Equal((ShowActionKind.AudioVolume, "80"), (c.Actions[1].Kind, c.Actions[1].Value));
         Assert.Empty(again.Notes);
     }
 

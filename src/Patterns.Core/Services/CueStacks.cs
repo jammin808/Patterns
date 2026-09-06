@@ -77,7 +77,7 @@ public static class CueStacks
             };
             cue.Actions.Add(new CueActionConfig
             {
-                Kind = CueActionKind.ApplyLook,
+                Kind = ShowActionKind.ApplyLook,
                 Target = look?.Id ?? step.LookName, // a name still resolves later, or reads as broken
             });
             clicker.Cues.Add(cue);

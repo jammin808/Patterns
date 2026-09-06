@@ -147,15 +147,15 @@ public class InteractiveTests
         Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/device")));
         Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/device"));
 
-        Assert.Equal((TargetKind.Device, ValueKind.Text), CueActionSpec.For(CueActionKind.DeviceSend));
-        Assert.Equal("Device — send a line", CueActionSpec.Label(CueActionKind.DeviceSend));
-        Assert.Equal(CueActionKind.DeviceSend, CueSheet.ParseKind("arduino"));
-        Assert.Equal(CueActionKind.DeviceSend, CueSheet.ParseKind("device"));
+        Assert.Equal((TargetKind.Device, ValueKind.Text), ActionSpec.For(ShowActionKind.DeviceSend));
+        Assert.Equal("Device — send a line", ActionSpec.Label(ShowActionKind.DeviceSend));
+        Assert.Equal(ShowActionKind.DeviceSend, CueSheet.ParseKind("arduino"));
+        Assert.Equal(ShowActionKind.DeviceSend, CueSheet.ParseKind("device"));
 
         var state = new ShowState();
         state.Interactive.Devices.Add(new DeviceConfig { Name = "Arduino" });
         var cue = new RunCueConfig { Number = "01.010", Name = "Relay" };
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.DeviceSend, Target = "Arduino", Value = "RELAY 1" });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "Arduino", Value = "RELAY 1" });
         Assert.Equal("Device Arduino: RELAY 1", CueSummary.DescribeAction(state, cue.Actions[0]));
         var stack = new CueStackConfig();
         stack.Cues.Add(cue);

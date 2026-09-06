@@ -104,10 +104,10 @@ public sealed class ActionRow : Observable
     public PickItem SelectedKind
     {
         get => KindChoices.FirstOrDefault(k => k.Id == Action.Kind.ToString())
-               ?? new PickItem(Action.Kind.ToString(), CueActionSpec.Label(Action.Kind));
+               ?? new PickItem(Action.Kind.ToString(), ActionSpec.Label(Action.Kind));
         set
         {
-            if (value is null || !Enum.TryParse<CueActionKind>(value.Id, out var kind) || kind == Action.Kind) return;
+            if (value is null || !Enum.TryParse<ShowActionKind>(value.Id, out var kind) || kind == Action.Kind) return;
             Action.Kind = kind;
             Action.Target = "";
             Action.Value = "";
@@ -133,18 +133,18 @@ public sealed class ActionRow : Observable
     /// <summary>The library for a Person value: as designed first, then every entry in page order.</summary>
     public ObservableCollection<PickItem> PersonChoices { get; }
 
-    public bool HasTarget => CueActionSpec.For(Action.Kind).Target != TargetKind.None;
+    public bool HasTarget => ActionSpec.For(Action.Kind).Target != TargetKind.None;
 
-    public bool HasValue => CueActionSpec.For(Action.Kind).Value != ValueKind.None;
+    public bool HasValue => ActionSpec.For(Action.Kind).Value != ValueKind.None;
 
     /// <summary>
     /// The value is picked from a library — a person from the lower-thirds library, or a look for a
     /// screen's own send — so it is a picker, not a text box.
     /// </summary>
-    public bool HasPersonValue => CueActionSpec.For(Action.Kind).Value is ValueKind.Person or ValueKind.Look;
+    public bool HasPersonValue => ActionSpec.For(Action.Kind).Value is ValueKind.Person or ValueKind.Look;
 
     /// <summary>The value is a look: the picker lists the looks and has no "as designed" row.</summary>
-    public bool HasLookValue => CueActionSpec.For(Action.Kind).Value == ValueKind.Look;
+    public bool HasLookValue => ActionSpec.For(Action.Kind).Value == ValueKind.Look;
 
     public bool HasTextValue => HasValue && !HasPersonValue;
 
@@ -173,9 +173,9 @@ public sealed class ActionRow : Observable
         }
     }
 
-    public string TargetHint => CueActionSpec.For(Action.Kind).Target switch
+    public string TargetHint => ActionSpec.For(Action.Kind).Target switch
     {
-        TargetKind.Look => "Which look…",
+        TargetKind.Look => Action.Kind == ShowActionKind.ApplyLookToPreview ? "Which look… (into the preview)" : "Which look…",
         TargetKind.Stinger => "Which VOG or stinger…",
         TargetKind.Part => "Which playlist part…",
         TargetKind.Screen => "Which screen…",
@@ -185,21 +185,21 @@ public sealed class ActionRow : Observable
         TargetKind.LowerThird => "Which lower third…",
         TargetKind.Page => "Which page… (blank = the page on air)",
         TargetKind.Device => "Which device… (blank = the first)",
-        TargetKind.Slot => Action.Kind == CueActionKind.Announce ? "Which announcement… (blank = the words below)" : "Which advert…",
+        TargetKind.Slot => Action.Kind == ShowActionKind.Announce ? "Which announcement… (blank = the words below)" : "Which advert…",
         TargetKind.Track => "Which track… (blank = play or resume the list)",
         TargetKind.Place => "Where… (blank = every screen)",
         _ => "",
     };
 
-    public string ValueHint => CueActionSpec.For(Action.Kind).Value switch
+    public string ValueHint => ActionSpec.For(Action.Kind).Value switch
     {
         ValueKind.Transition => "blank = show default · cut · fade in ms (e.g. 800)",
         ValueKind.Minutes => "minutes, e.g. 5",
         ValueKind.Text => Action.Kind switch
         {
-            CueActionKind.WebType => "the text typed into the field that has the page's focus",
-            CueActionKind.DeviceSend => "the line the device expects, e.g. RELAY 1 or SHOW 3",
-            CueActionKind.Announce => "the words on screen (when no announcement is chosen above)",
+            ShowActionKind.WebType => "the text typed into the field that has the page's focus",
+            ShowActionKind.DeviceSend => "the line the device expects, e.g. RELAY 1 or SHOW 3",
+            ShowActionKind.Announce => "the words on screen (when no announcement is chosen above)",
             _ => "the message text",
         },
         ValueKind.Percent => "percent, 0–125 (100 = as recorded)",
@@ -208,8 +208,15 @@ public sealed class ActionRow : Observable
         ValueKind.Look => "which look's picture lands on that screen alone",
         ValueKind.WebKey => "an action — next · prev · first · last · present · exit · play · pause · mute · restart · black · white — or a key: ArrowRight · Space · k · Ctrl+Shift+F5",
         ValueKind.Point => "x y in percent of the page, e.g. 50 50",
-        ValueKind.Seconds => "seconds before the end, e.g. 10 (blank = 10)",
+        ValueKind.Seconds => Action.Kind is ShowActionKind.FadeToBlack or ShowActionKind.FadeUp
+            ? "seconds for the fade, e.g. 2 or 1.5 (blank = the show's transition time)"
+            : "seconds before the end, e.g. 10 (blank = 10)",
         ValueKind.WeatherView => "now · day (the rest of today) · tomorrow",
+        ValueKind.Switch => "on · off · toggle",
+        ValueKind.Hours => "12 or 24",
+        ValueKind.ClockTime => "a time of day, HH:mm (24-hour), e.g. 14:00",
+        ValueKind.PatternKind => "Grid · ColorBars · Media · Particles · Fractal … (the Pattern page's kinds)",
+        ValueKind.Address => "https://… or a local HTML file",
         _ => "",
     };
 
@@ -218,7 +225,7 @@ public sealed class ActionRow : Observable
         get
         {
             // A fade with no place is every screen — the picker's first row, not an empty picker.
-            if (Action.Target.Length == 0) return CueActionSpec.For(Action.Kind).Target == TargetKind.Place ? TargetChoices.FirstOrDefault(t => t.Id.Length == 0) : null;
+            if (Action.Target.Length == 0) return ActionSpec.For(Action.Kind).Target == TargetKind.Place ? TargetChoices.FirstOrDefault(t => t.Id.Length == 0) : null;
             // A reference by name (an older show, a hand-typed target) resolves like the validator resolves it.
             return TargetChoices.FirstOrDefault(t => t.Id == Action.Target)
                    ?? TargetChoices.FirstOrDefault(t => string.Equals(t.Label, Action.Target, StringComparison.OrdinalIgnoreCase))
@@ -249,7 +256,7 @@ public sealed class ActionRow : Observable
     {
         var target = Action.Target;
         TargetChoices.Clear();
-        foreach (var item in _editor.ChoicesFor(CueActionSpec.For(Action.Kind).Target)) TargetChoices.Add(item);
+        foreach (var item in _editor.ChoicesFor(ActionSpec.For(Action.Kind).Target)) TargetChoices.Add(item);
         if (target.Length > 0 && TargetChoices.All(t => t.Id != target && !string.Equals(t.Label, target, StringComparison.OrdinalIgnoreCase)))
         {
             TargetChoices.Add(new PickItem(target, $"{target} (not found)"));
@@ -285,7 +292,7 @@ public sealed class ActionRow : Observable
 public sealed class CueEditor : Observable
 {
     public static readonly IReadOnlyList<PickItem> KindChoices =
-        CueActionSpec.Editable.Select(k => new PickItem(k.ToString(), CueActionSpec.Label(k))).ToList();
+        ActionSpec.CueKinds.Select(k => new PickItem(k.ToString(), ActionSpec.Label(k))).ToList();
 
     private readonly AppServices _s;
     private readonly Action<string> _status;
@@ -336,7 +343,7 @@ public sealed class CueEditor : Observable
         AddActionCommand = new RelayCommand(() =>
         {
             if (SelectedCue is null) return;
-            SelectedCue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook });
+            SelectedCue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook });
             OnCueEdited();
         });
         RemoveActionCommand = new RelayCommand<ActionRow>(row =>
@@ -349,11 +356,11 @@ public sealed class CueEditor : Observable
         MoveActionDownCommand = new RelayCommand<ActionRow>(row => MoveAction(row, +1));
         QuickActionCommand = new RelayCommand<string>(name =>
         {
-            if (SelectedCue is null || name is null || !Enum.TryParse<CueActionKind>(name, out var kind)) return;
+            if (SelectedCue is null || name is null || !Enum.TryParse<ShowActionKind>(name, out var kind)) return;
             SelectedCue.Actions.Add(new CueActionConfig { Kind = kind });
             OnCueEdited();
-            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device or TargetKind.Place) && kind != CueActionKind.Announce;
-            _status($"{SelectedCue.Number}: {CueActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
+            var needsTarget = ActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device or TargetKind.Place) && kind != ShowActionKind.Announce;
+            _status($"{SelectedCue.Number}: {ActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
         });
 
         _s.SnapshotPublished += ScheduleRevalidate; // any edit anywhere can change what resolves
@@ -526,7 +533,7 @@ public sealed class CueEditor : Observable
     {
         get
         {
-            var a = _selectedCue?.Actions.FirstOrDefault(x => x.Kind == CueActionKind.ApplyLook);
+            var a = _selectedCue?.Actions.FirstOrDefault(x => x.Kind == ShowActionKind.ApplyLook);
             if (a is null) return null;
             return QuickLooks.FirstOrDefault(l => l.Id == a.Target) ?? new PickItem(a.Target, $"{a.Target} (not found)");
         }
@@ -543,9 +550,9 @@ public sealed class CueEditor : Observable
     /// <summary>Gives a cue a look: its first Apply look action retargeted, else one added ahead of the rest.</summary>
     public static void SetLook(RunCueConfig cue, string lookId)
     {
-        var existing = cue.Actions.FirstOrDefault(a => a.Kind == CueActionKind.ApplyLook);
+        var existing = cue.Actions.FirstOrDefault(a => a.Kind == ShowActionKind.ApplyLook);
         if (existing is not null) existing.Target = lookId;
-        else cue.Actions.Insert(0, new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = lookId });
+        else cue.Actions.Insert(0, new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = lookId });
     }
 
     private void RaisePlan()

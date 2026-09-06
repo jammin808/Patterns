@@ -114,11 +114,11 @@ public class LowerThirdLibraryTests
         state.LowerThirds.Entries.Add(jane);
         var stack = CueStacks.Caller(state);
         var byId = new RunCueConfig { Name = "Jane on" };
-        byId.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdShow, Target = neon.Id, Value = jane.Id });
+        byId.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdShow, Target = neon.Id, Value = jane.Id });
         var byName = new RunCueConfig { Name = "Jane again" };
-        byName.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdShow, Target = "", Value = "jane doe" });
+        byName.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdShow, Target = "", Value = "jane doe" });
         var stranger = new RunCueConfig { Name = "Who?" };
-        stranger.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdShow, Target = neon.Id, Value = "Nobody" });
+        stranger.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdShow, Target = neon.Id, Value = "Nobody" });
         stack.Cues.Add(byId);
         stack.Cues.Add(byName);
         stack.Cues.Add(stranger);
@@ -137,7 +137,7 @@ public class LowerThirdLibraryTests
         // The sheet: "Speaker" is the action and the Value is the person as written; the export writes an id back as the name.
         var sheet = CueSheet.Import(CsvTable.Parse("Name,Action,Target,Value\nIntro,Speaker,Neon,Jane Doe\n"), state);
         var action = Assert.Single(sheet.Cues[0].Actions);
-        Assert.Equal((CueActionKind.LowerThirdShow, neon.Id, "Jane Doe"), (action.Kind, action.Target, action.Value));
+        Assert.Equal((ShowActionKind.LowerThirdShow, neon.Id, "Jane Doe"), (action.Kind, action.Target, action.Value));
         var export = CueSheet.Export(state, stack);
         Assert.Contains("Lower third on,Neon,Jane Doe", export);
         Assert.DoesNotContain(jane.Id, export);

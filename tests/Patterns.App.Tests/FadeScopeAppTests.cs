@@ -312,9 +312,9 @@ public class FadeScopeAppTests
             // A cue: Fade to black on SCREEN 2 for a second, then Fade up — the blackout transport leaves both alone.
             var stack = CueStacks.Caller(vm.State);
             var down = new RunCueConfig { Number = "1", Name = "Stage left out" };
-            down.Actions.Add(new CueActionConfig { Kind = CueActionKind.FadeToBlack, Target = "SCREEN 2", Value = "1" });
+            down.Actions.Add(new CueActionConfig { Kind = ShowActionKind.FadeToBlack, Target = "SCREEN 2", Value = "1" });
             var up = new RunCueConfig { Number = "2", Name = "Stage left back" };
-            up.Actions.Add(new CueActionConfig { Kind = CueActionKind.FadeUp, Target = "SCREEN 2", Value = "1" });
+            up.Actions.Add(new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "SCREEN 2", Value = "1" });
             stack.Cues.Add(down);
             stack.Cues.Add(up);
             Dispatcher.UIThread.RunJobs();

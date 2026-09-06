@@ -36,7 +36,7 @@ public static class SpotifyLibrary
         var refs = new List<string>();
         foreach (var (stack, cue, action) in CueStacks.AllActions(state))
         {
-            if (action.Kind != CueActionKind.SpotifyPlay) continue;
+            if (action.Kind != ShowActionKind.SpotifyPlay) continue;
             if (ReferenceEquals(Find(state, action.Target), item)) refs.Add($"{stack.Name} cue {cue.Number} {cue.Name}");
         }
         foreach (var look in state.LooksAndCues.Looks)

@@ -592,7 +592,7 @@ public sealed class ShowActions
             {
                 // The track is not in the snapshot: the player reads the live model every poll,
                 // sandbox or not, so this is the audio's air seam.
-                if (!CueActionSpec.TryParsePercent(a.Value, out var percent))
+                if (!ActionSpec.TryParsePercent(a.Value, out var percent))
                 {
                     return ActionResult.Refused("Audio volume needs a number from 0 to 125.");
                 }
@@ -774,7 +774,7 @@ public sealed class ShowActions
                 return ActionResult.Requested("Break music: next track.");
             case ShowActionKind.SpotifyVolume:
             {
-                if (!CueActionSpec.TryParseLevel(a.Value, out var level))
+                if (!ActionSpec.TryParseLevel(a.Value, out var level))
                 {
                     return ActionResult.Refused("Break music level needs a number from 0 to 100.");
                 }
@@ -807,15 +807,16 @@ public sealed class ShowActions
                 // tile, the ticked tiles, the ticked groups, SCREEN n, GROUP A, a target id. A
                 // target faded on its own goes into the bus's runtime set (never the show file);
                 // the engine draws it black and the sink's own crossfade, carrying the seconds
-                // asked for, is the fade. How long: the value's milliseconds, or the show's time.
+                // asked for, is the fade. How long: the value's seconds ("2", "1.5", "1500ms";
+                // empty or 0 = the show's transition time) — the one convention the desk, the
+                // wire, OSC and a cue share, so a cue's step is the wire's line is the desk's key.
                 var down = a.Kind == ShowActionKind.FadeToBlack;
                 if (FadeScope.Parse(a.Target) is not { } scope)
                 {
                     return ActionResult.Refused($"'{a.Target}' is not a place to fade — leave it empty for every screen, or SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS, ID <screen id>.");
                 }
-                var ms = int.TryParse(a.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0
-                    ? v
-                    : (int)Math.Round(State.Transition.DurationMs);
+                if (!ControlProtocol.TryParseSeconds(a.Value, out var asked)) return ActionResult.Refused($"'{a.Value}' is not a number of seconds for the fade.");
+                var ms = asked > 0 ? asked : (int)Math.Round(State.Transition.DurationMs);
                 var secs = (ms / 1000.0).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
                 if (scope.IsEverything || (scope.Kind == FadeScopeKind.Focused && _s.FocusedTarget?.Invoke() is null))
                 {
@@ -1031,7 +1032,7 @@ public sealed class ShowActions
     {
         var sandboxed = _s.Sandbox.Active;
         // Value: "cut", a fade in ms (this recall only), or anything else for the show default.
-        if (CueActionSpec.TryParseTransition(value, out var cut, out var fadeMs))
+        if (ActionSpec.TryParseTransition(value, out var cut, out var fadeMs))
         {
             if (cut) _s.Bus.CutOnNextPublish();
             else if (fadeMs >= 0) _s.Bus.FadeOnNextPublish(fadeMs);
@@ -1249,7 +1250,7 @@ public sealed class ShowActions
 
         var blackoutBefore = _s.State.Blackout;
         // A cue that says black — or fades to it, or up from it — means it; the restore below is for the rest.
-        var explicitBlackout = cue.Actions.Any(x => x.Kind is CueActionKind.BlackoutOn or CueActionKind.BlackoutOff or CueActionKind.FadeToBlack or CueActionKind.FadeUp);
+        var explicitBlackout = cue.Actions.Any(x => x.Kind is ShowActionKind.BlackoutOn or ShowActionKind.BlackoutOff or ShowActionKind.FadeToBlack or ShowActionKind.FadeUp);
         var total = cue.Actions.Count;
         var done = 0;
         var requested = false;
@@ -1258,12 +1259,12 @@ public sealed class ShowActions
         {
             foreach (var action in cue.Actions)
             {
-                if (action.Kind == CueActionKind.Note)
+                if (action.Kind == ShowActionKind.Note)
                 {
                     done++;
                     continue;
                 }
-                var mapped = ToShowAction(action);
+                var mapped = action.ToAction();
                 ActionResult r;
                 try
                 {
@@ -1302,10 +1303,6 @@ public sealed class ShowActions
     }
 
     // ---- the scoped fade -------------------------------------------------------------
-
-    /// <summary>A cue's fade seconds ("2", "1.5"; blank = the show's time) as the action's milliseconds.</summary>
-    private static string FadeValueMs(string value)
-        => ControlProtocol.TryParseSeconds(value, out var ms) && ms > 0 ? ms.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
 
     /// <summary>
     /// The content targets a scope names on this rig, or why it names none: the focused tile, the
@@ -1396,76 +1393,6 @@ public sealed class ShowActions
         if (RigDark()) return;
         _s.Stingers.SetBlack(false, (int)Math.Round(State.Transition.DurationMs));
     }
-
-    /// <summary>A typed cue action as the action layer runs it.</summary>
-    public static ShowAction ToShowAction(CueActionConfig a) => a.Kind switch
-    {
-        CueActionKind.ApplyLook => new ShowAction(ShowActionKind.ApplyLook, a.Target, a.Value),
-        CueActionKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay, a.Target),
-        CueActionKind.AudioNext => new ShowAction(ShowActionKind.AudioNext),
-        CueActionKind.AudioPrev => new ShowAction(ShowActionKind.AudioPrev),
-        CueActionKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
-        CueActionKind.AudioVolume => new ShowAction(ShowActionKind.AudioVolume, "", a.Value),
-        CueActionKind.SpotifyPlay => new ShowAction(ShowActionKind.SpotifyPlay, a.Target),
-        CueActionKind.SpotifyPause => new ShowAction(ShowActionKind.SpotifyPause),
-        CueActionKind.SpotifyNext => new ShowAction(ShowActionKind.SpotifyNext),
-        CueActionKind.SpotifyVolume => new ShowAction(ShowActionKind.SpotifyVolume, "", a.Value),
-        CueActionKind.StingerFire => new ShowAction(ShowActionKind.StingerFire, a.Target),
-        CueActionKind.StingerStop => new ShowAction(ShowActionKind.StingerStop),
-        CueActionKind.PlaylistPart => new ShowAction(ShowActionKind.PlaylistPart, a.Target),
-        CueActionKind.StreamStart => new ShowAction(ShowActionKind.StreamStart),
-        CueActionKind.StreamStop => new ShowAction(ShowActionKind.StreamStop),
-        CueActionKind.BlackoutOn => new ShowAction(ShowActionKind.BlackoutOn),
-        CueActionKind.BlackoutOff => new ShowAction(ShowActionKind.BlackoutOff),
-        CueActionKind.FadeToBlack => new ShowAction(ShowActionKind.FadeToBlack, a.Target, FadeValueMs(a.Value)),
-        CueActionKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, a.Target, FadeValueMs(a.Value)),
-        CueActionKind.ScreenOn => new ShowAction(ShowActionKind.ScreenOn, a.Target),
-        CueActionKind.ScreenOff => new ShowAction(ShowActionKind.ScreenOff, a.Target),
-        CueActionKind.ScreenLock => new ShowAction(ShowActionKind.ScreenLock, a.Target),
-        CueActionKind.ScreenUnlock => new ShowAction(ShowActionKind.ScreenUnlock, a.Target),
-        CueActionKind.ScreenLook => new ShowAction(ShowActionKind.ScreenLook, a.Target, a.Value),
-        CueActionKind.ScreenProgram => new ShowAction(ShowActionKind.ScreenProgram, a.Target),
-        CueActionKind.CanvasOn => new ShowAction(ShowActionKind.CanvasOn, a.Target),
-        CueActionKind.CanvasOff => new ShowAction(ShowActionKind.CanvasOff, a.Target),
-        CueActionKind.CountdownStart => new ShowAction(ShowActionKind.CountdownStart, "", a.Value),
-        CueActionKind.CountdownStop => new ShowAction(ShowActionKind.CountdownStop),
-        CueActionKind.MessageOn => new ShowAction(ShowActionKind.MessageOn, "", a.Value),
-        CueActionKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
-        CueActionKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
-        CueActionKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
-        CueActionKind.WeatherOn => new ShowAction(ShowActionKind.WeatherOn),
-        CueActionKind.WeatherOff => new ShowAction(ShowActionKind.WeatherOff),
-        CueActionKind.WeatherView => new ShowAction(ShowActionKind.WeatherView, "", a.Value),
-        CueActionKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, a.Target, a.Value),
-        CueActionKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
-        CueActionKind.LowerThirdPreview => new ShowAction(ShowActionKind.LowerThirdPreview, a.Target, a.Value),
-        CueActionKind.LowerThirdTake => new ShowAction(ShowActionKind.LowerThirdTake),
-        CueActionKind.WebKey => new ShowAction(ShowActionKind.WebKey, a.Target, a.Value),
-        CueActionKind.WebClick => new ShowAction(ShowActionKind.WebClick, a.Target, a.Value),
-        CueActionKind.WebType => new ShowAction(ShowActionKind.WebType, a.Target, a.Value),
-        CueActionKind.WebReload => new ShowAction(ShowActionKind.WebReload, a.Target),
-        CueActionKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
-        CueActionKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
-        CueActionKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", a.Value),
-        CueActionKind.VideoToEnd => new ShowAction(ShowActionKind.VideoToEnd, "", a.Value),
-        CueActionKind.VideoRestart => new ShowAction(ShowActionKind.VideoRestart),
-        CueActionKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, a.Target, a.Value),
-        CueActionKind.Announce => new ShowAction(ShowActionKind.Announce, a.Target, a.Value),
-        CueActionKind.AnnounceOff => new ShowAction(ShowActionKind.AnnounceOff),
-        CueActionKind.AdvertPlay => new ShowAction(ShowActionKind.AdvertPlay, a.Target),
-        CueActionKind.AdvertOff => new ShowAction(ShowActionKind.AdvertOff),
-        CueActionKind.ScheduleOn => new ShowAction(ShowActionKind.ScheduleOn),
-        CueActionKind.ScheduleOff => new ShowAction(ShowActionKind.ScheduleOff),
-        CueActionKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
-        CueActionKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
-        CueActionKind.ListArm => new ShowAction(ShowActionKind.ListArm, a.Target),
-        CueActionKind.ListDisarm => new ShowAction(ShowActionKind.ListDisarm, a.Target),
-        CueActionKind.ListGo => new ShowAction(ShowActionKind.ListGo, a.Target),
-        CueActionKind.ListBack => new ShowAction(ShowActionKind.ListBack, a.Target),
-        CueActionKind.ListReset => new ShowAction(ShowActionKind.ListReset, a.Target),
-        CueActionKind.Note => new ShowAction(ShowActionKind.Note),
-        _ => new ShowAction(ShowActionKind.Unknown),
-    };
 
     /// <summary>
     /// The lower third a person goes into when none is named: for a preview the one already in the

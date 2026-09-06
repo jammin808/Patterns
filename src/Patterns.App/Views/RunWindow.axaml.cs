@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -90,13 +91,13 @@ public partial class RunWindow : Window
             if (e.Key == Key.Space)
             {
                 e.Handled = true;
-                if (Latch(e.Key)) vm.Services.Actions.Execute(Patterns.Core.Services.ShowActionKind.BlackoutToggle, ActionOrigin.Keyboard);
+                if (Latch(e.Key)) vm.Services.Actions.Execute(Patterns.Core.Model.ShowActionKind.BlackoutToggle, ActionOrigin.Keyboard);
                 return;
             }
             if (e.Key == Key.D)
             {
                 e.Handled = true;
-                if (Latch(e.Key)) vm.Services.Actions.Execute(Patterns.Core.Services.ShowActionKind.DuckToggle, ActionOrigin.Keyboard);
+                if (Latch(e.Key)) vm.Services.Actions.Execute(Patterns.Core.Model.ShowActionKind.DuckToggle, ActionOrigin.Keyboard);
             }
         }
     }

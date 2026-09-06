@@ -125,8 +125,8 @@ public class LiveDuckTests
         {
             b.Vm.IsSandboxActive = false;
             var stack = CueStacks.Caller(b.Vm.State);
-            var down = new RunCueConfig { Number = "1", Name = "Mic to the floor", Actions = { new CueActionConfig { Kind = CueActionKind.DuckOn } } };
-            var up = new RunCueConfig { Number = "2", Name = "Back to music", Actions = { new CueActionConfig { Kind = CueActionKind.DuckOff } } };
+            var down = new RunCueConfig { Number = "1", Name = "Mic to the floor", Actions = { new CueActionConfig { Kind = ShowActionKind.DuckOn } } };
+            var up = new RunCueConfig { Number = "2", Name = "Back to music", Actions = { new CueActionConfig { Kind = ShowActionKind.DuckOff } } };
             stack.Cues.Add(down);
             stack.Cues.Add(up);
             b.Vm.Cues.OnShowLoaded();

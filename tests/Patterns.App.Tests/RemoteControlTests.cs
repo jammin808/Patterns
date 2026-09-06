@@ -177,7 +177,7 @@ public class RemoteControlTests
             foreach (var name in new[] { "One", "Two" })
             {
                 var cue = new RunCueConfig { Name = name };
-                cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = LookService.Find(vm.State, name)!.Id });
+                cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = LookService.Find(vm.State, name)!.Id });
                 clicker.Cues.Add(cue);
             }
 

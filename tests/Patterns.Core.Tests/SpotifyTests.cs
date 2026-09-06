@@ -431,10 +431,10 @@ public class SpotifyLibraryTests
         var a = new SpotifyItemConfig { Id = "m-a", Name = "Interval bed", Uri = "spotify:playlist:A" };
         state.Spotify.Items.Add(a);
         var stack = CueStacks.Caller(state);
-        stack.Cues.Add(new RunCueConfig { Number = "03.020", Name = "Interval", Actions = { new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "m-a" } } });
-        stack.Cues.Add(new RunCueConfig { Number = "03.030", Name = "By name", Actions = { new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "interval bed" } } });
-        stack.Cues.Add(new RunCueConfig { Number = "03.040", Name = "Pause", Actions = { new CueActionConfig { Kind = CueActionKind.SpotifyPause } } });
-        stack.Cues.Add(new RunCueConfig { Number = "03.050", Name = "Resume", Actions = { new CueActionConfig { Kind = CueActionKind.SpotifyPlay } } });
+        stack.Cues.Add(new RunCueConfig { Number = "03.020", Name = "Interval", Actions = { new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "m-a" } } });
+        stack.Cues.Add(new RunCueConfig { Number = "03.030", Name = "By name", Actions = { new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "interval bed" } } });
+        stack.Cues.Add(new RunCueConfig { Number = "03.040", Name = "Pause", Actions = { new CueActionConfig { Kind = ShowActionKind.SpotifyPause } } });
+        stack.Cues.Add(new RunCueConfig { Number = "03.050", Name = "Resume", Actions = { new CueActionConfig { Kind = ShowActionKind.SpotifyPlay } } });
 
         var refs = SpotifyLibrary.References(state, a);
         Assert.Equal(2, refs.Count);
@@ -574,7 +574,7 @@ public class SpotifyBrowseTests
         RunCueConfig Cue()
         {
             var c = new RunCueConfig { Number = "1", Name = "Doors" };
-            c.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+            c.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
             return c;
         }
 
@@ -649,34 +649,34 @@ public class SpotifyCueTests
     [Fact]
     public void TheSpecTableSummaryAndPickerAgree()
     {
-        Assert.Equal((TargetKind.Music, ValueKind.None), CueActionSpec.For(CueActionKind.SpotifyPlay));
-        Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.SpotifyPause));
-        Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.SpotifyNext));
-        Assert.Equal((TargetKind.None, ValueKind.Level), CueActionSpec.For(CueActionKind.SpotifyVolume));
-        foreach (var kind in new[] { CueActionKind.SpotifyPlay, CueActionKind.SpotifyPause, CueActionKind.SpotifyNext, CueActionKind.SpotifyVolume })
+        Assert.Equal((TargetKind.Music, ValueKind.None), ActionSpec.For(ShowActionKind.SpotifyPlay));
+        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.SpotifyPause));
+        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.SpotifyNext));
+        Assert.Equal((TargetKind.None, ValueKind.Level), ActionSpec.For(ShowActionKind.SpotifyVolume));
+        foreach (var kind in new[] { ShowActionKind.SpotifyPlay, ShowActionKind.SpotifyPause, ShowActionKind.SpotifyNext, ShowActionKind.SpotifyVolume })
         {
-            Assert.Contains(kind, CueActionSpec.Editable);
-            Assert.False(string.IsNullOrWhiteSpace(CueActionSpec.Label(kind)));
-            Assert.StartsWith("Break music", CueActionSpec.Label(kind));
-            Assert.False(CueActionSpec.ChangesContent(kind)); // sound only: a video stinger may share the cue
+            Assert.Contains(kind, ActionSpec.CueKinds);
+            Assert.False(string.IsNullOrWhiteSpace(ActionSpec.Label(kind)));
+            Assert.StartsWith("Break music", ActionSpec.Label(kind));
+            Assert.False(ActionSpec.ChangesContent(kind)); // sound only: a video stinger may share the cue
         }
-        Assert.True(CueActionSpec.TryParseLevel(" 40 ", out var level));
+        Assert.True(ActionSpec.TryParseLevel(" 40 ", out var level));
         Assert.Equal(40, level);
-        Assert.True(CueActionSpec.TryParseLevel("0", out _));
-        Assert.True(CueActionSpec.TryParseLevel("100", out _));
+        Assert.True(ActionSpec.TryParseLevel("0", out _));
+        Assert.True(ActionSpec.TryParseLevel("100", out _));
         foreach (var bad in new[] { "101", "-1", "loud", "", null })
         {
-            Assert.False(CueActionSpec.TryParseLevel(bad, out _), bad ?? "null");
+            Assert.False(ActionSpec.TryParseLevel(bad, out _), bad ?? "null");
         }
 
         var state = new ShowState();
         state.Spotify.Items.Add(new SpotifyItemConfig { Id = "m1", Name = "Interval bed", Uri = "spotify:playlist:X" });
-        Assert.Equal("Break music 'Interval bed'", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "m1" }));
-        Assert.Equal("Break music 'ghost'", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "ghost" }));
-        Assert.Equal("Break music play", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.SpotifyPlay }));
-        Assert.Equal("Break music pause", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.SpotifyPause }));
-        Assert.Equal("Break music skip", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.SpotifyNext }));
-        Assert.Equal("Break music 40%", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.SpotifyVolume, Value = "40" }));
+        Assert.Equal("Break music 'Interval bed'", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "m1" }));
+        Assert.Equal("Break music 'ghost'", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "ghost" }));
+        Assert.Equal("Break music play", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay }));
+        Assert.Equal("Break music pause", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.SpotifyPause }));
+        Assert.Equal("Break music skip", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.SpotifyNext }));
+        Assert.Equal("Break music 40%", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.SpotifyVolume, Value = "40" }));
     }
 
     [Fact]
@@ -688,48 +688,48 @@ public class SpotifyCueTests
         state.Spotify.Items.Add(new SpotifyItemConfig { Id = "m2", Name = "Bad", Uri = "junk" });
         var ready = new CueValidationContext { FileExists = _ => true, VideoDecoderAvailable = true, MusicReady = true };
 
-        var unknown = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "nope" }), ready);
+        var unknown = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "nope" }), ready);
         Assert.Equal(1, unknown.BrokenCount);
         Assert.Contains("not found", unknown.Broken.Values.Single());
 
-        var junk = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "m2" }), ready);
+        var junk = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "m2" }), ready);
         Assert.Equal(1, junk.BrokenCount);
         Assert.Contains("no valid Spotify link", junk.Broken.Values.Single());
 
-        var level = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = CueActionKind.SpotifyVolume, Value = "120" }), ready);
+        var level = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = ShowActionKind.SpotifyVolume, Value = "120" }), ready);
         Assert.Equal(1, level.BrokenCount);
         Assert.Contains("0 to 100", level.Broken.Values.Single());
 
         // Off is a warning, never Broken: a Hard issue would make GO skip the look this cue applies.
         state.Spotify.Enabled = false;
-        var off = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "m1" }), ready);
+        var off = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "m1" }), ready);
         Assert.Equal(0, off.BrokenCount);
         Assert.Contains("break music is off", off.Warnings.Values.Single());
         state.Spotify.Enabled = true;
 
-        var notConnected = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = CueActionKind.SpotifyPause }),
+        var notConnected = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = ShowActionKind.SpotifyPause }),
             new CueValidationContext { FileExists = _ => true, MusicReady = false });
         Assert.Equal(0, notConnected.BrokenCount);
         Assert.Contains("not connected", notConnected.Warnings.Values.Single());
 
-        var noDevice = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "m1" }), ready);
+        var noDevice = CueValidator.ValidateOne(state, Cue(new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "m1" }), ready);
         Assert.Equal(0, noDevice.BrokenCount);
         Assert.Contains("no Spotify device chosen", noDevice.Warnings.Values.Single());
 
         state.Spotify.DeviceName = "Desk";
         var clean = CueValidator.ValidateOne(state, Cue(
-            new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "m1" },
-            new CueActionConfig { Kind = CueActionKind.SpotifyVolume, Value = "40" },
-            new CueActionConfig { Kind = CueActionKind.SpotifyNext },
-            new CueActionConfig { Kind = CueActionKind.SpotifyPause }), ready);
+            new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "m1" },
+            new CueActionConfig { Kind = ShowActionKind.SpotifyVolume, Value = "40" },
+            new CueActionConfig { Kind = ShowActionKind.SpotifyNext },
+            new CueActionConfig { Kind = ShowActionKind.SpotifyPause }), ready);
         Assert.Equal(0, clean.BrokenCount);
         Assert.Empty(clean.Warnings);
 
         // A video stinger may share a cue with break music (sound is not content)…
         state.Stingers.Items.Add(new StingerItemConfig { Id = "s1", Name = "Opening", Path = "C:/show/opening.mp4" });
         var shared = CueValidator.ValidateOne(state, Cue(
-            new CueActionConfig { Kind = CueActionKind.StingerFire, Target = "s1" },
-            new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "m1" }), ready);
+            new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = "s1" },
+            new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "m1" }), ready);
         Assert.Equal(0, shared.BrokenCount);
     }
 }

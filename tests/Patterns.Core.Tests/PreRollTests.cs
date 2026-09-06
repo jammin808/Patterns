@@ -86,22 +86,22 @@ public class PreRollTests
 
         Assert.Null(PreRoll.LookOf(state, null));
         var plain = new RunCueConfig { Number = "01.010", Name = "Plain" };
-        plain.Actions.Add(new CueActionConfig { Kind = CueActionKind.Note, Target = "hello" });
+        plain.Actions.Add(new CueActionConfig { Kind = ShowActionKind.Note, Target = "hello" });
         Assert.Null(PreRoll.LookOf(state, plain));
         Assert.Empty(PreRoll.WantedFor(state, plain));
 
         var byName = new RunCueConfig { Number = "01.020", Name = "By name" };
-        byName.Actions.Add(new CueActionConfig { Kind = CueActionKind.Note, Target = "first a note" });
-        byName.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = "vt IN" });
+        byName.Actions.Add(new CueActionConfig { Kind = ShowActionKind.Note, Target = "first a note" });
+        byName.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = "vt IN" });
         Assert.Same(look, PreRoll.LookOf(state, byName));
         Assert.Equal(2, PreRoll.WantedFor(state, byName).Count);
 
         var byId = new RunCueConfig { Number = "01.030", Name = "By id" };
-        byId.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+        byId.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
         Assert.Same(look, PreRoll.LookOf(state, byId));
 
         var unknown = new RunCueConfig { Number = "01.040", Name = "Unknown" };
-        unknown.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = "no such look" });
+        unknown.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = "no such look" });
         Assert.Null(PreRoll.LookOf(state, unknown));
         Assert.Empty(PreRoll.WantedFor(state, unknown));
     }

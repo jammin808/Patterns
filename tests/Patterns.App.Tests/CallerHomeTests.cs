@@ -63,13 +63,13 @@ public class CallerHomeTests
             // The selected cue: a look in one pick, an action in one press, the plan fields.
             vm.Cues.SelectedCue = stack.Cues[1];
             vm.Cues.QuickLook = vm.Cues.QuickLooks.Single(l => l.Id == keynote.Id);
-            Assert.Equal(CueActionKind.ApplyLook, stack.Cues[1].Actions[0].Kind);
+            Assert.Equal(ShowActionKind.ApplyLook, stack.Cues[1].Actions[0].Kind);
             Assert.Equal(keynote.Id, stack.Cues[1].Actions[0].Target);
             vm.Cues.QuickActionCommand.Execute("CountdownStart");
-            Assert.Equal(CueActionKind.CountdownStart, stack.Cues[1].Actions[^1].Kind);
+            Assert.Equal(ShowActionKind.CountdownStart, stack.Cues[1].Actions[^1].Kind);
             Assert.Contains("Start countdown added", vm.StatusMessage);
             vm.Cues.QuickActionCommand.Execute("LowerThirdShow");
-            Assert.Equal(CueActionKind.LowerThirdShow, stack.Cues[1].Actions[^1].Kind);
+            Assert.Equal(ShowActionKind.LowerThirdShow, stack.Cues[1].Actions[^1].Kind);
             Assert.Contains("pick its target", vm.StatusMessage);
             vm.Cues.SelectedDurationText = "5 min";
             Assert.Equal(300, stack.Cues[1].PlannedSeconds);
@@ -127,7 +127,7 @@ public class CallerHomeTests
             RunCueConfig Cue(string number, string name, TimeSpan startFromNow, int? seconds, CueMark mark = CueMark.None)
             {
                 var cue = new RunCueConfig { Number = number, Name = name, PlannedStart = CueTiming.FormatClock((now + startFromNow).TimeOfDay), PlannedSeconds = seconds, Mark = mark };
-                cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = a.Id });
+                cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = a.Id });
                 stack.Cues.Add(cue);
                 return cue;
             }
@@ -201,7 +201,7 @@ public class CallerHomeTests
             RunCueConfig Cue(string number, string name, LookConfig look, int? follow)
             {
                 var cue = new RunCueConfig { Number = number, Name = name, FollowSeconds = follow };
-                cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+                cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
                 stack.Cues.Add(cue);
                 return cue;
             }

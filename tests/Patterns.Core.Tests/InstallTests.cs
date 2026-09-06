@@ -377,22 +377,22 @@ public class InstallTests
         Assert.Equal("SCHEDULE OFF", OscMap.ToLine(OscMessage.Of("/patterns/schedule/off")));
         Assert.Contains(OscMap.Reference, r => r.Address.StartsWith("/patterns/announce"));
 
-        Assert.Equal((TargetKind.Slot, ValueKind.Text), CueActionSpec.For(CueActionKind.Announce));
-        Assert.Equal((TargetKind.Slot, ValueKind.None), CueActionSpec.For(CueActionKind.AdvertPlay));
-        Assert.Equal("Advert — play now", CueActionSpec.Label(CueActionKind.AdvertPlay));
-        Assert.Contains(CueActionKind.ScheduleOff, CueActionSpec.Editable);
-        Assert.Equal(CueActionKind.Announce, CueSheet.ParseKind("announcement"));
-        Assert.Equal(CueActionKind.AdvertPlay, CueSheet.ParseKind("advert"));
-        Assert.Equal(CueActionKind.AdvertOff, CueSheet.ParseKind("skip advert"));
-        Assert.Equal(CueActionKind.ScheduleOn, CueSheet.ParseKind("schedule on"));
+        Assert.Equal((TargetKind.Slot, ValueKind.Text), ActionSpec.For(ShowActionKind.Announce));
+        Assert.Equal((TargetKind.Slot, ValueKind.None), ActionSpec.For(ShowActionKind.AdvertPlay));
+        Assert.Equal("Advert — play now", ActionSpec.Label(ShowActionKind.AdvertPlay));
+        Assert.Contains(ShowActionKind.ScheduleOff, ActionSpec.CueKinds);
+        Assert.Equal(ShowActionKind.Announce, CueSheet.ParseKind("announcement"));
+        Assert.Equal(ShowActionKind.AdvertPlay, CueSheet.ParseKind("advert"));
+        Assert.Equal(ShowActionKind.AdvertOff, CueSheet.ParseKind("skip advert"));
+        Assert.Equal(ShowActionKind.ScheduleOn, CueSheet.ParseKind("schedule on"));
 
         var state = new ShowState();
         state.LooksAndCues.Looks.Add(new LookConfig { Name = "Offer" });
         state.Install.Slots.Add(new ScheduleSlotConfig { Name = "Closing", Kind = SlotKind.Announcement, Text = "Closing soon" });
         state.Install.Slots.Add(new ScheduleSlotConfig { Name = "Lunch offer", Kind = SlotKind.Advert, Look = "Offer" });
         var cue = new RunCueConfig { Number = "01.010", Name = "Words" };
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.Announce, Target = "Closing" });
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.AdvertPlay, Target = "Lunch offer" });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.Announce, Target = "Closing" });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.AdvertPlay, Target = "Lunch offer" });
         Assert.Equal("Announcement 'Closing'", CueSummary.DescribeAction(state, cue.Actions[0]));
         Assert.Equal("Advert 'Lunch offer' now", CueSummary.DescribeAction(state, cue.Actions[1]));
         var stack = new CueStackConfig();

@@ -82,8 +82,8 @@ public class EffectStingAppTests
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);
             var cue = new RunCueConfig { Number = "01.010", Name = "Hit" };
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.StingerFire, Target = item.Id });
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = item.Id });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
             var report = CueValidator.Validate(vm.State, stack, b.Services.ValidationContext);

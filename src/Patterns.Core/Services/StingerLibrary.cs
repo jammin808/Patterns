@@ -52,7 +52,7 @@ public static class StingerLibrary
         var refs = new List<string>();
         foreach (var (stack, cue, action) in CueStacks.AllActions(state))
         {
-            if (action.Kind != CueActionKind.StingerFire) continue;
+            if (action.Kind != ShowActionKind.StingerFire) continue;
             if (ReferenceEquals(Find(state, action.Target), item)) refs.Add($"{stack.Name} cue {cue.Number} {cue.Name}");
         }
         return refs;
@@ -249,7 +249,7 @@ public static class StingerLibrary
         {
             foreach (var action in cue.Actions)
             {
-                if (action.Kind != CueActionKind.StingerFire) continue;
+                if (action.Kind != ShowActionKind.StingerFire) continue;
                 if (Find(state, action.Target) is { Kind: StingerKind.Sting, After: StingerAfter.Next, Source: StingerSource.File }) return true;
             }
         }

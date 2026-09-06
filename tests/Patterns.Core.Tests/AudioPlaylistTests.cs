@@ -173,29 +173,29 @@ public class AudioPlaylistTests
     [Fact]
     public void TheCueActionsAreSpecifiedSummarisedAndChecked()
     {
-        Assert.Equal((TargetKind.Track, ValueKind.None), CueActionSpec.For(CueActionKind.AudioPlay));
-        Assert.Contains(CueActionKind.AudioNext, CueActionSpec.Editable);
-        Assert.Contains(CueActionKind.AudioPrev, CueActionSpec.Editable);
-        Assert.Contains("next", CueActionSpec.Label(CueActionKind.AudioNext));
-        Assert.Equal(CueActionKind.AudioNext, CueSheet.ParseKind("next track"));
-        Assert.Equal(CueActionKind.AudioNext, CueSheet.ParseKind("Audio — next track"));
-        Assert.Equal(CueActionKind.AudioPrev, CueSheet.ParseKind("previous track"));
-        Assert.Equal(CueActionKind.AudioPlay, CueSheet.ParseKind("track"));
+        Assert.Equal((TargetKind.Track, ValueKind.None), ActionSpec.For(ShowActionKind.AudioPlay));
+        Assert.Contains(ShowActionKind.AudioNext, ActionSpec.CueKinds);
+        Assert.Contains(ShowActionKind.AudioPrev, ActionSpec.CueKinds);
+        Assert.Contains("next", ActionSpec.Label(ShowActionKind.AudioNext));
+        Assert.Equal(ShowActionKind.AudioNext, CueSheet.ParseKind("next track"));
+        Assert.Equal(ShowActionKind.AudioNext, CueSheet.ParseKind("Audio — next track"));
+        Assert.Equal(ShowActionKind.AudioPrev, CueSheet.ParseKind("previous track"));
+        Assert.Equal(ShowActionKind.AudioPlay, CueSheet.ParseKind("track"));
 
         var s = new ShowState();
         s.AudioPlayer.Items.Add(new AudioTrackConfig { Path = "C:/bed/walk-in.mp3", Name = "Walk-in" });
         s.AudioPlayer.Items.Add(new AudioTrackConfig { Path = "C:/bed/intro.wav" });
-        var byName = new CueActionConfig { Kind = CueActionKind.AudioPlay, Target = "Walk-in" };
-        var byId = new CueActionConfig { Kind = CueActionKind.AudioPlay, Target = s.AudioPlayer.Items[1].Id };
-        var byNumber = new CueActionConfig { Kind = CueActionKind.AudioPlay, Target = "7" };
-        var all = new CueActionConfig { Kind = CueActionKind.AudioPlay };
-        var missing = new CueActionConfig { Kind = CueActionKind.AudioPlay, Target = "Nobody" };
+        var byName = new CueActionConfig { Kind = ShowActionKind.AudioPlay, Target = "Walk-in" };
+        var byId = new CueActionConfig { Kind = ShowActionKind.AudioPlay, Target = s.AudioPlayer.Items[1].Id };
+        var byNumber = new CueActionConfig { Kind = ShowActionKind.AudioPlay, Target = "7" };
+        var all = new CueActionConfig { Kind = ShowActionKind.AudioPlay };
+        var missing = new CueActionConfig { Kind = ShowActionKind.AudioPlay, Target = "Nobody" };
         Assert.Equal("Play audio: Walk-in", CueSummary.DescribeAction(s, byName));
         Assert.Equal("Play audio: intro", CueSummary.DescribeAction(s, byId));
         Assert.Equal("Play audio track 7", CueSummary.DescribeAction(s, byNumber));
         Assert.Equal("Play audio", CueSummary.DescribeAction(s, all));
         Assert.Contains("not in the list", CueSummary.DescribeAction(s, missing));
-        Assert.Equal("Audio: the next track", CueSummary.DescribeAction(s, new CueActionConfig { Kind = CueActionKind.AudioNext }));
+        Assert.Equal("Audio: the next track", CueSummary.DescribeAction(s, new CueActionConfig { Kind = ShowActionKind.AudioNext }));
 
         var stack = new CueStackConfig();
         var cue = new RunCueConfig { Number = "1", Name = "Music" };
@@ -216,7 +216,7 @@ public class AudioPlaylistTests
 
         var empty = new ShowState();
         Assert.Contains("empty", CueValidator.Validate(empty, stack, exists).ReasonFor(cue.Id));
-        cue.Actions[0] = new CueActionConfig { Kind = CueActionKind.AudioNext };
+        cue.Actions[0] = new CueActionConfig { Kind = ShowActionKind.AudioNext };
         Assert.False(CueValidator.Validate(empty, stack, exists).IsBroken(cue.Id));      // a soft note only
     }
 }

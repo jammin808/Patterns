@@ -21,12 +21,12 @@ public class LowerThirdControlTests
     [Fact]
     public void TheCueActionHasItsSpecSummaryAndChecks()
     {
-        Assert.Equal((TargetKind.LowerThird, ValueKind.Person), CueActionSpec.For(CueActionKind.LowerThirdShow));
-        Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.LowerThirdHide));
-        Assert.Equal("Lower third on", CueActionSpec.Label(CueActionKind.LowerThirdShow));
-        Assert.Contains(CueActionKind.LowerThirdShow, CueActionSpec.Editable);
-        Assert.Contains(CueActionKind.LowerThirdHide, CueActionSpec.Editable);
-        Assert.False(CueActionSpec.ChangesContent(CueActionKind.LowerThirdShow)); // it rides over the content, so it can share a cue with a look
+        Assert.Equal((TargetKind.LowerThird, ValueKind.Person), ActionSpec.For(ShowActionKind.LowerThirdShow));
+        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.LowerThirdHide));
+        Assert.Equal("Lower third on", ActionSpec.Label(ShowActionKind.LowerThirdShow));
+        Assert.Contains(ShowActionKind.LowerThirdShow, ActionSpec.CueKinds);
+        Assert.Contains(ShowActionKind.LowerThirdHide, ActionSpec.CueKinds);
+        Assert.False(ActionSpec.ChangesContent(ShowActionKind.LowerThirdShow)); // it rides over the content, so it can share a cue with a look
 
         var state = SettingsStore.Fresh();
         var neon = LowerThirdPresets.Create("Neon");
@@ -35,13 +35,13 @@ public class LowerThirdControlTests
         state.LowerThirds.Designs.Add(empty);
         var stack = CueStacks.Caller(state);
         var good = new RunCueConfig { Name = "Speaker on" };
-        good.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdShow, Target = neon.Id });
+        good.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdShow, Target = neon.Id });
         var thin = new RunCueConfig { Name = "Nothing in it" };
-        thin.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdShow, Target = empty.Id });
+        thin.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdShow, Target = empty.Id });
         var bad = new RunCueConfig { Name = "Gone" };
-        bad.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdShow, Target = "no-such-design" });
+        bad.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdShow, Target = "no-such-design" });
         var off = new RunCueConfig { Name = "Speaker off" };
-        off.Actions.Add(new CueActionConfig { Kind = CueActionKind.LowerThirdHide });
+        off.Actions.Add(new CueActionConfig { Kind = ShowActionKind.LowerThirdHide });
         stack.Cues.Add(good);
         stack.Cues.Add(thin);
         stack.Cues.Add(bad);

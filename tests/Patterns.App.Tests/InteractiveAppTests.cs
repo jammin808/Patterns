@@ -117,8 +117,8 @@ public class InteractiveAppTests
             Assert.Equal("OK", Send(router, "SEND * RELAY 0"));
             Assert.Contains("RELAY 0\n", fake.Written);
             Assert.StartsWith("ERR", Send(router, "DEVICE Nobody RELAY 1"));
-            var cue = new CueActionConfig { Kind = CueActionKind.DeviceSend, Target = "arduino", Value = "SHOW 3" };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(cue), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
+            var cue = new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "arduino", Value = "SHOW 3" };
+            Assert.True(services.Actions.Execute(cue.ToAction(), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
             Assert.Contains("SHOW 3\n", fake.Written);
             device.TestText = "PING";
             vm.TestDeviceCommand.Execute(device);

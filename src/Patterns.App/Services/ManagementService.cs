@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using System.Net.Http;
 using System.Text;
 using Avalonia.Threading;

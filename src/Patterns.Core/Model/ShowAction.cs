@@ -1,9 +1,13 @@
-namespace Patterns.Core.Services;
+namespace Patterns.Core.Model;
 
 /// <summary>
-/// Every verb the show understands, in one vocabulary shared by the desk, the keyboard,
-/// the remote protocol, the Companion module and (later) the cue stack. Typed on purpose:
-/// a kind can be validated, journaled and displayed; a free-form string cannot.
+/// Every verb the show understands, in one vocabulary: the desk's keys and buttons, the cue
+/// stack's steps, the remote protocol, OSC, the Companion module, the install's schedule and a
+/// device of the Interactive area all speak it, and one executor runs it. A cue's step is a
+/// <see cref="ShowAction"/> kept in the show file (<see cref="CueActionConfig"/>); the one table
+/// <see cref="Services.ActionSpec"/> says, per kind, what its target and value are and which few
+/// kinds are the desk's alone. Typed on purpose: a kind can be validated, journaled and displayed;
+/// a free-form string cannot.
 /// </summary>
 public enum ShowActionKind
 {
@@ -119,8 +123,14 @@ public enum ShowActionKind
     FreezeOn,
     FreezeOff,
     FreezeToggle,
-    /// <summary>Blackout on with a fade of the value's milliseconds (empty: the show's transition time), then off again the same way.</summary>
+    /// <summary>
+    /// Target = where the fade lands (empty = the rig, as a blackout with a fade; FOCUSED, TICKED,
+    /// GROUPS, SCREEN n, GROUP A, or ID &lt;id&gt; — see <see cref="Services.FadeScope"/>); Value =
+    /// seconds ("2", "1.5", "1500ms"; empty = the show's transition time) — the one convention the
+    /// desk, the wire, OSC and a cue share.
+    /// </summary>
     FadeToBlack,
+    /// <summary>The same places, faded up again (empty = the rig: the blackout lifted and every screen black on its own brought back).</summary>
     FadeUp,
     /// <summary>The look that was on air before the current one, back on air (the value: cut, a fade in ms, or the show default).</summary>
     LookBack,

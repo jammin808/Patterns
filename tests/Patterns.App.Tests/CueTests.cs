@@ -33,7 +33,7 @@ public class CueTests
         return cue;
     }
 
-    private static CueActionConfig Act(CueActionKind kind, string target = "", string value = "")
+    private static CueActionConfig Act(ShowActionKind kind, string target = "", string value = "")
         => new() { Kind = kind, Target = target, Value = value };
 
     [AvaloniaFact]
@@ -47,11 +47,11 @@ public class CueTests
             b.Vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(b.Vm.State);
             var cue = AddCue(stack, "Doors open",
-                Act(CueActionKind.Note),
-                Act(CueActionKind.ApplyLook, walkIn.Id, "cut"),
-                Act(CueActionKind.MessageOn, "", "Doors are open"),
-                Act(CueActionKind.ClockOn),
-                Act(CueActionKind.CountdownStart, "", "5"));
+                Act(ShowActionKind.Note),
+                Act(ShowActionKind.ApplyLook, walkIn.Id, "cut"),
+                Act(ShowActionKind.MessageOn, "", "Doors are open"),
+                Act(ShowActionKind.ClockOn),
+                Act(ShowActionKind.CountdownStart, "", "5"));
 
             var result = b.Services.Actions.FireCue(cue, ActionOrigin.Desk);
             Dispatcher.UIThread.RunJobs();
@@ -89,7 +89,7 @@ public class CueTests
             b.Vm.State.Pattern.Kind = PatternKind.Grid;
             Dispatcher.UIThread.RunJobs();
             var before = b.Services.Bus.Current.Version;
-            var cue = AddCue(CueStacks.Caller(b.Vm.State), "Gone", Act(CueActionKind.ApplyLook, "Deleted look"), Act(CueActionKind.ClockOn));
+            var cue = AddCue(CueStacks.Caller(b.Vm.State), "Gone", Act(ShowActionKind.ApplyLook, "Deleted look"), Act(ShowActionKind.ClockOn));
 
             var result = b.Services.Actions.FireCue(cue, ActionOrigin.Desk);
             Dispatcher.UIThread.RunJobs();
@@ -120,9 +120,9 @@ public class CueTests
             File.WriteAllText(odd, "x");
             b.Vm.State.Stingers.Items.Add(new StingerItemConfig { Name = "Odd", Path = odd });
             var cue = AddCue(CueStacks.Caller(b.Vm.State), "Mixed",
-                Act(CueActionKind.ClockOn),
-                Act(CueActionKind.StingerFire, "Odd"),
-                Act(CueActionKind.MessageOn, "", "never"));
+                Act(ShowActionKind.ClockOn),
+                Act(ShowActionKind.StingerFire, "Odd"),
+                Act(ShowActionKind.MessageOn, "", "never"));
 
             var result = b.Services.Actions.FireCue(cue, ActionOrigin.Desk);
             Dispatcher.UIThread.RunJobs();
@@ -149,8 +149,8 @@ public class CueTests
             b.Vm.IsSandboxActive = false;
             var look = SaveLook(b.Vm, "Holding", PatternKind.Focus); // saved with blackout off
             var stack = CueStacks.Caller(b.Vm.State);
-            var recall = AddCue(stack, "Holding", Act(CueActionKind.ApplyLook, look.Id));
-            var lift = AddCue(stack, "Lift", Act(CueActionKind.BlackoutOff), Act(CueActionKind.ApplyLook, look.Id));
+            var recall = AddCue(stack, "Holding", Act(ShowActionKind.ApplyLook, look.Id));
+            var lift = AddCue(stack, "Lift", Act(ShowActionKind.BlackoutOff), Act(ShowActionKind.ApplyLook, look.Id));
 
             b.Services.Actions.Execute(ShowActionKind.BlackoutOn, ActionOrigin.Desk);
             Assert.True(b.Services.Actions.FireCue(recall, ActionOrigin.Desk).Ok);
@@ -179,8 +179,8 @@ public class CueTests
             var two = SaveLook(b.Vm, "Two", PatternKind.Focus);
             b.Vm.ActivePattern.Kind = PatternKind.Grid;
             var clicker = CueStacks.Clicker(b.Vm.State);
-            AddCue(clicker, "Opening", Act(CueActionKind.ApplyLook, one.Id));
-            AddCue(clicker, "Sponsors", Act(CueActionKind.ApplyLook, two.Id));
+            AddCue(clicker, "Opening", Act(ShowActionKind.ApplyLook, one.Id));
+            AddCue(clicker, "Sponsors", Act(ShowActionKind.ApplyLook, two.Id));
             Assert.False(b.Vm.ClickerArmed); // always off at launch
 
             b.Window.KeyPress(Key.PageDown, RawInputModifiers.None, PhysicalKey.PageDown, null);

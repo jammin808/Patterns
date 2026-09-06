@@ -86,11 +86,11 @@ public class VideoClockAppTests
             Assert.Contains(services.Journal.Tail(8), e => e.Kind == nameof(ShowActionKind.VideoRestart));
 
             // A cue's actions, through the executor, and the wire's words as actions.
-            var skip = new CueActionConfig { Kind = CueActionKind.VideoToEnd, Value = "3" };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(skip), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
+            var skip = new CueActionConfig { Kind = ShowActionKind.VideoToEnd, Value = "3" };
+            Assert.True(services.Actions.Execute(skip.ToAction(), new ActionOrigin(OriginKind.Cue, "01.010")).Ok);
             Assert.Equal(207, fake.SeekedTo);
-            var again = new CueActionConfig { Kind = CueActionKind.VideoRestart };
-            Assert.True(services.Actions.Execute(ShowActions.ToShowAction(again), new ActionOrigin(OriginKind.Cue, "01.020")).Ok);
+            var again = new CueActionConfig { Kind = ShowActionKind.VideoRestart };
+            Assert.True(services.Actions.Execute(again.ToAction(), new ActionOrigin(OriginKind.Cue, "01.020")).Ok);
             Assert.Equal(0, fake.SeekedTo);
             var parsed = CommandRouter.ToAction(ControlProtocol.Parse("VIDEO END 2.5"));
             Assert.Equal((ShowActionKind.VideoToEnd, "2.5"), (parsed!.Value.Kind, parsed.Value.Value));
@@ -179,10 +179,10 @@ public class VideoClockAppTests
             vm.Cues.AddActionCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             var row = vm.Cues.ActionRows.Last();
-            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(CueActionKind.VideoToEnd));
+            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(ShowActionKind.VideoToEnd));
             Assert.True(row.HasValue);
             Assert.Contains("seconds", row.ValueHint);
-            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(CueActionKind.VideoRestart));
+            row.SelectedKind = row.KindChoices.First(k => k.Id == nameof(ShowActionKind.VideoRestart));
             Assert.False(row.HasValue);
 
             // The Help catalogue carries the clock, on the pages it lives on.

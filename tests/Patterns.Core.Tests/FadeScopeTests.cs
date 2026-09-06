@@ -148,48 +148,48 @@ public class FadeScopeTests
     [Fact]
     public void TheCueActionKnowsItsPlaceAndItsSeconds()
     {
-        Assert.Contains(CueActionKind.FadeToBlack, CueActionSpec.Editable);
-        Assert.Contains(CueActionKind.FadeUp, CueActionSpec.Editable);
-        Assert.Equal((TargetKind.Place, ValueKind.Seconds), CueActionSpec.For(CueActionKind.FadeToBlack));
-        Assert.Equal((TargetKind.Place, ValueKind.Seconds), CueActionSpec.For(CueActionKind.FadeUp));
-        Assert.StartsWith("Fade to black", CueActionSpec.Label(CueActionKind.FadeToBlack));
-        Assert.StartsWith("Fade up", CueActionSpec.Label(CueActionKind.FadeUp));
-        Assert.Equal(CueActionKind.FadeToBlack, CueSheet.ParseKind("ftb"));
-        Assert.Equal(CueActionKind.FadeToBlack, CueSheet.ParseKind("Fade to black"));
-        Assert.Equal(CueActionKind.FadeToBlack, CueSheet.ParseKind("fade"));
-        Assert.Equal(CueActionKind.FadeUp, CueSheet.ParseKind("fade up"));
-        Assert.Equal(CueActionKind.FadeUp, CueSheet.ParseKind("fadein"));
+        Assert.Contains(ShowActionKind.FadeToBlack, ActionSpec.CueKinds);
+        Assert.Contains(ShowActionKind.FadeUp, ActionSpec.CueKinds);
+        Assert.Equal((TargetKind.Place, ValueKind.Seconds), ActionSpec.For(ShowActionKind.FadeToBlack));
+        Assert.Equal((TargetKind.Place, ValueKind.Seconds), ActionSpec.For(ShowActionKind.FadeUp));
+        Assert.StartsWith("Fade to black", ActionSpec.Label(ShowActionKind.FadeToBlack));
+        Assert.StartsWith("Fade up", ActionSpec.Label(ShowActionKind.FadeUp));
+        Assert.Equal(ShowActionKind.FadeToBlack, CueSheet.ParseKind("ftb"));
+        Assert.Equal(ShowActionKind.FadeToBlack, CueSheet.ParseKind("Fade to black"));
+        Assert.Equal(ShowActionKind.FadeToBlack, CueSheet.ParseKind("fade"));
+        Assert.Equal(ShowActionKind.FadeUp, CueSheet.ParseKind("fade up"));
+        Assert.Equal(ShowActionKind.FadeUp, CueSheet.ParseKind("fadein"));
 
         var state = new ShowState();
         state.Output.Placements.Add(new ScreenPlacement { ScreenId = "b", CustomLabel = "Stage left" });
-        Assert.Equal("Fade to black — every screen", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.FadeToBlack }));
-        Assert.Equal("Fade to black — screen 2 over 2 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.FadeToBlack, Target = "SCREEN 2", Value = "2" }));
-        Assert.Equal("Fade up — group A", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.FadeUp, Target = "GROUP A" }));
-        Assert.Equal("Fade to black — the ticked screens over 1.5 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.FadeToBlack, Target = "TICKED", Value = "1.5" }));
-        Assert.Equal("Fade to black — Stage left", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.FadeToBlack, Target = "ID b" }));
-        Assert.Equal("Fade up — 'no such place'?", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.FadeUp, Target = "no such place" }));
-        Assert.Equal("Fade up — 'b'?", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.FadeUp, Target = "b" }));
+        Assert.Equal("Fade to black — every screen", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack }));
+        Assert.Equal("Fade to black — screen 2 over 2 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack, Target = "SCREEN 2", Value = "2" }));
+        Assert.Equal("Fade up — group A", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "GROUP A" }));
+        Assert.Equal("Fade to black — the ticked screens over 1.5 s", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack, Target = "TICKED", Value = "1.5" }));
+        Assert.Equal("Fade to black — Stage left", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeToBlack, Target = "ID b" }));
+        Assert.Equal("Fade up — 'no such place'?", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "no such place" }));
+        Assert.Equal("Fade up — 'b'?", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.FadeUp, Target = "b" }));
 
         // The checks: a place that is not one, a screen that is not in the rig, seconds that are not.
         var ctx = new CueValidationContext { FileExists = _ => true };
-        RunCueConfig Cue(CueActionKind kind, string target, string value)
+        RunCueConfig Cue(ShowActionKind kind, string target, string value)
         {
             var cue = new RunCueConfig { Number = "1", Name = "Fade" };
             cue.Actions.Add(new CueActionConfig { Kind = kind, Target = target, Value = value });
             return cue;
         }
-        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(CueActionKind.FadeToBlack, "", ""), ctx).BrokenCount);
-        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(CueActionKind.FadeToBlack, "SCREEN 2", "2"), ctx).BrokenCount);
-        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(CueActionKind.FadeUp, "GROUP A", "0.5"), ctx).BrokenCount);
-        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(CueActionKind.FadeUp, "ID b", ""), ctx).BrokenCount);
-        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(CueActionKind.FadeToBlack, "TICKED", ""), ctx).BrokenCount);
-        var badPlace = Cue(CueActionKind.FadeToBlack, "SCREEN", "");
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeToBlack, "", ""), ctx).BrokenCount);
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeToBlack, "SCREEN 2", "2"), ctx).BrokenCount);
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeUp, "GROUP A", "0.5"), ctx).BrokenCount);
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeUp, "ID b", ""), ctx).BrokenCount);
+        Assert.Equal(0, CueValidator.ValidateOne(state, Cue(ShowActionKind.FadeToBlack, "TICKED", ""), ctx).BrokenCount);
+        var badPlace = Cue(ShowActionKind.FadeToBlack, "SCREEN", "");
         Assert.Contains("not a place to fade", CueValidator.ValidateOne(state, badPlace, ctx).ReasonFor(badPlace.Id));
-        var bareWord = Cue(CueActionKind.FadeToBlack, "b", "");
+        var bareWord = Cue(ShowActionKind.FadeToBlack, "b", "");
         Assert.Contains("not a place to fade", CueValidator.ValidateOne(state, bareWord, ctx).ReasonFor(bareWord.Id));
-        var gone = Cue(CueActionKind.FadeToBlack, "ID zz", "");
+        var gone = Cue(ShowActionKind.FadeToBlack, "ID zz", "");
         Assert.Contains("not in the rig", CueValidator.ValidateOne(state, gone, ctx).ReasonFor(gone.Id));
-        var slow = Cue(CueActionKind.FadeUp, "", "slowly");
+        var slow = Cue(ShowActionKind.FadeUp, "", "slowly");
         Assert.Contains("not a number of seconds", CueValidator.ValidateOne(state, slow, ctx).ReasonFor(slow.Id));
 
         // A sheet: the place as the wire writes it, a screen by its label, nothing for every screen; nonsense is a note and the cue still lands.
@@ -197,7 +197,7 @@ public class FadeScopeTests
         var imported = CueSheet.Import(CsvTable.Parse(csv), state);
         Assert.Equal(4, imported.Cues.Count);
         Assert.Equal(("ID b", "2"), (imported.Cues[0].Actions[0].Target, imported.Cues[0].Actions[0].Value));
-        Assert.Equal((CueActionKind.FadeUp, "SCREEN 2"), (imported.Cues[1].Actions[0].Kind, imported.Cues[1].Actions[0].Target));
+        Assert.Equal((ShowActionKind.FadeUp, "SCREEN 2"), (imported.Cues[1].Actions[0].Kind, imported.Cues[1].Actions[0].Target));
         Assert.Equal("", imported.Cues[2].Actions[0].Target);
         Assert.Contains(imported.Notes, n => n.Contains("not a place to fade"));
 

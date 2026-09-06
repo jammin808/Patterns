@@ -170,8 +170,8 @@ public class WeatherAppTests
             // A cue: the view to the rest of today and the chip on, from the caller's stack.
             var stack = CueStacks.Caller(vm.State);
             var cue = new RunCueConfig { Number = "1", Name = "Weather" };
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.WeatherOn });
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.WeatherView, Value = "day" });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WeatherOn });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WeatherView, Value = "day" });
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
             services.CueStack.SetArmed(true, ActionOrigin.Desk);

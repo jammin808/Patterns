@@ -457,8 +457,8 @@ public sealed partial class MainViewModel : Observable
         FreezeCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.FreezeToggle, ActionOrigin.Desk));
         // The fade lands where the picker says: every screen, the focused tile, the ticked tiles or
         // the ticked groups; the action's own words (a refusal says what to tick) go to the status line.
-        FadeToBlackCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.FadeToBlack, ActionOrigin.Desk, SelectedFadeScope.Words, FadeMsText()).Message);
-        FadeUpCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.FadeUp, ActionOrigin.Desk, SelectedFadeScope.Words, FadeMsText()).Message);
+        FadeToBlackCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.FadeToBlack, ActionOrigin.Desk, SelectedFadeScope.Words, FadeSecondsText()).Message);
+        FadeUpCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.FadeUp, ActionOrigin.Desk, SelectedFadeScope.Words, FadeSecondsText()).Message);
         // A scoped FADE reads the wall's focus and ticks through the services, never the other way round.
         _services.FocusedTarget = () => _selectedTargetId;
         _services.TickedTargets = () => SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null).Select(t => t.TargetId!).ToList();

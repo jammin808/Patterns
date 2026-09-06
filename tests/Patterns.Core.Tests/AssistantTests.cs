@@ -34,7 +34,7 @@ public class AssistantTests
         s.LooksAndCues.Looks.Add(new LookConfig { Name = "Keynote", Json = LookService.Capture(s) });
         var stack = CueStacks.Caller(s);
         var cue = new RunCueConfig { Number = "01.010", Name = "Doors", PlannedStart = "09:00" };
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = s.LooksAndCues.Looks[0].Id });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = s.LooksAndCues.Looks[0].Id });
         stack.Cues.Add(cue);
         var design = LowerThirdPresets.Create("Corporate");
         design.Name = "Speaker";
@@ -163,9 +163,9 @@ public class AssistantTests
         Assert.Contains("Grid, Checkerboard", prompt);
         Assert.Contains("Clean, Broadcast, Glass", prompt);
         Assert.Contains("main, confidence, info", prompt);
-        foreach (var kind in CueActionSpec.Editable)
+        foreach (var kind in ActionSpec.CueKinds)
         {
-            Assert.Contains($"{CueActionSpec.Label(kind)} [{kind}]", prompt);
+            Assert.Contains($"{ActionSpec.Label(kind)} [{kind}]", prompt);
         }
         Assert.Contains("Apply look [ApplyLook] — target: a look's name — value: cut, a fade in ms, or blank", prompt);
         Assert.Contains("Weather — the view (now / day / tomorrow) [WeatherView] — value: now, day or tomorrow", prompt);
@@ -357,18 +357,18 @@ public class AssistantTests
         var doors = stack.Cues[0];
         Assert.Equal("01.010", doors.Number);
         Assert.Equal(("Doors", "09:00", 1800, "Walk-in music under"), (doors.Name, doors.PlannedStart, doors.PlannedSeconds, doors.Notes));
-        Assert.Equal(CueActionKind.ApplyLook, doors.Actions[0].Kind);
+        Assert.Equal(ShowActionKind.ApplyLook, doors.Actions[0].Kind);
         Assert.Equal(walkIn.Id, doors.Actions[0].Target);
-        Assert.Equal(CueActionKind.AudioPlay, doors.Actions[1].Kind);
+        Assert.Equal(ShowActionKind.AudioPlay, doors.Actions[1].Kind);
         var key = stack.Cues[1];
         Assert.Equal("01.020", key.Number);
         Assert.Equal(2, key.Actions.Count);
         Assert.Equal(keynote.Id, key.Actions[0].Target);
         Assert.Equal("cut", key.Actions[0].Value);
-        Assert.Equal(CueActionKind.LowerThirdShow, key.Actions[1].Kind);
+        Assert.Equal(ShowActionKind.LowerThirdShow, key.Actions[1].Kind);
         Assert.Equal(design.Id, key.Actions[1].Target);
         var weather = stack.Cues[2];
-        Assert.Equal(CueActionKind.WeatherView, weather.Actions[0].Kind);
+        Assert.Equal(ShowActionKind.WeatherView, weather.Actions[0].Kind);
         Assert.Equal("tomorrow", weather.Actions[0].Value);
 
         // The checks read the result as a whole cue list would: only Doors is broken, and only because the
@@ -465,7 +465,7 @@ public class AssistantTests
         Assert.Equal(CueStacks.Caller(state).Id, own.Actions[1].Target);
         var notes = CueStacks.Caller(state).Cues[^1];
         Assert.Equal("Just notes", notes.Name);
-        Assert.Equal(CueActionKind.Note, Assert.Single(notes.Actions).Kind);
+        Assert.Equal(ShowActionKind.Note, Assert.Single(notes.Actions).Kind);
         Assert.Contains("cue 01.020 'Just notes' added to Cue stack", report.Applied);
 
         // Nothing to apply says so; a steps proposal cannot be applied at all.

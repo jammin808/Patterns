@@ -284,25 +284,25 @@ public class WeatherTests
     [Fact]
     public void TheCueActionsReadThroughTheSpecTheSheetTheSummaryAndTheChecks()
     {
-        Assert.Equal((TargetKind.None, ValueKind.WeatherView), CueActionSpec.For(CueActionKind.WeatherView));
-        Assert.Equal((TargetKind.None, ValueKind.None), CueActionSpec.For(CueActionKind.WeatherOn));
-        Assert.Equal("Weather on", CueActionSpec.Label(CueActionKind.WeatherOn));
-        Assert.Contains(CueActionKind.WeatherView, CueActionSpec.Editable);
-        Assert.Equal(CueActionKind.WeatherOn, CueSheet.ParseKind("weather"));
-        Assert.Equal(CueActionKind.WeatherOn, CueSheet.ParseKind("Forecast"));
-        Assert.Equal(CueActionKind.WeatherOff, CueSheet.ParseKind("weather off"));
-        Assert.Equal(CueActionKind.WeatherView, CueSheet.ParseKind("weather view"));
+        Assert.Equal((TargetKind.None, ValueKind.WeatherView), ActionSpec.For(ShowActionKind.WeatherView));
+        Assert.Equal((TargetKind.None, ValueKind.None), ActionSpec.For(ShowActionKind.WeatherOn));
+        Assert.Equal("Weather on", ActionSpec.Label(ShowActionKind.WeatherOn));
+        Assert.Contains(ShowActionKind.WeatherView, ActionSpec.CueKinds);
+        Assert.Equal(ShowActionKind.WeatherOn, CueSheet.ParseKind("weather"));
+        Assert.Equal(ShowActionKind.WeatherOn, CueSheet.ParseKind("Forecast"));
+        Assert.Equal(ShowActionKind.WeatherOff, CueSheet.ParseKind("weather off"));
+        Assert.Equal(ShowActionKind.WeatherView, CueSheet.ParseKind("weather view"));
 
         var state = new ShowState();
-        Assert.Equal("Weather on", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.WeatherOn }));
-        Assert.Equal("Weather: tomorrow", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.WeatherView, Value = "tomorrow" }));
-        Assert.Equal("Weather: 'later on' (not a view)", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.WeatherView, Value = "later on" }));
+        Assert.Equal("Weather on", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.WeatherOn }));
+        Assert.Equal("Weather: tomorrow", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.WeatherView, Value = "tomorrow" }));
+        Assert.Equal("Weather: 'later on' (not a view)", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.WeatherView, Value = "later on" }));
 
         var stack = CueStacks.Caller(state);
         var on = new RunCueConfig { Number = "1", Name = "Weather" };
-        on.Actions.Add(new CueActionConfig { Kind = CueActionKind.WeatherOn });
+        on.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WeatherOn });
         var bad = new RunCueConfig { Number = "2", Name = "View" };
-        bad.Actions.Add(new CueActionConfig { Kind = CueActionKind.WeatherView, Value = "yesterday" });
+        bad.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WeatherView, Value = "yesterday" });
         stack.Cues.Add(on);
         stack.Cues.Add(bad);
         var report = CueValidator.Validate(state, stack, new CueValidationContext());

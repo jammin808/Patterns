@@ -109,6 +109,9 @@ public sealed class CommandRouter
         return result.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(result.Message);
     }
 
+    /// <summary>The wire's parsed milliseconds as the action's seconds ("2", "1.5"); none for the show's own time.</summary>
+    private static string FadeSeconds(int ms) => ms > 0 ? (ms / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "";
+
     /// <summary>The wire vocabulary → the show's vocabulary. Pure; unit tested.</summary>
     public static ShowAction? ToAction(RemoteCommand cmd)
     {
@@ -189,8 +192,8 @@ public sealed class CommandRouter
             RemoteCommandKind.FreezeOn => new ShowAction(ShowActionKind.FreezeOn),
             RemoteCommandKind.FreezeOff => new ShowAction(ShowActionKind.FreezeOff),
             RemoteCommandKind.FreezeToggle => new ShowAction(ShowActionKind.FreezeToggle),
-            RemoteCommandKind.FadeToBlack => new ShowAction(ShowActionKind.FadeToBlack, cmd.TextArg, cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
-            RemoteCommandKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, cmd.TextArg, cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
+            RemoteCommandKind.FadeToBlack => new ShowAction(ShowActionKind.FadeToBlack, cmd.TextArg, FadeSeconds(cmd.IntArg)),
+            RemoteCommandKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, cmd.TextArg, FadeSeconds(cmd.IntArg)),
             RemoteCommandKind.LookBack => new ShowAction(ShowActionKind.LookBack, "", cmd.TextArg),
             RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
             RemoteCommandKind.LowerThirdPreview => new ShowAction(ShowActionKind.LowerThirdPreview, byNumberOrName, cmd.Extra),

@@ -22,7 +22,7 @@ public class CueStackTests
         return cue;
     }
 
-    private static CueActionConfig Act(CueActionKind kind, string target = "", string value = "")
+    private static CueActionConfig Act(ShowActionKind kind, string target = "", string value = "")
         => new() { Kind = kind, Target = target, Value = value };
 
     [Fact]
@@ -54,30 +54,33 @@ public class CueStackTests
     [Fact]
     public void TheSpecTableCoversEveryKindAnOperatorCanPick()
     {
-        foreach (var kind in Enum.GetValues<CueActionKind>())
+        // The one vocabulary: every kind is a cue's to pick or the desk's alone — never neither, never both.
+        foreach (var kind in Enum.GetValues<ShowActionKind>())
         {
-            if (kind == CueActionKind.Unknown)
+            if (kind == ShowActionKind.Unknown)
             {
-                Assert.DoesNotContain(kind, CueActionSpec.Editable);
+                Assert.DoesNotContain(kind, ActionSpec.CueKinds);
+                Assert.Null(ActionSpec.DeskOnly(kind));
                 continue;
             }
-            Assert.Contains(kind, CueActionSpec.Editable);
-            Assert.False(string.IsNullOrWhiteSpace(CueActionSpec.Label(kind)));
-            _ = CueActionSpec.For(kind); // never throws
+            var deskOnly = ActionSpec.DeskOnly(kind);
+            Assert.True(ActionSpec.CueKinds.Contains(kind) != (deskOnly is not null), $"{kind} must be a cue kind or the desk's alone, and not both");
+            Assert.False(string.IsNullOrWhiteSpace(ActionSpec.Label(kind)));
+            _ = ActionSpec.For(kind); // never throws
         }
-        Assert.Equal((TargetKind.Look, ValueKind.Transition), CueActionSpec.For(CueActionKind.ApplyLook));
-        Assert.Equal((TargetKind.Stack, ValueKind.None), CueActionSpec.For(CueActionKind.ListGo));
-        Assert.Equal((TargetKind.None, ValueKind.Minutes), CueActionSpec.For(CueActionKind.CountdownStart));
-        Assert.Equal((TargetKind.None, ValueKind.Percent), CueActionSpec.For(CueActionKind.AudioVolume));
-        Assert.True(CueActionSpec.TryParsePercent(" 40 ", out var pct) && pct == 40);
-        Assert.False(CueActionSpec.TryParsePercent("126", out _));
-        Assert.False(CueActionSpec.TryParsePercent("-1", out _));
-        Assert.False(CueActionSpec.TryParsePercent("loud", out _));
-        Assert.Equal("Audio volume 40%", CueSummary.DescribeAction(new ShowState(), new CueActionConfig { Kind = CueActionKind.AudioVolume, Value = "40" }));
-        Assert.True(CueActionSpec.TryParseTransition("", out var cut, out var ms) && !cut && ms < 0);
-        Assert.True(CueActionSpec.TryParseTransition("CUT", out cut, out _) && cut);
-        Assert.True(CueActionSpec.TryParseTransition("800", out _, out ms) && ms == 800);
-        Assert.False(CueActionSpec.TryParseTransition("fast", out _, out _));
+        Assert.Equal((TargetKind.Look, ValueKind.Transition), ActionSpec.For(ShowActionKind.ApplyLook));
+        Assert.Equal((TargetKind.Stack, ValueKind.None), ActionSpec.For(ShowActionKind.ListGo));
+        Assert.Equal((TargetKind.None, ValueKind.Minutes), ActionSpec.For(ShowActionKind.CountdownStart));
+        Assert.Equal((TargetKind.None, ValueKind.Percent), ActionSpec.For(ShowActionKind.AudioVolume));
+        Assert.True(ActionSpec.TryParsePercent(" 40 ", out var pct) && pct == 40);
+        Assert.False(ActionSpec.TryParsePercent("126", out _));
+        Assert.False(ActionSpec.TryParsePercent("-1", out _));
+        Assert.False(ActionSpec.TryParsePercent("loud", out _));
+        Assert.Equal("Audio volume 40%", CueSummary.DescribeAction(new ShowState(), new CueActionConfig { Kind = ShowActionKind.AudioVolume, Value = "40" }));
+        Assert.True(ActionSpec.TryParseTransition("", out var cut, out var ms) && !cut && ms < 0);
+        Assert.True(ActionSpec.TryParseTransition("CUT", out cut, out _) && cut);
+        Assert.True(ActionSpec.TryParseTransition("800", out _, out ms) && ms == 800);
+        Assert.False(ActionSpec.TryParseTransition("fast", out _, out _));
     }
 
     [Fact]
@@ -97,20 +100,20 @@ public class CueStackTests
         var show = LookService.Find(state, "Show")!;
 
         var stack = CueStacks.Caller(state);
-        stack.Cues.Add(Cue("01.010", "Walk-in", Act(CueActionKind.ApplyLook, walkIn.Id)));
-        stack.Cues.Add(Cue("01.020", "Gone", Act(CueActionKind.ApplyLook, "Deleted look")));
-        stack.Cues.Add(Cue("01.030", "Part too early", Act(CueActionKind.PlaylistPart, "Main")));
-        stack.Cues.Add(Cue("01.040", "Show", Act(CueActionKind.ApplyLook, show.Id, "800")));
-        stack.Cues.Add(Cue("01.050", "Part in time", Act(CueActionKind.PlaylistPart, "Main")));
-        stack.Cues.Add(Cue("01.060", "Sting", Act(CueActionKind.StingerFire, "Sting")));
-        stack.Cues.Add(Cue("01.070", "Clip with a look", Act(CueActionKind.StingerFire, "Clip"), Act(CueActionKind.ApplyLook, walkIn.Id)));
-        stack.Cues.Add(Cue("01.080", "Newer build", Act(CueActionKind.Unknown)));
-        stack.Cues.Add(Cue("01.090", "Bad fade", Act(CueActionKind.ApplyLook, walkIn.Id, "fast")));
-        stack.Cues.Add(Cue("01.100", "No stream target", Act(CueActionKind.StreamStart)));
-        stack.Cues.Add(Cue("01.110", "Countdown", Act(CueActionKind.CountdownStart, "", "5")));
-        stack.Cues.Add(Cue("01.120", "Empty message", Act(CueActionKind.MessageOn, "", "")));
-        stack.Cues.Add(Cue("01.130", "Volume", Act(CueActionKind.AudioVolume, "", "40")));
-        stack.Cues.Add(Cue("01.140", "Bad volume", Act(CueActionKind.AudioVolume, "", "loud")));
+        stack.Cues.Add(Cue("01.010", "Walk-in", Act(ShowActionKind.ApplyLook, walkIn.Id)));
+        stack.Cues.Add(Cue("01.020", "Gone", Act(ShowActionKind.ApplyLook, "Deleted look")));
+        stack.Cues.Add(Cue("01.030", "Part too early", Act(ShowActionKind.PlaylistPart, "Main")));
+        stack.Cues.Add(Cue("01.040", "Show", Act(ShowActionKind.ApplyLook, show.Id, "800")));
+        stack.Cues.Add(Cue("01.050", "Part in time", Act(ShowActionKind.PlaylistPart, "Main")));
+        stack.Cues.Add(Cue("01.060", "Sting", Act(ShowActionKind.StingerFire, "Sting")));
+        stack.Cues.Add(Cue("01.070", "Clip with a look", Act(ShowActionKind.StingerFire, "Clip"), Act(ShowActionKind.ApplyLook, walkIn.Id)));
+        stack.Cues.Add(Cue("01.080", "Newer build", Act(ShowActionKind.Unknown)));
+        stack.Cues.Add(Cue("01.090", "Bad fade", Act(ShowActionKind.ApplyLook, walkIn.Id, "fast")));
+        stack.Cues.Add(Cue("01.100", "No stream target", Act(ShowActionKind.StreamStart)));
+        stack.Cues.Add(Cue("01.110", "Countdown", Act(ShowActionKind.CountdownStart, "", "5")));
+        stack.Cues.Add(Cue("01.120", "Empty message", Act(ShowActionKind.MessageOn, "", "")));
+        stack.Cues.Add(Cue("01.130", "Volume", Act(ShowActionKind.AudioVolume, "", "40")));
+        stack.Cues.Add(Cue("01.140", "Bad volume", Act(ShowActionKind.AudioVolume, "", "loud")));
 
         var ctx = new CueValidationContext { FileExists = p => p.EndsWith(".wav") || p.EndsWith(".mp4"), VideoDecoderAvailable = true };
         var report = CueValidator.Validate(state, stack, ctx);
@@ -153,7 +156,7 @@ public class CueStackTests
         state.Pattern.Media.ImagePath = "/gone/logo.png";
         state.LooksAndCues.Looks.Add(new LookConfig { Name = "Logo", Json = LookService.Capture(state) });
         var stack = CueStacks.Caller(state);
-        stack.Cues.Add(Cue("01.010", "Logo", Act(CueActionKind.ApplyLook, LookService.Find(state, "Logo")!.Id)));
+        stack.Cues.Add(Cue("01.010", "Logo", Act(ShowActionKind.ApplyLook, LookService.Find(state, "Logo")!.Id)));
 
         var report = CueValidator.Validate(state, stack, new CueValidationContext { FileExists = _ => false });
         Assert.Equal(0, report.BrokenCount);
@@ -205,11 +208,11 @@ public class CueStackTests
         state.Stingers.Items.Add(new StingerItemConfig { Name = "Applause", Path = "/a.wav" });
         var look = LookService.Find(state, "Awards holding")!;
         var cue = Cue("01.010", "Holding",
-            Act(CueActionKind.ApplyLook, look.Id, "cut"),
-            Act(CueActionKind.AudioPlay),
-            Act(CueActionKind.PlaylistPart, "Main"),
-            Act(CueActionKind.StingerFire, "Applause"),
-            Act(CueActionKind.MessageOn, "", "Welcome back"));
+            Act(ShowActionKind.ApplyLook, look.Id, "cut"),
+            Act(ShowActionKind.AudioPlay),
+            Act(ShowActionKind.PlaylistPart, "Main"),
+            Act(ShowActionKind.StingerFire, "Applause"),
+            Act(ShowActionKind.MessageOn, "", "Welcome back"));
 
         Assert.Equal("Apply 'Awards holding' (cut) + Play audio + Part 'Main' + +2 more", CueSummary.Describe(state, cue));
         Assert.Equal("VOG 'Applause'", CueSummary.DescribeAction(state, cue.Actions[3]));   // a default item is a VOG
@@ -221,10 +224,10 @@ public class CueStackTests
             Name = "Whoosh", Path = "/w.mp4", Kind = StingerKind.Sting, After = StingerAfter.Manual,
         });
         Assert.Equal("Sting 'Whoosh' (hold for a take)",
-            CueSummary.DescribeAction(state, Act(CueActionKind.StingerFire, "Whoosh")));
-        Assert.Equal("Sting 'gone'", CueSummary.DescribeAction(state, Act(CueActionKind.StingerFire, "gone")));
+            CueSummary.DescribeAction(state, Act(ShowActionKind.StingerFire, "Whoosh")));
+        Assert.Equal("Sting 'gone'", CueSummary.DescribeAction(state, Act(ShowActionKind.StingerFire, "gone")));
         Assert.Equal("No actions — notes only.", CueSummary.Describe(state, Cue("01.020", "Note")));
-        Assert.Equal("Apply 'nope' (800 ms)", CueSummary.DescribeAction(state, Act(CueActionKind.ApplyLook, "nope", "800")));
+        Assert.Equal("Apply 'nope' (800 ms)", CueSummary.DescribeAction(state, Act(ShowActionKind.ApplyLook, "nope", "800")));
     }
 
     [Fact]
@@ -240,7 +243,7 @@ public class CueStackTests
         var ctx = new CueValidationContext { FileExists = _ => true, VideoDecoderAvailable = true };
 
         // Validated on their own, as GO re-checks a cue — the caller's list stays empty on purpose.
-        var cue = Cue("09.010", "Hit", Act(CueActionKind.StingerFire, "s1"));
+        var cue = Cue("09.010", "Hit", Act(ShowActionKind.StingerFire, "s1"));
 
         // An after-policy that points nowhere is a Hard issue, named where the operator can fix it.
         sting.After = StingerAfter.Custom;
@@ -261,7 +264,7 @@ public class CueStackTests
         Assert.Contains("the caller's list is empty", soft.Warnings[cue.Id]);
 
         // The takeover rule follows the file, not the kind: a video VOG takes every screen too.
-        var shared = Cue("09.020", "Clip with a look", Act(CueActionKind.StingerFire, "v1"), Act(CueActionKind.ApplyLook, look.Id));
+        var shared = Cue("09.020", "Clip with a look", Act(ShowActionKind.StingerFire, "v1"), Act(ShowActionKind.ApplyLook, look.Id));
         Assert.Contains("cannot share a cue", CueValidator.ValidateOne(state, shared, ctx).ReasonFor(shared.Id));
     }
 
@@ -315,8 +318,8 @@ public class CueStackTests
         var look = new LookConfig { Name = "Walk-in" };
         state.LooksAndCues.Looks.Add(look);
         var caller = CueStacks.Caller(state);
-        caller.Cues.Add(Cue("03.020", "Five-minute call", Act(CueActionKind.ApplyLook, look.Id)));
-        CueStacks.Clicker(state).Cues.Add(Cue("01.010", "Opening", Act(CueActionKind.ApplyLook, "walk-in")));
+        caller.Cues.Add(Cue("03.020", "Five-minute call", Act(ShowActionKind.ApplyLook, look.Id)));
+        CueStacks.Clicker(state).Cues.Add(Cue("01.010", "Opening", Act(ShowActionKind.ApplyLook, "walk-in")));
 
         var refs = LookService.References(state, look);
         Assert.Contains("Cue stack cue 03.020 Five-minute call", refs);

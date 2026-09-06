@@ -1461,3 +1461,87 @@ ground reads as subdued or as loud on the venue's display (rows 7 and 9).
 5. *Cue actions for the overlay verbs* (carried from §18.10): CLOCK 12 / 24, MESSAGE SCROLL,
    COUNTDOWN TO, LOGO, PIP and OVERLAYS OFF as cue action kinds through the spec, the summary, the
    sheet, the validator and the executor.
+
+## 21. Round 16 — one action vocabulary
+
+The user's round-16 brief, one item and a warning sign: "The action architecture problem is still
+there … `ShowActionKind` contains substantially more capabilities … while `CueActionKind` still has
+only the narrower subset … the `ShowActionKind` comment still says '(later) the cue stack' … one
+executor fed by the desk, the cue and OSC, rather than two vocabularies with a manual map. Look at
+and implement the best way to refactor." The answer is §22. Newest row first. The checklist for the
+Windows machine is `docs/CHECKLIST-round16.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | One action vocabulary (§22.1). `CueActionKind` is gone: a cue's step (`CueActionConfig`) carries a `ShowActionKind` — the same kind, target and value the desk's keys, the wire's lines, OSC, Companion, the schedule and a device send — and `ToAction()` is the whole translation; `ShowActions.ToShowAction`, the 65-row map, is deleted and `RunCue` hands each step to the one executor. The vocabulary (`ShowActionKind`, `ShowAction`, `ActionOrigin`, `ActionResult`) lives in `Patterns.Core.Model` now, beside the cue that carries it, and the comment that said "(later) the cue stack" says who speaks it. `ActionSpec` (was `CueActionSpec`) is the one table for the whole vocabulary: per kind its target and value (five value kinds added — Switch, Hours, ClockTime, PatternKind, Address), its label, `CueKinds` (the picker's order) and `DeskOnly` (thirteen kinds, each with its reason: TAKE and CUT, the stack's own transport, the clicker's keys, the F-key slot, identify, the review flag, the admin verbs). Thirty-four verbs a cue never had are a cue's now — the clock's format, seconds and date, the message's toggle and scroll, a countdown to a time and its label, the logo, the PiP, overlays off, the pattern's kind, freeze, tone, stop all, outputs, the toggles, a look into the preview, the look before, a lower third's preview off and update, a web page opened — with the checks, the summary's words, the sheet's spellings and the editor's hints for each. One convention for a fade's length: the value is seconds for the desk's key, the wire's line, OSC and a cue alike (the wire's parsed milliseconds become "2" / "1.5"; "1500ms" still reads), so no source converts for another. Show files load unchanged: the kind was always kept by name, and every old name is a `ShowActionKind`. Tests: a guard that every kind is a cue kind or the desk's alone and never both, that every cue kind has a label, words in the summary and a sheet spelling, and that the desk's own never parse from a sheet; the show file round trip and a newer build's kind as Unknown; the checks on the desk's own kinds and the new values; on a live desk one cue running eleven verbs a cue never had, a clean picture, TAKE and RESTART refused from a cue with their reasons, and the fade's seconds from the desk, the wire and a cue into the one executor; every wire command either handled by the router or mapped to a show action. | done |
+
+## 22. Round 16 — the answers
+
+### 22.1 One vocabulary, one executor: the refactor, and why this shape
+
+**The diagnosis.** The cue model was written before the action layer settled, and it kept its own
+enum. From then on every verb had to be added twice and mapped once — a `ShowActionKind`, a
+`CueActionKind`, a row in `ToShowAction` — and the map was a switch in the App's executor, so a
+verb that missed one of the three compiled fine and simply never reached a cue. Round 15 showed
+both halves of the problem in one commit: the fade reached cues because it was carried there by
+hand, while `ClockFormat`, `ClockSeconds`, `MessageScroll`, `CountdownTo`, `LogoOn`, `PipOn`,
+`OverlaysOff` and `PatternKind` — verbs the wire and Companion had had since round 14 — never did.
+The comment on `ShowActionKind` still said "(later) the cue stack". That was the flashing sign.
+
+**The shape.** A cue *stores* a show action. Not a cue action that maps to a show action, and not
+the other way round: `CueActionConfig.Kind` is a `ShowActionKind`, `ToAction()` is a three-field
+copy, and `RunCue` hands each step to the same `Run` the desk's keys and the wire's lines go
+through. Two things made this cheap rather than dangerous. Every name in the old cue enum was
+already a name in the show enum, and the show file keeps a kind by its name, so a file written by
+any earlier build loads without a migration — the test proves it with an old step and a newer
+build's unknown kind. And the executor was already the one place every verb was implemented; the
+map had only been re-spelling what it already knew.
+
+**Where the vocabulary lives.** In `Patterns.Core.Model`, beside the cue that carries it, not in
+`Services`. A vocabulary is data — a kind, a target, a value — and the model that stores it must
+not depend on the services that act on it. The seven App files that reached it by its old
+namespace gained a using; nothing else moved.
+
+**The one table.** `ActionSpec` replaces `CueActionSpec` and is keyed by the one enum. Per kind it
+says what the target is and what the value is (five value kinds were added for the verbs now open
+to cues: a switch word, the clock's hours, a time of day, a kind of picture, an address), how the
+kind reads, and — the part that makes the round hold — which few kinds are the desk's alone.
+Thirteen, each with its reason in the table: TAKE and CUT send the desk's half-built preview to
+air, and a running order never takes a preview by itself; GO and CUE FIRE are the stack's own
+transport, and a cue firing cues is a loop waiting to happen; the clicker's keys and the F-key slot
+name a list or a look better by name; identify is set-up; the review flag is the desk looking at
+its own preview; the two admin verbs sit behind the passcode. Everything else — 98 kinds — a cue
+may carry, in a picker order that groups them the way the desk does. The validator refuses a desk
+kind in a cue with the reason (so a sheet or the assistant cannot smuggle one in), and the
+executor's cases did not change at all.
+
+**The door.** Three tests hold it. Every `ShowActionKind` must be in `CueKinds` or have a
+`DeskOnly` reason, never both, never neither; every cue kind must have a label that is not its
+enum name, words in the summary that are not its enum name, and a spelling the sheet reads back.
+A verb added to the vocabulary without a row in the table now fails the build's tests instead of
+failing the operator at the Cues page. What a new verb costs today: one enum member, one executor
+case, one row in `ActionSpec` (and its summary words), and the tests say which of those is missing.
+
+**One convention for the fade.** The two vocabularies had also grown two meanings for the same
+value: the wire and the desk sent milliseconds, the cue editor took seconds, and the map converted.
+With one vocabulary there is one meaning — seconds, with "1500ms" still read — chosen because it is
+what a person types on the panel, on a sheet and in a Companion key; the wire's parser hands its
+milliseconds over as "2" or "1.5", and the executor is the single reader. The journal reads
+better for it, too.
+
+**What did not change.** The executor's cases, the journal, the wire's grammar and its verbs, the
+OSC map, the Companion module, the show file format, and every cue a show already has.
+
+### 22.2 What remains: the wire's own map
+
+The remote protocol still has a vocabulary of its own — `RemoteCommandKind`, 115 kinds — and
+`CommandRouter.ToAction` maps 101 of them to a `ShowAction` by hand. It is not the same fault: the
+wire's grammar is a parser's output, it has queries (STATE, HELP, PING, CUE LIST) and transport
+(standby, hold, arm) that are not show actions, and its arguments are positional words the parser
+must read before a kind can carry them. But it is a manual map, and a manual map rots the same way.
+This round gives it the same door: a test that every `RemoteCommandKind` is either one the router
+answers itself or one that maps to a show action, so a verb added to the wire without a row fails
+here. The next step, when it is worth a round of its own, is for the parser to return a
+`ShowAction` directly for the action verbs and a small query type for the rest, which deletes the
+map; it touches `ControlProtocol`, the router, the OSC map and the Companion module's expectations
+at once, and the brief asked for one careful job, done well, first.

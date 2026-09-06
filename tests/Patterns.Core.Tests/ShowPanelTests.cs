@@ -74,24 +74,24 @@ public class ShowPanelTests
     [Fact]
     public void TheCueActionsAreSpecifiedLabelledAndReadFromASheet()
     {
-        Assert.Equal((TargetKind.Screen, ValueKind.Look), CueActionSpec.For(CueActionKind.ScreenLook));
-        Assert.Equal((TargetKind.Screen, ValueKind.None), CueActionSpec.For(CueActionKind.ScreenProgram));
-        Assert.Contains(CueActionKind.ScreenLook, CueActionSpec.Editable);
-        Assert.Contains(CueActionKind.ScreenProgram, CueActionSpec.Editable);
-        Assert.True(CueActionSpec.ChangesContent(CueActionKind.ScreenLook));
-        Assert.True(CueActionSpec.ChangesContent(CueActionKind.ScreenProgram));
-        Assert.Contains("own look", CueActionSpec.Label(CueActionKind.ScreenLook));
-        Assert.Contains("program", CueActionSpec.Label(CueActionKind.ScreenProgram));
+        Assert.Equal((TargetKind.Screen, ValueKind.Look), ActionSpec.For(ShowActionKind.ScreenLook));
+        Assert.Equal((TargetKind.Screen, ValueKind.None), ActionSpec.For(ShowActionKind.ScreenProgram));
+        Assert.Contains(ShowActionKind.ScreenLook, ActionSpec.CueKinds);
+        Assert.Contains(ShowActionKind.ScreenProgram, ActionSpec.CueKinds);
+        Assert.True(ActionSpec.ChangesContent(ShowActionKind.ScreenLook));
+        Assert.True(ActionSpec.ChangesContent(ShowActionKind.ScreenProgram));
+        Assert.Contains("own look", ActionSpec.Label(ShowActionKind.ScreenLook));
+        Assert.Contains("program", ActionSpec.Label(ShowActionKind.ScreenProgram));
 
-        Assert.Equal(CueActionKind.ScreenLook, CueSheet.ParseKind("screenlook"));
-        Assert.Equal(CueActionKind.ScreenLook, CueSheet.ParseKind("Screen — its own look"));
-        Assert.Equal(CueActionKind.ScreenLook, CueSheet.ParseKind("Own look"));
-        Assert.Equal(CueActionKind.ScreenLook, CueSheet.ParseKind("send look"));
-        Assert.Equal(CueActionKind.ScreenProgram, CueSheet.ParseKind("Screen — back to the program"));
-        Assert.Equal(CueActionKind.ScreenProgram, CueSheet.ParseKind("screen program"));
-        Assert.Equal(CueActionKind.ScreenProgram, CueSheet.ParseKind("PGM"));
-        Assert.Equal(CueActionKind.ScreenProgram, CueSheet.ParseKind("back to program"));
-        Assert.Equal(CueActionKind.ScreenProgram, CueSheet.ParseKind("follow"));
+        Assert.Equal(ShowActionKind.ScreenLook, CueSheet.ParseKind("screenlook"));
+        Assert.Equal(ShowActionKind.ScreenLook, CueSheet.ParseKind("Screen — its own look"));
+        Assert.Equal(ShowActionKind.ScreenLook, CueSheet.ParseKind("Own look"));
+        Assert.Equal(ShowActionKind.ScreenLook, CueSheet.ParseKind("send look"));
+        Assert.Equal(ShowActionKind.ScreenProgram, CueSheet.ParseKind("Screen — back to the program"));
+        Assert.Equal(ShowActionKind.ScreenProgram, CueSheet.ParseKind("screen program"));
+        Assert.Equal(ShowActionKind.ScreenProgram, CueSheet.ParseKind("PGM"));
+        Assert.Equal(ShowActionKind.ScreenProgram, CueSheet.ParseKind("back to program"));
+        Assert.Equal(ShowActionKind.ScreenProgram, CueSheet.ParseKind("follow"));
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public class ShowPanelTests
         var s = Rig();
         var sponsor = SaveLook(s, "Sponsor", PatternKind.ColorBars);
         var cue = new RunCueConfig { Number = "1", Name = "Sponsor on the side" };
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ScreenLook, Target = "b", Value = "Sponsor" });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ScreenLook, Target = "b", Value = "Sponsor" });
         var stack = new CueStackConfig();
         stack.Cues.Add(cue);
 
@@ -120,7 +120,7 @@ public class ShowPanelTests
         Assert.Contains("not in the rig", CueValidator.Validate(s, stack).ReasonFor(cue.Id));
 
         var back = new RunCueConfig { Number = "2", Name = "Side back" };
-        back.Actions.Add(new CueActionConfig { Kind = CueActionKind.ScreenProgram, Target = "b" });
+        back.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ScreenProgram, Target = "b" });
         stack.Cues.Add(back);
         Assert.False(CueValidator.Validate(s, stack).IsBroken(back.Id));
         Assert.Contains("program", CueSummary.DescribeAction(s, back.Actions[0]));

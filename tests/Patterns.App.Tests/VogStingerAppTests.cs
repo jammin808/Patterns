@@ -297,7 +297,7 @@ public class VogStingerAppTests
             services.ValidationVideoOverride = () => true; // headless: no libVLC
             var item = Sting(vm, clip, "Whoosh", StingerAfter.Return);
             var stack = CueStacks.Caller(vm.State);
-            var cue = new RunCueConfig { Number = "1", Name = "Hit", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = item.Id } } };
+            var cue = new RunCueConfig { Number = "1", Name = "Hit", Actions = { new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = item.Id } } };
             stack.Cues.Add(cue);
             vm.State.Blackout = true;
             Dispatcher.UIThread.RunJobs();
@@ -439,7 +439,7 @@ public class VogStingerAppTests
             var look = SaveLook(vm, "A", PatternKind.ColorBars);
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);
-            var cue = new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id } } };
+            var cue = new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id } } };
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
             var svc = services.CueStack;
@@ -479,7 +479,7 @@ public class VogStingerAppTests
             var look = SaveLook(vm, "A", PatternKind.ColorBars);
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);
-            stack.Cues.Add(new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id } } });
+            stack.Cues.Add(new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id } } });
             Dispatcher.UIThread.RunJobs();
             var item = Sting(vm, clip, "Whoosh", StingerAfter.Next);
 
@@ -513,7 +513,7 @@ public class VogStingerAppTests
             var look = SaveLook(vm, "A", PatternKind.ColorBars);
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);
-            var cue = new RunCueConfig { Number = "01.010", Name = "A", RequireConfirm = true, Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id } } };
+            var cue = new RunCueConfig { Number = "01.010", Name = "A", RequireConfirm = true, Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id } } };
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
             var svc = services.CueStack;
@@ -549,7 +549,7 @@ public class VogStingerAppTests
             var look = SaveLook(vm, "B", PatternKind.Focus);
             vm.ActivePattern.Kind = PatternKind.Grid;
             var clicker = CueStacks.Clicker(vm.State);
-            clicker.Cues.Add(new RunCueConfig { Number = "02.010", Name = "B", Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id } } });
+            clicker.Cues.Add(new RunCueConfig { Number = "02.010", Name = "B", Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id } } });
             Dispatcher.UIThread.RunJobs();
             var item = Sting(vm, clip, "Whoosh", StingerAfter.Next, clicker.Id);
 
@@ -625,7 +625,7 @@ public class VogStingerAppTests
             var other = SaveLook(vm, "Sponsor", PatternKind.Focus);
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);
-            var cue = new RunCueConfig { Number = "01.010", Name = "Sponsor", Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = other.Id } } };
+            var cue = new RunCueConfig { Number = "01.010", Name = "Sponsor", Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = other.Id } } };
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
 
@@ -694,7 +694,7 @@ public class VogStingerAppTests
             var look = SaveLook(vm, "A", PatternKind.ColorBars);
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);
-            var cue = new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id } } };
+            var cue = new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id } } };
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
             services.CueStack.SetArmed(true, ActionOrigin.Desk);
@@ -758,7 +758,7 @@ public class VogStingerAppTests
             var look = SaveLook(vm, "A", PatternKind.ColorBars);
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);
-            var cue = new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id } } };
+            var cue = new RunCueConfig { Number = "01.010", Name = "A", Actions = { new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id } } };
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
             services.CueStack.SetArmed(true, ActionOrigin.Desk);

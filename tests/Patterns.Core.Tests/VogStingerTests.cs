@@ -294,7 +294,7 @@ public class VogStingerTests : IDisposable
         Assert.Null(StingerLibrary.AfterNote(state, item));
         var loop = new StingerItemConfig { Id = "loop", Name = "Loop", Path = "C:/show/loop.mp4", Kind = StingerKind.Sting, After = StingerAfter.Next };
         state.Stingers.Items.Add(loop);
-        clicker.Cues.Add(new RunCueConfig { Number = "02.010", Name = "Hit", Actions = { new CueActionConfig { Kind = CueActionKind.StingerFire, Target = "loop" } } });
+        clicker.Cues.Add(new RunCueConfig { Number = "02.010", Name = "Hit", Actions = { new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = "loop" } } });
         Assert.Contains("could run on by itself", StingerLibrary.AfterNote(state, item));
     }
 }

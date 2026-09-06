@@ -166,15 +166,15 @@ public class WebWorkflowTests
     [Fact]
     public void ACueDrivesAPageThroughTheSpecTheChecksTheSummaryAndTheSheet()
     {
-        Assert.Equal((TargetKind.Page, ValueKind.WebKey), CueActionSpec.For(CueActionKind.WebKey));
-        Assert.Equal((TargetKind.Page, ValueKind.Point), CueActionSpec.For(CueActionKind.WebClick));
-        Assert.Equal((TargetKind.Page, ValueKind.Text), CueActionSpec.For(CueActionKind.WebType));
-        Assert.Equal((TargetKind.Page, ValueKind.None), CueActionSpec.For(CueActionKind.WebReload));
-        Assert.Contains(CueActionKind.WebKey, CueActionSpec.Editable);
-        Assert.Equal(CueActionKind.WebKey, CueSheet.ParseKind("page key"));
-        Assert.Equal(CueActionKind.WebKey, CueSheet.ParseKind("Web page — key or action"));
-        Assert.Equal(CueActionKind.WebClick, CueSheet.ParseKind("click"));
-        Assert.Equal(CueActionKind.WebReload, CueSheet.ParseKind("reload"));
+        Assert.Equal((TargetKind.Page, ValueKind.WebKey), ActionSpec.For(ShowActionKind.WebKey));
+        Assert.Equal((TargetKind.Page, ValueKind.Point), ActionSpec.For(ShowActionKind.WebClick));
+        Assert.Equal((TargetKind.Page, ValueKind.Text), ActionSpec.For(ShowActionKind.WebType));
+        Assert.Equal((TargetKind.Page, ValueKind.None), ActionSpec.For(ShowActionKind.WebReload));
+        Assert.Contains(ShowActionKind.WebKey, ActionSpec.CueKinds);
+        Assert.Equal(ShowActionKind.WebKey, CueSheet.ParseKind("page key"));
+        Assert.Equal(ShowActionKind.WebKey, CueSheet.ParseKind("Web page — key or action"));
+        Assert.Equal(ShowActionKind.WebClick, CueSheet.ParseKind("click"));
+        Assert.Equal(ShowActionKind.WebReload, CueSheet.ParseKind("reload"));
 
         var state = new ShowState();
         state.Pattern.Kind = PatternKind.Media;
@@ -182,17 +182,17 @@ public class WebWorkflowTests
         state.Pattern.Media.WebUrl = "https://docs.google.com/presentation/d/e/2PACX/embed?rm=minimal";
         var stack = new CueStackConfig();
         var next = new RunCueConfig { Number = "01.010", Name = "Next slide" };
-        next.Actions.Add(new CueActionConfig { Kind = CueActionKind.WebKey, Value = "next" });
+        next.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebKey, Value = "next" });
         var wrongPage = new RunCueConfig { Number = "01.020", Name = "Wrong page" };
-        wrongPage.Actions.Add(new CueActionConfig { Kind = CueActionKind.WebKey, Target = "youtube", Value = "play" });
+        wrongPage.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebKey, Target = "youtube", Value = "play" });
         var badKey = new RunCueConfig { Number = "01.030", Name = "Bad key" };
-        badKey.Actions.Add(new CueActionConfig { Kind = CueActionKind.WebKey, Value = "dance" });
+        badKey.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebKey, Value = "dance" });
         var badClick = new RunCueConfig { Number = "01.040", Name = "Bad click" };
-        badClick.Actions.Add(new CueActionConfig { Kind = CueActionKind.WebClick, Value = "middle" });
+        badClick.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebClick, Value = "middle" });
         var byHost = new RunCueConfig { Number = "01.050", Name = "By host" };
-        byHost.Actions.Add(new CueActionConfig { Kind = CueActionKind.WebKey, Target = "docs.google.com", Value = "ArrowRight" });
+        byHost.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebKey, Target = "docs.google.com", Value = "ArrowRight" });
         var typed = new RunCueConfig { Number = "01.060", Name = "Type" };
-        typed.Actions.Add(new CueActionConfig { Kind = CueActionKind.WebType, Value = "" });
+        typed.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebType, Value = "" });
         foreach (var cue in new[] { next, wrongPage, badKey, badClick, byHost, typed }) stack.Cues.Add(cue);
 
         var report = CueValidator.Validate(state, stack);
@@ -208,7 +208,7 @@ public class WebWorkflowTests
         var bare = new ShowState();
         var bareStack = new CueStackConfig();
         var bareCue = new RunCueConfig { Number = "01.010", Name = "Next" };
-        bareCue.Actions.Add(new CueActionConfig { Kind = CueActionKind.WebKey, Value = "next" });
+        bareCue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.WebKey, Value = "next" });
         bareStack.Cues.Add(bareCue);
         var bareReport = CueValidator.Validate(bare, bareStack);
         Assert.False(bareReport.IsBroken(bareCue.Id));
@@ -216,8 +216,8 @@ public class WebWorkflowTests
 
         Assert.Equal("Page: next slide", CueSummary.DescribeAction(state, next.Actions[0]));
         Assert.Equal("Page: key ArrowRight → docs.google.com", CueSummary.DescribeAction(state, byHost.Actions[0]));
-        Assert.Equal("Page: click at 50 50 → deck", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.WebClick, Target = "deck", Value = "50 50" }));
-        Assert.Equal("Page: reload", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.WebReload }));
-        Assert.Equal("Page: type 'hello'", CueSummary.DescribeAction(state, new CueActionConfig { Kind = CueActionKind.WebType, Value = "hello" }));
+        Assert.Equal("Page: click at 50 50 → deck", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.WebClick, Target = "deck", Value = "50 50" }));
+        Assert.Equal("Page: reload", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.WebReload }));
+        Assert.Equal("Page: type 'hello'", CueSummary.DescribeAction(state, new CueActionConfig { Kind = ShowActionKind.WebType, Value = "hello" }));
     }
 }

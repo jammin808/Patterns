@@ -126,7 +126,7 @@ public static class CueSheet
             if (lookName.Length > 0)
             {
                 var look = LookService.Find(state, lookName);
-                cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look?.Id ?? lookName });
+                cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look?.Id ?? lookName });
                 if (look is null) result.Notes.Add($"Row {rowNo}: look '{lookName}' not found — the cue reads as broken until a look of that name exists.");
             }
             var actionText = table.Get(r, ActionHeaders);
@@ -176,8 +176,8 @@ public static class CueSheet
         var rows = new List<IEnumerable<string>> { Headers };
         foreach (var cue in stack.Cues)
         {
-            var look = cue.Actions.FirstOrDefault(a => a.Kind == CueActionKind.ApplyLook);
-            var other = cue.Actions.FirstOrDefault(a => a.Kind is not CueActionKind.ApplyLook and not CueActionKind.Note);
+            var look = cue.Actions.FirstOrDefault(a => a.Kind == ShowActionKind.ApplyLook);
+            var other = cue.Actions.FirstOrDefault(a => a.Kind is not ShowActionKind.ApplyLook and not ShowActionKind.Note);
             rows.Add(new[]
             {
                 cue.Number,
@@ -189,7 +189,7 @@ public static class CueSheet
                 cue.Mark == CueMark.None ? "" : cue.Mark.ToString().ToLowerInvariant(),
                 cue.RequireConfirm ? "yes" : "",
                 look is null ? "" : LookService.Find(state, look.Target)?.Name ?? look.Target,
-                other is null ? "" : CueActionSpec.Label(other.Kind),
+                other is null ? "" : ActionSpec.Label(other.Kind),
                 other is null ? "" : TargetName(state, other),
                 other is null ? "" : ValueName(state, other),
                 cue.Notes,
@@ -220,66 +220,92 @@ public static class CueSheet
     }
 
     /// <summary>An action kind by its enum name or its picker label, ignoring case, spaces and punctuation.</summary>
-    public static CueActionKind? ParseKind(string text)
+    public static ShowActionKind? ParseKind(string text)
     {
         var key = Squash(text);
         if (key.Length == 0) return null;
-        foreach (var kind in CueActionSpec.Editable)
+        foreach (var kind in ActionSpec.CueKinds)
         {
-            if (Squash(kind.ToString()) == key || Squash(CueActionSpec.Label(kind)) == key) return kind;
+            if (Squash(kind.ToString()) == key || Squash(ActionSpec.Label(kind)) == key) return kind;
         }
         // A few ways people write the common ones.
         return key switch
         {
-            "look" or "applylook" or "recalllook" => CueActionKind.ApplyLook,
-            "audio" or "playaudio" or "music" or "track" or "playtrack" or "playaudiotrack" or "audiotrack" or "audioplay" => CueActionKind.AudioPlay,
-            "stopaudio" or "audiooff" => CueActionKind.AudioStop,
-            "audionext" or "nexttrack" or "tracknext" or "skiptrack" or "audioskip" => CueActionKind.AudioNext,
-            "audioprev" or "audioprevious" or "prevtrack" or "previoustrack" or "trackback" or "audioback" => CueActionKind.AudioPrev,
-            "sting" or "stinger" or "vog" or "fire" => CueActionKind.StingerFire,
-            "part" or "playlist" or "section" => CueActionKind.PlaylistPart,
-            "blackout" or "black" => CueActionKind.BlackoutOn,
-            "fade" or "fadetoblack" or "fadedown" or "fadeout" or "fadeblack" or "ftb" => CueActionKind.FadeToBlack,
-            "fadeup" or "fadein" or "fadefromblack" or "ftbup" => CueActionKind.FadeUp,
-            "countdown" or "timer" => CueActionKind.CountdownStart,
-            "message" or "ticker" => CueActionKind.MessageOn,
-            "weather" or "weatheron" or "forecast" or "forecaston" => CueActionKind.WeatherOn,
-            "weatheroff" or "forecastoff" or "noweather" => CueActionKind.WeatherOff,
-            "weatherview" or "weathernow" or "weatherday" or "weathertomorrow" or "forecastview" => CueActionKind.WeatherView,
-            "lowerthird" or "lt" or "name" or "person" or "speaker" => CueActionKind.LowerThirdShow,
-            "ltpreview" or "previewlt" or "lowerthirdpreview" or "namepreview" or "previewname" => CueActionKind.LowerThirdPreview,
-            "lttake" or "takelt" or "lowerthirdtake" or "nametake" or "takename" => CueActionKind.LowerThirdTake,
-            "stream" or "golive" => CueActionKind.StreamStart,
-            "web" or "page" or "webkey" or "pagekey" or "key" or "webaction" or "pageaction" or "slide" => CueActionKind.WebKey,
-            "webclick" or "pageclick" or "click" => CueActionKind.WebClick,
-            "webtype" or "pagetype" or "type" => CueActionKind.WebType,
-            "webreload" or "pagereload" or "reload" => CueActionKind.WebReload,
-            "decknext" or "nextpage" or "nextslide" or "deckforward" => CueActionKind.DeckNext,
-            "deckprev" or "deckprevious" or "prevpage" or "previouspage" or "prevslide" or "previousslide" or "deckback" => CueActionKind.DeckPrev,
-            "deck" or "deckpage" or "gotopage" or "deckgoto" or "pdf" => CueActionKind.DeckPage,
-            "device" or "devicesend" or "send" or "arduino" or "serial" or "relay" => CueActionKind.DeviceSend,
-            "announce" or "announcement" or "announcementon" or "announceon" or "pa" => CueActionKind.Announce,
-            "announceoff" or "announcementoff" or "announcestop" or "endannouncement" => CueActionKind.AnnounceOff,
-            "advert" or "ad" or "advertisement" or "commercial" or "advertplay" or "playadvert" or "spot" => CueActionKind.AdvertPlay,
-            "advertoff" or "adoff" or "advertend" or "endadvert" or "skipadvert" or "advertstop" => CueActionKind.AdvertOff,
-            "schedule" or "scheduleon" or "install" or "installon" or "installschedule" or "installscheduleon" => CueActionKind.ScheduleOn,
-            "scheduleoff" or "installoff" or "installscheduleoff" or "schedulestop" => CueActionKind.ScheduleOff,
-            "screenlook" or "lookonscreen" or "lookon" or "sendlook" or "screensend" or "own" or "ownlook" => CueActionKind.ScreenLook,
-            "screenprogram" or "screenpgm" or "backtoprogram" or "toprogram" or "program" or "pgm" or "follow" => CueActionKind.ScreenProgram,
-            "videoend" or "videotoend" or "vtend" or "clipend" or "lastseconds" or "skiptoend" or "videolast" or "vtlast" => CueActionKind.VideoToEnd,
-            "videorestart" or "vtrestart" or "cliprestart" or "restartvideo" or "restartclip" or "videostart" or "vtstart" or "rewind" => CueActionKind.VideoRestart,
+            "look" or "applylook" or "recalllook" => ShowActionKind.ApplyLook,
+            "audio" or "playaudio" or "music" or "track" or "playtrack" or "playaudiotrack" or "audiotrack" or "audioplay" => ShowActionKind.AudioPlay,
+            "stopaudio" or "audiooff" => ShowActionKind.AudioStop,
+            "audionext" or "nexttrack" or "tracknext" or "skiptrack" or "audioskip" => ShowActionKind.AudioNext,
+            "audioprev" or "audioprevious" or "prevtrack" or "previoustrack" or "trackback" or "audioback" => ShowActionKind.AudioPrev,
+            "sting" or "stinger" or "vog" or "fire" => ShowActionKind.StingerFire,
+            "part" or "playlist" or "section" => ShowActionKind.PlaylistPart,
+            "blackout" or "black" => ShowActionKind.BlackoutOn,
+            "fade" or "fadetoblack" or "fadedown" or "fadeout" or "fadeblack" or "ftb" => ShowActionKind.FadeToBlack,
+            "fadeup" or "fadein" or "fadefromblack" or "ftbup" => ShowActionKind.FadeUp,
+            "countdown" or "timer" => ShowActionKind.CountdownStart,
+            "message" or "ticker" => ShowActionKind.MessageOn,
+            "weather" or "weatheron" or "forecast" or "forecaston" => ShowActionKind.WeatherOn,
+            "weatheroff" or "forecastoff" or "noweather" => ShowActionKind.WeatherOff,
+            "weatherview" or "weathernow" or "weatherday" or "weathertomorrow" or "forecastview" => ShowActionKind.WeatherView,
+            "lowerthird" or "lt" or "name" or "person" or "speaker" => ShowActionKind.LowerThirdShow,
+            "ltpreview" or "previewlt" or "lowerthirdpreview" or "namepreview" or "previewname" => ShowActionKind.LowerThirdPreview,
+            "lttake" or "takelt" or "lowerthirdtake" or "nametake" or "takename" => ShowActionKind.LowerThirdTake,
+            "stream" or "golive" => ShowActionKind.StreamStart,
+            "web" or "page" or "webkey" or "pagekey" or "key" or "webaction" or "pageaction" or "slide" => ShowActionKind.WebKey,
+            "webclick" or "pageclick" or "click" => ShowActionKind.WebClick,
+            "webtype" or "pagetype" or "type" => ShowActionKind.WebType,
+            "webreload" or "pagereload" or "reload" => ShowActionKind.WebReload,
+            "decknext" or "nextpage" or "nextslide" or "deckforward" => ShowActionKind.DeckNext,
+            "deckprev" or "deckprevious" or "prevpage" or "previouspage" or "prevslide" or "previousslide" or "deckback" => ShowActionKind.DeckPrev,
+            "deck" or "deckpage" or "gotopage" or "deckgoto" or "pdf" => ShowActionKind.DeckPage,
+            "device" or "devicesend" or "send" or "arduino" or "serial" or "relay" => ShowActionKind.DeviceSend,
+            "announce" or "announcement" or "announcementon" or "announceon" or "pa" => ShowActionKind.Announce,
+            "announceoff" or "announcementoff" or "announcestop" or "endannouncement" => ShowActionKind.AnnounceOff,
+            "advert" or "ad" or "advertisement" or "commercial" or "advertplay" or "playadvert" or "spot" => ShowActionKind.AdvertPlay,
+            "advertoff" or "adoff" or "advertend" or "endadvert" or "skipadvert" or "advertstop" => ShowActionKind.AdvertOff,
+            "schedule" or "scheduleon" or "install" or "installon" or "installschedule" or "installscheduleon" => ShowActionKind.ScheduleOn,
+            "scheduleoff" or "installoff" or "installscheduleoff" or "schedulestop" => ShowActionKind.ScheduleOff,
+            "screenlook" or "lookonscreen" or "lookon" or "sendlook" or "screensend" or "own" or "ownlook" => ShowActionKind.ScreenLook,
+            "screenprogram" or "screenpgm" or "backtoprogram" or "toprogram" or "program" or "pgm" or "follow" => ShowActionKind.ScreenProgram,
+            "videoend" or "videotoend" or "vtend" or "clipend" or "lastseconds" or "skiptoend" or "videolast" or "vtlast" => ShowActionKind.VideoToEnd,
+            "videorestart" or "vtrestart" or "cliprestart" or "restartvideo" or "restartclip" or "videostart" or "vtstart" or "rewind" => ShowActionKind.VideoRestart,
+            "logo" or "logoon" or "brand" or "brandlogo" => ShowActionKind.LogoOn,
+            "logooff" or "nologo" => ShowActionKind.LogoOff,
+            "pip" or "pipon" or "pictureinpicture" or "inset" => ShowActionKind.PipOn,
+            "pipoff" or "nopip" => ShowActionKind.PipOff,
+            "overlaysoff" or "overlayoff" or "nooverlays" or "cleanpicture" or "clean" or "clearoverlays" => ShowActionKind.OverlaysOff,
+            "clockformat" or "clockhours" or "hours" or "12h" or "24h" or "12hour" or "24hour" => ShowActionKind.ClockFormat,
+            "clockseconds" or "seconds" => ShowActionKind.ClockSeconds,
+            "clockdate" or "dateline" or "date" => ShowActionKind.ClockDate,
+            "messagescroll" or "scroll" or "tickerscroll" => ShowActionKind.MessageScroll,
+            "countdownto" or "countdownat" or "countto" or "backat" => ShowActionKind.CountdownTo,
+            "countdownlabel" or "timerlabel" or "label" => ShowActionKind.CountdownLabel,
+            "pattern" or "patternkind" or "picture" or "kind" => ShowActionKind.PatternKind,
+            "freeze" or "freezeon" or "hold" => ShowActionKind.FreezeOn,
+            "freezeoff" or "unfreeze" or "release" => ShowActionKind.FreezeOff,
+            "tone" or "toneon" or "lineup" or "lineuptone" => ShowActionKind.ToneOn,
+            "toneoff" or "notone" => ShowActionKind.ToneOff,
+            "stopall" or "allstop" or "stopeverything" or "panic" => ShowActionKind.StopAll,
+            "outputson" or "outputs" => ShowActionKind.OutputsOn,
+            "outputsoff" => ShowActionKind.OutputsOff,
+            "lookback" or "back" or "previouslook" or "lastlook" or "undo" => ShowActionKind.LookBack,
+            "preview" or "previewlook" or "looktopreview" or "preload" or "load" => ShowActionKind.ApplyLookToPreview,
+            "webopen" or "open" or "openpage" or "address" or "url" or "goto" => ShowActionKind.WebOpen,
+            "ltupdate" or "updatelt" or "lowerthirdupdate" or "nameupdate" => ShowActionKind.LowerThirdUpdate,
+            "ltpreviewoff" or "previewoff" or "lowerthirdpreviewoff" => ShowActionKind.LowerThirdPreviewOff,
+            "duck" or "duckon" => ShowActionKind.DuckOn,
+            "duckoff" or "unduck" or "liftduck" => ShowActionKind.DuckOff,
             _ => null,
         };
     }
 
-    private static (string Target, string? Note) ResolveTarget(ShowState state, CueActionKind kind, string target)
+    private static (string Target, string? Note) ResolveTarget(ShowState state, ShowActionKind kind, string target)
     {
-        var (targetKind, _) = CueActionSpec.For(kind);
+        var (targetKind, _) = ActionSpec.For(kind);
         if (targetKind == TargetKind.None) return ("", null);
         if (target.Length == 0)
         {
             // Break music resumes with no entry; the audio playlist plays with no track; a web action with no page reaches the page on air; an announcement with no slot says its value; a fade with no place is every screen.
-            return targetKind is TargetKind.Music or TargetKind.Page or TargetKind.Track or TargetKind.Place || kind == CueActionKind.Announce ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
+            return targetKind is TargetKind.Music or TargetKind.Page or TargetKind.Track or TargetKind.Place || kind == ShowActionKind.Announce ? ("", null) : ("", $"{ActionSpec.Label(kind)} needs a Target.");
         }
         switch (targetKind)
         {
@@ -319,7 +345,7 @@ public static class CueSheet
 
     private static string TargetName(ShowState state, CueActionConfig a)
     {
-        var (targetKind, _) = CueActionSpec.For(a.Kind);
+        var (targetKind, _) = ActionSpec.For(a.Kind);
         return targetKind switch
         {
             TargetKind.Look => LookService.Find(state, a.Target)?.Name ?? a.Target,
@@ -339,7 +365,7 @@ public static class CueSheet
     private static string ValueName(ShowState state, CueActionConfig a)
     {
         if (a.Value.Length == 0) return a.Value;
-        return CueActionSpec.For(a.Kind).Value switch
+        return ActionSpec.For(a.Kind).Value switch
         {
             ValueKind.Person => state.LowerThirds.FindEntry(a.Value)?.Name ?? a.Value,
             ValueKind.Look => LookService.Find(state, a.Value)?.Name ?? a.Value,

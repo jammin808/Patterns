@@ -117,12 +117,12 @@ public class ScreenRolesTests
         Assert.Equal(RemoteCommandKind.ScreenLockToggle, ControlProtocol.Parse("LOCK 1").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LOCK x ON").Kind);
 
-        Assert.Equal((TargetKind.Screen, ValueKind.None), CueActionSpec.For(CueActionKind.ScreenLock));
-        Assert.Contains(CueActionKind.ScreenUnlock, CueActionSpec.Editable);
-        Assert.False(CueActionSpec.ChangesContent(CueActionKind.ScreenLock));
+        Assert.Equal((TargetKind.Screen, ValueKind.None), ActionSpec.For(ShowActionKind.ScreenLock));
+        Assert.Contains(ShowActionKind.ScreenUnlock, ActionSpec.CueKinds);
+        Assert.False(ActionSpec.ChangesContent(ShowActionKind.ScreenLock));
         var s = Rig();
-        Assert.Contains("locked", CueSummary.DescribeAction(s, new CueActionConfig { Kind = CueActionKind.ScreenLock, Target = "c" }));
-        Assert.Contains("follows", CueSummary.DescribeAction(s, new CueActionConfig { Kind = CueActionKind.ScreenUnlock, Target = "c" }));
+        Assert.Contains("locked", CueSummary.DescribeAction(s, new CueActionConfig { Kind = ShowActionKind.ScreenLock, Target = "c" }));
+        Assert.Contains("follows", CueSummary.DescribeAction(s, new CueActionConfig { Kind = ShowActionKind.ScreenUnlock, Target = "c" }));
 
         Assert.Equal("CONF", ScreenRoles.Badge(ScreenRole.Confidence));
         Assert.Equal("INFO", ScreenRoles.Badge(ScreenRole.Info));

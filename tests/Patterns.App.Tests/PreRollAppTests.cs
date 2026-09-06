@@ -46,9 +46,9 @@ public class PreRollAppTests
 
             var stack = services.CueStack.Stack;
             var vtCue = new RunCueConfig { Number = "01.010", Name = "VT" };
-            vtCue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = "VT in" });
+            vtCue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = "VT in" });
             var plainCue = new RunCueConfig { Number = "01.020", Name = "Plain" };
-            plainCue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = "Plain" });
+            plainCue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = "Plain" });
             stack.Cues.Add(vtCue);
             stack.Cues.Add(plainCue);
 

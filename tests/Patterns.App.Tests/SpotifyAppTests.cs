@@ -479,9 +479,9 @@ public class SpotifyAppTests
         vm.ActivePattern.Kind = PatternKind.Grid;
         var stack = CueStacks.Caller(vm.State);
         var cue = new RunCueConfig { Number = "01.010", Name = "Doors" };
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.BlackoutOff });
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "1" });
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.BlackoutOff });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "1" });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
         stack.Cues.Add(cue);
         Dispatcher.UIThread.RunJobs();
 
@@ -522,8 +522,8 @@ public class SpotifyAppTests
         vm.ActivePattern.Kind = PatternKind.Grid;
         var stack = CueStacks.Caller(vm.State);
         var cue = new RunCueConfig { Number = "01.010", Name = "Doors" };
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "1" });
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "1" });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
         stack.Cues.Add(cue);
         Dispatcher.UIThread.RunJobs();
 
@@ -581,21 +581,21 @@ public class SpotifyAppTests
 
         var cases = new (string Name, Action Arrange, CueActionConfig Action)[]
         {
-            ("unknown target", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "nope" }),
-            ("junk link", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = junk.Id }),
-            ("level 120", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyVolume, Value = "120" }),
-            ("level words", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyVolume, Value = "loud" }),
-            ("play entry", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = good.Id }),
-            ("play by number", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "1" }),
-            ("resume", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyPlay }),
-            ("pause", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyPause }),
-            ("skip", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyNext }),
-            ("level 40", () => { }, new CueActionConfig { Kind = CueActionKind.SpotifyVolume, Value = "40" }),
-            ("no device chosen", () => state.Spotify.DeviceName = "", new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = good.Id }),
-            ("off, unknown target", () => state.Spotify.Enabled = false, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "nope" }),
-            ("off, level 120", () => state.Spotify.Enabled = false, new CueActionConfig { Kind = CueActionKind.SpotifyVolume, Value = "120" }),
-            ("off, good entry", () => state.Spotify.Enabled = false, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = good.Id }),
-            ("on, not connected", () => { state.Spotify.Enabled = true; r.Spotify.Disconnect(); }, new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = good.Id }),
+            ("unknown target", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "nope" }),
+            ("junk link", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = junk.Id }),
+            ("level 120", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyVolume, Value = "120" }),
+            ("level words", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyVolume, Value = "loud" }),
+            ("play entry", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = good.Id }),
+            ("play by number", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "1" }),
+            ("resume", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay }),
+            ("pause", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyPause }),
+            ("skip", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyNext }),
+            ("level 40", () => { }, new CueActionConfig { Kind = ShowActionKind.SpotifyVolume, Value = "40" }),
+            ("no device chosen", () => state.Spotify.DeviceName = "", new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = good.Id }),
+            ("off, unknown target", () => state.Spotify.Enabled = false, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "nope" }),
+            ("off, level 120", () => state.Spotify.Enabled = false, new CueActionConfig { Kind = ShowActionKind.SpotifyVolume, Value = "120" }),
+            ("off, good entry", () => state.Spotify.Enabled = false, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = good.Id }),
+            ("on, not connected", () => { state.Spotify.Enabled = true; r.Spotify.Disconnect(); }, new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = good.Id }),
         };
 
         foreach (var (name, arrange, action) in cases)
@@ -607,9 +607,9 @@ public class SpotifyAppTests
 
             var showAction = action.Kind switch
             {
-                CueActionKind.SpotifyPlay => new ShowAction(ShowActionKind.SpotifyPlay, action.Target),
-                CueActionKind.SpotifyPause => new ShowAction(ShowActionKind.SpotifyPause),
-                CueActionKind.SpotifyNext => new ShowAction(ShowActionKind.SpotifyNext),
+                ShowActionKind.SpotifyPlay => new ShowAction(ShowActionKind.SpotifyPlay, action.Target),
+                ShowActionKind.SpotifyPause => new ShowAction(ShowActionKind.SpotifyPause),
+                ShowActionKind.SpotifyNext => new ShowAction(ShowActionKind.SpotifyNext),
                 _ => new ShowAction(ShowActionKind.SpotifyVolume, "", action.Value),
             };
             var result = r.Services.Actions.Execute(showAction, ActionOrigin.Desk);
@@ -695,8 +695,8 @@ public class SpotifyAppTests
             vm.State.Stingers.Items.Add(sting);
             var stack = CueStacks.Caller(vm.State);
             var cue = new RunCueConfig { Number = "1", Name = "Doors" };
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.StingerFire, Target = sting.Id });
-            cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = "1" });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = sting.Id });
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = "1" });
             stack.Cues.Add(cue);
             Dispatcher.UIThread.RunJobs();
 
@@ -896,7 +896,7 @@ public class SpotifyAppTests
             vm.State.Spotify.Items.Add(a);
             vm.State.Spotify.Items.Add(other);
             var stack = CueStacks.Caller(vm.State);
-            stack.Cues.Add(new RunCueConfig { Number = "03.020", Name = "Interval", Actions = { new CueActionConfig { Kind = CueActionKind.SpotifyPlay, Target = a.Id } } });
+            stack.Cues.Add(new RunCueConfig { Number = "03.020", Name = "Interval", Actions = { new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = a.Id } } });
 
             vm.RemoveMusicItemCommand.Execute(a);
             Assert.Contains(a, vm.State.Spotify.Items);
@@ -1174,7 +1174,7 @@ public class SpotifyAppTests
         // A cue applying that look validates with a warning, never a broken row, and runs.
         var stack = CueStacks.Caller(vm.State);
         var cue = new RunCueConfig { Number = "01.010", Name = "Doors" };
-        cue.Actions.Add(new CueActionConfig { Kind = CueActionKind.ApplyLook, Target = look.Id });
+        cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
         stack.Cues.Add(cue);
         Dispatcher.UIThread.RunJobs();
         var report = CueValidator.Validate(vm.State, stack, r.Services.ValidationContext);

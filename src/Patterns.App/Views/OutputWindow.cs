@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
