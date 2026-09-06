@@ -144,6 +144,17 @@ public enum ScreenRole
     Repeater,
 }
 
+/// <summary>
+/// Where clips decode: the graphics card when it can (Auto — but software in the run right after
+/// a native fault), always the card, or always the CPU. First member is the fallback.
+/// </summary>
+public enum VideoDecodingKind
+{
+    Auto,
+    Hardware,
+    Software,
+}
+
 /// <summary>Physical output rotation (content is pre-rotated so viewers see it upright).</summary>
 public enum OutputRotation
 {

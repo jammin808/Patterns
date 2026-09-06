@@ -656,10 +656,11 @@ public static class HelpTopics
                 "Run Patterns through the watchdog (the default from the stick): a crash is a restart with the show live within seconds.",
                 "Machine page: the beacon on; a second machine shows 'main machine seen'.",
                 "RESTART on the wire (with the passcode) is a clean restart under the watchdog.",
+                "After a crash: the health line names the exit code in words; a native fault (an access violation) makes the next run decode clips in software — Machine → VIDEO DECODING — and leaves a mini-dump in the crashes folder for the support bundle.",
             },
             "RESTART <passcode>",
             new[] { "Machine", "Install" },
-            new[] { "watchdog", "supervisor", "crash", "restart", "recovery", "beacon", "heartbeat", "backup", "second machine", "failover", "resilience" }),
+            new[] { "watchdog", "supervisor", "crash", "restart", "recovery", "beacon", "heartbeat", "backup", "second machine", "failover", "resilience", "access violation", "0xc0000005", "native fault", "mini-dump", "crash dump", "createdump", "safe run", "video decoding", "software decoding", "hardware decoding", "exit code" }),
 
         new HelpTopic("portable-files", HelpGroup.TheMachine,
             "Portable files: what is on the stick",

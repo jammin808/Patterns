@@ -1,3 +1,5 @@
+using Patterns.Core.Model;
+
 namespace Patterns.Core.Services;
 
 public enum SupervisorAction
@@ -254,5 +256,216 @@ public static class WatchdogMarker
         {
             return "";
         }
+    }
+}
+
+/// <summary>
+/// What an exit code says, in words — the supervisor's log, the crash note and the health line
+/// all read the same table. Windows' status codes for a native fault sit above 0xC0000000 and
+/// arrive as negative ints; the .NET runtime's own unhandled-exception code is 0xE0434352.
+/// </summary>
+public static class ExitCodes
+{
+    public const int AccessViolation = unchecked((int)0xC0000005);
+    public const int IllegalInstruction = unchecked((int)0xC000001D);
+    public const int StackOverflow = unchecked((int)0xC00000FD);
+    public const int HeapCorruption = unchecked((int)0xC0000374);
+    public const int StackBufferOverrun = unchecked((int)0xC0000409);
+    public const int ConsoleClosed = unchecked((int)0xC000013A);
+    public const int ClrException = unchecked((int)0xE0434352);
+
+    /// <summary>A fault in native code — a decoder, a driver, a library — rather than a managed exception or a request.</summary>
+    public static bool IsNativeFault(int code)
+        => code is AccessViolation or IllegalInstruction or StackOverflow or HeapCorruption or StackBufferOverrun;
+
+    public static string Hex(int code) => $"0x{(uint)code:X8}";
+
+    /// <summary>"an access violation (a native fault…)", "an unhandled .NET exception", "exit code 3 (0x00000003)".</summary>
+    public static string Describe(int code) => code switch
+    {
+        0 => "a clean close",
+        SupervisorPolicy.RestartRequestExitCode => "a restart asked for on the Machine page",
+        SupervisorPolicy.UpdateRequestExitCode => "a restart to apply an update",
+        AccessViolation => "an access violation (a native fault: a decoder, a driver or a library wrote where it should not)",
+        IllegalInstruction => "an illegal instruction (a native fault)",
+        StackOverflow => "a stack overflow",
+        HeapCorruption => "a heap corruption (a native fault)",
+        StackBufferOverrun => "a fail-fast or a stack buffer overrun (a native fault)",
+        ConsoleClosed => "the process being closed from outside",
+        ClrException => "an unhandled .NET exception (see patterns.log)",
+        _ => $"exit code {code} ({Hex(code)})",
+    };
+}
+
+/// <summary>
+/// The note the supervisor leaves beside the settings on every crash restart: what the last run
+/// ended in, when, after how long, the mini-dump if one was written, and how many runs in a row
+/// ended in a native fault. The next start reads it onto the health line and into its log — and
+/// decides its safe run from it — then clears it, so it applies to that run alone.
+/// </summary>
+public sealed record CrashNote(int ExitCode, string Words, bool NativeFault, bool Hung, DateTime AtUtc, double RanForSeconds, string DumpPath, int NativeFaultsInARow)
+{
+    /// <summary>One sentence for the health line and the log.</summary>
+    public string Sentence
+    {
+        get
+        {
+            var when = AtUtc.ToLocalTime().ToString("HH:mm:ss");
+            var ran = RanForSeconds >= 3600 ? $"{RanForSeconds / 3600:0.#} h" : RanForSeconds >= 60 ? $"{RanForSeconds / 60:0} min" : $"{RanForSeconds:0} s";
+            var why = Hung ? "a hung UI thread (the watchdog ended it)" : Words;
+            var dump = DumpPath.Length > 0 ? $"; a mini-dump is at {DumpPath}" : NativeFault ? "; no mini-dump was written (createdump.exe is not beside Patterns.exe)" : "";
+            return $"The last run ended in {why} at {when} after {ran}{dump}.";
+        }
+    }
+}
+
+public static class CrashMarker
+{
+    public const string FileName = "patterns.crash.json";
+
+    public static void Write(string directory, CrashNote note)
+    {
+        try
+        {
+            var path = Path.Combine(directory, FileName);
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, JsonUtil.Serialize(note));
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch
+        {
+            // Best-effort, like the watchdog log.
+        }
+    }
+
+    /// <summary>The note without consuming it (the supervisor counts native faults in a row through it).</summary>
+    public static CrashNote? Peek(string directory)
+    {
+        try
+        {
+            var path = Path.Combine(directory, FileName);
+            return File.Exists(path) ? JsonUtil.Deserialize<CrashNote>(File.ReadAllText(path)) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The note, and the file is gone so it shapes one run only; null when there is none or it is unreadable.</summary>
+    public static CrashNote? ReadAndClear(string directory)
+    {
+        var note = Peek(directory);
+        try
+        {
+            File.Delete(Path.Combine(directory, FileName));
+        }
+        catch
+        {
+            // A marker that will not delete is read again next start — harmless.
+        }
+        return note;
+    }
+}
+
+/// <summary>
+/// Mini-dumps of a native crash: the runtime writes one when the child is started with these
+/// variables and createdump.exe sits beside the exe (the publish script puts it there). They go
+/// into a crashes folder beside the settings, the newest few kept, so a fault nobody can reproduce
+/// still leaves something a debugger reads.
+/// </summary>
+public static class CrashDumps
+{
+    public const string Folder = "crashes";
+
+    /// <summary>How many dumps are kept; the oldest past this go on every supervisor start.</summary>
+    public const int Keep = 3;
+
+    /// <summary>A dump larger than this is left out of a support bundle (its name is still listed).</summary>
+    public const long BundleMaxBytes = 60L * 1024 * 1024;
+
+    public static string DirectoryFor(string baseDirectory) => Path.Combine(baseDirectory, Folder);
+
+    /// <summary>The environment the child runs with: a mini-dump (type 1, the smallest) on a native crash, named by pid and time.</summary>
+    public static IReadOnlyDictionary<string, string> Environment(string baseDirectory) => new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["DOTNET_DbgEnableMiniDump"] = "1",
+        ["DOTNET_DbgMiniDumpType"] = "1",
+        ["DOTNET_DbgMiniDumpName"] = Path.Combine(DirectoryFor(baseDirectory), "patterns-%p-%t.dmp"),
+        ["DOTNET_CreateDumpDiagnostics"] = "0",
+    };
+
+    /// <summary>The dumps on disk, newest first — after deleting the oldest past the cap.</summary>
+    public static IReadOnlyList<string> Sweep(string baseDirectory)
+    {
+        try
+        {
+            var dir = DirectoryFor(baseDirectory);
+            System.IO.Directory.CreateDirectory(dir);
+            var dumps = new DirectoryInfo(dir).GetFiles("*.dmp").OrderByDescending(f => f.LastWriteTimeUtc).ToList();
+            foreach (var old in dumps.Skip(Keep))
+            {
+                try
+                {
+                    old.Delete();
+                }
+                catch
+                {
+                    // A dump a debugger holds open stays until next time.
+                }
+            }
+            return dumps.Take(Keep).Select(f => f.FullName).ToList();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>The newest dump written since a moment (the child's start), or "" when none was.</summary>
+    public static string NewestSince(string baseDirectory, DateTime sinceUtc)
+    {
+        try
+        {
+            var dir = DirectoryFor(baseDirectory);
+            if (!System.IO.Directory.Exists(dir)) return "";
+            var newest = new DirectoryInfo(dir).GetFiles("*.dmp").Where(f => f.LastWriteTimeUtc >= sinceUtc.AddSeconds(-5)).OrderByDescending(f => f.LastWriteTimeUtc).FirstOrDefault();
+            return newest?.FullName ?? "";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+}
+
+/// <summary>
+/// Whether the clips decode on the graphics card this run. Auto is hardware — except in the run
+/// right after a native fault, the safe run, where the decoder is the first suspect and software
+/// decoding costs a few percent of CPU to rule it out; the Machine page says so, and Hardware
+/// or Software as the choice always wins.
+/// </summary>
+public static class VideoDecodingChoice
+{
+    public static bool UseHardware(VideoDecodingKind kind, bool safeRun) => kind switch
+    {
+        VideoDecodingKind.Hardware => true,
+        VideoDecodingKind.Software => false,
+        _ => !safeRun,
+    };
+
+    /// <summary>The Machine page's line.</summary>
+    public static string Words(VideoDecodingKind kind, bool safeRun)
+    {
+        var hardware = UseHardware(kind, safeRun);
+        var now = hardware ? "clips decode on the graphics card" : "clips decode in software (the CPU)";
+        return kind switch
+        {
+            VideoDecodingKind.Hardware => $"Hardware: {now}, whatever the last run did.",
+            VideoDecodingKind.Software => $"Software: {now} — the stable choice on a laptop whose driver has faulted.",
+            _ => safeRun
+                ? $"Auto, in a safe run: {now} this once, because the last run ended in a native fault. The next clean run goes back to the card."
+                : $"Auto: {now}. The run after a native fault decodes in software and says so here.",
+        };
     }
 }

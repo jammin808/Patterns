@@ -74,10 +74,21 @@ internal static class Supervisor
         var exe = Environment.ProcessPath!;
         var policy = new SupervisorPolicy();
         var restarts = 0;
+        var nativeFaultsInARow = 0;
         UpdateRequest? pendingUpdate = null;   // the app exited to be updated: swap the files before the next start
         string? provingBackup = null;          // an update just landed: where the old files are, until the new app proves itself
         var provingVersion = "";
+        var baseDirectory = new SettingsStore().BaseDirectory;
         WLog($"Watchdog supervising {Path.GetFileName(exe)} (pid {Environment.ProcessId}).");
+
+        // A crash nobody can reproduce still leaves something a debugger reads: the runtime writes
+        // a mini-dump of a native fault when createdump sits beside the exe; the newest few are kept.
+        var dumpEnvironment = CrashDumps.Environment(baseDirectory);
+        var dumpsKept = CrashDumps.Sweep(baseDirectory);
+        var createDump = Path.Combine(Path.GetDirectoryName(exe)!, "createdump.exe");
+        WLog(File.Exists(createDump)
+            ? $"Mini-dumps on a native crash: on, into {CrashDumps.DirectoryFor(baseDirectory)} ({dumpsKept.Count} kept)."
+            : "Mini-dumps on a native crash: off — createdump.exe is not beside the exe.");
 
         while (true)
         {
@@ -110,6 +121,10 @@ internal static class Supervisor
             foreach (var arg in LaunchOptions.Passthrough)
             {
                 psi.ArgumentList.Add(arg);
+            }
+            foreach (var (key, value) in dumpEnvironment)
+            {
+                psi.Environment[key] = value;
             }
 
             Process child;
@@ -219,12 +234,23 @@ internal static class Supervisor
 
                 default:
                     restarts++;
+                    var native = !killedForHang && ExitCodes.IsNativeFault(exitCode);
+                    nativeFaultsInARow = native ? nativeFaultsInARow + 1 : 0;
                     var why = killedForHang ? "hung"
                         : exitCode == SupervisorPolicy.RestartRequestExitCode ? "asked to restart (Machine page)"
                         : exitCode == SupervisorPolicy.UpdateRequestExitCode ? "asked to be updated"
-                        : $"crashed (exit {exitCode})";
+                        : $"crashed (exit {exitCode} = {ExitCodes.Hex(exitCode)}, {ExitCodes.Describe(exitCode)})";
                     WLog($"App {why} after {(DateTime.UtcNow - startedUtc).TotalSeconds:0}s — " +
                          $"restart #{restarts} in {verdict.Delay.TotalSeconds:0}s.");
+                    if (killedForHang || exitCode is not (SupervisorPolicy.RestartRequestExitCode or SupervisorPolicy.UpdateRequestExitCode))
+                    {
+                        // The next start reads this onto its health line and into its log, and after a
+                        // native fault decodes clips in software for that run.
+                        var dump = native ? CrashDumps.NewestSince(baseDirectory, startedUtc) : "";
+                        CrashMarker.Write(baseDirectory, new CrashNote(exitCode, ExitCodes.Describe(exitCode), native, killedForHang,
+                            DateTime.UtcNow, ranFor.TotalSeconds, dump, nativeFaultsInARow));
+                        if (dump.Length > 0) WLog($"Mini-dump written: {dump}");
+                    }
                     Thread.Sleep(verdict.Delay);
                     break;
             }

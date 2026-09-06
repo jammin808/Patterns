@@ -76,7 +76,7 @@ public static class SupportBundle
     public static readonly string[] Files =
     {
         "patterns.log", "patterns.log.old", "patterns.watchdog.log", ShowLog.FileName, "patterns.settings.json",
-        SuperCheck.FileName, "patterns.metrics.csv", "patterns.recovery.json", WatchdogMarker.FileName,
+        SuperCheck.FileName, "patterns.metrics.csv", "patterns.recovery.json", WatchdogMarker.FileName, CrashMarker.FileName,
     };
 
     /// <summary>The bundle's file name for a moment: patterns-support-20260905-1130.zip.</summary>
@@ -130,6 +130,7 @@ public static class SupportBundle
                     notes.AppendLine($"{UpdateApply.NoteName}: could not be read — {ex.Message}");
                 }
             }
+            AddCrashDumps(zip, baseDirectory, included, notes);
             var infoEntry = zip.CreateEntry("bundle-info.txt");
             using (var writer = new StreamWriter(infoEntry.Open(), new UTF8Encoding(false)))
             {
@@ -138,6 +139,61 @@ public static class SupportBundle
             included.Add("bundle-info.txt");
         }
         return included;
+    }
+
+    /// <summary>
+    /// The mini-dumps of native crashes: every one on disk is named in the note, and the newest goes
+    /// into the zip when it is small enough (a dump past <see cref="CrashDumps.BundleMaxBytes"/> would
+    /// make the bundle too big to send — its path is listed for a copy by hand).
+    /// </summary>
+    private static void AddCrashDumps(ZipArchive zip, string baseDirectory, List<string> included, StringBuilder notes)
+    {
+        IReadOnlyList<string> dumps;
+        try
+        {
+            var dir = CrashDumps.DirectoryFor(baseDirectory);
+            dumps = Directory.Exists(dir)
+                ? new DirectoryInfo(dir).GetFiles("*.dmp").OrderByDescending(f => f.LastWriteTimeUtc).Select(f => f.FullName).ToList()
+                : Array.Empty<string>();
+        }
+        catch (Exception ex)
+        {
+            notes.AppendLine($"crashes: could not be listed — {ex.Message}");
+            return;
+        }
+        if (dumps.Count == 0) return;
+        notes.AppendLine($"Mini-dumps of native crashes on disk ({dumps.Count}):");
+        foreach (var dump in dumps)
+        {
+            long size;
+            try
+            {
+                size = new FileInfo(dump).Length;
+            }
+            catch
+            {
+                size = -1;
+            }
+            notes.AppendLine($"  {Path.GetFileName(dump)} ({(size < 0 ? "size unknown" : $"{size / 1024.0 / 1024.0:0.#} MB")})");
+        }
+        var newest = dumps[0];
+        try
+        {
+            var length = new FileInfo(newest).Length;
+            if (length > CrashDumps.BundleMaxBytes)
+            {
+                notes.AppendLine($"The newest dump is larger than {CrashDumps.BundleMaxBytes / 1024 / 1024} MB and is not in this zip: copy {newest} by hand.");
+                return;
+            }
+            var entryName = CrashDumps.Folder + "/" + Path.GetFileName(newest);
+            zip.CreateEntryFromFile(newest, entryName);
+            included.Add(entryName);
+            notes.AppendLine($"The newest dump is in the zip as {entryName}.");
+        }
+        catch (Exception ex)
+        {
+            notes.AppendLine($"{Path.GetFileName(newest)}: could not be added — {ex.Message}");
+        }
     }
 
     /// <summary>The passcode, the management token and any stored credential become ••• in the settings text; an empty value stays empty.</summary>

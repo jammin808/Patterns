@@ -637,6 +637,10 @@ public sealed partial class MainViewModel : Observable
                 OnGraphicsChoiceChanged();
             }
         };
+        State.Admin.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AdminConfig.VideoDecoding)) Raise(nameof(VideoDecodingText));
+        };
         RebuildGpuRows();
 
         // Switcher: sandbox sends, CUT/TAKE, tile selection

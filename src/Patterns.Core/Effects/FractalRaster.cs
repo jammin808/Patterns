@@ -121,6 +121,22 @@ public sealed class FractalSurface : IDisposable
 /// <summary>Draws a fractal on the CPU at a modest resolution — NDI, thumbnails, and any sink whose shader would not compile.</summary>
 public static class FractalRaster
 {
+    private static int _parallelism = DefaultParallelism;
+
+    /// <summary>
+    /// Half the cores, at least one: a fractal frame is drawn per sink (NDI, thumbnails, a lower
+    /// third on every output), and one that took every core would starve the audio, the decoders
+    /// and the UI thread on a small laptop — the very machines that use the CPU path.
+    /// </summary>
+    public static int DefaultParallelism => Math.Max(1, Environment.ProcessorCount / 2);
+
+    /// <summary>How many rows render at once; the picture is the same at any value.</summary>
+    public static int Parallelism
+    {
+        get => _parallelism;
+        set => _parallelism = Math.Max(1, value);
+    }
+
     /// <summary>The working width per quality; the height follows the canvas' shape.</summary>
     public static SKSizeI SizeFor(FractalQuality quality, SKSizeI canvas)
     {
@@ -151,7 +167,8 @@ public static class FractalRaster
         var upp = view.UnitsPerPixel(h);
         var cos = Math.Cos(view.Angle);
         var sin = Math.Sin(view.Angle);
-        Parallel.For(0, h, y =>
+        var options = new ParallelOptions { MaxDegreeOfParallelism = Parallelism };
+        Parallel.For(0, h, options, y =>
         {
             var row = y * w;
             var dy = y + 0.5 - h / 2.0;

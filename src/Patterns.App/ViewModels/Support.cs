@@ -503,6 +503,13 @@ public static class Lists
         new(GpuPreferenceKind.LetWindowsDecide, "Let Windows decide"),
     };
 
+    public static readonly EnumItem[] VideoDecodings =
+    {
+        new(VideoDecodingKind.Auto, "Auto — the graphics card; software for the run after a native fault"),
+        new(VideoDecodingKind.Hardware, "Hardware — always the graphics card"),
+        new(VideoDecodingKind.Software, "Software — always the CPU (the stable choice on a faulting driver)"),
+    };
+
     public static readonly EnumItem[] StingerKinds =
     {
         new(StingerKind.Vog, "VOG — over the show, the music ducks"),

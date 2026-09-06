@@ -191,6 +191,18 @@ public sealed class AppServices
     /// <summary>What the recovery file said at startup — read before anything can rewrite it.</summary>
     public RecoverySnapshot? PendingRecovery { get; }
 
+    /// <summary>The supervisor's note of how the last run ended (a crash or a hang), consumed at this start; null after a clean run.</summary>
+    public CrashNote? LastCrash { get; }
+
+    /// <summary>The run right after a native fault: clips decode in software unless the Machine page says Hardware.</summary>
+    public bool SafeRun { get; }
+
+    /// <summary>Whether the next decoder opened uses the graphics card — the operator's choice against this run's fate.</summary>
+    public bool HardwareDecoding => VideoDecodingChoice.UseHardware(State.Admin.VideoDecoding, SafeRun);
+
+    /// <summary>The Machine page's line about the clips' decoding.</summary>
+    public string VideoDecodingWords => VideoDecodingChoice.Words(State.Admin.VideoDecoding, SafeRun);
+
     public MainWindow? MainWindow { get; private set; }
 
     /// <summary>Screen id the preview mirrors while editing an independent screen (null = program).</summary>
@@ -243,9 +255,27 @@ public sealed class AppServices
             HealthMonitor.WatchdogNote = standDown;
             Log.Warn(standDown);
         }
+        // A crash restart left a note: what the last run ended in, once, on the health line and in the
+        // log — and after a native fault this is a safe run: the clips decode in software, the decoder
+        // being the first suspect on a laptop, unless the Machine page says Hardware regardless.
+        LastCrash = CrashMarker.ReadAndClear(Store.BaseDirectory);
+        if (LastCrash is { } crash)
+        {
+            SafeRun = crash.NativeFault;
+            var note = crash.Sentence;
+            if (SafeRun)
+            {
+                note += VideoDecodingChoice.UseHardware(State.Admin.VideoDecoding, safeRun: true)
+                    ? " Video decoding stays on the card (the Machine page says Hardware)."
+                    : " Video decoding is in software for this run (Machine page → Video decoding).";
+                if (crash.NativeFaultsInARow >= 2) note += $" {crash.NativeFaultsInARow} native faults in a row: if the last run already decoded in software, the decoder is not the cause — send the support bundle.";
+            }
+            HealthMonitor.WatchdogNote = HealthMonitor.WatchdogNote.Length > 0 ? HealthMonitor.WatchdogNote + " · " + note : note;
+            Log.Warn(note);
+        }
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
-        Video = new VideoEngine();
+        Video = new VideoEngine { HardwareDecoding = () => HardwareDecoding };
         var video = Video;
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();

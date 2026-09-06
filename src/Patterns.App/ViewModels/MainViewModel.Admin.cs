@@ -344,6 +344,14 @@ public sealed partial class MainViewModel
 
     public bool GpuSpecificVisible => State.Admin.Graphics.Preference == GpuPreferenceKind.Specific;
 
+    /// <summary>Where clips decode this run, and why — the safe run after a native fault says so here.</summary>
+    public string VideoDecodingText => _services.VideoDecodingWords + " A change reaches the next clip that is mounted.";
+
+    /// <summary>What the last run ended in, when the watchdog brought this one up after a crash; "" on a clean start.</summary>
+    public string LastCrashText => _services.LastCrash?.Sentence ?? "";
+
+    public bool LastCrashVisible => _services.LastCrash is not null;
+
     /// <summary>The Copy support info payload (also used by tests to sanity-check content).</summary>
     public string BuildSupportInfo() => _services.Metrics.SupportInfo();
 

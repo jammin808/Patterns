@@ -60,6 +60,12 @@ public sealed class LowerThirdElementCache : IDisposable
     public string FractalColorsKey = "";
     public SKColor[] FractalColors = Array.Empty<SKColor>();
 
+    /// <summary>The last rendered fractal frame as an image, drawn again until the next frame is due.</summary>
+    public SKImage? FractalImage;
+    public double FractalTime = double.NegativeInfinity;
+    public FractalKind FractalKind;
+    public int FractalFrames;
+
     /// <summary>The snapshot version an element threw at: it sits out until the design changes.</summary>
     public long FailedVersion = -1;
 
@@ -88,6 +94,8 @@ public sealed class LowerThirdElementCache : IDisposable
         Sim = null;
         Fractal?.Dispose();
         Fractal = null;
+        FractalImage?.Dispose();
+        FractalImage = null;
         _gradient?.Dispose();
         _gradient = null;
         _shadow.Dispose();
@@ -525,16 +533,35 @@ public static class LowerThirdRenderer
         {
             cache.FractalColors = ColorUtil.ParseList(o.ColorsCsv, SKColors.White);
             cache.FractalColorsKey = o.ColorsCsv;
+            cache.FractalTime = double.NegativeInfinity;   // a new palette draws at once
         }
-        var audio = o.AudioSource == AudioSourceKind.None ? AudioLevelFrame.Zero : AudioLevels.Read(f.Ctx.UtcNow);
-        var view = FractalView.Of(o, time, audio, surge: surge);
         var size = FractalRaster.SizeFor(o.Quality, new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height)));
-        cache.Fractal = FractalRaster.Render(cache.Fractal, size, o.Kind, cache.FractalColors, view);
-        using var image = SKImage.FromBitmap(cache.Fractal.Bitmap);
-        if (image is null) return;
+        // A fractal element is rendered on the CPU by every sink that draws the lower third; at the
+        // outputs' 60 Hz that is the one thing on a lower third that could crowd out the decoders on
+        // a small machine. It gets a new frame FractalFps times a second and the same picture between —
+        // a size, kind or palette change, or a time that jumped back (a fresh show), draws at once.
+        var due = cache.FractalImage is null || cache.Fractal is null || cache.Fractal.Size != size || cache.FractalKind != o.Kind
+                  || time < cache.FractalTime || time - cache.FractalTime >= FractalFrameSeconds;
+        if (due)
+        {
+            var audio = o.AudioSource == AudioSourceKind.None ? AudioLevelFrame.Zero : AudioLevels.Read(f.Ctx.UtcNow);
+            var view = FractalView.Of(o, time, audio, surge: surge);
+            cache.Fractal = FractalRaster.Render(cache.Fractal, size, o.Kind, cache.FractalColors, view);
+            cache.FractalImage?.Dispose();
+            cache.FractalImage = SKImage.FromBitmap(cache.Fractal.Bitmap);
+            cache.FractalTime = time;
+            cache.FractalKind = o.Kind;
+            cache.FractalFrames++;
+        }
+        if (cache.FractalImage is null) return;
         c.Save();
         ClipBox(c, rect, e.CornerPx);
-        c.DrawImage(image, rect, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
+        c.DrawImage(cache.FractalImage, rect, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
         c.Restore();
     }
+
+    /// <summary>How often a lower third's fractal element gets a new frame on the CPU path.</summary>
+    public const double FractalFps = 25;
+
+    public const double FractalFrameSeconds = 1 / FractalFps;
 }

@@ -73,6 +73,13 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Non-empty when more sources are wanted than the decoder cap allows.</summary>
     public string LimitNote { get; private set; } = "";
 
+    /// <summary>
+    /// Whether a decoder opened now uses the graphics card: the show's choice against the run
+    /// (software in the run after a native fault). Asked per open, so a change on the Machine page
+    /// reaches the next clip and never restarts one mid-play.
+    /// </summary>
+    public Func<bool> HardwareDecoding { get; set; } = () => true;
+
     /// <summary>Mounted keys with a short status each — the Media tab's active-inputs line.</summary>
     public IReadOnlyList<(string Key, string Status)> MountStatuses
         => _mounts.Select(kv => (kv.Key, kv.Value.Source.IsPlaying ? "playing" : kv.Value.Source.StatusText)).ToList();
@@ -128,7 +135,7 @@ public sealed class VideoEngine : IDisposable
                 var source = SourceFactory is { } open
                     ? open(w)
                     : new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format);
+                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding());
                 if (source is null) continue;
                 if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
                 _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format);
@@ -416,7 +423,7 @@ public sealed class VlcFrameSource : IMountedSource
         return options.ToArray();
     }
 
-    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "")
+    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true)
     {
         _isCapture = isCapture;
         if (isCapture)
@@ -443,7 +450,8 @@ public sealed class VlcFrameSource : IMountedSource
 
         _player = new MediaPlayer(_media)
         {
-            EnableHardwareDecoding = true,
+            // The card's decoder when the run allows it; the CPU in a safe run (see VideoDecodingChoice).
+            EnableHardwareDecoding = hardwareDecoding,
         };
         _player.SetVideoFormatCallbacks(_formatCb, _cleanupCb);
         _player.SetVideoCallbacks(_lockCb, null, _displayCb);

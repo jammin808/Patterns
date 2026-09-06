@@ -1458,11 +1458,15 @@ public sealed class AdminConfig : Observable
 {
     private bool _metricsCsv = true;
     private string _libreOfficePath = "";
+    private VideoDecodingKind _videoDecoding = VideoDecodingKind.Auto;
 
     public GraphicsConfig Graphics { get; init; } = new();
 
     /// <summary>Append a performance sample to patterns.metrics.csv every 30 s (rotated at 1 MB).</summary>
     public bool MetricsCsv { get => _metricsCsv; set => Set(ref _metricsCsv, value); }
+
+    /// <summary>Where clips decode — see <see cref="VideoDecodingKind"/>; a change reaches the next decoder opened, never a clip mid-play.</summary>
+    public VideoDecodingKind VideoDecoding { get => _videoDecoding; set => Set(ref _videoDecoding, value); }
 
     /// <summary>Where LibreOffice is on this machine when Patterns cannot find it by itself (soffice.exe, or its folder) — PowerPoint decks convert through it.</summary>
     public string LibreOfficePath { get => _libreOfficePath; set => Set(ref _libreOfficePath, value ?? ""); }

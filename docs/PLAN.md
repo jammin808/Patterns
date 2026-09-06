@@ -187,6 +187,7 @@ the crash chain are in §18. Newest row first.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 2 | Native-crash hardening (the chain and the candidates in §18.2). Core, `Resilience.cs`: `ExitCodes` — Windows' status codes in words (0xC0000005 an access violation, 0xC0000374 a heap corruption, 0xC0000409 a fail-fast, 0xE0434352 an unhandled .NET exception, 82 / 83 the app's own restart requests) and `IsNativeFault`; `CrashNote` and `CrashMarker` (`patterns.crash.json`) — what the last run ended in, when, after how long, the mini-dump if one was written and how many native faults in a row, written by the supervisor on every crash or hang restart, read once by the next start and cleared so it shapes that run alone; `CrashDumps` — the runtime's mini-dump variables the supervisor hands the child (`DOTNET_DbgEnableMiniDump`, the smallest type, a `crashes` folder beside the settings, `patterns-<pid>-<time>.dmp`), a sweep that keeps the newest three, the newest since a moment; `VideoDecodingChoice` with `AdminConfig.VideoDecoding` (Auto / Hardware / Software) — Auto is the graphics card except in the *safe run*, the run right after a native fault, where clips decode in software: the card's decoder is the first suspect on a laptop and software costs a few percent of CPU to rule it in or out over one show. App: the supervisor logs the exit code in hex and in words, writes the note, hands the child the dump variables and says at start whether `createdump.exe` is beside the exe (`build/publish-win-x64.sh` now copies it from the runtime pack — without it the runtime writes no dump, and the note says so); `AppServices` reads the note onto the health line and into the log (`LastCrash`, `SafeRun`, `HardwareDecoding`) and after two native faults in a row says the decoder is not the cause and asks for the support bundle; `VideoEngine.HardwareDecoding` reaches every `VlcFrameSource` opened after it (`EnableHardwareDecoding`), so the choice is per run and per decoder, never a restart; the Machine page's VIDEO DECODING block — the choice, a line saying what this run does and why, and under STABILITY the note of what the last run ended in; the support bundle carries the crash note, names every dump on disk with its size and packs the newest when it is under 60 MB (a larger one is left with its path). The CPU paths, for the report's laptop: `FractalRaster.Parallelism` is half the cores, at least one — a fractal frame is drawn per sink, and one that took every core starved the audio, the decoders and the UI thread — and the picture is identical at any value; a lower third's fractal element gets a new CPU frame 25 times a second and draws the same image between (`LowerThirdElementCache.FractalImage`; a palette change, a size change or a fresh show draws at once) instead of a raster and an image copy on every sink's every frame. Tests: the exit-code words and the native-fault line; the note round-tripping once with junk ignored; the sentence's what, when and how long with and without a dump and for a hang; the dump variables, the sweep keeping the newest three and the newest-since with its grace; the decoding table for every choice against a safe run and its words; the bundle carrying the note and the newest small dump, naming the rest and leaving a 60 MB one on disk with its path; the raster the same picture at one, four and a clamped parallelism; the lower-third fractal's cadence, a time that went back and a new palette; on a live desk a native-fault note making a safe run (software decoding at the pool, the health line, the log, the marker consumed) that Hardware on the Machine page overrides at once with the line raised, a managed-exception note keeping the card, and a clean start with no note and the page's block. | done |
 | 1 | The stinger and VOG lifecycle, triaged (the chain in §18.1). Core: `StingerLibrary.ClipOnAir` / `ClipFor` / `IsClipLook` — what tells a clip left on the screens from the show, by the library's own file paths. App, `StingerService`: a tick that throws (a decoder mid-dispose, a device gone, a tally listener) is counted (`TickFaults`), logged once a minute and *carried past* — the session is kept exactly as it is and the next tick reads again; before, any exception abandoned the session without a revert, leaving the clip on the screens with nothing owning it, the tally off and STOP with nothing to stop — the report's bug. STOP means stop, session or no session: a clip on the screens that nothing owns goes, the last show that was on comes back (`BestKnownShow`: the content the last clip was fired over, else the look recorded as on air, else the one before it), the journal and the log say so, and with no show known the desk says that rather than guess. A clip fired over a dead clip saves the show, never the dead clip, as the content to return to — so the stings after a fault no longer come back to a dead picture, and a crash mid-clip never pins one as the show to recover; `AppServices.TryRecover` refuses a sidecar whose air content is a library clip. A press onto a decoder that is already open — the same file again while it plays, or a leftover the preview still references, ended — tells it to play from the top (`VideoEngine.RestartIfMounted`); until it rolls, or for two seconds, its "ended" is the old ending, and a leftover that will not roll is "Clip could not play again — previous content back" — before, the first tick read the old ending and put the show straight back, the report's "tries to play and immediately fades back off". A clip that says it plays but whose position has not moved for fifteen seconds is stuck in its decoder: the show comes back, the after-policy never runs (`StallSeconds`). `VlcFrameSource` answers every reading safely once disposed. `AppServices` raises its listeners one by one (`RaiseSafely`): a strip, a tile or a feedback sender that throws is logged and never unwinds the publish, the label or the tally that raised it. A VOG voice with no audio endpoint at all fails with a reason, never an exception. Tests: the library's clip-on-air and clip-look reads; on a live desk a tick that throws twice keeping the session and the clip ending the normal way after, STOP putting back a clip nothing owns with the journal line, STOP saying so with nothing known and using the look on air when there is one, a clip fired over a dead clip coming back to the show, the same clip pressed again playing from the top on the same decoder, a leftover ended decoder restarted by the press and one that will not roll putting the show back after the grace, a clip that stops moving putting the show back while a moving one never does, and a recovery sidecar holding a clip not put back as the show. | done |
 
 ## 15. Round 13 — the caller's clock, the audio playlist, the weather, the assistant, the desk
@@ -766,3 +767,59 @@ fault was logged before it as *Stinger tick failed*, a line the report does not 
 exit codes are 0xC0000005 — an access violation, native code, not a managed exception — with the
 candidates in §18.2; commit 2 makes the next one leave a mini-dump and a note on the health line,
 and starts the app with hardware video decoding off after such a fault.
+
+### 18.2 The two access violations: what the numbers say, the candidates, and how the next one is read
+
+**The facts.** The watchdog log has two exits with code -1073741819, which is 0xC0000005: an
+access violation — native code wrote or read where it should not. The first after 4174 s (about
+70 minutes), the second after 2469 s (41 minutes); the watchdog restarted both times. The journal
+around the first shows a lower third (*Sparks*) shown and hidden at 22:53, then OUTPUTS ON / OFF at
+23:11; the app was supervised from 22:20, so the first fault fell at about 23:30, after the
+outputs had been cycled. "Logging stopped" is what an access violation looks like from the inside:
+Windows ends the process before any managed handler runs, so `patterns.log` holds every line up to
+the fault (each line is appended and closed) and nothing about the fault itself — that is what a
+mini-dump is for. "The effect pulse carried on working" says the UI and the render thread were
+alive until the process died, which fits a fault on a decoder or audio thread and rules out a hang.
+
+**What can and cannot access-violate, read from the code.**
+
+- *libVLC hardware decoding* — the leading candidate. `VlcFrameSource` opens every clip with
+  `EnableHardwareDecoding = true`: on Windows that is D3D11VA or DXVA2 through the graphics driver,
+  and a driver's decoder faulting inside the VLC decode thread is the most common 0xC0000005 in any
+  libVLC host, above all on a low-spec laptop with an integrated card and a driver of whatever age
+  the machine shipped with. The stinger session was active in the same period, and the round's
+  first report (a tick throwing mid-clip) says decoders were being retired and reopened around it.
+- *libVLC callbacks after a retire.* VLC delivers frames on its own threads into buffers Patterns
+  locks and unlocks per frame; a retire stops the player, unhooks the callbacks and disposes after
+  a 400 ms hold, and a callback racing that sequence would read a freed buffer. The order and the
+  hold are right by reading; a dump would show it as a fault with `libvlc` on the stack and a
+  Patterns callback above it, which is why the dump matters more than another reading.
+- *WASAPI teardown.* A voice's device vanishing during a fade (a USB interface unplugged, Windows
+  switching default devices) reaches NAudio's native client; commit 1 made the open path fail with
+  a reason rather than an exception, and the close path is on the same thread as the open.
+- *Skia* — judged safe: raster images are reference-counted, the per-frame `SKImage` of a decoded
+  frame is retired on a 400 ms hold after its last draw, and the GPU proxies copy the bitmap.
+- *Fractals and particles cannot cause it.* They are managed code in `Patterns.Core` — an out-of-
+  bounds there is an exception the guards catch, never a native fault. What they can do on a small
+  machine is starve: `FractalRaster` ran a `Parallel.For` over every row on every core, once per
+  sink per frame, and a fractal in a lower third is rendered by every output and the desk preview,
+  so a laptop with four threads gave the decoders and the audio whatever was left. Starvation
+  shows as stalls and drops (the stalled-clip rule in commit 1 catches the worst of it), not as a
+  crash — so the lower-third hunch was right about the load and wrong about the fault.
+
+**What changed.** The next native fault leaves three things: a note (the exit code in words, when,
+after how long, how many in a row) on the health line and in the log at the next start; a
+mini-dump in the `crashes` folder beside the settings, when `createdump.exe` is beside the exe (the
+publish script places it; the note says when it is missing); and a *safe run* — clips decode in
+software for that run, because if the laptop then runs a whole show without a fault the graphics
+driver's decoder is the cause and Software is the setting for that machine, and if it faults in
+software too the count says the decoder is not the cause and the dump goes with the support
+bundle. The fractal raster takes half the cores and a lower third's fractal element draws 25 new
+frames a second, so the load that the report described is bounded whatever the machine.
+
+**How to read the dump.** Open `crashes\patterns-<pid>-<time>.dmp` in WinDbg (`!analyze -v`) or
+Visual Studio: the faulting module is the answer — `libvlc*.dll` or a driver DLL (`igd*`, `nv*`,
+`amd*`) is the decoder, `coreclr.dll` under a Patterns frame is a managed race, `AudioSes.dll` /
+`MMDevAPI.dll` is the audio device. What cannot be verified in this environment: there is no
+Windows, no libVLC and no graphics driver here; the chain is read from the code and the numbers,
+the dump and the safe run are what turn it into a fact on the laptop.
