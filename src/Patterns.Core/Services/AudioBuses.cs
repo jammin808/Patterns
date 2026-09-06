@@ -18,7 +18,7 @@ public enum AudioBus
 /// <param name="DuckPct">The show's duck level — the share of its own volume the ducked sound keeps.</param>
 /// <param name="StingRamp">The sting fade on the music (0–1), a pure ramp owned by the stinger service.</param>
 /// <param name="LiveDuck">The operator's live duck as a factor (1 = off; a ramp while it moves): an announcement from the room.</param>
-public readonly record struct GainInputs(bool VogSoundPlaying, double DuckPct, double StingRamp, double LiveDuck = 1.0);
+public readonly record struct GainInputs(bool VogSoundPlaying, double DuckPct, double StingRamp, double LiveDuck = 1.0, double Black = 1.0);
 
 /// <summary>
 /// Who ducks whom, in one table with one test. A VOG sound is an announcement: everything else
@@ -34,11 +34,15 @@ public static class GainRules
     {
         var duck = g.VogSoundPlaying ? MusicLevel.Duck(g.DuckPct) : 1.0;
         var live = Math.Clamp(g.LiveDuck, 0, 1);
+        // A fade to black that takes the whole picture takes the programme's sound with it (the
+        // music and a clip's soundtrack) when the show says so; a VOG and a stinger's own sound
+        // are announcements and hits, and play through it.
+        var black = Math.Clamp(g.Black, 0, 1);
         return bus switch
         {
-            AudioBus.Music => Math.Min(duck, Math.Clamp(g.StingRamp, 0, 1)) * live,
+            AudioBus.Music => Math.Min(duck, Math.Clamp(g.StingRamp, 0, 1)) * live * black,
             AudioBus.StingSound => duck * live,
-            AudioBus.ClipAudio => duck * live,
+            AudioBus.ClipAudio => duck * live * black,
             _ => 1.0,
         };
     }

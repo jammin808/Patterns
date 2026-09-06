@@ -293,6 +293,9 @@ class PatternsInstance extends InstanceBase {
 			weather_figure: this.state.weather?.figure ?? '',
 			weather_view: this.state.weather?.view ?? '',
 			freeze: this.state.frozen ? 'FROZEN' : 'off',
+			black: this.state.black?.count ? String(this.state.black.count) : 'off',
+			black_text: this.state.black?.text ?? '',
+			black_audio: this.state.black?.audio ? 'DOWN' : 'off',
 			previous_look: this.state.previousLook ?? '',
 			music: this.state.music?.now ?? '',
 			music_state: this.state.music?.playing ? 'PLAYING' : 'paused',
@@ -330,7 +333,7 @@ class PatternsInstance extends InstanceBase {
 			overlays_text: ov.text ?? '',
 			...this.bankVariables(),
 		})
-		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'screen_armed', 'screen_own', 'audio_playing', 'stinger_playing', 'music_playing',
+		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'screen_armed', 'screen_own', 'screen_black', 'black_any', 'audio_playing', 'stinger_playing', 'music_playing',
 			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'lower_third_preview', 'lower_third_edited',
 			'review_on', 'weather_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
 			'web_on_air', 'deck_on_air', 'video_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty',
@@ -512,14 +515,19 @@ class PatternsInstance extends InstanceBase {
 				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'Freeze' }, { id: 'OFF', label: 'Release' }] }],
 				callback: (a) => send(`FREEZE ${a.options.mode}`),
 			},
-			// A blackout with a fade of its own: down to black or up again, over the seconds given (0 = the show's transition time).
+			// A fade to black — or up again — over the seconds given (0 = the show's transition time), where the target says:
+			// empty = every screen (a blackout with a fade of its own); SCREEN 2, GROUP A, FOCUSED, TICKED or GROUPS fade that part alone.
 			fade: {
-				name: 'Fade to black / fade up over a time',
+				name: 'Fade to black / fade up over a time — every screen, or one screen, a group, the focused or ticked tiles',
 				options: [
-					{ type: 'dropdown', id: 'dir', label: 'Direction', default: 'DOWN', choices: [{ id: 'DOWN', label: 'To black' }, { id: 'UP', label: 'Up (lift the blackout)' }] },
+					{ type: 'dropdown', id: 'dir', label: 'Direction', default: 'DOWN', choices: [{ id: 'DOWN', label: 'To black' }, { id: 'UP', label: 'Up (lift it)' }] },
 					{ type: 'number', id: 'secs', label: 'Seconds (0 = the show\'s transition time)', default: 2, min: 0, max: 600, step: 0.5 },
+					{ type: 'textinput', id: 'target', label: 'Where (empty = every screen; SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS)', default: '' },
 				],
-				callback: (a) => send(`${a.options.dir === 'UP' ? 'FADEUP' : 'FADE'}${a.options.secs > 0 ? ' ' + a.options.secs : ''}`),
+				callback: (a) => {
+					const where = String(a.options.target ?? '').trim()
+					send(`${a.options.dir === 'UP' ? 'FADEUP' : 'FADE'}${a.options.secs > 0 ? ' ' + a.options.secs : ''}${where ? ' ' + where : ''}`)
+				},
 			},
 			// The look that was on air before the current one, back on air (press again to swap back).
 			look_back: {
@@ -903,6 +911,21 @@ class PatternsInstance extends InstanceBase {
 				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
 				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.own) === true,
 			},
+			// Faded to black on its own (FADE … SCREEN n / GROUP A / FOCUSED / TICKED) — the blackout is a separate feedback.
+			screen_black: {
+				type: 'boolean',
+				name: 'Screen is faded to black on its own',
+				defaultStyle: { bgcolor: combineRgb(224, 52, 46), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
+				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.black) === true,
+			},
+			black_any: {
+				type: 'boolean',
+				name: 'Any screen is faded to black on its own',
+				defaultStyle: { bgcolor: combineRgb(224, 52, 46), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => (this.state.black?.count ?? 0) > 0,
+			},
 			// Looks: which one is on air (by name, by its place in the list, or by its F-key) and which is in the preview.
 			look_on_air: {
 				type: 'boolean',
@@ -1282,6 +1305,9 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'weather_figure', name: 'The weather chip\'s figure ("18°", "14–19°")' },
 			{ variableId: 'weather_view', name: 'The weather chip\'s view (now / day / tomorrow)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
+			{ variableId: 'black', name: 'Screens faded to black on their own (how many, or off)' },
+			{ variableId: 'black_text', name: 'Screens faded to black on their own, by name ("Screen 2 · Group A")' },
+			{ variableId: 'black_audio', name: 'The programme\'s sound is down with a fade to black (DOWN/off)' },
 			{ variableId: 'previous_look', name: 'The look LOOK BACK returns to (name, or empty)' },
 			{ variableId: 'audio_track', name: 'Audio playlist — the track on (or up next when stopped)' },
 			{ variableId: 'audio_next', name: 'Audio playlist — the track after it' },
@@ -1704,6 +1730,31 @@ class PatternsInstance extends InstanceBase {
 			steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2 } }], up: [] }],
 			feedbacks: [],
 		}
+		// The desk's focused wall tile alone (the PGM tile focused means every screen), and the tiles ticked on the wall.
+		presets.fade_focused_down = {
+			type: 'button', category: 'Transport', name: 'FADE TO BLACK — the focused screen, 2 s',
+			style: { text: 'FADE\\nFOCUSED\\n▼', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: 'FOCUSED' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'black_any', options: {}, style: { bgcolor: combineRgb(224, 52, 46), color: white } }],
+		}
+		presets.fade_focused_up = {
+			type: 'button', category: 'Transport', name: 'FADE UP — the focused screen, 2 s',
+			style: { text: 'FADE\\nFOCUSED\\n▲', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: 'FOCUSED' } }], up: [] }],
+			feedbacks: [],
+		}
+		presets.fade_ticked_down = {
+			type: 'button', category: 'Transport', name: 'FADE TO BLACK — the ticked screens, 2 s',
+			style: { text: 'FADE\\nTICKED\\n▼', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: 'TICKED' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'black_any', options: {}, style: { bgcolor: combineRgb(224, 52, 46), color: white } }],
+		}
+		presets.fade_ticked_up = {
+			type: 'button', category: 'Transport', name: 'FADE UP — the ticked screens, 2 s',
+			style: { text: 'FADE\\nTICKED\\n▲', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: 'TICKED' } }], up: [] }],
+			feedbacks: [],
+		}
 		presets.look_back = {
 			type: 'button', category: 'Looks', name: 'PREVIOUS LOOK — back on air',
 			style: { text: 'BACK TO\\n$(patterns:previous_look)', size: '14', color: white, bgcolor: dark },
@@ -1862,6 +1913,19 @@ class PatternsInstance extends InstanceBase {
 				steps: [{ down: [{ actionId: 'screen_program', options: { n } }], up: [] }],
 				feedbacks: [empty('screen', n)],
 			}
+			// This screen alone to black over two seconds (red while it is), and back — the rest of the rig keeps its picture.
+			presets[`screen_${n}_fade_down`] = {
+				type: 'button', category: 'Screens', name: `Screen ${n} fade to black — 2 s`,
+				style: { text: `FADE ▼\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: `SCREEN ${n}` } }], up: [] }],
+				feedbacks: [{ feedbackId: 'screen_black', options: { n }, style: { bgcolor: combineRgb(224, 52, 46), color: white } }, empty('screen', n)],
+			}
+			presets[`screen_${n}_fade_up`] = {
+				type: 'button', category: 'Screens', name: `Screen ${n} fade up — 2 s`,
+				style: { text: `FADE ▲\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: `SCREEN ${n}` } }], up: [] }],
+				feedbacks: [empty('screen', n)],
+			}
 		}
 		for (const letter of ['A', 'B', 'C', 'D']) {
 			presets[`group_${letter}_on`] = {
@@ -1873,6 +1937,16 @@ class PatternsInstance extends InstanceBase {
 				type: 'button', category: 'Screens', name: `Canvas ${letter} off`,
 				style: { text: `${letter}\\nOFF`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'group', options: { letter, mode: 'OFF' } }], up: [] }], feedbacks: [],
+			}
+			presets[`group_${letter}_fade_down`] = {
+				type: 'button', category: 'Screens', name: `Canvas ${letter} fade to black — 2 s`,
+				style: { text: `${letter}\\nFADE ▼`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: `GROUP ${letter}` } }], up: [] }], feedbacks: [],
+			}
+			presets[`group_${letter}_fade_up`] = {
+				type: 'button', category: 'Screens', name: `Canvas ${letter} fade up — 2 s`,
+				style: { text: `${letter}\\nFADE ▲`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: `GROUP ${letter}` } }], up: [] }], feedbacks: [],
 			}
 		}
 		for (let n = 1; n <= 8; n++) {

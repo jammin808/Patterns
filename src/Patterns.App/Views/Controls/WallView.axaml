@@ -8,7 +8,8 @@
 <!-- The wall: one tile per content target (PGM, joined canvases, single screens) with
      its PGM and PVW miniatures. Click = the panes and editors follow it; OWN = its own
      pattern; MON = draw the miniatures; ARM = the next CUT / TAKE changes it; OUT (on the
-     title row) = OUTPUT on/off live; tick (sandbox open) = SEND TO TICKED target. -->
+     title row) = OUTPUT on/off live; the tick = a SEND TO TICKED target (sandbox open) and
+     a FADE TO BLACK "ticked" target (always). -->
 <Grid ColumnDefinitions="*,8,Auto,Auto,Auto">
   <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
     <ItemsControl ItemsSource="{Binding SwitcherTiles}">
@@ -23,10 +24,16 @@
                 <Ellipse Classes="tally" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                          Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
                          ToolTip.Tip="Tally: red = the audience sees it, amber = held through the next send, grey = not on air" />
-                <!-- The role badge: CONF, INFO or REP; a main screen wears none -->
-                <Border Grid.Column="1" Classes="roleBadge" IsVisible="{Binding HasBadge}" ToolTip.Tip="{Binding BadgeTip}">
-                  <TextBlock Text="{Binding RoleBadge}" />
-                </Border>
+                <!-- The role badge: CONF, INFO or REP; a main screen wears none. BLACK: faded to black on its own (the blackout shows on every tally instead) -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                  <Border Classes="roleBadge" IsVisible="{Binding HasBadge}" ToolTip.Tip="{Binding BadgeTip}">
+                    <TextBlock Text="{Binding RoleBadge}" />
+                  </Border>
+                  <Border Classes="roleBadge blackBadge" IsVisible="{Binding IsBlack}"
+                          ToolTip.Tip="Faded to black on its own — FADE TO BLACK on this tile, from the panel, a cue, the phone or Companion; FADE UP brings it back (a FADE UP on EVERY SCREEN brings back every tile like it)">
+                    <TextBlock Text="BLACK" />
+                  </Border>
+                </StackPanel>
                 <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="0,2" Cursor="Hand"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectTileCommand}"
@@ -35,14 +42,14 @@
                   <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                              Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
                 </Button>
-                <!-- With the sandbox open: SEND puts the preview on this tile alone; the tick joins SEND TO TICKED -->
+                <!-- SEND (sandbox open) puts the preview on this tile alone; the tick — always there — joins SEND TO TICKED and FADE TO BLACK on the ticked -->
                 <Panel Grid.Column="3" IsVisible="{Binding !IsProgramTile}">
-                  <StackPanel Orientation="Horizontal" Spacing="2"
-                              IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsSandboxActive}">
+                  <StackPanel Orientation="Horizontal" Spacing="2">
                     <Button Classes="wall" Content="SEND" Command="{Binding SendHereCommand}" Focusable="False"
+                            IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsSandboxActive}"
                             ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern — every other target stays as it is" />
-                    <CheckBox IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Padding="0" MinWidth="0" Margin="4,0,0,0"
-                              ToolTip.Tip="Tick to include this tile in SEND TO TICKED" />
+                    <CheckBox Name="TileTick" IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Padding="0" MinWidth="0" Margin="4,0,0,0"
+                              ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS" />
                   </StackPanel>
                 </Panel>
                 <!-- OUTPUT: the screen on or off, live — a wall button that fits the tile (the switch it replaces hung outside it) -->

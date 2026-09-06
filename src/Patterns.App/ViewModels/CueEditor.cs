@@ -187,6 +187,7 @@ public sealed class ActionRow : Observable
         TargetKind.Device => "Which device… (blank = the first)",
         TargetKind.Slot => Action.Kind == CueActionKind.Announce ? "Which announcement… (blank = the words below)" : "Which advert…",
         TargetKind.Track => "Which track… (blank = play or resume the list)",
+        TargetKind.Place => "Where… (blank = every screen)",
         _ => "",
     };
 
@@ -216,7 +217,8 @@ public sealed class ActionRow : Observable
     {
         get
         {
-            if (Action.Target.Length == 0) return null;
+            // A fade with no place is every screen — the picker's first row, not an empty picker.
+            if (Action.Target.Length == 0) return CueActionSpec.For(Action.Kind).Target == TargetKind.Place ? TargetChoices.FirstOrDefault(t => t.Id.Length == 0) : null;
             // A reference by name (an older show, a hand-typed target) resolves like the validator resolves it.
             return TargetChoices.FirstOrDefault(t => t.Id == Action.Target)
                    ?? TargetChoices.FirstOrDefault(t => string.Equals(t.Label, Action.Target, StringComparison.OrdinalIgnoreCase))
@@ -350,7 +352,7 @@ public sealed class CueEditor : Observable
             if (SelectedCue is null || name is null || !Enum.TryParse<CueActionKind>(name, out var kind)) return;
             SelectedCue.Actions.Add(new CueActionConfig { Kind = kind });
             OnCueEdited();
-            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device) && kind != CueActionKind.Announce;
+            var needsTarget = CueActionSpec.For(kind).Target is not (TargetKind.None or TargetKind.Page or TargetKind.Device or TargetKind.Place) && kind != CueActionKind.Announce;
             _status($"{SelectedCue.Number}: {CueActionSpec.Label(kind)} added{(needsTarget ? " — pick its target below" : "")}.");
         });
 
@@ -750,6 +752,33 @@ public sealed class CueEditor : Observable
                 // Announcements and adverts of the Install page, by name — never a programme (the clock owns those).
                 return state.Install.Slots.Where(s => s.Kind != SlotKind.Programme)
                     .Select(s => new PickItem(s.Name, $"{(s.Kind == SlotKind.Advert ? "ADVERT" : "ANNOUNCEMENT")} · {s.Name} — {Schedule.DetailOf(s)}"));
+            case TargetKind.Place:
+            {
+                // Where a fade lands: every screen, the desk's focus and ticks, then every screen and group of the rig by the words the wire takes.
+                var items = new List<PickItem>
+                {
+                    new("", "Every screen (the blackout, faded)"),
+                    new(FadeScope.Focused.Words, "The focused wall tile"),
+                    new(FadeScope.Ticked.Words, "The ticked wall tiles"),
+                    new(FadeScope.Groups.Words, "The ticked groups"),
+                };
+                var known = _s.Screens.All;
+                var groups = Rig.CanvasGroups(state, known);
+                for (var i = 0; i < groups.Count; i++)
+                {
+                    var key = CanvasNameConfig.KeyFor(groups[i].Select(m => m.ScreenId));
+                    var letter = ((char)('A' + i)).ToString();
+                    var name = state.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key)?.Name;
+                    items.Add(new PickItem($"GROUP {letter}", $"Group {letter} · {(string.IsNullOrWhiteSpace(name) ? $"Canvas {letter}" : name)}"));
+                }
+                var n = 0;
+                foreach (var (placement, info) in Rig.OrderedLivePlacements(state, known))
+                {
+                    n++;
+                    items.Add(new PickItem($"SCREEN {n}", $"Screen {n} · {Rig.LabelFor(placement, info)}"));
+                }
+                return items;
+            }
             case TargetKind.Page:
             {
                 // The pages the show has now, then the remembered ones: a cue names a page by its address (its nickname or a word of it reads the same).

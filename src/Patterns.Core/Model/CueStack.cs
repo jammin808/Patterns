@@ -118,6 +118,13 @@ public enum CueActionKind
     AudioNext,
     /// <summary>The audio playlist moves back a track.</summary>
     AudioPrev,
+    /// <summary>
+    /// Target = where the fade lands (empty = the rig, as a blackout with a fade; FOCUSED, TICKED, GROUPS,
+    /// SCREEN n, GROUP A, or a target id); Value = seconds (empty = the show's transition time).
+    /// </summary>
+    FadeToBlack,
+    /// <summary>The same places, faded up again (empty = the rig: the blackout lifted and every screen black on its own brought back).</summary>
+    FadeUp,
 }
 
 /// <summary>

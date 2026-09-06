@@ -221,6 +221,7 @@ public static class HelpTopics
                 "TAKE swaps it to air with the show's transition; CUT does it at once.",
                 "ARM off on a tile keeps that target through the next TAKE; LOCK keeps it through looks, cues and stingers too.",
                 "SEND puts the preview on one tile alone as its own picture; OWN gives a tile its own editable picture.",
+                "The tick on a tile is there with or without EDIT SAFE: it joins SEND TO TICKED, and the Show panel's FADE TO BLACK on THE TICKED SCREENS or THE TICKED GROUPS.",
             },
             "LOOK <name> · SCREEN <n> LOOK <name> · SCREEN <n> PROGRAM · LOCK <n> ON / OFF · BLACKOUT ON / OFF. TAKE and CUT are desk keys; the phone remote has them too.",
             new[] { "Panel", "Pattern", "Screens" },
@@ -342,13 +343,15 @@ public static class HelpTopics
             new[]
             {
                 "FREEZE holds every output's picture while you change anything behind it; press again to release.",
-                "FADE TO BLACK / FADE UP over the seconds typed beside them — a blackout with a fade of its own time.",
+                "FADE TO BLACK / FADE UP over the seconds typed beside them, where the picker says: EVERY SCREEN is a blackout with a fade of its own time; THE FOCUSED SCREEN, THE TICKED SCREENS and THE TICKED GROUPS fade that part of the rig alone while the rest keeps its picture (the ticks are on every wall tile, with or without EDIT SAFE).",
+                "WITH THE SOUND (on by default, saved with the show): a fade that leaves the whole rig dark takes the music and a clip's soundtrack down with it over the same seconds, and the fade up brings them back; a VOG and a stinger's own sound play through; BLACKOUT covers everything and never touches the sound.",
+                "A cue's Fade to black / Fade up land in the same places (every screen, the focus, the ticks, Screen 2, Group A) for their seconds; the wire and Companion have them per screen and per group.",
                 "LOOK BACK puts the previous look back on air; again swaps the two.",
                 "An earlier build is a folder on the stick: run it and the show file opens as it was.",
             },
-            "FREEZE ON / OFF / TOGGLE · FADE [seconds] · FADE UP [seconds] · LOOKBACK [cut|ms] · BLACKOUT ON / OFF / TOGGLE",
+            "FREEZE ON / OFF / TOGGLE · FADE [seconds] [SCREEN n | GROUP A | FOCUSED | TICKED | GROUPS] · FADE UP [seconds] [where] · LOOKBACK [cut|ms] · BLACKOUT ON / OFF / TOGGLE · STATE black{count,text,audio}",
             new[] { "Panel" },
-            new[] { "freeze", "hold frame", "fade", "black", "fade to black", "fade up", "look back", "previous", "undo", "version", "roll back", "emergency" }),
+            new[] { "freeze", "hold frame", "fade", "black", "fade to black", "fade up", "fade a screen", "fade a group", "audio fade", "with the sound", "look back", "previous", "undo", "version", "roll back", "emergency" }),
 
         new HelpTopic("review", HelpGroup.RunningTheShow,
             "Review on the multiview: the next picture on the monitor wall",

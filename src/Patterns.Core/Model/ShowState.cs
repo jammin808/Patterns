@@ -1355,6 +1355,16 @@ public sealed class SwitcherConfig : Observable
     /// classic live-mirror preview unless the operator toggles EDIT SAFE on.
     /// </summary>
     public bool EditSafeByDefault { get => _editSafeByDefault; set => Set(ref _editSafeByDefault, value); }
+
+    private bool _fadeAudioWithBlack = true;
+
+    /// <summary>
+    /// A fade to black that darkens the whole rig — FADE TO BLACK on every screen, or the last
+    /// lit target going — fades the programme's sound (the music and a clip's soundtrack) over
+    /// the same seconds, and a fade up brings it back. On by default; off leaves the sound alone.
+    /// A plain BLACKOUT never touches the sound.
+    /// </summary>
+    public bool FadeAudioWithBlack { get => _fadeAudioWithBlack; set => Set(ref _fadeAudioWithBlack, value); }
 }
 
 /// <summary>

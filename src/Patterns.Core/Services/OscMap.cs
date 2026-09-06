@@ -77,6 +77,7 @@ public static class OscMap
         ("/patterns/pattern <kind>", "PATTERN — the kind of picture on air: Grid, ColorBars, LedWall, Particles, Fractal… (also /patterns/pattern/Grid)"),
         ("/patterns/freeze [1|0]", "FREEZE ON / OFF — every output holds its frame; no argument toggles"),
         ("/patterns/fade [seconds]", "FADE — blackout with a fade of that many seconds (none: the show's transition time); /fade/up [seconds] lifts it"),
+        ("/patterns/fade/screen/<n> [seconds]", "FADE SCREEN n — that screen alone to black (its canvas when it joined one); /fade/group/<A>, /fade/focused, /fade/ticked, /fade/groups the same; /fade/up/… brings them back"),
         ("/patterns/lookback", "LOOKBACK — the look that was on air before the current one, back on air"),
         ("/patterns/stopall", "STOPALL"),
         ("/patterns/ping", "PING — answered with /patterns/pong to the sender"),
@@ -406,13 +407,49 @@ public static class OscMap
             }
             case "freeze": return "FREEZE " + Switch(m, seg, "TOGGLE", toggles: true);
             // /patterns/fade 2 · /patterns/fade/up 2 · /patterns/fade/down: the seconds as the argument or the next segment.
+            // Where: /patterns/fade/screen/2 [secs] · /patterns/fade/up/group/A · /patterns/fade/focused 2 · /patterns/fade/ticked ·
+            // /patterns/fade/groups · /patterns/fade "SCREEN 2" 2 — the scope as segments or a string argument.
             case "fade":
             {
-                var word = seg.ToLowerInvariant();
-                var up = word is "up" or "in";
-                var secs = word is "up" or "in" or "down" or "out" or "black" ? seg2 : seg;
+                var i = 1;
+                var up = false;
+                if (i < parts.Length)
+                {
+                    var word = parts[i].ToLowerInvariant();
+                    if (word is "up" or "in") { up = true; i++; }
+                    else if (word is "down" or "out" or "black") i++;
+                }
+                var secs = "";
+                var scope = "";
+                while (i < parts.Length)
+                {
+                    var word = parts[i].ToLowerInvariant();
+                    if (word is "screen" or "group" or "canvas" && i + 1 < parts.Length)
+                    {
+                        scope = $"{word.ToUpperInvariant()} {parts[i + 1]}";
+                        i += 2;
+                    }
+                    else if (word is "focused" or "focus" or "current" or "ticked" or "selected" or "groups" or "canvases" or "all")
+                    {
+                        scope = word.ToUpperInvariant();
+                        i++;
+                    }
+                    else if (ControlProtocol.TryParseSeconds(parts[i], out _) && parts[i].Length > 0)
+                    {
+                        secs = parts[i];
+                        i++;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+                var text = m.Text();
+                if (text is { Length: > 0 } && scope.Length == 0 && !ControlProtocol.TryParseSeconds(text, out _)) scope = text;
                 if (secs.Length == 0 && m.Number() is { } n) secs = n.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                return (up ? "FADEUP" : "FADE") + (secs.Length > 0 ? " " + secs : "");
+                if (secs.Length == 0 && text is { Length: > 0 } && ControlProtocol.TryParseSeconds(text, out _)) secs = text;
+                if (FadeScope.Parse(scope) is not { } place) return null;
+                return (up ? "FADEUP" : "FADE") + (secs.Length > 0 ? " " + secs : "") + (place.Words.Length > 0 ? " " + place.Words : "");
             }
             case "lookback": case "look-back": return "LOOKBACK";
             case "stopall": case "stop-all": return "STOPALL";

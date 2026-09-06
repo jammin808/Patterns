@@ -95,6 +95,15 @@ public sealed class AppServices
     /// <summary>Which targets the next CUT / TAKE touches (all, unless un-armed on the wall).</summary>
     public TransitionArming Arming { get; } = new();
 
+    /// <summary>
+    /// The wall's focus — the tile clicked, by target id; null for the program tile — read by a
+    /// scoped FADE (FOCUSED). Set by the desk's view model; unset (no desk) FOCUSED means the rig.
+    /// </summary>
+    public Func<string?>? FocusedTarget { get; set; }
+
+    /// <summary>The wall's ticked tiles, by target id, read by a scoped FADE (TICKED, GROUPS). Set by the desk's view model; unset (no desk) nothing is ticked.</summary>
+    public Func<IReadOnlyList<string>>? TickedTargets { get; set; }
+
     /// <summary>Where each cue list is (armed, current cue). Runtime only; reset when a show loads.</summary>
     public CueRuntime Cues { get; } = new();
 

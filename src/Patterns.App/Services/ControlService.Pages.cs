@@ -62,8 +62,9 @@ public sealed partial class ControlService
   #duck.on, #hold.on { background:var(--hold); color:#0E0F13; }
   .look { padding:18px 6px; }
   .k { display:block; font-size:11px; color:var(--acc); font-weight:800; }
-  .scr { display:grid; grid-template-columns:1fr 56px; gap:6px; }
+  .scr { display:grid; grid-template-columns:1fr 56px 56px; gap:6px; }
   .scr button:last-child { padding:6px; font-size:20px; }
+  .scr button:nth-child(2) { padding:6px; font-size:16px; }
   .scr.off > button:first-child { opacity:.45; }
   .scr.locked > button:last-child { border-color:var(--hold); color:var(--hold); }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; }
@@ -192,7 +193,7 @@ public sealed partial class ControlService
 </section>
 
 <section id="tab-screens">
-  <div class="sec">SCREENS — tap to switch, the padlock to lock</div>
+  <div class="sec">SCREENS — tap to switch, ▼ ▲ to fade that screen to black and back, the padlock to lock</div>
   <div id="screens" class="grid"></div>
   <div class="sec" id="secsec" hidden>SHOW PARTS (PLAYLIST)</div>
   <div id="sections" class="grid row3"></div>
@@ -465,9 +466,11 @@ function render(s) {
     var row = document.createElement('div');
     row.className = 'scr' + (x.enabled ? '' : ' off') + (x.locked ? ' locked' : '');
     var tag = (x.role && x.role !== 'main' ? ' <span class="k">' + esc(x.role.toUpperCase()) + '</span>' : '') + (x.group ? ' <span class="k">[' + esc(x.group) + ']</span>' : '');
-    // What the screen is showing and what the next TAKE does to it: OWN = its own picture; NEXT / HELD only while EDIT SAFE is open.
-    var state = (x.own ? ' <span class="k">OWN</span>' : '') + (s.editSafe && !x.locked ? (x.armed ? ' <span class="k">NEXT</span>' : ' <span class="k">HELD</span>') : '');
+    // What the screen is showing and what the next TAKE does to it: OWN = its own picture; BLACK = faded to black on its own; NEXT / HELD only while EDIT SAFE is open.
+    var state = (x.own ? ' <span class="k">OWN</span>' : '') + (x.black ? ' <span class="k">BLACK</span>' : '') + (s.editSafe && !x.locked ? (x.armed ? ' <span class="k">NEXT</span>' : ' <span class="k">HELD</span>') : '');
     row.appendChild(btn(esc(x.n + ' · ' + x.label) + tag + state + (x.enabled ? '' : ' <span class="k">OFF</span>'), '', function(){ cmd('SCREEN ' + x.n + ' TOGGLE'); }));
+    // This screen alone to black over two seconds and back — the rest of the rig keeps its picture.
+    row.appendChild(btn(x.black ? '▲' : '▼', x.black ? 'bo' : '', function(){ cmd((x.black ? 'FADEUP 2 SCREEN ' : 'FADE 2 SCREEN ') + x.n); }));
     row.appendChild(btn(x.locked ? '🔒' : '🔓', '', function(){ cmd('LOCK ' + x.n + ' TOGGLE'); }));
     sc.appendChild(row);
   });

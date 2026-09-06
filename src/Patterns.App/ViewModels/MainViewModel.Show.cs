@@ -484,9 +484,10 @@ public sealed partial class MainViewModel
             var enabled = members.Count > 0 && members.All(p => p!.Enabled);
             var armed = _services.Arming.IsArmed(target);
             var locked = ScreenRoles.IsLocked(State, target);
+            var black = _services.Bus.BlackTargets.Contains(target); // faded to black on its own: the audience sees black, not the picture
             tile.RefreshExternal(enabled, target == _selectedTargetId,
                 ContentTargets.UsesOwnPattern(State, target), armed,
-                onAir: live && enabled, held: building && (!armed || locked), locked: locked);
+                onAir: live && enabled && !black, held: building && (!armed || locked), locked: locked, black: black);
         }
     }
 
@@ -634,6 +635,30 @@ public sealed partial class MainViewModel
     public double FadeSeconds { get => _fadeSeconds; set => Set(ref _fadeSeconds, Math.Clamp(double.IsFinite(value) ? value : 2, 0.1, 60)); }
 
     private string FadeMsText() => ((int)Math.Round(_fadeSeconds * 1000)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Where the Show panel's FADE TO BLACK and FADE UP land, as the picker lists it; the words are what the wire takes.</summary>
+    public sealed record FadeScopeChoice(string Label, string Words)
+    {
+        public override string ToString() => Label;
+    }
+
+    /// <summary>Every screen (the blackout with a fade), the focused tile, the ticked tiles, the ticked groups — in that order; the first is the default.</summary>
+    public IReadOnlyList<FadeScopeChoice> FadeScopes { get; } = new[]
+    {
+        new FadeScopeChoice("EVERY SCREEN", ""),
+        new FadeScopeChoice("THE FOCUSED SCREEN", FadeScope.Focused.Words),
+        new FadeScopeChoice("THE TICKED SCREENS", FadeScope.Ticked.Words),
+        new FadeScopeChoice("THE TICKED GROUPS", FadeScope.Groups.Words),
+    };
+
+    private FadeScopeChoice? _selectedFadeScope;
+
+    /// <summary>The picker's choice; never null — an emptied picker falls back to every screen.</summary>
+    public FadeScopeChoice SelectedFadeScope
+    {
+        get => _selectedFadeScope ?? FadeScopes[0];
+        set => Set(ref _selectedFadeScope, value ?? FadeScopes[0]);
+    }
 
     /// <summary>The look LOOK BACK returns to, by name ("" = none yet).</summary>
     public string PreviousLookName => LookService.Find(State, _services.PreviousAirLookId)?.Name ?? "";

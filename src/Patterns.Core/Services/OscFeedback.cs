@@ -30,6 +30,13 @@ public static class OscFeedback
 
             Flag(list, root, "live", "live");
             Flag(list, root, "blackout", "blackout");
+            if (root.TryGetProperty("black", out var black))
+            {
+                // Screens faded to black on their own: how many, the line naming them, and whether a fade takes the sound too.
+                if (black.TryGetProperty("count", out _)) list.Add(OscMessage.Of(Prefix + "black/count", Int(black, "count")));
+                Text(list, black, "text", "black/text");
+                Flag(list, black, "audio", "black/audio");
+            }
             Text(list, root, "airLabel", "program");
             Flag(list, root, "duck", "duck");
             Flag(list, root, "tone", "tone");

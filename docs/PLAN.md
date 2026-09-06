@@ -186,6 +186,7 @@ row first. The checklist for the Windows machine is `docs/CHECKLIST-round15.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 5 | Fade to black on one screen or a group, the blackout still covering everything, linked to a fade of the sound that is on by default (the report's ask; §20.5). Core: `ShowSnapshot.BlackTargets` — a runtime-only set of content targets (a canvas key or a screen id) black on their own, like FREEZE never in the show file, with `IsBlack(targetId)`; `TransitionKeyFor` folds it in so the faded sink's crossfade runs and no other's; the engine draws such a target black before any pattern code, keeps it static, and a freeze does not hold it. `FadeScope` — the one parser for where a fade lands: nothing (the rig), FOCUSED, TICKED, GROUPS, SCREEN n, GROUP A (CANVAS A), ID &lt;id&gt; or a bare canvas key; a bare word is null so a typo never fades the wrong thing. The wire: `FADE [seconds] [where]` and `FADE UP …` with the seconds and the place in either order (`TryParseFadeWords`); OSC `/patterns/fade/screen/2`, `/fade/group/A`, `/fade/focused`, `/fade/ticked`, `/fade/groups`, or the place as a string argument; STATE `black{count,text,audio,targets}` and `screens[].black`; feedback `/patterns/state/black/…`. Cues: *Fade to black* / *Fade up* with a Place target (a picker: every screen, the focus, the ticks, every group and screen of the rig) and seconds; the sheet reads a screen's label; the summary, the checks and the assistant's catalogue know them. `GainInputs.Black` in the gain table: the music and a clip's soundtrack follow it, a VOG and a stinger's own sound play through. `SwitcherConfig.FadeAudioWithBlack` (default true, saved). App: the action resolves the scope against the rig it has (`FocusedTarget` / `TickedTargets` set by the desk; SCREEN n through the canvas it joined; GROUP A by wall letter; an id checked against the rig) and refuses with the reason (*Tick the wall tiles to fade first.*, *No screen 9*); a rig-wide FADE UP lifts the blackout and every screen black on its own, with or without a blackout over them; `StingerService.SetBlack` is an anchored ramp on the programme's sound, taken down when a fade leaves the whole rig dark and brought back by any fade up — or a plain BLACKOUT OFF after a fade — while BLACKOUT on its own never touches it; a cue with a fade is not put back by the cue's blackout transport. The Show panel: a picker beside FADE TO BLACK (EVERY SCREEN / THE FOCUSED SCREEN / THE TICKED SCREENS / THE TICKED GROUPS), WITH THE SOUND, the refusal on the status line; the wall's tick on every tile with or without EDIT SAFE; the phone's SCREENS tab with ▼ ▲ per screen and a BLACK tag; Companion 2.6.0 (`fade` gains Where; `screen_black` / `black_any` feedbacks; `black`, `black_text`, `black_audio` variables; per-screen, per-canvas, FOCUSED and TICKED keys). Tests: the scope words both ways and the junk, the verb, the OSC in and out, the cue action through spec / sheet / summary / checks / export, the gain table, the engine drawing one target black with only its sink fading; on a live desk one screen faded while the rest keep their picture, the rig fade taking the sound down and the fade up bringing it back, the option off, a plain blackout leaving the sound, BLACKOUT OFF after a fade, every screen black on its own as the rig dark, STATE, the show file clean, the picker and WITH THE SOUND, the ticks without EDIT SAFE, the focus, the ticks, the groups refusal, the PGM tile as the rig, a cue. | done |
 | 4 | The Machine page's GPU and video memory as lines, and the health tiles' bars inside their pills (the report's two asks; §20.4). LIVE PERFORMANCE gains two rows drawn like the CPU and memory ones: GPU — the card's busy share against 100, the last three minutes and the day so far — and Video memory — the card's memory in use against its total, with the words beside it (*in use 1.2 GB of 8.0 GB (15%)*); a card with no reading says so and draws a flat line; the day's lines use the same 30-second averages (`AdminGpuSpark`, `AdminVramSpark`, `AdminGpuDaySpark`, `AdminVramDaySpark`, `AdminVramText`). HEALTH AT A GLANCE's bar under a tile's value took the theme's own minimum width for a progress bar, wider than the 156 px pill — the report's "too wide for the graphic pill" — and takes the tile's width and no more now (`MinWidth` 0, stretched, the pill clipping). Tests: seventy samples with the card's numbers into the words and the lines (the busy line a third of the way up, the memory line low against the card's total, the day's lines after two averages), the page's two rows with their lines bound to the desk's points and ten spark boxes, a card with no readings saying n/a; every visible bar inside its pill and filling it. | done |
 | 3 | The Show panel's stop where the chips are, and the OUTPUT toggle inside its tile (the report's two asks; §20.3). The STING HOLD banner, the stinger status line with its ■ Stop and the hint moved from under PEOPLE to right under the STINGERS chips (under VOG when a show has no stingers), and the row stays without a lower third or a person — a stinger fired from a cue or the wire still needs its stop. The wall tile's OUTPUT switch (an Avalonia `ToggleSwitch` whose track and margins hung outside a 188 px tile once OWN, MON, ARM and LOCK sat beside it) is a wall button on the title row's right end — OUT, green while the screen's output is on — and the bottom row keeps OWN, MON, ARM, LOCK and the size. Tests: on the panel with stingers, a VOG, a design and a person, the stop under the STINGERS heading and its chips, within a row of them, above LOWER THIRDS and PEOPLE, and still there with the designs and the people gone; on the wall at the window's minimum size with three screens, no switch anywhere, one OUT per tile inside the tile's bounds and hidden on the program tile, every wall button inside the tile, and OUT off / on switching the lobby's output live and pinning it. | done |
 | 2 | The editing target is never blank (the report's ask; §20.2). Reproduced headlessly: the Pattern page's EDITING TARGET picker is bound to a list the desk rebuilds on every rig change (a lock, a label, OWN on a tile, a display plugged in, a show loaded); the rebuild clears the list — which empties the picker, and its two-way binding writes that empty selection back, refused — then re-adds the same target as an equal record, the setter saw no change and raised nothing, and the picker stayed blank until the operator picked it again. `RebuildEditTargets` now re-publishes the same target as the list's own instance (the picker re-selects it, the banner follows a fresh label, the panes do not move) and only a different target — the one it had is gone — goes through the full setter, which falls back to Program; the picker's empty selection stays refused. Tests: on a live desk with three screens, OWN on one showing the picker with the target selected; a lock on another tile and a label typed for the target keeping it selected as the list's own instance with the fresh label in the banner; a second OWN handing the editors the new target and the operator picking the first back; the target losing its own pattern falling back to Program in the picker; every own pattern gone hiding the picker with the target never null; an empty selection refused. | done |
@@ -1202,3 +1203,49 @@ width of its own — wider than the pill's inside — and a bar laid out at that
 tile's right edge: the report's "too wide for the graphic pill". The bar takes the tile's width and
 no more now, and the pill clips; the headless test measures every visible bar inside its pill and
 filling it, so a theme change cannot bring the overrun back unnoticed.
+
+### 20.5 Fade to black on one screen, and the sound that goes with it
+
+The ask: "Fade to black should also be for a screen or a group independently (blackout should be
+for all). This should be linked to an audio fade as well (this could be an option, but by default
+it should be on)."
+
+**Where it lives.** Blackout stays what it was: one flag in the show state that covers every
+output, never faded on its own, and audio-neutral. A fade to black on a screen or a group is a
+different thing and lives in a different place — a runtime-only set on the snapshot bus
+(`BlackTargets`) keyed by content target, the same unit the wall, SEND and ARM already use (a
+joined canvas is one target; a screen inside it renders through it). It is never in the show file,
+like FREEZE and REVIEW: a show that reopens after a crash comes back lit, and a saved show never
+carries a dark screen by accident. The engine checks the set where it checks the blackout, before
+any pattern code runs, so a pattern bug cannot break it; the sink's own crossfade is the fade — the
+target's content identity changes when it goes black, so that sink fades over the seconds asked for
+and no other sink notices. That is why the "fade" costs nothing new: no second renderer, no
+per-output timer, no state machine, just a black frame and the transition the outputs already had.
+
+**Where it lands.** One parser (`FadeScope`) reads the place everywhere — the panel's picker, the
+wire, OSC, a cue, Companion — so "group A" cannot mean two things: nothing is the rig, FOCUSED is the
+wall tile the desk has clicked (the PGM tile means the rig), TICKED and GROUPS are the wall's ticks
+(now on every tile, with or without EDIT SAFE), SCREEN n and GROUP A are the wall's own numbers and
+letters, ID x is a screen id for a cue the desk writes. A bare word parses as nothing, so `FADE slowly`
+is refused rather than fading a screen called "slowly". The seconds and the place go in either order
+because both are what a person types under pressure. A rig-wide FADE UP lifts the blackout *and*
+every screen black on its own: after "fade the lobby, then black the room", one FADE UP brings the
+whole rig back, which is what a caller means by it.
+
+**The sound.** The link is on the *whole rig going dark* — a rig-wide fade, or the last lit target
+fading — not on any single screen: a screen faded while the rest play should not touch the music.
+The ramp is the same anchored kind the live duck uses (from wherever the factor is now, so a fade up
+mid-fade never jumps), on the programme's buses only: the music and a clip's soundtrack. A VOG is an
+announcement and a stinger is a hit; both play through a fade, as they do through a duck. BLACKOUT
+on its own stays audio-neutral because a blackout is often a picture decision with the sound
+running (a video's tail, a walk-in bed); but BLACKOUT OFF after a fade brings the sound back over the
+show's transition, or the room would stay silent with the picture up. The option
+(`FadeAudioWithBlack`, WITH THE SOUND on the panel) is saved with the show and on by default, as
+asked; off, the sound stays where it is and a fade up still restores anything a fade took.
+
+**What it is not.** It is not a per-screen dimmer or a fade to a colour; both would want a fade
+value on every sink and a second compositing pass. It does not fade the NDI sends and the stream
+as their own targets unless they are their own screens (then they are targets like any other). And
+a locked screen fades like the rest — a fade is transport, not content, so LOCK (which keeps a
+picture through looks, cues and TAKE) does not stand in its way; if that turns out wrong in the
+room, the fix is one line in the scope resolution.

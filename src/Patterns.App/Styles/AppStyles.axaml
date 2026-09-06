@@ -413,6 +413,14 @@
     <Setter Property="LetterSpacing" Value="1" />
     <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
   </Style>
+  <!-- A wall tile faded to black on its own: the badge reads in the tally's red -->
+  <Style Selector="Border.roleBadge.blackBadge">
+    <Setter Property="Background" Value="#2A0F10" />
+    <Setter Property="BorderBrush" Value="#80E0342E" />
+  </Style>
+  <Style Selector="Border.roleBadge.blackBadge > TextBlock">
+    <Setter Property="Foreground" Value="#E0342E" />
+  </Style>
 
   <Style Selector="TextBlock.h2">
     <Setter Property="FontSize" Value="13" />

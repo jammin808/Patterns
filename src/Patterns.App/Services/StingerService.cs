@@ -58,6 +58,10 @@ public sealed class StingerService : IDisposable
     private double _duckTo = 1;
     private DateTime _duckStartUtc;
     private int _duckMs;
+    private double _blackFrom = 1;                                 // the fade to black's ramp on the programme's sound
+    private double _blackTo = 1;
+    private DateTime _blackStartUtc;
+    private int _blackMs;
 
     // The show as it was before the last clip took the screens — what an orphaned clip (one
     // left on the screens with no session owning it) goes back to, and what a clip fired over
@@ -163,7 +167,7 @@ public sealed class StingerService : IDisposable
     public double GainAt(AudioBus bus, DateTime nowUtc)
     {
         var ramp = MusicLevel.Gain(_gainFrom, _gainTo, MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs));
-        return GainRules.For(bus, new GainInputs(_services.MusicDuckActive, _services.State.Stingers.DuckPct, ramp, DuckFactorAt(nowUtc)));
+        return GainRules.For(bus, new GainInputs(_services.MusicDuckActive, _services.State.Stingers.DuckPct, ramp, DuckFactorAt(nowUtc), BlackFactorAt(nowUtc)));
     }
 
     /// <summary>The music bus — the file track and break music both read it.</summary>
@@ -172,7 +176,36 @@ public sealed class StingerService : IDisposable
     /// <summary>The fade is moving: the music player polls faster while this is true.</summary>
     public bool MusicRamping(DateTime nowUtc)
         => (_gainMs > 0 && Math.Abs(_gainFrom - _gainTo) > 0.0001 && MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs) < 1)
-        || (_duckMs > 0 && Math.Abs(_duckFrom - _duckTo) > 0.0001 && MusicLevel.Progress(_duckStartUtc, nowUtc, _duckMs) < 1);
+        || (_duckMs > 0 && Math.Abs(_duckFrom - _duckTo) > 0.0001 && MusicLevel.Progress(_duckStartUtc, nowUtc, _duckMs) < 1)
+        || (_blackMs > 0 && Math.Abs(_blackFrom - _blackTo) > 0.0001 && MusicLevel.Progress(_blackStartUtc, nowUtc, _blackMs) < 1);
+
+    // ---- the fade to black's sound --------------------------------------------------------
+
+    /// <summary>The fade to black's factor on the programme's sound — the music and a clip's soundtrack — (1 = lit; 0 = dark), ramping.</summary>
+    public double BlackFactorAt(DateTime nowUtc)
+        => MusicLevel.Gain(_blackFrom, _blackTo, MusicLevel.Progress(_blackStartUtc, nowUtc, _blackMs));
+
+    /// <summary>The programme's sound is down (or going down) with a fade to black.</summary>
+    public bool BlackAudioActive => _blackTo < 0.5;
+
+    /// <summary>
+    /// The sound goes with the picture: down to silence over the fade's milliseconds when the
+    /// whole rig fades to black, back up the same way when any of it comes up — an anchored ramp
+    /// from wherever the factor is now, so a fade up mid-fade never jumps. A VOG and a stinger's
+    /// own sound are not the programme and play through it. Idempotent; runtime only.
+    /// </summary>
+    public void SetBlack(bool dark, int ms, DateTime? nowUtc = null)
+    {
+        var to = dark ? 0.0 : 1.0;
+        if (Math.Abs(_blackTo - to) < 0.0001) return;
+        var now = nowUtc ?? NowUtc();
+        _blackFrom = BlackFactorAt(now);
+        _blackTo = to;
+        _blackStartUtc = now;
+        _blackMs = Math.Max(0, ms);
+        _services.AudioPlayer.ApplyGains(now);
+        Log.Info(dark ? "Fade to black: the sound goes with it." : "Fade up: the sound comes back.");
+    }
 
     /// <summary>The clock behind every ramp, so a test can read a fade at an exact instant instead of racing the wall clock.</summary>
     public Func<DateTime> NowUtc { get; set; } = () => ShowClock.UtcNow; // the master clock: a wall-clock step never stalls a fade

@@ -239,6 +239,8 @@ public static class CueSheet
             "sting" or "stinger" or "vog" or "fire" => CueActionKind.StingerFire,
             "part" or "playlist" or "section" => CueActionKind.PlaylistPart,
             "blackout" or "black" => CueActionKind.BlackoutOn,
+            "fade" or "fadetoblack" or "fadedown" or "fadeout" or "fadeblack" or "ftb" => CueActionKind.FadeToBlack,
+            "fadeup" or "fadein" or "fadefromblack" or "ftbup" => CueActionKind.FadeUp,
             "countdown" or "timer" => CueActionKind.CountdownStart,
             "message" or "ticker" => CueActionKind.MessageOn,
             "weather" or "weatheron" or "forecast" or "forecaston" => CueActionKind.WeatherOn,
@@ -276,11 +278,18 @@ public static class CueSheet
         if (targetKind == TargetKind.None) return ("", null);
         if (target.Length == 0)
         {
-            // Break music resumes with no entry; the audio playlist plays with no track; a web action with no page reaches the page on air; an announcement with no slot says its value.
-            return targetKind is TargetKind.Music or TargetKind.Page or TargetKind.Track || kind == CueActionKind.Announce ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
+            // Break music resumes with no entry; the audio playlist plays with no track; a web action with no page reaches the page on air; an announcement with no slot says its value; a fade with no place is every screen.
+            return targetKind is TargetKind.Music or TargetKind.Page or TargetKind.Track or TargetKind.Place || kind == CueActionKind.Announce ? ("", null) : ("", $"{CueActionSpec.Label(kind)} needs a Target.");
         }
         switch (targetKind)
         {
+            case TargetKind.Place:
+            {
+                // The scope's own words, or a screen by its label — "Stage left" reads as ID <its id>.
+                if (FadeScope.Parse(target) is { } scope) return (scope.Words, null);
+                var labelled = state.Output.Placements.FirstOrDefault(p => string.Equals(p.CustomLabel, target, StringComparison.OrdinalIgnoreCase));
+                return labelled is not null ? ($"ID {labelled.ScreenId}", null) : (target, $"'{target}' is not a place to fade — every screen (blank), SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS, or a screen's label.");
+            }
             case TargetKind.Track:
                 // A row by its name or file becomes its id (a rename or a re-order never breaks the cue); a number or a folder's file is used as written.
                 return AudioPlaylist.FindItem(state.AudioPlayer, target) is { } row ? (row.Id, null) : (target, null);
@@ -319,6 +328,9 @@ public static class CueSheet
             TargetKind.Stack => CueStacks.Find(state, a.Target)?.Name ?? a.Target,
             TargetKind.Music => SpotifyLibrary.Find(state, a.Target)?.DisplayName ?? a.Target,
             TargetKind.LowerThird => state.LowerThirds.Find(a.Target)?.Name ?? a.Target,
+            TargetKind.Place => FadeScope.Parse(a.Target) is { Kind: FadeScopeKind.Target } scope
+                ? (state.Output.Placements.FirstOrDefault(p => p.ScreenId == scope.Arg) is { CustomLabel.Length: > 0 } p ? p.CustomLabel : a.Target)
+                : a.Target,
             _ => a.Target,
         };
     }

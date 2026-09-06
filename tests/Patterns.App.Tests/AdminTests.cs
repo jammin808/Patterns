@@ -250,6 +250,12 @@ public class AdminTests
         try
         {
             for (var i = 0; i < 70; i++) services.Metrics.Ingest(Healthy(i));
+            // The RENDER tile also reads the machine this test runs on — the preview pipeline's real
+            // frame times and the desk's own tick — and a slow build agent turned it amber once
+            // ("Ready, with cautions — RENDER"). The verdict under test is the one the injected
+            // numbers give, so the real timings are forgotten before the poll reads them.
+            FrameBudgets.Clear();
+            services.DeskTick.Reset();
             vm.PollNow();
 
             Assert.Equal(12, vm.DashboardTiles.Count);

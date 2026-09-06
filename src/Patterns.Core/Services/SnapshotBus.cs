@@ -66,6 +66,25 @@ public sealed class ShowSnapshot
     public IReadOnlyCollection<string> UnarmedTargets { get; init; } = Array.Empty<string>();
 
     /// <summary>
+    /// Runtime-only: the content targets faded to black on their own — FADE with a scope — by
+    /// target id (a canvas key or a screen id). Blackout is the whole rig and lives in the show
+    /// state; this is the per-screen version and, like FREEZE, never in the show file. Assigned
+    /// whole, never mutated.
+    /// </summary>
+    public IReadOnlyCollection<string> BlackTargets { get; init; } = Array.Empty<string>();
+
+    /// <summary>This sink's target is faded to black on its own; the program (null) never is. Hot path: a plain loop over a short list.</summary>
+    public bool IsBlack(string? targetId)
+    {
+        if (targetId is null || BlackTargets.Count == 0) return false;
+        foreach (var t in BlackTargets)
+        {
+            if (t == targetId) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Runtime-only: the message ticker's travel line, shared by every sink so a span, an NDI
     /// sender and a late-opened output all draw the same train. Null for a snapshot built
     /// outside the bus (thumbnails, tests): the renderer then runs the plain line from clock 0.
@@ -124,7 +143,9 @@ public sealed class ShowSnapshot
             var playlist = cfg.Kind == PatternKind.Media && cfg.Media.Source == MediaSource.Playlist
                 ? PlaylistNow?.Path ?? ""
                 : "";
-            return HashCode.Combine(State.Blackout, json, playlist);
+            // A target faded to black on its own is a change of content for that sink alone: its
+            // crossfade runs (the fade to black), every other sink's does not.
+            return HashCode.Combine(State.Blackout, IsBlack(screenId), json, playlist);
         });
     }
 
@@ -242,6 +263,9 @@ public sealed class SnapshotBus
     /// <summary>Set by the wall's arming; carried on every snapshot (the multiview's NEXT / HELD badges). Assigned whole, never mutated.</summary>
     public IReadOnlyCollection<string> UnarmedTargets { get; set; } = Array.Empty<string>();
 
+    /// <summary>Set by FADE with a scope; carried on every snapshot (the targets black on their own). Assigned whole, never mutated.</summary>
+    public IReadOnlyCollection<string> BlackTargets { get; set; } = Array.Empty<string>();
+
     /// <summary>Set by the playlist service; carried on every snapshot.</summary>
     public PlaylistNow? PlaylistNow { get; set; }
 
@@ -348,6 +372,7 @@ public sealed class SnapshotBus
             ReviewOnMultiview = ReviewOnMultiview,
             Frozen = Frozen,
             UnarmedTargets = UnarmedTargets,
+            BlackTargets = BlackTargets,
         };
     }
 }

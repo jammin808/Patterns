@@ -349,15 +349,20 @@
       <ToggleButton Classes="chip" Content="FREEZE" IsChecked="{Binding IsFrozen, Mode=TwoWay}"
                     ToolTip.Tip="Every output — the windows, the NDI sends, the stream — holds the frame it shows until you press again; the desk keeps moving. A blackout still takes a frozen output. Never saved" />
       <Button Classes="chip" Content="FADE TO BLACK" Command="{Binding FadeToBlackCommand}"
-              ToolTip.Tip="Blackout, faded over the seconds beside it (a blackout of its own time, whatever the transition setting)" />
+              ToolTip.Tip="Fade to black over the seconds beside it, where the picker says: every screen (a blackout of its own time, whatever the transition setting), the focused wall tile, the ticked tiles, or the ticked groups — the rest of the rig keeps its picture" />
+      <ComboBox Name="FadeScopePicker" Width="190" ItemsSource="{Binding FadeScopes}" SelectedItem="{Binding SelectedFadeScope, Mode=TwoWay}"
+                ToolTip.Tip="Where the fade lands. EVERY SCREEN is the blackout, faded; THE FOCUSED SCREEN is the wall tile you clicked (the PGM tile means every screen); THE TICKED SCREENS and THE TICKED GROUPS are the tiles ticked on the wall — a group is a joined canvas" />
       <NumericUpDown Width="86" Minimum="0.1" Maximum="60" Increment="0.5" FormatString="0.#" ShowButtonSpinner="False"
                      Value="{Binding FadeSeconds, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Seconds for FADE TO BLACK and FADE UP" />
-      <Button Classes="chip" Content="FADE UP" Command="{Binding FadeUpCommand}" ToolTip.Tip="The blackout lifted, faded over the same seconds" />
+      <Button Classes="chip" Content="FADE UP" Command="{Binding FadeUpCommand}"
+              ToolTip.Tip="The same places faded up again over the same seconds; EVERY SCREEN lifts the blackout and brings back every screen that was black on its own" />
+      <CheckBox Name="FadeAudioTick" Content="WITH THE SOUND" IsChecked="{Binding State.Switcher.FadeAudioWithBlack, Mode=TwoWay}" VerticalAlignment="Center"
+                ToolTip.Tip="On (the default): a fade that leaves the whole rig dark takes the music and a clip's soundtrack down with it over the same seconds, and a fade up brings them back — a VOG and a stinger's own sound play through. Off: the sound stays. BLACKOUT on its own never touches the sound. Saved with the show" />
       <Button Classes="chip" Content="{Binding LookBackText}" Command="{Binding LookBackCommand}"
               ToolTip.Tip="The look that was on air before the current one, back on air with the show's transition — press again to swap back" />
     </StackPanel>
     <TextBlock Classes="hint tip"
-               Text="FREEZE holds every output's picture while you change anything behind it (a wall processor's freeze, on the whole rig); FADE TO BLACK and FADE UP are a blackout with a fade of the seconds you type, so a two-second fade to black does not need the transition setting changed; the previous look comes back on air with LOOK BACK, and pressing it again swaps the two. On the wire: FREEZE, FADE 2, FADE UP 2, LOOKBACK; the phone remote and Companion have them; the journal writes every press." />
+               Text="FREEZE holds every output's picture while you change anything behind it (a wall processor's freeze, on the whole rig); FADE TO BLACK and FADE UP take the seconds you type and land where the picker says — every screen is a blackout with a fade of its own, so a two-second fade to black needs no change to the transition setting; the focused tile, the ticked tiles or the ticked groups fade on their own while the rest of the rig keeps its picture (the ticks are on every wall tile, with or without EDIT SAFE). WITH THE SOUND fades the music and a clip's soundtrack with a fade that darkens the whole rig, and back with the fade up; BLACKOUT covers everything and leaves the sound alone. The previous look comes back on air with LOOK BACK, and pressing it again swaps the two. On the wire: FREEZE, FADE 2, FADE UP 2, FADE 2 SCREEN 2, FADE GROUP A, FADE FOCUSED, FADE TICKED, LOOKBACK; a cue's Fade to black / Fade up carry the same places; the phone remote and Companion have them; the journal writes every press." />
 
     <TextBlock Classes="h2" Text="REVIEW" />
     <ToggleButton Classes="chip" Content="THE PREVIEW ON EVERY MULTIVIEW" IsChecked="{Binding ReviewOnMultiview, Mode=TwoWay}" HorizontalAlignment="Left"

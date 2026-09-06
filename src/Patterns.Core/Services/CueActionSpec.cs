@@ -24,6 +24,8 @@ public enum TargetKind
     Slot,
     /// <summary>A track of the audio playlist — a row's id, its name, a file's name or its number in the order (blank = play or resume the list).</summary>
     Track,
+    /// <summary>Where a fade lands: blank = every screen; FOCUSED, TICKED, GROUPS, SCREEN n, GROUP A, or ID &lt;screen id&gt; (see <see cref="FadeScope"/>).</summary>
+    Place,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -90,6 +92,7 @@ public static class CueActionSpec
         CueActionKind.ScreenLook => (TargetKind.Screen, ValueKind.Look),
         CueActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
         CueActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
+        CueActionKind.FadeToBlack or CueActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
         CueActionKind.WeatherView => (TargetKind.None, ValueKind.WeatherView),
         _ => (TargetKind.None, ValueKind.None),
     };
@@ -116,6 +119,8 @@ public static class CueActionSpec
         CueActionKind.StreamStop => "Stop stream",
         CueActionKind.BlackoutOn => "Blackout on",
         CueActionKind.BlackoutOff => "Blackout off",
+        CueActionKind.FadeToBlack => "Fade to black (every screen, or some)",
+        CueActionKind.FadeUp => "Fade up (every screen, or some)",
         CueActionKind.ScreenOn => "Screen on",
         CueActionKind.ScreenOff => "Screen off",
         CueActionKind.ScreenLock => "Screen lock (keeps its picture)",
@@ -173,6 +178,7 @@ public static class CueActionSpec
         CueActionKind.PlaylistPart,
         CueActionKind.StreamStart, CueActionKind.StreamStop,
         CueActionKind.BlackoutOn, CueActionKind.BlackoutOff,
+        CueActionKind.FadeToBlack, CueActionKind.FadeUp,
         CueActionKind.ScreenOn, CueActionKind.ScreenOff,
         CueActionKind.ScreenLock, CueActionKind.ScreenUnlock,
         CueActionKind.ScreenLook, CueActionKind.ScreenProgram,

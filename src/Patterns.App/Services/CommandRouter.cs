@@ -189,8 +189,8 @@ public sealed class CommandRouter
             RemoteCommandKind.FreezeOn => new ShowAction(ShowActionKind.FreezeOn),
             RemoteCommandKind.FreezeOff => new ShowAction(ShowActionKind.FreezeOff),
             RemoteCommandKind.FreezeToggle => new ShowAction(ShowActionKind.FreezeToggle),
-            RemoteCommandKind.FadeToBlack => new ShowAction(ShowActionKind.FadeToBlack, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
-            RemoteCommandKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
+            RemoteCommandKind.FadeToBlack => new ShowAction(ShowActionKind.FadeToBlack, cmd.TextArg, cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
+            RemoteCommandKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, cmd.TextArg, cmd.IntArg > 0 ? cmd.IntArg.ToString() : ""),
             RemoteCommandKind.LookBack => new ShowAction(ShowActionKind.LookBack, "", cmd.TextArg),
             RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
             RemoteCommandKind.LowerThirdPreview => new ShowAction(ShowActionKind.LowerThirdPreview, byNumberOrName, cmd.Extra),
@@ -343,6 +343,21 @@ public sealed class CommandRouter
         return Patterns.Core.LowerThirds.LowerThirdClock.IsLive(preview, ShowClock.UtcNow) ? preview.Active?.PersonName ?? "" : "";
     }
 
+    /// <summary>The targets faded to black on their own (FADE with a scope): the count, the wall's names for them, and whether the sound is down with the picture.</summary>
+    private object BlackRow()
+    {
+        var targets = _services.Bus.BlackTargets;
+        var geometry = Rig.Geometry(_services.State, _services.Screens.All);
+        var names = targets.Select(t => geometry.LabelFor(_services.State, t)).ToArray();
+        return new
+        {
+            count = names.Length,
+            text = string.Join(" · ", names),
+            audio = _services.Stingers.BlackAudioActive,
+            targets = names,
+        };
+    }
+
     /// <summary>State summary for remotes. UI thread only.</summary>
     public string StateJson()
     {
@@ -356,6 +371,7 @@ public sealed class CommandRouter
             airLabel = _services.AirLabel,
             cuestack = CueStackJson(),
             blackout = s.Blackout,
+            black = BlackRow(),                                            // the screens faded to black on their own: how many, their names, whether the sound went with the picture
             live = _services.Outputs.IsLive,
             review = _services.Bus.ReviewOnMultiview,                      // the preview fills every multiview
             frozen = _services.Bus.Frozen,                                 // every output holds its frame

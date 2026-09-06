@@ -139,6 +139,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     private bool _isOnAir;
     private bool _isHeld;
     private bool _isLocked;
+    private bool _isBlack;
     private Patterns.Core.Model.LookConfig? _pendingLook;
 
     public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
@@ -250,7 +251,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         set => Set(ref _isSelected, value);
     }
 
-    /// <summary>Sandbox send target tick (visible only while the sandbox is open).</summary>
+    /// <summary>The tile's tick: a SEND TO TICKED target while the sandbox is open, and a FADE TO BLACK "ticked" target at any time.</summary>
     public bool IsSendTarget
     {
         get => _isSendTarget;
@@ -312,9 +313,17 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         private set => Set(ref _isHeld, value);
     }
 
-    /// <summary>Refreshes live state without rebuilding the wall (keeps focus, ticks and MON).</summary>
-    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held, bool locked)
+    /// <summary>The BLACK badge: this target is faded to black on its own (FADE with a scope) — the blackout is the whole rig and shows on every tally instead.</summary>
+    public bool IsBlack
     {
+        get => _isBlack;
+        private set => Set(ref _isBlack, value);
+    }
+
+    /// <summary>Refreshes live state without rebuilding the wall (keeps focus, ticks and MON).</summary>
+    public void RefreshExternal(bool enabled, bool isSelected, bool isOwn, bool isArmed, bool onAir, bool held, bool locked, bool black = false)
+    {
+        IsBlack = black;
         if (_isLocked != locked)
         {
             _isLocked = locked;

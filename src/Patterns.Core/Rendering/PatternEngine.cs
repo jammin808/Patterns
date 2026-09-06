@@ -27,7 +27,7 @@ public sealed class PatternEngine
         // held as an image, put up unchanged until the release. The desk's views (the preview,
         // the monitors, the thumbnails) keep moving, a blackout still takes a frozen output, and
         // the fade that runs when the freeze lifts starts from the frame the room was seeing.
-        if (snap.Frozen && !snap.State.Blackout && !ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer
+        if (snap.Frozen && !snap.State.Blackout && !snap.IsBlack(ctx.ScreenId) && !ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer
             && ctx.Sink is SinkKind.Output or SinkKind.Ndi or SinkKind.Stream)
         {
             if (sink.FrozenFrame is null || sink.FrozenSize != ctx.ViewportSize)
@@ -138,9 +138,11 @@ public sealed class PatternEngine
         var topLevel = !ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer;
         if (topLevel) sink.Hits.Clear();
 
-        if (snap.State.Blackout)
+        if (snap.State.Blackout || snap.IsBlack(ctx.ScreenId))
         {
             // Checked before any pattern code runs: blackout cannot be broken by a pattern bug.
+            // A target faded to black on its own (FADE with a scope) draws the same black; the
+            // crossfade above is what makes it a fade rather than a cut.
             canvas.Clear(SKColors.Black);
             OverlayRenderer.RenderViewportOverlays(canvas, snap, ctx, sink, palette, blackout: true);
             return;
@@ -761,7 +763,7 @@ public sealed class PatternEngine
         var s = snap.State;
         if (snap.IdentifyUntilUtc is { } until && until > utcNow) return RedrawCadence.Continuous;
         if (Effects.SyncMarks.Enabled) return RedrawCadence.Continuous; // the flash lands on the frame it is due
-        if (s.Blackout)
+        if (s.Blackout || snap.IsBlack(screenId))
         {
             return RedrawCadence.Static;
         }

@@ -203,6 +203,43 @@ public readonly record struct RemoteCommand(RemoteCommandKind Kind, int IntArg, 
 /// </summary>
 public static class ControlProtocol
 {
+    /// <summary>
+    /// The words after FADE / FADE UP: the seconds and the scope in either order, or one of them, or
+    /// nothing. "2 SCREEN 2" and "SCREEN 2 2" both read as two seconds on screen 2; "SCREEN 2" alone
+    /// is the show's time on screen 2 (the scope is tried whole before its last word is read as
+    /// seconds, so the screen's number is never mistaken for a time); "2" alone is the rig. False
+    /// when neither reading makes sense ("slowly", "SCREEN", three words that mean nothing).
+    /// </summary>
+    public static bool TryParseFadeWords(string text, out int ms, out FadeScope scope)
+    {
+        ms = 0;
+        scope = FadeScope.Everything;
+        var t = text.Trim();
+        if (t.Length == 0) return true;
+        var words = t.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        // Seconds first, the scope after.
+        if (TryParseSeconds(words[0], out var first) && FadeScope.Parse(string.Join(' ', words.Skip(1))) is { } after)
+        {
+            ms = first;
+            scope = after;
+            return true;
+        }
+        // The scope whole (SCREEN 2, GROUP A, FOCUSED…), the show's own time.
+        if (FadeScope.Parse(t) is { } whole && !(words.Length == 1 && TryParseSeconds(words[0], out _)))
+        {
+            scope = whole;
+            return true;
+        }
+        // The scope, then the seconds.
+        if (words.Length >= 2 && TryParseSeconds(words[^1], out var last) && FadeScope.Parse(string.Join(' ', words[..^1])) is { } before)
+        {
+            ms = last;
+            scope = before;
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>"2", "2.5", "0", "1500ms", "" (the show's own time, 0): seconds into milliseconds; false for words.</summary>
     public static bool TryParseSeconds(string text, out int ms)
     {
@@ -785,6 +822,8 @@ public static class ControlProtocol
                 };
 
             // "FADE", "FADE 2", "FADE 2.5", "FADE UP", "FADE UP 3", "FADEUP 3", "FADE DOWN 1": seconds, or the show's own time.
+            // Where it lands comes after or before the seconds: "FADE 2 SCREEN 2", "FADE SCREEN 2 1.5", "FADE GROUP A",
+            // "FADE FOCUSED", "FADE UP TICKED 2", "FADE GROUPS" — TextArg carries the scope's words ("" = the rig).
             case "FADE":
             case "FADEUP":
             case "FADEDOWN":
@@ -798,8 +837,8 @@ public static class ControlProtocol
                     if (word is "UP" or "IN") { up = true; rest = words.Length > 1 ? words[1] : ""; }
                     else if (word is "DOWN" or "OUT" or "BLACK") { rest = words.Length > 1 ? words[1] : ""; }
                 }
-                if (!TryParseSeconds(rest, out var ms)) return new(RemoteCommandKind.Unknown, 0, s);
-                return new(up ? RemoteCommandKind.FadeUp : RemoteCommandKind.FadeToBlack, ms, "");
+                if (!TryParseFadeWords(rest, out var ms, out var scope)) return new(RemoteCommandKind.Unknown, 0, s);
+                return new(up ? RemoteCommandKind.FadeUp : RemoteCommandKind.FadeToBlack, ms, scope.Words);
             }
 
             case "LOOKBACK":

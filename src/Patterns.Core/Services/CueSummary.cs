@@ -63,6 +63,14 @@ public static class CueSummary
             case CueActionKind.StreamStop: return "Stop stream";
             case CueActionKind.BlackoutOn: return "Blackout on";
             case CueActionKind.BlackoutOff: return "Blackout off";
+            case CueActionKind.FadeToBlack:
+            case CueActionKind.FadeUp:
+            {
+                var scope = FadeScope.Parse(a.Target);
+                var where = scope is { } sc ? (sc.Kind == FadeScopeKind.Target ? ScreenLabel(state, sc.Arg) : sc.Label) : $"'{a.Target}'?";
+                var secs = a.Value.Trim().Length > 0 ? $" over {a.Value.Trim()} s" : "";
+                return (a.Kind == CueActionKind.FadeToBlack ? "Fade to black" : "Fade up") + $" — {where}{secs}";
+            }
             case CueActionKind.ScreenOn: return $"Screen '{ScreenLabel(state, a.Target)}' on";
             case CueActionKind.ScreenOff: return $"Screen '{ScreenLabel(state, a.Target)}' off";
             case CueActionKind.ScreenLook: return $"Screen '{ScreenLabel(state, a.Target)}' → look '{LookService.Find(state, a.Value)?.Name ?? (a.Value.Length > 0 ? a.Value + " (not found)" : "?")}'";

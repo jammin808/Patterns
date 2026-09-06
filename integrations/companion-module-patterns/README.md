@@ -20,6 +20,23 @@ preset groups you tick, so the key list holds only what this desk uses.
    Transport, Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music, and the
    *… — this show* categories with a preset per item of the show that is loaded.
 
+## Fade to black on one screen, a group, the focused or the ticked tiles (module 2.6.0)
+
+The `fade` action gained a **Where** field. Empty is what it always was: every screen, a blackout
+with a fade of its own. `SCREEN 2` fades that screen alone to black over the seconds given and the
+rest of the rig keeps its picture (a screen that joined a canvas takes its canvas with it); `GROUP A`
+fades the joined canvas with that wall letter; `FOCUSED` fades the wall tile the desk has clicked
+(the PGM tile focused means every screen); `TICKED` the tiles ticked on the desk's wall; `GROUPS`
+the ticked tiles that are joined canvases. Fade up with the same words brings them back; a fade up
+with the field empty lifts the blackout and brings back every screen that was black on its own.
+When a fade leaves the whole rig dark, Patterns fades the music and a clip's soundtrack with it
+(the show's WITH THE SOUND setting, on by default) and back with the fade up; BLACKOUT on its own
+never touches the sound. Feedbacks: `screen_black` (that screen is black on its own) and
+`black_any`; variables `black` (how many, or off), `black_text` ("Screen 2 · Group A") and
+`black_audio` (DOWN while the sound is down with the picture). Presets: *Screens* gains FADE ▼ / FADE
+▲ per screen (red while the screen is black) and per canvas; *Transport* gains FADE FOCUSED ▼ / ▲ and
+FADE TICKED ▼ / ▲.
+
 ## Preset groups — tick what this desk uses (module 2.5.0)
 
 The connection's settings gained a checkbox per group of presets: Transport; Cue stack; All

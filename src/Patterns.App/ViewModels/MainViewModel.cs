@@ -455,8 +455,13 @@ public sealed partial class MainViewModel : Observable
 
         // Freeze, the timed fade, the previous look, the show file's earlier versions.
         FreezeCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.FreezeToggle, ActionOrigin.Desk));
-        FadeToBlackCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.FadeToBlack, ActionOrigin.Desk, "", FadeMsText()));
-        FadeUpCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.FadeUp, ActionOrigin.Desk, "", FadeMsText()));
+        // The fade lands where the picker says: every screen, the focused tile, the ticked tiles or
+        // the ticked groups; the action's own words (a refusal says what to tick) go to the status line.
+        FadeToBlackCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.FadeToBlack, ActionOrigin.Desk, SelectedFadeScope.Words, FadeMsText()).Message);
+        FadeUpCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.FadeUp, ActionOrigin.Desk, SelectedFadeScope.Words, FadeMsText()).Message);
+        // A scoped FADE reads the wall's focus and ticks through the services, never the other way round.
+        _services.FocusedTarget = () => _selectedTargetId;
+        _services.TickedTargets = () => SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null).Select(t => t.TargetId!).ToList();
         LookBackCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.LookBack, ActionOrigin.Desk).Message);
         RestoreBackupCommand = new RelayCommand(RestoreBackup);
         OpenBackupsFolderCommand = new RelayCommand(OpenBackupsFolder);
