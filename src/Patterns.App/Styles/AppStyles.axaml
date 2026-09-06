@@ -413,6 +413,21 @@
     <Setter Property="LetterSpacing" Value="1" />
     <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
   </Style>
+  <!-- A wall tile collapsed to a vertical title bar (the Run area): the name on its side reads top to bottom -->
+  <Style Selector="StackPanel.tileBar">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="MinHeight" Value="112" />
+  </Style>
+  <Style Selector="StackPanel.tileBar TextBlock.tileTitle">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="MaxWidth" Value="96" />
+  </Style>
+  <Style Selector="StackPanel.tileBar Border.roleBadge">
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Padding" Value="3,0" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+
   <!-- A wall tile faded to black on its own: the badge reads in the tally's red -->
   <Style Selector="Border.roleBadge.blackBadge">
     <Setter Property="Background" Value="#2A0F10" />

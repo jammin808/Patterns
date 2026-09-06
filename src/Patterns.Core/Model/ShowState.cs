@@ -1388,10 +1388,17 @@ public sealed class DeskLayoutConfig : Observable
     /// <summary>The screens column's width with the work area wide: the wall and the panes, reduced.</summary>
     public const double WideScreensWidth = 300;
 
+    /// <summary>The Run area: how much of its width the cue stack takes — about a third by default, the wall the rest.</summary>
+    public const double DefaultRunCueShare = 0.35;
+    public const double MinRunCueShare = 0.2;
+    public const double MaxRunCueShare = 0.7;
+
     private double _editorWidth = DefaultEditorWidth;
     private double _programShare = DefaultProgramShare;
     private bool _wideWorkArea;
     private bool _showHints;
+    private double _runCueShare = DefaultRunCueShare;
+    private bool _runWallCollapsed;
 
     /// <summary>The page column's width in pixels (the divider between the page and the screens).</summary>
     public double EditorWidth
@@ -1415,6 +1422,16 @@ public sealed class DeskLayoutConfig : Observable
     /// page strip, and the room goes to the controls.
     /// </summary>
     public bool ShowHints { get => _showHints; set => Set(ref _showHints, value); }
+
+    /// <summary>The cue stack's share of the Run area's width (the divider between the wall and the stack); the wall takes the rest.</summary>
+    public double RunCueShare
+    {
+        get => _runCueShare;
+        set => Set(ref _runCueShare, Math.Clamp(double.IsFinite(value) ? value : DefaultRunCueShare, MinRunCueShare, MaxRunCueShare));
+    }
+
+    /// <summary>The Run area's wall tiles collapsed to vertical title bars — the tally and the name on their side — so the stack has the room.</summary>
+    public bool RunWallCollapsed { get => _runWallCollapsed; set => Set(ref _runWallCollapsed, value); }
 }
 
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>

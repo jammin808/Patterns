@@ -131,6 +131,7 @@ public static class HelpTopics
                 "PREP at the desk or at home: the output windows are refused, the sends stop, the stream is held — everything else works.",
                 "SHOW at the venue: OUTPUTS ON (⇧F5) opens the windows, the sends run, the stream starts when it is armed.",
                 "RUN for the caller: the LIVE strip, the wall, the stack and GO take the window; POP OUT for a second monitor, /run on a tablet.",
+                "The Run area's room: drag the divider between the wall and the stack (the stack starts at about a third; the show remembers it); ▸ COLLAPSE TILES turns the wall's tiles into vertical title bars — the tally and the name on their side; a pause over any tile pops it up large, PGM and PVW side by side.",
                 "Leaving RUN is refused while the stack is armed — disarm first.",
             },
             "OUTPUTS ON / OFF (⇧F5 / ⇧F6 on the desk). The mode itself is a desk choice, saved in the show.",

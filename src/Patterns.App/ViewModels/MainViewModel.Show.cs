@@ -317,6 +317,21 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>The Run area's wall tiles as vertical title bars — the tally and the name on their side — so the stack has the room (the show remembers it).</summary>
+    public bool IsRunWallCollapsed
+    {
+        get => State.Desk.RunWallCollapsed;
+        set
+        {
+            if (State.Desk.RunWallCollapsed == value) return;
+            State.Desk.RunWallCollapsed = value;
+            Raise(nameof(IsRunWallCollapsed));
+            Raise(nameof(RunWallToggleText));
+        }
+    }
+
+    public string RunWallToggleText => IsRunWallCollapsed ? "◂ EXPAND TILES" : "▸ COLLAPSE TILES";
+
     /// <summary>The page takes the room and the screens reduce to a strip on the right (the show remembers it).</summary>
     public bool WideWorkArea
     {

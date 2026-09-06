@@ -18,8 +18,50 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:SwitcherTile">
-          <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Width="188" Padding="6,4">
-            <StackPanel Spacing="3">
+          <!-- A pause over the tile pops it up large: PGM and PVW side by side, the same miniatures at a size a caller can read -->
+          <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Padding="6,4" ToolTip.ShowDelay="700" ToolTip.Placement="Bottom">
+            <ToolTip.Tip>
+              <StackPanel Spacing="6" Width="680">
+                <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}" Text="{Binding Title}" FontWeight="Bold" FontSize="14" />
+                <Grid ColumnDefinitions="*,10,*">
+                  <StackPanel Spacing="3">
+                    <TextBlock Classes="label" Text="PGM — on air" Foreground="{StaticResource TallyPgmBrush}" />
+                    <ctl:AspectBox Ratio="{Binding Ratio}">
+                      <Border BorderBrush="#80E0342E" BorderThickness="1" ClipToBounds="True" Background="#0A0A0F">
+                        <ctl:MonitorTileControl Viewport="{Binding PgmViewport}" />
+                      </Border>
+                    </ctl:AspectBox>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Spacing="3">
+                    <TextBlock Classes="label" Text="PVW — what the next CUT / TAKE puts there" Foreground="{StaticResource TallyPvwBrush}" />
+                    <ctl:AspectBox Ratio="{Binding Ratio}">
+                      <Border BorderBrush="#802EE68A" BorderThickness="1" ClipToBounds="True" Background="#0A0A0F">
+                        <ctl:MonitorTileControl Viewport="{Binding PvwViewport}" />
+                      </Border>
+                    </ctl:AspectBox>
+                  </StackPanel>
+                </Grid>
+                <TextBlock Classes="hint" Text="{Binding FootText}" FontSize="11" />
+              </StackPanel>
+            </ToolTip.Tip>
+            <Panel>
+            <!-- Collapsed (the Run area's choice): a vertical title bar — the tally, the name on its side, the BLACK badge -->
+            <StackPanel Classes="tileBar" Spacing="6" IsVisible="{Binding $parent[ctl:WallView].Collapsed}" HorizontalAlignment="Center">
+              <Ellipse Classes="tally" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}" Width="8" Height="8" HorizontalAlignment="Center" Margin="0,2,0,0" />
+              <Border Classes="roleBadge blackBadge" IsVisible="{Binding IsBlack}" ToolTip.Tip="Faded to black on its own">
+                <TextBlock Text="B" />
+              </Border>
+              <LayoutTransformControl HorizontalAlignment="Center">
+                <LayoutTransformControl.LayoutTransform>
+                  <RotateTransform Angle="90" />
+                </LayoutTransformControl.LayoutTransform>
+                <Button Background="Transparent" BorderThickness="0" Padding="2" Cursor="Hand" Focusable="False"
+                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectTileCommand}" CommandParameter="{Binding}">
+                  <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                </Button>
+              </LayoutTransformControl>
+            </StackPanel>
+            <StackPanel Spacing="3" Width="176" IsVisible="{Binding !$parent[ctl:WallView].Collapsed}">
               <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
                 <Ellipse Classes="tally" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                          Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
@@ -57,13 +99,14 @@
                               IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
                               ToolTip.Tip="OUTPUT: this screen's output on / off, live — green while it is on" />
               </Grid>
+              <!-- PGM left, PVW right; the tile's own popup names them when the pointer rests here -->
               <Grid ColumnDefinitions="*,4,*" Height="54" IsVisible="{Binding IsMonitored}">
-                <ctl:AspectBox Ratio="{Binding Ratio}" ToolTip.Tip="PGM — on air for this target">
+                <ctl:AspectBox Ratio="{Binding Ratio}">
                   <Border BorderBrush="#80E0342E" BorderThickness="1" ClipToBounds="True" Background="#0A0A0F">
                     <ctl:MonitorTileControl Viewport="{Binding PgmViewport}" />
                   </Border>
                 </ctl:AspectBox>
-                <ctl:AspectBox Grid.Column="2" Ratio="{Binding Ratio}" ToolTip.Tip="PVW — what the next CUT / TAKE puts there">
+                <ctl:AspectBox Grid.Column="2" Ratio="{Binding Ratio}">
                   <Border BorderBrush="#802EE68A" BorderThickness="1" ClipToBounds="True" Background="#0A0A0F">
                     <ctl:MonitorTileControl Viewport="{Binding PvwViewport}" />
                   </Border>
@@ -82,6 +125,7 @@
                            ToolTip.Tip="{Binding FootText}" />
               </Grid>
             </StackPanel>
+            </Panel>
           </Border>
         </DataTemplate>
       </ItemsControl.ItemTemplate>

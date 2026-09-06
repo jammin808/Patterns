@@ -264,15 +264,17 @@ public class FadeScopeAppTests
             Assert.True(tileB.IsBlack);
             Assert.False(tileB.IsOnAir);
             Assert.False(tileC.IsBlack);
-            var badge = window.GetVisualDescendants().OfType<Border>().Single(x => x.Classes.Contains("blackBadge") && ReferenceEquals(x.DataContext, tileB));
-            Assert.True(badge.IsEffectivelyVisible);
+            // (the tile carries the badge twice — the full tile's BLACK and the collapsed bar's B — one of them showing)
+            var badges = window.GetVisualDescendants().OfType<Border>().Where(x => x.Classes.Contains("blackBadge") && ReferenceEquals(x.DataContext, tileB)).ToList();
+            Assert.NotEmpty(badges);
+            Assert.Contains(badges, x => x.IsEffectivelyVisible);
             vm.FadeUpCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Empty(services.Bus.BlackTargets);
             vm.PollNow();
             Settle(window);
             Assert.False(tileB.IsBlack);
-            Assert.False(badge.IsEffectivelyVisible);
+            Assert.DoesNotContain(badges, x => x.IsEffectivelyVisible);
 
             // THE TICKED SCREENS: tick the lobby (the sandbox closed), fade — the lobby alone; the ticks stay for the fade up.
             tileC.IsSendTarget = true;
