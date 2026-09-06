@@ -139,10 +139,14 @@
                       Command="{Binding Run.ArmCommand}" Focusable="False"
                       ToolTip.Tip="ARMED gates GO from every origin and holds the schedule, part start times and plain F-keys. Always off when the app opens." />
         <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
-          <Grid ColumnDefinitions="Auto,10,*,Auto">
+          <Grid ColumnDefinitions="Auto,10,*,Auto,Auto,Auto">
             <TextBlock Grid.Column="0" Classes="runTag" Text="STANDBY" Foreground="{StaticResource TallyPvwBrush}" VerticalAlignment="Center" />
             <TextBlock Grid.Column="2" Classes="runStandby" Text="{Binding Run.StandbyText}" TextTrimming="CharacterEllipsis" />
             <Border Grid.Column="3" Classes="runChip holdChip" IsVisible="{Binding Run.StandbyReadyText, Converter={StaticResource NotEmpty}}" VerticalAlignment="Center"><TextBlock Text="{Binding Run.StandbyReadyText}" /></Border>
+            <Border Grid.Column="4" Classes="runChip armedChip" Margin="6,0,0,0" IsVisible="{Binding Run.StandbyPreRollGood, Converter={StaticResource NotEmpty}}" VerticalAlignment="Center"
+                    ToolTip.Tip="{Binding Run.StandbyPreRollTip}"><TextBlock Text="{Binding Run.StandbyPreRollGood}" /></Border>
+            <Border Grid.Column="5" Classes="runChip holdChip" Margin="6,0,0,0" IsVisible="{Binding Run.StandbyPreRollWait, Converter={StaticResource NotEmpty}}" VerticalAlignment="Center"
+                    ToolTip.Tip="{Binding Run.StandbyPreRollTip}"><TextBlock Text="{Binding Run.StandbyPreRollWait}" /></Border>
           </Grid>
           <TextBlock Classes="runNotes runCueNotes" Text="{Binding Run.StandbyNotes}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Run.StandbyNotes, Converter={StaticResource NotEmpty}}" />
           <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Run.StandbyPlanText, Converter={StaticResource NotEmpty}}">

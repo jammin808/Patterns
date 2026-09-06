@@ -326,6 +326,8 @@ public sealed class AppServices
         PendingRecovery = Recovery.Read();
         Actions = new ShowActions(this);
         CueStack = new CueStackService(this);
+        // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
+        CueStack.Changed += ReconcileInputs;
         GpuService.RecordAppliedPath(State);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
@@ -709,7 +711,9 @@ public sealed class AppServices
     /// </summary>
     public void ReconcileInputs()
     {
-        Video.Reconcile(Bus.Current, Bus.Sandbox);
+        // The standby cue's clips ride behind the live wants: opened before GO, held on their first frame.
+        var preRoll = CueStack is null ? null : PreRoll.WantedFor(State, CueStack.StandbyCue);
+        Video.Reconcile(Bus.Current, Bus.Sandbox, preRoll: preRoll);
         NdiIn.Reconcile(Bus.Current, Bus.Sandbox);
         WebIn.Reconcile(Bus.Current, Bus.Sandbox);
         DeckIn.Reconcile(Bus.Current, Bus.Sandbox);

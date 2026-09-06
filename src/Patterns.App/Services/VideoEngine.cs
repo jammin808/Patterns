@@ -24,7 +24,7 @@ public sealed class VideoEngine : IDisposable
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
 
-    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct, string Format = "");
+    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct, string Format = "", bool PreRoll = false);
 
     private readonly Dictionary<string, Mount> _mounts = new();
     private readonly List<(string Key, IMountedSource Source, DateTime RetiredUtc, int HoldMs)> _retired = new();
@@ -82,20 +82,48 @@ public sealed class VideoEngine : IDisposable
 
     /// <summary>Mounted keys with a short status each — the Media tab's active-inputs line.</summary>
     public IReadOnlyList<(string Key, string Status)> MountStatuses
-        => _mounts.Select(kv => (kv.Key, kv.Value.Source.IsPlaying ? "playing" : kv.Value.Source.StatusText)).ToList();
+        => _mounts.Select(kv => (kv.Key, kv.Value.PreRoll
+            ? (kv.Value.Source.IsHeld ? "pre-rolled" : "pre-rolling")
+            : kv.Value.Source.IsPlaying ? "playing" : kv.Value.Source.StatusText)).ToList();
+
+    /// <summary>Pre-roll clips that could not be mounted because the decoder limit was reached by live sources.</summary>
+    public int PreRollWaiting { get; private set; }
+
+    /// <summary>Where one wanted clip stands: not mounted, opening, held and ready, or already on the screens.</summary>
+    public PreRoll.State PreRollStateOf(string key)
+    {
+        if (!_mounts.TryGetValue(key, out var mount)) return PreRoll.State.Missing;
+        if (!mount.PreRoll) return PreRoll.State.OnAir;
+        return mount.Source.IsHeld ? PreRoll.State.Ready : PreRoll.State.Opening;
+    }
+
+    public IReadOnlyList<PreRoll.State> PreRollStates(IReadOnlyList<MediaLocator.WantedInput> wants)
+        => wants.Select(w => PreRollStateOf(w.Key)).ToList();
 
     /// <summary>
     /// Reconciles the decoder pool with everything the program — and, while the operator is
     /// programming, the sandbox — references (UI thread). Highest-priority reference wins a
     /// shared mount's loop/audio settings.
     /// </summary>
-    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, DateTime? nowUtc = null)
+    public void Reconcile(ShowSnapshot snap, ShowSnapshot? sandbox = null, DateTime? nowUtc = null, IReadOnlyList<MediaLocator.WantedInput>? preRoll = null)
     {
         var now = nowUtc ?? ShowClock.UtcNow;
         SweepRetired(now);
 
         var wanted = WantedVideoInputs(snap, sandbox);
         var wantedKeys = wanted.Select(w => w.Key).ToHashSet();
+
+        // The standby cue's clips ride behind the live wants: opened and held on their first frame,
+        // silent, never at a live source's expense, retired like any other when standby moves on.
+        var held = new List<MediaLocator.WantedInput>();
+        if (preRoll is not null)
+        {
+            foreach (var p in preRoll)
+            {
+                if (p.Kind != MediaLocator.WantedKind.VideoFile || !wantedKeys.Add(p.Key)) continue;
+                held.Add(p);
+            }
+        }
 
         // A source that leaves fades its sound out over the stop fade and is kept, silenced, only
         // as long as the longest fade in flight needs its frames.
@@ -113,6 +141,13 @@ public sealed class VideoEngine : IDisposable
         {
             if (_mounts.TryGetValue(w.Key, out var existing))
             {
+                if (existing.PreRoll)
+                {
+                    // GO: the held clip runs from its first frame with the look's sound.
+                    existing = existing with { PreRoll = false };
+                    _mounts[w.Key] = existing;
+                    existing.Source.Release();
+                }
                 if (existing.Loop == w.Loop && existing.Format == w.Format)
                 {
                     // Mute/volume apply live to the running player — never restart the media.
@@ -129,28 +164,59 @@ public sealed class VideoEngine : IDisposable
                 continue;
             }
             if (SourceFactory is null && !EnsureVlc()) return;
-
-            try
-            {
-                var source = SourceFactory is { } open
-                    ? open(w)
-                    : new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                        w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding());
-                if (source is null) continue;
-                if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
-                _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format);
-                InputBus.Mount(w.Key, source);
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Video open failed for '{w.Target}'.", ex);
-                VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
-            }
+            TryOpen(w, preRoll: false);
         }
+
+        var waiting = 0;
+        foreach (var p in held)
+        {
+            if (_mounts.TryGetValue(p.Key, out var existing))
+            {
+                if (existing.PreRoll) continue;
+                if (existing.Loop == p.Loop && existing.Format == p.Format)
+                {
+                    // The clip just left the screens and the standby wants it again: wound back and held.
+                    _mounts[p.Key] = existing with { PreRoll = true, Mute = p.Mute, VolumePct = p.VolumePct };
+                    existing.Source.HoldAtStart();
+                    continue;
+                }
+                RetireMount(p.Key, now, holdMs, fadeMs);
+            }
+            if (_mounts.Count >= MaxMounts)
+            {
+                waiting++;
+                continue;
+            }
+            if (SourceFactory is null && !EnsureVlc()) break;
+            TryOpen(p, preRoll: true);
+        }
+        PreRollWaiting = waiting;
 
         LimitNote = over > 0
             ? $"Input limit: {MaxMounts} simultaneous decoders — {over} source{(over == 1 ? "" : "s")} waiting."
             : "";
+    }
+
+    /// <summary>Opens one wanted input and mounts it on the bus; a pre-roll opens held on its first frame.</summary>
+    private void TryOpen(MediaLocator.WantedInput w, bool preRoll)
+    {
+        try
+        {
+            var source = SourceFactory is { } open
+                ? open(w)
+                : new VlcFrameSource(_vlc!, w.Target, w.Loop,
+                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll);
+            if (source is null) return;
+            if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
+            if (preRoll) source.HoldAtStart();
+            _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format, preRoll);
+            InputBus.Mount(w.Key, source);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Video open failed for '{w.Target}'.", ex);
+            VideoService.AvailabilityNote = $"Could not open video: {ex.Message}";
+        }
     }
 
     /// <summary>
@@ -345,6 +411,19 @@ public interface IMountedSource : IVideoFrameSource, IDisposable
     void SetAudioDelay(int ms)
     {
     }
+
+    /// <summary>The standby cue's clip: wound back and held on its first frame, silent, so GO lands on a picture.</summary>
+    void HoldAtStart()
+    {
+    }
+
+    /// <summary>GO: the held clip runs from its first frame with its sound.</summary>
+    void Release()
+    {
+    }
+
+    /// <summary>Held on the first frame with that frame decoded — pre-rolled and ready.</summary>
+    bool IsHeld => false;
 }
 
 /// <summary>One playing video: libVLC decodes into our BGRA buffer; renderers draw the newest frame.</summary>
@@ -373,6 +452,7 @@ public sealed class VlcFrameSource : IMountedSource
     private readonly bool _isCapture;
     private volatile bool _mute;
     private volatile float _volumePct;
+    private volatile bool _held;
 
     // Frames handed to render sinks may be recorded into GPU-deferred canvases that read the
     // pixels at flush time — so each decoded frame becomes its own immutable SKImage, and
@@ -423,7 +503,7 @@ public sealed class VlcFrameSource : IMountedSource
         return options.ToArray();
     }
 
-    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true)
+    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true, bool startHeld = false)
     {
         _isCapture = isCapture;
         if (isCapture)
@@ -438,6 +518,13 @@ public sealed class VlcFrameSource : IMountedSource
         {
             _media = new Media(vlc, new Uri(Path.GetFullPath(target)));
             if (loop) _media.AddOption("input-repeat=65535");
+            // A pre-rolled clip opens, decodes its first frame and waits there: libVLC's own
+            // start-paused, so the file, the codec and the card's decoder are all up before GO.
+            if (startHeld)
+            {
+                _media.AddOption(":start-paused");
+                _held = true;
+            }
         }
 
         _mute = mute;
@@ -471,6 +558,49 @@ public sealed class VlcFrameSource : IMountedSource
         _mute = mute;
         _volumePct = (float)volumePct;
         ApplyAudio();
+    }
+
+    /// <summary>Held on the first frame with that frame decoded: the pre-roll is ready for GO.</summary>
+    public bool IsHeld => _held && !_disposed && _latest is not null;
+
+    /// <summary>
+    /// The standby cue wants this clip: wound back to its start and paused there, silent. A player
+    /// that ended plays again first (the callbacks are still wired), so the held frame is the
+    /// clip's first, not its last.
+    /// </summary>
+    public void HoldAtStart()
+    {
+        if (_disposed || _isCapture) return;
+        _held = true;
+        try
+        {
+            if (_player.State is VLCState.Ended or VLCState.Stopped) _player.Play();
+            _player.Time = 0;
+            _player.SetPause(true);
+            ApplyAudio();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Holding a clip at its start failed.", ex);
+        }
+    }
+
+    /// <summary>GO: the held clip runs from where it is held with its sound as the look wants it.</summary>
+    public void Release()
+    {
+        if (!_held) return;
+        _held = false;
+        if (_disposed) return;
+        try
+        {
+            if (_player.State is VLCState.Ended or VLCState.Stopped) _player.Play();
+            else _player.SetPause(false);
+            ApplyAudio();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Releasing a held clip failed.", ex);
+        }
     }
 
     private int _audioDelayMs;
@@ -542,7 +672,7 @@ public sealed class VlcFrameSource : IMountedSource
         if (_disposed) return;
         try
         {
-            _player.Mute = _mute;
+            _player.Mute = _mute || _held;   // a held clip is silent whatever the look wants, until GO
             _player.Volume = (int)Math.Clamp(_volumePct, 0, 125);
             _player.SetAudioDelay(_audioDelayMs * 1000L); // microseconds
         }
@@ -698,6 +828,7 @@ public sealed class VlcFrameSource : IMountedSource
                 VLCState.Error => "Playback error — check the file or device.",
                 VLCState.Ended => "Ended.",
                 VLCState.Stopped => "Stopped.",
+                VLCState.Paused => _held ? (_latest is null ? "Pre-rolling…" : "Pre-rolled — holding the first frame.") : "Paused.",
                 VLCState.Playing => "Playing (no picture yet)…",
                 _ => "Waiting for first frame…",
             };

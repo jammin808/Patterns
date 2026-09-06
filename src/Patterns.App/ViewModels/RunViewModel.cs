@@ -171,6 +171,22 @@ public sealed class RunViewModel : Observable
     public bool StandbyIsBroken => StandbyProblem.Length > 0;
     public string StandbyReadyText => _s.CueStack.StandbyCue is { Ready: false, Actions.Count: > 0 } ? "NOT MARKED READY" : "";
 
+    /// <summary>The standby cue's clips in the pool, the green chip: PRE-ROLLED (held on their first frame) or CLIP ON AIR; "" with no clip.</summary>
+    public string StandbyPreRollGood => PreRollWords().Good;
+
+    /// <summary>The amber chip: PRE-ROLLING… while a clip opens, CLIP NOT OPEN when one could not be mounted; "" otherwise.</summary>
+    public string StandbyPreRollWait => PreRollWords().Wait;
+
+    public string StandbyPreRollTip =>
+        "The standby cue's clips are opened before GO and held on their first frame, silent, so the cut lands on a picture rather than on a decoder opening. " +
+        "PRE-ROLLING… while one opens; CLIP NOT OPEN when the decoder limit is reached by live sources, the file will not open, or this machine has no decoder — GO still works, the clip just opens at the press.";
+
+    private (string Good, string Wait) PreRollWords()
+    {
+        var wants = PreRoll.WantedFor(_s.State, _s.CueStack.StandbyCue);
+        return PreRoll.Words(_s.Video.PreRollStates(wants));
+    }
+
     public string RunningText
     {
         get
@@ -385,6 +401,8 @@ public sealed class RunViewModel : Observable
         RefreshTiming();
         RefreshVideo();
         RaiseIfChanged(nameof(RunningText), RunningText);
+        RaiseIfChanged(nameof(StandbyPreRollGood), StandbyPreRollGood);
+        RaiseIfChanged(nameof(StandbyPreRollWait), StandbyPreRollWait);
         RaiseIfChanged(nameof(RunningOverPlanned), RunningOverPlanned);
         RaiseIfChanged(nameof(NextAutoText), NextAutoText);
         RaiseIfChanged(nameof(IsMusicPlaying), IsMusicPlaying);
@@ -418,6 +436,8 @@ public sealed class RunViewModel : Observable
         Raise(nameof(GoText));
         Raise(nameof(IsConfirming));
         Raise(nameof(StandbyText));
+        Raise(nameof(StandbyPreRollGood));
+        Raise(nameof(StandbyPreRollWait));
         Raise(nameof(NextText));
         Raise(nameof(HasNext));
         Raise(nameof(HasStandbyPlan));

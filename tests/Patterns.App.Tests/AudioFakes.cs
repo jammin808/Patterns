@@ -96,6 +96,28 @@ internal sealed class FakeSource : IMountedSource
 
     public void SetAudioDelay(int ms) => AudioDelayMs = ms;
 
+    /// <summary>The pre-roll: how often the pool held this clip at its start and let it go, and whether it is held now.</summary>
+    public int Holds;
+    public int Releases;
+    public bool Held;
+
+    public bool IsHeld => Held && !Disposed;
+
+    public void HoldAtStart()
+    {
+        Holds++;
+        Held = true;
+        Position = 0;
+        Ended = false;
+    }
+
+    public void Release()
+    {
+        if (!Held) return;
+        Releases++;
+        Held = false;
+    }
+
     public void Dispose() => Disposed = true;
 }
 

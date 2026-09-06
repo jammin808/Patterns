@@ -237,10 +237,11 @@ public static class HelpTopics
                 "Mark breaks, lunch and the end: the clock then says what is early or late as the day runs.",
                 "AUTO on a cue fires the next one after its seconds; CANCEL on the strip stops one counting.",
                 "ARM the stack and GO — from the Run page, the panel, the phone, Companion or a device.",
+                "A standby cue whose look carries a clip is pre-rolled: the decoder opens it and holds its first frame, silent, so GO lands on the picture — PRE-ROLLED on the Run strip; PRE-ROLLING… while it opens; CLIP NOT OPEN when the decoder limit is taken.",
             },
             "CUE GO [id] · CUE STANDBY NEXT / PREV / <number> / <name> · CUE HOLD ON / OFF · CUE ARM ON / OFF · CUE LIST",
             new[] { "Cues", "Run", "Panel" },
-            new[] { "cue", "cues", "stack", "sheet", "running order", "import", "csv", "excel", "planned", "time", "clock", "late", "early", "auto-follow", "follow", "break", "lunch", "go", "standby", "caller", "notes" }),
+            new[] { "cue", "cues", "stack", "sheet", "running order", "import", "csv", "excel", "planned", "time", "clock", "late", "early", "auto-follow", "follow", "break", "lunch", "go", "standby", "caller", "notes", "pre-roll", "preroll", "pre-rolled", "first frame", "clip not open", "decoder" }),
 
         new HelpTopic("vog-stingers", HelpGroup.RunningTheShow,
             "VOGs, stingers and staying up: sounds, clips and what happens after",
