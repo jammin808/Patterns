@@ -156,11 +156,12 @@ public static class HostCommand
         var exe = Environment.ProcessPath ?? "";
         var name = Path.GetFileNameWithoutExtension(exe);
         if (name.Equals("Patterns", StringComparison.OrdinalIgnoreCase)) return (exe, Array.Empty<string>());
-        // Not the published exe (a test host, dotnet itself): the app's dll under the dotnet muxer — this
-        // process's own muxer when that is what runs it. Inside a single-file bundle Location is empty,
-        // and there ProcessPath is the exe, taken above.
-        var dll = typeof(AppServices).Assembly.Location;
-        if (dll.Length > 0 && File.Exists(dll))
+        // Not the published exe (a test host, dotnet itself): the app's dll beside this process's code,
+        // under the dotnet muxer — this process's own muxer when that is what runs it. The published exe
+        // never gets here (it is taken above), and the single-file analyzer allows the app folder where
+        // it forbids an assembly's location.
+        var dll = Path.Combine(AppContext.BaseDirectory, "Patterns.dll");
+        if (File.Exists(dll))
         {
             var muxer = name.Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? exe : "dotnet";
             return (muxer, new[] { dll });

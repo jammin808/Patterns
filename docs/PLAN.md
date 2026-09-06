@@ -1742,6 +1742,14 @@ the way. The bugs, all fixed in the commits above:
    drawing thread under a LIVE status, and a cold start counted as a crash.
 4. A lower third's fractal element read every colour of its palette while the shader reads five,
    so a six-colour palette drew differently on an output and on NDI. Both read five now.
+5. The host launcher's fallback (a test host starting `dotnet Patterns.dll`) found the dll through
+   an assembly's location, which the single-file analyzer refuses: inside a single-file bundle
+   that call is always empty (IL3000), and under warnings-as-errors the refusal is a failed
+   publish. The Linux test job passed and CI's Windows publish caught it on the encoder commit.
+   The fallback reads the app folder (`AppContext.BaseDirectory`) now; the win-x64 single-file
+   publish was reproduced here before the fix went up. The lesson kept: a publish-only failure
+   is a class of its own, so the local check before a push that touches process start-up is the
+   publish, not only the build and the suite.
 
 The opportunities, not taken this round, in the order they would pay:
 
