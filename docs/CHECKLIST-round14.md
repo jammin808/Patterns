@@ -4,7 +4,9 @@ The headless suite proves the logic on every push. These are the things only a r
 one line per item, what to do, and what you should see. Tick them on a Windows machine with the
 full build (libVLC bundled), two displays, an audio interface and, where named, a phone on the
 network and a Stream Deck with Companion. The low-spec laptop the report came from is the right
-machine for rows 1 and 2.
+machine for rows 1 and 2. Rows 6 and 7 are the desk; row 8 needs a phone on the network; row 9 a
+Stream Deck with Companion and the module updated to 2.5.0. Do row 2 before anything else on the
+laptop: the dump it leaves is what turns the crash reading into a fact.
 
 | # | Item | Do | Expect |
 | --- | --- | --- | --- |

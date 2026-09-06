@@ -183,7 +183,9 @@ two access-violation crashes the watchdog brought back; after a restart a video 
 to fade in and immediately fades back off"; the fractal and particle engines inside lower thirds
 on a low-spec laptop. Then the five next steps of §16.4, then the desk's surfaces (the lower-thirds
 page, the Show panel's chips, the phone's overlays, Companion's preset groups). The findings and
-the crash chain are in §18. Newest row first.
+the crash chain are in §18. Newest row first. Every row landed; the checklist for the laptop,
+the phone and the Stream Deck is `docs/CHECKLIST-round14.md`, and §18.10 says what the round
+established, what is still a guess until the laptop's dump is read, and what comes next.
 
 | Item | What lands | Status |
 | --- | --- | --- |
@@ -1016,3 +1018,48 @@ page's picker does; the list of kinds travels in STATE so the module's keys buil
 own list and a kind added later appears by itself. It is a rig-check tool more than a show tool
 — a grid, colour bars, a focus target from a key on the tech table — which is why the group
 starts unticked.
+
+### 18.10 The round in one place: what is established, what is still a guess, what next
+
+**Established, by tests on the live desk.** A stinger tick that throws no longer abandons the
+clip on the screens; STOP puts back a clip nothing owns; a press onto an open decoder plays from
+the top; a clip that stops moving is put back after fifteen seconds; a crash sidecar never
+carries a clip as the show. The fractal and particle engines are managed code and cannot
+access-violate; what they could do on the laptop was starve the decoders and the audio, and that
+is bounded now three ways — the fractal raster on half the cores, a lower third's fractal drawn
+at 25 new frames a second, and the quality ladder stepping particles and iterations down after
+three slow seconds on the worst output. The frame budget names the stage that took a slow frame,
+the start-up has a budget and a fence, the memory ceilings are numbers, and the standby cue's
+clip is open on its first frame before GO. The desk's surfaces: the Lower thirds page keeps its
+preview in view and folds a person to the name and the role; the Show panel's chips sit three to
+a row and light with a line that says why; the phone drives the clock, the message, the countdown
+and the overlays through verbs any controller can send; Companion 2.5.0 lets a desk tick the
+groups of keys it uses and has keys for all of it.
+
+**Still a guess, and what settles it.** Which native module faulted on the night. The reading
+(§18.2) puts the graphics driver's video decoder first, a libVLC callback racing a retire second,
+the audio device third; nothing here can run libVLC, WASAPI or a Windows driver, so the reading
+is from the code and the numbers. The next fault on the laptop leaves a mini-dump and a note, and
+the run after it decodes in software: a show that then runs clean says the decoder; a fault in
+software too says not the decoder, and the dump goes with the support bundle. Read the dump's
+faulting module (§18.2, "How to read the dump") before changing anything else.
+
+**Next, ranked.**
+
+1. *The laptop's dump.* Row 2 of the checklist on the machine the report came from, before any
+   other change to the decoder path. Everything about the crash after that is a fact.
+2. *Cue actions for the round's overlay verbs.* The wire has CLOCK 12 / 24, the seconds and the
+   date, MESSAGE SCROLL, COUNTDOWN TO a time, COUNTDOWN LABEL, LOGO, PIP, OVERLAYS OFF and
+   PATTERN; the cue sheet has the older on / off / start / stop only. Each is one `CueActionKind`
+   through the spec, the summary, the sheet's aliases, the validator and the executor — small,
+   and the caller's stack is where BACK AT 14:00 belongs.
+3. *A render-thread stall signal.* The frame budget reads frames that complete; a frame that never
+   completes (a driver hang inside a present) shows as silence. A "no frame for 2 s while outputs
+   are on" line on the health line and the super-check, from the budget's last-frame time, is the
+   engine-side twin of the desk's tick faults.
+4. *The phone's OVERLAYS tab reading the countdown's target and the weather's view.* The tab shows
+   what is left and the target; the weather's three views live on the SHOW tab. One more row.
+5. *The Companion module's people group by name.* The People group keys read the library by
+   place; a per-person feedback by name exists (`lower_third_person_is`) but the bank keys light
+   on any person. The "— this show" people presets already light by name; the bank keys should
+   read `people[n].name` for theirs.
