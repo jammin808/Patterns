@@ -49,23 +49,23 @@ public class ActionLayerTests
     [Fact]
     public void TheWireVocabularyMapsOntoTheShowVocabulary()
     {
-        Assert.Equal(new ShowAction(ShowActionKind.ApplyLookHotkey, "3"), CommandRouter.ToAction(ControlProtocol.Parse("LOOK 3")));
-        Assert.Equal(new ShowAction(ShowActionKind.ApplyLook, "Walk-in"), CommandRouter.ToAction(ControlProtocol.Parse("LOOK Walk-in")));
-        Assert.Equal(new ShowAction(ShowActionKind.PlaylistPart, "Main"), CommandRouter.ToAction(ControlProtocol.Parse("SECTION Main")));
-        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "2"), CommandRouter.ToAction(ControlProtocol.Parse("STINGER 2")));
-        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "2", "vog"), CommandRouter.ToAction(ControlProtocol.Parse("VOG 2")));
-        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "Whoosh", "sting"), CommandRouter.ToAction(ControlProtocol.Parse("STING Whoosh")));
-        Assert.Equal(new ShowAction(ShowActionKind.StingerStop), CommandRouter.ToAction(ControlProtocol.Parse("VOG STOP")));
-        Assert.Equal(new ShowAction(ShowActionKind.CanvasOn, "A"), CommandRouter.ToAction(ControlProtocol.Parse("GROUP a ON")));
-        Assert.Equal(new ShowAction(ShowActionKind.ScreenToggle, "1"), CommandRouter.ToAction(ControlProtocol.Parse("SCREEN 1")));
-        Assert.Equal(new ShowAction(ShowActionKind.OutputsOn), CommandRouter.ToAction(ControlProtocol.Parse("GO")));
-        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay, "2"), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PLAY 2")));
-        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay, "Interval bed"), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PLAY Interval bed")));
-        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PLAY")));
-        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPause), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC PAUSE")));
-        Assert.Equal(new ShowAction(ShowActionKind.SpotifyNext), CommandRouter.ToAction(ControlProtocol.Parse("SPOTIFY SKIP")));
-        Assert.Equal(new ShowAction(ShowActionKind.SpotifyVolume, "", "0"), CommandRouter.ToAction(ControlProtocol.Parse("MUSIC VOL 0")));
-        Assert.Null(CommandRouter.ToAction(ControlProtocol.Parse("PING")));
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLookHotkey, "3"), ControlProtocol.Parse("LOOK 3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLook, "Walk-in"), ControlProtocol.Parse("LOOK Walk-in").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.PlaylistPart, "Main"), ControlProtocol.Parse("SECTION Main").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "2"), ControlProtocol.Parse("STINGER 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "2", "vog"), ControlProtocol.Parse("VOG 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.StingerFire, "Whoosh", "sting"), ControlProtocol.Parse("STING Whoosh").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.StingerStop), ControlProtocol.Parse("VOG STOP").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CanvasOn, "A"), ControlProtocol.Parse("GROUP a ON").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenToggle, "1"), ControlProtocol.Parse("SCREEN 1").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.OutputsOn), ControlProtocol.Parse("GO").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay, "2"), ControlProtocol.Parse("MUSIC PLAY 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay, "Interval bed"), ControlProtocol.Parse("MUSIC PLAY Interval bed").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPlay), ControlProtocol.Parse("MUSIC PLAY").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyPause), ControlProtocol.Parse("MUSIC PAUSE").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyNext), ControlProtocol.Parse("SPOTIFY SKIP").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.SpotifyVolume, "", "0"), ControlProtocol.Parse("MUSIC VOL 0").Action);
+        Assert.Equal(RemoteCommandKind.Ping, ControlProtocol.Parse("PING").Kind);
     }
 
     [AvaloniaFact]

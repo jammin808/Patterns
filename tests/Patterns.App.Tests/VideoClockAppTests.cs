@@ -92,9 +92,9 @@ public class VideoClockAppTests
             var again = new CueActionConfig { Kind = ShowActionKind.VideoRestart };
             Assert.True(services.Actions.Execute(again.ToAction(), new ActionOrigin(OriginKind.Cue, "01.020")).Ok);
             Assert.Equal(0, fake.SeekedTo);
-            var parsed = CommandRouter.ToAction(ControlProtocol.Parse("VIDEO END 2.5"));
-            Assert.Equal((ShowActionKind.VideoToEnd, "2.5"), (parsed!.Value.Kind, parsed.Value.Value));
-            Assert.Equal(ShowActionKind.VideoRestart, CommandRouter.ToAction(ControlProtocol.Parse("VIDEO RESTART"))!.Value.Kind);
+            var parsed = ControlProtocol.Parse("VIDEO END 2.5").Action;
+            Assert.Equal((ShowActionKind.VideoToEnd, "2.5"), (parsed.Kind, parsed.Value));
+            Assert.Equal(ShowActionKind.VideoRestart, ControlProtocol.Parse("VIDEO RESTART").Action.Kind);
 
             // The panel's own keys.
             vm.VideoToEndCommand.Execute(null);

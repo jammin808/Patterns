@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -104,18 +105,11 @@ public class OscMapTests
     [Fact]
     public void ALookByItsPlaceInTheListIsAVerbOfItsOwn()
     {
-        var byIndex = ControlProtocol.Parse("LOOK #3");
-        Assert.Equal(RemoteCommandKind.Look, byIndex.Kind);
-        Assert.Equal(3, byIndex.IntArg);
-        Assert.Equal("#", byIndex.Extra);
-        var bySlot = ControlProtocol.Parse("LOOK 3");
-        Assert.Equal("", bySlot.Extra);
-        Assert.Equal(3, bySlot.IntArg);
-        var byName = ControlProtocol.Parse("LOOK #hashtag");     // not a number after the hash: a look named that
-        Assert.Equal("#hashtag", byName.TextArg);
-        Assert.Equal("", byName.Extra);
-        Assert.Equal(RemoteCommandKind.Look, ControlProtocol.Parse("LOOK #0").Kind);
-        Assert.Equal("#0", ControlProtocol.Parse("LOOK #0").TextArg);  // #0 is no place: a name, refused later as unknown
+        // "#n" is a look's place in the list, carried as the target for the executor to resolve; a slot is the hotkey verb.
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLook, "#3"), ControlProtocol.Parse("LOOK #3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLookHotkey, "3"), ControlProtocol.Parse("LOOK 3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLook, "#hashtag"), ControlProtocol.Parse("LOOK #hashtag").Action);   // not a number after the hash: a look named that
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLook, "#0"), ControlProtocol.Parse("LOOK #0").Action);  // #0 is no place: a name, refused later as unknown
     }
 
     [Fact]

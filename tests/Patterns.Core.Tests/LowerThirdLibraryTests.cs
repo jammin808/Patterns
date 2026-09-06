@@ -146,13 +146,13 @@ public class LowerThirdLibraryTests
     [Fact]
     public void TheRemoteVerbsNameAPerson()
     {
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPerson, 0, "Neon", "Jane Doe"), ControlProtocol.Parse("LT Neon WITH Jane Doe"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPerson, 0, "2", "3"), ControlProtocol.Parse("lowerthird 2 with 3"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPerson, 0, "", "3"), ControlProtocol.Parse("PERSON 3"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPerson, 0, "", "Jane Doe"), ControlProtocol.Parse("person Jane Doe"));
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "Neon", "Jane Doe"), ControlProtocol.Parse("LT Neon WITH Jane Doe").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "2", "3"), ControlProtocol.Parse("lowerthird 2 with 3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "", "3"), ControlProtocol.Parse("PERSON 3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "", "Jane Doe"), ControlProtocol.Parse("person Jane Doe").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT Neon WITH").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("PERSON").Kind);
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdShow, 0, "Withers"), ControlProtocol.Parse("LT Withers")); // a name with "with" in it is a name
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdShow, 2, ""), ControlProtocol.Parse("LT 2"));
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "Withers"), ControlProtocol.Parse("LT Withers").Action); // a name with "with" in it is a name
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "2"), ControlProtocol.Parse("LT 2").Action);
     }
 }

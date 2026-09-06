@@ -82,21 +82,21 @@ public class ProFeatureTests
     [Fact]
     public void TheVerbsTheSecondsAndTheOscKnowFreezeFadeAndLookBack()
     {
-        Assert.Equal(RemoteCommandKind.FreezeToggle, ControlProtocol.Parse("FREEZE").Kind);
-        Assert.Equal(RemoteCommandKind.FreezeOn, ControlProtocol.Parse("freeze on").Kind);
-        Assert.Equal(RemoteCommandKind.FreezeOff, ControlProtocol.Parse("FREEZE OFF").Kind);
+        Assert.Equal(ShowActionKind.FreezeToggle, ControlProtocol.Parse("FREEZE").Action.Kind);
+        Assert.Equal(ShowActionKind.FreezeOn, ControlProtocol.Parse("freeze on").Action.Kind);
+        Assert.Equal(ShowActionKind.FreezeOff, ControlProtocol.Parse("FREEZE OFF").Action.Kind);
 
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 0, ""), ControlProtocol.Parse("FADE"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 2000, ""), ControlProtocol.Parse("FADE 2"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 2500, ""), ControlProtocol.Parse("fade 2.5"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 1500, ""), ControlProtocol.Parse("FADE 1500ms"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 1000, ""), ControlProtocol.Parse("FADE DOWN 1"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 0, ""), ControlProtocol.Parse("FADE UP"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 3000, ""), ControlProtocol.Parse("FADE UP 3"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 3000, ""), ControlProtocol.Parse("FADEUP 3s"));
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack), ControlProtocol.Parse("FADE").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "", "2"), ControlProtocol.Parse("FADE 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "", "2.5"), ControlProtocol.Parse("fade 2.5").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "", "1.5"), ControlProtocol.Parse("FADE 1500ms").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "", "1"), ControlProtocol.Parse("FADE DOWN 1").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp), ControlProtocol.Parse("FADE UP").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "", "3"), ControlProtocol.Parse("FADE UP 3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "", "3"), ControlProtocol.Parse("FADEUP 3s").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("FADE slowly").Kind);
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LookBack, 0, ""), ControlProtocol.Parse("LOOKBACK"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LookBack, 0, "cut"), ControlProtocol.Parse("LOOKBACK cut"));
+        Assert.Equal(new ShowAction(ShowActionKind.LookBack), ControlProtocol.Parse("LOOKBACK").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LookBack, "", "cut"), ControlProtocol.Parse("LOOKBACK cut").Action);
 
         Assert.True(ControlProtocol.TryParseSeconds("", out var ms) && ms == 0);
         Assert.True(ControlProtocol.TryParseSeconds("0.25", out ms) && ms == 250);

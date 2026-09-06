@@ -6,9 +6,11 @@ using Patterns.Core.Services;
 namespace Patterns.App.Services;
 
 /// <summary>
-/// Turns remote commands (TCP, web remote, Companion) into show actions on the UI thread —
-/// the same typed verbs the operator's own clicks use — and builds the state JSON remotes
-/// display. Needs no window: everything goes through <see cref="ShowActions"/>.
+/// Answers the wire (TCP, the web remote, OSC, Companion, the devices) on the UI thread. A parsed
+/// line is a show action already — the same typed verb the operator's own keys use — so the router
+/// has nothing to translate: it runs the action through <see cref="ShowActions"/>, shapes the
+/// reply, answers the handshakes and queries itself, and builds the state JSON remotes display.
+/// Needs no window.
 /// </summary>
 public sealed class CommandRouter
 {
@@ -36,6 +38,11 @@ public sealed class CommandRouter
     /// <summary>A revision the tablet long-polls on: bumped by the control service on every push-worthy change.</summary>
     public Func<long>? Rev { get; set; }
 
+    /// <summary>
+    /// A handshake or a query is answered here; an action — every verb of the wire is one, parsed
+    /// straight into the show's vocabulary — goes through the one executor, and the reply carries
+    /// what a controller wants to know about it.
+    /// </summary>
     private string Execute(RemoteCommand cmd, ActionOrigin origin)
     {
         switch (cmd.Kind)
@@ -45,185 +52,36 @@ public sealed class CommandRouter
             case RemoteCommandKind.Status:
                 return ControlProtocol.Ok(StateJson());
             case RemoteCommandKind.Unknown:
-                return ControlProtocol.Err($"unknown command '{cmd.TextArg}'");
+                return ControlProtocol.Err($"unknown command '{cmd.Text}'");
             case RemoteCommandKind.Hello:
                 return ControlProtocol.Ok(); // the connection renamed its origin; nothing to run
             case RemoteCommandKind.CueList:
                 return ControlProtocol.Ok(CueListJson());
         }
 
+        var action = cmd.Action;
+        var result = _services.Actions.Execute(action, origin);
         var stack = _services.CueStack;
-        switch (cmd.Kind)
+        switch (action.Kind)
         {
-            case RemoteCommandKind.CueGo:
+            case ShowActionKind.CueGo:
             {
                 // The OK payload carries the record, so a controller knows what happened, not just that it was heard.
-                var go = _services.Actions.Execute(new ShowAction(ShowActionKind.CueGo, cmd.TextArg), origin);
-                if (go.Status == ActionStatus.Requested && go.Message.StartsWith("CONFIRM", StringComparison.Ordinal))
+                if (result.Status == ActionStatus.Requested && result.Message.StartsWith("CONFIRM", StringComparison.Ordinal))
                 {
                     return ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = "Confirm", confirm = stack.ConfirmText, standby = StandbyRow(stack.StandbyCue) }));
                 }
-                return go.Ok
-                    ? ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = go.Status.ToString(), last = LastRow(stack), standby = StandbyRow(stack.StandbyCue) }))
-                    : ControlProtocol.Err(go.Message);
+                return result.Ok
+                    ? ControlProtocol.Ok(JsonSerializer.Serialize(new { outcome = result.Status.ToString(), last = LastRow(stack), standby = StandbyRow(stack.StandbyCue) }))
+                    : ControlProtocol.Err(result.Message);
             }
-            case RemoteCommandKind.CueStandbyNext:
-            case RemoteCommandKind.CueStandbyPrev:
-                return stack.StandbyMove(cmd.Kind == RemoteCommandKind.CueStandbyNext ? +1 : -1)
+            case ShowActionKind.CueStandby:
+                return result.Ok
                     ? ControlProtocol.Ok(JsonSerializer.Serialize(new { standby = StandbyRow(stack.StandbyCue) }))
-                    : ControlProtocol.Err("no cue that way");
-            case RemoteCommandKind.CueStandby:
-            {
-                var cue = stack.Stack.Cues.FirstOrDefault(c => CueNumber.Compare(c.Number, cmd.TextArg) == 0 && CueNumber.Parse(cmd.TextArg) is not null)
-                          ?? stack.Stack.Cues.FirstOrDefault(c => string.Equals(c.Name, cmd.TextArg, StringComparison.OrdinalIgnoreCase));
-                if (cue is null) return ControlProtocol.Err($"no cue '{cmd.TextArg}'");
-                stack.Standby(cue.Id);
-                return ControlProtocol.Ok(JsonSerializer.Serialize(new { standby = StandbyRow(cue) }));
-            }
-            case RemoteCommandKind.CueHoldOn:
-            case RemoteCommandKind.CueHoldOff:
-                stack.SetHold(cmd.Kind == RemoteCommandKind.CueHoldOn, origin);
-                return ControlProtocol.Ok();
-            case RemoteCommandKind.CueArmOn:
-            case RemoteCommandKind.CueArmOff:
-                if (!_services.State.Control.RemotesMayArm) return ControlProtocol.Err("remotes may not arm — allow it on the Remote page");
-                stack.SetArmed(cmd.Kind == RemoteCommandKind.CueArmOn, origin);
-                return ControlProtocol.Ok();
-            case RemoteCommandKind.StopAll:
-            {
-                var stop = _services.Actions.Execute(ShowActionKind.StopAll, origin);
-                return stop.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(stop.Message);
-            }
+                    : ControlProtocol.Err(result.Message);
+            default:
+                return result.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(result.Message);
         }
-
-        // "LOOK #n": the nth look in the show's order — a bank key that follows the list as looks are made.
-        if (cmd.Kind == RemoteCommandKind.Look && cmd.Extra == "#")
-        {
-            var looks = _services.State.LooksAndCues.Looks;
-            if (cmd.IntArg > looks.Count) return ControlProtocol.Err($"no look #{cmd.IntArg} — the show has {looks.Count}");
-            cmd = new RemoteCommand(RemoteCommandKind.Look, 0, looks[cmd.IntArg - 1].Id);
-        }
-
-        if (ToAction(cmd) is not { } action) return ControlProtocol.Err($"unknown command '{cmd.Kind}'");
-        var result = _services.Actions.Execute(action, origin);
-        return result.Ok ? ControlProtocol.Ok() : ControlProtocol.Err(result.Message);
-    }
-
-    /// <summary>The wire's parsed milliseconds as the action's seconds ("2", "1.5"); none for the show's own time.</summary>
-    private static string FadeSeconds(int ms) => ms > 0 ? (ms / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "";
-
-    /// <summary>The wire vocabulary → the show's vocabulary. Pure; unit tested.</summary>
-    public static ShowAction? ToAction(RemoteCommand cmd)
-    {
-        var byNumberOrName = cmd.IntArg > 0 ? cmd.IntArg.ToString() : cmd.TextArg;
-        return cmd.Kind switch
-        {
-            RemoteCommandKind.OutputsOn => new ShowAction(ShowActionKind.OutputsOn),
-            RemoteCommandKind.OutputsOff => new ShowAction(ShowActionKind.OutputsOff),
-            RemoteCommandKind.BlackoutOn => new ShowAction(ShowActionKind.BlackoutOn),
-            RemoteCommandKind.BlackoutOff => new ShowAction(ShowActionKind.BlackoutOff),
-            RemoteCommandKind.BlackoutToggle => new ShowAction(ShowActionKind.BlackoutToggle),
-            RemoteCommandKind.Identify => new ShowAction(ShowActionKind.Identify),
-            RemoteCommandKind.Look => cmd.IntArg > 0
-                ? new ShowAction(ShowActionKind.ApplyLookHotkey, cmd.IntArg.ToString())
-                : new ShowAction(ShowActionKind.ApplyLook, cmd.TextArg),
-            RemoteCommandKind.Next => new ShowAction(ShowActionKind.PresenterNext),
-            RemoteCommandKind.Prev => new ShowAction(ShowActionKind.PresenterPrev),
-            RemoteCommandKind.ScreenOn => new ShowAction(ShowActionKind.ScreenOn, cmd.IntArg.ToString()),
-            RemoteCommandKind.ScreenOff => new ShowAction(ShowActionKind.ScreenOff, cmd.IntArg.ToString()),
-            RemoteCommandKind.ScreenToggle => new ShowAction(ShowActionKind.ScreenToggle, cmd.IntArg.ToString()),
-            RemoteCommandKind.ScreenLock => new ShowAction(ShowActionKind.ScreenLock, cmd.IntArg.ToString()),
-            RemoteCommandKind.ScreenUnlock => new ShowAction(ShowActionKind.ScreenUnlock, cmd.IntArg.ToString()),
-            RemoteCommandKind.ScreenLockToggle => new ShowAction(ShowActionKind.ScreenLockToggle, cmd.IntArg.ToString()),
-            RemoteCommandKind.GroupOn => new ShowAction(ShowActionKind.CanvasOn, cmd.TextArg),
-            RemoteCommandKind.GroupOff => new ShowAction(ShowActionKind.CanvasOff, cmd.TextArg),
-            RemoteCommandKind.AudioPlay => new ShowAction(ShowActionKind.AudioPlay, byNumberOrName),
-            RemoteCommandKind.AudioStop => new ShowAction(ShowActionKind.AudioStop),
-            RemoteCommandKind.AudioNext => new ShowAction(ShowActionKind.AudioNext),
-            RemoteCommandKind.AudioPrev => new ShowAction(ShowActionKind.AudioPrev),
-            RemoteCommandKind.AudioVolume => new ShowAction(ShowActionKind.AudioVolume, "", cmd.TextArg),
-            RemoteCommandKind.MusicPlay => new ShowAction(ShowActionKind.SpotifyPlay, byNumberOrName),
-            RemoteCommandKind.MusicPause => new ShowAction(ShowActionKind.SpotifyPause),
-            RemoteCommandKind.MusicNext => new ShowAction(ShowActionKind.SpotifyNext),
-            RemoteCommandKind.MusicVolume => new ShowAction(ShowActionKind.SpotifyVolume, "", cmd.TextArg),
-            RemoteCommandKind.ToneOn => new ShowAction(ShowActionKind.ToneOn),
-            RemoteCommandKind.ToneOff => new ShowAction(ShowActionKind.ToneOff),
-            RemoteCommandKind.DuckOn => new ShowAction(ShowActionKind.DuckOn),
-            RemoteCommandKind.DuckOff => new ShowAction(ShowActionKind.DuckOff),
-            RemoteCommandKind.DuckToggle => new ShowAction(ShowActionKind.DuckToggle),
-            RemoteCommandKind.Stinger => new ShowAction(ShowActionKind.StingerFire, byNumberOrName),
-            RemoteCommandKind.Vog => new ShowAction(ShowActionKind.StingerFire, byNumberOrName, "vog"),
-            RemoteCommandKind.Sting => new ShowAction(ShowActionKind.StingerFire, byNumberOrName, "sting"),
-            RemoteCommandKind.StingerStop => new ShowAction(ShowActionKind.StingerStop),
-            RemoteCommandKind.PlaylistSection => new ShowAction(ShowActionKind.PlaylistPart, byNumberOrName),
-            RemoteCommandKind.StreamOn => new ShowAction(ShowActionKind.StreamStart),
-            RemoteCommandKind.StreamOff => new ShowAction(ShowActionKind.StreamStop),
-            RemoteCommandKind.LowerThirdShow => new ShowAction(ShowActionKind.LowerThirdShow, byNumberOrName),
-            RemoteCommandKind.LowerThirdPerson => new ShowAction(ShowActionKind.LowerThirdShow, cmd.TextArg, cmd.Extra),
-            RemoteCommandKind.WeatherOn => new ShowAction(ShowActionKind.WeatherOn),
-            RemoteCommandKind.WeatherOff => new ShowAction(ShowActionKind.WeatherOff),
-            RemoteCommandKind.WeatherToggle => new ShowAction(ShowActionKind.WeatherToggle),
-            RemoteCommandKind.WeatherView => new ShowAction(ShowActionKind.WeatherView, "", cmd.TextArg),
-            RemoteCommandKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
-            RemoteCommandKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
-            RemoteCommandKind.ClockToggle => new ShowAction(ShowActionKind.ClockToggle),
-            RemoteCommandKind.ClockFormat => new ShowAction(ShowActionKind.ClockFormat, "", cmd.TextArg),
-            RemoteCommandKind.ClockSeconds => new ShowAction(ShowActionKind.ClockSeconds, "", cmd.TextArg),
-            RemoteCommandKind.ClockDate => new ShowAction(ShowActionKind.ClockDate, "", cmd.TextArg),
-            RemoteCommandKind.MessageOn => new ShowAction(ShowActionKind.MessageOn, "", cmd.TextArg),
-            RemoteCommandKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
-            RemoteCommandKind.MessageToggle => new ShowAction(ShowActionKind.MessageToggle),
-            RemoteCommandKind.MessageScroll => new ShowAction(ShowActionKind.MessageScroll, "", cmd.TextArg),
-            RemoteCommandKind.CountdownStart => new ShowAction(ShowActionKind.CountdownStart, "", cmd.TextArg),
-            RemoteCommandKind.CountdownTo => new ShowAction(ShowActionKind.CountdownTo, "", cmd.TextArg),
-            RemoteCommandKind.CountdownStop => new ShowAction(ShowActionKind.CountdownStop),
-            RemoteCommandKind.CountdownLabel => new ShowAction(ShowActionKind.CountdownLabel, "", cmd.TextArg),
-            RemoteCommandKind.LogoOn => new ShowAction(ShowActionKind.LogoOn),
-            RemoteCommandKind.LogoOff => new ShowAction(ShowActionKind.LogoOff),
-            RemoteCommandKind.LogoToggle => new ShowAction(ShowActionKind.LogoToggle),
-            RemoteCommandKind.PipOn => new ShowAction(ShowActionKind.PipOn),
-            RemoteCommandKind.PipOff => new ShowAction(ShowActionKind.PipOff),
-            RemoteCommandKind.PipToggle => new ShowAction(ShowActionKind.PipToggle),
-            RemoteCommandKind.OverlaysOff => new ShowAction(ShowActionKind.OverlaysOff),
-            RemoteCommandKind.Pattern => new ShowAction(ShowActionKind.PatternKind, "", cmd.TextArg),
-            RemoteCommandKind.ReviewOn => new ShowAction(ShowActionKind.ReviewOn),
-            RemoteCommandKind.ReviewOff => new ShowAction(ShowActionKind.ReviewOff),
-            RemoteCommandKind.ReviewToggle => new ShowAction(ShowActionKind.ReviewToggle),
-            RemoteCommandKind.FreezeOn => new ShowAction(ShowActionKind.FreezeOn),
-            RemoteCommandKind.FreezeOff => new ShowAction(ShowActionKind.FreezeOff),
-            RemoteCommandKind.FreezeToggle => new ShowAction(ShowActionKind.FreezeToggle),
-            RemoteCommandKind.FadeToBlack => new ShowAction(ShowActionKind.FadeToBlack, cmd.TextArg, FadeSeconds(cmd.IntArg)),
-            RemoteCommandKind.FadeUp => new ShowAction(ShowActionKind.FadeUp, cmd.TextArg, FadeSeconds(cmd.IntArg)),
-            RemoteCommandKind.LookBack => new ShowAction(ShowActionKind.LookBack, "", cmd.TextArg),
-            RemoteCommandKind.LowerThirdHide => new ShowAction(ShowActionKind.LowerThirdHide),
-            RemoteCommandKind.LowerThirdPreview => new ShowAction(ShowActionKind.LowerThirdPreview, byNumberOrName, cmd.Extra),
-            RemoteCommandKind.LowerThirdPreviewOff => new ShowAction(ShowActionKind.LowerThirdPreviewOff),
-            RemoteCommandKind.LowerThirdTake => new ShowAction(ShowActionKind.LowerThirdTake),
-            RemoteCommandKind.LowerThirdUpdate => new ShowAction(ShowActionKind.LowerThirdUpdate),
-            RemoteCommandKind.WebKey => new ShowAction(ShowActionKind.WebKey, cmd.Extra, cmd.TextArg),
-            RemoteCommandKind.WebClick => new ShowAction(ShowActionKind.WebClick, cmd.Extra, cmd.TextArg),
-            RemoteCommandKind.WebType => new ShowAction(ShowActionKind.WebType, cmd.Extra, cmd.TextArg),
-            RemoteCommandKind.WebReload => new ShowAction(ShowActionKind.WebReload, cmd.Extra),
-            RemoteCommandKind.WebOpen => new ShowAction(ShowActionKind.WebOpen, cmd.Extra, cmd.TextArg),
-            RemoteCommandKind.DeckNext => new ShowAction(ShowActionKind.DeckNext),
-            RemoteCommandKind.DeckPrev => new ShowAction(ShowActionKind.DeckPrev),
-            RemoteCommandKind.DeckPage => new ShowAction(ShowActionKind.DeckPage, "", cmd.IntArg > 0 ? cmd.IntArg.ToString() : cmd.TextArg),
-            RemoteCommandKind.VideoToEnd => new ShowAction(ShowActionKind.VideoToEnd, "",
-                cmd.IntArg > 0 ? (cmd.IntArg / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : ""),
-            RemoteCommandKind.VideoRestart => new ShowAction(ShowActionKind.VideoRestart),
-            RemoteCommandKind.DeviceSend => new ShowAction(ShowActionKind.DeviceSend, cmd.Extra, cmd.TextArg),
-            RemoteCommandKind.Announce => new ShowAction(ShowActionKind.Announce, "", cmd.TextArg),
-            RemoteCommandKind.AnnounceOff => new ShowAction(ShowActionKind.AnnounceOff),
-            RemoteCommandKind.AdvertPlay => new ShowAction(ShowActionKind.AdvertPlay, byNumberOrName),
-            RemoteCommandKind.AdvertOff => new ShowAction(ShowActionKind.AdvertOff),
-            RemoteCommandKind.ScheduleOn => new ShowAction(ShowActionKind.ScheduleOn),
-            RemoteCommandKind.ScheduleOff => new ShowAction(ShowActionKind.ScheduleOff),
-            RemoteCommandKind.UpdateApply => new ShowAction(ShowActionKind.UpdateApply, cmd.TextArg),
-            RemoteCommandKind.Restart => new ShowAction(ShowActionKind.Restart, cmd.TextArg),
-            RemoteCommandKind.ScreenLook => new ShowAction(ShowActionKind.ScreenLook, cmd.IntArg.ToString(), cmd.TextArg),
-            RemoteCommandKind.ScreenProgram => new ShowAction(ShowActionKind.ScreenProgram, cmd.IntArg.ToString()),
-            _ => null,
-        };
     }
 
     /// <summary>The deck the program shows — the click-through's pages — or null when none is on air.</summary>

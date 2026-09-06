@@ -230,6 +230,9 @@ public static class ActionSpec
         ShowActionKind.PresenterPrev => "Clicker — previous",
         ShowActionKind.CueFire => "Fire a cue",
         ShowActionKind.CueGo => "GO on the caller's stack",
+        ShowActionKind.CueStandby => "Standby on the caller's stack",
+        ShowActionKind.CueHoldOn => "Hold the caller's stack",
+        ShowActionKind.CueHoldOff => "Release the hold",
         ShowActionKind.ReviewOn => "Review on the multiview",
         ShowActionKind.ReviewOff => "Review off",
         ShowActionKind.ReviewToggle => "Review toggle",
@@ -290,7 +293,8 @@ public static class ActionSpec
     public static string? DeskOnly(ShowActionKind kind) => kind switch
     {
         ShowActionKind.Take or ShowActionKind.Cut => "a desk key: it sends the preview to air, and a running order never takes a half-built preview by itself",
-        ShowActionKind.CueFire or ShowActionKind.CueGo => "the stack's own transport — a cue firing cues is a loop waiting to happen (GO on a list names another list)",
+        ShowActionKind.CueFire or ShowActionKind.CueGo or ShowActionKind.CueStandby or ShowActionKind.CueHoldOn or ShowActionKind.CueHoldOff
+            => "the stack's own transport — a cue firing, holding or re-aiming the stack it runs on is a loop waiting to happen (GO on a list names another list)",
         ShowActionKind.PresenterNext or ShowActionKind.PresenterPrev => "the clicker's own keys — Back / GO on a list name the list",
         ShowActionKind.ApplyLookHotkey => "an F-key's slot — a cue names the look itself",
         ShowActionKind.Identify => "the rig's own identify pass, for the desk at set-up",

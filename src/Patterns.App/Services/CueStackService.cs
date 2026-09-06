@@ -61,9 +61,7 @@ public sealed class CueStackService
             CancelConfirm();
             CancelFollow();
         }
-        Bump();
-        _s.Journal.Record(origin.Label, armed ? ShowActionKind.ListArm.ToString() : ShowActionKind.ListDisarm.ToString(),
-            Stack.Name, ActionStatus.Done.ToString(), armed ? "Cue stack armed." : "Cue stack disarmed.");
+        Bump();   // journaled by the action that asked (ListArm / ListDisarm through the executor)
     }
 
     /// <summary>Selects a cue without changing output. Clicking a row does the same.</summary>
@@ -103,8 +101,7 @@ public sealed class CueStackService
         if (rt.Hold == hold) return;
         rt.Hold = hold;
         if (hold) CancelFollow(); // HOLD stops an auto-follow too — it is a GO like any other
-        Bump();
-        _s.Journal.Record(origin.Label, "CueHold", Stack.Name, ActionStatus.Done.ToString(), hold ? "HOLD — GO is refused until released." : "HOLD released.");
+        Bump();   // journaled by the action that asked (CueHoldOn / CueHoldOff through the executor)
     }
 
     public void CancelConfirm()

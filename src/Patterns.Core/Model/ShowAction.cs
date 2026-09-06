@@ -232,11 +232,22 @@ public enum ShowActionKind
     OverlaysOff,
     /// <summary>Value = a kind of picture (Grid, ColorBars, LedWall, Particles, Fractal…): the pattern on air changes kind, its settings kept.</summary>
     PatternKind,
+    /// <summary>
+    /// The caller's stack's standby moves: Target = next, prev, or a cue by its number, its name or
+    /// its id. A selection, not a change to the screens — the one action the journal does not keep.
+    /// </summary>
+    CueStandby,
+    /// <summary>HOLD on the caller's stack: GO is refused until released.</summary>
+    CueHoldOn,
+    CueHoldOff,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>
 public readonly record struct ShowAction(ShowActionKind Kind, string Target = "", string Value = "")
 {
+    /// <summary>No action — what a wire's handshake or query carries in the action's place.</summary>
+    public static readonly ShowAction None = new(ShowActionKind.Unknown);
+
     public override string ToString()
         => Target.Length == 0 ? Kind.ToString() : Value.Length == 0 ? $"{Kind} {Target}" : $"{Kind} {Target} {Value}";
 }

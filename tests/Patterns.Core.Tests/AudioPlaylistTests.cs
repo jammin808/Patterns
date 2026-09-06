@@ -126,23 +126,21 @@ public class AudioPlaylistTests
     [Fact]
     public void TheWireReadsTheListsVerbs()
     {
-        Assert.Equal((RemoteCommandKind.AudioPlay, 0, ""), Parts(ControlProtocol.Parse("AUDIO PLAY")));
-        Assert.Equal((RemoteCommandKind.AudioPlay, 3, ""), Parts(ControlProtocol.Parse("AUDIO PLAY 3")));
-        Assert.Equal((RemoteCommandKind.AudioPlay, 0, "Walk-in music"), Parts(ControlProtocol.Parse("audio play Walk-in music")));
-        Assert.Equal((RemoteCommandKind.AudioPlay, 2, ""), Parts(ControlProtocol.Parse("TRACK PLAY 2")));
-        Assert.Equal(RemoteCommandKind.AudioStop, ControlProtocol.Parse("AUDIO STOP").Kind);
-        Assert.Equal(RemoteCommandKind.AudioNext, ControlProtocol.Parse("AUDIO NEXT").Kind);
-        Assert.Equal(RemoteCommandKind.AudioNext, ControlProtocol.Parse("audio skip").Kind);
-        Assert.Equal(RemoteCommandKind.AudioPrev, ControlProtocol.Parse("AUDIO PREV").Kind);
-        Assert.Equal(RemoteCommandKind.AudioPrev, ControlProtocol.Parse("AUDIO BACK").Kind);
-        Assert.Equal((RemoteCommandKind.AudioVolume, 0, "80"), Parts(ControlProtocol.Parse("AUDIO VOL 80")));
+        Assert.Equal(new ShowAction(ShowActionKind.AudioPlay), ControlProtocol.Parse("AUDIO PLAY").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.AudioPlay, "3"), ControlProtocol.Parse("AUDIO PLAY 3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.AudioPlay, "Walk-in music"), ControlProtocol.Parse("audio play Walk-in music").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.AudioPlay, "2"), ControlProtocol.Parse("TRACK PLAY 2").Action);
+        Assert.Equal(ShowActionKind.AudioStop, ControlProtocol.Parse("AUDIO STOP").Action.Kind);
+        Assert.Equal(ShowActionKind.AudioNext, ControlProtocol.Parse("AUDIO NEXT").Action.Kind);
+        Assert.Equal(ShowActionKind.AudioNext, ControlProtocol.Parse("audio skip").Action.Kind);
+        Assert.Equal(ShowActionKind.AudioPrev, ControlProtocol.Parse("AUDIO PREV").Action.Kind);
+        Assert.Equal(ShowActionKind.AudioPrev, ControlProtocol.Parse("AUDIO BACK").Action.Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.AudioVolume, "", "80"), ControlProtocol.Parse("AUDIO VOL 80").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("AUDIO VOL 200").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("AUDIO VOL loud").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("AUDIO").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("AUDIO DANCE").Kind);
     }
-
-    private static (RemoteCommandKind, int, string) Parts(RemoteCommand c) => (c.Kind, c.IntArg, c.TextArg);
 
     [Fact]
     public void OscAddressesTheListAndFeedsItBack()

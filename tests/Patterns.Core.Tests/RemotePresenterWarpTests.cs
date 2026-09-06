@@ -8,90 +8,102 @@ namespace Patterns.Core.Tests;
 
 public class ControlProtocolTests
 {
+    // A verb on the wire is a show action: the parser speaks the one vocabulary, nothing maps it later.
     [Theory]
-    [InlineData("GO", RemoteCommandKind.OutputsOn)]          // frozen alias: outputs, never a cue
-    [InlineData("stop", RemoteCommandKind.OutputsOff)]
-    [InlineData("OUTPUTS ON", RemoteCommandKind.OutputsOn)]
-    [InlineData("outputs off", RemoteCommandKind.OutputsOff)]
+    [InlineData("GO", ShowActionKind.OutputsOn)]          // frozen alias: outputs, never a cue
+    [InlineData("stop", ShowActionKind.OutputsOff)]
+    [InlineData("OUTPUTS ON", ShowActionKind.OutputsOn)]
+    [InlineData("outputs off", ShowActionKind.OutputsOff)]
+    [InlineData("  Identify  ", ShowActionKind.Identify)]
+    [InlineData("NEXT", ShowActionKind.PresenterNext)]
+    [InlineData("prev", ShowActionKind.PresenterPrev)]
+    [InlineData("BACK", ShowActionKind.PresenterPrev)]
+    [InlineData("BLACKOUT ON", ShowActionKind.BlackoutOn)]
+    [InlineData("CUE GO", ShowActionKind.CueGo)]
+    [InlineData("cue go 0123abcd", ShowActionKind.CueGo)]
+    [InlineData("CUE STANDBY NEXT", ShowActionKind.CueStandby)]
+    [InlineData("CUE STANDBY back", ShowActionKind.CueStandby)]
+    [InlineData("CUE STANDBY 03.020", ShowActionKind.CueStandby)]
+    [InlineData("CUE STANDBY Five-minute call", ShowActionKind.CueStandby)]
+    [InlineData("CUE HOLD ON", ShowActionKind.CueHoldOn)]
+    [InlineData("CUE HOLD off", ShowActionKind.CueHoldOff)]
+    [InlineData("CUE ARM ON", ShowActionKind.ListArm)]
+    [InlineData("CUE ARM OFF", ShowActionKind.ListDisarm)]
+    [InlineData("STOPALL", ShowActionKind.StopAll)]
+    [InlineData("STOP ALL", ShowActionKind.OutputsOff)]      // the frozen alias: an older build's STOP
+    [InlineData("blackout off", ShowActionKind.BlackoutOff)]
+    [InlineData("BLACKOUT", ShowActionKind.BlackoutToggle)]
+    [InlineData("BLACKOUT TOGGLE", ShowActionKind.BlackoutToggle)]
+    [InlineData("AUDIO PLAY", ShowActionKind.AudioPlay)]
+    [InlineData("AUDIO STOP", ShowActionKind.AudioStop)]
+    [InlineData("TONE ON", ShowActionKind.ToneOn)]
+    [InlineData("TONE OFF", ShowActionKind.ToneOff)]
+    [InlineData("DUCK ON", ShowActionKind.DuckOn)]
+    [InlineData("duck off", ShowActionKind.DuckOff)]
+    [InlineData("DUCK TOGGLE", ShowActionKind.DuckToggle)]
+    [InlineData("DUCK", ShowActionKind.DuckToggle)]
+    [InlineData("MUSIC PLAY", ShowActionKind.SpotifyPlay)]
+    [InlineData("MUSIC PAUSE", ShowActionKind.SpotifyPause)]
+    [InlineData("SPOTIFY NEXT", ShowActionKind.SpotifyNext)]      // the frozen alias
+    [InlineData("MUSIC VOL 40", ShowActionKind.SpotifyVolume)]
+    public void ParsesVerbs(string line, ShowActionKind kind)
+    {
+        var cmd = ControlProtocol.Parse(line);
+        Assert.True(cmd.IsAction, line);
+        Assert.Equal(kind, cmd.Action.Kind);
+    }
+
+    // The wire's own words — a query, a greeting, a line it cannot read — are the only commands that are not actions.
+    [Theory]
     [InlineData("OUTPUTS", RemoteCommandKind.Unknown)]
-    [InlineData("  Identify  ", RemoteCommandKind.Identify)]
-    [InlineData("NEXT", RemoteCommandKind.Next)]
-    [InlineData("prev", RemoteCommandKind.Prev)]
-    [InlineData("BACK", RemoteCommandKind.Prev)]
     [InlineData("STATUS", RemoteCommandKind.Status)]
     [InlineData("PING", RemoteCommandKind.Ping)]
-    [InlineData("BLACKOUT ON", RemoteCommandKind.BlackoutOn)]
-    [InlineData("CUE GO", RemoteCommandKind.CueGo)]
-    [InlineData("cue go 0123abcd", RemoteCommandKind.CueGo)]
-    [InlineData("CUE STANDBY NEXT", RemoteCommandKind.CueStandbyNext)]
-    [InlineData("CUE STANDBY back", RemoteCommandKind.CueStandbyPrev)]
-    [InlineData("CUE STANDBY 03.020", RemoteCommandKind.CueStandby)]
-    [InlineData("CUE STANDBY Five-minute call", RemoteCommandKind.CueStandby)]
     [InlineData("CUE STANDBY", RemoteCommandKind.Unknown)]
-    [InlineData("CUE HOLD ON", RemoteCommandKind.CueHoldOn)]
-    [InlineData("CUE HOLD off", RemoteCommandKind.CueHoldOff)]
-    [InlineData("CUE ARM ON", RemoteCommandKind.CueArmOn)]
-    [InlineData("CUE ARM OFF", RemoteCommandKind.CueArmOff)]
     [InlineData("CUE LIST", RemoteCommandKind.CueList)]
     [InlineData("CUE NONSENSE", RemoteCommandKind.Unknown)]
-    [InlineData("STOPALL", RemoteCommandKind.StopAll)]
-    [InlineData("STOP ALL", RemoteCommandKind.OutputsOff)]      // the frozen alias: an older build's STOP
     [InlineData("HELLO FOH deck", RemoteCommandKind.Hello)]
     [InlineData("HELLO", RemoteCommandKind.Unknown)]
-    [InlineData("blackout off", RemoteCommandKind.BlackoutOff)]
-    [InlineData("BLACKOUT", RemoteCommandKind.BlackoutToggle)]
-    [InlineData("BLACKOUT TOGGLE", RemoteCommandKind.BlackoutToggle)]
-    [InlineData("AUDIO PLAY", RemoteCommandKind.AudioPlay)]
-    [InlineData("AUDIO STOP", RemoteCommandKind.AudioStop)]
-    [InlineData("TONE ON", RemoteCommandKind.ToneOn)]
-    [InlineData("TONE OFF", RemoteCommandKind.ToneOff)]
-    [InlineData("DUCK ON", RemoteCommandKind.DuckOn)]
-    [InlineData("duck off", RemoteCommandKind.DuckOff)]
-    [InlineData("DUCK TOGGLE", RemoteCommandKind.DuckToggle)]
-    [InlineData("DUCK", RemoteCommandKind.DuckToggle)]
-    [InlineData("MUSIC PLAY", RemoteCommandKind.MusicPlay)]
-    [InlineData("MUSIC PAUSE", RemoteCommandKind.MusicPause)]
-    [InlineData("SPOTIFY NEXT", RemoteCommandKind.MusicNext)]      // the frozen alias
-    [InlineData("MUSIC VOL 40", RemoteCommandKind.MusicVolume)]
     [InlineData("MUSIC", RemoteCommandKind.Unknown)]
-    public void ParsesVerbs(string line, RemoteCommandKind kind)
-        => Assert.Equal(kind, ControlProtocol.Parse(line).Kind);
+    public void ParsesTheWiresOwnWords(string line, RemoteCommandKind kind)
+    {
+        var cmd = ControlProtocol.Parse(line);
+        Assert.False(cmd.IsAction, line);
+        Assert.Equal(kind, cmd.Kind);
+        Assert.Equal(ShowActionKind.Unknown, cmd.Action.Kind);
+    }
 
     [Fact]
     public void CueVerbsCarryTheirArguments()
     {
-        Assert.Equal("0123abcd", ControlProtocol.Parse("CUE GO 0123abcd").TextArg);
-        Assert.Equal("", ControlProtocol.Parse("CUE GO").TextArg);
-        Assert.Equal("03.020", ControlProtocol.Parse("CUE STANDBY 03.020").TextArg);
-        Assert.Equal("Five-minute call", ControlProtocol.Parse("CUE STANDBY Five-minute call").TextArg);
-        Assert.Equal("FOH deck", ControlProtocol.Parse("HELLO FOH deck").TextArg);
+        Assert.Equal(new ShowAction(ShowActionKind.CueGo, "0123abcd"), ControlProtocol.Parse("CUE GO 0123abcd").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CueGo), ControlProtocol.Parse("CUE GO").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CueStandby, "03.020"), ControlProtocol.Parse("CUE STANDBY 03.020").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CueStandby, "Five-minute call"), ControlProtocol.Parse("CUE STANDBY Five-minute call").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CueStandby, "next"), ControlProtocol.Parse("CUE STANDBY NEXT").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CueStandby, "prev"), ControlProtocol.Parse("CUE STANDBY back").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ListArm, "caller"), ControlProtocol.Parse("CUE ARM ON").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ListDisarm, "caller"), ControlProtocol.Parse("CUE ARM OFF").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.CueHoldOff), ControlProtocol.Parse("CUE HOLD OFF").Action);
+        Assert.Equal("FOH deck", ControlProtocol.Parse("HELLO FOH deck").Text);
     }
 
     [Fact]
     public void ParsesLookBySlotAndName()
     {
-        var slot = ControlProtocol.Parse("LOOK 7");
-        Assert.Equal(RemoteCommandKind.Look, slot.Kind);
-        Assert.Equal(7, slot.IntArg);
-
-        var name = ControlProtocol.Parse("look Walk-in loop");
-        Assert.Equal(RemoteCommandKind.Look, name.Kind);
-        Assert.Equal(0, name.IntArg);
-        Assert.Equal("Walk-in loop", name.TextArg);
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLookHotkey, "7"), ControlProtocol.Parse("LOOK 7").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ApplyLook, "Walk-in loop"), ControlProtocol.Parse("look Walk-in loop").Action);
     }
 
     [Fact]
     public void ParsesScreensAndGroups()
     {
-        Assert.Equal((RemoteCommandKind.ScreenOn, 2), (ControlProtocol.Parse("SCREEN 2 ON").Kind, ControlProtocol.Parse("SCREEN 2 ON").IntArg));
-        Assert.Equal(RemoteCommandKind.ScreenOff, ControlProtocol.Parse("screen 3 off").Kind);
-        Assert.Equal(RemoteCommandKind.ScreenToggle, ControlProtocol.Parse("SCREEN 1").Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenOn, "2"), ControlProtocol.Parse("SCREEN 2 ON").Action);
+        Assert.Equal(ShowActionKind.ScreenOff, ControlProtocol.Parse("screen 3 off").Action.Kind);
+        Assert.Equal(ShowActionKind.ScreenToggle, ControlProtocol.Parse("SCREEN 1").Action.Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN x ON").Kind);
 
-        var g = ControlProtocol.Parse("GROUP b ON");
-        Assert.Equal(RemoteCommandKind.GroupOn, g.Kind);
-        Assert.Equal("B", g.TextArg);
-        Assert.Equal(RemoteCommandKind.GroupOff, ControlProtocol.Parse("GROUP A OFF").Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.CanvasOn, "B"), ControlProtocol.Parse("GROUP b ON").Action);
+        Assert.Equal(ShowActionKind.CanvasOff, ControlProtocol.Parse("GROUP A OFF").Action.Kind);
     }
 
     [Fact]

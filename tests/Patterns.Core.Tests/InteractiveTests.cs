@@ -130,12 +130,8 @@ public class InteractiveTests
     [Fact]
     public void TheVerbTheAddressAndTheCueActionSendALine()
     {
-        var cmd = ControlProtocol.Parse("DEVICE Arduino RELAY 1");
-        Assert.Equal(RemoteCommandKind.DeviceSend, cmd.Kind);
-        Assert.Equal("Arduino", cmd.Extra);
-        Assert.Equal("RELAY 1", cmd.TextArg);
-        Assert.Equal(RemoteCommandKind.DeviceSend, ControlProtocol.Parse("send * PING").Kind);
-        Assert.Equal("*", ControlProtocol.Parse("send * PING").Extra);
+        Assert.Equal(new ShowAction(ShowActionKind.DeviceSend, "Arduino", "RELAY 1"), ControlProtocol.Parse("DEVICE Arduino RELAY 1").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.DeviceSend, "*", "PING"), ControlProtocol.Parse("send * PING").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("DEVICE Arduino").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("DEVICE").Kind);
 

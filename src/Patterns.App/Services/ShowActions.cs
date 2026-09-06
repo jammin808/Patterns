@@ -36,7 +36,7 @@ public sealed class ShowActions
             result = ActionResult.Failed(ex.Message);
         }
 
-        if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify))
+        if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify or ShowActionKind.CueStandby))
         {
             _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(), result.Message);
         }
@@ -50,7 +50,9 @@ public sealed class ShowActions
     /// <summary>The journal names looks and break music, not their ids — a caller reading it back should not need the show file.</summary>
     private string JournalTarget(ShowAction action) => action.Kind switch
     {
-        ShowActionKind.ApplyLook or ShowActionKind.ApplyLookToPreview => LookService.Find(State, action.Target)?.Name ?? action.Target,
+        ShowActionKind.ApplyLook or ShowActionKind.ApplyLookToPreview => ResolveLook(action.Target, out _)?.Name ?? action.Target,
+        ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.ListGo or ShowActionKind.ListBack or ShowActionKind.ListReset
+            => CueStacks.Find(State, action.Target)?.Name ?? action.Target,
         ShowActionKind.SpotifyPlay when action.Target.Length > 0 => SpotifyLibrary.Find(State, action.Target)?.DisplayName ?? action.Target,
         _ => action.Target,
     };
@@ -219,8 +221,8 @@ public sealed class ShowActions
 
             case ShowActionKind.ApplyLook:
             {
-                var look = LookService.Find(State, a.Target);
-                return look is null ? ActionResult.Refused($"No look named '{a.Target}'.") : ApplyLookToAir(look, a.Value, origin);
+                var look = ResolveLook(a.Target, out var problem);
+                return look is null ? ActionResult.Refused(problem) : ApplyLookToAir(look, a.Value, origin);
             }
             case ShowActionKind.ApplyLookHotkey:
             {
@@ -237,8 +239,8 @@ public sealed class ShowActions
             }
             case ShowActionKind.ApplyLookToPreview:
             {
-                var look = LookService.Find(State, a.Target);
-                if (look is null) return ActionResult.Refused($"No look named '{a.Target}'.");
+                var look = ResolveLook(a.Target, out var problem);
+                if (look is null) return ActionResult.Refused(problem);
                 var ok = false;
                 _s.BulkEdit(() => ok = LookService.Apply(look.Json, State));
                 if (!ok) return ActionResult.Failed($"Look '{look.Name}' could not be loaded.");
@@ -265,6 +267,32 @@ public sealed class ShowActions
             }
             case ShowActionKind.CueGo:
                 return _s.CueStack.Go(origin, a.Target.Length == 0 ? null : a.Target);
+            case ShowActionKind.CueStandby:
+            {
+                // next / prev, or a cue by its number, its name or its id: the standby moves, nothing fires.
+                var stack = _s.CueStack;
+                var word = a.Target.Trim();
+                var next = word.Equals("next", StringComparison.OrdinalIgnoreCase);
+                if (next || word.Equals("prev", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!stack.StandbyMove(next ? +1 : -1)) return ActionResult.Refused("no cue that way");
+                    var at = stack.StandbyCue;
+                    return ActionResult.Done(at is null ? "Standby moved." : $"Standby: {at.Number} {at.Name}");
+                }
+                var cue = stack.Stack.Cues.FirstOrDefault(c => c.Id == word)
+                          ?? (CueNumber.Parse(word) is not null ? stack.Stack.Cues.FirstOrDefault(c => CueNumber.Compare(c.Number, word) == 0) : null)
+                          ?? stack.Stack.Cues.FirstOrDefault(c => string.Equals(c.Name, word, StringComparison.OrdinalIgnoreCase));
+                if (cue is null) return ActionResult.Refused($"no cue '{word}'");
+                stack.Standby(cue.Id);
+                return ActionResult.Done($"Standby: {cue.Number} {cue.Name}");
+            }
+            case ShowActionKind.CueHoldOn:
+            case ShowActionKind.CueHoldOff:
+            {
+                var hold = a.Kind == ShowActionKind.CueHoldOn;
+                _s.CueStack.SetHold(hold, origin);
+                return ActionResult.Done(hold ? "HOLD — GO is refused until released." : "HOLD released.");
+            }
             case ShowActionKind.ListArm:
             case ShowActionKind.ListDisarm:
             case ShowActionKind.ListGo:
@@ -277,11 +305,20 @@ public sealed class ShowActions
                 switch (a.Kind)
                 {
                     case ShowActionKind.ListArm:
-                        rt.Armed = true;
-                        return ActionResult.Done($"{stack.Name} armed.");
                     case ShowActionKind.ListDisarm:
-                        rt.Armed = false;
-                        return ActionResult.Done($"{stack.Name} disarmed.");
+                    {
+                        var arm = a.Kind == ShowActionKind.ListArm;
+                        // A remote arms only while the Remote page allows it; the desk's own keys and a cue always may.
+                        if (IsRemote(origin) && !State.Control.RemotesMayArm) return ActionResult.Refused("remotes may not arm — allow it on the Remote page");
+                        if (ReferenceEquals(stack, _s.CueStack.Stack))
+                        {
+                            // The caller's stack: the standby, a pending confirm and a follow go with the arming.
+                            _s.CueStack.SetArmed(arm, origin);
+                            return ActionResult.Done(arm ? "Cue stack armed." : "Cue stack disarmed.");
+                        }
+                        rt.Armed = arm;
+                        return ActionResult.Done(arm ? $"{stack.Name} armed." : $"{stack.Name} disarmed.");
+                    }
                     case ShowActionKind.ListReset:
                         rt.CurrentIndex = -1;
                         return ActionResult.Done($"{stack.Name} reset to the start.");
@@ -1303,6 +1340,33 @@ public sealed class ShowActions
     }
 
     // ---- the scoped fade -------------------------------------------------------------
+
+    /// <summary>The origins on the far side of a wire: TCP, HTTP, OSC, Companion, a device, the management server.</summary>
+    private static bool IsRemote(ActionOrigin origin)
+        => origin.Kind is OriginKind.Tcp or OriginKind.Http or OriginKind.Osc or OriginKind.Companion or OriginKind.Device or OriginKind.Management;
+
+    /// <summary>
+    /// A look by id or name — or by its place in the show's order as "#3", a bank key that follows
+    /// the list as looks are made ("#0" is no place: a name, refused). The problem says why not.
+    /// </summary>
+    private LookConfig? ResolveLook(string target, out string problem)
+    {
+        problem = "";
+        var t = target.Trim();
+        if (t.StartsWith('#') && int.TryParse(t[1..], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) && n > 0)
+        {
+            var looks = State.LooksAndCues.Looks;
+            if (n > looks.Count)
+            {
+                problem = $"no look #{n} — the show has {looks.Count}";
+                return null;
+            }
+            return looks[n - 1];
+        }
+        var look = LookService.Find(State, t);
+        if (look is null) problem = $"No look named '{target}'.";
+        return look;
+    }
 
     /// <summary>
     /// The content targets a scope names on this rig, or why it names none: the focused tile, the

@@ -160,14 +160,14 @@ public class VideoClockTests
     public void TheWireReadsVideoEndAndRestartWithTheirAliases()
     {
         var end = ControlProtocol.Parse("VIDEO END");
-        Assert.Equal((RemoteCommandKind.VideoToEnd, 0), (end.Kind, end.IntArg));
-        Assert.Equal(5000, ControlProtocol.Parse("VIDEO END 5").IntArg);
-        Assert.Equal(2500, ControlProtocol.Parse("vt end 2.5").IntArg);
-        Assert.Equal(30000, ControlProtocol.Parse("CLIP LAST 30").IntArg);
-        Assert.Equal(RemoteCommandKind.VideoToEnd, ControlProtocol.Parse("VIDEO OUT").Kind);
-        Assert.Equal(RemoteCommandKind.VideoRestart, ControlProtocol.Parse("VIDEO RESTART").Kind);
-        Assert.Equal(RemoteCommandKind.VideoRestart, ControlProtocol.Parse("VT START").Kind);
-        Assert.Equal(RemoteCommandKind.VideoRestart, ControlProtocol.Parse("clip top").Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.VideoToEnd), end.Action);
+        Assert.Equal("5", ControlProtocol.Parse("VIDEO END 5").Action.Value);
+        Assert.Equal("2.5", ControlProtocol.Parse("vt end 2.5").Action.Value);
+        Assert.Equal("30", ControlProtocol.Parse("CLIP LAST 30").Action.Value);
+        Assert.Equal(ShowActionKind.VideoToEnd, ControlProtocol.Parse("VIDEO OUT").Action.Kind);
+        Assert.Equal(ShowActionKind.VideoRestart, ControlProtocol.Parse("VIDEO RESTART").Action.Kind);
+        Assert.Equal(ShowActionKind.VideoRestart, ControlProtocol.Parse("VT START").Action.Kind);
+        Assert.Equal(ShowActionKind.VideoRestart, ControlProtocol.Parse("clip top").Action.Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VIDEO").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VIDEO END soon").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("VIDEO PAUSE").Kind);

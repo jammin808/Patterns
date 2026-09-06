@@ -112,9 +112,9 @@ public class ScreenRolesTests
     [Fact]
     public void TheWordsForALockAndTheRolesDefaults()
     {
-        Assert.Equal((RemoteCommandKind.ScreenLock, 2), (ControlProtocol.Parse("LOCK 2 ON").Kind, ControlProtocol.Parse("LOCK 2 ON").IntArg));
-        Assert.Equal(RemoteCommandKind.ScreenUnlock, ControlProtocol.Parse("lock 3 off").Kind);
-        Assert.Equal(RemoteCommandKind.ScreenLockToggle, ControlProtocol.Parse("LOCK 1").Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenLock, "2"), ControlProtocol.Parse("LOCK 2 ON").Action);
+        Assert.Equal(ShowActionKind.ScreenUnlock, ControlProtocol.Parse("lock 3 off").Action.Kind);
+        Assert.Equal(ShowActionKind.ScreenLockToggle, ControlProtocol.Parse("LOCK 1").Action.Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LOCK x ON").Kind);
 
         Assert.Equal((TargetKind.Screen, ValueKind.None), ActionSpec.For(ShowActionKind.ScreenLock));

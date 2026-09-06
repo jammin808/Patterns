@@ -1473,6 +1473,7 @@ Windows machine is `docs/CHECKLIST-round16.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 2 | The wire speaks the vocabulary (§22.2). `RemoteCommandKind` had 115 kinds of its own and `CommandRouter.ToAction` mapped 101 of them to a `ShowAction` by hand; now the parser returns the show action itself — `RemoteCommand` is a `ShowAction` plus the wire's own five words (`Ping`, `Status`, `Hello`, `CueList`, `Unknown`) — and the router runs every action through the one executor, shaping only the two replies that carry a payload (GO's record, the standby cue). The map is deleted with its enum. The stack's own transport became show actions of the desk's kind — `CueStandby` (next, prev, a cue by number, name or id; never journaled) and `CueHoldOn` / `CueHoldOff` — and CUE ARM is `ListArm` / `ListDisarm` on the caller's stack, so the Run surface's ARM, HOLD and ▲ ▼, the desk's Up / Down keys, the phone, Companion, OSC and a device all reach the stack through the executor; the "remotes may arm" gate moved from the router into the executor, which reads the origin, and the service's own journal rows went so the executor journals once. `LOOK #n` carries "#n" as its target and the executor resolves the place (`no look #n — the show has N`). Sixteen kinds are the desk's alone now. Tests: a table of 116 wire lines against the show action each must parse to, the enum's six members, the wire's own words, and that TAKE / CUT have no verb; the older parser tests re-read as show actions; on a live desk the router's replies for GO, standby, hold and arm as before and the arm gate refusing a remote. | done |
 | 1 | One action vocabulary (§22.1). `CueActionKind` is gone: a cue's step (`CueActionConfig`) carries a `ShowActionKind` — the same kind, target and value the desk's keys, the wire's lines, OSC, Companion, the schedule and a device send — and `ToAction()` is the whole translation; `ShowActions.ToShowAction`, the 65-row map, is deleted and `RunCue` hands each step to the one executor. The vocabulary (`ShowActionKind`, `ShowAction`, `ActionOrigin`, `ActionResult`) lives in `Patterns.Core.Model` now, beside the cue that carries it, and the comment that said "(later) the cue stack" says who speaks it. `ActionSpec` (was `CueActionSpec`) is the one table for the whole vocabulary: per kind its target and value (five value kinds added — Switch, Hours, ClockTime, PatternKind, Address), its label, `CueKinds` (the picker's order) and `DeskOnly` (thirteen kinds, each with its reason: TAKE and CUT, the stack's own transport, the clicker's keys, the F-key slot, identify, the review flag, the admin verbs). Thirty-four verbs a cue never had are a cue's now — the clock's format, seconds and date, the message's toggle and scroll, a countdown to a time and its label, the logo, the PiP, overlays off, the pattern's kind, freeze, tone, stop all, outputs, the toggles, a look into the preview, the look before, a lower third's preview off and update, a web page opened — with the checks, the summary's words, the sheet's spellings and the editor's hints for each. One convention for a fade's length: the value is seconds for the desk's key, the wire's line, OSC and a cue alike (the wire's parsed milliseconds become "2" / "1.5"; "1500ms" still reads), so no source converts for another. Show files load unchanged: the kind was always kept by name, and every old name is a `ShowActionKind`. Tests: a guard that every kind is a cue kind or the desk's alone and never both, that every cue kind has a label, words in the summary and a sheet spelling, and that the desk's own never parse from a sheet; the show file round trip and a newer build's kind as Unknown; the checks on the desk's own kinds and the new values; on a live desk one cue running eleven verbs a cue never had, a clean picture, TAKE and RESTART refused from a cue with their reasons, and the fade's seconds from the desk, the wire and a cue into the one executor; every wire command either handled by the router or mapped to a show action. | done |
 
 ## 22. Round 16 — the answers
@@ -1532,16 +1533,54 @@ better for it, too.
 **What did not change.** The executor's cases, the journal, the wire's grammar and its verbs, the
 OSC map, the Companion module, the show file format, and every cue a show already has.
 
-### 22.2 What remains: the wire's own map
+### 22.2 The wire speaks the vocabulary: the second seam, closed
 
-The remote protocol still has a vocabulary of its own — `RemoteCommandKind`, 115 kinds — and
-`CommandRouter.ToAction` maps 101 of them to a `ShowAction` by hand. It is not the same fault: the
-wire's grammar is a parser's output, it has queries (STATE, HELP, PING, CUE LIST) and transport
-(standby, hold, arm) that are not show actions, and its arguments are positional words the parser
-must read before a kind can carry them. But it is a manual map, and a manual map rots the same way.
-This round gives it the same door: a test that every `RemoteCommandKind` is either one the router
-answers itself or one that maps to a show action, so a verb added to the wire without a row fails
-here. The next step, when it is worth a round of its own, is for the parser to return a
-`ShowAction` directly for the action verbs and a small query type for the rest, which deletes the
-map; it touches `ControlProtocol`, the router, the OSC map and the Companion module's expectations
-at once, and the brief asked for one careful job, done well, first.
+**What was left after §22.1.** The remote protocol still had a vocabulary of its own —
+`RemoteCommandKind`, 115 kinds — and `CommandRouter.ToAction` mapped 101 of them to a `ShowAction`
+by hand, with the same three-place cost and the same silent failure a verb missing a row would
+have. Item 1 had put a guard test on that map; item 2 deletes it.
+
+**The shape.** The parser speaks the vocabulary. `ControlProtocol.Parse` returns a `RemoteCommand`
+that is a `ShowAction` plus a `Kind` with six members: `Action` for every verb, and the wire's own
+words — `Ping`, `Status`, `Hello` (with the name as `Text`), `CueList`, and `Unknown` (with the
+line). The parser's grammar did not change; only what it hands back did: `GO` is
+`OutputsOn`, `SCREEN 2 LOOK Sponsor` is `ScreenLook` with target "2" and value "Sponsor", `FADE
+1.5 SCREEN 2` is `FadeToBlack` with the scope and "1.5", `DEVICE Arduino RELAY 1` is `DeviceSend`
+— the same three fields a cue's step and the desk's key carry, so there is nothing left to map.
+The router keeps only what a wire needs: it answers the five words, runs everything else through
+the one executor, and shapes the two replies that carry a payload — GO's execution record and the
+standby cue — from the runtime after the action ran. `IntArg`, `TextArg` and `Extra` are gone
+with the enum.
+
+**The stack's transport became show actions.** The router had answered CUE STANDBY, CUE HOLD and
+CUE ARM itself, calling the cue-stack service directly; a cue could not carry them, and the Run
+surface's keys called the same service by another path. They are `ShowActionKind`s now, of the
+desk's kind: `CueStandby` (next, prev, or a cue by number, name or id — never journaled, like a
+note), `CueHoldOn` / `CueHoldOff`, and CUE ARM is `ListArm` / `ListDisarm` with the target
+"caller" — the executor's list verbs already existed, and `CueStacks.Find` reads "caller" and
+"clicker" as the two stacks the desk owns. So the Run surface's ARM, HOLD and ▲ ▼, the desk's Up
+and Down keys, the phone, Companion, OSC and a device send all reach the stack through
+`ShowActions.Execute`, with the origin on the journal row. Two things moved with them: the
+"remotes may arm" gate left the router for the executor, which reads the origin (TCP, HTTP, OSC,
+Companion, a device, the management server are remote; the desk, its keys, a cue and the schedule
+are not), and `CueStackService.SetArmed` / `SetHold` stopped writing their own journal rows, so
+the one executor journals once. `DeskOnly` grew from thirteen kinds to sixteen; the guard tests
+did not change.
+
+**`LOOK #n`.** The router had resolved a look by its place before mapping; the parser now hands
+"#n" as the target of `ApplyLook` and the executor's `ResolveLook` reads it — the nth look in the
+show's order, `no look #n — the show has N` when there is none, "#0" and "#hashtag" a name like
+any other — so a cue and a Companion key can name a look by place the same way.
+
+**The door.** `WireVocabularyTests` is a table of 116 wire lines, each against the show action it
+must parse to (kind, target and value), plus the six-member enum, the wire's own words, and the
+two desk keys (TAKE, CUT) the wire must never grow. A verb added to the parser now fails a test
+unless its action is one the executor runs and `ActionSpec` classifies; a verb added to the
+vocabulary that the wire should speak is one `Act(...)` line in the parser and one row in the
+table. The older parser tests were re-read as show actions rather than deleted, so every grammar
+they held still holds.
+
+**What did not change.** The wire's grammar and every verb, `REMOTE.md`, the OSC map, the
+Companion module and its expectations, the replies (OK / ERR with the same words, GO's JSON,
+the standby's JSON, the arm refusal's sentence), the phone remote, the journal's rows for GO,
+hold and arm, and the show file.

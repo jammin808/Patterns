@@ -96,15 +96,10 @@ public class PlaylistSectionTests
     }
 
     [Theory]
-    [InlineData("SECTION 2", 2, "")]
-    [InlineData("section Break", 0, "Break")]
-    public void SectionCommandParses(string line, int intArg, string textArg)
-    {
-        var cmd = ControlProtocol.Parse(line);
-        Assert.Equal(RemoteCommandKind.PlaylistSection, cmd.Kind);
-        Assert.Equal(intArg, cmd.IntArg);
-        Assert.Equal(textArg, cmd.TextArg);
-    }
+    [InlineData("SECTION 2", "2")]
+    [InlineData("section Break", "Break")]
+    public void SectionCommandParses(string line, string part)
+        => Assert.Equal(new ShowAction(ShowActionKind.PlaylistPart, part), ControlProtocol.Parse(line).Action);
 
     [Fact]
     public void MigrationNormalizesEveryPlaylistInTheFile()

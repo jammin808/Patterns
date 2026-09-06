@@ -140,23 +140,20 @@ public class HealthMonitorTests
 public class StingerProtocolTests
 {
     [Theory]
-    [InlineData("STINGER 3", RemoteCommandKind.Stinger, 3, "")]
-    [InlineData("stinger 1", RemoteCommandKind.Stinger, 1, "")]
-    [InlineData("STINGER Take your seats", RemoteCommandKind.Stinger, 0, "Take your seats")]
-    [InlineData("STINGER STOP", RemoteCommandKind.StingerStop, 0, "")]
-    [InlineData("stinger stop", RemoteCommandKind.StingerStop, 0, "")]
-    [InlineData("VOG 3", RemoteCommandKind.Vog, 3, "")]
-    [InlineData("vog Take your seats", RemoteCommandKind.Vog, 0, "Take your seats")]
-    [InlineData("VOG STOP", RemoteCommandKind.StingerStop, 0, "")]
-    [InlineData("STING 2", RemoteCommandKind.Sting, 2, "")]
-    [InlineData("sting Whoosh", RemoteCommandKind.Sting, 0, "Whoosh")]
-    [InlineData("sting stop", RemoteCommandKind.StingerStop, 0, "")]
-    public void ParsesStingerCommands(string line, RemoteCommandKind kind, int intArg, string textArg)
+    [InlineData("STINGER 3", ShowActionKind.StingerFire, "3", "")]
+    [InlineData("stinger 1", ShowActionKind.StingerFire, "1", "")]
+    [InlineData("STINGER Take your seats", ShowActionKind.StingerFire, "Take your seats", "")]
+    [InlineData("STINGER STOP", ShowActionKind.StingerStop, "", "")]
+    [InlineData("stinger stop", ShowActionKind.StingerStop, "", "")]
+    [InlineData("VOG 3", ShowActionKind.StingerFire, "3", "vog")]
+    [InlineData("vog Take your seats", ShowActionKind.StingerFire, "Take your seats", "vog")]
+    [InlineData("VOG STOP", ShowActionKind.StingerStop, "", "")]
+    [InlineData("STING 2", ShowActionKind.StingerFire, "2", "sting")]
+    [InlineData("sting Whoosh", ShowActionKind.StingerFire, "Whoosh", "sting")]
+    [InlineData("sting stop", ShowActionKind.StingerStop, "", "")]
+    public void ParsesStingerCommands(string line, ShowActionKind kind, string target, string value)
     {
-        var cmd = ControlProtocol.Parse(line);
-        Assert.Equal(kind, cmd.Kind);
-        Assert.Equal(intArg, cmd.IntArg);
-        Assert.Equal(textArg, cmd.TextArg);
+        Assert.Equal(new ShowAction(kind, target, value), ControlProtocol.Parse(line).Action);
     }
 
     [Fact]

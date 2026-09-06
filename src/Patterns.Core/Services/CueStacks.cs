@@ -33,6 +33,9 @@ public static class CueStacks
     public static CueStackConfig? Find(ShowState state, string idOrName)
     {
         if (string.IsNullOrWhiteSpace(idOrName)) return null;
+        // The two roles by their words: "caller" is the running order, "clicker" the speaker's own list.
+        if (idOrName.Trim().Equals("caller", StringComparison.OrdinalIgnoreCase)) return Caller(state);
+        if (idOrName.Trim().Equals("clicker", StringComparison.OrdinalIgnoreCase)) return Clicker(state);
         foreach (var s in state.Stacks)
         {
             if (string.Equals(s.Id, idOrName, StringComparison.Ordinal)) return s;

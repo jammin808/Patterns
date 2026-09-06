@@ -90,8 +90,8 @@ public class ActionVocabularyAppTests
             Dispatcher.UIThread.RunJobs();
             Assert.True(vm.State.Blackout);
             Assert.Equal(2000, services.Bus.Current.FadeOverrideMs);
-            Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2", "2.5"), CommandRouter.ToAction(ControlProtocol.Parse("FADE 2.5 SCREEN 2")));
-            Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "", ""), CommandRouter.ToAction(ControlProtocol.Parse("FADE UP")));
+            Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2", "2.5"), ControlProtocol.Parse("FADE 2.5 SCREEN 2").Action);
+            Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "", ""), ControlProtocol.Parse("FADE UP").Action);
             var up = Cue("Up", Step(ShowActionKind.FadeUp, value: "1"));
             Assert.True(services.Actions.FireCue(up, ActionOrigin.Desk).Ok);
             Dispatcher.UIThread.RunJobs();
@@ -110,28 +110,6 @@ public class ActionVocabularyAppTests
         finally
         {
             b.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// The wire's own map (RemoteCommandKind → ShowAction) gets the same door as the cue's: every
-    /// command the parser can produce is one the router answers itself (a query, the stack's
-    /// transport) or one that maps to a show action — a verb added to the wire without a row fails here.
-    /// </summary>
-    [Fact]
-    public void EveryWireCommandIsAnsweredByTheRouterOrMappedToAShowAction()
-    {
-        var routerOwn = new HashSet<RemoteCommandKind>
-        {
-            RemoteCommandKind.Unknown, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList,
-            RemoteCommandKind.CueGo, RemoteCommandKind.CueStandbyNext, RemoteCommandKind.CueStandbyPrev, RemoteCommandKind.CueStandby,
-            RemoteCommandKind.CueHoldOn, RemoteCommandKind.CueHoldOff, RemoteCommandKind.CueArmOn, RemoteCommandKind.CueArmOff, RemoteCommandKind.StopAll,
-        };
-        foreach (var kind in Enum.GetValues<RemoteCommandKind>())
-        {
-            if (routerOwn.Contains(kind)) continue;
-            var mapped = CommandRouter.ToAction(new RemoteCommand(kind, 1, "x"));
-            Assert.True(mapped is { } m && m.Kind != ShowActionKind.Unknown, $"{kind}: the wire's map has no row for it, and the router does not answer it");
         }
     }
 }

@@ -738,27 +738,24 @@ public class SpotifyCueTests
 public class SpotifyProtocolTests
 {
     [Theory]
-    [InlineData("MUSIC PLAY", RemoteCommandKind.MusicPlay, 0, "")]
-    [InlineData("music play 3", RemoteCommandKind.MusicPlay, 3, "")]
-    [InlineData("MUSIC PLAY Interval bed", RemoteCommandKind.MusicPlay, 0, "Interval bed")]
-    [InlineData("MUSIC RESUME", RemoteCommandKind.MusicPlay, 0, "")]
-    [InlineData("MUSIC 3", RemoteCommandKind.MusicPlay, 3, "")]
-    [InlineData("MUSIC Interval bed", RemoteCommandKind.MusicPlay, 0, "Interval bed")]
-    [InlineData("SPOTIFY PLAY 2", RemoteCommandKind.MusicPlay, 2, "")]
-    [InlineData("spotify 4", RemoteCommandKind.MusicPlay, 4, "")]
-    [InlineData("MUSIC PAUSE", RemoteCommandKind.MusicPause, 0, "")]
-    [InlineData("MUSIC STOP", RemoteCommandKind.MusicPause, 0, "")]
-    [InlineData("MUSIC NEXT", RemoteCommandKind.MusicNext, 0, "")]
-    [InlineData("MUSIC SKIP", RemoteCommandKind.MusicNext, 0, "")]
-    [InlineData("MUSIC VOL 40", RemoteCommandKind.MusicVolume, 0, "40")]
-    [InlineData("MUSIC VOLUME 0", RemoteCommandKind.MusicVolume, 0, "0")]      // 0 rides TextArg: IntArg 0 is "no number"
-    [InlineData("MUSIC VOL 120", RemoteCommandKind.MusicVolume, 0, "120")]    // parses; the executor refuses it in words
-    public void ParsesBreakMusicCommands(string line, RemoteCommandKind kind, int intArg, string textArg)
+    [InlineData("MUSIC PLAY", ShowActionKind.SpotifyPlay, "", "")]
+    [InlineData("music play 3", ShowActionKind.SpotifyPlay, "3", "")]
+    [InlineData("MUSIC PLAY Interval bed", ShowActionKind.SpotifyPlay, "Interval bed", "")]
+    [InlineData("MUSIC RESUME", ShowActionKind.SpotifyPlay, "", "")]
+    [InlineData("MUSIC 3", ShowActionKind.SpotifyPlay, "3", "")]
+    [InlineData("MUSIC Interval bed", ShowActionKind.SpotifyPlay, "Interval bed", "")]
+    [InlineData("SPOTIFY PLAY 2", ShowActionKind.SpotifyPlay, "2", "")]
+    [InlineData("spotify 4", ShowActionKind.SpotifyPlay, "4", "")]
+    [InlineData("MUSIC PAUSE", ShowActionKind.SpotifyPause, "", "")]
+    [InlineData("MUSIC STOP", ShowActionKind.SpotifyPause, "", "")]
+    [InlineData("MUSIC NEXT", ShowActionKind.SpotifyNext, "", "")]
+    [InlineData("MUSIC SKIP", ShowActionKind.SpotifyNext, "", "")]
+    [InlineData("MUSIC VOL 40", ShowActionKind.SpotifyVolume, "", "40")]
+    [InlineData("MUSIC VOLUME 0", ShowActionKind.SpotifyVolume, "", "0")]      // 0 is a real level: the value carries it as words
+    [InlineData("MUSIC VOL 120", ShowActionKind.SpotifyVolume, "", "120")]    // parses; the executor refuses it in words
+    public void ParsesBreakMusicCommands(string line, ShowActionKind kind, string target, string value)
     {
-        var cmd = ControlProtocol.Parse(line);
-        Assert.Equal(kind, cmd.Kind);
-        Assert.Equal(intArg, cmd.IntArg);
-        Assert.Equal(textArg, cmd.TextArg);
+        Assert.Equal(new ShowAction(kind, target, value), ControlProtocol.Parse(line).Action);
     }
 
     [Theory]

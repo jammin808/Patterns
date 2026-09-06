@@ -32,28 +32,23 @@ public class ShowPanelTests
     [Fact]
     public void TheWireCarriesAScreensOwnLookAndTheProgramAndLeavesOnOffToggleAlone()
     {
-        var look = ControlProtocol.Parse("SCREEN 2 LOOK Sponsor Logo");
-        Assert.Equal(RemoteCommandKind.ScreenLook, look.Kind);
-        Assert.Equal(2, look.IntArg);
-        Assert.Equal("Sponsor Logo", look.TextArg);
-        Assert.Equal(RemoteCommandKind.ScreenLook, ControlProtocol.Parse("screen 1 look daytime").Kind);
-        Assert.Equal("daytime", ControlProtocol.Parse("screen 1 look daytime").TextArg);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenLook, "2", "Sponsor Logo"), ControlProtocol.Parse("SCREEN 2 LOOK Sponsor Logo").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenLook, "1", "daytime"), ControlProtocol.Parse("screen 1 look daytime").Action);
 
         // No look named is a refusal, not a toggle.
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN 2 LOOK").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN 2 LOOK   ").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCREEN x LOOK Sponsor").Kind);
 
-        var program = ControlProtocol.Parse("SCREEN 3 PROGRAM");
-        Assert.Equal((RemoteCommandKind.ScreenProgram, 3), (program.Kind, program.IntArg));
-        Assert.Equal(RemoteCommandKind.ScreenProgram, ControlProtocol.Parse("SCREEN 3 PGM").Kind);
-        Assert.Equal(RemoteCommandKind.ScreenProgram, ControlProtocol.Parse("screen 3 follow").Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.ScreenProgram, "3"), ControlProtocol.Parse("SCREEN 3 PROGRAM").Action);
+        Assert.Equal(ShowActionKind.ScreenProgram, ControlProtocol.Parse("SCREEN 3 PGM").Action.Kind);
+        Assert.Equal(ShowActionKind.ScreenProgram, ControlProtocol.Parse("screen 3 follow").Action.Kind);
 
         // The older words are untouched.
-        Assert.Equal(RemoteCommandKind.ScreenOn, ControlProtocol.Parse("SCREEN 2 ON").Kind);
-        Assert.Equal(RemoteCommandKind.ScreenOff, ControlProtocol.Parse("SCREEN 2 OFF").Kind);
-        Assert.Equal(RemoteCommandKind.ScreenToggle, ControlProtocol.Parse("SCREEN 2 TOGGLE").Kind);
-        Assert.Equal(RemoteCommandKind.ScreenToggle, ControlProtocol.Parse("SCREEN 2").Kind);
+        Assert.Equal(ShowActionKind.ScreenOn, ControlProtocol.Parse("SCREEN 2 ON").Action.Kind);
+        Assert.Equal(ShowActionKind.ScreenOff, ControlProtocol.Parse("SCREEN 2 OFF").Action.Kind);
+        Assert.Equal(ShowActionKind.ScreenToggle, ControlProtocol.Parse("SCREEN 2 TOGGLE").Action.Kind);
+        Assert.Equal(ShowActionKind.ScreenToggle, ControlProtocol.Parse("SCREEN 2").Action.Kind);
     }
 
     [Fact]

@@ -149,16 +149,13 @@ public class DeckTests
     [Fact]
     public void TheWireAndOscTurnTheDeck()
     {
-        Assert.Equal(RemoteCommandKind.DeckNext, ControlProtocol.Parse("DECK NEXT").Kind);
-        Assert.Equal(RemoteCommandKind.DeckPrev, ControlProtocol.Parse("DECK PREV").Kind);
-        Assert.Equal(RemoteCommandKind.DeckPrev, ControlProtocol.Parse("pdf back").Kind);
-        var page = ControlProtocol.Parse("DECK PAGE 5");
-        Assert.Equal((RemoteCommandKind.DeckPage, 5, ""), (page.Kind, page.IntArg, page.TextArg));
-        var bare = ControlProtocol.Parse("SLIDES 7");
-        Assert.Equal((RemoteCommandKind.DeckPage, 7), (bare.Kind, bare.IntArg));
-        var first = ControlProtocol.Parse("DECK FIRST");
-        Assert.Equal((RemoteCommandKind.DeckPage, 0, "first"), (first.Kind, first.IntArg, first.TextArg));
-        Assert.Equal("last", ControlProtocol.Parse("DECK LAST").TextArg);
+        Assert.Equal(ShowActionKind.DeckNext, ControlProtocol.Parse("DECK NEXT").Action.Kind);
+        Assert.Equal(ShowActionKind.DeckPrev, ControlProtocol.Parse("DECK PREV").Action.Kind);
+        Assert.Equal(ShowActionKind.DeckPrev, ControlProtocol.Parse("pdf back").Action.Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.DeckPage, "", "5"), ControlProtocol.Parse("DECK PAGE 5").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.DeckPage, "", "7"), ControlProtocol.Parse("SLIDES 7").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.DeckPage, "", "first"), ControlProtocol.Parse("DECK FIRST").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.DeckPage, "", "last"), ControlProtocol.Parse("DECK LAST").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("DECK").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("DECK dance").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("DECK PAGE 0").Kind);

@@ -11,10 +11,10 @@ public class LowerThirdControlTests
     [Fact]
     public void TheRemoteVerbsParseByNumberNameAndOff()
     {
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdShow, 2, ""), ControlProtocol.Parse("LOWERTHIRD 2"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdShow, 0, "Keynote speaker"), ControlProtocol.Parse("lt Keynote speaker"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdHide, 0, ""), ControlProtocol.Parse("LT OFF"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdHide, 0, ""), ControlProtocol.Parse("LOWERTHIRD hide"));
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "2"), ControlProtocol.Parse("LOWERTHIRD 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "Keynote speaker"), ControlProtocol.Parse("lt Keynote speaker").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdHide), ControlProtocol.Parse("LT OFF").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdHide), ControlProtocol.Parse("LOWERTHIRD hide").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT").Kind);
     }
 

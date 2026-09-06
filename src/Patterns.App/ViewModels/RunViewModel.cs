@@ -86,17 +86,17 @@ public sealed class RunViewModel : Observable
 
         ArmCommand = new RelayCommand(() =>
         {
-            _s.CueStack.SetArmed(!_s.CueStack.Armed, ActionOrigin.Desk);
+            _s.Actions.Execute(_s.CueStack.Armed ? ShowActionKind.ListDisarm : ShowActionKind.ListArm, ActionOrigin.Desk, "caller");
             _vm.StatusMessage = _s.CueStack.Armed
                 ? "ARMED — GO fires the standby cue. The schedule, part start times and plain F-keys wait."
                 : "Disarmed — GO is off; the schedule and F-keys are live again.";
         });
         GoCommand = new RelayCommand(() => Go(ActionOrigin.Desk));
-        HoldCommand = new RelayCommand(() => _s.CueStack.SetHold(!_s.CueStack.Runtime.Hold, ActionOrigin.Desk));
+        HoldCommand = new RelayCommand(() => _s.Actions.Execute(_s.CueStack.Runtime.Hold ? ShowActionKind.CueHoldOff : ShowActionKind.CueHoldOn, ActionOrigin.Desk));
         StopAllCommand = new RelayCommand(() => _s.Actions.Execute(ShowActionKind.StopAll, ActionOrigin.Desk));
-        StandbyUpCommand = new RelayCommand(() => _s.CueStack.StandbyMove(-1));
-        StandbyDownCommand = new RelayCommand(() => _s.CueStack.StandbyMove(+1));
-        SelectRowCommand = new RelayCommand<RunRow>(row => { if (row is not null) _s.CueStack.Standby(row.Cue.Id); });
+        StandbyUpCommand = new RelayCommand(() => _s.Actions.Execute(ShowActionKind.CueStandby, ActionOrigin.Desk, "prev"));
+        StandbyDownCommand = new RelayCommand(() => _s.Actions.Execute(ShowActionKind.CueStandby, ActionOrigin.Desk, "next"));
+        SelectRowCommand = new RelayCommand<RunRow>(row => { if (row is not null) _s.Actions.Execute(ShowActionKind.CueStandby, ActionOrigin.Desk, row.Cue.Id); });
         DismissBannerCommand = new RelayCommand(() => Banner = "");
         ShiftLaterCommand = new RelayCommand(() => _vm.StatusMessage = _s.CueStack.ShiftPlan(TimeSpan.FromMinutes(1), ActionOrigin.Desk));
         ShiftEarlierCommand = new RelayCommand(() => _vm.StatusMessage = _s.CueStack.ShiftPlan(TimeSpan.FromMinutes(-1), ActionOrigin.Desk));

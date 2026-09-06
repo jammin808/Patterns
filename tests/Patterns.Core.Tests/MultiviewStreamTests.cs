@@ -67,10 +67,10 @@ public class StreamMrlTests
     }
 
     [Theory]
-    [InlineData("STREAM ON", RemoteCommandKind.StreamOn)]
-    [InlineData("stream off", RemoteCommandKind.StreamOff)]
-    public void StreamCommandsParse(string line, RemoteCommandKind kind)
-        => Assert.Equal(kind, ControlProtocol.Parse(line).Kind);
+    [InlineData("STREAM ON", ShowActionKind.StreamStart)]
+    [InlineData("stream off", ShowActionKind.StreamStop)]
+    public void StreamCommandsParse(string line, ShowActionKind kind)
+        => Assert.Equal(kind, ControlProtocol.Parse(line).Action.Kind);
 }
 
 public class MultiviewRenderTests

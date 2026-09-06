@@ -663,7 +663,7 @@ public partial class MainWindow : Window
             if (e.Key is Key.Up or Key.Down)
             {
                 e.Handled = true;
-                if (Latch(e.Key)) vm.Services.CueStack.StandbyMove(e.Key == Key.Up ? -1 : +1);
+                if (Latch(e.Key)) vm.Services.Actions.Execute(ShowActionKind.CueStandby, ActionOrigin.Keyboard, e.Key == Key.Up ? "prev" : "next");
                 return;
             }
             if (e.Key == Key.Escape)

@@ -254,15 +254,15 @@ public class WeatherTests
     [Fact]
     public void TheVerbsOnTheWireAndOverOscReachTheChip()
     {
-        Assert.Equal(RemoteCommandKind.WeatherOn, ControlProtocol.Parse("WEATHER ON").Kind);
-        Assert.Equal(RemoteCommandKind.WeatherOff, ControlProtocol.Parse("forecast hide").Kind);
-        Assert.Equal(RemoteCommandKind.WeatherToggle, ControlProtocol.Parse("WEATHER").Kind);
-        Assert.Equal(RemoteCommandKind.WeatherToggle, ControlProtocol.Parse("WEATHER TOGGLE").Kind);
+        Assert.Equal(ShowActionKind.WeatherOn, ControlProtocol.Parse("WEATHER ON").Action.Kind);
+        Assert.Equal(ShowActionKind.WeatherOff, ControlProtocol.Parse("forecast hide").Action.Kind);
+        Assert.Equal(ShowActionKind.WeatherToggle, ControlProtocol.Parse("WEATHER").Action.Kind);
+        Assert.Equal(ShowActionKind.WeatherToggle, ControlProtocol.Parse("WEATHER TOGGLE").Action.Kind);
         var view = ControlProtocol.Parse("WEATHER Tomorrow");
-        Assert.Equal(RemoteCommandKind.WeatherView, view.Kind);
-        Assert.Equal("tomorrow", view.TextArg);
-        Assert.Equal("day", ControlProtocol.Parse("WEATHER DAY").TextArg);
-        Assert.Equal("today", ControlProtocol.Parse("WEATHER TODAY").TextArg);
+        Assert.Equal(ShowActionKind.WeatherView, view.Action.Kind);
+        Assert.Equal("tomorrow", view.Action.Value);
+        Assert.Equal("day", ControlProtocol.Parse("WEATHER DAY").Action.Value);
+        Assert.Equal("today", ControlProtocol.Parse("WEATHER TODAY").Action.Value);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("WEATHER yesterday").Kind);
 
         Assert.Equal("WEATHER ON", OscMap.ToLine(OscMessage.Of("/patterns/weather", 1)));

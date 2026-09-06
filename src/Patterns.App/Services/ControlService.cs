@@ -243,7 +243,7 @@ public sealed partial class ControlService : IDisposable
                 if (cmd.Kind == RemoteCommandKind.Hello)
                 {
                     // "HELLO FOH deck": history reads "GO from tcp FOH deck", not an address.
-                    origin = new ActionOrigin(OriginKind.Tcp, cmd.TextArg, endpoint);
+                    origin = new ActionOrigin(OriginKind.Tcp, cmd.Text, endpoint);
                 }
                 var response = await _router.ExecuteAsync(cmd, origin);
                 await WriteLine(stream, response, ct);
@@ -456,7 +456,7 @@ public sealed partial class ControlService : IDisposable
                 var cmd = ControlProtocol.Parse(body);
                 var httpOrigin = new ActionOrigin(OriginKind.Http, "", client.Client.RemoteEndPoint?.ToString() ?? "");
                 string response;
-                if (IsCueVerb(cmd.Kind) && !clientHeader)
+                if (IsCueVerb(cmd) && !clientHeader)
                 {
                     // A cross-origin page cannot fire cues: the embedded pages and any deliberate
                     // client send this header; plain commands (LOOK, BLACKOUT…) keep working without it.
@@ -491,10 +491,9 @@ public sealed partial class ControlService : IDisposable
         }
     }
 
-    private static bool IsCueVerb(RemoteCommandKind kind) => kind is
-        RemoteCommandKind.CueGo or RemoteCommandKind.CueStandby or RemoteCommandKind.CueStandbyNext or RemoteCommandKind.CueStandbyPrev or
-        RemoteCommandKind.CueHoldOn or RemoteCommandKind.CueHoldOff or RemoteCommandKind.CueArmOn or RemoteCommandKind.CueArmOff or
-        RemoteCommandKind.StopAll;
+    private static bool IsCueVerb(RemoteCommand cmd) => cmd.IsAction && cmd.Action.Kind is
+        ShowActionKind.CueGo or ShowActionKind.CueStandby or ShowActionKind.CueHoldOn or ShowActionKind.CueHoldOff or
+        ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.StopAll;
 
     /// <summary>The last lines of patterns.log, for the ADMIN page — read with a shared lock, the app keeps writing.</summary>
     private string LogTail(int lines)

@@ -127,23 +127,16 @@ public class WebWorkflowTests
     [Fact]
     public void TheWireAndOscSpeakWeb()
     {
-        var key = ControlProtocol.Parse("WEB KEY ArrowRight");
-        Assert.Equal((RemoteCommandKind.WebKey, "ArrowRight", ""), (key.Kind, key.TextArg, key.Extra));
-        var on = ControlProtocol.Parse("PAGE KEY Ctrl+Shift+F5 ON slides");
-        Assert.Equal((RemoteCommandKind.WebKey, "Ctrl+Shift+F5", "slides"), (on.Kind, on.TextArg, on.Extra));
-        var next = ControlProtocol.Parse("WEB NEXT");
-        Assert.Equal((RemoteCommandKind.WebKey, "NEXT", ""), (next.Kind, next.TextArg, next.Extra));
-        var play = ControlProtocol.Parse("web play on youtube");
-        Assert.Equal((RemoteCommandKind.WebKey, "play", "youtube"), (play.Kind, play.TextArg, play.Extra));
-        var click = ControlProtocol.Parse("WEB CLICK 50 50 ON schedule");
-        Assert.Equal((RemoteCommandKind.WebClick, "50 50", "schedule"), (click.Kind, click.TextArg, click.Extra));
-        var type = ControlProtocol.Parse("WEB TYPE hello on stage");
-        Assert.Equal((RemoteCommandKind.WebType, "hello on stage", ""), (type.Kind, type.TextArg, type.Extra));
-        Assert.Equal((RemoteCommandKind.WebReload, ""), (ControlProtocol.Parse("WEB RELOAD").Kind, ControlProtocol.Parse("WEB RELOAD").Extra));
-        Assert.Equal("slides", ControlProtocol.Parse("WEB RELOAD ON slides").Extra);
-        Assert.Equal("slides", ControlProtocol.Parse("WEB RELOAD slides").Extra);
-        var open = ControlProtocol.Parse("WEB OPEN https://example.com/deck?x=1 ON schedule");
-        Assert.Equal((RemoteCommandKind.WebOpen, "https://example.com/deck?x=1", "schedule"), (open.Kind, open.TextArg, open.Extra));
+        Assert.Equal(new ShowAction(ShowActionKind.WebKey, "", "ArrowRight"), ControlProtocol.Parse("WEB KEY ArrowRight").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebKey, "slides", "Ctrl+Shift+F5"), ControlProtocol.Parse("PAGE KEY Ctrl+Shift+F5 ON slides").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebKey, "", "NEXT"), ControlProtocol.Parse("WEB NEXT").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebKey, "youtube", "play"), ControlProtocol.Parse("web play on youtube").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebClick, "schedule", "50 50"), ControlProtocol.Parse("WEB CLICK 50 50 ON schedule").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebType, "", "hello on stage"), ControlProtocol.Parse("WEB TYPE hello on stage").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebReload), ControlProtocol.Parse("WEB RELOAD").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebReload, "slides"), ControlProtocol.Parse("WEB RELOAD ON slides").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebReload, "slides"), ControlProtocol.Parse("WEB RELOAD slides").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.WebOpen, "schedule", "https://example.com/deck?x=1"), ControlProtocol.Parse("WEB OPEN https://example.com/deck?x=1 ON schedule").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("WEB").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("WEB KEY").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("WEB TYPE").Kind);

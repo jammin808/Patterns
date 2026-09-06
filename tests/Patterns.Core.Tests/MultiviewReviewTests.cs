@@ -111,10 +111,10 @@ public class MultiviewReviewTests
     [Fact]
     public void TheVerbsAndTheFeedbackKnowTheReview()
     {
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.ReviewOn, 0, ""), ControlProtocol.Parse("REVIEW ON"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.ReviewOff, 0, ""), ControlProtocol.Parse("review off"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.ReviewToggle, 0, ""), ControlProtocol.Parse("REVIEW"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.ReviewToggle, 0, ""), ControlProtocol.Parse("REVIEW TOGGLE"));
+        Assert.Equal(new ShowAction(ShowActionKind.ReviewOn), ControlProtocol.Parse("REVIEW ON").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ReviewOff), ControlProtocol.Parse("review off").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ReviewToggle), ControlProtocol.Parse("REVIEW").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.ReviewToggle), ControlProtocol.Parse("REVIEW TOGGLE").Action);
         Assert.Equal("REVIEW ON", OscMap.ToLine(OscMessage.Of("/patterns/review", 1)));
         Assert.Equal("REVIEW OFF", OscMap.ToLine(OscMessage.Of("/patterns/review/off")));
         Assert.Equal("REVIEW TOGGLE", OscMap.ToLine(OscMessage.Of("/patterns/review")));

@@ -349,22 +349,22 @@ public class InstallTests
     [Fact]
     public void TheVerbsTheAddressesAndTheCueActions()
     {
-        Assert.Equal(RemoteCommandKind.Announce, ControlProtocol.Parse("ANNOUNCE The store closes in 15 minutes").Kind);
-        Assert.Equal("The store closes in 15 minutes", ControlProtocol.Parse("ANNOUNCE The store closes in 15 minutes").TextArg);
-        Assert.Equal(RemoteCommandKind.AnnounceOff, ControlProtocol.Parse("announce off").Kind);
-        Assert.Equal(RemoteCommandKind.AnnounceOff, ControlProtocol.Parse("ANNOUNCEMENT STOP").Kind);
+        Assert.Equal(ShowActionKind.Announce, ControlProtocol.Parse("ANNOUNCE The store closes in 15 minutes").Action.Kind);
+        Assert.Equal("The store closes in 15 minutes", ControlProtocol.Parse("ANNOUNCE The store closes in 15 minutes").Action.Value);
+        Assert.Equal(ShowActionKind.AnnounceOff, ControlProtocol.Parse("announce off").Action.Kind);
+        Assert.Equal(ShowActionKind.AnnounceOff, ControlProtocol.Parse("ANNOUNCEMENT STOP").Action.Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("ANNOUNCE").Kind);
-        Assert.Equal(RemoteCommandKind.AdvertPlay, ControlProtocol.Parse("ADVERT Lunch offer").Kind);
-        Assert.Equal(2, ControlProtocol.Parse("AD 2").IntArg);
-        Assert.Equal(RemoteCommandKind.AdvertOff, ControlProtocol.Parse("ADVERT SKIP").Kind);
-        Assert.Equal(RemoteCommandKind.ScheduleOn, ControlProtocol.Parse("SCHEDULE ON").Kind);
-        Assert.Equal(RemoteCommandKind.ScheduleOff, ControlProtocol.Parse("SCHEDULE OFF").Kind);
+        Assert.Equal(ShowActionKind.AdvertPlay, ControlProtocol.Parse("ADVERT Lunch offer").Action.Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.AdvertPlay, "2"), ControlProtocol.Parse("AD 2").Action);
+        Assert.Equal(ShowActionKind.AdvertOff, ControlProtocol.Parse("ADVERT SKIP").Action.Kind);
+        Assert.Equal(ShowActionKind.ScheduleOn, ControlProtocol.Parse("SCHEDULE ON").Action.Kind);
+        Assert.Equal(ShowActionKind.ScheduleOff, ControlProtocol.Parse("SCHEDULE OFF").Action.Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("SCHEDULE MAYBE").Kind);
-        Assert.Equal(RemoteCommandKind.UpdateApply, ControlProtocol.Parse("UPDATE APPLY secret").Kind);
-        Assert.Equal("secret", ControlProtocol.Parse("UPDATE APPLY secret").TextArg);
+        Assert.Equal(ShowActionKind.UpdateApply, ControlProtocol.Parse("UPDATE APPLY secret").Action.Kind);
+        Assert.Equal("secret", ControlProtocol.Parse("UPDATE APPLY secret").Action.Target);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("UPDATE NOW").Kind);
-        Assert.Equal(RemoteCommandKind.Restart, ControlProtocol.Parse("RESTART secret").Kind);
-        Assert.Equal("", ControlProtocol.Parse("RESTART").TextArg);
+        Assert.Equal(ShowActionKind.Restart, ControlProtocol.Parse("RESTART secret").Action.Kind);
+        Assert.Equal(new ShowAction(ShowActionKind.Restart), ControlProtocol.Parse("RESTART").Action);
 
         Assert.Equal("ANNOUNCE Closing time", OscMap.ToLine(OscMessage.Of("/patterns/announce", "Closing time")));
         Assert.Equal("ANNOUNCE Closing time", OscMap.ToLine(OscMessage.Of("/patterns/announce/Closing time")));

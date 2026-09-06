@@ -74,25 +74,25 @@ public class FadeScopeTests
     [Fact]
     public void TheVerbTakesTheSecondsAndThePlaceInEitherOrder()
     {
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 2000, "SCREEN 2"), ControlProtocol.Parse("FADE 2 SCREEN 2"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 0, "SCREEN 2"), ControlProtocol.Parse("FADE SCREEN 2"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 1500, "SCREEN 2"), ControlProtocol.Parse("fade screen 2 1.5"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 0, "GROUP A"), ControlProtocol.Parse("FADE GROUP A"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 500, "GROUP A"), ControlProtocol.Parse("FADE 500ms canvas a"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 0, "FOCUSED"), ControlProtocol.Parse("FADE FOCUSED"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 0, "GROUPS"), ControlProtocol.Parse("FADE DOWN GROUPS"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 3000, "TICKED"), ControlProtocol.Parse("FADE BLACK 3 TICKED"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 0, "a+b"), ControlProtocol.Parse("FADE a+b"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 2000, "ID DISPLAY1"), ControlProtocol.Parse("FADE 2 ID DISPLAY1"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 2000, "TICKED"), ControlProtocol.Parse("FADE UP TICKED 2"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 3000, "FOCUSED"), ControlProtocol.Parse("FADEUP 3 FOCUSED"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 0, "SCREEN 4"), ControlProtocol.Parse("FADE IN SCREEN 4"));
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2", "2"), ControlProtocol.Parse("FADE 2 SCREEN 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2"), ControlProtocol.Parse("FADE SCREEN 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "SCREEN 2", "1.5"), ControlProtocol.Parse("fade screen 2 1.5").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "GROUP A"), ControlProtocol.Parse("FADE GROUP A").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "GROUP A", "0.5"), ControlProtocol.Parse("FADE 500ms canvas a").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "FOCUSED"), ControlProtocol.Parse("FADE FOCUSED").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "GROUPS"), ControlProtocol.Parse("FADE DOWN GROUPS").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "TICKED", "3"), ControlProtocol.Parse("FADE BLACK 3 TICKED").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "a+b"), ControlProtocol.Parse("FADE a+b").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "ID DISPLAY1", "2"), ControlProtocol.Parse("FADE 2 ID DISPLAY1").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "TICKED", "2"), ControlProtocol.Parse("FADE UP TICKED 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "FOCUSED", "3"), ControlProtocol.Parse("FADEUP 3 FOCUSED").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "SCREEN 4"), ControlProtocol.Parse("FADE IN SCREEN 4").Action);
 
         // The old forms read exactly as they did: the rig, with or without seconds.
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 0, ""), ControlProtocol.Parse("FADE"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeToBlack, 2000, ""), ControlProtocol.Parse("FADE 2"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 3000, ""), ControlProtocol.Parse("FADEUP 3s"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.FadeUp, 0, ""), ControlProtocol.Parse("FADE UP"));
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack), ControlProtocol.Parse("FADE").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeToBlack, "", "2"), ControlProtocol.Parse("FADE 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp, "", "3"), ControlProtocol.Parse("FADEUP 3s").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.FadeUp), ControlProtocol.Parse("FADE UP").Action);
 
         // Words that mean nothing are refused, never a fade of the wrong thing.
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("FADE slowly").Kind);

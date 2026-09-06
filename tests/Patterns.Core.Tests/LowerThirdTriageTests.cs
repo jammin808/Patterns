@@ -144,20 +144,20 @@ public class LowerThirdTriageTests
     [Fact]
     public void TheVerbsTheCueActionsAndTheOscKnowPreviewTakeAndUpdate()
     {
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPreview, 2, "", ""), ControlProtocol.Parse("LT PREVIEW 2"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPreview, 0, "Neon", "3"), ControlProtocol.Parse("lowerthird preview Neon with 3"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPreview, 0, "", "Jane Doe"), ControlProtocol.Parse("LT PVW WITH Jane Doe"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPreviewOff, 0, ""), ControlProtocol.Parse("LT PREVIEW OFF"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdPreviewOff, 0, ""), ControlProtocol.Parse("LT PREVIEW CLEAR"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdTake, 0, ""), ControlProtocol.Parse("LT TAKE"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdUpdate, 0, ""), ControlProtocol.Parse("lt update"));
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdPreview, "2"), ControlProtocol.Parse("LT PREVIEW 2").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdPreview, "Neon", "3"), ControlProtocol.Parse("lowerthird preview Neon with 3").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdPreview, "", "Jane Doe"), ControlProtocol.Parse("LT PVW WITH Jane Doe").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdPreviewOff), ControlProtocol.Parse("LT PREVIEW OFF").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdPreviewOff), ControlProtocol.Parse("LT PREVIEW CLEAR").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdTake), ControlProtocol.Parse("LT TAKE").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdUpdate), ControlProtocol.Parse("lt update").Action);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT PREVIEW").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT PREVIEW Neon WITH").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("LT PREVIEW WITH").Kind);
         // A design whose name merely starts with the word is still a design.
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdShow, 0, "Previewer"), ControlProtocol.Parse("LT Previewer"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdShow, 0, "Take Two"), ControlProtocol.Parse("LT Take Two"));
-        Assert.Equal(new RemoteCommand(RemoteCommandKind.LowerThirdHide, 0, ""), ControlProtocol.Parse("LT OFF"));
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "Previewer"), ControlProtocol.Parse("LT Previewer").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdShow, "Take Two"), ControlProtocol.Parse("LT Take Two").Action);
+        Assert.Equal(new ShowAction(ShowActionKind.LowerThirdHide), ControlProtocol.Parse("LT OFF").Action);
 
         Assert.Equal("LOWERTHIRD PREVIEW 2", OscMap.ToLine(OscMessage.Of("/patterns/lowerthird/preview/2")));
         Assert.Equal("LOWERTHIRD PREVIEW 2 WITH 3", OscMap.ToLine(OscMessage.Of("/patterns/lowerthird/preview/2/3")));
