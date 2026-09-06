@@ -146,6 +146,28 @@ public sealed class VideoEngine : IDisposable
             : "";
     }
 
+    /// <summary>
+    /// A clip fired onto a mount that already exists — the same file pressed again while it plays,
+    /// or a leftover the preview still references that ended long ago — plays from the top: an ended
+    /// player is started again and a playing one is wound back. Without this a stinger fired over
+    /// its own ended decoder read "ended" on its first tick and put the show straight back, which is
+    /// the "tries to play and immediately fades back off" of the round-14 report. False when the key
+    /// is not mounted or the source cannot move.
+    /// </summary>
+    public bool RestartIfMounted(string key)
+    {
+        if (!_mounts.TryGetValue(key, out var mount)) return false;
+        try
+        {
+            return mount.Source.Seek(0);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Restarting a mounted clip failed.", ex);
+            return false;
+        }
+    }
+
     /// <summary>Program + sandbox wants, deduped by key, program's settings winning shared mounts.</summary>
     public static List<MediaLocator.WantedInput> WantedVideoInputs(ShowSnapshot snap, ShowSnapshot? sandbox)
     {
@@ -533,16 +555,55 @@ public sealed class VlcFrameSource : IMountedSource
         }
     }
 
-    public bool IsPlaying => _player.IsPlaying;
+    // Every reading below is taken by the desk's tick, the stinger service and the VT clock while
+    // the player may be leaving (a retire, a dispose on the sweep): a disposed player answers with
+    // a safe value rather than an exception that a caller would have to survive.
+    public bool IsPlaying
+    {
+        get
+        {
+            if (_disposed) return false;
+            try
+            {
+                return _player.IsPlaying;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
-    public bool IsEnded => _player.State == VLCState.Ended;
+    public bool IsEnded
+    {
+        get
+        {
+            if (_disposed) return false;
+            try
+            {
+                return _player.State == VLCState.Ended;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     public double DurationSeconds
     {
         get
         {
-            var ms = _player.Length;
-            return ms > 0 ? ms / 1000.0 : 0;
+            if (_disposed) return 0;
+            try
+            {
+                var ms = _player.Length;
+                return ms > 0 ? ms / 1000.0 : 0;
+            }
+            catch
+            {
+                return 0;
+            }
         }
     }
 
@@ -608,16 +669,32 @@ public sealed class VlcFrameSource : IMountedSource
         }
     }
 
-    public string StatusText => _player.State switch
+    public string StatusText
     {
-        VLCState.Opening => "Opening…",
-        VLCState.Buffering => "Buffering…",
-        VLCState.Error => "Playback error — check the file or device.",
-        VLCState.Ended => "Ended.",
-        VLCState.Stopped => "Stopped.",
-        VLCState.Playing => "Playing (no picture yet)…",
-        _ => "Waiting for first frame…",
-    };
+        get
+        {
+            if (_disposed) return "Closed.";
+            VLCState state;
+            try
+            {
+                state = _player.State;
+            }
+            catch
+            {
+                return "Closed.";
+            }
+            return state switch
+            {
+                VLCState.Opening => "Opening…",
+                VLCState.Buffering => "Buffering…",
+                VLCState.Error => "Playback error — check the file or device.",
+                VLCState.Ended => "Ended.",
+                VLCState.Stopped => "Stopped.",
+                VLCState.Playing => "Playing (no picture yet)…",
+                _ => "Waiting for first frame…",
+            };
+        }
+    }
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
         => DrawFrame(canvas, dest, paint, FrameCrop.None);

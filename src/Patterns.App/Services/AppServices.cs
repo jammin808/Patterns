@@ -109,11 +109,32 @@ public sealed class AppServices
         {
             if (_airLabel == value) return;
             _airLabel = value;
-            AirLabelChanged?.Invoke();
+            RaiseSafely(AirLabelChanged, "an air-label listener");
         }
     }
 
     public event Action? AirLabelChanged;
+
+    /// <summary>
+    /// Listeners never break the thing they listen to: a strip, a wall tile or a feedback sender that
+    /// throws is logged and the publish, the label or the tally carries on to the next listener's
+    /// caller. Before this, one throwing binding could unwind a stinger's own step mid-clip.
+    /// </summary>
+    private static void RaiseSafely(Action? handlers, string what)
+    {
+        if (handlers is null) return;
+        foreach (var handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                ((Action)handler)();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Carried past {what} that failed.", ex);
+            }
+        }
+    }
 
     /// <summary>
     /// The look last put on air, by id ("" = none recorded): a recall from anywhere sets it, a
@@ -407,7 +428,7 @@ public sealed class AppServices
         ApplySideEffects();
 
         Outputs.NotifySnapshot();
-        SnapshotPublished?.Invoke();
+        RaiseSafely(SnapshotPublished, "a snapshot listener");
 
         if (Outputs.IsLive)
         {
@@ -524,8 +545,17 @@ public sealed class AppServices
             // outputs on the untaken edit the settings file holds.
             if (was.AirLook is { Length: > 0 } airLook)
             {
-                EditAir(air => LookService.Apply(airLook, air));
-                vm.RefreshAfterRecovery();
+                if (StingerLibrary.IsClipLook(State, airLook))
+                {
+                    // The sidecar held a VOG or stinger clip as the air content: a clip is a moment,
+                    // never the show, and put back it would be a dead picture nothing owns.
+                    Log.Warn("The recovery file held a clip as the content on air — not put back; the show comes back as saved.");
+                }
+                else
+                {
+                    EditAir(air => LookService.Apply(airLook, air));
+                    vm.RefreshAfterRecovery();
+                }
             }
 
             if (was.Live && !Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
@@ -690,7 +720,7 @@ public sealed class AppServices
             Bus.Publish(State);
         }
         Outputs.NotifySnapshot();
-        SnapshotPublished?.Invoke();
+        RaiseSafely(SnapshotPublished, "a snapshot listener");
     }
 
     public void SaveNow()

@@ -59,6 +59,25 @@ public sealed class StingerService : IDisposable
     private DateTime _duckStartUtc;
     private int _duckMs;
 
+    // The show as it was before the last clip took the screens — what an orphaned clip (one
+    // left on the screens with no session owning it) goes back to, and what a clip fired over
+    // such an orphan saves as its content, so a dead clip is never "the previous content".
+    private string? _lastGoodLook;
+    private IVideoFrameSource? _mountAtFire;                       // the decoder the clip found already mounted at the press
+    private bool _mountWasEndedAtFire;                             // …and it had ended: its "ended" is the old ending until it rolls
+    private double _lastPosition = -1;                             // the stuck-clip watch: where the clip was last seen moving
+    private DateTime _positionMovedUtc;
+    private DateTime _lastFaultLoggedUtc = DateTime.MinValue;
+
+    /// <summary>A leftover decoder told to play again gets this long to roll before the clip counts as unplayable.</summary>
+    public const double RestartGraceSeconds = 2;
+
+    /// <summary>A clip whose position has not moved for this long while it says it plays is stuck: the show comes back.</summary>
+    public const double StallSeconds = 15;
+
+    /// <summary>Ticks that threw this session — carried past, never a reason to drop the session (see <see cref="Tick"/>).</summary>
+    public int TickFaults { get; private set; }
+
     public StingerService(AppServices services)
     {
         _services = services;
@@ -114,7 +133,18 @@ public sealed class StingerService : IDisposable
     /// <summary>Raised on the UI thread whenever something starts or stops playing, so a tally can follow at once.</summary>
     public event Action? Changed;
 
-    private void NotifyChanged() => Changed?.Invoke();
+    /// <summary>A tally listener that throws (a binding, a wall tile mid-rebuild) must never unwind the service's own step.</summary>
+    private void NotifyChanged()
+    {
+        try
+        {
+            Changed?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("A stinger tally listener failed.", ex);
+        }
+    }
 
     /// <summary>A clip, a held frame or a sting sound owns the show's session (a VOG sound never does).</summary>
     private bool SessionOpen => ClipActive || _holding || _stingSoundActive;
@@ -270,11 +300,32 @@ public sealed class StingerService : IDisposable
         var state = _services.AirState;
         if (_savedLook is null)
         {
-            _savedLook = LookService.Capture(state);
+            // The content to come back to. A clip nobody owns any more — an orphan a fault left on
+            // the screens — is never it: the last show that was on before a clip is, so a press over
+            // a dead clip still comes back to the show, and a crash mid-clip never pins a clip as the
+            // show to restore.
+            if (StingerLibrary.IsClipOnAir(state) && BestKnownShow() is { } known)
+            {
+                _savedLook = known;
+            }
+            else
+            {
+                _savedLook = LookService.Capture(state);
+                if (!StingerLibrary.IsClipOnAir(state)) _lastGoodLook = _savedLook;
+            }
             _savedCustom = state.Output.Placements.Select(p => (p.ScreenId, p.UseCustomPattern))
                 .Concat(state.Output.CanvasNames.Select(c => (c.MemberKey, c.UseCustomPattern)))
                 .ToList();
         }
+        // A decoder for this file that is already open — the same clip pressed again while it plays,
+        // or a leftover the preview still references — is told to play from the top once the air
+        // carries the clip; until it rolls, its "ended" is the old ending, not this one.
+        var clipKey = InputKeys.Video(item.Path);
+        var before = InputBus.For(clipKey);
+        _mountAtFire = before;
+        _mountWasEndedAtFire = before is { IsEnded: true };
+        _lastPosition = -1;
+        _positionMovedUtc = now;
 
         // Blackout is transport, never sandboxed: PublishBoth copies the live flag onto the
         // frozen program, so lifting it has to happen on the live state or it is overwritten.
@@ -311,11 +362,32 @@ public sealed class StingerService : IDisposable
         _overrideKey = ContentKey(_services.AirState);
         _clipPath = item.Path;
         _firedUtc = now;
+        if (before is not null && !_services.Video.RestartIfMounted(clipKey))
+        {
+            Log.Warn($"The decoder already open for '{name}' could not be told to play from the top.");
+        }
         _services.PinAirLook(_savedLook); // a crash must come back to the show, never to the clip
         OpenSession(item, now);
         _status = $"Clip on screens: {name}";
         Log.Info($"{StingerLibrary.KindWord(item.Kind)} fired: {name}");
         return true;
+    }
+
+    /// <summary>
+    /// The show to put back when the content on the screens is a clip nobody owns: the content the
+    /// last clip was fired over, else the look recorded as on air, else the one before it. Null
+    /// when nothing is known — the desk then says so rather than guessing a picture.
+    /// </summary>
+    private string? BestKnownShow()
+    {
+        if (_lastGoodLook is { Length: > 0 }) return _lastGoodLook;
+        var state = _services.State;
+        foreach (var id in new[] { _services.AirLookId, _services.PreviousAirLookId })
+        {
+            if (id.Length == 0) continue;
+            if (LookService.Find(state, id) is { Json.Length: > 0 } look && !StingerLibrary.IsClipLook(state, look.Json)) return look.Json;
+        }
+        return null;
     }
 
     /// <summary>
@@ -409,6 +481,7 @@ public sealed class StingerService : IDisposable
 
     private void StopCore(DateTime now)
     {
+        var ownedTheScreens = ClipActive || _holding;
         _services.AudioPlayer.ReleaseStingers();
         _stingSoundActive = false;
         _vogSoundActive = false;
@@ -422,6 +495,28 @@ public sealed class StingerService : IDisposable
         StartGain(1, now);
         CloseSession(giveLabelBack: true);
         _status = "Ready.";
+        if (!ownedTheScreens) PutBackOrphan();
+    }
+
+    /// <summary>
+    /// STOP means stop, session or no session. A clip on the screens that nothing owns — a fault
+    /// left it there, a relaunch put it back — goes: the last show that was on comes back, and the
+    /// journal says so. With no show known the desk says that too, rather than guess a picture.
+    /// </summary>
+    private void PutBackOrphan()
+    {
+        var air = _services.AirState;
+        if (StingerLibrary.ClipOnAir(air) is not { } orphan) return;
+        if (BestKnownShow() is { } show)
+        {
+            _services.EditAir(target => LookService.Apply(show, target));
+            _status = $"'{orphan.DisplayName}' was on the screens with nothing owning it — previous content back.";
+            Journal(ActionStatus.Done, _status);
+            Log.Warn(_status);
+            return;
+        }
+        _status = $"'{orphan.DisplayName}' is on the screens with no previous content known — recall a look to move on.";
+        Log.Warn(_status);
     }
 
     // ---- the poll ---------------------------------------------------------------------
@@ -477,20 +572,61 @@ public sealed class StingerService : IDisposable
             var video = InputBus.For(InputKeys.Video(state.Pattern.Media.VideoPath));
             if (video is { IsEnded: true })
             {
+                // A leftover decoder was ended at the press and told to play again: until it rolls
+                // — or for a couple of seconds — its "ended" is the old ending. A player that will
+                // not roll again is a clip that could not play, and the show comes back.
+                if (ReferenceEquals(video, _mountAtFire) && _mountWasEndedAtFire && !video.IsPlaying)
+                {
+                    if ((now - _firedUtc).TotalSeconds > RestartGraceSeconds) FailedClip(now, "Clip could not play again — previous content back.");
+                    return;
+                }
                 EndSession(now);
                 return;
             }
+            if (video is { IsPlaying: true }) _mountWasEndedAtFire = false; // it rolled: any ending from here is this one
 
             // No decode after a while (libVLC missing, unreadable file): put the show back. A
             // stuck stinger never runs its after-policy — the clip never played, so moving the
             // show on would be a lie.
             var stuck = video is null || (!video.IsPlaying && video.DurationSeconds <= 0);
-            if (stuck && (now - _firedUtc).TotalSeconds > 12) FailedClip(now);
+            if (stuck && (now - _firedUtc).TotalSeconds > 12)
+            {
+                FailedClip(now, "Clip could not play — previous content back.");
+                return;
+            }
+
+            // A clip that says it plays but whose position has not moved for a good while is stuck
+            // in its decoder (a hardware decoder that gave up, a file that stopped reading): it would
+            // otherwise hold the screens for ever with a session the desk cannot end. The show comes
+            // back; the after-policy never runs, because the clip never landed.
+            if (video is { IsPlaying: true } && video.DurationSeconds > 0)
+            {
+                var position = video.PositionSeconds;
+                if (_lastPosition < 0 || Math.Abs(position - _lastPosition) > 0.05)
+                {
+                    _lastPosition = position;
+                    _positionMovedUtc = now;
+                }
+                else if ((now - _positionMovedUtc).TotalSeconds > StallSeconds)
+                {
+                    FailedClip(now, "Clip stalled — previous content back.");
+                }
+            }
         }
         catch (Exception ex)
         {
-            Log.Error("Stinger tick failed.", ex);
-            Abandon("Stinger error.", NowUtc());
+            // A probe that throws — a decoder mid-dispose, a device gone, a tally listener — must
+            // never end the session: the clip would stay on the screens with nothing owning it and
+            // STOP unable to bring the show back (the orphan of the round-14 report). The session is
+            // kept exactly as it is and the next tick reads again; the fault is counted and told
+            // once a minute.
+            TickFaults++;
+            var at = NowUtc();
+            if ((at - _lastFaultLoggedUtc).TotalSeconds >= 60)
+            {
+                _lastFaultLoggedUtc = at;
+                Log.Error("Stinger tick failed — the session is kept and the next tick reads again.", ex);
+            }
         }
     }
 
@@ -662,12 +798,13 @@ public sealed class StingerService : IDisposable
         CloseSession(giveLabelBack: true);
     }
 
-    /// <summary>The clip never played: the show comes back, the music comes back, and no after-policy runs.</summary>
-    private void FailedClip(DateTime now)
+    /// <summary>The clip never played (or stopped playing): the show comes back, the music comes back, and no after-policy runs.</summary>
+    private void FailedClip(DateTime now, string status)
     {
         StopClipIfAny(restore: true);
-        _status = "Clip could not play — previous content back.";
+        _status = status;
         Journal(ActionStatus.Failed, _status);
+        Log.Warn(_status);
         StartGain(1, now);
         CloseSession(giveLabelBack: true);
     }

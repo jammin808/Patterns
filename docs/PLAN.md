@@ -175,6 +175,20 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 17. Round 14 — the stinger triage, the crash, the next steps, the desk's surfaces
+
+The user's round-14 report and list, the show-stopping bugs first: a stinger that "does not end
+but is flagged as ended so it cannot be stopped" and takes the stings and VOGs after it with it;
+two access-violation crashes the watchdog brought back; after a restart a video sting that "tries
+to fade in and immediately fades back off"; the fractal and particle engines inside lower thirds
+on a low-spec laptop. Then the five next steps of §16.4, then the desk's surfaces (the lower-thirds
+page, the Show panel's chips, the phone's overlays, Companion's preset groups). The findings and
+the crash chain are in §18. Newest row first.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The stinger and VOG lifecycle, triaged (the chain in §18.1). Core: `StingerLibrary.ClipOnAir` / `ClipFor` / `IsClipLook` — what tells a clip left on the screens from the show, by the library's own file paths. App, `StingerService`: a tick that throws (a decoder mid-dispose, a device gone, a tally listener) is counted (`TickFaults`), logged once a minute and *carried past* — the session is kept exactly as it is and the next tick reads again; before, any exception abandoned the session without a revert, leaving the clip on the screens with nothing owning it, the tally off and STOP with nothing to stop — the report's bug. STOP means stop, session or no session: a clip on the screens that nothing owns goes, the last show that was on comes back (`BestKnownShow`: the content the last clip was fired over, else the look recorded as on air, else the one before it), the journal and the log say so, and with no show known the desk says that rather than guess. A clip fired over a dead clip saves the show, never the dead clip, as the content to return to — so the stings after a fault no longer come back to a dead picture, and a crash mid-clip never pins one as the show to recover; `AppServices.TryRecover` refuses a sidecar whose air content is a library clip. A press onto a decoder that is already open — the same file again while it plays, or a leftover the preview still references, ended — tells it to play from the top (`VideoEngine.RestartIfMounted`); until it rolls, or for two seconds, its "ended" is the old ending, and a leftover that will not roll is "Clip could not play again — previous content back" — before, the first tick read the old ending and put the show straight back, the report's "tries to play and immediately fades back off". A clip that says it plays but whose position has not moved for fifteen seconds is stuck in its decoder: the show comes back, the after-policy never runs (`StallSeconds`). `VlcFrameSource` answers every reading safely once disposed. `AppServices` raises its listeners one by one (`RaiseSafely`): a strip, a tile or a feedback sender that throws is logged and never unwinds the publish, the label or the tally that raised it. A VOG voice with no audio endpoint at all fails with a reason, never an exception. Tests: the library's clip-on-air and clip-look reads; on a live desk a tick that throws twice keeping the session and the clip ending the normal way after, STOP putting back a clip nothing owns with the journal line, STOP saying so with nothing known and using the look on air when there is one, a clip fired over a dead clip coming back to the show, the same clip pressed again playing from the top on the same decoder, a leftover ended decoder restarted by the press and one that will not roll putting the show back after the grace, a clip that stops moving putting the show back while a moving one never does, and a recovery sidecar holding a clip not put back as the show. | done |
+
 ## 15. Round 13 — the caller's clock, the audio playlist, the weather, the assistant, the desk
 
 The user's round-13 list, one green commit per item, the show-critical first: the video clock for
@@ -708,3 +722,47 @@ makes everything above testable headlessly). The instant-UX rules of §14.3 stan
 for every page added from here: never build a page on entry, a tick sets properties and never
 rebuilds a collection, edits are debounced, actions return before the picture moves, nothing on
 the UI thread waits on the network or a file.
+
+## 18. Round 14 — the answers
+
+### 18.1 The stinger that could not be stopped: the chain, read from the code
+
+**The report.** Occasionally — sometimes from the remote — a stinger "does not end but is flagged
+as ended in the interface so it cannot be stopped"; the stings and VOGs after it go wrong; there is
+no way to stop it; later the app crashed and came back; after a restart the stingers and VOGs do
+not play — a video sting "tries to play and fade in to program, but doesn't play and immediately
+fades back off"; the effect pulse kept working throughout.
+
+**What the code did.** `StingerService.Tick` runs four times a second on the UI thread and reads
+the decoder (`IsEnded`, `IsPlaying`, `DurationSeconds`), the voices and the air. Its catch block
+called `Abandon("Stinger error.")` — the path meant for an operator taking the show over — which
+clears the session, the saved content and the tally *and does not put the show back*. So one
+exception in one tick (a decoder read mid-dispose on a retire, a voice's device gone, a tally
+listener on the desk throwing inside `Changed`) left the clip on the screens as the program's
+content with nothing owning it: the interface reads "ended" (no session), STOP finds no clip to
+stop (`ClipActive` false, the saved content gone), the remote's STINGER STOP the same. That is the
+report's first sentence exactly.
+
+**Why the stings and VOGs after it went wrong.** The next press captured "the previous content" from
+the air — which was now the dead clip. Every clip after that came back to a dead picture, and the
+recovery sidecar was pinned to it too (`PinAirLook(_savedLook)`), so a crash and a relaunch put the
+dead clip back as the show. And a press of the *same* file found its decoder already mounted and
+ended: the pool keeps one decoder per file, and a press that changes nothing in the state does not
+reopen it, so the first tick after the press read the old `Ended` and put the show straight back —
+"tries to play and immediately fades back off". The effect pulse never touches a decoder, a voice
+or the session, which is why it carried on.
+
+**What changed (commit 1).** A tick that throws keeps the session and reads again (counted, logged
+once a minute); STOP puts back a clip nothing owns and says so; the content to return to is never a
+clip (the last show that was on, else the look on air); recovery refuses a clip as the show; a
+press onto an open decoder tells it to play from the top, with a grace before its old ending
+counts and a "could not play again" when it will not roll; a clip whose position stops moving for
+fifteen seconds is put back as stalled; a disposed decoder answers safely; listeners never unwind
+what raised them. Each is a test on the live desk.
+
+**What is still a guess, and how the next commit takes it out.** Which exception started the chain
+on the night is not in the journal (the log the report quotes stopped at the crash, and the tick's
+fault was logged before it as *Stinger tick failed*, a line the report does not include). The two
+exit codes are 0xC0000005 — an access violation, native code, not a managed exception — with the
+candidates in §18.2; commit 2 makes the next one leave a mini-dump and a note on the health line,
+and starts the app with hardware video decoding off after such a fault.

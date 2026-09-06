@@ -251,11 +251,12 @@ public static class HelpTopics
                 "Audio page: add a VOG (a sound over everything — the music ducks) or a STINGER (a clip, an effect or a held frame that takes the screens).",
                 "Set what happens after a stinger: back, held for your TAKE, on to the next cue, or a look.",
                 "Fire from the panel's chips, a cue, the phone, Companion, OSC or a device; STOP puts a held one back.",
+                "STOP always works: a clip on the screens that nothing owns any more goes and the last show that was on comes back — the status line says which; a clip that stops moving is put back by itself after fifteen seconds.",
                 "DUCK for an announcement from the room; STOP ALL stops every sound and never the outputs.",
             },
             "STINGER <n|name> · VOG <n|name> · STING <n|name> · STINGER STOP · DUCK ON / OFF · STOPALL · AUDIO PLAY / STOP",
             new[] { "Audio", "Panel" },
-            new[] { "vog", "stinger", "sting", "clip", "sound", "duck", "ducking", "hold", "put it back", "stop all", "effect", "particles", "fractal", "audio track", "voice of god" }),
+            new[] { "vog", "stinger", "sting", "clip", "sound", "duck", "ducking", "hold", "put it back", "stop all", "effect", "particles", "fractal", "audio track", "voice of god", "stuck", "stalled", "cannot stop", "orphan" }),
 
         new HelpTopic("lower-thirds-flow", HelpGroup.RunningTheShow,
             "Lower thirds: preview, sign-off, air, update, the show's default",

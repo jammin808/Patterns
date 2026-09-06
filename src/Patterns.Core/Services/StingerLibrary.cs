@@ -62,6 +62,53 @@ public static class StingerLibrary
     public static IEnumerable<StingerItemConfig> OfKind(ShowState state, StingerKind kind)
         => state.Stingers.Items.Where(i => i.Kind == kind);
 
+    /// <summary>
+    /// The library clip whose picture the state is showing — the program is Media / Video on one
+    /// of the show's VOG or stinger files — or null when the picture is the show's own. What tells
+    /// an orphan (a clip left on the screens with no session owning it) from content.
+    /// </summary>
+    public static StingerItemConfig? ClipOnAir(ShowState state)
+    {
+        var pattern = state.Pattern;
+        if (pattern.Kind != PatternKind.Media || pattern.Media.Source != MediaSource.Video) return null;
+        return ClipFor(state, pattern.Media.VideoPath);
+    }
+
+    public static bool IsClipOnAir(ShowState state) => ClipOnAir(state) is not null;
+
+    /// <summary>The library item that owns a video file path, or null.</summary>
+    public static StingerItemConfig? ClipFor(ShowState state, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+        foreach (var item in state.Stingers.Items)
+        {
+            if (item.Source != StingerSource.File || item.Path.Length == 0) continue;
+            if (!string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase)) continue;
+            if (PlaylistSequencer.IsVideoPath(item.Path)) return item;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// A captured look whose picture is one of the show's clips. Never the show: a recovery must
+    /// not put it back as the content, and a stinger must not save it as the content to return to.
+    /// </summary>
+    public static bool IsClipLook(ShowState state, string? lookJson)
+    {
+        if (string.IsNullOrWhiteSpace(lookJson)) return false;
+        LookData? data;
+        try
+        {
+            data = JsonUtil.Deserialize<LookData>(lookJson);
+        }
+        catch
+        {
+            return false;
+        }
+        if (data is null || data.Pattern.Kind != PatternKind.Media || data.Pattern.Media.Source != MediaSource.Video) return false;
+        return ClipFor(state, data.Pattern.Media.VideoPath) is not null;
+    }
+
     /// <summary>"VOG" / "stinger", for a sentence an operator reads.</summary>
     public static string KindWord(StingerKind kind) => kind == StingerKind.Vog ? "VOG" : "stinger";
 

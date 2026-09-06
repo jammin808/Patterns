@@ -43,7 +43,19 @@ public sealed class WasapiStingerVoice : IStingerVoice
     {
         var voice = new WasapiStingerVoice();
         using var enumerator = new MMDeviceEnumerator();
-        foreach (var device in AudioPlayerService.ResolveDevices(enumerator, deviceNames))
+        List<MMDevice> devices;
+        try
+        {
+            devices = AudioPlayerService.ResolveDevices(enumerator, deviceNames);
+        }
+        catch (Exception ex)
+        {
+            // No default endpoint at all (an HDMI screen that was the only output is off, a driver
+            // mid-restart): the press fails with a reason, never with an exception up the desk.
+            Log.Warn("No audio output could be resolved for a VOG or stinger.", ex);
+            return null;
+        }
+        foreach (var device in devices)
         {
             try
             {

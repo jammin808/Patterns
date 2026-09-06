@@ -119,9 +119,11 @@ public class StingerTests
             services.Actions.Execute(ShowActionKind.StingerStop, ActionOrigin.Desk);
             Assert.Equal("Walk-in", services.AirLabel);
 
-            // A claim made meanwhile (a look, a cue) stands.
+            // A claim made meanwhile (a look, a cue) stands. (The clip ends on a fresh decoder: an ended
+            // one found at the press is told to play again and its old ending never counts.)
             Assert.True(services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id).Ok);
             services.AirLabel = "Awards holding";
+            InputBus.Mount(InputKeys.Video(clip), new EndedSource());
             services.Stingers.Poll();
             Assert.False(services.Stingers.ClipActive);
             Assert.Equal("Awards holding", services.AirLabel);
