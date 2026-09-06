@@ -977,7 +977,9 @@ build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC
 Requires the .NET 10 SDK (LTS, supported to November 2028; .NET 8's support ends in November
 2026). A machine that still has only the .NET 8 SDK builds and tests the same tree with
 `-p:PatternsTfm=net8.0` on every `dotnet` command until .NET 10 is installed; CI and the published
-exe are .NET 10. The exe is self-contained — end users need nothing installed.
+exe are .NET 10. The exe is self-contained — end users need nothing installed — and it ships
+precompiled (ReadyToRun): the first page, the first frame of a renderer and the first cue never wait
+on the JIT. That is why it is about 88 MB rather than 50; the precompiled code is the difference.
 
 ## Versions and rolling back
 

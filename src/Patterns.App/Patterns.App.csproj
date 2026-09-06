@@ -10,6 +10,11 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets/patterns.ico</ApplicationIcon>
+    <!-- Every publish (a runtime identifier set: CI, the scripts) ships the app's, Avalonia's and every
+         package's code precompiled by crossgen2, so a page opened for the first time, a renderer's first
+         frame or the first cue never pay the JIT on the show's own time; tiered compilation still re-jits
+         the hot paths with profile data. The exe grows for it (about 88 MB against roughly 50). -->
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
