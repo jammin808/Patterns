@@ -68,12 +68,44 @@ public sealed partial class MainViewModel
         get => _selectedEntry;
         set
         {
+            var previous = _selectedEntry;
             if (!Set(ref _selectedEntry, value)) return;
+            if (previous is not null) previous.PropertyChanged -= OnSelectedEntryChanged;
+            if (value is not null) value.PropertyChanged += OnSelectedEntryChanged;
             Raise(nameof(HasEntry));
+            Raise(nameof(EntryMoreHeader));
         }
     }
 
     public bool HasEntry => _selectedEntry is not null;
+
+    private bool _entryMoreExpanded;
+
+    /// <summary>The entry editor's drop-down (company, photo, note) — folded by default so the list keeps its room; a desk setting, never saved.</summary>
+    public bool EntryMoreExpanded { get => _entryMoreExpanded; set => Set(ref _entryMoreExpanded, value); }
+
+    /// <summary>The drop-down's header reads what is folded inside it: "More — Acme Ltd · photo · note", or what is missing.</summary>
+    public string EntryMoreHeader
+    {
+        get
+        {
+            if (_selectedEntry is not { } e) return "More — company, photo, note";
+            var company = e.Company.Length > 0 ? e.Company : "no company (the brand kit's)";
+            var photo = e.Photo.Length > 0 ? "photo" : "no photo";
+            var note = e.Note.Length > 0 ? "note" : "no note";
+            return $"More — {company} · {photo} · {note}";
+        }
+    }
+
+    private void OnSelectedEntryChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(LowerThirdEntry.Company) or nameof(LowerThirdEntry.Photo) or nameof(LowerThirdEntry.Note)) Raise(nameof(EntryMoreHeader));
+    }
+
+    /// <summary>Over the pinned preview: the selected design's name and what it holds, or that none is selected.</summary>
+    public string LowerThirdPreviewTitle => _selectedLowerThird is { } d
+        ? $"{d.Name} — {d.Elements.Count} element{(d.Elements.Count == 1 ? "" : "s")}{(d.IsOnAir ? " · ON AIR" : d.IsInPreview ? " · IN PREVIEW" : "")}"
+        : "no design selected";
 
     public LowerThirdDesign? SelectedLowerThird
     {
@@ -87,6 +119,7 @@ public sealed partial class MainViewModel
             SelectedElement = value?.Elements.FirstOrDefault();
             PreviewTimeMs = value?.InMs ?? 0;
             Raise(nameof(HasLowerThird));
+            Raise(nameof(LowerThirdPreviewTitle));
             Raise(nameof(PreviewLengthMs));
         }
     }
@@ -617,8 +650,16 @@ public sealed partial class MainViewModel
             : previewLive && inPreview is not null
                 ? $"In preview: {inPreview.Name}{(inPreview.PersonName.Length > 0 ? $" — {inPreview.PersonName}" : "")} ({previewText.ToLowerInvariant()}) — on the PREVIEW pane, the multiview's Preview tile and REVIEW. TAKE TO AIR when it is signed off."
                 : "Nothing in the preview — PVW a design (or a person) to sign it off before it goes to air.";
+        var title = LowerThirdPreviewTitle;
+        if (title != _lastPreviewTitle)
+        {
+            _lastPreviewTitle = title;
+            Raise(nameof(LowerThirdPreviewTitle));   // the pinned preview's line follows ON AIR / IN PREVIEW
+        }
         return airLive || previewLive;
     }
+
+    private string _lastPreviewTitle = "";
 
     private static (LowerThirdDesign? Design, LowerThirdPhase Phase) PhaseOf(LowerThirdsConfig cfg, DateTime now)
     {

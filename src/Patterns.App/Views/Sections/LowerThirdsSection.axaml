@@ -7,8 +7,33 @@
              x:Class="Patterns.App.Views.Sections.LowerThirdsSection"
              x:DataType="vm:MainViewModel">
 
-  <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1 neon-lower" Text="Lower thirds" />
+  <Grid RowDefinitions="Auto,*" Margin="4,8,12,16">
+    <!-- Pinned: the title and the design preview stay in view while the page below scrolls. -->
+    <StackPanel Grid.Row="0" Classes="form" Name="PinnedPreview">
+      <TextBlock Classes="h1 neon-lower" Text="Lower thirds" />
+      <Grid ColumnDefinitions="Auto,10,*">
+        <TextBlock Classes="h2" Text="PREVIEW" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Classes="label" Text="{Binding LowerThirdPreviewTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </Grid>
+      <Border Background="#0B0C10" CornerRadius="8" ClipToBounds="True">
+        <Panel>
+          <c:LowerThirdPreview Name="DesignPreview" Design="{Binding SelectedLowerThird}" State="{Binding State}" TimeMs="{Binding PreviewTimeMs}" Height="250"
+                               SelectedElement="{Binding SelectedElement, Mode=TwoWay}"
+                               ToolTip.Tip="Click an element to select it; drag it to move it" />
+          <TextBlock Classes="hint" Text="No design selected — pick one under DESIGNS, or + New." HorizontalAlignment="Center" VerticalAlignment="Center"
+                     IsVisible="{Binding !HasLowerThird}" />
+        </Panel>
+      </Border>
+      <Grid ColumnDefinitions="Auto,6,Auto,8,*,8,60" Margin="0,4,0,0" IsVisible="{Binding HasLowerThird}">
+        <ToggleButton Classes="chip" Content="▶ PLAY" IsChecked="{Binding PreviewPlaying, Mode=TwoWay}" ToolTip.Tip="Run the way in, the hold and the way out, round and round" />
+        <Button Grid.Column="2" Classes="mini" Content="⟲" Command="{Binding PreviewRestartCommand}" ToolTip.Tip="Back to the start" />
+        <Slider Grid.Column="4" Minimum="0" Maximum="{Binding PreviewLengthMs}" Value="{Binding PreviewTimeMs, Mode=TwoWay}" />
+        <TextBlock Grid.Column="6" Classes="label" Text="{Binding PreviewTimeMs, StringFormat={}{0:0} ms}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" Name="PageScroll">
+    <StackPanel Classes="form" Margin="0,8,0,0">
     <TextBlock Classes="hint tip"
                Text="A name, a role, a date, a logo, a headshot — animated on and off over whatever is showing, on every screen, NDI send and the stream at once. Start from a preset, fill in the fields, PVW it for a sign-off and TAKE TO AIR — or AIR straight away. Every element is a box you can move, size and style (fill, gradient, corners, border, shadow, glow, a chaser round its edge), and every element has its own way in and out: pick a motion, or edit the keys. Designs live in the show file; save one as a file of its own to carry it to another show." />
 
@@ -80,7 +105,7 @@
           <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-              <TextBlock Classes="label" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Summary, Converter={StaticResource NotEmpty}}" />
+              <TextBlock Classes="label" Text="{Binding Role}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Role, Converter={StaticResource NotEmpty}}" />
             </StackPanel>
             <Button Grid.Column="2" Classes="mini" Content="USE" ToolTip.Tip="Into the selected design — its fields and its photo — without going anywhere"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UseEntryCommand}" CommandParameter="{Binding}" />
@@ -106,19 +131,25 @@
               <TextBlock Classes="label" Text="Role" VerticalAlignment="Center" />
               <TextBox Grid.Column="1" Text="{Binding Role, Mode=TwoWay}" Watermark="Chief Executive" />
             </Grid>
-            <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
-              <TextBlock Classes="label" Text="Company" VerticalAlignment="Center" />
-              <TextBox Grid.Column="1" Text="{Binding Company, Mode=TwoWay}" Watermark="Empty = the brand kit's company" />
-            </Grid>
-            <Grid ColumnDefinitions="110,*,8,Auto" Margin="0,4,0,0">
-              <TextBlock Classes="label" Text="Photo" VerticalAlignment="Center" />
-              <TextBox Grid.Column="1" Text="{Binding Photo, Mode=TwoWay}" Watermark="Empty = the design's picture stays" />
-              <Button Grid.Column="3" Classes="mini" Content="Browse…" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).BrowseEntryPhotoCommand}" />
-            </Grid>
-            <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
-              <TextBlock Classes="label" Text="Note" VerticalAlignment="Center" />
-              <TextBox Grid.Column="1" Text="{Binding Note, Mode=TwoWay}" Watermark="For you — pronunciation, the session — never drawn" />
-            </Grid>
+            <Expander Name="EntryMore" Header="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).EntryMoreHeader}"
+                      IsExpanded="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).EntryMoreExpanded, Mode=TwoWay}" Margin="0,4,0,0"
+                      ToolTip.Tip="The company, the photo and your note — folded away so the list keeps its room; the name and the role are what the screen shows">
+              <StackPanel Classes="form">
+                <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Company" VerticalAlignment="Center" />
+                  <TextBox Grid.Column="1" Text="{Binding Company, Mode=TwoWay}" Watermark="Empty = the brand kit's company" />
+                </Grid>
+                <Grid ColumnDefinitions="110,*,8,Auto" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Photo" VerticalAlignment="Center" />
+                  <TextBox Grid.Column="1" Text="{Binding Photo, Mode=TwoWay}" Watermark="Empty = the design's picture stays" />
+                  <Button Grid.Column="3" Classes="mini" Content="Browse…" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).BrowseEntryPhotoCommand}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Note" VerticalAlignment="Center" />
+                  <TextBox Grid.Column="1" Text="{Binding Note, Mode=TwoWay}" Watermark="For you — pronunciation, the session — never drawn" />
+                </Grid>
+              </StackPanel>
+            </Expander>
           </StackPanel>
         </DataTemplate>
       </ContentControl.ContentTemplate>
@@ -127,19 +158,7 @@
                Text="The library is every person (or line) the show will name, kept apart from the designs so one design serves the whole speaker list. USE puts an entry into the selected design — the Name, Role and Company elements read its fields, the photo lands in the picture element named Photo (else the first picture); PVW does that and puts the design in the preview for a sign-off; AIR does it and puts the design on air. A cue (Lower third on / to preview) names the design and the person; a person who is not in the library is refused before the show, so a wrong name never reaches the screen. The Show panel's PEOPLE chips, the phone's PEOPLE buttons, PERSON n / LT design WITH person on the wire and Companion put the next speaker into the design on air — or, with none on air, the show's ★ default design. Append updates a name that is already there; Photo paths are kept as written." />
 
     <StackPanel IsVisible="{Binding HasLowerThird}">
-      <TextBlock Classes="h2" Text="PREVIEW" />
-      <Border Background="#0B0C10" CornerRadius="8" ClipToBounds="True">
-        <c:LowerThirdPreview Design="{Binding SelectedLowerThird}" State="{Binding State}" TimeMs="{Binding PreviewTimeMs}" Height="250"
-                             SelectedElement="{Binding SelectedElement, Mode=TwoWay}"
-                             ToolTip.Tip="Click an element to select it; drag it to move it" />
-      </Border>
-      <Grid ColumnDefinitions="Auto,6,Auto,8,*,8,60" Margin="0,4,0,0">
-        <ToggleButton Classes="chip" Content="▶ PLAY" IsChecked="{Binding PreviewPlaying, Mode=TwoWay}" ToolTip.Tip="Run the way in, the hold and the way out, round and round" />
-        <Button Grid.Column="2" Classes="mini" Content="⟲" Command="{Binding PreviewRestartCommand}" ToolTip.Tip="Back to the start" />
-        <Slider Grid.Column="4" Minimum="0" Maximum="{Binding PreviewLengthMs}" Value="{Binding PreviewTimeMs, Mode=TwoWay}" />
-        <TextBlock Grid.Column="6" Classes="label" Text="{Binding PreviewTimeMs, StringFormat={}{0:0} ms}" VerticalAlignment="Center" HorizontalAlignment="Right" />
-      </Grid>
-      <TextBlock Classes="hint tip" Text="The timeline: the way in, then the hold (a design that waits to be hidden holds 1.5 s here), then the way out. Drag to any instant." />
+      <TextBlock Classes="hint tip" Text="The preview stays at the top of this page while you work below it. Its timeline: the way in, then the hold (a design that waits to be hidden holds 1.5 s there), then the way out. Drag the slider to any instant." />
 
       <TextBlock Classes="h2" Text="DESIGN" />
       <ContentControl Content="{Binding SelectedLowerThird}">
@@ -564,5 +583,7 @@
       </ItemsControl>
       <TextBlock Classes="hint tip" Text="Loading a file adds a new design (the file stays as it is). The designs in the show are saved with the show." />
     </StackPanel>
-  </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+  </Grid>
 </UserControl>

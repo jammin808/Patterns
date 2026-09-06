@@ -281,12 +281,13 @@ public static class HelpTopics
             new[]
             {
                 "Lower thirds page → LIBRARY: + PERSON with the name, role, company, photo and a note.",
+                "A person's row and card show the name and the role; More — the company, the photo, the note — folds away, its header saying what is inside.",
                 "On the panel, the PEOPLE chips put a person into the design on air (else the ★ default).",
                 "A cue's Lower third — show with a person names the entry; the wire and Companion have the same.",
             },
             "PERSON <n|name> · LOWERTHIRD <design> WITH <person> · LOWERTHIRD PREVIEW WITH <person>",
             new[] { "Lower thirds", "Panel", "Cues" },
-            new[] { "people", "person", "library", "speaker", "name", "role", "company", "photo", "headshot", "entry", "guest" }),
+            new[] { "people", "person", "library", "speaker", "name", "role", "company", "photo", "headshot", "entry", "guest", "more", "drop-down", "fold" }),
 
         new HelpTopic("lower-thirds", HelpGroup.RunningTheShow,
             "Lower thirds: the designer — elements, keyframes, styles, media",
@@ -295,12 +296,13 @@ public static class HelpTopics
             new[]
             {
                 "Pick a preset or start blank; add text, shapes, a photo or a clip; drag the elements on the preview.",
+                "The preview and its timeline stay at the top of the page while the rest scrolls under them; the line beside PREVIEW names the design and says when it is on air.",
                 "Keyframes give the way in and out; styles give the type, the colours and the edges.",
                 "SAVE the design; EXPORT to share it as a file; ★ makes it the show's default.",
             },
             "",
             new[] { "Lower thirds" },
-            new[] { "lower third", "designer", "design", "keyframe", "animation", "element", "text", "photo", "style", "preset", "export", "import", "graphics" }),
+            new[] { "lower third", "designer", "design", "keyframe", "animation", "element", "text", "photo", "style", "preset", "export", "import", "graphics", "preview", "pinned", "scroll" }),
 
         new HelpTopic("break-music", HelpGroup.RunningTheShow,
             "Break music (Spotify): the room between sessions",
