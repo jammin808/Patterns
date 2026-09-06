@@ -497,6 +497,21 @@ public static class HelpTopics
             new[] { "Branding", "Overlays" },
             new[] { "badge", "patterns badge", "branding", "brand", "test card", "test-card", "logo", "watermark", "expo", "rig day", "advert", "maker", "wordmark" }),
 
+        new HelpTopic("fractals", HelpGroup.Content,
+            "The fractal studio: scenes by family, the view, the palette, the sound",
+            "BUILD → Fractals: a living picture from pure maths as a pattern of its own, designed on its own page like the particles — scenes filed by family (Mandelbrot, Julia, Burning ship, Newton, Domain warp) and your own under Custom, the view, the palette (or the brand kit's colours), the sound it breathes with and the stings that surge through it.",
+            HelpBodies.Fractals,
+            new[]
+            {
+                "BUILD → Fractals: press USE IT so the Fractal is the editing target's pattern type and the page shows live in the preview; pick a scene from a family.",
+                "Shape it: the family and a Julia's c, the zoom, the centre and the detail, the motion; a palette of two to five colours, or BRAND KIT for the client's.",
+                "SOUND: This computer or an input, and how much — the level pulses the zoom, the lows drift the colours, the highs brighten (Windows only for the listening).",
+                "Save it as a preset on the Pattern page and it comes back as a chip under Custom; STINGS adds an effect pulse to fire from a cue, an F-key or Companion.",
+            },
+            "PATTERN Fractal · STING <n> (an effect pulse)",
+            new[] { "Fractals", "Pattern", "Audio" },
+            new[] { "fractal", "fractals", "fractal studio", "mandelbrot", "julia", "burning ship", "newton", "domain warp", "sound-reactive", "sound reactive", "scenes", "scene", "effect sting", "brand palette", "generative", "living picture" }),
+
         // ---- THE RIG ----------------------------------------------------------------------
         new HelpTopic("weather", HelpGroup.Content,
             "The weather chip: now, the rest of today, tomorrow",

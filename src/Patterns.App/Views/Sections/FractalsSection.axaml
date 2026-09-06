@@ -1,0 +1,122 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.FractalsSection"
+             Classes="hue-fractals"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-time" Text="Fractal studio" />
+    <TextBlock Classes="hint tip" Text="Select the Fractal pattern type — or press USE IT — to see this live. A living picture from pure maths, drawn on the graphics card at any size: start from a scene, then shape it, and let it breathe with the sound." />
+    <Button Classes="mini" Name="UseFractal" Content="USE IT — FRACTAL AS THE PATTERN" HorizontalAlignment="Left"
+            Command="{Binding UsePatternKindCommand}" CommandParameter="{x:Static m:PatternKind.Fractal}"
+            ToolTip.Tip="Makes the Fractal the editing target's pattern type, so everything on this page shows live in the preview (nothing goes to air until TAKE or SEND)" />
+
+    <TextBlock Classes="h2" Text="SCENES" />
+    <ItemsControl ItemsSource="{Binding FractalSceneGroups}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:FractalSceneGroup">
+          <StackPanel Margin="0,0,0,4">
+            <TextBlock Classes="label" Text="{Binding Category}" Margin="0,4,0,2" />
+            <ItemsControl ItemsSource="{Binding Chips}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FractalChip">
+                  <Button Classes="chip" Margin="0,2,6,2" Content="{Binding Name}"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyFractalChipCommand}"
+                          CommandParameter="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint tip" Text="A scene sets the family, the view, the depth, the motion and the palette; the sound settings below stay yours. Custom holds the presets you save on the Pattern page while Fractal is the pattern — your own scenes, beside the families." />
+
+    <TextBlock Classes="h2" Text="FAMILY" />
+    <ComboBox ItemsSource="{Binding FractalKinds}"
+              SelectedValue="{Binding ActivePattern.Fractal.Kind, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    <Grid ColumnDefinitions="130,*,8,*"
+          IsVisible="{Binding ActivePattern.Fractal.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:FractalKind.Julia}}">
+      <TextBlock Classes="label" Text="Julia c (re, im)" />
+      <NumericUpDown Grid.Column="1" Minimum="-2" Maximum="2" Increment="0.01" FormatString="0.###"
+                     Value="{Binding ActivePattern.Fractal.JuliaReal, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <NumericUpDown Grid.Column="3" Minimum="-2" Maximum="2" Increment="0.01" FormatString="0.###"
+                     Value="{Binding ActivePattern.Fractal.JuliaImag, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <TextBlock Classes="hint tip" Text="Mandelbrot and Burning ship are maps of every Julia set at once — the places on their coasts have names; a Julia is one set, chosen by c; Newton colours the plane by which root the method finds and how long it took; Domain warp is flowing noise folded into itself." />
+
+    <TextBlock Classes="h2" Text="VIEW" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Zoom" />
+      <NumericUpDown Grid.Column="1" Minimum="0.2" Maximum="1000000" Increment="0.5" FormatString="0.###"
+                     Value="{Binding ActivePattern.Fractal.Zoom, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="1 = the whole set fits the height; higher is closer in" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,8,*">
+      <TextBlock Classes="label" Text="Centre (x, y)" />
+      <NumericUpDown Grid.Column="1" Minimum="-4" Maximum="4" Increment="0.01" FormatString="0.####"
+                     Value="{Binding ActivePattern.Fractal.CenterX, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <NumericUpDown Grid.Column="3" Minimum="-4" Maximum="4" Increment="0.01" FormatString="0.####"
+                     Value="{Binding ActivePattern.Fractal.CenterY, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Detail (iterations)" />
+      <NumericUpDown Grid.Column="1" Minimum="8" Maximum="1024" Increment="8" FormatString="0"
+                     Value="{Binding ActivePattern.Fractal.Iterations, Mode=TwoWay, Converter={StaticResource Num}}"
+                     ToolTip.Tip="How deep the coast is drawn; the outputs cap it at 256 on the graphics card, and the quality ladder lowers it on a machine that falls behind" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Motion" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="5" Value="{Binding ActivePattern.Fractal.Speed, Mode=TwoWay}"
+              ToolTip.Tip="How fast the picture breathes and the colours drift; 0 holds still" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Quality" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding FractalQualities}"
+                SelectedValue="{Binding ActivePattern.Fractal.Quality, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <TextBlock Classes="hint tip" Text="Outputs, the preview and the monitors draw at full resolution on the graphics card. NDI and thumbnails draw on the CPU at a modest size and scale up — Quality sets how modest." />
+
+    <TextBlock Classes="h2" Text="COLOUR" />
+    <Grid ColumnDefinitions="130,*,8,Auto">
+      <TextBlock Classes="label" Text="Palette" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Watermark="#0B0C2A,#1E3A8A,#3EC1F3,#FFFFFF,#FFB020"
+               Text="{Binding ActivePattern.Fractal.ColorsCsv}" ToolTip.Tip="Two to five colours the picture cycles through" />
+      <Button Grid.Column="3" Classes="mini" Name="BrandPalette" Content="BRAND KIT" Command="{Binding ApplyBrandPaletteToFractalCommand}"
+              ToolTip.Tip="The brand kit's colours as the palette — background, primary, secondary, accent, text" />
+    </Grid>
+    <TextBlock Classes="hint tip" Text="The first colour is the deepest part of the picture, the last the brightest; the same palette on every output, NDI send and the stream." />
+
+    <TextBlock Classes="h2" Text="SOUND" />
+    <ComboBox ItemsSource="{Binding AudioSources}"
+              SelectedValue="{Binding ActivePattern.Fractal.AudioSource, Mode=TwoWay}"
+              SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    <Grid ColumnDefinitions="130,*,8,Auto"
+          IsVisible="{Binding ActivePattern.Fractal.AudioSource, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:AudioSourceKind.External}}">
+      <TextBlock Classes="label" Text="Input" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding AudioCaptureDevices}"
+                SelectedItem="{Binding ActivePattern.Fractal.AudioDevice, Mode=TwoWay}"
+                HorizontalAlignment="Stretch" PlaceholderText="Choose an input" />
+      <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding RefreshAudioCaptureDevicesCommand}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Amount" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ActivePattern.Fractal.AudioAmount, Mode=TwoWay}"
+              ToolTip.Tip="How much the sound moves the picture" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding FractalAudioStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip" Text="This computer's sound is whatever plays through its default output — Spotify or a video on this machine included; a Spotify Connect speaker elsewhere is not heard here. An input is a microphone, a line or an interface channel. The level pulses the zoom, the lows drift the colours, the highs brighten. Windows only." />
+
+    <TextBlock Classes="h2" Text="STINGS" />
+    <TextBlock Classes="hint tip" Text="An effect sting surges through the picture: Vortex turns it, Supernova flashes and zooms in, Quake shakes it, Freeze holds it, Gust and Slow do what they say. Add one on the Audio page and fire it like any stinger — a cue, an F-key, Companion, the wire." />
+    <Button Classes="mini" Content="ADD AN EFFECT STING" HorizontalAlignment="Left" Command="{Binding AddEffectPulseCommand}"
+            ToolTip.Tip="Adds an effect pulse to the stingers — pick its shape and length on the Audio page" />
+  </StackPanel>
+</UserControl>

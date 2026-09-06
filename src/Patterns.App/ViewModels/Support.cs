@@ -103,6 +103,12 @@ public sealed record ParticlePackGroup(string Category, IReadOnlyList<ParticleCh
 /// <summary>One preset chip: its name and what pressing it does to the editing target.</summary>
 public sealed record ParticleChip(string Name, Action Apply);
 
+/// <summary>A row of chips on the Fractals page: one family of scenes, or "Custom" for the operator's saved fractal presets.</summary>
+public sealed record FractalSceneGroup(string Category, IReadOnlyList<FractalChip> Chips);
+
+/// <summary>One scene chip on the Fractals page: its name and what pressing it does to the editing target.</summary>
+public sealed record FractalChip(string Name, Action Apply);
+
 /// <summary>
 /// One choice in a look's Music picker: leave it, pause it, or a break-music entry. The label
 /// follows a rename in place, so a bound row never loses its selected item.

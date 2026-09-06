@@ -47,7 +47,7 @@ public class LibraryTests
             b.Services.Store.SaveBrandKit("Acme", new BrandKit { CompanyName = "Acme", PrimaryColor = "#112233", SecondaryColor = "#445566" });
             vm.RefreshLibrary();
 
-            Assert.Equal(new[] { "All", "Patterns", "Images", "Videos", "Audio", "Particles", "Presets", "Brand kits" }, vm.LibrarySections);
+            Assert.Equal(new[] { "All", "Patterns", "Images", "Videos", "Audio", "Particles", "Fractals", "Presets", "Brand kits" }, vm.LibrarySections);
             Assert.Equal("All", vm.SelectedLibrarySection);
             Assert.Equal(vm.LibraryAll.Count, vm.Library.Count);
             Assert.Equal(vm.LibraryAll.Count, vm.LibraryAll.Select(i => i.Id).Distinct().Count()); // every tile its own id
@@ -137,7 +137,12 @@ public class LibraryTests
             Assert.NotNull(frame);
 
             var chips = host.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LibrarySections");
-            Assert.Equal(8, chips.ItemCount);
+            Assert.Equal(9, chips.ItemCount);
+            chips.SelectedItem = "Fractals";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Fractals", vm.SelectedLibrarySection);
+            Assert.All(vm.Library, i => Assert.Equal("Fractals", i.Section));
+            Assert.Contains(vm.Library, i => i.Name == "Seahorse valley" && i.Category == "Mandelbrot");
             chips.SelectedItem = "Particles";
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Particles", vm.SelectedLibrarySection);

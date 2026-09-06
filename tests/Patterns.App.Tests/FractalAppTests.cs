@@ -127,7 +127,7 @@ public class FractalAppTests
             Assert.Equal("Julia swirl", vm.ActivePattern.Fractal.Preset);
 
             var tile = vm.LibraryAll.Single(i => i.Name == "Burning ship");
-            Assert.Equal(("Patterns", "Effects"), (tile.Section, tile.Category));
+            Assert.Equal(("Fractals", "Burning ship"), (tile.Section, tile.Category)); // the Library files the scenes by family, like the particles
             tile.Apply();
             Assert.Equal(FractalKind.BurningShip, vm.ActivePattern.Fractal.Kind);
             Assert.Equal(PatternKind.Fractal, vm.ActivePattern.Kind);
@@ -137,7 +137,7 @@ public class FractalAppTests
             vm.RefreshAudioCaptureDevices();
             Assert.Contains("Desk mic", vm.AudioCaptureDevices); // the show's choice stays offered when the input is not here
 
-            var host = new Window { DataContext = vm, Width = 900, Height = 1600, Content = new ScrollViewer { Content = new PatternSection() } };
+            var host = new Window { DataContext = vm, Width = 900, Height = 1600, Content = new ScrollViewer { Content = new FractalsSection() } };
             host.Show();
             Dispatcher.UIThread.RunJobs();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();

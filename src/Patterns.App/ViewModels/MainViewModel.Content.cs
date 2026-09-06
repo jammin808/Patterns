@@ -1046,10 +1046,59 @@ public sealed partial class MainViewModel
 
     public string[] FractalPresetNames => FractalPresets.Names;
 
+    /// <summary>The Fractals page's chips: every family in order, then "Custom" — the operator's saved fractal presets.</summary>
+    public ObservableCollection<FractalSceneGroup> FractalSceneGroups { get; } = new();
+
+    private RelayCommand<FractalChip>? _applyFractalChip;
+
+    public RelayCommand<FractalChip> ApplyFractalChipCommand => _applyFractalChip ??= new RelayCommand<FractalChip>(chip => chip?.Apply());
+
+    private RelayCommand? _applyBrandPaletteToFractal;
+
+    /// <summary>The brand kit's five colours as the fractal's palette — the ground first, the text colour last, so a scene reads in the client's colours.</summary>
+    public RelayCommand ApplyBrandPaletteToFractalCommand => _applyBrandPaletteToFractal ??= new RelayCommand(() =>
+    {
+        var b = State.Brand;
+        var palette = string.Join(",", b.BackgroundColor, b.PrimaryColor, b.SecondaryColor, b.AccentColor, b.TextColor);
+        _services.BulkEdit(() => ActivePattern.Fractal.ColorsCsv = palette);
+        StatusMessage = $"The brand kit's colours are the fractal's palette: {palette}.";
+    });
+
+    private void RefreshFractalSceneGroups()
+    {
+        var groups = new List<FractalSceneGroup>();
+        foreach (var category in FractalPresets.Categories)
+        {
+            groups.Add(new FractalSceneGroup(category, FractalPresets.In(category)
+                .Select(scene => new FractalChip(scene.Name, () => _services.BulkEdit(() => FractalPresets.Apply(scene.Name, ActivePattern.Fractal))))
+                .ToList()));
+        }
+        var custom = new List<FractalChip>();
+        foreach (var (name, path) in _services.Store.ListPresets())
+        {
+            var p = path;
+            if (_services.Store.LoadPreset(p) is not { Kind: PatternKind.Fractal }) continue;
+            custom.Add(new FractalChip(name, () =>
+            {
+                if (_services.Store.LoadPreset(p) is not { } cfg) return;
+                _services.BulkEdit(() => ModelCopier.Copy(cfg.Fractal, ActivePattern.Fractal));
+            }));
+        }
+        if (custom.Count > 0) groups.Add(new FractalSceneGroup("Custom", custom));
+        if (FractalSceneGroups.Count == groups.Count &&
+            FractalSceneGroups.Zip(groups).All(z => z.First.Category == z.Second.Category &&
+                                                    z.First.Chips.Select(c => c.Name).SequenceEqual(z.Second.Chips.Select(c => c.Name))))
+        {
+            return; // the same chips: leave the page alone
+        }
+        FractalSceneGroups.Clear();
+        foreach (var g in groups) FractalSceneGroups.Add(g);
+    }
+
     // ---- library ------------------------------------------------------------
 
     /// <summary>The section chips, in the order they are shown; "All" first.</summary>
-    public static readonly string[] SectionNames = { "All", "Patterns", "Images", "Videos", "Audio", "Particles", "Presets", "Brand kits" };
+    public static readonly string[] SectionNames = { "All", "Patterns", "Images", "Videos", "Audio", "Particles", "Fractals", "Presets", "Brand kits" };
 
     public string[] LibrarySections => SectionNames;
 
@@ -1149,6 +1198,7 @@ public sealed partial class MainViewModel
     private void BuildLibrary()
     {
         RefreshParticlePackGroups();
+        RefreshFractalSceneGroups();
         LibraryAll.Clear();
         foreach (var b in BuiltInPresets.All)
         {

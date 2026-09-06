@@ -801,6 +801,11 @@
     <Setter Property="Background" Value="#1AFFC24D" />
   </Style>
   <Style Selector=":is(UserControl).hue-particles Border.panel"><Setter Property="BorderBrush" Value="#40FFC24D" /></Style>
+  <Style Selector=":is(UserControl).hue-fractals TextBlock.h2">
+    <Setter Property="Foreground" Value="#FFC24D" />
+    <Setter Property="Background" Value="#1AFFC24D" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-fractals Border.panel"><Setter Property="BorderBrush" Value="#40FFC24D" /></Style>
   <Style Selector=":is(UserControl).hue-branding TextBlock.h2">
     <Setter Property="Foreground" Value="#FFC24D" />
     <Setter Property="Background" Value="#1AFFC24D" />

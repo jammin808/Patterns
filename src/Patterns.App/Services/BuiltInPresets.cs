@@ -89,15 +89,15 @@ public static class BuiltInPresets
         Add("Motion", "Frame flash", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.FrameFlash; });
         Add("Motion", "Zone plate", p => { p.Kind = PatternKind.Motion; p.Motion.Variant = MotionVariant.ZonePlate; });
 
-        // Effects: the fractal scenes.
-        foreach (var scene in FractalPresets.Names)
+        // Fractals: every scene of every family, filed under its family.
+        foreach (var scene in FractalPresets.Scenes)
         {
-            var name = scene;
-            Add("Effects", name, p =>
+            var name = scene.Name;
+            list.Add(new BuiltInPreset(scene.Category, name, p =>
             {
                 p.Kind = PatternKind.Fractal;
                 FractalPresets.Apply(name, p.Fractal);
-            });
+            }, "Fractals"));
         }
 
         // Particles: every scene of every pack, filed under its pack.

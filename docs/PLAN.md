@@ -2153,3 +2153,71 @@ an NDI send's own screen and PGM; the foot line a button on every screen tile an
 the click opening SETUP → Screens on that screen with the status line saying so; a role changed
 there reading on the tile and its badge at once, a mirror changed there naming the new source at
 once; PGM's foot line going nowhere; the Help words in both places.
+
+## 25. Round 18 — the studio, the sim, the start and the runtime
+
+The user's round-18 brief, four questions: "Fractals needs its own menu area like Particles";
+"Does Particles need the careful stability and speed and resilience handling and treatments we
+used for Fractals?"; "How can start up and manual restart be made faster?"; "Can more be done
+now .NET 10 is used?" With them the standing rule: stability, resilience, efficiency, UX,
+performance across system specs, durability and an easy show workflow; every change instant;
+game-play architecture with corporate stability. Each question was answered by reading the
+code first — the Particles page end to end, every treatment the fractals were given and what the
+particle sim has, the whole start-up and exit path, the project settings and every hot loop —
+and then building what the reading said. The answers are §26. Newest row first. The checklist
+for the Windows machine is `docs/CHECKLIST-round18.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The Fractals page (§26.1). BUILD → Fractals, between Particles and Branding, built the way the Particles page is built: a Fractal studio with SCENES filed by family — Mandelbrot (classic, Seahorse valley, Elephant valley, Spiral arm, Mini-brot, Triple spiral valley), Julia (swirl, dragon, Douady's rabbit, Dendrite, San Marco, Siegel disk, Galaxy spiral), Burning ship (the ship, The armada, Ship's mast), Newton (triad, coast, lace), Domain warp (lava, ocean, smoke, aurora, neon) — twenty-four scenes where there were eight, and the operator's saved fractal presets under Custom; FAMILY (the maths, a Julia's c), VIEW (zoom, centre, detail, motion, CPU quality), COLOUR (the palette, or BRAND KIT for the kit's five colours at a press), SOUND (this computer or an input, the amount, the analyser's status line) and STINGS (ADD AN EFFECT STING); USE IT makes the Fractal the editing target's pattern so the page shows live. The Pattern page keeps a pointer with OPEN FRACTALS while Fractal is the pattern, and the particles' pointer gets OPEN PARTICLES to match; the Library files every scene under a Fractals section by family; a Help topic ("fractals") with the words a user would search; the Workflow and Shell help name the page. `FractalPresets.Scene` carries its family; `Categories` and `In(family)` mirror the particle packs; a scene still never touches the sound settings. Tests: the families in order with every scene under one, every scene applying with its name and rastering clean with the sound left alone; on the desk the chips by family, USE IT, a chip leaving the sound settings alone, the brand palette, a saved fractal preset as a Custom chip and a grid preset kept out, the Library section, the page rendering with every chip and its buttons, the rail order and the BUILD hint, the Pattern page's OPEN FRACTALS opening the page, OPEN PARTICLES, an unknown header ignored, the Help topic and words. | done |
+
+## 26. Round 18 — the answers
+
+### 26.1 The Fractals page: the same studio, by family
+
+The Particles page had been a page of its own since round 9 — packs of scenes as chips, then the
+emitter, the shape, the motion and the colour — while the fractal lived as a block at the bottom
+of the Pattern page, shown only while Fractal was the pattern kind: eight scene chips in one row,
+the family, the view, the palette, the quality and the sound. It worked, and it hid: a page that
+is a form of every pattern kind's controls has no room for a studio, the sound block was the
+only sound-reactive thing on the desk and sat under a pattern's zoom field, and nothing on the
+BUILD rail said the fractal existed.
+
+The page is built the way the Particles page is built, on purpose — the same class on the
+control (`hue-fractals`, the BUILD amber), the same h1 and h2 bands, the same two-level chip
+list (a family, then its scenes), the same Custom row from the saved presets of that kind, the
+same place on the rail (after Particles), the same pointer on the Pattern page — so an operator
+who knows one page knows the other. What the fractal has that the particles do not, it keeps:
+the sound block, the CPU quality, a Julia's constant, and a STINGS band that says what an effect
+pulse does to the picture and adds one. Two small things went in beside it because they cost
+nothing and the page is where they belong: USE IT (a `UsePatternKindCommand`) makes the Fractal
+the editing target's pattern type so the page shows live without a trip to the Pattern page,
+and BRAND KIT puts the kit's five colours on the palette in the order the picture reads them —
+the ground first, the text colour last. The Pattern page's pointers for both studios now carry
+a button (OPEN FRACTALS, OPEN PARTICLES) through one `OpenPageCommand` that takes a header, so a
+page moved on the rail never breaks them; the pointer sentences are hints, hidden by default,
+and a button is what an operator sees.
+
+The scenes were the other half of "like Particles". Eight scenes in one row are a list; thirty
+in packs are a studio. `FractalPresets.Scene` carries its family now, `Categories` and
+`In(family)` mirror `ParticlePresets`, and the families hold the places people know by name:
+the coast of the Mandelbrot set (Seahorse valley, Elephant valley, a spiral arm, the mini-brot
+on the real axis, the triple spiral valley), the Julia constants drawn first in every textbook
+(Douady's rabbit, the dendrite, San Marco, a Siegel disk, a galaxy spiral), the burning ship's
+armada and mast down the real axis, Newton's basins at three zooms, and five domain warps that
+differ by palette and pace. A scene sets the family, the view, the depth, the motion and the
+palette and still never the sound — the round-9 rule, and its test, hold. The Library files them
+under a Fractals section by family, as it files the particles by pack.
+
+Not done: a live thumbnail per chip. The Particles page has none either, the preview pane is
+the live picture, and a raster per chip would be twenty-four fractal draws on a page open.
+
+Tests: the families in order with every scene under exactly one, every scene applying with its
+name, keeping the operator's sound settings and rastering clean on the CPU path with a palette
+of two to five colours; on the desk the chips by family, USE IT making the Fractal the pattern
+with the status saying so, a chip applying a scene with the sound left alone, the brand palette
+in order, a saved fractal preset as a Custom chip with a grid preset kept out and the chip
+restoring the saved zoom, the Library section and a scene's family, the page rendering with
+every chip and the two buttons bound to their commands; the rail order after Particles and the
+BUILD hint, the Pattern page's OPEN FRACTALS visible with Fractal as the pattern and opening the
+page, OPEN PARTICLES, an unknown header ignored by the command, the Help topic's pages and words.

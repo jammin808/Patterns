@@ -199,6 +199,25 @@ public sealed partial class MainViewModel
     public RelayCommand<ShellGroup> SelectGroupCommand { get; private set; } = null!;
     public RelayCommand<int> SelectPageCommand { get; private set; } = null!;
 
+    private RelayCommand<string>? _openPage;
+
+    /// <summary>A page by its header — the pointer buttons on the Pattern page (OPEN FRACTALS, OPEN PARTICLES) use it, so a moved page never breaks them.</summary>
+    public RelayCommand<string> OpenPageCommand => _openPage ??= new RelayCommand<string>(header =>
+    {
+        if (header is null || Shell.Pages.All(p => p.Header != header)) return;
+        SelectPage(Shell.IndexOf(header));
+    });
+
+    private RelayCommand<PatternKind>? _usePatternKind;
+
+    /// <summary>USE IT on a studio page: makes that kind the editing target's pattern, so the studio shows live in the preview.</summary>
+    public RelayCommand<PatternKind> UsePatternKindCommand => _usePatternKind ??= new RelayCommand<PatternKind>(kind =>
+    {
+        if (ActivePattern.Kind == kind) return;
+        _services.BulkEdit(() => ActivePattern.Kind = kind);
+        StatusMessage = $"{Lists.PatternKinds.First(k => Equals(k.Value, kind)).Label} is the pattern now — the studio shows live in the preview.";
+    });
+
     /// <summary>PREP · SHOW · RUN in the header: the first two are the show mode, RUN is the layout.</summary>
     public bool IsPrepSelected => !_isRunLayout && IsPrepMode;
     public bool IsShowSelected => !_isRunLayout && !IsPrepMode;

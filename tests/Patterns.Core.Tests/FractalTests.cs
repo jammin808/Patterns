@@ -189,6 +189,35 @@ public class FractalMathTests
         Assert.Equal("", new FractalOptions { AudioDevice = null! }.AudioDevice);
         Assert.Equal(8, new FractalOptions { Iterations = 1 }.Iterations);
     }
+
+    /// <summary>The Fractals page's rows: every scene filed under its family, the families in order, and every scene rastering clean on the CPU path.</summary>
+    [Fact]
+    public void TheScenesAreFiledByFamilyAndEveryOneRastersClean()
+    {
+        Assert.Equal(new[] { "Mandelbrot", "Julia", "Burning ship", "Newton", "Domain warp" }, FractalPresets.Categories);
+        Assert.Equal(FractalPresets.Scenes.Count, FractalPresets.Categories.Sum(c => FractalPresets.In(c).Count()));
+        Assert.True(FractalPresets.Scenes.Count >= 24, $"{FractalPresets.Scenes.Count} scenes");
+        Assert.Equal("Mandelbrot classic", FractalPresets.Names[0]);
+        Assert.All(FractalPresets.In("Julia"), s => { var o = new FractalOptions(); s.Apply(o); Assert.Equal(FractalKind.Julia, o.Kind); });
+        Assert.Contains(FractalPresets.In("Julia"), s => s.Name == "Douady's rabbit");
+        Assert.Contains(FractalPresets.In("Domain warp"), s => s.Name == "Domain warp aurora");
+
+        FractalSurface? surface = null;
+        foreach (var scene in FractalPresets.Scenes)
+        {
+            var o = new FractalOptions { AudioSource = AudioSourceKind.External, AudioDevice = "Desk mic", AudioAmount = 0.7 };
+            FractalPresets.Apply(scene.Name, o);
+            Assert.Equal(scene.Name, o.Preset);
+            Assert.Equal(("Desk mic", 0.7, AudioSourceKind.External), (o.AudioDevice, o.AudioAmount, o.AudioSource)); // the sound stays the operator's
+            var palette = o.ColorsCsv.Split(',').Select(SKColor.Parse).ToArray();
+            Assert.InRange(palette.Length, 2, 5);
+            var view = FractalView.Of(o, 1.0, AudioLevelFrame.Zero, 256);
+            surface = FractalRaster.Render(surface, new SKSizeI(64, 36), o.Kind, palette, view);
+            var distinct = surface.Pixels.Distinct().Count();
+            Assert.True(distinct >= 3, $"{scene.Name} rastered {distinct} colours");
+        }
+        surface?.Dispose();
+    }
 }
 
 /// <summary>The sound side: a window of samples into bands, the follower, and the channel's staleness.</summary>
