@@ -71,6 +71,35 @@ public static class OscFeedback
                 Text(list, weather, "text", "weather/text");
                 Text(list, weather, "figure", "weather/figure");
             }
+            // The overlays: the clock (on, its hours, seconds, date), the message (on, the words, scrolling), the countdown (on, phase, label, target, what is left), the logo, the PiP, the line.
+            if (root.TryGetProperty("overlays", out var overlays) && overlays.ValueKind == JsonValueKind.Object)
+            {
+                if (overlays.TryGetProperty("clock", out var clock) && clock.ValueKind == JsonValueKind.Object)
+                {
+                    Flag(list, clock, "on", "clock");
+                    list.Add(OscMessage.Of(Prefix + "clock/hours", Int(clock, "hours")));
+                    Flag(list, clock, "seconds", "clock/seconds");
+                    Flag(list, clock, "date", "clock/date");
+                }
+                if (overlays.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.Object)
+                {
+                    Flag(list, message, "on", "message");
+                    Text(list, message, "text", "message/text");
+                    Flag(list, message, "scroll", "message/scroll");
+                }
+                if (overlays.TryGetProperty("countdown", out var countdown) && countdown.ValueKind == JsonValueKind.Object)
+                {
+                    Flag(list, countdown, "on", "countdown");
+                    Text(list, countdown, "phase", "countdown/phase");
+                    Text(list, countdown, "label", "countdown/label");
+                    Text(list, countdown, "target", "countdown/target");
+                    list.Add(OscMessage.Of(Prefix + "countdown/remaining", Int(countdown, "remaining")));
+                    Text(list, countdown, "text", "countdown/text");
+                }
+                if (overlays.TryGetProperty("logo", out var logo) && logo.ValueKind == JsonValueKind.Object) Flag(list, logo, "on", "logo");
+                if (overlays.TryGetProperty("pip", out var pip) && pip.ValueKind == JsonValueKind.Object) Flag(list, pip, "on", "pip");
+                Text(list, overlays, "text", "overlays/text");
+            }
             Flag(list, root, "frozen", "freeze");
             Flag(list, root, "editSafe", "editsafe");
             Text(list, root, "previousLook", "look/previous");

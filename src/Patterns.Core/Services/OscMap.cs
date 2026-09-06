@@ -68,6 +68,12 @@ public static class OscMap
         ("/patterns/cue/arm 1|0", "CUE ARM ON / OFF — only while the Remote page allows remotes to arm"),
         ("/patterns/review [1|0]", "REVIEW ON / OFF — the preview full-frame on every multiview; no argument toggles"),
         ("/patterns/weather [1|0|now|day|tomorrow]", "WEATHER ON / OFF — the weather chip on air; no argument toggles; a view word (also /patterns/weather/tomorrow) picks what it shows"),
+        ("/patterns/clock [1|0|12|24]", "CLOCK ON / OFF — the clock overlay; no argument toggles; 12 or 24 sets the hours (also /patterns/clock/24); /patterns/clock/seconds [1|0] and /patterns/clock/date [1|0] the seconds and the date line"),
+        ("/patterns/message [1|0|\"text\"]", "MESSAGE ON / OFF — the message overlay; no argument toggles; a text puts the words on (also /patterns/message/text \"…\"); /patterns/message/scroll [1|0] makes it a ticker"),
+        ("/patterns/countdown <minutes>", "COUNTDOWN START — a duration from now (also /patterns/countdown/start 5, /patterns/countdown/start/2:30); /patterns/countdown/to \"19:30\" a time of day; /patterns/countdown/stop; /patterns/countdown/label \"text\""),
+        ("/patterns/logo [1|0]", "LOGO ON / OFF — the brand logo overlay; no argument toggles"),
+        ("/patterns/pip [1|0]", "PIP ON / OFF — the picture-in-picture inset; no argument toggles"),
+        ("/patterns/overlays/off", "OVERLAYS OFF — the clock, the message, the countdown, the logo, the PiP and the weather chip all off"),
         ("/patterns/freeze [1|0]", "FREEZE ON / OFF — every output holds its frame; no argument toggles"),
         ("/patterns/fade [seconds]", "FADE — blackout with a fade of that many seconds (none: the show's transition time); /fade/up [seconds] lifts it"),
         ("/patterns/lookback", "LOOKBACK — the look that was on air before the current one, back on air"),
@@ -333,6 +339,58 @@ public static class OscMap
                 return what.ToLowerInvariant() is "off" or "stop" or "skip" or "end" ? "ADVERT OFF" : "ADVERT " + what;
             }
             case "schedule": return "SCHEDULE " + Switch(m, seg, "ON", toggles: false);
+            // The overlays: /patterns/clock [1|0] · /patterns/clock/24 · /patterns/clock/seconds 0 · /patterns/message "Doors open" · /patterns/message/scroll 1 ·
+            // /patterns/countdown 5 · /patterns/countdown/start/2:30 · /patterns/countdown/to "19:30" · /patterns/countdown/stop · /patterns/logo · /patterns/pip · /patterns/overlays/off
+            case "clock":
+            {
+                var what = seg.ToLowerInvariant();
+                if (what is "12" or "24") return "CLOCK " + what;
+                if (what is "seconds" or "secs") return "CLOCK SECONDS " + Switch(m, seg2, "TOGGLE", toggles: true);
+                if (what is "date") return "CLOCK DATE " + Switch(m, seg2, "TOGGLE", toggles: true);
+                if (what is "format" or "hours")
+                {
+                    var hours = seg2.Length > 0 ? seg2 : m.Number() is { } h ? ((int)Math.Round(h)).ToString(CultureInfo.InvariantCulture) : m.Text() ?? "";
+                    return hours is "12" or "24" ? "CLOCK " + hours : null;
+                }
+                if (seg.Length == 0 && m.Number() is { } n && (int)Math.Round(n) is 12 or 24) return "CLOCK " + (int)Math.Round(n);
+                return "CLOCK " + Switch(m, seg, "TOGGLE", toggles: true);
+            }
+            case "message":
+            case "msg":
+            {
+                var what = seg.ToLowerInvariant();
+                if (what is "scroll" or "ticker") return "MESSAGE SCROLL " + Switch(m, seg2, "TOGGLE", toggles: true);
+                if (what is "text" or "say")
+                {
+                    var words = seg2.Length > 0 ? string.Join(" ", parts.Skip(2)) : m.Text() ?? "";
+                    return words.Length == 0 ? null : "MESSAGE " + words;
+                }
+                if (what is "on" or "off" or "toggle") return "MESSAGE " + Switch(m, seg, "TOGGLE", toggles: true);
+                if (seg.Length > 0) return "MESSAGE " + string.Join(" ", parts.Skip(1));   // /patterns/message/Doors%20open — the words as the address
+                // A string that is not a switch word is the message's words; a number, a bool, a switch word or nothing is the switch.
+                if (m.Args.FirstOrDefault() is string typed && typed.Trim().ToLowerInvariant() is not ("on" or "off" or "toggle" or "1" or "0" or "")) return "MESSAGE " + typed.Trim();
+                return "MESSAGE " + Switch(m, seg, "TOGGLE", toggles: true);
+            }
+            case "ticker": return "MESSAGE SCROLL " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "countdown":
+            case "timer":
+            {
+                var what = seg.ToLowerInvariant();
+                var value = seg2.Length > 0 ? string.Join(" ", parts.Skip(2)) : m.Text() ?? m.Number()?.ToString(CultureInfo.InvariantCulture) ?? "";
+                switch (what)
+                {
+                    case "stop": case "off": case "hide": case "clear": return "COUNTDOWN STOP";
+                    case "start": case "on": case "go": return value.Length == 0 ? "COUNTDOWN START" : "COUNTDOWN START " + value;
+                    case "to": case "at": case "until": return value.Length == 0 ? null : "COUNTDOWN TO " + value;
+                    case "label": case "text": case "title": return value.Length == 0 ? null : "COUNTDOWN LABEL " + value;
+                    case "":
+                        return value.Length == 0 ? null : value.ToLowerInvariant() is "stop" or "off" ? "COUNTDOWN STOP" : "COUNTDOWN START " + value;
+                    default: return "COUNTDOWN START " + seg;   // /patterns/countdown/5
+                }
+            }
+            case "logo": return "LOGO " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "pip": return "PIP " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "overlays": return seg.Length == 0 || seg.ToLowerInvariant() is "off" or "clear" or "none" ? "OVERLAYS OFF" : null;
             case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
             // /patterns/weather 1|0 · /patterns/weather/on · /patterns/weather/tomorrow · /patterns/weather "day": the switch, or the view.
             case "weather": case "forecast":

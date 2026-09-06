@@ -2,8 +2,8 @@ namespace Patterns.App.Services;
 
 /// <summary>
 /// The phone / tablet remote — one page, embedded so there is no file to lose: a sticky header
-/// that names what is on air with its chips and a connection dot, a menu of seven tabs (SHOW,
-/// CUES, LOOKS, SCREENS, AUDIO, LOWER THIRDS, SETUP) that every phone remembers, and controls
+/// that names what is on air with its chips and a connection dot, a menu of eight tabs (SHOW,
+/// CUES, LOOKS, SCREENS, AUDIO, LOWER THIRDS, OVERLAYS, SETUP) that every phone remembers, and controls
 /// big enough for a thumb at the tech table. Every button sends the same one-line command the
 /// TCP port takes; the state comes back on the long-poll the caller's page uses, so the page
 /// changes within the push throttle instead of polling.
@@ -83,6 +83,9 @@ public sealed partial class ControlService
   #err { position:fixed; left:0; right:0; bottom:0; padding:6px; background:var(--bg); color:var(--bad); font-size:13px; min-height:18px; text-align:center; }
   a.link { display:flex; align-items:center; justify-content:center; min-height:56px; border:1px solid var(--line); border-radius:12px; color:var(--acc); text-decoration:none; font-weight:700; background:var(--panel); }
   .card + .card { margin-top:10px; }
+  .txt { display:block; width:100%; border:1px solid var(--line); border-radius:12px; background:var(--panel); color:var(--text); font:inherit; padding:14px 12px; min-height:56px; margin:0 0 10px; }
+  .txt:focus { outline:none; border-color:var(--acc); }
+  #cdnow { font-size:26px; font-weight:800; margin:4px 0 10px; }
 </style>
 </head>
 <body>
@@ -104,6 +107,7 @@ public sealed partial class ControlService
     <button data-tab="screens">SCREENS</button>
     <button data-tab="audio">AUDIO</button>
     <button data-tab="lower">LOWER THIRDS</button>
+    <button data-tab="overlays">OVERLAYS</button>
     <button data-tab="setup">SETUP</button>
   </nav>
 </header>
@@ -239,6 +243,49 @@ public sealed partial class ControlService
   <div id="people" class="grid row2"></div>
 </section>
 
+<section id="tab-overlays">
+  <div class="sec">CLOCK</div>
+  <div class="grid"><button id="clock" onclick="cmd('CLOCK TOGGLE')">CLOCK</button></div>
+  <div class="grid row3">
+    <button id="clockhours" onclick="clockHours()" title="12-hour or 24-hour">24 H</button>
+    <button id="clocksecs" onclick="cmd('CLOCK SECONDS TOGGLE')" title="The seconds shown or not">SECONDS</button>
+    <button id="clockdate" onclick="cmd('CLOCK DATE TOGGLE')" title="The date line shown or not">DATE</button>
+  </div>
+  <div class="sec">MESSAGE</div>
+  <input id="msgtext" class="txt" placeholder="The words on screen" autocomplete="off">
+  <div class="grid row3">
+    <button class="go" onclick="msgShow()">SHOW</button>
+    <button class="stop" onclick="cmd('MESSAGE OFF')">HIDE</button>
+    <button id="msgscroll" onclick="cmd('MESSAGE SCROLL TOGGLE')" title="The message as a ticker across the screen">SCROLL</button>
+  </div>
+  <div id="msgline" class="line"></div>
+  <div class="sec">COUNTDOWN</div>
+  <div id="cdnow" class="line center"></div>
+  <div class="grid row3">
+    <button onclick="cmd('COUNTDOWN START 1')">1 MIN</button>
+    <button onclick="cmd('COUNTDOWN START 5')">5 MIN</button>
+    <button onclick="cmd('COUNTDOWN START 15')">15 MIN</button>
+  </div>
+  <input id="cdmins" class="txt" placeholder="Minutes — 10, 2:30, 90s" autocomplete="off">
+  <div class="grid row2">
+    <button class="go" onclick="cdStart()">START</button>
+    <button class="stop" onclick="cmd('COUNTDOWN STOP')">STOP</button>
+  </div>
+  <input id="cdtime" class="txt" placeholder="Or a time of day — 19:30" autocomplete="off">
+  <div class="grid"><button onclick="cdTo()">COUNT DOWN TO THAT TIME</button></div>
+  <input id="cdlabel" class="txt" placeholder="The words over the digits — SHOW STARTS IN" autocomplete="off">
+  <div class="grid"><button onclick="cdLabel()">SET THE LABEL</button></div>
+  <div class="sec">LOGO · PIP · WEATHER</div>
+  <div class="grid row3">
+    <button id="logo" onclick="cmd('LOGO TOGGLE')">LOGO</button>
+    <button id="pip" onclick="cmd('PIP TOGGLE')">PIP</button>
+    <button id="weather2" onclick="cmd('WEATHER TOGGLE')">WEATHER</button>
+  </div>
+  <div id="ovline" class="line"></div>
+  <div class="grid" style="margin-top:12px"><button class="stop" onclick="cmd('OVERLAYS OFF')">ALL OVERLAYS OFF</button></div>
+  <div class="line">Everything here changes what the audience sees at once. Sizes, colours and places are set on the desk's Overlays page.</div>
+</section>
+
 <section id="tab-setup">
   <div class="card">
     <div class="sec" style="margin-top:0">THIS SHOW</div>
@@ -267,7 +314,7 @@ public sealed partial class ControlService
 <div id="err"></div>
 <script>
 var st = null, rev = 0, standbyId = '', stopArmedUntil = 0;
-var TABS = ['show', 'cues', 'looks', 'screens', 'audio', 'lower', 'setup'];
+var TABS = ['show', 'cues', 'looks', 'screens', 'audio', 'lower', 'overlays', 'setup'];
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
 function err(t){ document.getElementById('err').textContent = t || ''; }
 function cmd(c) {
@@ -303,6 +350,14 @@ function btn(html, cls, on){ var b = document.createElement('button'); b.innerHT
 var ltPvw = false; try { ltPvw = localStorage.getItem('patterns.ltpvw') === '1'; } catch (e) {}
 function ltPvwFirst(){ ltPvw = !ltPvw; try { localStorage.setItem('patterns.ltpvw', ltPvw ? '1' : '0'); } catch (e) {} if (st) render(st); }
 function fill(id, html){ document.getElementById(id).innerHTML = html; }
+// OVERLAYS — the clock's hours flip, the message's words, the countdown's minutes, time and label.
+function clockHours(){ var c = st && st.overlays && st.overlays.clock; cmd('CLOCK ' + (c && c.hours === 12 ? '24' : '12')); }
+function msgShow(){ var t = document.getElementById('msgtext').value.trim(); cmd(t ? 'MESSAGE ' + t : 'MESSAGE ON'); }
+function cdStart(){ var v = document.getElementById('cdmins').value.trim(); cmd(v ? 'COUNTDOWN START ' + v : 'COUNTDOWN START'); }
+function cdTo(){ var v = document.getElementById('cdtime').value.trim(); if (v) cmd('COUNTDOWN TO ' + v); else err('Type a time of day first — 19:30'); }
+function cdLabel(){ var v = document.getElementById('cdlabel').value.trim(); if (v) cmd('COUNTDOWN LABEL ' + v); else err('Type the words first'); }
+// A box the show fills until you type in it: it follows the air while it still reads what the air last said.
+function follow(id, text){ var el = document.getElementById(id); if (document.activeElement === el) return; if (el.value === (el.dataset.last || '')) { el.value = text || ''; el.dataset.last = text || ''; } }
 function render(s) {
   st = s; rev = s.rev || 0;
   var c = s.cuestack || {};
@@ -466,6 +521,26 @@ function render(s) {
     var cls = s.lowerThirdPerson === x.name ? 'lit' : (s.lowerThirdPreviewPerson === x.name ? 'pvw' : '');
     pe.appendChild(btn(esc(x.name) + (x.role ? '<br><span class="k">' + esc(x.role) + '</span>' : ''), cls, function(){ cmd(ltPvw ? 'LT PREVIEW WITH ' + x.n : 'PERSON ' + x.n); }));
   });
+
+  // OVERLAYS — the clock, the message, the countdown, the logo and the PiP: every key reads the air.
+  var ov = s.overlays || {}, ck = ov.clock || {}, mg = ov.message || {}, cd = ov.countdown || {}, lg = ov.logo || {}, pp = ov.pip || {};
+  var ckb = document.getElementById('clock');
+  ckb.classList.toggle('lit', !!ck.on); ckb.textContent = ck.on ? 'CLOCK — ON (hide)' : 'CLOCK';
+  document.getElementById('clockhours').textContent = ck.hours === 12 ? '12 H · tap for 24' : '24 H · tap for 12';
+  var cks = document.getElementById('clocksecs'); cks.classList.toggle('lit', !!ck.seconds); cks.textContent = ck.seconds ? 'SECONDS — ON' : 'SECONDS';
+  var ckd = document.getElementById('clockdate'); ckd.classList.toggle('lit', !!ck.date); ckd.textContent = ck.date ? 'DATE — ON' : 'DATE';
+  follow('msgtext', mg.text);
+  var mgs = document.getElementById('msgscroll'); mgs.classList.toggle('lit', !!mg.scroll); mgs.textContent = mg.scroll ? 'SCROLL — ON' : 'SCROLL';
+  document.getElementById('msgline').textContent = mg.on ? 'On air: ' + (mg.text || '(blank)') + (mg.scroll ? ' — scrolling' : '') : 'Message off' + (mg.text ? ' — last: ' + mg.text : '');
+  var cdn = document.getElementById('cdnow');
+  cdn.textContent = cd.on ? (cd.phase === 'over' ? cd.text : (cd.text || '') + (cd.target ? ' — to ' + cd.target : '')) : 'Countdown off';
+  cdn.classList.toggle('out', cd.phase === 'over');
+  cdn.classList.toggle('lit', cd.phase === 'running');
+  follow('cdlabel', cd.label);
+  var lgb = document.getElementById('logo'); lgb.classList.toggle('lit', !!lg.on); lgb.textContent = lg.on ? 'LOGO — ON (hide)' : 'LOGO';
+  var ppb = document.getElementById('pip'); ppb.classList.toggle('lit', !!pp.on); ppb.textContent = pp.on ? 'PIP — ON (hide)' : 'PIP';
+  var wt2 = document.getElementById('weather2'); wt2.classList.toggle('lit', !!wx.on); wt2.textContent = wx.on ? 'WEATHER — ON (hide)' : 'WEATHER';
+  document.getElementById('ovline').textContent = ov.text || '';
 
   // SETUP
   document.getElementById('showname').textContent = s.show || 'Patterns';

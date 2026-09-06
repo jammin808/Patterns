@@ -153,6 +153,42 @@ public enum RemoteCommandKind
     VideoToEnd,
     /// <summary>"VIDEO RESTART" (START / TOP / REWIND) — the clip on air plays again from its start.</summary>
     VideoRestart,
+    /// <summary>"CLOCK ON" / "CLOCK OFF" / "CLOCK TOGGLE" (bare "CLOCK" toggles; SHOW / HIDE are aliases) — the clock overlay on air, or gone.</summary>
+    ClockOn,
+    ClockOff,
+    ClockToggle,
+    /// <summary>"CLOCK 12" / "CLOCK 24" — the clock's hours (TextArg: 12 or 24).</summary>
+    ClockFormat,
+    /// <summary>"CLOCK SECONDS [ON|OFF|TOGGLE]" — the seconds shown or not (TextArg: on / off / toggle).</summary>
+    ClockSeconds,
+    /// <summary>"CLOCK DATE [ON|OFF|TOGGLE]" — the date line shown or not (TextArg: on / off / toggle).</summary>
+    ClockDate,
+    /// <summary>"MESSAGE ON [text]" / "MESSAGE &lt;text&gt;" (MSG is an alias) — the message overlay on air, with new words when given (TextArg).</summary>
+    MessageOn,
+    /// <summary>"MESSAGE OFF" (HIDE) — the message leaves.</summary>
+    MessageOff,
+    /// <summary>"MESSAGE TOGGLE" (bare "MESSAGE" toggles) — on or off, the words kept.</summary>
+    MessageToggle,
+    /// <summary>"MESSAGE SCROLL [ON|OFF|TOGGLE]" (TICKER is an alias) — the message as a ticker, or a still line (TextArg: on / off / toggle).</summary>
+    MessageScroll,
+    /// <summary>"COUNTDOWN START [minutes|m:ss]" / "COUNTDOWN &lt;minutes&gt;" — a duration countdown from now (TextArg: the minutes as a decimal; "" = as the countdown is set up).</summary>
+    CountdownStart,
+    /// <summary>"COUNTDOWN TO &lt;HH:mm&gt;" (AT / UNTIL) — a countdown to a time of day (TextArg).</summary>
+    CountdownTo,
+    /// <summary>"COUNTDOWN STOP" (OFF / HIDE / CLEAR) — the countdown leaves.</summary>
+    CountdownStop,
+    /// <summary>"COUNTDOWN LABEL &lt;text&gt;" — the words over the digits (TextArg).</summary>
+    CountdownLabel,
+    /// <summary>"LOGO ON" / "LOGO OFF" / "LOGO TOGGLE" (bare "LOGO" toggles) — the brand logo overlay.</summary>
+    LogoOn,
+    LogoOff,
+    LogoToggle,
+    /// <summary>"PIP ON" / "PIP OFF" / "PIP TOGGLE" (bare "PIP" toggles) — the picture-in-picture inset.</summary>
+    PipOn,
+    PipOff,
+    PipToggle,
+    /// <summary>"OVERLAYS OFF" — the clock, the message, the countdown, the logo, the PiP and the weather chip all off: a clean picture in one press.</summary>
+    OverlaysOff,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -178,6 +214,46 @@ public static class ControlProtocol
         ms = (int)Math.Round(inMs ? v : v * 1000);
         return true;
     }
+
+    /// <summary>"on" / "off" / "toggle" from ON / SHOW / 1 / TRUE, OFF / HIDE / 0 / FALSE, or nothing (a bare verb toggles).</summary>
+    public static string SwitchWord(string text) => text.Trim().ToUpperInvariant() switch
+    {
+        "ON" or "SHOW" or "1" or "TRUE" or "YES" => "on",
+        "OFF" or "HIDE" or "0" or "FALSE" or "NO" => "off",
+        _ => "toggle",
+    };
+
+    /// <summary>"5", "2.5", "2:30" (minutes:seconds), "90s", "5m", "5 min": minutes as a decimal; false for words, nothing, zero or over a day.</summary>
+    public static bool TryParseMinutes(string text, out double minutes)
+    {
+        minutes = 0;
+        var t = text.Trim();
+        if (t.Length == 0) return false;
+        if (t.Contains(':'))
+        {
+            var parts = t.Split(':');
+            if (parts.Length != 2
+                || !int.TryParse(parts[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var m)
+                || !int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var sec)
+                || sec >= 60) return false;
+            minutes = m + sec / 60.0;
+            return minutes > 0 && minutes <= 24 * 60;
+        }
+        var inSeconds = false;
+        foreach (var (suffix, seconds) in new[] { ("mins", false), ("min", false), ("m", false), ("secs", true), ("sec", true), ("s", true) })
+        {
+            if (!t.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) continue;
+            t = t[..^suffix.Length].Trim();
+            inSeconds = seconds;
+            break;
+        }
+        if (!double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) || v <= 0) return false;
+        minutes = inSeconds ? v / 60.0 : v;
+        return minutes <= 24 * 60;
+    }
+
+    /// <summary>Minutes as the wire carries them: "5", "2.5", "1.333".</summary>
+    private static string Minutes(double minutes) => minutes.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
     public static RemoteCommand Parse(string line)
     {
@@ -596,6 +672,82 @@ public static class ControlProtocol
             }
             case "RESTART":
                 return new(RemoteCommandKind.Restart, 0, arg);
+
+            // The overlays from a remote — the clock, the message, the countdown, the logo, the PiP: ON / OFF explicit, a bare verb toggles.
+            case "CLOCK":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                var what = sub.Length > 0 ? sub[0].ToUpperInvariant() : "";
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "": case "TOGGLE": return new(RemoteCommandKind.ClockToggle, 0, "");
+                    case "ON": case "SHOW": return new(RemoteCommandKind.ClockOn, 0, "");
+                    case "OFF": case "HIDE": return new(RemoteCommandKind.ClockOff, 0, "");
+                    case "12": case "12H": case "24": case "24H": return new(RemoteCommandKind.ClockFormat, 0, what[..2]);
+                    case "SECONDS": case "SECS": return new(RemoteCommandKind.ClockSeconds, 0, SwitchWord(rest));
+                    case "DATE": return new(RemoteCommandKind.ClockDate, 0, SwitchWord(rest));
+                    default: return new(RemoteCommandKind.Unknown, 0, s);
+                }
+            }
+            case "MESSAGE":
+            case "MSG":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                var what = sub.Length > 0 ? sub[0].ToUpperInvariant() : "";
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "": case "TOGGLE": return new(RemoteCommandKind.MessageToggle, 0, "");
+                    case "ON": case "SHOW": return new(RemoteCommandKind.MessageOn, 0, rest);
+                    case "OFF": case "HIDE": return new(RemoteCommandKind.MessageOff, 0, "");
+                    case "SCROLL": return new(RemoteCommandKind.MessageScroll, 0, SwitchWord(rest));
+                    case "TEXT": return rest.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.MessageOn, 0, rest);
+                    default: return new(RemoteCommandKind.MessageOn, 0, arg);   // "MESSAGE Doors open at 7": the words, and on
+                }
+            }
+            case "TICKER":
+                return new(RemoteCommandKind.MessageScroll, 0, SwitchWord(arg));
+            case "COUNTDOWN":
+            case "TIMER":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                var what = sub.Length > 0 ? sub[0].ToUpperInvariant() : "";
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "": return new(RemoteCommandKind.Unknown, 0, s);
+                    case "STOP": case "OFF": case "HIDE": case "CLEAR": return new(RemoteCommandKind.CountdownStop, 0, "");
+                    case "START": case "ON": case "GO":
+                        return rest.Length == 0 ? new(RemoteCommandKind.CountdownStart, 0, "")
+                             : TryParseMinutes(rest, out var started) ? new(RemoteCommandKind.CountdownStart, 0, Minutes(started))
+                             : new(RemoteCommandKind.Unknown, 0, s);
+                    case "TO": case "AT": case "UNTIL":
+                        return rest.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.CountdownTo, 0, rest);
+                    case "LABEL": case "TEXT": case "TITLE":
+                        return rest.Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.CountdownLabel, 0, rest);
+                    default:
+                        return TryParseMinutes(arg, out var bare) ? new(RemoteCommandKind.CountdownStart, 0, Minutes(bare)) : new(RemoteCommandKind.Unknown, 0, s);
+                }
+            }
+            case "LOGO":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" or "SHOW" => new(RemoteCommandKind.LogoOn, 0, ""),
+                    "OFF" or "HIDE" => new(RemoteCommandKind.LogoOff, 0, ""),
+                    "" or "TOGGLE" => new(RemoteCommandKind.LogoToggle, 0, ""),
+                    _ => new(RemoteCommandKind.Unknown, 0, s),
+                };
+            case "PIP":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" or "SHOW" => new(RemoteCommandKind.PipOn, 0, ""),
+                    "OFF" or "HIDE" => new(RemoteCommandKind.PipOff, 0, ""),
+                    "" or "TOGGLE" => new(RemoteCommandKind.PipToggle, 0, ""),
+                    _ => new(RemoteCommandKind.Unknown, 0, s),
+                };
+            case "OVERLAYS":
+                return arg.ToUpperInvariant() is "OFF" or "CLEAR" or "NONE" ? new(RemoteCommandKind.OverlaysOff, 0, "") : new(RemoteCommandKind.Unknown, 0, s);
 
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
             case "WEATHER":

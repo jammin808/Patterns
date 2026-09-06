@@ -51,13 +51,13 @@ public class RemotePageTests
             Assert.Contains("PATTERNS", page);
 
             // The menu, one section per tab, the tab remembered.
-            foreach (var tab in new[] { "show", "cues", "looks", "screens", "audio", "lower", "setup" })
+            foreach (var tab in new[] { "show", "cues", "looks", "screens", "audio", "lower", "overlays", "setup" })
             {
                 Assert.Contains($"data-tab=\"{tab}\"", page);
                 Assert.Contains($"id=\"tab-{tab}\"", page);
             }
-            Assert.Equal(7, Regex.Matches(page, "<section ").Count);
-            Assert.Equal(7, Regex.Matches(page, "</section>").Count);
+            Assert.Equal(8, Regex.Matches(page, "<section ").Count);
+            Assert.Equal(8, Regex.Matches(page, "</section>").Count);
             Assert.Contains("localStorage.setItem('patterns.tab'", page);
             Assert.Contains("width=device-width", page);
             Assert.DoesNotContain("<script src=", page); // nothing to fetch from anywhere else

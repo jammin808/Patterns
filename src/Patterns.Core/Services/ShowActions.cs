@@ -194,6 +194,32 @@ public enum ShowActionKind
     VideoToEnd,
     /// <summary>The clip on air plays again from its start; an ended clip comes back.</summary>
     VideoRestart,
+    /// <summary>The clock overlay flips.</summary>
+    ClockToggle,
+    /// <summary>Value = 12 or 24: the clock's hours.</summary>
+    ClockFormat,
+    /// <summary>Value = on / off / toggle: the clock's seconds.</summary>
+    ClockSeconds,
+    /// <summary>Value = on / off / toggle: the clock's date line.</summary>
+    ClockDate,
+    /// <summary>The message overlay flips, its words kept.</summary>
+    MessageToggle,
+    /// <summary>Value = on / off / toggle: the message scrolls as a ticker, or stands still.</summary>
+    MessageScroll,
+    /// <summary>Value = HH:mm (24 h, local): a countdown to that time of day, on air.</summary>
+    CountdownTo,
+    /// <summary>Value = the words over the countdown's digits.</summary>
+    CountdownLabel,
+    /// <summary>The brand logo overlay.</summary>
+    LogoOn,
+    LogoOff,
+    LogoToggle,
+    /// <summary>The picture-in-picture inset.</summary>
+    PipOn,
+    PipOff,
+    PipToggle,
+    /// <summary>The clock, the message, the countdown, the logo, the PiP and the weather chip all off: a clean picture.</summary>
+    OverlaysOff,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

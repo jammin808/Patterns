@@ -51,9 +51,10 @@ public sealed partial class ControlService : IDisposable
         };
         _router.Rev = () => Interlocked.Read(ref _rev);
 
-        // The caller's VT clock moves every second while a clip is on air: the remotes get a push
-        // each second then — only then, and only while someone listens — so a phone, a Stream Deck
-        // and an OSC desk count down with the desk. Nothing else is rebuilt for it.
+        // The caller's VT clock moves every second while a clip is on air, and so does a running
+        // countdown: the remotes get a push each second then — only then, and only while someone
+        // listens — so a phone, a Stream Deck and an OSC desk count down with the desk. Nothing
+        // else is rebuilt for it.
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _clockTimer.Tick += (_, _) => ClockTick();
         _clockTimer.Start();
@@ -68,7 +69,7 @@ public sealed partial class ControlService : IDisposable
     {
         try
         {
-            if (_services.VideoOnAir() is null) return;
+            if (_services.VideoOnAir() is null && !OverlayControl.CountsEverySecond(_services.AirState.Countdown, DateTime.Now, DateTime.UtcNow)) return;
             bool listening;
             lock (_gate)
             {

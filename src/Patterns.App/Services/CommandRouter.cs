@@ -161,6 +161,27 @@ public sealed class CommandRouter
             RemoteCommandKind.WeatherOff => new ShowAction(ShowActionKind.WeatherOff),
             RemoteCommandKind.WeatherToggle => new ShowAction(ShowActionKind.WeatherToggle),
             RemoteCommandKind.WeatherView => new ShowAction(ShowActionKind.WeatherView, "", cmd.TextArg),
+            RemoteCommandKind.ClockOn => new ShowAction(ShowActionKind.ClockOn),
+            RemoteCommandKind.ClockOff => new ShowAction(ShowActionKind.ClockOff),
+            RemoteCommandKind.ClockToggle => new ShowAction(ShowActionKind.ClockToggle),
+            RemoteCommandKind.ClockFormat => new ShowAction(ShowActionKind.ClockFormat, "", cmd.TextArg),
+            RemoteCommandKind.ClockSeconds => new ShowAction(ShowActionKind.ClockSeconds, "", cmd.TextArg),
+            RemoteCommandKind.ClockDate => new ShowAction(ShowActionKind.ClockDate, "", cmd.TextArg),
+            RemoteCommandKind.MessageOn => new ShowAction(ShowActionKind.MessageOn, "", cmd.TextArg),
+            RemoteCommandKind.MessageOff => new ShowAction(ShowActionKind.MessageOff),
+            RemoteCommandKind.MessageToggle => new ShowAction(ShowActionKind.MessageToggle),
+            RemoteCommandKind.MessageScroll => new ShowAction(ShowActionKind.MessageScroll, "", cmd.TextArg),
+            RemoteCommandKind.CountdownStart => new ShowAction(ShowActionKind.CountdownStart, "", cmd.TextArg),
+            RemoteCommandKind.CountdownTo => new ShowAction(ShowActionKind.CountdownTo, "", cmd.TextArg),
+            RemoteCommandKind.CountdownStop => new ShowAction(ShowActionKind.CountdownStop),
+            RemoteCommandKind.CountdownLabel => new ShowAction(ShowActionKind.CountdownLabel, "", cmd.TextArg),
+            RemoteCommandKind.LogoOn => new ShowAction(ShowActionKind.LogoOn),
+            RemoteCommandKind.LogoOff => new ShowAction(ShowActionKind.LogoOff),
+            RemoteCommandKind.LogoToggle => new ShowAction(ShowActionKind.LogoToggle),
+            RemoteCommandKind.PipOn => new ShowAction(ShowActionKind.PipOn),
+            RemoteCommandKind.PipOff => new ShowAction(ShowActionKind.PipOff),
+            RemoteCommandKind.PipToggle => new ShowAction(ShowActionKind.PipToggle),
+            RemoteCommandKind.OverlaysOff => new ShowAction(ShowActionKind.OverlaysOff),
             RemoteCommandKind.ReviewOn => new ShowAction(ShowActionKind.ReviewOn),
             RemoteCommandKind.ReviewOff => new ShowAction(ShowActionKind.ReviewOff),
             RemoteCommandKind.ReviewToggle => new ShowAction(ShowActionKind.ReviewToggle),
@@ -371,6 +392,7 @@ public sealed class CommandRouter
             deck = DeckRow(),                                              // the deck on air: file, page, count, ended — or null
             video = VideoRow(),                                            // the clip on air: file, where it is, what is left, the ten-second word — or null
             weather = WeatherRow(),                                        // the weather chip: on air, its view, the place, the line and the figure
+            overlays = OverlaysRow(),                                      // the clock, the message, the countdown, the logo and the PiP: on air, their settings, what is left, and the line
             interactive = s.Interactive.Enabled,                           // the Interactive area is on: devices open
             devices = _services.Devices.Rows(),                            // every device: name, link, address, open, status, the last lines
             install = _services.Install.StateRow(DateTime.Now),            // the install: the schedule's switch, the programme on, the override on, the next change, the rows, the update
@@ -430,6 +452,43 @@ public sealed class CommandRouter
             sky = card?.Sky.ToString() ?? "",
             source = report?.Source ?? "",
             status = _services.Weather.Status,
+        };
+    }
+
+    /// <summary>
+    /// The overlays for remotes: the clock (on, its hours, seconds, date, what it reads now), the
+    /// message (on, the words, scrolling), the countdown (on, its phase, label, target, what is
+    /// left), the logo (on, and whether a file is set), the PiP, and the line the phone shows.
+    /// </summary>
+    private object OverlaysRow()
+    {
+        var air = _services.AirState;
+        var now = DateTime.Now;
+        var utc = DateTime.UtcNow;
+        var (phase, remaining, text) = OverlayControl.CountdownWords(air.Countdown, now, utc);
+        return new
+        {
+            clock = new
+            {
+                on = air.Overlays.Clock.Enabled,
+                hours = air.Overlays.Clock.TwentyFourHour ? 24 : 12,
+                seconds = air.Overlays.Clock.ShowSeconds,
+                date = air.Overlays.Clock.ShowDate,
+                text = OverlayControl.ClockText(air.Overlays.Clock, now),
+            },
+            message = new { on = air.Overlays.Message.Enabled, text = air.Overlays.Message.Text, scroll = air.Overlays.Message.Scroll },
+            countdown = new
+            {
+                on = air.Countdown.Enabled,
+                phase,
+                label = air.Countdown.Label,
+                target = OverlayControl.CountdownTarget(air.Countdown),
+                remaining,
+                text,
+            },
+            logo = new { on = air.Overlays.Logo.Enabled, file = _services.State.Brand.LogoPath.Length > 0 },
+            pip = new { on = air.Overlays.Pip.Enabled },
+            text = OverlayControl.Line(air.Overlays, air.Countdown, now, utc),
         };
     }
 

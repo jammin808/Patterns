@@ -572,12 +572,13 @@ public static class HelpTopics
             new[]
             {
                 "Remote page: ON; open the address it shows on a phone.",
-                "The phone's pages: Show, Cues, Looks, Screens, Audio, Lower thirds, Setup — and ADMIN with a passcode.",
+                "The phone's pages: Show, Cues, Looks, Screens, Audio, Lower thirds, Overlays, Setup — and ADMIN with a passcode.",
+                "OVERLAYS: the clock (hours, seconds, date), the message's words, a countdown of minutes or to a time with its label, the logo, the PiP, the weather, every overlay off in one press.",
                 "Allow remotes to arm only if you mean it; HELLO names a connection in the journal.",
             },
-            "Every verb is in docs/REMOTE.md. STATUS · PING · HELLO <name> · CUE LIST",
+            "Every verb is in docs/REMOTE.md. STATUS · PING · HELLO <name> · CUE LIST · CLOCK 24 · MESSAGE <text> · COUNTDOWN <min> · COUNTDOWN TO <HH:mm> · OVERLAYS OFF",
             new[] { "Remote" },
-            new[] { "remote", "phone", "tablet", "web remote", "tcp", "port", "network", "address", "url", "/run", "admin", "verb", "protocol", "wire" }),
+            new[] { "remote", "phone", "tablet", "web remote", "tcp", "port", "network", "address", "url", "/run", "admin", "verb", "protocol", "wire", "overlays", "clock", "message", "countdown", "logo" }),
 
         new HelpTopic("companion-banks", HelpGroup.Control,
             "Companion and OSC: keys that fill themselves from the show",
@@ -602,9 +603,9 @@ public static class HelpTopics
                 "Remote page: OSC ON and the port; the feedback host and port.",
                 "Send /patterns/… addresses (the table is in docs/REMOTE.md); read /patterns/state/… for every change.",
             },
-            "/patterns/look <n|name> · /patterns/cue/go · /patterns/screen/<n>/look \"<name>\" · /patterns/blackout · /patterns/status",
+            "/patterns/look <n|name> · /patterns/cue/go · /patterns/screen/<n>/look \"<name>\" · /patterns/blackout · /patterns/clock · /patterns/message \"text\" · /patterns/countdown 5 · /patterns/status",
             new[] { "Remote" },
-            new[] { "osc", "udp", "address", "feedback", "touchosc", "lighting desk", "port", "qlab" }),
+            new[] { "osc", "udp", "address", "feedback", "touchosc", "lighting desk", "port", "qlab", "clock", "countdown", "message" }),
 
         new HelpTopic("interactive", HelpGroup.Control,
             "The Interactive area: Arduino, Raspberry Pi and devices over IP",
