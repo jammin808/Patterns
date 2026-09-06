@@ -295,6 +295,9 @@ public sealed partial class MainViewModel
     private Avalonia.Points _adminCpuSpark = new();
     private Avalonia.Points _adminRamSpark = new();
     private Avalonia.Points _adminFpsSpark = new();
+    private Avalonia.Points _adminGpuSpark = new();
+    private Avalonia.Points _adminVramSpark = new();
+    private string _adminVramText = "—";
     private string _suggestionsKey = "";
     private string? _cpuNameCache;
     private int _statusTicks;
@@ -311,6 +314,11 @@ public sealed partial class MainViewModel
     public Avalonia.Points AdminRamSpark { get => _adminRamSpark; private set => Set(ref _adminRamSpark, value); }
     public Avalonia.Points AdminFpsSpark { get => _adminFpsSpark; private set => Set(ref _adminFpsSpark, value); }
 
+    /// <summary>The card's busy share and its memory in use over the last three minutes — lines like CPU and memory (round 15), with the words beside them.</summary>
+    public Avalonia.Points AdminGpuSpark { get => _adminGpuSpark; private set => Set(ref _adminGpuSpark, value); }
+    public Avalonia.Points AdminVramSpark { get => _adminVramSpark; private set => Set(ref _adminVramSpark, value); }
+    public string AdminVramText { get => _adminVramText; private set => Set(ref _adminVramText, value); }
+
     // ---- the dashboard: HEALTH AT A GLANCE ---------------------------------------------
 
     private CheckFacts? _dashboardFacts;
@@ -321,6 +329,8 @@ public sealed partial class MainViewModel
     private Avalonia.Points _adminCpuDaySpark = new();
     private Avalonia.Points _adminRamDaySpark = new();
     private Avalonia.Points _adminFpsDaySpark = new();
+    private Avalonia.Points _adminGpuDaySpark = new();
+    private Avalonia.Points _adminVramDaySpark = new();
     private string _adminDayText = "the day's lines appear after the first minute";
 
     /// <summary>The twelve tiles — outputs, render, CPU, memory, GPU, NDI, stream, audio, remote, watchdog, power, disk — updated in place.</summary>
@@ -336,6 +346,8 @@ public sealed partial class MainViewModel
     public Avalonia.Points AdminCpuDaySpark { get => _adminCpuDaySpark; private set => Set(ref _adminCpuDaySpark, value); }
     public Avalonia.Points AdminRamDaySpark { get => _adminRamDaySpark; private set => Set(ref _adminRamDaySpark, value); }
     public Avalonia.Points AdminFpsDaySpark { get => _adminFpsDaySpark; private set => Set(ref _adminFpsDaySpark, value); }
+    public Avalonia.Points AdminGpuDaySpark { get => _adminGpuDaySpark; private set => Set(ref _adminGpuDaySpark, value); }
+    public Avalonia.Points AdminVramDaySpark { get => _adminVramDaySpark; private set => Set(ref _adminVramDaySpark, value); }
     public string AdminDayText { get => _adminDayText; private set => Set(ref _adminDayText, value); }
 
     public ObservableCollection<SuggestionRow> AdminSuggestions { get; } = new();
@@ -496,8 +508,10 @@ public sealed partial class MainViewModel
         AdminCpuText = $"this app {Pct(s.CpuAppPct)} · whole computer {Pct(s.CpuSystemPct)}";
         AdminMemText = $"this app {Mb(s.RamAppMB)} · computer {Pct(s.RamSystemPct)}" +
                        (s.RamTotalMB > 0 ? $" of {s.RamTotalMB / 1024.0:0.0} GB" : "");
-        var vram = s.VramTotalMB > 0 ? $"video memory {Mb(s.VramUsedMB)} of {Mb(s.VramTotalMB)}" : "video memory n/a";
-        AdminGpuText = $"busy {Pct(s.GpuBusyPct)} · {vram}";
+        AdminGpuText = s.GpuBusyPct >= 0 ? $"busy {Pct(s.GpuBusyPct)} — the card's share of its time" : "busy n/a — no reading from this card";
+        AdminVramText = s.VramTotalMB > 0
+            ? $"in use {Mb(s.VramUsedMB)} of {Mb(s.VramTotalMB)}{(s.VramUsedMB >= 0 ? $" ({s.VramUsedMB / s.VramTotalMB * 100:0}%)" : "")}"
+            : "in use n/a — no reading from this card";
         AdminRenderText = s.OutputWindows > 0
             ? $"outputs {s.OutputFps:0} fps × {s.OutputWindows} window{(s.OutputWindows == 1 ? "" : "s")} · " +
               $"preview {s.PreviewFps:0} fps · worst frame {s.WorstFrameMs:0.0} ms" +
@@ -511,6 +525,10 @@ public sealed partial class MainViewModel
         AdminCpuSpark = Spark(metrics.History.Tail(180, x => x.CpuSystemPct), 100);
         AdminRamSpark = Spark(metrics.History.Tail(180, x => x.RamAppMB), null);
         AdminFpsSpark = Spark(metrics.History.Tail(180, x => x.OutputWindows > 0 ? x.OutputFps : x.PreviewFps), 66);
+        // The card's lines: its busy share against 100, its memory in use against the card's total (a card
+        // with no reading draws a flat line along the bottom rather than nothing).
+        AdminGpuSpark = Spark(metrics.History.Tail(180, x => Math.Max(0, x.GpuBusyPct)), 100);
+        AdminVramSpark = Spark(metrics.History.Tail(180, x => Math.Max(0, x.VramUsedMB)), s.VramTotalMB > 0 ? s.VramTotalMB : null);
 
         var key = string.Join("|", metrics.Suggestions.Select(x => x.Id + (int)x.Severity));
         if (key != _suggestionsKey)
@@ -562,6 +580,8 @@ public sealed partial class MainViewModel
             AdminCpuDaySpark = Spark(SparklinePath.Downsample(day.Select(x => Math.Max(0, x.CpuSystemPct)).ToList(), 180), 100);
             AdminRamDaySpark = Spark(SparklinePath.Downsample(day.Select(x => Math.Max(0, x.RamAppMB)).ToList(), 180), null);
             AdminFpsDaySpark = Spark(SparklinePath.Downsample(day.Select(x => x.OutputWindows > 0 ? x.OutputFps : x.PreviewFps).ToList(), 180), 66);
+            AdminGpuDaySpark = Spark(SparklinePath.Downsample(day.Select(x => Math.Max(0, x.GpuBusyPct)).ToList(), 180), 100);
+            AdminVramDaySpark = Spark(SparklinePath.Downsample(day.Select(x => Math.Max(0, x.VramUsedMB)).ToList(), 180), now is { VramTotalMB: > 0 } ? now.VramTotalMB : null);
             var minutes = day.Count * MetricsHistory.AggregateEvery / 60;
             AdminDayText = minutes >= 60 ? $"the day so far: {minutes / 60} h {minutes % 60:00} min of 30-second averages" : $"the day so far: {minutes} min of 30-second averages";
         }

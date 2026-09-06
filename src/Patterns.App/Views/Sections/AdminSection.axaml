@@ -60,7 +60,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:DashboardTileView">
           <!-- One tile: the light on the bottom edge and beside the title, the big value, a line, a bar when the value is a share. -->
-          <Border Classes="hTile" BorderBrush="{Binding Dot}">
+          <Border Classes="hTile" BorderBrush="{Binding Dot}" ClipToBounds="True">
             <StackPanel Spacing="2">
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Classes="hTitle" Text="{Binding Title}" VerticalAlignment="Center" />
@@ -68,7 +68,9 @@
               </Grid>
               <TextBlock Classes="hValue" Text="{Binding Value}" TextTrimming="CharacterEllipsis" />
               <TextBlock Classes="hint" Text="{Binding Detail}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Detail}" />
-              <ProgressBar IsVisible="{Binding HasBar}" Minimum="0" Maximum="1" Value="{Binding Fraction}" Height="4" Foreground="{Binding Dot}" Margin="0,3,0,0" />
+              <!-- The bar takes the tile's width and no more: the theme's own minimum width is wider than the pill (round 15) -->
+              <ProgressBar IsVisible="{Binding HasBar}" Minimum="0" Maximum="1" Value="{Binding Fraction}" Height="4" MinWidth="0" MinHeight="0"
+                           HorizontalAlignment="Stretch" Foreground="{Binding Dot}" Margin="0,3,0,0" />
             </StackPanel>
           </Border>
         </DataTemplate>
@@ -180,9 +182,36 @@
         </Border>
       </StackPanel>
     </Grid>
-    <Grid ColumnDefinitions="86,*" Margin="0,2">
-      <TextBlock Classes="label" Text="GPU" VerticalAlignment="Center" />
-      <TextBlock Grid.Column="1" Classes="label" Text="{Binding AdminGpuText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+    <!-- The card as lines like CPU and memory (round 15): its busy share, and its memory in use against its total -->
+    <Grid ColumnDefinitions="86,Auto,12,Auto" Margin="0,4">
+      <TextBlock Classes="label" Text="GPU" VerticalAlignment="Top" Margin="0,2,0,0" />
+      <StackPanel Grid.Column="1" Spacing="3">
+        <TextBlock Classes="hint" Text="{Binding AdminGpuText}" Width="304" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AdminGpuText}" />
+        <Border Classes="spark">
+          <Polyline Name="GpuSpark" Points="{Binding AdminGpuSpark}" Stroke="#FF9E5B" StrokeThickness="1.5" Margin="2" />
+        </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="3" Spacing="3">
+        <TextBlock Classes="hint" Text="today · the card's busy share" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminGpuDaySpark}" Stroke="#FF9E5B" StrokeThickness="1.5" Margin="2" />
+        </Border>
+      </StackPanel>
+    </Grid>
+    <Grid ColumnDefinitions="86,Auto,12,Auto" Margin="0,4">
+      <TextBlock Classes="label" Text="Video memory" VerticalAlignment="Top" Margin="0,2,0,0" TextWrapping="Wrap" />
+      <StackPanel Grid.Column="1" Spacing="3">
+        <TextBlock Classes="hint" Text="{Binding AdminVramText}" Width="304" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AdminVramText}" />
+        <Border Classes="spark">
+          <Polyline Name="VramSpark" Points="{Binding AdminVramSpark}" Stroke="#F36FB1" StrokeThickness="1.5" Margin="2" />
+        </Border>
+      </StackPanel>
+      <StackPanel Grid.Column="3" Spacing="3">
+        <TextBlock Classes="hint" Text="today · the card's memory in use, against its total — a line that only climbs is a leak" />
+        <Border Classes="spark">
+          <Polyline Points="{Binding AdminVramDaySpark}" Stroke="#F36FB1" StrokeThickness="1.5" Margin="2" />
+        </Border>
+      </StackPanel>
     </Grid>
     <TextBlock Classes="hint" Text="{Binding AdminExtrasText}" />
     <TextBlock Classes="hint" Text="{Binding AdminDayText}" />

@@ -646,7 +646,7 @@ public static class HelpTopics
             {
                 "HEALTH AT A GLANCE: green is fine, amber wants a look, red needs fixing now — outputs, render, CPU, memory, GPU, NDI, stream, audio, remote, watchdog, power, disk; the headline names the tiles that set it.",
                 "WARNINGS AND RECOMMENDATIONS: each card is what is wrong, why it matters mid-show and the next thing to do, worst first.",
-                "The lines: the last three minutes beside the day so far — a memory line that only climbs is a leak; run SUPER-CHECK for the graded report.",
+                "The lines: CPU, memory, rendering, the GPU's busy share and its video memory in use (against the card's total) — the last three minutes beside the day so far; a memory line that only climbs is a leak; run SUPER-CHECK for the graded report.",
                 "Pick the GPU the outputs render on; set the frame rate the machine can hold; copy the report when asking for help.",
                 "STABILITY: the desk's tick — what the once-a-second poll costs on the UI thread, its worst minute and the area that took it; the super-check's Desk tick row and the RENDER tile say the same.",
                 "STABILITY: the engine's frame budget — the worst frame of the last minute with the stage that took it and the sink it was on (Render frame worst 31 ms (the lower third) on Output 1 (Main)); the super-check's Render frame row says what to lower; the start-up line under it names the phase a slow start waited on.",
