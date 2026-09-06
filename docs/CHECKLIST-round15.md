@@ -2,9 +2,13 @@
 
 The headless suite proves the logic on every push. These are the things only a real rig shows:
 one line per item, what to do, and what you should see. Tick them on a Windows machine with the
-full build (libVLC bundled), two displays and an audio interface. Row 1 is the report's crash
-between menus: do it on the machine it happened on, and after any restart read the health line
-before touching anything — the sentence it shows is the evidence.
+full build (libVLC bundled), two displays and an audio interface; row 5 also wants a phone on the
+network and a Stream Deck with Companion at 2.6.0. Row 1 is the report's crash between menus: do
+it first, on the machine it happened on, and after any restart read the health line before
+touching anything — the sentence it shows is the evidence. Rows 5, 6 and 7 are the show-critical
+ones (a fade, a take, the Run area). Rows 7 and 9 end in a judgment only a real monitor makes —
+the popup's pause and the bands' strength — and a note of what you would change is the result.
+The cloud question is answered in `docs/PLAN.md` §20.10; nothing on this list depends on it.
 
 | # | Item | Do | Expect |
 | --- | --- | --- | --- |

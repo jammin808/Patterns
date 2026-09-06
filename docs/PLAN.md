@@ -181,8 +181,12 @@ The user's round-15 list, the crash first: "Crash moving between menus. It resta
 show-critical asks (fade to black per screen or group with the audio linked; CUT / TAKE with four
 scopes; the editing target never blank), then the desk's room (the Show panel's STOP row and the
 OUTPUT toggle, the Machine page's graphs and pills, the Run area's tiles and cue column, a Layers
-page, the visual separation), and the cloud-processing question. The answers are in §20. Newest
-row first. The checklist for the Windows machine is `docs/CHECKLIST-round15.md`.
+page, the visual separation), the cloud-processing question, and the standing brief — stability,
+resilience, efficiency, user experience, performance across specs, durability, an easy workflow,
+everything instant. The answers are in §20: one per item (§20.1–20.9), the cloud answer (§20.10),
+the round read against the brief (§20.11), and what is established, what is still a guess and what
+comes next (§20.12). Newest row first. The checklist for the Windows machine is
+`docs/CHECKLIST-round15.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
@@ -1334,3 +1338,126 @@ learned on the way: a section is a class derived from UserControl, and a style t
 `UserControl.hue-media` never matches it — Avalonia styles a control by its own type — so the
 styles select through `:is(UserControl)`, which takes the derived types too; the test that walks
 every page caught it on the first heading.
+
+### 20.10 Cloud processing on AWS: possible, and whether it is worthwhile
+
+The question: is it possible and worthwhile to consider an option using cloud processing on AWS or
+similar, so that a lower-spec computer performs better? Possible, yes — in three different senses,
+and they are not equally worth having.
+
+**Rendering the pictures in the cloud and streaming them to the outputs.** This is what "cloud
+processing" usually means, and for a live show it is the wrong trade. The frame the audience sees
+would be rendered on a cloud GPU, encoded (H.264 or HEVC at 1080p50 or better), carried over the
+venue's internet, decoded on the laptop and presented: 80 to 200 ms in a good case, with a jitter
+the show notices, against one refresh — 16 ms — for a frame rendered where it is shown. The laptop
+does not get lighter, either: decoding a stream per output is exactly the work that stresses a
+low-spec machine (the decoder and the present path are where the round-14 access violations sat),
+so a machine that cannot play two clips cannot receive two cloud streams. A capture device, an NDI
+camera or a web page on the desk would have to go up to the cloud to be composited and come back,
+doubling the path. And the failure mode is the worst one a show has: the venue's internet drops and
+every screen goes black at once, with no local fallback — which breaks the first word of the brief.
+Cloud GPU time costs by the hour whether the show is on or not, and a day of egress at a few
+hundred megabits is a bill. The tools that do run a switcher in the cloud — a vMix instance on a
+GPU machine, the game-streaming services — live with 60 to 150 ms and a stable, wide connection,
+and a corporate event room rarely has one. Verdict: not worthwhile for live rendering; Patterns
+will not do it.
+
+**Baking heavy looks to clips ahead of time.** The looks that stress a low-spec machine are the
+fractals, a dense particle field, a lower third with a fractal fill, an edge blend across four
+projectors — all of them deterministic from the show file and the clock. Rendered once, before the
+show, to a clip (one per output) they play back through the video decoder, which every machine has
+in hardware, for a fraction of the live cost; the clip is a file on the laptop, so there is no
+network at show time, no new failure mode, and a look that renders identically on any machine. This
+is the lever that actually makes a lower-spec computer perform better, and it does not need the
+cloud: the desk can bake on the laptop overnight, or on any other machine that has Patterns (the
+show file is portable), and the cloud is then just another machine to bake on — worthwhile only if
+the laptop cannot bake in time, and never in the show's path. Bake to clip is next (§20.12).
+
+**Things that are already cloud, and should be.** The assistant runs in the cloud, gated and
+fenced, off the show's path (§16.4): a reply that never comes costs nothing on air. A PowerPoint
+converts through LibreOffice on the machine; it could convert through a service and nothing would
+be gained, since the conversion is a one-off before doors. The weather is a fetch with the last
+forecast kept. That is the right shape for the cloud in a show tool: things asked for ahead of
+time, whose absence changes nothing on the screens.
+
+**So the answer is:** possible in every sense; worthwhile only for work done before the show, where
+the laptop is the fallback and the clip is the product. What makes a lower-spec machine perform
+better on the night is what round 14 and this round built — the quality ladder, the memory
+ceilings, the pre-roll, the frame budget, direct output, a collapsed wall that draws no miniatures —
+and, next, baking to clips. AWS would be a bake backend if one is ever needed; it will not be a
+render path.
+
+### 20.11 "Remember": the paramount list, read against the round
+
+The brief that closes every report: stability, resilience, efficiency, user experience,
+performance adaptability across system specs, durability and an easy show workflow are paramount;
+every menu change, view update or UX update must be instant or as fast as possible; game-play
+architecture for speed and experience, with pro-grade corporate stability and workflows. Read
+against this round, item by item:
+
+- *Stability and resilience.* The crash between menus is contained rather than fatal (§20.1): a
+  page's fault is caught on the UI thread, logged with its stack, counted on the health line, and
+  the outputs, the clips and the remotes carry on; a native fault still leaves round 14's dump and
+  note. Nothing in the round added a path that can take the show down: the per-screen black, the
+  scopes, the Run area's choices and the Layers page are runtime state or layout, and the one new
+  thing in the show file — the cue share and the collapsed flag — is a clamped number and a bool
+  the loader tolerates.
+- *Efficiency and performance across specs.* The collapsed wall draws no miniatures (a detached
+  monitor control disposes its pipeline); the popup's pipelines exist only while it is open; the
+  styles are static, with no per-frame cost; the GPU and video-memory lines on the Machine page
+  say what the card is doing, so the ladder's steps can be read against it. The cloud answer
+  (§20.10) keeps the show's path local and points the low-spec lever at baking.
+- *Instant.* A page switch is a tab selection with the page already built, and the fault guard
+  costs a try/catch; the Run divider is a star-width change; COLLAPSE TILES is a visibility flip;
+  the fade picker, the take picker and the Layers page are bindings on state already in memory;
+  the 1 s poll still raises only what changed. Nothing in the round added work to a keypress that
+  was not there before.
+- *User experience and workflow.* The editing target is never blank; STOP sits by the chips it
+  stops; OUT is inside its tile; a screen fades on its own, with the sound, from the panel, the
+  wall, the phone, Companion and a cue; CUT / TAKE say where they land; the Run area breathes at a
+  third and pops a tile up on a pause; the layers have a page; the sections read apart in each
+  page's colour, with no control moved.
+- *Game-play architecture with corporate stability.* The round's shape is the §16.4 shape: state
+  is data (the black targets, the scopes, the desk layout), the frame reads it, the systems are
+  isolated (a page fault, a stinger tick and a poll area each fail alone), and the instruments say
+  what happened (the health line, the stability card, the GPU lines). What is still short is
+  unchanged from §16.4 and §18.10: the render-thread stall signal, and the laptop's own dump.
+
+### 20.12 The round in one place: what is established, what is still a guess, what next
+
+**Established, by tests on the live desk.** A page that throws is contained, with its stack, the
+count and the words on the health line, and every page forward and back at two sizes contains
+nothing; the editing target reads Program unless a screen has its own pattern and never goes
+blank through a lock, a label, a second OWN or a load; the Show panel's STOP is under the stinger
+chips and every wall tile keeps OUT inside it; the Machine page draws the card's busy share and its
+video memory as lines and every health bar sits in its pill; a screen or a group fades to black on
+its own, the sound following the rig, from every surface, and the blackout still covers
+everything; CUT / TAKE land on the focused, the ticked, the ticked groups or every armed screen,
+the rest pinned to their picture; the Run area's stack takes a third, its divider is remembered,
+its tiles collapse to bars and pop up on a pause; the layers have a page before the library and the
+assistant; every page wears its neon on its title, its bands and its panels' edges.
+
+**Still a guess, and what settles it.** What threw between the menus on the night. The guard now
+names it — the exception's type and message and the frame it came from, on the status line, the
+health line and in `patterns.log` — so the first switch on the laptop that throws turns the guess
+into a sentence (row 1 of the checklist, on that machine). Two judgments only a real monitor makes:
+whether 700 ms is the right pause for the wall's popup, and whether the bands' tenth-strength
+ground reads as subdued or as loud on the venue's display (rows 7 and 9).
+
+**Next, ranked.**
+
+1. *The laptop's crash sentence.* Row 1 of the checklist on the machine the report came from; a
+   fault there is a fix here, in that page.
+2. *Bake to clip.* A look rendered ahead to a clip per output, from the show file, played through
+   the decoder at show time (§20.10). The engine already renders headless into a sink; the missing
+   piece is a sink that hands frames to an encoder, and a BAKE action on a look that mounts the
+   result like any clip. The one thing that makes a low-spec machine perform better on the night.
+3. *A render-thread stall signal* (carried from §18.10): a "no frame for 2 s while outputs are
+   on" line on the health line and the super-check, from the frame budget's last-frame time.
+4. *The per-screen black's sound.* The sound goes down when the whole rig is dark (§20.5); a
+   clip's sound belongs to one screen when the clip is that screen's own pattern, and could follow
+   that screen's black alone. The gain table is per input already; the missing piece is the
+   input's target.
+5. *Cue actions for the overlay verbs* (carried from §18.10): CLOCK 12 / 24, MESSAGE SCROLL,
+   COUNTDOWN TO, LOGO, PIP and OVERLAYS OFF as cue action kinds through the spec, the summary, the
+   sheet, the validator and the executor.

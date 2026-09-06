@@ -23,6 +23,12 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Cloud processing, considered** — asked whether rendering on AWS or similar could help a
+  lower-spec machine: possible, and not worthwhile for the show's own path (the latency, the decode
+  on the laptop anyway, the venue's internet as a single point of failure, the bill); worthwhile for
+  work done ahead of the show, which is what the assistant already is and what baking heavy looks to
+  clips would be. The reasoning is in `docs/PLAN.md` §20.10, the round read against the standing
+  brief in §20.11, and what is established, what is still a guess and what comes next in §20.12.
 - **The sections read apart** — every page wears its own neon, the hue of its chip on the rail:
   the title a step bigger in that colour, every section heading a bold band in the same neon on a
   subdued ground of the same hue with room inside it, the page's panels edged with a hairline of it,
