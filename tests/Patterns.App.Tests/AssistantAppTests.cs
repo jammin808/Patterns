@@ -226,6 +226,66 @@ public class AssistantAppTests
         }
     }
 
+    /// <summary>
+    /// The service refusing the reply's schema ("the compiled grammar is too large") is not the end of
+    /// the ask: the same ask goes again in plain JSON with the schema in the prompt, the reply is read
+    /// all the same, the status says so once, and every ask after it this session is plain from the start.
+    /// </summary>
+    [AvaloniaFact]
+    public void ASchemaRefusalIsAskedAgainInPlainJsonAndStaysThatWay()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            services.Assistant.SaveKey("sk-ant-api03-testkey-0123456789abcdef");
+            var requests = new List<AssistantRequest>();
+            services.Assistant.Transport = r =>
+            {
+                requests.Add(r);
+                if (!r.Plain)
+                {
+                    return Task.FromException<string>(new InvalidOperationException(
+                        "Status Code: BadRequest {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.\"},\"request_id\":\"req_011\"}"));
+                }
+                return Task.FromResult("Here you go:\n```json\n{\"in_scope\": true, \"reply\": \"Screens, looks, lower thirds and a cue stack — tell me about the day.\", \"questions\": [\"How many screens?\"], \"proposals\": []}\n```");
+            };
+            Assert.False(services.Assistant.PlainJson);
+
+            vm.AssistantInput = "What can you help me build?";
+            vm.AskAssistantCommand.Execute(null);
+            PumpUntil(() => vm.AssistantRows.Count == 2);
+            Assert.Equal(2, requests.Count);
+            Assert.False(requests[0].Plain);
+            Assert.DoesNotContain(AssistantScope.PlainFormatHeading, requests[0].System);
+            Assert.True(requests[1].Plain);
+            Assert.Contains(AssistantScope.PlainFormatHeading, requests[1].System);
+            Assert.Contains("\"$defs\"", requests[1].System);
+            Assert.Equal(requests[0].Turns.Count, requests[1].Turns.Count);   // the same ask, not a new turn
+            Assert.Equal(2, services.Assistant.Sent);
+            Assert.True(services.Assistant.PlainJson);
+            Assert.Equal("Screens, looks, lower thirds and a cue stack — tell me about the day.", vm.AssistantRows[1].Text);
+            Assert.True(vm.AssistantRows[1].HasQuestions);
+            Assert.StartsWith("The assistant has questions", vm.AssistantStatus);
+            Assert.Contains("declined the reply's schema", vm.AssistantStatus);
+            Assert.Equal(2, services.Assistant.Turns.Count);
+
+            // The next ask is plain from the start: one request, no refused round trip, no note.
+            vm.AssistantInput = "Two screens and a walk-in";
+            vm.AskAssistantCommand.Execute(null);
+            PumpUntil(() => vm.AssistantRows.Count == 4);
+            Assert.Equal(3, requests.Count);
+            Assert.True(requests[2].Plain);
+            Assert.Equal(3, requests[2].Turns.Count);
+            Assert.Equal(3, services.Assistant.Sent);
+            Assert.DoesNotContain("declined the reply's schema", vm.AssistantStatus);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
     [AvaloniaFact]
     public void ADeclinedReplyAndAFailingWireReadInWords()
     {

@@ -191,7 +191,12 @@ public class AssistantTests
                 {
                     objects++;
                     Assert.True(e.TryGetProperty("additionalProperties", out var ap) && ap.ValueKind == JsonValueKind.False, "every object is closed");
-                    Assert.True(e.TryGetProperty("required", out _), "every object says what it requires");
+                    Assert.True(e.TryGetProperty("required", out var req), "every object says what it requires");
+                    // Every member required: a closed object with optional members compiles to a grammar that
+                    // grows with every subset of them, and the service refused the last one as too large.
+                    var required = req.EnumerateArray().Select(r => r.GetString()).OrderBy(r => r, StringComparer.Ordinal).ToArray();
+                    var members = e.GetProperty("properties").EnumerateObject().Select(p => p.Name).OrderBy(r => r, StringComparer.Ordinal).ToArray();
+                    Assert.Equal(members, required);
                 }
                 foreach (var p in e.EnumerateObject()) Walk(p.Value);
             }
@@ -206,7 +211,12 @@ public class AssistantTests
         var defs = root.GetProperty("$defs");
         Assert.Equal(AssistantProposal.Kinds, defs.GetProperty("proposal").GetProperty("properties").GetProperty("kind").GetProperty("enum").EnumerateArray().Select(e => e.GetString()).ToArray());
         Assert.Equal(Enum.GetNames<PatternKind>(), defs.GetProperty("pattern").GetProperty("properties").GetProperty("kind").GetProperty("enum").EnumerateArray().Select(e => e.GetString()).ToArray());
-        Assert.Equal(LowerThirdPresets.Names, defs.GetProperty("lower_third").GetProperty("properties").GetProperty("preset").GetProperty("enum").EnumerateArray().Select(e => e.GetString()!).ToList());
+        var preset = defs.GetProperty("lower_third").GetProperty("properties").GetProperty("preset").GetProperty("anyOf");
+        Assert.Equal(LowerThirdPresets.Names, preset[0].GetProperty("enum").EnumerateArray().Select(e => e.GetString()!).ToList());
+        Assert.Equal("null", preset[1].GetProperty("type").GetString());   // a member that may not apply is the value or null, never absent
+        var hotkey = defs.GetProperty("look").GetProperty("properties").GetProperty("hotkey").GetProperty("anyOf");
+        Assert.Equal(("integer", "null"), (hotkey[0].GetProperty("type").GetString(), hotkey[1].GetProperty("type").GetString()));
+        Assert.Equal("#/$defs/overlays", defs.GetProperty("proposal").GetProperty("properties").GetProperty("overlays").GetProperty("anyOf")[0].GetProperty("$ref").GetString());
 
         // Nothing the API does not take.
         Assert.DoesNotContain("\"minimum\"", AssistantScope.Schema);
@@ -216,6 +226,60 @@ public class AssistantTests
         var elements = AssistantScope.SchemaElements();
         Assert.Equal(new[] { "$defs", "additionalProperties", "properties", "required", "type" }, elements.Keys.OrderBy(k => k, StringComparer.Ordinal));
         Assert.Equal("object", elements["type"].GetString());
+    }
+
+    [Fact]
+    public void ASchemaRefusalIsKnownByItsWordsAndThePlainPromptCarriesTheShape()
+    {
+        const string refusal = "Status Code: BadRequest {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The compiled grammar is too large, which would cause performance issues. Simplify your tool schemas or reduce the number of strict tools.\"},\"request_id\":\"req_011\"}";
+        Assert.True(AssistantScope.IsSchemaRefusal(refusal));
+        Assert.False(AssistantScope.IsSchemaRefusal("Status Code: Unauthorized"));
+        Assert.False(AssistantScope.IsSchemaRefusal("name or service not known"));
+        Assert.False(AssistantScope.IsSchemaRefusal(null));
+
+        var brief = ShowBrief.Summarise(Fixture());
+        var pinned = AssistantScope.SystemPrompt(brief);
+        Assert.DoesNotContain(AssistantScope.PlainFormatHeading, pinned);
+        var plain = AssistantScope.SystemPrompt(brief, plain: true);
+        var rules = plain.IndexOf("HOW TO ANSWER", StringComparison.Ordinal);
+        var format = plain.IndexOf(AssistantScope.PlainFormatHeading, StringComparison.Ordinal);
+        var shape = plain.IndexOf(AssistantScope.Schema, StringComparison.Ordinal);
+        var briefAt = plain.IndexOf("=== THE SHOW BRIEF", StringComparison.Ordinal);
+        Assert.True(rules > 0 && format > rules && shape > format && briefAt > shape, "the rules, the format with the schema itself, then the brief");
+        Assert.Contains("no code fence", plain);
+        Assert.Contains("every field present, null where there is nothing to say", plain);
+    }
+
+    [Fact]
+    public void TheParserReadsANullMemberAsNothingSaid()
+    {
+        const string reply = @"{""in_scope"": true, ""reply"": ""A first plan."", ""questions"": [], ""proposals"": [
+          {""kind"": ""show_plan"", ""title"": ""The day"", ""summary"": ""Two screens."", ""screens"": [{""label"": ""Main"", ""role"": null, ""width"": null, ""height"": null}],
+           ""brand"": null, ""overlays"": null, ""pattern"": {""kind"": ""Grid"", ""use_brand_colours"": null},
+           ""looks"": [{""name"": ""Walk-in"", ""hotkey"": null, ""pattern"": null, ""overlays"": {""clock"": true, ""clock_seconds"": null, ""twenty_four_hour"": null, ""logo"": null, ""message"": null, ""message_text"": null, ""message_scroll"": null, ""weather"": null, ""weather_view"": null, ""countdown"": null, ""countdown_label"": null, ""countdown_minutes"": null}}],
+           ""lower_thirds"": [{""name"": ""Keynote"", ""preset"": null, ""person_name"": null, ""person_role"": null, ""company"": null}],
+           ""cues"": [{""name"": ""Doors"", ""number"": null, ""notes"": null, ""planned_seconds"": null, ""planned_start"": null, ""follow_seconds"": null, ""stack"": null, ""actions"": [{""kind"": ""ApplyLook"", ""target"": ""Walk-in"", ""value"": null}]}],
+           ""steps"": []}]}";
+        var parsed = AssistantParser.Parse(reply)!;
+        var p = Assert.Single(parsed.Proposals);
+        var screen = Assert.Single(p.Screens);
+        Assert.Equal(("Main", "", 1920, 1080), (screen.Label, screen.Role, screen.Width, screen.Height));
+        Assert.Null(p.Brand);
+        Assert.Null(p.Overlays);
+        Assert.Equal(("Grid", (bool?)null), (p.Pattern!.Kind, p.Pattern.UseBrandColours));
+        var look = Assert.Single(p.Looks);
+        Assert.Equal(0, look.Hotkey);
+        Assert.Null(look.Pattern);
+        Assert.True(look.Overlays!.Clock);
+        Assert.Null(look.Overlays.ClockSeconds);
+        Assert.Equal("", look.Overlays.MessageText);
+        var third = Assert.Single(p.LowerThirds);
+        Assert.Equal(("Keynote", "", ""), (third.Name, third.Preset, third.PersonName));
+        var cue = Assert.Single(p.Cues);
+        Assert.Equal(("Doors", "", "", (int?)null, "", (int?)null, ""), (cue.Name, cue.Number, cue.Notes, cue.PlannedSeconds, cue.PlannedStart, cue.FollowSeconds, cue.Stack));
+        var action = Assert.Single(cue.Actions);
+        Assert.Equal(("ApplyLook", "Walk-in", ""), (action.Kind, action.Target, action.Value));
+        Assert.True(p.CanApply);
     }
 
     private const string FullReply = @"```json
