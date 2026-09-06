@@ -967,7 +967,10 @@ build/publish-win-x64.sh         # → dist/win-x64/Patterns.exe  (single file, 
 build/publish-win-x64-full.sh    # → dist/win-x64-full/  (exe + bundled libVLC; any host, .cmd on Windows)
 ```
 
-Requires the .NET 8 SDK. The exe is self-contained — end users need nothing installed.
+Requires the .NET 10 SDK (LTS, supported to November 2028; .NET 8's support ends in November
+2026). A machine that still has only the .NET 8 SDK builds and tests the same tree with
+`-p:PatternsTfm=net8.0` on every `dotnet` command until .NET 10 is installed; CI and the published
+exe are .NET 10. The exe is self-contained — end users need nothing installed.
 
 ## Versions and rolling back
 

@@ -38,7 +38,9 @@ Field research context (LED techs, projectionists, screens operators at live eve
 
 Version pins: **Avalonia 11.3.x** (mature LTS line; deliberately not the newer 12.x — this tool
 values proven stability over new API surface), **SkiaSharp 3.116.x** (the exact version Avalonia
-resolves, so a single native `libSkiaSharp` ships), **.NET 8** (LTS).
+resolves, so a single native `libSkiaSharp` ships), **.NET 10** (LTS; round 16 moved it from .NET 8,
+whose support ends in November 2026 — `PatternsTfm` in `Directory.Build.props` lets an older SDK
+build the same tree with `-p:PatternsTfm=net8.0` until .NET 10 is installed).
 
 External integrations, both **feature-detected and optional at runtime** so the portable exe has
 no hard native prerequisites:
