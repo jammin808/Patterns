@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Patterns.Core.Model;
+using Patterns.Core.Services;
 using SkiaSharp;
 
 namespace Patterns.Core.Effects;
@@ -15,7 +16,8 @@ public readonly record struct FractalView(double CenterX, double CenterY, double
     /// <summary>Plane units across the whole canvas height at zoom 1.</summary>
     public const double BaseSpan = 2.4;
 
-    public static FractalView Of(FractalOptions o, double time, AudioLevelFrame audio, int iterationCap = 1024, EffectSurge surge = default)
+    /// <param name="quality">The quality ladder's factor: the iterations scale with it (never below eight).</param>
+    public static FractalView Of(FractalOptions o, double time, AudioLevelFrame audio, int iterationCap = 1024, EffectSurge surge = default, double quality = 1)
     {
         var amount = o.AudioSource == AudioSourceKind.None ? 0 : o.AudioAmount;
         var speed = o.Speed;
@@ -26,7 +28,8 @@ public readonly record struct FractalView(double CenterX, double CenterY, double
         var ci = o.JuliaImag + 0.06 * Math.Cos(time * speed * 0.77) + morph * 0.22 * Math.Cos(time * 1.3);
         var offset = time * speed * 0.05 + audio.Low * 0.3 * amount + surge.Speed * 0.15 + surge.Hue;
         var bright = 1 + audio.High * 0.5 * amount + surge.Glow * 0.8;
-        return new FractalView(o.CenterX, o.CenterY, span, cr, ci, Math.Min(o.Iterations, iterationCap), offset, bright, time)
+        var iterations = quality < 1 ? QualityLadder.Iterations(Math.Min(o.Iterations, iterationCap), quality) : Math.Min(o.Iterations, iterationCap);
+        return new FractalView(o.CenterX, o.CenterY, span, cr, ci, iterations, offset, bright, time)
         {
             Angle = surge.Rotate * Math.PI / 2,
             Warp = morph,
@@ -138,7 +141,8 @@ public static class FractalRaster
     }
 
     /// <summary>The working width per quality; the height follows the canvas' shape.</summary>
-    public static SKSizeI SizeFor(FractalQuality quality, SKSizeI canvas)
+    /// <param name="scale">The quality ladder's raster scale: the working width shrinks with it.</param>
+    public static SKSizeI SizeFor(FractalQuality quality, SKSizeI canvas, double scale = 1)
     {
         var width = quality switch
         {
@@ -146,6 +150,7 @@ public static class FractalRaster
             FractalQuality.Fine => 320,
             _ => 240,
         };
+        if (scale < 1) width = Math.Max(32, (int)Math.Round(width * Math.Clamp(scale, 0.1, 1)));
         var w = Math.Max(1, Math.Min(width, canvas.Width));
         var h = Math.Max(1, (int)Math.Round(w * canvas.Height / (double)Math.Max(1, canvas.Width)));
         return new SKSizeI(w, h);

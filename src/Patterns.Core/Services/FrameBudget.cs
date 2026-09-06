@@ -9,7 +9,8 @@ namespace Patterns.Core.Services;
 /// the last minute's complete seconds measured.
 /// </summary>
 public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Label, long Frames, long SlowFrames,
-                                        int FramesInWindow, double AverageMs, double WorstMs, string WorstStage, double Fps)
+                                        int FramesInWindow, double AverageMs, double WorstMs, string WorstStage, double Fps,
+                                        double LastSecondWorstMs = -1)
 {
     /// <summary>"Preview", "Output 1 (Main)", "Monitor PGM".</summary>
     public string Name => Kind switch
@@ -145,6 +146,7 @@ public sealed class FrameBudget
             var stage = "";
             var complete = 0;
             var completeFrames = 0;
+            var lastSecondWorst = -1.0;
             for (var i = 0; i < Window; i++)
             {
                 ref var b = ref _buckets[i];
@@ -161,10 +163,11 @@ public sealed class FrameBudget
                     complete++;
                     completeFrames += b.Frames;
                 }
+                if (b.Second == now - 1) lastSecondWorst = b.WorstMs;   // the last complete second: what the quality ladder judges
             }
             var fps = complete > 0 ? completeFrames / (double)complete : -1;
             return new FrameBudgetReading(Kind, SinkIndex, Label, Frames, SlowFrames, frames,
-                frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps);
+                frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst);
         }
     }
 

@@ -237,6 +237,24 @@
     <TextBlock Classes="hint tip"
                Text="A crash with exit code 0xC0000005 is a native fault — a decoder, a driver or a library, not Patterns' own code. The watchdog notes it here and on the health line, keeps a mini-dump of the next one in the crashes folder (when createdump.exe sits beside the exe), and the run after it decodes clips in software. A laptop whose graphics driver keeps faulting is steadier on Software." />
 
+    <TextBlock Classes="h2" Text="QUALITY LADDER" />
+    <Grid ColumnDefinitions="60,*" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Effects" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" MinWidth="240" HorizontalAlignment="Stretch"
+                ItemsSource="{x:Static vm:Lists.QualityModes}"
+                SelectedValue="{Binding State.Admin.Quality, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                ToolTip.Tip="How the particles and fractals answer slow frames. Auto steps them down when an output's frames run past 25 ms for three seconds and back up after thirty clean seconds; Full never steps; Balanced and Economy lock a level" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding QualityText}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip"
+               Text="Auto is a game engine's dynamic quality, for the effects: when an output's frames run past 25 ms for three seconds, particles and fractal iterations step down a level (70 %, then 50 %, then 35 %) on every sink at once — the outputs, the NDI feed and the preview keep the same picture — and step back up after thirty clean seconds. Full never steps down (a slow frame stays slow and the frame budget says so); Balanced and Economy lock a level for a small laptop from the first minute." />
+
+    <TextBlock Classes="h2" Text="MEMORY CEILINGS" />
+    <TextBlock Classes="label" Text="{Binding MemoryBudgetText}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip"
+               Text="The app's memory is bounded by design — ten pictures cached, four decoders, decoded frames held 400 ms for a fade — and this line puts those numbers beside what the app holds now. Its own ceiling is a quarter of the machine (never under 512 MB, never over 3 GB): past it the super-check's Memory ceiling row goes amber, and the memory line above says whether the working set climbed steadily (a leak — restart between sessions) or jumped (a very large picture or deck)." />
+
     <TextBlock Classes="h2" Text="THIS COMPUTER" />
     <TextBlock Classes="label" Text="{Binding MachineOverview}" TextWrapping="Wrap" LineHeight="20" />
     <WrapPanel Margin="0,6,0,0">

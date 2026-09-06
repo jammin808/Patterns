@@ -18,6 +18,22 @@ public sealed partial class MainViewModel
     private string _deskTickText = "";
     private string _renderBudgetText = "";
     private string _startupText = "";
+    private string _qualityText = "";
+    private string _memoryBudgetText = "";
+
+    /// <summary>The QUALITY LADDER block's line: the mode, the level, why, and when it steps back.</summary>
+    public string QualityText { get => _qualityText; private set => Set(ref _qualityText, value); }
+
+    /// <summary>The MEMORY CEILINGS block's line: the app against its ceiling, the picture cache, the decoders, the held frames.</summary>
+    public string MemoryBudgetText { get => _memoryBudgetText; private set => Set(ref _memoryBudgetText, value); }
+
+    /// <summary>The ladder's second: the worst output's last complete second judged, the two lines refreshed.</summary>
+    private void PollQuality()
+    {
+        _services.Quality.Tick();
+        QualityText = _services.Quality.Describe();
+        MemoryBudgetText = _services.Metrics.MemoryCeilingLine();
+    }
 
     /// <summary>The STABILITY block's render line: the worst frame of the last minute, the stage that took it and the sink, every sink's average and rate.</summary>
     public string RenderBudgetText { get => _renderBudgetText; private set => Set(ref _renderBudgetText, value); }
@@ -55,6 +71,7 @@ public sealed partial class MainViewModel
         Guard("audio", PollAudio);
         Guard("tallies", RefreshTallies);
         Guard("health", PollHealth);
+        Guard("quality", PollQuality);
         Guard("machine", PollAdmin);
         Guard("inputs", RefreshActiveInputs);
         Guard("switcher", RefreshSwitcherTiles);

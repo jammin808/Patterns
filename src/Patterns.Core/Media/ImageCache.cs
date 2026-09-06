@@ -10,8 +10,21 @@ namespace Patterns.Core.Media;
 /// </summary>
 public static class ImageCache
 {
-    private const int Capacity = 10;
+    /// <summary>How many decoded pictures stay resident: the memory ceilings' number for the picture cache.</summary>
+    public const int Capacity = 10;
     private static readonly object Gate = new();
+
+    /// <summary>Pictures resident right now.</summary>
+    public static int Count
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return Entries.Count;
+            }
+        }
+    }
     private static readonly Dictionary<string, Entry> Entries = new(StringComparer.OrdinalIgnoreCase);
 
     private sealed class Entry

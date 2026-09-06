@@ -1459,8 +1459,12 @@ public sealed class AdminConfig : Observable
     private bool _metricsCsv = true;
     private string _libreOfficePath = "";
     private VideoDecodingKind _videoDecoding = VideoDecodingKind.Auto;
+    private QualityMode _quality = QualityMode.Auto;
 
     public GraphicsConfig Graphics { get; init; } = new();
+
+    /// <summary>The effects' quality ladder — see <see cref="QualityMode"/>; applied at once, on every sink alike.</summary>
+    public QualityMode Quality { get => _quality; set => Set(ref _quality, value); }
 
     /// <summary>Append a performance sample to patterns.metrics.csv every 30 s (rotated at 1 MB).</summary>
     public bool MetricsCsv { get => _metricsCsv; set => Set(ref _metricsCsv, value); }

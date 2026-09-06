@@ -155,6 +155,20 @@ public enum VideoDecodingKind
     Software,
 }
 
+/// <summary>
+/// The effects' quality ladder: Auto steps particles and fractal iterations down when the output
+/// frames run past the hitch line and back up when they are clean; the rest lock a level (Full
+/// never steps, Balanced is level 1, Economy level 2 — for a small laptop from the first minute).
+/// First member is the fallback.
+/// </summary>
+public enum QualityMode
+{
+    Auto,
+    Full,
+    Balanced,
+    Economy,
+}
+
 /// <summary>Physical output rotation (content is pre-rotated so viewers see it upright).</summary>
 public enum OutputRotation
 {

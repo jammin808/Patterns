@@ -206,9 +206,11 @@ public sealed class FractalPattern : IPatternRenderer
             c.Translate(dx, dy);
         }
 
+        // The quality ladder's factor, read once per frame so every sink draws the same set.
+        var quality = Services.QualityLadder.Shared.Factor;
         if (UsesShader(f.Ctx.Sink) && Shader(sink, o.Kind) is { } fx)
         {
-            var view = FractalView.Of(o, f.Ctx.Time, audio, ShaderIterationCap, surge);
+            var view = FractalView.Of(o, f.Ctx.Time, audio, ShaderIterationCap, surge, quality);
             var uniforms = new SKRuntimeEffectUniforms(fx)
             {
                 ["res"] = new[] { (float)w, (float)h },
@@ -238,8 +240,8 @@ public sealed class FractalPattern : IPatternRenderer
             return;
         }
 
-        var cpuView = FractalView.Of(o, f.Ctx.Time, audio, surge: surge);
-        var size = FractalRaster.SizeFor(o.Quality, f.Canvas);
+        var cpuView = FractalView.Of(o, f.Ctx.Time, audio, surge: surge, quality: quality);
+        var size = FractalRaster.SizeFor(o.Quality, f.Canvas, Services.QualityLadder.RasterScale(quality));
         sink.Fractal = FractalRaster.Render(sink.Fractal, size, o.Kind, palette, cpuView);
         using var image = SKImage.FromBitmap(sink.Fractal.Bitmap);
         if (image is not null) c.DrawImage(image, dest, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));

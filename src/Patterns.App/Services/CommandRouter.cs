@@ -393,6 +393,19 @@ public sealed class CommandRouter
             nextCue = ShowActions.NextScheduledText(s, DateTime.Now),
             stream = new { active = s.Stream.Active, status = _services.Stream.Status },
             health = HealthMonitor.Summary(DateTime.UtcNow),
+            quality = new                                                    // the effects' ladder: the mode, the level (0 full … 3), its factor, the Machine page's words
+            {
+                mode = _services.Quality.Ladder.Mode.ToString(),
+                level = _services.Quality.Ladder.Level,
+                factor = Math.Round(_services.Quality.Ladder.Factor, 2),
+                text = _services.Quality.Describe(),
+            },
+            memory = new                                                     // the memory ceilings: the app's working set against its ceiling, and the line
+            {
+                appMB = Math.Round(_services.Metrics.Current?.RamAppMB ?? -1),
+                ceilingMB = Math.Round(MemoryBudget.For(_services.Metrics.Current?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts).AppCeilingMB),
+                text = _services.Metrics.MemoryCeilingLine(),
+            },
             machine = MachineRow(),
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
         };

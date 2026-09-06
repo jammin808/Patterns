@@ -95,6 +95,18 @@ public sealed class CheckFacts
     public double StartupSeconds { get; init; } = -1;
     public string StartupPhases { get; init; } = "";
     public bool StartupComplete { get; init; }
+
+    /// <summary>The effects' quality ladder: the mode, the level (0 full … 3) and the Machine page's words; "" when the engine has not reported.</summary>
+    public Model.QualityMode QualityMode { get; init; }
+    public int QualityLevel { get; init; }
+    public string QualityWords { get; init; } = "";
+
+    /// <summary>The memory ceilings' inputs: the app's working set (MB; -1 unknown), the pictures cached (-1 unknown), the decoders mounted (-1 unknown), the pool's cap, the frames held for fades.</summary>
+    public double RamAppMB { get; init; } = -1;
+    public int ImagesCached { get; init; } = -1;
+    public int Decoders { get; init; } = -1;
+    public int DecoderCap { get; init; } = 4;
+    public int HeldFrames { get; init; }
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
 
@@ -419,6 +431,8 @@ public static class SuperCheck
         else if (f.Faults == 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Green, "none"));
         DeskTick(f, rows, s);
         RenderFrame(f, rows, s);
+        Quality(f, rows, s);
+        MemoryCeiling(f, rows, s);
         Startup(f, rows, s);
         rows.Add(f.WatchdogEnabled
             ? new CheckRow(s, "Watchdog", f.WatchdogRestarts > 0 ? CheckLight.Amber : CheckLight.Green, f.WatchdogRestarts > 0 ? $"on · {f.WatchdogRestarts} restart(s)" : "on",
@@ -498,6 +512,34 @@ public static class SuperCheck
             Rendering.FrameStage.Overlays => $"{felt} — the overlays: a ticker over a feed, a large logo, the weather chip",
             _ => $"{felt} — close the desk's extra monitors, or lower the output frame rate on the Output page",
         };
+    }
+
+    /// <summary>
+    /// The quality ladder: green at full quality or one step down (the ladder doing its job),
+    /// amber from level 2 — the effects are well below what the show set, which is a machine
+    /// that cannot hold this look rather than a moment.
+    /// </summary>
+    private static void Quality(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.QualityWords.Length == 0) return;
+        var level = Math.Clamp(f.QualityLevel, 0, QualityLadder.Lowest);
+        var light = level >= 2 ? CheckLight.Amber : CheckLight.Green;
+        var value = level == 0
+            ? $"{f.QualityMode}: full"
+            : $"{f.QualityMode}: level {level} of {QualityLadder.Lowest} ({QualityLadder.Percent(QualityLadder.FactorOf(level))})";
+        var note = level >= 2
+            ? "the effects are well below what the show set — lighter content (fewer particles, a Fast fractal) or a faster machine for this look"
+            : f.QualityWords;
+        rows.Add(new CheckRow(section, "Quality ladder", light, value, note));
+    }
+
+    /// <summary>The memory ceilings in numbers: the app against a quarter of the machine, the picture cache, the decoder pool, the frames held for fades.</summary>
+    private static void MemoryCeiling(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.RamAppMB < 0 && f.ImagesCached < 0 && f.Decoders < 0) return;
+        var ceilings = MemoryBudget.For(f.RamTotalMB, Media.ImageCache.Capacity, f.DecoderCap);
+        rows.Add(new CheckRow(section, "Memory ceiling", MemoryBudget.Light(f.RamAppMB, ceilings),
+            MemoryBudget.Describe(f.RamAppMB, ceilings, f.ImagesCached, f.Decoders, f.HeldFrames), MemoryBudget.Advice(f.RamAppMB, ceilings)));
     }
 
     /// <summary>Start-up: green under eight seconds, amber past it, red past twenty — the phases say where the time went.</summary>

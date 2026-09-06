@@ -35,6 +35,24 @@ public sealed class ParticleSim : IDisposable
     private Random _rng = new(1);
     private string _configKey = "";
     private int _count;
+    private double _quality = 1;
+    private SKRect[] _drawRects = Array.Empty<SKRect>();
+    private SKRotationScaleMatrix[] _drawXforms = Array.Empty<SKRotationScaleMatrix>();
+    private SKColor[] _drawTints = Array.Empty<SKColor>();
+
+    /// <summary>
+    /// The quality ladder's factor: the share of the field that moves and draws. The rest keep
+    /// their places, so stepping down hides particles rather than re-seeding the field, and
+    /// stepping up shows them again where they were.
+    /// </summary>
+    public double Quality
+    {
+        get => _quality;
+        set => _quality = Math.Clamp(value, 0.05, 1);
+    }
+
+    /// <summary>How many particles move and draw at the current quality — never fewer than one.</summary>
+    public int ActiveCount => _count == 0 ? 0 : Math.Max(1, Math.Min(_count, (int)Math.Round(_count * _quality)));
     private long _doneSteps = -1;
     private float _w = 1920, _h = 1080;
     private ParticleOptions _o = new();
@@ -147,7 +165,8 @@ public sealed class ParticleSim : IDisposable
         var swirlCos = MathF.Cos(swirlAngle);
         var swirlSin = MathF.Sin(swirlAngle);
 
-        for (var i = 0; i < _count; i++)
+        var active = ActiveCount;
+        for (var i = 0; i < active; i++)
         {
             ref var p = ref _pool[i];
             p.Age += dt;
@@ -292,7 +311,8 @@ public sealed class ParticleSim : IDisposable
         var ringWidth = MathF.Max(1f, maxDist * 0.12f);
         var colors = surge.Hue != 0 && EffectColor.HueStrength(surge.Hue) > 0.002f ? Turned(surge.Hue) : _colors;
 
-        for (var i = 0; i < _count; i++)
+        var active = ActiveCount;
+        for (var i = 0; i < active; i++)
         {
             ref var p = ref _pool[i];
             _spriteRects[i] = sprite;
@@ -337,7 +357,25 @@ public sealed class ParticleSim : IDisposable
         }
         var paint = pc.FillAA(SKColors.White);
         paint.BlendMode = _o.Glow || surge.Glow > 0.25f ? SKBlendMode.Plus : SKBlendMode.SrcOver;
-        c.DrawAtlas(_atlas, _spriteRects, _xforms, _tints, SKBlendMode.Modulate, DrawUtil.Smooth, paint);
+        if (active == _count)
+        {
+            c.DrawAtlas(_atlas, _spriteRects, _xforms, _tints, SKBlendMode.Modulate, DrawUtil.Smooth, paint);
+        }
+        else
+        {
+            // DrawAtlas draws every array entry: the active share goes through arrays of its own
+            // length, re-sized only when the level changes, never per frame.
+            if (_drawRects.Length != active)
+            {
+                _drawRects = new SKRect[active];
+                _drawXforms = new SKRotationScaleMatrix[active];
+                _drawTints = new SKColor[active];
+            }
+            Array.Copy(_spriteRects, _drawRects, active);
+            Array.Copy(_xforms, _drawXforms, active);
+            Array.Copy(_tints, _drawTints, active);
+            c.DrawAtlas(_atlas, _drawRects, _drawXforms, _drawTints, SKBlendMode.Modulate, DrawUtil.Smooth, paint);
+        }
         paint.BlendMode = SKBlendMode.SrcOver;
         if (shaking) c.Restore();
     }

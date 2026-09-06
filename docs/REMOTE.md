@@ -138,7 +138,7 @@ Remote commands always drive **what the audience sees**: looks, cues, playlist p
 and transport apply to the program even while the operator is building the next look in the
 sandboxed preview.
 
-State JSON also carries `stream{active,status}`, `health`, `machine{cpu,ram,fps,battery,advice}` — machine load
+State JSON also carries `stream{active,status}`, `health`, `quality{mode,level,factor,text}` (the effects' quality ladder: Auto / Full / Balanced / Economy, the level 0–3, its factor, the Machine page's line), `memory{appMB,ceilingMB,text}` (the app's working set against its ceiling and the MEMORY CEILINGS line), `machine{cpu,ram,fps,battery,advice}` — machine load
 (percent, -1 = unknown), output frame rate, whether the computer is on battery, and how
 many Machine-page suggestions currently need attention — and `beacon{sending,listening,main}`:
 whether this machine sends its heartbeat beacon, whether it listens for a main machine's, and

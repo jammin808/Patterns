@@ -518,6 +518,7 @@ public static class LowerThirdRenderer
             cache.SimVersion = f.Snapshot.Version;
             cache.SimCanvas = canvas;
         }
+        sim.Quality = QualityLadder.Shared.Factor;
         sim.Advance(time);
         c.Save();
         ClipBox(c, rect, e.CornerPx);
@@ -535,7 +536,8 @@ public static class LowerThirdRenderer
             cache.FractalColorsKey = o.ColorsCsv;
             cache.FractalTime = double.NegativeInfinity;   // a new palette draws at once
         }
-        var size = FractalRaster.SizeFor(o.Quality, new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height)));
+        var quality = QualityLadder.Shared.Factor;
+        var size = FractalRaster.SizeFor(o.Quality, new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height)), QualityLadder.RasterScale(quality));
         // A fractal element is rendered on the CPU by every sink that draws the lower third; at the
         // outputs' 60 Hz that is the one thing on a lower third that could crowd out the decoders on
         // a small machine. It gets a new frame FractalFps times a second and the same picture between —
@@ -545,7 +547,7 @@ public static class LowerThirdRenderer
         if (due)
         {
             var audio = o.AudioSource == AudioSourceKind.None ? AudioLevelFrame.Zero : AudioLevels.Read(f.Ctx.UtcNow);
-            var view = FractalView.Of(o, time, audio, surge: surge);
+            var view = FractalView.Of(o, time, audio, surge: surge, quality: quality);
             cache.Fractal = FractalRaster.Render(cache.Fractal, size, o.Kind, cache.FractalColors, view);
             cache.FractalImage?.Dispose();
             cache.FractalImage = SKImage.FromBitmap(cache.Fractal.Bitmap);

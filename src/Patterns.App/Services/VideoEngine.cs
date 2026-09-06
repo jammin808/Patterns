@@ -89,6 +89,9 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Pre-roll clips that could not be mounted because the decoder limit was reached by live sources.</summary>
     public int PreRollWaiting { get; private set; }
 
+    /// <summary>Decoders open right now — live and pre-rolled — against <see cref="MaxMounts"/>: the memory ceilings' number.</summary>
+    public int MountCount => _mounts.Count;
+
     /// <summary>Where one wanted clip stands: not mounted, opening, held and ready, or already on the screens.</summary>
     public PreRoll.State PreRollStateOf(string key)
     {
@@ -463,6 +466,18 @@ public sealed class VlcFrameSource : IMountedSource
     // Long enough to outlive any deferred GPU flush, short enough that several decoders'
     // retired frames never add up: a 2 s hold across four 1080p sources is gigabytes.
     private static readonly TimeSpan RetireHold = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>Decoded frames held for a fade right now, across every source: the memory ceilings' number.</summary>
+    public static int RetiredImageCount
+    {
+        get
+        {
+            lock (RetiredGate)
+            {
+                return Retired.Count;
+            }
+        }
+    }
 
     private static void RetireImage(SKImage? image)
     {

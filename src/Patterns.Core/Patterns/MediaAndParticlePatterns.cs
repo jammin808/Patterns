@@ -321,6 +321,7 @@ public sealed class ParticlePattern : IPatternRenderer
             f.Sink.ParticlesConfiguredVersion = f.Snapshot.Version;
             f.Sink.ParticlesConfiguredCanvas = f.Canvas;
         }
+        sim.Quality = Services.QualityLadder.Shared.Factor;   // the ladder's level: the same on every sink
         sim.Advance(f.Ctx.Time);
         sim.Render(c, f.Paints);
         Effects.EffectFlash.Draw(c, f.W, f.H, Effects.EffectImpulses.SurgeAt(f.Ctx.Time).Flash, f.Paints);

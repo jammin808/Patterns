@@ -503,6 +503,14 @@ public static class Lists
         new(GpuPreferenceKind.LetWindowsDecide, "Let Windows decide"),
     };
 
+    public static readonly EnumItem[] QualityModes =
+    {
+        new(QualityMode.Auto, "Auto — steps the effects down on slow frames, back up when clean"),
+        new(QualityMode.Full, "Full — never steps down"),
+        new(QualityMode.Balanced, "Balanced — locked one level down (70 %)"),
+        new(QualityMode.Economy, "Economy — locked two levels down (50 %)"),
+    };
+
     public static readonly EnumItem[] VideoDecodings =
     {
         new(VideoDecodingKind.Auto, "Auto — the graphics card; software for the run after a native fault"),

@@ -268,6 +268,14 @@ public sealed class SystemMetricsService : IDisposable
     }
 
     /// <summary>The facts as the app sees them now. Every probe is guarded; unknown stays unknown.</summary>
+    /// <summary>The MEMORY CEILINGS line: the app against a quarter of the machine, the picture cache, the decoder pool, the frames held for fades.</summary>
+    public string MemoryCeilingLine()
+    {
+        var sample = Current;
+        var ceilings = MemoryBudget.For(sample?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts);
+        return MemoryBudget.Describe(sample?.RamAppMB ?? -1, ceilings, Patterns.Core.Media.ImageCache.Count, _services.Video.MountCount, VlcFrameSource.RetiredImageCount);
+    }
+
     public CheckFacts GatherFacts()
     {
         var s = Current;
@@ -432,6 +440,14 @@ public sealed class SystemMetricsService : IDisposable
             StartupSeconds = startup.TotalMs >= 0 ? startup.TotalMs / 1000 : -1,
             StartupPhases = startupPhases.Count > 0 ? string.Join(" · ", startupPhases.Select(p => $"{p.Phase} {StartupBudget.Span(p.Ms)}")) : "",
             StartupComplete = startup.Complete,
+            QualityMode = _services.Quality.Ladder.Mode,
+            QualityLevel = _services.Quality.Ladder.Level,
+            QualityWords = _services.Quality.Describe(),
+            RamAppMB = s?.RamAppMB ?? -1,
+            ImagesCached = Patterns.Core.Media.ImageCache.Count,
+            Decoders = _services.Video.MountCount,
+            DecoderCap = VideoEngine.MaxMounts,
+            HeldFrames = VlcFrameSource.RetiredImageCount,
             WatchdogEnabled = state.Watchdog.Enabled,
             WatchdogRestarts = HealthMonitor.Restarts,
             BeaconSending = _services.Beacon.Sending,

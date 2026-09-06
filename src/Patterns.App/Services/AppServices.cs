@@ -86,6 +86,9 @@ public sealed class AppServices
     /// <summary>How long this start took to become a desk, phase by phase (the Machine page, the super-check).</summary>
     public StartupBudget Startup { get; } = new();
 
+    /// <summary>The effects' quality ladder: the Machine page's mode in, the frame budgets' worst second in, a level out for every renderer.</summary>
+    public QualityService Quality { get; }
+
     /// <summary>The one way to do something to the show — see <see cref="ShowActions"/>.</summary>
     public ShowActions Actions { get; }
 
@@ -285,6 +288,7 @@ public sealed class AppServices
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
         Video = new VideoEngine { HardwareDecoding = () => HardwareDecoding };
+        Quality = new QualityService(this);
         var video = Video;
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
