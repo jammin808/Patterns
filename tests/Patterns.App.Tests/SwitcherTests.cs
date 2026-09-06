@@ -159,9 +159,10 @@ public class SwitcherTests
 
             vm.SandboxSendSelectedCommand.Execute(null);
 
-            Assert.True(vm.IsSandboxActive); // EDIT SAFE re-armed after the send
+            Assert.True(vm.IsSandboxActive); // the sandbox stays open over a send
             Assert.False(vm.SwitcherTiles[1].IsSendTarget); // a send consumes its targets
-            Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind); // program restored
+            Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind); // the preview keeps the picture
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind); // the program on air is untouched
             // The canvas is one content target: the look lands on it as one picture, keyed a+b,
             // not as two per-screen patterns that the span would ignore.
             var key = CanvasNameConfig.KeyFor(new[] { "a", "b" });

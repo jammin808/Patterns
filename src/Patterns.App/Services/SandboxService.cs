@@ -114,28 +114,38 @@ public sealed class SandboxService
 
     /// <summary>
     /// The sandbox pattern lands on the chosen content targets (screens, or joined canvases by
-    /// key) as their own pattern; the program (and every other target) goes back to what it
-    /// was showing.
+    /// key) as their own pattern — on the frozen program, so the audience sees it now, and in
+    /// the edited state, so the next TAKE carries it and the wall's OWN lights. Nothing else
+    /// moves: every other target keeps what it was showing, and the preview keeps the picture —
+    /// the sandbox stays open with the same pattern, the same preview look and the same editing
+    /// target, so the same look goes to the next screen, or on being edited. (It used to restore
+    /// the program into the edited state and open a fresh sandbox, which mirrors the program: the
+    /// picture just built was on one screen and nowhere the operator could edit it.)
     /// </summary>
     public void SendToTargets(IReadOnlyList<string> targetIds)
     {
-        if (!Active || targetIds.Count == 0) return;
+        if (!Active || _program is null || targetIds.Count == 0) return;
         var state = _services.State;
+        var program = _program;
         var pattern = JsonUtil.ClonePattern(state.Pattern);
-        RestoreContent();
-        _services.BulkEdit(() =>
+        void Land(ShowState s)
         {
             foreach (var id in targetIds)
             {
-                var assignment = ContentTargets.EnsureAssignment(state, id);
-                ModelCopier.Copy(pattern, assignment.Pattern);
+                var assignment = ContentTargets.EnsureAssignment(s, id);
+                ModelCopier.Copy(JsonUtil.ClonePattern(pattern), assignment.Pattern);
                 assignment.PinnedByTake = false; // the operator chose this picture — it stays
-                ContentTargets.SetOwnPattern(state, id, true);
+                ContentTargets.SetOwnPattern(s, id, true);
             }
+        }
+        // One publish for both sides: the outputs see the target change once, the preview stays.
+        _services.BulkEdit(() =>
+        {
+            Land(state);
+            Land(program);
         });
-        Exit(reenterIfDefault: true);
         _services.AirLabel = Modified(_services.AirLabel);
-        Log.Info($"Sandbox sent to {targetIds.Count} target(s).");
+        Log.Info($"Sandbox sent to {targetIds.Count} target(s); the preview keeps the picture.");
     }
 
     /// <summary>

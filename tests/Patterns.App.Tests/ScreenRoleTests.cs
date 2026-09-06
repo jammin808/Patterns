@@ -222,8 +222,9 @@ public class ScreenRoleTests
             vm.State.Pattern.Kind = PatternKind.Focus;
             vm.SwitcherTiles[2].SendHereCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(vm.IsSandboxActive);                                  // EDIT SAFE re-armed
-            Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);             // the program went back
+            Assert.True(vm.IsSandboxActive);                                  // the sandbox stays open over a send
+            Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);            // the preview keeps the picture
+            Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.State.Pattern.Kind); // the program on air is untouched
             Assert.True(vm.State.Output.Placements.First(p => p.ScreenId == "c").UseCustomPattern);
             Assert.Equal(PatternKind.Focus, b.Services.Bus.Current.PatternFor("c").Kind);
             Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.PatternFor(CanvasKey).Kind);

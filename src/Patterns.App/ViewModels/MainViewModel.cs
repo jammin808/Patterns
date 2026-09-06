@@ -674,8 +674,7 @@ public sealed partial class MainViewModel : Observable
             ClearSendTargets();
             Raise(nameof(IsSandboxActive));
             RebuildEditTargets(); // the targets now show their own pattern — OWN lights up
-            StatusMessage = $"Sandbox sent to {titles} as their own pattern." +
-                            (_services.Sandbox.Active ? " EDIT SAFE re-armed." : "");
+            StatusMessage = $"Sent to {titles} as their own pattern — every other target stays as it was, and the preview keeps the picture.";
         });
         SelectTileCommand = new RelayCommand<SwitcherTile>(tile =>
         {

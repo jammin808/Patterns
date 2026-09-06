@@ -531,7 +531,7 @@ public sealed partial class MainViewModel
         ClearSendTargets();
         Raise(nameof(IsSandboxActive));
         RebuildEditTargets(); // the target now shows its own pattern — OWN lights up
-        StatusMessage = $"Sent to {tile.Title} as its own pattern — every other target stays as it was.";
+        StatusMessage = $"Sent to {tile.Title} as its own pattern — every other target stays as it was, and the preview keeps the picture.";
     }
 
     /// <summary>

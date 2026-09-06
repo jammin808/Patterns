@@ -336,7 +336,7 @@
                             ToolTip.Tip="The keyboard belongs to the web page the desk drives — F5 starts a PowerPoint, the arrows move a deck, k plays a YouTube video, a search box takes typing. The desk's own keys wait until you press this again or Ctrl+Alt+K" />
               <Button Grid.Column="6" Classes="mini" Content="SEND TO TICKED" Margin="0,0,6,0"
                       Command="{Binding SandboxSendSelectedCommand}" IsVisible="{Binding IsSandboxActive}"
-                      ToolTip.Tip="The sandbox becomes the ticked tiles' own pattern; everything else stays as it was" />
+                      ToolTip.Tip="The preview becomes the ticked tiles' own pattern, live; everything else stays as it was, and the preview keeps the picture for the next send" />
               <TextBlock Grid.Column="7" Classes="label" Text="{Binding PresenterStepText}" VerticalAlignment="Center" />
             </Grid>
             <Border Grid.Row="6" Classes="panel" Padding="4" ClipToBounds="True"

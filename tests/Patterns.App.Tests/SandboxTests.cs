@@ -128,9 +128,12 @@ public class SandboxTests
             vm.State.Pattern.Kind = PatternKind.Focus;
             services.Sandbox.SendToTargets(new[] { "screen-a" });
 
-            // Program back to what it was; screen-a carries the sandbox as its own pattern.
-            Assert.True(services.Sandbox.Active); // EDIT SAFE re-armed for the next look
-            Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);
+            // The program stays what it was on air; screen-a carries the sandbox as its own pattern —
+            // and the preview keeps the picture (the sandbox is still open, with it).
+            Assert.True(services.Sandbox.Active);
+            Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Focus, services.Bus.Sandbox!.State.Pattern.Kind);
             var a = vm.State.Output.Placements.First(p => p.ScreenId == "screen-a");
             var b = vm.State.Output.Placements.First(p => p.ScreenId == "screen-b");
             Assert.True(a.UseCustomPattern);
@@ -141,6 +144,85 @@ public class SandboxTests
             // And the published snapshot resolves it the same way the engine will.
             Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor("screen-a").Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("screen-b").Kind);
+        }
+        finally
+        {
+            window.Close();
+            services.Shutdown();
+        }
+    }
+
+    /// <summary>
+    /// Round 17: "when a pattern is sent from PGM to a screen using SEND on a screen tile or
+    /// otherwise, PGM should still keep that pattern in Preview, not jump back to what is in PGM
+    /// Program." A send is an edit of both states now; the sandbox never closes over it.
+    /// </summary>
+    [AvaloniaFact]
+    public void ASendKeepsThePreviewSoTheNextSendAndTheTakeCarryOn()
+    {
+        var (services, vm, window) = Boot();
+        try
+        {
+            // Three stand-alone screens the app sees as its rig, with a tile each.
+            var fakes = new List<ScreenInfo>
+            {
+                new("a", "Left", new Avalonia.PixelRect(0, 0, 1920, 1080), 1.0, true, 0),
+                new("b", "Right", new Avalonia.PixelRect(3000, 0, 1920, 1080), 1.0, false, 1),
+                new("c", "Lobby", new Avalonia.PixelRect(6000, 0, 1920, 1080), 1.0, false, 2),
+            };
+            services.Screens.All.Clear();
+            foreach (var s in fakes) services.Screens.All.Add(s);
+            vm.State.Output.Placements.Clear();
+            vm.ReconcilePlacements(fakes);
+            foreach (var p in vm.State.Output.Placements) p.Enabled = true;
+            vm.State.Pattern.Kind = PatternKind.Grid;
+            vm.RebuildSwitcherTiles(fakes);
+            Dispatcher.UIThread.RunJobs();
+            SwitcherTile Tile(string id) => vm.SwitcherTiles.Single(t => t.TargetId == id);
+
+            // Build a look in the preview and SEND it to screen a from its tile.
+            vm.IsSandboxActive = true;
+            vm.State.Pattern.Kind = PatternKind.Focus;
+            var previewLook = services.PreviewLookId;
+            Assert.Null(vm.EditTarget.ScreenId);   // the editors work on the program
+            var publishes = services.Bus.Current.Version;
+            Tile("a").SendHereCommand.Execute(null);   // SEND on the tile
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(vm.IsSandboxActive);
+            Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);                          // the preview keeps the picture
+            Assert.Equal(PatternKind.Focus, services.Bus.Sandbox!.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);         // the program on air is untouched
+            Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
+            Assert.Equal(previewLook, services.PreviewLookId);                                // nothing else moved
+            Assert.Null(vm.EditTarget.ScreenId);                                              // still the program, not the screen just sent to
+            Assert.True(services.Bus.Current.Version > publishes, "the outputs were told");
+            Assert.Contains("keeps the picture", vm.StatusMessage);
+            Assert.True(Tile("a").IsOwn);
+
+            // Go on editing and send to screen b: a keeps the first picture, b takes the second, the preview still has it.
+            vm.State.Pattern.Kind = PatternKind.ColorBars;
+            Tile("b").IsSendTarget = true;
+            vm.SandboxSendSelectedCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.IsSandboxActive);
+            Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
+            Assert.DoesNotContain(vm.SwitcherTiles, t => t.IsSendTarget);                     // the ticks are consumed
+
+            // TAKE: the preview becomes the program; the two screens with their own picture keep it.
+            vm.SandboxSendAllCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("c").Kind);
+            Assert.True(vm.IsSandboxActive);                                                   // EDIT SAFE re-arms after a TAKE, as before
         }
         finally
         {
