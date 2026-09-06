@@ -635,6 +635,19 @@ public sealed partial class MainViewModel
             d.IsDefault = d.Id == defaultId;
         }
 
+        // The people: the entry whose name the design on air (or in the preview) reads lights, with the design named on its line.
+        var airPerson = airLive ? LowerThirdsConfig.PersonOf(onAir, preview.Entries) : null;
+        var previewPerson = previewLive ? LowerThirdsConfig.PersonOf(inPreview, preview.Entries) : null;
+        foreach (var e in preview.Entries)
+        {
+            var on = ReferenceEquals(e, airPerson);
+            e.IsOnAir = on;
+            e.OnAirText = on ? $"{airText} · {onAir?.Name}" : "";
+            var pvw = ReferenceEquals(e, previewPerson);
+            e.IsInPreview = pvw;
+            e.PreviewText = pvw ? $"{previewText} · {inPreview?.Name}" : "";
+        }
+
         var edited = airLive && _services.LowerThirdAirEdited();
         LowerThirdAirEdited = edited;
         IsLowerThirdOnAir = airLive;

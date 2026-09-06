@@ -314,7 +314,14 @@ public sealed class LowerThirdDesign : Observable
     public int HoldMs { get => _holdMs; set => Set(ref _holdMs, Math.Clamp(value, 0, 600000)); }
     public int OutMs { get => _outMs; set => Set(ref _outMs, Math.Clamp(value, 0, 20000)); }
 
-    public string PersonName { get => _personName; set => Set(ref _personName, value ?? ""); }
+    public string PersonName
+    {
+        get => _personName;
+        set
+        {
+            if (Set(ref _personName, value ?? "")) Raise(nameof(ChipText));
+        }
+    }
     public string PersonRole { get => _personRole; set => Set(ref _personRole, value ?? ""); }
     /// <summary>Empty = the brand kit's company name.</summary>
     public string Company { get => _company; set => Set(ref _company, value ?? ""); }
@@ -334,11 +341,25 @@ public sealed class LowerThirdDesign : Observable
 
     /// <summary>Runtime tally: this design is on screen right now (never saved).</summary>
     [JsonIgnore]
-    public bool IsOnAir { get => _isOnAir; set => Set(ref _isOnAir, value); }
+    public bool IsOnAir
+    {
+        get => _isOnAir;
+        set
+        {
+            if (Set(ref _isOnAir, value)) Raise(nameof(ChipText));
+        }
+    }
 
     /// <summary>Runtime tally: "ON AIR", "ARRIVING", "LEAVING", or "" (never saved).</summary>
     [JsonIgnore]
-    public string OnAirText { get => _onAirText; set => Set(ref _onAirText, value ?? ""); }
+    public string OnAirText
+    {
+        get => _onAirText;
+        set
+        {
+            if (Set(ref _onAirText, value ?? "")) Raise(nameof(ChipText));
+        }
+    }
 
     private bool _isInPreview;
     private string _previewText = "";
@@ -346,11 +367,34 @@ public sealed class LowerThirdDesign : Observable
 
     /// <summary>Runtime tally: this design is in the preview — the PREVIEW pane, the multiview's Preview tile — for a sign-off (never saved).</summary>
     [JsonIgnore]
-    public bool IsInPreview { get => _isInPreview; set => Set(ref _isInPreview, value); }
+    public bool IsInPreview
+    {
+        get => _isInPreview;
+        set
+        {
+            if (Set(ref _isInPreview, value)) Raise(nameof(ChipText));
+        }
+    }
 
     /// <summary>Runtime tally: "IN PREVIEW", "ARRIVING", "LEAVING", or "" (never saved).</summary>
     [JsonIgnore]
-    public string PreviewText { get => _previewText; set => Set(ref _previewText, value ?? ""); }
+    public string PreviewText
+    {
+        get => _previewText;
+        set
+        {
+            if (Set(ref _previewText, value ?? "")) Raise(nameof(ChipText));
+        }
+    }
+
+    /// <summary>
+    /// The Show panel chip's second line: the tally while the design is on air (first) or in the
+    /// preview, else the name the design carries — who a press would put on screen.
+    /// </summary>
+    [JsonIgnore]
+    public string ChipText => _isOnAir && _onAirText.Length > 0 ? _onAirText
+        : _isInPreview && _previewText.Length > 0 ? _previewText
+        : _personName;
 
     /// <summary>Runtime tally: this is the show's default design — the one a person goes into when no design is named (never saved; the config keeps the id).</summary>
     [JsonIgnore]
@@ -388,10 +432,28 @@ public sealed class LowerThirdEntry : Observable
     public string Name { get => _name; set => Set(ref _name, value ?? ""); }
 
     /// <summary>What the Role element shows: a job title, a second line.</summary>
-    public string Role { get => _role; set => Set(ref _role, value ?? ""); }
+    public string Role
+    {
+        get => _role;
+        set
+        {
+            if (Set(ref _role, value ?? ""))
+            {
+                Raise(nameof(Summary));
+                Raise(nameof(ChipText));
+            }
+        }
+    }
 
     /// <summary>What the Company element shows; empty = the brand kit's company.</summary>
-    public string Company { get => _company; set => Set(ref _company, value ?? ""); }
+    public string Company
+    {
+        get => _company;
+        set
+        {
+            if (Set(ref _company, value ?? "")) Raise(nameof(Summary));
+        }
+    }
 
     /// <summary>A headshot or a badge file for the design's picture element; empty leaves the design's picture as it is.</summary>
     public string Photo { get => _photo; set => Set(ref _photo, value ?? ""); }
@@ -411,6 +473,61 @@ public sealed class LowerThirdEntry : Observable
             return string.Join(" · ", parts);
         }
     }
+
+    private bool _isOnAir;
+    private string _onAirText = "";
+    private bool _isInPreview;
+    private string _previewText = "";
+
+    /// <summary>Runtime tally: the design on screen carries this person's name right now (never saved).</summary>
+    [JsonIgnore]
+    public bool IsOnAir
+    {
+        get => _isOnAir;
+        set
+        {
+            if (Set(ref _isOnAir, value)) Raise(nameof(ChipText));
+        }
+    }
+
+    /// <summary>Runtime tally: "ON AIR · Neon", "ARRIVING · Neon", "LEAVING · Neon" — the phase and the design — or "" (never saved).</summary>
+    [JsonIgnore]
+    public string OnAirText
+    {
+        get => _onAirText;
+        set
+        {
+            if (Set(ref _onAirText, value ?? "")) Raise(nameof(ChipText));
+        }
+    }
+
+    /// <summary>Runtime tally: the design in the preview carries this person's name (never saved).</summary>
+    [JsonIgnore]
+    public bool IsInPreview
+    {
+        get => _isInPreview;
+        set
+        {
+            if (Set(ref _isInPreview, value)) Raise(nameof(ChipText));
+        }
+    }
+
+    /// <summary>Runtime tally: "IN PREVIEW · Neon" and the phases, or "" (never saved).</summary>
+    [JsonIgnore]
+    public string PreviewText
+    {
+        get => _previewText;
+        set
+        {
+            if (Set(ref _previewText, value ?? "")) Raise(nameof(ChipText));
+        }
+    }
+
+    /// <summary>The Show panel chip's second line: the tally while on air (first) or in the preview, else the role.</summary>
+    [JsonIgnore]
+    public string ChipText => _isOnAir && _onAirText.Length > 0 ? _onAirText
+        : _isInPreview && _previewText.Length > 0 ? _previewText
+        : _role;
 
     public LowerThirdEntry Clone(bool newId = false)
     {
@@ -519,6 +636,27 @@ public sealed class LowerThirdsConfig : Observable
             if (string.Equals(e.Name, key, StringComparison.OrdinalIgnoreCase)) return e;
         }
         if (int.TryParse(key, out var n) && n >= 1 && n <= Entries.Count) return Entries[n - 1];
+        return null;
+    }
+
+    /// <summary>
+    /// The design carries this person: its name field reads the entry's name (any case, spaces
+    /// trimmed) — what the screen shows, whichever way the person got there (a chip, a cue, the
+    /// wire, a hand edit). A name typed over by hand is nobody's.
+    /// </summary>
+    public static bool Carries(LowerThirdDesign? design, LowerThirdEntry entry)
+        => design is not null
+           && entry.Name.Trim().Length > 0
+           && string.Equals(design.PersonName.Trim(), entry.Name.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The library entry a design carries — the first whose name it reads — or null (no design, no name, nobody's).</summary>
+    public static LowerThirdEntry? PersonOf(LowerThirdDesign? design, IEnumerable<LowerThirdEntry> entries)
+    {
+        if (design is null || design.PersonName.Trim().Length == 0) return null;
+        foreach (var e in entries)
+        {
+            if (Carries(design, e)) return e;
+        }
         return null;
     }
 

@@ -159,20 +159,19 @@
       <ItemsControl ItemsSource="{Binding VogChips}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <UniformGrid Columns="2" />
+            <UniformGrid Columns="3" />
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:StingerItemConfig">
-            <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center" ToolTip.Tip="{Binding OnAirText}"
+            <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding OnAirText}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireVogCommand}"
                     CommandParameter="{Binding}">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding Path, Converter={StaticResource MediaKind}}" FontSize="10"
-                           Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
-                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <StackPanel Spacing="1">
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
+                <TextBlock Classes="chipLine" Text="{Binding Path, Converter={StaticResource MediaKind}}" TextAlignment="Center" IsVisible="{Binding !IsOnAir}" />
+                <TextBlock Classes="chipLine air" Text="{Binding OnAirText}" TextTrimming="CharacterEllipsis" TextAlignment="Center" IsVisible="{Binding IsOnAir}" />
               </StackPanel>
             </Button>
           </DataTemplate>
@@ -185,24 +184,20 @@
       <ItemsControl ItemsSource="{Binding StingChips}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <UniformGrid Columns="2" />
+            <UniformGrid Columns="3" />
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:StingerItemConfig">
-            <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="56" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center" ToolTip.Tip="{Binding OnAirText}"
+            <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding OnAirText}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireStingCommand}"
                     CommandParameter="{Binding}">
-              <StackPanel Spacing="2">
-                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding Path, Converter={StaticResource MediaKind}}" FontSize="10"
-                             Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
-                             TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                </StackPanel>
-                <TextBlock Classes="hint" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"
+              <StackPanel Spacing="1">
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
+                <TextBlock Classes="chipLine" TextAlignment="Center" TextTrimming="CharacterEllipsis" IsVisible="{Binding !IsOnAir}"
                            Text="{Binding AfterKey, Converter={StaticResource StingerAfterText}, ConverterParameter=summary}" />
+                <TextBlock Classes="chipLine air" Text="{Binding OnAirText}" TextTrimming="CharacterEllipsis" TextAlignment="Center" IsVisible="{Binding IsOnAir}" />
               </StackPanel>
             </Button>
           </DataTemplate>
@@ -219,18 +214,22 @@
       <ItemsControl ItemsSource="{Binding State.LowerThirds.Designs}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <UniformGrid Columns="2" />
+            <UniformGrid Columns="3" />
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="lt:LowerThirdDesign">
-            <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center" ToolTip.Tip="{Binding OnAirText}"
+            <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding OnAirText}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ChipLowerThirdCommand}"
                     CommandParameter="{Binding}">
-              <StackPanel Orientation="Horizontal" Spacing="5">
-                <TextBlock Text="★" IsVisible="{Binding IsDefault}" ToolTip.Tip="The show's default design" />
-                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+              <StackPanel Spacing="1">
+                <Grid ColumnDefinitions="Auto,*">
+                  <TextBlock Text="★ " IsVisible="{Binding IsDefault}" ToolTip.Tip="The show's default design" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
+                </Grid>
+                <TextBlock Classes="chipLine" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Text="{Binding ChipText}"
+                           TextTrimming="CharacterEllipsis" TextAlignment="Center" IsVisible="{Binding ChipText, Converter={StaticResource NotEmpty}}" />
               </StackPanel>
             </Button>
           </DataTemplate>
@@ -247,25 +246,30 @@
         <Button Grid.Column="2" Classes="go" Content="TAKE TO AIR" Command="{Binding TakeLowerThirdCommand}" ToolTip.Tip="The signed-off lower third to air; the preview clears" />
         <Button Grid.Column="4" Classes="mini" Content="CLEAR" Command="{Binding ClearLowerThirdPreviewCommand}" ToolTip.Tip="The preview's lower third leaves; nothing changes on air" />
       </Grid>
-      <TextBlock Classes="hint tip" Text="A chip puts the design on air over whatever is showing, on every screen, send and the stream; with PVW FIRST on it goes to the preview instead — the PREVIEW pane, the multiview's Preview tile and REVIEW — for a sign-off, and TAKE TO AIR puts it on. ★ is the show's default design. EDITED means the design was changed after it went on air: UPDATE ON AIR pushes the change. Build designs on the Lower thirds page (BUILD)." />
+      <TextBlock Classes="hint tip" Text="A chip puts the design on air over whatever is showing, on every screen, send and the stream; with PVW FIRST on it goes to the preview instead — the PREVIEW pane, the multiview's Preview tile and REVIEW — for a sign-off, and TAKE TO AIR puts it on. A chip lights red while its design is on air and green while it is in the preview, its small line reading the phase (arriving, on air, leaving) — otherwise the name the design carries. ★ is the show's default design. EDITED means the design was changed after it went on air: UPDATE ON AIR pushes the change. Build designs on the Lower thirds page (BUILD)." />
       <StackPanel IsVisible="{Binding State.LowerThirds.Entries.Count, Converter={StaticResource Positive}}">
         <TextBlock Classes="h2" Text="PEOPLE" />
         <ItemsControl ItemsSource="{Binding State.LowerThirds.Entries}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <UniformGrid Columns="2" />
+              <UniformGrid Columns="3" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="lt:LowerThirdEntry">
-              <Button Classes="chip" Margin="0,0,6,6" Height="46" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="{Binding Summary}"
+              <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding Summary}"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ChipEntryCommand}" CommandParameter="{Binding}">
-                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <StackPanel Spacing="1">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
+                  <TextBlock Classes="chipLine" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Text="{Binding ChipText}"
+                             TextTrimming="CharacterEllipsis" TextAlignment="Center" IsVisible="{Binding ChipText, Converter={StaticResource NotEmpty}}" />
+                </StackPanel>
               </Button>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <TextBlock Classes="hint tip" Text="A person goes into the design on air (else the show's ★ default) — name, role, company and photo — and it arrives again: the next speaker in one press. With PVW FIRST on, into the preview for a sign-off first." />
+        <TextBlock Classes="hint tip" Text="A person goes into the design on air (else the show's ★ default) — name, role, company and photo — and it arrives again: the next speaker in one press. With PVW FIRST on, into the preview for a sign-off first. A person's chip lights red while the design on air carries that name and green while the one in the preview does, the line naming the design; otherwise the line is the role." />
       </StackPanel>
     </StackPanel>
 
@@ -285,7 +289,7 @@
       <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding StopStingerCommand}" />
     </Grid>
     <TextBlock Classes="hint tip"
-               Text="A VOG plays over everything (the music ducks, and so does a stinger that is playing) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. Set them up on the Audio page (SETUP)." />
+               Text="A VOG plays over everything (the music ducks, and so does a stinger that is playing) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. A chip lights red while its sound, clip or surge plays, its line reading the seconds, HOLDING, or what is left of a sting. Set them up on the Audio page (SETUP)." />
 
     <TextBlock Classes="h2" Text="AUDIO PLAYLIST" />
     <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto">

@@ -188,11 +188,11 @@ public static class HelpTopics
                 "A LOOK tile puts the look on air (into the preview while EDIT SAFE is open); PVW loads it into the preview whatever the mode.",
                 "SCREENS — EACH ON ITS OWN: pick a look in a row and → THIS SCREEN puts its picture on that screen alone; PROGRAM puts the screen back; LOCK keeps it.",
                 "PROGRESSION: the VT clock while a clip plays (what is left, red for the last ten seconds, ⏭ LAST 10 s for a rehearsal, ⟲ RESTART); NEXT / BACK step the clicker list or a deck; the line also reads a counting auto-follow and the playlist's part.",
-                "Then the VOG and STINGER chips, LOWER THIRDS and PEOPLE, the audio track, break music, FREEZE / FADE / LOOK BACK and REVIEW.",
+                "Then the VOG and STINGER chips, LOWER THIRDS and PEOPLE — three to a row, each lit red while it is on air or green while it is in the preview, with a line under the name that reads the tally — the audio track, break music, FREEZE / FADE / LOOK BACK and REVIEW.",
             },
             "CUE GO · CUE STANDBY NEXT / PREV · CUE HOLD ON / OFF · CUE ARM ON / OFF · LOOK <name> · SCREEN <n> LOOK <name> · SCREEN <n> PROGRAM · LOCK <n> ON · NEXT / PREV · VIDEO END · VIDEO RESTART · STINGER <name> · LOWERTHIRD <name> · STOPALL",
             new[] { "Panel" },
-            new[] { "panel", "show panel", "cues", "go", "hold", "arm", "standby", "next", "looks", "pvw", "screens", "own", "program", "progression", "clicker", "control surface", "operator" }),
+            new[] { "panel", "show panel", "cues", "go", "hold", "arm", "standby", "next", "looks", "pvw", "screens", "own", "program", "progression", "clicker", "control surface", "operator", "chips", "lit", "tally", "three to a row" }),
 
         new HelpTopic("video-clock", HelpGroup.RunningTheShow,
             "The VT clock: what is left of the clip on air, the ten-second out, the rehearsal's skip",
@@ -257,7 +257,7 @@ public static class HelpTopics
             },
             "STINGER <n|name> · VOG <n|name> · STING <n|name> · STINGER STOP · DUCK ON / OFF · STOPALL · AUDIO PLAY / STOP",
             new[] { "Audio", "Panel" },
-            new[] { "vog", "stinger", "sting", "clip", "sound", "duck", "ducking", "hold", "put it back", "stop all", "effect", "particles", "fractal", "audio track", "voice of god", "stuck", "stalled", "cannot stop", "orphan" }),
+            new[] { "vog", "stinger", "sting", "clip", "sound", "duck", "ducking", "hold", "put it back", "stop all", "effect", "particles", "fractal", "audio track", "voice of god", "stuck", "stalled", "cannot stop", "orphan", "chip", "lit", "on air" }),
 
         new HelpTopic("lower-thirds-flow", HelpGroup.RunningTheShow,
             "Lower thirds: preview, sign-off, air, update, the show's default",
@@ -267,12 +267,13 @@ public static class HelpTopics
             {
                 "Build designs on the Lower thirds page; ★ one as the show's default.",
                 "On the panel a chip puts the design on air; with PVW FIRST it goes to the preview for a sign-off and TAKE TO AIR puts it on.",
+                "A design's chip and a person's light red on air and green in the preview, the line under the name reading the phase and, for a person, the design that carries the name.",
                 "EDITED means the design changed after it went on: UPDATE ON AIR pushes the change in place.",
                 "■ Hide takes it off the way it was designed to leave.",
             },
             "LOWERTHIRD <n|name> · LOWERTHIRD OFF · LOWERTHIRD PREVIEW <n|name> · LOWERTHIRD TAKE · LOWERTHIRD UPDATE · PERSON <n|name>",
             new[] { "Panel", "Lower thirds" },
-            new[] { "lower third", "lower thirds", "name strap", "caption", "preview", "sign-off", "take", "update", "default", "hide", "air", "edited" }),
+            new[] { "lower third", "lower thirds", "name strap", "caption", "preview", "sign-off", "take", "update", "default", "hide", "air", "edited", "lit", "chip", "person on air", "tally" }),
 
         new HelpTopic("people-library", HelpGroup.RunningTheShow,
             "The lower-thirds library: people ready to go",

@@ -556,6 +556,19 @@
     <Setter Property="BorderBrush" Value="{StaticResource TallyPgmBrush}" />
     <Setter Property="BorderThickness" Value="2" />
   </Style>
+  <!-- The Show panel chips' second line: what the chip is, or its tally while it is live (red outranks green) -->
+  <Style Selector="TextBlock.chipLine">
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+    <Setter Property="FontSize" Value="10" />
+  </Style>
+  <Style Selector="TextBlock.chipLine.pvw">
+    <Setter Property="Foreground" Value="{StaticResource TallyPvwBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.chipLine.air">
+    <Setter Property="Foreground" Value="#FF9EB0" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
 
   <!-- Library rows (Looks, Audio) with a tally edge, and the chip that names it. -->
   <Style Selector="Border.lookRow, Border.stingerRow">
