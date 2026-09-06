@@ -529,18 +529,19 @@ public static class HelpTopics
             new[] { "assistant", "ai", "chat", "chatbot", "claude", "anthropic", "api key", "key", "plan", "draft", "propose", "proposal", "brief", "show plan", "help me build", "apply" }),
 
         new HelpTopic("screen-roles", HelpGroup.TheRig,
-            "Screen roles, locks and repeaters",
-            "SETUP → Screens: what each screen is for — main, confidence, info — and whether looks and cues may touch it.",
+            "Screen roles — the groups of screens — locks and repeaters",
+            "SETUP → Screens: the group each screen is in by what it is for — main, confidence, info, repeater, an NDI or stream feed — and whether looks and cues may touch it. Every wall tile's foot line reads the group, and a click there opens the page on that screen.",
             HelpBodies.ScreenRoles,
             new[]
             {
-                "Give a screen a role: MAIN follows the show; CONFIDENCE and INFO keep their own picture.",
+                "Read a screen's group on its wall tile's foot line: MAIN, CONF, INFO, REP with what it repeats, NDI or STREAM for a feed screen.",
+                "Click the foot line: SETUP → Screens opens on that screen — give it a role: MAIN follows the show; CONFIDENCE and INFO keep their own picture; REPEATER copies the target under Mirror of.",
                 "LOCK a screen (the wall, the panel, the wire) to keep its picture through looks, cues, TAKE ALL and stingers.",
-                "REPEATER: a screen that copies another target.",
+                "NDI sends and the stream are feed screens of their own, made on the NDI and Stream pages; what they show is chosen there.",
             },
             "LOCK <n> ON / OFF / TOGGLE · SCREEN <n> ON / OFF · GROUP <letter> ON / OFF",
             new[] { "Screens", "Panel" },
-            new[] { "role", "main", "confidence", "info", "lock", "locked", "repeater", "mirror", "follow", "independent", "stage monitor", "foyer" }),
+            new[] { "role", "group", "groups", "main", "confidence", "info", "info desk", "infodesk", "lock", "locked", "repeater", "repeaters", "mirror", "follow", "independent", "stage monitor", "foyer", "feed", "ndi feed", "feed screen", "allocate" }),
 
         new HelpTopic("edge-blend", HelpGroup.TheRig,
             "Edge blend beyond two projectors: rows, grids, corners, the audit",

@@ -136,7 +136,7 @@
           <ComboBox Grid.Column="1" ItemsSource="{Binding ScreenRoleItems}"
                     SelectedValue="{Binding SelectedRole, Mode=TwoWay}"
                     SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
-                    ToolTip.Tip="Main follows the show; Confidence and Info screens are locked as you pick them; a Repeater copies another target (choose it under Mirror of)" />
+                    ToolTip.Tip="The group this screen is in, by what it is for: Main follows the show; Confidence and Info screens are locked as you pick them; a Repeater copies another target (choose it under Mirror of). NDI sends and the stream are feed screens, a group of their own, listed above. Every wall tile reads the group on its foot line" />
         </Grid>
         <CheckBox Content="Follows looks, cues and TAKE" IsChecked="{Binding SelectedFollowsCues, Mode=TwoWay}"
                   ToolTip.Tip="Off = locked: this screen keeps its picture through every look, cue, clicker step, TAKE ALL and stinger — a confidence monitor or an info screen. SEND to its tile, or OWN and edit, when it should change. The tile's LOCK is the same switch" />
@@ -148,7 +148,7 @@
                     ToolTip.Tip="A repeater draws this target's picture wherever that picture goes — a duplicate of a main screen or a joined canvas" />
         </Grid>
         <TextBlock Classes="hint tip"
-                   Text="Role names what the screen is for and picks whether it follows cues: CONF and INFO screens are locked as you choose them, so a cue progression changes the main screens and leaves them alone (SEND on the tile, a cue's Screen unlock, or the remote's LOCK n OFF changes that). Mirror of makes the screen a repeater of another screen or canvas. The wall shows the badge and LOCK on every tile." />
+                   Text="Role is the screen's group — what it is for — and picks whether it follows cues: CONF and INFO screens are locked as you choose them, so a cue progression changes the main screens and leaves them alone (SEND on the tile, a cue's Screen unlock, or the remote's LOCK n OFF changes that). Mirror of makes the screen a repeater of another screen or canvas. The wall shows the badge and LOCK on every tile, and every tile's foot line reads the group — a click there brings you here." />
         <CheckBox Margin="0,4,0,0" Content="Direct output — bypass the desktop compositor"
                   IsChecked="{Binding SelectedDirectOutput, Mode=TwoWay}" IsVisible="{Binding SelectedIsDisplay}"
                   ToolTip.Tip="Windows hands this window straight to its display through the flip path — no composition frame, no compositor jitter. The swap chain behind it is chosen when Patterns starts." />

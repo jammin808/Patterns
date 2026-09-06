@@ -430,6 +430,7 @@ public sealed partial class MainViewModel
             var members = groups[i];
             var key = CanvasNameConfig.KeyFor(members.Select(m => m.ScreenId));
             targets.Add(key);
+            var oneRole = members.Select(m => m.Role).Distinct().Count() == 1;
             SwitcherTiles.Add(new SwitcherTile(this,
                 $"{letter} · {CanvasNameFor(members, letter)}",
                 key,
@@ -440,8 +441,9 @@ public sealed partial class MainViewModel
                 isOwn: ContentTargets.UsesOwnPattern(State, key),
                 isArmed: arming.IsArmed(key),
                 isLocked: ScreenRoles.IsLocked(State, key),
-                roleBadge: members.Select(m => m.Role).Distinct().Count() == 1 ? ScreenRoles.Badge(members[0].Role) : "",
-                isCollapsed: collapsed.Contains(key))
+                roleBadge: oneRole ? ScreenRoles.Badge(members[0].Role) : "",
+                isCollapsed: collapsed.Contains(key),
+                kindWord: oneRole ? GroupWord(members[0]) : "MIXED")
             {
                 IsSendTarget = keepTargets.Contains(key),
                 IsMonitored = !monitorOff.Contains(key),
@@ -468,7 +470,8 @@ public sealed partial class MainViewModel
                 mirrorNote: placement.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, placement.MirrorOf)
                     ? "↳ " + geo.LabelFor(State, placement.MirrorOf)
                     : "",
-                isCollapsed: collapsed.Contains(id))
+                isCollapsed: collapsed.Contains(id),
+                kindWord: GroupWord(placement))
             {
                 IsSendTarget = keepTargets.Contains(id),
                 IsMonitored = !monitorOff.Contains(id),
@@ -484,6 +487,29 @@ public sealed partial class MainViewModel
         // A join creates and destroys canvases, so the tile picker's targets move with the wall.
         RebuildMultiviewTargets();
         RebuildMirrorSources();
+    }
+
+    /// <summary>
+    /// The group a screen is in, in the desk's words: NDI or STREAM for a feed screen, else its
+    /// role — MAIN, CONF, INFO, REP. Every tile's foot line reads it.
+    /// </summary>
+    private static string GroupWord(ScreenPlacement placement)
+        => placement.IsVirtual ? placement.VirtualKind
+            : ScreenRoles.Badge(placement.Role) is { Length: > 0 } badge ? badge : "MAIN";
+
+    /// <summary>
+    /// The foot line of a tile: SETUP → Screens with this tile's screen selected (a canvas: its
+    /// first screen) — where its group is set: the role, whether it follows cues, what it repeats.
+    /// </summary>
+    internal void OpenScreenSetup(SwitcherTile tile)
+    {
+        if (tile.TargetId is not { } target) return;
+        var id = ContentTargets.IsCanvasKey(target) ? ContentTargets.Members(target).FirstOrDefault() ?? "" : target;
+        var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
+        if (placement is null) return;
+        SelectedPlacement = placement;
+        SelectPage(Shell.IndexOf("Screens"));
+        StatusMessage = $"{tile.Title}: its group is set here — Role, whether it follows cues, and what it repeats.";
     }
 
     /// <summary>Live refresh without rebuilding (keeps ticks, focus and MON; called each poll and on every change that moves a tally).</summary>

@@ -649,6 +649,7 @@ public sealed partial class MainViewModel
             var follows = ScreenRoles.DefaultFollows(value);
             if (_selectedPlacement.FollowsCues != follows) SetLocked(_selectedPlacement.ScreenId, !follows);
             RaiseSelection();
+            RebuildSwitcherTiles();   // the tile's badge and foot line read the group at once
         }
     }
 
@@ -680,6 +681,7 @@ public sealed partial class MainViewModel
             });
             RebuildEditTargets();
             RaiseSelection();
+            RebuildSwitcherTiles();   // the tile's foot line names what it repeats at once
         }
     }
 

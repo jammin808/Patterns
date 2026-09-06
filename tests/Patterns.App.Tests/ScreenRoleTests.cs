@@ -154,7 +154,7 @@ public class ScreenRoleTests
             Assert.Equal(CanvasKey, c.MirrorOf);
             Assert.False(c.UseCustomPattern);
             Assert.True(vm.SwitcherTiles[2].IsMirror);
-            Assert.StartsWith("↳", vm.SwitcherTiles[2].FootText);
+            Assert.StartsWith("REP ↳", vm.SwitcherTiles[2].FootText);   // the group first, then what it repeats
             vm.SwitcherTiles[1].IsOwn = true; // canvas A gets its own picture
             vm.ActivePattern.Kind = PatternKind.Focus;
             Dispatcher.UIThread.RunJobs();

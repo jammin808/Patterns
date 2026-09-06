@@ -146,7 +146,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
 
     public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
         SkiaSharp.SKSizeI size, bool enabled, bool isSelected, bool isOwn, bool isArmed,
-        bool isLocked = false, string roleBadge = "", string mirrorNote = "", bool isCollapsed = false)
+        bool isLocked = false, string roleBadge = "", string mirrorNote = "", bool isCollapsed = false, string kindWord = "")
     {
         _vm = vm;
         Title = title;
@@ -161,6 +161,8 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         _isCollapsed = isCollapsed;
         RoleBadge = roleBadge;
         MirrorNote = mirrorNote;
+        KindWord = kindWord;
+        OpenSetupCommand = new RelayCommand(() => _vm.OpenScreenSetup(this));
         SendHereCommand = new RelayCommand(() => _vm.SendSandboxToTile(this));
         SendLookCommand = new RelayCommand(() => _vm.SendLookToTile(this, PendingLook));
         ProgramCommand = new RelayCommand(() => _vm.SendProgramToTile(this));
@@ -207,8 +209,35 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
 
     public bool IsMirror => MirrorNote.Length > 0;
 
-    /// <summary>The bottom line of the tile: what it repeats, or its size.</summary>
-    public string FootText => IsMirror ? MirrorNote : SizeText;
+    /// <summary>
+    /// The group this tile's screen is in, in the desk's words: MAIN, CONF, INFO or REP for a
+    /// screen's role, NDI or STREAM for a feed screen, MIXED for a canvas whose screens differ;
+    /// "" for PGM. Read on the foot line, where a click opens SETUP → Screens on the screen.
+    /// </summary>
+    public string KindWord { get; }
+
+    /// <summary>The bottom line of the tile: the group, then what it repeats or its size.</summary>
+    public string FootText => KindWord.Length == 0
+        ? (IsMirror ? MirrorNote : SizeText)
+        : IsMirror ? $"{KindWord} {MirrorNote}" : $"{KindWord} · {SizeText}";
+
+    private const string GroupRoute = "Click: SETUP → Screens opens with this screen selected — Role (Main, Confidence, Info, Repeater), whether it follows cues, and Mirror of are set there.";
+
+    /// <summary>What the foot line means, and where the group is set.</summary>
+    public string GroupTip => KindWord switch
+    {
+        "MAIN" => "Its group: Main — the audience's picture; follows looks, cues and TAKE. " + GroupRoute,
+        "CONF" => "Its group: Confidence — a stage monitor with its own picture, left alone by looks and cues. " + GroupRoute,
+        "INFO" => "Its group: Info — a foyer or info screen with its own picture, left alone by looks and cues. " + GroupRoute,
+        "REP" => "Its group: Repeater — a copy of the target it names. " + GroupRoute,
+        "NDI" => "Its group: an NDI feed screen — the picture the send carries; what the send shows is chosen on the NDI page. " + GroupRoute,
+        "STREAM" => "Its group: the stream's own screen — the picture the stream carries; its source is chosen on the Stream page. " + GroupRoute,
+        "MIXED" => "A joined canvas whose screens are in different groups. " + GroupRoute,
+        _ => SizeText,
+    };
+
+    /// <summary>The foot line's click: SETUP → Screens with this tile's screen selected.</summary>
+    public RelayCommand OpenSetupCommand { get; }
 
     /// <summary>SEND: the preview lands on this tile alone (the sandbox must be open).</summary>
     public RelayCommand SendHereCommand { get; }

@@ -109,7 +109,7 @@
                      PGM's, with its buttons that much lower -->
                 <ToggleButton Grid.Column="3" Name="TileTick" Classes="wall tick" Content="✓" IsChecked="{Binding IsSendTarget, Mode=TwoWay}"
                               IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
-                              ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS — lit while it is ticked. A group is a joined canvas (A, B…): screens dragged flush together on SETUP → Screens make one, dragged apart leave it" />
+                              ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS — lit while it is ticked. THE TICKED GROUPS means the ticked joined canvases (A, B… — screens dragged flush together on SETUP → Screens); a screen's own group — Main, Confidence, Info, Repeater, an NDI or stream feed — reads on its tile's foot line, and a click there sets it" />
                 <!-- OUTPUT: the screen on or off, live — a wall button that fits the tile (the switch it replaces hung outside it) -->
                 <ToggleButton Grid.Column="4" Classes="wall output" Content="OUT" IsChecked="{Binding Enabled, Mode=TwoWay}"
                               IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
@@ -148,8 +148,15 @@
                         ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern, live — every other target stays as it is, and the preview keeps the picture for the next send" />
                 <Button Grid.Column="1" Name="TileToPreview" Classes="wall" Content="→ PVW" Command="{Binding ToPreviewCommand}" Focusable="False" IsVisible="{Binding !IsProgramTile}"
                         ToolTip.Tip="→ PVW: the picture this target shows on air — its own, or the program's — into the preview, to edit; the air is untouched (EDIT SAFE opens if it was off). Then SEND it to a screen, or TAKE" />
+                <!-- The foot line: the screen's group (MAIN, CONF, INFO, REP, NDI, STREAM), then what it repeats or its size;
+                     a click opens SETUP → Screens on this screen, where the group is set. PGM's foot is its size alone -->
+                <Button Grid.Column="2" Name="TileGroup" Background="Transparent" BorderThickness="0" Padding="0" Margin="6,0,0,0" Cursor="Hand" Focusable="False"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding !IsProgramTile}"
+                        Command="{Binding OpenSetupCommand}" ToolTip.Tip="{Binding GroupTip}">
+                  <TextBlock Classes="hint" Text="{Binding FootText}" FontSize="10" TextTrimming="CharacterEllipsis" />
+                </Button>
                 <TextBlock Grid.Column="2" Classes="hint" Text="{Binding FootText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding FootText}" />
+                           IsVisible="{Binding IsProgramTile}" ToolTip.Tip="{Binding FootText}" />
               </Grid>
             </StackPanel>
             </Panel>
@@ -176,7 +183,7 @@
     </StackPanel>
     <ComboBox Name="TakeScopePicker" HorizontalAlignment="Stretch" MinWidth="0" Focusable="False" FontSize="11"
               ItemsSource="{Binding TakeScopes}" SelectedItem="{Binding SelectedTakeScope, Mode=TwoWay}" IsEnabled="{Binding IsSandboxActive}"
-              ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: ARM and LOCK on the tiles decide; FOCUSED: the wall tile you clicked (the PGM tile means every armed screen); TICKED / TICKED GROUPS: the tiles ticked on the wall (a group is a joined canvas — screens dragged flush together on SETUP → Screens). Everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it" />
+              ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: ARM and LOCK on the tiles decide; FOCUSED: the wall tile you clicked (the PGM tile means every armed screen); TICKED / TICKED GROUPS: the tiles ticked on the wall (TICKED GROUPS means the ticked joined canvases — screens dragged flush together on SETUP → Screens — not the roles on the tiles' foot lines). Everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it" />
   </StackPanel>
 </Grid>
 </UserControl>
