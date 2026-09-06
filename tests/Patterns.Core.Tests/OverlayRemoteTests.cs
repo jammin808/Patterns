@@ -54,6 +54,11 @@ public class OverlayRemoteTests
         Assert.Equal(RemoteCommandKind.PipOff, ControlProtocol.Parse("PIP OFF").Kind);
         Assert.Equal(RemoteCommandKind.OverlaysOff, ControlProtocol.Parse("OVERLAYS OFF").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("OVERLAYS ON").Kind);
+        Assert.Equal(new RemoteCommand(RemoteCommandKind.Pattern, 0, "LED wall"), ControlProtocol.Parse("PATTERN LED wall"));
+        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("PATTERN").Kind);
+        Assert.Equal("PATTERN Grid", OscMap.ToLine(OscMessage.Of("/patterns/pattern/Grid")));
+        Assert.Equal("PATTERN ColorBars", OscMap.ToLine(OscMessage.Of("/patterns/pattern", "ColorBars")));
+        Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/pattern")));
 
         // The minutes a countdown takes: plain, decimal, minutes:seconds, with a unit; never words, zero or more than a day.
         Assert.True(ControlProtocol.TryParseMinutes("10", out var m) && m == 10);

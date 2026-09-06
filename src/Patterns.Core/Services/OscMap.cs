@@ -74,6 +74,7 @@ public static class OscMap
         ("/patterns/logo [1|0]", "LOGO ON / OFF — the brand logo overlay; no argument toggles"),
         ("/patterns/pip [1|0]", "PIP ON / OFF — the picture-in-picture inset; no argument toggles"),
         ("/patterns/overlays/off", "OVERLAYS OFF — the clock, the message, the countdown, the logo, the PiP and the weather chip all off"),
+        ("/patterns/pattern <kind>", "PATTERN — the kind of picture on air: Grid, ColorBars, LedWall, Particles, Fractal… (also /patterns/pattern/Grid)"),
         ("/patterns/freeze [1|0]", "FREEZE ON / OFF — every output holds its frame; no argument toggles"),
         ("/patterns/fade [seconds]", "FADE — blackout with a fade of that many seconds (none: the show's transition time); /fade/up [seconds] lifts it"),
         ("/patterns/lookback", "LOOKBACK — the look that was on air before the current one, back on air"),
@@ -390,6 +391,7 @@ public static class OscMap
             }
             case "logo": return "LOGO " + Switch(m, seg, "TOGGLE", toggles: true);
             case "pip": return "PIP " + Switch(m, seg, "TOGGLE", toggles: true);
+            case "pattern": return Named("PATTERN", m, seg);
             case "overlays": return seg.Length == 0 || seg.ToLowerInvariant() is "off" or "clear" or "none" ? "OVERLAYS OFF" : null;
             case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
             // /patterns/weather 1|0 · /patterns/weather/on · /patterns/weather/tomorrow · /patterns/weather "day": the switch, or the view.

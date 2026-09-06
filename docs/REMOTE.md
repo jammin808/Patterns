@@ -99,6 +99,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `LOGO ON` / `OFF` / `TOGGLE` | The brand logo overlay (the file is the Branding page's); bare `LOGO` toggles |
 | `PIP ON` / `OFF` / `TOGGLE` | The picture-in-picture inset, its source as the Overlays page set it; bare `PIP` toggles |
 | `OVERLAYS OFF` | The clock, the message, the countdown, the logo, the PiP and the weather chip all off: a clean picture in one press |
+| `PATTERN <kind>` | The kind of picture on air — `Grid`, `ColorBars`, `LedWall`, `Particles`, `Fractal`… (spaces ignored: `PATTERN LED wall`); the pattern's settings are kept, so a look's grid comes back a grid. STATE's `patternKinds` lists every kind; a stranger answers `ERR` with the list |
 | `REVIEW ON` / `OFF` / `TOGGLE` | Every multiview (a screen's own multiview pattern, an NDI send of it, `/multiview`) draws the desk's sandboxed preview full-frame with a REVIEW chip until switched off — the next look checked on the monitor wall before the TAKE; the audience's screens do not change. A latch (bare `REVIEW` toggles), never saved |
 | `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-page order) on air |
 | `STREAM ON` / `OFF` | Start/stop the streaming output (Stream page config) |
@@ -128,7 +129,7 @@ is on — lift it first`, `standby moved`, `too soon after the last GO`, or the 
 State JSON carries: `rev` (bumps on every change — long-poll on it), `airLabel` (what is on air, by name),
 `cuestack{armed,hold,seq,listRev,confirm,program{label},previous{id,number,name},standby{id,number,name,requireConfirm,notes,plannedStart,followSeconds},next[6]{id,number,name},last{id,number,name,outcome,error,at,origin,actionsDone,actionsTotal},history[8],timing{offsetSeconds,offset,nextBreak{number,name,expected,planned,deltaSeconds,atLeast,text},lunch{…},end{…},follow}}`
 (`timing` is the caller's clock: `offset` reads "ON TIME", "3 MIN LATE" or "2 MIN EARLY" from the last GO against its planned start; `nextBreak`, `lunch` and `end` say when the marked cues are expected — `atLeast` when a cue has overrun or has no planned length; `follow` reads "AUTO 01.030 in 0:07" while the next cue is going to fire by itself)
-(the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `frozen` (every output holds its frame), `previousLook` (the name `LOOKBACK` returns to, or empty), `airLook` (the look on air, by name — empty when none was recorded or the picture moved on), `previewLook` (the look loaded in the preview while EDIT SAFE is open), `pattern` (the kind of picture on air: `Media`, `LedWall`, `ProjectionBlend`…), `looks[{n,name,slot,air,preview}]` (the show's looks in order — `n` is the place `LOOK #n` uses, `slot` the F-key or 0, `air` / `preview` where it is), `presenter{armed,index,count,steps[]}`,
+(the stack's runtime is pushed on its own event, throttled like everything else), `blackout`, `live`, `review` (the preview fills every multiview), `frozen` (every output holds its frame), `previousLook` (the name `LOOKBACK` returns to, or empty), `airLook` (the look on air, by name — empty when none was recorded or the picture moved on), `previewLook` (the look loaded in the preview while EDIT SAFE is open), `pattern` (the kind of picture on air: `Media`, `LedWall`, `ProjectionBlend`…), `patternKinds` (every kind a `PATTERN` key can ask for, in the desk's order), `looks[{n,name,slot,air,preview}]` (the show's looks in order — `n` is the place `LOOK #n` uses, `slot` the F-key or 0, `air` / `preview` where it is), `presenter{armed,index,count,steps[]}`,
 `screens[{n,label,enabled,group,locked,role,armed,own}]` (labels honour operator names; `role` is main, confidence, info or repeater; `armed` = the next CUT / TAKE changes it; `own` = it shows a picture of its own, not the program's), `editSafe` (EDIT SAFE is open: there is a preview and a TAKE to come),
 `audio{playing,track,n,count,next,position,length,remaining,positionText,lengthText,remainingText,shuffle,loop,level,status,items[{n,name}]}` (the audio playlist: `track` is the track on — or, stopped, the one PLAY would start — `n` its place (0 with nothing on) of `count`, `next` the one after it, the clock in whole seconds and as `m:ss`, the list's flags and level, its status line, and the rows by place — `AUDIO PLAY <n>`), `tone`,
 `stingers[{n,name,kind,source}]` (`kind` is `vog` or `sting`; `source` is `file`, or `pulse` for an effect pulse — a surge through the particles and fractals on screen that owns nothing), `stingerPlaying` (whatever owns the show), `stingerKind`
@@ -190,6 +191,14 @@ HOLD / ARM / STOP ALL with feedbacks and variables; Break music, VOG, kind-check
 lower thirds with the sign-off flow, web pages, decks, review, freeze, the timed fade, the
 previous look, screen locks and arming — see its README for install), or the built-in
 **Generic TCP** connection sending the raw commands above (no feedback).
+
+Module 2.5.0 adds **preset groups** to the connection's settings — a checkbox per group
+(Transport, Cue stack, All looks, All patterns, Clock, Countdown, Message, Overlays, All VOGs,
+All stingers, All lower thirds, All people, Screens, Audio, Presenter, Install), so the preset
+list holds only what this desk uses while the actions, feedbacks and variables stay complete —
+and keys for the clock, the countdown, the message, the logo, the PiP, every overlay off and the
+kind of picture on air (the `clock`, `message`, `countdown`, `logo`, `pip`, `overlays_off` and
+`pattern` actions with their feedbacks and variables; the module's README has them all).
 
 ## OSC
 
@@ -260,6 +269,7 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/countdown <minutes>` | COUNTDOWN START — a duration from now (also `/patterns/countdown/start 5`, `/patterns/countdown/start/2:30`, `/patterns/timer/10`); `/patterns/countdown/to "19:30"` (or `/to/19:30`) a time of day; `/patterns/countdown/stop`; `/patterns/countdown/label "DOORS IN"` |
 | `/patterns/logo [1\|0]` · `/patterns/pip [1\|0]` | LOGO / PIP ON / OFF; no argument toggles |
 | `/patterns/overlays/off` | OVERLAYS OFF — every overlay off in one message |
+| `/patterns/pattern <kind>` | PATTERN — the kind of picture on air (also `/patterns/pattern/Grid`) |
 | `/patterns/freeze [1\|0]` | FREEZE ON / OFF — every output holds its frame; no argument toggles |
 | `/patterns/fade [seconds]` · `/patterns/fade/up [seconds]` | FADE / FADE UP — a blackout with a fade of that many seconds (none: the show's transition time); the seconds as the argument or the next segment (`/patterns/fade/down/2`) |
 | `/patterns/lookback` | LOOKBACK — the look that was on air before the current one, back on air |

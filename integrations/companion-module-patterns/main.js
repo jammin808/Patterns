@@ -76,7 +76,8 @@ class PatternsInstance extends InstanceBase {
 		const s = this.state
 		const names = (list) => (list ?? []).map((x) => x.name ?? x.label ?? '').join('|')
 		return [names(s.looks), names(s.lowerThirds), names(s.people), (s.stingers ?? []).map((x) => `${x.kind}:${x.name}`).join('|'),
-			names(s.music?.items), names(s.audio?.items), names(s.sections), names(s.screens), this.upcoming().map((c) => `${c.number} ${c.name}`).join('|')].join('#')
+			names(s.music?.items), names(s.audio?.items), names(s.sections), names(s.screens), this.upcoming().map((c) => `${c.number} ${c.name}`).join('|'),
+			(s.patternKinds ?? []).join('|')].join('#')
 	}
 
 	/** Presets built from the show itself — one key per look, design, person, stinger, track, part, screen and upcoming cue — rebuilt when the lists change. */
@@ -84,7 +85,72 @@ class PatternsInstance extends InstanceBase {
 		const signature = this.showSignatureNow()
 		if (signature === this.showSignature) return
 		this.showSignature = signature
-		this.setPresetDefinitions({ ...this.buildPresets(), ...this.buildShowPresets() })
+		this.refreshPresets()
+	}
+
+	// ---- preset groups: the user ticks what this desk uses -----------------------------------
+
+	/** The groups a user ticks in the connection's settings; every preset belongs to one, by its category. */
+	static GROUPS = [
+		{ id: 'transport', label: 'Transport — outputs, blackout, freeze, fade, review', def: true },
+		{ id: 'cues', label: 'Cue stack — GO, standby, hold, arm, stop all, the cue bank', def: true },
+		{ id: 'looks', label: 'All looks — F-keys, the look bank, every look of this show', def: true },
+		{ id: 'patterns', label: 'All patterns — a key per kind of picture', def: false },
+		{ id: 'clock', label: 'Clock functions', def: true },
+		{ id: 'countdown', label: 'Countdown functions', def: true },
+		{ id: 'message', label: 'Message and ticker', def: true },
+		{ id: 'overlays', label: 'Overlays — logo, PiP, weather, every overlay off', def: true },
+		{ id: 'vogs', label: 'All VOGs', def: true },
+		{ id: 'stingers', label: 'All stingers', def: true },
+		{ id: 'lower_thirds', label: 'All lower thirds — designs, preview, take, update', def: true },
+		{ id: 'people', label: 'All people — the library', def: true },
+		{ id: 'screens', label: 'Screens and canvases', def: true },
+		{ id: 'audio', label: 'Audio playlist, break music, playlist parts', def: true },
+		{ id: 'presenter', label: 'Presenter — steps, decks, web pages, the VT clock', def: true },
+		{ id: 'install', label: 'Install — schedule, announcements, adverts', def: false },
+	]
+
+	/** The group a preset category belongs to. */
+	static groupOf(category) {
+		const c = String(category ?? '')
+		if (c.startsWith('Transport')) return 'transport'
+		if (c.startsWith('Cue') || c.startsWith('Upcoming cues')) return 'cues'
+		if (c.startsWith('Look')) return 'looks'
+		if (c.startsWith('Pattern')) return 'patterns'
+		if (c.startsWith('Clock')) return 'clock'
+		if (c.startsWith('Countdown')) return 'countdown'
+		if (c.startsWith('Message')) return 'message'
+		if (c.startsWith('Overlays')) return 'overlays'
+		if (c.startsWith('VOG')) return 'vogs'
+		if (c.startsWith('Stinger')) return 'stingers'
+		if (c.startsWith('Lower third')) return 'lower_thirds'
+		if (c.startsWith('People')) return 'people'
+		if (c.startsWith('Screen')) return 'screens'
+		if (c.startsWith('Audio') || c.startsWith('Break music') || c.startsWith('Playlist part')) return 'audio'
+		if (c.startsWith('Presenter') || c.startsWith('Web page')) return 'presenter'
+		if (c.startsWith('Install')) return 'install'
+		return 'transport'
+	}
+
+	/** Ticked in the settings, or the group's default when the setting has never been saved (an instance upgraded from 2.4). */
+	groupEnabled(id) {
+		const g = PatternsInstance.GROUPS.find((x) => x.id === id)
+		const v = this.config?.[`g_${id}`]
+		return v === undefined || v === null ? (g?.def ?? true) : !!v
+	}
+
+	/** Only the presets of the ticked groups reach Companion's preset list. */
+	applyGroups(presets) {
+		const kept = {}
+		for (const [id, p] of Object.entries(presets)) {
+			if (this.groupEnabled(PatternsInstance.groupOf(p.category))) kept[id] = p
+		}
+		return kept
+	}
+
+	/** The fixed presets and the show's own, through the ticked groups. */
+	refreshPresets() {
+		this.setPresetDefinitions(this.applyGroups({ ...this.buildPresets(), ...this.buildShowPresets() }))
 	}
 
 	async init(config) {
@@ -93,7 +159,7 @@ class PatternsInstance extends InstanceBase {
 		this.setActionDefinitions(this.buildActions())
 		this.setFeedbackDefinitions(this.buildFeedbacks())
 		this.setVariableDefinitions(this.buildVariables())
-		this.setPresetDefinitions(this.buildPresets())
+		this.refreshPresets()
 		this.initSocket()
 	}
 
@@ -107,12 +173,18 @@ class PatternsInstance extends InstanceBase {
 	async configUpdated(config) {
 		this.config = config
 		this.initSocket()
+		this.refreshPresets() // the ticked groups may have changed
 	}
 
 	getConfigFields() {
 		return [
 			{ type: 'textinput', id: 'host', label: 'Patterns machine IP', width: 8, regex: Regex.IP, default: '127.0.0.1' },
 			{ type: 'number', id: 'port', label: 'Companion (TCP) port — Remote tab in Patterns', width: 4, min: 1024, max: 65535, default: 9697 },
+			{
+				type: 'static-text', id: 'groups_info', width: 12, label: 'Preset groups',
+				value: 'Tick the groups of keys you want under Presets. Every group labels its keys from the show that is loaded and lights them from the air; untick what this desk never uses and the list stays short. The actions and feedbacks are always all there.',
+			},
+			...PatternsInstance.GROUPS.map((g) => ({ type: 'checkbox', id: `g_${g.id}`, label: g.label, width: 6, default: g.def })),
 		]
 	}
 
@@ -163,6 +235,7 @@ class PatternsInstance extends InstanceBase {
 		}
 		const p = this.state.presenter ?? { index: -1, count: 0 }
 		const c = this.state.cuestack ?? {}
+		const ov = this.state.overlays ?? {}
 		this.standbyId = c.standby?.id ?? ''
 		this.setVariableValues({
 			program: this.state.airLabel ?? '',
@@ -238,13 +311,31 @@ class PatternsInstance extends InstanceBase {
 			install_over: this.state.install?.over ?? '',
 			install_next: this.state.install?.next ?? '',
 			install_status: this.state.install?.status ?? '',
+			// The overlays a key drives: the clock, the message, the countdown, the logo, the PiP, and the line.
+			clock: ov.clock?.on ? 'ON' : 'off',
+			clock_hours: String(ov.clock?.hours ?? 24),
+			clock_text: ov.clock?.text ?? '',
+			clock_seconds: ov.clock?.seconds ? 'ON' : 'off',
+			clock_date: ov.clock?.date ? 'ON' : 'off',
+			message: ov.message?.on ? 'ON' : 'off',
+			message_text: ov.message?.text ?? '',
+			message_scroll: ov.message?.scroll ? 'SCROLL' : 'still',
+			countdown: ov.countdown?.phase ?? 'off',
+			countdown_text: ov.countdown?.text ?? '',
+			countdown_remaining_seconds: String(ov.countdown?.remaining ?? 0),
+			countdown_label: ov.countdown?.label ?? '',
+			countdown_target: ov.countdown?.target ?? '',
+			logo: ov.logo?.on ? 'ON' : 'off',
+			pip: ov.pip?.on ? 'ON' : 'off',
+			overlays_text: ov.text ?? '',
 			...this.bankVariables(),
 		})
 		this.checkFeedbacks('blackout', 'screen_enabled', 'screen_locked', 'screen_armed', 'screen_own', 'audio_playing', 'stinger_playing', 'music_playing',
 			'vog_playing', 'sting_playing', 'sting_hold', 'duck_on', 'lower_third_on', 'lower_third_person_is', 'lower_third_preview', 'lower_third_edited',
 			'review_on', 'weather_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
 			'web_on_air', 'deck_on_air', 'video_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty',
-			'schedule_on', 'announcement_on', 'advert_on')
+			'schedule_on', 'announcement_on', 'advert_on',
+			'clock_on', 'clock_hours', 'clock_seconds', 'clock_date', 'message_on', 'message_scroll', 'countdown_running', 'logo_on', 'pip_on', 'pattern_is')
 		this.refreshShowPresets()
 	}
 
@@ -690,6 +781,83 @@ class PatternsInstance extends InstanceBase {
 				options: [{ type: 'number', id: 'n', label: 'Level (0–100, the Spotify device\'s own volume)', default: 60, min: 0, max: 100 }],
 				callback: (a) => send(`MUSIC VOL ${a.options.n}`),
 			},
+			// The clock overlay: on / off / toggle, its hours, the seconds and the date line — CLOCK on the wire.
+			clock: {
+				name: 'Clock — the clock overlay: on, off, toggle, 12 / 24 h, seconds, date',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Do', default: 'TOGGLE', choices: [
+					{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' },
+					{ id: '12', label: '12-hour' }, { id: '24', label: '24-hour' },
+					{ id: 'SECONDS TOGGLE', label: 'Seconds: toggle' }, { id: 'SECONDS ON', label: 'Seconds: on' }, { id: 'SECONDS OFF', label: 'Seconds: off' },
+					{ id: 'DATE TOGGLE', label: 'Date: toggle' }, { id: 'DATE ON', label: 'Date: on' }, { id: 'DATE OFF', label: 'Date: off' },
+				] }],
+				callback: (a) => send(`CLOCK ${a.options.mode}`),
+			},
+			// The message overlay: these words and on, on / off / toggle with the words kept, a ticker or a still line — MESSAGE on the wire.
+			message: {
+				name: 'Message — the words on screen, on / off / toggle, scrolling',
+				options: [
+					{ type: 'dropdown', id: 'mode', label: 'Do', default: 'SAY', choices: [
+						{ id: 'SAY', label: 'Show these words (below)' }, { id: 'ON', label: 'On (the current words)' }, { id: 'OFF', label: 'Off (the words kept)' }, { id: 'TOGGLE', label: 'Toggle' },
+						{ id: 'SCROLL TOGGLE', label: 'Scroll: toggle' }, { id: 'SCROLL ON', label: 'Scroll: on (a ticker)' }, { id: 'SCROLL OFF', label: 'Scroll: off (a still line)' },
+					] },
+					{ type: 'textinput', id: 'text', label: 'The words (when "Show these words")', default: 'Doors open at 7' },
+				],
+				callback: (a) => {
+					if (a.options.mode === 'SAY') {
+						const t = String(a.options.text || '').trim()
+						send(t ? `MESSAGE ${t}` : 'MESSAGE ON')
+					} else send(`MESSAGE ${a.options.mode}`)
+				},
+			},
+			// The countdown: a duration from now, a time of day, the label, stop — COUNTDOWN on the wire.
+			countdown: {
+				name: 'Countdown — start (minutes), count down to a time, the label, stop',
+				options: [
+					{ type: 'dropdown', id: 'mode', label: 'Do', default: 'START', choices: [
+						{ id: 'START', label: 'Start — the minutes below (blank = as set up on the desk)' }, { id: 'TO', label: 'Count down to the time below' },
+						{ id: 'LABEL', label: 'Set the label below' }, { id: 'STOP', label: 'Stop' },
+					] },
+					{ type: 'textinput', id: 'minutes', label: 'Minutes — 5, 2.5, 2:30, 90s', default: '5' },
+					{ type: 'textinput', id: 'time', label: 'Time of day — 19:30', default: '19:30' },
+					{ type: 'textinput', id: 'label', label: 'The words over the digits', default: 'SHOW STARTS IN' },
+				],
+				callback: (a) => {
+					const mode = a.options.mode
+					if (mode === 'STOP') return send('COUNTDOWN STOP')
+					if (mode === 'TO') {
+						const t = String(a.options.time || '').trim()
+						if (t) send(`COUNTDOWN TO ${t}`)
+						return
+					}
+					if (mode === 'LABEL') {
+						const l = String(a.options.label || '').trim()
+						if (l) send(`COUNTDOWN LABEL ${l}`)
+						return
+					}
+					const m = String(a.options.minutes || '').trim()
+					send(m ? `COUNTDOWN START ${m}` : 'COUNTDOWN START')
+				},
+			},
+			logo: {
+				name: 'Logo — the brand logo overlay (toggle / on / off)',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
+				callback: (a) => send(`LOGO ${a.options.mode}`),
+			},
+			pip: {
+				name: 'PiP — the picture-in-picture inset (toggle / on / off)',
+				options: [{ type: 'dropdown', id: 'mode', label: 'Mode', default: 'TOGGLE', choices: [{ id: 'TOGGLE', label: 'Toggle' }, { id: 'ON', label: 'On' }, { id: 'OFF', label: 'Off' }] }],
+				callback: (a) => send(`PIP ${a.options.mode}`),
+			},
+			overlays_off: { name: 'Overlays — every overlay off (the clock, the message, the countdown, the logo, the PiP, the weather chip)', options: [], callback: () => send('OVERLAYS OFF') },
+			// The kind of picture on air, by its name — the "Patterns — every kind" presets carry one key per kind.
+			pattern: {
+				name: 'Pattern — the kind of picture on air (Grid, ColorBars, LedWall, Particles, Fractal…)',
+				options: [{ type: 'textinput', id: 'kind', label: 'Kind', default: 'Grid' }],
+				callback: (a) => {
+					const k = String(a.options.kind || '').trim()
+					if (k) send(`PATTERN ${k}`)
+				},
+			},
 			section: {
 				name: 'Playlist — show part on air',
 				options: [{ type: 'number', id: 'n', label: 'Part number (Media tab order)', default: 1, min: 1, max: 32 }],
@@ -955,6 +1123,80 @@ class PatternsInstance extends InstanceBase {
 				options: [],
 				callback: () => this.state.music?.playing === true,
 			},
+			// The overlays: the clock (on, its hours, seconds, date), the message (on, scrolling), the countdown (running / over), the logo, the PiP, the kind of picture.
+			clock_on: {
+				type: 'boolean',
+				name: 'The clock overlay is on air',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.overlays?.clock?.on,
+			},
+			clock_hours: {
+				type: 'boolean',
+				name: 'The clock reads 12-hour or 24-hour',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'dropdown', id: 'hours', label: 'Hours', default: 24, choices: [{ id: 12, label: '12-hour' }, { id: 24, label: '24-hour' }] }],
+				callback: (fb) => (this.state.overlays?.clock?.hours ?? 24) === Number(fb.options.hours),
+			},
+			clock_seconds: {
+				type: 'boolean',
+				name: 'The clock shows seconds',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.overlays?.clock?.seconds,
+			},
+			clock_date: {
+				type: 'boolean',
+				name: 'The clock shows the date',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.overlays?.clock?.date,
+			},
+			message_on: {
+				type: 'boolean',
+				name: 'The message overlay is on air',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.overlays?.message?.on,
+			},
+			message_scroll: {
+				type: 'boolean',
+				name: 'The message scrolls as a ticker',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.overlays?.message?.scroll,
+			},
+			countdown_running: {
+				type: 'boolean',
+				name: 'The countdown is running — or over',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'dropdown', id: 'phase', label: 'Phase', default: 'running', choices: [{ id: 'running', label: 'Running' }, { id: 'over', label: 'Over (reached zero)' }, { id: 'any', label: 'Running or over' }] }],
+				callback: (fb) => {
+					const p = this.state.overlays?.countdown?.phase ?? 'off'
+					return fb.options.phase === 'any' ? p !== 'off' : p === fb.options.phase
+				},
+			},
+			logo_on: {
+				type: 'boolean',
+				name: 'The logo overlay is on air',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.overlays?.logo?.on,
+			},
+			pip_on: {
+				type: 'boolean',
+				name: 'The PiP inset is on air',
+				defaultStyle: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.overlays?.pip?.on,
+			},
+			pattern_is: {
+				type: 'boolean',
+				name: 'The kind of picture on air is…',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'textinput', id: 'kind', label: 'Kind (Grid, ColorBars, LedWall…)', default: 'Grid' }],
+				callback: (fb) => String(this.state.pattern ?? '').toLowerCase() === String(fb.options.kind ?? '').replace(/[\s_-]/g, '').toLowerCase(),
+			},
 			cue_armed: {
 				type: 'boolean',
 				name: 'Cue stack is armed',
@@ -1090,6 +1332,22 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'install_over', name: 'The announcement or advert on (its name or its words, or empty)' },
 			{ variableId: 'install_next', name: 'The next change of the install\'s clock ("12:30 advert Lunch offer")' },
 			{ variableId: 'install_status', name: 'The install\'s status line' },
+			{ variableId: 'clock', name: 'The clock overlay (ON / off)' },
+			{ variableId: 'clock_hours', name: 'The clock\'s hours (12 or 24)' },
+			{ variableId: 'clock_text', name: 'What the clock reads now (14:32:07)' },
+			{ variableId: 'clock_seconds', name: 'The clock shows seconds (ON / off)' },
+			{ variableId: 'clock_date', name: 'The clock shows the date (ON / off)' },
+			{ variableId: 'message', name: 'The message overlay (ON / off)' },
+			{ variableId: 'message_text', name: 'The message\'s words' },
+			{ variableId: 'message_scroll', name: 'The message scrolls (SCROLL / still)' },
+			{ variableId: 'countdown', name: 'The countdown (running / over / off)' },
+			{ variableId: 'countdown_text', name: 'The countdown as the desk reads it ("12:34 · DOORS IN", "OVER · STARTING NOW")' },
+			{ variableId: 'countdown_remaining_seconds', name: 'What is left of the countdown, in whole seconds' },
+			{ variableId: 'countdown_label', name: 'The words over the countdown\'s digits' },
+			{ variableId: 'countdown_target', name: 'What the countdown points at (19:30, or 15 min)' },
+			{ variableId: 'logo', name: 'The logo overlay (ON / off)' },
+			{ variableId: 'pip', name: 'The PiP inset (ON / off)' },
+			{ variableId: 'overlays_text', name: 'The overlays in one line ("Clock 24 h · Message: WELCOME · Countdown 12:34 to 19:30")' },
 		]
 	}
 
@@ -1185,6 +1443,15 @@ class PatternsInstance extends InstanceBase {
 				style: { text: `${c.number}\\n${c.name}`, size: 'auto', color: white, bgcolor: i === 0 ? green : dark },
 				steps: [{ down: [{ actionId: 'cue_bank', options: { k: i + 1, mode: 'STANDBY' } }], up: [] }],
 				feedbacks: [{ feedbackId: 'cue_standby_is', options: { cue: c.number }, style: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) } }],
+			}
+		})
+		// Every kind of picture, one key each, lit while it is the kind on air — the list comes from Patterns, so a new kind appears by itself.
+		;(s.patternKinds ?? []).forEach((k, i) => {
+			presets[`show_pattern_${i + 1}_${key(k)}`] = {
+				type: 'button', category: 'Patterns — every kind', name: `Pattern: ${k}`,
+				style: { text: k, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'pattern', options: { kind: k } }], up: [] }],
+				feedbacks: [{ feedbackId: 'pattern_is', options: { kind: k }, style: { bgcolor: green } }],
 			}
 		})
 		return presets
@@ -1306,6 +1573,119 @@ class PatternsInstance extends InstanceBase {
 			steps: [{ down: [{ actionId: 'weather', options: { mode: 'TOMORROW' } }], up: [] }],
 			feedbacks: [],
 		}
+		// The clock from keys: every key reads the air and lights while its overlay is on.
+		const blue = { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) }
+		presets.clock = {
+			type: 'button', category: 'Clock', name: 'CLOCK — the clock overlay on air (reads the time)',
+			style: { text: 'CLOCK\\n$(patterns:clock_text)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'clock', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'clock_on', options: {}, style: blue }],
+		}
+		for (const hours of [12, 24]) {
+			presets[`clock_${hours}h`] = {
+				type: 'button', category: 'Clock', name: `CLOCK — ${hours}-hour`,
+				style: { text: `CLOCK\\n${hours} H`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'clock', options: { mode: String(hours) } }], up: [] }],
+				feedbacks: [{ feedbackId: 'clock_hours', options: { hours }, style: blue }],
+			}
+		}
+		presets.clock_seconds = {
+			type: 'button', category: 'Clock', name: 'CLOCK — seconds shown or not',
+			style: { text: 'CLOCK\\nSECONDS', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'clock', options: { mode: 'SECONDS TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'clock_seconds', options: {}, style: blue }],
+		}
+		presets.clock_date = {
+			type: 'button', category: 'Clock', name: 'CLOCK — the date line shown or not',
+			style: { text: 'CLOCK\\nDATE', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'clock', options: { mode: 'DATE TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'clock_date', options: {}, style: blue }],
+		}
+		presets.clock_off = {
+			type: 'button', category: 'Clock', name: 'CLOCK — off',
+			style: { text: 'CLOCK\\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			steps: [{ down: [{ actionId: 'clock', options: { mode: 'OFF' } }], up: [] }],
+			feedbacks: [],
+		}
+		// The countdown: a key that reads what is left (green while it runs, red when it is over), the quick minutes, a time of day, the label, stop.
+		const counting = { feedbackId: 'countdown_running', options: { phase: 'running' }, style: { bgcolor: green } }
+		const over = { feedbackId: 'countdown_running', options: { phase: 'over' }, style: { bgcolor: combineRgb(224, 52, 46) } }
+		presets.countdown_clock = {
+			type: 'button', category: 'Countdown', name: 'COUNTDOWN — what is left (green while running, red when over); press: start as set up on the desk',
+			style: { text: '$(patterns:countdown_text)', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'START', minutes: '', time: '', label: '' } }], up: [] }],
+			feedbacks: [counting, over],
+		}
+		for (const m of [1, 5, 10, 15, 30]) {
+			presets[`countdown_${m}`] = {
+				type: 'button', category: 'Countdown', name: `COUNTDOWN — ${m} min from now`,
+				style: { text: `⏱\\n${m} MIN`, size: '14', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'countdown', options: { mode: 'START', minutes: String(m), time: '', label: '' } }], up: [] }],
+				feedbacks: [counting, over],
+			}
+		}
+		presets.countdown_to = {
+			type: 'button', category: 'Countdown', name: 'COUNTDOWN — to a time of day (edit the time)',
+			style: { text: '⏱ TO\\n19:30', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'TO', minutes: '', time: '19:30', label: '' } }], up: [] }],
+			feedbacks: [counting, over],
+		}
+		presets.countdown_label = {
+			type: 'button', category: 'Countdown', name: 'COUNTDOWN — the label over the digits (edit the words)',
+			style: { text: 'LABEL\\nSHOW STARTS IN', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'LABEL', minutes: '', time: '', label: 'SHOW STARTS IN' } }], up: [] }],
+			feedbacks: [],
+		}
+		presets.countdown_stop = {
+			type: 'button', category: 'Countdown', name: 'COUNTDOWN — stop',
+			style: { text: '⏱\\nSTOP', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'STOP', minutes: '', time: '', label: '' } }], up: [] }],
+			feedbacks: [counting, over],
+		}
+		// The message: a key that reads the words on screen and toggles them, these words (edit them), the ticker, off.
+		presets.message = {
+			type: 'button', category: 'Message', name: 'MESSAGE — the message overlay on air (reads the words)',
+			style: { text: 'MSG\\n$(patterns:message_text)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'message', options: { mode: 'TOGGLE', text: '' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'message_on', options: {}, style: blue }],
+		}
+		presets.message_say = {
+			type: 'button', category: 'Message', name: 'MESSAGE — these words on screen (edit them)',
+			style: { text: 'SAY\\nDoors open at 7', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'message', options: { mode: 'SAY', text: 'Doors open at 7' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'message_on', options: {}, style: blue }],
+		}
+		presets.message_scroll = {
+			type: 'button', category: 'Message', name: 'MESSAGE — scroll as a ticker, or stand still',
+			style: { text: 'MSG\\nSCROLL', size: '14', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'message', options: { mode: 'SCROLL TOGGLE', text: '' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'message_scroll', options: {}, style: blue }],
+		}
+		presets.message_off = {
+			type: 'button', category: 'Message', name: 'MESSAGE — off (the words kept)',
+			style: { text: 'MSG\\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			steps: [{ down: [{ actionId: 'message', options: { mode: 'OFF', text: '' } }], up: [] }],
+			feedbacks: [],
+		}
+		// The overlays: the logo, the PiP, and every overlay off in one press (the key reads what is on).
+		presets.logo = {
+			type: 'button', category: 'Overlays', name: 'LOGO — the brand logo overlay',
+			style: { text: 'LOGO', size: '18', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'logo', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'logo_on', options: {}, style: blue }],
+		}
+		presets.pip = {
+			type: 'button', category: 'Overlays', name: 'PIP — the picture-in-picture inset',
+			style: { text: 'PIP', size: '18', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'pip', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [{ feedbackId: 'pip_on', options: {}, style: blue }],
+		}
+		presets.overlays_off = {
+			type: 'button', category: 'Overlays', name: 'OVERLAYS OFF — the clock, the message, the countdown, the logo, the PiP and the weather chip all off (reads what is on)',
+			style: { text: 'OVERLAYS\\nOFF\\n$(patterns:overlays_text)', size: 'auto', color: white, bgcolor: combineRgb(90, 30, 30) },
+			steps: [{ down: [{ actionId: 'overlays_off', options: {} }], up: [] }],
+			feedbacks: [],
+		}
 		presets.freeze = {
 			type: 'button', category: 'Transport', name: 'FREEZE — every output holds its frame',
 			style: { text: 'FREEZE\\n$(patterns:freeze)', size: '14', color: white, bgcolor: dark },
@@ -1344,7 +1724,7 @@ class PatternsInstance extends InstanceBase {
 		}
 		for (let n = 1; n <= 6; n++) {
 			presets[`person_${n}`] = {
-				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) into the lower third on air (labels itself)`,
+				type: 'button', category: 'People', name: `Person ${n} (library) into the lower third on air (labels itself)`,
 				style: { text: `$(patterns:person_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third_person', options: { n, design: '' } }], up: [] }], feedbacks: [lowerOn, empty('person', n)],
 			}
@@ -1373,7 +1753,7 @@ class PatternsInstance extends InstanceBase {
 				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n, person: '' } }], up: [] }], feedbacks: [lowerPvw],
 			}
 			presets[`person_preview_${n}`] = {
-				type: 'button', category: 'Lower thirds', name: `Person ${n} (library) to preview, into the design in the preview, on air, or the default`,
+				type: 'button', category: 'People', name: `Person ${n} (library) to preview, into the design in the preview, on air, or the default`,
 				style: { text: `PVW\\nPERSON ${n}`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n: 0, person: String(n) } }], up: [] }], feedbacks: [lowerPvw],
 			}

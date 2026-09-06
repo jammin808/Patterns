@@ -434,6 +434,16 @@ public sealed class ShowActions
                 });
                 return ActionResult.Done(was.Count == 0 ? "No overlay was on." : "Overlays off: " + string.Join(", ", was) + ".");
             }
+            case ShowActionKind.PatternKind:
+            {
+                var word = a.Value.Replace(" ", "").Replace("-", "").Replace("_", "").Trim();
+                if (word.Length == 0 || !Enum.TryParse<PatternKind>(word, true, out var kind))
+                {
+                    return ActionResult.Refused($"'{a.Value}' is not a kind of picture — one of {string.Join(", ", Enum.GetNames<PatternKind>())}.");
+                }
+                _s.EditAir(air => air.Pattern.Kind = kind);
+                return ActionResult.Done($"Pattern: {kind}.");
+            }
             case ShowActionKind.WeatherOn:
             {
                 var view = WeatherWords.ParseView(a.Value);

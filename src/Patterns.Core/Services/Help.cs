@@ -587,12 +587,14 @@ public static class HelpTopics
             new[]
             {
                 "Install the module (integrations/companion-module-patterns); point it at the machine's address and port.",
+                "In the connection's settings tick the groups of keys this desk uses — all looks, all patterns, clock, countdown, message, overlays, VOGs, stingers, lower thirds, people, screens, audio, presenter, install — and the preset list holds only those.",
                 "Drag the bank presets — Looks, People, VOGs, Stingers, Parts, Screens, Upcoming cues: the keys label themselves and light on air.",
+                "The Clock, Countdown, Message and Overlays groups drive the overlays from keys; the countdown key counts down, green while it runs and red when over.",
                 "Feedbacks and variables for anything else; OSC gets the same addresses and the same feedback.",
             },
-            "LOOK #<n> and the module's actions and feedbacks; /patterns/look/index/<n> and /patterns/state/… over OSC.",
+            "LOOK #<n>, PATTERN <kind> and the module's actions and feedbacks; /patterns/look/index/<n> and /patterns/state/… over OSC.",
             new[] { "Remote" },
-            new[] { "companion", "stream deck", "bitfocus", "preset", "bank", "feedback", "variable", "osc", "touchosc", "key", "label", "module" }),
+            new[] { "companion", "stream deck", "bitfocus", "preset", "bank", "feedback", "variable", "osc", "touchosc", "key", "label", "module", "groups", "tick", "clock", "countdown", "message", "pattern" }),
 
         new HelpTopic("osc", HelpGroup.Control,
             "OSC in and out",

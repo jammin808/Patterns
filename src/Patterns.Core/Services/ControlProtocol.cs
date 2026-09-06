@@ -189,6 +189,8 @@ public enum RemoteCommandKind
     PipToggle,
     /// <summary>"OVERLAYS OFF" — the clock, the message, the countdown, the logo, the PiP and the weather chip all off: a clean picture in one press.</summary>
     OverlaysOff,
+    /// <summary>"PATTERN &lt;kind&gt;" — the kind of picture on air (TextArg: Grid, ColorBars, LedWall, Particles, Fractal…), its settings kept.</summary>
+    Pattern,
 }
 
 /// <summary>A parsed remote command (TCP line, HTTP /api/cmd, or the Companion module); Extra is a second text argument, rarely used.</summary>
@@ -748,6 +750,9 @@ public static class ControlProtocol
                 };
             case "OVERLAYS":
                 return arg.ToUpperInvariant() is "OFF" or "CLEAR" or "NONE" ? new(RemoteCommandKind.OverlaysOff, 0, "") : new(RemoteCommandKind.Unknown, 0, s);
+            // "PATTERN Grid" / "PATTERN LED wall": the kind of picture on air, by its name (spaces ignored).
+            case "PATTERN":
+                return arg.Trim().Length == 0 ? new(RemoteCommandKind.Unknown, 0, s) : new(RemoteCommandKind.Pattern, 0, arg.Trim());
 
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
             case "WEATHER":

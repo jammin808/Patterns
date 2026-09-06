@@ -182,6 +182,7 @@ public sealed class CommandRouter
             RemoteCommandKind.PipOff => new ShowAction(ShowActionKind.PipOff),
             RemoteCommandKind.PipToggle => new ShowAction(ShowActionKind.PipToggle),
             RemoteCommandKind.OverlaysOff => new ShowAction(ShowActionKind.OverlaysOff),
+            RemoteCommandKind.Pattern => new ShowAction(ShowActionKind.PatternKind, "", cmd.TextArg),
             RemoteCommandKind.ReviewOn => new ShowAction(ShowActionKind.ReviewOn),
             RemoteCommandKind.ReviewOff => new ShowAction(ShowActionKind.ReviewOff),
             RemoteCommandKind.ReviewToggle => new ShowAction(ShowActionKind.ReviewToggle),
@@ -363,6 +364,7 @@ public sealed class CommandRouter
             airLook = airLook,                                             // the look on air, by name ("" = none recorded, or the picture moved on)
             previewLook = previewLook,                                     // the look loaded into the preview, by name
             pattern = _services.AirState.Pattern.Kind.ToString(),          // what kind of picture is on air: Media, LedWall, ProjectionBlend…
+            patternKinds = Enum.GetNames<PatternKind>(),                    // every kind a PATTERN key can ask for, in the desk's order
 
             // The show's looks in order — a bank of keys labels itself from these: n, the name, the F-key, on air, in the preview.
             looks = s.LooksAndCues.Looks.Select((l, i) => new { n = i + 1, name = l.Name, slot = l.Hotkey, air = l.Name == airLook && airLook.Length > 0, preview = l.Name == previewLook && previewLook.Length > 0 }).ToArray(),

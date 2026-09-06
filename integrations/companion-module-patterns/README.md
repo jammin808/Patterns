@@ -3,7 +3,9 @@
 Stream Deck / Companion control for the Patterns show display suite: fast look recall,
 presenter next/back, transport, blackout with live feedback, individual screens and
 canvas groups, VOGs and stingers (one-press sounds and clips), break music (Spotify), the audio track,
-and the caller's VT clock — what is left of the clip on air, red for its last ten seconds.
+and the caller's VT clock — what is left of the clip on air, red for its last ten seconds;
+the clock, the countdown, the message, the logo, the PiP and the kind of picture on air; and
+preset groups you tick, so the key list holds only what this desk uses.
 
 ## Setup
 
@@ -17,6 +19,41 @@ and the caller's VT clock — what is left of the clip on air, red for its last 
    from the show and dim while empty), then Cue stack (GO, standby ▲ ▼, HOLD, ARM, STOP ALL),
    Transport, Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music, and the
    *… — this show* categories with a preset per item of the show that is loaded.
+
+## Preset groups — tick what this desk uses (module 2.5.0)
+
+The connection's settings gained a checkbox per group of presets: Transport; Cue stack; All
+looks; All patterns; Clock functions; Countdown functions; Message and ticker; Overlays; All
+VOGs; All stingers; All lower thirds; All people; Screens and canvases; Audio playlist, break
+music and parts; Presenter (steps, decks, web pages, the VT clock); Install. Only the ticked
+groups reach Companion's preset list — every key of a group labels itself from the show that is
+loaded and lights from the air, so a desk that runs looks, stingers and lower thirds ticks those
+three and sees nothing else. The actions, feedbacks and variables are always all there; the
+groups only shape the preset list. Patterns and Install start unticked, the rest ticked, and an
+instance upgraded from 2.4 keeps working with those defaults until its settings are saved again.
+
+## The clock, the countdown, the message, the overlays and the patterns (module 2.5.0)
+
+Patterns' remote verbs for the overlays (CLOCK, MESSAGE, COUNTDOWN, LOGO, PIP, OVERLAYS OFF,
+PATTERN) have keys. Actions: `clock` (toggle / on / off, 12 / 24-hour, the seconds and the date
+line), `message` (these words on screen, on with the current words, off with the words kept,
+toggle, scroll as a ticker or stand still), `countdown` (start for the minutes given — `5`,
+`2.5`, `2:30`, `90s`, or blank to run the countdown as it is set up on the desk — count down to a
+time of day, set the label, stop), `logo`, `pip`, `overlays_off` and `pattern` (the kind of
+picture on air by name). Feedbacks: `clock_on`, `clock_hours` (12 or 24), `clock_seconds`,
+`clock_date`, `message_on`, `message_scroll`, `countdown_running` (running, over, or either),
+`logo_on`, `pip_on`, `pattern_is`. Variables: `clock`, `clock_hours`, `clock_text` (what the
+clock reads now), `clock_seconds`, `clock_date`, `message`, `message_text`, `message_scroll`,
+`countdown` (running / over / off), `countdown_text` ("12:34 · DOORS IN", "OVER · STARTING
+NOW"), `countdown_remaining_seconds`, `countdown_label`, `countdown_target`, `logo`, `pip`,
+`overlays_text` (the overlays in one line). STATE pushes every second while a countdown runs, so
+the countdown key counts with the screens. Presets: *Clock* (CLOCK reads the time and toggles,
+12 H, 24 H, SECONDS, DATE, OFF), *Countdown* (a key that reads what is left — green while it
+runs, red when it is over — and starts the countdown as set up; 1 / 5 / 10 / 15 / 30 MIN; TO
+19:30 and LABEL to edit; STOP), *Message* (MSG reads the words and toggles; SAY with words to
+edit; SCROLL; OFF), *Overlays* (LOGO, PIP, WEATHER, OVERLAYS OFF reading what is on), and
+*Patterns — every kind*, a key per kind of picture built from the list Patterns sends
+(`patternKinds`), lit while that kind is on air.
 
 ## The weather chip (module 2.4.0)
 

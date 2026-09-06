@@ -130,6 +130,16 @@ public class OverlayRemoteAppTests
             Assert.Contains("\"text\":\"No overlays on.\"", router.StateJson());
             Assert.Equal("OK", Run(router, "OVERLAYS OFF"));
 
+            // The kind of picture on air from a key: by its name, spaces ignored, a stranger refused, the list in STATE for the keys to build from.
+            Assert.Equal("OK", Run(router, "PATTERN ColorBars"));
+            Assert.Equal(PatternKind.ColorBars, air.Pattern.Kind);
+            Assert.Equal("OK", Run(router, "PATTERN led wall"));
+            Assert.Equal(PatternKind.LedWall, air.Pattern.Kind);
+            Assert.StartsWith("ERR", Run(router, "PATTERN Nothing"));
+            Assert.Equal(PatternKind.LedWall, air.Pattern.Kind);
+            Assert.Contains("\"pattern\":\"LedWall\",\"patternKinds\":[\"", router.StateJson());
+            Assert.Contains("\"ColorBars\"", router.StateJson());
+
             // Through EDIT SAFE the verbs drive the air, never the edit.
             vm.IsSandboxActive = true;
             Assert.Equal("OK", Run(router, "CLOCK ON"));

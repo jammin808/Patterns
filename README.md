@@ -23,6 +23,13 @@ fault containment, and settings that can never brick startup.
 
 ## What it does
 
+- **Companion 2.5.0: tick the groups of keys this desk uses** — the connection's settings gain a
+  checkbox per group (all looks, all patterns, clock functions, countdown functions, the message,
+  the overlays, all stingers, all VOGs, all lower thirds, all people, screens, audio, presenter,
+  install) and only the ticked groups reach the preset list, every key still labelling itself
+  from the show and lighting from the air; new keys for the clock, the countdown (a key that
+  counts down, green while it runs, red when over), the message, the logo, the PiP, every overlay
+  off, and a key per kind of picture, with `PATTERN <kind>` on the wire behind the last.
 - **The phone drives the clock, the message, the countdown and the overlays** — an OVERLAYS tab
   on the phone remote: the clock on or off with its hours, seconds and date; the message's words
   typed and shown, scrolling or still; a countdown of any minutes or to a time of day, with a

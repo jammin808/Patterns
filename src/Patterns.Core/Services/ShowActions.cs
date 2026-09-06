@@ -220,6 +220,8 @@ public enum ShowActionKind
     PipToggle,
     /// <summary>The clock, the message, the countdown, the logo, the PiP and the weather chip all off: a clean picture.</summary>
     OverlaysOff,
+    /// <summary>Value = a kind of picture (Grid, ColorBars, LedWall, Particles, Fractal…): the pattern on air changes kind, its settings kept.</summary>
+    PatternKind,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>
