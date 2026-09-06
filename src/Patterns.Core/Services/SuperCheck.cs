@@ -78,6 +78,23 @@ public sealed class CheckFacts
     public string DeskTickWorstArea { get; init; } = "";
     public int DeskSlowTicks { get; init; } = -1;
     public int DeskTickFaults { get; init; }
+
+    /// <summary>
+    /// The engine's frame budget over the last minute (ms; -1 unknown): the worst frame, the stage
+    /// that took it and the sink it was on, the average across the sinks, the frames past the slow
+    /// line this session, and how many sinks reported.
+    /// </summary>
+    public double RenderWorstMs { get; init; } = -1;
+    public string RenderWorstStage { get; init; } = "";
+    public string RenderWorstSink { get; init; } = "";
+    public double RenderAverageMs { get; init; } = -1;
+    public long RenderSlowFrames { get; init; } = -1;
+    public int RenderSinks { get; init; }
+
+    /// <summary>Start-up: seconds from the process start to the last phase marked (-1 unknown), the phases in words, and whether the first frame has landed.</summary>
+    public double StartupSeconds { get; init; } = -1;
+    public string StartupPhases { get; init; } = "";
+    public bool StartupComplete { get; init; }
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
 
@@ -401,6 +418,8 @@ public static class SuperCheck
         if (f.Faults > 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Amber, $"{f.Faults} this session", "contained per frame; the log says which pattern"));
         else if (f.Faults == 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Green, "none"));
         DeskTick(f, rows, s);
+        RenderFrame(f, rows, s);
+        Startup(f, rows, s);
         rows.Add(f.WatchdogEnabled
             ? new CheckRow(s, "Watchdog", f.WatchdogRestarts > 0 ? CheckLight.Amber : CheckLight.Green, f.WatchdogRestarts > 0 ? $"on · {f.WatchdogRestarts} restart(s)" : "on",
                 f.WatchdogRestarts > 0 ? "it restarted the app — see patterns.watchdog.log" : "")
@@ -441,6 +460,59 @@ public static class SuperCheck
             note = note.Length > 0 ? $"{note}; {failed}" : failed;
         }
         rows.Add(new CheckRow(section, "Desk tick", light, value, note));
+    }
+
+    /// <summary>
+    /// The engine's frame: green under the slow line, amber past it (a hitch the room can see),
+    /// red past a stutter — with the stage that took the frame and the sink it was on, so the
+    /// operator knows what to lower rather than that something is slow.
+    /// </summary>
+    private static void RenderFrame(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.RenderWorstMs < 0) return;
+        var worst = f.RenderWorstMs;
+        var stage = f.RenderWorstStage.Length > 0 ? Rendering.FrameStage.Words(f.RenderWorstStage) : "";
+        var where = string.Join(", ", new[] { stage, f.RenderWorstSink }.Where(x => x.Length > 0));
+        var light = worst > FrameBudget.StutterMs ? CheckLight.Red : worst > FrameBudget.SlowMs ? CheckLight.Amber : CheckLight.Green;
+        var value = $"{(f.RenderAverageMs >= 0 ? $"{f.RenderAverageMs:0.0} ms" : "—")} · worst {worst:0.0} ms{(where.Length > 0 ? $" ({where})" : "")}"
+                    + (f.RenderSlowFrames > 0 ? $" · {f.RenderSlowFrames} past {FrameBudget.SlowMs:0} ms" : "");
+        var note = light == CheckLight.Green
+            ? (f.RenderSinks > 1 ? $"{f.RenderSinks} sinks in the last minute" : "")
+            : FrameAdvice(f.RenderWorstStage, light);
+        rows.Add(new CheckRow(section, "Render frame", light, value, note));
+    }
+
+    /// <summary>What to lower, by the stage that took the frame.</summary>
+    public static string FrameAdvice(string stage, CheckLight light)
+    {
+        var felt = light == CheckLight.Red ? "the room sees a stutter" : "a hitch the room can see";
+        if (stage.StartsWith("pattern:Fractal", StringComparison.Ordinal)) return $"{felt} — the fractal: fewer iterations or a lower quality on the Pattern page (the CPU path draws it for NDI and thumbnails)";
+        if (stage.StartsWith("pattern:Particles", StringComparison.Ordinal)) return $"{felt} — the particles: fewer of them, or glow off, on the Pattern page";
+        if (stage.StartsWith("pattern:Media", StringComparison.Ordinal)) return $"{felt} — the clip's decode: VIDEO DECODING on this page, or a smaller file";
+        if (stage.StartsWith("pattern:Multiview", StringComparison.Ordinal)) return $"{felt} — the multiview: fewer tiles, or a lower frame rate for its output";
+        return stage switch
+        {
+            Rendering.FrameStage.LowerThird => $"{felt} — the lower third: a fractal or particle element inside it is the usual cause; fewer particles, or Fast fractal quality",
+            Rendering.FrameStage.Layers => $"{felt} — a layer's source: a 4K clip or a web page; a smaller source",
+            Rendering.FrameStage.Fade => $"{felt} — a crossfade draws the old picture and the new: a shorter fade, or lighter content on either side",
+            Rendering.FrameStage.Overlays => $"{felt} — the overlays: a ticker over a feed, a large logo, the weather chip",
+            _ => $"{felt} — close the desk's extra monitors, or lower the output frame rate on the Output page",
+        };
+    }
+
+    /// <summary>Start-up: green under eight seconds, amber past it, red past twenty — the phases say where the time went.</summary>
+    private static void Startup(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.StartupSeconds < 0) return;
+        var light = f.StartupSeconds > StartupBudget.StuckSeconds ? CheckLight.Red : f.StartupSeconds > StartupBudget.SlowSeconds ? CheckLight.Amber : CheckLight.Green;
+        var value = $"{f.StartupSeconds:0.0} s{(f.StartupComplete ? "" : " and still starting")}";
+        var note = light switch
+        {
+            CheckLight.Red => $"the start waited on something — the longest phase names it: {f.StartupPhases}",
+            CheckLight.Amber => $"a slow start — the phases: {f.StartupPhases}",
+            _ => f.StartupPhases,
+        };
+        rows.Add(new CheckRow(section, "Start-up", light, value, note));
     }
 
     private static void Ndi(CheckFacts f, List<CheckRow> rows)

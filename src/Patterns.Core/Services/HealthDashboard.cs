@@ -120,6 +120,20 @@ public static class HealthDashboard
         // The desk's tick rides on this tile: the UI thread is the other place a show is felt to stutter.
         var deskStutters = f.DeskTickWorstMs > TickBudget.StutterMs;
         var desk = f.DeskTickWorstMs >= 0 ? $" · desk tick worst {f.DeskTickWorstMs:0} ms{(deskStutters && f.DeskTickWorstArea.Length > 0 ? $" ({f.DeskTickWorstArea})" : "")}" : "";
+        // The frame budget's last minute names the sink and the stage that took the worst frame;
+        // the per-second sample below is the reading when no sink has reported yet.
+        if (f.RenderWorstMs >= 0)
+        {
+            var stage = f.RenderWorstStage.Length > 0 ? Rendering.FrameStage.Words(f.RenderWorstStage) : "";
+            var where = string.Join(", ", new[] { stage, f.RenderWorstSink }.Where(x => x.Length > 0));
+            var budgetLight = f.RenderWorstMs > FrameBudget.StutterMs ? CheckLight.Red
+                : f.RenderWorstMs > FrameBudget.SlowMs || faults > 0 || deskStutters ? CheckLight.Amber
+                : CheckLight.Green;
+            var slowText = f.RenderSlowFrames > 0 ? $" · {f.RenderSlowFrames} slow" : "";
+            return new DashboardTile("render", "RENDER", budgetLight, $"{f.RenderWorstMs:0} ms",
+                $"worst frame in the last minute{(where.Length > 0 ? $" ({where})" : "")}{slowText} · {faultsText}{desk}",
+                Math.Clamp(f.RenderWorstMs / FrameBudget.StutterMs, 0, 1));
+        }
         if (!f.OutputsLive)
         {
             return faults > 0

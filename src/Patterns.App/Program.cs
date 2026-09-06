@@ -9,6 +9,7 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        StartupBudget.MarkProcessStart();
         LaunchOptions.Parse(args);
 
         // A plain launch becomes the watchdog and runs the real app as a child of the same

@@ -258,6 +258,10 @@
                ToolTip.Tip="The note the watchdog left when it brought this run up: the exit code in words, when, after how long, and the mini-dump if one was written — also in patterns.log and the support bundle" />
     <TextBlock Classes="label" Text="{Binding DeskTickText}" TextWrapping="Wrap"
                ToolTip.Tip="The desk's once-a-second poll runs on the same thread as every click: what it costs, its worst minute and the area that took the time. Past 16 ms the desk skipped a frame; past 50 ms it stutters — the super-check's Desk tick row says the same" />
+    <TextBlock Classes="label" Text="{Binding RenderBudgetText}" TextWrapping="Wrap"
+               ToolTip.Tip="The engine's frame budget: every frame the preview, the monitors and the outputs draw is timed with the slowest stage inside it (the pattern, the layers, the overlays, the lower third, a crossfade). The worst frame of the last minute names the stage and the sink, so a slow frame says what to lower. Past 25 ms is a hitch the room can see; past 50 ms a stutter — the super-check's Render frame row and the RENDER tile say the same" />
+    <TextBlock Classes="label" Text="{Binding StartupText}" TextWrapping="Wrap"
+               ToolTip.Tip="How long this start took to become a desk, phase by phase: the runtime and graphics set-up, the settings read, the services built, the window opened, the first frame drawn. A start past 8 s is one the operator notices; past 20 s it waited on a device, a disk or a network share, and the longest phase says which" />
     <Button Classes="stop" Content="RESTART APP (SHOW COMES BACK)" Padding="14,8" Margin="0,6,0,0"
             Command="{Binding RestartAppCommand}"
             ToolTip.Tip="Exits and relaunches through the watchdog — outputs and the audio track are restored in seconds. Use it to apply a GPU change or clear a suspected leak at a break." />

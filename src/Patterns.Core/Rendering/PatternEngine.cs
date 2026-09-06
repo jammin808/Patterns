@@ -18,6 +18,10 @@ public sealed class PatternEngine
 
     public void Render(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
     {
+        // The frame's stage clock: a top-level draw starts it; a layer's screen, a tile or a fade
+        // source drawn inside notes into the same frame.
+        if (!ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer) sink.Stages.Begin();
+
         // FREEZE: what leaves the machine — an output window, an NDI send, the stream — holds the
         // frame it showed when the freeze was pressed: drawn once onto the sink's own surface,
         // held as an image, put up unchanged until the release. The desk's views (the preview,
@@ -33,7 +37,9 @@ public sealed class PatternEngine
                 surface.Canvas.Flush();
                 sink.HoldFrozen(surface.Snapshot(), ctx.ViewportSize);
             }
+            var frozenAt = FrameStages.Now();
             canvas.DrawImage(sink.FrozenFrame!, 0, 0);
+            sink.Stages.Note(FrameStage.Freeze, frozenAt);
             return;
         }
         sink.DropFrozen();
@@ -85,9 +91,11 @@ public sealed class PatternEngine
                     var bounds = SKRect.Create(0, 0, ctx.ViewportSize.Width, ctx.ViewportSize.Height);
                     canvas.SaveLayer(bounds, fade);
                     var fadeCtx = ctx with { IsFadeSource = true };
+                    var fadeAt = FrameStages.Now();
                     try
                     {
                         RenderContent(canvas, from, in fadeCtx, sink);
+                        sink.Stages.Note(FrameStage.Fade, fadeAt);
                     }
                     catch (Exception ex)
                     {
@@ -170,6 +178,7 @@ public sealed class PatternEngine
         canvas.Scale(scale);
         canvas.ClipRect(SKRect.Create(0, 0, canvasSize.Width, canvasSize.Height));
 
+        var patternAt = FrameStages.Now();
         if (sink.Failed.Contains(cfg.Kind))
         {
             DrawErrorCard(canvas, frame, null);
@@ -202,9 +211,12 @@ public sealed class PatternEngine
             }
         }
 
+        sink.Stages.Note(FrameStage.PatternOf(cfg.Kind), patternAt);
+
         // The two layers: over the pattern, under the overlays; a bad layer never takes the sink down.
         if (!ctx.InLayer && (cfg.Layer1.Enabled || cfg.Layer2.Enabled))
         {
+            var layersAt = FrameStages.Now();
             try
             {
                 LayerRenderer.Render(canvas, in frame, DrawLayerScreen);
@@ -213,6 +225,7 @@ public sealed class PatternEngine
             {
                 Log.Error("Layer rendering threw.", ex);
             }
+            sink.Stages.Note(FrameStage.Layers, layersAt);
         }
 
         try
@@ -226,7 +239,9 @@ public sealed class PatternEngine
 
         canvas.RestoreToCount(save);
 
+        var viewportAt = FrameStages.Now();
         OverlayRenderer.RenderViewportOverlays(canvas, snap, ctx, sink, palette, blackout: false, cfg);
+        sink.Stages.Note(FrameStage.Viewport, viewportAt);
 
         // The sync check: a white frame on the master clock's grid, on every sink that shows the show.
         if (ctx.Sink != SinkKind.Thumbnail && Effects.SyncMarks.IsFlash(ctx.Time))

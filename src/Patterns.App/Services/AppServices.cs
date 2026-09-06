@@ -83,6 +83,9 @@ public sealed class AppServices
     /// <summary>The desk's tick budget: what the once-a-second poll costs on the UI thread, its worst minute, the areas that failed.</summary>
     public TickBudget DeskTick { get; } = new();
 
+    /// <summary>How long this start took to become a desk, phase by phase (the Machine page, the super-check).</summary>
+    public StartupBudget Startup { get; } = new();
+
     /// <summary>The one way to do something to the show — see <see cref="ShowActions"/>.</summary>
     public ShowActions Actions { get; }
 
@@ -220,6 +223,11 @@ public sealed class AppServices
         Store = store ?? new SettingsStore();
         Log.Init(Store.BaseDirectory);
 
+        // The start-up budget: from Main when this process went through it (the runtime, the
+        // graphics choice and Avalonia's own start count as "runtime"), else from here.
+        Startup.Begin(StartupBudget.ProcessStartedAt);
+        if (StartupBudget.ProcessStartedAt != 0) Startup.Mark(StartupBudget.Runtime);
+
         // Second instance on the same folder: run, but leave saving to the first one.
         // (string.GetHashCode is randomized per process — a stable hash is required here.)
         try
@@ -238,6 +246,7 @@ public sealed class AppServices
         }
 
         State = Store.Load();
+        Startup.Mark(StartupBudget.Settings);
         State.Blackout = false;
         State.Tone.Enabled = false; // a tone must never auto-start with the app
         if (Store.LastLoadMigrated)
@@ -351,6 +360,9 @@ public sealed class AppServices
             PublishRuntime();
         };
         Screens.Refresh(); // planned screens exist before any display is attached
+        Startup.Mark(StartupBudget.Services);
+        // The desk's first frame is the budget's last mark; a pipeline tells it once.
+        Rendering.RenderPipeline.FirstPreviewFrame = () => Startup.Mark(StartupBudget.FirstFrame);
     }
 
     public void AttachMainWindow(MainWindow window)
@@ -358,6 +370,7 @@ public sealed class AppServices
         MainWindow = window;
         window.Opened += (_, _) =>
         {
+            Startup.Mark(StartupBudget.Window);
             Screens.Attach(window);
             ApplySideEffects();
         };

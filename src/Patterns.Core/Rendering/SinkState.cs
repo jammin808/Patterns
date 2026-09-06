@@ -14,6 +14,9 @@ public sealed class SinkState : IDisposable
     public PaintCache Paints { get; } = new();
     public FpsMeter Fps { get; } = new();
 
+    /// <summary>The frame being drawn, stage by stage: the slowest goes into the sink's frame budget.</summary>
+    public FrameStages Stages { get; } = new();
+
     /// <summary>Per-sink particle simulation (created on first use).</summary>
     public ParticleSim? Particles { get; set; }
 

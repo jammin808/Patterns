@@ -105,8 +105,13 @@ public sealed class RenderPipeline : IDisposable
     private readonly PatternEngine _engine = new();
     private readonly SinkState _sink = new();
     private readonly SnapshotBus _bus;
+    private readonly FrameBudget _budget;
     private long _frame;
     private volatile PipelineViewport _viewport;
+    private bool _firstFrameTold;
+
+    /// <summary>Told once per pipeline when its first preview frame lands — the start-up budget's last mark.</summary>
+    public static Action? FirstPreviewFrame { get; set; }
 
     // A draw op queued for the compositor's render thread can run after the control that
     // owns this pipeline has gone (a wall tile rebuilt, a window closed). Render and Dispose
@@ -119,6 +124,32 @@ public sealed class RenderPipeline : IDisposable
     {
         _bus = bus;
         _viewport = viewport;
+        _budget = new FrameBudget(viewport.Kind, viewport.SinkIndex, viewport.Label);
+        FrameBudgets.Attach(_budget);
+    }
+
+    /// <summary>This sink's frame budget: the last minute's frames, the worst and the stage that took it.</summary>
+    public FrameBudget Budget => _budget;
+
+    /// <summary>One frame done: into the per-second smoothness counters and this sink's budget, with the slowest stage the engine noted.</summary>
+    private void FrameDone(PipelineViewport vp, long frameStart)
+    {
+        var ms = System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds;
+        RenderStats.Record(vp.Kind, vp.SinkIndex, ms);
+        if (_budget.Kind != vp.Kind || _budget.SinkIndex != vp.SinkIndex || _budget.Label != vp.Label) _budget.Relabel(vp.Kind, vp.SinkIndex, vp.Label);
+        _budget.Record(ms, _sink.Stages.SlowestStage, ShowClock.Seconds);
+        if (!_firstFrameTold && vp.Kind == SinkKind.Preview)
+        {
+            _firstFrameTold = true;
+            try
+            {
+                FirstPreviewFrame?.Invoke();
+            }
+            catch
+            {
+                // A start-up mark must never touch the frame.
+            }
+        }
     }
 
     public PipelineViewport Viewport
@@ -302,8 +333,7 @@ public sealed class RenderPipeline : IDisposable
         finally
         {
             canvas.RestoreToCount(save);
-            RenderStats.Record(vp.Kind, vp.SinkIndex,
-                System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds);
+            FrameDone(vp, frameStart);
         }
     }
 
@@ -372,8 +402,7 @@ public sealed class RenderPipeline : IDisposable
         finally
         {
             canvas.RestoreToCount(save);
-            RenderStats.Record(vp.Kind, vp.SinkIndex,
-                System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds);
+            FrameDone(vp, frameStart);
         }
     }
 
@@ -475,6 +504,7 @@ public sealed class RenderPipeline : IDisposable
         {
             if (_disposed) return;
             _disposed = true;
+            FrameBudgets.Detach(_budget);
             _trimFilter?.Dispose();
             _trimPaint.Dispose();
             _warpPaint.Dispose();

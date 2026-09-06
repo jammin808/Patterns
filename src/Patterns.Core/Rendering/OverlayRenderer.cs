@@ -14,6 +14,7 @@ public static class OverlayRenderer
     public static void RenderCanvasOverlays(SKCanvas c, in PatternFrame f)
     {
         var overlays = f.Snapshot.State.Overlays;
+        var overlaysAt = FrameStages.Now();
 
         if (overlays.Logo.Enabled)
         {
@@ -43,8 +44,12 @@ public static class OverlayRenderer
             DrawMessage(c, in f, msg);
         }
 
+        f.Sink.Stages.Note(FrameStage.Overlays, overlaysAt);
+
         // The lower third on air sits over every other overlay, on every sink that shows the canvas.
+        var lowerThirdAt = FrameStages.Now();
         LowerThirds.LowerThirdRenderer.Render(c, in f);
+        f.Sink.Stages.Note(FrameStage.LowerThird, lowerThirdAt);
     }
 
     private static void DrawLogo(SKCanvas c, in PatternFrame f, LogoOverlay o)

@@ -642,10 +642,11 @@ public static class HelpTopics
                 "The lines: the last three minutes beside the day so far — a memory line that only climbs is a leak; run SUPER-CHECK for the graded report.",
                 "Pick the GPU the outputs render on; set the frame rate the machine can hold; copy the report when asking for help.",
                 "STABILITY: the desk's tick — what the once-a-second poll costs on the UI thread, its worst minute and the area that took it; the super-check's Desk tick row and the RENDER tile say the same.",
+                "STABILITY: the engine's frame budget — the worst frame of the last minute with the stage that took it and the sink it was on (Render frame worst 31 ms (the lower third) on Output 1 (Main)); the super-check's Render frame row says what to lower; the start-up line under it names the phase a slow start waited on.",
             },
             "STATUS carries the health line.",
             new[] { "Machine" },
-            new[] { "machine", "performance", "gpu", "cpu", "memory", "fps", "drops", "super-check", "health", "report", "suggestion", "recommendation", "slow", "desk tick", "stutter", "ui thread", "lag" }),
+            new[] { "machine", "performance", "gpu", "cpu", "memory", "fps", "drops", "super-check", "health", "report", "suggestion", "recommendation", "slow", "desk tick", "stutter", "ui thread", "lag", "frame budget", "render frame", "worst frame", "slow frame", "hitch", "stage", "start-up", "startup", "slow start", "boot" }),
 
         new HelpTopic("watchdog", HelpGroup.TheMachine,
             "The watchdog, and a beacon for a second machine",

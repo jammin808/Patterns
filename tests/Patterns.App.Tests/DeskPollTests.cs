@@ -185,6 +185,9 @@ public class DeskPollTests
             Assert.True(vm.Run.Go(ActionOrigin.Desk).Ok);
             Dispatcher.UIThread.RunJobs();
             runRaised.Clear();
+            // Under load the status timer can fire inside RunJobs and see the fresh text first; the
+            // elapsed second is moved on by hand so this tick has a change to raise whatever ran before.
+            b.Services.CueStack.Runtime.LastGoUtc = DateTime.UtcNow.AddSeconds(-1.5);
             vm.PollNow();
             Assert.Contains("RunningText", runRaised);
             Assert.StartsWith("01.010  Cue 1", vm.Run.RunningText);

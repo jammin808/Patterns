@@ -380,6 +380,12 @@ public sealed class SystemMetricsService : IDisposable
             // libVLC missing: the note says so.
         }
 
+        // The engine's frame budget and the start-up, read once for the facts.
+        var frames = FrameBudgets.Readings(ShowClock.Seconds);
+        var worstFrame = FrameBudgets.Worst(frames);
+        var startup = _services.Startup;
+        var startupPhases = startup.Phases;
+
         return new CheckFacts
         {
             AppVersion = version.Length > 0 ? $"Patterns {version}" : "",
@@ -417,6 +423,15 @@ public sealed class SystemMetricsService : IDisposable
             DeskTickWorstArea = _services.DeskTick.WorstArea,
             DeskSlowTicks = (int)Math.Min(int.MaxValue, _services.DeskTick.SlowTicks),
             DeskTickFaults = (int)Math.Min(int.MaxValue, _services.DeskTick.Faults),
+            RenderWorstMs = worstFrame?.WorstMs ?? -1,
+            RenderWorstStage = worstFrame?.WorstStage ?? "",
+            RenderWorstSink = worstFrame?.Name ?? "",
+            RenderAverageMs = frames.Count > 0 ? frames.Average(r => r.AverageMs) : -1,
+            RenderSlowFrames = frames.Count > 0 ? FrameBudgets.SlowFrames(frames) : -1,
+            RenderSinks = frames.Count,
+            StartupSeconds = startup.TotalMs >= 0 ? startup.TotalMs / 1000 : -1,
+            StartupPhases = startupPhases.Count > 0 ? string.Join(" · ", startupPhases.Select(p => $"{p.Phase} {StartupBudget.Span(p.Ms)}")) : "",
+            StartupComplete = startup.Complete,
             WatchdogEnabled = state.Watchdog.Enabled,
             WatchdogRestarts = HealthMonitor.Restarts,
             BeaconSending = _services.Beacon.Sending,

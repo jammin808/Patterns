@@ -16,6 +16,14 @@ public sealed partial class MainViewModel
     private string _tickSlowestArea = "";
     private double _tickSlowestMs = -1;
     private string _deskTickText = "";
+    private string _renderBudgetText = "";
+    private string _startupText = "";
+
+    /// <summary>The STABILITY block's render line: the worst frame of the last minute, the stage that took it and the sink, every sink's average and rate.</summary>
+    public string RenderBudgetText { get => _renderBudgetText; private set => Set(ref _renderBudgetText, value); }
+
+    /// <summary>The STABILITY block's start-up line: how long this start took to become a desk, phase by phase.</summary>
+    public string StartupText { get => _startupText; private set => Set(ref _startupText, value); }
 
     /// <summary>How often a failing area is logged and counted against the health line: once a minute, not once a second.</summary>
     public static readonly TimeSpan PollFaultLoggedEvery = TimeSpan.FromMinutes(1);
@@ -63,6 +71,8 @@ public sealed partial class MainViewModel
         Guard("clock", PollClock);
         _services.DeskTick.Record(_tickWatch.Elapsed.TotalMilliseconds, _tickSlowestArea, _tickSlowestMs);
         DeskTickText = _services.DeskTick.Describe();
+        RenderBudgetText = FrameBudgets.Describe(ShowClock.Seconds);
+        StartupText = _services.Startup.Describe();
     }
 
     /// <summary>
