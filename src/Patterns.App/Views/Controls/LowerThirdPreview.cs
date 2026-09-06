@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
+using Patterns.App.Rendering;
 using Patterns.Core.LowerThirds;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
@@ -35,7 +36,11 @@ public sealed class LowerThirdPreview : Control
     public static readonly StyledProperty<LowerThirdElement?> SelectedElementProperty =
         AvaloniaProperty.Register<LowerThirdPreview, LowerThirdElement?>(nameof(SelectedElement), defaultBindingMode: BindingMode.TwoWay);
 
-    private readonly SinkState _sink = new();
+    // The stage's sink lives behind a guard: the draw ops run on the compositor's render thread,
+    // the page tab that hosts this control comes and goes on the UI thread, and a sink disposed
+    // when the tab was left must never be drawn with again — it once was, on the tab's return,
+    // and a fractal element's disposed shader ended the desk in an access violation.
+    private readonly SinkGuard _sinks = new();
     private long _version;
     private LowerThirdElement? _drag;
     private Point _dragStart;
@@ -168,11 +173,28 @@ public sealed class LowerThirdPreview : Control
         context.Custom(new DrawOp(new Rect(0, 0, Bounds.Width, Bounds.Height), this, design, state, TimeMs));
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _sinks.Open();
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromVisualTree(e);
-        _sink.Dispose();
+        _sinks.Close();
     }
+
+    /// <summary>
+    /// The picture into any canvas, through the guard: false and nothing drawn while the control is
+    /// off the visual tree (a draw op queued before the page was left, or run after). The draw op
+    /// comes this way; so can a test, driving the page's own life cycle.
+    /// </summary>
+    public bool RenderTo(SKCanvas canvas, LowerThirdDesign design, ShowState state, double timeMs, float width, float height)
+        => _sinks.Draw(sinks => RenderPreview(canvas, sinks("stage"), state, design, timeMs, width, height, ++_version));
+
+    /// <summary>Whether the stage's sink is alive: on the visual tree, drawing.</summary>
+    public bool IsStageOpen => _sinks.IsOpen;
 
     /// <summary>
     /// The picture, on any Skia canvas: the stage at 16:9 inside the given size, the safe-area
@@ -265,7 +287,7 @@ public sealed class LowerThirdPreview : Control
             try
             {
                 // Every frame is a new version: the caches re-check their keys (a cheap no-op when nothing changed) so an edit shows at once.
-                RenderPreview(canvas, _owner._sink, _state, _design, _timeMs, (float)Bounds.Width, (float)Bounds.Height, ++_owner._version);
+                _owner.RenderTo(canvas, _design, _state, _timeMs, (float)Bounds.Width, (float)Bounds.Height);
             }
             catch (Exception ex)
             {

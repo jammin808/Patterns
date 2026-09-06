@@ -1794,3 +1794,125 @@ The opportunities, not taken this round, in the order they would pay:
    `builds.dotnet.microsoft.com` in the environment, or a setup script that installs the SDK,
    would let future sessions build and test on .NET 10 itself rather than through the escape
    hatch with CI as the judge.
+
+## 23. Round 17 — the desk in use
+
+The user's round-17 brief, from a rig day: a crash "when moving from Lower Thirds to Pattern
+quickly in the Build group — Fractal was playing in Lower Third with no external output
+connected" (exit 0xC0000005, an access violation, after 405 s); a feature to send any screen or
+canvas to PGM for editing; in the switcher, screen tiles other than PGM showing their name
+vertically when maximised with the OWN / MON / ARM bar floating at mid-height, and the questions
+how a tile is collapsed and how a screen's group is set and changed; a pattern sent from PGM to a
+screen with SEND should stay in Preview, not jump back to what Program shows; the Grid pattern
+rastering badly on the switcher view though fine on the output; Patterns' own branding on a look,
+on by default, so a test pattern reads as a branded test card at an expo or on a rig day; and the
+assistant failing on its first question with the service's own words, *The compiled grammar is too
+large, which would cause performance issues. Simplify your tool schemas or reduce the number of
+strict tools.* With it the standing rule: stability, resilience, efficiency, UX, performance across
+system specs, durability and an easy show workflow; every change instant; game-play architecture
+with corporate stability. The answers are §24. Newest row first. The checklist for the Windows
+machine is `docs/CHECKLIST-round17.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 2 | The assistant answers again (§24.2). The service compiles the reply's structured-output schema into a grammar before it answers, and a closed object with optional members compiles to a grammar that grows with every subset of them: twelve optional overlay switches, eight optional proposal parts and seven optional cue fields, nested in lists, was "too large" and refused — 3.5 KB of schema, and no schema at all reached the model. Every member of every object is required now, null where it does not apply (`anyOf` the value or null), so an object has one fixed shape; the reply rules say so. Should the service refuse a schema again, the same ask goes again with the schema in the prompt (`=== REPLY FORMAT ===`, the schema itself, before the brief) and the reply read leniently on this side — the parser always tolerated a missing field, and a null reads as nothing said — and every ask after it this session goes that way from the start; the status says so once. Tests: every member of every object required, the nullable shapes; the refusal known by its words and by nothing else; the plain prompt carrying the shape between the rules and the brief; nulls in every place read as nothing said; on a live desk a refused first request asked again in plain JSON as the same turn, the answer read into rows, the status's note, the next ask plain from the start with no note. | done |
+| 1 | The page-switch crash (§24.1). The Lower Thirds page's designer preview kept one sink for its whole life, disposed it when the page was left and never made another when the page was re-entered, and drew with it on the compositor's render thread with no gate — a draw op queued before the page was left ran after the sink was gone, and every frame after a return used freed Skia handles; with a fractal element on the round-16 shader path the freed handle was a compiled shader program, a null native handle in Skia, the access violation. `SinkGuard` is the rule the wall's pipeline already kept, for a control that draws by hand: opened when the control joins the visual tree, closed when it leaves (every sink disposed under the gate), the frame drawn through the gate (nothing drawn once closed; a close waits for the frame in progress), fresh sinks on the way back. The designer preview and the Screens page's tiles — the same shape: a dictionary of sinks grown from the render thread and disposed from the UI thread — draw through it. Tests: the guard (closed draws nothing; a close waits for the frame and the sink lives to its end; fresh sinks after a close, never the disposed ones); the crash's own steps headless — the preview with a fractal element drawn, its page left, a late frame drawing nothing, the page back and four frames drawn through a fresh stage; the Screens page's guard opening and closing with the tree. | done |
+
+## 24. Round 17 — the answers
+
+### 24.1 The crash between pages: a sink drawn with after its page had let it go
+
+**What the operator saw.** The desk running 405 s; a fractal design playing in the Lower Thirds
+page's designer preview; no output connected; a quick move from Lower Thirds to Pattern in the
+BUILD group; then the watchdog's note on the next start — *App crashed (exit -1073741819 =
+0xC0000005, an access violation (a native fault: a decoder, a driver or a library wrote where it
+should not))*. No decoder was running and no driver was involved. The note's guess was written
+in round 14 for a crash with no trigger in hand; this one came with its trigger.
+
+**What was found.** The designer preview (`LowerThirdPreview`) draws through an Avalonia custom
+draw operation, which runs on the compositor's render thread with a Skia lease, and it drew with
+one `SinkState` made when the control was made — the paint cache, the element caches, and since
+round 16 the fractal shader programs. The control disposed that sink in `OnDetachedFromVisualTree`
+and never made another. Two things follow, and the round-17 tests prove both on the real desk:
+
+1. *A page tab left disposes the sink, and the tab re-entered reuses the control.* The tab's
+   content is one instance; leaving the page detaches it (the sink disposed), returning re-attaches
+   it — with the same, dead sink. Every frame after a return drew with freed Skia handles. A paint
+   cache does not make its paints again after a dispose (it holds five paints for life and lets
+   them go once), so the very first thing the preview draws — the stage's gradient — sets a colour
+   on a native paint that no longer exists.
+2. *A draw op queued before the page was left runs after.* Leaving a page is a UI-thread event;
+   the frame the compositor had already queued draws on its own thread, with no gate between the
+   two. A quick switch is the widest version of that window — the operator's own words.
+
+An experiment on this side settled what that costs: a sink disposed and then drawn with does not
+throw a managed exception the control's try/catch could take; it ends the process (the test host
+died on it). That is the access violation. The round-16 shader path is where the report came
+from — a compiled shader program is a native object too, and a fractal element asks the sink for
+it every frame at the preview's rate — but the fault is the sink's life cycle, not the shader's,
+and the same hole is very likely the native fault the round-14 report circled without a trigger.
+
+**The fix.** The wall's pipeline had the rule already: *a draw op queued for the compositor's
+render thread can run after the control that owns this pipeline has gone; render and dispose share
+one gate; a disposed pipeline draws nothing instead of touching freed Skia handles.* `SinkGuard`
+is that rule for a control that draws by hand. The control opens the guard when it joins the visual
+tree and closes it when it leaves; its draw ops draw through `Draw`, under the same lock: a closed
+guard draws nothing and says so, a close waits for the frame in progress (the sink lives to the end
+of it), and a re-opened guard makes fresh sinks on first use — never the ones it disposed. The
+designer preview draws through it; so does the Screens page's overview, which had the same shape
+one step milder (a dictionary of sinks grown from the render thread, disposed and cleared from the
+UI thread, no gate — and thumbnails, so no shader). The LED map editor makes its paints per frame
+and keeps nothing across an attach; it needed nothing.
+
+**What the tests hold.** The guard itself: closed draws nothing; a close blocks until the frame
+in progress ends and the sink is alive to the end of it; after a close the next open hands out a
+sink that is not the disposed one; a second close is nothing. The crash's own steps, headless: the
+preview with a fractal element drawn through a fresh stage, the page left (a late frame draws
+nothing at all), the page back and four frames drawn again. And on the real desk: the Lower Thirds
+page with a fractal design selected, left for Pattern and re-entered three times — the stage closed
+on every leave and open on every return.
+
+**The lesson kept.** Every control that owns Skia objects and draws on the compositor's thread
+goes through a guard of this shape; `RenderPipeline` for the wall and the windows, `SinkGuard`
+for the hand-drawn controls. A sink's life is the visual tree's, not the control's.
+
+### 24.2 The assistant's refused request: what a structured-output schema costs
+
+The failure was the service's, in its own words, on the very first question with a saved key:
+*The compiled grammar is too large, which would cause performance issues. Simplify your tool
+schemas or reduce the number of strict tools.* The assistant defines no tools. It sends one
+structured-output schema — the reply's shape, pinned so the model's JSON is the JSON the desk
+reads — and the service compiles that schema into a grammar that constrains the model's every
+token. The schema is 3.5 KB of text: ten objects, sixty members, six small enums. What made the
+grammar large is not the text but the optionality. Every object was closed (`additionalProperties`
+false, as the service requires) and nearly every member was optional: an overlays object with
+twelve optional switches admits every subset of them in any order, and a grammar that has to
+accept any of those without seeing a member twice is a machine with a state per subset — 2¹²
+for the overlays, 2⁸ for a proposal's parts, 2⁷ for a cue's fields — and the overlays sat inside
+every look inside every proposal in a list. Three and a half kilobytes of schema, ten thousand
+states of grammar.
+
+The fix is the one the message asks for, read correctly: not fewer fields, but no optional ones.
+Every member of every object is required and a member that may not apply is the value or null
+(`anyOf`), so an object has exactly one shape and the grammar for it is one fixed sequence. The
+model now writes `"hotkey": null` instead of leaving the key out; the parser, which tolerated a
+missing key from the start, reads a null the same way; the reply rules say *every field present,
+null where there is nothing to say, an empty list where there is nothing to list*. Nothing the
+operator sees changes.
+
+And because the service's limits are the service's, the desk no longer treats a refused schema as
+the end of the ask. `AssistantScope.IsSchemaRefusal` knows the refusal by its words; on one the
+service sends the same ask again with the schema carried in the prompt itself (`=== REPLY FORMAT
+===`, then the schema, before the brief) and no pinning on the wire, reads the reply as it always
+has, tells the operator once on the status line, and asks every later question that session in
+plain JSON from the start — one round trip, not two. The lenient parser was written for exactly
+this: it finds the JSON inside a fence or a sentence, and a missing or null member is nothing
+said. Structured output remains the first choice because it makes the reply the shape the desk
+expects on every token; the plain path is the guarantee that the assistant answers even when the
+service will not compile the shape.
+
+What could not be done here: this environment has no key and no route to the API, so the slimmer
+schema has not been sent to the service from this session. The reasoning is the message's own
+(the grammar, the optional members) and the API's documented rules for structured output (`anyOf`,
+`$ref`, `null`, closed objects); the fallback is there so that a schema the service still dislikes
+costs one round trip and a note, never a failed feature.

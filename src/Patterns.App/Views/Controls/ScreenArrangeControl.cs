@@ -27,7 +27,10 @@ public sealed class ScreenArrangeControl : Control
     private const double MaxViewScale = 0.22;
 
     private readonly PatternEngine _engine = new();
-    private readonly Dictionary<string, SinkState> _sinks = new();
+    // One sink per screen tile, behind a guard: the draw ops run on the compositor's render thread
+    // and the Screens page comes and goes on the UI thread, so a sink is never disposed under a
+    // frame, never drawn with after, and the page's return makes fresh ones.
+    private readonly SinkGuard _sinks = new();
     private readonly DispatcherTimer _animTimer;
     private long _frame;
 
@@ -62,6 +65,7 @@ public sealed class ScreenArrangeControl : Control
             _publishedHandler = () => InvalidateVisual();
             _vm.Services.SnapshotPublished += _publishedHandler;
         }
+        _sinks.Open();
         _animTimer.Start();
     }
 
@@ -72,13 +76,12 @@ public sealed class ScreenArrangeControl : Control
         {
             _vm.Services.SnapshotPublished -= _publishedHandler;
         }
-        foreach (var s in _sinks.Values)
-        {
-            s.Dispose();
-        }
-        _sinks.Clear();
+        _sinks.Close();
         base.OnDetachedFromVisualTree(e);
     }
+
+    /// <summary>Whether the tiles' sinks are alive: on the visual tree, drawing.</summary>
+    public bool IsStageOpen => _sinks.IsOpen;
 
     private bool AnyTileAnimated()
     {
@@ -246,29 +249,8 @@ public sealed class ScreenArrangeControl : Control
             var save = c.Save();
             try
             {
-                c.ClipRect(SKRect.Create(0, 0, (float)Bounds.Width, (float)Bounds.Height));
-                c.Clear(BgColor);
-                DrawDotGrid(c);
-
-                if (_view is null)
-                {
-                    DrawCentered(c, "No screens detected", (float)Bounds.Width / 2, (float)Bounds.Height / 2, 14, SKColors.Gray);
-                    return;
-                }
-
-                foreach (var tile in _view.Tiles)
-                {
-                    DrawTile(c, tile);
-                }
-
-                foreach (var (view, label, gi) in _view.GroupOutlines)
-                {
-                    var hue = DrawUtil.Hue(gi, Math.Max(1, _view.GroupOutlines.Count + 2));
-                    using var stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2, Color = hue, PathEffect = DrawUtil.DashLong };
-                    var r = ToSk(view).InflateCopy(4);
-                    c.DrawRoundRect(r, 8, 8, stroke);
-                    DrawBadge(c, label, r.MidX, r.Top - 12, hue);
-                }
+                // Through the owner's guard: nothing is drawn once the page has been left.
+                _owner._sinks.Draw(sinks => DrawAll(c, sinks));
             }
             catch (Exception ex)
             {
@@ -280,7 +262,34 @@ public sealed class ScreenArrangeControl : Control
             }
         }
 
-        private void DrawTile(SKCanvas c, Tile tile)
+        private void DrawAll(SKCanvas c, Func<string, SinkState> sinks)
+        {
+            c.ClipRect(SKRect.Create(0, 0, (float)Bounds.Width, (float)Bounds.Height));
+            c.Clear(BgColor);
+            DrawDotGrid(c);
+
+            if (_view is null)
+            {
+                DrawCentered(c, "No screens detected", (float)Bounds.Width / 2, (float)Bounds.Height / 2, 14, SKColors.Gray);
+                return;
+            }
+
+            foreach (var tile in _view.Tiles)
+            {
+                DrawTile(c, tile, sinks);
+            }
+
+            foreach (var (view, label, gi) in _view.GroupOutlines)
+            {
+                var hue = DrawUtil.Hue(gi, Math.Max(1, _view.GroupOutlines.Count + 2));
+                using var stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2, Color = hue, PathEffect = DrawUtil.DashLong };
+                var r = ToSk(view).InflateCopy(4);
+                c.DrawRoundRect(r, 8, 8, stroke);
+                DrawBadge(c, label, r.MidX, r.Top - 12, hue);
+            }
+        }
+
+        private void DrawTile(SKCanvas c, Tile tile, Func<string, SinkState> sinks)
         {
             var r = ToSk(tile.View);
             var isDragTile = _dragging && tile.Placement.ScreenId == _dragId;
@@ -288,7 +297,7 @@ public sealed class ScreenArrangeControl : Control
             // Live content, rendered by the real engine exactly as the output shows it.
             if (tile.Placement.Enabled && tile.Viewport is { } vp)
             {
-                var sink = _owner.SinkFor(tile.Placement.ScreenId);
+                var sink = sinks(tile.Placement.ScreenId);
                 var deviceW = tile.Arranged.Width;
                 var deviceH = tile.Arranged.Height;
                 var scale = r.Width / Math.Max(1, deviceW);
@@ -389,16 +398,6 @@ public sealed class ScreenArrangeControl : Control
         }
 
         private static SKRect ToSk(Rect r) => SKRect.Create((float)r.X, (float)r.Y, (float)r.Width, (float)r.Height);
-    }
-
-    private SinkState SinkFor(string screenId)
-    {
-        if (!_sinks.TryGetValue(screenId, out var sink))
-        {
-            sink = new SinkState();
-            _sinks[screenId] = sink;
-        }
-        return sink;
     }
 
     // ---- interaction --------------------------------------------------------
