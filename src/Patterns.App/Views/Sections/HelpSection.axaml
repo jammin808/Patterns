@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
              x:Class="Patterns.App.Views.Sections.HelpSection"
+             Classes="hue-help"
              x:DataType="vm:MainViewModel">
 
   <UserControl.Styles>
@@ -38,7 +39,7 @@
   </UserControl.Styles>
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1" Text="Help" />
+    <TextBlock Classes="h1 neon-help" Text="Help" />
     <TextBlock Classes="hint tip"
                Text="The whole guide, in the order a show happens: START HERE, RUNNING THE SHOW, CONTENT, THE RIG, CONTROL, THE MACHINE. Search for a word, a key or a verb from the wire; pick a section; open a card for how it works, where it sits in the workflow, what to do in order, the words on the wire and the pages it lives on (GO opens one). WALKTHROUGHS are the same guide as checklists by role. ? TIPS on any page's strip lists the topics that page belongs to." />
 

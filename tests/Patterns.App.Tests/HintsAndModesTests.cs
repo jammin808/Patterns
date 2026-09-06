@@ -155,7 +155,7 @@ public class HintsAndModesTests
             Assert.Equal(mini.FontSize, wide.FontSize);
             Assert.Equal(mini.Padding, wide.Padding);
             var h1 = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("h1"));
-            Assert.Equal(20, h1.FontSize);
+            Assert.Equal(22, h1.FontSize);
         }
         finally
         {

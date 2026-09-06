@@ -3,6 +3,7 @@
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Sections.ParticlesSection"
+             Classes="hue-particles"
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">

@@ -3,6 +3,7 @@
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.CuesSection"
+             Classes="hue-cues"
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">

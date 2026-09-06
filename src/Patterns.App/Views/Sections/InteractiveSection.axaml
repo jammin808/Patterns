@@ -3,10 +3,11 @@
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.InteractiveSection"
+             Classes="hue-interactive"
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">
-    <TextBlock Classes="h1 neon-remote" Text="Interactive" />
+    <TextBlock Classes="h1 neon-interactive" Text="Interactive" />
     <TextBlock Classes="hint tip"
                Text="Buttons, sensors and lights in the room: an Arduino on a USB cable, a Raspberry Pi or an ESP32 on the network, a show controller with a TCP port. A device sends short text lines — BTN1, SENSOR 42 — and each one fires a show command through the same action layer as the desk, the cues and Companion; the show sends lines back — BLACKOUT 1, LOOK Walk-in, CUE 01.020 — whenever something changes, so a lamp on the lectern can follow the cue stack. A cue can send a line of its own (Device — send a line), and so can the wire (DEVICE Arduino RELAY 1), OSC and Companion. The sketch and the wiring are in docs/ARDUINO.md." />
 

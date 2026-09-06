@@ -5,6 +5,7 @@
              xmlns:lt="using:Patterns.Core.LowerThirds"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.LowerThirdsSection"
+             Classes="hue-lower-thirds"
              x:DataType="vm:MainViewModel">
 
   <Grid RowDefinitions="Auto,*" Margin="4,8,12,16">

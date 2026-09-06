@@ -4,6 +4,7 @@
              xmlns:c="using:Patterns.App.Views.Controls"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.LayersSection"
+             Classes="hue-layers"
              x:DataType="vm:MainViewModel">
 
   <UserControl.Resources>

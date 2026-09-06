@@ -4,6 +4,7 @@
              xmlns:c="using:Patterns.App.Views.Controls"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.PatternSection"
+             Classes="hue-pattern"
              x:DataType="vm:MainViewModel">
 
   <StackPanel Classes="form" Margin="4,8,12,16">

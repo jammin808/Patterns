@@ -12,7 +12,7 @@
 
   <!-- Type: the window sets 15 px as the base; headings, labels and chips step from it. -->
   <Style Selector="TextBlock.h1">
-    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontSize" Value="22" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Margin" Value="0,0,0,12" />
   </Style>
@@ -37,6 +37,10 @@
   <Style Selector="TextBlock.h1.neon-ndi"><Setter Property="Foreground" Value="#8FA5FF" /></Style>
   <Style Selector="TextBlock.h1.neon-stream"><Setter Property="Foreground" Value="#FF5C7A" /></Style>
   <Style Selector="TextBlock.h1.neon-admin"><Setter Property="Foreground" Value="#B8E356" /></Style>
+  <Style Selector="TextBlock.h1.neon-library"><Setter Property="Foreground" Value="#C0CBDB" /></Style>
+  <Style Selector="TextBlock.h1.neon-assistant"><Setter Property="Foreground" Value="#7CF5C8" /></Style>
+  <Style Selector="TextBlock.h1.neon-interactive"><Setter Property="Foreground" Value="#7CF5C8" /></Style>
+  <Style Selector="TextBlock.h1.neon-help"><Setter Property="Foreground" Value="#C0CBDB" /></Style>
 
   <!-- The navigation rail: seventeen pages fit a 720 px window without wrapping -->
   <Style Selector="TabControl[TabStripPlacement=Left] > TabItem">
@@ -438,11 +442,16 @@
     <Setter Property="Foreground" Value="#E0342E" />
   </Style>
 
+  <!-- A section heading is a band: bold caps on a subdued ground, the page's own neon for both
+       (the hue styles at the end of this file), so the sections of a page read apart at a glance. -->
   <Style Selector="TextBlock.h2">
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="1" />
     <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
-    <Setter Property="Margin" Value="0,12,0,6" />
+    <Setter Property="Background" Value="#14FFFFFF" />
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="Margin" Value="0,14,0,8" />
   </Style>
 
   <Style Selector="TextBlock.label">
@@ -677,7 +686,7 @@
   </Style>
 
   <Style Selector="Button.pageChip">
-    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="Padding" Value="12,4" />
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="FontSize" Value="14" />
     <Setter Property="Background" Value="#1A1D24" />
@@ -735,4 +744,121 @@
     <Setter Property="MinHeight" Value="0" />
     <Setter Property="Padding" Value="8,4" />
   </Style>
+
+  <!-- Each page's neon on its section bands and its panels' edges: the hue of its chip on the rail
+       (the Shell.Pages table), as a bold heading on a ground of the same colour at a tenth, and a
+       hairline at a quarter around a panel. The rail and the page strip underline the current
+       group and page in the same hue. -->
+  <Style Selector="Border.hueLine"><Setter Property="Opacity" Value="0" /></Style>
+  <Style Selector="Border.hueLine.on"><Setter Property="Opacity" Value="1" /></Style>
+  <Style Selector=":is(UserControl).hue-panel TextBlock.h2">
+    <Setter Property="Foreground" Value="#2EE68A" />
+    <Setter Property="Background" Value="#1A2EE68A" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-panel Border.panel"><Setter Property="BorderBrush" Value="#402EE68A" /></Style>
+  <Style Selector=":is(UserControl).hue-cues TextBlock.h2">
+    <Setter Property="Foreground" Value="#6E9BFF" />
+    <Setter Property="Background" Value="#1A6E9BFF" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-cues Border.panel"><Setter Property="BorderBrush" Value="#406E9BFF" /></Style>
+  <Style Selector=":is(UserControl).hue-looks TextBlock.h2">
+    <Setter Property="Foreground" Value="#6E9BFF" />
+    <Setter Property="Background" Value="#1A6E9BFF" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-looks Border.panel"><Setter Property="BorderBrush" Value="#406E9BFF" /></Style>
+  <Style Selector=":is(UserControl).hue-install TextBlock.h2">
+    <Setter Property="Foreground" Value="#9AB4FF" />
+    <Setter Property="Background" Value="#1A9AB4FF" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-install Border.panel"><Setter Property="BorderBrush" Value="#409AB4FF" /></Style>
+  <Style Selector=":is(UserControl).hue-pattern TextBlock.h2">
+    <Setter Property="Foreground" Value="#3EC1F3" />
+    <Setter Property="Background" Value="#1A3EC1F3" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-pattern Border.panel"><Setter Property="BorderBrush" Value="#403EC1F3" /></Style>
+  <Style Selector=":is(UserControl).hue-media TextBlock.h2">
+    <Setter Property="Foreground" Value="#FF6EC7" />
+    <Setter Property="Background" Value="#1AFF6EC7" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-media Border.panel"><Setter Property="BorderBrush" Value="#40FF6EC7" /></Style>
+  <Style Selector=":is(UserControl).hue-overlays TextBlock.h2">
+    <Setter Property="Foreground" Value="#FFC24D" />
+    <Setter Property="Background" Value="#1AFFC24D" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-overlays Border.panel"><Setter Property="BorderBrush" Value="#40FFC24D" /></Style>
+  <Style Selector=":is(UserControl).hue-lower-thirds TextBlock.h2">
+    <Setter Property="Foreground" Value="#FFC24D" />
+    <Setter Property="Background" Value="#1AFFC24D" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-lower-thirds Border.panel"><Setter Property="BorderBrush" Value="#40FFC24D" /></Style>
+  <Style Selector=":is(UserControl).hue-countdown TextBlock.h2">
+    <Setter Property="Foreground" Value="#FFC24D" />
+    <Setter Property="Background" Value="#1AFFC24D" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-countdown Border.panel"><Setter Property="BorderBrush" Value="#40FFC24D" /></Style>
+  <Style Selector=":is(UserControl).hue-particles TextBlock.h2">
+    <Setter Property="Foreground" Value="#FFC24D" />
+    <Setter Property="Background" Value="#1AFFC24D" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-particles Border.panel"><Setter Property="BorderBrush" Value="#40FFC24D" /></Style>
+  <Style Selector=":is(UserControl).hue-branding TextBlock.h2">
+    <Setter Property="Foreground" Value="#FFC24D" />
+    <Setter Property="Background" Value="#1AFFC24D" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-branding Border.panel"><Setter Property="BorderBrush" Value="#40FFC24D" /></Style>
+  <Style Selector=":is(UserControl).hue-layers TextBlock.h2">
+    <Setter Property="Foreground" Value="#E39BFF" />
+    <Setter Property="Background" Value="#1AE39BFF" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-layers Border.panel"><Setter Property="BorderBrush" Value="#40E39BFF" /></Style>
+  <Style Selector=":is(UserControl).hue-library TextBlock.h2">
+    <Setter Property="Foreground" Value="#C0CBDB" />
+    <Setter Property="Background" Value="#1AC0CBDB" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-library Border.panel"><Setter Property="BorderBrush" Value="#40C0CBDB" /></Style>
+  <Style Selector=":is(UserControl).hue-assistant TextBlock.h2">
+    <Setter Property="Foreground" Value="#7CF5C8" />
+    <Setter Property="Background" Value="#1A7CF5C8" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-assistant Border.panel"><Setter Property="BorderBrush" Value="#407CF5C8" /></Style>
+  <Style Selector=":is(UserControl).hue-screens TextBlock.h2">
+    <Setter Property="Foreground" Value="#B18CFF" />
+    <Setter Property="Background" Value="#1AB18CFF" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-screens Border.panel"><Setter Property="BorderBrush" Value="#40B18CFF" /></Style>
+  <Style Selector=":is(UserControl).hue-audio TextBlock.h2">
+    <Setter Property="Foreground" Value="#FF9E58" />
+    <Setter Property="Background" Value="#1AFF9E58" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-audio Border.panel"><Setter Property="BorderBrush" Value="#40FF9E58" /></Style>
+  <Style Selector=":is(UserControl).hue-ndi TextBlock.h2">
+    <Setter Property="Foreground" Value="#8FA5FF" />
+    <Setter Property="Background" Value="#1A8FA5FF" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-ndi Border.panel"><Setter Property="BorderBrush" Value="#408FA5FF" /></Style>
+  <Style Selector=":is(UserControl).hue-stream TextBlock.h2">
+    <Setter Property="Foreground" Value="#FF5C7A" />
+    <Setter Property="Background" Value="#1AFF5C7A" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-stream Border.panel"><Setter Property="BorderBrush" Value="#40FF5C7A" /></Style>
+  <Style Selector=":is(UserControl).hue-remote TextBlock.h2">
+    <Setter Property="Foreground" Value="#35E0D0" />
+    <Setter Property="Background" Value="#1A35E0D0" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-remote Border.panel"><Setter Property="BorderBrush" Value="#4035E0D0" /></Style>
+  <Style Selector=":is(UserControl).hue-interactive TextBlock.h2">
+    <Setter Property="Foreground" Value="#7CF5C8" />
+    <Setter Property="Background" Value="#1A7CF5C8" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-interactive Border.panel"><Setter Property="BorderBrush" Value="#407CF5C8" /></Style>
+  <Style Selector=":is(UserControl).hue-machine TextBlock.h2">
+    <Setter Property="Foreground" Value="#B8E356" />
+    <Setter Property="Background" Value="#1AB8E356" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-machine Border.panel"><Setter Property="BorderBrush" Value="#40B8E356" /></Style>
+  <Style Selector=":is(UserControl).hue-help TextBlock.h2">
+    <Setter Property="Foreground" Value="#C0CBDB" />
+    <Setter Property="Background" Value="#1AC0CBDB" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-help Border.panel"><Setter Property="BorderBrush" Value="#40C0CBDB" /></Style>
 </Styles>
