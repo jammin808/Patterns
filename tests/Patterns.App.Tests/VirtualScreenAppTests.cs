@@ -97,24 +97,22 @@ public class VirtualScreenAppTests
             Assert.Contains(b.Services.Screens.All, s => s.Id == StreamConfig.OwnScreenId && s.IsVirtual);
             Assert.Contains(vm.NdiSources, t => t.ScreenId == StreamConfig.OwnScreenId);
 
-            // The engine renders the stream's screen into raw frames the encoder pulls.
+            // The engine renders the stream's screen straight into the frame ring the encoder process reads.
             b.Services.RepublishNow();
             Dispatcher.UIThread.RunJobs();
-            using var renderer = new StreamRenderer(b.Services.Bus, StreamConfig.OwnScreenId, 320, 180, 30);
-            using var surface = SKSurface.Create(new SKImageInfo(320, 180, SKColorType.Bgra8888, SKAlphaType.Premul));
+            using var ring = SharedFrameRing.Create(SharedFrameRing.NameFor("test"), 320, 180);
+            using var renderer = new StreamRenderer(b.Services.Bus, StreamConfig.OwnScreenId, ring, 30);
             using var sink = new SinkState();
-            Assert.True(renderer.RenderOnce(surface, sink, 0));
+            Assert.True(renderer.RenderOnce(sink, 0));
             Assert.Equal(1, renderer.FramesRendered);
-            Assert.Equal(320 * 180 * 4, renderer.Feed.FrameBytes);
-            var frame = new byte[renderer.Feed.FrameBytes];
-            var got = 0;
-            while (got < frame.Length)
-            {
-                var n = renderer.Feed.Read(frame.AsSpan(got), timeoutMs: 200);
-                Assert.True(n > 0, "the feed ran dry");
-                got += n;
-            }
+            Assert.Equal(320 * 180 * 4, ring.FrameBytes);
+            Assert.Equal(1, ring.LatestSeq);
+            var frame = new byte[ring.FrameBytes];
+            Assert.True(ring.TryRead(0, frame, out var seq));
+            Assert.Equal(1, seq);
             Assert.Contains(frame, x => x != 0); // colour bars, not black
+            Assert.True(renderer.RenderOnce(sink, 1));
+            Assert.Equal(2, ring.LatestSeq);
 
             // Set back to a display: the stream's screen goes.
             vm.State.Stream.SourceScreenId = "";

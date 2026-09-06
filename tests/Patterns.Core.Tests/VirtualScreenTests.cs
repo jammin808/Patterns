@@ -167,34 +167,6 @@ public class VirtualScreenTests
     }
 
     [Fact]
-    public void TheFrameFeedNeverTearsAFrameAndTheNewestWins()
-    {
-        var feed = new FrameFeed(8);
-        static byte[] Bytes(byte from) => Enumerable.Range(from, 8).Select(i => (byte)i).ToArray();
-        Assert.False(feed.Publish(new byte[3]));
-        Assert.True(feed.Publish(Bytes(1)));
-        Assert.True(feed.Publish(Bytes(11)));   // the reader never started the first: the newest wins
-        Assert.Equal(1, feed.Dropped);
-
-        var chunk = new byte[3];
-        Assert.Equal(3, feed.Read(chunk));
-        Assert.Equal(new byte[] { 11, 12, 13 }, chunk);
-        Assert.True(feed.Publish(Bytes(21)));   // arrives mid-frame: waits its turn, the frame is never torn
-        var rest = new byte[8];
-        Assert.Equal(5, feed.Read(rest));
-        Assert.Equal(new byte[] { 14, 15, 16, 17, 18 }, rest[..5]);
-        Assert.Equal(8, feed.Read(rest));
-        Assert.Equal(Bytes(21), rest);
-
-        Assert.Equal(0, feed.Read(rest, timeoutMs: 20)); // nothing yet: the reader asks again
-        Assert.Equal(3, feed.Published);
-        feed.Close();
-        Assert.True(feed.IsClosed);
-        Assert.False(feed.Publish(Bytes(31)));
-        Assert.Equal(0, feed.Read(rest));
-    }
-
-    [Fact]
     public void TheRenderedStreamPlanFeedsRawFramesIntoTheSameEncode()
     {
         var cfg = new StreamConfig { Width = 1280, Height = 720, Fps = 30, VideoKbps = 4500 };
@@ -208,7 +180,6 @@ public class VirtualScreenTests
         Assert.DoesNotContain(plan.Options, o => o.StartsWith(":screen-", StringComparison.Ordinal));
         Assert.Contains(plan.Options, o => o.StartsWith(":sout=#transcode{vcodec=h264", StringComparison.Ordinal) && o.Contains("vb=4500") && o.Contains("mux=flv"));
         Assert.Null(StreamMrl.BuildRendered(cfg, Array.Empty<string>()));
-        Assert.Equal(1280 * 720 * 4, StreamMrl.FrameBytes(1280, 720));
 
         // The desktop capture plan reads as it always did.
         var capture = StreamMrl.Build(cfg, SKRectI.Create(0, 0, 1920, 1080), new[] { "rtmp://live.example/app/key" })!;

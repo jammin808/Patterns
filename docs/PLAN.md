@@ -472,7 +472,8 @@ So the recommendation stands, sharper:
    round 12 put every signal on the dashboard. The next signals worth a rule: a pending Windows
    reboot, two active NICs, a deck source that stopped rendering.
 3. **Extract at the seams when a fault says so, one native edge at a time**, the stream encoder
-   first — supervised by the same watchdog, fed by the same snapshot.
+   first — supervised by the same watchdog, fed by the same snapshot. (Round 16 did the encoder:
+   §22.5.)
 4. **Redundancy is a second machine, not a second process.** The beacon, the backup listening,
    the same show file on both, the operator's hand on OUTPUTS ON — deliberately not automatic.
 
@@ -1475,6 +1476,7 @@ Windows machine is `docs/CHECKLIST-round16.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 5 | The stream encoder in its own process (§22.5). `Patterns.exe --host encoder` is this same build doing one native job for the desk — libVLC's encode and the destinations — in a process of its own. The desk renders the stream's frames straight into a shared-memory ring (`SharedFrameRing`: three slots, a Skia surface over each, a sequence number written after the pixels so a torn frame is never taken, the newest winning; pagefile-backed and named on Windows, a file under /dev/shm elsewhere) and the host feeds libVLC's memory input from it; a desktop capture is libVLC's own, inside the host. The two talk over the host's stdin and stdout in a line protocol (`HostProtocol`: START with an `EncoderPlan`, STOP, PING, QUIT; HELLO, BEAT every second with the frames taken, STARTED, STOPPED, STATUS, ERROR with a code word, LOG). The desk's side (`ChildProcess`) starts the host, hands it the plan, reads its lines, ends one whose beat goes silent, starts a dead one again with the watchdog's own backoff (`SupervisorPolicy`: 2, 4, 8, 15, 30 s) and the same plan, and stands down with words after six failures in ten minutes; on Windows the host sits in a job object that ends it when the desk ends, and everywhere the end of its stdin is the desk gone. `StreamService` reads the host into its status line — LIVE with the process named, *Encoder restarting … the show is untouched*, *Encoder failed … Press START to try again* — and the host's own reports: no libVLC is said and held, not retried every second; a destination that will not open or the encoder's own error stops the stream with the reason on the Stream page and the health line. On the way: the old feed allocated a whole frame per frame and up to a megabyte per read (large-object churn at 30 fps); the ring allocates nothing per frame. Built for the decoders to follow: a decoder is the same ring with the roles swapped and a second role word. Tests: the ring (whole frames, the newest winning, a second opening by address, the owner's close, junk refused); the protocol and its payloads; the desk's side against a scripted host (the plan sent, the beats read, a dead host back with backoff and the same plan, a silent one ended, a quiet exit treated as gone, a crash loop stood down from, START again as a fresh count, a launch that cannot happen); the real host in a real process (this build started with `--host encoder`, the null plan, frames counted from the ring, killed from outside and back on the same ring, gone on QUIT); and the stream service around it (the ring and the plan made, the engine drawing into the ring, LIVE naming the process, restarting with the show untouched, no libVLC held, the encoder's error stopping the stream with the reason). | done |
 | 4 | The exe starts precompiled (§22.4). `Patterns.App.csproj` sets `PublishReadyToRun` whenever a runtime identifier is set, so every publish — CI's portable exe, the full bundle, both scripts — carries the app's, Avalonia's and every package's code compiled by crossgen2 ahead of time: a page opened for the first time, a renderer's first frame, the first cue, the first STATE push no longer pay the JIT on the show's own time; tiered compilation still re-jits the hot paths with profile data, so the steady state is what it was. The exe grows from roughly 50 MB to about 88 MB. Verified by a win-x64 single-file ReadyToRun publish from the Linux host (crossgen2 cross-compiles) and by CI's publish job on Windows. | done |
 | 3 | The lower-third fractal element on the graphics card (§22.3). The Fractal *pattern* has drawn through a runtime shader on the outputs, the preview and the monitors since it was built; the lower-third fractal *element* still rastered on the CPU on every sink, 25 frames a second, and uploaded each frame. `FractalPattern.TryDrawShader` is the one shader draw now — the pattern and the element both call it — so an output draws the element at full resolution and the display's rate with nothing rastered and nothing uploaded; NDI, the stream and thumbnails keep the CPU path and its cadence. Found on the way: the domain-warp family drew a *different* cloud on the CPU path from the card's — the lattice hash multiplies by 123.34 and folds the fraction into itself, and 123.34 as a double is not 123.34 as a float, a difference the fold grows a hundredfold — so NDI and the stream never showed what the projectors showed. The CPU noise is single precision now, the shader's arithmetic in the shader's order, and a fidelity test draws every family both ways on the same surface and holds them within a few levels of each other. The element reads the same five palette colours the shader has slots for. Tests: the fidelity test; the element on an output drawing through the shader every frame with no raster, on NDI at its cadence; the palette cap. | done |
 | 2 | The wire speaks the vocabulary (§22.2). `RemoteCommandKind` had 115 kinds of its own and `CommandRouter.ToAction` mapped 101 of them to a `ShowAction` by hand; now the parser returns the show action itself — `RemoteCommand` is a `ShowAction` plus the wire's own five words (`Ping`, `Status`, `Hello`, `CueList`, `Unknown`) — and the router runs every action through the one executor, shaping only the two replies that carry a payload (GO's record, the standby cue). The map is deleted with its enum. The stack's own transport became show actions of the desk's kind — `CueStandby` (next, prev, a cue by number, name or id; never journaled) and `CueHoldOn` / `CueHoldOff` — and CUE ARM is `ListArm` / `ListDisarm` on the caller's stack, so the Run surface's ARM, HOLD and ▲ ▼, the desk's Up / Down keys, the phone, Companion, OSC and a device all reach the stack through the executor; the "remotes may arm" gate moved from the router into the executor, which reads the origin, and the service's own journal rows went so the executor journals once. `LOOK #n` carries "#n" as its target and the executor resolves the place (`no look #n — the show has N`). Sixteen kinds are the desk's alone now. Tests: a table of 116 wire lines against the show action each must parse to, the enum's six members, the wire's own words, and that TAKE / CUT have no verb; the older parser tests re-read as show actions; on a live desk the router's replies for GO, standby, hold and arm as before and the arm gate refusing a remote. | done |
@@ -1651,3 +1653,111 @@ PDF converter); nothing was excluded here, on purpose, because the point was eve
 
 **Verified** by a win-x64 single-file ReadyToRun publish from this Linux host — crossgen2
 cross-compiles — and by CI's publish job on Windows.
+
+### 22.5 The stream encoder in its own process: the first native edge moved, and the host the rest will use
+
+**Why this edge first.** §14.2 named the seams where a process boundary pays — the places a
+native library can take the process down — and the stream encoder first: libVLC's transcoder,
+its muxers and its network output all run inside it, on a path the show does not draw from, and
+its failure mode is the worst kind for a desk (a fault in a codec ends the process, the watchdog
+brings the desk back in seconds, but a desk restart mid-show is still a desk restart). The
+decoders are the same library on a more entangled path; the encoder was the one to build the
+mechanism on.
+
+**The shape.** Three parts, each small.
+
+- *The ring.* `SharedFrameRing` is a memory-mapped ring of three BGRA frames the desk creates and
+  the host opens by address — pagefile-backed and named on Windows, a file under `/dev/shm`
+  elsewhere, so nothing touches a disk. The renderer draws straight into a slot through a Skia
+  surface over its bytes (no copy, no allocation); the slot's sequence number is written after the
+  pixels, so the reader never takes a frame half drawn; a reader checks the number again after its
+  copy, so a frame the writer lapped is never taken either; the newest frame wins when the encoder
+  falls behind. A reader polls at a millisecond — a frame comes every 16 to 100 ms, and a
+  cross-process event would be Windows-only.
+- *The protocol.* One line each way on the host's own stdin and stdout, a word and the rest:
+  START with the plan the desk already built (the same `StreamMrl` plan as before, plus the
+  ring's address), STOP, PING, QUIT; HELLO, BEAT every second with the frames taken and the
+  encoder's state, STARTED, STOPPED, STATUS, LOG, and ERROR with a code word — `libvlc`, `start`,
+  `encoder` — so the desk can tell "this machine has no libVLC" from "this destination will not
+  open" from "the encoder failed mid-stream" without parsing prose. No sockets, no ports, nothing to
+  configure, and a host whose stdin closes knows the desk is gone.
+- *The supervision.* `ChildProcess` is the desk's side of any host: it starts one (this same
+  exe with `--host <role>`, or `dotnet Patterns.dll --host <role>` under a test host), hands it
+  the START payload, reads its lines on a thread, and on the owner's once-a-second poll ends a host
+  whose beat went silent, starts a dead one again with the watchdog's own backoff (the
+  `SupervisorPolicy` of round 5: 2, 4, 8, 15, 30 s, a run of two minutes starting the ladder over)
+  and the same plan, and stands down with words after six failures in ten minutes. On Windows every
+  host joins a job object that ends it when the desk ends, crash or not — a desk that dies never
+  leaves an encoder streaming on its own, and two encoders never fight over one stream key.
+
+**What the operator sees.** The Stream page's line reads *LIVE · 1 destination · 1280×720@30 ·
+4.5 Mbps · 00:12:34 · rendered · encoder in its own process (pid 1234)*. A libVLC fault now reads
+*Encoder restarting — the encoder ended in an access violation (a native fault…) after 754 s —
+restart #1 in 2 s; the show is untouched* and, a few seconds later, LIVE again with *started again
+1×*; the outputs, the cues and the desk never notice. A crash loop reads *Encoder failed — the
+encoder failed 6 times in a short window and was not started again — the last time … Press START
+to try again*, with the stream switch off and the reason on the health line; START is the
+operator's decision and starts a fresh count. A machine without libVLC reads what it always
+read, and the desk does not start a host every second to hear it again.
+
+**What was found on the way.** The old feed allocated a whole frame per frame (`new byte[]` the
+size of the picture, 8 MB at 1080p, thirty times a second) and up to a megabyte per read on the
+encoder's side — large-object-heap churn of a few hundred megabytes a second while streaming,
+the kind that ends in Gen 2 collections and a stutter somewhere else. The ring allocates nothing
+per frame on either side. And a review pass over the new code before it shipped caught four
+things the tests had not: the host's beat waited on the same lock its libVLC bring-up held, so a
+slow first start (a cold plugin cache, an antivirus scan) would have read as a hung host and been
+killed into a crash loop — the beat now says *starting* without waiting; the desk read the host's
+lines in the console code page on Windows, which would have turned every dash in an error into
+garbage on the Stream page — UTF-8 is now said outright on both ends; a render surface the engine
+could not make ended the drawing thread silently while the status still read LIVE — it is a stream
+error now, with the reason; and a host that had not yet spoken was held to the six-second beat
+timeout from before its process even existed, so a slow cold start of the 88 MB exe would have
+counted as a crash — a host that has said nothing gets thirty seconds, a host that has spoken is
+on the beat's clock.
+
+**What did not change.** The Stream page and its settings, the destinations, the audio device and
+its delay, PREP holding the stream closed, STATE's `stream` block, the health rules that read the
+status, the super-check's row, and the plan libVLC runs.
+
+**What follows.** The decoders. A decoder host is the same ring with the roles swapped — the host
+writes, the desk's `VlcFrameSource` reads — and a second role word; `ChildProcess` supervises it
+unchanged, and the input pool's mount table becomes a table of hosts. Four decoders at 1080p are
+four rings of 25 MB and four small processes; the cost is one frame of latency at the ring and a
+process per source, the gain is that a clip whose codec faults ends a source, not the show. The
+web renderer (WebView2) is out of process already, by its own design.
+
+### 22.6 Bugs and opportunities met on the way, in one place
+
+The brief for the second half of the round asked for bugs caught and opportunities seen along
+the way. The bugs, all fixed in the commits above:
+
+1. The domain-warp fractal drew a different cloud on the CPU path (NDI, the stream, thumbnails)
+   from the graphics card's — a double against a float in a hash that amplifies the difference
+   (§22.3). Fixed; a fidelity test holds every family on both paths together.
+2. The stream feed allocated a whole frame per frame and up to a megabyte per read — a few
+   hundred megabytes a second of large-object churn while streaming (§22.5). Gone with the ring.
+3. Four in the new encoder host, caught by a review pass before they shipped (§22.5): the beat
+   held behind libVLC's bring-up, the console code page on the host's lines, a silent end to the
+   drawing thread under a LIVE status, and a cold start counted as a crash.
+4. A lower third's fractal element read every colour of its palette while the shader reads five,
+   so a six-colour palette drew differently on an output and on NDI. Both read five now.
+
+The opportunities, not taken this round, in the order they would pay:
+
+1. *The decoders out of process*, on the host built here (§22.5): the next resilience step, and
+   the one that turns a codec fault in a clip into a black source rather than a desk restart.
+2. *Per-sink render threads* for the output windows, when the frame budget on a real rig with
+   six or more outputs says the compositor's one thread is the ceiling (§22.3); the ring and the
+   surfaces-over-memory built here are the same mechanism.
+3. *A cross-process event for the ring on Windows* instead of the millisecond poll, if a laptop's
+   power draw while streaming ever matters; the poll is thirty wake-ups a frame, all cheap.
+4. *`PublishReadyToRunExclusions`* for the assistant's SDK and the PDF converter if the exe's
+   88 MB ever matters more than the first-use stalls (§22.4).
+5. *Avalonia 12* as its own measured step now that the runtime is .NET 10: the plan's stability
+   rule still says not yet, and nothing in this round needed it.
+6. *This remote environment* cannot install the .NET 10 SDK (its network policy denies the
+   Microsoft download hosts; only NuGet is open), which is why `PatternsTfm` exists — allowing
+   `builds.dotnet.microsoft.com` in the environment, or a setup script that installs the SDK,
+   would let future sessions build and test on .NET 10 itself rather than through the escape
+   hatch with CI as the judge.

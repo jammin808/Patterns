@@ -62,9 +62,6 @@ public static class StreamMrl
         $":rawvid-fps={fps}",
     };
 
-    /// <summary>Bytes per BGRA frame at this size.</summary>
-    public static int FrameBytes(int width, int height) => Math.Max(1, width) * Math.Max(1, height) * 4;
-
     private static Plan Finish(StreamConfig cfg, int fps, List<string> options, List<string> dests, string mrl)
     {
         var audio = cfg.AudioDevice.Trim().Length > 0;

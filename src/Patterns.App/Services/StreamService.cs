@@ -1,5 +1,4 @@
 using Avalonia.Threading;
-using LibVLCSharp.Shared;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -7,20 +6,28 @@ using SkiaSharp;
 namespace Patterns.App.Services;
 
 /// <summary>
-/// Streaming output: captures the chosen screen through libVLC's screen input, encodes
-/// h264 once at the configured resolution/frame rate, and duplicates the same encode to
-/// up to two destinations (RTMP/SRT/UDP). Fully isolated — an encoder or network failure
-/// changes a status line, never the show. Windows + libVLC (full build) only.
+/// Streaming output: one screen — captured off the desktop by libVLC, or rendered by the engine —
+/// encoded once at the configured resolution and rate and duplicated to up to two destinations
+/// (RTMP/SRT/UDP). The encoder runs in a process of its own (<see cref="EncoderHost"/>: this same
+/// exe with <c>--host encoder</c>), fed through a shared frame ring and supervised here: a fault in
+/// libVLC ends that process, not the desk, and it is started again with backoff while the show
+/// carries on; a crash loop stands down with words; the status line says what happened. Windows
+/// only (libVLC's screen capture and its DirectShow audio); needs the full build or an installed
+/// VLC for the encoder to find.
 /// </summary>
 public sealed class StreamService : IDisposable
 {
     private readonly AppServices _services;
     private readonly DispatcherTimer _timer;
-    private MediaPlayer? _player;
-    private Media? _media;
+    private ChildProcess? _encoder;
+    private SharedFrameRing? _ring;
+    private StreamRenderer? _renderer;
     private string _activeKey = "";
+    private string _heldKey = "";     // a set-up the encoder said it cannot run (no libVLC): shown, not retried every second
+    private string _heldReason = "";
     private DateTime _startedUtc;
     private int _destinations;
+    private bool _rendered;
     private string _status = "Not streaming.";
 
     public StreamService(AppServices services)
@@ -31,10 +38,25 @@ public sealed class StreamService : IDisposable
         _timer.Start();
     }
 
+    /// <summary>Streaming runs on Windows (libVLC's screen capture, its DirectShow audio); the tests may say otherwise to drive the service here.</summary>
+    public static bool RunsHere { get; set; } = OperatingSystem.IsWindows();
+
+    /// <summary>How the encoder process is started — the real launcher, or a scripted one in the tests.</summary>
+    public IChildLauncher Launcher { get; set; } = ProcessChildLauncher.Default;
+
     public string Status => _status;
 
     /// <summary>The timer body, callable directly (tests drive it without waiting on the clock).</summary>
     public void Poll() => Tick();
+
+    /// <summary>The encoder process while one runs (the super-check and the tests read it).</summary>
+    public ChildProcess? Encoder => _encoder;
+
+    /// <summary>The engine-fed source while one runs.</summary>
+    public StreamRenderer? Renderer => _renderer;
+
+    /// <summary>The ring the engine draws into and the encoder reads, while a rendered stream runs.</summary>
+    public SharedFrameRing? Ring => _ring;
 
     private void Tick()
     {
@@ -47,6 +69,7 @@ public sealed class StreamService : IDisposable
             if (!cfg.Active || urls.Count == 0)
             {
                 Stop();
+                _heldKey = "";
                 _status = !cfg.Active
                     ? "Not streaming."
                     : "No destination enabled — add an RTMP/SRT/UDP URL below.";
@@ -62,68 +85,102 @@ public sealed class StreamService : IDisposable
                 return;
             }
 
-            if (!OperatingSystem.IsWindows())
+            if (!RunsHere)
             {
                 _status = "Streaming runs on Windows.";
-                return;
-            }
-
-            if (!_services.Video.EnsureAvailable() || _services.Video.SharedVlc is not { } vlc)
-            {
-                _status = "Streaming needs libVLC — use the full build (or install VLC).";
                 return;
             }
 
             var rendered = IsRendered(cfg.SourceScreenId);
             var rect = rendered ? SKRectI.Empty : SourceRect(cfg.SourceScreenId);
             var fps = StreamMrl.EffectiveFps(cfg, _services.State.Output.MasterFps);
-            var key = $"{(rendered ? "render:" + cfg.SourceScreenId : rect.ToString())}|{cfg.Width}x{cfg.Height}@{fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{string.Join(";", urls)}";
+            var key = $"{(rendered ? "render:" + cfg.SourceScreenId : rect.ToString())}|{cfg.Width}x{cfg.Height}@{fps}|{cfg.VideoKbps}|{cfg.AudioDevice}|{cfg.AudioKbps}|{cfg.AudioDelayMs}|{string.Join(";", urls)}";
+            if (key == _heldKey)
+            {
+                _status = _heldReason;
+                return;
+            }
             if (key != _activeKey)
             {
                 Stop();
+                EncoderPlan plan;
                 if (rendered)
                 {
-                    // The engine draws the target into raw frames; libVLC pulls them through the memory input.
+                    // The engine draws the target into the ring; the encoder process pulls the frames through libVLC's memory input.
                     if (StreamMrl.BuildRendered(cfg, urls, _services.State.Output.MasterFps) is not { } renderedPlan) return;
-                    _renderer = new StreamRenderer(_services.Bus, cfg.SourceScreenId, cfg.Width, cfg.Height, fps);
+                    _ring = SharedFrameRing.Create(SharedFrameRing.NameFor("stream"), cfg.Width, cfg.Height);
+                    _renderer = new StreamRenderer(_services.Bus, cfg.SourceScreenId, _ring, fps);
                     _renderer.Start();
-                    _input = new FeedMediaInput(_renderer.Feed);
-                    _media = new Media(vlc, _input, renderedPlan.Options);
+                    plan = new EncoderPlan(EncoderPlan.Rendered, renderedPlan.Mrl, renderedPlan.Options, _ring.Address, cfg.Width, cfg.Height, fps);
                 }
                 else
                 {
-                    if (StreamMrl.Build(cfg, rect, urls, _services.State.Output.MasterFps) is not { } plan) return;
-                    _media = new Media(vlc, plan.Mrl, FromType.FromLocation, plan.Options);
+                    if (StreamMrl.Build(cfg, rect, urls, _services.State.Output.MasterFps) is not { } capturePlan) return;
+                    plan = new EncoderPlan(EncoderPlan.Capture, capturePlan.Mrl, capturePlan.Options, "", cfg.Width, cfg.Height, fps);
                 }
-                _player = new MediaPlayer(_media);
-                if (!_player.Play())
-                {
-                    _status = "Encoder failed to start — check the destination URLs.";
-                    Stop();
-                    return;
-                }
+                _encoder = new ChildProcess(EncoderHost.Role, Launcher, line => Log.Info(line));
+                _encoder.Start(JsonUtil.Serialize(plan));
                 _activeKey = key;
                 _startedUtc = DateTime.UtcNow;
                 _destinations = urls.Count;
+                _rendered = rendered;
                 cfg.LastError = "";
-                Log.Info($"Streaming started: {cfg.Width}x{cfg.Height}@{fps}, {cfg.VideoKbps} kbps, {urls.Count} destination(s).");
+                Log.Info($"Streaming started: {cfg.Width}x{cfg.Height}@{fps}, {cfg.VideoKbps} kbps, {urls.Count} destination(s), " +
+                         $"{(rendered ? "rendered" : "desktop capture")} — the encoder in its own process (pid {_encoder.Pid}).");
             }
 
-            if (_player is { } player)
+            if (_encoder is not { } enc) return;
+            enc.Poll();
+
+            if (_renderer is { Failure.Length: > 0 } failed)
             {
-                if (player.State == VLCState.Error)
+                // The engine's side stopped drawing: a stream of one frozen frame must not read LIVE.
+                _status = $"Stream error — {failed.Failure}.";
+                cfg.LastError = failed.Failure;
+                cfg.Active = false;
+                Stop();
+                return;
+            }
+
+            if (enc.Failed)
+            {
+                if (enc.Phase == ChildPhase.GaveUp)
                 {
-                    _status = "Stream error — check URL/key and bandwidth, then start again.";
-                    cfg.LastError = "the encoder reported an error"; // the health advisor says so; the tick alone is easy to miss
+                    _status = $"Encoder failed — {enc.Words}. Press START to try again.";
+                    cfg.LastError = enc.Words;
                     cfg.Active = false;
                     Stop();
                     return;
                 }
-                var up = DateTime.UtcNow - _startedUtc;
-                _status = $"LIVE · {_destinations} destination{(_destinations == 1 ? "" : "s")} · " +
-                          $"{cfg.Width}×{cfg.Height}@{fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}" +
-                          (_renderer is not null ? " · rendered" : " · desktop capture");
+                var (code, text) = HostProtocol.SplitError(enc.LastError);
+                if (code == HostProtocol.ErrorLibVlc)
+                {
+                    // Not a fault: this machine has no libVLC. Said, held, and not tried again every second.
+                    Stop();
+                    _heldKey = key;
+                    _heldReason = text.Length > 0 ? text : "Streaming needs libVLC — use the full build (or install VLC).";
+                    _status = _heldReason;
+                    return;
+                }
+                _status = code == HostProtocol.ErrorStart ? text : $"Stream error — {text}; check URL/key and bandwidth, then start again.";
+                cfg.LastError = text.Length > 0 ? text : enc.LastError;
+                cfg.Active = false;
+                Stop();
+                return;
             }
+
+            var restarts = enc.Restarts > 0 ? $", started again {enc.Restarts}×" : "";
+            var up = DateTime.UtcNow - _startedUtc;
+            _status = enc.Phase switch
+            {
+                ChildPhase.Starting => $"Starting the encoder (pid {enc.Pid}{restarts})…",
+                ChildPhase.Restarting => $"Encoder restarting — {enc.Words}; the show is untouched.",
+                ChildPhase.Running => $"LIVE · {_destinations} destination{(_destinations == 1 ? "" : "s")} · " +
+                                      $"{cfg.Width}×{cfg.Height}@{fps} · {cfg.VideoKbps / 1000.0:0.#} Mbps · {up:hh\\:mm\\:ss}" +
+                                      (_rendered ? " · rendered" : " · desktop capture") +
+                                      $" · encoder in its own process (pid {enc.Pid}{restarts})",
+                _ => enc.Words,
+            };
         }
         catch (Exception ex)
         {
@@ -146,12 +203,6 @@ public sealed class StreamService : IDisposable
         return _services.Screens.Real.All(s => s.Id != sourceId);
     }
 
-    /// <summary>The engine-fed source while one runs (tests and the super-check read it).</summary>
-    public StreamRenderer? Renderer => _renderer;
-
-    private StreamRenderer? _renderer;
-    private FeedMediaInput? _input;
-
     /// <summary>Pixel rect of the streamed screen on the OS desktop (screen:// crops to it).</summary>
     private SKRectI SourceRect(string screenId)
     {
@@ -165,25 +216,37 @@ public sealed class StreamService : IDisposable
         return SKRectI.Create(b.X, b.Y, b.Width, b.Height);
     }
 
+    /// <summary>The renderer first (its surfaces sit over the ring), then the encoder (QUIT, then killed if it lingers), then the ring.</summary>
     private void Stop()
     {
-        if (_player is null && _media is null && _renderer is null) return;
+        if (_encoder is null && _renderer is null && _ring is null) return;
         try
         {
-            _player?.Stop();
-            _player?.Dispose();
-            _media?.Dispose();
             _renderer?.Dispose();
-            _input?.Dispose();
         }
         catch (Exception ex)
         {
-            Log.Warn("Stream stop issue.", ex);
+            Log.Warn("Stream renderer stop issue.", ex);
         }
-        _player = null;
-        _media = null;
+        try
+        {
+            _encoder?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Encoder stop issue.", ex);
+        }
+        try
+        {
+            _ring?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Frame ring release issue.", ex);
+        }
         _renderer = null;
-        _input = null;
+        _encoder = null;
+        _ring = null;
         _activeKey = "";
     }
 

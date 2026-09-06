@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using LibVLCSharp.Shared;
 using Patterns.Core.Model;
 using Patterns.Core.Ndi;
 using Patterns.Core.Rendering;
@@ -10,10 +8,11 @@ using SkiaSharp;
 namespace Patterns.App.Services;
 
 /// <summary>
-/// The engine-fed stream source: a thread renders the stream's target — its own screen, or any
-/// rig target — at the stream's size and rate into raw BGRA frames, and libVLC's memory input
-/// pulls them through a <see cref="FrameFeed"/>. Paced by the show clock so the encoder sees a
-/// steady rate; the newest frame wins when the encoder falls behind.
+/// The engine-fed stream source: a thread renders the stream's target — its own screen, or any rig
+/// target — at the stream's size and rate straight into the shared frame ring the encoder process
+/// reads: a Skia surface over each slot's bytes, so a frame costs no copy and no allocation. Paced
+/// by the show clock so the encoder sees a steady rate; the newest frame wins when the encoder
+/// falls behind.
 /// </summary>
 public sealed class StreamRenderer : IDisposable
 {
@@ -22,21 +21,26 @@ public sealed class StreamRenderer : IDisposable
     private readonly string _sourceId;
     private readonly SKSizeI _size;
     private readonly int _fps;
+    private readonly SKSurface?[] _surfaces = new SKSurface?[SharedFrameRing.Slots];
     private Thread? _thread;
     private volatile bool _run;
 
-    public StreamRenderer(SnapshotBus bus, string sourceId, int width, int height, int fps)
+    public StreamRenderer(SnapshotBus bus, string sourceId, SharedFrameRing ring, int fps)
     {
         _bus = bus;
         _sourceId = sourceId;
-        _size = new SKSizeI(Math.Max(16, width), Math.Max(16, height));
+        Ring = ring;
+        _size = new SKSizeI(ring.Width, ring.Height);
         _fps = Math.Clamp(fps, 1, 120);
-        Feed = new FrameFeed(StreamMrl.FrameBytes(_size.Width, _size.Height));
     }
 
-    public FrameFeed Feed { get; }
+    /// <summary>The ring the frames go into — the encoder process reads the other end.</summary>
+    public SharedFrameRing Ring { get; }
 
     public long FramesRendered { get; private set; }
+
+    /// <summary>Why the renderer stopped drawing on its own, or "" while it draws — the stream service reads it into the status and stops the stream.</summary>
+    public string Failure { get; private set; } = "";
 
     public void Start()
     {
@@ -49,49 +53,39 @@ public sealed class StreamRenderer : IDisposable
     public void Stop()
     {
         _run = false;
-        Feed.Close();
         var t = _thread;
         _thread = null;
         if (t is not null && t.IsAlive && !t.Join(TimeSpan.FromSeconds(3))) Log.Warn("Stream render thread did not stop in time.");
+        ReleaseSurfaces();
     }
 
-    /// <summary>One frame, rendered and published; public so a test can drive it without the thread.</summary>
-    public bool RenderOnce(SKSurface surface, SinkState sink, long frame)
+    /// <summary>One frame into the ring's next slot, published; public so a test can drive it without the thread.</summary>
+    public bool RenderOnce(SinkState sink, long frame)
     {
+        if (Ring.IsClosed) return false;
         var snap = _bus.Current;
         var time = ShowClock.Seconds;
         sink.Fps.Tick(time);
+        var slot = Ring.BeginWrite();
+        var surface = _surfaces[slot] ??= SKSurface.Create(
+            new SKImageInfo(_size.Width, _size.Height, SKColorType.Bgra8888, SKAlphaType.Premul), Ring.PixelsOf(slot), Ring.Stride);
+        if (surface is null)
+        {
+            // Said, and read by the stream service — a stream that draws nothing must never read LIVE.
+            Failure = $"the engine could not draw a {_size.Width}×{_size.Height} frame into the encoder's ring";
+            Log.Warn($"Stream renderer: {Failure}.");
+            return false;
+        }
         NdiFrame.Render(_engine, snap, sink, surface.Canvas, _size, _sourceId, SinkKind.Stream, "Stream", frame, time);
         surface.Canvas.Flush();
-        using var pixmap = surface.PeekPixels();
-        if (pixmap is null) return false;
-        var bytes = new byte[Feed.FrameBytes];
-        var rowBytes = _size.Width * 4;
-        if (pixmap.RowBytes == rowBytes)
-        {
-            Marshal.Copy(pixmap.GetPixels(), bytes, 0, bytes.Length);
-        }
-        else
-        {
-            for (var y = 0; y < _size.Height; y++)
-            {
-                Marshal.Copy(pixmap.GetPixels() + y * pixmap.RowBytes, bytes, y * rowBytes, rowBytes);
-            }
-        }
+        Ring.EndWrite(slot, frame);
         FramesRendered++;
-        return Feed.Publish(bytes);
+        return true;
     }
 
     private void Loop()
     {
         using var sink = new SinkState();
-        var info = new SKImageInfo(_size.Width, _size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-        if (surface is null)
-        {
-            Log.Warn($"Stream renderer could not allocate a {_size.Width}×{_size.Height} surface.");
-            return;
-        }
         var interval = 1.0 / _fps;
         var started = Stopwatch.GetTimestamp();
         long frame = 0;
@@ -99,7 +93,7 @@ public sealed class StreamRenderer : IDisposable
         {
             try
             {
-                RenderOnce(surface, sink, frame++);
+                if (!RenderOnce(sink, frame++)) break;
             }
             catch (Exception ex)
             {
@@ -112,39 +106,14 @@ public sealed class StreamRenderer : IDisposable
         }
     }
 
-    public void Dispose() => Stop();
-}
-
-/// <summary>libVLC's memory input over a <see cref="FrameFeed"/>: the demuxer reads raw BGRA frames as they come.</summary>
-public sealed class FeedMediaInput : MediaInput
-{
-    private readonly FrameFeed _feed;
-
-    public FeedMediaInput(FrameFeed feed) => _feed = feed;
-
-    public override bool Open(out ulong size)
+    private void ReleaseSurfaces()
     {
-        size = ulong.MaxValue; // a live feed has no length
-        return true;
-    }
-
-    public override int Read(IntPtr buf, uint len)
-    {
-        var want = (int)Math.Min(len, int.MaxValue);
-        var scratch = new byte[Math.Min(want, 1 << 20)];
-        // The encoder asks in its own chunks and expects to block: a live feed answers with the
-        // next bytes as they come, and 0 — the end of the stream — only once the feed is closed.
-        while (!_feed.IsClosed)
+        for (var i = 0; i < _surfaces.Length; i++)
         {
-            var n = _feed.Read(scratch, timeoutMs: 500);
-            if (n <= 0) continue;
-            Marshal.Copy(scratch, 0, buf, n);
-            return n;
+            _surfaces[i]?.Dispose();
+            _surfaces[i] = null;
         }
-        return 0;
     }
 
-    public override bool Seek(ulong offset) => false;
-
-    public override void Close() { }
+    public void Dispose() => Stop();
 }

@@ -9,6 +9,10 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // A host launch — this same exe doing one native job for the desk (the stream encoder) in a
+        // process of its own — speaks its protocol on stdin/stdout and never touches the desk's world.
+        if (Services.HostEntry.IsHostLaunch(args)) return Services.HostEntry.Run(args);
+
         StartupBudget.MarkProcessStart();
         LaunchOptions.Parse(args);
 

@@ -341,41 +341,21 @@ public sealed class VideoEngine : IDisposable
         if (_vlc is not null) return true;
         if (_vlcInitFailed) return false;
 
-        foreach (var dir in CandidateDirs())
+        // The same table of folders the encoder host reads (VlcRuntime), so the desk and its host agree on where libVLC is.
+        _vlc = VlcRuntime.Create(out var failure, "--no-video-title-show", "--quiet");
+        if (_vlc is not null)
         {
-            try
-            {
-                if (dir is not null && !Directory.Exists(dir)) continue;
-                LibVLCSharp.Shared.Core.Initialize(dir);
-                _vlc = new LibVLC("--no-video-title-show", "--quiet");
-                Log.Info($"libVLC initialised ({dir ?? "default probe"}).");
-                VideoService.AvailabilityNote = "";
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Warn($"libVLC init failed for '{dir ?? "default"}': {ex.Message}");
-            }
+            Log.Info("libVLC initialised.");
+            VideoService.AvailabilityNote = "";
+            return true;
         }
 
+        if (failure.Length > 0) Log.Warn($"libVLC init failed: {failure}");
         _vlcInitFailed = true;
         VideoService.AvailabilityNote =
             "Video needs libVLC: install 64-bit VLC, or put a 'libvlc' folder (libvlc.dll + plugins) beside Patterns.exe.";
         Log.Warn(VideoService.AvailabilityNote);
         return false;
-    }
-
-    private static IEnumerable<string?> CandidateDirs()
-    {
-        var exeDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
-        yield return Path.Combine(exeDir, "libvlc", "win-x64");
-        yield return Path.Combine(exeDir, "libvlc");
-        if (OperatingSystem.IsWindows())
-        {
-            var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            yield return Path.Combine(pf, "VideoLAN", "VLC");
-        }
-        yield return null; // library default probing
     }
 
     public void Dispose()
