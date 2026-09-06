@@ -235,8 +235,8 @@ public class FadeScopeAppTests
             Assert.True(vm.State.Switcher.FadeAudioWithBlack);
             host.Close();
 
-            // Every screen tile carries its tick with EDIT SAFE off; the program tile has none.
-            var ticks = window.GetVisualDescendants().OfType<CheckBox>().Where(c => c.Name == "TileTick").ToList();
+            // Every screen tile carries its tick (a wall toggle, lit while ticked) with EDIT SAFE off; the program tile has none.
+            var ticks = window.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Where(c => c.Name == "TileTick").ToList();
             Assert.Equal(4, ticks.Count);
             foreach (var t in ticks)
             {

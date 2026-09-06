@@ -1815,6 +1815,7 @@ machine is `docs/CHECKLIST-round17.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 4 | The switcher's tiles (§24.4). On a rig day the screen tiles — never PGM — showed their name on its side over their body, with the OWN / MON / ARM row pushed to mid-height. A tile chose between its two faces, the body and the vertical title bar, by a binding up the visual tree to the wall (`$parent[ctl:WallView].Collapsed`), and a tile rebuilt after the wall existed — every screen tile: the displays arrive after the window, PGM is made with it — could resolve it late or not at all, so both faces drew: the bar's rotated name over the body, the body's buttons pushed down. The faces are decided by classes on the tree itself now — the wall carries "collapsed" as a class from its property, a tile carries "tileCollapsed" from its own choice — and the wall's styles show one and hide the other, in the document's order; nothing binds up the tree. The body, its title row and its buttons sit at the top of the tile whatever the row's height. The tick was the theme's checkbox, whose template holds a 32 px grid, so every screen tile's title row was 13 px taller than PGM's with its buttons that much lower; it is a wall toggle now (✓, lit while ticked) and every tile's rows line up with PGM's. The two questions, answered on the desk: ▸ at the end of a tile's title row collapses that tile alone to its title bar and ▾ on the bar opens it again (`SwitcherTile.IsCollapsed`, kept in `DeskLayoutConfig.CollapsedTiles` by target id, remembered by the show; the Run area's ▸ COLLAPSE TILES does the whole wall at once and leaves the tiles' own choices under it), and a group is a joined canvas — there is no group setting: on SETUP → Screens a screen dragged flush against another joins it into one canvas with one tile, dragged away it is a screen of its own again — on the tick's and the scope picker's tooltips and in Help. Tests: every tile with one face and its buttons at the top on a row 160 px taller than its content, level with PGM's, with MON on and off; a tile collapsed alone with the rest full, kept through a rebuild and the show file, opened again, PGM too; the Run wall's collapse over a tile's own choice and back; the Help words. | done |
 | 3 | The grid on the switcher tiles (§24.3). A wall tile, a pane and a multiview tile draw a target at its own pixel size into a canvas scaled to fit — a true miniature, the grid with the cell count it has on the wall — and a one-pixel line drawn without antialiasing at a twentieth of a device pixel drops out: no pixel centre falls inside it, so the grid on a tile was a scatter of lines popping in and out. `RenderContext.DeviceScale` carries the sink's scale (1 on an output, NDI and the stream; the fit scale on a wall tile, a pane, a multiview tile, a Screens-page tile), the engine folds the canvas's own map into `PatternFrame.DeviceScale`, and a pattern with hairlines widens them through `f.Hairline(px)` to at least one device pixel — twenty canvas pixels on a 96-pixel tile, one on an output, so an output's pixel-exact lines are what they were — and leaves out minor lines that would sit closer than three device pixels (`f.Resolves`). The Grid, the Geometry crosshair and markers, the Solid border, the LED and video walls' borders and pixel grid, the blend zones' grid, the motion marks and the ramps' markers and hashes read it. Tests: the rule (an output as asked, a tile widened to one device pixel, an upscale never thinned, a hand-built frame as an output; the spacing rule); the grid drawn by the engine into a 96×54 tile keeping all twenty lines with the device scale and next to none without it — the bug, held. | done |
 | 2 | The assistant answers again (§24.2). The service compiles the reply's structured-output schema into a grammar before it answers, and a closed object with optional members compiles to a grammar that grows with every subset of them: twelve optional overlay switches, eight optional proposal parts and seven optional cue fields, nested in lists, was "too large" and refused — 3.5 KB of schema, and no schema at all reached the model. Every member of every object is required now, null where it does not apply (`anyOf` the value or null), so an object has one fixed shape; the reply rules say so. Should the service refuse a schema again, the same ask goes again with the schema in the prompt (`=== REPLY FORMAT ===`, the schema itself, before the brief) and the reply read leniently on this side — the parser always tolerated a missing field, and a null reads as nothing said — and every ask after it this session goes that way from the start; the status says so once. Tests: every member of every object required, the nullable shapes; the refusal known by its words and by nothing else; the plain prompt carrying the shape between the rules and the brief; nulls in every place read as nothing said; on a live desk a refused first request asked again in plain JSON as the same turn, the answer read into rows, the status's note, the next ask plain from the start with no note. | done |
 | 1 | The page-switch crash (§24.1). The Lower Thirds page's designer preview kept one sink for its whole life, disposed it when the page was left and never made another when the page was re-entered, and drew with it on the compositor's render thread with no gate — a draw op queued before the page was left ran after the sink was gone, and every frame after a return used freed Skia handles; with a fractal element on the round-16 shader path the freed handle was a compiled shader program, a null native handle in Skia, the access violation. `SinkGuard` is the rule the wall's pipeline already kept, for a control that draws by hand: opened when the control joins the visual tree, closed when it leaves (every sink disposed under the gate), the frame drawn through the gate (nothing drawn once closed; a close waits for the frame in progress), fresh sinks on the way back. The designer preview and the Screens page's tiles — the same shape: a dictionary of sinks grown from the render thread and disposed from the UI thread — draw through it. Tests: the guard (closed draws nothing; a close waits for the frame and the sink lives to its end; fresh sinks after a close, never the disposed ones); the crash's own steps headless — the preview with a fractal element drawn, its page left, a late frame drawing nothing, the page back and four frames drawn through a fresh stage; the Screens page's guard opening and closing with the tree. | done |
@@ -1946,3 +1947,47 @@ the width asked for, and the pixel-exact tests that hold the outputs' lines pass
 The test that holds the bug draws the grid through the engine into a 96×54 surface through a
 0.05 scale, once with the device scale and once without, and counts the columns lit on a row
 between the horizontal lines: twenty with it, none without.
+
+### 24.4 The switcher's tiles: a face decided on the tree, not up it
+
+The wall's tile has two faces: the full tile — the title row, the PGM and PVW miniatures, the
+OWN / MON / ARM / LOCK row — and the vertical title bar the Run area's COLLAPSE TILES turns it
+into. Both lived in the tile's template as two panels in one, each with an `IsVisible` bound up
+the visual tree to the wall's `Collapsed` property: `$parent[ctl:WallView].Collapsed` on the bar,
+its negation on the body. A `$parent` binding is resolved when the tile is attached and walks up
+looking for an ancestor of that type; the PGM tile is made with the window and finds the wall.
+The screen tiles are rebuilt every time the rig changes — the displays arrive after the window,
+a screen is enabled, a show loads — and a tile materialised into the items control while the walk
+fails or resolves late has both panels at their default: visible. The bar's rotated name drew
+over the body and the body was pushed down under it, the OWN / MON / ARM row at mid-height. It was
+the screen tiles and never PGM because PGM was the one tile made while the wall was there to be
+found; "when maximised" because a wide window gives every tile the room to show it.
+
+The tile knows nothing about its wall now. The wall puts a class on itself — "collapsed", from
+its property — and a tile puts "tileCollapsed" on its border from its own `IsCollapsed`; the
+wall's styles do the rest, in the document's order: the bar hidden and the body shown by default,
+the other way round under a collapsed border, the other way round under a collapsed wall (with
+the tile's own ▾ hidden there, since the wall's toggle is the way back). A class on the tree is
+resolved with the tree; there is no walk to fail and no moment when both faces are showing. The
+body and the bar are top-aligned in the tile, so a tile taller than its content — the row is as
+tall as its tallest tile — keeps its title row and its buttons where PGM keeps them. And the
+tile's title row is PGM's height: the tick was the theme's checkbox, whose template holds a
+32-pixel grid so the box lines up with a first line of text, and that grid made a screen tile's
+title row 13 pixels taller than the program tile's, its buttons that much lower. It is a wall
+toggle now — ✓, lit while ticked, the height of OUT beside it.
+
+The two questions. A tile collapses on its own: ▸ at the end of its title row, ▾ on the bar to
+open it again, on the Build layout as much as the Run one; the choice is the show's
+(`DeskLayoutConfig.CollapsedTiles`, target ids, "" for PGM), seeded on every rebuild of the wall,
+back after a restart, and it sits under the Run area's whole-wall collapse, which does not touch
+it. A screen's group: a group is a joined canvas and there is no group field on a tile or a
+screen — on SETUP → Screens a screen dragged flush against another makes one canvas of the two,
+with one tile on the wall (A · its name) and one content target for looks, sends and the scopes;
+dragged away it is a screen of its own again; the canvas's name is set on the Screens page. The
+tick's tooltip, the scope picker's and the Help (Switcher, Modes) say so.
+
+The tests hold each part on the real desk headless: every tile with one face and its buttons at
+the top on a row made 160 pixels taller than the content, level with PGM's, with MON on and with
+MON off; a tile collapsed alone with the others full, kept through a rebuild of the wall and the
+show file (an older file opening every tile full), opened again, PGM too; the Run wall's collapse
+over a tile's own choice and back; the Help's words.

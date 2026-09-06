@@ -1432,6 +1432,13 @@ public sealed class DeskLayoutConfig : Observable
 
     /// <summary>The Run area's wall tiles collapsed to vertical title bars — the tally and the name on their side — so the stack has the room.</summary>
     public bool RunWallCollapsed { get => _runWallCollapsed; set => Set(ref _runWallCollapsed, value); }
+
+    /// <summary>
+    /// The wall tiles collapsed one by one to their title bars (▸ on a tile's title row; ▾ on the
+    /// bar opens it again): their target ids — a screen id, a canvas key, "" for PGM. Absent in an
+    /// older file, so every tile opens full.
+    /// </summary>
+    public ObservableCollection<string> CollapsedTiles { get; init; } = new();
 }
 
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>

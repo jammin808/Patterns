@@ -404,6 +404,7 @@ public sealed partial class MainViewModel
         var keepTargets = SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null)
             .Select(t => t.TargetId!).ToHashSet();
         var monitorOff = SwitcherTiles.Where(t => !t.IsMonitored).Select(t => t.TargetId ?? "").ToHashSet();
+        var collapsed = State.Desk.CollapsedTiles.ToHashSet(StringComparer.Ordinal); // the show's own choice, tile by tile
         SwitcherTiles.Clear();
 
         var arming = _services.Arming;
@@ -417,7 +418,8 @@ public sealed partial class MainViewModel
 
         SwitcherTiles.Add(new SwitcherTile(this, "PGM", null, Array.Empty<string>(),
             Rig.TargetSize(State, known, null),
-            enabled: true, isSelected: _selectedTargetId is null, isOwn: false, isArmed: true)
+            enabled: true, isSelected: _selectedTargetId is null, isOwn: false, isArmed: true,
+            isCollapsed: collapsed.Contains(""))
         {
             IsMonitored = !monitorOff.Contains(""),
         });
@@ -438,7 +440,8 @@ public sealed partial class MainViewModel
                 isOwn: ContentTargets.UsesOwnPattern(State, key),
                 isArmed: arming.IsArmed(key),
                 isLocked: ScreenRoles.IsLocked(State, key),
-                roleBadge: members.Select(m => m.Role).Distinct().Count() == 1 ? ScreenRoles.Badge(members[0].Role) : "")
+                roleBadge: members.Select(m => m.Role).Distinct().Count() == 1 ? ScreenRoles.Badge(members[0].Role) : "",
+                isCollapsed: collapsed.Contains(key))
             {
                 IsSendTarget = keepTargets.Contains(key),
                 IsMonitored = !monitorOff.Contains(key),
@@ -464,7 +467,8 @@ public sealed partial class MainViewModel
                 roleBadge: ScreenRoles.Badge(placement.Role),
                 mirrorNote: placement.MirrorOf.Length > 0 && ContentTargets.IsInRig(State, placement.MirrorOf)
                     ? "↳ " + geo.LabelFor(State, placement.MirrorOf)
-                    : "")
+                    : "",
+                isCollapsed: collapsed.Contains(id))
             {
                 IsSendTarget = keepTargets.Contains(id),
                 IsMonitored = !monitorOff.Contains(id),
@@ -577,6 +581,27 @@ public sealed partial class MainViewModel
         StatusMessage = armed
             ? $"{tile.Title} armed — the next CUT / TAKE changes it."
             : $"{tile.Title} held — it keeps its picture through the next CUT / TAKE.";
+    }
+
+    /// <summary>
+    /// ▸ / ▾ on a tile: this tile alone as its vertical title bar, or open again — the show remembers
+    /// it (DeskLayoutConfig.CollapsedTiles, by target id; "" is PGM). The Run area's COLLAPSE TILES
+    /// is the whole wall at once and leaves these choices in place under it.
+    /// </summary>
+    internal void SetTileCollapsed(SwitcherTile tile, bool collapsed)
+    {
+        var key = tile.TargetId ?? "";
+        var list = State.Desk.CollapsedTiles;
+        if (collapsed)
+        {
+            if (!list.Contains(key)) list.Add(key);
+            StatusMessage = $"{tile.Title} collapsed to its title bar — ▾ on the bar opens it again.";
+        }
+        else
+        {
+            list.Remove(key);
+            StatusMessage = $"{tile.Title} open again.";
+        }
     }
 
     /// <summary>OWN on gives the target its own pattern (a copy of the program, so nothing jumps) and hands it to the editors.</summary>

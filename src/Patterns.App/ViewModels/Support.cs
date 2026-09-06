@@ -140,11 +140,12 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     private bool _isHeld;
     private bool _isLocked;
     private bool _isBlack;
+    private bool _isCollapsed;
     private Patterns.Core.Model.LookConfig? _pendingLook;
 
     public SwitcherTile(MainViewModel vm, string title, string? targetId, IReadOnlyList<string> memberIds,
         SkiaSharp.SKSizeI size, bool enabled, bool isSelected, bool isOwn, bool isArmed,
-        bool isLocked = false, string roleBadge = "", string mirrorNote = "")
+        bool isLocked = false, string roleBadge = "", string mirrorNote = "", bool isCollapsed = false)
     {
         _vm = vm;
         Title = title;
@@ -156,11 +157,14 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         _isOwn = isOwn;
         _isArmed = isArmed;
         _isLocked = isLocked;
+        _isCollapsed = isCollapsed;
         RoleBadge = roleBadge;
         MirrorNote = mirrorNote;
         SendHereCommand = new RelayCommand(() => _vm.SendSandboxToTile(this));
         SendLookCommand = new RelayCommand(() => _vm.SendLookToTile(this, PendingLook));
         ProgramCommand = new RelayCommand(() => _vm.SendProgramToTile(this));
+        CollapseCommand = new RelayCommand(() => IsCollapsed = true);
+        ExpandCommand = new RelayCommand(() => IsCollapsed = false);
         PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false);
         PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true);
     }
@@ -298,6 +302,26 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         get => _isMonitored;
         set => Set(ref _isMonitored, value);
     }
+
+    /// <summary>
+    /// ▸ on the title row: this tile alone as a vertical title bar — the tally and the name on their
+    /// side — until ▾ on the bar opens it again. The show remembers it (DeskLayoutConfig.CollapsedTiles);
+    /// the Run area's COLLAPSE TILES is the whole wall at once and leaves this be.
+    /// </summary>
+    public bool IsCollapsed
+    {
+        get => _isCollapsed;
+        set
+        {
+            if (Set(ref _isCollapsed, value)) _vm.SetTileCollapsed(this, value);
+        }
+    }
+
+    /// <summary>▸: this tile to its title bar.</summary>
+    public RelayCommand CollapseCommand { get; }
+
+    /// <summary>▾ on the bar: this tile open again.</summary>
+    public RelayCommand ExpandCommand { get; }
 
     /// <summary>Tally red: the audience can see this target right now.</summary>
     public bool IsOnAir

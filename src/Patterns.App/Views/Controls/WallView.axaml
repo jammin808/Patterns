@@ -9,7 +9,23 @@
      its PGM and PVW miniatures. Click = the panes and editors follow it; OWN = its own
      pattern; MON = draw the miniatures; ARM = the next CUT / TAKE changes it; OUT (on the
      title row) = OUTPUT on/off live; the tick = a SEND TO TICKED target (sandbox open) and
-     a FADE TO BLACK "ticked" target (always). -->
+     a FADE TO BLACK "ticked" target (always); ▸ on the title row = this tile as a bar. -->
+<UserControl.Styles>
+  <!-- A tile shows one of two branches, never both: its body, or its vertical title bar when the
+       wall is collapsed (the Run area's COLLAPSE TILES puts the "collapsed" class on the wall) or
+       the tile itself is (the "tileCollapsed" class on its border). Decided by classes and these
+       styles, in this order, on the visual tree itself — not by a binding up the tree that can
+       resolve late and leave both branches showing with the name on its side over the buttons. -->
+  <Style Selector="StackPanel.tileBar"><Setter Property="IsVisible" Value="False" /></Style>
+  <Style Selector="StackPanel.tileBody"><Setter Property="IsVisible" Value="True" /></Style>
+  <Style Selector="Button.tileExpand"><Setter Property="IsVisible" Value="False" /></Style>
+  <Style Selector="Border.tile.tileCollapsed StackPanel.tileBar"><Setter Property="IsVisible" Value="True" /></Style>
+  <Style Selector="Border.tile.tileCollapsed StackPanel.tileBody"><Setter Property="IsVisible" Value="False" /></Style>
+  <Style Selector="Border.tile.tileCollapsed Button.tileExpand"><Setter Property="IsVisible" Value="True" /></Style>
+  <Style Selector="ctl|WallView.collapsed StackPanel.tileBar"><Setter Property="IsVisible" Value="True" /></Style>
+  <Style Selector="ctl|WallView.collapsed StackPanel.tileBody"><Setter Property="IsVisible" Value="False" /></Style>
+  <Style Selector="ctl|WallView.collapsed Button.tileExpand"><Setter Property="IsVisible" Value="False" /></Style>
+</UserControl.Styles>
 <Grid ColumnDefinitions="*,8,Auto,Auto">
   <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
     <ItemsControl ItemsSource="{Binding SwitcherTiles}">
@@ -19,7 +35,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:SwitcherTile">
           <!-- A pause over the tile pops it up large: PGM and PVW side by side, the same miniatures at a size a caller can read -->
-          <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Padding="6,4" ToolTip.ShowDelay="700" ToolTip.Placement="Bottom">
+          <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Classes.tileCollapsed="{Binding IsCollapsed}" Padding="6,4" ToolTip.ShowDelay="700" ToolTip.Placement="Bottom">
             <ToolTip.Tip>
               <StackPanel Spacing="6" Width="680">
                 <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}" Text="{Binding Title}" FontWeight="Bold" FontSize="14" />
@@ -44,9 +60,11 @@
                 <TextBlock Classes="hint" Text="{Binding FootText}" FontSize="11" />
               </StackPanel>
             </ToolTip.Tip>
-            <Panel>
-            <!-- Collapsed (the Run area's choice): a vertical title bar — the tally, the name on its side, the BLACK badge -->
-            <StackPanel Classes="tileBar" Spacing="6" IsVisible="{Binding $parent[ctl:WallView].Collapsed}" HorizontalAlignment="Center">
+            <!-- Both branches sit at the top of the tile: a tile taller than its content (the row is
+                 as tall as its tallest tile) keeps its title row and its buttons where PGM keeps them -->
+            <Panel VerticalAlignment="Top">
+            <!-- Collapsed: a vertical title bar — the tally, the name on its side, the BLACK badge, and ▾ to open this tile again when it was this tile's own choice -->
+            <StackPanel Name="TileBar" Classes="tileBar" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Top">
               <Ellipse Classes="tally" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}" Width="8" Height="8" HorizontalAlignment="Center" Margin="0,2,0,0" />
               <Border Classes="roleBadge blackBadge" IsVisible="{Binding IsBlack}" ToolTip.Tip="Faded to black on its own">
                 <TextBlock Text="B" />
@@ -60,9 +78,11 @@
                   <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                 </Button>
               </LayoutTransformControl>
+              <Button Name="TileExpand" Classes="wall tileExpand" Content="▾" Command="{Binding ExpandCommand}" Focusable="False" HorizontalAlignment="Center" Margin="0"
+                      ToolTip.Tip="Open this tile again — its miniatures and its buttons" />
             </StackPanel>
-            <StackPanel Spacing="3" Width="176" IsVisible="{Binding !$parent[ctl:WallView].Collapsed}">
-              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+            <StackPanel Name="TileBody" Classes="tileBody" Spacing="3" Width="176" VerticalAlignment="Top">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                 <Ellipse Classes="tally" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                          Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
                          ToolTip.Tip="Tally: red = the audience sees it, amber = held through the next send, grey = not on air" />
@@ -89,15 +109,20 @@
                   <StackPanel Orientation="Horizontal" Spacing="2">
                     <Button Classes="wall" Content="SEND" Command="{Binding SendHereCommand}" Focusable="False"
                             IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsSandboxActive}"
-                            ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern — every other target stays as it is" />
-                    <CheckBox Name="TileTick" IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Padding="0" MinWidth="0" Margin="4,0,0,0"
-                              ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS" />
+                            ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern — every other target stays as it is, and the preview keeps the picture for the next send" />
+                    <!-- A wall toggle, not the theme's checkbox: its template holds a 32 px grid that made a screen
+                         tile's title row 13 px taller than PGM's, with its buttons that much lower -->
+                    <ToggleButton Name="TileTick" Classes="wall tick" Content="✓" IsChecked="{Binding IsSendTarget, Mode=TwoWay}" Margin="4,0,0,0" Focusable="False"
+                                  ToolTip.Tip="Tick: this tile joins SEND TO TICKED (with EDIT SAFE open) and the Show panel's FADE TO BLACK / FADE UP on THE TICKED SCREENS or THE TICKED GROUPS — lit while it is ticked. A group is a joined canvas (A, B…): screens dragged flush together on SETUP → Screens make one, dragged apart leave it" />
                   </StackPanel>
                 </Panel>
                 <!-- OUTPUT: the screen on or off, live — a wall button that fits the tile (the switch it replaces hung outside it) -->
                 <ToggleButton Grid.Column="4" Classes="wall output" Content="OUT" IsChecked="{Binding Enabled, Mode=TwoWay}"
                               IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
                               ToolTip.Tip="OUTPUT: this screen's output on / off, live — green while it is on" />
+                <!-- ▸ collapses this tile alone to its title bar; the Run area's COLLAPSE TILES does them all -->
+                <Button Grid.Column="5" Name="TileCollapse" Classes="wall" Content="▸" Command="{Binding CollapseCommand}" Focusable="False" Margin="4,0,0,0"
+                        ToolTip.Tip="Collapse this tile to its title bar — the tally and the name on their side; ▾ on the bar opens it again. ▸ COLLAPSE TILES on the Run area's wall collapses every tile at once. The show remembers it" />
               </Grid>
               <!-- PGM left, PVW right; the tile's own popup names them when the pointer rests here -->
               <Grid ColumnDefinitions="*,4,*" Height="54" IsVisible="{Binding IsMonitored}">
@@ -112,7 +137,7 @@
                   </Border>
                 </ctl:AspectBox>
               </Grid>
-              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+              <Grid Name="TileButtons" ColumnDefinitions="Auto,Auto,Auto,Auto,*" VerticalAlignment="Top">
                 <ToggleButton Classes="wall" Content="OWN" IsChecked="{Binding IsOwn, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}" IsEnabled="{Binding !IsMirror}"
                               ToolTip.Tip="OWN: this target shows its own pattern instead of the program (starts as a copy of the program, so nothing jumps). A repeater draws its source's picture and has none of its own" />
                 <ToggleButton Grid.Column="1" Classes="wall" Content="MON" IsChecked="{Binding IsMonitored, Mode=TwoWay}"
@@ -149,7 +174,7 @@
     </StackPanel>
     <ComboBox Name="TakeScopePicker" HorizontalAlignment="Stretch" MinWidth="0" Focusable="False" FontSize="11"
               ItemsSource="{Binding TakeScopes}" SelectedItem="{Binding SelectedTakeScope, Mode=TwoWay}" IsEnabled="{Binding IsSandboxActive}"
-              ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: ARM and LOCK on the tiles decide; FOCUSED: the wall tile you clicked (the PGM tile means every armed screen); TICKED / TICKED GROUPS: the tiles ticked on the wall (a group is a joined canvas). Everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it" />
+              ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: ARM and LOCK on the tiles decide; FOCUSED: the wall tile you clicked (the PGM tile means every armed screen); TICKED / TICKED GROUPS: the tiles ticked on the wall (a group is a joined canvas — screens dragged flush together on SETUP → Screens). Everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it" />
   </StackPanel>
 </Grid>
 </UserControl>
