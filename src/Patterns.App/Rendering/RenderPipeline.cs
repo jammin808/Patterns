@@ -378,6 +378,8 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
+            // A miniature: the patterns widen their hairlines to this pane's own pixels.
+            DeviceScale = scale,
         };
         _sink.Fps.Tick(ctx.Time);
 

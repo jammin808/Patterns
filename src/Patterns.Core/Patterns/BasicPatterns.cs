@@ -19,22 +19,26 @@ public sealed class GridPattern : IPatternRenderer
         int w = f.W, h = f.H;
         int cx = w / 2, cy = h / 2;
         var cell = Math.Max(2, o.CellSize);
-        var lw = Math.Max(1, o.LineWidth);
+        // On an output the lines are the width asked for, pixel-exact; on a miniature (a wall
+        // tile, a pane, a multiview tile) a hairline widens to the device's own pixel so it never
+        // drops out, and the minor lines are left out when they would be closer than a few pixels.
+        var lw = f.Hairline(Math.Max(1, o.LineWidth));
+        var minor = f.Hairline(1);
 
         // Minor subdivisions first (1px, subtle).
         if (o.Subdivisions > 0)
         {
             var sub = pc.Fill(f.Palette.SubtleLine);
             var step = (float)cell / (o.Subdivisions + 1);
-            if (step >= 2)
+            if (step >= 2 && f.Resolves(step))
             {
                 for (float x = cx % step; x < w; x += step)
                 {
-                    DrawUtil.LineV(c, (int)MathF.Round(x), 0, h, 1, sub);
+                    DrawUtil.LineV(c, (int)MathF.Round(x), 0, h, minor, sub);
                 }
                 for (float y = cy % step; y < h; y += step)
                 {
-                    DrawUtil.LineH(c, (int)MathF.Round(y), 0, w, 1, sub);
+                    DrawUtil.LineH(c, (int)MathF.Round(y), 0, w, minor, sub);
                 }
             }
         }
@@ -52,7 +56,7 @@ public sealed class GridPattern : IPatternRenderer
 
         if (o.ShowDiagonals)
         {
-            var diag = pc.StrokeAA(f.Palette.SubtleLine, 1);
+            var diag = pc.StrokeAA(f.Palette.SubtleLine, minor);
             c.DrawLine(0, 0, w, h, diag);
             c.DrawLine(w, 0, 0, h, diag);
         }
@@ -151,7 +155,7 @@ public sealed class FlatFieldPattern : IPatternRenderer
         if (o.ShowBorder)
         {
             var contrast = Luma(color) > 100 ? SKColors.Black : SKColors.White;
-            DrawUtil.BorderInside(c, new SKRectI(0, 0, f.W, f.H), 1, pc.Fill(contrast));
+            DrawUtil.BorderInside(c, new SKRectI(0, 0, f.W, f.H), f.Hairline(1), pc.Fill(contrast));
         }
 
         if (o.ShowLabel)
@@ -191,10 +195,11 @@ public sealed class GeometryPattern : IPatternRenderer
 
         int w = f.W, h = f.H;
         float cx = w / 2f, cy = h / 2f;
+        var hair = f.Hairline(1);
 
         if (o.ShowDiagonals)
         {
-            var diag = pc.StrokeAA(f.Palette.SubtleLine, 1);
+            var diag = pc.StrokeAA(f.Palette.SubtleLine, hair);
             c.DrawLine(0, 0, w, h, diag);
             c.DrawLine(w, 0, 0, h, diag);
         }
@@ -202,8 +207,8 @@ public sealed class GeometryPattern : IPatternRenderer
         if (o.ShowCrosshair)
         {
             var line = pc.Fill(f.Palette.Line);
-            DrawUtil.LineH(c, h / 2, 0, w, 1, line);
-            DrawUtil.LineV(c, w / 2, 0, h, 1, line);
+            DrawUtil.LineH(c, h / 2, 0, w, hair, line);
+            DrawUtil.LineV(c, w / 2, 0, h, hair, line);
         }
 
         if (o.ShowCircles)
@@ -233,7 +238,7 @@ public sealed class GeometryPattern : IPatternRenderer
                 var aw = h * ratio;
                 if (aw >= w - 2) continue;
                 var x0 = (w - aw) / 2f;
-                var stroke = pc.StrokeAA(f.Palette.SubtleLine, 1, DrawUtil.DashLong);
+                var stroke = pc.StrokeAA(f.Palette.SubtleLine, hair, DrawUtil.DashLong);
                 c.DrawLine(x0, 0, x0, h, stroke);
                 c.DrawLine(x0 + aw, 0, x0 + aw, h, stroke);
                 var font = pc.FontRegular;
@@ -242,7 +247,7 @@ public sealed class GeometryPattern : IPatternRenderer
             }
         }
 
-        DrawUtil.BorderInside(c, new SKRectI(0, 0, w, h), 1, pc.Fill(f.Palette.Line));
+        DrawUtil.BorderInside(c, new SKRectI(0, 0, w, h), hair, pc.Fill(f.Palette.Line));
     }
 
     private static void DrawSafe(SKCanvas c, in PatternFrame f, float pct, string label, SKColor color)

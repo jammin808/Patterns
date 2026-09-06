@@ -46,23 +46,26 @@ public sealed class LedWallPattern : IPatternRenderer
             }
         }
 
+        // Hairlines widen to a miniature's own pixel; a pixel grid too fine for the miniature is left out.
+        var hair = f.Hairline(1);
+
         // Faint pixel grid aligned to tile origins.
-        if (o.ShowPixelGrid && o.PixelGridStep >= 2)
+        if (o.ShowPixelGrid && o.PixelGridStep >= 2 && f.Resolves(o.PixelGridStep))
         {
             var faint = pc.Fill(new SKColor(0xFF, 0xFF, 0xFF, 0x28));
             for (var x = 0; x < w; x += o.PixelGridStep)
             {
-                DrawUtil.LineV(c, x, 0, h, 1, faint);
+                DrawUtil.LineV(c, x, 0, h, hair, faint);
             }
             for (var y = 0; y < h; y += o.PixelGridStep)
             {
-                DrawUtil.LineH(c, y, 0, w, 1, faint);
+                DrawUtil.LineH(c, y, 0, w, hair, faint);
             }
         }
 
         if (o.ShowTileDiagonals)
         {
-            var diag = pc.StrokeAA(new SKColor(0xFF, 0xFF, 0xFF, 0x50), 1);
+            var diag = pc.StrokeAA(new SKColor(0xFF, 0xFF, 0xFF, 0x50), hair);
             for (var r = 0; r < layout.Rows; r++)
             {
                 for (var col = 0; col < layout.Columns; col++)
@@ -83,13 +86,13 @@ public sealed class LedWallPattern : IPatternRenderer
                 // Tile borders as global 1px grid lines — the outermost lines sit on the canvas edge pixels.
                 for (var col = 0; col <= layout.Columns; col++)
                 {
-                    var x = Math.Min(col * layout.TileWidth, w - 1);
-                    DrawUtil.LineV(c, x, 0, h, 1, line);
+                    var x = Math.Min(col * layout.TileWidth, w - hair);
+                    DrawUtil.LineV(c, x, 0, h, hair, line);
                 }
                 for (var r = 0; r <= layout.Rows; r++)
                 {
-                    var y = Math.Min(r * layout.TileHeight, h - 1);
-                    DrawUtil.LineH(c, y, 0, w, 1, line);
+                    var y = Math.Min(r * layout.TileHeight, h - hair);
+                    DrawUtil.LineH(c, y, 0, w, hair, line);
                 }
             }
             else
@@ -101,7 +104,7 @@ public sealed class LedWallPattern : IPatternRenderer
                     {
                         var rect = TileRect(layout, col, r, rw, rh, g);
                         if (rect.IsEmpty) continue;
-                        DrawUtil.BorderInside(c, SKRectI.Round(rect), 1, line);
+                        DrawUtil.BorderInside(c, SKRectI.Round(rect), hair, line);
                     }
                 }
             }
@@ -173,7 +176,7 @@ public sealed class LedWallPattern : IPatternRenderer
 
             if (o.ShowTileBorders)
             {
-                DrawUtil.BorderInside(c, rect, 1, line);
+                DrawUtil.BorderInside(c, rect, f.Hairline(1), line);
             }
 
             if (t.Width >= 24 && t.Height >= 16)
@@ -263,8 +266,8 @@ public sealed class VideoWallPattern : IPatternRenderer
                 {
                     var cxE = rect.MidX;
                     var cyE = rect.MidY;
-                    c.DrawCircle(cxE, cyE, Math.Min(ew, eh) * 0.3f, pc.StrokeAA(f.Palette.Line, 2));
-                    DrawUtil.Cross(c, (int)cxE, (int)cyE, Math.Min(ew, eh) / 10, 1, pc.Fill(f.Palette.Line));
+                    c.DrawCircle(cxE, cyE, Math.Min(ew, eh) * 0.3f, pc.StrokeAA(f.Palette.Line, f.Hairline(2)));
+                    DrawUtil.Cross(c, (int)cxE, (int)cyE, Math.Min(ew, eh) / 10, f.Hairline(1), pc.Fill(f.Palette.Line));
                 }
 
                 // Bezel loss zone, hatched inside each edge.
@@ -280,7 +283,7 @@ public sealed class VideoWallPattern : IPatternRenderer
 
                 if (o.ShowBorders)
                 {
-                    DrawUtil.BorderInside(c, rect, 2, pc.Fill(f.Palette.Line));
+                    DrawUtil.BorderInside(c, rect, f.Hairline(2), pc.Fill(f.Palette.Line));
                 }
 
                 if (o.ShowNumbers)

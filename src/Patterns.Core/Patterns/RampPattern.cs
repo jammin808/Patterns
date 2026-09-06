@@ -79,7 +79,7 @@ public sealed class RampPattern : IPatternRenderer
         for (var pct = 0; pct <= 100; pct += 10)
         {
             var x = (int)Math.Round((f.W - 1) * pct / 100.0);
-            DrawUtil.LineV(c, x, 0, (int)(font.Size * 1.6f), 1, pc.Fill(new SKColor(255, 160, 32)));
+            DrawUtil.LineV(c, x, 0, (int)(font.Size * 1.6f), f.Hairline(1), pc.Fill(new SKColor(255, 160, 32)));
             var tx = Math.Clamp(x, font.Size * 1.4f, f.W - font.Size * 1.4f);
             DrawUtil.TextCentered(c, pct.ToString(), tx, font.Size * 2.4f, font, pc.Text(new SKColor(255, 160, 32)));
         }
@@ -93,7 +93,7 @@ public sealed class RampPattern : IPatternRenderer
         for (var pct = 0; pct <= 100; pct += 10)
         {
             var y = (int)Math.Round((f.H - 1) * pct / 100.0);
-            DrawUtil.LineH(c, y, 0, (int)(font.Size * 1.6f), 1, pc.Fill(new SKColor(255, 160, 32)));
+            DrawUtil.LineH(c, y, 0, (int)(font.Size * 1.6f), f.Hairline(1), pc.Fill(new SKColor(255, 160, 32)));
             var ty = Math.Clamp(y, font.Size, f.H - font.Size);
             DrawUtil.TextCentered(c, pct.ToString(), font.Size * 3f, ty, font, pc.Text(new SKColor(255, 160, 32)));
         }
@@ -114,15 +114,16 @@ public sealed class FocusPattern : IPatternRenderer
         // Alternating 8px border hash (like camera charts) — instant crop check.
         var hash = pc.Fill(SKColors.White);
         const int hashLen = 8;
+        var hashW = f.Hairline(2);
         for (var x = 0; x < w; x += hashLen * 2)
         {
-            DrawUtil.LineH(c, 0, x, Math.Min(x + hashLen, w), 2, hash);
-            DrawUtil.LineH(c, h - 2, x, Math.Min(x + hashLen, w), 2, hash);
+            DrawUtil.LineH(c, 0, x, Math.Min(x + hashLen, w), hashW, hash);
+            DrawUtil.LineH(c, h - hashW, x, Math.Min(x + hashLen, w), hashW, hash);
         }
         for (var y = 0; y < h; y += hashLen * 2)
         {
-            DrawUtil.LineV(c, 0, y, Math.Min(y + hashLen, h), 2, hash);
-            DrawUtil.LineV(c, w - 2, y, Math.Min(y + hashLen, h), 2, hash);
+            DrawUtil.LineV(c, 0, y, Math.Min(y + hashLen, h), hashW, hash);
+            DrawUtil.LineV(c, w - hashW, y, Math.Min(y + hashLen, h), hashW, hash);
         }
 
         if (o.ShowStar)

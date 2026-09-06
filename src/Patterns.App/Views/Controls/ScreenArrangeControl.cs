@@ -320,6 +320,8 @@ public sealed class ScreenArrangeControl : Control
                     SinkIndex = tile.Number,
                     SinkLabel = tile.Info.Label,
                     ScreenId = vp.ScreenId,
+                    // A miniature: the patterns widen their hairlines to the tile's own pixels.
+                    DeviceScale = scale,
                 };
                 _owner._engine.Render(c, _snap, in ctx, sink);
                 c.RestoreToCount(save);

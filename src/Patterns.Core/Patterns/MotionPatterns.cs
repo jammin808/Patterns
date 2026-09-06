@@ -65,10 +65,11 @@ public sealed class MotionPattern : IPatternRenderer
 
         // Faint track marks every 10% so speed is judgeable.
         var mark = pc.Fill(new SKColor(0xFF, 0xFF, 0xFF, 0x30));
+        var hair = f.Hairline(1);
         for (var i = 1; i < 10; i++)
         {
-            if (o.Vertical) DrawUtil.LineH(c, h * i / 10, 0, w / 40, 1, mark);
-            else DrawUtil.LineV(c, w * i / 10, 0, h / 40, 1, mark);
+            if (o.Vertical) DrawUtil.LineH(c, h * i / 10, 0, w / 40, hair, mark);
+            else DrawUtil.LineV(c, w * i / 10, 0, h / 40, hair, mark);
         }
 
         var mode = o.PxPerFrame > 0 ? $"{o.PxPerFrame} px/frame" : $"{o.SpeedPxPerSec:0} px/s";
@@ -193,26 +194,27 @@ public sealed class MotionPattern : IPatternRenderer
 
         var offset = (float)(f.Ctx.Time * o.SpeedPxPerSec % cell);
         var line = pc.Fill(SKColors.White);
+        var hair = f.Hairline(1);
         if (o.Vertical)
         {
             for (var y = (int)offset - cell; y < h; y += cell)
             {
-                if (y >= 0) DrawUtil.LineH(c, y, 0, w, 1, line);
+                if (y >= 0) DrawUtil.LineH(c, y, 0, w, hair, line);
             }
             for (var x = 0; x < w; x += cell)
             {
-                DrawUtil.LineV(c, x, 0, h, 1, pc.Fill(new SKColor(0xFF, 0xFF, 0xFF, 0x50)));
+                DrawUtil.LineV(c, x, 0, h, hair, pc.Fill(new SKColor(0xFF, 0xFF, 0xFF, 0x50)));
             }
         }
         else
         {
             for (var x = (int)offset - cell; x < w; x += cell)
             {
-                if (x >= 0) DrawUtil.LineV(c, x, 0, h, 1, line);
+                if (x >= 0) DrawUtil.LineV(c, x, 0, h, hair, line);
             }
             for (var y = 0; y < h; y += cell)
             {
-                DrawUtil.LineH(c, y, 0, w, 1, pc.Fill(new SKColor(0xFF, 0xFF, 0xFF, 0x50)));
+                DrawUtil.LineH(c, y, 0, w, hair, pc.Fill(new SKColor(0xFF, 0xFF, 0xFF, 0x50)));
             }
         }
     }

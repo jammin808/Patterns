@@ -49,6 +49,14 @@ public readonly record struct RenderContext
 
     /// <summary>True while rendering another target's picture inside a layer — a layer in there draws nothing, so two screens showing each other cannot recurse.</summary>
     public bool InLayer { get; init; }
+
+    /// <summary>
+    /// Device pixels per reference pixel on this sink: 1 on an output, NDI and the stream; the fit
+    /// scale on a wall tile, a pane or a multiview tile (a 1920-wide target on a 96-pixel tile is
+    /// 0.05). A pattern with hairlines reads it through <see cref="PatternFrame.Hairline"/> so a
+    /// line is never thinner than a device pixel and never drops out of a miniature. 0 reads as 1.
+    /// </summary>
+    public float DeviceScale { get; init; }
 }
 
 /// <summary>How often a sink needs to redraw for the current snapshot.</summary>

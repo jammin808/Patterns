@@ -172,6 +172,8 @@ public sealed class PatternEngine
             Canvas = canvasSize,
             Palette = palette,
             Gaps = gaps,
+            // Device pixels per canvas pixel: the sink's scale (a tile's fit) times the canvas's map.
+            DeviceScale = (ctx.DeviceScale > 0 ? ctx.DeviceScale : 1f) * scale,
         };
 
         var save = canvas.Save();
@@ -571,6 +573,8 @@ public sealed class PatternEngine
                     Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
                     SinkIndex = 0,
                     SinkLabel = MultiviewTally.Name(f.Snapshot, tile),
+                    // A tile is a miniature: its hairlines widen to the multiview's own pixels.
+                    DeviceScale = f.DeviceScale * scale,
                 };
                 var save = canvas.Save();
                 canvas.Translate(rect.Left + (rect.Width - v.ViewportSize.Width * scale) / 2f,

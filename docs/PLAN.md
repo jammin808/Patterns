@@ -1815,6 +1815,7 @@ machine is `docs/CHECKLIST-round17.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 3 | The grid on the switcher tiles (§24.3). A wall tile, a pane and a multiview tile draw a target at its own pixel size into a canvas scaled to fit — a true miniature, the grid with the cell count it has on the wall — and a one-pixel line drawn without antialiasing at a twentieth of a device pixel drops out: no pixel centre falls inside it, so the grid on a tile was a scatter of lines popping in and out. `RenderContext.DeviceScale` carries the sink's scale (1 on an output, NDI and the stream; the fit scale on a wall tile, a pane, a multiview tile, a Screens-page tile), the engine folds the canvas's own map into `PatternFrame.DeviceScale`, and a pattern with hairlines widens them through `f.Hairline(px)` to at least one device pixel — twenty canvas pixels on a 96-pixel tile, one on an output, so an output's pixel-exact lines are what they were — and leaves out minor lines that would sit closer than three device pixels (`f.Resolves`). The Grid, the Geometry crosshair and markers, the Solid border, the LED and video walls' borders and pixel grid, the blend zones' grid, the motion marks and the ramps' markers and hashes read it. Tests: the rule (an output as asked, a tile widened to one device pixel, an upscale never thinned, a hand-built frame as an output; the spacing rule); the grid drawn by the engine into a 96×54 tile keeping all twenty lines with the device scale and next to none without it — the bug, held. | done |
 | 2 | The assistant answers again (§24.2). The service compiles the reply's structured-output schema into a grammar before it answers, and a closed object with optional members compiles to a grammar that grows with every subset of them: twelve optional overlay switches, eight optional proposal parts and seven optional cue fields, nested in lists, was "too large" and refused — 3.5 KB of schema, and no schema at all reached the model. Every member of every object is required now, null where it does not apply (`anyOf` the value or null), so an object has one fixed shape; the reply rules say so. Should the service refuse a schema again, the same ask goes again with the schema in the prompt (`=== REPLY FORMAT ===`, the schema itself, before the brief) and the reply read leniently on this side — the parser always tolerated a missing field, and a null reads as nothing said — and every ask after it this session goes that way from the start; the status says so once. Tests: every member of every object required, the nullable shapes; the refusal known by its words and by nothing else; the plain prompt carrying the shape between the rules and the brief; nulls in every place read as nothing said; on a live desk a refused first request asked again in plain JSON as the same turn, the answer read into rows, the status's note, the next ask plain from the start with no note. | done |
 | 1 | The page-switch crash (§24.1). The Lower Thirds page's designer preview kept one sink for its whole life, disposed it when the page was left and never made another when the page was re-entered, and drew with it on the compositor's render thread with no gate — a draw op queued before the page was left ran after the sink was gone, and every frame after a return used freed Skia handles; with a fractal element on the round-16 shader path the freed handle was a compiled shader program, a null native handle in Skia, the access violation. `SinkGuard` is the rule the wall's pipeline already kept, for a control that draws by hand: opened when the control joins the visual tree, closed when it leaves (every sink disposed under the gate), the frame drawn through the gate (nothing drawn once closed; a close waits for the frame in progress), fresh sinks on the way back. The designer preview and the Screens page's tiles — the same shape: a dictionary of sinks grown from the render thread and disposed from the UI thread — draw through it. Tests: the guard (closed draws nothing; a close waits for the frame and the sink lives to its end; fresh sinks after a close, never the disposed ones); the crash's own steps headless — the preview with a fractal element drawn, its page left, a late frame drawing nothing, the page back and four frames drawn through a fresh stage; the Screens page's guard opening and closing with the tree. | done |
 
@@ -1916,3 +1917,32 @@ schema has not been sent to the service from this session. The reasoning is the 
 (the grammar, the optional members) and the API's documented rules for structured output (`anyOf`,
 `$ref`, `null`, closed objects); the fallback is there so that a schema the service still dislikes
 costs one round trip and a note, never a failed feature.
+
+### 24.3 The grid on the tiles: a hairline is a device pixel, not a canvas pixel
+
+The switcher's tiles and the desk's PGM and PVW panes are true miniatures: the engine draws the
+target at its own pixel size — a 1920-wide grid gets the twenty cells it has on the wall — into a
+canvas scaled to fit the tile, 0.05 for a 1920-wide target on a 96-pixel tile. Nothing is drawn
+small and nothing is downsampled; the picture is the output's picture through a scale. That is the
+right design for everything but a hairline. The Grid draws its lines as one-pixel rectangles with
+antialiasing off, pixel-exact on an output; through a 0.05 scale each rectangle is a twentieth of
+a device pixel wide, and a rectangle without antialiasing lights a pixel only when the pixel's
+centre falls inside it — which, for a line at every 4.8 device pixels, is never, or once in a
+while as the maths rounds. The tile showed a scatter of lines popping in and out where the output
+showed a grid. The same happened to every hairline pattern on every miniature: the LED wall's tile
+borders, the blend zones' grid, the geometry crosshair, and the multiview's tiles on an output.
+
+The fix keeps the design and tells the patterns the one thing they could not know. The sink's
+context carries `DeviceScale` — 1 on an output, NDI and the stream; the fit scale on a wall tile,
+a pane, a multiview tile and a Screens-page tile — and the engine folds the canvas's own map (a
+fixed canvas scaled to its target) into the frame's `DeviceScale`. A pattern asks the frame for a
+hairline: `f.Hairline(1)` is one canvas pixel on an output and twenty on the 96-pixel tile, so the
+line is one device pixel on both, and an upscale never thins a line below what was asked. Minor
+lines that would land closer than three device pixels are left out through `f.Resolves` — a
+sub-grid that cannot be seen as a grid on a tile would fill the tile instead — and appear again on
+the big panes, where they resolve. The outputs are untouched: at a scale of 1 the rule returns
+the width asked for, and the pixel-exact tests that hold the outputs' lines pass unchanged.
+
+The test that holds the bug draws the grid through the engine into a 96×54 surface through a
+0.05 scale, once with the device scale and once without, and counts the columns lit on a row
+between the horizontal lines: twenty with it, none without.

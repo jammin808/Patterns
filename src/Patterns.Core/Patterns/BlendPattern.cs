@@ -76,17 +76,18 @@ public sealed class BlendPattern : IPatternRenderer
         c.Clear(SKColors.Black);
 
         // Continuous alignment grid across the whole canvas — geometry must line up through zones.
-        if (o.ShowGrids)
+        if (o.ShowGrids && f.Resolves(Math.Max(8, o.GridSize)))
         {
             var grid = pc.Fill(new SKColor(0xFF, 0xFF, 0xFF, 0x64));
             var cell = Math.Max(8, o.GridSize);
+            var hair = f.Hairline(1);
             for (var x = (w / 2) % cell; x < w; x += cell)
             {
-                DrawUtil.LineV(c, x, 0, h, 1, grid);
+                DrawUtil.LineV(c, x, 0, h, hair, grid);
             }
             for (var y = (h / 2) % cell; y < h; y += cell)
             {
-                DrawUtil.LineH(c, y, 0, w, 1, grid);
+                DrawUtil.LineH(c, y, 0, w, hair, grid);
             }
         }
 
