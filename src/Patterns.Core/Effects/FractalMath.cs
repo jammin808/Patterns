@@ -81,61 +81,76 @@ public static class FractalMath
     }
 
     // ---- domain warp: value noise, three folds ------------------------------------------
+    //
+    // In single precision on purpose, the shader's own. The lattice hash multiplies by 123.34 and
+    // 456.21 and takes the fraction, then folds the result into itself: a difference in the last
+    // place of the constant — 123.34 as a double is not 123.34 as a float — grows a hundredfold
+    // through the fold and lands anywhere in 0..1. Computed in doubles, the CPU path drew a
+    // different cloud from the graphics card's: NDI and the stream did not show what the
+    // projectors showed. In floats, with the shader's constants and its order of operations, the
+    // two agree (the fidelity test holds them together).
 
     /// <summary><paramref name="warp"/> (0–1) folds the second warp deeper — a sting's morph; the shader does the same.</summary>
     public static double Warp(double x, double y, double time, double warp = 0)
     {
-        var px = x * 1.5;
-        var py = y * 1.5;
-        var fold = 3 + 3 * warp;
-        var q = Fbm(px + time * 0.11, py + time * 0.07);
-        var r = Fbm(px + fold * q + 1.7 - time * 0.05, py + fold * q + 9.2 - time * 0.05);
-        return Math.Clamp(Fbm(px + 3 * r, py + 3 * r), 0, 1);
+        var px = (float)x * 1.5f;
+        var py = (float)y * 1.5f;
+        var t = (float)time;
+        var fold = 3f + 3f * (float)warp;
+        var q = FbmF(px + t * 0.11f, py + t * 0.07f);
+        var r = FbmF(px + fold * q + 1.7f - t * 0.05f, py + fold * q + 9.2f - t * 0.05f);
+        return Math.Clamp(FbmF(px + 3f * r, py + 3f * r), 0f, 1f);
     }
 
-    public static double Fbm(double x, double y)
+    public static double Fbm(double x, double y) => FbmF((float)x, (float)y);
+
+    public static double Noise(double x, double y) => NoiseF((float)x, (float)y);
+
+    /// <summary>A lattice hash in 0..1, the same arithmetic the shader uses.</summary>
+    public static double Hash(double x, double y) => HashF((float)x, (float)y);
+
+    private static float FbmF(float x, float y)
     {
-        var v = 0.0;
-        var amp = 0.5;
+        var v = 0f;
+        var amp = 0.5f;
         for (var i = 0; i < 4; i++)
         {
-            v += amp * Noise(x, y);
-            var nx = x * 2.03 + 17.1;
-            var ny = y * 2.03 + 9.3;
+            v += amp * NoiseF(x, y);
+            var nx = x * 2.03f + 17.1f;
+            var ny = y * 2.03f + 9.3f;
             x = nx;
             y = ny;
-            amp *= 0.5;
+            amp *= 0.5f;
         }
         return v;
     }
 
-    public static double Noise(double x, double y)
+    private static float NoiseF(float x, float y)
     {
-        var ix = Math.Floor(x);
-        var iy = Math.Floor(y);
+        var ix = MathF.Floor(x);
+        var iy = MathF.Floor(y);
         var fx = x - ix;
         var fy = y - iy;
-        var ux = fx * fx * (3 - 2 * fx);
-        var uy = fy * fy * (3 - 2 * fy);
-        var a = Hash(ix, iy);
-        var b = Hash(ix + 1, iy);
-        var c = Hash(ix, iy + 1);
-        var d = Hash(ix + 1, iy + 1);
+        var ux = fx * fx * (3f - 2f * fx);
+        var uy = fy * fy * (3f - 2f * fy);
+        var a = HashF(ix, iy);
+        var b = HashF(ix + 1f, iy);
+        var c = HashF(ix, iy + 1f);
+        var d = HashF(ix + 1f, iy + 1f);
         return Lerp(Lerp(a, b, ux), Lerp(c, d, ux), uy);
     }
 
-    /// <summary>A lattice hash in 0..1, the same arithmetic the shader uses.</summary>
-    public static double Hash(double x, double y)
+    private static float HashF(float x, float y)
     {
-        var px = Fract(x * 123.34);
-        var py = Fract(y * 456.21);
-        var dot = px * (px + 45.32) + py * (py + 45.32);
+        var px = Fract(x * 123.34f);
+        var py = Fract(y * 456.21f);
+        var dot = px * (px + 45.32f) + py * (py + 45.32f);
         px += dot;
         py += dot;
         return Fract(px * py);
     }
 
-    private static double Fract(double v) => v - Math.Floor(v);
+    private static float Fract(float v) => v - MathF.Floor(v);
 
-    private static double Lerp(double a, double b, double t) => a + (b - a) * t;
+    private static float Lerp(float a, float b, float t) => a + (b - a) * t;
 }

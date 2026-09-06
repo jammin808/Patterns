@@ -532,15 +532,34 @@ public static class LowerThirdRenderer
         var o = e.Fractal;
         if (cache.FractalColorsKey != o.ColorsCsv || cache.FractalColors.Length == 0)
         {
-            cache.FractalColors = ColorUtil.ParseList(o.ColorsCsv, SKColors.White);
+            cache.FractalColors = Patterns.FractalPattern.PaletteOf(o.ColorsCsv);   // the same five the pattern's shader reads
             cache.FractalColorsKey = o.ColorsCsv;
             cache.FractalTime = double.NegativeInfinity;   // a new palette draws at once
         }
         var quality = QualityLadder.Shared.Factor;
-        var size = FractalRaster.SizeFor(o.Quality, new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height)), QualityLadder.RasterScale(quality));
-        // A fractal element is rendered on the CPU by every sink that draws the lower third; at the
-        // outputs' 60 Hz that is the one thing on a lower third that could crowd out the decoders on
-        // a small machine. It gets a new frame FractalFps times a second and the same picture between —
+        var box = new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height));
+
+        // The outputs, the preview and the monitors draw the element through the fractal's runtime
+        // shader — full resolution at the display's rate on the graphics card, nothing rastered and
+        // nothing uploaded — the way the Fractal pattern has since its first round.
+        if (Patterns.FractalPattern.UsesShader(f.Ctx.Sink))
+        {
+            var audio = o.AudioSource == AudioSourceKind.None ? AudioLevelFrame.Zero : AudioLevels.Read(f.Ctx.UtcNow);
+            var view = FractalView.Of(o, time, audio, Patterns.FractalPattern.ShaderIterationCap, surge, quality);
+            c.Save();
+            ClipBox(c, rect, e.CornerPx);
+            c.Translate(rect.Left, rect.Top);
+            var drawn = Patterns.FractalPattern.TryDrawShader(c, f.Sink, o.Kind, cache.FractalColors, in view, box.Width, box.Height,
+                SKRect.Create(0, 0, rect.Width, rect.Height), f.Paints);
+            c.Restore();
+            if (drawn) return;
+        }
+
+        var size = FractalRaster.SizeFor(o.Quality, box, QualityLadder.RasterScale(quality));
+        // On the CPU path — NDI, the stream, thumbnails, a sink whose shader would not compile — the
+        // element is rastered by every sink that draws the lower third; at the outputs' 60 Hz that
+        // would be the one thing on a lower third that could crowd out the decoders on a small
+        // machine. It gets a new frame FractalFps times a second and the same picture between —
         // a size, kind or palette change, or a time that jumped back (a fresh show), draws at once.
         var due = cache.FractalImage is null || cache.Fractal is null || cache.Fractal.Size != size || cache.FractalKind != o.Kind
                   || time < cache.FractalTime || time - cache.FractalTime >= FractalFrameSeconds;

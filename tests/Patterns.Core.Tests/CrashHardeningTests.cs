@@ -311,58 +311,140 @@ public class CrashHardeningTests
     }
 }
 
-/// <summary>A lower third's fractal element on the CPU path: a new frame 25 times a second, the same picture between.</summary>
+/// <summary>
+/// A lower third's fractal element: on the CPU path (NDI, the stream, thumbnails) a new frame 25
+/// times a second and the same picture between; on an output, the preview or a monitor the
+/// fractal's own runtime shader every frame, nothing rastered.
+/// </summary>
 [Collection("InputBus")]
 public class LowerThirdFractalThrottleTests
 {
-    [Fact]
-    public void ALowerThirdFractalGetsANewFrameTwentyFiveTimesASecond()
+    /// <summary>A flat program with one lower third on it whose only element is a fractal, drawn by one sink.</summary>
+    private sealed class FractalRig : IDisposable
     {
-        var state = RenderTestHarness.State(s => s.Pattern.Kind = PatternKind.FlatField);
-        var d = new LowerThirdDesign { Name = "Wave", Width = 1200, Height = 300, InMs = 100, OutMs = 100 };
-        var fractal = new LowerThirdElement { Name = "Wave", Kind = LowerThirdElementKind.Fractal, X = 0, Y = 0, W = 1200, H = 300 };
-        fractal.Fractal.Quality = FractalQuality.Fast;
-        fractal.Fractal.Iterations = 16;
-        d.Elements.Add(fractal);
-        state.LowerThirds.Designs.Add(d);
-        state.LowerThirds.Show(d, ShowClock.UtcAt(1));
+        private readonly ShowState _state;
+        private readonly PatternEngine _engine = new();
+        private readonly SinkKind _kind;
+        private ShowSnapshot _snap;
 
-        var engine = new PatternEngine();
-        using var sink = new SinkState();
-        var snap = RenderTestHarness.Snap(state);
-        var info = new SKImageInfo(640, 360, SKColorType.Bgra8888, SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
-        void Draw(double time)
+        public FractalRig(SinkKind kind, FractalKind fractalKind = FractalKind.Mandelbrot)
+        {
+            _kind = kind;
+            _state = RenderTestHarness.State(s => s.Pattern.Kind = PatternKind.FlatField);
+            var d = new LowerThirdDesign { Name = "Wave", Width = 1200, Height = 300, InMs = 100, OutMs = 100 };
+            Element = new LowerThirdElement { Name = "Wave", Kind = LowerThirdElementKind.Fractal, X = 0, Y = 0, W = 1200, H = 300 };
+            Element.Fractal.Kind = fractalKind;
+            Element.Fractal.Quality = FractalQuality.Fast;
+            Element.Fractal.Iterations = 16;
+            d.Elements.Add(Element);
+            _state.LowerThirds.Designs.Add(d);
+            _state.LowerThirds.Show(d, ShowClock.UtcAt(1));
+            _snap = RenderTestHarness.Snap(_state);
+            Surface = SKSurface.Create(new SKImageInfo(640, 360, SKColorType.Bgra8888, SKAlphaType.Premul));
+        }
+
+        public LowerThirdElement Element { get; }
+        public SinkState Sink { get; } = new();
+        public SKSurface Surface { get; }
+        public LowerThirdElementCache Cache => Sink.LowerThirds[Element.Id];
+
+        public void Draw(double time)
         {
             var ctx = new RenderContext
             {
                 ViewportSize = new SKSizeI(640, 360), ReferenceSize = new SKSizeI(640, 360), Time = time,
-                Now = new DateTime(2026, 9, 6, 12, 0, 0), UtcNow = RenderTestHarness.FixedUtcNow, Sink = SinkKind.Output, SinkIndex = 1, SinkLabel = "test",
+                Now = new DateTime(2026, 9, 6, 12, 0, 0), UtcNow = RenderTestHarness.FixedUtcNow, Sink = _kind, SinkIndex = 1, SinkLabel = "test",
             };
-            engine.Render(surface.Canvas, snap, in ctx, sink);
+            _engine.Render(Surface.Canvas, _snap, in ctx, Sink);
         }
 
-        Draw(1.5);
-        var cache = sink.LowerThirds[fractal.Id];
+        /// <summary>The design edited: the next draw sees a new snapshot version.</summary>
+        public void Resnap(int version) => _snap = RenderTestHarness.Snap(_state, version: version);
+
+        /// <summary>The picture on a coarse grid — enough to tell one frame from another and a flat box from a drawn one.</summary>
+        public (string Signature, int Colours) Sample()
+        {
+            using var image = Surface.Snapshot();
+            using var bmp = SKBitmap.FromImage(image);
+            var sb = new System.Text.StringBuilder();
+            var colours = new HashSet<uint>();
+            for (var y = 0; y < bmp.Height; y += 12)
+            {
+                for (var x = 0; x < bmp.Width; x += 16)
+                {
+                    var px = (uint)bmp.GetPixel(x, y);
+                    colours.Add(px);
+                    sb.Append(px.ToString("X8"));
+                }
+            }
+            return (sb.ToString(), colours.Count);
+        }
+
+        public void Dispose()
+        {
+            Sink.Dispose();
+            Surface.Dispose();
+        }
+    }
+
+    [Fact]
+    public void ALowerThirdFractalGetsANewFrameTwentyFiveTimesASecondOnTheCpuPath()
+    {
+        using var rig = new FractalRig(SinkKind.Ndi);
+        rig.Draw(1.5);
+        var cache = rig.Cache;
         Assert.NotNull(cache.Fractal);
         Assert.NotNull(cache.FractalImage);
         Assert.Equal(1, cache.FractalFrames);
 
-        Draw(1.51);                                   // 10 ms on: the same frame is drawn again
-        Draw(1.52);
+        rig.Draw(1.51);                                   // 10 ms on: the same frame is drawn again
+        rig.Draw(1.52);
         Assert.Equal(1, cache.FractalFrames);
 
-        Draw(1.5 + LowerThirdRenderer.FractalFrameSeconds);   // the next frame is due
+        rig.Draw(1.5 + LowerThirdRenderer.FractalFrameSeconds);   // the next frame is due
         Assert.Equal(2, cache.FractalFrames);
 
-        Draw(1.2);                                    // time went back (a fresh show): a frame at once
+        rig.Draw(1.2);                                    // time went back (a fresh show): a frame at once
         Assert.Equal(3, cache.FractalFrames);
 
-        fractal.Fractal.ColorsCsv = "#FF0000,#00FF00";  // a new palette draws at once, whatever the clock
-        snap = RenderTestHarness.Snap(state, version: 2);
-        Draw(1.205);
+        rig.Element.Fractal.ColorsCsv = "#FF0000,#00FF00";  // a new palette draws at once, whatever the clock
+        rig.Resnap(2);
+        rig.Draw(1.205);
         Assert.Equal(4, cache.FractalFrames);
         Assert.Equal(-1, cache.FailedVersion);
         Assert.Equal(25, LowerThirdRenderer.FractalFps);
+        Assert.Empty(rig.Sink.FractalEffects);            // the CPU path compiled no shader
+    }
+
+    [Fact]
+    public void ALowerThirdFractalDrawsThroughTheShaderOnAnOutputEveryFrame()
+    {
+        foreach (var kind in Enum.GetValues<FractalKind>())
+        {
+            using var rig = new FractalRig(SinkKind.Output, kind);
+            rig.Draw(1.5);
+            var cache = rig.Cache;
+            Assert.Equal(0, cache.FractalFrames);          // nothing rastered on this sink
+            Assert.Null(cache.Fractal);
+            Assert.Null(cache.FractalImage);
+            Assert.True(rig.Sink.FractalEffects.ContainsKey(kind), $"{kind}: the shader was not compiled for the sink");
+            Assert.Equal(-1, cache.FailedVersion);
+            var (first, colours) = rig.Sample();
+            Assert.True(colours >= 3, $"{kind}: the box drew {colours} colours");
+
+            rig.Draw(3.5);                                  // two seconds on: the picture breathes, so the frame differs
+            var (second, _) = rig.Sample();
+            Assert.NotEqual(first, second);
+            Assert.Equal(0, cache.FractalFrames);
+        }
+    }
+
+    [Fact]
+    public void ALowerThirdFractalReadsTheSameFiveColoursOnEveryPath()
+    {
+        Assert.Equal(5, Patterns.FractalPattern.PaletteColors);
+        Assert.Equal(5, Patterns.FractalPattern.PaletteOf("#111111,#222222,#333333,#444444,#555555,#666666,#777777").Length);
+        Assert.Equal(new[] { SKColors.White }, Patterns.FractalPattern.PaletteOf(""));
+        Assert.Equal(2, Patterns.FractalPattern.PaletteOf("#FF0000,#00FF00").Length);
     }
 }

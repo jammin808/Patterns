@@ -123,6 +123,54 @@ public class FractalMathTests
         Assert.All(Enum.GetValues<FractalKind>(), k => Assert.Contains("half4 main(float2 px)", FractalPattern.SourceFor(k)));
     }
 
+    /// <summary>
+    /// The one picture on every sink: the shader (evaluated by Skia on a CPU surface here, the same
+    /// SkSL the graphics card runs) and the CPU raster draw the same view into the same colours —
+    /// so NDI, the stream and a thumbnail show what the outputs show.
+    /// </summary>
+    [Fact]
+    public void TheShaderAndTheRasterAgreeOnEveryFamily()
+    {
+        var palette = new[] { new SKColor(0x10, 0x20, 0x80), new SKColor(0xF0, 0x40, 0x20), new SKColor(0xFF, 0xFF, 0xFF) };
+        const int w = 96, h = 54;
+        foreach (var kind in Enum.GetValues<FractalKind>())
+        {
+            var o = new FractalOptions { Kind = kind, Iterations = 48, Speed = 0.4, Zoom = 1.1, CenterX = kind == FractalKind.Mandelbrot ? -0.5 : 0 };
+            var view = FractalView.Of(o, 2.0, AudioLevelFrame.Zero, iterationCap: 64);
+
+            using var raster = FractalRaster.Render(null, new SKSizeI(w, h), kind, palette, view);
+            using var sink = new Rendering.SinkState();
+            using var surface = SKSurface.Create(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
+            Assert.True(FractalPattern.TryDrawShader(surface.Canvas, sink, kind, palette, in view, w, h, SKRect.Create(0, 0, w, h), sink.Paints), $"{kind}: no shader");
+            surface.Canvas.Flush();
+            using var image = surface.Snapshot();
+            using var shaded = SKBitmap.FromImage(image);
+
+            double sum = 0;
+            var off = 0;
+            var colours = new HashSet<uint>();
+            for (var y = 0; y < h; y++)
+            {
+                for (var x = 0; x < w; x++)
+                {
+                    var a = raster.Bitmap.GetPixel(x, y);
+                    var b = shaded.GetPixel(x, y);
+                    colours.Add((uint)a);
+                    var dr = Math.Abs(a.Red - b.Red);
+                    var dg = Math.Abs(a.Green - b.Green);
+                    var db = Math.Abs(a.Blue - b.Blue);
+                    sum += (dr + dg + db) / 3.0;
+                    if (Math.Max(dr, Math.Max(dg, db)) > 64) off++;
+                }
+            }
+            var mean = sum / (w * h);
+            var offShare = off / (double)(w * h);
+            Assert.True(colours.Count >= 3, $"{kind}: the raster drew {colours.Count} colours");
+            Assert.True(mean <= 10, $"{kind}: the shader and the raster differ by {mean:0.0}/255 on average, {offShare:P1} of pixels far apart");
+            Assert.True(offShare <= 0.06, $"{kind}: {offShare:P1} of pixels differ by more than 64/255 (mean {mean:0.0})");
+        }
+    }
+
     [Fact]
     public void ScenesApplyAndLeaveTheSoundSettingsAlone()
     {

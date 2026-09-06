@@ -324,7 +324,9 @@ public class LowerThirdTests
         Assert.NotEqual(new SKColor(0x14, 0x06, 0x06), bmp.GetPixel(10, 10));
         Assert.Equal(7, sink.LowerThirds.Count);
         Assert.NotNull(sink.LowerThirds[particles.Id].Sim);
-        Assert.NotNull(sink.LowerThirds[fractal.Id].Fractal);
+        // An output draws the fractal element through the shader: the sink holds the compiled shader, no raster.
+        Assert.Null(sink.LowerThirds[fractal.Id].Fractal);
+        Assert.True(sink.FractalEffects.ContainsKey(fractal.Fractal.Kind), "the fractal element drew through the shader on this sink");
         Assert.All(sink.LowerThirds.Values, c => Assert.Equal(-1, c.FailedVersion));
 
         // The hold shows the same again; leaving spins out; a removed element's cache is swept on the next version.

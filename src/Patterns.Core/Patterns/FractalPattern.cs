@@ -208,36 +208,15 @@ public sealed class FractalPattern : IPatternRenderer
 
         // The quality ladder's factor, read once per frame so every sink draws the same set.
         var quality = Services.QualityLadder.Shared.Factor;
-        if (UsesShader(f.Ctx.Sink) && Shader(sink, o.Kind) is { } fx)
+        if (UsesShader(f.Ctx.Sink))
         {
             var view = FractalView.Of(o, f.Ctx.Time, audio, ShaderIterationCap, surge, quality);
-            var uniforms = new SKRuntimeEffectUniforms(fx)
+            if (TryDrawShader(c, sink, o.Kind, palette, in view, w, h, dest, f.Paints))
             {
-                ["res"] = new[] { (float)w, (float)h },
-                ["center"] = new[] { (float)view.CenterX, (float)view.CenterY },
-                ["upp"] = (float)view.UnitsPerPixel(h),
-                ["c"] = new[] { (float)view.JuliaRe, (float)view.JuliaIm },
-                ["iters"] = (float)view.Iterations,
-                ["offset"] = (float)view.PaletteOffset,
-                ["bright"] = (float)view.Brightness,
-                ["ncol"] = (float)palette.Length,
-                ["p0"] = Rgb(palette, 0),
-                ["p1"] = Rgb(palette, 1),
-                ["p2"] = Rgb(palette, 2),
-                ["p3"] = Rgb(palette, 3),
-                ["p4"] = Rgb(palette, 4),
-                ["t"] = (float)view.Time,
-                ["rot"] = new[] { (float)Math.Cos(view.Angle), (float)Math.Sin(view.Angle) },
-                ["warp"] = (float)view.Warp,
-            };
-            using var shader = fx.ToShader(uniforms);
-            var paint = f.Paints.Fill(SKColors.White);
-            paint.Shader = shader;
-            c.DrawRect(dest, paint);
-            paint.Shader = null;
-            if (shaking) c.Restore();
-            EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
-            return;
+                if (shaking) c.Restore();
+                EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
+                return;
+            }
         }
 
         var cpuView = FractalView.Of(o, f.Ctx.Time, audio, surge: surge, quality: quality);
@@ -247,6 +226,55 @@ public sealed class FractalPattern : IPatternRenderer
         if (image is not null) c.DrawImage(image, dest, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
         if (shaking) c.Restore();
         EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
+    }
+
+    /// <summary>
+    /// Draws the view through the sink's runtime shader over <paramref name="dest"/>: a picture
+    /// <paramref name="w"/> × <paramref name="h"/> pixels across, centred on the view, in the
+    /// canvas's current local space — a caller drawing a box translates to its corner first. The
+    /// lower-third fractal element draws through here too, so the outputs, the preview and the
+    /// monitors never raster a fractal. False when the sink has no shader for the kind (it would
+    /// not compile there); the caller rasters instead.
+    /// </summary>
+    public static bool TryDrawShader(SKCanvas c, SinkState sink, FractalKind kind, SKColor[] palette, in FractalView view, float w, float h, SKRect dest, PaintCache paints)
+    {
+        if (Shader(sink, kind) is not { } fx) return false;
+        if (palette.Length == 0) palette = new[] { SKColors.White };
+        var uniforms = new SKRuntimeEffectUniforms(fx)
+        {
+            ["res"] = new[] { w, h },
+            ["center"] = new[] { (float)view.CenterX, (float)view.CenterY },
+            ["upp"] = (float)view.UnitsPerPixel(Math.Max(1, (int)Math.Round(h))),
+            ["c"] = new[] { (float)view.JuliaRe, (float)view.JuliaIm },
+            ["iters"] = (float)view.Iterations,
+            ["offset"] = (float)view.PaletteOffset,
+            ["bright"] = (float)view.Brightness,
+            ["ncol"] = (float)Math.Min(palette.Length, PaletteColors),
+            ["p0"] = Rgb(palette, 0),
+            ["p1"] = Rgb(palette, 1),
+            ["p2"] = Rgb(palette, 2),
+            ["p3"] = Rgb(palette, 3),
+            ["p4"] = Rgb(palette, 4),
+            ["t"] = (float)view.Time,
+            ["rot"] = new[] { (float)Math.Cos(view.Angle), (float)Math.Sin(view.Angle) },
+            ["warp"] = (float)view.Warp,
+        };
+        using var shader = fx.ToShader(uniforms);
+        var paint = paints.Fill(SKColors.White);
+        paint.Shader = shader;
+        c.DrawRect(dest, paint);
+        paint.Shader = null;
+        return true;
+    }
+
+    /// <summary>How many colours a palette carries: the shader has five slots, and the CPU path reads the same five so every sink agrees.</summary>
+    public const int PaletteColors = 5;
+
+    /// <summary>The colours a fractal cycles through: the list as written, capped at <see cref="PaletteColors"/>, white when it is empty.</summary>
+    public static SKColor[] PaletteOf(string csv)
+    {
+        var parsed = ColorUtil.ParseList(csv, SKColors.White);
+        return parsed.Length == 0 ? new[] { SKColors.White } : parsed.Take(PaletteColors).ToArray();
     }
 
     private static SKRuntimeEffect? Shader(SinkState sink, FractalKind kind)
@@ -268,8 +296,7 @@ public sealed class FractalPattern : IPatternRenderer
     {
         if (sink.FractalColorsKey != csv || sink.FractalColors.Length == 0)
         {
-            var parsed = ColorUtil.ParseList(csv, SKColors.White);
-            sink.FractalColors = parsed.Length == 0 ? new[] { SKColors.White } : parsed.Take(5).ToArray();
+            sink.FractalColors = PaletteOf(csv);
             sink.FractalColorsKey = csv;
         }
         return sink.FractalColors;

@@ -1475,6 +1475,7 @@ Windows machine is `docs/CHECKLIST-round16.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 3 | The lower-third fractal element on the graphics card (§22.3). The Fractal *pattern* has drawn through a runtime shader on the outputs, the preview and the monitors since it was built; the lower-third fractal *element* still rastered on the CPU on every sink, 25 frames a second, and uploaded each frame. `FractalPattern.TryDrawShader` is the one shader draw now — the pattern and the element both call it — so an output draws the element at full resolution and the display's rate with nothing rastered and nothing uploaded; NDI, the stream and thumbnails keep the CPU path and its cadence. Found on the way: the domain-warp family drew a *different* cloud on the CPU path from the card's — the lattice hash multiplies by 123.34 and folds the fraction into itself, and 123.34 as a double is not 123.34 as a float, a difference the fold grows a hundredfold — so NDI and the stream never showed what the projectors showed. The CPU noise is single precision now, the shader's arithmetic in the shader's order, and a fidelity test draws every family both ways on the same surface and holds them within a few levels of each other. The element reads the same five palette colours the shader has slots for. Tests: the fidelity test; the element on an output drawing through the shader every frame with no raster, on NDI at its cadence; the palette cap. | done |
 | 2 | The wire speaks the vocabulary (§22.2). `RemoteCommandKind` had 115 kinds of its own and `CommandRouter.ToAction` mapped 101 of them to a `ShowAction` by hand; now the parser returns the show action itself — `RemoteCommand` is a `ShowAction` plus the wire's own five words (`Ping`, `Status`, `Hello`, `CueList`, `Unknown`) — and the router runs every action through the one executor, shaping only the two replies that carry a payload (GO's record, the standby cue). The map is deleted with its enum. The stack's own transport became show actions of the desk's kind — `CueStandby` (next, prev, a cue by number, name or id; never journaled) and `CueHoldOn` / `CueHoldOff` — and CUE ARM is `ListArm` / `ListDisarm` on the caller's stack, so the Run surface's ARM, HOLD and ▲ ▼, the desk's Up / Down keys, the phone, Companion, OSC and a device all reach the stack through the executor; the "remotes may arm" gate moved from the router into the executor, which reads the origin, and the service's own journal rows went so the executor journals once. `LOOK #n` carries "#n" as its target and the executor resolves the place (`no look #n — the show has N`). Sixteen kinds are the desk's alone now. Tests: a table of 116 wire lines against the show action each must parse to, the enum's six members, the wire's own words, and that TAKE / CUT have no verb; the older parser tests re-read as show actions; on a live desk the router's replies for GO, standby, hold and arm as before and the arm gate refusing a remote. | done |
 | 1 | One action vocabulary (§22.1). `CueActionKind` is gone: a cue's step (`CueActionConfig`) carries a `ShowActionKind` — the same kind, target and value the desk's keys, the wire's lines, OSC, Companion, the schedule and a device send — and `ToAction()` is the whole translation; `ShowActions.ToShowAction`, the 65-row map, is deleted and `RunCue` hands each step to the one executor. The vocabulary (`ShowActionKind`, `ShowAction`, `ActionOrigin`, `ActionResult`) lives in `Patterns.Core.Model` now, beside the cue that carries it, and the comment that said "(later) the cue stack" says who speaks it. `ActionSpec` (was `CueActionSpec`) is the one table for the whole vocabulary: per kind its target and value (five value kinds added — Switch, Hours, ClockTime, PatternKind, Address), its label, `CueKinds` (the picker's order) and `DeskOnly` (thirteen kinds, each with its reason: TAKE and CUT, the stack's own transport, the clicker's keys, the F-key slot, identify, the review flag, the admin verbs). Thirty-four verbs a cue never had are a cue's now — the clock's format, seconds and date, the message's toggle and scroll, a countdown to a time and its label, the logo, the PiP, overlays off, the pattern's kind, freeze, tone, stop all, outputs, the toggles, a look into the preview, the look before, a lower third's preview off and update, a web page opened — with the checks, the summary's words, the sheet's spellings and the editor's hints for each. One convention for a fade's length: the value is seconds for the desk's key, the wire's line, OSC and a cue alike (the wire's parsed milliseconds become "2" / "1.5"; "1500ms" still reads), so no source converts for another. Show files load unchanged: the kind was always kept by name, and every old name is a `ShowActionKind`. Tests: a guard that every kind is a cue kind or the desk's alone and never both, that every cue kind has a label, words in the summary and a sheet spelling, and that the desk's own never parse from a sheet; the show file round trip and a newer build's kind as Unknown; the checks on the desk's own kinds and the new values; on a live desk one cue running eleven verbs a cue never had, a clean picture, TAKE and RESTART refused from a cue with their reasons, and the fade's seconds from the desk, the wire and a cue into the one executor; every wire command either handled by the router or mapped to a show action. | done |
 
@@ -1586,3 +1587,42 @@ they held still holds.
 Companion module and its expectations, the replies (OK / ERR with the same words, GO's JSON,
 the standby's JSON, the arm refusal's sentence), the phone remote, the journal's rows for GO,
 hold and arm, and the show file.
+
+### 22.3 The lower-third fractal on the card, and the cloud that was two clouds
+
+**A correction first.** The assessment that opened the second half of this round called the
+fractal "the one CPU-rastered pattern". It was not: the Fractal *pattern* has drawn through a
+runtime shader (`SKRuntimeEffect`, SkSL) on the outputs, the preview and the monitors since it was
+built, with the CPU raster kept for the sinks that need pixels in memory — NDI, the stream,
+thumbnails — and for any sink whose shader would not compile. What was still on the CPU was the
+lower-third fractal *element*: rastered by every sink that drew the lower third, at a cadence of
+25 frames a second so the outputs' 60 Hz would not crowd out the decoders, and uploaded to the card
+each time. That is what this item moved.
+
+**The shape.** One shader draw, `FractalPattern.TryDrawShader`: the sink's compiled effect for the
+kind, the view's uniforms, one rectangle. The pattern calls it as before; the element clips its
+box, translates to its corner and calls the same thing at the box's size, so the outputs draw it at
+full resolution and the display's rate with nothing rastered and nothing uploaded. The CPU path
+below it is unchanged, cadence and all. The element's palette is capped at the five colours the
+shader has slots for, so every path reads the same colours.
+
+**The finding.** The fidelity test written for this item — every family drawn by the shader
+(Skia evaluates the same SkSL on a CPU surface in the suite) and by the raster into the same
+pixels, compared — passed four families and failed the fifth by half the range: the domain-warp
+cloud on the CPU path was a *different cloud*. The value-noise lattice hash multiplies its
+coordinates by 123.34 and 456.21, takes the fractions, and folds them into themselves; 123.34 as
+a double is not 123.34 as a float, and the fold grows that last-place difference a hundredfold, so
+the CPU's noise lattice and the card's had nothing to do with each other. Both looked like clouds,
+so nobody saw it — until an NDI receive sat beside a projector. The CPU noise is single precision
+now, the shader's own arithmetic in the shader's order, and the test holds every family within a
+few levels of the shader. The escape-time families and Newton stay in doubles: their differences
+were already a few levels at the boundaries.
+
+**What did not change.** The shader sources, the CPU path's cadence and its raster sizes, the
+quality ladder's hand on iterations and raster scale, the sound channel, every design and preset.
+
+**Where the render thread stands now.** The compositor still renders every output window on one
+thread, but with the element on the card no lower third and no fractal pattern puts CPU raster
+work on it; what remains there per output is Skia command recording and the other CPU stages the
+frame budget names (a layer's readback, a wall's slicing, text). Per-sink render threads stay the
+step after that, taken when the frame budget on a real rig says so.
