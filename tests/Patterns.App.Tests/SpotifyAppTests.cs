@@ -1033,7 +1033,8 @@ public class SpotifyAppTests
         vm.MusicLinkDraft = "https://youtube.com/x";
         vm.BrowseSpotifyLinkCommand.Execute(null);
         Assert.Contains("Paste a Spotify playlist", vm.StatusMessage);
-        Assert.Empty(r.Fake.Requests);
+        // No browse went out; the desk's own one-second poll may have asked Spotify for the player's state in the meantime, which is not a browse.
+        Assert.DoesNotContain(r.Fake.Requests, q => q.Url.Contains("/playlists") || q.Url.Contains("/tracks") || q.Url.Contains("/search"));
         Assert.Equal(498, vm.SpotifyTracks.Count);              // the last good listing stays
     }
 

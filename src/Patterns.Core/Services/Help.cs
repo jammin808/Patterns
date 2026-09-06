@@ -218,7 +218,7 @@ public static class HelpTopics
             {
                 "Open EDIT SAFE: the editors now change the PREVIEW; the program is frozen for the audience.",
                 "Build the next picture; check it on the PREVIEW pane, or with REVIEW on a multiview.",
-                "TAKE swaps it to air with the show's transition; CUT does it at once.",
+                "TAKE swaps it to air with the show's transition; CUT does it at once — where the picker beside them says: ALL ARMED, FOCUSED (the tile you clicked; the PGM tile means every armed screen), TICKED or TICKED GROUPS; everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it.",
                 "ARM off on a tile keeps that target through the next TAKE; LOCK keeps it through looks, cues and stingers too.",
                 "SEND puts the preview on one tile alone as its own picture; OWN gives a tile its own editable picture.",
                 "The tick on a tile is there with or without EDIT SAFE: it joins SEND TO TICKED, and the Show panel's FADE TO BLACK on THE TICKED SCREENS or THE TICKED GROUPS.",

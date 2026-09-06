@@ -10,7 +10,7 @@
      pattern; MON = draw the miniatures; ARM = the next CUT / TAKE changes it; OUT (on the
      title row) = OUTPUT on/off live; the tick = a SEND TO TICKED target (sandbox open) and
      a FADE TO BLACK "ticked" target (always). -->
-<Grid ColumnDefinitions="*,8,Auto,Auto,Auto">
+<Grid ColumnDefinitions="*,8,Auto,Auto">
   <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
     <ItemsControl ItemsSource="{Binding SwitcherTiles}">
       <ItemsControl.ItemsPanel>
@@ -92,11 +92,20 @@
     <Button Classes="mini" Content="ARM ALL" Focusable="False" Command="{Binding ArmAllCommand}"
             ToolTip.Tip="Arm every target again — the next CUT / TAKE goes everywhere" />
   </StackPanel>
-  <Button Grid.Column="3" Classes="chip" Content="CUT" FontWeight="Bold" Margin="0,0,6,0" Focusable="False"
-          Command="{Binding CutCommand}" IsEnabled="{Binding IsSandboxActive}"
-          ToolTip.Tip="Preview becomes program instantly (no fade) on every armed target" />
-  <Button Grid.Column="4" Classes="go" Content="TAKE" FontWeight="Bold" Padding="16,6" Focusable="False"
-          Command="{Binding TakeCommand}" IsEnabled="{Binding IsSandboxActive}"
-          ToolTip.Tip="Preview fades up as the program (uses the transition time) on every armed target" />
+  <!-- CUT and TAKE, and under them where they land: every armed screen, the focused tile, the ticked tiles or the ticked groups.
+       Stacked, so the pair is no wider than it was and TAKE stays on the window with the screens column at its narrowest -->
+  <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <Button Classes="chip" Content="CUT" FontWeight="Bold" Focusable="False"
+              Command="{Binding CutCommand}" IsEnabled="{Binding IsSandboxActive}"
+              ToolTip.Tip="Preview becomes program instantly (no fade) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups" />
+      <Button Classes="go" Content="TAKE" FontWeight="Bold" Padding="16,6" Focusable="False"
+              Command="{Binding TakeCommand}" IsEnabled="{Binding IsSandboxActive}"
+              ToolTip.Tip="Preview fades up as the program (uses the transition time) where the picker under it says — every armed target, the focused tile, the ticked tiles or the ticked groups" />
+    </StackPanel>
+    <ComboBox Name="TakeScopePicker" HorizontalAlignment="Stretch" MinWidth="0" Focusable="False" FontSize="11"
+              ItemsSource="{Binding TakeScopes}" SelectedItem="{Binding SelectedTakeScope, Mode=TwoWay}" IsEnabled="{Binding IsSandboxActive}"
+              ToolTip.Tip="Where the next CUT / TAKE lands. ALL ARMED: ARM and LOCK on the tiles decide; FOCUSED: the wall tile you clicked (the PGM tile means every armed screen); TICKED / TICKED GROUPS: the tiles ticked on the wall (a group is a joined canvas). Everything outside the choice keeps its picture like an un-armed tile, and the next full TAKE lifts it" />
+  </StackPanel>
 </Grid>
 </UserControl>

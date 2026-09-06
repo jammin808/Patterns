@@ -653,9 +653,11 @@ public sealed partial class MainViewModel : Observable
         };
         RebuildGpuRows();
 
-        // Switcher: sandbox sends, CUT/TAKE, tile selection
-        TakeCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk));
-        CutCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Cut, ActionOrigin.Desk));
+        // Switcher: sandbox sends, CUT/TAKE, tile selection. CUT and TAKE land where the wall's picker
+        // says (every armed screen, the focused tile, the ticked tiles, the ticked groups); the Show
+        // panel's SEND TO ALL is always everything.
+        TakeCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk, SelectedTakeScope.Words));
+        CutCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Cut, ActionOrigin.Desk, SelectedTakeScope.Words));
         SandboxSendAllCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk));
         SandboxSendSelectedCommand = new RelayCommand(() =>
         {

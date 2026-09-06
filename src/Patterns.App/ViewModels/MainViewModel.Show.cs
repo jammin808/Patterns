@@ -660,6 +660,28 @@ public sealed partial class MainViewModel
         set => Set(ref _selectedFadeScope, value ?? FadeScopes[0]);
     }
 
+    /// <summary>
+    /// Where the wall's CUT and TAKE land: every armed screen (ARM and LOCK on the tiles decide), the
+    /// focused tile, the ticked tiles, or the ticked groups — everything outside the choice keeps
+    /// its picture like an un-armed tile, and the next full send lifts it. The first is the default.
+    /// </summary>
+    public IReadOnlyList<FadeScopeChoice> TakeScopes { get; } = new[]
+    {
+        new FadeScopeChoice("ALL ARMED", ""),
+        new FadeScopeChoice("FOCUSED", FadeScope.Focused.Words),
+        new FadeScopeChoice("TICKED", FadeScope.Ticked.Words),
+        new FadeScopeChoice("TICKED GROUPS", FadeScope.Groups.Words),
+    };
+
+    private FadeScopeChoice? _selectedTakeScope;
+
+    /// <summary>The CUT / TAKE picker's choice; never null — an emptied picker falls back to every armed screen.</summary>
+    public FadeScopeChoice SelectedTakeScope
+    {
+        get => _selectedTakeScope ?? TakeScopes[0];
+        set => Set(ref _selectedTakeScope, value ?? TakeScopes[0]);
+    }
+
     /// <summary>The look LOOK BACK returns to, by name ("" = none yet).</summary>
     public string PreviousLookName => LookService.Find(State, _services.PreviousAirLookId)?.Name ?? "";
 

@@ -950,16 +950,36 @@ public sealed class ShowActions
                     return ActionResult.Refused("Open EDIT SAFE (the sandbox) first — build the look, then CUT or TAKE it to air.");
                 }
                 var cut = a.Kind == ShowActionKind.Cut;
+                // Where: every armed screen — the wall's ARM and LOCK decide — or a part of the rig
+                // (the focused tile, the ticked tiles, the ticked groups, SCREEN n, GROUP A) with
+                // everything outside it keeping its picture exactly as an un-armed tile does: pinned
+                // as its own, lifted by the next full send. The same words a fade takes.
+                if (FadeScope.Parse(a.Target) is not { } scope)
+                {
+                    return ActionResult.Refused($"'{a.Target}' is not a place to take to — leave it empty for every armed screen, or SCREEN 2, GROUP A, FOCUSED, TICKED, GROUPS.");
+                }
+                var all = Rig.Targets(State, _s.Screens.All);
                 // Un-armed tiles and locked screens (a confidence monitor, an info screen) keep their picture.
-                var unarmed = _s.Arming.Unarmed;
-                var locked = ScreenRoles.LockedTargets(State, Rig.Targets(State, _s.Screens.All));
-                IReadOnlyCollection<string> held = locked.Count == 0 ? unarmed : unarmed.Concat(locked).ToHashSet(StringComparer.Ordinal);
+                var held = new HashSet<string>(_s.Arming.Unarmed, StringComparer.Ordinal);
+                foreach (var t in ScreenRoles.LockedTargets(State, all)) held.Add(t);
+                var where = "on every armed screen";
+                if (!(scope.IsEverything || (scope.Kind == FadeScopeKind.Focused && _s.FocusedTarget?.Invoke() is null)))
+                {
+                    var (targets, problem) = FadeTargets(scope);
+                    if (problem is not null) return ActionResult.Refused(problem);
+                    var inside = new HashSet<string>(targets, StringComparer.Ordinal);
+                    foreach (var t in all)
+                    {
+                        if (!inside.Contains(t)) held.Add(t);
+                    }
+                    where = $"on {FadeWords(targets)}";
+                }
                 _s.Sandbox.SendAll(cut, held);
                 var rearmed = _s.Sandbox.Active ? " EDIT SAFE re-armed." : "";
-                var scope = held.Count == 0 ? "on every screen" : $"on the armed tiles ({held.Count} kept their picture)";
+                var kept = held.Count == 0 ? "" : $" ({held.Count} kept their picture)";
                 return ActionResult.Done((cut
-                    ? $"CUT — sandbox is now the program {scope}."
-                    : $"TAKE — sandbox faded up {scope}.") + rearmed);
+                    ? $"CUT — sandbox is now the program {where}{kept}."
+                    : $"TAKE — sandbox faded up {where}{kept}.") + rearmed);
             }
 
             // The Install page: announcements and adverts by hand, the schedule's switch.
@@ -1290,7 +1310,8 @@ public sealed class ShowActions
     /// <summary>
     /// The content targets a scope names on this rig, or why it names none: the focused tile, the
     /// ticked tiles, the ticked tiles that are groups, a screen by wall number (the canvas it
-    /// renders through when it joined one), a group by wall letter, a target id in the rig.
+    /// renders through when it joined one), a group by wall letter, a target id in the rig. A
+    /// fade and a CUT / TAKE read the same words through here.
     /// </summary>
     private (IReadOnlyList<string> Targets, string? Problem) FadeTargets(FadeScope scope)
     {
@@ -1305,7 +1326,7 @@ public sealed class ShowActions
             case FadeScopeKind.Ticked:
             {
                 var ticked = _s.TickedTargets?.Invoke() ?? Array.Empty<string>();
-                return ticked.Count == 0 ? (Array.Empty<string>(), "Tick the wall tiles to fade first.") : (ticked, null);
+                return ticked.Count == 0 ? (Array.Empty<string>(), "Tick the wall tiles first.") : (ticked, null);
             }
             case FadeScopeKind.Groups:
             {
