@@ -393,6 +393,11 @@
     <Setter Property="Background" Value="{StaticResource TallyHoldBrush}" />
     <Setter Property="Foreground" Value="#0E0F13" />
   </Style>
+  <!-- OUT on a wall tile: green while the screen's output is on, the wall's grey when it is off -->
+  <Style Selector="ToggleButton.wall.output:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource TallyPvwBrush}" />
+    <Setter Property="Foreground" Value="#0E0F13" />
+  </Style>
   <Style Selector="Border.roleBadge">
     <Setter Property="Background" Value="#14232E" />
     <Setter Property="BorderBrush" Value="{StaticResource AccentDimBrush}" />

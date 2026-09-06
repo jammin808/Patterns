@@ -205,6 +205,25 @@
       </ItemsControl>
     </StackPanel>
 
+    <!-- The stop for what the VOG and STINGER chips fire sits right under them (round 15), never below the lower thirds -->
+    <Border Classes="runBanner" IsVisible="{Binding StingerHolding}">
+      <Grid ColumnDefinitions="*,8,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="runTag" Text="STING HOLD" />
+          <TextBlock Classes="label" Text="{Binding StingerHoldText}" TextWrapping="Wrap" />
+          <TextBlock Classes="hint tip" Text="TAKE the preview, GO the next cue — or put it back." />
+        </StackPanel>
+        <Button Grid.Column="2" Classes="stop" Content="PUT IT BACK" Command="{Binding StopStingerCommand}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+    <Grid ColumnDefinitions="*,8,Auto" Name="StingerStopRow">
+      <TextBlock Classes="label" Text="{Binding StingerStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
+      <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding StopStingerCommand}"
+              ToolTip.Tip="Stops the VOG, stinger or surge that is playing and puts the show back" />
+    </Grid>
+    <TextBlock Classes="hint tip"
+               Text="A VOG plays over everything (the music ducks, and so does a stinger that is playing) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. A chip lights red while its sound, clip or surge plays, its line reading the seconds, HOLDING, or what is left of a sting. ■ Stop here ends whichever is playing. Set them up on the Audio page (SETUP)." />
+
     <StackPanel IsVisible="{Binding State.LowerThirds.Designs.Count, Converter={StaticResource Positive}}">
       <Grid ColumnDefinitions="*,8,Auto">
         <TextBlock Classes="h2" Text="LOWER THIRDS" VerticalAlignment="Center" />
@@ -272,24 +291,6 @@
         <TextBlock Classes="hint tip" Text="A person goes into the design on air (else the show's ★ default) — name, role, company and photo — and it arrives again: the next speaker in one press. With PVW FIRST on, into the preview for a sign-off first. A person's chip lights red while the design on air carries that name and green while the one in the preview does, the line naming the design; otherwise the line is the role." />
       </StackPanel>
     </StackPanel>
-
-    <Border Classes="runBanner" IsVisible="{Binding StingerHolding}">
-      <Grid ColumnDefinitions="*,8,Auto">
-        <StackPanel Spacing="2">
-          <TextBlock Classes="runTag" Text="STING HOLD" />
-          <TextBlock Classes="label" Text="{Binding StingerHoldText}" TextWrapping="Wrap" />
-          <TextBlock Classes="hint tip" Text="TAKE the preview, GO the next cue — or put it back." />
-        </StackPanel>
-        <Button Grid.Column="2" Classes="stop" Content="PUT IT BACK" Command="{Binding StopStingerCommand}" VerticalAlignment="Center" />
-      </Grid>
-    </Border>
-
-    <Grid ColumnDefinitions="*,8,Auto">
-      <TextBlock Classes="label" Text="{Binding StingerStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
-      <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding StopStingerCommand}" />
-    </Grid>
-    <TextBlock Classes="hint tip"
-               Text="A VOG plays over everything (the music ducks, and so does a stinger that is playing) and the content carries on. A STINGER fades the music out, and when it lands the show goes where the stinger says: back, held for your take, on to the next cue, or to a look you chose. A chip lights red while its sound, clip or surge plays, its line reading the seconds, HOLDING, or what is left of a sting. Set them up on the Audio page (SETUP)." />
 
     <TextBlock Classes="h2" Text="AUDIO PLAYLIST" />
     <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto">

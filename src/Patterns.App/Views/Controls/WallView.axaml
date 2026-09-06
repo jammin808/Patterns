@@ -7,8 +7,8 @@
 
 <!-- The wall: one tile per content target (PGM, joined canvases, single screens) with
      its PGM and PVW miniatures. Click = the panes and editors follow it; OWN = its own
-     pattern; MON = draw the miniatures; ARM = the next CUT / TAKE changes it; the
-     switch = OUTPUT on/off live; tick (sandbox open) = SEND TO TICKED target. -->
+     pattern; MON = draw the miniatures; ARM = the next CUT / TAKE changes it; OUT (on the
+     title row) = OUTPUT on/off live; tick (sandbox open) = SEND TO TICKED target. -->
 <Grid ColumnDefinitions="*,8,Auto,Auto,Auto">
   <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
     <ItemsControl ItemsSource="{Binding SwitcherTiles}">
@@ -19,7 +19,7 @@
         <DataTemplate x:DataType="vm:SwitcherTile">
           <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Width="188" Padding="6,4">
             <StackPanel Spacing="3">
-              <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
                 <Ellipse Classes="tally" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}"
                          Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
                          ToolTip.Tip="Tally: red = the audience sees it, amber = held through the next send, grey = not on air" />
@@ -45,6 +45,10 @@
                               ToolTip.Tip="Tick to include this tile in SEND TO TICKED" />
                   </StackPanel>
                 </Panel>
+                <!-- OUTPUT: the screen on or off, live — a wall button that fits the tile (the switch it replaces hung outside it) -->
+                <ToggleButton Grid.Column="4" Classes="wall output" Content="OUT" IsChecked="{Binding Enabled, Mode=TwoWay}"
+                              IsVisible="{Binding !IsProgramTile}" Margin="4,0,0,0" Focusable="False"
+                              ToolTip.Tip="OUTPUT: this screen's output on / off, live — green while it is on" />
               </Grid>
               <Grid ColumnDefinitions="*,4,*" Height="54" IsVisible="{Binding IsMonitored}">
                 <ctl:AspectBox Ratio="{Binding Ratio}" ToolTip.Tip="PGM — on air for this target">
@@ -58,7 +62,7 @@
                   </Border>
                 </ctl:AspectBox>
               </Grid>
-              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+              <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*">
                 <ToggleButton Classes="wall" Content="OWN" IsChecked="{Binding IsOwn, Mode=TwoWay}" IsVisible="{Binding !IsProgramTile}" IsEnabled="{Binding !IsMirror}"
                               ToolTip.Tip="OWN: this target shows its own pattern instead of the program (starts as a copy of the program, so nothing jumps). A repeater draws its source's picture and has none of its own" />
                 <ToggleButton Grid.Column="1" Classes="wall" Content="MON" IsChecked="{Binding IsMonitored, Mode=TwoWay}"
@@ -69,9 +73,6 @@
                               ToolTip.Tip="LOCK: this target keeps its picture through every look, cue, clicker step, TAKE ALL and stinger — a confidence monitor, an info screen. SEND to it, or OWN and edit, when it should change. Saved with the show" />
                 <TextBlock Grid.Column="4" Classes="hint" Text="{Binding FootText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding FootText}" />
-                <ToggleSwitch Grid.Column="5" IsChecked="{Binding Enabled, Mode=TwoWay}" OnContent="" OffContent=""
-                              MinWidth="0" Margin="0,-4" IsVisible="{Binding !IsProgramTile}"
-                              ToolTip.Tip="OUTPUT: screen on / off (live)" />
               </Grid>
             </StackPanel>
           </Border>
