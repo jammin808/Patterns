@@ -16,6 +16,12 @@ public static class OverlayRenderer
         var overlays = f.Snapshot.State.Overlays;
         var overlaysAt = FrameStages.Now();
 
+        // The Patterns badge goes down first: every other overlay sits over it.
+        if (overlays.Badge.ShowsOn(f.Config.Kind))
+        {
+            DrawBadge(c, in f, overlays.Badge);
+        }
+
         if (overlays.Logo.Enabled)
         {
             DrawLogo(c, in f, overlays.Logo);
@@ -65,6 +71,113 @@ public static class OverlayRenderer
         var paint = f.Paints.FillAA(SKColors.White.WithAlpha((byte)(o.Opacity * 255)));
         c.DrawImage(logo, rect, DrawUtil.Smooth, paint);
         Hit(in f, HitKind.Logo, rect);
+    }
+
+    // The app's own colours — the badge names the maker, so it never takes the show's brand kit.
+    private static readonly SKColor BadgeInk = new(0x12, 0x15, 0x1C);
+    private static readonly SKColor BadgeTile = new(0x17, 0x1A, 0x21);
+    private static readonly SKColor BadgeCyan = new(0x3E, 0xC1, 0xF3);
+    private static readonly SKColor BadgeMagenta = new(0xF0, 0x3E, 0xAE);
+    private static readonly SKColor BadgeMist = new(0xB8, 0xC0, 0xCC);
+    private static readonly string[] BadgeLetters = { "P", "A", "T", "T", "E", "R", "N", "S" };
+
+    /// <summary>
+    /// The Patterns badge: the app's own mark, drawn by hand so it is on every sink at any size —
+    /// the icon (the dark tile, the light grid and the cyan cross of the app's own icon), the
+    /// PATTERNS wordmark letter-spaced in white and the line under it, on a near-black card with a
+    /// cyan edge and a magenta rule. The app's own colours, never the show's brand kit: it names
+    /// the maker, not the client. Sized by the canvas height, so it reads the same on a 4K wall
+    /// and an HD monitor; a drag on the PREVIEW pane moves it like any overlay.
+    /// </summary>
+    private static void DrawBadge(SKCanvas c, in PatternFrame f, BadgeOverlay o)
+    {
+        var pc = f.Paints;
+        var h = (float)(f.H * o.HeightPct / 100);
+        if (h < 8) return;
+        var alpha = (float)o.Opacity;
+
+        var line = o.ShowLine ? o.Line.Trim() : "";
+        var word = pc.FontFor(null, bold: true);
+        word.Size = h * (line.Length > 0 ? 0.40f : 0.46f);
+        var spacing = word.Size * 0.14f;
+        var wordW = MeasureSpaced(BadgeLetters, word, spacing);
+        var small = pc.FontFor(null, bold: false);
+        small.Size = h * 0.19f;
+        var lineW = line.Length > 0 ? small.MeasureText(line) : 0;
+
+        var pad = h * 0.16f;
+        var icon = h - pad * 2;
+        var gap = h * 0.2f;
+        var boxW = pad + icon + gap + Math.Max(wordW, lineW) + pad * 1.5f;
+        var margin = Math.Max(10f, f.H * 0.03f);
+        var rect = DrawUtil.Anchored(f.Canvas, boxW, h, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
+        Hit(in f, HitKind.Badge, rect);
+
+        var radius = h * 0.2f;
+        c.DrawRoundRect(rect, radius, radius, pc.FillAA(BadgeInk.WithAlpha(Alpha(0.88f, alpha))));
+        c.DrawRoundRect(rect, radius, radius, pc.StrokeAA(BadgeCyan.WithAlpha(Alpha(0.8f, alpha)), Math.Max(1f, h * 0.02f)));
+
+        var iconRect = SKRect.Create(rect.Left + pad, rect.Top + pad, icon, icon);
+        DrawBadgeIcon(c, pc, iconRect, alpha);
+
+        var x = iconRect.Right + gap;
+        var white = pc.Text(SKColors.White.WithAlpha(Alpha(1f, alpha)));
+        if (line.Length > 0)
+        {
+            var wordBaseline = rect.Top + pad + word.Size * 0.92f;
+            DrawSpaced(c, BadgeLetters, x, wordBaseline, word, white, spacing);
+            // The magenta rule between the name and the line, the length of the name.
+            var ruleY = wordBaseline + h * 0.07f;
+            var ruleH = Math.Max(1f, h * 0.03f);
+            c.DrawRoundRect(SKRect.Create(x, ruleY, wordW, ruleH), ruleH / 2, ruleH / 2, pc.FillAA(BadgeMagenta.WithAlpha(Alpha(0.95f, alpha))));
+            DrawUtil.TextLeft(c, line, x, rect.Bottom - pad - small.Size * 0.22f, small, pc.Text(BadgeMist.WithAlpha(Alpha(0.92f, alpha))));
+        }
+        else
+        {
+            var m = word.Metrics;
+            DrawSpaced(c, BadgeLetters, x, rect.MidY - (m.Ascent + m.Descent) / 2, word, white, spacing);
+        }
+    }
+
+    /// <summary>The app's icon by hand: a dark rounded tile, a light 4×4 grid, a cyan cross across the middle.</summary>
+    private static void DrawBadgeIcon(SKCanvas c, PaintCache pc, SKRect r, float alpha)
+    {
+        var s = r.Width;
+        var radius = s * 0.2f;
+        c.DrawRoundRect(r, radius, radius, pc.FillAA(BadgeTile.WithAlpha(Alpha(1f, alpha))));
+        var save = c.Save();
+        c.ClipRoundRect(new SKRoundRect(r, radius, radius), antialias: true);
+        var grid = pc.StrokeAA(BadgeMist.WithAlpha(Alpha(0.7f, alpha)), Math.Max(1f, s * 0.05f));
+        for (var i = 1; i < 4; i++)
+        {
+            var p = s * i / 4f;
+            c.DrawLine(r.Left + p, r.Top, r.Left + p, r.Bottom, grid);
+            c.DrawLine(r.Left, r.Top + p, r.Right, r.Top + p, grid);
+        }
+        c.RestoreToCount(save);
+        var arm = s * 0.42f;
+        var t = Math.Max(1.5f, s * 0.085f);
+        var cross = pc.FillAA(BadgeCyan.WithAlpha(Alpha(1f, alpha)));
+        c.DrawRoundRect(SKRect.Create(r.MidX - arm / 2, r.MidY - t / 2, arm, t), t / 2, t / 2, cross);
+        c.DrawRoundRect(SKRect.Create(r.MidX - t / 2, r.MidY - arm / 2, t, arm), t / 2, t / 2, cross);
+    }
+
+    private static byte Alpha(float k, float opacity) => (byte)Math.Clamp(k * opacity * 255f, 0, 255);
+
+    private static float MeasureSpaced(string[] letters, SKFont font, float spacing)
+    {
+        float w = 0;
+        foreach (var letter in letters) w += font.MeasureText(letter) + spacing;
+        return w - spacing;
+    }
+
+    private static void DrawSpaced(SKCanvas c, string[] letters, float x, float baseline, SKFont font, SKPaint paint, float spacing)
+    {
+        foreach (var letter in letters)
+        {
+            c.DrawText(letter, x, baseline, SKTextAlign.Left, font, paint);
+            x += font.MeasureText(letter) + spacing;
+        }
     }
 
     /// <summary>Records a box the desk can drag — on the top-level draw only, never from a fade source, a tile or a layer.</summary>

@@ -242,6 +242,7 @@ public class WebSourceTests
                 l.CropTopPct = 10;
                 l.CropBottomPct = 10;
             });
+            s.Overlays.Badge.Enabled = false;   // the Patterns badge is an overlay drawn after the layers; this reads the layers' hits alone
             var sink = new SinkState();
             using var bmp = RenderWithSink(s, 1280, 720, SinkKind.Preview, sink);
             var box = new SKRect(384, 216, 896, 504);

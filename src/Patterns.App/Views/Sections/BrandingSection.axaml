@@ -51,6 +51,36 @@
     </Grid>
     <TextBlock Classes="hint tip" Text="Use it as a watermark (Overlays page) or as a particle sprite (Logo shape)." />
 
+    <!-- The Patterns badge: the app's own mark over a test pattern — Patterns' branding, not the show's -->
+    <TextBlock Classes="h2" Text="PATTERNS BADGE" />
+    <CheckBox Name="BadgeOn" Content="Show the Patterns badge on test patterns" IsChecked="{Binding State.Overlays.Badge.Enabled}" />
+    <TextBlock Classes="hint tip"
+               Text="The app's own mark — the test-card icon, PATTERNS and a line under it, in its neon colours — drawn by the engine on every output, NDI send and the stream over a test pattern, so a test card names its maker at an expo or on a rig day. It travels with looks like every overlay and drags on the PREVIEW pane; OVERLAYS OFF takes it with the rest. Off for a client's media unless you ask." />
+    <StackPanel IsEnabled="{Binding State.Overlays.Badge.Enabled}">
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Position" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
+                  SelectedValue="{Binding State.Overlays.Badge.Anchor, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,*">
+        <TextBlock Classes="label" Text="Nudge X / Y (%)" ToolTip.Tip="From the anchor, as a share of the canvas — or drag the badge on the PREVIEW pane. The default lifts it off the bottom into the middle of the lower third" />
+        <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Badge.OffsetXPct, Mode=TwoWay}" />
+        <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Badge.OffsetYPct, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Height (%)" />
+        <Slider Grid.Column="1" Minimum="3" Maximum="40" Value="{Binding State.Overlays.Badge.HeightPct, Mode=TwoWay}" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Opacity" />
+        <Slider Grid.Column="1" Minimum="0.05" Maximum="1" Value="{Binding State.Overlays.Badge.Opacity, Mode=TwoWay}" />
+      </Grid>
+      <CheckBox Content="On media too (video, images, decks, web pages)" IsChecked="{Binding State.Overlays.Badge.OnMediaToo}" />
+      <CheckBox Content="With the line under the name" IsChecked="{Binding State.Overlays.Badge.ShowLine}" />
+      <TextBox Watermark="The line under PATTERNS" Text="{Binding State.Overlays.Badge.Line}" IsEnabled="{Binding State.Overlays.Badge.ShowLine}" />
+    </StackPanel>
+
     <TextBlock Classes="h2" Text="BRAND KITS" />
     <StackPanel Orientation="Horizontal" Spacing="8">
       <Button Classes="chip" Content="Save kit" Command="{Binding SaveBrandKitCommand}" />

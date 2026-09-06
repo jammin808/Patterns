@@ -342,6 +342,55 @@ public sealed class LogoOverlay : Observable
     public double Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0.05, 1)); }
 }
 
+/// <summary>
+/// The Patterns badge: the app's own mark — the test-card icon, the PATTERNS wordmark and a line
+/// under it, in the app's neon colours — drawn by the engine on every sink over a test pattern,
+/// so a test card carries its maker's name at an expo or on a rig day. On by default, centred in
+/// the lower third; it travels with looks like every overlay and drags on the PREVIEW pane. Off
+/// for a client's media (video, images, decks, web pages) and the multiview unless asked.
+/// </summary>
+public sealed class BadgeOverlay : Observable
+{
+    public const string DefaultLine = "Show display · test cards · playback";
+
+    private bool _enabled = true;
+    private Anchor9 _anchor = Anchor9.BottomCenter;
+    private double _heightPct = 9;
+    private double _opacity = 0.95;
+    private double _offsetXPct;
+    private double _offsetYPct = -12;
+    private bool _onMediaToo;
+    private bool _showLine = true;
+    private string _line = DefaultLine;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+    public Anchor9 Anchor { get => _anchor; set => Set(ref _anchor, value); }
+
+    /// <summary>The badge's height as a share of the canvas height (3–40 %); its width follows the words.</summary>
+    public double HeightPct { get => _heightPct; set => Set(ref _heightPct, Math.Clamp(value, 3, 40)); }
+    public double Opacity { get => _opacity; set => Set(ref _opacity, Math.Clamp(value, 0.05, 1)); }
+
+    /// <summary>A nudge from the anchor as a share of the canvas (−100..100) — a drag on the PREVIEW pane writes it. The default lifts it off the bottom edge into the middle of the lower third.</summary>
+    public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
+    public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
+
+    /// <summary>Draw it over media too — a client's video, image, deck or web page; off, it keeps to test patterns.</summary>
+    public bool OnMediaToo { get => _onMediaToo; set => Set(ref _onMediaToo, value); }
+
+    /// <summary>The line under the name (<see cref="Line"/>); off, the badge is the icon and the name.</summary>
+    public bool ShowLine { get => _showLine; set => Set(ref _showLine, value); }
+
+    /// <summary>The words under the name — the app's own by default; a venue may put its address there.</summary>
+    public string Line { get => _line; set => Set(ref _line, value ?? ""); }
+
+    /// <summary>
+    /// The rule: on, and the picture is a test pattern — anything but media (someone else's
+    /// content) and the multiview (a monitoring picture) — or media is asked for.
+    /// </summary>
+    public bool ShowsOn(PatternKind kind)
+        => Enabled && kind != PatternKind.Multiview && (OnMediaToo || kind != PatternKind.Media);
+}
+
 public sealed class InfoOverlay : Observable
 {
     private bool _enabled = false;
@@ -494,6 +543,8 @@ public sealed class OverlaySet : Observable
 {
     public ClockOverlay Clock { get; init; } = new();
     public LogoOverlay Logo { get; init; } = new();
+    /// <summary>The Patterns badge — the app's own mark on a test pattern; on by default, in every look like the rest.</summary>
+    public BadgeOverlay Badge { get; init; } = new();
     public InfoOverlay Info { get; init; } = new();
     public MessageOverlay Message { get; init; } = new();
     public PipOverlay Pip { get; init; } = new();

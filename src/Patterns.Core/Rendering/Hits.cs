@@ -19,6 +19,8 @@ public enum HitKind
     WebPage,
     /// <summary>An input's picture as the Media pattern placed it (through its area of interest) — never a drag handle; the desk's crop pick reads it.</summary>
     MediaPicture,
+    /// <summary>The Patterns badge — the app's own mark on a test pattern.</summary>
+    Badge,
 }
 
 /// <summary>

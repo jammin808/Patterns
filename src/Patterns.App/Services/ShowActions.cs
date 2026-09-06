@@ -463,6 +463,7 @@ public sealed class ShowActions
                 if (onAir.Overlays.Logo.Enabled) was.Add("the logo");
                 if (onAir.Overlays.Pip.Enabled) was.Add("the PiP");
                 if (onAir.Overlays.Weather.Enabled) was.Add("the weather chip");
+                if (onAir.Overlays.Badge.Enabled) was.Add("the Patterns badge");
                 _s.EditAir(air =>
                 {
                     air.Overlays.Clock.Enabled = false;
@@ -471,6 +472,7 @@ public sealed class ShowActions
                     air.Overlays.Logo.Enabled = false;
                     air.Overlays.Pip.Enabled = false;
                     air.Overlays.Weather.Enabled = false;
+                    air.Overlays.Badge.Enabled = false; // a clean picture is clean of the maker's mark too
                 });
                 return ActionResult.Done(was.Count == 0 ? "No overlay was on." : "Overlays off: " + string.Join(", ", was) + ".");
             }

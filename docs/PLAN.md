@@ -1815,6 +1815,7 @@ machine is `docs/CHECKLIST-round17.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 7 | The Patterns badge (§24.7). "Patterns branding on a look — icon, logo, colours — on by default, so a test pattern reads as a branded test card; default middle / lower third." An overlay, `BadgeOverlay` on `OverlaySet.Badge`, because that is the shape the desk has for a thing drawn over the picture on every sink and carried by every look: the app's own mark by hand — the test-card icon (the dark tile, the light 4×4 grid, the cyan cross of the app's icon), PATTERNS letter-spaced in white, a magenta rule and a line under it (`Show display · test cards · playback`, editable or off), on a near-black card with a cyan edge — in the app's own neon colours, never the show's brand kit (the badge names the maker; the kit dresses the show). Drawn first among the overlays, by SkiaSharp primitives and the built-in Inter, so it is crisp at 4K and on a 96-pixel tile and needs no file. On by default, bottom-centre lifted 12 % into the middle of the lower third, 9 % of the height, 95 % opacity; nine anchors and a nudge (a drag on the PREVIEW pane, `HitKind.Badge`), the height, the opacity, the line and its words; the rule — every test pattern, never the multiview, media only with "On media too". An older show or look opens with it on; a look saved with it off recalls with it off; OVERLAYS OFF takes it with the rest. No wire, cue or Companion verbs on purpose: looks carry it. Branding → PATTERNS BADGE; a Help topic. Tests: the defaults, the rule, the limits, the files and looks old and new; the pixels — centred in the lower third at the right height with the cyan and the white present and the hit box the card, a clean field when off, the icon and the name alone without the line, the anchor and the nudge moving it and the height growing it, media and the multiview kept clean and media asked for; on the desk the page's block, the drag, OVERLAYS OFF, the Help. | done |
 | 6 | Any screen into the preview (§24.6). The desk had one direction between a tile and the preview — SEND and TAKE put the preview on screens — and no verb the other way: a screen's picture could be edited through OWN, on that screen, but never pulled into the preview to work on and send elsewhere. → PVW on every screen and canvas tile is that verb: a `ShowActionKind` of its own (`ScreenToPreview`, the desk's alone — an edit, not a step of the show), through the action layer and the journal. The executor reads the picture the audience sees on the target from the air state (a repeater's source, then the target's own pattern, else the program), clones it, opens EDIT SAFE first when it was off so the load can never go live, copies the clone into the edited state's program pattern and clears the preview look; the desk hands the editors the program, selects the PGM tile so the panes show PGM and the preview, and says whose picture it is and what to do with it. The frozen program never moves. While there: SEND's visibility on a tile was a binding up the tree to the window's view model, the shape §24.4 took out of the tile's faces — it is a fact on the tile now (`CanSend`); SEND and → PVW sit on a row of their own with the tile's foot text, and the title row keeps its room for the name. Tests: a tile's own picture into the preview with the air untouched, the editors on the program, the PGM tile selected, no preview look, the status; the copy edited without touching the screen and sent back to another; a screen on the program loading the program's picture and a repeater its source's; the action by wall number and a screen that is not there refused; EDIT SAFE off — the load opens it first and nothing goes live; the wall's → PVW on every screen tile and never PGM, SEND only while the sandbox is open; the kind's classification and words. | done |
 | 5 | A send keeps the preview (§24.5). SEND on a wall tile and SEND TO TICKED put the sandboxed preview on a target alone as its own pattern — and did it by the sandbox's old book: clone the preview's pattern, restore the frozen program into the edited state, assign the clone, close the sandbox and open a fresh one, which mirrors the program. The picture just built was on one screen and nowhere the operator could edit it; the same look for a second screen meant building it again. A send is an edit of both states now, like a lock or a screen's look from the Show panel: the target's assignment in the frozen program (the audience sees it now) and in the edited state (the next TAKE carries it, OWN lights), in one bulk edit, and nothing else moves — the sandbox stays open with the same pattern, the same preview look and the same editing target. Send it to the next screen, edit and send again, or TAKE it; every other target keeps what it was showing; EDIT SAFE re-arms after a CUT or TAKE as before. The status line, the tooltips and Help say the preview keeps the picture. Tests: a send with the preview kept and the program on air untouched, the target as its own pattern in both states and so resolved by the published snapshot, the preview look and the editing target unmoved; the preview edited and sent to a second screen with the first keeping its picture and the ticks consumed; TAKE putting the preview on every screen but the two with their own. | done |
 | 4 | The switcher's tiles (§24.4). On a rig day the screen tiles — never PGM — showed their name on its side over their body, with the OWN / MON / ARM row pushed to mid-height. A tile chose between its two faces, the body and the vertical title bar, by a binding up the visual tree to the wall (`$parent[ctl:WallView].Collapsed`), and a tile rebuilt after the wall existed — every screen tile: the displays arrive after the window, PGM is made with it — could resolve it late or not at all, so both faces drew: the bar's rotated name over the body, the body's buttons pushed down. The faces are decided by classes on the tree itself now — the wall carries "collapsed" as a class from its property, a tile carries "tileCollapsed" from its own choice — and the wall's styles show one and hide the other, in the document's order; nothing binds up the tree. The body, its title row and its buttons sit at the top of the tile whatever the row's height. The tick was the theme's checkbox, whose template holds a 32 px grid, so every screen tile's title row was 13 px taller than PGM's with its buttons that much lower; it is a wall toggle now (✓, lit while ticked) and every tile's rows line up with PGM's. The two questions, answered on the desk: ▸ at the end of a tile's title row collapses that tile alone to its title bar and ▾ on the bar opens it again (`SwitcherTile.IsCollapsed`, kept in `DeskLayoutConfig.CollapsedTiles` by target id, remembered by the show; the Run area's ▸ COLLAPSE TILES does the whole wall at once and leaves the tiles' own choices under it), and a group is a joined canvas — there is no group setting: on SETUP → Screens a screen dragged flush against another joins it into one canvas with one tile, dragged away it is a screen of its own again — on the tick's and the scope picker's tooltips and in Help. Tests: every tile with one face and its buttons at the top on a row 160 px taller than its content, level with PGM's, with MON on and off; a tile collapsed alone with the rest full, kept through a rebuild and the show file, opened again, PGM too; the Run wall's collapse over a tile's own choice and back; the Help words. | done |
@@ -2063,3 +2064,55 @@ repeater its source's, once on air; the action by wall number, and a screen that
 refused; EDIT SAFE off — the load opens it first and the program on air never sees the picture;
 the wall carrying → PVW on every screen tile and never PGM, SEND only while the sandbox is open;
 the kind's classification and words.
+
+### 24.7 The Patterns badge: a branded test card
+
+The ask: "a feature to add Patterns branding (things like icon / logo / colours) to a look. On
+by default so when a test pattern is shown it can look like a branded test card. Make the
+branding. Default middle / lower third. This will be great free self advertising at an expo or
+show on rig days."
+
+What it is. The badge is an overlay — `BadgeOverlay` on `OverlaySet.Badge` — because that is the
+shape the desk already has for a thing drawn over the picture on every sink and carried by every
+look: the clock, the logo, the message, the weather chip. A look captures the whole overlay set,
+so the badge is per look with nothing added to the look format; the drag on the PREVIEW pane, the
+nine anchors and the nudge, the opacity and the hit box the desk takes hold of (`HitKind.Badge`)
+are the overlay's own. It is drawn first in `RenderCanvasOverlays`, so every other overlay sits
+over it, and it is drawn by hand — SkiaSharp primitives and the built-in Inter, not an image
+file — so it is crisp at 4K and on a 96-pixel wall tile alike, needs nothing on disk and travels
+with the app. It is sized by the canvas height (9 % by default), so it reads the same on a 4K
+wall and an HD monitor.
+
+The mark. The app's own icon by hand: a dark rounded tile, a light 4×4 grid, a cyan cross across
+the middle — the drawing of `patterns.ico`. Beside it PATTERNS letter-spaced in white with a
+magenta rule the length of the name under it, and a line under that (`Show display · test cards ·
+playback` by default; editable — a venue's address or a stand number reads well there — or off).
+All on a near-black card at 88 % with a cyan edge and rounded corners. The colours are the app's
+own — the cyan `#3EC1F3`, the magenta `#F03EAE`, the desk's near-black and mist grey — and never
+the show's brand kit: the badge names the maker and the brand kit dresses the show, and a
+client's colours under the word PATTERNS would say the wrong thing.
+
+Where and when. On by default, anchored bottom-centre and lifted 12 % of the height, so the
+card's middle sits at about 83 % — the middle of the lower third — where it clears a colour-bar
+card's PLUGE strip and a grid's centre cross. The rule keeps it to test patterns: every kind of
+picture but media (someone else's content — a video, an image, a deck, a web page) and the
+multiview (a monitoring picture), unless "On media too" is ticked. OVERLAYS OFF — the clean
+picture from the Show panel, a cue, the wire or Companion — takes it with the clock and the rest,
+and the next look recall brings back whatever that look carries. An older show file and an older
+look have no badge member and open with it on, as the default says; a look saved with it off
+recalls with it off.
+
+Not done, on purpose: no BADGE ON / OFF verbs on the wire, in cues, in Companion or over OSC. The
+badge is a look's property and looks carry it; a cue that wants it off recalls a look with it
+off, or OVERLAYS OFF. Verbs would add a kind to the vocabulary, the sheet, the summary, the
+checks, the wire, the OSC map, the module and the assistant's schema — for a switch the look
+already holds.
+
+The tests: the defaults and the rule (every test pattern; never the multiview; media only when
+asked), the limits and a null line; an older file and an older look opening with it on, a look
+saved with it off and reworded recalling so, the show file round trip; the pixels — the card
+centred in the lower third at the right height, the cyan and the white present, the hit box the
+card, a clean field when off, the icon and the name alone without the line; the anchor and the
+nudge moving it and the height growing it; media and the multiview kept clean and media asked
+for; on the desk the Branding page's block, the drag reading and writing the nudge, OVERLAYS OFF
+taking it and saying so, the Help topic.
