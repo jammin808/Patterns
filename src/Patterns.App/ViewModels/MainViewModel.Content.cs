@@ -422,7 +422,23 @@ public sealed partial class MainViewModel
                 EditTargets.Add(new EditTarget($"Screen {info.Index + 1} — {LabelFor(p, info)}", p.ScreenId));
             }
         }
-        EditTarget = EditTargets.FirstOrDefault(t => t.ScreenId == current) ?? EditTargets[0];
+        // The target after the rebuild: the same one when it is still there, else Program — never
+        // nothing. Clearing the list emptied the Pattern page's picker (its two-way binding wrote
+        // that empty selection back, refused below), and a same target re-added as an equal record
+        // used to raise nothing, so the picker stayed blank until the operator picked it again:
+        // the same target is re-published as the list's own instance, and only a different one
+        // goes through the full setter (the panes follow that).
+        var wanted = EditTargets.FirstOrDefault(t => t.ScreenId == current) ?? EditTargets[0];
+        if (wanted.ScreenId == _editTarget?.ScreenId)
+        {
+            _editTarget = wanted;
+            Raise(nameof(EditTarget));
+            Raise(nameof(EditTargetBanner));
+        }
+        else
+        {
+            EditTarget = wanted;
+        }
         Raise(nameof(ShowEditTargets));
         RebuildSwitcherTiles();
     }

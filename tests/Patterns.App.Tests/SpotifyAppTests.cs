@@ -499,7 +499,11 @@ public class SpotifyAppTests
         Assert.Equal(CueOutcome.Requested, row.Outcome);
         Assert.Equal((3, 3), (row.ActionsDone, row.ActionsTotal));
 
-        r.Poll(2); // the token cannot even be renewed: that counts against the pending play
+        // The desk's own one-second poll may have run before the cue (a slow boot): its refresh failed
+        // with nothing pending and set a backoff, which would swallow the hand-driven polls below.
+        // Past it, the token cannot even be renewed and that counts against the pending play.
+        r.Advance(30);
+        r.Poll(2);
         Assert.Contains("could not play", r.Services.Spotify.CommandFailure);
         svc.Poll(r.Now.AddSeconds(13));
         Assert.Equal(CueOutcome.FailedLate, svc.History.First().Outcome);

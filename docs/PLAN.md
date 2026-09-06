@@ -186,6 +186,7 @@ row first. The checklist for the Windows machine is `docs/CHECKLIST-round15.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 2 | The editing target is never blank (the report's ask; §20.2). Reproduced headlessly: the Pattern page's EDITING TARGET picker is bound to a list the desk rebuilds on every rig change (a lock, a label, OWN on a tile, a display plugged in, a show loaded); the rebuild clears the list — which empties the picker, and its two-way binding writes that empty selection back, refused — then re-adds the same target as an equal record, the setter saw no change and raised nothing, and the picker stayed blank until the operator picked it again. `RebuildEditTargets` now re-publishes the same target as the list's own instance (the picker re-selects it, the banner follows a fresh label, the panes do not move) and only a different target — the one it had is gone — goes through the full setter, which falls back to Program; the picker's empty selection stays refused. Tests: on a live desk with three screens, OWN on one showing the picker with the target selected; a lock on another tile and a label typed for the target keeping it selected as the list's own instance with the fresh label in the banner; a second OWN handing the editors the new target and the operator picking the first back; the target losing its own pattern falling back to Program in the picker; every own pattern gone hiding the picker with the target never null; an empty selection refused. | done |
 | 1 | The crash between menus, contained (the report's first line; §20.1). A fault on the UI thread used to end the process — the runtime's exit 0xE0434352, the watchdog bringing the desk back seconds later with the show interrupted — and the note it left said only "an unhandled .NET exception". App, `UiFaults`: the dispatcher's `UnhandledException` (with its filter) is hooked once per dispatcher from `AppServices` — a job that throws (a timer's tick, a posted call, a layout pass, a page's *Loaded*) is logged with its stack, counted on the health line through `Log.Error` ("1 fault caught, show kept running (last 21:14 — UI fault contained (a dispatcher job) — InvalidOperationException: … in MainWindow.ApplyDeskLayout)"), put on the status line ("A fault was contained and the desk carried on — …") and marked handled, so the outputs keep rendering and the desk stays up; `Guard(body, where)` wraps what runs outside the dispatcher's jobs — every `RelayCommand` (every button), the window's key handler, the page switch itself (`SelectPage`'s raise, the Run layout, the shell, the room the page wants) and the tab that realises the page's content — and `ApplyDeskLayout` contains its own fault and keeps the columns it had; `IsFatal` (out of memory, a native fault, a bad image) is never swallowed. What cannot be contained leaves a better note: Core `FaultWords.Describe` is the exception in one line — its type, its message on one line, the app's own frames innermost first ("InvalidOperationException: Sequence contains no elements — in MainWindow.ApplyDeskLayout, MainViewModel.SelectPage"), through the wrappers reflection and tasks add; `CrashNote` gains `Detail` (an older note without it still loads); `UiFaults.NoteFatal` writes the note on the way down from `AppDomain.UnhandledException` and from the main loop's catch (which now exits with 0xE0434352 when the desk was up, "Fatal startup failure" only before it), and the supervisor keeps the app's words under the exit code it saw, so the next start's health line and the Machine page's STABILITY read what threw and where. The page-switch audit (§20.1): the desk layout's divider width was read from a `GridLength` that reads as a star weight when the column is not absolute, and a NaN share or width is now the default rather than an exception. Tests: the note's detail in the sentence, round-tripping and absent from an older note; the words for a thrown, a wrapped, a never-thrown and a long-message exception with the frames named; on a live desk a posted job that throws contained (RunJobs returns, the count, the words, the status line, the health line, the log's line and stack, no crash note, the desk still running jobs and rendering), a command and a typed command that throw contained with the place named, a fatal exception not swallowed; every page forward and back at the laptop's size and a desk's with the group buttons and Run in between containing nothing; a fatal note read on the next start naming what threw. | done |
 
 ## 17. Round 14 — the stinger triage, the crash, the next steps, the desk's surfaces
@@ -1137,3 +1138,28 @@ with 0xE0434352 when the desk was up, so the note is honest about that path too.
 health line before touching anything, and send the sentence with the support bundle. If it names
 a frame of the app's own code, the fault is a fact and the fix is a line; if it is a native exit
 code, §18.2 applies and the mini-dump is the evidence.
+
+### 20.2 The editing target that went blank
+
+**The report.** "Unless a screen is selected, the default editing target should be Program. At the
+moment sometimes the editing target is blank and I have to reselect it."
+
+**The chain.** The desk's editing target — what the Pattern page's panels change — was never
+blank: it starts as Program, an empty value is refused, and a target whose screen loses its own
+pattern falls back to Program. The *picker* was blank. It is bound to a list the desk rebuilds on
+every rig change (a lock on a tile, a label typed for a screen, OWN on a tile, a display plugged
+in, a show loaded); the rebuild clears the list, which empties an Avalonia `ComboBox` and makes
+its two-way binding write the empty selection back (refused, correctly), then re-adds the same
+target as a new record equal by value to the one the desk held. The setter's change check saw an
+equal value, raised nothing, and the picker — emptied a moment before — never heard that its
+selection was still valid. The headless suite reproduces it exactly: a lock on another tile and
+the picker's selection is null while the desk still edits the lobby.
+
+**The fix.** After a rebuild the desk re-publishes the same target as the list's own instance (the
+picker re-selects it, the banner follows a fresh label, the panes do not move — a rename is not a
+selection) and only a different target — the one it had is gone — goes through the full setter,
+whose fallback is Program. The picker can be hidden (Program alone) but never empty while shown,
+and the target is never null. The same shape of bug is the reason the other pickers on the desk
+(the multiview's, the NDI and stream sources, a screen's mirror) rebuild only when their entries
+really moved (`ReplaceIfChanged`, round 7); the editing target's list could not take that route
+because its labels change under it, so it re-publishes instead.
