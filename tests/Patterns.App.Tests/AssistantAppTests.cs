@@ -262,6 +262,100 @@ public class AssistantAppTests
     }
 
     /// <summary>
+    /// Files attached ride with the next ask: read now into chips, sent as their own blocks after
+    /// the words, cleared once sent; an ask with nothing typed asks for a plan from them; a file
+    /// that cannot be read says why; older turns say what was attached instead of sending it again.
+    /// </summary>
+    [AvaloniaFact]
+    public void FilesAttachedRideWithTheNextAskAndOlderTurnsSayWhatWasAttached()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            services.Assistant.SaveKey("sk-ant-api03-testkey-0123456789abcdef");
+            var requests = new List<AssistantRequest>();
+            services.Assistant.Transport = r =>
+            {
+                requests.Add(r);
+                return Task.FromResult(Reply);
+            };
+            var csv = Path.Combine(b.Dir, "running order.csv");
+            File.WriteAllText(csv, "Number,Name,Start\n01.010,Doors,09:00\n01.020,Keynote,10:00\n");
+            var png = Path.Combine(b.Dir, "rig.png");
+            using (var bitmap = new SkiaSharp.SKBitmap(64, 32))
+            {
+                using (var canvas = new SkiaSharp.SKCanvas(bitmap)) canvas.Clear(SkiaSharp.SKColors.Teal);
+                using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+                using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+                File.WriteAllBytes(png, data.ToArray());
+            }
+            var clip = Path.Combine(b.Dir, "clip.mp4");
+            File.WriteAllBytes(clip, new byte[] { 1, 2, 3 });
+
+            Assert.False(vm.HasAssistantAttachments);
+            Assert.True(vm.AddAssistantAttachment(csv));
+            Assert.True(vm.AddAssistantAttachment(png));
+            Assert.False(vm.AddAssistantAttachment(clip));
+            Assert.Contains("not a kind of file the assistant reads", vm.AssistantStatus);
+            Assert.Equal(2, vm.AssistantAttachments.Count);
+            Assert.True(vm.HasAssistantAttachments);
+            Assert.StartsWith("2 files ride with the next ask: table, picture.", vm.AssistantAttachmentsText);
+            Assert.Equal("running order.csv (table, 2 rows)", vm.AssistantAttachments[0].Label);
+
+            // ASK with nothing typed: the plan is asked for; the files ride as blocks after their headings, the words last.
+            vm.AssistantInput = "";
+            vm.AskAssistantCommand.Execute(null);
+            PumpUntil(() => vm.AssistantRows.Count == 2);
+            var request = Assert.Single(requests);
+            var turn = Assert.Single(request.Turns);
+            Assert.Equal("Read what I have attached and work out a plan for the show from it.", turn.Text);
+            Assert.Equal(2, turn.Attachments.Count);
+            Assert.Equal((AssistantAttachmentKind.Table, AssistantAttachmentKind.Image), (turn.Attachments[0].Kind, turn.Attachments[1].Kind));
+            Assert.Contains("01.010 | Doors | 09:00", turn.Attachments[0].Text);
+            Assert.Equal("image/png", turn.Attachments[1].MediaType);
+            var message = AssistantService.ToMessage(turn);
+            var blocks = Assert.IsAssignableFrom<IEnumerable<Anthropic.Models.Messages.ContentBlockParam>>(message.Content.Value).ToList();
+            Assert.Equal(5, blocks.Count);   // heading, table document, heading, picture, the words
+            Assert.True(blocks[0].TryPickText(out var heading));
+            Assert.StartsWith("[Attached by the operator: running order.csv (table, 2 rows)", heading!.Text);
+            Assert.True(blocks[1].TryPickDocument(out var document));
+            Assert.Equal("running order.csv", document!.Title);
+            Assert.True(blocks[3].TryPickImage(out _));
+            Assert.True(blocks[4].TryPickText(out var words));
+            Assert.Equal(turn.Text, words!.Text);
+            Assert.Contains("ATTACHMENTS:", request.System);
+
+            // The page: the question row names the files; the chips are gone once sent.
+            Assert.Contains("📎 running order.csv (table, 2 rows) · rig.png (picture, 64×32)", vm.AssistantRows[1].Text);
+            Assert.Empty(vm.AssistantAttachments);
+            Assert.False(vm.HasAssistantAttachments);
+
+            // The latest two exchanges send their files again; past that the attached turn is words
+            // about what was attached, not the bytes again.
+            vm.AssistantInput = "And the break?";
+            vm.AskAssistantCommand.Execute(null);
+            PumpUntil(() => requests.Count == 2);
+            Assert.Equal(2, requests[1].Turns[0].Attachments.Count);   // the latest exchange
+            vm.AssistantInput = "And lunch?";
+            vm.AskAssistantCommand.Execute(null);
+            PumpUntil(() => requests.Count == 3);
+            Assert.Equal(2, requests[2].Turns[0].Attachments.Count);   // still within the latest two
+            vm.AssistantInput = "And the end of the day?";
+            vm.AskAssistantCommand.Execute(null);
+            PumpUntil(() => requests.Count == 4);
+            var first = requests[3].Turns[0];
+            Assert.Empty(first.Attachments);
+            Assert.StartsWith("[The operator attached earlier: running order.csv (table, 2 rows); rig.png (picture, 64×32)]\nRead what I have attached", first.Text);
+            Assert.Equal(2, services.Assistant.Turns[0].Attachments.Count);   // the conversation itself keeps them
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    /// <summary>
     /// The service refusing the reply's schema ("the compiled grammar is too large") is not the end of
     /// the ask: the same ask goes again in plain JSON with the schema in the prompt, the reply is read
     /// all the same, the status says so once, and every ask after it this session is plain from the start.

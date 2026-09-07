@@ -541,7 +541,7 @@ public static class HelpTopics
             },
             "",
             new[] { "Assistant" },
-            new[] { "assistant", "ai", "chat", "chatbot", "claude", "anthropic", "api key", "key", "plan", "draft", "propose", "proposal", "brief", "show plan", "help me build", "apply" }),
+            new[] { "assistant", "ai", "chat", "chatbot", "claude", "anthropic", "api key", "key", "plan", "draft", "propose", "proposal", "brief", "show plan", "help me build", "apply", "attach", "attachment", "screenshot", "photo", "spreadsheet", "running order", "notes", "pdf", "word", "powerpoint", "import a plan" }),
 
         new HelpTopic("screen-roles", HelpGroup.TheRig,
             "Screen roles — the groups of screens — locks and repeaters",

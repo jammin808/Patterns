@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Platform.Storage;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -102,9 +103,28 @@ public sealed class AssistantRow : Observable
     public bool IsNote { get; }
 }
 
+/// <summary>A file attached to the next ask, as its chip on the page: the label and its ✕.</summary>
+public sealed class AssistantAttachmentChip
+{
+    public AssistantAttachmentChip(MainViewModel vm, AssistantAttachment attachment)
+    {
+        Attachment = attachment;
+        RemoveCommand = new RelayCommand(() => vm.RemoveAssistantAttachment(this));
+    }
+
+    public AssistantAttachment Attachment { get; }
+    public string Label => Attachment.Label;
+    public RelayCommand RemoveCommand { get; }
+}
+
 public sealed partial class MainViewModel
 {
     // ---- the assistant: the key, the conversation, the proposals applied ---------------------
+
+    private static readonly FilePickerFileType AssistantAttachTypes = new("Pictures, PDF, text, spreadsheets, Word & PowerPoint")
+    {
+        Patterns = Patterns.Core.Services.AssistantAttachments.AllExtensions.Select(e => "*" + e).ToArray(),
+    };
 
     private string _assistantInput = "";
     private string _assistantStatus = "";
@@ -114,7 +134,76 @@ public sealed partial class MainViewModel
     private RelayCommand? _saveAssistantKey;
     private RelayCommand? _forgetAssistantKey;
     private RelayCommand? _clearAssistant;
+    private RelayCommand? _attachAssistantFiles;
     private RelayCommand<string>? _assistantStarter;
+
+    /// <summary>The files that ride with the next ask — a screenshot, a brief, a running order, a mixture — as chips until the ask goes.</summary>
+    public ObservableCollection<AssistantAttachmentChip> AssistantAttachments { get; } = new();
+
+    public bool HasAssistantAttachments => AssistantAttachments.Count > 0;
+
+    /// <summary>"2 files ride with the next ask — a picture and a table."</summary>
+    public string AssistantAttachmentsText => AssistantAttachments.Count == 0 ? ""
+        : $"{AssistantAttachments.Count} file{(AssistantAttachments.Count == 1 ? "" : "s")} ride{(AssistantAttachments.Count == 1 ? "s" : "")} with the next ask: {string.Join(", ", AssistantAttachments.Select(c => c.Attachment.KindWord))}. Ask for a plan, or press ASK with nothing typed.";
+
+    /// <summary>ATTACH…: pictures, PDFs, text, spreadsheets, Word and PowerPoint files, read now and sent with the next ask.</summary>
+    public RelayCommand AttachAssistantFilesCommand => _attachAssistantFiles ??= new RelayCommand(() => _ = AttachAssistantFilesAsync());
+
+    private async Task AttachAssistantFilesAsync()
+    {
+        var window = _services.MainWindow;
+        if (window is null) return;
+        try
+        {
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = "Attach to the assistant's next ask",
+                AllowMultiple = true,
+                FileTypeFilter = new[] { AssistantAttachTypes, FilePickerFileTypes.All },
+            });
+            foreach (var file in files)
+            {
+                var path = file.TryGetLocalPath();
+                if (path is not null) AddAssistantAttachment(path);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Assistant attach picker failed.", ex);
+            AssistantStatus = "The file picker could not open: " + ex.Message;
+        }
+    }
+
+    /// <summary>A file onto the next ask, read now (a picture reduced, a sheet read as a table); a file that cannot be read says why on the status line. Tests call this without a picker.</summary>
+    public bool AddAssistantAttachment(string path)
+    {
+        if (AssistantAttachments.Count >= Patterns.Core.Services.AssistantAttachments.MaxAttachments)
+        {
+            AssistantStatus = $"At most {Patterns.Core.Services.AssistantAttachments.MaxAttachments} files ride with one ask.";
+            return false;
+        }
+        var result = Patterns.Core.Services.AssistantAttachments.Read(path);
+        if (result.Attachment is null)
+        {
+            AssistantStatus = result.Refusal;
+            return false;
+        }
+        AssistantAttachments.Add(new AssistantAttachmentChip(this, result.Attachment));
+        RaiseAssistantAttachments();
+        AssistantStatus = $"Attached {result.Attachment.Label}.";
+        return true;
+    }
+
+    public void RemoveAssistantAttachment(AssistantAttachmentChip chip)
+    {
+        if (AssistantAttachments.Remove(chip)) RaiseAssistantAttachments();
+    }
+
+    private void RaiseAssistantAttachments()
+    {
+        Raise(nameof(HasAssistantAttachments));
+        Raise(nameof(AssistantAttachmentsText));
+    }
 
     /// <summary>The conversation this session, newest first — the latest answer sits under the ask box, the history runs down the page.</summary>
     public ObservableCollection<AssistantRow> AssistantRows { get; } = new();
@@ -151,6 +240,7 @@ public sealed partial class MainViewModel
     /// <summary>One-press starts for a first conversation.</summary>
     public IReadOnlyList<string> AssistantStarters { get; } = new[]
     {
+        "Work out a plan from what I have attached",
         "Plan a show: two screens, a walk-in look, a keynote and a break",
         "A walk-in look with the clock and a welcome message",
         "A lower third for the keynote speaker",
@@ -211,24 +301,32 @@ public sealed partial class MainViewModel
         if (AssistantRows.Count == 1) Raise(nameof(HasAssistantRows));
     }
 
-    /// <summary>One ask: the question on the page at once, the answer when it lands, every failure a row in words.</summary>
+    /// <summary>One ask: the question on the page at once with the files attached, the answer when it lands, every failure a row in words.</summary>
     public async Task AskAssistantAsync(string? text)
     {
         var question = (text ?? "").Trim();
+        var files = AssistantAttachments.Select(c => c.Attachment).ToList();
+        if (question.Length == 0 && files.Count > 0) question = "Read what I have attached and work out a plan for the show from it.";
         if (question.Length == 0)
         {
-            AssistantStatus = "Type a question, or what you want built.";
+            AssistantStatus = "Type a question, or what you want built — or attach a file and press ASK.";
             return;
         }
         if (AssistantBusy) return;
         AssistantBusy = true;
         AssistantInput = "";
-        AddAssistantRow(new AssistantRow(true, question, Array.Empty<string>(), Array.Empty<AssistantChip>()));
+        var shown = files.Count == 0 ? question : question + "\n📎 " + string.Join(" · ", files.Select(f => f.Label));
+        AddAssistantRow(new AssistantRow(true, shown, Array.Empty<string>(), Array.Empty<AssistantChip>()));
         AssistantStatus = HasAssistantKey ? "Asking…" : "";
         try
         {
             _services.Assistant.EditingTarget = EditTarget.ScreenId is null ? "Program" : $"{EditTarget.Label} (its own picture)";
-            var answer = await _services.Assistant.AskAsync(question);
+            var answer = await _services.Assistant.AskAsync(question, files);
+            if (answer.Sent && files.Count > 0)
+            {
+                AssistantAttachments.Clear();   // sent: the chips go; the turn keeps them for the conversation
+                RaiseAssistantAttachments();
+            }
             AssistantStatus = answer.Status;
             if (answer.Reply is { } reply)
             {

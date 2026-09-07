@@ -83,6 +83,32 @@
       </TextBox>
       <Button Grid.Column="2" Content="ASK" Command="{Binding AskAssistantCommand}" IsEnabled="{Binding CanAskAssistant}" VerticalAlignment="Stretch" Padding="18,8" FontWeight="Bold" ToolTip.Tip="Enter asks too" />
     </Grid>
+    <!-- Files ride with the next ask: a screenshot, a brief, notes, a running order, a PDF, a Word or PowerPoint file, or a mixture -->
+    <Grid ColumnDefinitions="Auto,10,*">
+      <Button Grid.Column="0" Classes="mini" Content="ATTACH…" Command="{Binding AttachAssistantFilesCommand}" IsEnabled="{Binding CanAskAssistant}" VerticalAlignment="Top"
+              ToolTip.Tip="Pictures (a screenshot, a photo of the rig), PDFs, text and notes, spreadsheets (a running order), Word and PowerPoint files — read now, sent with the next ask; a picture is reduced to what the assistant reads best, a sheet becomes a table of words. Nothing is sent until you ASK." />
+      <StackPanel Grid.Column="2" Spacing="4">
+        <ItemsControl ItemsSource="{Binding AssistantAttachments}" IsVisible="{Binding HasAssistantAttachments}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AssistantAttachmentChip">
+              <Border Background="{StaticResource PanelBg2Brush}" BorderBrush="#7CF5C8" BorderThickness="1" CornerRadius="12" Padding="10,3" Margin="0,0,6,6">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="📎" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontSize="12" />
+                  <Button Classes="mini" Content="✕" Padding="4,0" Command="{Binding RemoveCommand}" ToolTip.Tip="Leave this file out" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="hint" Text="{Binding AssistantAttachmentsText}" TextWrapping="Wrap" IsVisible="{Binding HasAssistantAttachments}" />
+      </StackPanel>
+    </Grid>
     <ItemsControl ItemsSource="{Binding AssistantStarters}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>

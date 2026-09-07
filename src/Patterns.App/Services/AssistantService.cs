@@ -11,8 +11,11 @@ namespace Patterns.App.Services;
 /// <summary>One request as it leaves: the fence with the brief, the turns so far (the new question last), and whether the reply is pinned to the schema on the wire or asked for in plain JSON with the schema in the prompt.</summary>
 public sealed record AssistantRequest(string System, IReadOnlyList<AssistantTurnText> Turns, bool Plain = false);
 
-/// <summary>One turn of the conversation: the operator's words, or the JSON the model answered.</summary>
-public sealed record AssistantTurnText(bool Mine, string Text);
+/// <summary>One turn of the conversation: the operator's words with the files they attached, or the JSON the model answered.</summary>
+public sealed record AssistantTurnText(bool Mine, string Text, IReadOnlyList<AssistantAttachment>? Attachments = null)
+{
+    public IReadOnlyList<AssistantAttachment> Attachments { get; init; } = Attachments ?? Array.Empty<AssistantAttachment>();
+}
 
 /// <summary>What an ask came back with: the reply (null when nothing usable came), the desk's words, whether anything was sent.</summary>
 public sealed record AssistantAnswer(AssistantReply? Reply, string Status, bool Sent);
@@ -32,6 +35,9 @@ public sealed class AssistantService
 
     /// <summary>Turns kept and sent again: a long session keeps its last dozen exchanges.</summary>
     public const int KeptTurns = 24;
+
+    /// <summary>How many of the latest exchanges send their attachments again in full; older turns say what was attached in words instead of sending the bytes every ask.</summary>
+    public const int ExchangesWithAttachments = 2;
 
     private readonly AppServices _services;
     private readonly List<AssistantTurnText> _turns = new();
@@ -195,20 +201,25 @@ public sealed class AssistantService
 
     public void Clear() => _turns.Clear();
 
-    /// <summary>One ask: the gate, the key, the brief, the wire, the parse — never a throw to the desk.</summary>
-    public async Task<AssistantAnswer> AskAsync(string? text)
+    /// <summary>One ask: the gate, the key, the brief, the wire, the parse — never a throw to the desk. The files attached ride in the turn.</summary>
+    public async Task<AssistantAnswer> AskAsync(string? text, IReadOnlyList<AssistantAttachment>? attachments = null)
     {
         var question = (text ?? "").Trim();
+        var files = attachments ?? Array.Empty<AssistantAttachment>();
+        if (question.Length == 0 && files.Count > 0) question = "Read what I have attached and work out a plan for the show from it.";
         if (question.Length == 0) return new AssistantAnswer(null, "Type a question, or what you want built.", false);
         if (AssistantScope.Gate(question) is { } refusal) return new AssistantAnswer(AssistantReply.Refusal(refusal), "Not sent — that is outside what the assistant does.", false);
         var key = Keys.Read();
         if (!key.HasKey) return new AssistantAnswer(null, "No key saved — paste an Anthropic API key in the KEY block first. Nothing leaves this machine without one.", false);
         if (Busy) return new AssistantAnswer(null, "Still waiting on the last answer.", false);
+        if (files.Count > AssistantAttachments.MaxAttachments) return new AssistantAnswer(null, $"At most {AssistantAttachments.MaxAttachments} files ride with one ask — remove some.", false);
+        if (files.Sum(f => (long)f.Size) > AssistantAttachments.MaxTotalBytes) return new AssistantAnswer(null, "The files attached add up to more than one ask can carry — remove the largest.", false);
 
         Busy = true;
         Sent++;
         var brief = ShowBrief.Summarise(_services.State, Gather());
-        var turns = new List<AssistantTurnText>(_turns) { new(true, question) };
+        var turns = History();
+        turns.Add(new AssistantTurnText(true, question, files));
         var request = new AssistantRequest(AssistantScope.SystemPrompt(brief, _plain), turns, _plain);
         LastRequest = request;
         var fellBack = false;
@@ -238,7 +249,7 @@ public sealed class AssistantService
                 Log.Warn("Assistant reply could not be read: " + (json is { Length: > 0 } ? json[..Math.Min(json.Length, 300)] : "(empty)"));
                 return new AssistantAnswer(null, "The assistant's reply could not be read — ask again.", true);
             }
-            _turns.Add(new AssistantTurnText(true, question));
+            _turns.Add(new AssistantTurnText(true, question, files));
             _turns.Add(new AssistantTurnText(false, json));
             while (_turns.Count > KeptTurns) _turns.RemoveRange(0, 2);
             var status = !reply.InScope ? "Declined — the assistant only talks about Patterns and the show."
@@ -280,9 +291,56 @@ public sealed class AssistantService
         }
     }
 
+    /// <summary>
+    /// The conversation so far as the next request carries it: the latest exchanges with their
+    /// attachments in full, older turns with a line saying what was attached instead of the bytes.
+    /// </summary>
+    private List<AssistantTurnText> History()
+    {
+        var list = new List<AssistantTurnText>(_turns.Count);
+        var keepFrom = Math.Max(0, _turns.Count - ExchangesWithAttachments * 2);
+        for (var i = 0; i < _turns.Count; i++)
+        {
+            var t = _turns[i];
+            if (i >= keepFrom || t.Attachments.Count == 0) list.Add(t);
+            else list.Add(new AssistantTurnText(t.Mine, "[The operator attached earlier: " + string.Join("; ", t.Attachments.Select(a => a.Label)) + "]\n" + t.Text));
+        }
+        return list;
+    }
+
     /// <summary>The wire, or the tests' transport in its place; the network off the UI thread.</summary>
     private Task<string> Send(string apiKey, AssistantRequest request)
         => Transport is { } transport ? transport(request) : Task.Run(() => SendAsync(apiKey, request));
+
+    /// <summary>
+    /// A turn as the wire takes it: words alone, or the attached files as their own blocks —
+    /// a picture as an image, a PDF as a document, words as a text document — each after a
+    /// line saying what it is, and the question last.
+    /// </summary>
+    public static MessageParam ToMessage(AssistantTurnText t)
+    {
+        var role = t.Mine ? Role.User : Role.Assistant;
+        if (t.Attachments.Count == 0) return new MessageParam { Role = role, Content = t.Text };
+        var blocks = new List<ContentBlockParam>();
+        foreach (var a in t.Attachments)
+        {
+            blocks.Add(new TextBlockParam { Text = AssistantAttachments.Heading(a) });
+            switch (a.Kind)
+            {
+                case AssistantAttachmentKind.Image when a.Bytes is not null:
+                    blocks.Add(new ImageBlockParam { Source = new Base64ImageSource { Data = Convert.ToBase64String(a.Bytes), MediaType = a.MediaType } });
+                    break;
+                case AssistantAttachmentKind.Pdf when a.Bytes is not null:
+                    blocks.Add(new DocumentBlockParam { Source = new Base64PdfSource(Convert.ToBase64String(a.Bytes)), Title = a.Name });
+                    break;
+                default:
+                    blocks.Add(new DocumentBlockParam { Source = new PlainTextSource(a.Text), Title = a.Name });
+                    break;
+            }
+        }
+        blocks.Add(new TextBlockParam { Text = t.Text });
+        return new MessageParam { Role = role, Content = blocks };
+    }
 
     /// <summary>The request on the wire: the official SDK, the reply pinned to the schema (or asked for in plain JSON when the service refused the schema), a decline read as one.</summary>
     private static async Task<string> SendAsync(string apiKey, AssistantRequest request)
@@ -293,7 +351,7 @@ public sealed class AssistantService
             Model = Model,
             MaxTokens = MaxTokens,
             System = new List<TextBlockParam> { new() { Text = request.System } },
-            Messages = request.Turns.Select(t => new MessageParam { Role = t.Mine ? Role.User : Role.Assistant, Content = t.Text }).ToList(),
+            Messages = request.Turns.Select(ToMessage).ToList(),
             OutputConfig = request.Plain ? null : new Anthropic.Models.Messages.OutputConfig { Format = new JsonOutputFormat { Schema = AssistantScope.SchemaElements() } },
         };
         var response = await client.Messages.Create(parameters);
