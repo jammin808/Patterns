@@ -2490,6 +2490,40 @@ page wide on its own with the dragged strip, a drag there stored with the page's
 alone, the Pattern page back at its width, the Help page at the strip's; the show file carrying
 both numbers and an older file at the default.
 
+### 28.6 Round 19 closed: what else the assistant could do, what was found on the way, what is left
+
+*"What other useful features can be added now?"* Attachments (§28.3) were the one the brief
+named. What would fit next, each under the same rule — the assistant proposes, the operator
+applies, nothing it says goes on air:
+
+- *Cue changes from rehearsal notes.* Attach the notes after a run-through ("the keynote
+  moved to 10:40, drop the sponsor loop, the panel needs a fourth lower third") and get the
+  edits as proposals. The brief already carries the stack, so the model can name the cues; what
+  is missing is a proposal kind that *changes* a cue (a time, a look, an action) rather than
+  adds one, applied through the same path as a cue sheet import with the checks after.
+- *"What did I forget?"* The show against a brief: attach the brief, ask, and the answer names
+  the gaps (no walk-in look, no confidence screen, a lower third with no person). This works
+  today in words — the brief and the attachments give the model everything it needs — and a
+  proposal per gap is the attachments flow again.
+- *The show log.* "What went out at 14:02?" — the journal (`patterns.showlog.jsonl`) as a
+  read-only fact source for the ask, with the same fence: material, never a rule. Cheap to add;
+  not built because nothing in the brief asked for it.
+- *Not this way: voice, or an assistant that acts.* A microphone in a control room is a bad
+  input, and an assistant that presses TAKE is the one thing the design forbids (§28.1).
+
+*Found on the way.* CI run 130 failed on a Machine-page test that had nothing to do with the
+commit: the live one-second sampler landed a reading of the runner between the test's fed
+samples and the read (§28.4, fixed with a switch). The divider's drag on a Machine or Help page
+wrote the page's width, so the next ordinary page opened at the Admin page's star width — a bug
+behind the lock the brief named (§28.5, fixed). The switcher's PREVIEW header row asks for a few
+pixels more than a narrow strip gives it, so the screens column lays out a few pixels wider
+than its number and the window clips them at the right edge; cosmetic, older than this round,
+and noted here rather than chased — the drag stores the number, not the laid-out width, so it
+costs nothing.
+
+*What is left.* The Windows checklist (`docs/CHECKLIST-round19.md`): the assistant rows need
+a key and a real reply, the pop-out and the divider rows a mouse and a real window.
+
 ## 26. Round 18 — the answers
 
 ### 26.1 The Fractals page: the same studio, by family
