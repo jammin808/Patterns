@@ -69,8 +69,10 @@ public sealed class AssistantChip : Observable
 }
 
 /// <summary>One row of the conversation: the operator's words, or the assistant's with its questions and proposals.</summary>
-public sealed class AssistantRow
+public sealed class AssistantRow : Observable
 {
+    private bool _latest;
+
     public AssistantRow(bool mine, string text, IReadOnlyList<string> questions, IReadOnlyList<AssistantChip> chips, bool declined = false, bool note = false)
     {
         IsMine = mine;
@@ -80,6 +82,9 @@ public sealed class AssistantRow
         IsDeclined = declined;
         IsNote = note;
     }
+
+    /// <summary>The newest row — the one under the ask box, lit so the eye lands on the answer.</summary>
+    public bool IsLatest { get => _latest; set => Set(ref _latest, value); }
 
     public bool IsMine { get; }
     public string Who => IsMine ? "YOU" : IsNote ? "PATTERNS" : "ASSISTANT";
@@ -111,7 +116,7 @@ public sealed partial class MainViewModel
     private RelayCommand? _clearAssistant;
     private RelayCommand<string>? _assistantStarter;
 
-    /// <summary>The conversation this session, oldest first.</summary>
+    /// <summary>The conversation this session, newest first — the latest answer sits under the ask box, the history runs down the page.</summary>
     public ObservableCollection<AssistantRow> AssistantRows { get; } = new();
 
     public bool HasAssistantRows => AssistantRows.Count > 0;
@@ -200,7 +205,9 @@ public sealed partial class MainViewModel
 
     private void AddAssistantRow(AssistantRow row)
     {
-        AssistantRows.Add(row);
+        foreach (var r in AssistantRows) r.IsLatest = false;
+        row.IsLatest = true;
+        AssistantRows.Insert(0, row);   // newest at the top
         if (AssistantRows.Count == 1) Raise(nameof(HasAssistantRows));
     }
 
@@ -238,13 +245,34 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>APPLY: the proposal into the show through Core, in one publish, and the desk's lists told.</summary>
+    /// <summary>A proposal that draws — a pattern, overlays, a brand the patterns use, a look's picture — as against one that only adds to the lists (screens, designs, cues).</summary>
+    public static bool ProposalDraws(AssistantProposal p)
+        => p.Pattern is not null || p.Overlays is not null || p.Brand is not null || p.Looks.Count > 0;
+
+    /// <summary>
+    /// APPLY: the proposal into the show through Core, in one publish, and the desk's lists told.
+    /// The assistant designs in the preview and only there: a proposal that draws opens EDIT SAFE
+    /// when it is off, so the program on air stays what it is until TAKE or CUT, and lands on the
+    /// program's own pattern (the PGM pane), never on a screen's own picture — the editing target
+    /// comes back to Program first. Lists (screens, designs, cues) need no preview and open none.
+    /// </summary>
     public void ApplyAssistantProposal(AssistantChip chip)
     {
         if (chip.IsApplied || !chip.Proposal.CanApply) return;
-        var report = new ApplyReport();
-        _services.BulkEdit(() => report = AssistantApply.Apply(State, chip.Proposal));
         var p = chip.Proposal;
+        var draws = ProposalDraws(p);
+        var opened = false;
+        if (draws)
+        {
+            if (!IsSandboxActive)
+            {
+                IsSandboxActive = true;
+                opened = true;
+            }
+            if (EditTarget.ScreenId is not null) EditTarget = EditTargets[0];
+        }
+        var report = new ApplyReport();
+        _services.BulkEdit(() => report = AssistantApply.Apply(State, p));
         if (p.Screens.Count > 0)
         {
             _services.Screens.Refresh();
@@ -259,8 +287,11 @@ public sealed partial class MainViewModel
             SelectedLowerThird = lowers.Designs.LastOrDefault();
             RefreshLowerThirdTallies();
         }
-        chip.MarkApplied(report.Summary);
-        AssistantStatus = "Applied: " + report.Summary;
-        StatusMessage = "Applied: " + report.Summary;
+        var where = draws
+            ? (opened ? " — in the preview (EDIT SAFE opened): TAKE or CUT puts it on air." : " — in the preview: TAKE or CUT puts it on air.")
+            : "";
+        chip.MarkApplied(report.Summary + where);
+        AssistantStatus = "Applied: " + report.Summary + where;
+        StatusMessage = "Applied: " + report.Summary + where;
     }
 }

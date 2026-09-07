@@ -2178,6 +2178,80 @@ for the Windows machine is `docs/CHECKLIST-round18.md`.
 | 2 | The particles given the fractals' treatments (§26.2). "Does Particles need the careful stability and speed and resilience handling and treatments we used for Fractals?" Audited treatment by treatment against the code: the particles already had what the fractals never needed — a fixed 120 Hz step, an allocation-free frame, one DrawAtlas — and were missing four things of their own. A sim per field on every sink (`ParticleSimCache`): a crossfade, a monitor wall and a layer draw more than one field on a sink in a frame, and the one sim a sink had was re-seeded, settled and caught up on every draw, twice a frame; now each field has its own, found without an allocation. A catch-up bounded per frame in updates (three million, never under a second of sim) instead of 2048 steps of any field in one draw on the compositor's thread. The quality ladder on the draw alone — every particle steps whatever the level — so two sinks reading the level a frame apart never diverge again. A late sink joins the running leader's timeline (`ParticleLeaders` on the snapshot, weak): an output opened at OUTPUTS ON, an NDI send started mid-show, a display plugged in late show the same field as the PGM pane from their first frame; the random stream is the sim's own (a seeded xorshift, copyable). Fences: a backwards clock re-anchors instead of freezing, a NaN particle is born again, a disposed sim is inert and lets its sprite go, an unallocatable sprite is no field. Not done on purpose: SoA/SIMD for the integrate loop. Also the caller's plan across midnight (`CueTiming.Near`): the CI's clock crossed midnight under the desk's timing test and read +1445 min; a plan is read as the occurrence nearest the clock now. Tests: the cache, the join, the budget, the ladder, the clock, the fences, the random stream, the plan past midnight. | done |
 | 1 | The Fractals page (§26.1). BUILD → Fractals, between Particles and Branding, built the way the Particles page is built: a Fractal studio with SCENES filed by family — Mandelbrot (classic, Seahorse valley, Elephant valley, Spiral arm, Mini-brot, Triple spiral valley), Julia (swirl, dragon, Douady's rabbit, Dendrite, San Marco, Siegel disk, Galaxy spiral), Burning ship (the ship, The armada, Ship's mast), Newton (triad, coast, lace), Domain warp (lava, ocean, smoke, aurora, neon) — twenty-four scenes where there were eight, and the operator's saved fractal presets under Custom; FAMILY (the maths, a Julia's c), VIEW (zoom, centre, detail, motion, CPU quality), COLOUR (the palette, or BRAND KIT for the kit's five colours at a press), SOUND (this computer or an input, the amount, the analyser's status line) and STINGS (ADD AN EFFECT STING); USE IT makes the Fractal the editing target's pattern so the page shows live. The Pattern page keeps a pointer with OPEN FRACTALS while Fractal is the pattern, and the particles' pointer gets OPEN PARTICLES to match; the Library files every scene under a Fractals section by family; a Help topic ("fractals") with the words a user would search; the Workflow and Shell help name the page. `FractalPresets.Scene` carries its family; `Categories` and `In(family)` mirror the particle packs; a scene still never touches the sound settings. Tests: the families in order with every scene under one, every scene applying with its name and rastering clean with the sound left alone; on the desk the chips by family, USE IT, a chip leaving the sound settings alone, the brand palette, a saved fractal preset as a Custom chip and a grid preset kept out, the Library section, the page rendering with every chip and its buttons, the rail order and the BUILD hint, the Pattern page's OPEN FRACTALS opening the page, OPEN PARTICLES, an unknown header ignored, the Help topic and words. | done |
 
+## 27. Round 19 — the assistant embedded, the pop-out column, the divider
+
+The user's round-19 brief: "In Build - Assistant, the chat running order needs to be inverted so
+latest at the top. It needs a bit more room to breathe to make it easier to read and use. What
+other useful features can be added now? Maybe import a screen shot, or a brief or notes or
+spreadsheet, or a mixture, and it works out a plan?" — "The AI assistant seems to have trouble
+when adding a screen - it keeps adding joined screens to make a massive wide canvas." — "When
+applying and AI suggestion, it should go to Preview in PGM only, while keeping Program in PGM as
+what it was until manually changed with Take/Cut. The AI assistant should only design in PGM." —
+"Check how it works with the system architecture as it needs to be well embedded to understand
+all states." — "The Plan - Cue area: Move the settings for each cue to a new column that pops out
+to it's left with the settings in (to the left of the switched view). This is a good UI idea -
+can you apply it to other areas, especially if they are crowded. Simple areas don't need it." —
+"Admin area can lose the lock on dragging to resize areas." With them the standing rule:
+stability, resilience, efficiency, UX, performance across system specs, durability and an easy
+show workflow; every change instant. The answers are §28. Newest row first. The checklist for
+the Windows machine is `docs/CHECKLIST-round19.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The Assistant page, the APPLY rule and the screens (§28.1). The conversation reads newest first — the latest answer sits under the ask box, lit, and the history runs down the page — with room: cards with air around their words, the type a size up, a taller ask box, the proposals as cards inside the answer. APPLY lands in the preview and only there: a proposal that draws (a pattern, overlays, a brand the patterns use, a look's picture) opens EDIT SAFE when it is off, so the program on air stays exactly what it is until TAKE or CUT, and it lands on the program's own pattern (the PGM pane) — the editing target comes back to Program first — never on a screen's own picture; lists (planned screens, designs, cues) need no preview and open none; the chip and the status say where it went. The screens bug: the assistant placed every planned screen flush against the last one, and flush is exactly how the rig joins screens into one canvas (`ScreenLayout.Touching`, a 1 px tolerance), so three screens came out as one wide wall — and the desk's own + PLANNED SCREEN did the same. Every new planned screen now lands `ScreenLayout.ApartGap` (240 px) past the rig, its own target until it is dragged flush on purpose, and the rules tell the model that a wall fed by several outputs is one planned screen of the wall's total size and that joining outputs is the Screens page's. Tests: three screens three targets and no canvas, a rig with a real wall keeping it and the new screen apart, the rules' words; on the desk the rows newest first and the latest lit, APPLY with EDIT SAFE off opening it with the air's picture untouched and the preview's changed, the editing target on Program, TAKE putting it on air. | done |
+
+## 28. Round 19 — the answers
+
+### 28.1 The assistant on the desk: newest first, the preview only, screens apart
+
+*The page.* The conversation was oldest first, under the ask box, so every answer landed at the
+bottom of a page that grew — the operator scrolled to find what they had just asked for. It is
+newest first now (`AssistantRows` inserts at the top): the latest answer sits directly under the
+ask box with a lit border, the question above it, the history running down the page in the
+order it happened. Room: a turn is a card with sixteen pixels of air around its words rather
+than eight, the words a size up (14 px on a 23 px line), the answer's proposals cards inside it
+with their own air, the ask box two lines tall with a bold ASK beside it. Nothing else on the
+page moved.
+
+*Where APPLY lands, and the architecture it lands in.* The desk has two states when EDIT SAFE
+is on: the edited state (`AppServices.State`, what the preview draws and every editor binds to)
+and the frozen program (`SandboxService.ProgramState`, a clone the outputs and the NDI senders
+keep drawing); TAKE and CUT make the edited state the program. With EDIT SAFE off there is one
+state and every edit is on air. `AssistantApply` edits the state it is given, and the desk gave
+it `State` — right with EDIT SAFE on, wrong with it off: a look proposal applied then changed the
+picture on air at once. The rule now, in `ApplyAssistantProposal`: a proposal that draws — a
+pattern, overlays, a brand the patterns use, a look's picture (SAVE LOOK builds the picture and
+then captures it) — opens EDIT SAFE first when it is off, exactly as the EDIT toggle does, so the
+program on air stays what it is until the operator presses TAKE or CUT; a proposal that only adds
+to lists (planned screens, designs, cues) opens nothing, because nothing it does is a picture.
+"Design in PGM": the editing target is the pattern the editors and the PGM pane's preview show —
+Program's own, or a screen's own picture when a tile is OWN — and `AssistantApply` always writes
+the program's pattern, so with a screen's own pattern selected the assistant's picture landed
+where the operator was not looking. The editing target comes back to Program before a drawing
+proposal is applied. The chip's applied line and the status say where it went ("— in the preview
+(EDIT SAFE opened): TAKE or CUT puts it on air."), the fence tells the model the same in its own
+words, and the page's tip and its "will and will not" say it in the operator's.
+
+*The screens.* "It keeps adding joined screens to make a massive wide canvas." The rig joins
+screens into one canvas by geometry alone: two placements whose edges sit flush (within
+`ScreenLayout.TouchTolerance`, one pixel) with enough shared edge are one canvas
+(`ScreenLayout.Touching`, `Groups`), which is what the Screens page's drag-to-connect is for.
+`AssistantApply.AddScreen` placed every new planned screen at the rig's right edge — flush — so
+a plan of three screens was one 7680-wide canvas with a letter, and the desk's own + PLANNED
+SCREEN (`NextPlannedX`) did the same. Both now land the new screen `ScreenLayout.ApartGap`
+(240 px) past the rig: its own target, with its own tile, until the operator drags it flush on
+purpose. The reply rules tell the model the other half: one planned screen per physical screen
+or feed, never one the brief already lists, and a wall fed by several outputs is ONE planned
+screen of the wall's total size (3840×1080, 5760×1080) — joining the outputs behind it is done by
+hand on the Screens page, where the displays are.
+
+Tests: three planned screens from the assistant are three targets and no canvas, each a gap
+from the last; a rig with a real joined wall keeps the wall as one canvas and the new screen
+apart from it; the rules carry the words. On the desk: the rows newest first with the latest
+lit and the question below it; APPLY of a look with EDIT SAFE off opens it, the air's pattern
+and overlays untouched, the preview's changed, the editing target on Program, the applied line
+naming the preview; TAKE puts the picture on air.
+
 ## 26. Round 18 — the answers
 
 ### 26.1 The Fractals page: the same studio, by family

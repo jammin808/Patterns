@@ -1011,13 +1011,17 @@ public sealed partial class MainViewModel
         return placement;
     }
 
-    /// <summary>Places a new planned screen to the right of everything already arranged.</summary>
+    /// <summary>
+    /// Places a new planned screen to the right of everything already arranged, a gap away: its
+    /// own target until it is dragged flush — flush is what joins screens into one canvas, and a
+    /// rig built screen by screen used to come out as one wide wall.
+    /// </summary>
     private int NextPlannedX()
     {
         var right = 0;
         foreach (var (placement, info) in OrderedLivePlacements())
         {
-            right = Math.Max(right, placement.X + OutputWindowManager.EffectiveSize(placement, info).Width);
+            right = Math.Max(right, placement.X + OutputWindowManager.EffectiveSize(placement, info).Width + Patterns.Core.Rendering.ScreenLayout.ApartGap);
         }
         return right;
     }

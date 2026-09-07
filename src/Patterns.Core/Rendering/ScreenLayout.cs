@@ -22,6 +22,13 @@ public static class ScreenLayout
     /// <summary>Gap tolerance (px) — rects within this of flush count as touching.</summary>
     public const int TouchTolerance = 1;
 
+    /// <summary>
+    /// How far from the rig a new screen is placed (px): its own target, never one canvas with
+    /// its neighbour by accident — a planned screen added at the desk or by the assistant lands
+    /// this far to the right of everything arranged, and a drag flush joins it on purpose.
+    /// </summary>
+    public const int ApartGap = 240;
+
     /// <summary>True when the rects sit flush along an edge with enough shared span to connect.</summary>
     public static bool Touching(SKRectI a, SKRectI b)
     {

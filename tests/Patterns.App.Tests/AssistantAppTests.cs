@@ -76,8 +76,11 @@ public class AssistantAppTests
             PumpUntil(() => vm.AssistantRows.Count == 2);
             Assert.Equal(0, sent);
             Assert.StartsWith("No key saved", vm.AssistantStatus);
-            Assert.True(vm.AssistantRows[1].IsNote);
-            Assert.Equal("PATTERNS", vm.AssistantRows[1].Who);
+            Assert.True(vm.AssistantRows[0].IsNote);        // newest first: the note sits above the question
+            Assert.Equal("PATTERNS", vm.AssistantRows[0].Who);
+            Assert.True(vm.AssistantRows[1].IsMine);
+            Assert.True(vm.AssistantRows[0].IsLatest);
+            Assert.False(vm.AssistantRows[1].IsLatest);
             Assert.Equal("", vm.AssistantInput);
 
             // SAVE KEY: the store beside the settings; the draft cleared; the show file clean.
@@ -137,8 +140,8 @@ public class AssistantAppTests
             PumpUntil(() => vm.AssistantRows.Count == 2);
             Assert.Empty(requests);
             Assert.Equal(0, services.Assistant.Sent);
-            Assert.True(vm.AssistantRows[1].IsDeclined);
-            Assert.Equal(AssistantScope.Refusal, vm.AssistantRows[1].Text);
+            Assert.True(vm.AssistantRows[0].IsDeclined);
+            Assert.Equal(AssistantScope.Refusal, vm.AssistantRows[0].Text);
             Assert.StartsWith("Not sent", vm.AssistantStatus);
 
             // A real ask: the request carries the fence and the brief with the show's names; the reply becomes rows.
@@ -156,7 +159,7 @@ public class AssistantAppTests
             Assert.True(turn.Mine);
             Assert.Equal("A walk-in look with the clock and a welcome message", turn.Text);
 
-            var row = vm.AssistantRows[3];
+            var row = vm.AssistantRows[0];   // the newest answer, at the top
             Assert.Equal("ASSISTANT", row.Who);
             Assert.False(row.IsDeclined);
             Assert.Equal("A walk-in look and the first two cues.", row.Text);
@@ -175,19 +178,32 @@ public class AssistantAppTests
             Assert.Empty(vm.State.LooksAndCues.Looks);
             Assert.Empty(vm.State.LowerThirds.Designs);
 
-            // APPLY: the look saved with its picture, the design added and selected, the cues on the stack — one publish each.
-            var version = services.Bus.Current.Version;
+            // APPLY: the look saved with its picture, the design added and selected, the cues on the stack.
+            // The picture builds in the preview: EDIT SAFE was off, so it opens; the editing target is
+            // Program; what is on air keeps its picture until TAKE.
+            var airBefore = services.AirState.Pattern.Kind;
+            Assert.NotEqual(PatternKind.Particles, airBefore);
             look.ApplyCommand.Execute(null);
             Assert.True(look.IsApplied);
             Assert.False(look.CanApply);
-            Assert.Equal("pattern Particles · overlays: clock on, message on (\"WELCOME\") · look 'Walk-in' saved (F1)", look.AppliedText);
+            Assert.Equal("pattern Particles · overlays: clock on, message on (\"WELCOME\") · look 'Walk-in' saved (F1) — in the preview (EDIT SAFE opened): TAKE or CUT puts it on air.", look.AppliedText);
             Assert.StartsWith("Applied: pattern Particles", vm.AssistantStatus);
+            Assert.True(vm.IsSandboxActive);
+            Assert.Null(vm.EditTarget.ScreenId);
             Assert.Equal(PatternKind.Particles, vm.State.Pattern.Kind);
             Assert.True(vm.State.Overlays.Clock.Enabled);
             Assert.Equal("WELCOME", vm.State.Overlays.Message.Text);
             Assert.Contains("Walk-in", vm.LookNames);
             Assert.Equal(1, LookService.Find(vm.State, "Walk-in")!.Hotkey);
-            Assert.Equal(version + 1, services.Bus.Current.Version);
+            Assert.Equal(airBefore, services.AirState.Pattern.Kind);
+            Assert.False(services.AirState.Overlays.Clock.Enabled);
+            Assert.NotSame(vm.State, services.AirState);
+
+            // TAKE puts it on air, by the operator's hand.
+            vm.TakeCommand.Execute(null);
+            Assert.Equal(PatternKind.Particles, services.AirState.Pattern.Kind);
+            Assert.True(services.AirState.Overlays.Clock.Enabled);
+            Assert.Equal("WELCOME", services.AirState.Overlays.Message.Text);
 
             row.Chips[1].ApplyCommand.Execute(null);
             var design = Assert.Single(vm.State.LowerThirds.Designs);
@@ -264,8 +280,8 @@ public class AssistantAppTests
             Assert.Equal(requests[0].Turns.Count, requests[1].Turns.Count);   // the same ask, not a new turn
             Assert.Equal(2, services.Assistant.Sent);
             Assert.True(services.Assistant.PlainJson);
-            Assert.Equal("Screens, looks, lower thirds and a cue stack — tell me about the day.", vm.AssistantRows[1].Text);
-            Assert.True(vm.AssistantRows[1].HasQuestions);
+            Assert.Equal("Screens, looks, lower thirds and a cue stack — tell me about the day.", vm.AssistantRows[0].Text);
+            Assert.True(vm.AssistantRows[0].HasQuestions);
             Assert.StartsWith("The assistant has questions", vm.AssistantStatus);
             Assert.Contains("declined the reply's schema", vm.AssistantStatus);
             Assert.Equal(2, services.Assistant.Turns.Count);
@@ -309,23 +325,24 @@ public class AssistantAppTests
             vm.AssistantInput = "What is the weather like on Mars?";
             vm.AskAssistantCommand.Execute(null);
             PumpUntil(() => vm.AssistantRows.Count == 2);
-            Assert.True(vm.AssistantRows[1].IsDeclined);
-            Assert.Equal("ASSISTANT", vm.AssistantRows[1].Who);
-            Assert.False(vm.AssistantRows[1].HasChips);
+            Assert.True(vm.AssistantRows[0].IsDeclined);
+            Assert.Equal("ASSISTANT", vm.AssistantRows[0].Who);
+            Assert.False(vm.AssistantRows[0].HasChips);
             Assert.StartsWith("Declined", vm.AssistantStatus);
             Assert.Equal(2, services.Assistant.Turns.Count); // a decline is still a turn
 
             vm.AssistantInput = "A look for the break";
             vm.AskAssistantCommand.Execute(null);
             PumpUntil(() => vm.AssistantRows.Count == 4);
-            Assert.True(vm.AssistantRows[3].IsNote);
+            Assert.True(vm.AssistantRows[0].IsNote);
             Assert.StartsWith("The assistant's reply could not be read", vm.AssistantStatus);
             Assert.Equal(2, services.Assistant.Turns.Count); // an unreadable reply is not kept
 
             vm.AssistantInput = "A look for the break";
             vm.AskAssistantCommand.Execute(null);
             PumpUntil(() => vm.AssistantRows.Count == 6);
-            Assert.True(vm.AssistantRows[5].IsNote);
+            Assert.True(vm.AssistantRows[0].IsNote);
+            Assert.Equal(6, vm.AssistantRows.Count);
             Assert.Contains("name or service not known", vm.AssistantStatus);
             Assert.True(vm.CanAskAssistant);
             Assert.Equal(3, services.Assistant.Sent);

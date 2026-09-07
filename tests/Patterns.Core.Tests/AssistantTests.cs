@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Patterns.Core.LowerThirds;
 using Patterns.Core.Model;
+using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using Xunit;
 
@@ -372,14 +373,14 @@ public class AssistantTests
 
         var report = AssistantApply.Apply(state, plan);
 
-        // Screens: planned, side by side, with their roles.
+        // Screens: planned, side by side a gap apart (never flush — flush is one canvas), with their roles.
         Assert.Equal(2, state.Output.Placements.Count);
         var main = state.Output.Placements[0];
         Assert.True(main.Planned);
         Assert.StartsWith(ScreenPlacement.PlannedIdPrefix, main.ScreenId);
         Assert.Equal((3840, 1080, ScreenRole.Main, true, 0), (main.PlannedWidth, main.PlannedHeight, main.Role, main.FollowsCues, main.X));
         var comfort = state.Output.Placements[1];
-        Assert.Equal((1920, 1080, ScreenRole.Confidence, false, 3840), (comfort.PlannedWidth, comfort.PlannedHeight, comfort.Role, comfort.FollowsCues, comfort.X));
+        Assert.Equal((1920, 1080, ScreenRole.Confidence, false, 3840 + ScreenLayout.ApartGap), (comfort.PlannedWidth, comfort.PlannedHeight, comfort.Role, comfort.FollowsCues, comfort.X));
 
         // The brand: the good colour taken, the bad one left, the company named.
         Assert.Equal("Acme", state.Brand.CompanyName);
@@ -452,6 +453,47 @@ public class AssistantTests
         Assert.True(report.DidAnything);
     }
 
+    /// <summary>
+    /// The bug: three screens proposed came out as one wide canvas. Every planned screen the
+    /// assistant adds is its own target — a gap from its neighbour, never flush — however many
+    /// there are and whatever sits in the rig already, and the rules tell the model a joined wall
+    /// is one screen of the joined size.
+    /// </summary>
+    [Fact]
+    public void PlannedScreensStayApartAndNeverJoinIntoOneCanvas()
+    {
+        var state = new ShowState();
+        var report = new ApplyReport();
+        AssistantApply.AddScreen(state, new ScreenPart("Main LED", "main", 3840, 1080), report);
+        AssistantApply.AddScreen(state, new ScreenPart("Stage left", "main", 1920, 1080), report);
+        AssistantApply.AddScreen(state, new ScreenPart("Foyer", "info", 1080, 1920), report);
+
+        var geo = RigGeometry.Build(state, RigGeometry.NoDisplays);
+        Assert.Equal(3, geo.Screens.Count);
+        Assert.Equal(3, geo.Targets.Count);                                  // three targets, no canvas
+        Assert.All(geo.Targets, t => Assert.False(ContentTargets.IsCanvasKey(t)));
+        for (var i = 1; i < state.Output.Placements.Count; i++)
+        {
+            var before = state.Output.Placements[i - 1];
+            Assert.True(state.Output.Placements[i].X - (before.X + before.PlannedWidth) >= ScreenLayout.ApartGap);
+        }
+
+        // A rig with a real joined wall already in it: the new screen lands past the wall, apart from it.
+        var walled = new ShowState();
+        walled.Output.Placements.Add(new ScreenPlacement { ScreenId = "p-left", Planned = true, PlannedWidth = 1920, PlannedHeight = 1080, X = 0 });
+        walled.Output.Placements.Add(new ScreenPlacement { ScreenId = "p-right", Planned = true, PlannedWidth = 1920, PlannedHeight = 1080, X = 1920 });
+        AssistantApply.AddScreen(walled, new ScreenPart("Comfort", "confidence", 1920, 1080), report);
+        var walledGeo = RigGeometry.Build(walled, RigGeometry.NoDisplays);
+        Assert.Equal(2, walledGeo.Targets.Count);                            // the wall (one canvas) and the new screen
+        Assert.Single(walledGeo.Targets, ContentTargets.IsCanvasKey);
+        Assert.Equal(3840 + ScreenLayout.ApartGap, walled.Output.Placements[2].X);
+
+        // The rules say so to the model, and where a proposal lands.
+        Assert.Contains("ONE planned screen of the wall's total size", AssistantScope.ReplyRules);
+        Assert.Contains("builds in the PREVIEW", AssistantScope.ReplyRules);
+        Assert.Contains("only TAKE or CUT puts a picture on air", AssistantScope.Fence);
+    }
+
     [Fact]
     public void ApplyingAgainUpdatesInsteadOfDoubling()
     {
@@ -469,7 +511,7 @@ public class AssistantTests
         Assert.Single(state.LowerThirds.Designs);
         Assert.Equal(designId, state.LowerThirds.Designs[0].Id);
         Assert.Equal(4, state.Output.Placements.Count);
-        Assert.Equal(5760, state.Output.Placements[2].X); // to the right of the first two (3840 + 1920)
+        Assert.Equal(3840 + ScreenLayout.ApartGap + 1920 + ScreenLayout.ApartGap, state.Output.Placements[2].X); // to the right of the first two, a gap past each
         Assert.Equal(6, CueStacks.Caller(state).Cues.Count);
         Assert.Equal("01.040", CueStacks.Caller(state).Cues[3].Number);
         Assert.Contains("look 'Walk-in' updated", report.Applied);
