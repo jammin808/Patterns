@@ -26,6 +26,7 @@ public class RuntimeAppTests
         try
         {
             var (services, vm, window) = b;
+            ShowGc.Apply(false);   // a test before this one may have left the outputs live: rest first
             Assert.NotEqual(GCLatencyMode.SustainedLowLatency, GCSettings.LatencyMode);
 
             // Outputs on: sustained low latency for the length of the show.
