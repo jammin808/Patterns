@@ -115,12 +115,12 @@ public static class HelpTopics
             {
                 "Pick the group on the rail (SHOW · PLAN · BUILD · SETUP · ADMIN); the strip lists its pages and remembers the one you were on.",
                 "Press ? TIPS on the strip for this page's explanations — or tick Show hints on the pages to keep them inline.",
-                "Drag the divider between the page and the screens, or the handle between PROGRAM and PREVIEW; ◧ WIDE folds the screens to a strip.",
+                "Drag the divider between the page and the screens, or the handle between PROGRAM and PREVIEW; ◧ WIDE folds the screens to a strip whose width the divider sets too — on the Machine and Help pages as well.",
                 "SHOW CONTROLS under the wall: the message, the clock, the countdown and the audio track's level, each behind SEND.",
             },
             "",
             new[] { "Help" },
-            new[] { "rail", "groups", "strip", "tabs", "pages", "tips", "hints", "divider", "splitter", "wide", "layout", "show controls", "send", "resize", "settings column", "pop-out", "pop out", "column", "selected cue", "selected screen", "selected element", "close" }),
+            new[] { "rail", "groups", "strip", "tabs", "pages", "tips", "hints", "divider", "splitter", "wide", "layout", "show controls", "send", "resize", "settings column", "pop-out", "pop out", "column", "selected cue", "selected screen", "selected element", "close", "strip", "admin", "machine page", "drag" }),
 
         new HelpTopic("modes", HelpGroup.StartHere,
             "PREP · SHOW · RUN: what may leave the machine, and the caller's layout",

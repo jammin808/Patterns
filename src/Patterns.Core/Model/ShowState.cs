@@ -1436,8 +1436,10 @@ public sealed class DeskLayoutConfig : Observable
     /// <summary>The screens column never goes narrower than this in the classic layout — the wall's TAKE stays on screen.</summary>
     public const double MinScreensWidth = 420;
 
-    /// <summary>The screens column's width with the work area wide: the wall and the panes, reduced.</summary>
-    public const double WideScreensWidth = 300;
+    /// <summary>The screens strip's width with the work area wide (◧ WIDE, or a Machine / Help page): the wall and the panes, reduced — the default; the divider sets <see cref="WideScreensWidth"/>.</summary>
+    public const double DefaultWideScreensWidth = 300;
+    public const double MinWideScreensWidth = 200;
+    public const double MaxWideScreensWidth = 1000;
 
     /// <summary>The Run area: how much of its width the cue stack takes — about a third by default, the wall the rest.</summary>
     public const double DefaultRunCueShare = 0.35;
@@ -1447,6 +1449,7 @@ public sealed class DeskLayoutConfig : Observable
     private double _editorWidth = DefaultEditorWidth;
     private double _programShare = DefaultProgramShare;
     private bool _wideWorkArea;
+    private double _wideScreensWidth = DefaultWideScreensWidth;
     private bool _showHints;
     private double _runCueShare = DefaultRunCueShare;
     private bool _runWallCollapsed;
@@ -1467,6 +1470,18 @@ public sealed class DeskLayoutConfig : Observable
 
     /// <summary>The page takes the room; the screens shrink to a strip on the right.</summary>
     public bool WideWorkArea { get => _wideWorkArea; set => Set(ref _wideWorkArea, value); }
+
+    /// <summary>
+    /// The screens strip's width in pixels with the work area wide — ◧ WIDE on, or a Machine / Help
+    /// page, which take the room on their own. The divider drags it and the show remembers it; the
+    /// page's own width (<see cref="EditorWidth"/>) is a separate number the strip never touches.
+    /// Absent in an older file, so the strip opens at its default.
+    /// </summary>
+    public double WideScreensWidth
+    {
+        get => _wideScreensWidth;
+        set => Set(ref _wideScreensWidth, Math.Clamp(double.IsFinite(value) ? value : DefaultWideScreensWidth, MinWideScreensWidth, MaxWideScreensWidth));
+    }
 
     /// <summary>
     /// The pages' explanations shown inline. Off (the default) they live behind ? TIPS on the

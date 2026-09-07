@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Patterns.App.ViewModels;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
@@ -13,7 +14,8 @@ namespace Patterns.App.Tests;
 
 /// <summary>
 /// The desk's sections resize: a divider between the page and the screens, a handle between
-/// PROGRAM and PREVIEW, WIDE to reduce the screens to a strip — all remembered in the show.
+/// PROGRAM and PREVIEW, WIDE to reduce the screens to a strip whose width the divider also sets
+/// (on the Machine and Help pages too, which are wide on their own) — all remembered in the show.
 /// </summary>
 public class DeskLayoutTests
 {
@@ -87,6 +89,63 @@ public class DeskLayoutTests
             Assert.False(window.IsWideApplied);
             Assert.Equal(600, window.EditorColumnWidth);
 
+            // The strip's width with the work area wide: the divider sets it and the show remembers
+            // it, the page's own width untouched — the wide layouts used to take the drag back.
+            vm.WideWorkArea = true;
+            Settle(window);
+            Assert.Equal(DeskLayoutConfig.DefaultWideScreensWidth, window.ScreensColumnWidth);
+            // What a drag of the divider does in this layout: the strip's column takes the pixels. (The
+            // grid never lays the strip out narrower than the wall's own minimum, so the widths here
+            // sit above it; a drag under it stores what is seen, and no drift follows.)
+            window.WorkAreaColumns[2].Width = new GridLength(520);
+            Settle(window);
+            window.CommitDividerDrag();
+            Settle(window);
+            Assert.Equal(520, vm.State.Desk.WideScreensWidth);
+            Assert.Equal(520, window.ScreensColumnWidth);
+            Assert.Equal(600, vm.State.Desk.EditorWidth);
+            Assert.True(window.IsWideApplied);
+            Assert.True(Extent(take, window).Right <= window.Bounds.Width + 0.5, "the wall's TAKE is still on the window with the strip wider");
+            window.CommitDividerDrag();   // let go again with nothing moved: the same number, no creep
+            Assert.Equal(520, vm.State.Desk.WideScreensWidth);
+            window.SetWideScreensWidth(50);
+            Assert.Equal(DeskLayoutConfig.MinWideScreensWidth, vm.State.Desk.WideScreensWidth);
+            window.SetWideScreensWidth(5000);
+            Assert.Equal(DeskLayoutConfig.MaxWideScreensWidth, vm.State.Desk.WideScreensWidth);
+            Settle(window);
+            Assert.True(window.ScreensColumnWidth < DeskLayoutConfig.MaxWideScreensWidth, $"held back to {window.ScreensColumnWidth:0} so the page keeps its minimum");
+            Assert.True(pages.Bounds.Width >= DeskLayoutConfig.MinEditorWidth - 12, $"the page keeps its minimum ({pages.Bounds.Width:0})");
+            window.SetWideScreensWidth(520);
+            vm.WideWorkArea = false;
+            Settle(window);
+            Assert.False(window.IsWideApplied);
+            Assert.Equal(600, window.EditorColumnWidth);
+
+            // The Machine page (an Admin page) is wide on its own: the divider drags the strip there
+            // too, the page's width is left alone, and an ordinary page comes back as it was.
+            vm.SelectPage(Shell.IndexOf("Machine"));
+            Settle(window);
+            Assert.True(window.IsWideApplied);
+            Assert.Equal(520, window.ScreensColumnWidth);
+            window.WorkAreaColumns[2].Width = new GridLength(600);
+            Settle(window);
+            window.CommitDividerDrag();
+            Settle(window);
+            Assert.Equal(600, vm.State.Desk.WideScreensWidth);
+            Assert.Equal(600, window.ScreensColumnWidth);
+            Assert.True(window.IsWideApplied);
+            Assert.Equal(600, vm.State.Desk.EditorWidth);
+            vm.SelectPage(Shell.IndexOf("Pattern"));
+            Settle(window);
+            Assert.False(window.IsWideApplied);
+            Assert.Equal(600, window.EditorColumnWidth);
+            vm.SelectPage(Shell.IndexOf("Help"));
+            Settle(window);
+            Assert.True(window.IsWideApplied);
+            Assert.Equal(600, window.ScreensColumnWidth);
+            vm.SelectPage(Shell.IndexOf("Pattern"));
+            Settle(window);
+
             // A wide page never pushes the screens off the window: at the minimum width the show's
             // value is held back and TAKE stays inside.
             window.SetEditorWidth(1000);
@@ -106,9 +165,11 @@ public class DeskLayoutTests
             var json = JsonUtil.Serialize(vm.State);
             var back = JsonUtil.Deserialize<ShowState>(json)!;
             Assert.Equal(1000, back.Desk.EditorWidth);
+            Assert.Equal(600, back.Desk.WideScreensWidth);
             Assert.Equal(DeskLayoutConfig.MaxProgramShare, back.Desk.ProgramShare, 3);
             var older = JsonUtil.Deserialize<ShowState>("{}")!;
             Assert.Equal(DeskLayoutConfig.DefaultEditorWidth, older.Desk.EditorWidth);
+            Assert.Equal(DeskLayoutConfig.DefaultWideScreensWidth, older.Desk.WideScreensWidth);
             Assert.False(older.Desk.WideWorkArea);
         }
         finally

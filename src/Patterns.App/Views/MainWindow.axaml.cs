@@ -135,6 +135,22 @@ public partial class MainWindow : Window
     /// <summary>The screens are reduced to a strip and the page takes the room.</summary>
     public bool IsWideApplied => WorkArea.ColumnDefinitions[0].Width.IsStar;
 
+    /// <summary>The screens column's width as laid out: the strip's pixels with the work area wide, the star column's actual width otherwise.</summary>
+    public double ScreensColumnWidth
+    {
+        get
+        {
+            var column = WorkArea.ColumnDefinitions[2];
+            return column.Width.IsAbsolute ? column.Width.Value : column.ActualWidth;
+        }
+    }
+
+    /// <summary>The work area's columns — the page, the divider, the screens — as a drag of the divider changes them.</summary>
+    public ColumnDefinitions WorkAreaColumns => WorkArea.ColumnDefinitions;
+
+    /// <summary>Wide by the operator's choice (◧ WIDE), or because the page (the machine, help) wants the room.</summary>
+    private bool WantsWide => _desk is not null && (_desk.WideWorkArea || _deskVm?.PageWantsRoom == true);
+
     private void HookDeskLayout(MainViewModel vm)
     {
         var desk = vm.State.Desk;
@@ -165,23 +181,28 @@ public partial class MainWindow : Window
         {
             var columns = WorkArea.ColumnDefinitions;
             var rows = SwitcherRows.RowDefinitions;
-            // WIDE by the operator's choice, or because the page (the machine, help) wants the room.
-            if (_desk.WideWorkArea || _deskVm?.PageWantsRoom == true)
+            var room = WorkArea.Bounds.Width;
+            // The divider column is a fixed width; a star or auto column would read as its weight.
+            var divider = columns[1].Width.IsAbsolute ? columns[1].Width.Value : columns[1].ActualWidth;
+            // WIDE by the operator's choice, or because the page (the machine, help) wants the room:
+            // the page takes the star and the screens are a strip of the width the show remembers —
+            // the divider drags it (round 19) — held back so the page keeps its minimum.
+            if (WantsWide)
             {
+                var strip = _desk.WideScreensWidth;
+                if (room > 0) strip = Math.Max(DeskLayoutConfig.MinWideScreensWidth, Math.Min(strip, room - divider - DeskLayoutConfig.MinEditorWidth));
+                if (double.IsNaN(strip) || double.IsInfinity(strip)) strip = DeskLayoutConfig.DefaultWideScreensWidth;
                 columns[0].MinWidth = DeskLayoutConfig.MinEditorWidth;
                 columns[0].Width = new GridLength(1, GridUnitType.Star);
                 columns[2].MinWidth = 0;
-                columns[2].Width = new GridLength(DeskLayoutConfig.WideScreensWidth);
+                columns[2].Width = new GridLength(strip);
             }
             else
             {
-                var room = WorkArea.Bounds.Width;
                 // The pop-out settings column lives inside the page column: while it is open the
                 // column is the page's width plus the pop-out's, so the page keeps its room.
                 var popOut = PopOutWidthApplied;
                 var width = _desk.EditorWidth + popOut;
-                // The divider column is a fixed width; a star or auto column would read as its weight.
-                var divider = columns[1].Width.IsAbsolute ? columns[1].Width.Value : columns[1].ActualWidth;
                 if (room > 0) width = Math.Max(DeskLayoutConfig.MinEditorWidth, Math.Min(width, room - divider - DeskLayoutConfig.MinScreensWidth));
                 if (double.IsNaN(width) || double.IsInfinity(width)) width = DeskLayoutConfig.MinEditorWidth;
                 columns[0].MinWidth = DeskLayoutConfig.MinEditorWidth;
@@ -214,6 +235,14 @@ public partial class MainWindow : Window
         ApplyDeskLayout();
     }
 
+    /// <summary>The screens strip's width with the work area wide, as a drag of the divider sets it there; remembered in the show.</summary>
+    public void SetWideScreensWidth(double px)
+    {
+        if (_desk is null) return;
+        _desk.WideScreensWidth = px;   // clamps; the change event re-applies
+        ApplyDeskLayout();
+    }
+
     /// <summary>PROGRAM's share of the panes, as a drag of the handle sets it; remembered in the show.</summary>
     public void SetProgramShare(double share)
     {
@@ -224,11 +253,27 @@ public partial class MainWindow : Window
 
     private void OnWorkAreaSizeChanged(object? sender, SizeChangedEventArgs e) => ApplyDeskLayout();
 
-    private void OnColumnSplitterDragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)
+    /// <summary>
+    /// The divider let go: what the drag set is what the show remembers — the strip's width with
+    /// the work area wide (◧ WIDE, or a Machine / Help page), the page's own width otherwise. The
+    /// wide layouts used to take a drag back on the next layout pass, and on a Machine or Help
+    /// page the drag wrote the page's width instead, which the wide layout never reads and the
+    /// next ordinary page then showed (round 19).
+    /// </summary>
+    public void CommitDividerDrag()
     {
-        if (_desk is null || _desk.WideWorkArea) return;
-        SetEditorWidth(WorkArea.ColumnDefinitions[0].ActualWidth - PopOutWidthApplied);   // the page's own width is what the show remembers
+        if (_desk is null) return;
+        var columns = WorkArea.ColumnDefinitions;
+        // The number the splitter wrote into the column (a pixel width), never the column's laid-out
+        // width: a column lays out as wide as its content asks, so reading that back would grow the
+        // show's number by the difference at every release of the divider.
+        if (WantsWide) SetWideScreensWidth(Pixels(columns[2]));
+        else SetEditorWidth(Pixels(columns[0]) - PopOutWidthApplied);   // the page's own width is what the show remembers
     }
+
+    private static double Pixels(ColumnDefinition column) => column.Width.IsAbsolute ? column.Width.Value : column.ActualWidth;
+
+    private void OnColumnSplitterDragCompleted(object? sender, Avalonia.Input.VectorEventArgs e) => CommitDividerDrag();
 
     private void OnPaneHandleDragDelta(object? sender, Avalonia.Input.VectorEventArgs e)
     {
