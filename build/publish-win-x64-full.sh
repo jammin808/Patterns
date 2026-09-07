@@ -14,7 +14,7 @@ dotnet publish src/Patterns.App/Patterns.App.csproj \
   --self-contained true \
   -p:PublishSingleFile=true \
   -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:EnableCompressionInSingleFile=true \
+  -p:EnableCompressionInSingleFile=false \
   -p:DebugType=embedded \
   -o dist/win-x64-full
 

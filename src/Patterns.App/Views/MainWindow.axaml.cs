@@ -66,6 +66,8 @@ public partial class MainWindow : Window
         HookDeskLayout(vm);
         HookPreviewDrag();
         Services.DirectOutputService.MarkStarted(); // the desk is up: a start with the swap chain worked
+        // The pages the rail is not showing are built in idle time from here, below the first frame.
+        if (Controls.LazyPage.AutoWarmUp) Controls.LazyPage.WarmUp(this);
 
         // PREVIEW (bottom): follows the selected target (own pattern or program) and the
         // sandbox while it is open — a true miniature of that target, letterboxed to fit.

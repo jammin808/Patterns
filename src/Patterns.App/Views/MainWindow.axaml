@@ -168,38 +168,40 @@
                            Foreground="{StaticResource AccentBrush}" TextTrimming="CharacterEllipsis" />
               </Grid>
             </Border>
-            <!-- One TabItem per page, in the order of the Shell.Pages table (a test pins them together). -->
+            <!-- One TabItem per page, in the order of the Shell.Pages table (a test pins them together).
+                 A page is built when the rail first shows it, and the rest in idle time after the
+                 first frame (LazyPage): the window's own XAML is the shell, not twenty-three pages. -->
             <TabControl x:Name="Pages" Grid.Row="1" TabStripPlacement="Top" Padding="0"
                         SelectedIndex="{Binding SelectedPageIndex, Mode=TwoWay}">
-              <TabItem Header="Panel"><ScrollViewer><v:ShowSection /></ScrollViewer></TabItem>
+              <TabItem Header="Panel"><ctl:LazyPage Page="Panel" /></TabItem>
               <TabItem Header="Run">
                 <StackPanel Classes="form" Margin="4,8,12,16">
                   <TextBlock Classes="h1 neon-show" Text="Run" />
                   <TextBlock Classes="hint tip" Text="The Run surface takes the whole window: the LIVE strip, the wall beside the cue stack, GO." />
                 </StackPanel>
               </TabItem>
-              <TabItem Header="Cues"><ScrollViewer><v:CuesSection /></ScrollViewer></TabItem>
-              <TabItem Header="Looks"><ScrollViewer><v:LooksSection /></ScrollViewer></TabItem>
-              <TabItem Header="Install"><ScrollViewer><v:InstallSection /></ScrollViewer></TabItem>
-              <TabItem Header="Pattern"><ScrollViewer><v:PatternSection /></ScrollViewer></TabItem>
-              <TabItem Header="Media"><ScrollViewer><v:MediaSection /></ScrollViewer></TabItem>
-              <TabItem Header="Overlays"><ScrollViewer><v:OverlaysSection /></ScrollViewer></TabItem>
-              <TabItem Header="Lower thirds"><v:LowerThirdsSection /></TabItem>
-              <TabItem Header="Countdown"><ScrollViewer><v:CountdownSection /></ScrollViewer></TabItem>
-              <TabItem Header="Particles"><ScrollViewer><v:ParticlesSection /></ScrollViewer></TabItem>
-              <TabItem Header="Fractals"><ScrollViewer><v:FractalsSection /></ScrollViewer></TabItem>
-              <TabItem Header="Branding"><ScrollViewer><v:BrandingSection /></ScrollViewer></TabItem>
-              <TabItem Header="Layers"><ScrollViewer><v:LayersSection /></ScrollViewer></TabItem>
-              <TabItem Header="Library"><v:LibrarySection /></TabItem>
-              <TabItem Header="Assistant"><ScrollViewer><v:AssistantSection /></ScrollViewer></TabItem>
-              <TabItem Header="Screens"><ScrollViewer><v:OutputsSection /></ScrollViewer></TabItem>
-              <TabItem Header="Audio"><ScrollViewer><v:AudioSection /></ScrollViewer></TabItem>
-              <TabItem Header="NDI"><ScrollViewer><v:NdiSection /></ScrollViewer></TabItem>
-              <TabItem Header="Stream"><ScrollViewer><v:StreamSection /></ScrollViewer></TabItem>
-              <TabItem Header="Remote"><ScrollViewer><v:WebSection /></ScrollViewer></TabItem>
-              <TabItem Header="Interactive"><ScrollViewer><v:InteractiveSection /></ScrollViewer></TabItem>
-              <TabItem Header="Machine"><ScrollViewer><v:AdminSection /></ScrollViewer></TabItem>
-              <TabItem Header="Help"><ScrollViewer><v:HelpSection /></ScrollViewer></TabItem>
+              <TabItem Header="Cues"><ctl:LazyPage Page="Cues" /></TabItem>
+              <TabItem Header="Looks"><ctl:LazyPage Page="Looks" /></TabItem>
+              <TabItem Header="Install"><ctl:LazyPage Page="Install" /></TabItem>
+              <TabItem Header="Pattern"><ctl:LazyPage Page="Pattern" /></TabItem>
+              <TabItem Header="Media"><ctl:LazyPage Page="Media" /></TabItem>
+              <TabItem Header="Overlays"><ctl:LazyPage Page="Overlays" /></TabItem>
+              <TabItem Header="Lower thirds"><ctl:LazyPage Page="Lower thirds" /></TabItem>
+              <TabItem Header="Countdown"><ctl:LazyPage Page="Countdown" /></TabItem>
+              <TabItem Header="Particles"><ctl:LazyPage Page="Particles" /></TabItem>
+              <TabItem Header="Fractals"><ctl:LazyPage Page="Fractals" /></TabItem>
+              <TabItem Header="Branding"><ctl:LazyPage Page="Branding" /></TabItem>
+              <TabItem Header="Layers"><ctl:LazyPage Page="Layers" /></TabItem>
+              <TabItem Header="Library"><ctl:LazyPage Page="Library" /></TabItem>
+              <TabItem Header="Assistant"><ctl:LazyPage Page="Assistant" /></TabItem>
+              <TabItem Header="Screens"><ctl:LazyPage Page="Screens" /></TabItem>
+              <TabItem Header="Audio"><ctl:LazyPage Page="Audio" /></TabItem>
+              <TabItem Header="NDI"><ctl:LazyPage Page="NDI" /></TabItem>
+              <TabItem Header="Stream"><ctl:LazyPage Page="Stream" /></TabItem>
+              <TabItem Header="Remote"><ctl:LazyPage Page="Remote" /></TabItem>
+              <TabItem Header="Interactive"><ctl:LazyPage Page="Interactive" /></TabItem>
+              <TabItem Header="Machine"><ctl:LazyPage Page="Machine" /></TabItem>
+              <TabItem Header="Help"><ctl:LazyPage Page="Help" /></TabItem>
             </TabControl>
           </Grid>
 

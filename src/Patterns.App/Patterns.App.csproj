@@ -15,6 +15,8 @@
          frame or the first cue never pay the JIT on the show's own time; tiered compilation still re-jits
          the hot paths with profile data. The exe grows for it (about 88 MB against roughly 50). -->
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <!-- The desk speaks English: the packages' other-language resource assemblies stay out of the bundle. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>

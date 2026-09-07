@@ -26,6 +26,8 @@ public sealed class App : Application
             var window = new MainWindow { DataContext = vm };
             services.AttachMainWindow(window);
             desktop.MainWindow = window;
+            // After a watchdog relaunch the show goes back on as soon as the window has opened.
+            if (LaunchOptions.Recover) services.RecoverWhenReady(vm);
 
             // Previews are sandboxed by default: the operator can touch any editor from the
             // first second without it reaching the audience.
@@ -45,18 +47,6 @@ public sealed class App : Application
             };
 
             if (LaunchOptions.BeatHandle is { } handle) StartHeartbeat(handle);
-
-            if (LaunchOptions.Recover)
-            {
-                // Give screen detection and side effects a moment, then put the show back.
-                var recover = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-                recover.Tick += (_, _) =>
-                {
-                    recover.Stop();
-                    services.TryRecover(vm);
-                };
-                recover.Start();
-            }
         }
 
         base.OnFrameworkInitializationCompleted();

@@ -140,6 +140,20 @@ internal static class Supervisor
             }
             pipe.DisposeLocalCopyOfClientHandle();
 
+            // The child's exit wakes the loop at once: a manual restart used to wait out the rest
+            // of a one-second poll before the next start.
+            using var exited = new ManualResetEventSlim(false);
+            try
+            {
+                child.EnableRaisingEvents = true;
+                child.Exited += (_, _) => exited.Set();
+                if (child.HasExited) exited.Set();
+            }
+            catch
+            {
+                // No exit event on this host: the poll below still notices within a second.
+            }
+
             long lastBeatTicks = 0;
             var beatReader = new Thread(() =>
             {
@@ -161,7 +175,7 @@ internal static class Supervisor
 
             var startedUtc = DateTime.UtcNow;
             var killedForHang = false;
-            while (!child.WaitForExit(1000))
+            while (!exited.Wait(1000) && !child.WaitForExit(0))
             {
                 var ticks = Interlocked.Read(ref lastBeatTicks);
                 if (ticks != 0 && SupervisorPolicy.IsHung(new DateTime(ticks, DateTimeKind.Utc), DateTime.UtcNow))
@@ -184,6 +198,7 @@ internal static class Supervisor
             int exitCode;
             try
             {
+                child.WaitForExit();   // the exit is known; this lets the runtime finish reading it
                 exitCode = child.ExitCode;
             }
             catch
@@ -325,12 +340,15 @@ internal static class Supervisor
         }
     }
 
+    private static string? _logDirectory;
+
     /// <summary>The supervisor logs to its own file — no write races with the child's patterns.log.</summary>
     private static void WLog(string message)
     {
         try
         {
-            var path = Path.Combine(new SettingsStore().BaseDirectory, "patterns.watchdog.log");
+            _logDirectory ??= new SettingsStore().BaseDirectory;   // resolved once, not per line
+            var path = Path.Combine(_logDirectory, "patterns.watchdog.log");
             if (File.Exists(path) && new FileInfo(path).Length > 512 * 1024)
             {
                 File.Copy(path, path + ".old", overwrite: true);

@@ -63,12 +63,25 @@ public sealed class NdiSender : IDisposable
 
     public void Stop()
     {
-        _run = false;
+        RequestStop();
+        AwaitStop(DateTime.UtcNow.AddSeconds(3));
+    }
+
+    /// <summary>Tells the send loop to end after its frame; <see cref="AwaitStop"/> waits for it. Split so several senders stop side by side.</summary>
+    public void RequestStop() => _run = false;
+
+    /// <summary>Waits for the send loop until <paramref name="deadlineUtc"/>; a loop still running then is left to end on its own and noted.</summary>
+    public void AwaitStop(DateTime deadlineUtc)
+    {
         var t = _thread;
         _thread = null;
-        if (t is not null && t.IsAlive && !t.Join(TimeSpan.FromSeconds(3)))
+        if (t is not null && t.IsAlive)
         {
-            Log.Warn($"NDI sender thread '{_senderId}' did not stop in time.");
+            var left = deadlineUtc - DateTime.UtcNow;
+            if (left < TimeSpan.Zero || !t.Join(left))
+            {
+                Log.Warn($"NDI sender thread '{_senderId}' did not stop in time.");
+            }
         }
         _status = "Off";
         _connections = 0;
@@ -316,12 +329,12 @@ public sealed class NdiService : IDisposable
     public string StatusFor(string id)
         => _active.TryGetValue(id, out var s) ? s.Status : NdiSender.RuntimeAvailable ? "Off" : NdiSender.RuntimeHelp;
 
+    /// <summary>Stops every sender side by side: all are told at once, then waited for together, so the exit costs one sender's stop, not the sum.</summary>
     public void StopAll()
     {
-        foreach (var s in _active.Values)
-        {
-            s.Stop();
-        }
+        foreach (var s in _active.Values) s.RequestStop();
+        var deadline = DateTime.UtcNow.AddSeconds(3);
+        foreach (var s in _active.Values) s.AwaitStop(deadline);
         _active.Clear();
     }
 

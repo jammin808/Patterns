@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Avalonia;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 
 namespace Patterns.App;
@@ -26,10 +27,25 @@ internal static class Program
 
         // A millisecond timer for the desk's paced loops (a sleep is a 15.6 ms tick without it).
         Services.TimerResolution.Raise();
+        // One settings read before the desk: the GPU choice, the direct-output decision and the
+        // desk itself (AppServices takes the state as read) — three reads of the show file were one.
+        var store = new SettingsStore();
+        ShowState? early = null;
+        try
+        {
+            early = store.Load();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The settings could not be read before the desk — the desk reads them itself.", ex);
+        }
+        StartupBudget.MarkEarly(StartupBudget.Settings);
         // Pick the GPU before Avalonia creates its D3D device (and before libVLC decodes).
-        Services.GpuService.Initialize();
+        Services.GpuService.Initialize(early?.Admin.Graphics);
         // Then whether this start asks for the low-latency swap chain (direct output).
-        Services.DirectOutputService.Initialize();
+        Services.DirectOutputService.Initialize(store, early);
+        StartupBudget.MarkEarly(StartupBudget.Graphics);
+        if (early is not null) Services.AppServices.Preloaded = (store, early);
 
         // An exception no handler contained (a worker thread's, or one the UI guard let through)
         // ends the process: the log gets the stack and the next start's health line gets the

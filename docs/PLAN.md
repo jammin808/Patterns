@@ -486,10 +486,14 @@ none of them holding show state, each able to say what the others cannot see.
 *Every user selection change of menu, view update, UX update, or anything must be instant.*
 What was checked this round, and the rule each check turned into:
 
-- **Page changes are index changes.** Every section is built once at start-up and selected by
-  index; the strip and the rail bind to the same integer. The headless suite selects every page
-  in turn on every push (`EveryPageRendersAndTheStripNamesIt`) and the fit test lays the desk
-  out at the smallest supported window. Rule: never build a page on entry.
+- **Page changes are index changes.** Every section is built once and selected by index; the
+  strip and the rail bind to the same integer. Since round 18 (§26.3) "once" is the page on the
+  rail at the start and the rest in idle time after the first frame, so the window's own XAML
+  is the shell — the rule's point, a page switch that costs nothing, holds, and a click in the
+  first second builds the page it lands on under the page-switch guard. The headless suite
+  selects every page in turn on every push (`EveryPageRendersAndTheStripNamesIt`) and the fit
+  test lays the desk out at the smallest supported window. Rule: never build a page on entry —
+  in practice; the first second is the one exception, and it is guarded.
 - **Ticks update in place.** The switcher tiles refresh their live flags without rebuilding
   (`RefreshExternal`); the dashboard's twelve tiles are the same objects every second
   (`DashboardTileView.Update`); the rig's facts are gathered every five seconds, the sample every
@@ -2169,6 +2173,7 @@ for the Windows machine is `docs/CHECKLIST-round18.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 3 | A faster start and restart, measured (§26.3). "How can start up and manual restart be made faster?" The path was read end to end and the cuts made where the time was. The window built all twenty-three pages in its own constructor — four hundred kilobytes of XAML, thousands of controls, before the first frame; it builds the shell and the page on the rail now and the rest one per idle turn after the first frame (`LazyPage`), so a page is still never built on entry in practice and a click in the first seconds builds its page, guarded. The show file was read three times before the desk (the GPU choice, the direct-output decision, the desk itself) and is read once in Main and handed over (`AppServices.Preloaded`). The start-up budget names every phase now — the runtime before Main (from the process's own start), settings, graphics, avalonia, services, view model, pages, window, first frame — so the Machine page says where a slow machine spent its seconds. The restart: the watchdog waited out a one-second poll to notice the child had gone (the exit wakes it now); the app waited a 2.5 s timer before putting the show back (it goes back the moment the window has opened and the screens are attached); the exit ran the whole shutdown twice (Avalonia raises ShutdownRequested and then Exit — once now) and stopped the NDI senders one after another with a three-second wait each (all at once, one wait); the NDI runtime was loaded on the UI thread by the first poll a second after the start (off the thread now, before the poll asks). The publish no longer compresses the single-file bundle — every start decompressed it — so the exe is larger and starts faster; the packages' other-language resources stay out of it. Tests: the pages built when shown and the rest in idle time, a built page real, the unknown page a line; the settings handed to the desk once and the phases in order; the way out once; the show back after a watchdog restart when the window opens, and at once when asked after; Main's marks first and the line naming every phase. | done |
 | 2 | The particles given the fractals' treatments (§26.2). "Does Particles need the careful stability and speed and resilience handling and treatments we used for Fractals?" Audited treatment by treatment against the code: the particles already had what the fractals never needed — a fixed 120 Hz step, an allocation-free frame, one DrawAtlas — and were missing four things of their own. A sim per field on every sink (`ParticleSimCache`): a crossfade, a monitor wall and a layer draw more than one field on a sink in a frame, and the one sim a sink had was re-seeded, settled and caught up on every draw, twice a frame; now each field has its own, found without an allocation. A catch-up bounded per frame in updates (three million, never under a second of sim) instead of 2048 steps of any field in one draw on the compositor's thread. The quality ladder on the draw alone — every particle steps whatever the level — so two sinks reading the level a frame apart never diverge again. A late sink joins the running leader's timeline (`ParticleLeaders` on the snapshot, weak): an output opened at OUTPUTS ON, an NDI send started mid-show, a display plugged in late show the same field as the PGM pane from their first frame; the random stream is the sim's own (a seeded xorshift, copyable). Fences: a backwards clock re-anchors instead of freezing, a NaN particle is born again, a disposed sim is inert and lets its sprite go, an unallocatable sprite is no field. Not done on purpose: SoA/SIMD for the integrate loop. Also the caller's plan across midnight (`CueTiming.Near`): the CI's clock crossed midnight under the desk's timing test and read +1445 min; a plan is read as the occurrence nearest the clock now. Tests: the cache, the join, the budget, the ladder, the clock, the fences, the random stream, the plan past midnight. | done |
 | 1 | The Fractals page (§26.1). BUILD → Fractals, between Particles and Branding, built the way the Particles page is built: a Fractal studio with SCENES filed by family — Mandelbrot (classic, Seahorse valley, Elephant valley, Spiral arm, Mini-brot, Triple spiral valley), Julia (swirl, dragon, Douady's rabbit, Dendrite, San Marco, Siegel disk, Galaxy spiral), Burning ship (the ship, The armada, Ship's mast), Newton (triad, coast, lace), Domain warp (lava, ocean, smoke, aurora, neon) — twenty-four scenes where there were eight, and the operator's saved fractal presets under Custom; FAMILY (the maths, a Julia's c), VIEW (zoom, centre, detail, motion, CPU quality), COLOUR (the palette, or BRAND KIT for the kit's five colours at a press), SOUND (this computer or an input, the amount, the analyser's status line) and STINGS (ADD AN EFFECT STING); USE IT makes the Fractal the editing target's pattern so the page shows live. The Pattern page keeps a pointer with OPEN FRACTALS while Fractal is the pattern, and the particles' pointer gets OPEN PARTICLES to match; the Library files every scene under a Fractals section by family; a Help topic ("fractals") with the words a user would search; the Workflow and Shell help name the page. `FractalPresets.Scene` carries its family; `Categories` and `In(family)` mirror the particle packs; a scene still never touches the sound settings. Tests: the families in order with every scene under one, every scene applying with its name and rastering clean with the sound left alone; on the desk the chips by family, USE IT, a chip leaving the sound settings alone, the brand palette, a saved fractal preset as a Custom chip and a grid preset kept out, the Library section, the page rendering with every chip and its buttons, the rail order and the BUILD hint, the Pattern page's OPEN FRACTALS opening the page, OPEN PARTICLES, an unknown header ignored, the Help topic and words. | done |
 
@@ -2327,3 +2332,76 @@ on; the poisoned field born again and the disposed sim inert; the random stream 
 across sims and carried by a join, the join refusing a stranger and an unstarted leader; the
 plan across midnight in `Near`, `FormatClock`, the gap, the running cue's offset, the standby's,
 the marks and the words.
+
+### 26.3 A faster start and restart: read the path, cut where the time is
+
+"How can start up and manual restart be made faster?" The honest method is to read the whole
+path and time it, and the reading found the time in five places, none of them the runtime.
+
+*The pages.* `MainWindow.axaml` built every page as a child element of its `TabControl` — the
+Show panel, the cue stack, the looks, the pattern editor, the lower-thirds designer, the
+Screens page with its drag-and-drop overview, the Machine page with its graphs: twenty-three
+`UserControl`s, about four hundred kilobytes of XAML and thousands of controls, all in the
+window's constructor, before the first frame. That was a rule written down in round 12 —
+"every section is built once at start-up and selected by index; never build a page on entry" —
+and the rule's point was a page switch that costs nothing, which it still does. `LazyPage` keeps
+the point and drops the cost: a `TabItem` holds a `LazyPage` naming its page, the page on the
+rail is built the moment it is shown (the window opens with the Show panel and nothing else),
+and once the first frame is drawn the rest are built one per idle turn of the dispatcher, below
+input and rendering, so a click on the rail two seconds after the start finds its page ready. A
+click in the first second builds the page it landed on, under the same guard every page
+switch runs under since round 15; a page whose XAML faults is logged and left empty rather
+than ending the desk. The start-up budget's new *pages* phase is what the window's XAML costs
+now: the shell, the switcher, the rail.
+
+*The settings, three times.* Before Avalonia started, Main asked the GPU service to choose an
+adapter and the direct-output service to decide on the swap chain, and each read the show file
+to find its settings; then the desk read it again. One read in Main now, handed to both and to
+the desk (`AppServices.Preloaded`, taken once), the store with its migration flag along with it
+so an upgraded file is still written back once.
+
+*The budget's phases.* The line the Machine page reads had five phases and hid the two that
+matter on a slow machine inside them. It has nine now, in the order they happen: *runtime*
+(from the process's own start time to Main — the exe's host, the bundle, the runtime), *settings*
+(the one read), *graphics* (DXGI and the direct-output decision), *avalonia* (the platform, Skia,
+the app's XAML), *services*, *view model*, *pages* (the window's XAML), *window* (opened, the
+screens attached) and *first frame*. Main's marks come first and the desk's follow, folded in
+order when the budget begins, and the super-check's Start-up row and the Machine page read the
+whole line.
+
+*The restart.* RESTART APP (SHOW COMES BACK) exits with code 82 and the watchdog starts the app
+again — but the watchdog noticed the exit by polling once a second, so up to a second went by
+with nothing running; the child's exit wakes it now. On the way out Avalonia raises
+`ShutdownRequested` and then `Exit`, and both ran the whole shutdown — every service disposed
+twice, the settings saved twice; it runs once. The NDI senders stopped one after another, each
+with a three-second wait for its thread; they are told at once and waited for together, one
+wait for all. And the relaunched app waited a 2.5 s timer — "give screen detection and side
+effects a moment" — before putting the show back; the recovery runs as soon as the window has
+opened and the screens are attached, on the next idle turn, which is when the moment has
+actually passed.
+
+*The NDI runtime on the UI thread.* The desk's first poll, a second after the start, asked
+whether the NDI runtime was present, and the answer loaded and initialised a native library on
+the UI thread. The probe runs on a worker as the services finish, so the poll finds it cached.
+
+*The bundle.* Every publish compressed the single-file bundle, and a compressed bundle is
+decompressed on every start — the ReadyToRun code the round-16 publish added is only mapped
+once it has been inflated. The publish no longer compresses (`EnableCompressionInSingleFile`
+off in the workflow and the four scripts), so the exe is larger — the 88 MB of round 16 was the
+compressed figure — and starts faster, the natives extracted once per version as before. The
+packages' other-language resource assemblies stay out of it (`SatelliteResourceLanguages`).
+The compressed form is one property away for anyone who wants the smaller download.
+
+Not done, said plainly: the phases were not timed on a Windows machine here — the checklist
+row asks for the Start-up line before and after — and the runtime phase before Main is what it
+is: a self-contained .NET host mapping a large bundle. NativeAOT would cut it and is not open
+to this app (§26.4). The 204 commands the view model allocates and the library it builds at
+start are milliseconds; the JSON clone the sandbox takes at start is §26.4's.
+
+Tests: the pages on the rail as lazy pages in the rail's order, only the shown page built after
+the start, a page built the moment the rail shows it, the warm-up building the rest and every
+page real, an unknown page a line; the settings read before the desk handed to it once with the
+store, the phases in order (settings, services, view model, pages, window), the way out once;
+the show back after a watchdog restart when the window opens and at once when asked after it
+has; Main's marks first in order and the line naming every phase, a stray early mark without a
+process start ignored.

@@ -30,8 +30,8 @@ public static class GpuService
 
     private static bool _initialized;
 
-    /// <summary>Called from Program.Main before Avalonia starts. Never throws.</summary>
-    public static void Initialize()
+    /// <summary>Called from Program.Main before Avalonia starts, with the settings Main already read (else it reads them). Never throws.</summary>
+    public static void Initialize(GraphicsConfig? graphics = null)
     {
         if (_initialized) return;
         _initialized = true;
@@ -42,7 +42,7 @@ public static class GpuService
             GraphicsConfig config;
             try
             {
-                config = new SettingsStore().Load().Admin.Graphics;
+                config = graphics ?? new SettingsStore().Load().Admin.Graphics;
             }
             catch
             {

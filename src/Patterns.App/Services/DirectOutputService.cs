@@ -34,17 +34,17 @@ public static class DirectOutputService
     private static bool _armed;
     private static string _fusePath = "";
 
-    /// <summary>Called from Program.Main before Avalonia starts, after the GPU service. Never throws.</summary>
-    public static void Initialize()
+    /// <summary>Called from Program.Main before Avalonia starts, after the GPU service, with the settings Main already read (else it reads them). Never throws.</summary>
+    public static void Initialize(SettingsStore? store = null, ShowState? preloaded = null)
     {
         if (_initialized) return;
         try
         {
-            var store = new SettingsStore();
+            store ??= new SettingsStore();
             ShowState state;
             try
             {
-                state = store.Load();
+                state = preloaded ?? store.Load();
             }
             catch
             {

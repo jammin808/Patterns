@@ -230,17 +230,31 @@ public sealed class AppServices
     private bool _primaryInstance = true;
     private Mutex? _instanceMutex;
 
-    public AppServices(SettingsStore? store = null)
+    /// <summary>
+    /// The settings Main read before Avalonia started, handed to the desk so it does not read
+    /// them again: the store (its migration flag with it) and the state. Taken once, by the
+    /// first services built without a store of their own.
+    /// </summary>
+    public static (SettingsStore Store, ShowState State)? Preloaded { get; set; }
+
+    public AppServices(SettingsStore? store = null, ShowState? preloaded = null)
     {
+        if (store is null && Preloaded is { } pre)
+        {
+            store = pre.Store;
+            preloaded ??= pre.State;
+            Preloaded = null;
+        }
         Store = store ?? new SettingsStore();
         Log.Init(Store.BaseDirectory);
         // A fault on the UI thread is contained from here on: logged, counted, the desk kept up.
         UiFaults.Install();
 
-        // The start-up budget: from Main when this process went through it (the runtime, the
-        // graphics choice and Avalonia's own start count as "runtime"), else from here.
+        // The start-up budget: from Main when this process went through it (the runtime before
+        // Main, the settings read and the graphics choices come in as Main marked them, and
+        // Avalonia's own start ends here), else from here.
         Startup.Begin(StartupBudget.ProcessStartedAt);
-        if (StartupBudget.ProcessStartedAt != 0) Startup.Mark(StartupBudget.Runtime);
+        if (StartupBudget.ProcessStartedAt != 0) Startup.Mark(StartupBudget.Avalonia);
 
         // Second instance on the same folder: run, but leave saving to the first one.
         // (string.GetHashCode is randomized per process — a stable hash is required here.)
@@ -259,8 +273,8 @@ public sealed class AppServices
             // Mutex trouble must never stop startup.
         }
 
-        State = Store.Load();
-        Startup.Mark(StartupBudget.Settings);
+        State = preloaded ?? Store.Load();
+        Startup.Mark(StartupBudget.Settings);   // already marked by Main when it read them: kept as Main's
         State.Blackout = false;
         State.Tone.Enabled = false; // a tone must never auto-start with the app
         if (Store.LastLoadMigrated)
@@ -380,17 +394,51 @@ public sealed class AppServices
         Startup.Mark(StartupBudget.Services);
         // The desk's first frame is the budget's last mark; a pipeline tells it once.
         Rendering.RenderPipeline.FirstPreviewFrame = () => Startup.Mark(StartupBudget.FirstFrame);
+        // The NDI runtime's first touch loads and initialises a native library: off the UI thread
+        // now, so the desk's first poll (a second after the start) finds the answer cached instead
+        // of loading it on the UI thread.
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try { _ = NdiInterop.Available; }
+            catch { /* the poll asks again and says what it found */ }
+        });
     }
+
+    private ViewModels.MainViewModel? _recoverVm;
+    private bool _windowOpened;
 
     public void AttachMainWindow(MainWindow window)
     {
         MainWindow = window;
+        Startup.Mark(StartupBudget.Pages);   // the window's XAML is built by now
         window.Opened += (_, _) =>
         {
             Startup.Mark(StartupBudget.Window);
             Screens.Attach(window);
             ApplySideEffects();
+            _windowOpened = true;
+            if (_recoverVm is { } vm)
+            {
+                _recoverVm = null;
+                // The screens are known and the side effects applied: the show goes back on as
+                // soon as the desk has drawn, not after a timer's guess at how long that takes.
+                Dispatcher.UIThread.Post(() => TryRecover(vm), DispatcherPriority.Background);
+            }
         };
+    }
+
+    /// <summary>
+    /// After a watchdog relaunch: put the show back the moment the window has opened and the
+    /// screens are attached (a timer waited 2.5 s for that before, on every restart).
+    /// </summary>
+    public void RecoverWhenReady(ViewModels.MainViewModel vm)
+    {
+        if (_windowOpened)
+        {
+            Dispatcher.UIThread.Post(() => TryRecover(vm), DispatcherPriority.Background);
+            return;
+        }
+        _recoverVm = vm;
     }
 
     /// <summary>Group many model writes into one publish (preset/show/brand-kit loads).</summary>
@@ -808,8 +856,13 @@ public sealed class AppServices
         }
     }
 
+    private bool _shutDown;
+
+    /// <summary>The way out, once: Avalonia raises ShutdownRequested and then Exit, and the exit used to do all of this twice.</summary>
     public void Shutdown()
     {
+        if (_shutDown) return;
+        _shutDown = true;
         try
         {
             Outputs.CloseAll();

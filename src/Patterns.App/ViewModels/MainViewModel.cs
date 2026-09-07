@@ -827,6 +827,7 @@ public sealed partial class MainViewModel : Observable
         ReconcilePlacements();
         BuildLibrary();
         RefreshOutputsStatus();
+        _services.Startup.Mark(StartupBudget.ViewModel);
     }
 
     public ShowState State => _services.State;

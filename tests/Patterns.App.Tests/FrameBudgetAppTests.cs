@@ -39,9 +39,9 @@ public class FrameBudgetAppTests
         {
             var (services, vm, window) = b;
 
-            // The start-up so far: the settings read, the services built, the window opened (the runtime mark needs Main).
+            // The start-up so far: the settings read, the services built, the view model, the window's XAML, the window opened (the runtime, graphics and Avalonia marks need Main).
             var phases = services.Startup.Phases.Select(p => p.Phase).ToList();
-            Assert.Equal(new[] { StartupBudget.Settings, StartupBudget.Services, StartupBudget.Window }, phases.Take(3));
+            Assert.Equal(new[] { StartupBudget.Settings, StartupBudget.Services, StartupBudget.ViewModel, StartupBudget.Pages, StartupBudget.Window }, phases.Take(5));
             Assert.True(services.Startup.TotalMs >= 0);
 
             var pipeline = new RenderPipeline(services.Bus, PipelineViewport.Preview);
