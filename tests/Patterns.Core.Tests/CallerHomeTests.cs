@@ -227,6 +227,53 @@ public class CallerHomeTests
         Assert.Equal(new TimeSpan(9, 30, 0), skipped.For(cues[3].Id)!.EstimatedAt);   // A 10 + B 20, no coffee
     }
 
+    /// <summary>
+    /// A show that runs past midnight keeps its plan: every planned time is read as the occurrence
+    /// nearest the clock, so a cue planned for 23:55 read at 00:04 is nine minutes ago and never
+    /// a day early — the CI's clock crossed midnight under the desk test once and read +1445 min.
+    /// </summary>
+    [Fact]
+    public void ThePlanCrossesMidnightLikeAnyOtherMinute()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(-5), CueTiming.Near(new TimeSpan(23, 55, 0), new TimeSpan(0, 4, 0)));
+        Assert.Equal(new TimeSpan(24, 24, 0), CueTiming.Near(new TimeSpan(0, 24, 0), new TimeSpan(23, 59, 0)));
+        Assert.Equal(new TimeSpan(9, 30, 0), CueTiming.Near(new TimeSpan(9, 30, 0), new TimeSpan(9, 0, 0)));
+        Assert.Equal("23:55", CueTiming.FormatClock(TimeSpan.FromMinutes(-5)));
+        Assert.Equal("00:24", CueTiming.FormatClock(new TimeSpan(24, 24, 0)));
+
+        RunCueConfig At(string number, string start, int? seconds, CueMark mark = CueMark.None)
+            => new() { Number = number, Name = number, PlannedStart = start, PlannedSeconds = seconds, Mark = mark };
+        var cues = new List<RunCueConfig>
+        {
+            At("A", "23:50", null),                  // its length is the gap to B: twenty minutes across midnight
+            At("B", "00:10", 600),
+            At("C", "00:20", 900, CueMark.Break),
+            At("D", "00:35", 300, CueMark.End),
+        };
+        Assert.Equal(1200, CueTiming.DurationOf(cues, 0));
+
+        // A went at 23:52, two minutes late; the clock reads 00:04 the next day; B is on standby.
+        var day = new DateTime(2026, 9, 6);
+        var report = CueTiming.Estimate(cues, cues[0].Id, day + new TimeSpan(23, 52, 0), cues[1].Id, day.AddDays(1) + new TimeSpan(0, 4, 0));
+        Assert.Equal(TimeSpan.FromMinutes(2), report.Offset);
+        Assert.Equal("2 MIN LATE", report.OffsetText);
+        Assert.Equal(TimeSpan.FromMinutes(8), report.RunningRemaining);   // 23:52 + 20 min = 00:12
+        var b = report.For(cues[1].Id)!;
+        Assert.Equal(TimeSpan.FromMinutes(2), b.Delta);                    // expected 00:12 against 00:10
+        Assert.Equal("00:12", CueTiming.FormatClock(b.EstimatedAt));
+        Assert.Equal("00:10", CueTiming.FormatClock(b.PlannedAt!.Value));
+        Assert.Equal("≈ 00:22 (planned 00:20, +2 min)", report.NextBreak!.Text);
+        Assert.Equal("00:37", CueTiming.FormatClock(report.End!.EstimatedAt));
+        Assert.True(report.For(cues[0].Id)!.Past);
+        Assert.Equal("23:50", CueTiming.FormatClock(report.For(cues[0].Id)!.PlannedAt!.Value));
+
+        // Nothing has run yet at 23:59: the standby's plan is twenty-five minutes ahead, not a day behind.
+        var eve = CueTiming.Estimate(cues, null, null, cues[2].Id, day + new TimeSpan(23, 59, 0));
+        Assert.Equal(TimeSpan.FromMinutes(-21), eve.Offset);
+        Assert.True(eve.IsEarly);
+        Assert.Equal("21 MIN EARLY", eve.OffsetText);
+    }
+
     [Fact]
     public void TheCallersEditsMoveTheDay()
     {

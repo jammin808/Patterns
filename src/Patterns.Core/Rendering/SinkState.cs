@@ -17,13 +17,11 @@ public sealed class SinkState : IDisposable
     /// <summary>The frame being drawn, stage by stage: the slowest goes into the sink's frame budget.</summary>
     public FrameStages Stages { get; } = new();
 
-    /// <summary>Per-sink particle simulation (created on first use).</summary>
-    public ParticleSim? Particles { get; set; }
+    /// <summary>This sink's particle sims, one per field it draws (a crossfade, a monitor wall and a layer each draw another).</summary>
+    public ParticleSimCache ParticleSims { get; } = new();
 
-    /// <summary>Snapshot version/canvas the particle sim was last configured for (hot-path gate).</summary>
-    public long ParticlesConfiguredVersion { get; set; } = -1;
-
-    public SKSizeI ParticlesConfiguredCanvas { get; set; }
+    /// <summary>The particle sim drawn most recently on this sink, if any.</summary>
+    public ParticleSim? Particles => ParticleSims.Latest;
 
     /// <summary>Checkerboard shader cache (rebuilt only when colours/cell change).</summary>
     public Patterns.CheckerShaderCache Checker { get; } = new();
@@ -179,7 +177,7 @@ public sealed class SinkState : IDisposable
         Fractal?.Dispose();
         Fractal = null;
         Paints.Dispose();
-        Particles?.Dispose();
+        ParticleSims.Dispose();
         Checker.Dispose();
         ZonePlateEffect?.Dispose();
         Ticker.Dispose();

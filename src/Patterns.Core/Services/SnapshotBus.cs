@@ -40,6 +40,9 @@ public sealed class ShowSnapshot
     /// <summary>Runtime-only: the show clock (seconds) at which this snapshot was published.</summary>
     public double PublishedClock { get; init; }
 
+    /// <summary>Runtime-only: the sims leading each particle field drawn under this snapshot, so a sink that starts a field late shows the same particles (see <see cref="Particles.ParticleLeaders"/>).</summary>
+    public Particles.ParticleLeaders ParticleLeaders { get; } = new();
+
     /// <summary>
     /// Runtime-only: the way to the sandboxed preview as it is right now (null result = no
     /// sandbox). An accessor rather than the snapshot itself: the preview republishes on every

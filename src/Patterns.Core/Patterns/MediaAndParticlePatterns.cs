@@ -313,15 +313,11 @@ public sealed class ParticlePattern : IPatternRenderer
             ? f.Color(f.Snapshot.State.Brand.BackgroundColor, SKColors.Black)
             : f.Color(o.BackgroundColor, SKColors.Black));
 
-        var sim = f.Sink.Particles ??= new ParticleSim();
-        // Configure only when something could have changed — keeps the 60 fps path allocation-free.
-        if (f.Sink.ParticlesConfiguredVersion != f.Snapshot.Version || f.Sink.ParticlesConfiguredCanvas != f.Canvas)
-        {
-            sim.Configure(o, f.Snapshot, f.Canvas);
-            f.Sink.ParticlesConfiguredVersion = f.Snapshot.Version;
-            f.Sink.ParticlesConfiguredCanvas = f.Canvas;
-        }
-        sim.Quality = Services.QualityLadder.Shared.Factor;   // the ladder's level: the same on every sink
+        // The sim for this field on this sink — found without an allocation while the snapshot
+        // and the canvas are the ones it was last drawn with, configured only when something
+        // could have changed, and a fresh one in step with the snapshot's leader for the field.
+        var sim = f.Sink.ParticleSims.Get(o, f.Snapshot, f.Canvas);
+        sim.Quality = Services.QualityLadder.Shared.Factor;   // the ladder's level: the drawn share, never the field
         sim.Advance(f.Ctx.Time);
         sim.Render(c, f.Paints);
         Effects.EffectFlash.Draw(c, f.W, f.H, Effects.EffectImpulses.SurgeAt(f.Ctx.Time).Flash, f.Paints);

@@ -10,7 +10,11 @@ namespace Patterns.Core.Particles;
 /// <summary>
 /// Pooled, allocation-free-per-frame particle simulation. Rendering goes through a single
 /// DrawAtlas call (one white sprite tinted per particle), so tens of thousands of particles
-/// stay cheap. Deterministic for a given seed + step sequence.
+/// stay cheap. Deterministic for a given seed + step sequence: the random stream is the sim's
+/// own (a seeded xorshift, cloneable), the step is fixed, and the quality ladder never touches
+/// the field — it only decides how many of the particles are drawn — so two sinks at different
+/// levels, or one that joined late from a running leader (<see cref="JoinTimeline"/>), show the
+/// same particles.
 /// </summary>
 public sealed class ParticleSim : IDisposable
 {
@@ -24,26 +28,65 @@ public sealed class ParticleSim : IDisposable
         public byte ColorIdx;
     }
 
+    /// <summary>
+    /// The sim's own random stream (xorshift64*): seeded by the scene, the same sequence on
+    /// every sink and every machine, and a plain value — so a late sink can copy a leader's
+    /// stream along with its field and continue in step with it (System.Random cannot be copied).
+    /// </summary>
+    private struct Rng
+    {
+        private ulong _s;
+
+        public Rng(int seed)
+        {
+            var z = (ulong)(uint)seed * 0x9E3779B97F4A7C15UL + 0xD1B54A32D192ED03UL;
+            z ^= z >> 30; z *= 0xBF58476D1CE4E5B9UL;
+            z ^= z >> 27; z *= 0x94D049BB133111EBUL;
+            z ^= z >> 31;
+            _s = z == 0 ? 0x2545F4914F6CDD1DUL : z;
+        }
+
+        private ulong Next()
+        {
+            var x = _s;
+            x ^= x >> 12;
+            x ^= x << 25;
+            x ^= x >> 27;
+            _s = x;
+            return x * 0x2545F4914F6CDD1DUL;
+        }
+
+        /// <summary>[0, 1) with 53 bits, like System.Random.</summary>
+        public double NextDouble() => (Next() >> 11) * (1.0 / 9007199254740992.0);
+
+        /// <summary>[0, n).</summary>
+        public int Next(int n) => (int)(NextDouble() * n);
+    }
+
     private const int SpriteSize = 128;
 
+    private readonly object _gate = new();
     private P[] _pool = Array.Empty<P>();
     private SKRect[] _spriteRects = Array.Empty<SKRect>();
     private SKRotationScaleMatrix[] _xforms = Array.Empty<SKRotationScaleMatrix>();
     private SKColor[] _tints = Array.Empty<SKColor>();
     private SKColor[] _colors = { SKColors.White };
     private SKImage? _atlas;
-    private Random _rng = new(1);
+    private Rng _rng = new(1);
     private string _configKey = "";
     private int _count;
     private double _quality = 1;
+    private bool _disposed;
     private SKRect[] _drawRects = Array.Empty<SKRect>();
     private SKRotationScaleMatrix[] _drawXforms = Array.Empty<SKRotationScaleMatrix>();
     private SKColor[] _drawTints = Array.Empty<SKColor>();
 
     /// <summary>
-    /// The quality ladder's factor: the share of the field that moves and draws. The rest keep
-    /// their places, so stepping down hides particles rather than re-seeding the field, and
-    /// stepping up shows them again where they were.
+    /// The quality ladder's factor: the share of the field that draws. Every particle keeps
+    /// moving whatever the level — the integration is the cheap part, the draw is the cost —
+    /// so stepping down hides particles rather than freezing or re-seeding them, stepping up
+    /// shows them where they would have been, and two sinks at different levels show the same
+    /// particles: the level never touches the field or its random stream.
     /// </summary>
     public double Quality
     {
@@ -51,7 +94,7 @@ public sealed class ParticleSim : IDisposable
         set => _quality = Math.Clamp(value, 0.05, 1);
     }
 
-    /// <summary>How many particles move and draw at the current quality — never fewer than one.</summary>
+    /// <summary>How many particles draw at the current quality — never fewer than one.</summary>
     public int ActiveCount => _count == 0 ? 0 : Math.Max(1, Math.Min(_count, (int)Math.Round(_count * _quality)));
     private long _doneSteps = -1;
     private float _w = 1920, _h = 1080;
@@ -70,25 +113,56 @@ public sealed class ParticleSim : IDisposable
     /// window start from the same absolute step index.</summary>
     private const long BaselineQuantum = 512;
 
-    private const long MaxCatchUpSteps = 2048;
+    /// <summary>
+    /// A sink further behind the clock than this (~17 s: a preview hidden for a while, a
+    /// starved output) re-anchors on the quantised grid instead of catching up — it has lost
+    /// its place with the other sinks either way.
+    /// </summary>
+    public const long MaxBehindSteps = 2048;
 
-    /// <summary>Re-seeds and rebuilds when anything relevant changed; cheap no-op otherwise.</summary>
-    public void Configure(ParticleOptions o, ShowSnapshot snap, SKSizeI canvas)
+    /// <summary>
+    /// The catch-up a frame may do in particle-updates (steps × particles): a sink a few
+    /// seconds behind catches up over a few frames rather than in one frame that stalls the
+    /// compositor — 2048 steps of 20 000 particles was 40 million updates in one draw.
+    /// </summary>
+    public const long CatchUpBudget = 3_000_000;
+
+    /// <summary>Never fewer steps than a second of sim per frame, however large the field.</summary>
+    public const int MinStepsPerFrame = 120;
+
+    /// <summary>The steps one frame may catch up for this field's size.</summary>
+    public int StepsPerFrame => (int)Math.Clamp(CatchUpBudget / Math.Max(1, _count), MinStepsPerFrame, MaxBehindSteps);
+
+    /// <summary>Everything that makes a field: the scene, its colours, the canvas — the key a sink's cache and the snapshot's leaders file sims under.</summary>
+    public static string KeyFor(ParticleOptions o, ShowSnapshot snap, SKSizeI canvas)
     {
         var brand = snap.State.Brand;
         var colorKey = o.UseBrandColors
             ? $"brand:{brand.PrimaryColor}/{brand.SecondaryColor}/{brand.AccentColor}"
             : o.ColorsCsv;
-        var key = string.Join('|',
+        return string.Join('|',
             o.Count, o.Emitter, o.Shape, o.SizeMin, o.SizeMax, o.SpeedMin, o.SpeedMax,
             o.DirectionDeg, o.SpreadDeg, o.GravityY, o.WindX, o.Wobble, o.RotationSpeed,
             o.Seed, colorKey, canvas.Width, canvas.Height, o.Glow,
             o.Shape == ParticleShape.Logo ? brand.LogoPath : "");
+    }
+
+    /// <summary>The key of the field this sim holds ("" before the first configure).</summary>
+    public string ConfigKey => _configKey;
+
+    /// <summary>Re-seeds and rebuilds when anything relevant changed; cheap no-op otherwise.</summary>
+    public void Configure(ParticleOptions o, ShowSnapshot snap, SKSizeI canvas) => Configure(o, snap, canvas, KeyFor(o, snap, canvas));
+
+    /// <summary>As <see cref="Configure(ParticleOptions, ShowSnapshot, SKSizeI)"/> with the key already built (a cache computes it once).</summary>
+    public void Configure(ParticleOptions o, ShowSnapshot snap, SKSizeI canvas, string key)
+    {
+        if (_disposed) return;
         if (key == _configKey) { _o = o; return; }
+        var brand = snap.State.Brand;
         _configKey = key;
         _o = o;
-        _w = canvas.Width;
-        _h = canvas.Height;
+        _w = Math.Max(1, canvas.Width);
+        _h = Math.Max(1, canvas.Height);
         _flux = EdgeFlux.Estimate(o, _w, _h);
 
         _colors = o.UseBrandColors
@@ -113,33 +187,78 @@ public sealed class ParticleSim : IDisposable
 
         BuildAtlas(snap);
 
-        _rng = new Random(o.Seed);
-        for (var i = 0; i < _count; i++)
+        lock (_gate)
         {
-            Spawn(ref _pool[i], preWarm: true);
-        }
-        _doneSteps = -1;
+            _rng = new Rng(o.Seed);
+            for (var i = 0; i < _count; i++)
+            {
+                Spawn(ref _pool[i], preWarm: true);
+            }
+            _doneSteps = -1;
 
-        // Settle the field so it never starts empty on screen.
-        for (var i = 0; i < 90; i++) StepFixed(1f / 30f);
+            // Settle the field so it never starts empty on screen.
+            for (var i = 0; i < 90; i++) StepFixed(1f / 30f);
+        }
     }
 
+    /// <summary>
+    /// Steps the field to the show clock. A fresh sim anchors on the quantised grid; one behind
+    /// by a few seconds catches up over frames (<see cref="StepsPerFrame"/>); one hopelessly
+    /// behind, or one whose clock went backwards (a designer scrub), re-anchors and keeps moving.
+    /// </summary>
     public void Advance(double time)
     {
-        var target = (long)(time / StepSeconds);
-        if (_doneSteps < 0 || target - _doneSteps > MaxCatchUpSteps)
+        if (_disposed) return;
+        lock (_gate)
         {
-            // Fresh sim, or a sink that stalled far behind (e.g. hidden preview): re-anchor on
-            // the shared quantized grid instead of grinding through thousands of catch-up steps.
-            _doneSteps = Math.Max(0, (target / BaselineQuantum) * BaselineQuantum);
+            var target = (long)(time / StepSeconds);
+            if (_doneSteps < 0 || target < _doneSteps || target - _doneSteps > MaxBehindSteps)
+            {
+                // Fresh sim, a clock that went back, or a sink that stalled far behind (e.g. a
+                // hidden preview): re-anchor on the shared quantized grid instead of freezing or
+                // grinding through thousands of catch-up steps.
+                _doneSteps = Math.Max(0, (target / BaselineQuantum) * BaselineQuantum);
+            }
+            var stop = Math.Min(target, _doneSteps + StepsPerFrame);
+            for (; _doneSteps < stop; _doneSteps++)
+            {
+                // The pulse is read at the quantised step clock, so a span's halves and NDI step
+                // through the same surge on the same steps.
+                StepFixed(StepSeconds, EffectImpulses.SurgeAt((_doneSteps + 1) * StepSeconds));
+            }
+            _surge = EffectImpulses.SurgeAt(time);
         }
-        for (; _doneSteps < target; _doneSteps++)
+    }
+
+    /// <summary>The step index the field has reached (tests, and the cache's join).</summary>
+    public long StepsDone => _doneSteps;
+
+    /// <summary>True once <see cref="Dispose"/> ran: the sim draws nothing and steps nothing.</summary>
+    public bool IsDisposed => _disposed;
+
+    /// <summary>
+    /// Takes a running leader's field as this sim's own — every particle, the random stream,
+    /// the step index — so a sink opened late (an output window after OUTPUTS ON, an NDI send
+    /// started mid-show, a display re-plugged) shows the same particles as the sinks already
+    /// drawing the same field, from its first frame. Both sims must hold the same configuration;
+    /// the copy is taken under the leader's gate, between its frames.
+    /// </summary>
+    public bool JoinTimeline(ParticleSim leader)
+    {
+        if (ReferenceEquals(leader, this) || _disposed || leader._disposed) return false;
+        if (leader._configKey != _configKey || leader._count != _count || _count == 0) return false;
+        lock (leader._gate)
         {
-            // The pulse is read at the quantised step clock, so a span's halves and NDI step
-            // through the same surge on the same steps.
-            StepFixed(StepSeconds, EffectImpulses.SurgeAt((_doneSteps + 1) * StepSeconds));
+            if (leader._doneSteps < 0) return false;
+            lock (_gate)
+            {
+                Array.Copy(leader._pool, _pool, _count);
+                _rng = leader._rng;
+                _doneSteps = leader._doneSteps;
+                _surge = leader._surge;
+            }
         }
-        _surge = EffectImpulses.SurgeAt(time);
+        return true;
     }
 
     /// <summary>One deterministic simulation step with no pulse (also used directly by tests).</summary>
@@ -165,8 +284,8 @@ public sealed class ParticleSim : IDisposable
         var swirlCos = MathF.Cos(swirlAngle);
         var swirlSin = MathF.Sin(swirlAngle);
 
-        var active = ActiveCount;
-        for (var i = 0; i < active; i++)
+        // Every particle steps, whatever the ladder says: the level decides the draw alone.
+        for (var i = 0; i < _count; i++)
         {
             ref var p = ref _pool[i];
             p.Age += dt;
@@ -204,7 +323,9 @@ public sealed class ParticleSim : IDisposable
             p.Rot += p.RotV * dt;
 
             var m = p.Size * 3 + 8;
-            if (p.X < -m || p.X > _w + m || p.Y < -m || p.Y > _h + m)
+            // Off the canvas, or not a number any more (a poisoned particle would never leave
+            // by the bounds test and would hand Skia a NaN transform): born again.
+            if (p.X < -m || p.X > _w + m || p.Y < -m || p.Y > _h + m || !float.IsFinite(p.X + p.Y + p.Vx + p.Vy))
             {
                 Spawn(ref p, preWarm: false);
             }
@@ -294,7 +415,7 @@ public sealed class ParticleSim : IDisposable
 
     public void Render(SKCanvas c, PaintCache pc)
     {
-        if (_atlas is null || _count == 0) return;
+        if (_disposed || _atlas is null || _count == 0) return;
 
         var starfield = _o.Emitter == ParticleEmitter.Center;
         float cx = _w / 2, cy = _h / 2;
@@ -406,6 +527,7 @@ public sealed class ParticleSim : IDisposable
 
         var info = new SKImageInfo(SpriteSize, SpriteSize, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var surface = SKSurface.Create(info);
+        if (surface is null) return;   // no memory for a sprite: the field draws nothing rather than faulting
         var c = surface.Canvas;
         c.Clear(SKColors.Transparent);
         float half = SpriteSize / 2f;
@@ -476,9 +598,12 @@ public sealed class ParticleSim : IDisposable
         _atlas = surface.Snapshot();
     }
 
+    /// <summary>Lets the sprite go and marks the sim: a draw after this is nothing, never a freed native handle.</summary>
     public void Dispose()
     {
+        _disposed = true;
         _atlas?.Dispose();
+        _atlas = null;
     }
 
     // Test hooks.

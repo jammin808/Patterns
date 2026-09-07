@@ -2169,6 +2169,7 @@ for the Windows machine is `docs/CHECKLIST-round18.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 2 | The particles given the fractals' treatments (§26.2). "Does Particles need the careful stability and speed and resilience handling and treatments we used for Fractals?" Audited treatment by treatment against the code: the particles already had what the fractals never needed — a fixed 120 Hz step, an allocation-free frame, one DrawAtlas — and were missing four things of their own. A sim per field on every sink (`ParticleSimCache`): a crossfade, a monitor wall and a layer draw more than one field on a sink in a frame, and the one sim a sink had was re-seeded, settled and caught up on every draw, twice a frame; now each field has its own, found without an allocation. A catch-up bounded per frame in updates (three million, never under a second of sim) instead of 2048 steps of any field in one draw on the compositor's thread. The quality ladder on the draw alone — every particle steps whatever the level — so two sinks reading the level a frame apart never diverge again. A late sink joins the running leader's timeline (`ParticleLeaders` on the snapshot, weak): an output opened at OUTPUTS ON, an NDI send started mid-show, a display plugged in late show the same field as the PGM pane from their first frame; the random stream is the sim's own (a seeded xorshift, copyable). Fences: a backwards clock re-anchors instead of freezing, a NaN particle is born again, a disposed sim is inert and lets its sprite go, an unallocatable sprite is no field. Not done on purpose: SoA/SIMD for the integrate loop. Also the caller's plan across midnight (`CueTiming.Near`): the CI's clock crossed midnight under the desk's timing test and read +1445 min; a plan is read as the occurrence nearest the clock now. Tests: the cache, the join, the budget, the ladder, the clock, the fences, the random stream, the plan past midnight. | done |
 | 1 | The Fractals page (§26.1). BUILD → Fractals, between Particles and Branding, built the way the Particles page is built: a Fractal studio with SCENES filed by family — Mandelbrot (classic, Seahorse valley, Elephant valley, Spiral arm, Mini-brot, Triple spiral valley), Julia (swirl, dragon, Douady's rabbit, Dendrite, San Marco, Siegel disk, Galaxy spiral), Burning ship (the ship, The armada, Ship's mast), Newton (triad, coast, lace), Domain warp (lava, ocean, smoke, aurora, neon) — twenty-four scenes where there were eight, and the operator's saved fractal presets under Custom; FAMILY (the maths, a Julia's c), VIEW (zoom, centre, detail, motion, CPU quality), COLOUR (the palette, or BRAND KIT for the kit's five colours at a press), SOUND (this computer or an input, the amount, the analyser's status line) and STINGS (ADD AN EFFECT STING); USE IT makes the Fractal the editing target's pattern so the page shows live. The Pattern page keeps a pointer with OPEN FRACTALS while Fractal is the pattern, and the particles' pointer gets OPEN PARTICLES to match; the Library files every scene under a Fractals section by family; a Help topic ("fractals") with the words a user would search; the Workflow and Shell help name the page. `FractalPresets.Scene` carries its family; `Categories` and `In(family)` mirror the particle packs; a scene still never touches the sound settings. Tests: the families in order with every scene under one, every scene applying with its name and rastering clean with the sound left alone; on the desk the chips by family, USE IT, a chip leaving the sound settings alone, the brand palette, a saved fractal preset as a Custom chip and a grid preset kept out, the Library section, the page rendering with every chip and its buttons, the rail order and the BUILD hint, the Pattern page's OPEN FRACTALS opening the page, OPEN PARTICLES, an unknown header ignored, the Help topic and words. | done |
 
 ## 26. Round 18 — the answers
@@ -2221,3 +2222,108 @@ restoring the saved zoom, the Library section and a scene's family, the page ren
 every chip and the two buttons bound to their commands; the rail order after Particles and the
 BUILD hint, the Pattern page's OPEN FRACTALS visible with Fractal as the pattern and opening the
 page, OPEN PARTICLES, an unknown header ignored by the command, the Help topic's pages and words.
+
+### 26.2 The particles and the fractals' treatments: the same question, four different answers
+
+The fractals were given their treatments one incident at a time — bounded parallelism after a
+laptop's audio starved (round 14), the quality ladder and the raster ceiling (round 14), the
+shader path with the raster fallback and the sticky-unavailable gate (rounds 9 and 16), the
+cadence throttle and the backwards-clock guard on the lower-third element, and the sink guard
+after the round-17 crash. "Does Particles need the same?" was answered by reading the particle
+sim against each of those, and the honest answer is: not the same ones. A fractal is stateless
+per frame and expensive per pixel; a particle field is cheap per frame and *all state*. The
+particles already had what the fractals never needed: a fixed 120 Hz step quantised on the show
+clock, so a hung frame can never produce a huge dt; an allocation-free frame — pooled arrays,
+the sink's paints, one DrawAtlas for the whole field; and determinism by construction, the same
+seed and the same step sequence on every sink. What they were missing were four things the
+fractals do not have either, because a fractal cannot have them.
+
+*One sim per field on a sink.* The engine draws more than one field on a sink in a frame more
+often than it looks. A crossfade renders the old snapshot under the new — two versions; a
+multiview renders a tile per screen at the tile's size — several canvases; a layer that shows
+another target renders that target's pattern — another canvas again. All of them passed the
+same `SinkState` to `RenderContent`, and the sink had one `ParticleSim`, gated on "the version
+or the canvas changed since I last drew": true on every draw, twice a frame. Each of those draws
+re-keyed the sim, rebuilt the sprite, reallocated four arrays, re-seeded every particle, ran
+ninety settle steps and then an average of two hundred and fifty catch-up steps from the
+quantised anchor — three hundred and fifty full-field steps per draw, at 60 Hz, on the
+compositor's thread, for the whole length of a two-second fade. `ParticleSimCache` gives a sink
+a sim per field, where a field is what `ParticleSim.KeyFor` names (the scene's options, its
+colours, the canvas). The hot path finds it without an allocation by the snapshot version, the
+options object that snapshot holds for the target and the canvas — two draws remembered per
+entry, so a crossfade alternating between two versions hits both — and only when the version
+moves on does it build the key string and match by it, which is what a publish costs today. Six
+entries per sink; the least recently drawn goes. The fractal's equivalent is the per-family
+shader dictionary on the sink; it never had the problem because a raster surface reallocates
+in a millisecond and a shader compiles once.
+
+*A catch-up bounded per frame.* A sim behind the clock by up to 2048 steps caught up in one
+`Advance`: at 20 000 particles that is forty million particle-updates in one draw — a hidden
+preview shown again after fifteen seconds, or an output starved by a stall, froze every window
+for a quarter of a second, because the compositor is one. The catch-up is budgeted in updates
+now — `CatchUpBudget`, three million a frame, never fewer than a second of sim — so a field of
+eight hundred still catches up whole and a field of twenty thousand takes a hundred and fifty
+steps a frame for a few frames; the deficit shrinks by more than a second of sim per frame, so
+it always closes. Past `MaxBehindSteps` (seventeen seconds) the sim re-anchors on the quantised
+grid, as before: a sink that far behind has lost its place with the others either way.
+
+*The ladder on the draw alone.* The quality level was applied as `ActiveCount`, and
+`ActiveCount` bounded the step loop and the respawns as well as the draw. Every sink reads the
+shared level on its own thread, on its own frame; when the ladder stepped between output A's
+frame and output B's, the two executed the same step index with a different active count, their
+respawns consumed the shared random stream at different rates, and two outputs of one canvas
+never agreed again — exactly the seam the ladder's own comment promised to keep ("the same level
+applies to every sink at once"). Every particle steps whatever the level now; the level decides
+how many draw. The integration is the cheap part — twenty thousand particles at 120 Hz is two
+per cent of a core; the draw is the cost, and the draw is what the ladder now thins.
+
+*A late sink joins the running timeline.* A sim anchored itself on the quantised grid
+(512-step windows, about 4.3 s) at its first frame, so two sinks configured in the same window
+matched and two configured in different windows never did: an output opened at OUTPUTS ON long
+after the PGM pane started the field, an NDI send started mid-show, a display plugged in late
+and enabled — each showed a field of its own. The first sim to draw a field under a snapshot
+now leads it (`ParticleLeaders`, runtime-only on the snapshot, a weak reference, so a closed
+sink's sim goes with it), and a sim starting the same field copies the leader's particles, its
+random stream and its step index under the leader's gate — between its frames — and continues
+in step. For that the random stream became the sim's own: a seeded xorshift64\* that is a value
+and can be copied, where `System.Random` cannot; the same sequence on every machine, which the
+old one was too, but now by construction. A snapshot nobody has drawn the field under starts
+with no leader and anchors as before; a new version starts with no leaders and the sims already
+running the field lead it from there.
+
+*Fences.* A clock that goes backwards — the designer's scrub, a fresh show clock — made the
+step loop a no-op until the clock passed its high-water mark, so a scrubbed particle element
+froze; the fractal element had a guard for it and the particle one did not. It re-anchors now
+and keeps moving. A particle that is not a number any more (a poisoned velocity) would never
+leave by the bounds test and would hand Skia a NaN transform every frame; it is born again. A
+disposed sim left its sprite reference in place, so a draw after a dispose was the round-17
+shape — a freed native handle drawn with; it draws nothing, steps nothing and never rebuilds
+now. A sprite surface that cannot be allocated is no field rather than a null dereference.
+
+Not done, on purpose: structure-of-arrays and SIMD for the integrate loop. The audit found it
+the natural next speed step, and it is two per cent of a core; the respawn order in the loop is
+what the determinism rests on, and a vectorised loop with a scalar respawn tail buys little for
+the risk. The stings needed nothing: an effect pulse owns no session, no decoder and no state
+beyond the surge every sink re-reads, so the stuck-clip watchdog rightly ignores it.
+
+Also in this item, because the CI found it while this item was being tested: the caller's plan
+across midnight. The desk's timing test ran at 23:59 UTC on the runner and read a cue planned
+five minutes earlier as "+1445 min"; `CueTiming` worked in times of day and its comment said so
+("a show does not cross midnight here"). That was a real limit for a real show — a New Year's
+Eve, any evening that runs long. Every planned time is read as the occurrence nearest the clock
+now (`CueTiming.Near`, twelve hours either way): a cue planned for 23:55 read at 00:04 is nine
+minutes late, the gap from 23:50 to 00:10 is twenty minutes, a GO at 00:01 on a 23:55 cue is
+six minutes late, and `FormatClock` wraps the line back to a clock for the desk. The starcloth
+test that sampled no edge-leavers in ten seconds by the luck of the old random stream counts
+them now and allows the handful there always were.
+
+Tests: a sink keeping a sim per field, the same sim on a second version and a second canvas
+without a rebuild, both versions found after, the eviction of the oldest fields; a late sink
+taking the leader's field bit for bit and staying in step through respawns, a snapshot nobody
+drew anchoring on its own, a disposed leader replaced by the next; the catch-up's share per
+frame for a large field and whole for a small one, the re-anchor past the limit; the ladder
+hiding particles and never stopping them, both draw paths clean; the backwards clock stepping
+on; the poisoned field born again and the disposed sim inert; the random stream bit-exact
+across sims and carried by a join, the join refusing a stranger and an unstarted leader; the
+plan across midnight in `Near`, `FormatClock`, the gap, the running cue's offset, the standby's,
+the marks and the words.

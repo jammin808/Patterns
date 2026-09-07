@@ -82,10 +82,28 @@ public sealed class TimingReport
 /// <summary>
 /// The caller's clock: planned starts and lengths against the real clock. Everything here is a
 /// pure function of the list, the place and the time, so a late day reads the same on the Run
-/// surface, on a remote and in the tests. Times of day; a show does not cross midnight here.
+/// surface, on a remote and in the tests. Times of day, each read as the occurrence nearest
+/// the clock (<see cref="Near"/>), so a show that runs past midnight keeps its plan: a cue
+/// planned for 23:55 read at 00:04 is nine minutes late, not a day early.
 /// </summary>
 public static class CueTiming
 {
+    /// <summary>
+    /// A planned time of day as the occurrence nearest <paramref name="reference"/>: within twelve
+    /// hours either way, else the day before or after. The estimates work on this line, so a
+    /// plan across midnight subtracts and compares like any other; <see cref="FormatClock"/>
+    /// wraps it back to a clock for the desk.
+    /// </summary>
+    public static TimeSpan Near(TimeSpan plan, TimeSpan reference)
+    {
+        var day = TimeSpan.FromHours(24);
+        var half = TimeSpan.FromHours(12);
+        var t = plan;
+        while (t - reference > half) t -= day;
+        while (reference - t > half) t += day;
+        return t;
+    }
+
     /// <summary>Within this of the plan is "on time".</summary>
     public static readonly TimeSpan Tolerance = TimeSpan.FromSeconds(30);
 
@@ -233,7 +251,7 @@ public static class CueTiming
             if (!cues[i].Enabled) continue;
             if (ParseClock(cues[i].PlannedStart) is { } next)
             {
-                var gap = next - start;
+                var gap = Near(next, start) - start;   // 23:50 to 00:10 is twenty minutes, not minus a day
                 return gap >= TimeSpan.Zero ? (int)gap.TotalSeconds : null;
             }
             return null; // the next cue's length is unknown, so the gap is not this cue's
@@ -293,11 +311,13 @@ public static class CueTiming
         TimeSpan? offset = null;
         if (runningIndex >= 0 && runningStartLocal is { } s && ParseClock(cues[runningIndex].PlannedStart) is { } plannedStart)
         {
-            offset = s.TimeOfDay - plannedStart;
+            // The start against its plan on the same line: a GO at 00:01 on a cue planned for 23:55 is six minutes late.
+            var startedAt = now - (nowLocal - s);
+            offset = startedAt - Near(plannedStart, startedAt);
         }
         else if (startIndex < cues.Count && ParseClock(cues[startIndex].PlannedStart) is { } standbyPlan)
         {
-            offset = cursor - standbyPlan;
+            offset = cursor - Near(standbyPlan, cursor);
         }
 
         var list = new List<CueEstimate>(cues.Count);
@@ -305,12 +325,13 @@ public static class CueTiming
         for (var i = 0; i < cues.Count; i++)
         {
             var cue = cues[i];
-            var plannedAt = ParseClock(cue.PlannedStart);
             if (i < startIndex)
             {
-                list.Add(new CueEstimate(cue, plannedAt, plannedAt ?? TimeSpan.Zero, false, Past: true));
+                var past = ParseClock(cue.PlannedStart) is { } pp ? Near(pp, now) : (TimeSpan?)null;
+                list.Add(new CueEstimate(cue, past, past ?? TimeSpan.Zero, false, Past: true));
                 continue;
             }
+            var plannedAt = ParseClock(cue.PlannedStart) is { } pa ? Near(pa, cursor) : (TimeSpan?)null;
             list.Add(new CueEstimate(cue, plannedAt, cursor, uncertain, Past: false));
             if (!cue.Enabled) continue;
             switch (cue.Mark)

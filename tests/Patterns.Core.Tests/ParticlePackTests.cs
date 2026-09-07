@@ -198,11 +198,20 @@ public class ParticlePackTests
         sim.Configure(o, RenderTestHarness.Snap(new ShowState()), new SKSizeI(1920, 1080));
         var before = Enumerable.Range(0, sim.Count).Select(sim.PositionOf).ToArray();
         for (var i = 0; i < 1200; i++) sim.StepFixed(ParticleSim.StepSeconds); // ten seconds
+        // A star drifts at most two pixels a second, so one born within a few pixels of an edge
+        // and heading out is born again elsewhere in ten seconds — a handful of the field, never
+        // more; every other star is within its drift and wobble of where it was.
+        var sampled = 0;
+        var reborn = 0;
         for (var i = 0; i < sim.Count; i += 9)
         {
+            sampled++;
             var (x0, y0) = before[i];
             var (x1, y1) = sim.PositionOf(i);
-            Assert.True(Math.Abs(x1 - x0) + Math.Abs(y1 - y0) < 120, $"star {i} moved {Math.Abs(x1 - x0) + Math.Abs(y1 - y0):0} px");
+            var moved = Math.Abs(x1 - x0) + Math.Abs(y1 - y0);
+            if (moved >= 120) reborn++;
+            else Assert.True(moved < 60, $"star {i} moved {moved:0} px");
         }
+        Assert.True(reborn <= sampled * 0.03, $"{reborn} of {sampled} stars were born again in ten seconds");
     }
 }
