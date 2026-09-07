@@ -2,6 +2,8 @@ using System.Text;
 using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
+using Patterns.Core.Media;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;
@@ -63,6 +65,119 @@ public sealed class AssistantService
 
     public bool Busy { get; private set; }
 
+    /// <summary>What the editors and the PGM pane's preview edit right now — the desk sets it before each ask ("Program", or a screen's own picture).</summary>
+    public string EditingTarget { get; set; } = "Program";
+
+    /// <summary>
+    /// The desk's states for the brief, read from the services at the moment of the ask: EDIT
+    /// SAFE and the two states, the outputs, the canvases and what every screen shows, the cue
+    /// on standby, the inputs mounted (by nickname and kind, never a path), the library's names,
+    /// the sound, the lower third on air, the sends and the stream. Never throws: a service that
+    /// cannot answer leaves its line at the default, and the ask goes out with the rest.
+    /// </summary>
+    public ShowFacts Gather()
+    {
+        var s = _services;
+        var state = s.State;
+        var air = s.AirState;
+        var canvases = new List<CanvasFact>();
+        var shows = new Dictionary<string, string>(StringComparer.Ordinal);
+        try
+        {
+            var geo = Rig.Geometry(state, s.Screens.All);
+            var infos = new Dictionary<string, ScreenInfo>(StringComparer.Ordinal);
+            foreach (var info in s.Screens.All) infos[info.Id] = info;
+            string LabelOf(string id)
+            {
+                var placement = state.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
+                return placement is null ? id : Rig.LabelFor(placement, infos.GetValueOrDefault(id));
+            }
+            foreach (var target in geo.Targets)
+            {
+                if (!ContentTargets.IsCanvasKey(target)) continue;
+                var members = geo.MembersOf(target);
+                var size = geo.SizeOf(target);
+                var name = state.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == target)?.Name ?? "";
+                canvases.Add(new CanvasFact(geo.LetterOf(target), name, size.Width, size.Height, members.ToList(), members.Select(LabelOf).ToList()));
+            }
+            foreach (var p in state.Output.Placements)
+            {
+                string words;
+                if (p.MirrorOf.Length > 0) words = "a repeater of " + (ContentTargets.IsCanvasKey(p.MirrorOf) ? "canvas " + geo.LetterOf(p.MirrorOf) : LabelOf(p.MirrorOf));
+                else if (!p.Enabled) words = "nothing (off)";
+                else
+                {
+                    var target = geo.TargetOf(p.ScreenId);
+                    var own = ContentTargets.UsesOwnPattern(air, target) ? air.Independent.FirstOrDefault(a => a.ScreenId == target)?.Pattern : null;
+                    var picture = own is null ? "the program" : "its own picture: " + ShowBrief.PatternWords(own);
+                    words = ContentTargets.IsCanvasKey(target) ? $"canvas {geo.LetterOf(target)} with {picture}" : picture;
+                }
+                shows[p.ScreenId] = words;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the rig.", ex);
+        }
+
+        var inputs = new List<string>();
+        try
+        {
+            foreach (var key in InputBus.Keys)
+            {
+                var kind = key.StartsWith("cap:", StringComparison.Ordinal) ? "a capture input"
+                    : key.StartsWith("ndi:", StringComparison.Ordinal) ? "an NDI feed"
+                    : key.StartsWith("web:", StringComparison.Ordinal) ? "a web page"
+                    : key.StartsWith("deck:", StringComparison.Ordinal) ? "a deck"
+                    : key.StartsWith("vid:", StringComparison.Ordinal) ? "a clip"
+                    : "a source";
+                var label = state.InputLabel(key, "");
+                inputs.Add(label.Length > 0 ? $"{label} ({kind[2..]})" : kind);   // the nickname and the kind, never the key's path or address
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the inputs.", ex);
+        }
+
+        var standby = s.CueStack.StandbyCue;
+        var last = s.CueStack.LastCue;
+        var audioNow = "";
+        try
+        {
+            audioNow = s.AudioPlayer.NowPath.Length > 0 ? $"playing '{s.AudioPlayer.CurrentName}'" : state.AudioPlayer.Items.Count + state.AudioPlayer.Folders.Count > 0 ? "stopped" : "";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the audio player.", ex);
+        }
+        var lowerThird = air.LowerThirds.IsShowing ? air.LowerThirds.Active?.Name ?? "" : "";
+        return new ShowFacts
+        {
+            EditSafeOpen = s.Sandbox.Active,
+            Air = s.Sandbox.Active ? air : null,
+            AirLabel = s.AirLabel == "—" ? "" : s.AirLabel,   // the strip's dash is "no look named", not a name
+            PreviewLook = s.PreviewLookId.Length > 0 ? LookService.Find(state, s.PreviewLookId)?.Name ?? "" : "",
+            EditingTarget = EditingTarget,
+            OutputsLive = s.Outputs.IsLive,
+            OutputWindows = s.Outputs.Windows.Count,
+            Canvases = canvases,
+            ScreenShows = shows,
+            StackArmed = s.CueStack.Armed,
+            StandbyCue = standby is null ? "" : $"{standby.Number} {standby.Name}".Trim(),
+            LastCue = last is null ? "" : $"{last.Number} {last.Name}".Trim(),
+            InputsMounted = inputs,
+            MediaFiles = state.MediaLibrary.Count,
+            MediaNames = state.MediaLibrary.Where(m => m.Name.Trim().Length > 0).Select(m => m.Name.Trim()).ToList(),
+            AudioNow = audioNow,
+            VogOnAir = s.Stingers.VogOnAir,
+            StingOnAir = s.Stingers.StingOnAir,
+            LowerThirdOnAir = lowerThird,
+            NdiSendsRunning = s.Ndi.ActiveCount,
+            StreamStatus = s.Stream.Status,
+        };
+    }
+
     /// <summary>SAVE KEY: the key to the store beside the settings; blank forgets it.</summary>
     public void SaveKey(string? key)
     {
@@ -92,7 +207,7 @@ public sealed class AssistantService
 
         Busy = true;
         Sent++;
-        var brief = ShowBrief.Summarise(_services.State);
+        var brief = ShowBrief.Summarise(_services.State, Gather());
         var turns = new List<AssistantTurnText>(_turns) { new(true, question) };
         var request = new AssistantRequest(AssistantScope.SystemPrompt(brief, _plain), turns, _plain);
         LastRequest = request;
@@ -179,7 +294,7 @@ public sealed class AssistantService
             MaxTokens = MaxTokens,
             System = new List<TextBlockParam> { new() { Text = request.System } },
             Messages = request.Turns.Select(t => new MessageParam { Role = t.Mine ? Role.User : Role.Assistant, Content = t.Text }).ToList(),
-            OutputConfig = request.Plain ? null : new OutputConfig { Format = new JsonOutputFormat { Schema = AssistantScope.SchemaElements() } },
+            OutputConfig = request.Plain ? null : new Anthropic.Models.Messages.OutputConfig { Format = new JsonOutputFormat { Schema = AssistantScope.SchemaElements() } },
         };
         var response = await client.Messages.Create(parameters);
         if (response.StopReason == "refusal")

@@ -2198,6 +2198,7 @@ the Windows machine is `docs/CHECKLIST-round19.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 2 | The assistant embedded in the desk's states (§28.2). "Check how it works with the system architecture as it needs to be well embedded to understand all states." The brief the model reads was the show file — screens, looks, cues, designs — and nothing the desk alone knows, so it could propose a look already on air, a screen already in the rig, or a picture for a screen that shows its own. `ShowFacts` (Core) is what only the desk knows, filled by `AssistantService.Gather()` from the services at the moment of every ask: EDIT SAFE open or not and, when open, the program on air as its own state beside the preview; the LIVE strip's look and the look in the preview; the outputs live or off and how many windows; the editing target (Program, or a screen's own picture); the joined canvases by wall letter with their name, size and members, and what every screen shows right now (the program, its own picture and its kind, a repeater of what, canvas A with what, off); the caller's stack armed or not with the cue on standby and the last run; the inputs mounted by nickname and kind, never a path or an address; the media library's count and the names the operator gave; the sound now (the playlist playing what, a VOG or a sting on air); the lower third on air; the NDI sends running and the stream. `ShowBrief.Summarise(state, facts)` turns it into lines beside the file's, and the fence tells the model to read the states before proposing: never a screen, a look or a design the brief already lists (update by name), and to say plainly when what is asked for is already on air or in the preview. Core stays pure (a fact is data, the words are one function); the App reads its services once per ask and never throws into the ask. Tests: the brief with every fact filled and with none, the fence's words; on the desk the request carrying EDIT SAFE off, the outputs, the editing target, a real joined canvas with what its members show, the empty stack and sound; and after APPLY and TAKE the next ask carrying EDIT SAFE open with the air and the preview apart and the cue on standby. | done |
 | 1 | The Assistant page, the APPLY rule and the screens (§28.1). The conversation reads newest first — the latest answer sits under the ask box, lit, and the history runs down the page — with room: cards with air around their words, the type a size up, a taller ask box, the proposals as cards inside the answer. APPLY lands in the preview and only there: a proposal that draws (a pattern, overlays, a brand the patterns use, a look's picture) opens EDIT SAFE when it is off, so the program on air stays exactly what it is until TAKE or CUT, and it lands on the program's own pattern (the PGM pane) — the editing target comes back to Program first — never on a screen's own picture; lists (planned screens, designs, cues) need no preview and open none; the chip and the status say where it went. The screens bug: the assistant placed every planned screen flush against the last one, and flush is exactly how the rig joins screens into one canvas (`ScreenLayout.Touching`, a 1 px tolerance), so three screens came out as one wide wall — and the desk's own + PLANNED SCREEN did the same. Every new planned screen now lands `ScreenLayout.ApartGap` (240 px) past the rig, its own target until it is dragged flush on purpose, and the rules tell the model that a wall fed by several outputs is one planned screen of the wall's total size and that joining outputs is the Screens page's. Tests: three screens three targets and no canvas, a rig with a real wall keeping it and the new screen apart, the rules' words; on the desk the rows newest first and the latest lit, APPLY with EDIT SAFE off opening it with the air's picture untouched and the preview's changed, the editing target on Program, TAKE putting it on air. | done |
 
 ## 28. Round 19 — the answers
@@ -2251,6 +2252,69 @@ apart from it; the rules carry the words. On the desk: the rows newest first wit
 lit and the question below it; APPLY of a look with EDIT SAFE off opens it, the air's pattern
 and overlays untouched, the preview's changed, the editing target on Program, the applied line
 naming the preview; TAKE puts the picture on air.
+
+### 28.2 The assistant in the architecture: what it sees, where it acts, what it still cannot
+
+"Check how it works with the system architecture as it needs to be well embedded to understand
+all states." The honest answer first: it was not. The assistant lived in two halves — Core
+(`AssistantScope`, the fence, the rules and the reply's schema; `ShowBrief`, the show file as
+words; `AssistantParser`; `AssistantApply`, a proposal into the model exactly as the desk edits
+it) and App (`AssistantService`, the key store, the wire and the conversation; the view model's
+rows, chips and APPLY through one bulk edit and one publish) — and the brief it sent was the
+*show file*: screens, looks, cues, designs, the brand, the counts. Everything the desk alone
+knows was missing: whether EDIT SAFE is open and so which of the two states is on air; what the
+LIVE strip says is on air and what look is in the preview; whether the outputs are open at all;
+which screens are joined into a canvas and what each shows right now; the cue on standby; the
+inputs the engine has open; what the playlist is playing; the lower third on air. So it could
+propose a look that was already on air, a screen that was already in the rig, a picture for a
+screen that shows its own — and the operator had to know better.
+
+*How the desk's states reach it now.* `ShowFacts` (Core) is a plain record of what only the desk
+knows, every member with a default so a thin desk reads too. `AssistantService.Gather()` fills it
+from the services at the moment of every ask, never throwing into the ask (a service that cannot
+answer leaves its line at the default): EDIT SAFE from `SandboxService.Active`, with the program
+on air (`AppServices.AirState`, the frozen clone the outputs draw) carried as its own state beside
+the preview; the LIVE strip's look (`AirLabel`, its dash read as no name) and the preview's look
+(`PreviewLookId` by name); the outputs from `OutputWindowManager` (live, how many windows); the
+editing target, set by the view model before each ask ("Program", or "Stage left (its own
+picture)"); the rig from `Rig.Geometry` — every joined canvas by its wall letter with the
+operator's name for it, its size and its members, and for every screen what it shows now
+(`ContentTargets.UsesOwnPattern` against the air: the program, its own picture and its kind, a
+repeater of which target, canvas A with what, off); the caller's stack from `CueStackService`
+(armed, the cue on standby, the last run); the inputs from `InputBus.Keys`, each as its nickname
+and kind — a capture input, an NDI feed, a web page, a deck, a clip — and never the key's path or
+address; the media library's count and only the names the operator gave; the sound from the audio
+player and the stinger service (the playlist playing what, a VOG or a sting on air); the lower
+third on air from the air's state; the NDI sends running and the stream's status. `ShowBrief.
+Summarise(state, facts)` turns it into lines beside the file's: a *Desk:* line (EDIT SAFE, the
+outputs, the editing target), *On air:* and *In the preview (where a proposal lands):* as two
+lines when EDIT SAFE is open and one line saying so when it is not, every screen's line ending
+"in canvas A; shows the program", a *Canvases* line, the stack's header with the standby and the
+last run, *Sound now*, *Lower third on air*, *Inputs mounted*, *Media library*, *Outputs*.
+
+*What the model is told to do with it.* The fence says the brief also carries the desk's state
+right now and to read it before proposing: never propose a screen, a look or a design the brief
+already lists (update it by name instead — `AssistantApply` finds looks and designs by name and
+updates them), and say plainly when what the operator asks for is already on air or already in
+the preview. With §28.1's rule on where a proposal lands, the model now knows the three places a
+picture can be — on air, in the preview, saved as a look — and which one it is proposing for.
+
+*What it still cannot do, on purpose.* It never acts at show time: no TAKE, no GO, no outputs
+on, no cue fired — the standing rule that nothing it says goes on air, kept in code by the
+proposal kinds (a look, a cue, a design, a screen, the brand, a plan, or words) and by APPLY
+being the operator's press. It never sees a path, an address, a passcode or a key (the tests
+read the brief for them). And it reads the desk at the moment of the ask, not live: a state that
+moves between the ask and APPLY is resolved at APPLY by name, and a name that no longer matches
+stays as it is and the cue checks say so, as with the cue sheet import.
+
+Tests: the brief with every fact filled — EDIT SAFE open with the air and the preview apart, the
+outputs, the editing target, a canvas with what its members show, the stack armed with the
+standby and the last run, the sound, the lower third, the inputs, the library, the sends and the
+stream — and with none (EDIT SAFE off said so, every line at its default), the file's own lines
+without facts, the fence's words; on the desk the first request carrying EDIT SAFE off, the
+outputs off, the editing target, a real joined canvas of two planned screens with what they
+show, the empty stack and the silence, and after APPLY and TAKE the next request carrying EDIT
+SAFE open with *On air* and *In the preview* apart and the cue on standby.
 
 ## 26. Round 18 — the answers
 

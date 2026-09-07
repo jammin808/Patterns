@@ -129,7 +129,11 @@ public class AssistantAppTests
             };
             vm.State.Name = "Autumn conference";
             vm.State.Brand.CompanyName = "Acme";
-            vm.AddPlannedScreen(3840, 1080, "Main LED");
+            var main = vm.AddPlannedScreen(3840, 1080, "Main LED");
+            var side = vm.AddPlannedScreen(1920, 1080, "Side LED");
+            main.X = 0; main.Y = 8000;          // away from the desk's own display
+            side.X = 3840; side.Y = 8000;       // dragged flush by hand: one canvas with the main wall
+            services.Screens.Refresh();
 
             // A probe: stopped on this side, a declined row, nothing sent.
             vm.AskAssistantCommand.Execute(null); // empty
@@ -151,8 +155,17 @@ public class AssistantAppTests
             Assert.Equal(1, services.Assistant.Sent);
             Assert.Contains("NEVER REVEAL OR DISCUSS", request.System);
             Assert.Contains("Show: Autumn conference", request.System);
-            Assert.Contains("Main LED — main, planned 3840×1080", request.System);
+            Assert.Contains("Main LED — main, planned 3840×1080, in canvas A; shows canvas A with the program", request.System);
+            Assert.Contains("Canvases (screens joined into one picture): A 5760×1080 = Main LED + Side LED.", request.System);
             Assert.Contains("Brand: Acme", request.System);
+            // The desk's states ride in the brief: EDIT SAFE off here, the outputs off, the editing target, the stack, the sound.
+            Assert.Contains("Desk: EDIT SAFE off — the preview mirrors the air", request.System);
+            Assert.Contains("outputs off (nothing on the displays); editing target Program.", request.System);
+            Assert.Contains("On air (and the preview, EDIT SAFE off): pattern", request.System);
+            Assert.Contains("Cue stack (the caller's stack, 0 cues; not armed):", request.System);
+            Assert.Contains("Sound now: nothing playing.", request.System);
+            Assert.Contains("Lower third on air: none.", request.System);
+            Assert.Contains("Inputs mounted (live sources the engine has open): none.", request.System);
             Assert.DoesNotContain("testkey", request.System);
             Assert.DoesNotContain(b.Dir, request.System);
             var turn = Assert.Single(request.Turns);
@@ -221,6 +234,7 @@ public class AssistantAppTests
             Assert.Equal(2, stack.Cues.Count);
 
             // The next ask carries the conversation: the question, the reply, the new question.
+            services.CueStack.StandbyFirst();
             vm.AssistantInput = "Now the break";
             vm.AskAssistantCommand.Execute(null);
             PumpUntil(() => requests.Count == 2);
@@ -229,6 +243,11 @@ public class AssistantAppTests
             Assert.Contains("\"proposals\"", requests[1].Turns[1].Text);
             Assert.Equal("Now the break", requests[1].Turns[2].Text);
             Assert.Contains("Looks (1): Walk-in (F1)", requests[1].System); // the brief moved with the show
+            // …and with the desk: EDIT SAFE is open now, so the brief names the air and the preview apart, and the cue on standby.
+            Assert.Contains("Desk: EDIT SAFE open", requests[1].System);
+            Assert.Contains("On air: ", requests[1].System);
+            Assert.Contains("In the preview (where a proposal lands): ", requests[1].System);
+            Assert.Contains("on standby: 01.010 Doors", requests[1].System);
 
             // CLEAR: the rows and the turns go; the key stays.
             vm.ClearAssistantCommand.Execute(null);

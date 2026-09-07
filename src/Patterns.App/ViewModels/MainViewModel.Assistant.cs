@@ -227,6 +227,7 @@ public sealed partial class MainViewModel
         AssistantStatus = HasAssistantKey ? "Asking…" : "";
         try
         {
+            _services.Assistant.EditingTarget = EditTarget.ScreenId is null ? "Program" : $"{EditTarget.Label} (its own picture)";
             var answer = await _services.Assistant.AskAsync(question);
             AssistantStatus = answer.Status;
             if (answer.Reply is { } reply)

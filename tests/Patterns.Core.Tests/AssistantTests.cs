@@ -145,6 +145,81 @@ public class AssistantTests
         Assert.Contains("Looks (0): none yet", empty);
     }
 
+    /// <summary>
+    /// The brief with the desk's facts says every state the desk has: EDIT SAFE and the two
+    /// states, the outputs, the editing target, the canvases and what every screen shows, the cue
+    /// on standby, the inputs, the sound, the lower third on air — so the model proposes for the
+    /// show as it stands. Without facts (a test, a thin desk) the show file's lines read as before.
+    /// </summary>
+    [Fact]
+    public void TheBriefCarriesTheDesksStatesBesideTheShow()
+    {
+        var preview = Fixture();
+        preview.Pattern.Kind = PatternKind.Particles;
+        var air = new ShowState();
+        air.Pattern.Kind = PatternKind.Grid;
+        var ids = preview.Output.Placements.Select(p => p.ScreenId).ToList();
+        var facts = new ShowFacts
+        {
+            EditSafeOpen = true,
+            Air = air,
+            AirLabel = "Walk-in",
+            PreviewLook = "Keynote",
+            EditingTarget = "Program",
+            OutputsLive = true,
+            OutputWindows = 2,
+            Canvases = new[] { new CanvasFact("A", "Main wall", 5760, 1080, ids, new[] { "Main LED", "Comfort" }) },
+            ScreenShows = new Dictionary<string, string> { [ids[0]] = "canvas A with the program", [ids[1]] = "its own picture: Media (a clip)" },
+            StackArmed = true,
+            StandbyCue = "01.020 Keynote",
+            LastCue = "01.010 Doors",
+            InputsMounted = new[] { "Camera 1 (capture input)", "a web page" },
+            MediaFiles = 12,
+            MediaNames = new[] { "Sponsor reel", "Walk-in loop" },
+            AudioNow = "playing 'Walk-in music'",
+            VogOnAir = "Doors closing",
+            LowerThirdOnAir = "Speaker",
+            NdiSendsRunning = 1,
+            StreamStatus = "LIVE",
+        };
+
+        var brief = ShowBrief.Summarise(preview, facts);
+        Assert.Contains("Desk: EDIT SAFE open — the preview is what the operator edits and where an applied proposal lands; the program on air is separate until TAKE or CUT; outputs live (2 windows open); editing target Program.", brief);
+        Assert.Contains("1. Main LED — main, planned 3840×1080, in canvas A; shows canvas A with the program", brief);
+        Assert.Contains("2. Comfort — confidence, planned 1920×1080, its own picture, in canvas A; shows its own picture: Media (a clip)", brief);
+        Assert.Contains("Canvases (screens joined into one picture): A 'Main wall' 5760×1080 = Main LED + Comfort.", brief);
+        Assert.Contains("On air: look 'Walk-in' — pattern Grid; overlays none.", brief);
+        Assert.Contains("In the preview (where a proposal lands): look 'Keynote' — pattern Particles; overlays clock (24 h, seconds, date)", brief);
+        Assert.Contains("Cue stack (the caller's stack, 1 cue; armed; on standby: 01.020 Keynote; last run: 01.010 Doors):", brief);
+        Assert.Contains("Sound now: audio playlist playing 'Walk-in music'; VOG on air 'Doors closing'.", brief);
+        Assert.Contains("Lower third on air: 'Speaker'.", brief);
+        Assert.Contains("Inputs mounted (live sources the engine has open): Camera 1 (capture input), a web page.", brief);
+        Assert.Contains("Media library: 12 files — named: Sponsor reel, Walk-in loop (the operator picks files by hand).", brief);
+        Assert.Contains("Outputs: NDI sends 0 (1 running); stream LIVE.", brief);
+        Assert.DoesNotContain("Program pattern:", brief);
+
+        // EDIT SAFE off: one state, said so; nothing on; the thin desk's defaults.
+        var off = ShowBrief.Summarise(preview, new ShowFacts { AirLabel = "MODIFIED — last Walk-in" });
+        Assert.Contains("Desk: EDIT SAFE off — the preview mirrors the air (a proposal that draws opens EDIT SAFE first, so nothing lands on air); outputs off (nothing on the displays); editing target Program.", off);
+        Assert.Contains("On air (and the preview, EDIT SAFE off): look 'MODIFIED — last Walk-in' — pattern Particles", off);
+        Assert.Contains("Canvases (screens joined into one picture): none — every screen is its own target.", off);
+        Assert.Contains("Cue stack (the caller's stack, 1 cue; not armed):", off);
+        Assert.Contains("Sound now: nothing playing.", off);
+        Assert.Contains("Lower third on air: none.", off);
+        Assert.Contains("Inputs mounted (live sources the engine has open): none.", off);
+        Assert.Contains("Media library: 0 files (the operator picks files by hand).", off);
+        Assert.Contains("Outputs: NDI sends 0 (0 running); stream off.", off);
+
+        // Without facts the file's own lines, as before.
+        var plain = ShowBrief.Summarise(preview);
+        Assert.Contains("Program pattern: Particles.", plain);
+        Assert.DoesNotContain("Desk:", plain);
+        Assert.DoesNotContain("Sound now:", plain);
+
+        // The fence tells the model to read the states before proposing.
+        Assert.Contains("never propose a screen, a look or a design the brief already lists", AssistantScope.Fence);
+    }
+
     [Fact]
     public void TheSystemPromptCarriesTheFenceTheCatalogueAndTheBrief()
     {
