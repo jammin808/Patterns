@@ -171,7 +171,13 @@
             <!-- One TabItem per page, in the order of the Shell.Pages table (a test pins them together).
                  A page is built when the rail first shows it, and the rest in idle time after the
                  first frame (LazyPage): the window's own XAML is the shell, not twenty-three pages. -->
-            <TabControl x:Name="Pages" Grid.Row="1" TabStripPlacement="Top" Padding="0"
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+            <!-- The pop-out settings column (round 19): the selected cue's, screen's or element's
+                 settings beside the page, to the left of the switcher; the page column grows by its
+                 width while it is open so the page keeps its room. -->
+            <ctl:PopOutHost Grid.Column="1" x:Name="PopOut" Margin="8,0,0,0"
+                            Key="{Binding PopOut.Key}" Title="{Binding PopOut.Title}" Hue="{Binding PopOut.Hue}" IsVisible="{Binding PopOut.IsOpen}" />
+            <TabControl x:Name="Pages" Grid.Column="0" TabStripPlacement="Top" Padding="0"
                         SelectedIndex="{Binding SelectedPageIndex, Mode=TwoWay}">
               <TabItem Header="Panel"><ctl:LazyPage Page="Panel" /></TabItem>
               <TabItem Header="Run">
@@ -203,6 +209,7 @@
               <TabItem Header="Machine"><ctl:LazyPage Page="Machine" /></TabItem>
               <TabItem Header="Help"><ctl:LazyPage Page="Help" /></TabItem>
             </TabControl>
+            </Grid>
           </Grid>
 
           <GridSplitter x:Name="ColumnSplitter" Grid.Column="1" Classes="deskDivider" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"

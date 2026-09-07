@@ -37,6 +37,21 @@ public sealed class SystemMetricsService : IDisposable
         _timer.Start();
     }
 
+    /// <summary>
+    /// The one-second sampler. Off, the service reads only what is fed to it (<see cref="Ingest"/>):
+    /// for tests and shots that feed their own samples, so a live reading of this machine never
+    /// lands between the feed and the read.
+    /// </summary>
+    public bool Live
+    {
+        get => _timer.IsEnabled;
+        set
+        {
+            if (value) _timer.Start();
+            else _timer.Stop();
+        }
+    }
+
     /// <summary>One sampling tick — also the deterministic entry point for tests and shots.</summary>
     public void Poll()
     {

@@ -87,6 +87,9 @@ public static class Shell
 
     public static ShellGroupInfo Info(ShellGroup group) => Groups.First(g => g.Group == group);
 
+    /// <summary>The style class a page's view wears for its neon ("hue-cues", "hue-lower-thirds"): what the settings column beside it wears too.</summary>
+    public static string HueClass(string header) => "hue-" + header.ToLowerInvariant().Replace(' ', '-');
+
     private static IReadOnlyList<ShellPage> Table(params (string Header, ShellGroup Group, string Hue)[] rows)
         => rows.Select((r, i) => new ShellPage(i, r.Header, r.Group, r.Hue)).ToList();
 }

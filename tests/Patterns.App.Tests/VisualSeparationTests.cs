@@ -5,6 +5,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Patterns.App.ViewModels;
+using Patterns.App.Views.Controls;
 using Xunit;
 
 namespace Patterns.App.Tests;
@@ -42,8 +43,9 @@ public class VisualSeparationTests
             {
                 vm.SelectPage(page.Index);
                 Settle(window);
-                var cls = "hue-" + page.Header.ToLowerInvariant().Replace(' ', '-');
-                var root = window.GetVisualDescendants().OfType<UserControl>().SingleOrDefault(u => u.Classes.Contains(cls));
+                var cls = Shell.HueClass(page.Header);
+                // The settings column beside the page wears the page's hue too (its own test reads it); the page is the other one.
+                var root = window.GetVisualDescendants().OfType<UserControl>().Where(u => u is not PopOutHost).SingleOrDefault(u => u.Classes.Contains(cls));
                 Assert.True(root is not null, $"{page.Header} carries {cls}");
                 Assert.True(root!.IsEffectivelyVisible, $"{page.Header} is the page shown");
                 var hue = Color.Parse(page.Hue);

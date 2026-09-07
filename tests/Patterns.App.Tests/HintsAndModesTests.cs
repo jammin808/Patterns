@@ -78,13 +78,33 @@ public class HintsAndModesTests
             vm.SelectPage(Shell.IndexOf("Screens"));
             Settle(window);
 
+            // The Screens page selects its first screen, so the settings column is open beside the page:
+            // the tips are the page's under their headings, then the column's under its title.
+            Assert.True(vm.PopOut.IsOpen);
             var tips = window.CurrentPageTips();
             Assert.True(tips.Count >= 8, $"{tips.Count} tips on the Screens page");
             Assert.Equal(vm.GroupHint, tips[0].Text);                                          // the group's line first
             Assert.Equal(tips.Count, tips.Select(t => t.Text).Distinct().Count());            // nothing twice
             Assert.Contains(tips, t => t.Heading.Length > 0);                                  // under their headings
-            Assert.Contains(tips, t => t.Text.StartsWith("For displays mounted in portrait", StringComparison.Ordinal));
+            Assert.Contains(tips, t => t.Text.StartsWith("The show's frame rate", StringComparison.Ordinal));
+            Assert.Contains(tips, t => t.Text.StartsWith("For displays mounted in portrait", StringComparison.Ordinal)
+                                       && t.Heading.StartsWith("SELECTED SCREEN · ", StringComparison.Ordinal));
             Assert.DoesNotContain(tips, t => t.Text.StartsWith("{", StringComparison.Ordinal)); // words, never a binding
+
+            // Nothing selected: the column closes and its tips go with it; the page's stay, in the same order.
+            vm.SelectedPlacement = null;
+            Settle(window);
+            Assert.False(vm.PopOut.IsOpen);
+            var pageOnly = window.CurrentPageTips();
+            Assert.True(pageOnly.Count < tips.Count, $"{pageOnly.Count} tips with the column closed, {tips.Count} open");
+            Assert.Equal(pageOnly.Select(t => t.Text), tips.Take(pageOnly.Count).Select(t => t.Text));
+            Assert.DoesNotContain(pageOnly, t => t.Text.StartsWith("For displays mounted in portrait", StringComparison.Ordinal));
+
+            // A screen selected again brings the column and its tips back.
+            vm.SelectedPlacement = vm.AddPlannedScreen(1920, 1080, "Side");
+            Settle(window);
+            Assert.True(vm.PopOut.IsOpen);
+            Assert.Equal(tips.Count, window.CurrentPageTips().Count);
 
             // The button sits on the strip, opens without a fault, and leaves with the Run layout.
             var button = window.GetVisualDescendants().OfType<Button>().First(x => x.Classes.Contains("help"));

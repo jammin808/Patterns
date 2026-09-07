@@ -145,6 +145,7 @@ public sealed partial class MainViewModel
             if (old is not null) old.PropertyChanged -= OnSelectedElementChanged;
             if (value is not null) value.PropertyChanged += OnSelectedElementChanged;
             RaiseElementKind();
+            RefreshPopOut();
         }
     }
 

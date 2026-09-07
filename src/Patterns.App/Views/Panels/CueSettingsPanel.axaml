@@ -1,0 +1,92 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Panels.CueSettingsPanel"
+             x:DataType="vm:MainViewModel">
+  <!-- The selected item's settings, shown in the pop-out column beside the page (PopOutHost) rather than under the list. -->
+  <StackPanel Classes="form" Margin="12,8,14,16">
+    <StackPanel IsVisible="{Binding Cues.HasSelection}" Spacing="4">
+      <Grid ColumnDefinitions="84,8,*">
+        <TextBox Grid.Column="0" Text="{Binding Cues.SelectedCue.Number, Mode=TwoWay}" Watermark="01.010" ToolTip.Tip="The number is a label — the list order is what runs" />
+        <TextBox Grid.Column="2" Text="{Binding Cues.SelectedCue.Name, Mode=TwoWay}" Watermark="Cue name" />
+      </Grid>
+      <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+        <TextBox Grid.Column="0" Text="{Binding Cues.SelectedCue.Track, Mode=TwoWay}" Watermark="Track (Video, VT, Audio…)" />
+        <CheckBox Grid.Column="2" Content="Ready" IsChecked="{Binding Cues.SelectedCue.Ready, Mode=TwoWay}" ToolTip.Tip="Marked built by the visual operator — not a gate" />
+        <CheckBox Grid.Column="4" Content="Confirm" IsChecked="{Binding Cues.SelectedCue.RequireConfirm, Mode=TwoWay}" ToolTip.Tip="GO asks for a second press (the Run page)" />
+      </Grid>
+      <TextBox Text="{Binding Cues.SelectedCue.Notes, Mode=TwoWay}" Watermark="Notes for the caller — “Take only when foyer doors close.”" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="44" />
+
+      <TextBlock Classes="label" Text="Running order" Margin="0,4,0,0" />
+      <Grid ColumnDefinitions="Auto,6,78,10,Auto,6,78,10,Auto,6,66,10,Auto,6,*">
+        <TextBlock Grid.Column="0" Classes="label" Text="Start" VerticalAlignment="Center" />
+        <TextBox Grid.Column="2" Text="{Binding Cues.SelectedStartText, Mode=TwoWay}" Watermark="10:35"
+                 ToolTip.Tip="The planned clock time (HH:mm) — the Run surface reads early / late against it" />
+        <TextBlock Grid.Column="4" Classes="label" Text="Length" VerticalAlignment="Center" />
+        <TextBox Grid.Column="6" Text="{Binding Cues.SelectedDurationText, Mode=TwoWay}" Watermark="12:00"
+                 ToolTip.Tip="The planned length (mm:ss, 5 min, 90 s) — drives the running clock and the estimates" />
+        <TextBlock Grid.Column="8" Classes="label" Text="Follow" VerticalAlignment="Center" />
+        <TextBox Grid.Column="10" Text="{Binding Cues.SelectedFollowText, Mode=TwoWay}" Watermark="—"
+                 ToolTip.Tip="Auto-follow: blank = the caller presses GO; 0 = the next cue fires at once; 5 s or 1:30 = after that long. HOLD, moving standby or disarming stops it." />
+        <TextBlock Grid.Column="12" Classes="label" Text="Mark" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="14" ItemsSource="{Binding Cues.Marks}" SelectedItem="{Binding Cues.SelectedMark, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                  ToolTip.Tip="A break, lunch or the end of the day — what the Run surface's estimates count down to" />
+      </Grid>
+
+      <TextBlock Classes="label" Text="Quick: the cue's look in one pick, an action in one press" Margin="0,4,0,0" />
+      <ComboBox ItemsSource="{Binding Cues.QuickLooks}" SelectedItem="{Binding Cues.QuickLook, Mode=TwoWay}"
+                PlaceholderText="Apply look… (sets or adds the cue's Apply look action)" HorizontalAlignment="Stretch" />
+      <WrapPanel>
+        <Button Classes="mini" Content="+ Audio" Command="{Binding Cues.QuickActionCommand}" CommandParameter="AudioPlay" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Stop audio" Command="{Binding Cues.QuickActionCommand}" CommandParameter="AudioStop" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ VOG / sting" Command="{Binding Cues.QuickActionCommand}" CommandParameter="StingerFire" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Part" Command="{Binding Cues.QuickActionCommand}" CommandParameter="PlaylistPart" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Countdown" Command="{Binding Cues.QuickActionCommand}" CommandParameter="CountdownStart" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Message" Command="{Binding Cues.QuickActionCommand}" CommandParameter="MessageOn" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Lower third" Command="{Binding Cues.QuickActionCommand}" CommandParameter="LowerThirdShow" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Blackout" Command="{Binding Cues.QuickActionCommand}" CommandParameter="BlackoutOn" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Lift blackout" Command="{Binding Cues.QuickActionCommand}" CommandParameter="BlackoutOff" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Screen lock" Command="{Binding Cues.QuickActionCommand}" CommandParameter="ScreenLock" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="+ Stream" Command="{Binding Cues.QuickActionCommand}" CommandParameter="StreamStart" Margin="0,0,4,4" />
+      </WrapPanel>
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+        <Button Grid.Column="0" Classes="mini" Content="↑" Command="{Binding Cues.MoveCueUpCommand}" ToolTip.Tip="Move the cue up" />
+        <Button Grid.Column="1" Classes="mini" Content="↓" Command="{Binding Cues.MoveCueDownCommand}" ToolTip.Tip="Move the cue down" />
+        <Button Grid.Column="2" Classes="mini" Content="✕ Remove" Command="{Binding Cues.RemoveSelectedCommand}" ToolTip.Tip="Remove the selected cue" />
+        <Button Grid.Column="4" Classes="go" Content="FIRE NOW" FontWeight="Bold" Padding="14,5" Focusable="False" Command="{Binding Cues.FireSelectedCommand}"
+                ToolTip.Tip="Run the selected cue's actions now, in order (goes to air)" />
+      </Grid>
+
+      <TextBlock Classes="h2" Text="ACTIONS (RUN IN ORDER)" />
+      <ItemsControl ItemsSource="{Binding Cues.ActionRows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ActionRow">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,6,Auto,Auto,Auto">
+                  <ComboBox Grid.Column="0" ItemsSource="{Binding KindChoices}" SelectedItem="{Binding SelectedKind, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                  <Button Grid.Column="2" Classes="mini" Content="↑"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionUpCommand}" CommandParameter="{Binding}" />
+                  <Button Grid.Column="3" Classes="mini" Content="↓"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionDownCommand}" CommandParameter="{Binding}" />
+                  <Button Grid.Column="4" Classes="mini" Content="✕"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.RemoveActionCommand}" CommandParameter="{Binding}" />
+                </Grid>
+                <ComboBox IsVisible="{Binding HasTarget}" ItemsSource="{Binding TargetChoices}" SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"
+                          PlaceholderText="{Binding TargetHint}" HorizontalAlignment="Stretch" />
+                <ComboBox IsVisible="{Binding HasPersonValue}" ItemsSource="{Binding PersonChoices}" SelectedItem="{Binding SelectedPerson, Mode=TwoWay}"
+                          PlaceholderText="{Binding PickHint}" HorizontalAlignment="Stretch"
+                          ToolTip.Tip="A person from the Lower thirds page's LIBRARY (the name, the role, the company and the photo go into the design before it shows) — or, for a screen's own send, which look's picture lands on that screen alone" />
+                <TextBox IsVisible="{Binding HasTextValue}" Text="{Binding Value, Mode=TwoWay}" Watermark="{Binding ValueHint}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Button Classes="chip" Content="+ Action" Command="{Binding Cues.AddActionCommand}" HorizontalAlignment="Left" />
+      <TextBlock Classes="hint tip"
+                 Text="Looks are the prepared moments: build one in the preview, Save look, then Apply look here. A video VOG or stinger takes every screen, so it cannot share a cue with a look, part, screen or canvas change. A stinger that moves the show on does it when the clip lands, not inside the cue — set that on the Audio page. Blackout stays as it was after a cue unless the cue switches it." />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

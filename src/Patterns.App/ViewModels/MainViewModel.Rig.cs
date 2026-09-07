@@ -293,6 +293,7 @@ public sealed partial class MainViewModel
             if (Set(ref _selectedPlacement, value))
             {
                 RaiseSelection();
+                RefreshPopOut();
             }
         }
     }

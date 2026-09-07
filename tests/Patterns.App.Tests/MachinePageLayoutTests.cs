@@ -63,6 +63,7 @@ public class MachinePageLayoutTests
         try
         {
             var (services, vm, _) = b;
+            services.Metrics.Live = false;   // the tiles read the fed samples, never a live reading of this machine
             for (var i = 0; i < 70; i++) services.Metrics.Ingest(Sample(i));
             vm.PollNow();
 
@@ -108,6 +109,9 @@ public class MachinePageLayoutTests
         try
         {
             var (services, vm, _) = b;
+            // The live sampler off: on a slow first test its reading of this machine (a Linux runner
+            // knows its disk and little else on the first tick) landed between the feed and the read.
+            services.Metrics.Live = false;
             for (var i = 0; i < 70; i++) services.Metrics.Ingest(Sample(i));
             vm.PollNow();
             var page = MachinePage(b);

@@ -770,6 +770,10 @@ public sealed partial class MainViewModel : Observable
             RefreshTakeScope();
         };
         Cues = new CueEditor(_services, message => StatusMessage = message);
+        Cues.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CueEditor.SelectedCue)) RefreshPopOut();   // the settings column follows the selected cue
+        };
         Run = new RunViewModel(_services, this);
 
         // The caller's home: a running order in and out of the Cues page

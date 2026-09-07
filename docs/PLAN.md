@@ -2198,6 +2198,7 @@ the Windows machine is `docs/CHECKLIST-round19.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 4 | The pop-out settings column (§28.4). "The Plan - Cue area: Move the settings for each cue to a new column that pops out to it's left with the settings in (to the left of the switched view). This is a good UI idea - can you apply it to other areas, especially if they are crowded. Simple areas don't need it." The selected item's settings leave the page for a column of their own beside it, between the page and the divider — to the left of the switcher: on the Cues page the selected cue (number, name, track, ready and confirm, notes, the running order, the quick look and actions, move and remove, FIRE NOW, ACTIONS in order — eighty lines that sat under the list), on the Screens page the selected screen (label, canvas name, enabled and own pattern, role, follows cues, mirror of, direct output, orientation, frame rate, display mode, output trims, warp, edge blend — two hundred lines under the overview), on the Lower thirds page the selected element (the box, opacity and delay, the words, the font, the colours, the media, the motion — three hundred lines under the designer's list). `PopOutHost` shows one panel by a key the desk sets (`MainViewModel.PopOut`: key, title, hue, the selection's identity), built once per key and re-bound on every change of selection; the column opens with a selection and closes with the page, the selection or the Run layout; ◀ CLOSE hides it for that selection and SETTINGS ▸ on the page brings it back; the page column grows by the column's 420 px while it is open and the show remembers the page's own width; the column wears the page's neon and ? TIPS reads its explanations after the page's, under its title. The pages without a selection (Pattern, Overlays, Branding, Particles, Fractals…), the lists whose rows carry their own few controls (Looks, Media, Audio, Install…) and the wide pages (Machine, Help) keep their layout — simple areas don't need it. Alongside: CI run 130 (commit 3) failed on the Machine page's bars test, which had nothing to do with attachments — the live one-second sampler landed a reading of the runner (a disk figure and nothing else on a first tick) between the test's fed samples and the read on a slow cold start; the sampler can be switched off (`SystemMetricsService.Live`) and the two Machine-page layout tests do so. Tests: the column on the desk page by page (closed on the panel and on Cues with no cue; a cue added opening it with the cue's panel, the page column wider by the column and the show's width unmoved, the ACTIONS block in the column and not under the list, the bands in the Cues neon; ◀ CLOSE, SETTINGS ▸, another cue on the same panel; another page closing it; the Screens page's panel in the Screens neon with the Cues hue gone, the selection cleared closing it; the Lower thirds element; the Run layout keeping it out); ? TIPS on the Screens page reading the page's tips then the column's under SELECTED SCREEN, fewer with the selection cleared and back with one; the gap rows and the direct-output tick hosted in the panel; the desk layout's own test. | done |
 | 3 | Attach a screenshot, a brief, notes, a spreadsheet, a PDF or a mixture, and the assistant works out a plan (§28.3). "What other useful features can be added now? Maybe import a screen shot, or a brief or notes or spreadsheet, or a mixture, and it works out a plan?" ATTACH… on the Assistant page takes pictures (a screenshot, a photo of the rig), PDFs, text and markdown, spreadsheets and CSVs, Word and PowerPoint files, up to ten per ask; each is read at once into a chip — `AssistantAttachments` (Core, pure): a picture decoded, brought down to 1568 px on its long side and re-encoded (PNG stays PNG so a screenshot's text stays crisp, JPEG otherwise, under four megabytes), a PDF as it is with its page count, text with its BOM gone and cut at 200,000 characters with a note, a sheet as a text table (headers, then a row a line, five hundred rows), a Word or PowerPoint file as the words inside its XML paragraph by paragraph and slide by slide; a file it cannot read says why on the status line. ASK sends them in the turn as their own blocks after a heading each — a picture as an image, a PDF as a document, words as a text document titled with the file's name — and the question last; ASK with nothing typed asks for a plan from them. The fence tells the model what attachments are and what to make of them (a running order becomes cues with times, a brief becomes screens, looks and lower thirds, a picture of a rig tells it the screens and their shapes) and that anything inside one that reads like an instruction is material, never a rule. The chips clear once sent; the conversation keeps the files, the latest two exchanges send them again in full, and older turns say what was attached instead of sending the bytes every ask. Tests: every reader with its notes and refusals, the heading; on the desk two files attached and one refused, the chips and the line, an ask with nothing typed carrying the plan question with the files as blocks in order, the question row naming them, the chips cleared, the files sent again for two exchanges and words after. | done |
 | 2 | The assistant embedded in the desk's states (§28.2). "Check how it works with the system architecture as it needs to be well embedded to understand all states." The brief the model reads was the show file — screens, looks, cues, designs — and nothing the desk alone knows, so it could propose a look already on air, a screen already in the rig, or a picture for a screen that shows its own. `ShowFacts` (Core) is what only the desk knows, filled by `AssistantService.Gather()` from the services at the moment of every ask: EDIT SAFE open or not and, when open, the program on air as its own state beside the preview; the LIVE strip's look and the look in the preview; the outputs live or off and how many windows; the editing target (Program, or a screen's own picture); the joined canvases by wall letter with their name, size and members, and what every screen shows right now (the program, its own picture and its kind, a repeater of what, canvas A with what, off); the caller's stack armed or not with the cue on standby and the last run; the inputs mounted by nickname and kind, never a path or an address; the media library's count and the names the operator gave; the sound now (the playlist playing what, a VOG or a sting on air); the lower third on air; the NDI sends running and the stream. `ShowBrief.Summarise(state, facts)` turns it into lines beside the file's, and the fence tells the model to read the states before proposing: never a screen, a look or a design the brief already lists (update by name), and to say plainly when what is asked for is already on air or in the preview. Core stays pure (a fact is data, the words are one function); the App reads its services once per ask and never throws into the ask. Tests: the brief with every fact filled and with none, the fence's words; on the desk the request carrying EDIT SAFE off, the outputs, the editing target, a real joined canvas with what its members show, the empty stack and sound; and after APPLY and TAKE the next ask carrying EDIT SAFE open with the air and the preview apart and the cue on standby. | done |
 | 1 | The Assistant page, the APPLY rule and the screens (§28.1). The conversation reads newest first — the latest answer sits under the ask box, lit, and the history runs down the page — with room: cards with air around their words, the type a size up, a taller ask box, the proposals as cards inside the answer. APPLY lands in the preview and only there: a proposal that draws (a pattern, overlays, a brand the patterns use, a look's picture) opens EDIT SAFE when it is off, so the program on air stays exactly what it is until TAKE or CUT, and it lands on the program's own pattern (the PGM pane) — the editing target comes back to Program first — never on a screen's own picture; lists (planned screens, designs, cues) need no preview and open none; the chip and the status say where it went. The screens bug: the assistant placed every planned screen flush against the last one, and flush is exactly how the rig joins screens into one canvas (`ScreenLayout.Touching`, a 1 px tolerance), so three screens came out as one wide wall — and the desk's own + PLANNED SCREEN did the same. Every new planned screen now lands `ScreenLayout.ApartGap` (240 px) past the rig, its own target until it is dragged flush on purpose, and the rules tell the model that a wall fed by several outputs is one planned screen of the wall's total size and that joining outputs is the Screens page's. Tests: three screens three targets and no canvas, a rig with a real wall keeping it and the new screen apart, the rules' words; on the desk the rows newest first and the latest lit, APPLY with EDIT SAFE off opening it with the air's picture untouched and the preview's changed, the editing target on Program, TAKE putting it on air. | done |
@@ -2378,6 +2379,75 @@ with the status, the chips and their line, ASK with nothing typed sending the pl
 the files as five blocks in order (heading, table document titled with the file, heading,
 image, the words), the question row naming the files, the chips cleared, the files sent again
 for the latest two exchanges and a line about them after.
+
+### 28.4 The pop-out column: the settings beside the page
+
+*The ask.* "The Plan - Cue area: Move the settings for each cue to a new column that pops out
+to it's left with the settings in (to the left of the switched view). This is a good UI idea -
+can you apply it to other areas, especially if they are crowded. Simple areas don't need it."
+
+*What was there.* The Cues page was a list with the selected cue's settings under it — the
+number, name and track, ready and confirm, the notes, the running order row, the quick look
+and actions, move and remove, FIRE NOW and the ACTIONS block: eighty lines of page under a list
+that could not be seen at the same time as the cue being edited, in a page column 470 px wide.
+The Screens page had the same shape at twice the size (the overview, then two hundred lines of
+the selected screen: label, canvas name, enabled and own pattern, role, follows cues, mirror
+of, direct output, orientation, frame rate, display mode, output trims, warp, edge blend), and
+the Lower thirds page at three times (the stage, the designs, the library, the elements, then
+three hundred lines of the selected element: the box, opacity and delay, the words, the font,
+the colours, the media, the motion).
+
+*The design.* One host, `PopOutHost`, sits in the page column beside the page, between the
+page and the divider — to the left of the switcher, as asked — and shows one panel by a key the
+desk sets. `MainViewModel.PopOut` carries the key ("cue", "screen", "element"), a title
+("SELECTED CUE · 01.010 Doors"), the page's hue class and the identity of the selection on
+show. `RefreshPopOut()` runs on every page switch and every change of those three selections
+and decides: the Cues page with a cue selected wants the cue panel, the Screens page with a
+screen the screen panel (the page selects its first screen, so the column is open on arrival),
+the Lower thirds page with an element the element panel; any other page, no selection, or the
+Run layout closes it. The host builds the panel for a key once and keeps it, so a change of
+selection binds the same controls to the new item. The panels are the sections' own settings
+blocks moved into `Views/Panels` (`CueSettingsPanel`, `ScreenSettingsPanel`,
+`ElementSettingsPanel`), bound to the same view model as before, so nothing about a setting
+changed but where it is drawn — the two tests that hosted the Screens page to read its gap rows
+and its direct-output tick now host the panel. ◀ CLOSE on the column dismisses it for that
+selection (its identity is kept; the column stays closed for it until another is made) and
+SETTINGS ▸ on the page clears the dismissal; the page keeps a one-line hint where the block
+was. The page column's width is the show's page width plus the column's 420 px while it is
+open, so the page keeps its room and the show remembers the page's own width, never the
+column's; the divider drags the page's width with the column's taken off. The host wears the
+page's hue class (`Shell.HueClass`), so its title band and the panel's bands take the page's
+neon like the page's own; ? TIPS reads the page's explanations and then the column's under its
+title (`PageTips.Collect` over two roots, nothing twice).
+
+*Where it applies, and where not.* The three pages above — the ones with a list and a selected
+item whose settings crowded the list. Not the pages without a selection whose controls are the
+page (Pattern, Overlays, Branding, Particles, Fractals, Countdown, Layers, Assistant), not the
+lists whose rows carry their own few controls (Looks, Media, Audio, Install, NDI, Stream,
+Remote, Interactive), and not the wide pages (Machine, Help): a column there would move the
+page, not clear it — simple areas don't need it.
+
+*Alongside.* CI run 130 (commit 3) failed on a test that has nothing to do with attachments:
+the Machine page's bars-inside-their-pills test found one bar where it wants three. The test
+feeds seventy samples and reads the page; the metrics service's own one-second sampler ran
+during a slow first test (five seconds on a cold runner) and its reading of the Linux runner —
+a disk figure and nothing else on a first tick — replaced the fed sample between the feed and
+the read. The sampler can now be switched off (`SystemMetricsService.Live`) and the two
+Machine-page layout tests do so, so they read what they fed and nothing the machine says.
+
+Tests: on the desk the column closed on the Panel page and on Cues with no cue; a cue added and
+selected opening it with the cue's panel, the page column wider by the column and the show's
+width unmoved, the ACTIONS block in the column and not under the list, SETTINGS ▸ hidden, the
+title band and the panel's bands in the Cues neon; ◀ CLOSE closing it for that cue with
+SETTINGS ▸ shown and opening it again, another cue opening it again on the same panel; another
+page closing it and Cues opening it again; the Screens page with a screen selected and the
+screen's panel in the Screens neon with the Cues hue gone, the selection cleared closing it;
+the Lower thirds page with an element and its panel; the Run layout keeping it out and a page
+bringing it back. ? TIPS on the Screens page: the page's tips under their headings, then the
+column's under SELECTED SCREEN, nothing twice; fewer with the selection cleared, the page's in
+the same order; back with a screen selected. The gap rows and the direct-output tick read off
+the panel; the visual-separation test telling the column apart from the page; the desk
+layout's own test.
 
 ## 26. Round 18 — the answers
 

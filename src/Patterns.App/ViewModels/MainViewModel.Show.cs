@@ -185,6 +185,7 @@ public sealed partial class MainViewModel
             SetRunLayout(run);
             RaiseShell();
             Raise(nameof(PageWantsRoom));
+            RefreshPopOut();   // the settings column follows the page: open for a selection here, closed elsewhere
         }, $"the switch to {page.Header}");
     }
 

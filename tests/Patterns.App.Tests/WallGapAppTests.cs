@@ -3,7 +3,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Patterns.App.Services;
-using Patterns.App.Views.Sections;
+using Patterns.App.Views.Panels;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -56,8 +56,8 @@ public class WallGapAppTests
             // The switcher tile of it takes the surface's shape.
             Assert.Contains(vm.SwitcherTiles, t => t.MemberIds.Contains(wall.ScreenId) && t.Size == new SKSizeI(800, 200));
 
-            // The page: a row per gap with its remove button; + Gap adds one in the middle.
-            var host = new Window { DataContext = vm, Width = 900, Height = 2800, Content = new ScrollViewer { Content = new OutputsSection() } };
+            // The page's settings column (the selected screen's panel): a row per gap with its remove button; + Gap adds one in the middle.
+            var host = new Window { DataContext = vm, Width = 900, Height = 2800, Content = new ScrollViewer { Content = new ScreenSettingsPanel() } };
             host.Show();
             Dispatcher.UIThread.RunJobs();
             var removes = host.GetVisualDescendants().OfType<Button>().Where(x => x.DataContext is WallGap && x.Content as string == "✕").ToList();

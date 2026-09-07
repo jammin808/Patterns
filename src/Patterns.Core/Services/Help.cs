@@ -120,7 +120,7 @@ public static class HelpTopics
             },
             "",
             new[] { "Help" },
-            new[] { "rail", "groups", "strip", "tabs", "pages", "tips", "hints", "divider", "splitter", "wide", "layout", "show controls", "send", "resize" }),
+            new[] { "rail", "groups", "strip", "tabs", "pages", "tips", "hints", "divider", "splitter", "wide", "layout", "show controls", "send", "resize", "settings column", "pop-out", "pop out", "column", "selected cue", "selected screen", "selected element", "close" }),
 
         new HelpTopic("modes", HelpGroup.StartHere,
             "PREP · SHOW · RUN: what may leave the machine, and the caller's layout",
@@ -243,7 +243,7 @@ public static class HelpTopics
             },
             "CUE GO [id] · CUE STANDBY NEXT / PREV / <number> / <name> · CUE HOLD ON / OFF · CUE ARM ON / OFF · CUE LIST",
             new[] { "Cues", "Run", "Panel" },
-            new[] { "cue", "cues", "stack", "sheet", "running order", "import", "csv", "excel", "planned", "time", "clock", "late", "early", "auto-follow", "follow", "break", "lunch", "go", "standby", "caller", "notes", "pre-roll", "preroll", "pre-rolled", "first frame", "clip not open", "decoder" }),
+            new[] { "cue", "cues", "stack", "sheet", "running order", "import", "csv", "excel", "planned", "time", "clock", "late", "early", "auto-follow", "follow", "break", "lunch", "go", "standby", "caller", "notes", "pre-roll", "preroll", "pre-rolled", "first frame", "clip not open", "decoder", "settings column", "pop-out", "selected cue" }),
 
         new HelpTopic("vog-stingers", HelpGroup.RunningTheShow,
             "VOGs, stingers and staying up: sounds, clips and what happens after",
@@ -305,7 +305,7 @@ public static class HelpTopics
             },
             "",
             new[] { "Lower thirds" },
-            new[] { "lower third", "designer", "design", "keyframe", "animation", "element", "text", "photo", "style", "preset", "export", "import", "graphics", "preview", "pinned", "scroll" }),
+            new[] { "lower third", "designer", "design", "keyframe", "animation", "element", "text", "photo", "style", "preset", "export", "import", "graphics", "preview", "pinned", "scroll", "settings column", "pop-out", "selected element" }),
 
         new HelpTopic("break-music", HelpGroup.RunningTheShow,
             "Break music (Spotify): the room between sessions",
@@ -556,7 +556,7 @@ public static class HelpTopics
             },
             "LOCK <n> ON / OFF / TOGGLE · SCREEN <n> ON / OFF · GROUP <letter> ON / OFF",
             new[] { "Screens", "Panel" },
-            new[] { "role", "group", "groups", "main", "confidence", "info", "info desk", "infodesk", "lock", "locked", "repeater", "repeaters", "mirror", "follow", "independent", "stage monitor", "foyer", "feed", "ndi feed", "feed screen", "allocate" }),
+            new[] { "role", "group", "groups", "main", "confidence", "info", "info desk", "infodesk", "lock", "locked", "repeater", "repeaters", "mirror", "follow", "independent", "stage monitor", "foyer", "feed", "ndi feed", "feed screen", "allocate", "settings column", "pop-out", "selected screen" }),
 
         new HelpTopic("edge-blend", HelpGroup.TheRig,
             "Edge blend beyond two projectors: rows, grids, corners, the audit",

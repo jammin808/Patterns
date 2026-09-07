@@ -112,8 +112,14 @@ public partial class MainWindow : Window
     private MainViewModel? _deskVm;
     private bool _applyingDesk;
 
-    /// <summary>The page column's width as laid out (the show's value, held back by the window's width).</summary>
+    /// <summary>The page column's width as laid out (the show's value, held back by the window's width) — with the pop-out settings column inside it while that is open.</summary>
     public double EditorColumnWidth => WorkArea.ColumnDefinitions[0].Width.Value;
+
+    /// <summary>The pop-out settings column's share of the page column: its width while open, nothing while closed.</summary>
+    public double PopOutWidthApplied => _deskVm?.PopOut.IsOpen == true ? Controls.PopOutHost.ColumnWidth : 0;
+
+    /// <summary>The page's own width: the column less the pop-out.</summary>
+    public double PageColumnWidth => EditorColumnWidth - PopOutWidthApplied;
 
     /// <summary>PROGRAM's share of the panes' flexible height as laid out.</summary>
     public double ProgramShareApplied
@@ -139,6 +145,10 @@ public partial class MainWindow : Window
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(MainViewModel.WideWorkArea) or nameof(MainViewModel.PageWantsRoom)) ApplyDeskLayout();
+        };
+        vm.PopOut.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PopOutState.IsOpen)) ApplyDeskLayout();   // the page column grows by the column and shrinks back
         };
         ApplyDeskLayout();
     }
@@ -166,7 +176,10 @@ public partial class MainWindow : Window
             else
             {
                 var room = WorkArea.Bounds.Width;
-                var width = _desk.EditorWidth;
+                // The pop-out settings column lives inside the page column: while it is open the
+                // column is the page's width plus the pop-out's, so the page keeps its room.
+                var popOut = PopOutWidthApplied;
+                var width = _desk.EditorWidth + popOut;
                 // The divider column is a fixed width; a star or auto column would read as its weight.
                 var divider = columns[1].Width.IsAbsolute ? columns[1].Width.Value : columns[1].ActualWidth;
                 if (room > 0) width = Math.Max(DeskLayoutConfig.MinEditorWidth, Math.Min(width, room - divider - DeskLayoutConfig.MinScreensWidth));
@@ -214,7 +227,7 @@ public partial class MainWindow : Window
     private void OnColumnSplitterDragCompleted(object? sender, Avalonia.Input.VectorEventArgs e)
     {
         if (_desk is null || _desk.WideWorkArea) return;
-        SetEditorWidth(WorkArea.ColumnDefinitions[0].ActualWidth);
+        SetEditorWidth(WorkArea.ColumnDefinitions[0].ActualWidth - PopOutWidthApplied);   // the page's own width is what the show remembers
     }
 
     private void OnPaneHandleDragDelta(object? sender, Avalonia.Input.VectorEventArgs e)
@@ -508,11 +521,15 @@ public partial class MainWindow : Window
 
     // ---- ? TIPS: the page's explanations behind one button ---------------------------------
 
-    /// <summary>The current page's tips — the group's line, then its prose hints under their headings.</summary>
+    /// <summary>
+    /// The current page's tips — the group's line, then its prose hints under their headings, then
+    /// the settings column's under its title while the column is open beside the page.
+    /// </summary>
     public IReadOnlyList<PageTip> CurrentPageTips()
     {
         if (DataContext is not MainViewModel vm) return Array.Empty<PageTip>();
-        return PageTips.Collect(Pages.SelectedContent as Visual ?? Pages, vm.GroupHint);
+        var roots = new Visual?[] { Pages.SelectedContent as Visual ?? Pages, vm.PopOut.IsOpen ? PopOut : null };
+        return PageTips.Collect(roots, vm.GroupHint);
     }
 
     private void OnTipsClick(object? sender, RoutedEventArgs e)

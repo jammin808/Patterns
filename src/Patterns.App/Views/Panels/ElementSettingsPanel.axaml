@@ -1,0 +1,327 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
+             xmlns:lt="using:Patterns.Core.LowerThirds"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Panels.ElementSettingsPanel"
+             x:DataType="vm:MainViewModel">
+  <!-- The selected item's settings, shown in the pop-out column beside the page (PopOutHost) rather than under the list. -->
+  <StackPanel Classes="form" Margin="12,8,14,16">
+    <StackPanel IsVisible="{Binding HasElement}">
+      <ContentControl Content="{Binding SelectedElement}">
+        <ContentControl.ContentTemplate>
+          <DataTemplate x:DataType="lt:LowerThirdElement">
+            <StackPanel Classes="form">
+              <Grid ColumnDefinitions="110,*,8,*">
+                <TextBlock Classes="label" Text="Name · kind" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding Name, Mode=TwoWay}" />
+                <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdKinds}"
+                          SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+              </Grid>
+              <Grid ColumnDefinitions="110,70,6,70,6,70,6,70,*" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="X · Y · W · H" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="1" Minimum="-4096" Maximum="8192" Increment="5" FormatString="0" ShowButtonSpinner="False" Value="{Binding X, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <NumericUpDown Grid.Column="3" Minimum="-4096" Maximum="8192" Increment="5" FormatString="0" ShowButtonSpinner="False" Value="{Binding Y, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <NumericUpDown Grid.Column="5" Minimum="1" Maximum="8192" Increment="5" FormatString="0" ShowButtonSpinner="False" Value="{Binding W, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <NumericUpDown Grid.Column="7" Minimum="1" Maximum="8192" Increment="5" FormatString="0" ShowButtonSpinner="False" Value="{Binding H, Mode=TwoWay, Converter={StaticResource Num}}" />
+              </Grid>
+              <Grid ColumnDefinitions="110,*,44,8,86" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="Opacity · delay" VerticalAlignment="Center" />
+                <Slider Grid.Column="1" Minimum="0" Maximum="1" TickFrequency="0.05" Value="{Binding Opacity, Mode=TwoWay}" />
+                <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding Opacity, StringFormat={}{0:0.00}}" />
+                <NumericUpDown Grid.Column="4" Minimum="0" Maximum="10000" Increment="50" FormatString="0" ShowButtonSpinner="False"
+                               Value="{Binding DelayMs, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Starts its way in this many ms after the design does (a stagger)" />
+              </Grid>
+            </StackPanel>
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
+
+      <StackPanel IsVisible="{Binding ElementIsText}">
+        <TextBlock Classes="label" Text="Text" Margin="0,8,0,0" />
+        <ContentControl Content="{Binding SelectedElement}">
+          <ContentControl.ContentTemplate>
+            <DataTemplate x:DataType="lt:LowerThirdElement">
+              <StackPanel Classes="form">
+                <Grid ColumnDefinitions="110,*">
+                  <TextBlock Classes="label" Text="Says" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdTextKinds}"
+                            SelectedValue="{Binding TextKind, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                </Grid>
+                <TextBox Margin="0,4,0,0" Text="{Binding Text, Mode=TwoWay}" Watermark="Your own words (when Says is Your own words)" />
+                <Grid ColumnDefinitions="110,86,8,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Size · align" VerticalAlignment="Center" />
+                  <NumericUpDown Grid.Column="1" Minimum="6" Maximum="600" Increment="2" FormatString="0" ShowButtonSpinner="False" Value="{Binding FontSizePx, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdAligns}"
+                            SelectedValue="{Binding Align, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+                  <CheckBox Content="Bold" IsChecked="{Binding Bold, Mode=TwoWay}" />
+                  <CheckBox Content="UPPERCASE" IsChecked="{Binding Uppercase, Mode=TwoWay}" />
+                  <CheckBox Content="Shrink to fit" IsChecked="{Binding Shrink, Mode=TwoWay}" />
+                </StackPanel>
+                <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Colour" VerticalAlignment="Center" />
+                  <c:ColorField Grid.Column="1" Value="{Binding TextColor, Mode=TwoWay}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Font" VerticalAlignment="Center" />
+                  <TextBox Grid.Column="1" Text="{Binding FontFamily, Mode=TwoWay}" Watermark="System font family — empty = the brand kit's font" />
+                </Grid>
+              </StackPanel>
+            </DataTemplate>
+          </ContentControl.ContentTemplate>
+        </ContentControl>
+        <WrapPanel Margin="0,4,0,0">
+          <TextBlock Classes="hint" Text="Brand colour: " VerticalAlignment="Center" Margin="0,0,6,6" />
+          <Button Classes="mini" Content="primary" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="TextColor:primary" />
+          <Button Classes="mini" Content="secondary" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="TextColor:secondary" />
+          <Button Classes="mini" Content="accent" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="TextColor:accent" />
+          <Button Classes="mini" Content="text" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="TextColor:text" />
+        </WrapPanel>
+      </StackPanel>
+
+      <StackPanel IsVisible="{Binding ElementHasFile}">
+        <TextBlock Classes="label" Text="File" Margin="0,8,0,0" />
+        <ContentControl Content="{Binding SelectedElement}">
+          <ContentControl.ContentTemplate>
+            <DataTemplate x:DataType="lt:LowerThirdElement">
+              <StackPanel Classes="form">
+                <Grid ColumnDefinitions="*,8,Auto">
+                  <TextBox Text="{Binding Path, Mode=TwoWay}" Watermark="A picture, a clip or a still" />
+                  <Button Grid.Column="2" Classes="chip" Content="Choose…"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PickElementFileCommand}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Fit" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.FitModes}"
+                            SelectedValue="{Binding Fit, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                </Grid>
+              </StackPanel>
+            </DataTemplate>
+          </ContentControl.ContentTemplate>
+        </ContentControl>
+      </StackPanel>
+
+      <StackPanel IsVisible="{Binding ElementIsMedia}">
+        <ContentControl Content="{Binding SelectedElement}">
+          <ContentControl.ContentTemplate>
+            <DataTemplate x:DataType="lt:LowerThirdElement">
+              <Grid ColumnDefinitions="Auto,12,110,86" Margin="0,4,0,0">
+                <CheckBox Content="Silent" IsChecked="{Binding MediaMute, Mode=TwoWay}" VerticalAlignment="Center" ToolTip.Tip="A clip under the words is b-roll: silent unless you untick this" />
+                <TextBlock Grid.Column="2" Classes="label" Text="Level %" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="125" Increment="5" FormatString="0" ShowButtonSpinner="False" Value="{Binding MediaVolumePct, Mode=TwoWay, Converter={StaticResource Num}}" />
+              </Grid>
+            </DataTemplate>
+          </ContentControl.ContentTemplate>
+        </ContentControl>
+      </StackPanel>
+
+      <StackPanel IsVisible="{Binding ElementIsParticles}">
+        <TextBlock Classes="label" Text="Particles" Margin="0,8,0,0" />
+        <ContentControl Content="{Binding SelectedElement.Particles}">
+          <ContentControl.ContentTemplate>
+            <DataTemplate x:DataType="m:ParticleOptions">
+              <StackPanel Classes="form">
+                <Grid ColumnDefinitions="110,86,8,*">
+                  <TextBlock Classes="label" Text="Count · from" VerticalAlignment="Center" />
+                  <NumericUpDown Grid.Column="1" Minimum="1" Maximum="5000" Increment="50" FormatString="0" ShowButtonSpinner="False" Value="{Binding Count, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdEmitters}"
+                            SelectedValue="{Binding Emitter, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,*,8,86" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Shape · dir°" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.ParticleShapes}"
+                            SelectedValue="{Binding Shape, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                  <NumericUpDown Grid.Column="3" Minimum="-360" Maximum="360" Increment="15" FormatString="0" ShowButtonSpinner="False" Value="{Binding DirectionDeg, Mode=TwoWay, Converter={StaticResource Num}}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,70,6,70,6,70,6,70" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Size · speed" VerticalAlignment="Center" />
+                  <NumericUpDown Grid.Column="1" Minimum="0.5" Maximum="512" Increment="0.5" FormatString="0.#" ShowButtonSpinner="False" Value="{Binding SizeMin, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <NumericUpDown Grid.Column="3" Minimum="0.5" Maximum="512" Increment="0.5" FormatString="0.#" ShowButtonSpinner="False" Value="{Binding SizeMax, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <NumericUpDown Grid.Column="5" Minimum="0" Maximum="5000" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding SpeedMin, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <NumericUpDown Grid.Column="7" Minimum="0" Maximum="5000" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding SpeedMax, Mode=TwoWay, Converter={StaticResource Num}}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,86,8,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Gravity · colours" VerticalAlignment="Center" />
+                  <NumericUpDown Grid.Column="1" Minimum="-3000" Maximum="3000" Increment="20" FormatString="0" ShowButtonSpinner="False" Value="{Binding GravityY, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <TextBox Grid.Column="3" Text="{Binding ColorsCsv, Mode=TwoWay}" Watermark="#FFB020,#FFFFFF" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+                  <CheckBox Content="Glow" IsChecked="{Binding Glow, Mode=TwoWay}" />
+                  <CheckBox Content="Brand colours" IsChecked="{Binding UseBrandColors, Mode=TwoWay}" />
+                </StackPanel>
+              </StackPanel>
+            </DataTemplate>
+          </ContentControl.ContentTemplate>
+        </ContentControl>
+      </StackPanel>
+
+      <StackPanel IsVisible="{Binding ElementIsFractal}">
+        <TextBlock Classes="label" Text="Fractal" Margin="0,8,0,0" />
+        <ContentControl Content="{Binding SelectedElement.Fractal}">
+          <ContentControl.ContentTemplate>
+            <DataTemplate x:DataType="m:FractalOptions">
+              <StackPanel Classes="form">
+                <Grid ColumnDefinitions="110,*,8,*">
+                  <TextBlock Classes="label" Text="Family · detail" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdFractalKinds}"
+                            SelectedValue="{Binding Kind, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                  <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdQualities}"
+                            SelectedValue="{Binding Quality, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,70,6,70,6,70,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Depth · speed · zoom" VerticalAlignment="Center" />
+                  <NumericUpDown Grid.Column="1" Minimum="8" Maximum="1024" Increment="8" FormatString="0" ShowButtonSpinner="False" Value="{Binding Iterations, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <NumericUpDown Grid.Column="3" Minimum="0" Maximum="5" Increment="0.1" FormatString="0.##" ShowButtonSpinner="False" Value="{Binding Speed, Mode=TwoWay, Converter={StaticResource Num}}" />
+                  <NumericUpDown Grid.Column="5" Minimum="0.2" Maximum="1000000" Increment="0.2" FormatString="0.##" ShowButtonSpinner="False" Value="{Binding Zoom, Mode=TwoWay, Converter={StaticResource Num}}" />
+                </Grid>
+                <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
+                  <TextBlock Classes="label" Text="Colours" VerticalAlignment="Center" />
+                  <TextBox Grid.Column="1" Text="{Binding ColorsCsv, Mode=TwoWay}" Watermark="#0B0C2A,#1E3A8A,#3EC1F3,#FFFFFF" />
+                </Grid>
+              </StackPanel>
+            </DataTemplate>
+          </ContentControl.ContentTemplate>
+        </ContentControl>
+      </StackPanel>
+
+      <TextBlock Classes="label" Text="Style" Margin="0,8,0,0" />
+      <ContentControl Content="{Binding SelectedElement}">
+        <ContentControl.ContentTemplate>
+          <DataTemplate x:DataType="lt:LowerThirdElement">
+            <StackPanel Classes="form">
+              <Grid ColumnDefinitions="110,*,8,*">
+                <TextBlock Classes="label" Text="Fill" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdFills}"
+                          SelectedValue="{Binding Fill, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.LowerThirdGradients}"
+                          SelectedValue="{Binding Gradient, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" ToolTip.Tip="The gradient's direction" />
+              </Grid>
+              <Grid ColumnDefinitions="110,*,8,*" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="Fill colours" VerticalAlignment="Center" />
+                <c:ColorField Grid.Column="1" Value="{Binding FillColor, Mode=TwoWay}" />
+                <c:ColorField Grid.Column="3" Value="{Binding FillColor2, Mode=TwoWay}" />
+              </Grid>
+              <Grid ColumnDefinitions="110,70,6,70,6,*" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="Corner · border" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="1" Minimum="0" Maximum="1024" Increment="2" FormatString="0" ShowButtonSpinner="False" Value="{Binding CornerPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <NumericUpDown Grid.Column="3" Minimum="0" Maximum="64" Increment="1" FormatString="0" ShowButtonSpinner="False" Value="{Binding BorderPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <c:ColorField Grid.Column="5" Value="{Binding BorderColor, Mode=TwoWay}" />
+              </Grid>
+              <Grid ColumnDefinitions="110,70,6,70,6,70,6,*" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="Shadow · dx · dy" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="1" Minimum="0" Maximum="128" Increment="2" FormatString="0" ShowButtonSpinner="False" Value="{Binding ShadowPx, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Softness" />
+                <NumericUpDown Grid.Column="3" Minimum="-256" Maximum="256" Increment="2" FormatString="0" ShowButtonSpinner="False" Value="{Binding ShadowDx, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <NumericUpDown Grid.Column="5" Minimum="-256" Maximum="256" Increment="2" FormatString="0" ShowButtonSpinner="False" Value="{Binding ShadowDy, Mode=TwoWay, Converter={StaticResource Num}}" />
+                <c:ColorField Grid.Column="7" Value="{Binding ShadowColor, Mode=TwoWay}" />
+              </Grid>
+              <Grid ColumnDefinitions="110,70,6,*" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="Glow" VerticalAlignment="Center" />
+                <NumericUpDown Grid.Column="1" Minimum="0" Maximum="128" Increment="2" FormatString="0" ShowButtonSpinner="False" Value="{Binding GlowPx, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="A soft light round the box (or the letters of a plain text); a sting's glow brightens it" />
+                <c:ColorField Grid.Column="3" Value="{Binding GlowColor, Mode=TwoWay}" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,12,70,6,70,6,*" Margin="0,4,0,0">
+                <CheckBox Content="Chaser" IsChecked="{Binding Chaser, Mode=TwoWay}" VerticalAlignment="Center" ToolTip.Tip="A bright run travelling round the edge" />
+                <NumericUpDown Grid.Column="2" Minimum="-5" Maximum="5" Increment="0.25" FormatString="0.##" ShowButtonSpinner="False" Value="{Binding ChaserSpeed, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Laps per second" />
+                <NumericUpDown Grid.Column="4" Minimum="1" Maximum="90" Increment="1" FormatString="0" ShowButtonSpinner="False" Value="{Binding ChaserLengthPct, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The run's length, percent of the edge" />
+                <c:ColorField Grid.Column="6" Value="{Binding ChaserColor, Mode=TwoWay}" />
+              </Grid>
+            </StackPanel>
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
+      <WrapPanel Margin="0,4,0,0">
+        <TextBlock Classes="hint" Text="Brand colour into the fill: " VerticalAlignment="Center" Margin="0,0,6,6" />
+        <Button Classes="mini" Content="primary" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="FillColor:primary" />
+        <Button Classes="mini" Content="secondary" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="FillColor:secondary" />
+        <Button Classes="mini" Content="accent" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="FillColor:accent" />
+        <TextBlock Classes="hint" Text=" glow: " VerticalAlignment="Center" Margin="0,0,6,6" />
+        <Button Classes="mini" Content="primary" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="GlowColor:primary" />
+        <Button Classes="mini" Content="accent" Margin="0,0,4,6" Command="{Binding ElementColorWordCommand}" CommandParameter="GlowColor:accent" />
+      </WrapPanel>
+      <TextBlock Classes="hint tip" Text="A colour field also takes a brand word — primary, secondary, accent, text, background — so a design follows the brand kit of whatever show it lands in." />
+
+      <TextBlock Classes="label" Text="Way in" Margin="0,8,0,0" />
+      <ItemsControl ItemsSource="{x:Static vm:Lists.LowerThirdMotionNames}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <Button Classes="mini" Content="{Binding}" Margin="0,0,4,4"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MotionInCommand}" CommandParameter="{Binding}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <ContentControl Content="{Binding SelectedElement}">
+        <ContentControl.ContentTemplate>
+          <DataTemplate x:DataType="lt:LowerThirdElement">
+            <StackPanel>
+              <ItemsControl ItemsSource="{Binding In}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="lt:LowerThirdKeyframe">
+                    <Grid ColumnDefinitions="52,4,56,4,56,4,52,4,52,4,52,4,52,4,*,4,Auto" Margin="0,2">
+                      <NumericUpDown Grid.Column="0" Minimum="0" Maximum="1" Increment="0.05" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding U, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="When (0 = start, 1 = end)" />
+                      <NumericUpDown Grid.Column="2" Minimum="-8192" Maximum="8192" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding X, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="X offset" />
+                      <NumericUpDown Grid.Column="4" Minimum="-8192" Maximum="8192" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding Y, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Y offset" />
+                      <NumericUpDown Grid.Column="6" Minimum="0" Maximum="1" Increment="0.1" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding Opacity, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Opacity" />
+                      <NumericUpDown Grid.Column="8" Minimum="0" Maximum="10" Increment="0.1" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding Scale, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Scale" />
+                      <NumericUpDown Grid.Column="10" Minimum="-720" Maximum="720" Increment="5" FormatString="0" ShowButtonSpinner="False" Value="{Binding Rotate, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Rotation, degrees" />
+                      <NumericUpDown Grid.Column="12" Minimum="0" Maximum="1" Increment="0.1" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding Reveal, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Reveal from the left (a wipe)" />
+                      <ComboBox Grid.Column="14" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.EaseKinds}"
+                                SelectedValue="{Binding Ease, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" ToolTip.Tip="How it gets to this key" />
+                      <Button Grid.Column="16" Classes="mini" Content="✕"
+                              Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveInKeyCommand}" CommandParameter="{Binding}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
+      <Button Classes="mini" Content="+ key" HorizontalAlignment="Left" Command="{Binding AddInKeyCommand}" />
+
+      <TextBlock Classes="label" Text="Way out" Margin="0,8,0,0" />
+      <ItemsControl ItemsSource="{x:Static vm:Lists.LowerThirdMotionNames}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <Button Classes="mini" Content="{Binding}" Margin="0,0,4,4"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MotionOutCommand}" CommandParameter="{Binding}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <ContentControl Content="{Binding SelectedElement}">
+        <ContentControl.ContentTemplate>
+          <DataTemplate x:DataType="lt:LowerThirdElement">
+            <StackPanel>
+              <ItemsControl ItemsSource="{Binding Out}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="lt:LowerThirdKeyframe">
+                    <Grid ColumnDefinitions="52,4,56,4,56,4,52,4,52,4,52,4,52,4,*,4,Auto" Margin="0,2">
+                      <NumericUpDown Grid.Column="0" Minimum="0" Maximum="1" Increment="0.05" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding U, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="When (0 = at rest, 1 = gone)" />
+                      <NumericUpDown Grid.Column="2" Minimum="-8192" Maximum="8192" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding X, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="X offset" />
+                      <NumericUpDown Grid.Column="4" Minimum="-8192" Maximum="8192" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding Y, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Y offset" />
+                      <NumericUpDown Grid.Column="6" Minimum="0" Maximum="1" Increment="0.1" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding Opacity, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Opacity" />
+                      <NumericUpDown Grid.Column="8" Minimum="0" Maximum="10" Increment="0.1" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding Scale, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Scale" />
+                      <NumericUpDown Grid.Column="10" Minimum="-720" Maximum="720" Increment="5" FormatString="0" ShowButtonSpinner="False" Value="{Binding Rotate, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Rotation, degrees" />
+                      <NumericUpDown Grid.Column="12" Minimum="0" Maximum="1" Increment="0.1" FormatString="0.00" ShowButtonSpinner="False" Value="{Binding Reveal, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Reveal from the left (a wipe)" />
+                      <ComboBox Grid.Column="14" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.EaseKinds}"
+                                SelectedValue="{Binding Ease, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" ToolTip.Tip="How it gets to this key" />
+                      <Button Grid.Column="16" Classes="mini" Content="✕"
+                              Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveOutKeyCommand}" CommandParameter="{Binding}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
+      <Button Classes="mini" Content="+ key" HorizontalAlignment="Left" Command="{Binding AddOutKeyCommand}" />
+      <TextBlock Classes="hint tip"
+                 Text="A motion chip writes the keys for you; edit them after, or add your own. A key is where the element is at that moment of the phase — offsets from its resting place, opacity, scale, rotation, how much shows from the left — and the ease is how it travels there from the key before. No keys at all is a plain fade." />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Patterns.App.Services;
 using Patterns.App.Views;
+using Patterns.App.Views.Panels;
 using Patterns.App.Views.Sections;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -113,9 +114,9 @@ public class DirectOutputAppTests
             b.Services.Actions.Execute(ShowActionKind.OutputsOff, ActionOrigin.Desk);
             Dispatcher.UIThread.RunJobs();
 
-            // The Screens page: the tick and its line for a display, and the tick writes back.
+            // The Screens page's settings column (the selected screen's panel): the tick and its line for a display, and the tick writes back.
             vm.SelectedDirectOutput = true;
-            var host = new Window { DataContext = vm, Width = 900, Height = 2400, Content = new ScrollViewer { Content = new OutputsSection() } };
+            var host = new Window { DataContext = vm, Width = 900, Height = 2400, Content = new ScrollViewer { Content = new ScreenSettingsPanel() } };
             host.Show();
             Dispatcher.UIThread.RunJobs();
             var tick = host.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Content as string == "Direct output — bypass the desktop compositor");
