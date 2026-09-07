@@ -19,21 +19,38 @@ public static class Spectrum
 
     public const double LowHz = 20, LowMidHz = 250, MidHighHz = 2000, HighHz = 8000;
 
+    /// <summary>The Hann window, once: the same values the loop computed per sample at eighty-six analyses a second.</summary>
+    private static readonly double[] Hann = BuildHann();
+
+    private static double[] BuildHann()
+    {
+        var n = Window;
+        var w = new double[n];
+        for (var i = 0; i < n; i++) w[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / (n - 1));
+        return w;
+    }
+
+    // The analysis buffers, per thread: the capture callback analyses eighty-six times a second
+    // and two fresh 8 KB arrays each time was over a megabyte a second of garbage on a real-time thread.
+    [ThreadStatic] private static double[]? _re;
+    [ThreadStatic] private static double[]? _im;
+
     public static AudioLevelFrame Analyse(ReadOnlySpan<float> samples, int sampleRate)
     {
         if (samples.Length == 0 || sampleRate <= 0) return AudioLevelFrame.Zero;
         var n = Window;
-        var re = new double[n];
-        var im = new double[n];
+        var re = _re ??= new double[n];
+        var im = _im ??= new double[n];
+        Array.Clear(im);
         var start = Math.Max(0, samples.Length - n);
         var count = Math.Min(n, samples.Length);
+        if (count < n) Array.Clear(re, count, n - count);
         double sumSq = 0;
         for (var i = 0; i < count; i++)
         {
             var s = samples[start + i];
             sumSq += s * s;
-            var hann = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / (n - 1));
-            re[i] = s * hann;
+            re[i] = s * Hann[i];
         }
         Fft(re, im);
 

@@ -18,6 +18,7 @@ public sealed partial class MainViewModel
     private string _deskTickText = "";
     private string _renderBudgetText = "";
     private string _startupText = "";
+    private string _runtimeText = "";
     private string _qualityText = "";
     private string _memoryBudgetText = "";
 
@@ -40,6 +41,11 @@ public sealed partial class MainViewModel
 
     /// <summary>The STABILITY block's start-up line: how long this start took to become a desk, phase by phase.</summary>
     public string StartupText { get => _startupText; private set => Set(ref _startupText, value); }
+
+    /// <summary>The STABILITY block's runtime line: the .NET in use and the collector's mode (sustained low latency while the outputs are live).</summary>
+    public string RuntimeText { get => _runtimeText; private set => Set(ref _runtimeText, value); }
+
+    private static readonly string RuntimeName = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
 
     /// <summary>How often a failing area is logged and counted against the health line: once a minute, not once a second.</summary>
     public static readonly TimeSpan PollFaultLoggedEvery = TimeSpan.FromMinutes(1);
@@ -90,6 +96,7 @@ public sealed partial class MainViewModel
         DeskTickText = _services.DeskTick.Describe();
         RenderBudgetText = FrameBudgets.Describe(ShowClock.Seconds);
         StartupText = _services.Startup.Describe();
+        RuntimeText = $"Runtime {RuntimeName} · garbage collector {ShowGc.Describe()}.";
     }
 
     /// <summary>

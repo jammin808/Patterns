@@ -383,6 +383,9 @@ public sealed class AppServices
             if (moved) PublishRuntime();   // a hot-plug moves no model: push the new shapes ourselves
         };
         Outputs.LiveChanged += UpdateRecovery;
+        // On air the collector works in the background and never stops the world for a full
+        // collection; off air the default comes back.
+        Outputs.LiveChanged += () => ShowGc.Apply(Outputs.IsLive);
         Arming.Changed += () =>
         {
             // The wall's arming is not in the model: push it to the sinks ourselves, so the

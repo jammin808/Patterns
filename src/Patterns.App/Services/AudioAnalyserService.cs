@@ -183,16 +183,31 @@ public sealed class AudioAnalyserService : IDisposable
         var bps = format.BitsPerSample / 8;
         if (bps is not (2 or 4)) return;
         var frameBytes = bps * channels;
-        var frames = bytes / frameBytes;
-        for (var f = 0; f < frames; f++)
+        var frames = Math.Min(bytes, buffer.Length) / frameBytes;
+        var inv = 1f / channels;
+        // The buffer read as the samples it holds (the machine's own byte order, as the device
+        // writes it) rather than a BitConverter call per sample per channel.
+        if (bps == 4)
         {
-            var sum = 0f;
-            for (var ch = 0; ch < channels; ch++)
+            var floats = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, float>(buffer.AsSpan(0, frames * frameBytes));
+            for (var f = 0; f < frames; f++)
             {
-                var i = f * frameBytes + ch * bps;
-                sum += bps == 4 ? BitConverter.ToSingle(buffer, i) : BitConverter.ToInt16(buffer, i) / 32768f;
+                var sum = 0f;
+                var at = f * channels;
+                for (var ch = 0; ch < channels; ch++) sum += floats[at + ch];
+                Push(sum * inv, format.SampleRate);
             }
-            Push(sum / channels, format.SampleRate);
+        }
+        else
+        {
+            var shorts = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, short>(buffer.AsSpan(0, frames * frameBytes));
+            for (var f = 0; f < frames; f++)
+            {
+                var sum = 0f;
+                var at = f * channels;
+                for (var ch = 0; ch < channels; ch++) sum += shorts[at + ch] / 32768f;
+                Push(sum * inv, format.SampleRate);
+            }
         }
     }
 

@@ -61,6 +61,62 @@ public class P216ConverterTests
     }
 
     [Fact]
+    public void TheEightPixelRowMatchesTheScalarRowToTheBitAtEveryWidth()
+    {
+        // The same arithmetic in the same order: on any machine (the vector row runs in software
+        // where there are no 256-bit registers) every width from one pixel to a full HD row agrees
+        // exactly, tail included, and the public row equals the scalar row whichever path it took.
+        var rng = new Random(1010102);
+        var widths = Enumerable.Range(1, 40).Concat(new[] { 64, 255, 256, 1919, 1920 }).ToArray();
+        foreach (var width in widths)
+        {
+            var row = new uint[width];
+            for (var x = 0; x < width; x++) row[x] = Pack(rng.Next(1024), rng.Next(1024), rng.Next(1024));
+            // Every primary and every extreme in the first eight, so the clamps see their corners.
+            if (width >= 8)
+            {
+                row[0] = Pack(0, 0, 0);
+                row[1] = Pack(1023, 1023, 1023);
+                row[2] = Pack(1023, 0, 0);
+                row[3] = Pack(0, 1023, 0);
+                row[4] = Pack(0, 0, 1023);
+                row[5] = Pack(1023, 1023, 0);
+                row[6] = Pack(0, 1023, 1023);
+                row[7] = Pack(1023, 0, 1023);
+            }
+            var yV = new ushort[width];
+            var cV = new ushort[width];
+            var yS = new ushort[width];
+            var cS = new ushort[width];
+            var yP = new ushort[width];
+            var cP = new ushort[width];
+            P216Converter.ConvertRowVector(row, yV, cV);
+            P216Converter.ConvertRowScalar(row, yS, cS);
+            P216Converter.ConvertRow(row, yP, cP);
+            for (var x = 0; x < width; x++)
+            {
+                Assert.True(yV[x] == yS[x], $"width {width}: Y at {x} vector {yV[x]} scalar {yS[x]}");
+                Assert.True(cV[x] == cS[x], $"width {width}: CbCr at {x} vector {cV[x]} scalar {cS[x]}");
+                Assert.True(yP[x] == yS[x], $"width {width}: Y at {x} row {yP[x]} scalar {yS[x]}");
+                Assert.True(cP[x] == cS[x], $"width {width}: CbCr at {x} row {cP[x]} scalar {cS[x]}");
+            }
+        }
+
+        // The corners themselves, in numbers: black and white at the limited-range ends, red's Cr at the top.
+        var corners = new[] { Pack(0, 0, 0), Pack(1023, 1023, 1023), Pack(1023, 0, 0), Pack(0, 0, 1023), Pack(1023, 0, 0), Pack(1023, 0, 0), Pack(0, 0, 0), Pack(0, 0, 0) };
+        var y = new ushort[8];
+        var c = new ushort[8];
+        P216Converter.ConvertRowVector(corners, y, c);
+        Assert.Equal(16 * 256, y[0]);
+        Assert.Equal(235 * 256, y[1]);
+        Assert.InRange(y[4], 16015 - 2, 16015 + 2);
+        Assert.Equal(128 * 256, c[6]);            // black pair: chroma at centre
+        Assert.Equal(61440, c[5]);                // a red pair: Cr = +0.5 → (128 + 112) · 256
+        Assert.True(c[4] < 128 * 256);            // a red pair pulls Cb below centre
+        _ = P216Converter.Vectorised;             // true on a 256-bit machine, false elsewhere; both paths above ran
+    }
+
+    [Fact]
     public void EndToEndThroughSkiaSurfaceValidatesBitPacking()
     {
         // Render a solid colour into a real RGBA-1010102 surface and convert — this catches

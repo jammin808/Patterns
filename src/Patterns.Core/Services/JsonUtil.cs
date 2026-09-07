@@ -42,15 +42,29 @@ public static class JsonUtil
         },
     };
 
+    /// <summary>
+    /// The clone's own options: the same converters and rules as <see cref="Options"/> with no
+    /// indentation — a clone is never read by a person, and the whole show state goes through it
+    /// on every publish, so the whitespace was a third of the bytes written and parsed for nothing.
+    /// </summary>
+    public static readonly JsonSerializerOptions CloneOptions = new()
+    {
+        WriteIndented = false,
+        Converters = { new TolerantEnumConverterFactory() },
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+    };
+
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Options);
 
     public static string SerializeIdentity<T>(T value) => JsonSerializer.Serialize(value, IdentityOptions);
 
     public static T? Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json, Options);
 
-    /// <summary>Deep clone via JSON round-trip. Used to snapshot UI state for render threads.</summary>
+    /// <summary>Deep clone via JSON round-trip (compact). Used to snapshot UI state for render threads.</summary>
     public static T Clone<T>(T value) where T : class
-        => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, Options), Options)
+        => JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, CloneOptions), CloneOptions)
            ?? throw new InvalidOperationException($"Clone of {typeof(T).Name} produced null.");
 
     public static PatternConfig ClonePattern(PatternConfig p) => Clone(p);

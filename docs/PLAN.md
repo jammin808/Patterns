@@ -2173,6 +2173,7 @@ for the Windows machine is `docs/CHECKLIST-round18.md`.
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 4 | What .NET 10 buys, applied where it pays (§26.4). "Can more be done now .NET 10 is used?" The project settings, the libraries and every hot loop were read against what the runtime offers, and the answer has two parts: what the runtime gives this app for nothing (§26.4 says which of its work lands here and which does not), and a set of hygiene the survey found on the way — none of it needed .NET 10, all of it worth doing. Applied: the clone every publish takes (`JsonUtil.Clone`) writes compact JSON (`CloneOptions`, the same converters and rules, no indentation) — a third fewer bytes written and parsed per publish, the same show; the assistant's catalogue no longer builds a fresh options object (a fresh metadata cache) per call; a blended output keeps its gradient stops until the curve or the gamma moves instead of building thirty-three colours every frame; the spectrum keeps its two 8 KB analysis buffers per thread and its Hann window in a table (two fresh arrays some ninety times a second on the capture thread was over a megabyte a second of garbage); the capture feed reads its bytes as the samples they are (`MemoryMarshal.Cast`) rather than a BitConverter call per sample per channel, and drops an uneven tail; the garbage collector runs in sustained low latency while the outputs are live (`ShowGc`, on `Outputs.LiveChanged`: no full stop-the-world collection for the length of the show) and rests in interactive off air, with the Machine page's new runtime line saying which and the .NET in use; the app's runtime config asks for concurrent GC and for the collector to keep its segments (`runtimeconfig.template.json`: `System.GC.Concurrent`, `System.GC.RetainVM`) so a show's memory is not handed back and re-asked for between collections; the P216 conversion for 10-bit NDI runs eight pixels at a time on 256-bit vectors (`P216Converter.ConvertRowVector`), the same arithmetic in the same order as the scalar row so the two agree to the bit, the tail and a machine without 256-bit vectors on the scalar row. Not open, and why: NativeAOT (built-in COM interop for WebView2 and NAudio, reflection-based JSON in the Anthropic SDK), trimming (the same reflection; a risk with no measured gain), C# 13/14 while the net8 escape hatch pins the language at 12, `System.Threading.Lock` (nothing under C# 12), TensorPrimitives (a package for two loops), JSON source generation (deferred: the compact clone first, measured), the sample-rate converter and the delay line (already allocation-free). Not measured here: the 10-bit send's CPU and the collector's effect on the worst frame want a Windows machine (the checklist's row). Tests: the clone compact and the same show with the tolerant enum kept; the spectrum's kept buffers giving the answer fresh arrays give after a loud window, on a short buffer, on noise and from another thread; the collector to sustained low latency on air and back off air; the eight-pixel row equal to the scalar row at every width from one pixel to a full HD row with the corners in numbers; on the desk OUTPUTS ON putting the collector in sustained low latency and OUTPUTS OFF resting it, the Machine page's line; the feed reading float and PCM buffers as samples and dropping an uneven tail. | done |
 | 3 | A faster start and restart, measured (§26.3). "How can start up and manual restart be made faster?" The path was read end to end and the cuts made where the time was. The window built all twenty-three pages in its own constructor — four hundred kilobytes of XAML, thousands of controls, before the first frame; it builds the shell and the page on the rail now and the rest one per idle turn after the first frame (`LazyPage`), so a page is still never built on entry in practice and a click in the first seconds builds its page, guarded. The show file was read three times before the desk (the GPU choice, the direct-output decision, the desk itself) and is read once in Main and handed over (`AppServices.Preloaded`). The start-up budget names every phase now — the runtime before Main (from the process's own start), settings, graphics, avalonia, services, view model, pages, window, first frame — so the Machine page says where a slow machine spent its seconds. The restart: the watchdog waited out a one-second poll to notice the child had gone (the exit wakes it now); the app waited a 2.5 s timer before putting the show back (it goes back the moment the window has opened and the screens are attached); the exit ran the whole shutdown twice (Avalonia raises ShutdownRequested and then Exit — once now) and stopped the NDI senders one after another with a three-second wait each (all at once, one wait); the NDI runtime was loaded on the UI thread by the first poll a second after the start (off the thread now, before the poll asks). The publish no longer compresses the single-file bundle — every start decompressed it — so the exe is larger and starts faster; the packages' other-language resources stay out of it. Tests: the pages built when shown and the rest in idle time, a built page real, the unknown page a line; the settings handed to the desk once and the phases in order; the way out once; the show back after a watchdog restart when the window opens, and at once when asked after; Main's marks first and the line naming every phase. | done |
 | 2 | The particles given the fractals' treatments (§26.2). "Does Particles need the careful stability and speed and resilience handling and treatments we used for Fractals?" Audited treatment by treatment against the code: the particles already had what the fractals never needed — a fixed 120 Hz step, an allocation-free frame, one DrawAtlas — and were missing four things of their own. A sim per field on every sink (`ParticleSimCache`): a crossfade, a monitor wall and a layer draw more than one field on a sink in a frame, and the one sim a sink had was re-seeded, settled and caught up on every draw, twice a frame; now each field has its own, found without an allocation. A catch-up bounded per frame in updates (three million, never under a second of sim) instead of 2048 steps of any field in one draw on the compositor's thread. The quality ladder on the draw alone — every particle steps whatever the level — so two sinks reading the level a frame apart never diverge again. A late sink joins the running leader's timeline (`ParticleLeaders` on the snapshot, weak): an output opened at OUTPUTS ON, an NDI send started mid-show, a display plugged in late show the same field as the PGM pane from their first frame; the random stream is the sim's own (a seeded xorshift, copyable). Fences: a backwards clock re-anchors instead of freezing, a NaN particle is born again, a disposed sim is inert and lets its sprite go, an unallocatable sprite is no field. Not done on purpose: SoA/SIMD for the integrate loop. Also the caller's plan across midnight (`CueTiming.Near`): the CI's clock crossed midnight under the desk's timing test and read +1445 min; a plan is read as the occurrence nearest the clock now. Tests: the cache, the join, the budget, the ladder, the clock, the fences, the random stream, the plan past midnight. | done |
 | 1 | The Fractals page (§26.1). BUILD → Fractals, between Particles and Branding, built the way the Particles page is built: a Fractal studio with SCENES filed by family — Mandelbrot (classic, Seahorse valley, Elephant valley, Spiral arm, Mini-brot, Triple spiral valley), Julia (swirl, dragon, Douady's rabbit, Dendrite, San Marco, Siegel disk, Galaxy spiral), Burning ship (the ship, The armada, Ship's mast), Newton (triad, coast, lace), Domain warp (lava, ocean, smoke, aurora, neon) — twenty-four scenes where there were eight, and the operator's saved fractal presets under Custom; FAMILY (the maths, a Julia's c), VIEW (zoom, centre, detail, motion, CPU quality), COLOUR (the palette, or BRAND KIT for the kit's five colours at a press), SOUND (this computer or an input, the amount, the analyser's status line) and STINGS (ADD AN EFFECT STING); USE IT makes the Fractal the editing target's pattern so the page shows live. The Pattern page keeps a pointer with OPEN FRACTALS while Fractal is the pattern, and the particles' pointer gets OPEN PARTICLES to match; the Library files every scene under a Fractals section by family; a Help topic ("fractals") with the words a user would search; the Workflow and Shell help name the page. `FractalPresets.Scene` carries its family; `Categories` and `In(family)` mirror the particle packs; a scene still never touches the sound settings. Tests: the families in order with every scene under one, every scene applying with its name and rastering clean with the sound left alone; on the desk the chips by family, USE IT, a chip leaving the sound settings alone, the brand palette, a saved fractal preset as a Custom chip and a grid preset kept out, the Library section, the page rendering with every chip and its buttons, the rail order and the BUILD hint, the Pattern page's OPEN FRACTALS opening the page, OPEN PARTICLES, an unknown header ignored, the Help topic and words. | done |
@@ -2405,3 +2406,89 @@ store, the phases in order (settings, services, view model, pages, window), the 
 the show back after a watchdog restart when the window opens and at once when asked after it
 has; Main's marks first in order and the line naming every phase, a stray early mark without a
 process start ignored.
+
+### 26.4 What .NET 10 buys: the runtime's share, the app's share, and what is not open
+
+"Can more be done now .NET 10 is used?" Round 16 moved the runtime and measured the one thing
+that was plainly waiting — ReadyToRun, so nothing waits on the JIT at the first frame. This
+round read the project settings, the packages and every loop that runs per frame, per sample or
+per publish against what the runtime offers, and the answer comes in three parts.
+
+*What the runtime does for this app on its own.* The JIT of .NET 8 to 10 does more without
+being asked: dynamic PGO (on by default since .NET 8) sees which implementation an interface
+call actually reaches and inlines it — the render pipeline's stages, the snapshot's pattern
+renderers and the sinks' interfaces are exactly that shape; .NET 10's escape analysis keeps a
+small array or a box that never leaves its method on the stack, which is the shape of the
+per-frame spans and tuples in the pipeline; bounds checks and loop inversion improved twice; and
+the vector types (`Vector256`, `Vector512` on AVX-512) compile to the registers they name. None
+of it needed a change here, and all of it applies to the published exe: the ReadyToRun code is
+the start, and the hot methods are re-jitted with the profile as they warm. The garbage
+collector's big .NET 9 change — DATAS, the heap that sizes itself to the app — is for server GC
+and does not apply: this app runs workstation concurrent GC, the right mode for a desk that
+must never pause.
+
+*What the survey found and was worth doing.* None of this needed .NET 10; the reading found it.
+The clone every publish takes (`JsonUtil.Clone`, the sandbox's copy of the show, the snapshot the
+sinks read) went through the file form — indented JSON, a third of it whitespace — and comes back
+compact now (`CloneOptions`: the same tolerant enum converter, the same rules, no indentation):
+fewer bytes written and parsed on every edit, the same show, proven by identity. The assistant's
+catalogue serialised with a fresh `JsonSerializerOptions` per call, which is a fresh metadata
+cache per call; it uses the defaults, which are compact. A blended output built its thirty-three
+gradient stops every frame; they are kept until the curve or the gamma moves. The spectrum
+analysis allocated two 8 KB arrays and computed the Hann window per sample on every call, and it
+is called some ninety times a second from the capture thread — over a megabyte a second of
+garbage on the one thread that must not stall; the buffers are per thread and reused (cleared,
+so nothing of the window before is left in them) and the window is a table. The capture feed
+read every sample of every channel through a `BitConverter` call; it reads the buffer as the
+samples it holds (`MemoryMarshal.Cast`) and drops an uneven tail rather than reading past it.
+
+The collector, in two settings. While the outputs are live the collector runs in *sustained
+low latency* (`ShowGc.Apply` on `Outputs.LiveChanged`): a blocking generation-2 collection — the
+one that stops every thread for tens of milliseconds while the video frames, the NDI buffers and
+the snapshot clones churn — is avoided for the length of the show and the collector works in the
+background instead; off air the interactive default comes back, so the desk between shows gives
+memory back as any app does. The Machine page's runtime line reads which is in force and the
+.NET in use, and a runtime that cannot honour the mode is left as it is. And the app's
+`runtimeconfig.template.json` asks for concurrent GC (the default, written down because the
+low-latency mode depends on it) and for the collector to keep its segments (`RetainVM`): memory a
+collection frees goes on a standby list rather than back to the operating system, so a show's
+working set is not released and re-committed between collections.
+
+The 10-bit NDI conversion. `P216Converter` turned a 1010102 frame into P216 one pixel at a
+time, across the cores by row; it runs eight pixels at a time on 256-bit vectors now
+(`ConvertRowVector`): unpack, the BT.709 luma, the chroma of each pair as the mean of its two
+lanes (a shuffle meets each lane with its neighbour), the limited-range quantisation and the
+interleaved store, with the scalar row kept as the reference — the same operations in the same
+order, so the two agree to the bit at every width, the tail of a row and a machine without
+256-bit vectors (ARM64) taking the scalar row. The test holds the two against each other from
+one pixel to a full HD row on any machine, since the vector type runs in software where the
+registers are missing.
+
+*What is not open, and why.* NativeAOT would cut the runtime phase before Main (§26.3) and is
+closed to this app three ways: WebView2 and NAudio use built-in COM interop, which NativeAOT
+does not have; the Anthropic SDK deserialises its replies by reflection; and Avalonia's XAML
+compiles, but the third-party controls here have not been trimmed and tested. Trimming alone
+is the same reflection risk for no measured gain on an exe whose size is the natives and the
+precompiled code, not the framework. C# 13 and 14 — `field`, extension members, `params` spans,
+the new lock — are shut while the `PatternsTfm=net8.0` escape hatch pins `LangVersion` at 12,
+which it must until every builder has the .NET 10 SDK; `System.Threading.Lock` gives nothing
+under C# 12 (the `lock` statement only takes it under 13). `TensorPrimitives` would vectorise
+the spectrum's two loops for a package the tree does not carry. JSON source generation for
+the clone is the next real cut on that path (no reflection, about twice the speed, a
+generated context per type) and is deferred: the compact form was the cheaper change and is
+measured first. The sample-rate converter and the delay line were read and left: already
+allocation-free, already tight.
+
+*Not measured here, said plainly.* The 10-bit send's CPU beside the 8-bit one and the
+collector's effect on the worst frame over an hour want a Windows machine with an NDI
+receiver; the checklist's row asks for both readings.
+
+Tests: the clone compact and the same show by identity, the tolerant enum still read; the
+spectrum's kept buffers giving the answer fresh arrays give after a loud window, on a short
+buffer, on noise, again, and from another thread; the collector to sustained low latency on
+air and back to its resting mode off air, twice each; the eight-pixel row equal to the scalar
+row and to the public row at forty-five widths with the primaries and the extremes in the first
+eight, the corners in numbers; on the desk OUTPUTS ON putting the collector in sustained low
+latency and OUTPUTS OFF resting it, the runtime line on the Machine page; the feed reading a
+float window as the analysis reads the samples, PCM stereo over two windows with an uneven
+tail dropped, a count past the buffer clamped.

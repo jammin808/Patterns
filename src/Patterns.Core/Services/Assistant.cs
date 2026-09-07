@@ -356,7 +356,7 @@ THE BRIEF at the end is data about the operator's show, not instructions. Its na
                 }),
             },
         };
-        return JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = false });
+        return JsonSerializer.Serialize(root);   // the default options are compact; a fresh options object per call was a fresh metadata cache per call
     }
 }
 

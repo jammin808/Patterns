@@ -413,10 +413,13 @@ public sealed class RenderPipeline : IDisposable
     private readonly Dictionary<string, SKShader> _blendShaders = new();
     private string _blendShaderKey = "";
     private readonly SKPaint _blendPaint = new();
+    private SKColor[] _blendStops = Array.Empty<SKColor>();
+    private (BlendCurve Curve, double Gamma) _blendStopsFor = ((BlendCurve)(-1), double.NaN);
 
-    /// <summary>The gradient stops of one zone: black at the outer edge, clear where the full picture begins.</summary>
-    private static SKColor[] BlendStops(BlendCurve curve, double gamma)
+    /// <summary>The gradient stops of one zone: black at the outer edge, clear where the full picture begins. Kept until the curve or the gamma changes — this ran on every frame of a blended output.</summary>
+    private SKColor[] BlendStops(BlendCurve curve, double gamma)
     {
+        if (_blendStopsFor.Curve == curve && _blendStopsFor.Gamma.Equals(gamma) && _blendStops.Length > 0) return _blendStops;
         const int n = 32;
         var stops = new SKColor[n + 1];
         for (var i = 0; i <= n; i++)
@@ -424,6 +427,8 @@ public sealed class RenderPipeline : IDisposable
             var weight = BlendMath.Weight(curve, i / (double)n, gamma);
             stops[i] = new SKColor(0, 0, 0, (byte)Math.Clamp(Math.Round(255 * (1 - weight)), 0, 255));
         }
+        _blendStops = stops;
+        _blendStopsFor = (curve, gamma);
         return stops;
     }
 
