@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.ReactiveSection"
+             Classes="hue-reactive"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-time" Text="Reactive scenes" />
+    <TextBlock Classes="hint tip" Text="Select the Reactive pattern type — or press USE IT — to see this live. Six curated scenes for a walk-in, an interlude or a stand: they move on the show clock and lean into the sound when there is any. Outputs and the preview draw them on the graphics card; NDI, the stream and the thumbnails draw the same picture on the CPU." />
+    <Button Classes="mini" Name="UseReactive" Content="USE IT — A REACTIVE SCENE AS THE PATTERN" HorizontalAlignment="Left"
+            Command="{Binding UsePatternKindCommand}" CommandParameter="{x:Static m:PatternKind.Reactive}"
+            ToolTip.Tip="Makes a reactive scene the editing target's pattern type, so everything on this page shows live in the preview (nothing goes to air until TAKE or SEND)" />
+
+    <TextBlock Classes="h2" Text="SCENES" />
+    <ItemsControl ItemsSource="{Binding ReactiveScenes}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ReactiveSceneChip">
+          <Button Classes="chip" Margin="0,2,6,2" Content="{Binding Name}"
+                  ToolTip.Tip="{Binding Note}"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyReactiveSceneCommand}"
+                  CommandParameter="{Binding}" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint" Text="{Binding ReactiveSceneNote}" />
+
+    <TextBlock Classes="h2" Text="THE PICTURE" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Scene" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding ReactiveSceneKinds}"
+                SelectedValue="{Binding ActivePattern.Reactive.Scene, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Speed" ToolTip.Tip="How fast the scene moves; 0 holds it still" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="3" Value="{Binding ActivePattern.Reactive.Speed, Mode=TwoWay}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Depth / warp" ToolTip.Tip="The tunnel's depth, the vortex's twist, the plasma's fold" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ActivePattern.Reactive.Depth, Mode=TwoWay}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Symmetry" ToolTip.Tip="How many wedges the picture folds into, and the spokes elsewhere" />
+      <Slider Grid.Column="1" Minimum="2" Maximum="16" TickFrequency="1" IsSnapToTickEnabled="True"
+              Value="{Binding ActivePattern.Reactive.Symmetry, Mode=TwoWay}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Rotation" ToolTip.Tip="Turns a second, either way; 0 leaves the picture square to the screen" />
+      <Slider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding ActivePattern.Reactive.Rotation, Mode=TwoWay}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Brightness" />
+      <Slider Grid.Column="1" Minimum="0.2" Maximum="1.6" Value="{Binding ActivePattern.Reactive.Brightness, Mode=TwoWay}" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="COLOUR" />
+    <CheckBox Content="Use the show's brand kit" IsChecked="{Binding ActivePattern.Reactive.UseBrandColors}"
+              ToolTip.Tip="The brand kit's background, primary, secondary, accent and text paint the scene — set them on the Branding page" />
+    <Grid ColumnDefinitions="130,*" IsEnabled="{Binding !ActivePattern.Reactive.UseBrandColors}">
+      <TextBlock Classes="label" Text="Colours" />
+      <TextBox Grid.Column="1" Text="{Binding ActivePattern.Reactive.ColorsCsv, Mode=TwoWay}"
+               Watermark="#0B0C2A,#1E3A8A,#3EC1F3,#F03EAE,#FFFFFF"
+               ToolTip.Tip="Two to five colours the scene cycles through, as the particle and fractal studios write them" />
+    </Grid>
+
+    <TextBlock Classes="h2" Text="SOUND" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Listen to" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding AudioSources}"
+                SelectedValue="{Binding ActivePattern.Reactive.AudioSource, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Response" ToolTip.Tip="How much the sound moves the scene; the scene keeps moving on its own at 0" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ActivePattern.Reactive.AudioAmount, Mode=TwoWay}" />
+    </Grid>
+    <TextBlock Classes="hint" Text="{Binding FractalAudioStatus}" />
+    <TextBlock Classes="hint tip" Text="The sound moves a scene; it never drives it. With no sound at all — before the music starts, or on a machine that cannot listen — every scene still runs on the show clock and looks finished." />
+
+    <TextBlock Classes="h2" Text="QUALITY" />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="CPU sinks" ToolTip.Tip="How finely NDI, the stream and the thumbnails draw the scene — they have no graphics card to draw on. Outputs and the preview are unaffected" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding ReactiveQualities}"
+                SelectedValue="{Binding ActivePattern.Reactive.Quality, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <TextBlock Classes="hint tip" Text="Whole-screen flashes are limited to three a second on every screen, whatever a scene or a sting asks for — the rate the broadcast and web guidance draw the line at. Machine → STABILITY counts any that were dropped." />
+  </StackPanel>
+</UserControl>

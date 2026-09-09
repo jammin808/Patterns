@@ -386,7 +386,7 @@ public sealed class BadgeOverlay : Observable, IAnchored
     public double OffsetXPct { get => _offsetXPct; set => Set(ref _offsetXPct, Math.Clamp(value, -100, 100)); }
     public double OffsetYPct { get => _offsetYPct; set => Set(ref _offsetYPct, Math.Clamp(value, -100, 100)); }
 
-    /// <summary>Draw it over media too — a client's video, image, deck or web page; off, it keeps to test patterns.</summary>
+    /// <summary>Draw it over the operator's own content too — a video, image, deck, web page or a reactive scene; off, it keeps to test patterns.</summary>
     public bool OnMediaToo { get => _onMediaToo; set => Set(ref _onMediaToo, value); }
 
     /// <summary>The line under the name (<see cref="Line"/>); off, the badge is the icon and the name.</summary>
@@ -399,8 +399,14 @@ public sealed class BadgeOverlay : Observable, IAnchored
     /// The rule: on, and the picture is a test pattern — anything but media (someone else's
     /// content) and the multiview (a monitoring picture) — or media is asked for.
     /// </summary>
+    /// <summary>
+    /// The badge is a test card's mark: it goes on the patterns, never on the multiview, and on
+    /// the operator's own content — their media, and a reactive scene, which is a walk-in
+    /// background rather than a measurement — only when they ask for it.
+    /// </summary>
     public bool ShowsOn(PatternKind kind)
-        => Enabled && kind != PatternKind.Multiview && (OnMediaToo || kind != PatternKind.Media);
+        => Enabled && kind != PatternKind.Multiview
+           && (OnMediaToo || kind is not (PatternKind.Media or PatternKind.Reactive));
 }
 
 public sealed class InfoOverlay : Observable

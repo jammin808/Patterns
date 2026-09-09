@@ -579,6 +579,7 @@ public static class Lists
         new(PatternKind.Media, "Media (image / video)"),
         new(PatternKind.Particles, "Particles"),
         new(PatternKind.Fractal, "Fractal (sound-reactive)"),
+        new(PatternKind.Reactive, "Reactive scene (sound-reactive)"),
         new(PatternKind.Multiview, "Multiview (monitor wall)"),
     };
 
@@ -753,6 +754,25 @@ public static class Lists
         new(FractalKind.Newton, "Newton"),
         new(FractalKind.DomainWarp, "Domain warp (flowing noise)"),
     };
+    /// <summary>The reactive scenes in the order the page offers them, in the operator's words.</summary>
+    public static readonly EnumItem[] ReactiveScenes =
+    {
+        new(ReactiveScene.Plasma, "Plasma"),
+        new(ReactiveScene.Tunnel, "Tunnel"),
+        new(ReactiveScene.Kaleidoscope, "Kaleidoscope"),
+        new(ReactiveScene.Pulse, "Pulse rings"),
+        new(ReactiveScene.Vortex, "Vortex"),
+        new(ReactiveScene.StarWarp, "Star warp"),
+    };
+
+    /// <summary>How finely the sinks that draw on the CPU — NDI, the stream, thumbnails — draw a scene.</summary>
+    public static readonly EnumItem[] ReactiveQualities =
+    {
+        new(ReactiveQuality.Fast, "Fast — the lightest on a small machine"),
+        new(ReactiveQuality.Balanced, "Balanced"),
+        new(ReactiveQuality.Fine, "Fine — the most detail off the card"),
+    };
+
     public static readonly EnumItem[] AudioSources =
     {
         new(AudioSourceKind.None, "No sound — just the motion"),

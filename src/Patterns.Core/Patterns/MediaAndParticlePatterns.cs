@@ -320,6 +320,6 @@ public sealed class ParticlePattern : IPatternRenderer
         sim.Quality = Services.QualityLadder.Shared.Factor;   // the ladder's level: the drawn share, never the field
         sim.Advance(f.Ctx.Time);
         sim.Render(c, f.Paints);
-        Effects.EffectFlash.Draw(c, f.W, f.H, Effects.EffectImpulses.SurgeAt(f.Ctx.Time).Flash, f.Paints);
+        Effects.EffectFlash.Draw(c, f.W, f.H, Effects.EffectImpulses.SurgeAt(f.Ctx.Time).Flash, f.Paints, f.Sink.Flash, f.Ctx.Time);
     }
 }

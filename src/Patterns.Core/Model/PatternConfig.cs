@@ -690,6 +690,7 @@ public sealed class PatternConfig : Observable
     public ParticleOptions Particles { get; init; } = new();
     public MultiviewOptions Multiview { get; init; } = new();
     public FractalOptions Fractal { get; init; } = new();
+    public ReactiveOptions Reactive { get; init; } = new();
 
     /// <summary>Two pictures over the pattern, whatever its kind — see <see cref="LayerConfig"/>.</summary>
     public LayerConfig Layer1 { get; init; } = new();
@@ -748,4 +749,64 @@ public sealed class FractalOptions : Observable
     public string AudioDevice { get => _audioDevice; set => Set(ref _audioDevice, value ?? _audioDevice); }
 
     public FractalQuality Quality { get => _quality; set => Set(ref _quality, value); }
+}
+
+/// <summary>
+/// A curated reactive scene and the few things an operator turns. Bounded on purpose: the scenes
+/// are curated, not scripted, so every number here has a range that cannot make an ugly or unsafe
+/// picture. The sound moves the scene; it never drives it — a scene with no sound at all (which is
+/// every scene off Windows, and every walk-in before the music starts) still moves on the show
+/// clock.
+/// </summary>
+public sealed class ReactiveOptions : Observable
+{
+    private ReactiveScene _scene = ReactiveScene.Plasma;
+    private string _preset = "Ambient Plasma";
+    private double _speed = 1;
+    private double _depth = 0.5;
+    private int _symmetry = 6;
+    private double _rotation = 0.06;
+    private double _audioAmount = 0.6;
+    private AudioSourceKind _audioSource = AudioSourceKind.None;
+    private string _audioDevice = "";
+    private bool _useBrandColors = true;
+    private string _colorsCsv = "#0B0C2A,#1E3A8A,#3EC1F3,#F03EAE,#FFFFFF";
+    private double _brightness = 1;
+    private ReactiveQuality _quality = ReactiveQuality.Balanced;
+
+    public ReactiveScene Scene { get => _scene; set => Set(ref _scene, value); }
+
+    /// <summary>The scene last applied by name; a label, never read back.</summary>
+    public string Preset { get => _preset; set => Set(ref _preset, value ?? ""); }
+
+    /// <summary>How fast the scene moves; 0 holds it still.</summary>
+    public double Speed { get => _speed; set => Set(ref _speed, Math.Clamp(value, 0, 3)); }
+
+    /// <summary>How far the scene warps — the tunnel's depth, the vortex's twist, the plasma's fold.</summary>
+    public double Depth { get => _depth; set => Set(ref _depth, Math.Clamp(value, 0, 1)); }
+
+    /// <summary>How many wedges the picture folds into (the kaleidoscope, and the spokes elsewhere).</summary>
+    public int Symmetry { get => _symmetry; set => Set(ref _symmetry, Math.Clamp(value, 2, 16)); }
+
+    /// <summary>Turns a second, positive or negative; 0 leaves the picture square to the screen.</summary>
+    public double Rotation { get => _rotation; set => Set(ref _rotation, Math.Clamp(value, -1, 1)); }
+
+    /// <summary>How much the sound moves the scene (0 = not at all).</summary>
+    public double AudioAmount { get => _audioAmount; set => Set(ref _audioAmount, Math.Clamp(value, 0, 1)); }
+
+    public AudioSourceKind AudioSource { get => _audioSource; set => Set(ref _audioSource, value); }
+
+    /// <summary>The input to listen to when the source is External; a null from a picker that lost its items keeps the choice.</summary>
+    public string AudioDevice { get => _audioDevice; set => Set(ref _audioDevice, value ?? _audioDevice); }
+
+    /// <summary>The show's brand kit paints the scene; off, the colours below do.</summary>
+    public bool UseBrandColors { get => _useBrandColors; set => Set(ref _useBrandColors, value); }
+
+    /// <summary>Two to five colours the scene cycles through, as the particle and fractal studios write them.</summary>
+    public string ColorsCsv { get => _colorsCsv; set => Set(ref _colorsCsv, value ?? ""); }
+
+    /// <summary>The picture's overall brightness before the sound moves it.</summary>
+    public double Brightness { get => _brightness; set => Set(ref _brightness, Math.Clamp(value, 0.2, 1.6)); }
+
+    public ReactiveQuality Quality { get => _quality; set => Set(ref _quality, value); }
 }

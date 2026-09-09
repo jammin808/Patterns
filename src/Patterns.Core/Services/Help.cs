@@ -515,6 +515,23 @@ public static class HelpTopics
             new[] { "Fractals", "Pattern", "Audio" },
             new[] { "fractal", "fractals", "fractal studio", "mandelbrot", "julia", "burning ship", "newton", "domain warp", "sound-reactive", "sound reactive", "scenes", "scene", "effect sting", "brand palette", "generative", "living picture" }),
 
+        new HelpTopic("reactive", HelpGroup.Content,
+            "Reactive scenes: six curated pictures that move with the sound",
+            "BUILD → Reactive: a tunnel, a kaleidoscope, plasma, rings, a vortex or a star field as a pattern of its own — drawn on the graphics card for the screens and on the CPU for NDI and the stream, in the client's brand colours, with whole-screen flashes limited for the room.",
+            HelpBodies.Reactive,
+            new[]
+            {
+                "BUILD → Reactive: press USE IT so a scene is the editing target's pattern type and the page shows live in the preview; press a chip for a scene.",
+                "Shape it: speed, depth or warp, symmetry, rotation and brightness — a chip is a starting point and leaves your colours and sound settings alone.",
+                "COLOUR: the show's brand kit by default, or two to five colours of your own.",
+                "SOUND: This computer or an input, and how much — the scene still moves with no sound at all (the listening is Windows only).",
+                "QUALITY names the sinks that draw on the CPU — NDI, the stream, the thumbnails; the outputs and the preview are unaffected.",
+                "Whole-screen flashes are limited to three a second on every screen, in the engine, and cannot be turned off.",
+            },
+            "PATTERN Reactive · STING <n> (an effect pulse)",
+            new[] { "Reactive", "Pattern", "Branding", "Audio" },
+            new[] { "reactive", "visualiser", "visualizer", "scene", "scenes", "tunnel", "kaleidoscope", "plasma", "vortex", "star warp", "pulse", "rings", "sound-reactive", "sound reactive", "walk-in", "walk in", "ambient", "milkdrop", "avs", "winamp", "flash", "strobe", "photosensitive", "epilepsy", "seizure" }),
+
         // ---- THE RIG ----------------------------------------------------------------------
         new HelpTopic("weather", HelpGroup.Content,
             "The weather chip: now, the rest of today, tomorrow",

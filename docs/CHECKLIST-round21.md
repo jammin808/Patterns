@@ -1,0 +1,19 @@
+# Round 21 — Windows checklist
+
+The headless suite proves the logic on every push, including that the shader and the CPU twin draw
+the same picture. These are the things only a real rig shows: one line per item, what to do, and
+what you should see. Tick them on a Windows machine with the full build, two displays, an NDI
+receiver on the network, and music playing through the desk.
+
+| # | Item | Do | Expect |
+| --- | --- | --- | --- |
+| 1 | The flash limit holds the room | BUILD → Reactive, press *Corporate Pulse*, OUTPUTS ON; play a track at 128 BPM with SOUND set to This computer and Response at 1; then fire a sting with a strong flash twice in a second from the Show panel | The picture pulses with the music and never strobes — no whole-screen white faster than three a second, on the wall or in the preview; the second sting's flash is dropped outright rather than shortened, and the picture carries on without a stutter |
+| 2 | The stream shows the wall | With a reactive scene live, start an NDI send and the stream, and watch a receiver and the stream side by side with the wall | The same scene, the same colours and the same motion on all three; the NDI and stream pictures are a little softer (they draw small and scale up) but never a different picture, a different palette or a different phase of the motion |
+| 3 | Quality names the right sinks | With NDI and the stream running, move QUALITY from Fine to Fast and watch the wall, then the receiver; then open Machine → STABILITY | The wall and the preview do not change at all — they draw on the card; the NDI and stream pictures soften; the render line names *the Reactive pattern* if anything is slow, with advice that says which quality to lower |
+| 4 | Six scenes, and they are starting points | Set your own colours (brand kit off) and a Response of 0.3, then press each of the six chips in turn | Each lands its own picture and its name on the status line; your colours and your Response survive every one of them; the line under the chips says what the scene is for |
+| 5 | The brand kit paints it | Branding: set the five brand colours to a client's; back on Reactive tick *Use the show's brand kit* | The scene repaints in the client's colours within a frame, the background colour carrying the picture's dark; unticking goes back to your own list |
+| 6 | Silence is a resting state, not a fault | Set SOUND to This computer with nothing playing, then to None, then unplug the audio device mid-show | The scene keeps moving on the show clock throughout — it never freezes, blacks out or reports a fault; the line under SOUND says what it found |
+| 7 | The stings surge it | With a scene live, fire a VOG and a sting from the Show panel | The scene hurries, turns and deepens with the pulse the way the particles and the fractals do, and comes back to itself; any flash in the sting is still held to three a second |
+| 8 | It travels like any other pattern | Save a look with a scene on it, put it on an F-key, fire it from a cue, send it to one screen with SEND, and recall it after reopening the show | The look carries the scene, its sliders and its colours; the cue fires it; the screen keeps it as its own pattern; the reopened show is identical |
+| 9 | The maker's mark stays off the client's wall | With a reactive scene live, look at the lower third of the picture; then Branding → tick *Draw it over the operator's own content too* | No Patterns badge over the scene by default; with the tick on it appears, as it does over media |
+| 10 | A whole rig under load | Two displays live, PGM and PVW open, four wall tiles with MON on, one NDI send and the stream, a lower third on air, a reactive scene on the program | The desk stays responsive; Machine → STABILITY shows the render p95 and the worst frame with the stage that took it; no recurring frames past 25 ms and no memory climbing across ten minutes of switching scenes |

@@ -214,7 +214,7 @@ public sealed class FractalPattern : IPatternRenderer
             if (TryDrawShader(c, sink, o.Kind, palette, in view, w, h, dest, f.Paints))
             {
                 if (shaking) c.Restore();
-                EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
+                EffectFlash.Draw(c, w, h, surge.Flash, f.Paints, sink.Flash, f.Ctx.Time);
                 return;
             }
         }
@@ -225,7 +225,7 @@ public sealed class FractalPattern : IPatternRenderer
         using var image = SKImage.FromBitmap(sink.Fractal.Bitmap);
         if (image is not null) c.DrawImage(image, dest, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
         if (shaking) c.Restore();
-        EffectFlash.Draw(c, w, h, surge.Flash, f.Paints);
+        EffectFlash.Draw(c, w, h, surge.Flash, f.Paints, sink.Flash, f.Ctx.Time);
     }
 
     /// <summary>

@@ -43,6 +43,7 @@ public sealed class LazyPage : ContentControl
         ["Countdown"] = () => Scroll(new CountdownSection()),
         ["Particles"] = () => Scroll(new ParticlesSection()),
         ["Fractals"] = () => Scroll(new FractalsSection()),
+        ["Reactive"] = () => Scroll(new ReactiveSection()),
         ["Branding"] = () => Scroll(new BrandingSection()),
         ["Layers"] = () => Scroll(new LayersSection()),
         ["Library"] = () => new LibrarySection(),             // its own scrolling grid

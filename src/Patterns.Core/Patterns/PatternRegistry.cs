@@ -23,5 +23,6 @@ public static class PatternRegistry
             [PatternKind.Media] = new MediaPattern(),
             [PatternKind.Particles] = new ParticlePattern(),
             [PatternKind.Fractal] = new FractalPattern(),
+            [PatternKind.Reactive] = new ReactivePattern(),
         };
 }

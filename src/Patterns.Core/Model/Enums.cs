@@ -19,6 +19,33 @@ public enum PatternKind
     Particles,
     Multiview,
     Fractal,
+    /// <summary>A curated sound-reactive scene — a tunnel, a kaleidoscope, plasma; drawn by the graphics card, with a CPU twin for NDI, the stream and thumbnails.</summary>
+    Reactive,
+}
+
+/// <summary>The curated reactive scenes, in the order the page offers them.</summary>
+public enum ReactiveScene
+{
+    /// <summary>Summed sines drifting through the palette: the quietest scene, and the cheapest on every sink.</summary>
+    Plasma,
+    /// <summary>Bands running away down a polar tunnel.</summary>
+    Tunnel,
+    /// <summary>The picture folded into wedges around the centre.</summary>
+    Kaleidoscope,
+    /// <summary>Rings rolling out from the middle on the sound's level.</summary>
+    Pulse,
+    /// <summary>A field swirled around the centre, tighter towards the edge.</summary>
+    Vortex,
+    /// <summary>Streaks running out past the viewer — a star field drawn as a field, not a particle sim.</summary>
+    StarWarp,
+}
+
+/// <summary>How finely a reactive scene draws on the sinks that draw on the CPU.</summary>
+public enum ReactiveQuality
+{
+    Fast,
+    Balanced,
+    Fine,
 }
 
 /// <summary>What one multiview tile shows.</summary>

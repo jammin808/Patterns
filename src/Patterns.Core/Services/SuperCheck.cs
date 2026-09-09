@@ -510,6 +510,7 @@ public static class SuperCheck
             Rendering.FrameStage.Layers => $"{felt} — a layer's source: a 4K clip or a web page; a smaller source",
             Rendering.FrameStage.Fade => $"{felt} — a crossfade draws the old picture and the new: a shorter fade, or lighter content on either side",
             Rendering.FrameStage.Overlays => $"{felt} — the overlays: a ticker over a feed, a large logo, the weather chip",
+            _ when stage == Rendering.FrameStage.PatternOf(Model.PatternKind.Reactive) => $"{felt} — a reactive scene: a lower Quality on the Reactive page, a simpler scene, or fewer sinks drawing it at once",
             _ => $"{felt} — close the desk's extra monitors, or lower the output frame rate on the Output page",
         };
     }

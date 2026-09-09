@@ -7,8 +7,17 @@ namespace Patterns.Core.Effects;
 /// <summary>The white flash a pulse puts over the whole picture, drawn last by the patterns that surge.</summary>
 public static class EffectFlash
 {
-    public const float MaxAlpha = 0.7f;
+    public const float MaxAlpha = FlashGuard.MaxLevel;
 
+    /// <summary>
+    /// The flash, through the sink's guard: a whole-screen light change is the one effect with a
+    /// documented harm attached, and three a second is the line. A flash that comes too soon after
+    /// the last one on this sink is dropped rather than dimmed — see <see cref="FlashGuard"/>.
+    /// </summary>
+    public static void Draw(SKCanvas c, int w, int h, float flash, PaintCache paints, FlashGuard guard, double seconds)
+        => Draw(c, w, h, guard.Limit(flash, seconds), paints);
+
+    /// <summary>Unguarded: the caller has already limited the flash (the tests, and one guard drawing twice in a frame).</summary>
     public static void Draw(SKCanvas c, int w, int h, float flash, PaintCache paints)
     {
         if (flash <= 0.01f) return;

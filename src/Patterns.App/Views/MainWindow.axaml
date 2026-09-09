@@ -196,6 +196,7 @@
               <TabItem Header="Countdown"><ctl:LazyPage Page="Countdown" /></TabItem>
               <TabItem Header="Particles"><ctl:LazyPage Page="Particles" /></TabItem>
               <TabItem Header="Fractals"><ctl:LazyPage Page="Fractals" /></TabItem>
+              <TabItem Header="Reactive"><ctl:LazyPage Page="Reactive" /></TabItem>
               <TabItem Header="Branding"><ctl:LazyPage Page="Branding" /></TabItem>
               <TabItem Header="Layers"><ctl:LazyPage Page="Layers" /></TabItem>
               <TabItem Header="Library"><ctl:LazyPage Page="Library" /></TabItem>

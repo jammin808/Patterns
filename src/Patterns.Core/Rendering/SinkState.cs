@@ -65,6 +65,27 @@ public sealed class SinkState : IDisposable
     /// <summary>The CPU path's low-resolution frame and its pixel buffer, reused frame to frame.</summary>
     public Effects.FractalSurface? Fractal { get; set; }
 
+    /// <summary>
+    /// How often this sink's picture may flash. A whole-screen light change is the one effect with
+    /// a documented harm attached, and the line is three a second — per sink, because a flash is
+    /// what one screen's audience sees. Every sting and every reactive scene goes through it.
+    /// </summary>
+    public Effects.FlashGuard Flash { get; } = new();
+
+    /// <summary>This sink's compiled reactive scene shaders, one per scene it has drawn.</summary>
+    public Dictionary<Model.ReactiveScene, SKRuntimeEffect> ReactiveEffects { get; } = new();
+
+    /// <summary>Scenes whose shader would not compile here: drawn on the CPU instead, asked for once.</summary>
+    public HashSet<Model.ReactiveScene> ReactiveUnavailable { get; } = new();
+
+    /// <summary>The CPU path's reactive frame, reused frame to frame.</summary>
+    public Effects.ReactiveSurface? Reactive { get; set; }
+
+    /// <summary>The colours the reactive scene last resolved to, and the key they came from.</summary>
+    public string ReactiveColorsKey { get; set; } = "";
+
+    public SKColor[] ReactiveColors { get; set; } = Array.Empty<SKColor>();
+
     /// <summary>The parsed fractal palette, keyed by the CSV it came from.</summary>
     public string FractalColorsKey { get; set; } = "";
 
@@ -173,6 +194,8 @@ public sealed class SinkState : IDisposable
         foreach (var cache in LowerThirds.Values) cache.Dispose();
         LowerThirds.Clear();
         foreach (var fx in FractalEffects.Values) fx.Dispose();
+        foreach (var fx in ReactiveEffects.Values) fx.Dispose();
+        Reactive?.Dispose();
         FractalEffects.Clear();
         Fractal?.Dispose();
         Fractal = null;

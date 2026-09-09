@@ -60,6 +60,7 @@ public static class Shell
         ("Countdown", ShellGroup.Build, "#FFC24D"),
         ("Particles", ShellGroup.Build, "#FFC24D"),
         ("Fractals", ShellGroup.Build, "#FFC24D"),
+        ("Reactive", ShellGroup.Build, "#7CF5C8"),
         ("Branding", ShellGroup.Build, "#FFC24D"),
         ("Layers", ShellGroup.Build, "#E39BFF"),
         ("Library", ShellGroup.Build, "#C0CBDB"),

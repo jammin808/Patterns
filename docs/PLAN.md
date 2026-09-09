@@ -177,6 +177,76 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 31. Round 21 — the reactive scenes
+
+The ask: a lightweight sound-reactive visualiser in the spirit of the old Winamp and MilkDrop
+effects, without turning Patterns into a media server. The brief that came with it was read against
+the code before a line was written, and four things in it were corrected: four proposed deliverables
+already existed (the frame stage, audio decaying to silence, internal raster scaling, a per-sink
+shader cache), the CPU path was badly under-costed, the audience-safety requirement was missing
+altogether, and the feedback fix was aimed at the wrong lever. The answers are §32.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 4 | The registration a new `PatternKind` needs, worked as a list rather than assumed: the enum, `PatternRegistry`, `CadenceOf`'s continuous list (miss it and a scene is frozen on NDI, the stream, the thumbnails and every wall tile while the main output moves), `BadgeOverlay.ShowsOn` (a whitelist by exception — a new kind would have carried the maker's mark over a client's background by default, so a reactive scene joins media under the operator's own tick), the super-check's advice arm, the desk's kind picker, the `PATTERN Reactive` verb by name, the rail, the window's tabs, the page's neon and a Help topic. | done |
+| 3 | Six scenes, each drawn twice and held to one picture (§32.3). Plasma, Tunnel, Kaleidoscope, Pulse, Vortex, Star Warp — chosen for closed-form maths a CPU can afford. `ReactiveField` (Core, pure) is the arithmetic; `ReactivePattern` carries the SkSL sources written line for line against it; `ReactiveRaster` draws the twin at a working width the quality ladder shrinks, parallel by row at half the cores, then upscales. A test draws both paths and holds them inside a mean difference of 0.06 — the scene contract's last clause, and what makes "the stream shows the wall" a fact rather than an intention. | done |
+| 2 | The scenes as native show content (§32.2). A scene moves on the show clock and the sound only modulates it, because capture is Windows-only and a walk-in before the music is the ordinary case; the brand kit paints it; `EffectSurge` drives it, so every sting that shipped before the scenes surges them without anyone wiring anything; the quality ladder shrinks the CPU working size; the page offers six chips, a handful of bounded sliders and nothing that could make an ugly or unsafe picture. No node graph, no shader scripting, no feedback — feedback is deferred until the stateless engine has been used in anger. | done |
+| 1 | The flash limit, before any scene (§32.1). `FlashGuard` (Core, pure, no clock of its own) caps whole-screen light changes at three a second and the peak at what the flash already drew. One guard per sink, because a flash is what one screen's audience sees. It went in first and was applied to `EffectFlash` — so the stings that shipped in earlier rounds are limited too, and the reactive scenes were built on top of a floor that already held. A flash that comes too soon is dropped, not shortened: letting it in halfway would be a sharper flash than the one refused. Nothing in the desk turns it off. | done |
+
+## 32. Round 21 — the answers
+
+### 32.1 The flash limit: the one effect with a harm attached
+
+A whole-screen light change is the only thing a visualiser does that has a documented harm behind
+it, and both the broadcast and the web guidance put the line in the same place: three such changes
+in any one second. A beat at 128 BPM is 2.1 a second, and taken on the off-beat as well it is 4.3 —
+so a sound-reactive scene aims straight at the line by default, and a preset value is the wrong
+place to hold it.
+
+`FlashGuard` is a small state machine with no clock of its own: given the flash a scene or a sting
+asked for and the show clock, it returns what may actually be drawn. A rise past a tenth counts as a
+flash; below a twenty-fifth the screen counts as dark again, with room between so a flicker at the
+boundary is not counted twice. A flash that comes inside a third of a second of the last one is
+**dropped for the whole of its pulse** rather than shortened — letting it in halfway would be a
+shorter, sharper flash than the one refused. The peak is capped at what `EffectFlash` already drew,
+and a show clock that goes backwards starts the guard again rather than holding everything down
+until the old time comes round.
+
+It lives on `SinkState`, one per sink, because a flash is what one screen's audience sees. It went
+in before a single scene existed and `EffectFlash.Draw` now takes it, which means the stings that
+shipped in earlier rounds are limited by it too — the safety floor improved the product before the
+feature arrived. The sound's own hold on a scene's brightness is bounded separately, well under
+anything the guidance would call a flash, so the reactive path cannot reach the limiter by accident.
+
+### 32.2 Native content, not a media server
+
+The scenes are a `PatternKind` like any other: they go in a look, a cue, a preset and a send; the
+wire names one with `PATTERN Reactive`; a sting surges one. The sound moves a scene and never drives
+it — `AudioAnalyserService` listens on Windows only, so a scene that needed sound would be a blank
+screen on every other machine and in every test, and a walk-in before the music starts is the same
+case. Every scene therefore runs on the show clock, and the sound lifts the brightness inside a
+bound, opens the rings on the low end and deepens the warp on the mids.
+
+`EffectSurge` was already there — fifteen channels the particles and the fractals answer to, fired
+by the stings — so a reactive scene reads it rather than inventing a second vocabulary: a pulse
+hurries the clock, turns the picture, deepens the warp and flashes it through the guard. That is the
+difference between a feature that is bolted on and one that is part of the desk.
+
+### 32.3 Two paths, one picture
+
+The decisive fact about this codebase is that only three sinks have a graphics card: `Output`,
+`Preview` and `Monitor`. NDI, the stream and the thumbnails are raster surfaces, so a scene that
+existed only as a shader would show the wall one picture and the client's stream another.
+
+So every scene is written twice — `ReactiveField.Sample` in C# and the same arithmetic in SkSL,
+kept literally parallel line for line — and a test compiles the shader onto a raster surface, draws
+the twin at the same size, and holds the two inside a mean channel difference of 0.06. That bound is
+loose enough for half floats and an upscale and tight enough that a scene whose maths drifted would
+blow straight past it. It is also what caps the scene count honestly: six scenes, all closed-form,
+one sample a pixel, no loops and no feedback — which is why the CPU twin costs about what a plasma
+cost in 1998 and the working width can shrink under the quality ladder without the picture falling
+apart.
+
 ## 29. Round 20 — the countdown's one key, the drop's anchor, the screens re-owned
 
 The user's round-20 list: "The feature to turn the countdown off and on has stopped working." —
