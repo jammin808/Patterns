@@ -465,6 +465,7 @@ public static class HelpTopics
                 "The overlays (message, clock, countdown, ticker) drag the same way.",
                 "A drop is told from the nearest anchor: nothing moves, but the Nudge sliders come back to counting from a corner or an edge that is still there on a wall of another shape and at another size.",
                 "Place X / Y (px) under the Nudge sliders reads where the box is on the canvas the PREVIEW pane shows — type in it to place it exactly.",
+                "Position means that position: picking one from the dropdown puts the element there and drops the nudge; RESET TO POSITION does the same without changing the position."
             },
             "",
             new[] { "Layers", "Overlays" },

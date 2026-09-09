@@ -176,6 +176,67 @@ public class PlaceAndCountdownAppTests
     }
 
     [AvaloniaFact]
+    public void ChoosingAPositionPutsTheElementThereAndResetPutsItBack()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var canvas = new SKSizeI(1920, 1080);
+            var margin = OverlayPlace.MarginFor(canvas);
+            var clock = vm.State.Overlays.Clock;
+
+            // Dragged across the frame and re-anchored: bottom-right with a nudge of its own.
+            var dropped = SKRect.Create(1400, 800, 360, 140);
+            var (anchor, x, y) = OverlayPlace.Reanchor(canvas, dropped, margin, clock.Anchor);
+            vm.DragReanchor(HitKind.Clock, anchor, x, y);
+            Assert.Equal(Anchor9.BottomRight, clock.Anchor);
+            Assert.True(vm.ClockPlace.IsNudged, "the drop left it off the corner");
+
+            // The Position picker is bound to this, and choosing a position means that position on
+            // the screen — not that position plus wherever the drag left it.
+            vm.ClockPlace.Anchor = Anchor9.TopLeft;
+            Assert.Equal(Anchor9.TopLeft, clock.Anchor);
+            Assert.Equal(0, clock.OffsetXPct, 6);
+            Assert.Equal(0, clock.OffsetYPct, 6);
+            Assert.False(vm.ClockPlace.IsNudged);
+            var placed = DrawUtil.Anchored(canvas, 360, 140, clock.Anchor, margin, clock.OffsetXPct, clock.OffsetYPct);
+            Assert.Equal(DrawUtil.Anchored(canvas, 360, 140, Anchor9.TopLeft, margin), placed);
+
+            // The picker follows a drag rather than fighting it, and re-picking the same position
+            // changes nothing (that is what RESET is for).
+            var again = OverlayPlace.Reanchor(canvas, dropped, margin, clock.Anchor);
+            vm.DragReanchor(HitKind.Clock, again.Anchor, again.OffsetXPct, again.OffsetYPct);
+            Assert.Equal(clock.Anchor, vm.ClockPlace.Anchor);
+            Assert.True(vm.ClockPlace.IsNudged);
+            vm.ClockPlace.Anchor = clock.Anchor;
+            Assert.True(vm.ClockPlace.IsNudged);
+
+            // The picker follows the model itself, not only the poll: a look recall or a nudge
+            // slider reaches it at once, the way binding straight at the model used to.
+            vm.ClockPlace.Refresh();                 // the poll's tick establishes the hook
+            var raised = new List<string>();
+            vm.ClockPlace.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? "");
+            clock.Anchor = Anchor9.TopRight;
+            Assert.Contains(nameof(PlaceEditor.Anchor), raised);
+            Assert.Equal(Anchor9.TopRight, vm.ClockPlace.Anchor);
+            clock.Anchor = Anchor9.BottomRight;
+
+            // RESET: back onto the position the picker names, with no nudge.
+            Assert.True(vm.ClockPlace.ResetCommand.CanExecute(null));
+            vm.ClockPlace.ResetCommand.Execute(null);
+            Assert.Equal(0, clock.OffsetXPct, 6);
+            Assert.Equal(0, clock.OffsetYPct, 6);
+            Assert.False(vm.ClockPlace.IsNudged);
+            Assert.Equal(Anchor9.BottomRight, clock.Anchor);   // the position it was told, kept
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void EveryOverlayPageCarriesItsPixelRow()
     {
         var b = TestApp.Boot();
@@ -193,6 +254,10 @@ public class PlaceAndCountdownAppTests
                 var rows = window.GetVisualDescendants().OfType<PlaceRow>().ToList();
                 Assert.True(rows.Count >= count, $"the {page} page carries {count} pixel row(s), found {rows.Count}");
                 Assert.All(rows, r => Assert.NotNull(r.Place));
+                // Every row carries its way back: RESET onto the position the picker names.
+                var resets = window.GetVisualDescendants().OfType<Button>()
+                    .Count(x => (x.Content as string) == "RESET TO POSITION");
+                Assert.True(resets >= count, $"the {page} page carries {count} RESET button(s), found {resets}");
             }
         }
         finally

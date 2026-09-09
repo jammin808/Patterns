@@ -136,7 +136,23 @@ public sealed partial class MainViewModel
             placed.OffsetXPct = x;
             placed.OffsetYPct = y;
         });
+        // The page's Position picker, its pixel fields and RESET follow the drop at once rather
+        // than at the next second's poll — the operator is looking at them as they let go.
+        PlaceOf(kind)?.Refresh();
     }
+
+    /// <summary>The place editor for a draggable overlay, or null for anything without one.</summary>
+    private PlaceEditor? PlaceOf(HitKind kind) => kind switch
+    {
+        HitKind.Clock => ClockPlace,
+        HitKind.Logo => LogoPlace,
+        HitKind.Message => MessagePlace,
+        HitKind.Weather => WeatherPlace,
+        HitKind.Pip => PipPlace,
+        HitKind.Countdown => CountdownPlace,
+        HitKind.Badge => BadgePlace,
+        _ => null,
+    };
 
     /// <summary>Puts a draggable thing at a place (the same units <see cref="DragPlaceOf"/> reads); the model publishes, the panes follow.</summary>
     public void DragPlace(HitKind kind, double x, double y)

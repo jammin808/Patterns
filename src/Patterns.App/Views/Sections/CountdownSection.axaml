@@ -53,7 +53,7 @@
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Position" />
       <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
-                SelectedValue="{Binding State.Countdown.Anchor, Mode=TwoWay}"
+                SelectedValue="{Binding CountdownPlace.Anchor, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
     </Grid>
     <Grid ColumnDefinitions="130,*,8,*">

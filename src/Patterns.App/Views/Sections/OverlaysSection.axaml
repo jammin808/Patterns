@@ -24,7 +24,7 @@
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
-                  SelectedValue="{Binding State.Overlays.Clock.Anchor, Mode=TwoWay}"
+                  SelectedValue="{Binding ClockPlace.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
       <Grid ColumnDefinitions="130,*,8,*">
@@ -49,7 +49,7 @@
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
-                  SelectedValue="{Binding State.Overlays.Logo.Anchor, Mode=TwoWay}"
+                  SelectedValue="{Binding LogoPlace.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
       <Grid ColumnDefinitions="130,*,8,*">
@@ -79,7 +79,7 @@
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
-                  SelectedValue="{Binding State.Overlays.Message.Anchor, Mode=TwoWay}"
+                  SelectedValue="{Binding MessagePlace.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
       <Grid ColumnDefinitions="130,*,8,*">
@@ -217,7 +217,7 @@
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
-                  SelectedValue="{Binding State.Overlays.Weather.Anchor, Mode=TwoWay}"
+                  SelectedValue="{Binding WeatherPlace.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
       <Grid ColumnDefinitions="130,*,8,*">
@@ -276,7 +276,7 @@
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Position" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding Anchors}"
-                  SelectedValue="{Binding State.Overlays.Pip.Anchor, Mode=TwoWay}"
+                  SelectedValue="{Binding PipPlace.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
       <Grid ColumnDefinitions="130,*,8,*">
