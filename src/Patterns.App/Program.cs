@@ -45,6 +45,10 @@ internal static class Program
         // Then whether this start asks for the low-latency swap chain (direct output).
         Services.DirectOutputService.Initialize(store, early);
         StartupBudget.MarkEarly(StartupBudget.Graphics);
+        // A crash or a hang leaves the previous run's render windows playing — the room keeps its
+        // picture, which is right — but they answer to nobody. Take them back before a single
+        // window of this run opens, so OUTPUTS ON never opens a second set behind the first.
+        Services.OutputTakeover.ClaimAtStart(store.BaseDirectory, early?.Watchdog.TakeOverOutputs ?? true);
         if (early is not null) Services.AppServices.Preloaded = (store, early);
 
         // An exception no handler contained (a worker thread's, or one the UI guard let through)

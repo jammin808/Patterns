@@ -262,6 +262,7 @@ public sealed partial class ControlService
   <div id="msgline" class="line"></div>
   <div class="sec">COUNTDOWN</div>
   <div id="cdnow" class="line center"></div>
+  <div class="grid"><button id="countdown" onclick="cmd('COUNTDOWN TOGGLE')" title="On as the desk has it set up, off again — the one key, like the clock and the logo">COUNTDOWN</button></div>
   <div class="grid row3">
     <button onclick="cmd('COUNTDOWN START 1')">1 MIN</button>
     <button onclick="cmd('COUNTDOWN START 5')">5 MIN</button>
@@ -539,6 +540,7 @@ function render(s) {
   cdn.textContent = cd.on ? (cd.phase === 'over' ? cd.text : (cd.text || '') + (cd.target ? ' — to ' + cd.target : '')) : 'Countdown off';
   cdn.classList.toggle('out', cd.phase === 'over');
   cdn.classList.toggle('lit', cd.phase === 'running');
+  var cdb = document.getElementById('countdown'); cdb.classList.toggle('lit', !!cd.on); cdb.textContent = cd.on ? 'COUNTDOWN — ON (stop)' : 'COUNTDOWN';
   follow('cdlabel', cd.label);
   var lgb = document.getElementById('logo'); lgb.classList.toggle('lit', !!lg.on); lgb.textContent = lg.on ? 'LOGO — ON (hide)' : 'LOGO';
   var ppb = document.getElementById('pip'); ppb.classList.toggle('lit', !!pp.on); ppb.textContent = pp.on ? 'PIP — ON (hide)' : 'PIP';

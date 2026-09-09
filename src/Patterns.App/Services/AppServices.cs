@@ -77,6 +77,16 @@ public sealed class AppServices
     public AudioAnalyserService Analyser { get; }
     public RecoveryStore Recovery { get; }
 
+    /// <summary>
+    /// Who has the screens: this desk writes and beats the ownership record while its outputs are
+    /// live, and stands down when a newer desk asks for them. The other half — a start taking the
+    /// screens back from a run that crashed or hung — is <see cref="OutputTakeover"/>, before Avalonia.
+    /// </summary>
+    public OutputOwnershipService Ownership { get; }
+
+    /// <summary>What this start found on the screens: a previous run still playing, taken back or left alone.</summary>
+    public TakeoverResult Takeover { get; }
+
     /// <summary>The show journal: every air change with its origin, on disk beside the settings.</summary>
     public ShowLog Journal { get; }
 
@@ -247,6 +257,9 @@ public sealed class AppServices
         }
         Store = store ?? new SettingsStore();
         Log.Init(Store.BaseDirectory);
+        // What Main found on the screens before Avalonia started, taken once so a second desk in
+        // the same process never inherits the first one's story.
+        Takeover = OutputTakeover.Consume();
         // A fault on the UI thread is contained from here on: logged, counted, the desk kept up.
         UiFaults.Install();
 
@@ -285,11 +298,17 @@ public sealed class AppServices
         }
 
         Journal = new ShowLog(Store.BaseDirectory);
+        // This start found the last run's render windows still playing and took them back (or was
+        // told not to): the health line carries it, so "the screens are this desk's" is a fact the
+        // operator can read rather than infer.
+        if (Takeover.Words.Length > 0) HealthMonitor.WatchdogNote = Takeover.Words;
         // A supervisor that stood down last time left a note: it goes on the health line, once.
         var standDown = WatchdogMarker.ReadAndClear(Store.BaseDirectory);
         if (standDown.Length > 0)
         {
-            HealthMonitor.WatchdogNote = standDown;
+            HealthMonitor.WatchdogNote = HealthMonitor.WatchdogNote.Length > 0
+                ? HealthMonitor.WatchdogNote + " · " + standDown
+                : standDown;
             Log.Warn(standDown);
         }
         // A crash restart left a note: what the last run ended in, once, on the health line and in the
@@ -352,6 +371,7 @@ public sealed class AppServices
         Metrics = new SystemMetricsService(this);
         Analyser = new AudioAnalyserService(this);
         Recovery = new RecoveryStore(Store.BaseDirectory);
+        Ownership = new OutputOwnershipService(this);
         PendingRecovery = Recovery.Read();
         Actions = new ShowActions(this);
         CueStack = new CueStackService(this);
@@ -383,6 +403,14 @@ public sealed class AppServices
             if (moved) PublishRuntime();   // a hot-plug moves no model: push the new shapes ourselves
         };
         Outputs.LiveChanged += UpdateRecovery;
+        // The screens change hands the moment they open or close, not at the next poll: a start a
+        // second later must never read a record for windows that are already gone.
+        Outputs.LiveChanged += Ownership.OnLiveChanged;
+        Ownership.StoodDown += words =>
+        {
+            HealthMonitor.WatchdogNote = words;
+            Notify(words);
+        };
         // On air the collector works in the background and never stops the world for a full
         // collection; off air the default comes back.
         Outputs.LiveChanged += () => ShowGc.Apply(Outputs.IsLive);
@@ -646,8 +674,21 @@ public sealed class AppServices
     {
         try
         {
-            if (!State.Watchdog.AutoRestore) return;
-            if (PendingRecovery is not { } was || !RecoveryStore.IsFresh(was, DateTime.UtcNow)) return;
+            var took = Takeover.TookOver;
+            // Taking the screens back ended the picture the room was watching. Putting it straight
+            // back is then a duty, not a preference: the AutoRestore choice is about a watchdog's
+            // own restart, and it must never be the reason a takeover leaves a dark room behind it.
+            if (!took && !State.Watchdog.AutoRestore) return;
+            if (PendingRecovery is not { } was || !RecoveryStore.IsFresh(was, DateTime.UtcNow))
+            {
+                if (!took) return;
+                // The run we took them from left no sidecar to read (or a stale one): the show as
+                // it was saved goes back on those screens rather than nothing at all.
+                if (!Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
+                vm.StatusMessage = Takeover.Words;
+                Log.Info(vm.StatusMessage);
+                return;
+            }
 
             // Put back what the audience was seeing, not the preview that was being built.
             // EDIT SAFE is already armed by the time this runs (StartDefaultSandbox precedes
@@ -669,13 +710,19 @@ public sealed class AppServices
                 }
             }
 
-            if (was.Live && !Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
+            // A takeover is its own evidence that the screens were live — we just took them off a
+            // run that was playing on them — whatever a sidecar written before the crash says.
+            if ((was.Live || took) && !Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
             if (was.AudioPlaying && AudioPlaylist.HasTracks(State.AudioPlayer)) State.AudioPlayer.Playing = true;
 
-            var restored = was.Live || was.AudioPlaying;
-            vm.StatusMessage = restored
-                ? "Watchdog restarted the app — the show was put back on."
-                : "Watchdog restarted the app.";
+            var restored = was.Live || took || was.AudioPlaying;
+            // A start that took the screens back from a run still playing on them says so: the
+            // operator needs to know the windows in the room are this desk's now, not the ghost's.
+            vm.StatusMessage = Takeover.TookOver
+                ? Takeover.Words
+                : restored
+                    ? "Watchdog restarted the app — the show was put back on."
+                    : "Watchdog restarted the app.";
             if (was.Run is { } place)
             {
                 // The caller's place: disarmed, pointing at the next cue, nothing fired.
@@ -894,6 +941,9 @@ public sealed class AppServices
             {
                 Recovery.Clear(); // a clean exit must never auto-restore
             }
+            // The windows went with CloseAll above: the record must go too, or the next start
+            // would hunt for screens that are not playing.
+            Ownership.Shutdown();
             _instanceMutex?.Dispose();
         }
         catch (Exception ex)

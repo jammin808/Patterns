@@ -56,38 +56,102 @@ public sealed partial class MainViewModel
     public (double X, double Y) DragPlaceOf(HitKind kind)
     {
         var p = PreviewPattern;
-        var o = State.Overlays;
+        if (AnchoredOf(kind) is { } placed) return (placed.OffsetXPct, placed.OffsetYPct);
         return kind switch
         {
             HitKind.Layer1 => (p.Layer1.XPct, p.Layer1.YPct),
             HitKind.Layer2 => (p.Layer2.XPct, p.Layer2.YPct),
-            HitKind.Logo => (o.Logo.OffsetXPct, o.Logo.OffsetYPct),
-            HitKind.Clock => (o.Clock.OffsetXPct, o.Clock.OffsetYPct),
-            HitKind.Countdown => (State.Countdown.OffsetXPct, State.Countdown.OffsetYPct),
-            HitKind.Message => (o.Message.OffsetXPct, o.Message.OffsetYPct),
-            HitKind.Pip => (o.Pip.OffsetXPct, o.Pip.OffsetYPct),
-            HitKind.Weather => (o.Weather.OffsetXPct, o.Weather.OffsetYPct),
-            HitKind.Badge => (o.Badge.OffsetXPct, o.Badge.OffsetYPct),
             _ => (0, 0),
         };
+    }
+
+    /// <summary>
+    /// What the last preview frame drew for a kind, in the space it drew it in — set by the window,
+    /// which owns the pipeline. Null before the first frame, and for anything not on the picture:
+    /// the pixel fields are then quiet rather than lying about where something is.
+    /// </summary>
+    public Func<HitKind, PlaceEditor.PlacedBox?>? PreviewBox { get; set; }
+
+    private PlaceEditor PlaceFor(HitKind kind)
+        => new(() => AnchoredOf(kind), () => PreviewBox?.Invoke(kind));
+
+    /// <summary>The place editors the overlay pages' pixel rows bind to — one per overlay, built once.</summary>
+    public PlaceEditor ClockPlace => _clockPlace ??= PlaceFor(HitKind.Clock);
+    public PlaceEditor LogoPlace => _logoPlace ??= PlaceFor(HitKind.Logo);
+    public PlaceEditor MessagePlace => _messagePlace ??= PlaceFor(HitKind.Message);
+    public PlaceEditor WeatherPlace => _weatherPlace ??= PlaceFor(HitKind.Weather);
+    public PlaceEditor PipPlace => _pipPlace ??= PlaceFor(HitKind.Pip);
+    public PlaceEditor CountdownPlace => _countdownPlace ??= PlaceFor(HitKind.Countdown);
+    public PlaceEditor BadgePlace => _badgePlace ??= PlaceFor(HitKind.Badge);
+
+    private PlaceEditor? _clockPlace, _logoPlace, _messagePlace, _weatherPlace, _pipPlace, _countdownPlace, _badgePlace;
+
+    /// <summary>Every place editor, for the poll's once-a-second refresh.</summary>
+    public IEnumerable<PlaceEditor> Places
+    {
+        get
+        {
+            yield return ClockPlace;
+            yield return LogoPlace;
+            yield return MessagePlace;
+            yield return WeatherPlace;
+            yield return PipPlace;
+            yield return CountdownPlace;
+            yield return BadgePlace;
+        }
+    }
+
+    /// <summary>
+    /// The overlay a hit names, or null when the thing dragged has no anchor — a layer's box is
+    /// given as the canvas's own share, so it has nowhere to be re-anchored to.
+    /// </summary>
+    public IAnchored? AnchoredOf(HitKind kind)
+    {
+        var o = State.Overlays;
+        return kind switch
+        {
+            HitKind.Logo => o.Logo,
+            HitKind.Clock => o.Clock,
+            HitKind.Countdown => State.Countdown,
+            HitKind.Message => o.Message,
+            HitKind.Pip => o.Pip,
+            HitKind.Weather => o.Weather,
+            HitKind.Badge => o.Badge,
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// A drag has ended: the same pixels, told from the nearest anchor. Nothing moves — the box is
+    /// where it was dropped — but the Nudge sliders come back to counting from a corner or an edge
+    /// that is still there at another size and on a canvas of another shape, instead of from an
+    /// anchor the element has long since left behind. One publish for the pair.
+    /// </summary>
+    public void DragReanchor(HitKind kind, Anchor9 anchor, double x, double y)
+    {
+        if (AnchoredOf(kind) is not { } placed) return;
+        BulkEdit(() =>
+        {
+            placed.Anchor = anchor;
+            placed.OffsetXPct = x;
+            placed.OffsetYPct = y;
+        });
     }
 
     /// <summary>Puts a draggable thing at a place (the same units <see cref="DragPlaceOf"/> reads); the model publishes, the panes follow.</summary>
     public void DragPlace(HitKind kind, double x, double y)
     {
+        if (AnchoredOf(kind) is { } placed)
+        {
+            placed.OffsetXPct = x;
+            placed.OffsetYPct = y;
+            return;
+        }
         var p = PreviewPattern;
-        var o = State.Overlays;
         switch (kind)
         {
             case HitKind.Layer1: p.Layer1.XPct = x; p.Layer1.YPct = y; break;
             case HitKind.Layer2: p.Layer2.XPct = x; p.Layer2.YPct = y; break;
-            case HitKind.Logo: o.Logo.OffsetXPct = x; o.Logo.OffsetYPct = y; break;
-            case HitKind.Clock: o.Clock.OffsetXPct = x; o.Clock.OffsetYPct = y; break;
-            case HitKind.Countdown: State.Countdown.OffsetXPct = x; State.Countdown.OffsetYPct = y; break;
-            case HitKind.Message: o.Message.OffsetXPct = x; o.Message.OffsetYPct = y; break;
-            case HitKind.Pip: o.Pip.OffsetXPct = x; o.Pip.OffsetYPct = y; break;
-            case HitKind.Weather: o.Weather.OffsetXPct = x; o.Weather.OffsetYPct = y; break;
-            case HitKind.Badge: o.Badge.OffsetXPct = x; o.Badge.OffsetYPct = y; break;
         }
     }
 

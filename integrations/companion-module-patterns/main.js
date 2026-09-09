@@ -819,9 +819,10 @@ class PatternsInstance extends InstanceBase {
 			},
 			// The countdown: a duration from now, a time of day, the label, stop — COUNTDOWN on the wire.
 			countdown: {
-				name: 'Countdown — start (minutes), count down to a time, the label, stop',
+				name: 'Countdown — toggle, start (minutes), count down to a time, the label, stop',
 				options: [
 					{ type: 'dropdown', id: 'mode', label: 'Do', default: 'START', choices: [
+						{ id: 'TOGGLE', label: 'Toggle — on as set up on the desk, off again' },
 						{ id: 'START', label: 'Start — the minutes below (blank = as set up on the desk)' }, { id: 'TO', label: 'Count down to the time below' },
 						{ id: 'LABEL', label: 'Set the label below' }, { id: 'STOP', label: 'Stop' },
 					] },
@@ -831,6 +832,7 @@ class PatternsInstance extends InstanceBase {
 				],
 				callback: (a) => {
 					const mode = a.options.mode
+					if (mode === 'TOGGLE') return send('COUNTDOWN TOGGLE')
 					if (mode === 'STOP') return send('COUNTDOWN STOP')
 					if (mode === 'TO') {
 						const t = String(a.options.time || '').trim()
@@ -1637,9 +1639,9 @@ class PatternsInstance extends InstanceBase {
 		const counting = { feedbackId: 'countdown_running', options: { phase: 'running' }, style: { bgcolor: green } }
 		const over = { feedbackId: 'countdown_running', options: { phase: 'over' }, style: { bgcolor: combineRgb(224, 52, 46) } }
 		presets.countdown_clock = {
-			type: 'button', category: 'Countdown', name: 'COUNTDOWN — what is left (green while running, red when over); press: start as set up on the desk',
+			type: 'button', category: 'Countdown', name: 'COUNTDOWN — what is left (green while running, red when over); press: on as set up on the desk, press again: off',
 			style: { text: '$(patterns:countdown_text)', size: '14', color: white, bgcolor: dark },
-			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'START', minutes: '', time: '', label: '' } }], up: [] }],
+			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'TOGGLE', minutes: '', time: '', label: '' } }], up: [] }],
 			feedbacks: [counting, over],
 		}
 		for (const m of [1, 5, 10, 15, 30]) {

@@ -96,6 +96,7 @@ public static class CueSummary
             case ShowActionKind.CountdownStart: return $"Countdown {a.Value} min";
             case ShowActionKind.CountdownTo: return $"Countdown to {a.Value.Trim()}";
             case ShowActionKind.CountdownStop: return "Stop countdown";
+            case ShowActionKind.CountdownToggle: return "Countdown on / off";
             case ShowActionKind.CountdownLabel: return a.Value.Trim().Length > 0 ? $"Countdown label '{Shorten(a.Value.Trim())}'" : "Countdown label cleared";
             case ShowActionKind.AudioVolume: return $"Audio volume {a.Value}%";
             case ShowActionKind.SpotifyPlay:

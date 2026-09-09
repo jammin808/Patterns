@@ -20,6 +20,16 @@ preset groups you tick, so the key list holds only what this desk uses.
    Transport, Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music, and the
    *… — this show* categories with a preset per item of the show that is loaded.
 
+## One key for the countdown (module 2.7.0)
+
+The `countdown` action gained a **Toggle** mode, and the countdown's reading key — the one that
+shows what is left and goes green while running, red when over — now uses it: press it and the
+countdown starts as the desk has it set up (the time of day it points at, else its duration from
+now); press it again and it goes off. Every other overlay key (clock, message, logo, PiP, weather)
+has worked that way for versions; the countdown was the one that needed two keys. `START`, `TO`,
+`LABEL` and `STOP` are unchanged, and the separate STOP key still stops it outright. On the wire
+the new mode is `COUNTDOWN TOGGLE` — a bare `COUNTDOWN` means the same.
+
 ## Fade to black on one screen, a group, the focused or the ticked tiles (module 2.6.0)
 
 The `fade` action gained a **Where** field. Empty is what it always was: every screen, a blackout

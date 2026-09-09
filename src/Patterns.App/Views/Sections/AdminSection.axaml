@@ -301,6 +301,11 @@
     <CheckBox Content="After a restart, put the show back (open outputs, resume the audio track)"
               IsChecked="{Binding State.Watchdog.AutoRestore}"
               IsEnabled="{Binding State.Watchdog.Enabled}" />
+    <CheckBox Content="Take the screens back from a run that is still playing"
+              IsChecked="{Binding State.Watchdog.TakeOverOutputs}"
+              ToolTip.Tip="A crash or a hang leaves the render windows up so the room keeps its picture — but they answer to nobody. On, a start asks that process for the screens and ends it if it has stopped answering, then puts the show back on them. Off, it leaves them playing and says so on the health line" />
+    <TextBlock Classes="label" Text="{Binding ScreensOwnedText}" TextWrapping="Wrap"
+               ToolTip.Tip="Which process has this show folder's screens: this desk while its outputs are live, or the previous run when its windows are still playing" />
     <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding LastCrashText}" TextWrapping="Wrap" IsVisible="{Binding LastCrashVisible}"
                ToolTip.Tip="The note the watchdog left when it brought this run up: the exit code in words, when, after how long, and the mini-dump if one was written — also in patterns.log and the support bundle" />

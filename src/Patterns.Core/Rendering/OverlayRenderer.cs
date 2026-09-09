@@ -65,7 +65,7 @@ public static class OverlayRenderer
 
         var targetH = (float)(f.H * o.HeightPct / 100);
         var targetW = targetH * logo.Width / Math.Max(1, logo.Height);
-        var margin = Math.Max(10f, f.H * 0.03f);
+        var margin = OverlayPlace.MarginFor(f.Canvas);
         var rect = DrawUtil.Anchored(f.Canvas, targetW, targetH, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
 
         var paint = f.Paints.FillAA(SKColors.White.WithAlpha((byte)(o.Opacity * 255)));
@@ -109,7 +109,7 @@ public static class OverlayRenderer
         var icon = h - pad * 2;
         var gap = h * 0.2f;
         var boxW = pad + icon + gap + Math.Max(wordW, lineW) + pad * 1.5f;
-        var margin = Math.Max(10f, f.H * 0.03f);
+        var margin = OverlayPlace.MarginFor(f.Canvas);
         var rect = DrawUtil.Anchored(f.Canvas, boxW, h, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
         Hit(in f, HitKind.Badge, rect);
 
@@ -222,7 +222,7 @@ public static class OverlayRenderer
         var padY = size * 0.28f;
         var boxW = Math.Max(timeW, dateW) + padX * 2;
         var boxH = size + padY * 2 + (date is not null ? dateFontSize * 1.5f : 0);
-        var margin = Math.Max(10f, f.H * 0.03f);
+        var margin = OverlayPlace.MarginFor(f.Canvas);
         var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
         Hit(in f, HitKind.Clock, rect);
 
@@ -304,7 +304,7 @@ public static class OverlayRenderer
                    + (detail.Length > 0 ? rowGap + detailSize * 1.3f : 0)
                    + (marks.Count > 0 ? rowGap + markLabelSize * 1.2f + markGlyph + markFigureSize * 1.2f : 0)
                    + (credit.Length > 0 ? rowGap + creditSize * 1.2f : 0);
-        var margin = Math.Max(10f, f.H * 0.03f);
+        var margin = OverlayPlace.MarginFor(f.Canvas);
         var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, o.Anchor, margin, o.OffsetXPct, o.OffsetYPct);
         Hit(in f, HitKind.Weather, rect);
 
@@ -400,7 +400,7 @@ public static class OverlayRenderer
         var barH = cd.ShowProgressBar ? size * 0.09f + size * 0.18f : 0;
         var boxW = Math.Max(mainW, labelW) + padX * 2;
         var boxH = size + padY * 2 + (label.Length > 0 ? labelSize * 1.7f : 0) + barH;
-        var margin = Math.Max(10f, f.H * 0.03f);
+        var margin = OverlayPlace.MarginFor(f.Canvas);
         var rect = DrawUtil.Anchored(f.Canvas, boxW, boxH, cd.Anchor, margin, cd.OffsetXPct, cd.OffsetYPct);
         Hit(in f, HitKind.Countdown, rect);
 
@@ -459,7 +459,7 @@ public static class OverlayRenderer
         if (o.Scroll && textW > 0)
         {
             // A ticker runs the full width: only the vertical nudge applies.
-            var band = DrawUtil.Anchored(f.Canvas, f.W, size * 1.6f, o.Anchor, Math.Max(10f, f.H * 0.03f), 0, o.OffsetYPct);
+            var band = DrawUtil.Anchored(f.Canvas, f.W, size * 1.6f, o.Anchor, OverlayPlace.MarginFor(f.Canvas), 0, o.OffsetYPct);
             Hit(in f, HitKind.Message, band);
             switch (o.Background)
             {
@@ -596,7 +596,7 @@ public static class OverlayRenderer
         var w = (float)(vw * pip.WidthPct / 100.0);
         var aspect = source?.FrameSize is { } fs && fs.Height > 0 ? crop.AspectOf(fs) : 16f / 9f;
         var h = w / aspect;
-        var margin = Math.Max(8f, vh * 0.02f);
+        var margin = OverlayPlace.PipMarginFor(ctx.ViewportSize);
 
         // Anchor9 grid: 0..8 → left/centre/right × top/middle/bottom.
         var col = (int)pip.Anchor % 3;

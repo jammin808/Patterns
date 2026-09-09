@@ -277,6 +277,7 @@ public static class CueSheet
             "clockseconds" or "seconds" => ShowActionKind.ClockSeconds,
             "clockdate" or "dateline" or "date" => ShowActionKind.ClockDate,
             "messagescroll" or "scroll" or "tickerscroll" => ShowActionKind.MessageScroll,
+            "countdowntoggle" or "timertoggle" => ShowActionKind.CountdownToggle,
             "countdownto" or "countdownat" or "countto" or "backat" => ShowActionKind.CountdownTo,
             "countdownlabel" or "timerlabel" or "label" => ShowActionKind.CountdownLabel,
             "pattern" or "patternkind" or "picture" or "kind" => ShowActionKind.PatternKind,

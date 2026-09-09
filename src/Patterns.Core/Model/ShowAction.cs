@@ -226,6 +226,11 @@ public enum ShowActionKind
     CountdownTo,
     /// <summary>Value = the words over the countdown's digits.</summary>
     CountdownLabel,
+    /// <summary>
+    /// The countdown flips: off when it is on air, else started as the desk has it set up (the
+    /// time of day it points at, else its duration from now) — one key, like every other overlay.
+    /// </summary>
+    CountdownToggle,
     /// <summary>The brand logo overlay.</summary>
     LogoOn,
     LogoOff,

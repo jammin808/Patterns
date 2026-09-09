@@ -27,6 +27,22 @@ public sealed class OutputWindowManager
     /// <summary>The open output windows (tests drive their keys; the wall reads their viewports).</summary>
     public IReadOnlyCollection<OutputWindow> Windows => _windows.Values;
 
+    /// <summary>
+    /// What the open windows are playing on, by the operator's own name for each — the words the
+    /// ownership record carries, so a start that finds them can say which screens it took back.
+    /// </summary>
+    public IReadOnlyList<string> LiveTargetNames()
+    {
+        var labels = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var screen in _services.Screens.All)
+        {
+            labels[screen.Id] = screen.Label;
+        }
+        return _windows.Keys
+            .Select(id => labels.TryGetValue(id, out var label) && label.Length > 0 ? label : id)
+            .ToList();
+    }
+
     public event Action? LiveChanged;
 
     /// <summary>Open (or retarget) output windows for the current arrangement.</summary>

@@ -615,7 +615,9 @@ public static class ControlProtocol
                 var rest = sub.Length > 1 ? sub[1] : "";
                 switch (what)
                 {
-                    case "": return Unknown(s);
+                    // A bare COUNTDOWN flips it, the way a bare CLOCK, MESSAGE, LOGO or PIP does:
+                    // one key on a phone or a Stream Deck turns it on and off again.
+                    case "": case "TOGGLE": return Act(ShowActionKind.CountdownToggle);
                     case "STOP": case "OFF": case "HIDE": case "CLEAR": return Act(ShowActionKind.CountdownStop);
                     case "START": case "ON": case "GO":
                         return rest.Length == 0 ? Act(ShowActionKind.CountdownStart)

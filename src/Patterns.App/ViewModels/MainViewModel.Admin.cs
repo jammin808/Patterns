@@ -364,6 +364,14 @@ public sealed partial class MainViewModel
 
     public bool LastCrashVisible => _services.LastCrash is not null;
 
+    private string _screensOwnedText = "";
+
+    /// <summary>
+    /// Who has this show folder's screens, in a line: this desk while its outputs are live, or —
+    /// after a crash or a hang — what this start found still playing and what it did about it.
+    /// </summary>
+    public string ScreensOwnedText { get => _screensOwnedText; private set => Set(ref _screensOwnedText, value); }
+
     /// <summary>The Copy support info payload (also used by tests to sanity-check content).</summary>
     public string BuildSupportInfo() => _services.Metrics.SupportInfo();
 

@@ -70,7 +70,7 @@ public static class OscMap
         ("/patterns/weather [1|0|now|day|tomorrow]", "WEATHER ON / OFF — the weather chip on air; no argument toggles; a view word (also /patterns/weather/tomorrow) picks what it shows"),
         ("/patterns/clock [1|0|12|24]", "CLOCK ON / OFF — the clock overlay; no argument toggles; 12 or 24 sets the hours (also /patterns/clock/24); /patterns/clock/seconds [1|0] and /patterns/clock/date [1|0] the seconds and the date line"),
         ("/patterns/message [1|0|\"text\"]", "MESSAGE ON / OFF — the message overlay; no argument toggles; a text puts the words on (also /patterns/message/text \"…\"); /patterns/message/scroll [1|0] makes it a ticker"),
-        ("/patterns/countdown <minutes>", "COUNTDOWN START — a duration from now (also /patterns/countdown/start 5, /patterns/countdown/start/2:30); /patterns/countdown/to \"19:30\" a time of day; /patterns/countdown/stop; /patterns/countdown/label \"text\""),
+        ("/patterns/countdown <minutes>", "COUNTDOWN START — a duration from now (also /patterns/countdown/start 5, /patterns/countdown/start/2:30); /patterns/countdown with nothing to say, or /patterns/countdown/toggle, flips it; /patterns/countdown/to \"19:30\" a time of day; /patterns/countdown/stop; /patterns/countdown/label \"text\""),
         ("/patterns/logo [1|0]", "LOGO ON / OFF — the brand logo overlay; no argument toggles"),
         ("/patterns/pip [1|0]", "PIP ON / OFF — the picture-in-picture inset; no argument toggles"),
         ("/patterns/overlays/off", "OVERLAYS OFF — the clock, the message, the countdown, the logo, the PiP and the weather chip all off"),
@@ -342,7 +342,7 @@ public static class OscMap
             }
             case "schedule": return "SCHEDULE " + Switch(m, seg, "ON", toggles: false);
             // The overlays: /patterns/clock [1|0] · /patterns/clock/24 · /patterns/clock/seconds 0 · /patterns/message "Doors open" · /patterns/message/scroll 1 ·
-            // /patterns/countdown 5 · /patterns/countdown/start/2:30 · /patterns/countdown/to "19:30" · /patterns/countdown/stop · /patterns/logo · /patterns/pip · /patterns/overlays/off
+            // /patterns/countdown 5 · /patterns/countdown/start/2:30 · /patterns/countdown/toggle · /patterns/countdown/to "19:30" · /patterns/countdown/stop · /patterns/logo · /patterns/pip · /patterns/overlays/off
             case "clock":
             {
                 var what = seg.ToLowerInvariant();
@@ -383,10 +383,18 @@ public static class OscMap
                 {
                     case "stop": case "off": case "hide": case "clear": return "COUNTDOWN STOP";
                     case "start": case "on": case "go": return value.Length == 0 ? "COUNTDOWN START" : "COUNTDOWN START " + value;
+                    case "toggle": return "COUNTDOWN TOGGLE";
                     case "to": case "at": case "until": return value.Length == 0 ? null : "COUNTDOWN TO " + value;
                     case "label": case "text": case "title": return value.Length == 0 ? null : "COUNTDOWN LABEL " + value;
                     case "":
-                        return value.Length == 0 ? null : value.ToLowerInvariant() is "stop" or "off" ? "COUNTDOWN STOP" : "COUNTDOWN START " + value;
+                        // A bare /patterns/countdown with nothing to say flips it, like /patterns/logo.
+                        if (value.Length == 0) return "COUNTDOWN TOGGLE";
+                        return value.ToLowerInvariant() switch
+                        {
+                            "stop" or "off" => "COUNTDOWN STOP",
+                            "toggle" => "COUNTDOWN TOGGLE",
+                            _ => "COUNTDOWN START " + value,
+                        };
                     default: return "COUNTDOWN START " + seg;   // /patterns/countdown/5
                 }
             }

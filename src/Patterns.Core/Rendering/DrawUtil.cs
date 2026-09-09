@@ -107,21 +107,11 @@ public static class DrawUtil
 
     /// <summary>Places a box of the given size at one of nine anchors with a margin.</summary>
     public static SKRect Anchored(SKSizeI canvas, float w, float h, Anchor9 anchor, float margin)
-    {
-        float x = anchor switch
-        {
-            Anchor9.TopLeft or Anchor9.MiddleLeft or Anchor9.BottomLeft => margin,
-            Anchor9.TopRight or Anchor9.MiddleRight or Anchor9.BottomRight => canvas.Width - margin - w,
-            _ => (canvas.Width - w) / 2f,
-        };
-        float y = anchor switch
-        {
-            Anchor9.TopLeft or Anchor9.TopCenter or Anchor9.TopRight => margin,
-            Anchor9.BottomLeft or Anchor9.BottomCenter or Anchor9.BottomRight => canvas.Height - margin - h,
-            _ => (canvas.Height - h) / 2f,
-        };
-        return SKRect.Create(x, y, w, h);
-    }
+        // One definition of where an anchor puts a box: the drag's re-anchoring and the pages'
+        // pixel fields read the same arithmetic back out of OverlayPlace.
+        => SKRect.Create(
+            OverlayPlace.BaseLeft(canvas, w, anchor, margin),
+            OverlayPlace.BaseTop(canvas, h, anchor, margin), w, h);
 
     /// <summary>An anchored box nudged by a share of the canvas on each axis (a dragged overlay).</summary>
     public static SKRect Anchored(SKSizeI canvas, float w, float h, Anchor9 anchor, float margin, double offsetXPct, double offsetYPct)
@@ -194,7 +184,7 @@ public static class DrawUtil
         var padY = textSize * 0.42f;
         var boxW = textWidth + padX * 2;
         var boxH = textSize + padY * 2;
-        if (margin < 0) margin = Math.Max(8, canvas.Height * 0.02f);
+        if (margin < 0) margin = OverlayPlace.ChipMarginFor(canvas);
         return Anchored(canvas, boxW, boxH, anchor, margin, offsetXPct, offsetYPct);
     }
 

@@ -26,8 +26,11 @@ public sealed class App : Application
             var window = new MainWindow { DataContext = vm };
             services.AttachMainWindow(window);
             desktop.MainWindow = window;
-            // After a watchdog relaunch the show goes back on as soon as the window has opened.
-            if (LaunchOptions.Recover) services.RecoverWhenReady(vm);
+            // After a watchdog relaunch the show goes back on as soon as the window has opened —
+            // and so it does after this start took the screens back from a run that was still
+            // playing on them, whether or not a watchdog was in the story (a hand relaunch of a
+            // hung desk is the same room, the same screens and the same show).
+            if (LaunchOptions.Recover || services.Takeover.TookOver) services.RecoverWhenReady(vm);
 
             // Previews are sandboxed by default: the operator can touch any editor from the
             // first second without it reaching the audience.

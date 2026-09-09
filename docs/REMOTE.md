@@ -94,6 +94,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `MESSAGE SCROLL [ON\|OFF]` | The message as a ticker across the screen, or a still line (`TICKER [ON\|OFF]` is the same); no word toggles |
 | `COUNTDOWN <minutes>` / `COUNTDOWN START <minutes\|m:ss>` | A countdown of that long from now, on air — `5`, `2.5`, `2:30`, `90s`; bare `COUNTDOWN START` runs the countdown as it is set up (its time of day, else its duration again). `TIMER` is an alias |
 | `COUNTDOWN TO <HH:mm>` | A countdown to a time of day, 24-hour, local (`AT` / `UNTIL` are the same); a time that passed less than twelve hours ago reads as over, one further back means tomorrow |
+| `COUNTDOWN` / `COUNTDOWN TOGGLE` | The countdown flips — off when it is on air, else started as the desk has it set up (its time of day, else its duration from now). One key on a phone or a Stream Deck, like a bare `CLOCK`, `MESSAGE`, `LOGO` or `PIP`; `TIMER` is the same |
 | `COUNTDOWN STOP` | The countdown leaves (`OFF` / `HIDE` / `CLEAR` are the same) |
 | `COUNTDOWN LABEL <text>` | The words over the digits — BACK FROM LUNCH IN |
 | `LOGO ON` / `OFF` / `TOGGLE` | The brand logo overlay (the file is the Branding page's); bare `LOGO` toggles |
@@ -266,7 +267,7 @@ float above 0.5, a bool, or the words `on` / `off` / `toggle`. Bundles are read 
 | `/patterns/weather [1\|0\|now\|day\|tomorrow]` | WEATHER ON / OFF — the weather chip on air; no argument toggles; a view word picks what it shows (also `/patterns/weather/tomorrow`) |
 | `/patterns/clock [1\|0\|12\|24]` | CLOCK ON / OFF — the clock overlay; no argument toggles; 12 or 24 sets the hours (also `/patterns/clock/24`, `/patterns/clock/on`); `/patterns/clock/seconds [1\|0]` and `/patterns/clock/date [1\|0]` the seconds and the date line |
 | `/patterns/message [1\|0\|"text"]` | MESSAGE ON / OFF — the message overlay; no argument toggles; a text puts the words on (also `/patterns/message/text "…"`, `/patterns/msg/Doors/open`); `/patterns/message/scroll [1\|0]` (or `/patterns/ticker`) makes it a ticker |
-| `/patterns/countdown <minutes>` | COUNTDOWN START — a duration from now (also `/patterns/countdown/start 5`, `/patterns/countdown/start/2:30`, `/patterns/timer/10`); `/patterns/countdown/to "19:30"` (or `/to/19:30`) a time of day; `/patterns/countdown/stop`; `/patterns/countdown/label "DOORS IN"` |
+| `/patterns/countdown <minutes>` | COUNTDOWN START — a duration from now (also `/patterns/countdown/start 5`, `/patterns/countdown/start/2:30`, `/patterns/timer/10`); `/patterns/countdown` with nothing to say, `/patterns/countdown/toggle` or `/patterns/countdown "toggle"` flips it; `/patterns/countdown/to "19:30"` (or `/to/19:30`) a time of day; `/patterns/countdown/stop`; `/patterns/countdown/label "DOORS IN"` |
 | `/patterns/logo [1\|0]` · `/patterns/pip [1\|0]` | LOGO / PIP ON / OFF; no argument toggles |
 | `/patterns/overlays/off` | OVERLAYS OFF — every overlay off in one message |
 | `/patterns/pattern <kind>` | PATTERN — the kind of picture on air (also `/patterns/pattern/Grid`) |

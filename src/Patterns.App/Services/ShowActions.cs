@@ -334,21 +334,7 @@ public sealed class ShowActions
                 if (a.Value.Trim().Length == 0)
                 {
                     // A bare START: the countdown as it is set up — the time of day it points at, else its duration from now.
-                    var setUp = _s.AirState.Countdown;
-                    if (setUp.TargetKind == CountdownTargetKind.TimeOfDay && CountdownService.TryParseTime(setUp.TargetTime, out _))
-                    {
-                        var to = setUp.TargetTime;
-                        _s.EditAir(air => air.Countdown.Enabled = true);
-                        return ActionResult.Done($"Countdown to {to}.");
-                    }
-                    var configured = setUp.DurationMinutes;
-                    _s.EditAir(air =>
-                    {
-                        air.Countdown.TargetKind = CountdownTargetKind.Duration;
-                        air.Countdown.ArmedAtUtc = DateTime.UtcNow;
-                        air.Countdown.Enabled = true;
-                    });
-                    return ActionResult.Done($"Countdown running: {configured:0.#} min.");
+                    return StartCountdownAsSetUp();
                 }
                 if (!double.TryParse(a.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
                 {
@@ -366,6 +352,17 @@ public sealed class ShowActions
             case ShowActionKind.CountdownStop:
                 _s.EditAir(air => air.Countdown.Enabled = false);
                 return ActionResult.Done("Countdown off.");
+            case ShowActionKind.CountdownToggle:
+                // One key for the countdown, the way the clock, the message, the logo, the PiP and
+                // the weather chip already have one: off when it is on air, else started as the
+                // desk has it set up. A phone, a Stream Deck key, an OSC address and a cue all say
+                // the same thing, and the key that turned it on turns it off again.
+                if (_s.AirState.Countdown.Enabled)
+                {
+                    _s.EditAir(air => air.Countdown.Enabled = false);
+                    return ActionResult.Done("Countdown off.");
+                }
+                return StartCountdownAsSetUp();
             case ShowActionKind.MessageOn:
                 _s.EditAir(air =>
                 {
@@ -1083,6 +1080,30 @@ public sealed class ShowActions
             default:
                 return ActionResult.Refused($"Unknown action '{a.Kind}'.");
         }
+    }
+
+    /// <summary>
+    /// The countdown on air as the desk has it set up: the time of day it points at when that
+    /// reads, else its own duration armed from now. What a bare START means, and the "on" half of
+    /// the toggle — the two must never drift apart.
+    /// </summary>
+    private ActionResult StartCountdownAsSetUp()
+    {
+        var setUp = _s.AirState.Countdown;
+        if (setUp.TargetKind == CountdownTargetKind.TimeOfDay && CountdownService.TryParseTime(setUp.TargetTime, out _))
+        {
+            var to = setUp.TargetTime;
+            _s.EditAir(air => air.Countdown.Enabled = true);
+            return ActionResult.Done($"Countdown to {to}.");
+        }
+        var configured = setUp.DurationMinutes;
+        _s.EditAir(air =>
+        {
+            air.Countdown.TargetKind = CountdownTargetKind.Duration;
+            air.Countdown.ArmedAtUtc = DateTime.UtcNow;
+            air.Countdown.Enabled = true;
+        });
+        return ActionResult.Done($"Countdown running: {configured:0.#} min.");
     }
 
     /// <summary>

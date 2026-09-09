@@ -92,7 +92,7 @@ below and keep the remote's ports off the public side.
 **Assistance** starts with the **SUPPORT BUNDLE**: a zip beside the settings (or downloaded from
 the ADMIN page) with `patterns.log` (and its `.old`), the watchdog's log, the show journal, the
 settings with every secret blanked (`AdminPasscode`, `ManagementToken`, tokens and keys become
-`•••`), the last super-check, the metrics CSV, the recovery sidecar, the last update note and a
+`•••`), the last super-check, the metrics CSV, the recovery sidecar, the screens' ownership record, the last update note and a
 `bundle-info.txt` with the site, the build, the machine, the health line and what the install, the
 update folder and the check-in are doing. Send it with the question.
 

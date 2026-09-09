@@ -77,6 +77,7 @@ public sealed partial class MainViewModel
         Guard("audio", PollAudio);
         Guard("tallies", RefreshTallies);
         Guard("health", PollHealth);
+        Guard("screens", PollOwnership);
         Guard("quality", PollQuality);
         Guard("machine", PollAdmin);
         Guard("inputs", RefreshActiveInputs);
@@ -92,6 +93,7 @@ public sealed partial class MainViewModel
         Guard("pickers", PollPickers);
         Guard("web", RefreshWebControls);
         Guard("clock", PollClock);
+        Guard("places", PollPlaces);
         _services.DeskTick.Record(_tickWatch.Elapsed.TotalMilliseconds, _tickSlowestArea, _tickSlowestMs);
         DeskTickText = _services.DeskTick.Describe();
         RenderBudgetText = FrameBudgets.Describe(ShowClock.Seconds);
@@ -198,6 +200,25 @@ public sealed partial class MainViewModel
             : beacon.Status;
     }
 
+    /// <summary>
+    /// The screens' beat. While the outputs are live this desk's ownership record is refreshed
+    /// every second — from this very tick on purpose, so a desk whose UI thread has stopped
+    /// answering stops beating while its render windows play on, and the next start reads that
+    /// silence as "still playing, nobody at the controls" and takes the screens back. The same
+    /// tick answers another desk asking for them.
+    /// </summary>
+    private void PollOwnership()
+    {
+        _services.Ownership.Tick();
+        var live = _services.Outputs.IsLive;
+        var took = _services.Takeover;
+        ScreensOwnedText = live
+            ? $"The screens are this desk's: {OutputOwnership.TargetWords(_services.Outputs.LiveTargetNames())} live under pid {Environment.ProcessId}."
+            : took.Words.Length > 0
+                ? took.Words
+                : "The outputs are closed — no screen is this desk's.";
+    }
+
     private void PollRun()
     {
         Run.Tick();
@@ -280,6 +301,18 @@ public sealed partial class MainViewModel
     {
         Raise(nameof(HeaderClock));
         RaiseIfChanged(nameof(CountdownPreview), CountdownPreview);
+    }
+
+    /// <summary>
+    /// The overlay pages' pixel fields follow the picture: a drag, a nudge slider, a change of size
+    /// or a canvas of another shape all move the box, and the pixels say where it ended up.
+    /// </summary>
+    private void PollPlaces()
+    {
+        foreach (var place in Places)
+        {
+            place.Refresh();
+        }
     }
 
     private void OnSnapshotPublished()

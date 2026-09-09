@@ -32,6 +32,7 @@
         <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Clock.OffsetXPct, Mode=TwoWay}" />
         <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Clock.OffsetYPct, Mode=TwoWay}" />
       </Grid>
+      <c:PlaceRow Place="{Binding ClockPlace}" />
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Size (% height)" />
         <Slider Grid.Column="1" Minimum="2" Maximum="40" Value="{Binding State.Overlays.Clock.SizePct, Mode=TwoWay}" />
@@ -56,6 +57,7 @@
         <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Logo.OffsetXPct, Mode=TwoWay}" />
         <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Logo.OffsetYPct, Mode=TwoWay}" />
       </Grid>
+      <c:PlaceRow Place="{Binding LogoPlace}" />
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Height (%)" />
         <Slider Grid.Column="1" Minimum="2" Maximum="100" Value="{Binding State.Overlays.Logo.HeightPct, Mode=TwoWay}" />
@@ -85,6 +87,7 @@
         <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Message.OffsetXPct, Mode=TwoWay}" />
         <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Message.OffsetYPct, Mode=TwoWay}" />
       </Grid>
+      <c:PlaceRow Place="{Binding MessagePlace}" />
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Size (% height)" />
         <Slider Grid.Column="1" Minimum="2" Maximum="30" Value="{Binding State.Overlays.Message.SizePct, Mode=TwoWay}" />
@@ -222,6 +225,7 @@
         <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Weather.OffsetXPct, Mode=TwoWay}" />
         <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Weather.OffsetYPct, Mode=TwoWay}" />
       </Grid>
+      <c:PlaceRow Place="{Binding WeatherPlace}" />
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Size (% height)" />
         <Slider Grid.Column="1" Minimum="2" Maximum="40" Value="{Binding State.Overlays.Weather.SizePct, Mode=TwoWay}" />
@@ -280,6 +284,7 @@
         <Slider Grid.Column="1" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Pip.OffsetXPct, Mode=TwoWay}" />
         <Slider Grid.Column="3" Minimum="-100" Maximum="100" Value="{Binding State.Overlays.Pip.OffsetYPct, Mode=TwoWay}" />
       </Grid>
+      <c:PlaceRow Place="{Binding PipPlace}" />
       <Grid ColumnDefinitions="130,*">
         <TextBlock Classes="label" Text="Width (%)" />
         <Slider Grid.Column="1" Minimum="10" Maximum="50" Value="{Binding State.Overlays.Pip.WidthPct, Mode=TwoWay}" />

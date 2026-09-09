@@ -77,6 +77,9 @@ public partial class MainWindow : Window
         };
         _previewPipeline = preview;
         PreviewCanvas.Pipeline = preview;
+        // The pages' pixel fields read the boxes this pane last drew — the window owns the
+        // pipeline, so it hands the view model the way in rather than the pipeline itself.
+        vm.PreviewBox = PreviewBoxOf;
 
         // PROGRAM (top): what the audience sees on the selected target — never the sandbox.
         // A monitor sink, so it never wears an output's identify badge or counts as an output.
@@ -302,6 +305,9 @@ public partial class MainWindow : Window
     private (double X, double Y) _dragFrom;
     private bool _dragMoved;
 
+    /// <summary>How far the box has travelled, in the space it was recorded in — the drop's own pixels, for the re-anchoring.</summary>
+    private SKPoint _dragTravel;
+
     private void HookPreviewDrag()
     {
         PreviewCanvas.PointerPressed += (_, e) =>
@@ -378,6 +384,45 @@ public partial class MainWindow : Window
         PreviewCanvas.PointerExited += (_, _) => PreviewWebLeave();
     }
 
+    /// <summary>
+    /// The box the PREVIEW pane last drew for a kind, with the space it was drawn in — canvas
+    /// pixels for the overlays, the viewport for the PiP inset. Null before a frame, or when the
+    /// overlay is off and nothing was drawn.
+    /// </summary>
+    private PlaceEditor.PlacedBox? PreviewBoxOf(HitKind kind)
+    {
+        if (_previewPipeline is not { LastMap: { } map } pipeline) return null;
+        var hits = pipeline.LastHits;
+        for (var i = hits.Count - 1; i >= 0; i--)
+        {
+            if (hits[i].Kind != kind) continue;
+            var hit = hits[i];
+            var space = hit.ViewportSpace ? map.Target : map.Canvas;
+            return space.Width <= 0 || space.Height <= 0
+                ? null
+                : new PlaceEditor.PlacedBox(hit.Rect, space, MarginFor(kind));
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The margin the renderer kept for this kind. Not one rule for all of them: a chip (the
+    /// message standing still) sits closer in than the clock or the countdown, and the PiP inset is
+    /// drawn per viewport with a margin of its own. Getting this wrong would move a box by the
+    /// difference every time it was re-anchored or typed into.
+    /// </summary>
+    private float MarginFor(HitKind kind)
+    {
+        if (_previewPipeline is not { LastMap: { } map }) return 0;
+        return kind switch
+        {
+            HitKind.Pip => OverlayPlace.PipMarginFor(map.Target),
+            HitKind.Message when DataContext is MainViewModel vm && !vm.State.Overlays.Message.Scroll
+                => OverlayPlace.ChipMarginFor(map.Canvas),
+            _ => OverlayPlace.MarginFor(map.Canvas),
+        };
+    }
+
     /// <summary>Takes hold of the layer or overlay under a point on the PREVIEW pane (DIPs); false when the pointer is on the picture itself (a web page included).</summary>
     public bool BeginPreviewDrag(Point dip)
     {
@@ -388,6 +433,7 @@ public partial class MainWindow : Window
         _dragHit = hit;
         _dragStart = device;
         _dragFrom = vm.DragPlaceOf(hit.Value.Kind);
+        _dragTravel = default;
         _dragMoved = false;
         return true;
     }
@@ -403,15 +449,15 @@ public partial class MainWindow : Window
         double dxPct, dyPct;
         if (hit.ViewportSpace)
         {
-            var t = map.TargetDelta(delta);
-            dxPct = t.X * 100.0 / Math.Max(1, map.Target.Width);
-            dyPct = t.Y * 100.0 / Math.Max(1, map.Target.Height);
+            _dragTravel = map.TargetDelta(delta);
+            dxPct = _dragTravel.X * 100.0 / Math.Max(1, map.Target.Width);
+            dyPct = _dragTravel.Y * 100.0 / Math.Max(1, map.Target.Height);
         }
         else
         {
-            var c = map.CanvasDelta(delta);
-            dxPct = c.X * 100.0 / Math.Max(1, map.Canvas.Width);
-            dyPct = c.Y * 100.0 / Math.Max(1, map.Canvas.Height);
+            _dragTravel = map.CanvasDelta(delta);
+            dxPct = _dragTravel.X * 100.0 / Math.Max(1, map.Canvas.Width);
+            dyPct = _dragTravel.Y * 100.0 / Math.Max(1, map.Canvas.Height);
         }
         vm.DragPlace(hit.Kind, _dragFrom.X + dxPct, _dragFrom.Y + dyPct);
     }
@@ -420,10 +466,34 @@ public partial class MainWindow : Window
     {
         if (_dragHit is { } hit && _dragMoved && DataContext is MainViewModel vm)
         {
+            Reanchor(hit, vm);
             vm.StatusMessage = $"{MainViewModel.DragName(hit.Kind)} placed — {(vm.IsSandboxActive ? "in the preview; CUT or TAKE puts it on air" : "on air")}.";
         }
         _dragHit = null;
         _dragMoved = false;
+        _dragTravel = default;
+    }
+
+    /// <summary>
+    /// The drop, told from the nearest anchor: the same pixels, so nothing moves, but the Nudge
+    /// sliders come back to counting from a corner or an edge the element is actually near. Without
+    /// it a chip dragged across the frame keeps counting from the anchor it left — a displacement,
+    /// not a place — and lands somewhere else again on a canvas of another shape or at another
+    /// size. A layer has no anchor (its box is the canvas's own share) and is left alone.
+    /// </summary>
+    private void Reanchor(HitRect hit, MainViewModel vm)
+    {
+        if (vm.AnchoredOf(hit.Kind) is null || _previewPipeline is not { LastMap: { } map }) return;
+        var space = hit.ViewportSpace ? map.Target : map.Canvas;
+        if (space.Width <= 0 || space.Height <= 0) return;
+        // The box where it was dropped: the place from where it was taken hold of plus the
+        // pointer's travel in that same space (exact, and it needs no frame to have been drawn
+        // since), the size from the last frame when there is one — the countdown's digits narrow as
+        // it counts, and a stale width would re-anchor it half a digit out.
+        var size = vm.PreviewBox?.Invoke(hit.Kind) is { } drawn ? drawn.Rect : hit.Rect;
+        var box = SKRect.Create(hit.Rect.Left + _dragTravel.X, hit.Rect.Top + _dragTravel.Y, size.Width, size.Height);
+        var (anchor, x, y) = OverlayPlace.Reanchor(space, box, MarginFor(hit.Kind), vm.AnchoredOf(hit.Kind)?.Anchor);
+        vm.DragReanchor(hit.Kind, anchor, x, y);
     }
 
     private SKPoint ToDevice(Point dip)

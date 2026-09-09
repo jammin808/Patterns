@@ -177,6 +177,120 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 29. Round 20 — the countdown's one key, the drop's anchor, the screens re-owned
+
+The user's round-20 list: "The feature to turn the countdown off and on has stopped working." —
+"When an overlay is repositioned by drag and drop, it affects the center point of the sliders. It
+needs to stay relative." — "If Patterns crashes and restarts, the render engines keep playing to
+keep content alive on screens - this is correct and good. However, the old render windows don't get
+re-owned on restart and continue playing without any way to stop them. The restart needs to identify
+what was/is playing and re-take ownership and control." With them the standing rule: stability,
+resilience, efficiency, UX, performance across system specs, durability and an easy show workflow;
+every change instant. The answers are §30. Newest row first. The checklist for the Windows machine
+is `docs/CHECKLIST-round20.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 3 | The screens re-owned after a crash (§30.3). A crash or a hang leaves the render windows up — deliberately, the room keeps its picture — but they then answer to nobody: nothing on the new desk can stop them, retarget them or put the next look on them, and OUTPUTS ON opens a second set behind the first. `OutputOwnership` (Core, pure) is the rule and `OutputOwnerStore` the two sidecars: `patterns.outputs.json`, written and beaten once a second by whoever has the screens (from the desk's own poll, on purpose — a wedged UI thread stops beating while its windows play on, and that silence is the signal), and `patterns.handover.json`, an ask written by a new desk. `OutputTakeover.ClaimAtStart` runs from `Program.Main` before Avalonia: a record from a dead process is swept up, one from a live one is asked for the screens (a desk whose UI answers closes its windows within a second and says so), and one that never answers inside the three-second grace is ended — but only once its start time matches the record's, so a reused pid is never mistaken for the owner, and only once the executable is provably Patterns. The show then goes back on those screens through the recovery sidecar a watchdog restart already reads, whether or not a watchdog was in the story. A pid is checked with its start time; another computer's record (a folder on a share) is left alone; `Watchdog.TakeOverOutputs` turns it off, and the health line, the Machine page's SCREENS line and the status line say what was found and done. Tests: the record's every reading (free, ours, a dead owner, a reused pid, a live desk, a hung one, another machine, a record from last month), the grace, the ask obeyed once and never by its asker, the words, the disk round trip with junk; on a live desk the record written while the outputs are live, beaten by the poll and gone when they close, a hung run asked then ended, a live one standing down un-ended, nothing but Patterns ever ended, the tick off leaving them alone, a desk standing down on an ask and never on its own or a stale one, and the takeover on the health line taken once. | done |
+| 2 | An overlay's place: the drop told from the nearest anchor, and pixels (§30.2). An overlay's place is an anchor and a nudge from it as a share of the canvas — that is what keeps it relative — but a drag left the anchor behind: a chip dragged to the bottom-right from the middle read +42 / +43, a displacement rather than a place, so the sliders counted from an anchor the element had left, it landed hundreds of pixels short of that corner on a wall of another shape, and it slid as the box's own size changed. `OverlayPlace` (Core, pure) holds the arithmetic the renderer already used (`DrawUtil.Anchored` now reads it) plus `Reanchor`: the same box told from the anchor whose own column and row leave the smallest nudge, chosen per axis and exact to the pixel. `EndPreviewDrag` applies it on the drop from the box's own hit rect and the pointer's travel, so nothing moves — the reading changes, not the picture — and the sliders come back to a small nudge from a corner, an edge or the centre that is still there at another size and on a 32:9 wall. Beside them every overlay page gains `Place X / Y (px)`: one `PlaceRow` control over a `PlaceEditor` per overlay, reading the box's top-left on the canvas the PREVIEW pane is showing (with the box's size and the canvas's under it) and writing the nudge that lands it exactly there — the drag, the sliders and the pixels three ways of saying one thing, all three moving together. `IAnchored` on the seven overlay configs replaces seven near-identical switch arms; a layer has no anchor and is left alone. Tests: the margin and the bases, re-anchoring exact from every anchor and every offset, the drop read as the corner it landed in, a corner still a corner on a 32:9 wall where the nudge from the middle misses by 400 px, a box growing keeping its anchor, typing pixels landing on those pixels, the degenerate canvas; on a live desk the drop re-anchored with nothing moved, a layer untouched, the pixel fields reading and writing and going quiet with nothing drawn, and every overlay page carrying its row. | done |
+| 1 | One key for the countdown (§30.1). The clock, the message, the logo, the PiP and the weather chip have always answered a bare verb by flipping — `CLOCK`, `MESSAGE`, `LOGO`, `PIP`, `WEATHER` — and each has a `*Toggle` kind a cue and a Stream Deck key can carry. The countdown had none: a bare `COUNTDOWN` was `ERR unknown command`, `/patterns/countdown` with nothing to say mapped to nothing, the Companion action offered START / TO / LABEL / STOP and its reading key only ever started it. So from a remote the countdown could be started and stopped but never turned off and on from the one control, which is what the desk's own operators reach for. `ShowActionKind.CountdownToggle` fills it: off when it is on air, else started as the desk has it set up — the time of day it points at, else its duration armed from now, the bare START's own rule, now one helper both call. It is on the wire (`COUNTDOWN`, `COUNTDOWN TOGGLE`, `TIMER`), on OSC (`/patterns/countdown`, `/patterns/countdown/toggle`, `/patterns/countdown "toggle"`), in the cue vocabulary with its words and its summary, on the phone's OVERLAYS tab as a COUNTDOWN key that lights while it is on, and in Companion 2.7.0 as a Toggle mode with the countdown's reading key using it. Tests: the verbs and the addresses parsed, the cue sheet and the summary; on a live desk the bare key on and off again, TIMER, the duration armed from now, and STATE reading it. | done |
+
+## 30. Round 20 — the answers
+
+### 30.1 The countdown's one key: the overlay that never had a toggle
+
+"The feature to turn the countdown off and on has stopped working." The model, the desk's tick and
+the engine were all sound — a headless desk ticks *Countdown on*, the flag reaches the air snapshot
+and `OverlayRenderer` draws it or does not — and the whole suite was green. What had never worked
+was the thing an operator actually reaches for on a remote: **one control that turns it off and on.**
+
+Every other overlay has one. `CLOCK`, `MESSAGE`, `LOGO`, `PIP` and `WEATHER` with nothing after them
+flip, and each carries a `*Toggle` kind, so a phone key, an OSC address, a Stream Deck key and a cue
+can all say "the other way". The countdown carried `CountdownStart`, `CountdownStop`, `CountdownTo`
+and `CountdownLabel` and no toggle at all: a bare `COUNTDOWN` came back `ERR unknown command`,
+`/patterns/countdown` with nothing to say mapped to null, the Companion action's dropdown offered
+START / TO / LABEL / STOP, and its headline key — the one that reads what is left and goes green
+while it runs — only ever started it. Two keys where every sibling needed one, and no way to bind a
+single button to the countdown at all.
+
+`ShowActionKind.CountdownToggle` fills the gap. Off when it is on air; otherwise started **as the
+desk has it set up** — the time of day it points at when that reads, else its own duration armed
+from now. That is exactly what a bare `COUNTDOWN START` already meant, so the two now share one
+helper (`StartCountdownAsSetUp`) rather than drifting apart. It reaches every surface the siblings
+do: `COUNTDOWN`, `COUNTDOWN TOGGLE` and `TIMER` on the wire; `/patterns/countdown`,
+`/patterns/countdown/toggle` and `/patterns/countdown "toggle"` on OSC; the cue vocabulary with its
+words, its label and its summary line; a **COUNTDOWN** key on the phone's OVERLAYS tab that lights
+while it is on and reads *COUNTDOWN — ON (stop)*; and Companion 2.7.0's **Toggle** mode, which the
+countdown's reading key now uses, the separate STOP key staying where it was.
+
+### 30.2 An overlay's place: the drop told from the nearest anchor, and a place in pixels
+
+"When an overlay is repositioned by drag and drop, it affects the center point of the sliders. It
+needs to stay relative." An overlay's place is an `Anchor9` and a nudge from it as a share of the
+canvas, and that share is what keeps it relative — a chip 4% in from the right is 4% in on an HD
+monitor and on a 32:9 wall. The trouble was that **a drag moved the box and left the anchor where it
+was**. Drag a chip from the middle to the bottom-right and the sliders read +42 / +43 from Center:
+not a place, a displacement. Three things follow. The sliders now count from a point the element has
+left, so a small nudge afterwards jumps it. On a canvas of another shape the same percentages land it
+hundreds of pixels short of the corner it was dropped in — 424 px on a 5760-wide wall in the test.
+And because the anchored *edge* is what a box keeps as its size changes, an element told from the
+wrong anchor slides when its Size slider moves or, for the countdown, when 10:00 becomes 9:59.
+
+So a drop is now **told from the nearest anchor**. `OverlayPlace` (Core, pure) holds the arithmetic
+the renderer already used — `DrawUtil.Anchored` reads `BaseLeft` / `BaseTop` out of it now, so there
+is one definition — and adds `Reanchor`: the same box, expressed from the anchor whose own column
+and row leave the smallest nudge, chosen per axis and exact to the pixel. `EndPreviewDrag` applies it
+from the box's own hit rect and the pointer's travel (a box's size does not change under a drag, so
+that is exact without waiting for another frame). **Nothing moves** — the picture is exactly where
+you let go — but *bottom-right, nudge nothing* is what the sliders then say, and that survives a
+bigger canvas, another shape and a change of size. A layer has no anchor (its box is already the
+canvas's own share) and is left alone. `IAnchored` on the seven overlay configs replaces seven
+near-identical switch arms.
+
+Beside the Nudge sliders every overlay page gains **Place X / Y (px)**: one `PlaceRow` control over a
+`PlaceEditor` per overlay, reading where the box's top-left actually is on the canvas the PREVIEW
+pane is showing, with the box's size and the canvas's under it, and writing back through
+`NudgeForTopLeft` — type 640 and the box's left edge is on pixel 640, the nudge following. The
+window hands the view model the way in (`MainViewModel.PreviewBox`) rather than the pipeline itself,
+the desk's poll refreshes the readouts once a second so they follow a drag, and with nothing drawn
+the fields go quiet rather than lying about where something is. The drag, the sliders and the pixels
+are three ways of saying one thing, and all three move together.
+
+### 30.3 The screens re-owned: a record, a beat, an ask, and a last resort
+
+"If Patterns crashes and restarts, the render engines keep playing to keep content alive on screens —
+this is correct and good. However, the old render windows don't get re-owned on restart and continue
+playing without any way to stop them." Exactly so: a hung desk still draws (the render threads are
+not the UI thread), and a hand relaunch or a watchdog restart brings up a second desk that knows
+nothing about the first one's windows. Nothing on the new desk can stop them, retarget them or put
+the next look on them, and OUTPUTS ON opens a second set behind the first.
+
+The desk now says who has the screens. `OutputOwnerStore` keeps two tiny sidecars beside the
+settings, atomic like the settings store: `patterns.outputs.json`, written by whoever has the
+outputs open — its pid, **its process's own start time** (a pid number is handed out again, a start
+time is not), a heartbeat, the targets by the operator's own names, the machine and the executable —
+and `patterns.handover.json`, an ask written by a new desk. The heartbeat is refreshed from the
+desk's once-a-second poll **on purpose**: a desk whose UI thread has stopped answering stops beating
+while its windows play on, and that silence is precisely the signal the next start needs.
+
+`OutputOwnership` (Core, pure) reads the record: free, ours, stale (the process is gone, or a
+different one now wears its id — its windows went with it), held by a live desk, held by a hung one,
+or another computer's (a show folder on a share, never this desk's to take). `OutputTakeover.
+ClaimAtStart` runs from `Program.Main` **before Avalonia starts**, so the screens are this desk's
+before a single window opens: litter is swept up; a live owner is **asked** for the screens and,
+because its own poll answers within a second, closes its windows and tells its operator what
+happened; an owner that does not answer inside the three-second grace is **ended** — but only once
+its start time still matches the record's and its executable is provably Patterns, because a pid is
+never enough to end something by. The show then goes back on those screens through the recovery
+sidecar a watchdog restart already reads, so the picture returns to what the audience was seeing,
+whether or not a watchdog was in the story.
+
+`Watchdog.TakeOverOutputs` (on by default) turns the whole thing off, after which a start leaves the
+windows where they are and says so instead. What was found and done goes on the health line, on the
+Machine page's own SCREENS line and on the status line — *Took 2 screens (Main wall, Foyer) back
+from the last run (pid 4242, ended — it had stopped answering); the show is back on them* — so "the
+screens are this desk's" is a fact the operator reads rather than infers.
+
 ## 19. Round 15 — the crash between menus, fade to black per screen, the desk's room
 
 The user's round-15 list, the crash first: "Crash moving between menus. It restarted." Then the

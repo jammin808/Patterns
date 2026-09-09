@@ -42,7 +42,11 @@ public class OverlayRemoteTests
         Assert.Equal(ShowActionKind.CountdownStop, ControlProtocol.Parse("COUNTDOWN STOP").Action.Kind);
         Assert.Equal(ShowActionKind.CountdownStop, ControlProtocol.Parse("COUNTDOWN OFF").Action.Kind);
         Assert.Equal(new ShowAction(ShowActionKind.CountdownLabel, "", "BACK FROM LUNCH IN"), ControlProtocol.Parse("COUNTDOWN LABEL BACK FROM LUNCH IN").Action);
-        Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("COUNTDOWN").Kind);
+        // A bare COUNTDOWN flips it, the way a bare CLOCK, MESSAGE, LOGO or PIP does — one key
+        // on a phone or a Stream Deck turns the countdown on and off again.
+        Assert.Equal(ShowActionKind.CountdownToggle, ControlProtocol.Parse("COUNTDOWN").Action.Kind);
+        Assert.Equal(ShowActionKind.CountdownToggle, ControlProtocol.Parse("COUNTDOWN TOGGLE").Action.Kind);
+        Assert.Equal(ShowActionKind.CountdownToggle, ControlProtocol.Parse("TIMER").Action.Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("COUNTDOWN START soon").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("COUNTDOWN TO").Kind);
 
@@ -104,7 +108,9 @@ public class OverlayRemoteTests
         Assert.Equal("COUNTDOWN STOP", OscMap.ToLine(OscMessage.Of("/patterns/countdown/stop")));
         Assert.Equal("COUNTDOWN STOP", OscMap.ToLine(OscMessage.Of("/patterns/countdown", "off")));
         Assert.Equal("COUNTDOWN LABEL DOORS IN", OscMap.ToLine(OscMessage.Of("/patterns/countdown/label", "DOORS IN")));
-        Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/countdown")));
+        Assert.Equal("COUNTDOWN TOGGLE", OscMap.ToLine(OscMessage.Of("/patterns/countdown")));
+        Assert.Equal("COUNTDOWN TOGGLE", OscMap.ToLine(OscMessage.Of("/patterns/countdown/toggle")));
+        Assert.Equal("COUNTDOWN TOGGLE", OscMap.ToLine(OscMessage.Of("/patterns/countdown", "toggle")));
         Assert.Null(OscMap.ToLine(OscMessage.Of("/patterns/countdown/to")));
         Assert.Equal("LOGO TOGGLE", OscMap.ToLine(OscMessage.Of("/patterns/logo")));
         Assert.Equal("LOGO ON", OscMap.ToLine(OscMessage.Of("/patterns/logo/on")));

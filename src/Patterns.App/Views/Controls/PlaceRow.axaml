@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:Patterns.App.Views.Controls"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Controls.PlaceRow"
+             x:DataType="c:PlaceRow">
+
+  <!-- The same place in pixels: the anchor and the nudge keep it relative, this says where it is.
+       Typing writes the nudge that lands the box on exactly those pixels of the canvas the PREVIEW
+       pane is showing, so a drag, the sliders and this field are three ways to say one thing. -->
+  <StackPanel>
+    <Grid ColumnDefinitions="130,*,8,*"
+          IsEnabled="{Binding $parent[c:PlaceRow].Place.HasBox}"
+          DataContext="{Binding $parent[c:PlaceRow].Place}"
+          x:DataType="vm:PlaceEditor">
+      <TextBlock Classes="label" Text="Place X / Y (px)"
+                 ToolTip.Tip="Where the box's top-left sits on the canvas the PREVIEW pane is showing. The anchor and the nudge are what is saved — this is the same place in pixels, so it keeps up with a drag and follows a change of size or canvas" />
+      <NumericUpDown Grid.Column="1" Minimum="-32768" Maximum="32768" Increment="1" FormatString="0"
+                     Value="{Binding XPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <NumericUpDown Grid.Column="3" Minimum="-32768" Maximum="32768" Increment="1" FormatString="0"
+                     Value="{Binding YPx, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <TextBlock Classes="hint" Text="{Binding $parent[c:PlaceRow].Place.Words}" />
+  </StackPanel>
+</UserControl>

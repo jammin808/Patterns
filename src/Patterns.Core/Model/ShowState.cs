@@ -290,7 +290,19 @@ public sealed class OutputAssignment : Observable
     public bool PinnedByTake { get => _pinnedByTake; set => Set(ref _pinnedByTake, value); }
 }
 
-public sealed class ClockOverlay : Observable
+/// <summary>
+/// An overlay with a place: the anchor it is held to and a nudge from it as a share of the canvas.
+/// The drag's re-anchoring and the pages' pixel fields work through this rather than through seven
+/// near-identical switch arms.
+/// </summary>
+public interface IAnchored
+{
+    Anchor9 Anchor { get; set; }
+    double OffsetXPct { get; set; }
+    double OffsetYPct { get; set; }
+}
+
+public sealed class ClockOverlay : Observable, IAnchored
 {
     private bool _enabled = false;
     private bool _twentyFourHour = true;
@@ -323,7 +335,7 @@ public sealed class ClockOverlay : Observable
     public bool Pill { get => _pill; set => Set(ref _pill, value); }
 }
 
-public sealed class LogoOverlay : Observable
+public sealed class LogoOverlay : Observable, IAnchored
 {
     private bool _enabled = false;
     private Anchor9 _anchor = Anchor9.BottomRight;
@@ -349,7 +361,7 @@ public sealed class LogoOverlay : Observable
 /// the lower third; it travels with looks like every overlay and drags on the PREVIEW pane. Off
 /// for a client's media (video, images, decks, web pages) and the multiview unless asked.
 /// </summary>
-public sealed class BadgeOverlay : Observable
+public sealed class BadgeOverlay : Observable, IAnchored
 {
     public const string DefaultLine = "Show display · test cards · playback";
 
@@ -403,7 +415,7 @@ public sealed class InfoOverlay : Observable
     public Anchor9 Anchor { get => _anchor; set => Set(ref _anchor, value); }
 }
 
-public sealed class MessageOverlay : Observable
+public sealed class MessageOverlay : Observable, IAnchored
 {
     private bool _enabled = false;
     private string _text = "WELCOME";
@@ -458,7 +470,7 @@ public sealed class MessageOverlay : Observable
 /// on every sink like the clock. What it looks like lives here (a look carries it); where the
 /// venue is and where the forecast comes from live in <see cref="WeatherSettings"/> on the show.
 /// </summary>
-public sealed class WeatherOverlay : Observable
+public sealed class WeatherOverlay : Observable, IAnchored
 {
     private bool _enabled;
     private WeatherView _view = WeatherView.Now;
@@ -552,7 +564,7 @@ public sealed class OverlaySet : Observable
 }
 
 /// <summary>Picture-in-picture inset: a second live input composited over whatever is showing.</summary>
-public sealed class PipOverlay : Observable
+public sealed class PipOverlay : Observable, IAnchored
 {
     private bool _enabled;
     private PipSource _source = PipSource.NdiFeed;
@@ -587,7 +599,7 @@ public sealed class PipOverlay : Observable
     public bool ShowBorder { get => _showBorder; set => Set(ref _showBorder, value); }
 }
 
-public sealed class CountdownConfig : Observable
+public sealed class CountdownConfig : Observable, IAnchored
 {
     private bool _enabled = false;
     private string _label = "SHOW STARTS IN";
@@ -1512,11 +1524,20 @@ public sealed class WatchdogConfig : Observable
 {
     private bool _enabled = true;
     private bool _autoRestore = true;
+    private bool _takeOverOutputs = true;
 
     /// <summary>Run under the supervisor (takes effect on the next start).</summary>
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     /// <summary>After a watchdog restart, put live outputs (and a playing track) back automatically.</summary>
     public bool AutoRestore { get => _autoRestore; set => Set(ref _autoRestore, value); }
+
+    /// <summary>
+    /// A start that finds the previous run's render windows still playing takes them back: it asks
+    /// that process for them and, when it has stopped answering, ends it — so the screens are this
+    /// desk's to stop and to change, instead of playing on with nobody at the controls. Off leaves
+    /// them where they are and says so.
+    /// </summary>
+    public bool TakeOverOutputs { get => _takeOverOutputs; set => Set(ref _takeOverOutputs, value); }
 
     private bool _beaconEnabled;
     private string _beaconHost = "255.255.255.255";
