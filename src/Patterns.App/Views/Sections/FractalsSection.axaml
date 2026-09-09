@@ -103,7 +103,8 @@
       <TextBlock Classes="label" Text="Input" VerticalAlignment="Center" />
       <ComboBox Grid.Column="1" ItemsSource="{Binding AudioCaptureDevices}"
                 SelectedItem="{Binding ActivePattern.Fractal.AudioDevice, Mode=TwoWay}"
-                HorizontalAlignment="Stretch" PlaceholderText="Choose an input" />
+                HorizontalAlignment="Stretch" PlaceholderText="Default input"
+                ToolTip.Tip="A microphone, a line, a USB capture card, an interface channel — or Default input, which follows whatever this machine's own input is" />
       <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding RefreshAudioCaptureDevicesCommand}" />
     </Grid>
     <Grid ColumnDefinitions="130,*">
@@ -112,7 +113,7 @@
               ToolTip.Tip="How much the sound moves the picture" />
     </Grid>
     <TextBlock Classes="label" Text="{Binding FractalAudioStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint tip" Text="This computer's sound is whatever plays through its default output — Spotify or a video on this machine included; a Spotify Connect speaker elsewhere is not heard here. An input is a microphone, a line or an interface channel. The level pulses the zoom, the lows drift the colours, the highs brighten. Windows only." />
+    <TextBlock Classes="hint tip" Text="This computer's sound is whatever plays through its default output — Spotify or a video on this machine included; a Spotify Connect speaker elsewhere is not heard here. An input is a microphone, a line, a USB capture card or one channel of an interface; Default input follows whatever this machine's own input is, and a device that is not plugged in yet is looked for again every few seconds. The level pulses the zoom, the lows drift the colours, the highs brighten. Windows only." />
 
     <TextBlock Classes="h2" Text="STINGS" />
     <TextBlock Classes="hint tip" Text="An effect sting surges through the picture: Vortex turns it, Supernova flashes and zooms in, Quake shakes it, Freeze holds it, Gust and Slow do what they say. Add one on the Audio page and fire it like any stinger — a cue, an F-key, Companion, the wire." />

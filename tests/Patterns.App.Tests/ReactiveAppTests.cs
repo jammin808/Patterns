@@ -112,6 +112,58 @@ public class ReactiveAppTests
     }
 
     [AvaloniaFact]
+    public void AReactiveSceneCanListenToAnInputAndThePageCanPickOne()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, window) = b;
+            var analyser = services.Analyser;
+            window.Width = 1420;
+            window.Height = 900;
+            vm.SelectPage(Shell.IndexOf("Reactive"));
+            Dispatcher.UIThread.RunJobs();
+
+            // A reactive scene asks for a sound source of its own — the analyser reads it, the same
+            // way it reads a fractal's. Before this it read only fractals and a scene set to listen
+            // opened nothing at all.
+            vm.UsePatternKindCommand.Execute(PatternKind.Reactive);
+            vm.ActivePattern.Reactive.AudioSource = AudioSourceKind.External;
+            vm.ActivePattern.Reactive.AudioDevice = "Digital Audio Interface (2- USB Capture HDMI+)";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal((AudioSourceKind.External, "Digital Audio Interface (2- USB Capture HDMI+)"), analyser.Wanted());
+            Assert.Equal("Digital Audio Interface (2- USB Capture HDMI+)", vm.ChosenAudioDevice);
+
+            // The page has an input picker on it, and it fills from the same list the fractal page uses.
+            var page = window.GetVisualDescendants().OfType<ReactiveSection>().Single();
+            var picker = page.GetVisualDescendants().OfType<ComboBox>()
+                .FirstOrDefault(c => ReferenceEquals(c.ItemsSource, vm.AudioCaptureDevices));
+            Assert.NotNull(picker);
+
+            // The list always offers the machine's own input, and keeps the box this show names
+            // even when it is not plugged into this machine — a rig is patched after the desk
+            // comes up, and losing the setting at that moment is how a show ends up silent.
+            vm.PollNow();
+            Assert.Equal(AudioInput.DefaultDevice, vm.AudioCaptureDevices[0]);
+            Assert.Contains("Digital Audio Interface (2- USB Capture HDMI+)", vm.AudioCaptureDevices);
+
+            // Nothing named is the machine's own input, not a fault, and the picker says so.
+            vm.ActivePattern.Reactive.AudioDevice = AudioInput.DefaultDevice;
+            vm.PollNow();
+            Assert.Equal(new[] { AudioInput.DefaultDevice }, vm.AudioCaptureDevices.ToArray());
+            Assert.Equal(analyser.Status, vm.FractalAudioStatus);
+
+            // And a scene that is not the pattern on screen opens nothing.
+            vm.ActivePattern.Kind = PatternKind.Grid;
+            Assert.Equal((AudioSourceKind.None, ""), analyser.Wanted());
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void AReactiveSceneDrawsOnEverySinkTheDeskHas()
     {
         var b = TestApp.Boot();

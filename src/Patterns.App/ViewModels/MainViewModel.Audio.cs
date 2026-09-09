@@ -464,18 +464,28 @@ public sealed partial class MainViewModel
         _services.BulkEdit(() => FractalPresets.Apply(name, ActivePattern.Fractal));
     });
 
-    /// <summary>The inputs a sound-reactive effect can listen to, with the show's choice kept when it is not here.</summary>
+    /// <summary>
+    /// The inputs a sound-reactive pattern can listen to — a microphone, a line, a USB capture
+    /// card, an interface channel — with the machine's own default first, and the show's choice
+    /// kept in the list when the box it names is not plugged in here. A rig gets patched in the
+    /// order the crew reach it, so a name that is not on this machine today is a device to wait
+    /// for, not a setting to quietly lose.
+    /// </summary>
     public ObservableCollection<string> AudioCaptureDevices { get; } = new();
 
     private RelayCommand? _refreshAudioCaptureDevices;
 
     public RelayCommand RefreshAudioCaptureDevicesCommand => _refreshAudioCaptureDevices ??= new RelayCommand(RefreshAudioCaptureDevices);
 
+    /// <summary>The input the pattern being edited is set to listen to, whichever sound-reactive kind it is.</summary>
+    public string ChosenAudioDevice => AudioAnalyserService.Asked(ActivePattern).Device;
+
     public void RefreshAudioCaptureDevices()
     {
-        var wanted = AudioAnalyserService.CaptureDevices().ToList();
-        var chosen = ActivePattern.Fractal.AudioDevice;
-        if (chosen.Length > 0 && !wanted.Contains(chosen, StringComparer.OrdinalIgnoreCase)) wanted.Add(chosen);
+        var wanted = new List<string> { AudioInput.DefaultDevice };
+        wanted.AddRange(AudioAnalyserService.CaptureDevices());
+        var chosen = ChosenAudioDevice;
+        if (!AudioInput.WantsDefault(chosen) && AudioInput.IndexOf(wanted, chosen) < 0) wanted.Add(chosen);
         if (AudioCaptureDevices.Count == wanted.Count && AudioCaptureDevices.SequenceEqual(wanted)) return;
         AudioCaptureDevices.Clear();
         foreach (var d in wanted) AudioCaptureDevices.Add(d);

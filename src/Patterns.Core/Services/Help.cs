@@ -513,7 +513,7 @@ public static class HelpTopics
             },
             "PATTERN Fractal · STING <n> (an effect pulse)",
             new[] { "Fractals", "Pattern", "Audio" },
-            new[] { "fractal", "fractals", "fractal studio", "mandelbrot", "julia", "burning ship", "newton", "domain warp", "sound-reactive", "sound reactive", "scenes", "scene", "effect sting", "brand palette", "generative", "living picture" }),
+            new[] { "fractal", "fractals", "fractal studio", "mandelbrot", "julia", "burning ship", "newton", "domain warp", "sound-reactive", "sound reactive", "scenes", "scene", "effect sting", "brand palette", "generative", "living picture", "microphone", "capture card", "audio interface", "default input" }),
 
         new HelpTopic("reactive", HelpGroup.Content,
             "Reactive scenes: six curated pictures that move with the sound",
@@ -530,7 +530,7 @@ public static class HelpTopics
             },
             "PATTERN Reactive · STING <n> (an effect pulse)",
             new[] { "Reactive", "Pattern", "Branding", "Audio" },
-            new[] { "reactive", "visualiser", "visualizer", "scene", "scenes", "tunnel", "kaleidoscope", "plasma", "vortex", "star warp", "pulse", "rings", "sound-reactive", "sound reactive", "walk-in", "walk in", "ambient", "milkdrop", "avs", "winamp", "flash", "strobe", "photosensitive", "epilepsy", "seizure" }),
+            new[] { "reactive", "visualiser", "visualizer", "scene", "scenes", "tunnel", "kaleidoscope", "plasma", "vortex", "star warp", "pulse", "rings", "sound-reactive", "sound reactive", "walk-in", "walk in", "ambient", "milkdrop", "avs", "winamp", "flash", "strobe", "photosensitive", "epilepsy", "seizure", "microphone", "mic", "line in", "capture card", "usb capture", "audio interface", "input", "default input" }),
 
         // ---- THE RIG ----------------------------------------------------------------------
         new HelpTopic("weather", HelpGroup.Content,

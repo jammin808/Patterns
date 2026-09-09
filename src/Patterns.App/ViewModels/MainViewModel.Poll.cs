@@ -186,7 +186,7 @@ public sealed partial class MainViewModel
         }
         RefreshLookMusicChoices(); // a renamed or added entry, a loaded show
         FractalAudioStatus = _services.Analyser.Status;
-        if (ActivePattern.Kind == PatternKind.Fractal) RefreshAudioCaptureDevices();
+        if (ActivePattern.Kind is PatternKind.Fractal or PatternKind.Reactive) RefreshAudioCaptureDevices();
     }
 
     private void PollHealth()

@@ -76,12 +76,22 @@
                 SelectedValue="{Binding ActivePattern.Reactive.AudioSource, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
     </Grid>
+    <Grid ColumnDefinitions="130,*,8,Auto"
+          IsVisible="{Binding ActivePattern.Reactive.AudioSource, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:AudioSourceKind.External}}">
+      <TextBlock Classes="label" Text="Input" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding AudioCaptureDevices}"
+                SelectedItem="{Binding ActivePattern.Reactive.AudioDevice, Mode=TwoWay}"
+                HorizontalAlignment="Stretch" PlaceholderText="Default input"
+                ToolTip.Tip="A microphone, a line, a USB capture card, an interface channel — or Default input, which follows whatever this machine's own input is" />
+      <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding RefreshAudioCaptureDevicesCommand}" />
+    </Grid>
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Response" ToolTip.Tip="How much the sound moves the scene; the scene keeps moving on its own at 0" />
       <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ActivePattern.Reactive.AudioAmount, Mode=TwoWay}" />
     </Grid>
     <TextBlock Classes="hint" Text="{Binding FractalAudioStatus}" />
     <TextBlock Classes="hint tip" Text="The sound moves a scene; it never drives it. With no sound at all — before the music starts, or on a machine that cannot listen — every scene still runs on the show clock and looks finished." />
+    <TextBlock Classes="hint tip" Text="This computer's sound is whatever plays through its default output. An input is anything Windows captures from: a microphone, a line, a USB capture card, one channel of an interface. An input that is not plugged in yet is looked for again every few seconds, and one moved to another socket is matched by name, so a rig patched after the desk came up still finds it. Windows only." />
 
     <TextBlock Classes="h2" Text="QUALITY" />
     <Grid ColumnDefinitions="130,*">

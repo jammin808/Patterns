@@ -188,6 +188,7 @@ altogether, and the feedback fix was aimed at the wrong lever. The answers are �
 
 | Item | What lands | Status |
 | --- | --- | --- |
+| 5 | The inputs a scene may listen to (§32.4), asked for after the scenes shipped: a microphone, a USB capture card, an interface channel. The analyser was reading fractals only, so a reactive scene set to listen opened nothing — that is fixed at the source (`Asked(PatternConfig)`, one place, by kind) rather than by adding a second lookup, and the Reactive page gained the input picker the Fractals page already had. Around it, the three things that decide whether an input works at doors: *Default input* so a show file need not name a device at all, a named device looked for again every five seconds instead of once, and a USB box matched by name across the socket number Windows stamps into it. | done |
 | 4 | The registration a new `PatternKind` needs, worked as a list rather than assumed: the enum, `PatternRegistry`, `CadenceOf`'s continuous list (miss it and a scene is frozen on NDI, the stream, the thumbnails and every wall tile while the main output moves), `BadgeOverlay.ShowsOn` (a whitelist by exception — a new kind would have carried the maker's mark over a client's background by default, so a reactive scene joins media under the operator's own tick), the super-check's advice arm, the desk's kind picker, the `PATTERN Reactive` verb by name, the rail, the window's tabs, the page's neon and a Help topic. | done |
 | 3 | Six scenes, each drawn twice and held to one picture (§32.3). Plasma, Tunnel, Kaleidoscope, Pulse, Vortex, Star Warp — chosen for closed-form maths a CPU can afford. `ReactiveField` (Core, pure) is the arithmetic; `ReactivePattern` carries the SkSL sources written line for line against it; `ReactiveRaster` draws the twin at a working width the quality ladder shrinks, parallel by row at half the cores, then upscales. A test draws both paths and holds them inside a mean difference of 0.06 — the scene contract's last clause, and what makes "the stream shows the wall" a fact rather than an intention. | done |
 | 2 | The scenes as native show content (§32.2). A scene moves on the show clock and the sound only modulates it, because capture is Windows-only and a walk-in before the music is the ordinary case; the brand kit paints it; `EffectSurge` drives it, so every sting that shipped before the scenes surges them without anyone wiring anything; the quality ladder shrinks the CPU working size; the page offers six chips, a handful of bounded sliders and nothing that could make an ugly or unsafe picture. No node graph, no shader scripting, no feedback — feedback is deferred until the stateless engine has been used in anger. | done |
@@ -246,6 +247,49 @@ blow straight past it. It is also what caps the scene count honestly: six scenes
 one sample a pixel, no loops and no feedback — which is why the CPU twin costs about what a plasma
 cost in 1998 and the working width can shrink under the quality ladder without the picture falling
 apart.
+
+### 32.4 An input the rig can be patched after
+
+The scenes shipped able to listen and, on the desk, unable to: `AudioAnalyserService.Wanted()` asked
+each pattern whether it was a `Fractal` and read `Fractal.AudioSource`, so a reactive scene set to
+listen was ignored and the analyser opened nothing. The fix is one method — `Asked(PatternConfig)`,
+which answers by kind and is the only place that knows which kinds hear — rather than a second
+branch beside the first, because the third kind that listens is the one that would have been
+forgotten.
+
+The rest of the round is what stands between "the code opens a device" and "the input works at
+doors", and all three come from the same fact: a rig is patched in the order the crew reach it, and
+the desk is usually running before the sound is.
+
+*The device need not be named.* `Default input` follows whatever Windows calls this machine's input,
+so a show file travels between a desk with an interface and a laptop with a built-in microphone
+without being re-picked. It is the first entry in the picker and what an empty setting means.
+
+*A missing device is a device to wait for.* The reconcile latched: it wrote the key before starting,
+so a device that was not plugged in yet failed once and was never tried again — the status said so
+and the desk sat there. Now the key changing and the capture being open are separate questions, a
+capture that drops clears itself from the capture thread, and a retry runs every five seconds off
+`Environment.TickCount64` (the wall clock, not the show clock, which a show can move). Unplugging
+an input mid-show and plugging it back in gets the sound back without touching the desk.
+
+*A USB box moved to another socket is the same box.* Windows stamps the socket into the friendly
+name, so the card that was `Digital Audio Interface (2- USB Capture HDMI+)` in rehearsal is `(3- …)`
+after somebody moved it, and a string compare reports it missing an hour before doors.
+`AudioInput.IndexOf` takes the saved name first and, failing that, matches on the name with the
+socket stamp taken out — the socket is the only difference it forgives, so a different box or the
+other channel of the same interface is still a different input, and the status line says which
+input actually answered.
+
+Last, the capture format: shared-mode WASAPI hands over 32-bit float and a plain PCM device 16-bit,
+both of which the feed already read, but a capture card or an interface asked for its own format
+hands over 24-bit, which the feed dropped as an odd width. Three widths now, and anything else is
+still left alone rather than read as noise.
+
+Tests: the naming rules in Core without a sound card (nothing named meaning the machine's own input,
+the saved name winning, the socket stamp forgiven and only the socket stamp, the key); on a live desk
+a reactive scene's input read by the analyser, the page's picker, the machine's own input first in
+the list with a device this show names kept in it though it is not plugged in here, a scene that is
+not the pattern on screen opening nothing, and a 24-bit stereo buffer read as sound.
 
 ## 29. Round 20 — the countdown's one key, the drop's anchor, the screens re-owned
 

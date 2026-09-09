@@ -86,7 +86,7 @@ public class FractalAppTests
             Assert.True(levels.Level > 0.3, $"{levels}");
             Assert.Equal(clock, AudioLevels.LastUtc);
 
-            // 16-bit mono lands the same way; an odd width is ignored, never a throw.
+            // 16-bit mono lands the same way; a width nothing captures at is ignored, never a throw.
             var pcm = new WaveFormat(48000, 16, 1);
             var pcmBytes = new byte[Spectrum.Window * 2 * 2];
             for (var i = 0; i < Spectrum.Window * 2; i++)
@@ -97,8 +97,29 @@ public class FractalAppTests
             analyser.Feed(pcmBytes, pcmBytes.Length, pcm);
             var low = AudioLevels.Read(clock);
             Assert.True(low.Low > low.High, $"{low}");
-            analyser.Feed(new byte[300], 300, new WaveFormat(48000, 24, 1));
+            analyser.Feed(new byte[300], 300, new WaveFormat(48000, 8, 1));
             Assert.Equal(low, AudioLevels.Read(clock));
+
+            // Twenty-four bit stereo — what a USB capture card or an interface hands over when it
+            // is asked for its own format — is read as sound rather than dropped as an odd width.
+            var deep = new WaveFormat(48000, 24, 2);
+            var deepBytes = new byte[Spectrum.Window * 2 * 6];
+            for (var i = 0; i < Spectrum.Window * 2; i++)
+            {
+                var value = (int)(0.5 * 8388607 * Math.Sin(2 * Math.PI * 6000 * i / 48000.0));
+                for (var ch = 0; ch < 2; ch++)
+                {
+                    var o = i * 6 + ch * 3;
+                    deepBytes[o] = (byte)value;
+                    deepBytes[o + 1] = (byte)(value >> 8);
+                    deepBytes[o + 2] = (byte)(value >> 16);
+                }
+            }
+            clock = T0.AddSeconds(4);
+            analyser.Feed(deepBytes, deepBytes.Length, deep);
+            var high = AudioLevels.Read(clock);
+            Assert.True(high.High > high.Low, $"{high}");
+            Assert.True(high.Level > 0.3, $"{high}");
 
             // Read back through a render: the fractal on air sees the levels while they are fresh.
             b.Vm.State.Pattern.Kind = PatternKind.Fractal;
