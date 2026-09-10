@@ -140,6 +140,12 @@ public sealed partial class ControlService
   </div>
   <div id="nowrow" class="grid" style="margin-top:10px"></div>
   <div class="line">STOP ALL stops the audio track, break music, VOGs, stingers and the tone — never the outputs, blackout or the stream. Press it twice.</div>
+  <div class="sec">STREAM</div>
+  <div class="grid row2">
+    <button id="streamon" class="go" onclick="cmd('STREAM ON')">STREAM ON</button>
+    <button class="stop" onclick="cmd('STREAM OFF')">STREAM OFF</button>
+  </div>
+  <div id="streamline" class="line"></div>
   <div class="sec">FREEZE · FADE</div>
   <div class="grid row3">
     <button id="freeze" class="big" onclick="cmd('FREEZE TOGGLE')" title="Every output holds its frame until you press again">FREEZE</button>
@@ -554,6 +560,15 @@ function render(s) {
   document.getElementById('machine').textContent = 'CPU ' + (mc.cpu >= 0 ? mc.cpu + '%' : 'n/a') + ' · RAM ' + (mc.ram >= 0 ? mc.ram + '%' : 'n/a') + ' · ' + (mc.fps || 0) + ' fps · ' + (mc.battery ? 'ON BATTERY' : 'mains') + (mc.advice ? ' · ' + mc.advice + ' advice' : '');
   var stream = s.stream || {};
   document.getElementById('stream').textContent = 'Stream: ' + (stream.active ? 'ON — ' : 'off — ') + (stream.status || '');
+  // The SHOW tab's own line and light: the same word and colour the desk's rail shows, so a
+  // phone at the tech table sees a stream fall behind without anyone at the desk.
+  var sl = document.getElementById('streamline');
+  if (sl) {
+    sl.textContent = (stream.word || '') + (stream.up ? ' · ' + stream.up : '') + (stream.health ? ' — ' + stream.health : '');
+    sl.style.color = stream.hue || '';
+  }
+  var son = document.getElementById('streamon');
+  if (son) son.classList.toggle('on', !!stream.active);
   var bc = s.beacon || {};
   document.getElementById('main').textContent = bc.main ? bc.main : (bc.sending ? 'Beacon: sending' : '');
   document.getElementById('where').textContent = 'Connected to ' + location.host + ' · state ' + rev;

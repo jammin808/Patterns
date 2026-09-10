@@ -200,6 +200,9 @@ public sealed partial class MainViewModel
     public RelayCommand<ShellGroup> SelectGroupCommand { get; private set; } = null!;
     public RelayCommand<int> SelectPageCommand { get; private set; } = null!;
 
+    /// <summary>Open a page by its name — the rail's foot, and anywhere a page number would go stale.</summary>
+    public RelayCommand<string> SelectPageByNameCommand { get; private set; } = null!;
+
     private RelayCommand<string>? _openPage;
 
     /// <summary>A page by its header — the pointer buttons on the Pattern page (OPEN FRACTALS, OPEN PARTICLES) use it, so a moved page never breaks them.</summary>

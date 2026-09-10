@@ -764,6 +764,29 @@ public sealed class LookConfig : Observable
     public string Name { get => _name; set => Set(ref _name, value); }
     /// <summary>1–12 → F1–F12; 0 = no hotkey.</summary>
     public int Hotkey { get => _hotkey; set => Set(ref _hotkey, Math.Clamp(value, 0, 12)); }
+
+    /// <summary>What a look does to the stream, if anything.</summary>
+    public enum LookStream
+    {
+        Leave,
+        Start,
+        Stop,
+    }
+
+    private LookStream _stream;
+
+    /// <summary>
+    /// The stream this look starts or stops when it goes on air; Leave (the default) does not
+    /// touch it. The same shape as <see cref="MusicItemId"/> and for the same reason: a look is a
+    /// picture, and the two things an operator wants to happen *with* a picture — the break music
+    /// under it and the broadcast of it — are worth carrying with it rather than remembering.
+    ///
+    /// This is what gives an F-key, the presenter's clicker list and a permanent install's
+    /// schedule a stream command: all three recall a look, and none of them carries an action
+    /// list of its own. Loading a look into the preview never touches the stream, exactly as it
+    /// never touches the music — nothing that has not gone to air may reach the internet.
+    /// </summary>
+    public LookStream Stream { get => _stream; set => Set(ref _stream, value); }
     /// <summary>The captured state, stored as an opaque JSON blob (LookData).</summary>
     public string Json { get => _json; set => Set(ref _json, value); }
 
@@ -1899,9 +1922,17 @@ public sealed class WebConfig : Observable
 {
     private string _url = "";
     private string _targetScreenId = "";
+    private Services.PageServicePick _service;
+    private bool _clean;
 
     /// <summary>The page the Remote &amp; web page puts on the pattern (https://… or a local file path).</summary>
     public string Url { get => _url; set => Set(ref _url, value); }
+
+    /// <summary>What that page is treated as when it lands; Auto reads the address.</summary>
+    public Services.PageServicePick Service { get => _service; set => Set(ref _service, value); }
+
+    /// <summary>Whether that page lands with its service's furniture taken off.</summary>
+    public bool Clean { get => _clean; set => Set(ref _clean, value); }
     /// <summary>Kept for show files from before pages lived inside the engine; nothing opens outside Patterns any more.</summary>
     public string TargetScreenId { get => _targetScreenId; set => Set(ref _targetScreenId, value); }
 

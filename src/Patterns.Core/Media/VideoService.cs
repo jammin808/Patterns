@@ -91,6 +91,13 @@ public interface IWebSource : IVideoFrameSource
     /// <summary>A line of script run in the page — a service's own player driven directly (YouTube's play, seek, mute).</summary>
     void RunScript(string script);
 
+    /// <summary>
+    /// The style the page wears: the service's furniture taken off (CLEAN), or "" for the page as
+    /// the site drew it. Put into every document the page loads, before the page's own scripts
+    /// run, so a player that rebuilds its controls never gets to draw them.
+    /// </summary>
+    string CleanCss { get; set; }
+
     void Navigate(string url);
     void GoBack();
     void GoForward();

@@ -50,8 +50,18 @@
 
     <TextBlock Classes="h2" Text="A WEB PAGE ON THE PATTERN" />
     <TextBlock Classes="hint tip"
-               Text="Session schedules, dashboards, wayfinding, a YouTube video, a Google Slides deck, a PowerPoint on Office 365: paste the address and put it on the pattern. It renders inside the engine — it joins spans and trims, reaches NDI and the stream, rides with looks and cues, takes clicks, keys and typing from the desk — and nothing opens outside Patterns. A YouTube, Vimeo or Slides link goes on as the player or the deck alone." />
+               Text="Session schedules, dashboards, wayfinding, a YouTube video, a Google Slides deck, a PowerPoint on Office 365: paste the address and put it on the pattern. It renders inside the engine — it joins spans and trims, reaches NDI and the stream, rides with looks and cues, takes clicks, keys and typing from the desk — and nothing opens outside Patterns. A YouTube, Vimeo or Slides link goes on as the player or the deck alone, and CLEAN takes off the furniture an address cannot: YouTube's media bar, its watermark, the pause panel and the end-screen cards. It is one picture, so what the room sees the operator sees — the page is driven from the desk instead, and a player answers whether or not its own buttons are drawn." />
     <TextBox Watermark="https://example.com/schedule — a YouTube, Vimeo, Google Slides or PowerPoint link — or a local HTML file" Text="{Binding State.Web.Url}" />
+    <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Treat it as" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding PageServices}" HorizontalAlignment="Stretch"
+                SelectedValue="{Binding State.Web.Service, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                ToolTip.Tip="Auto reads the address, which is right almost always. Name the service when the address does not say — a short link, a corporate proxy, an embed served from the client's own hostname. The choice travels with the page onto the pattern" />
+    </Grid>
+    <CheckBox Content="CLEAN — take the service's furniture off the picture" Margin="0,3,0,0"
+              IsChecked="{Binding State.Web.Clean}"
+              ToolTip.Tip="YouTube's media bar, watermark, pause panel, end-screen cards and big play button; a plain page's margin, scrollbar and pointer. Drive the page from PAGE CONTROLS, a cue, the phone or a Stream Deck — a player answers whether or not its own buttons are drawn" />
     <WrapPanel Margin="0,4,0,0">
       <Button Classes="go" Content="SHOW THIS PAGE ON THE PATTERN" Command="{Binding PutWebPageOnPatternCommand}" Margin="0,0,8,6"
               ToolTip.Tip="The selected target's pattern becomes a Media pattern showing this page inside the engine — spans, NDI, the stream, looks and cues all carry it; drive it on the PREVIEW pane and with the PAGE CONTROLS on the Media page" />

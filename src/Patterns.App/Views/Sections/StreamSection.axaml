@@ -17,8 +17,25 @@
       <Button Classes="stop" Content="STOP" Padding="16,8" Command="{Binding StopStreamCommand}" />
     </StackPanel>
     <TextBlock Classes="label" Text="{Binding StreamStatus}" TextWrapping="Wrap" />
+
+    <!-- HEALTH: what the desk's own windows cannot tell you. The wall can look perfect while the
+         encoder is taking frames at half the rate asked for and the online audience watches a
+         slideshow, so the rate reaching the encoder is the headline, not the fact that it is up. -->
+    <Border Background="#15171D" CornerRadius="8" Padding="10,8" Margin="0,6,0,0" BorderBrush="{Binding StreamHue}" BorderThickness="1">
+      <StackPanel Spacing="5">
+        <StackPanel Orientation="Horizontal" Spacing="9">
+          <Ellipse Classes="dot" Fill="{Binding StreamHue}" Width="11" Height="11" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding StreamWord}" Foreground="{Binding StreamHue}" FontWeight="Bold" FontSize="15" LetterSpacing="1.4" VerticalAlignment="Center" />
+          <TextBlock Classes="label" Text="{Binding StreamUptime}" VerticalAlignment="Center"
+                     IsVisible="{Binding StreamUptime, Converter={StaticResource NotEmpty}}" />
+        </StackPanel>
+        <TextBlock Classes="label" Text="{Binding StreamLine}" TextWrapping="Wrap" />
+        <TextBlock Classes="hint" Text="{Binding StreamCounts}" TextWrapping="Wrap"
+                   IsVisible="{Binding StreamCounts, Converter={StaticResource NotEmpty}}" />
+      </StackPanel>
+    </Border>
     <TextBlock Classes="hint tip"
-               Text="Streaming never auto-starts with the app. Stopping is instant; platforms show their usual few seconds of delay." />
+               Text="Streaming never auto-starts with the app — not even after a restart that puts the show back, because it pushes to somewhere public. Stopping is instant; platforms show their usual few seconds of delay. The same light sits at the foot of the rail on every page, so a stream that falls behind mid-show is seen from wherever you are working." />
 
     <TextBlock Classes="h2" Text="SOURCE &amp; QUALITY" />
     <Grid ColumnDefinitions="110,*">

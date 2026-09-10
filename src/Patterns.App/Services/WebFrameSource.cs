@@ -320,6 +320,73 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
     }
 
+    private string _cleanCss = "";
+    private string? _cleanScriptId;
+
+    public string CleanCss
+    {
+        get => _cleanCss;
+        set
+        {
+            var css = value ?? "";
+            if (css == _cleanCss) return;
+            _cleanCss = css;
+            OnUi(ApplyClean);
+        }
+    }
+
+    /// <summary>
+    /// The style goes in twice: as a document-created script, so every page the browser loads from
+    /// here on wears it before its own scripts run, and once into the document that is already
+    /// open, so ticking CLEAN on a page that is on air changes the picture at once rather than at
+    /// the next reload.
+    /// </summary>
+    private async void ApplyClean()
+    {
+        if (_core is null || _disposed) return;
+        try
+        {
+            if (_cleanScriptId is { } old)
+            {
+                _cleanScriptId = null;
+                _core.RemoveScriptToExecuteOnDocumentCreated(old);
+            }
+            var script = CleanScript(_cleanCss);
+            if (script.Length > 0 && !_disposed && _core is not null)
+            {
+                _cleanScriptId = await _core.AddScriptToExecuteOnDocumentCreatedAsync(script);
+            }
+            if (!_disposed && _core is not null) await _core.ExecuteScriptAsync(CleanScript(_cleanCss, forNow: true));
+        }
+        catch (Exception ex)
+        {
+            // A page that will not wear the style is still a page: the show keeps its picture.
+            Log.Warn("The page's CLEAN style could not be applied.", ex);
+        }
+    }
+
+    /// <summary>
+    /// A style element with an id of its own, put in as soon as there is a document to put it in.
+    /// Selectors rather than hidden elements: the player rebuilds its controls as it plays, and a
+    /// rule keeps holding where a hidden element would come back. With no style, the element goes.
+    /// </summary>
+    private static string CleanScript(string css, bool forNow = false)
+    {
+        const string id = "patterns-clean";
+        if (css.Length == 0)
+        {
+            return forNow
+                ? $"(function(){{var e=document.getElementById('{id}');if(e)e.remove();}})()"
+                : "";
+        }
+        var literal = System.Text.Json.JsonSerializer.Serialize(css);
+        return "(function(){var css=" + literal + ";" +
+               "function put(){var e=document.getElementById('" + id + "');" +
+               "if(!e){e=document.createElement('style');e.id='" + id + "';(document.head||document.documentElement).appendChild(e);}" +
+               "if(e.textContent!==css)e.textContent=css;}" +
+               "put();document.addEventListener('DOMContentLoaded',put);})()";
+    }
+
     public void PointerMove(float nx, float ny)
     {
         _pointer = new SKPoint(nx, ny);

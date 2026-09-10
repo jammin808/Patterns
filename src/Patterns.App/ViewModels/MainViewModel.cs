@@ -277,14 +277,19 @@ public sealed partial class MainViewModel : Observable
                 return;
             }
             // A YouTube, Vimeo or Slides link goes on as the player or the deck alone — the streamlined path;
-            // the Media page shows the address and can put the typed one back.
-            var url = WebPresets.FullFrame(typed);
-            var preset = WebPresets.For(url);
+            // the Media page shows the address and can put the typed one back. The service named
+            // here and the CLEAN tick travel with it, so the page lands the way it was set up.
+            var pick = State.Web.Service;
+            var url = WebPresets.FullFrame(typed, pick);
+            var preset = WebPresets.For(url, pick);
+            var clean = State.Web.Clean;
             _services.BulkEdit(() =>
             {
                 ActivePattern.Kind = PatternKind.Media;
                 ActivePattern.Media.Source = MediaSource.Web;
                 ActivePattern.Media.WebUrl = url;
+                ActivePattern.Media.WebService = pick;
+                ActivePattern.Media.WebClean = clean;
             });
             if (!State.Web.SavedUrls.Contains(typed)) State.Web.SavedUrls.Add(typed);
             RefreshWebControls();
@@ -294,8 +299,9 @@ public sealed partial class MainViewModel : Observable
         });
         WebFullFrameCommand = new RelayCommand(() =>
         {
+            var pick = ActivePattern.Media.WebService;
             var url = WebAddress.Normalize(ActivePattern.Media.WebUrl);
-            var full = WebPresets.FullFrame(url);
+            var full = WebPresets.FullFrame(url, pick);
             if (url.Length == 0 || full == url)
             {
                 StatusMessage = url.Length == 0 ? "Enter a page address first." : "That address is already the page alone.";
@@ -303,7 +309,7 @@ public sealed partial class MainViewModel : Observable
             }
             BulkEdit(() => ActivePattern.Media.WebUrl = full);
             RefreshWebControls();
-            StatusMessage = $"{WebPresets.For(full).Name} full frame: {full}";
+            StatusMessage = $"{WebPresets.For(full, pick).Name} full frame: {full}";
         });
         WebActionCommand = new RelayCommand<string>(id => RunWebAction(id ?? ""));
 
@@ -796,6 +802,14 @@ public sealed partial class MainViewModel : Observable
         RevertDisplayModeCommand = new RelayCommand(RevertDisplayMode);
         SelectGroupCommand = new RelayCommand<ShellGroup>(SelectGroup);
         SelectPageCommand = new RelayCommand<int>(SelectPage);
+        // The rail's foot and anything else that knows where it wants to go by name rather than
+        // by the page's number, which moves whenever a page is added.
+        SelectPageByNameCommand = new RelayCommand<string>(name =>
+        {
+            if (name is null) return;
+            var index = Shell.IndexOf(name);
+            if (index >= 0) SelectPage(index);
+        });
         SelectPrepCommand = new RelayCommand(() =>
         {
             if (!LeaveRun()) return;

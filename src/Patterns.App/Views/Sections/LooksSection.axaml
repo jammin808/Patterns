@@ -33,7 +33,7 @@
         <DataTemplate x:DataType="m:LookConfig">
           <!-- The tally: a red edge and chip for the look on air, green for the one in the preview; "EDITED" once the picture moved on. -->
           <Border Classes="lookRow" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" CornerRadius="8" Padding="10,7" Margin="0,3">
-            <Grid ColumnDefinitions="Auto,10,*,8,Auto,8,Auto,8,Auto,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,10,*,8,Auto,8,Auto,6,Auto,8,Auto,Auto,Auto,Auto">
               <Border Grid.Column="0" Background="#20242E" CornerRadius="7" Padding="8,3" MinWidth="38"
                       IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}">
                 <TextBlock Text="{Binding Hotkey, Converter={StaticResource HotkeyLabel}}" FontWeight="SemiBold"
@@ -54,19 +54,26 @@
                         SelectedValue="{Binding MusicItemId, Mode=TwoWay}"
                         IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).State.Spotify.Enabled}"
                         ToolTip.Tip="Break music this look starts, or pauses, as it goes on air (Audio page entries)" />
-              <Button Grid.Column="8" Classes="mini" Content="→ PVW"
+              <!-- The stream, carried with the picture: an F-key, the clicker list and an
+                   install's schedule all recall a look and none of them has an action list -->
+              <ComboBox Grid.Column="8" Name="LookStream" MinWidth="120" MaxWidth="160"
+                        SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                        ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LookStreams}"
+                        SelectedValue="{Binding Stream, Mode=TwoWay}"
+                        ToolTip.Tip="Start or stop the stream as this look goes on air — the same verb a cue runs. Loading the look into the preview never touches it: nothing that has not gone to air may reach the internet" />
+              <Button Grid.Column="10" Classes="mini" Content="→ PVW"
                       ToolTip.Tip="Load into the preview to tweak, then CUT or TAKE it to air"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookToPreviewCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="9" Classes="mini" Content="ON AIR"
+              <Button Grid.Column="11" Classes="mini" Content="ON AIR"
                       ToolTip.Tip="Put this look on the screens now (same as its F-key)"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="10" Classes="mini" Content="⟳"
+              <Button Grid.Column="12" Classes="mini" Content="⟳"
                       ToolTip.Tip="Overwrite this look with the current screen state"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UpdateLookCommand}"
                       CommandParameter="{Binding}" />
-              <Button Grid.Column="11" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
+              <Button Grid.Column="13" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
                       Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteLookCommand}"
                       CommandParameter="{Binding}" />
             </Grid>

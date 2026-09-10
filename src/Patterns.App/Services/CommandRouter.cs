@@ -292,7 +292,21 @@ public sealed class CommandRouter
             sections = SectionRows(s),
             playlist = _services.Playlist.Status,
             nextCue = ShowActions.NextScheduledText(s, DateTime.Now),
-            stream = new { active = s.Stream.Active, status = _services.Stream.Status },
+            // The stream's health rides with its state everywhere: the phone's SHOW tab, an OSC
+            // feedback bundle, a Stream Deck's colour. One reading, so nothing can disagree.
+            stream = new
+            {
+                active = s.Stream.Active,
+                status = _services.Stream.Status,
+                word = _services.Stream.Health.Word,
+                health = _services.Stream.Health.Line,
+                light = _services.Stream.Health.Light.ToString(),
+                hue = _services.Stream.Health.Hue,
+                up = _services.Stream.Health.Uptime,
+                fps = Math.Round(_services.Stream.Health.Facts.Fps, 1),
+                trouble = _services.Stream.Health.IsTrouble,
+                destinations = _services.Stream.Health.Facts.Destinations,
+            },
             health = HealthMonitor.Summary(DateTime.UtcNow),
             quality = new                                                    // the effects' ladder: the mode, the level (0 full … 3), its factor, the Machine page's words
             {

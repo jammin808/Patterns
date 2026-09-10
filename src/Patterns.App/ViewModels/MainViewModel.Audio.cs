@@ -415,6 +415,66 @@ public sealed partial class MainViewModel
     private string _streamStatus = "";
     public string StreamStatus { get => _streamStatus; private set => Set(ref _streamStatus, value); }
 
+    private StreamHealth _streamHealth = StreamHealth.Read(StreamFacts.None);
+
+    /// <summary>
+    /// The stream's health this second, read once on the poll and shown everywhere — the foot of
+    /// the rail, the Stream page, the Show panel, the phone. One reading, so no two of them can
+    /// say different things about the same stream.
+    /// </summary>
+    public StreamHealth StreamHealth
+    {
+        get => _streamHealth;
+        private set
+        {
+            if (_streamHealth == value) return;
+            _streamHealth = value;
+            Raise();
+            Raise(nameof(StreamWord));
+            Raise(nameof(StreamLine));
+            Raise(nameof(StreamUptime));
+            Raise(nameof(StreamHue));
+            Raise(nameof(StreamOnAir));
+            Raise(nameof(StreamTrouble));
+            Raise(nameof(StreamRailText));
+            Raise(nameof(StreamCounts));
+        }
+    }
+
+    /// <summary>"LIVE", "SLOW", "FAULT", "UP…", "OFF" — the one word a rail has room for.</summary>
+    public string StreamWord => _streamHealth.Word;
+
+    public string StreamLine => _streamHealth.Line;
+
+    public string StreamUptime => _streamHealth.Uptime;
+
+    public string StreamHue => _streamHealth.Hue;
+
+    public bool StreamOnAir => _streamHealth.IsOnAir;
+
+    public bool StreamTrouble => _streamHealth.IsTrouble;
+
+    /// <summary>The numbers under the line on the Stream page: frames in, the rate, the restarts.</summary>
+    public string StreamCounts
+    {
+        get
+        {
+            var f = _streamHealth.Facts;
+            if (!f.Wanted || f.Frames == 0) return "";
+            var parts = new List<string>
+            {
+                $"{f.Frames:N0} frames encoded",
+                f.TargetFps > 0 ? $"{f.Fps:0.#} of {f.TargetFps} fps in" : $"{f.Fps:0.#} fps in",
+                f.Destinations == 1 ? "1 destination" : $"{f.Destinations} destinations",
+            };
+            if (f.Restarts > 0) parts.Add($"{f.Restarts} encoder restart{(f.Restarts == 1 ? "" : "s")}");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>The rail's foot: the word, and how long it has been up under it.</summary>
+    public string StreamRailText => _streamHealth.Uptime.Length > 0 ? $"{_streamHealth.Word}\n{_streamHealth.Uptime}" : _streamHealth.Word;
+
     public string RemoteUrlsText => string.Join("\n", _services.Control.RemoteUrls());
 
     private void RefreshAudioDevices()

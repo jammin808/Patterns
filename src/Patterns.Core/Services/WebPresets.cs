@@ -15,6 +15,21 @@ public enum PageService
 }
 
 /// <summary>
+/// What the operator asked the page to be treated as. Auto reads the address, which is right
+/// almost always; naming the service outright is for the address that does not say — a short
+/// link, a corporate proxy, an embed served from a hostname of the client's own.
+/// </summary>
+public enum PageServicePick
+{
+    Auto,
+    Page,
+    YouTube,
+    Vimeo,
+    GoogleSlides,
+    PowerPoint,
+}
+
+/// <summary>
 /// Something a page does — "next", "play", "present" — as the key it takes, or a line of script
 /// when the page's own player is the surer way in. A cue, a phone, a Stream Deck key or the wire
 /// says the action; the page's service decides the key.
@@ -24,8 +39,8 @@ public sealed record WebPageAction(string Id, string Label, string Chord, string
     public bool IsScript => Script.Length > 0;
 }
 
-/// <summary>What Patterns knows about a service: its name, what FULL FRAME does to an address, and the actions its pages take.</summary>
-public sealed record WebPreset(PageService Service, string Name, string FullFrameNote, IReadOnlyList<WebPageAction> Actions)
+/// <summary>What Patterns knows about a service: its name, what FULL FRAME does to an address, the actions its pages take, and the furniture CLEAN takes off.</summary>
+public sealed record WebPreset(PageService Service, string Name, string FullFrameNote, IReadOnlyList<WebPageAction> Actions, string CleanCss = "")
 {
     /// <summary>An action by id or label, ignoring case; null when the service has none by that name.</summary>
     public WebPageAction? Find(string idOrLabel)
@@ -113,22 +128,73 @@ public static class WebPresets
         new WebPageAction("exit", "End the show", "Escape"),
     };
 
-    private static readonly WebPreset PagePreset = new(PageService.Page, "Web page", "", PageActions);
+    // ---- what CLEAN takes off ------------------------------------------------------------
+    //
+    // FULL FRAME does what an address can do — the player or the deck alone. What an address
+    // cannot do is the furniture the service draws over its own picture: YouTube's media bar on
+    // hover, the channel watermark, the pause overlay, the end-screen cards, the big centre play
+    // button. Those go with a style sheet put into the page.
+    //
+    // Written as selectors with !important rather than as script that hides elements: the player
+    // rebuilds its own DOM as it plays, and a rule keeps holding where a hidden element would come
+    // back. It is the service's own class names, so a service that renames one lets a piece of
+    // furniture back — which is why CLEAN is a tick the operator turns on and reads on the wall,
+    // and why nothing here can break the page: the worst case is today's picture.
+
+    private const string BodyReset =
+        "html,body{margin:0!important;padding:0!important;background:#000!important;overflow:hidden!important}" +
+        "::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}";
+
+    private const string YouTubeClean = BodyReset +
+        // The bars, top and bottom, and the shading they sit on. The bottom one is the media bar.
+        ".ytp-chrome-top,.ytp-chrome-bottom,.ytp-chrome-controls,.ytp-gradient-top,.ytp-gradient-bottom," +
+        ".ytp-title,.ytp-title-text,.ytp-chrome-top-buttons,.ytp-progress-bar-container{display:none!important}" +
+        // The channel's watermark and the paid-promotion band.
+        ".ytp-watermark,.ytp-paid-content-overlay{display:none!important}" +
+        // What appears when it stops: the pause panel and the end-screen cards.
+        ".ytp-pause-overlay,.ytp-pause-overlay-container,.ytp-scroll-min,.ytp-suggestion-set," +
+        ".ytp-ce-element,.ytp-endscreen-content,.ytp-player-content.ytp-iv-player-content{display:none!important}" +
+        // The big play button, the poster before it starts, the spinner and the tap bezel.
+        ".ytp-large-play-button,.ytp-cued-thumbnail-overlay,.ytp-spinner,.ytp-bezel,.ytp-doubletap-ui-legacy{display:none!important}" +
+        // An overlay advert drawn over the picture; nothing here stops one playing.
+        ".video-ads,.ytp-ad-overlay-container,.ytp-ad-message-container{display:none!important}" +
+        // The player never dims for the "click to play" state, and the pointer is never drawn.
+        ".html5-video-player{cursor:none!important;background:#000!important}" +
+        ".ytp-gradient-top,.ytp-gradient-bottom{opacity:0!important}";
+
+    private const string VimeoClean = BodyReset +
+        ".vp-controls,.vp-controls-wrapper,.vp-title,.vp-title-wrapper,.vp-sidedock,.vp-badge," +
+        ".vp-outro,.vp-outro-wrapper,.vp-portrait,.vp-share-overlay{display:none!important}" +
+        ".player{cursor:none!important}";
+
+    private const string SlidesClean = BodyReset +
+        "#punch-viewer-nav-v2,.punch-viewer-nav-v2,.punch-viewer-nav,.punch-viewer-nav-toolbar," +
+        ".punch-viewer-speakernotes,.docs-ml-promotion,#docs-chrome{display:none!important}" +
+        ".punch-viewer-content{cursor:none!important}";
+
+    private const string PowerPointClean = BodyReset +
+        "#WACStatusBarContainer,.StatusBar,#WACViewPanel_EditButton,.OutSpaceButton,#WebAppHeader{display:none!important}";
+
+    // A page nobody wrote for a wall: no margin, no scrollbar, no pointer. Nothing service-specific
+    // to guess at, so nothing here can surprise — it is the reset any dashboard on a screen wants.
+    private const string PageClean = BodyReset + "*{cursor:none!important}";
+
+    private static readonly WebPreset PagePreset = new(PageService.Page, "Web page", "", PageActions, PageClean);
 
     private static readonly WebPreset YouTubePreset = new(PageService.YouTube, "YouTube",
         "FULL FRAME shows the player alone: autoplay, no controls, no related videos. A video whose owner blocks embedding needs its watch link and the area of interest instead.",
-        YouTubeActions);
+        YouTubeActions, YouTubeClean);
 
     private static readonly WebPreset VimeoPreset = new(PageService.Vimeo, "Vimeo",
-        "FULL FRAME shows the player alone: autoplay, no controls, no title.", VimeoActions);
+        "FULL FRAME shows the player alone: autoplay, no controls, no title.", VimeoActions, VimeoClean);
 
     private static readonly WebPreset SlidesPreset = new(PageService.GoogleSlides, "Google Slides",
         "FULL FRAME shows the deck alone — a published deck as the embed with its control bar hidden, your own deck in present mode (sign in once with KEYS → PAGE).",
-        SlidesActions);
+        SlidesActions, SlidesClean);
 
     private static readonly WebPreset PowerPointPreset = new(PageService.PowerPoint, "PowerPoint for the web",
         "Sign in once with KEYS → PAGE, then PRESENT (F5) starts the show; FULL FRAME asks for the embedded view where the link carries an action.",
-        PowerPointActions);
+        PowerPointActions, PowerPointClean);
 
     /// <summary>Every action id any service knows — for the docs, Companion's list and a check with no page to ask.</summary>
     public static IReadOnlyList<string> AllActionIds { get; } = new[] { PageActions, YouTubeActions, VimeoActions, SlidesActions, PowerPointActions }
@@ -144,6 +210,37 @@ public static class WebPresets
     };
 
     public static WebPreset For(string url) => For(Detect(url));
+
+    /// <summary>What the page is treated as: the operator's choice, or the address read when it is Auto.</summary>
+    public static PageService Resolve(string url, PageServicePick pick) => pick switch
+    {
+        PageServicePick.Page => PageService.Page,
+        PageServicePick.YouTube => PageService.YouTube,
+        PageServicePick.Vimeo => PageService.Vimeo,
+        PageServicePick.GoogleSlides => PageService.GoogleSlides,
+        PageServicePick.PowerPoint => PageService.PowerPoint,
+        _ => Detect(url),
+    };
+
+    public static WebPreset For(string url, PageServicePick pick) => For(Resolve(url, pick));
+
+    /// <summary>
+    /// The style the page wears while CLEAN is on: the service's own furniture gone, and a page
+    /// with no service reset to a black ground with no margin, no scrollbar and no pointer.
+    /// Empty when CLEAN is off — the page is then whatever the site drew.
+    /// </summary>
+    public static string CleanCss(string url, PageServicePick pick, bool clean)
+        => clean ? For(url, pick).CleanCss : "";
+
+    /// <summary>What CLEAN takes off, in a line the operator reads before ticking it.</summary>
+    public static string CleanNote(string url, PageServicePick pick) => Resolve(url, pick) switch
+    {
+        PageService.YouTube => "CLEAN takes off what the address cannot: the media bar, the channel watermark, the pause panel, the end-screen cards and the big play button. Drive it from PAGE CONTROLS, a cue, the phone or a Stream Deck — the player answers whether or not its own buttons are drawn.",
+        PageService.Vimeo => "CLEAN takes off the control bar, the title, the share dock and the outro cards. Drive it from PAGE CONTROLS, a cue, the phone or a Stream Deck.",
+        PageService.GoogleSlides => "CLEAN takes off the viewer's toolbar and the speaker-notes strip, so the slide is the whole picture.",
+        PageService.PowerPoint => "CLEAN takes off the status bar and the header the web app draws around the slide.",
+        _ => "CLEAN gives the page a black ground with no margin, no scrollbar and no pointer — what a dashboard on a wall wants and no page is written for.",
+    };
 
     /// <summary>Which service an address belongs to, from its host and path.</summary>
     public static PageService Detect(string url)
@@ -163,11 +260,14 @@ public static class WebPresets
     }
 
     /// <summary>The address that shows the player or the deck alone; the address unchanged (normalised) when there is nothing to do.</summary>
-    public static string FullFrame(string url)
+    public static string FullFrame(string url) => FullFrame(url, PageServicePick.Auto);
+
+    /// <summary>The same, with the service the operator named rather than the one the address reads as.</summary>
+    public static string FullFrame(string url, PageServicePick pick)
     {
         var s = WebAddress.Normalize(url);
         if (!TryUri(s, out var u)) return s;
-        return Detect(s) switch
+        return Resolve(s, pick) switch
         {
             PageService.YouTube => YouTubeFullFrame(u) ?? s,
             PageService.Vimeo => VimeoFullFrame(u) ?? s,
@@ -178,18 +278,22 @@ public static class WebPresets
     }
 
     /// <summary>True while FULL FRAME would change the address.</summary>
-    public static bool CanFullFrame(string url)
+    public static bool CanFullFrame(string url) => CanFullFrame(url, PageServicePick.Auto);
+
+    public static bool CanFullFrame(string url, PageServicePick pick)
     {
         var s = WebAddress.Normalize(url);
-        return s.Length > 0 && !string.Equals(FullFrame(s), s, StringComparison.Ordinal);
+        return s.Length > 0 && !string.Equals(FullFrame(s, pick), s, StringComparison.Ordinal);
     }
 
     /// <summary>The desk's line under an address: the service and what FULL FRAME does; "" for a page Patterns knows nothing special about.</summary>
-    public static string Note(string url)
+    public static string Note(string url) => Note(url, PageServicePick.Auto);
+
+    public static string Note(string url, PageServicePick pick)
     {
-        var preset = For(url);
+        var preset = For(url, pick);
         if (preset.Service == PageService.Page) return "";
-        if (CanFullFrame(url)) return $"{preset.Name} — {preset.FullFrameNote}";
+        if (CanFullFrame(url, pick)) return $"{preset.Name} — {preset.FullFrameNote}";
         return preset.Service switch
         {
             PageService.YouTube or PageService.Vimeo => $"{preset.Name} — the player alone, full frame. PLAY, MUTE and the rest are under PAGE CONTROLS, on the phone and in cues.",

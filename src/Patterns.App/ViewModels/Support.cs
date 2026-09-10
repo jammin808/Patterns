@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Patterns.Core.Model;
+using Patterns.Core.Services;
 
 using Patterns.Core.LowerThirds;
 
@@ -771,6 +772,25 @@ public static class Lists
         new(ReactiveQuality.Fast, "Fast — the lightest on a small machine"),
         new(ReactiveQuality.Balanced, "Balanced"),
         new(ReactiveQuality.Fine, "Fine — the most detail off the card"),
+    };
+
+    /// <summary>What a look does to the stream as it goes on air.</summary>
+    public static readonly EnumItem[] LookStreams =
+    {
+        new(LookConfig.LookStream.Leave, "Stream: leave it"),
+        new(LookConfig.LookStream.Start, "Stream: START"),
+        new(LookConfig.LookStream.Stop, "Stream: STOP"),
+    };
+
+    /// <summary>What a web page is treated as: Auto reads the address, the rest name the service outright.</summary>
+    public static readonly EnumItem[] PageServices =
+    {
+        new(PageServicePick.Auto, "Auto — read the address"),
+        new(PageServicePick.YouTube, "YouTube"),
+        new(PageServicePick.Vimeo, "Vimeo"),
+        new(PageServicePick.GoogleSlides, "Google Slides"),
+        new(PageServicePick.PowerPoint, "PowerPoint for the web"),
+        new(PageServicePick.Page, "A plain web page"),
     };
 
     public static readonly EnumItem[] AudioSources =

@@ -388,6 +388,8 @@ public sealed class MediaOptions : Observable
     private int _webHeight = 1080;
     private double _webZoomPct = 100;
     private bool _webShowPointer = true;
+    private Services.PageServicePick _webService;
+    private bool _webClean;
     private double _cropLeftPct;
     private double _cropTopPct;
     private double _cropRightPct;
@@ -430,6 +432,19 @@ public sealed class MediaOptions : Observable
     [TransitionNeutral] public double WebZoomPct { get => _webZoomPct; set => Set(ref _webZoomPct, Math.Clamp(value, 25, 400)); }
     /// <summary>Draw the desk's pointer and its clicks on the page wherever it is shown — off for a page nobody drives.</summary>
     [TransitionNeutral] public bool WebShowPointer { get => _webShowPointer; set => Set(ref _webShowPointer, value); }
+    /// <summary>
+    /// What this page is treated as: Auto reads the address, which is right almost always. Naming
+    /// the service outright is for an address that does not say — a short link, a corporate proxy,
+    /// an embed served from the client's own hostname — so FULL FRAME, the page's own actions and
+    /// CLEAN all know what they are looking at.
+    /// </summary>
+    [TransitionNeutral] public Services.PageServicePick WebService { get => _webService; set => Set(ref _webService, value); }
+    /// <summary>
+    /// Take the service's furniture off the picture: YouTube's media bar, watermark, pause panel
+    /// and end-screen cards; a plain page's margin, scrollbar and pointer. Off by default — it is
+    /// the site's own class names, so it is a tick the operator turns on and reads on the wall.
+    /// </summary>
+    [TransitionNeutral] public bool WebClean { get => _webClean; set => Set(ref _webClean, value); }
 
     /// <summary>
     /// The area of interest: what to cut away on each side of the input's picture (0–90 % each;
@@ -595,6 +610,8 @@ public sealed class LayerConfig : Observable
     private int _webHeight = 720;
     private double _webZoomPct = 100;
     private bool _webShowPointer = true;
+    private Services.PageServicePick _webService;
+    private bool _webClean;
     private double _xPct = 5;
     private double _yPct = 5;
     private double _wPct = 40;
@@ -626,6 +643,10 @@ public sealed class LayerConfig : Observable
     [TransitionNeutral] public double WebZoomPct { get => _webZoomPct; set => Set(ref _webZoomPct, Math.Clamp(value, 25, 400)); }
     /// <summary>Draw the desk's pointer and its clicks on the page wherever the layer is shown.</summary>
     [TransitionNeutral] public bool WebShowPointer { get => _webShowPointer; set => Set(ref _webShowPointer, value); }
+    /// <summary>What this page is treated as; Auto reads the address. See <see cref="MediaConfig.WebService"/>.</summary>
+    [TransitionNeutral] public Services.PageServicePick WebService { get => _webService; set => Set(ref _webService, value); }
+    /// <summary>Take the service's furniture off the picture. See <see cref="MediaConfig.WebClean"/>.</summary>
+    [TransitionNeutral] public bool WebClean { get => _webClean; set => Set(ref _webClean, value); }
 
     /// <summary>The box, as a share of the canvas: its top-left (may sit partly off the canvas) and its size.</summary>
     [TransitionNeutral] public double XPct { get => _xPct; set => Set(ref _xPct, Math.Clamp(value, -100, 100)); }

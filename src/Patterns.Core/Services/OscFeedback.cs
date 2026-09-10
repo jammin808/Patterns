@@ -65,7 +65,13 @@ public static class OscFeedback
             Text(list, root, "lowerThirdPreviewPerson", "lowerthird/preview/person");
             Text(list, root, "lowerThirdDefault", "lowerthird/default");
             Flag(list, root, "lowerThirdEdited", "lowerthird/edited");
-            if (root.TryGetProperty("stream", out var stream)) Flag(list, stream, "active", "stream");
+            if (root.TryGetProperty("stream", out var stream))
+            {
+                Flag(list, stream, "active", "stream");
+                // A lighting desk or a TouchOSC page can light a stream that is falling behind:
+                // the word is what the desk's own rail shows.
+                Text(list, stream, "word", "stream/health");
+            }
             Text(list, root, "playlist", "playlist");
             Text(list, root, "health", "health");
             Flag(list, root, "review", "review");

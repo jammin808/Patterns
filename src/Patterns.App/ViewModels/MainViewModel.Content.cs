@@ -352,6 +352,16 @@ public sealed partial class MainViewModel
     private bool _webCanFullFrame;
     public bool WebCanFullFrame { get => _webCanFullFrame; private set => Set(ref _webCanFullFrame, value); }
 
+    private string _webCleanNote = "";
+    /// <summary>What CLEAN takes off this page, in a line — read before ticking it.</summary>
+    public string WebCleanNote { get => _webCleanNote; private set => Set(ref _webCleanNote, value); }
+
+    /// <summary>Auto, or the service the operator named — for both page pickers.</summary>
+    public EnumItem[] PageServices => Lists.PageServices;
+
+    /// <summary>What a look does to the stream — the Looks page's picker.</summary>
+    public EnumItem[] LookStreams => Lists.LookStreams;
+
     /// <summary>The actions the page the controls drive answers to — NEXT, PLAY, PRESENT… — from its service.</summary>
     public ObservableCollection<WebActionChip> WebPageActions { get; } = new();
 
@@ -406,8 +416,10 @@ public sealed partial class MainViewModel
         var key = CurrentWebKey();
         // The service line and the FULL FRAME offer follow the pattern's address, not the page pointed at.
         var address = ActivePattern.Kind == PatternKind.Media && ActivePattern.Media.Source == MediaSource.Web ? ActivePattern.Media.WebUrl : "";
-        WebPresetNote = address.Length > 0 ? WebPresets.Note(address) : "";
-        WebCanFullFrame = address.Length > 0 && WebPresets.CanFullFrame(address);
+        var pick = ActivePattern.Media.WebService;
+        WebPresetNote = address.Length > 0 ? WebPresets.Note(address, pick) : "";
+        WebCanFullFrame = address.Length > 0 && WebPresets.CanFullFrame(address, pick);
+        WebCleanNote = address.Length > 0 ? WebPresets.CleanNote(address, pick) : "";
         Raise(nameof(HasWebPage));
         if (key.Length == 0)
         {

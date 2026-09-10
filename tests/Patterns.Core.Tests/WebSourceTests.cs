@@ -71,6 +71,8 @@ public sealed class FakeWebSource : IWebSource
     public void Wheel(float nx, float ny, float deltaLines, bool horizontal) => Events.Add((horizontal ? "hwheel" : "wheel", deltaLines, 0));
     public void TypeText(string text) => Typed.Add(text);
     public void PressKey(string key) => Keys.Add(key);
+    public string CleanCss { get; set; } = "";
+
     public void RunScript(string script) => Scripts.Add(script);
     public void Navigate(string url) => CurrentUrl = url;
     public void GoBack() => Backs++;

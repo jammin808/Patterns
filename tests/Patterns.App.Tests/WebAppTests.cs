@@ -81,6 +81,8 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public void Wheel(float nx, float ny, float deltaLines, bool horizontal) => Events.Add((horizontal ? "hwheel" : "wheel", deltaLines, 0));
     public void TypeText(string text) => Typed.Add(text);
     public void PressKey(string key) => Keys.Add(key);
+    public string CleanCss { get; set; } = "";
+
     public void RunScript(string script) => Scripts.Add(script);
     public void Navigate(string url) => CurrentUrl = url;
     public void GoBack() => Backs++;
@@ -138,6 +140,46 @@ public class WebAppTests
         vm.State.Pattern.Kind = PatternKind.Media;
         vm.State.Pattern.Media.Source = MediaSource.Web;
         vm.State.Pattern.Media.WebUrl = url;
+    }
+
+    [AvaloniaFact]
+    public void CleanReachesThePageLiveAndTheServiceChoiceTravelsOntoThePattern()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            var pages = FakePages(services);
+
+            // The Remote & web page's staging block: the address, what to treat it as, and CLEAN.
+            vm.State.Web.Url = "https://video.acme-corp.example/embed/abc123";
+            vm.State.Web.Service = PageServicePick.YouTube;   // the address does not say; the operator does
+            vm.State.Web.Clean = true;
+            vm.PutWebPageOnPatternCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(PatternKind.Media, vm.ActivePattern.Kind);
+            Assert.Equal(MediaSource.Web, vm.ActivePattern.Media.Source);
+            Assert.Equal(PageServicePick.YouTube, vm.ActivePattern.Media.WebService);
+            Assert.True(vm.ActivePattern.Media.WebClean);
+
+            services.WebIn.Reconcile(services.Bus.Current);
+            Dispatcher.UIThread.RunJobs();
+            var page = Assert.Single(pages);
+            Assert.Contains(".ytp-chrome-bottom", page.CleanCss);   // the media bar is gone
+
+            // And the tick comes off live — the page never reloads for it.
+            vm.ActivePattern.Media.WebClean = false;
+            Dispatcher.UIThread.RunJobs();
+            services.WebIn.Reconcile(services.Bus.Current);
+            Assert.Equal("", page.CleanCss);
+            Assert.Single(pages);   // still the same browser
+        }
+        finally
+        {
+            InputBus.Clear();
+            b.Dispose();
+        }
     }
 
     [AvaloniaFact]

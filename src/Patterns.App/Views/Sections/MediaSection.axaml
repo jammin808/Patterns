@@ -127,12 +127,23 @@
         <Button Grid.Column="2" Classes="chip" Content="Remember" Command="{Binding RememberWebUrlCommand}"
                 ToolTip.Tip="Keep this address in the saved pages (shared with the Remote &amp; web page)" />
       </Grid>
-      <!-- A YouTube, Vimeo, Slides or PowerPoint link: the service named, and FULL FRAME for the player or the deck alone -->
-      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0" IsVisible="{Binding WebPresetNote, Converter={StaticResource NotEmpty}}">
-        <Button Classes="chip" Content="FULL FRAME" Command="{Binding WebFullFrameCommand}" IsVisible="{Binding WebCanFullFrame}" VerticalAlignment="Top"
+      <!-- What the page is: read from the address, or named outright — then FULL FRAME for the
+           player or the deck alone, and CLEAN for the furniture an address cannot take off -->
+      <Grid ColumnDefinitions="130,*,8,Auto" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Treat it as" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding PageServices}" HorizontalAlignment="Stretch"
+                  SelectedValue="{Binding ActivePattern.Media.WebService, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                  ToolTip.Tip="Auto reads the address, which is right almost always. Name the service when the address does not say — a short link, a corporate proxy, an embed served from the client's own hostname" />
+        <Button Grid.Column="3" Classes="chip" Content="FULL FRAME" Command="{Binding WebFullFrameCommand}" IsVisible="{Binding WebCanFullFrame}"
                 ToolTip.Tip="Rewrite the address for the show: the player or the deck alone, no page furniture" />
-        <TextBlock Classes="label" Text="{Binding WebPresetNote}" TextWrapping="Wrap" VerticalAlignment="Center" MaxWidth="560" />
-      </StackPanel>
+      </Grid>
+      <TextBlock Classes="label" Text="{Binding WebPresetNote}" TextWrapping="Wrap" Margin="0,3,0,0"
+                 IsVisible="{Binding WebPresetNote, Converter={StaticResource NotEmpty}}" />
+      <CheckBox Content="CLEAN — take the service's furniture off the picture" Margin="0,3,0,0"
+                IsChecked="{Binding ActivePattern.Media.WebClean}"
+                ToolTip.Tip="A style sheet put into the page before its own scripts run. It is the site's own class names, so a service that renames one lets a piece of furniture back — never a broken page" />
+      <TextBlock Classes="hint tip" Text="{Binding WebCleanNote}" IsVisible="{Binding ActivePattern.Media.WebClean}" />
       <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Saved pages" VerticalAlignment="Center" />
         <ComboBox Grid.Column="1" ItemsSource="{Binding State.Web.SavedUrls}" SelectedItem="{Binding SavedWebPick, Mode=TwoWay}"

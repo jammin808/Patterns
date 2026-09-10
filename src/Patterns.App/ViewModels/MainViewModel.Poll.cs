@@ -194,6 +194,7 @@ public sealed partial class MainViewModel
         var watch = _services.Beacon.WatchText;
         HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);
         StreamStatus = _services.Stream.Status;
+        StreamHealth = _services.Stream.Health;
         var beacon = _services.Beacon;
         BeaconStatus = beacon.Sending || beacon.Listening
             ? $"{beacon.Status}{(beacon.Sent > 0 ? $" {beacon.Sent} sent." : "")}{(beacon.Listening ? " " + beacon.WatchText : "")}"

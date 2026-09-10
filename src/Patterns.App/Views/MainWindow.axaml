@@ -92,24 +92,43 @@
     <Grid Grid.Row="1" ColumnDefinitions="Auto,*">
 
       <Border Grid.Column="0" Classes="rail">
-        <ItemsControl ItemsSource="{Binding GroupStrip}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:GroupChip">
-              <Button Classes="navGroup" Classes.on="{Binding IsCurrent}" Focusable="False"
-                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectGroupCommand}"
-                      CommandParameter="{Binding Group}" ToolTip.Tip="{Binding Hint}">
-                <StackPanel Spacing="6" HorizontalAlignment="Center">
-                  <Ellipse Classes="dot" Fill="{Binding HueBrush}" Width="10" Height="10" HorizontalAlignment="Center" />
-                  <TextBlock Classes="navlabel" Text="{Binding Label}" HorizontalAlignment="Center" />
-                  <Border Classes="hueLine" Classes.on="{Binding IsCurrent}" Background="{Binding HueBrush}" Height="2" CornerRadius="1" Margin="10,0,10,0" />
-                </StackPanel>
-              </Button>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <!-- The five groups, and at the foot the one thing the desk cannot see from its own
+             windows: whether what is going out to the internet is keeping up. -->
+        <Grid RowDefinitions="*,Auto">
+          <ItemsControl Grid.Row="0" ItemsSource="{Binding GroupStrip}" VerticalAlignment="Top">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:GroupChip">
+                <Button Classes="navGroup" Classes.on="{Binding IsCurrent}" Focusable="False"
+                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SelectGroupCommand}"
+                        CommandParameter="{Binding Group}" ToolTip.Tip="{Binding Hint}">
+                  <StackPanel Spacing="6" HorizontalAlignment="Center">
+                    <Ellipse Classes="dot" Fill="{Binding HueBrush}" Width="10" Height="10" HorizontalAlignment="Center" />
+                    <TextBlock Classes="navlabel" Text="{Binding Label}" HorizontalAlignment="Center" />
+                    <Border Classes="hueLine" Classes.on="{Binding IsCurrent}" Background="{Binding HueBrush}" Height="2" CornerRadius="1" Margin="10,0,10,0" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- STREAM at the foot of the rail: dark while nothing is going out, lit while it is,
+               and the one place a slow encoder shows up without opening a page. Click opens it. -->
+          <Button Grid.Row="1" Name="RailStream" Classes="navGroup railFoot" Focusable="False" Margin="0,10,0,2"
+                  Command="{Binding SelectPageByNameCommand}" CommandParameter="Stream"
+                  ToolTip.Tip="{Binding StreamLine}">
+            <StackPanel Spacing="5" HorizontalAlignment="Center">
+              <Border Classes="railRule" Background="{Binding StreamHue}" Height="2" CornerRadius="1" Margin="10,0,10,2" />
+              <Ellipse Classes="dot" Fill="{Binding StreamHue}" Width="10" Height="10" HorizontalAlignment="Center" />
+              <TextBlock Classes="navlabel" Text="STREAM" HorizontalAlignment="Center" />
+              <TextBlock Classes="navlabel railFootWord" Text="{Binding StreamWord}" Foreground="{Binding StreamHue}" HorizontalAlignment="Center" />
+              <TextBlock Classes="navlabel railFootWord" Text="{Binding StreamUptime}" HorizontalAlignment="Center"
+                         IsVisible="{Binding StreamUptime, Converter={StaticResource NotEmpty}}" />
+            </StackPanel>
+          </Button>
+        </Grid>
       </Border>
 
       <Grid Grid.Column="1" RowDefinitions="Auto,*" Margin="10,8,12,12">
@@ -262,11 +281,11 @@
               <Expander.Header>
                 <Grid ColumnDefinitions="Auto,*">
                   <TextBlock Text="SHOW CONTROLS" FontWeight="Bold" FontSize="13" LetterSpacing="1.5" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Classes="hint tip" Text="message · clock · countdown · audio volume · live duck · weather — straight to air behind SEND"
+                  <TextBlock Grid.Column="1" Classes="hint tip" Text="message · clock · countdown · audio volume · live duck · weather · the stream — straight to air behind SEND"
                              VerticalAlignment="Center" Margin="10,0,24,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                 </Grid>
               </Expander.Header>
-              <Grid ColumnDefinitions="88,*,Auto,Auto,170" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="4,2,4,2">
+              <Grid ColumnDefinitions="88,*,Auto,Auto,170" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="4,2,4,2">
                 <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Message" VerticalAlignment="Center" />
                 <TextBox Grid.Row="0" Grid.Column="1" Watermark="Message text" Text="{Binding ShowControls.DraftMessage, Mode=TwoWay}" Margin="0,2" />
                 <Button Grid.Row="0" Grid.Column="2" Classes="mini" Content="SEND" Command="{Binding ShowControls.MessageShowCommand}" Focusable="False" Margin="8,0,0,0"
@@ -326,8 +345,21 @@
                 <Button Grid.Row="5" Grid.Column="3" Classes="mini" Content="HIDE" Command="{Binding ShowControls.WeatherHideCommand}" Focusable="False" />
                 <TextBlock Grid.Row="5" Grid.Column="4" Classes="hint" Text="{Binding ShowControls.WeatherAirText}" VerticalAlignment="Center" Margin="10,0,0,0" TextTrimming="CharacterEllipsis" />
 
-                <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="5" Classes="hint tip" Margin="0,4,0,0" TextWrapping="Wrap"
-                           Text="Each SEND goes to air through the same seam as a cue — sandbox open or not — and is journaled as a desk action. The next look recall replaces it; the duck stays until you lift it." />
+                <!-- The stream, where an operator acts: it used to be pressable only on its own
+                     page, so a caller mid-show had to leave what they were doing to start it. -->
+                <TextBlock Grid.Row="6" Grid.Column="0" Classes="label" Text="Stream" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Spacing="9" Margin="0,2">
+                  <Ellipse Classes="dot" Fill="{Binding StreamHue}" Width="10" Height="10" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding StreamWord}" Foreground="{Binding StreamHue}" FontWeight="Bold" FontSize="12" LetterSpacing="1.2" VerticalAlignment="Center" />
+                  <TextBlock Classes="hint" Text="{Binding StreamLine}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <Button Grid.Row="6" Grid.Column="2" Name="ShowStreamStart" Classes="mini" Content="START" Command="{Binding StartStreamCommand}" Focusable="False" Margin="8,0,0,0"
+                        ToolTip.Tip="Start the stream now — the same verb a cue, the phone, OSC and a Stream Deck key run" />
+                <Button Grid.Row="6" Grid.Column="3" Name="ShowStreamStop" Classes="mini" Content="STOP" Command="{Binding StopStreamCommand}" Focusable="False" />
+                <TextBlock Grid.Row="6" Grid.Column="4" Classes="hint" Text="{Binding StreamUptime}" VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="5" Classes="hint tip" Margin="0,4,0,0" TextWrapping="Wrap"
+                           Text="Each SEND goes to air through the same seam as a cue — sandbox open or not — and is journaled as a desk action. The next look recall replaces it; the duck stays until you lift it. STOP ALL never touches the stream: only STOP here, a cue, or the Stream page does." />
               </Grid>
             </Expander>
 

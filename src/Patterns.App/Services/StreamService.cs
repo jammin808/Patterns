@@ -33,6 +33,10 @@ public sealed class StreamService : IDisposable
     private int _destinations;
     private bool _rendered;
     private string _status = "Not streaming.";
+    private long _framesSeen;
+    private DateTime _framesSeenUtc;
+    private double _fps;
+    private StreamHealth _health = StreamHealth.Read(StreamFacts.None);
 
     public StreamService(AppServices services)
     {
@@ -50,6 +54,13 @@ public sealed class StreamService : IDisposable
 
     public string Status => _status;
 
+    /// <summary>
+    /// How the stream is doing this second — the light, the word and the line every surface shows.
+    /// Read on the desk's poll and on the wire; never computed twice, so the rail, the Stream page,
+    /// the Show panel, the phone and a Stream Deck key can never disagree about it.
+    /// </summary>
+    public StreamHealth Health => _health;
+
     /// <summary>The timer body, callable directly (tests drive it without waiting on the clock).</summary>
     public void Poll() => Tick();
 
@@ -65,6 +76,66 @@ public sealed class StreamService : IDisposable
     private void Tick()
     {
         var cfg = _services.State.Stream;
+        try
+        {
+            TickCore(cfg);
+        }
+        finally
+        {
+            // Whatever the tick did or could not do, the health line follows it — a fault that
+            // returned early must still reach the rail.
+            _health = ReadHealth(cfg);
+        }
+    }
+
+    /// <summary>The frames the encoder has taken, and the rate they are going in at over the last second.</summary>
+    private void MeasureRate()
+    {
+        var frames = _encoder?.Frames ?? 0;
+        var now = DateTime.UtcNow;
+        if (_framesSeenUtc == default || frames < _framesSeen)
+        {
+            _framesSeen = frames;
+            _framesSeenUtc = now;
+            _fps = 0;
+            return;
+        }
+        var seconds = (now - _framesSeenUtc).TotalSeconds;
+        if (seconds < 0.5) return;
+        _fps = (frames - _framesSeen) / seconds;
+        _framesSeen = frames;
+        _framesSeenUtc = now;
+    }
+
+    private StreamHealth ReadHealth(StreamConfig cfg)
+    {
+        MeasureRate();
+        var destinations = cfg.Destinations.Count(d => d.Enabled && !string.IsNullOrWhiteSpace(d.Url));
+        var enc = _encoder;
+        var up = _startedUtc == default || enc is null ? 0 : (DateTime.UtcNow - _startedUtc).TotalSeconds;
+        // A held set-up, a fault and a machine that cannot stream at all are all the same thing to
+        // an operator: it was asked for and it is not going out. The line says which.
+        var trouble = _heldReason.Length > 0 ? _heldReason
+            : enc is { Phase: ChildPhase.GaveUp } ? enc.Words
+            : enc is { Failed: true } ? enc.LastError
+            : cfg.Active && destinations > 0 && !RunsHere ? "streaming runs on Windows"
+            : "";
+        return StreamHealth.Read(new StreamFacts(
+            Wanted: cfg.Active,
+            Configured: destinations > 0,
+            Destinations: destinations,
+            Encoding: enc is { Phase: ChildPhase.Running },
+            Starting: enc is null or { Phase: ChildPhase.Starting or ChildPhase.Restarting },
+            Frames: enc?.Frames ?? 0,
+            Fps: _fps,
+            TargetFps: StreamMrl.EffectiveFps(cfg, _services.State.Output.MasterFps),
+            Restarts: enc?.Restarts ?? 0,
+            Trouble: trouble,
+            UpSeconds: up));
+    }
+
+    private void TickCore(StreamConfig cfg)
+    {
         try
         {
             var urls = cfg.Destinations.Where(d => d.Enabled && !string.IsNullOrWhiteSpace(d.Url))

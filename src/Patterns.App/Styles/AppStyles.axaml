@@ -685,6 +685,22 @@
     <Setter Property="Foreground" Value="White" />
   </Style>
 
+  <!-- The rail's foot: the stream's light. Smaller than a group and set apart by a rule above it,
+       so it reads as a tally rather than a sixth place to go. -->
+  <Style Selector="Button.navGroup.railFoot TextBlock.navlabel">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="LetterSpacing" Value="1.2" />
+    <Setter Property="Foreground" Value="#8B95A5" />
+  </Style>
+  <!-- The foot's rule is always lit and is not a group underline: it separates the tally from
+       the five places the rail goes, and it carries the stream's own colour, not a page's neon. -->
+  <Style Selector="Border.railRule"><Setter Property="Opacity" Value="0.85" /></Style>
+  <Style Selector="Button.navGroup.railFoot TextBlock.railFootWord">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.6" />
+  </Style>
+
   <Style Selector="Button.pageChip">
     <Setter Property="Padding" Value="12,4" />
     <Setter Property="CornerRadius" Value="8" />

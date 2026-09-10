@@ -177,6 +177,114 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 35. Round 23 — a page with nothing round it, and a stream you can see
+
+Two asks, and both turned out to be about a thing that already existed but had nowhere to be
+pressed or read.
+
+*"For YouTube, the ingest needs to strip out all furniture and show fullscreen. There should be an
+option within the webpage section for YouTube, or auto-detect. Would an option to choose YouTube be
+useful as an abstraction that could add more similar options in the future? Could even the media bar
+be stripped out?"*
+
+*"Streaming commands are missing from Actions. Streaming needs feedback and health on its section,
+plus a highlight of stream health on the bottom of the Rails menu bar."*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The service abstraction, named rather than only guessed (§36.1). `PageService` already existed — YouTube, Vimeo, Google Slides, PowerPoint, each with its own FULL FRAME rewrite and its own actions — but only auto-detected from the address. `PageServicePick` lets the operator name it, for the address that does not say: a short link, a corporate proxy, an embed on the client's own hostname. It is on both page surfaces now, not only the Media page. | done |
+| 2 | CLEAN: the furniture an address cannot take off (§36.2). A per-service style sheet put into the page before its own scripts run — YouTube's media bar, watermark, pause panel, end-screen cards and centre play button; Vimeo's control bar and outro; the Slides toolbar; and for any other page the margin, the scrollbar and the pointer. Opt-in per page, applied and removed live without a reload. | done |
+| 3 | The stream's health, read once and shown everywhere (§36.3). `StreamHealth` (Core, pure) turns what the desk knows about the encoder into a light, a word and a line. The Stream page gains a health block; the rail gains a foot that carries it on every page; the phone, the wire and an OSC feedback bundle carry the same word. | done |
+| 4 | A stream command wherever an operator acts (§36.4). It was in a cue's ACTIONS list, on the wire, over OSC and in Companion — and pressable only on its own page. Now: the Show panel's SHOW CONTROLS drawer, the phone's SHOW tab, and a look — which is what gives an F-key, the presenter's clicker list and a permanent install's schedule a stream command, since all three recall a look and none of them carries an action list. | done |
+
+## 36. Round 23 — the answers
+
+### 36.1 The abstraction was right; it just had no name the operator could say
+
+The question was whether a YouTube option would be useful as an abstraction others could follow.
+It would, and it already was one: `WebPreset` holds a service's name, what FULL FRAME does to its
+address, and the actions its pages answer to, so "next", "play" and "present" mean the right thing
+on each — a new service is a row and four constants, not a code path.
+
+What it lacked was a way to say so. `Detect(url)` reads the host, which is right almost always and
+wrong in exactly the cases that matter on a show day: a link shortened for a running order, a
+corporate proxy in front of the video, an embed served from the client's own hostname. So the pick
+is explicit — Auto, or the service named — and it reaches everything that follows from it: the
+address rewrite, the actions on PAGE CONTROLS and in cues, and the strip below. It also runs the
+other way: a YouTube link an operator wants as an ordinary watch page (a video whose owner blocks
+embedding) is told to be a plain page and left alone.
+
+### 36.2 What an address cannot do
+
+FULL FRAME does what an address can: `youtube-nocookie.com/embed/<id>` with `controls=0`, `rel=0`
+and no fullscreen button. What no address can do is the furniture the player draws over its own
+picture — the media bar on hover, the channel watermark, the pause panel, the end-screen cards, the
+big centre play button. So CLEAN is a style sheet, put in with
+`AddScriptToExecuteOnDocumentCreated` so it is there before the page's own scripts run, and put
+into the open document as well so ticking it changes the picture at once rather than at the next
+reload.
+
+Selectors with `!important`, not script that hides elements: the player rebuilds its controls as it
+plays, and a rule keeps holding where a hidden element would come back. It names the service's own
+classes, which is the honest limit — a service that renames one lets a piece of furniture back — so
+it is a tick the operator turns on and reads on the wall, and the worst case is today's picture
+rather than a broken page. Nothing in any strip touches the video element itself; a test holds that
+door.
+
+The operator's half of the question — "operational by the operator, as little decoration as
+possible to a Look" — has one honest answer: it is a single bitmap, so what the room sees the
+operator sees. There is no showing chrome on the preview and hiding it on air. What makes it work
+anyway is that the page never needed its own buttons: PLAY, PAUSE, MUTE, RESTART and ±10 s go
+through the player's API from PAGE CONTROLS, a cue, the phone or a Stream Deck, and answer whether
+or not the controls are drawn.
+
+### 36.3 The failure the desk cannot see
+
+A stream that has stopped is obvious. A stream that is *up and not keeping up* is not: the wall
+looks perfect, every output is smooth, and the online audience is watching a slideshow. Nothing on
+the desk showed it — the Stream page had one line of prose, and only on that page.
+
+`StreamHealth` is the rule, in Core and pure: from what the desk knows about the encoder — asked
+for, configured, starting, frames taken, the rate they are going in at, the rate asked for,
+restarts, the encoder's own words — it gives a light, a word and a line. Below four-fifths of the
+rate asked for it reads **SLOW**, not live, and says by how much and what to lower; a stream that is
+keeping up but has restarted reads **LIVE\***, because an operator should know their encoder fell
+over even when the picture came back. A stream is given six seconds to reach its rate before that
+bites, so coming up is never a fault.
+
+It is read once, on the desk's own second, and everything shows that one reading: the Stream page's
+health block, the foot of the rail (on every page, which is the point — a stream falls behind while
+you are building the next look), the Show panel, the phone's SHOW tab, `STATE` on the wire and
+`/patterns/state/stream/health` in an OSC feedback bundle. Nothing computes it twice, so no two
+surfaces can disagree about the same stream.
+
+### 36.4 A command where the operator is
+
+Start stream and Stop stream were in `ActionSpec.CueKinds`, on the wire as `STREAM ON|OFF`, over
+OSC and in the Companion module — and pressable, at the desk, only on the Stream page. Mid-show
+that means leaving the page you are working on to start a broadcast.
+
+They are now in the Show panel's SHOW CONTROLS drawer beside the message, the clock and the
+countdown, and on the phone's SHOW tab beside the transport.
+
+The three surfaces that had no way to reach it — an F-key, the presenter's clicker list, a
+permanent install's schedule — all have the same shape: they name a *look*, and a look is a picture,
+not an action list. Rather than give each of them one, a look carries the stream the way it already
+carries break music: one field, `LookConfig.Stream`, applied after the picture has landed, journaled
+with the look's origin, and never able to stop the look. One field, three surfaces. It never runs
+on a look loaded into the preview — nothing that has not gone to air may reach the internet — which
+is the same rule the music already keeps and the same rule a restart keeps.
+
+Tests: the pick honoured by resolve, FULL FRAME and the actions; the strip's contents, that it is
+off until asked and that it never touches the video element; every service having one and a plain
+page getting the reset alone; the page the engine opens carrying its strip and a layer's own tick;
+on a live desk CLEAN reaching the browser and coming off live without a reload, and the service
+choice travelling from the staging block onto the pattern. For the stream: every light from every
+state, the slow threshold and its settling time, the restart note, the colours and the uptime words;
+on a live desk the rail's foot in three states and its way to the page, the Show panel's START and
+STOP, a look carrying the stream on air and never into the preview, and the health on `STATE` and in
+an OSC bundle with the cue vocabulary still naming it.
+
 ## 33. Round 22 — the restart that comes back to the show, and the frame after the fade
 
 Two reports, and both turned out to sit on a seam rather than in a control.

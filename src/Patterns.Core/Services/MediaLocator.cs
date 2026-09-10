@@ -76,7 +76,8 @@ public static class MediaLocator
     /// capture device's chosen mode ("1920x1080@60"; empty = the device's default), a web page's
     /// viewport ("1920x1080") or a deck's start page ("1"); <paramref name="Zoom"/> is a web page's zoom in per cent.
     /// </summary>
-    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "", double Zoom = 100);
+    /// <summary><paramref name="Clean"/> is the style a web page wears while CLEAN is on ("" = the page as the site drew it).</summary>
+    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "", double Zoom = 100, string Clean = "");
 
     /// <summary>
     /// Every input the snapshot references — the program pattern, each enabled custom-pattern
@@ -91,7 +92,7 @@ public static class MediaLocator
         var seen = new HashSet<string>();
         var state = snap.State;
 
-        void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100)
+        void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100, string clean = "")
         {
             if (string.IsNullOrWhiteSpace(target)) return;
             if (kind == WantedKind.Web) target = WebAddress.Normalize(target);
@@ -105,7 +106,7 @@ public static class MediaLocator
             };
             if (!seen.Add(key)) return;
             if (kind == WantedKind.Capture) format = state.CaptureFormatFor(target);
-            list.Add(new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom));
+            list.Add(new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean));
         }
 
         void FromPattern(PatternConfig p)
@@ -128,7 +129,8 @@ public static class MediaLocator
                         Add(WantedKind.Ndi, l.NdiSourceName, false, true, 0);
                         break;
                     case LayerSource.Web:
-                        Add(WantedKind.Web, l.WebUrl, false, l.Mute, 0, $"{l.WebWidth}x{l.WebHeight}", l.WebZoomPct);
+                        Add(WantedKind.Web, l.WebUrl, false, l.Mute, 0, $"{l.WebWidth}x{l.WebHeight}", l.WebZoomPct,
+                            WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean));
                         break;
                 }
             }
@@ -152,7 +154,8 @@ public static class MediaLocator
                         Add(WantedKind.Ndi, m.NdiSourceName, false, true, 0);
                         break;
                     case MediaSource.Web:
-                        Add(WantedKind.Web, m.WebUrl, false, m.Mute, 0, $"{m.WebWidth}x{m.WebHeight}", m.WebZoomPct);
+                        Add(WantedKind.Web, m.WebUrl, false, m.Mute, 0, $"{m.WebWidth}x{m.WebHeight}", m.WebZoomPct,
+                            WebPresets.CleanCss(m.WebUrl, m.WebService, m.WebClean));
                         break;
                     case MediaSource.Deck:
                         Add(WantedKind.Deck, m.DeckPath, false, true, 0, m.DeckStartPage.ToString(System.Globalization.CultureInfo.InvariantCulture));

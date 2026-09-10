@@ -109,9 +109,10 @@ public sealed class WebEngine : IDisposable
         {
             if (_pages.TryGetValue(w.Key, out var page))
             {
-                // Zoom and sound apply live — the page never reloads for them.
+                // Zoom, sound and the CLEAN style apply live — the page never reloads for them.
                 page.Source.ZoomPct = w.Zoom;
                 page.Source.IsMuted = w.Mute;
+                page.Source.CleanCss = w.Clean;
                 continue;
             }
             if (_pages.Count >= MaxPages)
@@ -125,6 +126,7 @@ public sealed class WebEngine : IDisposable
                 if (source is null) continue;
                 source.ZoomPct = w.Zoom;
                 source.IsMuted = w.Mute;
+                source.CleanCss = w.Clean;
                 _pages[w.Key] = new Page(source, w.Format);
                 InputBus.Mount(w.Key, source);
             }

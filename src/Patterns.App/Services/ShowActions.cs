@@ -1134,10 +1134,40 @@ public sealed class ShowActions
         var text = prefix + (sandboxed
             ? $"Look '{look.Name}' on air — your preview edit is untouched."
             : $"Look '{look.Name}' applied.");
+        var stream = RunLookStream(look, origin);
+        if (stream is { } s2) text = $"{text} {s2.Message}";
         if (RunLookMusic(look, origin) is not { } music) return ActionResult.Done(text);
         // The music is asynchronous like every break-music verb: a Requested look settles on it.
         var line = $"{text} {music.Message}";
         return music.Status == ActionStatus.Requested ? ActionResult.Requested(line) : ActionResult.Done(line);
+    }
+
+    /// <summary>
+    /// A look can start or stop the stream: the same verb a cue, the phone or a Stream Deck key
+    /// would run, after the picture has landed and journaled on its own with the look's origin.
+    /// This is how an F-key, the clicker list and an install's schedule reach the stream — they
+    /// all recall a look and none of them carries an action list. Never able to stop the look:
+    /// a stream that will not start is a line on the status strip, not a lost picture.
+    /// </summary>
+    private ActionResult? RunLookStream(LookConfig look, ActionOrigin origin)
+    {
+        if (look.Stream == LookConfig.LookStream.Leave) return null;
+        var action = new ShowAction(look.Stream == LookConfig.LookStream.Start
+            ? ShowActionKind.StreamStart
+            : ShowActionKind.StreamStop);
+        ActionResult result;
+        try
+        {
+            result = Run(action, origin);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Look '{look.Name}': stream step {action} failed.", ex);
+            result = ActionResult.Failed(ex.Message);
+        }
+        _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(),
+            $"Look '{look.Name}': {result.Message}");
+        return result;
     }
 
     /// <summary>
