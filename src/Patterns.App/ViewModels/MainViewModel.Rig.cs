@@ -277,6 +277,7 @@ public sealed partial class MainViewModel
         RebuildNdiSources();
         RebuildStreamSources();
         RebuildMultiviewTargets();
+        RefreshWallDestinations();
         RaiseArrangement();
         // Loading a show, or plugging a display in, can change the mode and the planned set.
         RefreshOutputsStatus();

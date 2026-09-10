@@ -172,7 +172,10 @@ public static class MediaLocator
             }
             else if (p.Kind == PatternKind.Multiview)
             {
-                foreach (var tile in p.Multiview.Tiles)
+                // The wall this pattern draws — the show's, or the tiles it carries itself. The
+                // inputs a monitor wall shows have to be opened like any other picture, so a wall
+                // on a spare screen keeps its NDI feeds and capture boxes alive.
+                foreach (var tile in Multiviews.For(state, p).Tiles)
                 {
                     switch (tile.Source)
                     {

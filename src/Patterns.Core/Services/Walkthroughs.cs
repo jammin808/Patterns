@@ -179,7 +179,7 @@ public static class Walkthroughs
             {
                 new WalkStep("NDI", "Senders", "Add an NDI sender per picture: a screen, a canvas or the program; a sender can be its own virtual screen with its own look.", "ndi-on"),
                 new WalkStep("Stream", "Destinations", "Up to two destinations with their keys; the source can be the desktop, a screen or a virtual screen the engine renders.", "stream-armed"),
-                new WalkStep("Pattern", "A multiview for the truck", "A Multiview pattern on a spare display or a sender: tiles of every screen, feed, the clock and the preview, with tally.", "multiview-present"),
+                new WalkStep("Multiview", "A monitor wall for the truck", "SETUP → Multiview: add a wall — it arrives filled from the rig — then tick a spare display, an NDI sender or the stream under WHERE IT SHOWS. The programme stays the programme.", "multiview-present"),
                 new WalkStep("Machine", "Watch it", "The Machine page reads dropped frames against the master rate, the stream's status and the sends; SUPER-CHECK grades the lot."),
             }),
     };

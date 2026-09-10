@@ -393,13 +393,29 @@ public static class HelpTopics
             HelpBodies.MultiviewTally,
             new[]
             {
-                "Pattern page → Multiview: tiles for the program, the preview, screens and canvases, inputs.",
+                "SETUP → Multiview: tiles for the programme, the preview, screens and canvases, inputs.",
                 "The PROGRAM / PREVIEW badges follow the switcher; a screen's tile names the screen and its outputs.",
-                "Send the multiview to a screen, an NDI send, or /multiview on the phone.",
+                "Tick where the wall shows — a screen, an NDI sender, the stream — or watch it at /multiview on the phone.",
             },
             "",
-            new[] { "Pattern", "Screens", "NDI" },
+            new[] { "Multiview", "Screens", "NDI" },
             new[] { "multiview", "tally", "badge", "program", "preview", "tile", "monitor wall", "which screen", "outputs" }),
+
+        new HelpTopic("multiview-walls", HelpGroup.RunningTheShow,
+            "The monitor walls: two of them, arranged how you want, on any output",
+            "SETUP → Multiview: up to two monitor walls the show holds, each shown on however many outputs you tick — a spare display, an NDI send, the stream.",
+            HelpBodies.MultiviewWalls,
+            new[]
+            {
+                "SETUP → Multiview → + ADD A MULTIVIEW: it arrives filled from the rig — the programme, the preview, every screen and a clock.",
+                "Layout: programme and preview large with the rest beneath (the default), one large, one large down the left, or an even grid.",
+                "The large tiles are the first in the list — drag a tile to the top with its grip to watch it.",
+                "WHERE IT SHOWS: tick a screen, an NDI sender or the stream. A feed is pointed at its own picture for you.",
+                "The programme stays the programme: a wall on a spare screen does not stop the show being a pattern, a clip or a page.",
+            },
+            "",
+            new[] { "Multiview", "Screens", "NDI", "Stream" },
+            new[] { "multiview", "monitor wall", "layout", "two multiviews", "second multiview", "where is multiview", "confidence monitor", "gallery", "tiles", "arrange", "large" }),
 
         // ---- CONTENT ----------------------------------------------------------------------
         new HelpTopic("inputs", HelpGroup.Content,

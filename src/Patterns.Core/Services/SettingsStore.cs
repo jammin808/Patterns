@@ -188,6 +188,13 @@ public sealed class SettingsStore
         // exactly what they mirrored before.
         VirtualScreens.Sync(state);
 
+        // v9: a monitor wall belonged to one screen's pattern, which meant it could not be the
+        // show's picture and a wall, and two screens showing "the same" wall were two
+        // configurations that drifted. The tiles become a wall the show holds and the pattern
+        // points at it. Idempotent; a pattern with no tiles of its own was drawing the automatic
+        // wall and still is.
+        Multiviews.Migrate(state);
+
         // v8: the audio track became the audio playlist — the one file an older show named is
         // the list's first row, and every row carries an id.
         AudioPlaylist.Migrate(state.AudioPlayer);

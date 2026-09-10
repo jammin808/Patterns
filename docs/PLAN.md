@@ -177,6 +177,146 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 39. Round 25 — the page that stopped rebuilding itself, and the monitor walls
+
+*"In PLAN → Cues → Cue stack: when the mouse is over the cues, the background colour of the cue
+flashes. In Selected Cue and Cue actions: when the mouse is over the drop down or text input box,
+the focus flickers so I can't select anything or type anything."*
+
+*"Multiview options and selections seem to have gone from the UX, I can't see them. Multiview needs
+more layouts and customisation. As default it should show Main screen Program and Preview as larger
+panels with input smaller. Also allow to show a Pattern in PGM to Multiview. There needs to be up to
+2 different multiview outputs/patterns, available across hardware AND NDI and Streaming outputs."*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The Cues page stops rebuilding itself (§40.1). One cause, three faces: the rows flashing under the pointer, a picker that closes as it is reached for, and a text box that forgets what is being typed. `SyncRows` reconciles rather than rebuilds, `PickList.Fill` leaves a picker whose items have not changed completely alone, and `RefreshTiming` stops pushing a wait back into the box the operator is typing in. | done |
+| 2 | The multiview stops being a pattern type (§40.2). `ShowState.Multiviews` holds up to two walls; a pattern with `PatternKind.Multiview` only names which one it draws. That is what lets the programme be a pattern **and** a wall be on a spare screen at the same time — the ask behind "show a Pattern in PGM to Multiview". | done |
+| 3 | Four layouts, and the default the ask named (§40.3). `MultiviewLayoutPlan` is pure geometry: programme and preview large with the rest in a strip beneath, one large, one large down the left, or an even grid. The large tiles are the first in the list, so the arrangement is a drag rather than a setting. | done |
+| 4 | Two walls, on hardware, NDI and the stream (§40.4). `Multiviews.Show` does the whole chain from one tick — the target's own pattern on, set to this wall, and a feed pointed at its own screen — and `Clear` hands it straight back. | done |
+| 5 | A show made before this opens as it was (§40.5). Schema v9 hoists a pattern's inline tiles into a wall the show holds, deduplicating two targets that carried the same tiles into one wall both point at, and keeps the even grid the old build drew. | done |
+
+## 40. Round 25 — the answers
+
+### 40.1 A page that rebuilds itself is a page you cannot use
+
+Both faults had one cause, and it was invisible until a pointer or a caret was on the page. The
+desk re-runs the cue checks after every snapshot it publishes; `CueEditor.Refresh` detached every
+row, cleared the collection and made the rows again, and every action row's `RefreshChoices`
+emptied and refilled the very `ObservableCollection`s bound as `ItemsSource` on its pickers.
+Afterwards the page looked identical, so nothing about it read as a bug — but a row that is thrown
+away and remade is not under the pointer for a frame, which is the hover colour flashing; a
+`ComboBox` whose items are cleared closes its dropdown and drops its selection, which is a picker
+that cannot be clicked; and a control that is replaced loses focus, which is a box that will not
+take typing. The clicker list looked fine only because nothing was publishing while it was up.
+
+The fix is the same rule at three levels: **an update that finds nothing changed must change
+nothing.** `SyncRows` finds each row by the cue it is for, updates the summary and the checks in
+place, and touches the collection only for a cue that has actually appeared, gone or moved.
+`PickList.Fill` builds the wanted list first, compares it with what the picker already has — a
+`PickItem` is a record, so that is a value comparison — and returns without touching anything when
+they match. The Quick look picker became one collection kept level with the show rather than a
+fresh `List` allocated on every read.
+
+The third fault was in the delay row round 24 added, and it is the subtlest. A wait typed into one
+step re-times every step under it, and `RefreshTiming` told those rows by raising `Delay` as well
+as their moment in the cue — which pushes the model's number back into the box the operator has
+their hands on. It now raises only `AtWords` and `IsDelayed`. A reorder is the one case where a row
+really does take a different number, because the waits stay with the positions, so that path calls
+`RefreshWait`.
+
+### 40.2 The multiview was in the one place it could not be
+
+"I can't see them" had an answer — BUILD → Pattern, but only once the Pattern Type was Multiview —
+and the answer was the bug. A monitor wall was a *pattern kind*, so building one meant making it
+the picture of whatever was being edited. Three things followed. The programme could not be a
+pattern and a wall at the same time, which is exactly what "allow to show a Pattern in PGM to
+Multiview" is asking for. A wall on a second screen was a second set of tiles, kept level by hand,
+drifting over a long night. And the settings sat behind a mode nobody would find, on a page about
+something else.
+
+So a wall became a thing the show holds — `ShowState.Multiviews`, up to two — and a pattern with
+`PatternKind.Multiview` carries only a `MultiviewId` saying which one it draws. Nothing in the rig
+had to change to make that reach an output: a spare display, an NDI sender and the stream each
+already own a content target that can carry a pattern of its own, so pointing any of them at a wall
+is the assignment that already existed, filled in for the operator. The renderer changed by one
+line — it resolves the wall through `Multiviews.For` instead of reading the pattern's own tiles —
+and a pattern that names no wall still draws the tiles it carries, which is what keeps every show
+made before this working, and what keeps a look's captured pattern JSON working too.
+
+One detail worth naming, because getting it wrong is subtle: a wall's **id and name are neutral to
+a transition**, and which wall a pattern draws is not. A pattern's identity JSON is what the engine
+crossfades on, and `MultiviewOptions` gaining an `Id` that defaulted to a fresh GUID made two
+otherwise identical states compare unequal — every sink would have crossfaded on nothing. The id is
+minted when a wall is added to the show, not by the property initialiser, and it and the name are
+marked `[TransitionNeutral]`.
+
+### 40.3 An even grid tells the room a lie
+
+A multiview is read at a glance, from across a room, usually by someone doing something else. An
+even grid says every picture on it matters the same amount, and that is never true: what is on air
+and what is going on air next decide things; a foyer feed is a glance. So the default is the one
+the ask named — programme and preview large across the top, everything else in a strip beneath —
+with three others: one large with the rest beneath (a confidence monitor with the rig to glance
+at), one large down the left with the rest in a column on the right (the shape a tall monitor
+beside a desk wants), and the even grid, which is right for a rig check or a wall of inputs.
+
+`MultiviewLayoutPlan` is pure geometry — no Skia state, no snapshot, nothing drawn — so the
+arrangement is something a test reads in numbers rather than in pixels, and the renderer keeps one
+job: drawing a tile in a box it was handed. The tests assert the properties that matter for every
+layout at every count from one to nine: every tile inside the wall, none overlapping, the large
+ones in the list's own order and genuinely bigger than the strip, and the strip wrapping rather
+than shrinking to a sliver.
+
+Which tiles are large is simply which are first in the list. That is a deliberate refusal to add a
+second setting: an operator arranges the wall by dragging a tile to the top with the same grip the
+cue steps use, and what they are looking at while they drag is the finished wall.
+
+### 40.4 One tick is the whole job
+
+"Available across hardware AND NDI and Streaming outputs" is easy to build badly: three pages, each
+with its own way of saying "show the wall here". WHERE IT SHOWS is one list of every output a wall
+can go to — each screen and canvas on the rig, every NDI sender, the stream — and a tick does the
+whole chain: the target's own pattern on, that pattern set to this wall, and, for a feed, that feed
+pointed at its own picture rather than at a mirror of something else. Nothing is left to find on
+the NDI or Stream page afterwards. Unticking hands the output straight back to the programme, and
+removing a wall hands back every output it was on, so a wall can never be deleted out from under a
+screen that is still drawing it.
+
+The line beside each output says what it is doing instead — showing the programme, showing the
+other wall, or on its own picture — so an operator can see what a tick is about to take over before
+they press it.
+
+### 40.5 A show that already exists opens the way it was left
+
+Schema v9 walks the programme's pattern and every target's own, and any that carries tiles of its
+own becomes a wall the show holds. Two targets carrying identical tiles — the case that was two
+configurations to keep level — come out of it pointing at one wall, which is what they meant. The
+migrated wall gets the **even grid**, not the new default: a show that already exists must open
+looking the way it was left, and the new arrangement is for walls made from here on. The pass is
+idempotent, a pattern with no tiles of its own is left alone because it was drawing the automatic
+wall and still is, and a show with more walls than this build allows keeps its first two and lets
+the rest fall back to the tiles they already carry rather than losing them.
+
+The automatic wall — what a show that has configured nothing draws — gained the preview tile ahead
+of the screens, so it lands on the new default layout already looking like a vision mixer's
+multiviewer rather than a grid with the programme in the corner.
+
+Tests: ten revalidates leaving every cue row instance and every picker untouched, a rename and a
+broken reference landing in place, a cue inserted, moved and removed reconciling around the rows
+that stay, a wait typed into one step re-timing its neighbours without writing a number back into
+their boxes while a reorder does; every layout at every count from one to nine filling the wall
+with nothing overlapping or leaving it, the large ones first and bigger, the strip wrapping, the
+grid making nothing large; a wall resolved from the show with the fallback for a pattern that names
+none and for one whose wall the show has lost, two the limit, the wall the remote gets; one tick
+setting up a screen, an NDI sender and the stream and one untick handing each straight back, a
+removed wall taking every output with it; an older show's identical tiles becoming one wall both
+patterns point at, its grid kept, the pass idempotent; a wall's id and name kept out of what a
+picture looks like while which wall a pattern draws is exactly that; a screen adopted at the venue
+keeping its place on every wall; the engine drawing the wall the layout planned; and on a live desk
+the page on the rail under SETUP, a wall arriving filled from the rig, one tick doing the whole job
+with the programme untouched, and a tile dragged to the top becoming one of the large ones.
+
 ## 37. Round 24 — a cue with a shape in time, and how one picture becomes the next
 
 Two asks.

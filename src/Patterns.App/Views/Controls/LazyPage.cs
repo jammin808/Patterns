@@ -49,6 +49,7 @@ public sealed class LazyPage : ContentControl
         ["Library"] = () => new LibrarySection(),             // its own scrolling grid
         ["Assistant"] = () => Scroll(new AssistantSection()),
         ["Screens"] = () => Scroll(new OutputsSection()),
+        ["Multiview"] = () => Scroll(new MultiviewSection()),
         ["Audio"] = () => Scroll(new AudioSection()),
         ["NDI"] = () => Scroll(new NdiSection()),
         ["Stream"] = () => Scroll(new StreamSection()),

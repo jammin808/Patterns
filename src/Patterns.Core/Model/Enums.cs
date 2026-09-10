@@ -48,6 +48,27 @@ public enum ReactiveQuality
     Fine,
 }
 
+/// <summary>
+/// How a multiview arranges its tiles. First member is the fallback for a value this build does
+/// not know, and the one a show that says nothing gets: a monitor wall is read at a glance from
+/// across a room, and the two pictures that decide anything — what is on air and what is next —
+/// have to be the big ones.
+/// </summary>
+public enum MultiviewLayout
+{
+    /// <summary>The first two tiles large side by side, everything else in a strip beneath them.</summary>
+    ProgramAndPreview,
+
+    /// <summary>The first tile large across the top, everything else in a strip beneath it.</summary>
+    Solo,
+
+    /// <summary>The first tile large down the left, everything else in a column on the right.</summary>
+    SideColumn,
+
+    /// <summary>Equal tiles, as many across as the columns setting says (0 = square-ish).</summary>
+    Grid,
+}
+
 /// <summary>What one multiview tile shows.</summary>
 public enum MultiviewSource
 {

@@ -283,7 +283,8 @@ public sealed partial class MainViewModel
         "web-source" => ActivePattern.Kind == PatternKind.Media && ActivePattern.Media.Source == MediaSource.Web,
         "layers-on" => ActivePattern.Layer1.Enabled || ActivePattern.Layer2.Enabled,
         "beacon-on" => State.Watchdog.BeaconEnabled || State.Watchdog.BeaconListen,
-        "multiview-present" => State.Pattern.Kind == PatternKind.Multiview || State.Independent.Any(a => a.Pattern.Kind == PatternKind.Multiview),
+        "multiview-present" => State.Multiviews.Count > 0 || State.Pattern.Kind == PatternKind.Multiview
+            || State.Independent.Any(a => a.Pattern.Kind == PatternKind.Multiview),
         _ => null,
     };
 

@@ -1980,7 +1980,7 @@ public sealed class CaptureFormatConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 8;
+    public const int CurrentSchemaVersion = 9;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run
@@ -2007,6 +2007,14 @@ public sealed class ShowState : Observable
     public PatternConfig Pattern { get; init; } = new();
     /// <summary>Per-screen patterns for Independent mode.</summary>
     public ObservableCollection<OutputAssignment> Independent { get; init; } = new();
+
+    /// <summary>
+    /// The monitor walls this show has — up to <see cref="Multiviews.Max"/> of them, each with its
+    /// own layout and tiles. A wall is a thing of its own rather than a pattern belonging to one
+    /// screen: the show's picture stays the show's picture, and however many outputs point at a
+    /// wall — a spare display, an NDI send, the stream — they all draw the same one.
+    /// </summary>
+    public ObservableCollection<MultiviewOptions> Multiviews { get; init; } = new();
     public OverlaySet Overlays { get; init; } = new();
     public CountdownConfig Countdown { get; init; } = new();
     public BrandKit Brand { get; init; } = new();

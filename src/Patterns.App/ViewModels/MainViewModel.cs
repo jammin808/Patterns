@@ -619,13 +619,9 @@ public sealed partial class MainViewModel : Observable
         StartStreamCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StreamStart, ActionOrigin.Desk));
         StopStreamCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StreamStop, ActionOrigin.Desk));
 
-        // Multiview
-        AddMultiviewTileCommand = new RelayCommand(() =>
-            ActivePattern.Multiview.Tiles.Add(new MultiviewTileConfig()));
-        RemoveMultiviewTileCommand = new RelayCommand<MultiviewTileConfig>(tile =>
-        {
-            if (tile is not null) ActivePattern.Multiview.Tiles.Remove(tile);
-        });
+        // The monitor walls (SETUP → Multiview): the show's own, up to two, each on however many
+        // outputs are ticked for it.
+        BuildMultiviewCommands();
 
         // Prep mode: planned screens and adoption
         AddPlannedScreenCommand = new RelayCommand(() => AddPlannedScreen());
@@ -803,11 +799,21 @@ public sealed partial class MainViewModel : Observable
         RevertDisplayModeCommand = new RelayCommand(RevertDisplayMode);
         SelectGroupCommand = new RelayCommand<ShellGroup>(SelectGroup);
         SelectPageCommand = new RelayCommand<int>(SelectPage);
-        // A row dragged in the ACTIONS list: the editor moves the step and keeps the cue's timing.
+        // A row dragged in a reorderable list, named by the list it came from: a cue's step, which
+        // moves without taking its wait with it; a multiview tile, whose place in the list is what
+        // makes it one of the wall's large ones.
         Views.Controls.DragReorder.Moved = (host, from, to) =>
         {
-            if (host.Name != "ActionList" || from < 0 || from >= Cues.ActionRows.Count) return;
-            Cues.MoveActionTo(Cues.ActionRows[from], to);
+            if (from < 0) return;
+            switch (host.Name)
+            {
+                case "ActionList" when from < Cues.ActionRows.Count:
+                    Cues.MoveActionTo(Cues.ActionRows[from], to);
+                    break;
+                case "WallTiles" when SelectedWall is { } wall && from < wall.Tiles.Count:
+                    MoveWallTileTo(wall.Tiles[from], to);
+                    break;
+            }
         };
         // The rail's foot and anything else that knows where it wants to go by name rather than
         // by the page's number, which moves whenever a page is added.
@@ -1037,8 +1043,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand CutCommand { get; }
     public RelayCommand<SwitcherTile> SelectTileCommand { get; }
     public RelayCommand ArmAllCommand { get; }
-    public RelayCommand AddMultiviewTileCommand { get; }
-    public RelayCommand<MultiviewTileConfig> RemoveMultiviewTileCommand { get; }
     public RelayCommand StartStreamCommand { get; }
     public RelayCommand StopStreamCommand { get; }
     public RelayCommand RestartAppCommand { get; }
@@ -1267,6 +1271,7 @@ public sealed partial class MainViewModel : Observable
         _services.Tail.DropAll();
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
         HookTransition();
+        RefreshWallDestinations();   // another show, another set of walls and outputs
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();
         RefreshSpotifyDevices();

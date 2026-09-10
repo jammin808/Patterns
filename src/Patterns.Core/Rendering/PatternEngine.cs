@@ -356,7 +356,7 @@ public sealed class PatternEngine
         {
             try
             {
-                RenderMultiview(canvas, in frame, sink, cfg.Multiview);
+                RenderMultiview(canvas, in frame, sink, Multiviews.For(snap.State, cfg));
             }
             catch (Exception ex)
             {
@@ -584,25 +584,25 @@ public sealed class PatternEngine
         canvas.Clear(MultiviewBg);
         if (tiles.Count == 0)
         {
-            DrawTileSlate(canvas, f, SKRect.Create(0, 0, f.W, f.H), "Add multiview tiles in the Pattern tab");
+            DrawTileSlate(canvas, f, SKRect.Create(0, 0, f.W, f.H), "Add multiview tiles on the Multiview page");
             return;
         }
 
-        var cols = opts.Columns > 0 ? opts.Columns : (int)Math.Ceiling(Math.Sqrt(tiles.Count));
-        var rows = (int)Math.Ceiling(tiles.Count / (double)cols);
+        // Where the tiles go is worked out away from here, in numbers a test can read: the large
+        // ones are the first in the list, the rest go in the strip beside or under them.
         var gap = Math.Max(2f, f.W * 0.004f);
-        var cellW = (f.W - gap * (cols + 1)) / cols;
-        var cellH = (f.H - gap * (rows + 1)) / rows;
-        var labelH = opts.ShowLabels ? Math.Clamp(cellH * 0.14f, 13f, 30f) : 0f;
+        var area = SKRect.Create(gap, gap, f.W - gap * 2, f.H - gap * 2);
+        var plan = MultiviewLayoutPlan.Plan(opts.Layout, tiles.Count, area, opts.Columns, gap);
 
-        for (var i = 0; i < tiles.Count; i++)
+        foreach (var placed in plan)
         {
-            var tile = tiles[i];
-            var col = i % cols;
-            var row = i / cols;
-            var cell = SKRect.Create(gap + col * (cellW + gap), gap + row * (cellH + gap), cellW, cellH);
+            var tile = tiles[placed.Index];
+            var cell = placed.Box;
+            // A small tile's caption is a smaller caption: the strip is half the height of the
+            // large row and a label sized off the big cells would eat the picture under it.
+            var labelH = opts.ShowLabels ? Math.Clamp(cell.Height * 0.14f, 11f, 30f) : 0f;
             var content = SKRect.Create(cell.Left, cell.Top, cell.Width, cell.Height - labelH);
-            if (content.Width < 1f || content.Height < 1f) continue;   // a grid too dense to draw
+            if (content.Width < 1f || content.Height < 1f) continue;   // a wall too dense to draw
 
             // Each tile takes its target's real shape inside a uniform cell — the same two-step
             // the wall does with AspectBox + RenderFitted, so a 3840×1080 canvas is a wide strip
@@ -874,17 +874,7 @@ public sealed class PatternEngine
             font, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
     }
 
-    private static List<MultiviewTileConfig> DefaultTiles(ShowSnapshot snap)
-    {
-        // No tiles configured: program + every arranged screen + a clock.
-        var tiles = new List<MultiviewTileConfig> { new() { Source = MultiviewSource.Program } };
-        foreach (var p in snap.State.Output.Placements.OrderBy(p => p.X).ThenBy(p => p.Y))
-        {
-            tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = p.ScreenId });
-        }
-        tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Clock });
-        return tiles;
-    }
+    private static List<MultiviewTileConfig> DefaultTiles(ShowSnapshot snap) => Multiviews.DefaultTiles(snap.State);
 
     /// <summary>
     /// The target maths for a tile that re-renders show content. Null for a tile that draws a

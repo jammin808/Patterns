@@ -563,13 +563,34 @@ public sealed class MultiviewTileConfig : Observable
 /// </summary>
 public sealed class MultiviewOptions : Observable
 {
+    private string _id = "";
+    private string _name = "";
+    private MultiviewLayout _layout = MultiviewLayout.ProgramAndPreview;
     private int _columns;
     private bool _showLabels = true;
     private bool _showTally = true;
 
+    /// <summary>
+    /// Its own id, so a screen, an NDI sender or the stream can be pointed at this wall — minted
+    /// when a wall is added to the show, empty on the set of tiles a pattern carries itself.
+    ///
+    /// Neutral to a transition, with the name: what a wall is called is not what it looks like,
+    /// and a pattern that draws one says so through its own <see cref="PatternConfig.MultiviewId"/>,
+    /// which is identity.
+    /// </summary>
+    [TransitionNeutral]
+    public string Id { get => _id; set => Set(ref _id, value ?? ""); }
+
+    /// <summary>What the operator calls it — "Monitor wall", "Stage left". Empty = numbered.</summary>
+    [TransitionNeutral]
+    public string Name { get => _name; set => Set(ref _name, value ?? ""); }
+
     public ObservableCollection<MultiviewTileConfig> Tiles { get; init; } = new();
 
-    /// <summary>Grid columns; 0 = automatic (square-ish).</summary>
+    /// <summary>How the tiles are arranged; the large ones are the first one or two in the list.</summary>
+    public MultiviewLayout Layout { get => _layout; set => Set(ref _layout, value); }
+
+    /// <summary>Tiles across: the whole wall on Grid, the small strip on the others. 0 = automatic.</summary>
     public int Columns { get => _columns; set => Set(ref _columns, Math.Clamp(value, 0, 8)); }
     public bool ShowLabels { get => _showLabels; set => Set(ref _showLabels, value); }
     /// <summary>Red border on tiles that are on air (outputs live and screen enabled).</summary>
@@ -691,6 +712,7 @@ public sealed class LayerConfig : Observable
 public sealed class PatternConfig : Observable
 {
     private PatternKind _kind = PatternKind.Grid;
+    private string _multiviewId = "";
 
     public PatternKind Kind { get => _kind; set => Set(ref _kind, value); }
 
@@ -710,6 +732,14 @@ public sealed class PatternConfig : Observable
     public MediaOptions Media { get; init; } = new();
     public ParticleOptions Particles { get; init; } = new();
     public MultiviewOptions Multiview { get; init; } = new();
+
+    /// <summary>
+    /// Which of the show's monitor walls this pattern draws (<see cref="ShowState.Multiviews"/>).
+    /// Empty = the tiles held here, which is what a show made before the walls became things of
+    /// their own carries. A wall named here is one configuration drawn on however many outputs
+    /// point at it, so two screens showing the same wall cannot drift apart.
+    /// </summary>
+    public string MultiviewId { get => _multiviewId; set => Set(ref _multiviewId, value ?? ""); }
     public FractalOptions Fractal { get; init; } = new();
     public ReactiveOptions Reactive { get; init; } = new();
 

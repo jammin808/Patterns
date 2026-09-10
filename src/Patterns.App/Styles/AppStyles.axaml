@@ -853,6 +853,12 @@
     <Setter Property="Background" Value="#1AB18CFF" />
   </Style>
   <Style Selector=":is(UserControl).hue-screens Border.panel"><Setter Property="BorderBrush" Value="#40B18CFF" /></Style>
+  <Style Selector=":is(UserControl).hue-multiview TextBlock.h2">
+    <Setter Property="Foreground" Value="#5FD0FF" />
+    <Setter Property="Background" Value="#1A5FD0FF" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-multiview TextBlock.h1"><Setter Property="Foreground" Value="#5FD0FF" /></Style>
+  <Style Selector=":is(UserControl).hue-multiview Border.panel"><Setter Property="BorderBrush" Value="#405FD0FF" /></Style>
   <Style Selector=":is(UserControl).hue-audio TextBlock.h2">
     <Setter Property="Foreground" Value="#FF9E58" />
     <Setter Property="Background" Value="#1AFF9E58" />

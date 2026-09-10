@@ -352,7 +352,8 @@ public sealed partial class ControlService : IDisposable
                 contentType = "image/jpeg";
                 payload = "";
                 binary = RenderMultiviewJpeg(
-                    int.TryParse(QueryValue(path, "w"), out var mvw) ? Math.Clamp(mvw, 320, 1920) : 1024);
+                    int.TryParse(QueryValue(path, "w"), out var mvw) ? Math.Clamp(mvw, 320, 1920) : 1024,
+                    int.TryParse(QueryValue(path, "n"), out var mvn) ? mvn : 1);
             }
             else if (method == "GET" && (path == "/api/state" || path.StartsWith("/api/state?")))
             {
@@ -612,7 +613,7 @@ public sealed partial class ControlService : IDisposable
     /// Renders the configured multiview (Pattern tab) to a JPEG for /mv.jpg — the engine is
     /// thread-safe over immutable snapshots, so this runs on the socket task, ~1 fps/viewer.
     /// </summary>
-    private byte[] RenderMultiviewJpeg(int width)
+    private byte[] RenderMultiviewJpeg(int width, int number)
     {
         lock (_mvGate)
         {
@@ -642,7 +643,7 @@ public sealed partial class ControlService : IDisposable
                 Canvas = new SKSizeI(w, h),
                 Palette = Palette.Resolve(snap),
             };
-            _mvEngine.RenderMultiview(surface.Canvas, in frame, _mvSink, snap.State.Pattern.Multiview);
+            _mvEngine.RenderMultiview(surface.Canvas, in frame, _mvSink, Multiviews.Primary(snap.State, number));
             surface.Canvas.Flush();
             using var image = surface.Snapshot();
             using var data = image.Encode(SKEncodedImageFormat.Jpeg, 72);

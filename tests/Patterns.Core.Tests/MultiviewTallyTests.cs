@@ -208,7 +208,7 @@ public class MultiviewTallyTests
         bus.PublishSandbox(state);
         bus.UnarmedTargets = new HashSet<string>(StringComparer.Ordinal) { Lobby };
         bus.Publish(state);
-        var opts = new MultiviewOptions { ShowLabels = true, ShowTally = true, Columns = 2 };
+        var opts = new MultiviewOptions { Layout = MultiviewLayout.Grid, ShowLabels = true, ShowTally = true, Columns = 2 };
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
         opts.Tiles.Add(Screen(CanvasKey));
         opts.Tiles.Add(Screen(Lobby));

@@ -202,7 +202,7 @@ public class ContentTargetTests
         state.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", Json = LookService.Capture(state) });
         state.Stingers.Items.Add(new StingerItemConfig { Name = "Sting", Path = "sting.wav" });
         // A file from before schema 4 has no ids at all.
-        var json = Regex.Replace(JsonUtil.Serialize(state), @"(,)?\s*""Id"": ""[0-9a-fA-F]{32}""(,)?",
+        var json = Regex.Replace(JsonUtil.Serialize(state), @"(,)?\s*""Id"": ""[0-9a-fA-F]{0,32}""(,)?",
             m => m.Groups[1].Success && m.Groups[2].Success ? "," : "");
         Assert.DoesNotContain("\"Id\"", json);
         File.WriteAllText(store.SettingsPath, json);

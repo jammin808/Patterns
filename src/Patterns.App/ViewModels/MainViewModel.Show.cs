@@ -186,6 +186,8 @@ public sealed partial class MainViewModel
             RaiseShell();
             Raise(nameof(PageWantsRoom));
             RefreshPopOut();   // the settings column follows the page: open for a selection here, closed elsewhere
+            // The Multiview page reads the rig and what every output is doing: level on arrival.
+            if (page.Header == "Multiview") RefreshWallDestinations();
         }, $"the switch to {page.Header}");
     }
 

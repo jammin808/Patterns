@@ -221,6 +221,7 @@
               <TabItem Header="Library"><ctl:LazyPage Page="Library" /></TabItem>
               <TabItem Header="Assistant"><ctl:LazyPage Page="Assistant" /></TabItem>
               <TabItem Header="Screens"><ctl:LazyPage Page="Screens" /></TabItem>
+              <TabItem Header="Multiview"><ctl:LazyPage Page="Multiview" /></TabItem>
               <TabItem Header="Audio"><ctl:LazyPage Page="Audio" /></TabItem>
               <TabItem Header="NDI"><ctl:LazyPage Page="NDI" /></TabItem>
               <TabItem Header="Stream"><ctl:LazyPage Page="Stream" /></TabItem>

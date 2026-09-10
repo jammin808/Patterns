@@ -97,6 +97,10 @@ public class MultiviewRenderTests
         return state;
     }
 
+    /// <summary>The same renderer, for the wall tests next door: a state, a wall, a size.</summary>
+    public static SKBitmap RenderWall(ShowState state, MultiviewOptions wall, int w, int h)
+        => Render(Snap(state), wall, w, h);
+
     private static SKBitmap Render(ShowSnapshot snap, MultiviewOptions opts, int w = 320, int h = 180,
         SinkKind sinkKind = SinkKind.Thumbnail, SinkState? reuse = null)
     {
@@ -215,7 +219,7 @@ public class MultiviewRenderTests
             Planned = true, PlannedWidth = 1080, PlannedHeight = 1920,
         });
 
-        var opts = new MultiviewOptions { Columns = 1, ShowLabels = false, ShowTally = false };
+        var opts = new MultiviewOptions { Layout = MultiviewLayout.Grid, Columns = 1, ShowLabels = false, ShowTally = false };
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "p" });
 
         using var bmp = Render(Snap(state), opts);
@@ -240,7 +244,7 @@ public class MultiviewRenderTests
         canvasPattern.FlatField.ShowLabel = false;
         canvasPattern.Canvas.FollowOutput = true;
 
-        var opts = new MultiviewOptions { Columns = 3, ShowLabels = false, ShowTally = false };
+        var opts = new MultiviewOptions { Layout = MultiviewLayout.Grid, Columns = 3, ShowLabels = false, ShowTally = false };
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = key });
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "a" });
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = "c" });
@@ -267,7 +271,7 @@ public class MultiviewRenderTests
         ThreeScreens(state);
         var key = CanvasNameConfig.KeyFor(new[] { "a", "b" });
 
-        var opts = new MultiviewOptions { Columns = 1, ShowTally = true };
+        var opts = new MultiviewOptions { Layout = MultiviewLayout.Grid, Columns = 1, ShowTally = true };
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = key });
 
         // The top tally border sits at y ≈ 33 (video rect 3.84 tall strip inside a 320×180 frame).
@@ -312,7 +316,7 @@ public class MultiviewRenderTests
             OutputsLive = true,
             IdentifyUntilUtc = new DateTime(2026, 8, 30, 10, 0, 3, DateTimeKind.Utc),
         };
-        var opts = new MultiviewOptions { Columns = 1, ShowLabels = false, ShowTally = false };
+        var opts = new MultiviewOptions { Layout = MultiviewLayout.Grid, Columns = 1, ShowLabels = false, ShowTally = false };
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
 
         using var bmp = Render(snap, opts, sinkKind: SinkKind.Output);
@@ -325,7 +329,7 @@ public class MultiviewRenderTests
     public void AThumbnailMultiviewKeepsItsTilesFreeOfPipAndToneChips()
     {
         var state = JsonUtil.Clone(RedProgram());
-        var opts = new MultiviewOptions { Columns = 1, ShowLabels = false, ShowTally = false };
+        var opts = new MultiviewOptions { Layout = MultiviewLayout.Grid, Columns = 1, ShowLabels = false, ShowTally = false };
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
 
         using var quiet = Render(new ShowSnapshot { State = state, Version = 1 }, opts);
@@ -337,7 +341,7 @@ public class MultiviewRenderTests
     [Fact]
     public void ADenseGridRendersWithoutFailingAndSkipsCollapsedCells()
     {
-        var opts = new MultiviewOptions { Columns = 0 };
+        var opts = new MultiviewOptions { Layout = MultiviewLayout.Grid, Columns = 0 };
         for (var i = 0; i < 200; i++) opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
 
         using var sink = new SinkState();

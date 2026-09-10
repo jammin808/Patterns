@@ -40,6 +40,12 @@ public static class ContentTargets
         }
         foreach (var a in state.Independent) a.ScreenId = Rekey(a.ScreenId);
         foreach (var canvas in state.Output.CanvasNames) canvas.MemberKey = Rekey(canvas.MemberKey);
+        // The show's own monitor walls, and the tiles a pattern made before the walls existed
+        // still carries: a screen adopted at the venue keeps its place on every wall it was on.
+        foreach (var wall in state.Multiviews)
+        {
+            foreach (var tile in wall.Tiles) tile.ScreenId = Rekey(tile.ScreenId);
+        }
         foreach (var pattern in AllPatterns(state))
         {
             foreach (var tile in pattern.Multiview.Tiles) tile.ScreenId = Rekey(tile.ScreenId);

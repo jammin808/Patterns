@@ -584,6 +584,15 @@ public static class Lists
         new(PatternKind.Multiview, "Multiview (monitor wall)"),
     };
 
+    /// <summary>How a monitor wall arranges its tiles.</summary>
+    public static readonly EnumItem[] MultiviewLayouts =
+    {
+        new(MultiviewLayout.ProgramAndPreview, "Programme and preview large, the rest beneath"),
+        new(MultiviewLayout.Solo, "One large, the rest beneath"),
+        new(MultiviewLayout.SideColumn, "One large, the rest down the right"),
+        new(MultiviewLayout.Grid, "An even grid"),
+    };
+
     public static readonly EnumItem[] MultiviewSources =
     {
         new(MultiviewSource.Program, "Program"),

@@ -1,0 +1,135 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:c="using:Patterns.App.Views.Controls"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.MultiviewSection"
+             Classes="hue-multiview"
+             x:DataType="vm:MainViewModel">
+
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1" Text="Multiview" />
+    <TextBlock Classes="hint tip"
+               Text="The monitor walls: up to two of them, each with its own arrangement and its own tiles, and each shown on however many outputs you tick — a spare display over the desk, an NDI send to the gallery, the stream. A wall is the show's rather than one screen's, so the programme stays the programme: the wall can carry a PROGRAM tile of whatever pattern, clip or page is actually on air, and two screens showing the same wall are showing the same wall rather than two copies that drift. Every tile is a true miniature of what that target really shows, at its real shape, with the tally on it: red and PGM live to the audience, green PVW for the preview, NEXT for what the next TAKE changes, LOCKED, OWN, REP." />
+
+    <TextBlock Classes="h2" Text="THE WALLS" />
+    <ItemsControl ItemsSource="{Binding Walls}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:WallRow">
+          <Border Classes="panel" Padding="8,6" Margin="0,2">
+            <Grid ColumnDefinitions="Auto,8,*,8,Auto,6,Auto">
+              <Button Grid.Column="0" Classes="mini" Content="EDIT" IsEnabled="{Binding IsNotSelected}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SelectWallCommand}"
+                      CommandParameter="{Binding Wall}"
+                      ToolTip.Tip="Edit this wall below" />
+              <TextBox Grid.Column="2" Text="{Binding Name, Mode=TwoWay}" Watermark="Multiview 1" />
+              <TextBlock Grid.Column="4" Classes="hint" Text="{Binding Summary}" VerticalAlignment="Center" />
+              <Button Grid.Column="6" Classes="mini" Content="✕"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveWallCommand}"
+                      CommandParameter="{Binding Wall}"
+                      ToolTip.Tip="Remove this wall — every output showing it goes back to the programme" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="chip" Name="AddWall" Content="+ ADD A MULTIVIEW" Command="{Binding AddWallCommand}" IsEnabled="{Binding CanAddWall}"
+              ToolTip.Tip="A new wall arrives filled from the rig as it stands — the programme, the preview, every screen and a clock" />
+      <TextBlock Classes="label" Text="{Binding WallSummary}" VerticalAlignment="Center" />
+    </StackPanel>
+    <TextBlock Classes="hint" IsVisible="{Binding HasNoWall}"
+               Text="No wall yet. Add one and it arrives ready: the programme and the preview large, every screen under them, and a clock." />
+
+    <StackPanel IsVisible="{Binding HasWall}" Spacing="4">
+      <TextBlock Classes="h2" Text="ARRANGEMENT" />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Layout" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding MultiviewLayouts}" HorizontalAlignment="Stretch"
+                  SelectedValue="{Binding SelectedWall.Layout, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                  ToolTip.Tip="The large tiles are simply the first in the list below — drag one to the top to watch it" />
+      </Grid>
+      <Grid ColumnDefinitions="130,90,*">
+        <TextBlock Classes="label" Text="{Binding ColumnsLabel}" VerticalAlignment="Center" />
+        <NumericUpDown Grid.Column="1" Minimum="0" Maximum="8" Increment="1" FormatString="0"
+                       Value="{Binding SelectedWall.Columns, Mode=TwoWay, Converter={StaticResource Num}}" />
+      </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <CheckBox Content="Labels under each tile" IsChecked="{Binding SelectedWall.ShowLabels}" />
+        <CheckBox Content="Tally: borders and PGM / NEXT / HELD / LOCKED badges" IsChecked="{Binding SelectedWall.ShowTally}" />
+      </StackPanel>
+      <TextBlock Classes="hint" Text="{Binding LayoutNote}" TextWrapping="Wrap" />
+
+      <TextBlock Classes="h2" Text="TILES (THE FIRST ARE THE LARGE ONES)" />
+      <ItemsControl Name="WallTiles" ItemsSource="{Binding SelectedWall.Tiles}" c:DragReorder.Host="True">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="m:MultiviewTileConfig">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
+              <Grid ColumnDefinitions="Auto,6,150,8,*,6,Auto,Auto,Auto" RowDefinitions="Auto,4,Auto">
+                <TextBlock Grid.Column="0" Name="TileGrip" c:DragReorder.Grip="True" Text="⠿" FontSize="15" Opacity="0.55"
+                           VerticalAlignment="Center" Padding="3,2"
+                           ToolTip.Tip="Drag to reorder. The first tiles are the large ones, so this is how you choose what the wall watches" />
+                <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewSourceKinds}"
+                          SelectedValue="{Binding Source, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                <TextBox Grid.Column="4" Watermark="Label (optional)" Text="{Binding Label}" MinWidth="60" />
+                <Button Grid.Column="6" Classes="mini" Content="↑"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MoveWallTileUpCommand}" CommandParameter="{Binding}" />
+                <Button Grid.Column="7" Classes="mini" Content="↓"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MoveWallTileDownCommand}" CommandParameter="{Binding}" />
+                <Button Grid.Column="8" Classes="mini" Content="✕"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveWallTileCommand}" CommandParameter="{Binding}" />
+                <ComboBox Grid.Row="2" Grid.ColumnSpan="9"
+                          IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.Screen}}"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewTargets}"
+                          SelectedValue="{Binding ScreenId, Mode=TwoWay}"
+                          SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                          PlaceholderText="Which screen or canvas…" />
+                <TextBox Grid.Row="2" Grid.ColumnSpan="9"
+                         IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.NdiFeed}}"
+                         Watermark="NDI source name (empty = the show's first NDI feed)"
+                         Text="{Binding Input, Mode=TwoWay}" />
+                <TextBox Grid.Row="2" Grid.ColumnSpan="9"
+                         IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.Capture}}"
+                         Watermark="Capture device name"
+                         Text="{Binding Input, Mode=TwoWay}" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Classes="chip" Content="+ Add tile" Command="{Binding AddWallTileCommand}" />
+        <Button Classes="mini" Content="Fill from the rig" Command="{Binding FillWallFromRigCommand}"
+                ToolTip.Tip="Replaces the tiles with the programme, the preview, every screen and a clock — the wall a new show gets" />
+      </StackPanel>
+
+      <TextBlock Classes="h2" Text="WHERE IT SHOWS" />
+      <TextBlock Classes="hint tip"
+                 Text="Tick an output and it shows this wall instead of the programme — a screen on the rig, an NDI sender, or the stream. Ticking a sender or the stream points it at its own picture for you, so there is nothing to set on the NDI or Stream page afterwards. Untick and that output goes straight back to the programme." />
+      <ItemsControl ItemsSource="{Binding WallDestinations}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:MultiviewDestination">
+            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,5" Margin="0,2">
+              <Grid ColumnDefinitions="Auto,10,*,8,Auto,8,Auto">
+                <CheckBox Grid.Column="0" IsChecked="{Binding IsOn, Mode=TwoWay}" MinWidth="0" />
+                <TextBlock Grid.Column="2" Text="{Binding Label}" VerticalAlignment="Center" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Classes="hint" Text="{Binding Note}" VerticalAlignment="Center" />
+                <Border Grid.Column="6" Background="#20242E" CornerRadius="6" Padding="5,1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Kind}" FontSize="10" Foreground="{StaticResource TextDimBrush}" />
+                </Border>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Classes="h2" Text="REVIEW" />
+      <ToggleButton Classes="chip" Content="THE PREVIEW ON EVERY MULTIVIEW" IsChecked="{Binding ReviewOnMultiview, Mode=TwoWay}" HorizontalAlignment="Left"
+                    ToolTip.Tip="Every multiview — a wall on a screen, an NDI send of one, /multiview — draws the sandboxed preview full-frame with a REVIEW chip until you switch it off. Never saved with the show" />
+      <TextBlock Classes="hint tip"
+                 Text="A sign-off step between EDIT SAFE and TAKE: check the next look on the monitor wall before it goes to the room. The Show panel, the phone remote, REVIEW ON / OFF on the wire, /patterns/review and Companion do the same. Watch a wall remotely at the web remote address + /multiview (add ?n=2 for the second)." />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

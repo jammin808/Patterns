@@ -388,58 +388,22 @@
               Command="{Binding OpenPageCommand}" CommandParameter="Particles" />
     </StackPanel>
 
-    <!-- Multiview -->
+    <!-- Multiview: the walls live on their own page now (SETUP -> Multiview); a pattern only says which one it draws. -->
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.Multiview}}">
-      <TextBlock Classes="h2" Text="MULTIVIEW TILES" />
+      <TextBlock Classes="h2" Text="MULTIVIEW" />
       <TextBlock Classes="hint tip"
-                 Text="A monitor wall: the program, any screen or joined canvas, live inputs and a clock, with labels and a tally. Every tile is a true miniature of what that target really shows — a whole joined canvas, or one screen's own half of one — at its real shape, the same picture the wall shows; a target with no display attached is drawn 16:9. The tally says what state each target is in: a red border and PGM while it is live to the audience (OFF, OUTPUTS OFF or BLACK when it is not, FROZEN while the outputs hold), NEXT in green when the next TAKE changes it and HELD when it is un-armed on the wall (both only while EDIT SAFE is open), LOCKED, OWN for a screen on its own picture, REP for a repeater; the Preview tile is green-bordered PVW. Under each tile: its name, then which output it is — SCREEN 2 · 1920×1080, CANVAS A · 3840×1080 · 2 SCREENS, NDI SEND, STREAM — and the PROGRAM tile lists the screens the program is on, the PREVIEW tile the ones the next TAKE reaches. Send it to any screen (its own pattern), an NDI sender, or watch it remotely at the web remote address + /multiview. No tiles = automatic (program + every screen + clock)." />
-      <ItemsControl ItemsSource="{Binding ActivePattern.Multiview.Tiles}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="m:MultiviewTileConfig">
-            <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
-              <Grid ColumnDefinitions="150,8,*,6,Auto" RowDefinitions="Auto,4,Auto">
-                <ComboBox Grid.Column="0" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewSourceKinds}"
-                          SelectedValue="{Binding Source, Mode=TwoWay}"
-                          SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
-                <TextBox Grid.Column="2" Watermark="Label (optional)" Text="{Binding Label}" MinWidth="60" />
-                <Button Grid.Column="4" Classes="mini" Content="✕"
-                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveMultiviewTileCommand}"
-                        CommandParameter="{Binding}" />
-                <ComboBox Grid.Row="2" Grid.ColumnSpan="5"
-                          IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.Screen}}"
-                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewTargets}"
-                          SelectedValue="{Binding ScreenId, Mode=TwoWay}"
-                          SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
-                          PlaceholderText="Which screen or canvas…" />
-                <TextBox Grid.Row="2" Grid.ColumnSpan="5"
-                         IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.NdiFeed}}"
-                         Watermark="NDI source name (empty = the show's first NDI feed)"
-                         Text="{Binding Input, Mode=TwoWay}" />
-                <TextBox Grid.Row="2" Grid.ColumnSpan="5"
-                         IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MultiviewSource.Capture}}"
-                         Watermark="Capture device name"
-                         Text="{Binding Input, Mode=TwoWay}" />
-              </Grid>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Classes="chip" Content="+ Add tile" Command="{Binding AddMultiviewTileCommand}" />
-      </StackPanel>
-      <Grid ColumnDefinitions="130,90,*">
-        <TextBlock Classes="label" Text="Columns (0 = auto)" VerticalAlignment="Center" />
-        <NumericUpDown Grid.Column="1" Minimum="0" Maximum="8" Increment="1" FormatString="0"
-                       Value="{Binding ActivePattern.Multiview.Columns, Mode=TwoWay, Converter={StaticResource Num}}" />
+                 Text="A monitor wall is the show's rather than this pattern's: it is built once on SETUP → Multiview and shown on however many outputs you tick there — a spare display, an NDI send, the stream — while the programme stays the programme. This block is only here for the other way round: making a wall the picture of whatever you are editing. Pick which wall it draws; a show made before the walls existed keeps the tiles it already had until you point it at one." />
+      <Grid ColumnDefinitions="130,*">
+        <TextBlock Classes="label" Text="Which wall" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding WallChoices}" HorizontalAlignment="Stretch"
+                  SelectedValue="{Binding ActivePattern.MultiviewId, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                  PlaceholderText="Which wall…" />
       </Grid>
-      <StackPanel Orientation="Horizontal" Spacing="16">
-        <CheckBox Content="Labels" IsChecked="{Binding ActivePattern.Multiview.ShowLabels}" />
-        <CheckBox Content="Tally: borders and PGM / NEXT / HELD / LOCKED badges" IsChecked="{Binding ActivePattern.Multiview.ShowTally}" />
-      </StackPanel>
+      <Button Classes="chip" Content="OPEN THE MULTIVIEW PAGE" HorizontalAlignment="Left" Margin="0,6,0,0"
+              Command="{Binding SelectPageByNameCommand}" CommandParameter="Multiview" />
       <ToggleButton Classes="chip" Content="REVIEW: THE PREVIEW FULL SCREEN" IsChecked="{Binding ReviewOnMultiview, Mode=TwoWay}" HorizontalAlignment="Left" Margin="0,8,0,0"
-                    ToolTip.Tip="Every multiview — this pattern on a screen, an NDI send of it, /multiview — draws the sandboxed preview full-frame with a REVIEW chip until you switch it off: check the next look on the monitor wall before the TAKE. Never saved with the show" />
-      <TextBlock Classes="hint tip"
-                 Text="A Preview tile shows what the desk is building beside the program — a slate while EDIT SAFE is off. REVIEW puts the preview over the whole multiview for a moment (the Show panel, the phone remote, REVIEW ON / OFF on the wire, /patterns/review and Companion do the same)." />
+                    ToolTip.Tip="Every multiview — a wall on a screen, an NDI send of one, /multiview — draws the sandboxed preview full-frame with a REVIEW chip until you switch it off: check the next look on the monitor wall before the TAKE. Never saved with the show" />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="SAVE AS PRESET" />
