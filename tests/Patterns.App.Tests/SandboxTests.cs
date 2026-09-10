@@ -650,9 +650,10 @@ public class SandboxTests
 
             var saved = new RecoveryStore(dir).Read();
             Assert.NotNull(saved);
-            Assert.False(string.IsNullOrEmpty(saved!.AirLook));
-            Assert.Contains("LedWall", saved.AirLook!);       // what the audience was seeing
-            Assert.DoesNotContain("ColorBars", saved.AirLook!); // not the operator's edit
+            Assert.True(saved!.Sandboxed);
+            Assert.NotNull(saved.Air);
+            Assert.Equal(PatternKind.LedWall, saved.Air!.Pattern.Kind);    // what the audience was seeing
+            Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);    // not the operator's edit
         }
         finally
         {

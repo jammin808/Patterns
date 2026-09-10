@@ -36,8 +36,22 @@ public sealed class SinkState : IDisposable
 
     // ---- crossfade transition (engine-managed, per sink) --------------------
 
-    /// <summary>Content identity last shown (null until the first frame).</summary>
-    public int? TransitionKey { get; set; }
+    private long _transitionKey = NoKey;
+
+    /// <summary>What <see cref="TransitionKey"/> holds before the first frame — no content shown yet.</summary>
+    public const long NoKey = long.MinValue;
+
+    /// <summary>
+    /// Content identity last shown (<see cref="NoKey"/> until the first frame). One word, read and
+    /// written atomically: the frame is drawn on the compositor's thread and the sink's redraw
+    /// cadence is decided on the UI thread, and a torn read there would cost the sink the frame
+    /// that finishes a crossfade — which leaves it on the outgoing picture for good.
+    /// </summary>
+    public long TransitionKey
+    {
+        get => Interlocked.Read(ref _transitionKey);
+        set => Interlocked.Exchange(ref _transitionKey, value);
+    }
 
     /// <summary>The most recent snapshot this sink rendered (fade-from candidate).</summary>
     public ShowSnapshot? LastSnapshot { get; set; }

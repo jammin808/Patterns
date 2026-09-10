@@ -99,7 +99,9 @@ public static class SupportBundle
                 if (!File.Exists(path)) continue;
                 try
                 {
-                    if (name == "patterns.settings.json")
+                    // The recovery record now holds a whole show state — the same secrets the
+                    // settings file holds, so it leaves by the same redacted door.
+                    if (name == "patterns.settings.json" || name == "patterns.recovery.json")
                     {
                         var entry = zip.CreateEntry(name);
                         using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));

@@ -83,12 +83,46 @@ public sealed class SupervisorPolicy
 }
 
 /// <summary>
-/// What was running when the app last changed state — read back after a watchdog restart.
-/// <paramref name="AirLook"/> is the content the audience was seeing, captured only while the
-/// operator was programming in the sandbox (the settings file already holds it otherwise);
-/// without it a crash mid-programming would reopen outputs on the untaken preview.
+/// What was running when the app last changed state — read back after a restart of any kind.
+///
+/// <paramref name="Air"/> is the program itself: the picture the audience was seeing, whole,
+/// written only while it differs from the settings file (EDIT SAFE open, or a clip covering the
+/// show). It is a state and not a look on purpose — a look carries the pattern, the overlays and
+/// the countdown but not the brand kit, not the lower third on air or where it is in its life,
+/// not the NDI senders and not a locked screen's own picture, so a restart that restored a look
+/// handed the audience a hybrid nobody had ever programmed.
+/// <paramref name="AirLook"/> is the same thing as written by builds before that, kept so a
+/// sidecar left by an older build still puts the show back.
+/// <paramref name="Sandboxed"/> says the desk was split when the record was written — EDIT SAFE
+/// open, the audience on one picture and the operator building another. A restart needs it to
+/// put the two back where they were: without it the desk cannot tell "the show" from "the show
+/// being built", and both come back as whichever one the settings file happened to hold. Null is
+/// a record from a build that did not know, and the desk acts on no opinion it does not have.
+/// <paramref name="BlackTargets"/> are the screens faded to black on their own — runtime-only in
+/// the model, and part of the picture: a foyer wall the operator darkened must not come back lit.
+/// <paramref name="Streaming"/> only records that the stream was up; a restart never starts one
+/// by itself (the stream is not a Program output, and pushing to a public endpoint is the
+/// operator's call), it says so on the status line.
+/// <paramref name="AirLabel"/>, <paramref name="AirLookId"/>, <paramref name="PreviousAirLookId"/>
+/// and <paramref name="PreviewLookId"/> are what the desk calls the picture rather than the
+/// picture itself — the LIVE strip, the look tallies, LOOK BACK, the beacon and every remote read
+/// them. Restored with the pixels, or the wall is right and the desk claims to know nothing
+/// about it at the moment a caller most needs to trust the strip.
 /// </summary>
-public sealed record RecoverySnapshot(bool Live, bool AudioPlaying, DateTime UpdatedUtc, string? AirLook = null, RunPlace? Run = null);
+public sealed record RecoverySnapshot(
+    bool Live,
+    bool AudioPlaying,
+    DateTime UpdatedUtc,
+    string? AirLook = null,
+    RunPlace? Run = null,
+    bool? Sandboxed = null,
+    ShowState? Air = null,
+    IReadOnlyList<string>? BlackTargets = null,
+    bool Streaming = false,
+    string? AirLabel = null,
+    string? AirLookId = null,
+    string? PreviousAirLookId = null,
+    string? PreviewLookId = null);
 
 /// <summary>
 /// The caller's place, written atomically on every GO: what was on standby, what ran last and
@@ -125,12 +159,18 @@ public sealed class RecoveryStore
         }
     }
 
+    /// <summary>The plain record: what was live, and nothing about the picture. Used by tests and by an install's own bookkeeping.</summary>
     public void Write(bool live, bool audioPlaying, string? airLook = null, RunPlace? run = null)
+        => Write(new RecoverySnapshot(live, audioPlaying, DateTime.UtcNow, airLook, run));
+
+    public void Write(RecoverySnapshot snapshot)
     {
         try
         {
             var tmp = _path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(new RecoverySnapshot(live, audioPlaying, DateTime.UtcNow, airLook, run)));
+            // Compact: the record holds a whole show state now, and it is written while a show is
+            // running — on every GO among other moments.
+            File.WriteAllText(tmp, JsonUtil.SerializeCompact(snapshot with { UpdatedUtc = DateTime.UtcNow }));
             File.Move(tmp, _path, overwrite: true);
         }
         catch (Exception ex)

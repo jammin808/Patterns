@@ -31,6 +31,10 @@ public sealed class SandboxService
         _contentBefore = LookService.Capture(_services.State);
         _program = JsonUtil.Clone(_services.State);
         Active = true;
+        // From here the audience's picture is this clone, not the show file: the desk watches it
+        // so the recovery record follows every move of it — a cue, a send, a stinger, a lower
+        // third — without any of those paths having to know the record exists.
+        _services.WatchAir(_program);
         _services.RepublishNow();
         Log.Info("Sandbox open — outputs hold program, edits stay in the preview.");
     }
@@ -209,6 +213,25 @@ public sealed class SandboxService
     }
 
     /// <summary>
+    /// A restart puts the audience's picture back: the recorded program replaces the frozen
+    /// clone wholesale, so everything that decides that picture comes back verbatim — the brand
+    /// kit, the lower third on air and where it is in its life, the NDI senders, and every
+    /// locked screen's own picture. A look carries none of those, which is why a restart used to
+    /// hand the audience a hybrid nobody had ever programmed. False when the desk is not split,
+    /// and the caller puts the content back through the ordinary air seam instead.
+    /// </summary>
+    public bool RestoreProgram(ShowState program)
+    {
+        if (!Active) return false;
+        _program = program;
+        _contentBefore = LookService.Capture(program); // a discard now goes back to this, not to the start
+        _services.WatchAir(_program);
+        _services.RepublishNow();
+        Log.Info("The program the audience was seeing is back on the outputs; the preview keeps the edit that was in progress.");
+        return true;
+    }
+
+    /// <summary>
     /// Runs an air-targeted edit against the frozen program (a cue, a look recall, a stinger
     /// override, a playlist-part switch) and republishes — the audience sees it, the
     /// operator's sandboxed edits stay untouched. False when not sandboxed.
@@ -244,6 +267,9 @@ public sealed class SandboxService
         Active = false;
         _program = null;
         _contentBefore = null;
+        // The show file is the air again: the watch comes off, and the record is rewritten
+        // without a look of its own on the next publish.
+        _services.WatchAir(null);
         _services.PreviewLookId = ""; // a fresh sandbox mirrors the program; only → PVW names a preview look
         _services.Bus.ClearSandbox();
         _services.RepublishNow(); // outputs pick up the live state again (side effects included)

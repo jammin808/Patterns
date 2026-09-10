@@ -118,16 +118,16 @@ public class StartupTests
             var window = new MainWindow { DataContext = vm };
             services.AttachMainWindow(window);
             services.RecoverWhenReady(vm);                             // asked before the window opened: held until it has
-            Assert.DoesNotContain("Watchdog restarted", vm.StatusMessage);
+            Assert.DoesNotContain("Restarted", vm.StatusMessage);
             window.Show();
             Dispatcher.UIThread.RunJobs();                             // opened, the screens attached, the side effects applied, then the recovery
-            Assert.Contains("Watchdog restarted the app", vm.StatusMessage);
+            Assert.Contains("Restarted", vm.StatusMessage);
 
             // Asked once the window is open: straight away, on the next idle turn.
             vm.StatusMessage = "";
             services.RecoverWhenReady(vm);
             Dispatcher.UIThread.RunJobs();
-            Assert.Contains("Watchdog restarted the app", vm.StatusMessage);
+            Assert.Contains("Restarted", vm.StatusMessage);
             window.Close();
         }
         finally

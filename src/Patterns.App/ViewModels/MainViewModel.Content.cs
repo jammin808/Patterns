@@ -993,6 +993,9 @@ public sealed partial class MainViewModel
             {
                 Run.Banner = _services.RecoveryBanner;
                 _services.RecoveryBanner = "";
+                // The recovery's own line stays on the strip: a keyboard hint the operator has
+                // read a hundred times must not push "the screens are this desk's now" off it.
+                return;
             }
             StatusMessage = "RUN — Enter is GO while armed, ↑ ↓ move standby, Esc twice is STOP ALL. Space is still blackout.";
         }

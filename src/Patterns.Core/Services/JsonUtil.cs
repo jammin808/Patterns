@@ -58,6 +58,13 @@ public static class JsonUtil
 
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Options);
 
+    /// <summary>
+    /// The same JSON without the indentation — for a file a person does not read line by line and
+    /// the desk writes while a show is running. A whole show state indented is a third more bytes
+    /// to build and put on disk, and the recovery record now holds one.
+    /// </summary>
+    public static string SerializeCompact<T>(T value) => JsonSerializer.Serialize(value, CloneOptions);
+
     public static string SerializeIdentity<T>(T value) => JsonSerializer.Serialize(value, IdentityOptions);
 
     public static T? Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json, Options);

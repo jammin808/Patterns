@@ -372,6 +372,11 @@ public sealed class OutputOwnershipService
             return false;
         }
 
+        // Before we let go of anything: the recovery record on disk is the incoming desk's way
+        // back to the room's picture, and closing our outputs below would clear it. Freeze it
+        // here, on this thread, because the incoming desk starts reading the moment the
+        // ownership record goes.
+        if (live) _services.HandOverRecovery();
         _store.ClearRequest();
         Release();
         var words = live

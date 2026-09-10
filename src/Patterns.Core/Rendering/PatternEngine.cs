@@ -46,6 +46,27 @@ public sealed class PatternEngine
         RenderLive(canvas, snap, in ctx, sink);
     }
 
+    /// <summary>
+    /// True when this sink's next frame would START a crossfade — the content identity it last
+    /// drew is not the one this snapshot carries. It is the same condition
+    /// <see cref="RenderLive"/> arms the fade on, kept here beside it so the two cannot drift.
+    ///
+    /// A sink has to be asked for frames BEFORE that frame is drawn, never after it: a control
+    /// decides its redraw cadence on the UI thread and the frame itself is drawn later on the
+    /// compositor's, so a sink that only asked for frames once a fade was already in flight
+    /// would arm the fade and then never draw another frame — and the first frame of a fade is
+    /// the OUTGOING picture at full opacity. That is a picture frozen on the old content: on the
+    /// desk's own miniatures after every Pattern Type change, and on the wall after any content
+    /// change between two still pictures.
+    /// </summary>
+    public static bool WillStartFade(ShowSnapshot snap, string? screenId, SinkState sink, SinkKind kind)
+    {
+        if (!snap.FadesEnabled || kind == SinkKind.Thumbnail) return false;
+        if (snap.CutAtVersion > sink.TransitionSeenVersion) return false; // a CUT switches instead of fading
+        var shown = sink.TransitionKey;
+        return shown != SinkState.NoKey && shown != snap.TransitionKeyFor(screenId);
+    }
+
     private void RenderLive(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
     {
         // Crossfade on content changes: when this sink's content identity changes, the
@@ -61,7 +82,7 @@ public sealed class PatternEngine
                 sink.TransitionFrom = null;
                 sink.TransitionEndClock = 0;
             }
-            else if (sink.TransitionKey is { } lastKey && lastKey != key && sink.LastSnapshot is { } prev)
+            else if (sink.TransitionKey is var shown && shown != SinkState.NoKey && shown != key && sink.LastSnapshot is { } prev)
             {
                 sink.TransitionFrom = prev;
                 sink.TransitionStartClock = ctx.Time;

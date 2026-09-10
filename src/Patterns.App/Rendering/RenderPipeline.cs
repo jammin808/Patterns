@@ -169,7 +169,12 @@ public sealed class RenderPipeline : IDisposable
             if (_sink.TransitionEndClock > ShowClock.Seconds) return RedrawCadence.Continuous;
             var vp = _viewport;
             var screenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId;
-            return PatternEngine.CadenceOf(SnapshotFor(vp), screenId, DateTime.UtcNow);
+            var snap = SnapshotFor(vp);
+            // …and so does one the next frame is about to start. This decision is made before
+            // that frame is drawn, so a fade armed by the draw itself would otherwise never get
+            // a second frame and the sink would sit on the outgoing picture for good.
+            if (PatternEngine.WillStartFade(snap, screenId, _sink, vp.Kind)) return RedrawCadence.Continuous;
+            return PatternEngine.CadenceOf(snap, screenId, DateTime.UtcNow);
         }
     }
 

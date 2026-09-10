@@ -185,6 +185,17 @@ public sealed class AppServices
     /// <summary>The look that was on air before the current one, by id ("" = none yet) — what LOOK BACK returns to.</summary>
     public string PreviousAirLookId { get; private set; } = "";
 
+    /// <summary>
+    /// A restart puts both ids back as they were. Straight onto the fields: going through the
+    /// setter would treat the restore as a recall and shuffle the way back, so LOOK BACK would
+    /// return to the look that is already on air.
+    /// </summary>
+    internal void RestoreLookIds(string airLookId, string previousAirLookId)
+    {
+        _airLookId = airLookId;
+        PreviousAirLookId = previousAirLookId;
+    }
+
     /// <summary>The look loaded into the sandboxed preview, by id ("" = none): set by → PVW, cleared when the sandbox closes.</summary>
     public string PreviewLookId { get; set; } = "";
 
@@ -373,6 +384,11 @@ public sealed class AppServices
         Recovery = new RecoveryStore(Store.BaseDirectory);
         Ownership = new OutputOwnershipService(this);
         PendingRecovery = Recovery.Read();
+        // The record on disk belongs to the previous run until this one has either acted on it
+        // or written its own. Until then the ordinary bookkeeping must not delete it as "nothing
+        // live" — this start has not lit an output yet, and a second fault inside the same start
+        // would find nothing at all, which is the one failure the record exists for.
+        _recoveryPending = PendingRecovery is not null;
         Actions = new ShowActions(this);
         CueStack = new CueStackService(this);
         // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
@@ -537,8 +553,8 @@ public sealed class AppServices
             return;
         }
         // Air moved without the live state moving — the recovery sidecar must follow, or a
-        // crash would put the untaken preview back instead of what was on the screens.
-        _airDirty = true;
+        // crash would put the untaken preview back instead of what was on the screens. The
+        // watch on the frozen program has already counted the change; this is the write.
         UpdateRecovery();
     }
 
@@ -581,20 +597,79 @@ public sealed class AppServices
         UpdateRecovery();
     }
 
-    private (bool Live, bool Audio)? _recoveryWritten;
+    private (bool Live, bool Audio, bool Sandboxed, long Air)? _recoveryWritten;
     private bool _restartRequested;
+    private volatile bool _handedOver;
+    private bool _recoveryPending;
+    private long _airVersion;
+    private ChangeTracker? _airWatch;
+
+    /// <summary>
+    /// Watches the frozen program so the recovery record follows the air by construction. Every
+    /// way the air can move while EDIT SAFE is open — a cue, a look recall, a stinger, a
+    /// per-screen SEND, a lower third, the blackout — ends in a write to that clone, and this
+    /// counts them all. The alternative, a flag every one of those paths has to remember to set,
+    /// is exactly what put the untaken preview on the screens after a restart: the paths that
+    /// forgot were the ones nobody thought of.
+    /// </summary>
+    internal void WatchAir(ShowState? program)
+    {
+        // The old clone and its handlers go together; nothing else holds either.
+        _airWatch = program is null ? null : new ChangeTracker(program, () => _airVersion++);
+        AirMoved(); // opening or closing the split is itself a move of the record
+    }
+
+    /// <summary>The air record changed for a reason the watch cannot see — a clip pinned over it, the split opening or closing.</summary>
+    private void AirMoved() => _airVersion++;
+
+    /// <summary>
+    /// The screens have gone to another desk that is starting: the record on disk is that desk's
+    /// to read, so this one stops writing it. Closing our own outputs would otherwise clear the
+    /// very thing the incoming desk uses to put the room's picture back. It becomes ours again
+    /// the moment this desk lights outputs of its own.
+    /// </summary>
+    public void HandOverRecovery() => _handedOver = true;
+
+    /// <summary>What the sidecar would say right now; the record is rewritten when any of it moves.</summary>
+    private (bool Live, bool Audio, bool Sandboxed, long Air) RecoveryKey()
+        => (Outputs.IsLive, State.AudioPlayer.Playing, Sandbox.Active, _airVersion);
+
+    /// <summary>The whole record as it stands: what is live, what the audience is seeing, and the caller's place.</summary>
+    private RecoverySnapshot RecoveryRecord(RunPlace? place) => new(
+        Outputs.IsLive,
+        State.AudioPlayer.Playing,
+        DateTime.UtcNow,
+        AirLook: null,                 // builds before the state vehicle wrote a look here
+        Run: place,
+        Sandboxed: Sandbox.Active,
+        Air: CaptureAir(),
+        BlackTargets: Bus.BlackTargets.Count == 0 ? null : Bus.BlackTargets.ToList(),
+        Streaming: State.Stream.Active,
+        AirLabel: AirLabel,
+        AirLookId: AirLookId,
+        PreviousAirLookId: PreviousAirLookId,
+        PreviewLookId: PreviewLookId);
+
+    /// <summary>The caller's place, or null when nothing has been armed or fired — an unused stack must not force the Run layout on a restart.</summary>
+    private RunPlace? PlaceForRecovery()
+        => CueStack?.Runtime.LastCueId is null && CueStack?.Runtime.StandbyCueId is null ? null : CueStack?.Place();
 
     /// <summary>
     /// Admin restart: freeze the recovery sidecar to the current live state so the relaunch
     /// puts the show back, and return the exit code to shut down with (the supervisor's
     /// restart-request code when supervised — its update code when the restart is to apply a
     /// staged update — 0 when not).
+    ///
+    /// The record written here is the same one a crash would leave: the content the audience
+    /// is seeing, whether the desk was split, and the caller's place. It used to be the
+    /// two-argument one, which is how a restart the operator asked for lost more than one they
+    /// did not — the untaken preview went to air and the cue stack came back at the top.
     /// </summary>
     public int PrepareRestart(bool forUpdate = false)
     {
         Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
+        Recovery.Write(RecoveryRecord(PlaceForRecovery()));
         _restartRequested = true;
-        Recovery.Write(Outputs.IsLive, State.AudioPlayer.Playing);
         SaveNow();
         if (!(Updates.Supervised)) return 0;
         return forUpdate ? SupervisorPolicy.UpdateRequestExitCode : SupervisorPolicy.RestartRequestExitCode;
@@ -611,16 +686,23 @@ public sealed class AppServices
             PublishRuntime();
         }
 
-        var current = (Outputs.IsLive, State.AudioPlayer.Playing);
-        if (_recoveryWritten == current && !_airDirty) return;
-        _recoveryWritten = current;
-        _airDirty = false;
-        var place = CueStack?.Runtime.LastCueId is null && CueStack?.Runtime.StandbyCueId is null ? null : CueStack?.Place();
-        if (current.Item1 || current.Item2 || place is not null)
+        // The screens went to another desk that is starting: the record is theirs to read now.
+        if (_handedOver)
         {
-            Recovery.Write(current.Item1, current.Item2, CaptureAirLook(), place);
+            if (!Outputs.IsLive) return;
+            _handedOver = false; // this desk has screens of its own again
         }
-        else
+
+        var current = RecoveryKey();
+        if (_recoveryWritten == current) return;
+        _recoveryWritten = current;
+        var place = PlaceForRecovery();
+        if (current.Live || current.Audio || place is not null)
+        {
+            Recovery.Write(RecoveryRecord(place));
+            _recoveryPending = false; // the file is this run's now
+        }
+        else if (!_recoveryPending)
         {
             Recovery.Clear();
         }
@@ -629,13 +711,11 @@ public sealed class AppServices
     /// <summary>The caller's place goes to the sidecar on every GO, atomically, live or not.</summary>
     public void WriteRunPlace()
     {
-        if (_restartRequested) return;
-        _recoveryWritten = (Outputs.IsLive, State.AudioPlayer.Playing);
-        _airDirty = false;
-        Recovery.Write(Outputs.IsLive, State.AudioPlayer.Playing, CaptureAirLook(), CueStack.Place());
+        if (_restartRequested || _handedOver) return;
+        _recoveryWritten = RecoveryKey();
+        Recovery.Write(RecoveryRecord(CueStack.Place()));
     }
 
-    private bool _airDirty;
     private string? _pinnedAirLook;
 
     /// <summary>
@@ -646,25 +726,30 @@ public sealed class AppServices
     {
         if (_pinnedAirLook == json) return;
         _pinnedAirLook = json;
-        _airDirty = true;
+        AirMoved();
         UpdateRecovery();
     }
 
     /// <summary>
-    /// The content the audience is seeing, but only while it differs from the live state —
-    /// unsandboxed, the settings file already is the air content and capturing would be waste.
+    /// The show to come back to, whole — but only while it differs from the live state:
+    /// unsandboxed with nothing covering it, the settings file already is the air and capturing
+    /// would be waste. While a clip owns the screens the frozen program shows the clip, so the
+    /// pre-clip content goes back on before the record is written: a clip is a moment, never the
+    /// show, and a relaunch must never come back to a dead frame.
     /// </summary>
-    private string? CaptureAirLook()
+    private ShowState? CaptureAir()
     {
-        if (_pinnedAirLook is { Length: > 0 }) return _pinnedAirLook;
-        if (!Sandbox.Active) return null;
+        var pinned = _pinnedAirLook;
+        if (!Sandbox.Active && pinned is not { Length: > 0 }) return null;
         try
         {
-            return LookService.Capture(AirState);
+            var air = JsonUtil.Clone(AirState);
+            if (pinned is { Length: > 0 }) LookService.Apply(pinned, air);
+            return air;
         }
         catch (Exception ex)
         {
-            Log.Warn("Air look capture for recovery failed.", ex);
+            Log.Warn("Air capture for recovery failed.", ex);
             return null;
         }
     }
@@ -679,35 +764,84 @@ public sealed class AppServices
             // back is then a duty, not a preference: the AutoRestore choice is about a watchdog's
             // own restart, and it must never be the reason a takeover leaves a dark room behind it.
             if (!took && !State.Watchdog.AutoRestore) return;
-            if (PendingRecovery is not { } was || !RecoveryStore.IsFresh(was, DateTime.UtcNow))
+            // A takeover is proof the run we took the screens from was alive seconds ago, so its
+            // record is better evidence than the settings file whatever its timestamp says — a
+            // desk that went live this morning and never moved the air wrote it this morning.
+            // Off a takeover, an old record is an old day and is not acted on.
+            var usable = PendingRecovery is { } found && (took || RecoveryStore.IsFresh(found, DateTime.UtcNow));
+            if (!usable || PendingRecovery is not { } was)
             {
                 if (!took) return;
-                // The run we took them from left no sidecar to read (or a stale one): the show as
-                // it was saved goes back on those screens rather than nothing at all.
+                // The run we took them from left no record to read: the show as it was saved goes
+                // back on those screens rather than nothing at all — but that is a guess made
+                // from the settings file, which while EDIT SAFE was open is the untaken preview,
+                // and the operator is told so rather than shown a guess dressed as a restoration.
                 if (!Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
-                vm.StatusMessage = Takeover.Words;
-                Log.Info(vm.StatusMessage);
+                vm.StatusMessage = Takeover.Words + " There was no record of what was on air — the screens carry the show as last saved, which may be an untaken preview. Check PGM.";
+                Log.Warn(vm.StatusMessage);
                 return;
             }
 
-            // Put back what the audience was seeing, not the preview that was being built.
-            // EDIT SAFE is already armed by the time this runs (StartDefaultSandbox precedes
-            // the recovery timer), so the air look has to land on the frozen program via the
-            // air seam — applying it to State would restore it into the preview and leave the
-            // outputs on the untaken edit the settings file holds.
-            if (was.AirLook is { Length: > 0 } airLook)
+            // The desk was split when it went down — EDIT SAFE open, the audience on one picture
+            // and the operator building another. Put the split back before the content: the air
+            // look then lands on the frozen program through the air seam and the settings file
+            // stays the preview it was. Without this the two collapse into one and whichever the
+            // settings file happened to hold — the untaken preview — goes to the audience.
+            if (was.Sandboxed == true && !Sandbox.Active)
             {
-                if (StingerLibrary.IsClipLook(State, airLook))
+                Sandbox.Enter();
+                Log.Info("The desk was in EDIT SAFE when it went down — the preview and the program are put back apart.");
+            }
+            else if (was.Sandboxed == false && Sandbox.Active)
+            {
+                // …and it was not. The show's own default armed EDIT SAFE on this start, but the
+                // operator was editing live: coming back split would swallow their next change
+                // silently, and they would find out when the caller asked why nothing happened.
+                Sandbox.Discard();
+                Log.Info("The desk was editing live when it went down — EDIT SAFE is left off, as it was.");
+            }
+
+            // Put back what the audience was seeing, not the preview that was being built.
+            // EDIT SAFE is armed by the time this runs (by the show's own default, or by the
+            // line above), so the air look has to land on the frozen program via the air seam —
+            // applying it to State would restore it into the preview and leave the outputs on
+            // the untaken edit the settings file holds.
+            if (was.Air is { } air)
+            {
+                if (StingerLibrary.IsClipOnAir(air))
                 {
-                    // The sidecar held a VOG or stinger clip as the air content: a clip is a moment,
+                    // The record held a VOG or stinger clip as the air content: a clip is a moment,
                     // never the show, and put back it would be a dead picture nothing owns.
                     Log.Warn("The recovery file held a clip as the content on air — not put back; the show comes back as saved.");
                 }
                 else
                 {
-                    EditAir(air => LookService.Apply(airLook, air));
+                    RestoreAir(air);
                     vm.RefreshAfterRecovery();
                 }
+            }
+            else if (was.AirLook is { Length: > 0 } airLook)
+            {
+                // A sidecar an older build left behind: a look, not a state. Put it back the way
+                // that build would have — the picture is right even if the brand kit is not.
+                if (StingerLibrary.IsClipLook(State, airLook))
+                {
+                    Log.Warn("The recovery file held a clip as the content on air — not put back; the show comes back as saved.");
+                }
+                else
+                {
+                    EditAir(state => LookService.Apply(airLook, state));
+                    vm.RefreshAfterRecovery();
+                }
+            }
+
+            // The screens the operator had faded out on their own stay out: they are part of the
+            // picture, and a foyer wall darkened for the keynote must not come back lit. Set
+            // before the outputs open, so they never flash the picture first.
+            if (was.BlackTargets is { Count: > 0 } black)
+            {
+                Bus.BlackTargets = black.ToList();
+                RepublishNow();
             }
 
             // A takeover is its own evidence that the screens were live — we just took them off a
@@ -715,18 +849,35 @@ public sealed class AppServices
             if ((was.Live || took) && !Outputs.IsLive) Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Recovery);
             if (was.AudioPlaying && AudioPlaylist.HasTracks(State.AudioPlayer)) State.AudioPlayer.Playing = true;
 
+            // What the desk calls the picture, back with the picture: without these the wall is
+            // right and the LIVE strip reads "—", no look row lights, and LOOK BACK refuses.
+            if (was.AirLabel is { Length: > 0 } label) AirLabel = label;
+            if (was.AirLookId is { } airLook2) RestoreLookIds(airLook2, was.PreviousAirLookId ?? "");
+            if (Sandbox.Active && was.PreviewLookId is { } previewLook) PreviewLookId = previewLook;
+
             var restored = was.Live || took || was.AudioPlaying;
+            // The stream is not a Program output and pushing to a public endpoint is the
+            // operator's call, so a restart never starts one by itself — it says so instead.
+            var streamNote = was.Streaming && !State.Stream.Active ? " The stream was live — press STREAM to put it back." : "";
             // A start that took the screens back from a run still playing on them says so: the
             // operator needs to know the windows in the room are this desk's now, not the ghost's.
-            vm.StatusMessage = Takeover.TookOver
+            // Name the restart honestly: the watchdog's own relaunch says so, and the same path
+            // now serves a restart the operator asked for, which is not the watchdog's doing.
+            var who = HealthMonitor.Restarts > 0 ? "Restarted by the watchdog" : "Restarted";
+            var head = Takeover.TookOver
                 ? Takeover.Words
                 : restored
-                    ? "Watchdog restarted the app — the show was put back on."
-                    : "Watchdog restarted the app.";
+                    ? $"{who} — the show was put back on."
+                    : $"{who}.";
+            vm.StatusMessage = head + streamNote;
             if (was.Run is { } place)
             {
-                // The caller's place: disarmed, pointing at the next cue, nothing fired.
-                RecoveryBanner = CueStack.RestorePlace(place);
+                // The caller's place: disarmed, pointing at the next cue, nothing fired. A
+                // takeover's words lead the banner — the one sentence saying the windows in the
+                // room are this desk's now, not the ghost's, must not be pushed off the strip by
+                // the surface the recovery itself opens.
+                var lead = Takeover.TookOver ? head + " " : "";
+                RecoveryBanner = lead + CueStack.RestorePlace(place) + streamNote;
                 vm.StatusMessage = RecoveryBanner;
                 vm.IsRunLayout = true;
             }
@@ -736,6 +887,23 @@ public sealed class AppServices
         {
             Log.Error("Recovery after restart failed.", ex);
         }
+        finally
+        {
+            // The record has been read and acted on: ordinary bookkeeping owns the file again.
+            _recoveryPending = false;
+        }
+    }
+
+    /// <summary>
+    /// The recorded program back on the outputs. Split, the record IS the frozen program and
+    /// replaces it whole. Not split, the settings file is already the show and the only thing the
+    /// record can be telling us is what a clip was covering, so the content goes back through the
+    /// ordinary air seam.
+    /// </summary>
+    private void RestoreAir(ShowState air)
+    {
+        if (Sandbox.RestoreProgram(air)) return;
+        EditAir(state => LookService.Apply(LookService.Capture(air), state));
     }
 
     /// <summary>"Restored after restart — last GO 03.020 at 19:41:58 — press ARM to continue", until dismissed.</summary>

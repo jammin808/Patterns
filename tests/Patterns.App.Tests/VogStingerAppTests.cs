@@ -841,17 +841,16 @@ public class VogStingerAppTests
             Dispatcher.UIThread.RunJobs();
             var during = services.Recovery.Read();
             Assert.NotNull(during);
-            Assert.False(string.IsNullOrEmpty(during!.AirLook));
-            var look = JsonUtil.Deserialize<LookData>(during.AirLook!)!;
-            Assert.Equal(PatternKind.Grid, look.Pattern.Kind);            // the show, never the clip
+            Assert.NotNull(during!.Air);
+            Assert.Equal(PatternKind.Grid, during.Air!.Pattern.Kind);     // the show, never the clip
 
             End(services, clip, T0.AddSeconds(3));
             Assert.True(services.Stingers.Holding);
             var held = services.Recovery.Read();
-            Assert.Equal(PatternKind.Grid, JsonUtil.Deserialize<LookData>(held!.AirLook!)!.Pattern.Kind);
+            Assert.Equal(PatternKind.Grid, held!.Air!.Pattern.Kind);
 
             services.Stingers.Stop(T0.AddSeconds(5));
-            Assert.Null(services.Recovery.Read()?.AirLook);              // unsandboxed, the settings file is the air again
+            Assert.Null(services.Recovery.Read()?.Air);                  // unsandboxed, the settings file is the air again
         }
         finally
         {

@@ -177,6 +177,133 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 33. Round 22 — the restart that comes back to the show, and the frame after the fade
+
+Two reports, and both turned out to sit on a seam rather than in a control.
+
+*"A restart sends what was on Preview before the crash to Program and Preview. On restart by any
+means — manually, watchdog — the Program outputs should be the same as they were before the crash."*
+
+*"In BUILD → Pattern, selecting a Pattern Type should show instantly on the switcher panel. The
+info panel does; the screen representation does not."*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The record follows the air by construction (§34.1). `AppServices` watches the frozen program with a `ChangeTracker` of its own, so the recovery record is rewritten whenever the audience's picture moves — however it moved. The flag it replaces was set from two places and missed four: arming EDIT SAFE, leaving it, a TAKE, and a per-screen SEND. | done |
+| 2 | The record is the program, not a look of it (§34.2). A look carries the pattern, the overlays and the countdown; it carries no brand kit, no on-air lower third or its instants, no NDI senders and no locked screen's own picture — so a restart that restored a look handed the audience a hybrid nobody had ever programmed. The record now holds the program state whole, plus the two runtime facts the model does not: the screens faded to black on their own, and that the stream was up. | done |
+| 3 | The record says the desk was split, and the restart puts the split back (§34.3). Without it the desk cannot tell the show from the show being built, and both come back as whichever the settings file happened to hold. Honoured in both directions: a desk that was editing live comes back editing live. | done |
+| 4 | Every restart route writes the same record (§34.4). `PrepareRestart` — the Machine page's RESTART, a remote RESTART, UPDATE APPLY — wrote a two-field record with no air and no place, so the restart the operator asked for lost more than one they did not. The record also survives startup now, and survives a desk standing down for the desk that is about to read it. | done |
+| 5 | A sink is asked for frames before the frame that starts a crossfade (§34.5). It was asked after: the cadence is decided on the UI thread and the frame is drawn on the compositor's, so a sink armed a fade and then never drew another frame — and the first frame of a fade is the outgoing picture at full opacity. That is BUG B, and on a look recall between two still pictures it is the wall, not just the miniature. | done |
+
+## 34. Round 22 — the answers
+
+### 34.1 A record that follows the air, rather than one that is told about it
+
+`UpdateRecovery` wrote the sidecar when `(Live, AudioPlaying)` changed or when a `_airDirty` flag
+was set, and that flag was set from exactly two places: `EditAir` and `PinAirLook`. Everything else
+that moves the audience's picture bypassed it — `Sandbox.Enter`, `Sandbox.Exit`, `SendAll` (TAKE and
+CUT), `SendToTargets` (a per-screen SEND). The commonest failure needed nothing exotic: outputs
+live with EDIT SAFE off, the operator arms EDIT SAFE and builds the next look, and the record on
+disk still says there is no separate air. A crash then reopens the outputs on the settings file,
+which while the sandbox is open **is** the preview. That is the operator's report, verbatim.
+
+Adding a fifth and sixth call to the flag would have left a seventh. So the desk watches the thing
+itself: `AppServices.WatchAir(program)` wires a `ChangeTracker` to the frozen clone when the sandbox
+opens and drops it when it closes, and every write to that clone — by a cue, a stinger, a lower
+third, a SEND, the blackout — moves an air version that is part of the record's write key. There is
+no path to forget, because the paths are not consulted. The cost is one tracker per `Enter()`
+(beside the full-state clone `Enter()` already pays for) and an increment per air change.
+
+### 34.2 The program, not a look of it
+
+`LookData` carries Pattern, Independent, Overlays, Countdown, Blackout, the per-target
+own-pattern flags and the on-air lower third's *id*. Its own header says why — "rig arrangement and
+infrastructure stay put" — and that contract is right for a recall into a running show, where
+everything omitted is already correct because it never left. It is the wrong contract for recovery,
+where the model is rebuilt from a settings file that, while EDIT SAFE is open, is the preview: every
+omission becomes an untaken edit going to air. The brand kit is the sharpest case — a client's wall
+repainting in the next client's colours, font and logo — and the lower third the most embarrassing:
+the program keeps its own filled clone of the design, so the look's id resolves against the
+*preview's* copy and the wrong name goes up under the person at the lectern.
+
+So the record holds a serialized program state and `SandboxService.RestoreProgram` puts it back
+whole. Two runtime facts that decide the picture and are deliberately not in the model go beside it:
+the targets faded to black on their own (rig-wide blackout was already safe — `PublishBoth` forces
+it onto the clone every publish) and, for the operator to read rather than for the desk to act on,
+that the stream was up. The stream is not a Program output and it pushes to somewhere public, so a
+restart names it and leaves the press to the operator.
+
+The record is written compact and, because it now carries a whole show state, leaves the support
+bundle through the same redaction the settings file does.
+
+### 34.3 Telling the show from the show being built
+
+`Sandboxed` on the record is what lets a restart put both halves back. With it, recovery opens the
+sandbox before restoring the content, so the recorded program lands on the frozen clone and the
+settings file stays the preview — the desk comes back exactly as the operator left it, EDIT SAFE
+and all. Without it, the two collapse into one whatever the content vehicle carries.
+
+It is honoured in both directions, and that half matters as much: a show configured to start in
+EDIT SAFE, on a desk whose operator had turned EDIT SAFE off to work live, used to come back split.
+The operator's next change would then reach nobody, and they would find out when the caller asked
+why nothing had happened. `Sandboxed` is nullable for exactly one reason: a record written by an
+older build cannot say, and the desk acts on no opinion it does not have.
+
+### 34.4 Every route, and the record's own lifetime
+
+`PrepareRestart` called the two-argument `Recovery.Write`, so the Machine page's RESTART, a remote
+RESTART and UPDATE APPLY each wrote a record with no air and no run place — the deliberate restart
+lost the program *and* the caller's standby, last GO and twenty history rows, where a crash at the
+same moment kept both. It now writes exactly what `UpdateRecovery` writes.
+
+Two lifetime holes went with it. The record was deleted during startup, before the recovery that
+needs it had run: this start has no outputs live yet, so the ordinary "nothing live, clear it"
+bookkeeping fired first — and a second fault inside the same start then found nothing at all, which
+is the one failure the record exists for. It is now held from the moment it is read until the
+recovery has acted on it or this run has written its own. And a desk standing down for an incoming
+desk cleared it on the way to closing its outputs — the incoming desk's only way back to the room's
+picture, deleted by the run it is taking over from. The stand-down freezes it instead.
+
+Around the picture, the desk's own words for it come back too: the air label the LIVE strip reads,
+the look ids the tallies light and LOOK BACK returns to. Without them the wall is right and the desk
+claims to know nothing about it, at the moment a caller most needs to trust the strip. And the one
+sentence that says the windows in the room are this desk's now, not the ghost's, leads the caller's
+banner rather than being pushed off the strip by the surface the recovery itself opens.
+
+### 34.5 The frame after the one that arms a fade
+
+`SkiaCanvasControl.Render` enqueues a draw op and then decides the sink's redraw cadence. The op
+runs later, on the compositor's thread — and it is the op that arms a crossfade. So the decision was
+made against the *previous* frame's state: no fade in flight, a still pattern to draw, cadence
+Static, stop asking for frames. The op then armed the fade and drew its first frame, which is the
+new content with the **outgoing** picture painted over it at full opacity. No further frame was ever
+requested, so that is where the sink stayed.
+
+On the desk that is every Pattern Type change: the page's own panels switch, the miniatures and the
+panes sit on the old picture, and the picture jumps on the next unrelated edit — the report, exactly.
+It is not only the desk. The same control serves the output windows, so a content change between two
+still pictures with no clock or countdown on — a look recall, a cue — could leave the audience on
+the outgoing picture until something else published.
+
+The fix is to ask the engine rather than guess: `PatternEngine.WillStartFade` sits beside the code
+that arms the fade and answers the same question one frame earlier, and the pipeline's cadence
+returns Continuous when it is true. Nothing on the render path changed; the cost is one memoised
+hash comparison on a sink that is not already fading. `SinkState.TransitionKey` became a single word
+read and written atomically while it was here: it is written on the compositor's thread and now read
+on the UI thread, and a torn read would cost a sink the frame that finishes a crossfade — which is
+the bug, rarely and unreproducibly.
+
+Tests: the record's shape and its round trip, an older build's record still readable, the staleness
+window; the fade predicate's truth table — the first frame, a key that moved, a CUT, transitions
+off, a thumbnail. On a live desk: arming EDIT SAFE alone putting the air in the record, a TAKE and a
+per-screen SEND moving it, leaving EDIT SAFE handing it back to the settings file, RESTART keeping
+the air and the place, a restart coming back split with the brand kit proving the vehicle, a screen
+faded out coming back dark, a stream named rather than started, a desk that was editing live coming
+back editing live, an older record leaving EDIT SAFE alone, the record surviving startup, the desk
+knowing what it calls the picture, a takeover with no record saying so, a takeover acting on its
+record however old, a takeover's words surviving the Run surface, and a Pattern Type change reaching
+the tile over more than one frame and settling back to drawing on change.
+
 ## 31. Round 21 — the reactive scenes
 
 The ask: a lightweight sound-reactive visualiser in the spirit of the old Winamp and MilkDrop
