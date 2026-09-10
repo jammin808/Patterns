@@ -802,6 +802,12 @@ public sealed partial class MainViewModel : Observable
         RevertDisplayModeCommand = new RelayCommand(RevertDisplayMode);
         SelectGroupCommand = new RelayCommand<ShellGroup>(SelectGroup);
         SelectPageCommand = new RelayCommand<int>(SelectPage);
+        // A row dragged in the ACTIONS list: the editor moves the step and keeps the cue's timing.
+        Views.Controls.DragReorder.Moved = (host, from, to) =>
+        {
+            if (host.Name != "ActionList" || from < 0 || from >= Cues.ActionRows.Count) return;
+            Cues.MoveActionTo(Cues.ActionRows[from], to);
+        };
         // The rail's foot and anything else that knows where it wants to go by name rather than
         // by the page's number, which moves whenever a page is added.
         SelectPageByNameCommand = new RelayCommand<string>(name =>
@@ -1256,6 +1262,8 @@ public sealed partial class MainViewModel : Observable
     /// <summary>A show read from a file becomes the show: the model copied over, every list started over, the desk refreshed.</summary>
     private void ApplyLoadedShow(ShowState loaded, string status)
     {
+        // A different show: nothing the last one left waiting may run against it.
+        _services.Tail.DropAll();
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();

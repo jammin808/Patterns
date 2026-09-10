@@ -99,6 +99,36 @@ public sealed class ActionRow : Observable
 
     public CueActionConfig Action { get; }
 
+    /// <summary>
+    /// How long this step waits after the one above it. 0 — the default — means it goes with the
+    /// GO, inside the cue's one edit and one publish, exactly as every step did before delays
+    /// existed.
+    /// </summary>
+    public double Delay
+    {
+        get => Action.DelaySeconds;
+        set
+        {
+            if (Math.Abs(Action.DelaySeconds - value) < 0.001) return;
+            Action.DelaySeconds = value;
+            Raise();
+            _editor.OnTimingEdited();
+        }
+    }
+
+    /// <summary>"+8 s" — how far into the cue this step runs; "" for one that goes with the GO.</summary>
+    public string AtWords => CueSteps.AtWords(_editor.AtSecondsOf(Action));
+
+    public bool IsDelayed => _editor.AtSecondsOf(Action) > 0;
+
+    /// <summary>The row's place and its running total have moved: both follow a reorder or an edit above.</summary>
+    public void RefreshTiming()
+    {
+        Raise(nameof(Delay));
+        Raise(nameof(AtWords));
+        Raise(nameof(IsDelayed));
+    }
+
     public IReadOnlyList<PickItem> KindChoices => CueEditor.KindChoices;
 
     public PickItem SelectedKind
@@ -562,6 +592,7 @@ public sealed class CueEditor : Observable
         Raise(nameof(SelectedFollowText));
         Raise(nameof(SelectedMark));
         Raise(nameof(QuickLook));
+        Raise(nameof(CueShapeWords));
     }
 
     // ---- a running order in and out ------------------------------------------------------------
@@ -691,12 +722,29 @@ public sealed class CueEditor : Observable
     private void MoveAction(ActionRow? row, int delta)
     {
         if (row is null || SelectedCue is null) return;
+        MoveActionTo(row, SelectedCue.Actions.IndexOf(row.Action) + delta);
+    }
+
+    /// <summary>
+    /// Moves a step to a place in the running order and leaves the cue's timing where it was: the
+    /// waits stay with the positions, so a cue an operator shaped keeps its shape and only the
+    /// content moves. Carrying the wait with the step would leave a list whose order is not the
+    /// order it runs in — which is the one thing "ACTIONS (RUN IN ORDER)" promises.
+    ///
+    /// The rows move rather than being rebuilt, so a drag keeps hold of the row it is dragging.
+    /// </summary>
+    public void MoveActionTo(ActionRow? row, int to)
+    {
+        if (row is null || SelectedCue is null) return;
         var actions = SelectedCue.Actions;
-        var index = actions.IndexOf(row.Action);
-        var target = index + delta;
-        if (index < 0 || target < 0 || target >= actions.Count) return;
-        actions.Move(index, target);
-        OnCueEdited();
+        var from = actions.IndexOf(row.Action);
+        if (from < 0 || to < 0 || to >= actions.Count || from == to) return;
+        if (!CueSteps.Move(actions, from, to)) return;
+        var rowAt = ActionRows.IndexOf(row);
+        if (rowAt >= 0 && to < ActionRows.Count) ActionRows.Move(rowAt, to);
+        foreach (var r in ActionRows) r.RefreshTiming();
+        ScheduleRevalidate();
+        RaisePlan();
     }
 
     /// <summary>The lower-thirds library for a Person value, in page order: the id, the name and what the row says.</summary>
@@ -812,6 +860,40 @@ public sealed class CueEditor : Observable
     {
         RebuildActionRows();
         ScheduleRevalidate();
+    }
+
+    /// <summary>A wait changed: every row below it now runs at a different second.</summary>
+    public void OnTimingEdited()
+    {
+        foreach (var row in ActionRows) row.RefreshTiming();
+        ScheduleRevalidate();
+        RaisePlan();
+    }
+
+    /// <summary>How far into the selected cue one of its steps runs — the sum of the waits above it and its own.</summary>
+    public double AtSecondsOf(CueActionConfig action)
+    {
+        if (SelectedCue is null) return 0;
+        var at = 0.0;
+        foreach (var a in SelectedCue.Actions)
+        {
+            at += Math.Max(0, a.DelaySeconds);
+            if (ReferenceEquals(a, action)) return at;
+        }
+        return 0;
+    }
+
+    /// <summary>"over 8 s" under the ACTIONS list, or "" when every step goes with the GO.</summary>
+    public string CueShapeWords
+    {
+        get
+        {
+            if (SelectedCue is null) return "";
+            var tail = CueSteps.TailSeconds(SelectedCue.Actions);
+            return tail <= 0
+                ? "Every step goes with the GO — one edit, one change on the screens."
+                : $"This cue runs over {CueSteps.AtWords(tail).TrimStart('+')}. The next GO on this list drops whatever is still to come, and so does STOP ALL.";
+        }
     }
 
     private void ScheduleRevalidate()

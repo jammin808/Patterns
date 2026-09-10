@@ -19,11 +19,20 @@ public static class CueSummary
             }
             parts.Add(DescribeAction(state, a));
         }
-        return string.Join(" + ", parts);
+        var summary = string.Join(" + ", parts);
+        // A cue with a shape in time says so: "… over 8 s" is the difference between a cue that
+        // has happened and one that is still happening.
+        var tail = CueSteps.TailSeconds(cue.Actions);
+        return tail > 0 ? $"{summary} over {CueSteps.AtWords(tail).TrimStart('+')}" : summary;
     }
 
     /// <summary>One step in words. Every kind a cue may carry has its own words here (a test holds the door); the desk's own read as their label.</summary>
     public static string DescribeAction(ShowState state, CueActionConfig a)
+        => a.DelaySeconds > 0
+            ? $"after {CueSteps.AtWords(a.DelaySeconds).TrimStart('+')} {DescribeStep(state, a)}"
+            : DescribeStep(state, a);
+
+    private static string DescribeStep(ShowState state, CueActionConfig a)
     {
         switch (a.Kind)
         {

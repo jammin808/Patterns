@@ -33,7 +33,7 @@ public static class CueSheet
 {
     public static readonly string[] Headers =
     {
-        "Number", "Name", "Track", "Start", "Duration", "Follow", "Mark", "Confirm", "Look", "Action", "Target", "Value", "Notes",
+        "Number", "Name", "Track", "Start", "Duration", "Follow", "Mark", "Confirm", "Look", "Action", "Target", "Value", "After", "Notes",
     };
 
     private static readonly string[] NumberHeaders = { "Number", "No", "No.", "#", "Cue number", "Cue #", "Cue no", "Q" };
@@ -49,6 +49,7 @@ public static class CueSheet
     private static readonly string[] ActionHeaders = { "Action", "Action kind", "Command" };
     private static readonly string[] TargetHeaders = { "Target", "Action target", "Which" };
     private static readonly string[] ValueHeaders = { "Value", "Action value", "Parameter" };
+    private static readonly string[] AfterHeaders = { "After", "Delay", "Wait", "Offset", "After (s)", "Delay (s)" };
 
     private static readonly Regex BreakWord = new(@"\b(break|coffee|tea|interval|recess)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex LunchWord = new(@"\b(lunch|dinner|supper)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -137,7 +138,10 @@ public static class CueSheet
                     var target = table.Get(r, TargetHeaders);
                     var value = table.Get(r, ValueHeaders);
                     var (resolved, note) = ResolveTarget(state, kind, target);
-                    cue.Actions.Add(new CueActionConfig { Kind = kind, Target = resolved, Value = value });
+                    var after = table.Get(r, AfterHeaders);
+                    var wait = after.Length > 0 && double.TryParse(after.TrimEnd('s', 'S', ' '),
+                        System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var w) ? w : 0;
+                    cue.Actions.Add(new CueActionConfig { Kind = kind, Target = resolved, Value = value, DelaySeconds = wait });
                     if (note is not null) result.Notes.Add($"Row {rowNo}: {note}");
                 }
                 else
@@ -159,13 +163,13 @@ public static class CueSheet
         var rows = new List<IEnumerable<string>>
         {
             Headers,
-            new[] { "01.010", "Walk-in", "Video", "08:30", "30:00", "", "", "", "Walk-in", "", "", "", "Doors open — loops until the welcome" },
-            new[] { "01.020", "Welcome", "Video", "09:00", "10:00", "", "", "yes", "Keynote", "Play audio track", "", "", "Confirm asked: the walk-in music stops here" },
-            new[] { "01.030", "Coffee", "", "09:10", "20 min", "", "break", "", "Holding", "", "", "", "" },
-            new[] { "02.010", "Session 2", "Video", "09:30", "45:00", "", "", "", "Session", "Lower third on", "Speaker one", "", "" },
-            new[] { "02.020", "Lunch", "", "12:15", "1h", "", "lunch", "", "Lunch", "Start countdown", "", "60", "A 60-minute countdown on the foyer screen" },
-            new[] { "03.010", "Thanks", "", "17:00", "5:00", "0", "end", "", "Thanks", "", "", "", "Follow = 0: the next cue fires by itself at once" },
-            new[] { "03.020", "Walk-out", "", "", "", "", "", "", "Walk-out", "Blackout off", "", "", "" },
+            new[] { "01.010", "Walk-in", "Video", "08:30", "30:00", "", "", "", "Walk-in", "", "", "", "", "Doors open — loops until the welcome" },
+            new[] { "01.020", "Welcome", "Video", "09:00", "10:00", "", "", "yes", "Keynote", "Play audio track", "", "", "", "Confirm asked: the walk-in music stops here" },
+            new[] { "01.030", "Coffee", "", "09:10", "20 min", "", "break", "", "Holding", "", "", "", "", "" },
+            new[] { "02.010", "Session 2", "Video", "09:30", "45:00", "", "", "", "Session", "Lower third on", "Speaker one", "", "3", "After = 3: the name comes up three seconds after the picture" },
+            new[] { "02.020", "Lunch", "", "12:15", "1h", "", "lunch", "", "Lunch", "Start countdown", "", "60", "", "A 60-minute countdown on the foyer screen" },
+            new[] { "03.010", "Thanks", "", "17:00", "5:00", "0", "end", "", "Thanks", "", "", "", "", "Follow = 0: the next cue fires by itself at once" },
+            new[] { "03.020", "Walk-out", "", "", "", "", "", "", "Walk-out", "Blackout off", "", "", "", "" },
         };
         return CsvTable.Write(rows);
     }
@@ -192,6 +196,7 @@ public static class CueSheet
                 other is null ? "" : ActionSpec.Label(other.Kind),
                 other is null ? "" : TargetName(state, other),
                 other is null ? "" : ValueName(state, other),
+                other is null || other.DelaySeconds <= 0 ? "" : other.DelaySeconds.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture),
                 cue.Notes,
             });
         }

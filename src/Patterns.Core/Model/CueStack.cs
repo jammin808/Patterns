@@ -34,10 +34,25 @@ public sealed class CueActionConfig : Observable
     private ShowActionKind _kind = ShowActionKind.ApplyLook;
     private string _target = "";
     private string _value = "";
+    private double _delaySeconds;
 
     public ShowActionKind Kind { get => _kind; set => Set(ref _kind, value); }
     public string Target { get => _target; set => Set(ref _target, value); }
     public string Value { get => _value; set => Set(ref _value, value); }
+
+    /// <summary>
+    /// How long to wait after the step above before this one runs; 0 means with it, which is the
+    /// default and the whole of a cue until somebody asks otherwise. Relative rather than an
+    /// offset from GO on purpose: the list order and the running order can then never disagree,
+    /// and inserting a step shifts what follows instead of silently re-timing it.
+    ///
+    /// A cue whose steps are all 0 is one edit and one publish, exactly as before — the delayed
+    /// path costs nothing until it is used.
+    /// </summary>
+    public double DelaySeconds { get => _delaySeconds; set => Set(ref _delaySeconds, Math.Clamp(double.IsFinite(value) ? value : 0, 0, MaxDelaySeconds)); }
+
+    /// <summary>An hour: long enough for an interval, short enough that a typo cannot arm something for tomorrow.</summary>
+    public const double MaxDelaySeconds = 3600;
 
     /// <summary>The step as the action layer runs it — the desk's, the wire's and a cue's are the same thing.</summary>
     public ShowAction ToAction() => new(Kind, Target, Value);

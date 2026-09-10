@@ -310,6 +310,9 @@ public sealed class ShowActions
                         var arm = a.Kind == ShowActionKind.ListArm;
                         // A remote arms only while the Remote page allows it; the desk's own keys and a cue always may.
                         if (IsRemote(origin) && !State.Control.RemotesMayArm) return ActionResult.Refused("remotes may not arm — allow it on the Remote page");
+                        // Disarming a list is the caller saying "not from here": what it left
+                        // waiting goes with it, or a step would land after they stood down.
+                        if (!arm) _s.Tail.DropStack(stack.Id);
                         if (ReferenceEquals(stack, _s.CueStack.Stack))
                         {
                             // The caller's stack: the standby, a pending confirm and a follow go with the arming.
@@ -321,6 +324,8 @@ public sealed class ShowActions
                     }
                     case ShowActionKind.ListReset:
                         rt.CurrentIndex = -1;
+                        // Back to the top means back to the top: nothing the last cue left waiting.
+                        _s.Tail.DropStack(stack.Id);
                         return ActionResult.Done($"{stack.Name} reset to the start.");
                     case ShowActionKind.ListGo:
                         return RunList(stack, +1, origin);
@@ -1070,12 +1075,17 @@ public sealed class ShowActions
             }
 
             case ShowActionKind.StopAll:
+            {
                 _s.Stingers.Stop();              // both kinds; a clip or a held frame reverts; an after is cancelled, never fired
                 State.AudioPlayer.Playing = false;
                 State.Spotify.Playing = false;   // the service issues the pause and retries until it lands…
                 _s.Spotify.PokeNow();            // …starting on this turn, not up to 400 ms later
                 State.Tone.Enabled = false;
-                return ActionResult.Done("Stopped: audio track, break music, VOGs and stingers (previous content back), tone. Outputs, blackout and the stream are untouched.");
+                // A cue's waiting steps go with it: STOP ALL means nothing more is coming.
+                var dropped = _s.Tail.DropAll();
+                var also = dropped == 0 ? "" : $" {dropped} waiting cue step{(dropped == 1 ? "" : "s")} dropped.";
+                return ActionResult.Done("Stopped: audio track, break music, VOGs and stingers (previous content back), tone. Outputs, blackout and the stream are untouched." + also);
+            }
 
             default:
                 return ActionResult.Refused($"Unknown action '{a.Kind}'.");
@@ -1368,10 +1378,21 @@ public sealed class ShowActions
         var done = 0;
         var requested = false;
         ActionResult? failure = null;
+        // The steps that go with the GO, and the ones that wait. A cue with no waits plans to
+        // exactly what it always did — one list, one edit, one publish — so the delayed path
+        // costs a show that never uses it nothing at all.
+        var plan = CueSteps.Plan(cue.Actions);
+        var now = ShowClock.Seconds;
+        var immediate = plan.Where(p => p.IsImmediate).ToList();
+        var waiting = plan.Where(p => !p.IsImmediate).ToList();
+        // The next GO on a list takes the list over: whatever the last cue on it left waiting goes
+        // before this one starts, so a step from two cues ago can never land on the audience.
+        _s.Tail.Schedule(stack.Id, cue, label, waiting, now);
         _s.BulkEdit(() =>
         {
-            foreach (var action in cue.Actions)
+            foreach (var step in immediate)
             {
+                var action = step.Action;
                 if (action.Kind == ShowActionKind.Note)
                 {
                     done++;
@@ -1406,13 +1427,18 @@ public sealed class ShowActions
         rt.LastCueId = cue.Id;
         if (failure is not null)
         {
+            // A cue that failed on its way in does not go on running behind the operator's back.
+            _s.Tail.DropStack(stack.Id);
             rt.LastOutcome = "Failed";
             return ActionResult.Failed($"{label}: failed at action {done + 1} of {total} — {failure.Message}");
         }
         rt.LastOutcome = requested ? "Requested" : "Done";
+        var tail = waiting.Count == 0
+            ? ""
+            : $" — {waiting.Count} step{(waiting.Count == 1 ? "" : "s")} to come over {CueSteps.AtWords(waiting[^1].AtSeconds).TrimStart('+')}";
         return requested
-            ? ActionResult.Requested($"{label} — {CueSummary.Describe(State, cue)} (still settling).")
-            : ActionResult.Done($"{label} — {CueSummary.Describe(State, cue)}");
+            ? ActionResult.Requested($"{label} — {CueSummary.Describe(State, cue)}{tail} (still settling).")
+            : ActionResult.Done($"{label} — {CueSummary.Describe(State, cue)}{tail}");
     }
 
     // ---- the scoped fade -------------------------------------------------------------

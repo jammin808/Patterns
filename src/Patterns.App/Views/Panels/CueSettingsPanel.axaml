@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:m="using:Patterns.Core.Model"
+             xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Panels.CueSettingsPanel"
              x:DataType="vm:MainViewModel">
   <!-- The selected item's settings, shown in the pop-out column beside the page (PopOutHost) rather than under the list. -->
@@ -59,19 +60,34 @@
       </Grid>
 
       <TextBlock Classes="h2" Text="ACTIONS (RUN IN ORDER)" />
-      <ItemsControl ItemsSource="{Binding Cues.ActionRows}">
+      <ItemsControl Name="ActionList" ItemsSource="{Binding Cues.ActionRows}" c:DragReorder.Host="True">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:ActionRow">
             <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="8,6" Margin="0,2">
               <StackPanel Spacing="4">
-                <Grid ColumnDefinitions="*,6,Auto,Auto,Auto">
-                  <ComboBox Grid.Column="0" ItemsSource="{Binding KindChoices}" SelectedItem="{Binding SelectedKind, Mode=TwoWay}" HorizontalAlignment="Stretch" />
-                  <Button Grid.Column="2" Classes="mini" Content="↑"
+                <Grid ColumnDefinitions="Auto,6,*,6,Auto,Auto,Auto">
+                  <!-- The grip: press and drag to put the step somewhere else in the running
+                       order. The waits stay with the positions, so the cue keeps its shape. -->
+                  <TextBlock Grid.Column="0" Name="ActionGrip" c:DragReorder.Grip="True" Text="⠿" FontSize="15" Opacity="0.55"
+                             VerticalAlignment="Center" Padding="3,2"
+                             ToolTip.Tip="Drag to reorder. The waits stay where they are, so the cue's timing is the timing you built — only the step moves" />
+                  <ComboBox Grid.Column="2" ItemsSource="{Binding KindChoices}" SelectedItem="{Binding SelectedKind, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                  <Button Grid.Column="4" Classes="mini" Content="↑"
                           Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionUpCommand}" CommandParameter="{Binding}" />
-                  <Button Grid.Column="3" Classes="mini" Content="↓"
+                  <Button Grid.Column="5" Classes="mini" Content="↓"
                           Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionDownCommand}" CommandParameter="{Binding}" />
-                  <Button Grid.Column="4" Classes="mini" Content="✕"
+                  <Button Grid.Column="6" Classes="mini" Content="✕"
                           Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.RemoveActionCommand}" CommandParameter="{Binding}" />
+                </Grid>
+                <!-- The wait before this step, and where it lands in the cue -->
+                <Grid ColumnDefinitions="Auto,6,86,8,Auto,*">
+                  <TextBlock Grid.Column="0" Classes="label" Text="After" VerticalAlignment="Center" />
+                  <NumericUpDown Grid.Column="2" Name="ActionDelay" Minimum="0" Maximum="3600" Increment="0.5" FormatString="0.#"
+                                 ShowButtonSpinner="True" Value="{Binding Delay, Mode=TwoWay, Converter={StaticResource Num}}"
+                                 ToolTip.Tip="Seconds to wait after the step above before this one runs. 0 — the default — means it goes with the GO, inside the cue's one change on the screens" />
+                  <TextBlock Grid.Column="4" Classes="label" Text="s" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="5" Classes="hint" Text="{Binding AtWords}" VerticalAlignment="Center" Margin="10,0,0,0"
+                             IsVisible="{Binding IsDelayed}" ToolTip.Tip="How far into the cue this step runs, counted from the GO" />
                 </Grid>
                 <ComboBox IsVisible="{Binding HasTarget}" ItemsSource="{Binding TargetChoices}" SelectedItem="{Binding SelectedTarget, Mode=TwoWay}"
                           PlaceholderText="{Binding TargetHint}" HorizontalAlignment="Stretch" />
@@ -85,6 +101,7 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
       <Button Classes="chip" Content="+ Action" Command="{Binding Cues.AddActionCommand}" HorizontalAlignment="Left" />
+      <TextBlock Classes="hint" Text="{Binding Cues.CueShapeWords}" TextWrapping="Wrap" Margin="0,3,0,0" />
       <TextBlock Classes="hint tip"
                  Text="Looks are the prepared moments: build one in the preview, Save look, then Apply look here. A video VOG or stinger takes every screen, so it cannot share a cue with a look, part, screen or canvas change. A stinger that moves the show on does it when the clip lands, not inside the cue — set that on the Audio page. Blackout stays as it was after a cue unless the cue switches it." />
     </StackPanel>

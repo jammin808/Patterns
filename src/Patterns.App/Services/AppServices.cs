@@ -77,6 +77,9 @@ public sealed class AppServices
     public AudioAnalyserService Analyser { get; }
     public RecoveryStore Recovery { get; }
 
+    /// <summary>The part of a cue that has not happened yet — its steps with a wait on them.</summary>
+    public CueTail Tail { get; } = new();
+
     /// <summary>
     /// Who has the screens: this desk writes and beats the ownership record while its outputs are
     /// live, and stands down when a newer desk asks for them. The other half — a start taking the
@@ -390,6 +393,18 @@ public sealed class AppServices
         // would find nothing at all, which is the one failure the record exists for.
         _recoveryPending = PendingRecovery is not null;
         Actions = new ShowActions(this);
+        // A waiting step runs through the same action layer its cue's immediate steps went
+        // through, and is journaled with its cue's name and its place in it.
+        Tail.Run = step =>
+        {
+            var mapped = step.Action.ToAction();
+            // Follow: the origin a cue's own later step already has — it was not pressed, the cue
+            // said it would happen, and the gate that refuses a remote's GO must not refuse this.
+            var result = Actions.Execute(mapped, ActionOrigin.Follow);
+            Journal.Record(ActionOrigin.Follow.Label, mapped.Kind.ToString(), mapped.Target, result.Status.ToString(),
+                $"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
+            Notify($"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
+        };
         CueStack = new CueStackService(this);
         // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
         CueStack.Changed += ReconcileInputs;
@@ -1104,6 +1119,7 @@ public sealed class AppServices
             Video.Dispose();
             Metrics.Dispose();
             Analyser.Dispose();
+            Tail.Dispose();
             SaveNow();
             if (!_restartRequested)
             {
