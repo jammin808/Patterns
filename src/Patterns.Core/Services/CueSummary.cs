@@ -198,10 +198,38 @@ public static class CueSummary
 
     private static void AppendTransition(StringBuilder sb, string value)
     {
-        if (!ActionSpec.TryParseTransition(value, out var cut, out var ms)) return;
-        if (cut) sb.Append(" (cut)");
-        else if (ms >= 0) sb.Append($" ({ms} ms)");
+        if (!ActionSpec.TryParseTransition(value, out var cut, out var ms, out var kind, out var scene, out var way)) return;
+        if (cut)
+        {
+            sb.Append(" (cut)");
+            return;
+        }
+        // Everything the recall asked for, in the order an operator reads it off the sheet.
+        var said = "";
+        if (kind is { } k) said = TransitionWords(k, scene);
+        if (way is { } w) said = said.Length == 0 ? WayWords(w) : $"{said} {WayWords(w)}";
+        if (ms >= 0) said = said.Length == 0 ? $"{ms} ms" : $"{said}, {ms} ms";
+        if (said.Length > 0) sb.Append(" (").Append(said).Append(')');
     }
+
+    /// <summary>A transition as it reads on a printed sheet.</summary>
+    private static string TransitionWords(TransitionKind kind, ReactiveScene? scene) => kind switch
+    {
+        TransitionKind.Dip => "dip",
+        TransitionKind.Wipe => "wipe",
+        TransitionKind.Push => "push",
+        TransitionKind.BrandStinger => "brand stinger",
+        TransitionKind.Reactive => scene is { } s ? $"reactive {s.ToString().ToLowerInvariant()}" : "reactive",
+        _ => "dissolve",
+    };
+
+    private static string WayWords(TransitionDirection way) => way switch
+    {
+        TransitionDirection.Left => "right to left",
+        TransitionDirection.Up => "bottom to top",
+        TransitionDirection.Down => "top to bottom",
+        _ => "left to right",
+    };
 
     private static string SwitchWords(string value) => value.Trim().ToLowerInvariant() switch
     {

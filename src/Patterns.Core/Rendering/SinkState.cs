@@ -68,6 +68,35 @@ public sealed class SinkState : IDisposable
     /// <summary>Newest snapshot version this sink has passed through the transition logic (cut detection).</summary>
     public long TransitionSeenVersion { get; set; } = -1;
 
+    /// <summary>
+    /// What the running transition looks like, settled once when it arms: the kind, the way it
+    /// travels, the scene it wipes with, the colours it draws with. Everything a transition needs
+    /// is read at the moment it starts and never again, so a setting changed while a wipe is
+    /// halfway across the screen cannot turn it into a push in front of the room.
+    /// </summary>
+    public TransitionView TransitionLook { get; set; }
+
+    /// <summary>The reactive matte's field, built once when the transition arms and read every frame.</summary>
+    public byte[]? MatteField { get; set; }
+
+    /// <summary>The bitmap the matte is written into each frame, and the buffer behind it — reused, never reallocated per frame.</summary>
+    public SKBitmap? MatteBitmap { get; set; }
+
+    public int[]? MattePixels { get; set; }
+
+    /// <summary>What the cached matte was built for; a change of scene or size rebuilds it.</summary>
+    public string MatteKey { get; set; } = "";
+
+    /// <summary>Lets the matte go when a transition ends — a still picture holds no buffer.</summary>
+    public void DropMatte()
+    {
+        MatteBitmap?.Dispose();
+        MatteBitmap = null;
+        MattePixels = null;
+        MatteField = null;
+        MatteKey = "";
+    }
+
     // Zone-plate runtime shader (compiled once per sink; falls back if unsupported).
     public SKRuntimeEffect? ZonePlateEffect { get; set; }
 
@@ -218,6 +247,7 @@ public sealed class SinkState : IDisposable
         Checker.Dispose();
         ZonePlateEffect?.Dispose();
         Ticker.Dispose();
+        DropMatte();
     }
 }
 

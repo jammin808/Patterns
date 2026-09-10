@@ -861,9 +861,33 @@ public sealed class TransitionConfig : Observable
 {
     private bool _enabled = true;
     private double _durationMs = 400;
+    private TransitionKind _kind = TransitionKind.Dissolve;
+    private TransitionDirection _direction = TransitionDirection.Right;
+    private ReactiveScene _scene = ReactiveScene.Plasma;
+    private double _softness = 0.18;
+    private bool _dipUsesBrand = true;
+    private string _dipColor = "#000000";
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     public double DurationMs { get => _durationMs; set => Set(ref _durationMs, Math.Clamp(value, 100, 3000)); }
+
+    /// <summary>How one picture becomes the next; Dissolve is what the desk has always done and stays the default.</summary>
+    public TransitionKind Kind { get => _kind; set => Set(ref _kind, value); }
+
+    /// <summary>Which way a wipe or a push travels.</summary>
+    public TransitionDirection Direction { get => _direction; set => Set(ref _direction, value); }
+
+    /// <summary>The reactive scene a Reactive transition uses as its matte.</summary>
+    public ReactiveScene Scene { get => _scene; set => Set(ref _scene, value); }
+
+    /// <summary>How soft a wipe's or a matte's edge is, as a share of the picture (0 = a hard line).</summary>
+    public double Softness { get => _softness; set => Set(ref _softness, Math.Clamp(value, 0, 0.6)); }
+
+    /// <summary>A dip goes through the show's brand background; untick to name a colour of its own.</summary>
+    public bool DipUsesBrand { get => _dipUsesBrand; set => Set(ref _dipUsesBrand, value); }
+
+    /// <summary>The colour a dip goes through when it is not the brand's.</summary>
+    public string DipColor { get => _dipColor; set => Set(ref _dipColor, value ?? _dipColor); }
 }
 
 /// <summary>One presenter step: a look recalled by a clicker press.</summary>

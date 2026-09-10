@@ -130,8 +130,47 @@
       <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                  Text="{Binding State.Transition.DurationMs, StringFormat={}{0:0}}" />
     </Grid>
+    <Grid ColumnDefinitions="130,*" Margin="0,4,0,0" IsEnabled="{Binding State.Transition.Enabled}">
+      <TextBlock Classes="label" Text="How" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding TransitionKinds}" HorizontalAlignment="Stretch"
+                SelectedValue="{Binding State.Transition.Kind, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                ToolTip.Tip="Every one of them draws with plain canvas work, so the wall, the preview, NDI, the stream and a thumbnail all get the same change — nothing here needs a graphics card" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*" Margin="0,4,0,0"
+          IsVisible="{Binding TransitionHasDirection}" IsEnabled="{Binding State.Transition.Enabled}">
+      <TextBlock Classes="label" Text="Travels" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding TransitionDirections}" HorizontalAlignment="Stretch"
+                SelectedValue="{Binding State.Transition.Direction, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*" Margin="0,4,0,0"
+          IsVisible="{Binding TransitionIsReactive}" IsEnabled="{Binding State.Transition.Enabled}">
+      <TextBlock Classes="label" Text="Scene" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding ReactiveSceneKinds}" HorizontalAlignment="Stretch"
+                SelectedValue="{Binding State.Transition.Scene, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                ToolTip.Tip="The scene's own picture is the matte: the change happens where the scene is dark first, so a plasma dissolves in clouds and a vortex spirals in" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,52" Margin="0,4,0,0"
+          IsVisible="{Binding TransitionHasSoftness}" IsEnabled="{Binding State.Transition.Enabled}">
+      <TextBlock Classes="label" Text="Edge" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="0.6" TickFrequency="0.02"
+              Value="{Binding State.Transition.Softness, Mode=TwoWay}"
+              ToolTip.Tip="How soft the edge is — 0 is a hard line, wide is a slow bleed" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Transition.Softness, StringFormat={}{0:0.00}}" />
+    </Grid>
+    <StackPanel IsVisible="{Binding TransitionIsDip}" IsEnabled="{Binding State.Transition.Enabled}" Margin="0,4,0,0">
+      <CheckBox Content="Dip through the brand's background colour" IsChecked="{Binding State.Transition.DipUsesBrand}" />
+      <Grid ColumnDefinitions="130,*" IsEnabled="{Binding !State.Transition.DipUsesBrand}">
+        <TextBlock Classes="label" Text="Dip colour" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding State.Transition.DipColor, Mode=TwoWay}" Watermark="#000000" />
+      </Grid>
+    </StackPanel>
+    <TextBlock Classes="hint" Text="{Binding TransitionNote}" TextWrapping="Wrap" Margin="0,4,0,0" />
     <TextBlock Classes="hint tip"
-               Text="Look recalls, cues, playlist advances, source changes and blackout crossfade on every screen and NDI output — synchronised across spans. A cue's look can carry its own cut or fade. Setting tweaks stay instant." />
+               Text="Look recalls, cues, playlist advances, source changes and blackout transition on every screen and NDI output — synchronised across spans. A cue's look can carry its own arrival: 'cut', a fade in ms, or a transition by name — wipe left 800, dip, stinger, reactive vortex 1200 — for that recall alone. A dip through a bright colour goes past the same three-a-second flash limit a sting does: too soon after the last one and that change dissolves instead. Setting tweaks stay instant." />
 
     <TextBlock Classes="h2" Text="EDIT SAFE" />
     <CheckBox Content="Previews are sandboxed by default (EDIT SAFE on at start, re-armed after every send)"

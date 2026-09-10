@@ -340,6 +340,22 @@ public static class HelpTopics
             new[] { "Audio", "Panel" },
             new[] { "audio", "playlist", "track", "tracks", "folder", "music bed", "walk-in", "shuffle", "loop", "next", "previous", "skip", "volume", "duck", "outputs", "hdmi" }),
 
+        new HelpTopic("transitions", HelpGroup.RunningTheShow,
+            "Transitions: dissolve, dip, wipe, push, the brand stinger, a reactive matte",
+            "How every recall the desk makes arrives on the screens — chosen once for the show, or named by one cue for itself.",
+            HelpBodies.Transitions,
+            new[]
+            {
+                "SETUP → Screens → TRANSITIONS: the tick and the time, then HOW — Dissolve, Dip, Wipe, Push, Brand stinger, Reactive.",
+                "A wipe and a push ask which way they travel; a wipe and a reactive matte have an edge to soften.",
+                "A dip takes the brand's background colour unless you untick and name one; a bright dip too soon after the last flash is drawn as a dissolve instead.",
+                "The brand stinger is made from BUILD → Branding — the primary, the secondary, the background and the logo — so there is no clip to prepare or lose.",
+                "One recall can carry its own: a cue's look transition box takes 'cut', a fade in milliseconds, or a name — wipe left 600, dip, stinger, reactive vortex 1200.",
+            },
+            "LOOK [name] [cut | ms | dissolve | dip | wipe | push | stinger | reactive [scene] | left | right | up | down]",
+            new[] { "Screens", "Cues" },
+            new[] { "transition", "dissolve", "crossfade", "dip", "dip to black", "wipe", "push", "stinger", "brand stinger", "reactive", "matte", "take", "edge", "softness" }),
+
         new HelpTopic("freeze-fade", HelpGroup.RunningTheShow,
             "Freeze, the timed fade, the previous look, earlier versions",
             "The emergency and finesse keys of a show operator, on the panel and on the wire.",

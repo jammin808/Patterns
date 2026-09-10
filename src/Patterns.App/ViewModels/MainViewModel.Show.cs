@@ -1015,8 +1015,15 @@ public sealed partial class MainViewModel
     /// </summary>
     public void RefreshTallies()
     {
-        RefreshLookTallies();
-        var live = RefreshStingerTallies() | RefreshLowerThirdTallies();
+        // Chrome, not content: every field these write is [JsonIgnore] and reaches no sink, so
+        // none of it publishes a snapshot — and none of it takes the version a look's own
+        // transition is riding on.
+        var live = false;
+        _services.DeskEdit(() =>
+        {
+            RefreshLookTallies();
+            live = RefreshStingerTallies() | RefreshLowerThirdTallies();
+        });
         if (live && _tallyTimer is null)
         {
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };

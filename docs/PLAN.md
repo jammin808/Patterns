@@ -177,6 +177,197 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
+## 37. Round 24 — a cue with a shape in time, and how one picture becomes the next
+
+Two asks.
+
+*"Cue Actions should have a delay feature. The order can be changed and draggable. It should swap
+delay if it is present."*
+
+*"Add more transition effects. If it is safe and stable to apply, investigate using any of the
+particle, fractal or reactive engines. Be creative. Consider adding a branding transition 'Stinger'
+between 'Takes'."*
+
+With them the standing rule: stability, resilience, efficiency, UX, performance across system
+specs, durability and an easy show workflow; every change instant. The answers are §38. The
+checklist for the Windows machine is `docs/CHECKLIST-round24.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | A cue is a shape in time, not a burst (§38.1). Every step carries an **After** — seconds to wait after the step above it — and 0, the default, is what a cue has always been. `CueSteps` (Core, pure) plans a cue into what runs now and what runs later; `CueTail` (App) is the one 50 ms beat that runs the rest, and a cue's tail is dropped by the next GO on that list, by STOP ALL, by disarming, by resetting and by loading another show. | done |
+| 2 | The order is dragged, and the waits stay where they are (§38.2). `DragReorder` is an attached behaviour over the existing list — pointer capture, no OS drag loop, a 4 px threshold — and `CueSteps.Move` moves the step while the timing shape stays put, so the list order and the running order can never disagree. The After column exports and imports with the sheet; the summary and the checks read it. | done |
+| 3 | Five more transitions, all of them safe on every sink (§38.3). Dip, Wipe, Push, Brand stinger and Reactive beside the dissolve the desk has always had — plain canvas work, no shader, nothing allocated per frame, and the same picture on the wall, the preview, NDI, the stream and a thumbnail. | done |
+| 4 | The brand stinger: a stinger with no clip (§38.4). Two bars in the brand kit's primary and secondary sweep in, the background fills behind them, the logo lands at the peak, and the cut happens underneath. Nothing to render, nothing to lose on the stick, and a client who changes their colours changes the stinger. | done |
+| 5 | The reactive engine as a matte family (§38.5). `ReactiveField.Sample` is closed-form, allocation-free and already has a proven CPU twin, so its six scenes become six wipes: the change lands where the scene is dark first. Drawn once at 256 px wide and scaled up, so a 4K wall and a thumbnail cost the same. | done |
+| 6 | A recall can carry its own arrival (§38.6). The look transition box takes "cut", a fade in milliseconds, a transition by name, a way to travel and a scene — in any order — for that recall alone, on a show whose crossfades are switched off. The sheet prints it back and the checks refuse a word the desk cannot read. | done |
+| 7 | Chrome does not get to spend the show's versions (§38.7). The desk repaints its tally chips after every action, and those writes were publishing snapshots — which stranded a look's own fade or transition on a version no sink would ever draw. `AppServices.DeskEdit` puts them where they belong. | done |
+
+## 38. Round 24 — the answers
+
+### 38.1 A wait belongs to a position, not to a step
+
+A cue was one edit and one change on the screens. That is right for most of them and wrong for the
+ones a caller actually builds: the picture lands on the GO and the name comes up three seconds
+later; the music starts, then the wall changes, then the lower third arrives. Without a wait, that
+is three cues and three presses, and the caller is watching their own hand instead of the stage.
+
+So every step has an **After**: seconds to wait after the step above it. Relative, not absolute,
+for one reason — an operator who inserts a step at the top of a five-step cue would otherwise have
+to retype four numbers, and would not.
+
+`CueSteps.Plan` splits a cue into the steps that go now and the steps that go later, with each
+later step's moment already summed. `CueTail` holds them: one 50 ms beat for the whole desk, no
+timer per cue, and every pending step carrying the stack, the cue and its place in it so the
+journal and the status line can name it. Because a tail outlives the press that made it, the
+safety is where the show moves on: **the next GO on that list drops it**, and so do STOP ALL,
+disarming the list, resetting it and loading another show. A step from a cue two cues ago can
+never land on the audience.
+
+### 38.2 The order is dragged; the shape stays
+
+"It should swap delay if it is present" is the whole design in a sentence, and it can be read two
+ways. If the wait belonged to the *step*, dragging a step would carry its wait with it and the
+cue's timing shape would change every time somebody reordered it. If the wait belongs to the
+*position*, the shape is what survives: the cue still runs 0 s, +3 s, +5 s — only which step is at
+each moment changes. The second is what a caller means. `CueSteps.Move` moves the step and puts the
+waits back in position order, and the test that matters asserts exactly that: the timing shape is
+unchanged, the order is not.
+
+The drag itself is deliberately small. `DragReorder` is an attached behaviour on the existing
+`ItemsControl` — a grip (⠿) that captures the pointer, a 4 px threshold so a click on the grip is
+still a click, an index worked out from the containers already laid out, and no OS drag-and-drop
+loop anywhere near it. The ↑ ↓ buttons do the same thing through the same call, because a show
+machine's trackpad in a dark room is not a mouse on a desk.
+
+### 38.3 Five transitions, and why none of them needs a graphics card
+
+The constraint that shaped every one of these: **three of this desk's sinks have a GPU and three do
+not.** The outputs, the preview and the monitors draw through Skia's GL backend; NDI, the stream
+and the preset thumbnails are raster surfaces with no `GRContext` at all. A transition written as a
+shader would look like one thing in the room and a hard cut on the client's stream — the one place
+where a difference is a broadcast fault rather than a taste question.
+
+So every kind here is plain canvas work, and the shape they all fit into is the one the engine
+already had: draw the incoming picture, then draw the outgoing one over it inside a `SaveLayer`,
+and let the kind decide what that layer is masked or moved by.
+
+- **Dissolve** — the layer's alpha. What it always was.
+- **Wipe** — a linear gradient shader drawn over the layer with `SKBlendMode.DstIn`, carried past
+  both ends so the outgoing picture is whole at 0 and gone at 1.
+- **Push** — no layer and no mask, two translates. Each one is clipped to where its own picture has
+  got to, because a picture clears its ground before it draws and an unclipped one would wipe the
+  other off the screen on its way past.
+- **Dip** and **Brand stinger** turn the frame round: they cover the cut, so the picture underneath
+  is the outgoing one for the first half and the incoming one for the second, and the cover is what
+  goes on top. The cover's curve has a plateau across the middle on purpose — the change happens
+  under it, and a cover that is only briefly whole shows a frame of the switch.
+- **Reactive** — one small bitmap as the mask, below.
+
+Two properties are asserted for all six on the raster path — the stream's path — because they are
+what makes a transition safe to leave in a show file: **whole at both ends** (at 0 the room still
+has the picture it had, at 1 it has the one the show asked for) and **actually doing something in
+the middle**. A seventh test renders the same change on an output sink and a stream sink and
+requires the two frames to match.
+
+Everything a transition needs — the kind, the way it travels, the scene, the softness, the colours
+— is settled once at the instant it arms and never read again, so a setting changed while a wipe is
+halfway across the screen cannot turn it into a push in front of the room. A transition that throws
+for any reason is dropped and the picture the show is meant to be showing is drawn instead.
+
+A dip through a bright colour is a whole-screen light change, so it goes past the same limit a
+strobing sting goes past. `FlashGuard.AllowPulse` is new beside `Limit`: one call, one answer, the
+same three-a-second budget and the same counters, but leaving no pulse behind it so a sting already
+on its way up is neither cut short nor counted twice. Too soon after the last flash and that one
+change is drawn as a dissolve. The picture still changes; it just does not flash to do it.
+
+### 38.4 The stinger the show already owns
+
+A stinger between takes normally means a rendered clip: somebody makes it, somebody remembers to
+put it on the stick, and somebody re-renders it when the client changes their colours. Patterns
+already has a `StingerLibrary` for exactly that, and it is the right tool when a client has a
+motion-designed sting.
+
+The brand stinger is the other half of the problem — the client who has a logo and two colours and
+no motion designer. It is drawn from `BrandKit`: the primary sweeps in from the left, the secondary
+from the right, the background fills behind them once they have met, and the logo lands at the peak
+at no more than a third of the picture. Change the brand kit and every stinger in the show changes
+with it. There is no file, so there is nothing to lose, nothing to pre-roll and nothing that can be
+missing on the night.
+
+### 38.5 The reactive engine, used as a matte — and the two that were not
+
+The ask named three engines. Only one of them belongs on a transition path, and saying why is more
+useful than saying which.
+
+**Reactive: yes.** `ReactiveField.Sample(scene, px, py, in view)` is a closed-form function of
+position — no state, no allocation, and a CPU twin already held to a mean difference under 0.06
+against its shader by an existing test. That makes it a matte generator: evaluate the scene into a
+256 px-wide byte field once when the transition arms, then each frame turn it into premultiplied
+white alpha with a moving threshold and draw it over the outgoing layer with `DstIn`. The change
+lands where the scene is dark first, so a plasma dissolves in clouds, a vortex spirals in, a
+kaleidoscope folds and a star warp opens from the middle. The cost does not follow the wall's size,
+the buffers are reused frame to frame and let go the moment the change is over, and the whole thing
+is deterministic — two sinks arming the same change a frame apart wipe with the same picture,
+because the seed is quantised to a quarter-second.
+
+**Particles: no, deliberately.** `ParticleSim` is stateful: it has a field per content target, it
+catches up when it has been away, and it is the thing the quality ladder steps down first. A
+transition would have to allocate a simulation mid-show, at the exact moment the desk is busiest,
+and hand it a lifetime nothing else in the engine has. That is a hitch on a TAKE in exchange for an
+effect a reactive matte already gives. The sting channel is where a particle event belongs, and it
+is already there.
+
+**Fractals: no, for now.** The fractal raster is the most expensive CPU path in the app; using one
+as a matte would want it evaluated at matte size, which is a real option later, but it buys a
+family of shapes the reactive scenes largely cover.
+
+### 38.6 What one cue can say about its own arrival
+
+`ActionSpec.TryParseTransition` reads a look's transition box word by word, in any order: "cut", a
+number of milliseconds, a transition by name (dissolve, dip, wipe, push, stinger, reactive, and the
+words operators actually write — mix, dtb, slide, brand), a reactive scene, and a way to travel. So
+"wipe left 600", "reactive vortex 1200", "1200 reactive", "stinger" and "down" all read. Naming a
+scene implies the reactive kind; naming only a way travels the show's own transition that way.
+
+Anything it cannot read is **refused rather than guessed at** — the checks catch a typo before the
+show instead of the wall catching it during one — and the cue sheet prints back exactly what was
+asked for, so a caller reads `Look "Reveal" (wipe right to left, 600 ms)` on the printed sheet.
+
+The override rides one snapshot version, like the fade override beside it: one recall carries one
+transition and the change after it is the show's again.
+
+### 38.7 The bug the transition work found: chrome spending the show's versions
+
+Writing the desk-level test for §38.6 turned up something older and worse than the feature. After
+every action the desk calls `RefreshTallies` — which look is on air, which is in the preview, what
+the chips read. Every one of those fields is `[JsonIgnore]`: they are not in the show, they are not
+in a snapshot, and no sink can see them. But they are on `Observable` objects reachable from the
+state, so the `ChangeTracker` funnelled them into `OnStateChanged`, and each one published.
+
+A look recall was therefore publishing **four** snapshots: the real one, then three identical ones
+for the tally chips — three deep clones of the whole show for nothing. That is the cheap half of
+the cost. The expensive half is that a snapshot's version is what a look's own fade or transition
+rides on, and the tally publishes claimed the versions after it. The look asked for a 600 ms wipe,
+the wipe was attached to version 12, and the sinks drew version 15: the operator's wipe silently
+became the show's dissolve. The per-look **fade** override had the same defect and had had it for
+several rounds — it was invisible because nothing tested the app-level path, only the bus.
+
+`AppServices.DeskEdit(Action)` is the fix: a scope in which model writes publish nothing, wrapped
+around the tally refresh. It is deliberately narrower than "ignore every `[JsonIgnore]` property" —
+some of those, like a playlist's current index, genuinely must publish, because the bus reads them
+as it builds. Chrome does not get to spend the show's versions; content still does.
+
+Tests: the curves and their plateau; the push's four ways; the dip colour from the brand or the
+show and a bad hex refused; the matte's size, determinism, range per scene and the two ends of its
+ramp with every pixel premultiplied; every kind whole at both ends and busy in the middle on a
+stream sink; the wall and the stream drawing the same frame; the dip complete where the cut
+happens and the stinger's two brand bars at the peak; a wipe and a push travelling the way they
+were asked; a transition settling its look once and ignoring a setting changed under it; a bright
+dip too soon drawn as a dissolve and a dark one never held back; a still picture holding no matte
+and a CUT throwing one away; the words on a sheet and in the checks; the override riding exactly
+one snapshot; on a live desk the pickers following the choice on the keystroke, a loaded show
+arriving with its pickers right, and a look's own arrival reaching the snapshot the sinks draw.
+
 ## 35. Round 23 — a page with nothing round it, and a stream you can see
 
 Two asks, and both turned out to be about a thing that already existed but had nowhere to be

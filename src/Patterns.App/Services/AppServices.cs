@@ -503,6 +503,33 @@ public sealed class AppServices
         _recoverVm = vm;
     }
 
+    /// <summary>
+    /// Writes to the desk's own chrome — the tally chips, the "ON AIR · 4 s" lines, the row that
+    /// lights — which the show does not contain. Every one of them is [JsonIgnore]: they never
+    /// reach a snapshot, so a publish for them clones the whole show to hand the sinks a picture
+    /// identical to the one they already have.
+    ///
+    /// That waste is the smaller half. The version a snapshot carries is what a look's own fade or
+    /// transition rides on, and it is claimed by whichever publish comes next — so three tally
+    /// writes after a look recall used to strand the look's own arrival on a version no sink would
+    /// ever draw, and the wipe the operator asked for quietly became the show's dissolve. Chrome
+    /// does not get to spend the show's versions.
+    /// </summary>
+    public void DeskEdit(Action edit)
+    {
+        _deskDepth++;
+        try
+        {
+            edit();
+        }
+        finally
+        {
+            _deskDepth--;
+        }
+    }
+
+    private int _deskDepth;
+
     /// <summary>Group many model writes into one publish (preset/show/brand-kit loads).</summary>
     public void BulkEdit(Action edit)
     {
@@ -584,7 +611,7 @@ public sealed class AppServices
 
     private void OnStateChanged()
     {
-        if (_bulkDepth > 0) return;
+        if (_bulkDepth > 0 || _deskDepth > 0) return;
 
         SyncDisplays();
         if (Sandbox.Active)
@@ -1050,7 +1077,7 @@ public sealed class AppServices
     /// </summary>
     public void PublishRuntime()
     {
-        if (_bulkDepth > 0) return;
+        if (_bulkDepth > 0 || _deskDepth > 0) return;
         SyncDisplays();
         if (Sandbox.Active)
         {

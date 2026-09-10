@@ -125,7 +125,7 @@ public static class CueValidator
                     }
                     if (!ActionSpec.TryParseTransition(a.Value, out _, out _))
                     {
-                        Hard($"{where}: transition '{a.Value}' is not 'cut' or a fade in milliseconds.");
+                        Hard($"{where}: transition '{a.Value}' is not 'cut', a fade in milliseconds, or a transition by name (dissolve, dip, wipe, push, stinger, reactive — with a way and a scene: 'wipe left 800', 'reactive vortex 1200').");
                     }
                     SoftLookChecks(state, look, ctx, Soft, where);
                     if (simulate) LookService.Apply(look.Json, sim);
@@ -418,7 +418,7 @@ public static class CueValidator
                     if (LookService.Find(sim, a.Target) is null) Hard($"{where}: look '{a.Target}' not found.");
                     break;
                 case ShowActionKind.LookBack:
-                    if (!ActionSpec.TryParseTransition(a.Value, out _, out _)) Hard($"{where}: transition '{a.Value}' is not 'cut' or a fade in milliseconds.");
+                    if (!ActionSpec.TryParseTransition(a.Value, out _, out _)) Hard($"{where}: transition '{a.Value}' is not 'cut', a fade in milliseconds, or a transition by name (dissolve, dip, wipe, push, stinger, reactive — with a way and a scene: 'wipe left 800', 'reactive vortex 1200').");
                     break;
                 case ShowActionKind.ScreenToggle:
                     hasContent = true;

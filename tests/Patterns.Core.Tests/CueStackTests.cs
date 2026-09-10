@@ -127,7 +127,7 @@ public class CueStackTests
         Assert.False(report.IsBroken(stack.Cues[5].Id));
         Assert.Contains("cannot share a cue", Reason("01.070"));
         Assert.Contains("newer build", Reason("01.080"));
-        Assert.Contains("not 'cut' or a fade", Reason("01.090"));
+        Assert.Contains("is not 'cut', a fade in milliseconds, or a transition by name", Reason("01.090"));
         Assert.Contains("no enabled stream destination", Reason("01.100"));
         Assert.False(report.IsBroken(stack.Cues[10].Id));
         Assert.False(report.IsBroken(stack.Cues[11].Id));           // soft: the cue still runs

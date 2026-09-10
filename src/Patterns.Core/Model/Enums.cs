@@ -376,6 +376,37 @@ public enum FractalKind
     DomainWarp,
 }
 
+/// <summary>How one picture becomes the next.</summary>
+public enum TransitionKind
+{
+    /// <summary>The outgoing picture fades away over the incoming one. What a desk has always done.</summary>
+    Dissolve,
+
+    /// <summary>Out through a colour and back — the brand's background by default. The broadcast standard.</summary>
+    Dip,
+
+    /// <summary>A soft edge travels across and the picture changes behind it.</summary>
+    Wipe,
+
+    /// <summary>The incoming picture pushes the outgoing one off the screen.</summary>
+    Push,
+
+    /// <summary>The brand kit sweeps over the cut, the logo at its peak — a stinger made from the show's own identity rather than a clip.</summary>
+    BrandStinger,
+
+    /// <summary>A reactive scene as the matte: the picture changes where the scene is dark, so a plasma or a vortex draws the wipe.</summary>
+    Reactive,
+}
+
+/// <summary>Which way a wipe or a push travels.</summary>
+public enum TransitionDirection
+{
+    Left,
+    Right,
+    Up,
+    Down,
+}
+
 /// <summary>Where a sound-reactive effect listens: nowhere, this computer's own sound, or an input.</summary>
 public enum AudioSourceKind
 {

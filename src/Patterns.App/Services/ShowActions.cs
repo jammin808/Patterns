@@ -1124,11 +1124,16 @@ public sealed class ShowActions
     private ActionResult ApplyLookToAir(LookConfig look, string value, ActionOrigin origin)
     {
         var sandboxed = _s.Sandbox.Active;
-        // Value: "cut", a fade in ms (this recall only), or anything else for the show default.
-        if (ActionSpec.TryParseTransition(value, out var cut, out var fadeMs))
+        // Value: "cut", a fade in ms, a transition to arrive by ("wipe 800", "stinger",
+        // "reactive vortex") — this recall only — or anything else for the show default.
+        if (ActionSpec.TryParseTransition(value, out var cut, out var fadeMs, out var kind, out var scene, out var way))
         {
             if (cut) _s.Bus.CutOnNextPublish();
-            else if (fadeMs >= 0) _s.Bus.FadeOnNextPublish(fadeMs);
+            else
+            {
+                if (fadeMs >= 0) _s.Bus.FadeOnNextPublish(fadeMs);
+                if (kind is not null || scene is not null || way is not null) _s.Bus.TransitionOnNextPublish(kind, scene, way);
+            }
         }
         var ok = false;
         _s.EditAir(air =>

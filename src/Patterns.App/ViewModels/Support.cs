@@ -774,6 +774,25 @@ public static class Lists
         new(ReactiveQuality.Fine, "Fine — the most detail off the card"),
     };
 
+    /// <summary>How one picture becomes the next.</summary>
+    public static readonly EnumItem[] TransitionKinds =
+    {
+        new(TransitionKind.Dissolve, "Dissolve — the old picture fades away"),
+        new(TransitionKind.Dip, "Dip — out through a colour and back"),
+        new(TransitionKind.Wipe, "Wipe — a soft edge travels across"),
+        new(TransitionKind.Push, "Push — the new picture pushes the old off"),
+        new(TransitionKind.BrandStinger, "Brand stinger — the brand kit sweeps over the cut"),
+        new(TransitionKind.Reactive, "Reactive — a scene's own picture is the wipe"),
+    };
+
+    public static readonly EnumItem[] TransitionDirections =
+    {
+        new(TransitionDirection.Right, "Left to right"),
+        new(TransitionDirection.Left, "Right to left"),
+        new(TransitionDirection.Down, "Top to bottom"),
+        new(TransitionDirection.Up, "Bottom to top"),
+    };
+
     /// <summary>What a look does to the stream as it goes on air.</summary>
     public static readonly EnumItem[] LookStreams =
     {

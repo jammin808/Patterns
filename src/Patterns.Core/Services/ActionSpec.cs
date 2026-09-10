@@ -338,22 +338,91 @@ public static class ActionSpec
 
     /// <summary>A transition value: empty, "cut", or a whole number of milliseconds.</summary>
     public static bool TryParseTransition(string? value, out bool cut, out int fadeMs)
+        => TryParseTransition(value, out cut, out fadeMs, out _, out _, out _);
+
+    /// <summary>
+    /// What a recall says about how it should arrive: "cut", a fade in milliseconds, the name of a
+    /// transition, a reactive scene to wipe with, the way it travels, or any of those together in
+    /// any order — "wipe 800", "dip", "stinger", "wipe left 600", "reactive vortex 1200",
+    /// "1200 reactive". Blank means the show's own. Anything it cannot read is refused rather than
+    /// guessed at, so a typo in a cue is caught by the checks and not on the wall.
+    /// </summary>
+    public static bool TryParseTransition(string? value, out bool cut, out int fadeMs, out TransitionKind? kind, out ReactiveScene? scene, out TransitionDirection? direction)
     {
         cut = false;
         fadeMs = -1;
+        kind = null;
+        scene = null;
+        direction = null;
         if (string.IsNullOrWhiteSpace(value)) return true;
-        var v = value.Trim();
-        if (string.Equals(v, "cut", StringComparison.OrdinalIgnoreCase))
+        foreach (var word in value.Split(new[] { ' ', ',', ';', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            cut = true;
-            return true;
+            if (string.Equals(word, "cut", StringComparison.OrdinalIgnoreCase))
+            {
+                cut = true;
+                continue;
+            }
+            if (int.TryParse(word, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ms) && ms >= 0)
+            {
+                fadeMs = ms;
+                continue;
+            }
+            if (TransitionWord(word) is { } k)
+            {
+                kind = k;
+                continue;
+            }
+            if (SceneWord(word) is { } sc)
+            {
+                scene = sc;
+                kind ??= TransitionKind.Reactive; // naming a scene is asking for the scene to wipe with
+                continue;
+            }
+            if (DirectionWord(word) is { } way)
+            {
+                direction = way; // a way on its own travels the show's own transition
+                continue;
+            }
+            return false;
         }
-        if (int.TryParse(v, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ms) && ms >= 0)
+        return true;
+    }
+
+    /// <summary>The words a transition answers to, as an operator would write them on a sheet.</summary>
+    public static TransitionKind? TransitionWord(string word) => word.ToLowerInvariant() switch
+    {
+        "dissolve" or "fade" or "mix" or "crossfade" => TransitionKind.Dissolve,
+        "dip" or "dipto" or "dtb" => TransitionKind.Dip,
+        "wipe" => TransitionKind.Wipe,
+        "push" or "slide" => TransitionKind.Push,
+        "stinger" or "brand" or "brandstinger" => TransitionKind.BrandStinger,
+        "reactive" or "scene" => TransitionKind.Reactive,
+        _ => null,
+    };
+
+    /// <summary>The way a wipe or a push travels, as an operator would write it.</summary>
+    public static TransitionDirection? DirectionWord(string word) => word.ToLowerInvariant() switch
+    {
+        "left" => TransitionDirection.Left,
+        "right" => TransitionDirection.Right,
+        "up" => TransitionDirection.Up,
+        "down" => TransitionDirection.Down,
+        _ => null,
+    };
+
+    /// <summary>A reactive scene by name, for a transition that wipes with one.</summary>
+    public static ReactiveScene? SceneWord(string word)
+    {
+        foreach (var s in Enum.GetValues<ReactiveScene>())
         {
-            fadeMs = ms;
-            return true;
+            if (string.Equals(s.ToString(), word, StringComparison.OrdinalIgnoreCase)) return s;
         }
-        return false;
+        return word.ToLowerInvariant() switch
+        {
+            "star" or "warp" or "starwarp" => ReactiveScene.StarWarp,
+            "kaleido" => ReactiveScene.Kaleidoscope,
+            _ => null,
+        };
     }
 
     /// <summary>A switch value as the executor reads it (<see cref="OverlayControl.SwitchTo"/>): on, off or toggle, in any of their usual spellings.</summary>

@@ -115,6 +115,34 @@ public sealed class ShowSnapshot
     /// <summary>The version the override belongs to; only the sink that starts its fade on that version uses it.</summary>
     public long FadeOverrideVersion { get; init; } = -1;
 
+    /// <summary>Runtime-only: a transition kind asked for by one recall (a cue or a look that names its own); null = the show's.</summary>
+    public TransitionKind? TransitionOverride { get; init; }
+
+    /// <summary>The reactive scene that override wipes with, when it named one.</summary>
+    public ReactiveScene? TransitionSceneOverride { get; init; }
+
+    /// <summary>The way that override travels, when it named one ("wipe left").</summary>
+    public TransitionDirection? TransitionDirectionOverride { get; init; }
+
+    /// <summary>The version that override belongs to; only the change published on it is drawn that way.</summary>
+    public long TransitionOverrideVersion { get; init; } = -1;
+
+    /// <summary>
+    /// How this snapshot's change should be drawn: the kind a recall asked for on its own version,
+    /// else the show's own setting. Read once when a transition arms, so nothing can change under
+    /// a fade that is already crossing the screen.
+    /// </summary>
+    public TransitionKind TransitionKindFor(long version)
+        => TransitionOverride is { } kind && TransitionOverrideVersion == version ? kind : State.Transition.Kind;
+
+    /// <summary>The reactive scene this change wipes with: the one a recall named, else the show's.</summary>
+    public ReactiveScene TransitionSceneFor(long version)
+        => TransitionSceneOverride is { } scene && TransitionOverrideVersion == version ? scene : State.Transition.Scene;
+
+    /// <summary>The way this change travels: the one a recall named, else the show's.</summary>
+    public TransitionDirection TransitionDirectionFor(long version)
+        => TransitionDirectionOverride is { } way && TransitionOverrideVersion == version ? way : State.Transition.Direction;
+
     /// <summary>The fade this snapshot asks for, in seconds: the override on its own version, else the show setting.</summary>
     public double FadeSecondsFor(long version)
         => FadeOverrideMs >= 0 && FadeOverrideVersion == version
@@ -122,7 +150,9 @@ public sealed class ShowSnapshot
             : State.Transition.DurationMs / 1000.0;
 
     /// <summary>Fades are on for this snapshot: the setting, or a one-off override above zero.</summary>
-    public bool FadesEnabled => State.Transition.Enabled || (FadeOverrideMs > 0 && FadeOverrideVersion == Version);
+    public bool FadesEnabled => State.Transition.Enabled
+        || (FadeOverrideMs > 0 && FadeOverrideVersion == Version)
+        || (TransitionOverride is not null && TransitionOverrideVersion == Version);
 
     public SKColor Color(string? hex, SKColor fallback)
     {
@@ -310,6 +340,29 @@ public sealed class SnapshotBus
     /// <summary>The next publish fades over this many milliseconds (a look's own transition), once.</summary>
     public void FadeOnNextPublish(int ms) => _fadePendingMs = Math.Max(0, ms);
 
+    private TransitionKind? _kindPending;
+    private ReactiveScene? _scenePending;
+    private TransitionDirection? _wayPending;
+    private bool _kindPendingSet;
+    private TransitionKind? _kindOverride;
+    private ReactiveScene? _sceneOverride;
+    private TransitionDirection? _wayOverride;
+    private long _kindVersion = -1;
+
+    /// <summary>
+    /// The next publish is drawn this way rather than the show's way — a cue or a look that names
+    /// its own transition. Its own version, like the fade's: one recall carries one transition and
+    /// the change after it is the show's again. Naming a kind is also asking for a transition, so
+    /// it happens on a show whose crossfades are off.
+    /// </summary>
+    public void TransitionOnNextPublish(TransitionKind? kind, ReactiveScene? scene = null, TransitionDirection? direction = null)
+    {
+        _kindPending = kind;
+        _scenePending = scene;
+        _wayPending = direction;
+        _kindPendingSet = true;
+    }
+
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
@@ -354,6 +407,17 @@ public sealed class SnapshotBus
             _fadeVersion = version;
             _fadePendingMs = -1;
         }
+        if (_kindPendingSet)
+        {
+            _kindOverride = _kindPending;
+            _sceneOverride = _scenePending;
+            _wayOverride = _wayPending;
+            _kindVersion = version;
+            _kindPending = null;
+            _scenePending = null;
+            _wayPending = null;
+            _kindPendingSet = false;
+        }
         var clone = JsonUtil.Clone(state);
         return new ShowSnapshot
         {
@@ -370,6 +434,10 @@ public sealed class SnapshotBus
             CutAtVersion = _cutVersion,
             FadeOverrideMs = _fadeMs,
             FadeOverrideVersion = _fadeVersion,
+            TransitionOverride = _kindOverride,
+            TransitionSceneOverride = _sceneOverride,
+            TransitionDirectionOverride = _wayOverride,
+            TransitionOverrideVersion = _kindVersion,
             Rig = RigGeometry.Build(clone, Displays),
             PreviewSource = _previewSource,
             ReviewOnMultiview = ReviewOnMultiview,

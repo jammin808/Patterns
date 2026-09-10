@@ -51,14 +51,7 @@ public sealed class FlashGuard
     /// <param name="seconds">The show clock.</param>
     public float Limit(float wanted, double seconds)
     {
-        // A show clock that went backwards (a reset, a test's own clock): start again rather than
-        // hold everything down until the old time comes round.
-        if (seconds < _lastRiseSeconds)
-        {
-            _lastRiseSeconds = double.NegativeInfinity;
-            _lit = false;
-            _dropped = false;
-        }
+        RewindIfClockWentBack(seconds);
 
         if (float.IsNaN(wanted) || wanted <= FallLevel)
         {
@@ -84,6 +77,42 @@ public sealed class FlashGuard
         _lastRiseSeconds = seconds;
         Allowed++;
         return Math.Min(wanted, MaxLevel);
+    }
+
+    /// <summary>
+    /// A whole-screen light change that happens once rather than over a run of frames — a dip
+    /// through a bright colour on the way between two pictures. It is one event, so it is answered
+    /// once: true to draw it, false when it comes too soon after the last flash and the caller
+    /// should find another way through the change.
+    ///
+    /// It shares the budget with <see cref="Limit"/> — a bright dip and a strobing sting are the
+    /// same three-a-second to the room — but leaves no pulse of its own behind, so a sting already
+    /// on its way up is neither cut short nor counted twice.
+    /// </summary>
+    /// <param name="wanted">How bright the change is, 0–1.</param>
+    /// <param name="seconds">The show clock.</param>
+    public bool AllowPulse(float wanted, double seconds)
+    {
+        RewindIfClockWentBack(seconds);
+        if (float.IsNaN(wanted) || wanted < RiseLevel) return true; // not a light change at all
+        if (seconds - _lastRiseSeconds < MinPeriodSeconds)
+        {
+            Dropped++;
+            return false;
+        }
+        _lastRiseSeconds = seconds;
+        Allowed++;
+        return true;
+    }
+
+    // A show clock that went backwards (a reset, a test's own clock): start again rather than
+    // hold everything down until the old time comes round.
+    private void RewindIfClockWentBack(double seconds)
+    {
+        if (seconds >= _lastRiseSeconds) return;
+        _lastRiseSeconds = double.NegativeInfinity;
+        _lit = false;
+        _dropped = false;
     }
 
     /// <summary>Forget the last flash — a sink that has been closed and opened again, and the tests.</summary>

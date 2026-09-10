@@ -657,6 +657,7 @@ public sealed partial class MainViewModel : Observable
         {
             if (e.PropertyName == nameof(AdminConfig.VideoDecoding)) Raise(nameof(VideoDecodingText));
         };
+        HookTransition();
         RebuildGpuRows();
 
         // Switcher: sandbox sends, CUT/TAKE, tile selection. CUT and TAKE land where the wall's picker
@@ -1265,6 +1266,7 @@ public sealed partial class MainViewModel : Observable
         // A different show: nothing the last one left waiting may run against it.
         _services.Tail.DropAll();
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
+        HookTransition();
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();
         RefreshSpotifyDevices();

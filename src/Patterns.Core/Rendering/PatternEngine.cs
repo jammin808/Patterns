@@ -81,12 +81,14 @@ public sealed class PatternEngine
             {
                 sink.TransitionFrom = null;
                 sink.TransitionEndClock = 0;
+                sink.DropMatte();
             }
             else if (sink.TransitionKey is var shown && shown != SinkState.NoKey && shown != key && sink.LastSnapshot is { } prev)
             {
                 sink.TransitionFrom = prev;
                 sink.TransitionStartClock = ctx.Time;
                 sink.TransitionEndClock = ctx.Time + snap.FadeSecondsFor(snap.Version);
+                ArmTransition(snap, in ctx, sink);
             }
             sink.TransitionKey = key;
             sink.LastSnapshot = snap;
@@ -100,32 +102,27 @@ public sealed class PatternEngine
                 {
                     sink.TransitionFrom = null;
                     sink.TransitionEndClock = 0;
+                    sink.DropMatte();
                 }
                 else
                 {
-                    RenderContent(canvas, snap, in ctx, sink);
-
-                    // Smoothstep fade-out of the old content on top of the new.
-                    var eased = 1 - (t * t * (3 - 2 * t));
-                    var alpha = (byte)Math.Clamp(eased * 255, 0, 255);
-                    using var fade = new SKPaint { Color = new SKColor(255, 255, 255, alpha) };
-                    var bounds = SKRect.Create(0, 0, ctx.ViewportSize.Width, ctx.ViewportSize.Height);
-                    canvas.SaveLayer(bounds, fade);
                     var fadeCtx = ctx with { IsFadeSource = true };
                     var fadeAt = FrameStages.Now();
                     try
                     {
-                        RenderContent(canvas, from, in fadeCtx, sink);
+                        DrawTransition(canvas, snap, from, in ctx, in fadeCtx, sink, t);
                         sink.Stages.Note(FrameStage.Fade, fadeAt);
                     }
                     catch (Exception ex)
                     {
-                        // A fade must never take the show down — drop it and carry on.
-                        Log.Warn("Transition fade-source render failed.", ex);
+                        // A transition must never take the show down — drop it and carry on with
+                        // the picture the show is meant to be showing.
+                        Log.Warn("Transition render failed.", ex);
                         sink.TransitionFrom = null;
                         sink.TransitionEndClock = 0;
+                        sink.DropMatte();
+                        RenderContent(canvas, snap, in ctx, sink);
                     }
-                    canvas.Restore();
                     return;
                 }
             }
@@ -138,10 +135,157 @@ public sealed class PatternEngine
             sink.LastSnapshot = snap;
             sink.TransitionFrom = null;
             sink.TransitionEndClock = 0;
+            sink.DropMatte();
             sink.TransitionSeenVersion = snap.Version; // a cut shown with fades off is still seen
         }
 
         RenderContent(canvas, snap, in ctx, sink);
+    }
+
+    // ---- the transitions ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Settles what kind of change this sink is about to draw, once, when the transition arms —
+    /// so a setting changed mid-fade cannot swap a wipe for a push halfway across the screen.
+    ///
+    /// A dip through a bright colour is a whole-screen light change, so it goes past the same
+    /// flash limit every sting goes past: too soon after the last one and this change is drawn as
+    /// a dissolve instead. The picture still changes; it just does not flash to do it.
+    /// </summary>
+    private static void ArmTransition(ShowSnapshot snap, in RenderContext ctx, SinkState sink)
+    {
+        var cfg = snap.State.Transition;
+        var kind = snap.TransitionKindFor(snap.Version);
+        var scene = snap.TransitionSceneFor(snap.Version);
+        var background = snap.Color(snap.State.Brand.BackgroundColor, SKColors.Black);
+        var dip = Transitions.DipColorFor(cfg, background);
+        if (kind == TransitionKind.Dip)
+        {
+            var luma = Transitions.Luma(dip);
+            if (luma > Transitions.BrightDip && !sink.Flash.AllowPulse(luma, ctx.Time)) kind = TransitionKind.Dissolve;
+        }
+        sink.TransitionLook = new TransitionView(
+            kind, snap.TransitionDirectionFor(snap.Version), scene, cfg.Softness, dip,
+            snap.Color(snap.State.Brand.PrimaryColor, SKColors.White),
+            snap.Color(snap.State.Brand.SecondaryColor, SKColors.Gray),
+            background, 0, ctx.ViewportSize);
+
+        if (kind == TransitionKind.Reactive)
+        {
+            var size = Transitions.MatteSize(ctx.ViewportSize);
+            var key = $"{scene}|{size.Width}x{size.Height}";
+            if (sink.MatteKey != key || sink.MatteField is null || sink.MatteBitmap is null)
+            {
+                sink.DropMatte();
+                // Seeded from the moment it arms, so two sinks starting the same change a frame
+                // apart wipe with the same picture rather than two phases of it.
+                sink.MatteField = Transitions.Matte(scene, size, Math.Floor(ctx.Time * 4) * 0.25);
+                sink.MatteBitmap = new SKBitmap(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                sink.MattePixels = new int[size.Width * size.Height];
+                sink.MatteKey = key;
+            }
+        }
+        else
+        {
+            sink.DropMatte();
+        }
+    }
+
+    /// <summary>
+    /// One frame of a transition. The shape is the one the engine always had — the incoming
+    /// picture, then the outgoing one over it inside a layer — and the kind decides what that
+    /// layer is masked or moved by. A kind that covers the cut turns it round: the cover is what
+    /// goes on top, and the picture underneath switches beneath it.
+    /// </summary>
+    private void DrawTransition(SKCanvas canvas, ShowSnapshot snap, ShowSnapshot from,
+        in RenderContext ctx, in RenderContext fadeCtx, SinkState sink, double t)
+    {
+        var size = ctx.ViewportSize;
+        var bounds = SKRect.Create(0, 0, size.Width, size.Height);
+        // Everything but where we are in the change was settled when the transition armed.
+        var view = sink.TransitionLook with { Progress = t, Size = size };
+
+        if (Transitions.CoversTheCut(view.Kind))
+        {
+            // The picture underneath is the outgoing one until the cover is complete, then the
+            // incoming one — so the change itself is never seen.
+            if (Transitions.ShowsOutgoing(t)) RenderContent(canvas, from, in fadeCtx, sink);
+            else RenderContent(canvas, snap, in ctx, sink);
+            if (view.Kind == TransitionKind.Dip)
+            {
+                using var dip = new SKPaint { Color = view.DipColor.WithAlpha((byte)Math.Clamp(Transitions.Cover(t) * 255, 0, 255)) };
+                canvas.DrawRect(bounds, dip);
+            }
+            else
+            {
+                Transitions.DrawBrandCover(canvas, in view, ImageCache.Get(snap.State.Brand.LogoPath));
+            }
+            return;
+        }
+
+        if (view.Kind == TransitionKind.Push)
+        {
+            // Both pictures move: the incoming one comes in from the far side as the outgoing one
+            // leaves. No layer and no mask — two translates, each clipped to where its own picture
+            // has got to, because a picture clears its ground before it draws and an unclipped one
+            // would wipe the other off the screen on its way past.
+            // The direction is the way the pictures travel: a push right brings the new one in from
+            // the left and carries the old one off to the right.
+            var eased = Transitions.Ease(t);
+            var (dx, dy) = Transitions.PushBy(view.Direction, size, eased - 1);
+            canvas.Save();
+            canvas.Translate(dx, dy);
+            canvas.ClipRect(bounds);
+            RenderContent(canvas, snap, in ctx, sink);
+            canvas.Restore();
+            var (ox, oy) = Transitions.PushBy(view.Direction, size, eased);
+            canvas.Save();
+            canvas.Translate(ox, oy);
+            canvas.ClipRect(bounds);
+            RenderContent(canvas, from, in fadeCtx, sink);
+            canvas.Restore();
+            return;
+        }
+
+        RenderContent(canvas, snap, in ctx, sink);
+
+        if (view.Kind == TransitionKind.Dissolve)
+        {
+            // Smoothstep fade-out of the old content on top of the new.
+            var alpha = (byte)Math.Clamp((1 - Transitions.Ease(t)) * 255, 0, 255);
+            using var fade = new SKPaint { Color = new SKColor(255, 255, 255, alpha) };
+            canvas.SaveLayer(bounds, fade);
+            RenderContent(canvas, from, in fadeCtx, sink);
+            canvas.Restore();
+            return;
+        }
+
+        // A wipe and a reactive matte are the same frame with a different mask: the outgoing
+        // picture in a layer, then the mask drawn over it so only what the mask keeps survives.
+        canvas.SaveLayer(bounds, null);
+        RenderContent(canvas, from, in fadeCtx, sink);
+        using var mask = new SKPaint { BlendMode = SKBlendMode.DstIn };
+        if (view.Kind == TransitionKind.Wipe)
+        {
+            mask.Shader = Transitions.WipeShader(in view);
+            canvas.DrawRect(bounds, mask);
+            mask.Shader?.Dispose();
+        }
+        else if (sink.MatteField is { } field && sink.MatteBitmap is { } bitmap && sink.MattePixels is { } pixels)
+        {
+            Transitions.MatteAt(field, pixels, t, view.Softness);
+            System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bitmap.GetPixels(), pixels.Length);
+            bitmap.NotifyPixelsChanged();
+            mask.IsAntialias = true;
+            canvas.DrawBitmap(bitmap, bounds, mask);
+        }
+        else
+        {
+            // No matte (a transition that armed before its buffers): a dissolve rather than a jump.
+            mask.Color = SKColors.White.WithAlpha((byte)Math.Clamp((1 - Transitions.Ease(t)) * 255, 0, 255));
+            canvas.DrawRect(bounds, mask);
+        }
+        canvas.Restore();
     }
 
     private void RenderContent(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)

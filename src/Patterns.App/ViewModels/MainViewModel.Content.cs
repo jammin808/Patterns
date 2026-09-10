@@ -362,6 +362,68 @@ public sealed partial class MainViewModel
     /// <summary>What a look does to the stream — the Looks page's picker.</summary>
     public EnumItem[] LookStreams => Lists.LookStreams;
 
+    // ---- how one picture becomes the next -------------------------------------------------
+
+    public EnumItem[] TransitionKinds => Lists.TransitionKinds;
+
+    public EnumItem[] TransitionDirections => Lists.TransitionDirections;
+
+    /// <summary>Only a wipe and a push travel, so only they ask which way.</summary>
+    public bool TransitionHasDirection => State.Transition.Kind is TransitionKind.Wipe or TransitionKind.Push;
+
+    public bool TransitionIsReactive => State.Transition.Kind == TransitionKind.Reactive;
+
+    public bool TransitionIsDip => State.Transition.Kind == TransitionKind.Dip;
+
+    /// <summary>A wipe and a matte have an edge to soften; the rest have none.</summary>
+    public bool TransitionHasSoftness => State.Transition.Kind is TransitionKind.Wipe or TransitionKind.Reactive;
+
+    /// <summary>What the chosen transition does, in a line — read before the show rather than during it.</summary>
+    public string TransitionNote => State.Transition.Kind switch
+    {
+        TransitionKind.Dip => "Out through the colour and back, with the change made underneath it — the broadcast standard, and the safest thing to put between two pictures that have nothing in common.",
+        TransitionKind.Wipe => "A soft edge travels across the picture and the change happens behind it. Widen the edge for a slow bleed, narrow it for a hard line.",
+        TransitionKind.Push => "The incoming picture comes in from the far side as the outgoing one leaves — the two move together, so it reads as one movement rather than two.",
+        TransitionKind.BrandStinger => "The show's own identity as the stinger: two bars in the brand's primary and secondary sweep in, the background fills behind them, the logo lands at the peak, and the picture changes underneath. No clip to prepare and no file to lose.",
+        TransitionKind.Reactive => "The reactive scene's own picture is the matte: the change lands where the scene is dark first, so a plasma dissolves in clouds, a vortex spirals in and a star warp opens from the middle. Drawn small and scaled up, so a 4K wall and a thumbnail cost the same.",
+        _ => "The outgoing picture fades away over the incoming one — what a desk has always done, and what every show that says nothing else gets.",
+    };
+
+    private TransitionConfig? _hookedTransition;
+
+    /// <summary>
+    /// The transition pickers follow the kind on the keystroke, not on the next poll: choosing a
+    /// wipe must show its direction now. Re-hooked when a show is loaded, because the model under
+    /// the desk is a different object then.
+    /// </summary>
+    public void HookTransition()
+    {
+        if (!ReferenceEquals(_hookedTransition, State.Transition))
+        {
+            if (_hookedTransition is not null) _hookedTransition.PropertyChanged -= OnTransitionChanged;
+            _hookedTransition = State.Transition;
+            _hookedTransition.PropertyChanged += OnTransitionChanged;
+        }
+        // Always, hooked or not: a show read from a file arrives with its own transition and the
+        // page has to be showing that one's rows before the operator looks at it.
+        RaiseTransition();
+    }
+
+    private void OnTransitionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TransitionConfig.Kind)) RaiseTransition();
+    }
+
+    /// <summary>The transition pickers follow the kind, at once.</summary>
+    private void RaiseTransition()
+    {
+        Raise(nameof(TransitionHasDirection));
+        Raise(nameof(TransitionIsReactive));
+        Raise(nameof(TransitionIsDip));
+        Raise(nameof(TransitionHasSoftness));
+        Raise(nameof(TransitionNote));
+    }
+
     /// <summary>The actions the page the controls drive answers to — NEXT, PLAY, PRESENT… — from its service.</summary>
     public ObservableCollection<WebActionChip> WebPageActions { get; } = new();
 
