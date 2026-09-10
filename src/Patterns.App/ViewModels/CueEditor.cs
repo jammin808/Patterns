@@ -14,6 +14,38 @@ public sealed record PickItem(string Id, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>
+/// Puts a picker's items where they should be — and leaves the picker completely alone when they
+/// are already there.
+///
+/// This matters more than it looks. Clearing and refilling a collection that is a live
+/// <c>ItemsSource</c> closes an open dropdown, drops the selection for a frame and takes the focus
+/// with it. The Cues page revalidates after every snapshot the desk publishes, so a picker that
+/// rebuilt itself each time was a picker an operator could not use at all: the list closed under
+/// the pointer before they could click a row.
+/// </summary>
+internal static class PickList
+{
+    /// <summary>True when something actually moved — the only case a picker needs telling about.</summary>
+    public static bool Fill(ObservableCollection<PickItem> into, IReadOnlyList<PickItem> wanted)
+    {
+        if (Same(into, wanted)) return false;
+        into.Clear();
+        foreach (var item in wanted) into.Add(item);
+        return true;
+    }
+
+    private static bool Same(ObservableCollection<PickItem> into, IReadOnlyList<PickItem> wanted)
+    {
+        if (into.Count != wanted.Count) return false;
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            if (into[i] != wanted[i]) return false; // PickItem is a record: the id and the label
+        }
+        return true;
+    }
+}
+
 /// <summary>One cue as the list shows it: the model row plus what validation says about it.</summary>
 public sealed class CueRow : Observable
 {
@@ -121,12 +153,23 @@ public sealed class ActionRow : Observable
 
     public bool IsDelayed => _editor.AtSecondsOf(Action) > 0;
 
-    /// <summary>The row's place and its running total have moved: both follow a reorder or an edit above.</summary>
+    /// <summary>
+    /// Where this step falls in the cue has moved — an edit to a wait above it. The step's own
+    /// wait has not changed, and is deliberately not raised: the operator may be halfway through
+    /// typing it, and re-pushing the model's number into the box under their hands would rewrite
+    /// what they are typing.
+    /// </summary>
     public void RefreshTiming()
     {
-        Raise(nameof(Delay));
         Raise(nameof(AtWords));
         Raise(nameof(IsDelayed));
+    }
+
+    /// <summary>A reorder: the step took its new position's wait, so its own number changed too.</summary>
+    public void RefreshWait()
+    {
+        Raise(nameof(Delay));
+        RefreshTiming();
     }
 
     public IReadOnlyList<PickItem> KindChoices => CueEditor.KindChoices;
@@ -282,36 +325,40 @@ public sealed class ActionRow : Observable
         }
     }
 
+    /// <summary>
+    /// The pickers this step's kind needs, from the live show. Built into a list first and only
+    /// then put into the bound collections, and only when they differ — the desk revalidates after
+    /// every publish, and a picker that empties and refills itself that often cannot be clicked.
+    /// </summary>
     public void RefreshChoices()
     {
         var target = Action.Target;
-        TargetChoices.Clear();
-        foreach (var item in _editor.ChoicesFor(ActionSpec.For(Action.Kind).Target)) TargetChoices.Add(item);
-        if (target.Length > 0 && TargetChoices.All(t => t.Id != target && !string.Equals(t.Label, target, StringComparison.OrdinalIgnoreCase)))
+        var targets = new List<PickItem>(_editor.ChoicesFor(ActionSpec.For(Action.Kind).Target));
+        if (target.Length > 0 && targets.All(t => t.Id != target && !string.Equals(t.Label, target, StringComparison.OrdinalIgnoreCase)))
         {
-            TargetChoices.Add(new PickItem(target, $"{target} (not found)"));
+            targets.Add(new PickItem(target, $"{target} (not found)"));
         }
-        Raise(nameof(SelectedTarget));
+        if (PickList.Fill(TargetChoices, targets)) Raise(nameof(SelectedTarget));
 
-        PersonChoices.Clear();
+        var people = new List<PickItem>();
         if (HasPersonValue)
         {
             if (HasLookValue)
             {
-                foreach (var item in _editor.ChoicesFor(TargetKind.Look)) PersonChoices.Add(item);
+                people.AddRange(_editor.ChoicesFor(TargetKind.Look));
             }
             else
             {
-                PersonChoices.Add(AsDesigned);
-                foreach (var item in _editor.PeopleChoices()) PersonChoices.Add(item);
+                people.Add(AsDesigned);
+                people.AddRange(_editor.PeopleChoices());
             }
             var value = Action.Value;
-            if (value.Length > 0 && PersonChoices.All(p => p.Id != value && !string.Equals(p.Label, value, StringComparison.OrdinalIgnoreCase)))
+            if (value.Length > 0 && people.All(p => p.Id != value && !string.Equals(p.Label, value, StringComparison.OrdinalIgnoreCase)))
             {
-                PersonChoices.Add(new PickItem(value, HasLookValue ? $"{value} (not found)" : $"{value} (not in the library)"));
+                people.Add(new PickItem(value, HasLookValue ? $"{value} (not found)" : $"{value} (not in the library)"));
             }
         }
-        Raise(nameof(SelectedPerson));
+        if (PickList.Fill(PersonChoices, people)) Raise(nameof(SelectedPerson));
     }
 }
 
@@ -556,7 +603,11 @@ public sealed class CueEditor : Observable
 
     // ---- quick: a look or an action in one pick ----------------------------------------------
 
-    public IReadOnlyList<PickItem> QuickLooks => _s.State.LooksAndCues.Looks.Select(l => new PickItem(l.Id, l.Name)).ToList();
+    /// <summary>
+    /// The looks the Quick row offers, as one collection kept level with the show rather than a
+    /// fresh list on every read: the picker is only told when the looks themselves change.
+    /// </summary>
+    public ObservableCollection<PickItem> QuickLooks { get; } = new();
 
     /// <summary>The selected cue's look — its first Apply look action; picking one sets it, or adds it ahead of the other actions.</summary>
     public PickItem? QuickLook
@@ -742,7 +793,7 @@ public sealed class CueEditor : Observable
         if (!CueSteps.Move(actions, from, to)) return;
         var rowAt = ActionRows.IndexOf(row);
         if (rowAt >= 0 && to < ActionRows.Count) ActionRows.Move(rowAt, to);
-        foreach (var r in ActionRows) r.RefreshTiming();
+        foreach (var r in ActionRows) r.RefreshWait(); // the waits stayed with the positions
         ScheduleRevalidate();
         RaisePlan();
     }
@@ -902,31 +953,22 @@ public sealed class CueEditor : Observable
         _revalidate.Start();
     }
 
-    /// <summary>Rebuilds the rows from the list and runs the validator now.</summary>
+    /// <summary>Brings the rows level with the list and runs the validator now.</summary>
     public void Refresh()
     {
         _revalidate.Stop();
         var stack = SelectedStack;
-        foreach (var row in Rows) row.Detach();
-        Rows.Clear();
         if (stack is null)
         {
+            foreach (var row in Rows) row.Detach();
+            Rows.Clear();
             _report = null;
             ValidationSummary = "";
             StackNotesText = "";
             return;
         }
         _report = CueValidator.Validate(_s.State, stack, _s.ValidationContext);
-        foreach (var cue in stack.Cues)
-        {
-            var row = new CueRow(cue)
-            {
-                Summary = CueSummary.Describe(_s.State, cue),
-                Problem = _report.ReasonFor(cue.Id) ?? "",
-                Warning = _report.Warnings.TryGetValue(cue.Id, out var w) ? w : "",
-            };
-            Rows.Add(row);
-        }
+        SyncRows(stack);
         var total = stack.Cues.Count;
         var broken = _report.BrokenCount;
         ValidationSummary = total == 0
@@ -937,8 +979,52 @@ public sealed class CueEditor : Observable
         StackNotesText = string.Join("  ", _report.StackNotes);
         RefreshMarkers();
         foreach (var row in ActionRows) row.RefreshChoices();
-        Raise(nameof(QuickLooks));
+        if (PickList.Fill(QuickLooks, _s.State.LooksAndCues.Looks.Select(l => new PickItem(l.Id, l.Name)).ToList()))
+        {
+            Raise(nameof(QuickLook));
+        }
         RaisePlan();
+    }
+
+    /// <summary>
+    /// The rows follow the list rather than being rebuilt from it: a row is found by the cue it is
+    /// for and updated in place, and only a cue that has actually appeared, gone or moved touches
+    /// the collection at all.
+    ///
+    /// This runs after every snapshot the desk publishes. Rebuilding it each time threw away every
+    /// container the page had laid out, which the operator sees as the row under the pointer
+    /// flashing once a second — and, worse, as a settings column whose pickers close and whose text
+    /// boxes lose what is being typed into them. A list that has not changed now costs nothing but
+    /// the reads.
+    /// </summary>
+    private void SyncRows(CueStackConfig stack)
+    {
+        for (var i = Rows.Count - 1; i >= 0; i--)
+        {
+            if (stack.Cues.Contains(Rows[i].Cue)) continue;
+            Rows[i].Detach();
+            Rows.RemoveAt(i);
+        }
+        for (var i = 0; i < stack.Cues.Count; i++)
+        {
+            var cue = stack.Cues[i];
+            var at = RowOf(cue);
+            if (at < 0) Rows.Insert(i, new CueRow(cue));
+            else if (at != i) Rows.Move(at, i);
+            var row = Rows[i];
+            row.Summary = CueSummary.Describe(_s.State, cue);
+            row.Problem = _report!.ReasonFor(cue.Id) ?? "";
+            row.Warning = _report.Warnings.TryGetValue(cue.Id, out var w) ? w : "";
+        }
+    }
+
+    private int RowOf(RunCueConfig cue)
+    {
+        for (var i = 0; i < Rows.Count; i++)
+        {
+            if (ReferenceEquals(Rows[i].Cue, cue)) return i;
+        }
+        return -1;
     }
 
     private void RefreshMarkers()
