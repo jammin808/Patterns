@@ -177,7 +177,7 @@ of the switcher. It is being built in phases; each lands with tests, docs and a 
 | 9 | The stinger library splits into VOGs and stingers (schema 6; every older item migrates to a VOG with the same behaviour): one collection and one numbering, a per-item kind, and for a stinger an after-policy — back, hold for the operator's take (bounded by their TAKE, an optional hold limit and STOP ALL), GO the caller's next cue through the real gate (never a confirm on the caller's behalf), or a named look or cue — with any policy that cannot run putting the show back and journaling Failed; the music rule extended in Core (`MusicLevel`: the VOG duck as a step, the sting fade as an anchored ramp the file track and break music both follow, the player polling at 50 ms while it moves); a sting's clip dissolves in over the same fade; a kind-checked `VOG` / `STING` beside the untouched `STINGER`; `stingerKind` and `stingHold` on the wire; the STING HOLD banner, chip, phone row, tablet chip and Companion feedback; the recovery sidecar pinned to the pre-sting content and the settings saver deferred while a clip or a hold owns the screens. | done |
 | 7 | Multiview tiles as content targets: the rig's pixel geometry on the snapshot (`RigGeometry`, `ShowSnapshot.Rig`, `SnapshotBus.Displays`) with a 1920×1080 (16:9) fallback; every `Program`/`Screen` tile a true miniature at its target's real shape with the wall's own labels and tally; a joined canvas addressable by its member key in a tile and in an NDI sender, and a member screen drawn as its slice of the canvas; a tile naming nothing or a ghost draws a slate instead of the program; `Rig` reduced to a wrapper over the Core maths so the wall, the outputs, `/mv.jpg` and an NDI sender agree; no identify badge inside a tile; `/mv.jpg?w=`. | done |
 
-## 39. Round 25 — the page that stopped rebuilding itself, and the monitor walls
+## 39. Round 25 — the page that stopped rebuilding itself, the monitor walls, and one pair of ears
 
 *"In PLAN → Cues → Cue stack: when the mouse is over the cues, the background colour of the cue
 flashes. In Selected Cue and Cue actions: when the mouse is over the drop down or text input box,
@@ -188,6 +188,15 @@ more layouts and customisation. As default it should show Main screen Program an
 panels with input smaller. Also allow to show a Pattern in PGM to Multiview. There needs to be up to
 2 different multiview outputs/patterns, available across hardware AND NDI and Streaming outputs."*
 
+*"When media has audio, it should default to only play what is going out on the main program (not in
+any preview or PGM Program output) for physical screens. This is to stop an overlapping mix of audio
+tracks overwhelming an operator. Options to hear each preview or program output audio
+individually."*
+
+With them the standing rule: stability, resilience, efficiency, UX, performance across system
+specs, durability and an easy show workflow; every change instant. The answers are §40. The
+checklist for the Windows machine is `docs/CHECKLIST-round25.md`.
+
 | Item | What lands | Status |
 | --- | --- | --- |
 | 1 | The Cues page stops rebuilding itself (§40.1). One cause, three faces: the rows flashing under the pointer, a picker that closes as it is reached for, and a text box that forgets what is being typed. `SyncRows` reconciles rather than rebuilds, `PickList.Fill` leaves a picker whose items have not changed completely alone, and `RefreshTiming` stops pushing a wait back into the box the operator is typing in. | done |
@@ -195,6 +204,7 @@ panels with input smaller. Also allow to show a Pattern in PGM to Multiview. The
 | 3 | Four layouts, and the default the ask named (§40.3). `MultiviewLayoutPlan` is pure geometry: programme and preview large with the rest in a strip beneath, one large, one large down the left, or an even grid. The large tiles are the first in the list, so the arrangement is a drag rather than a setting. | done |
 | 4 | Two walls, on hardware, NDI and the stream (§40.4). `Multiviews.Show` does the whole chain from one tick — the target's own pattern on, set to this wall, and a feed pointed at its own screen — and `Clear` hands it straight back. | done |
 | 5 | A show made before this opens as it was (§40.5). Schema v9 hoists a pattern's inline tiles into a wall the show holds, deduplicating two targets that carried the same tiles into one wall both point at, and keeps the even grid the old build drew. | done |
+| 6 | One picture's sound at the desk (§40.6). `MediaBus` records every picture that wants a mounted clip, capture or page, and `AudioMonitorRule` plays the one the desk is listening to — the programme unless the operator says otherwise. Nothing it does reaches an output, a send or the stream. | done |
 
 ## 40. Round 25 — the answers
 
@@ -302,6 +312,39 @@ The automatic wall — what a show that has configured nothing draws — gained 
 of the screens, so it lands on the new default layout already looking like a vision mixer's
 multiviewer rather than a grid with the programme in the corner.
 
+### 40.6 Three soundtracks, one pair of ears
+
+A clip on the programme, another on a confidence screen's own picture and a third loaded into the
+preview are three decoders, and every one of them opens an audio output. Nothing was choosing
+between them, so they played together — a mix nobody asked for, over the top of whatever the
+operator was actually trying to hear. It gets worse the more carefully a show is built, because the
+busier the rig the more clips are mounted at once, and with EDIT SAFE open it happens on *every*
+show: the picture being built is nearly always mounted beside the one on air.
+
+The desk now monitors one picture at a time, and by default it is the programme, because the sound
+the room is hearing is the sound the desk should be checking against.
+
+Where the rule had to live took some care. Audibility is not a property of a *mount*: one file open
+on the programme and in the preview is one decoder on two buses, and silencing it because the
+programme claimed the mount first would silence exactly the clip the operator is checking. So
+`MediaLocator.FindWantedInputs` now records **every** bus that wants each mount — the programme
+(with the inset and the lower third, which are part of the programme's picture), each content target
+that is on a picture of its own, and, once the app has merged the sandbox's list in, the preview —
+and `AudioMonitorRule.Hears` asks whether *any* of them is the one being listened to.
+
+Two decisions are worth naming. Picking an output that is simply following the show gives you the
+programme rather than silence: that is genuinely what that screen sounds like, and silence would
+read as a fault. And the rule only ever takes sound away — a clip the operator muted on the Media
+page stays muted whatever they are listening to, and nothing here reaches an output, a send or the
+stream, because what the audience hears comes off the picture that is on air, never off the desk's
+own speakers. The monitor choice is also kept out of the pattern, so it is not part of a picture's
+identity, never crossfades anything, and is never carried by a look or a cue.
+
+What is monitored is the media — clips, capture boxes and web pages, which are the things that
+arrive with a soundtrack nobody chose. The audio playlist, VOGs, stingers and the tone generator are
+the show's own sound and always play; they already have their own gain rules, and an operator who
+fires a VOG means to hear it.
+
 Tests: ten revalidates leaving every cue row instance and every picker untouched, a rename and a
 broken reference landing in place, a cue inserted, moved and removed reconciling around the rows
 that stay, a wait typed into one step re-timing its neighbours without writing a number back into
@@ -315,7 +358,15 @@ patterns point at, its grid kept, the pass idempotent; a wall's id and name kept
 picture looks like while which wall a pattern draws is exactly that; a screen adopted at the venue
 keeping its place on every wall; the engine drawing the wall the layout planned; and on a live desk
 the page on the rail under SETUP, a wall arriving filled from the rig, one tick doing the whole job
-with the programme untouched, and a tile dragged to the top becoming one of the large ones.
+with the programme untouched, and a tile dragged to the top becoming one of the large ones. For the
+monitor: every picture that wants a clip recorded against it and one clip on two buses staying one
+decoder, the programme heard by default with a confidence screen's clip out of the mix, the pair
+swapping over when that screen is monitored, silence meaning silence, a screen that follows the show
+sounding like the show along with one never picked and one that left the rig, the operator's own
+mute still winning, the choice kept out of what a picture looks like, a mount on several buses read
+as all of them, the line that says what is being heard, and on a live desk the preview's clip silent
+until the preview is what you are listening to, the same clip in both heard either way round, and
+the Audio page's row following the choice on the click.
 
 ## 37. Round 24 — a cue with a shape in time, and how one picture becomes the next
 

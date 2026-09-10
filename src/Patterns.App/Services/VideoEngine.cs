@@ -244,16 +244,41 @@ public sealed class VideoEngine : IDisposable
         }
     }
 
-    /// <summary>Program + sandbox wants, deduped by key, program's settings winning shared mounts.</summary>
+    /// <summary>
+    /// Program + sandbox wants, deduped by key, the program's settings winning a shared mount —
+    /// and then monitored: only the picture the desk is listening to is heard here. A clip the
+    /// audience is watching is never silenced by this; the room's sound comes off the picture that
+    /// is on air, not off the operator's headphones.
+    /// </summary>
     public static List<MediaLocator.WantedInput> WantedVideoInputs(ShowSnapshot snap, ShowSnapshot? sandbox)
     {
-        var list = MediaLocator.FindWantedInputs(snap);
-        if (sandbox is not null)
-        {
-            var seen = list.Select(w => w.Key).ToHashSet();
-            list.AddRange(MediaLocator.FindWantedInputs(sandbox).Where(w => seen.Add(w.Key)));
-        }
+        var list = MergeWithSandbox(MediaLocator.FindWantedInputs(snap), sandbox);
         list.RemoveAll(w => w.Kind is MediaLocator.WantedKind.Ndi or MediaLocator.WantedKind.Web);
+        return AudioMonitorRule.Apply(snap.State, list);
+    }
+
+    /// <summary>
+    /// The preview's wants folded into the programme's. A mount both of them want is one decoder
+    /// on two buses, so the preview is added to the buses it is already on rather than dropped —
+    /// otherwise listening to the preview would silence a clip that is in the preview.
+    /// </summary>
+    public static List<MediaLocator.WantedInput> MergeWithSandbox(List<MediaLocator.WantedInput> list, ShowSnapshot? sandbox)
+    {
+        if (sandbox is null) return list;
+        var at = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < list.Count; i++) at[list[i].Key] = i;
+        foreach (var w in MediaLocator.FindWantedInputs(sandbox))
+        {
+            if (at.TryGetValue(w.Key, out var already))
+            {
+                var buses = list[already].Buses.ToList();
+                if (!buses.Contains(MediaBus.Sandbox)) buses.Add(MediaBus.Sandbox);
+                list[already] = list[already] with { Buses = buses };
+                continue;
+            }
+            at[w.Key] = list.Count;
+            list.Add(w with { Buses = new[] { MediaBus.Sandbox } });
+        }
         return list;
     }
 

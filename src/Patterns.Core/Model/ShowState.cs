@@ -973,6 +973,29 @@ public sealed class AudioTrackConfig : Observable
 /// order; shuffled by a seed when asked; the list looping at its end or stopping there. One
 /// file written before the list existed (<see cref="Path"/>) becomes its first row on load.
 /// </summary>
+/// <summary>
+/// The desk's monitor bus: which picture's sound the operator is hearing.
+///
+/// A show can have a clip on the programme, another on a confidence screen's own picture and a
+/// third loaded into the preview, and every one of them has a soundtrack. Played together they are
+/// a mix nobody asked for, over the top of the operator's own headphones. So one of them is heard
+/// at a time, and it is the programme unless the operator says otherwise — the sound the room is
+/// hearing is the sound the desk is checking against.
+///
+/// It is a monitoring choice, never content: it changes nothing on any output, nothing on the
+/// stream, and nothing a look or a cue carries.
+/// </summary>
+public sealed class MonitorConfig : Observable
+{
+    private AudioMonitor _source = AudioMonitor.Program;
+    private string _outputId = "";
+
+    public AudioMonitor Source { get => _source; set => Set(ref _source, value); }
+
+    /// <summary>The content target listened to when <see cref="Source"/> is Output; empty = the programme.</summary>
+    public string OutputId { get => _outputId; set => Set(ref _outputId, value ?? ""); }
+}
+
 public sealed class AudioPlayerConfig : Observable
 {
     private string _path = "";
@@ -2047,6 +2070,9 @@ public sealed class ShowState : Observable
     public StreamConfig Stream { get; init; } = new();
     public AdminConfig Admin { get; init; } = new();
     public SwitcherConfig Switcher { get; init; } = new();
+
+    /// <summary>What the desk's own speakers are listening to; the programme unless the operator says otherwise.</summary>
+    public MonitorConfig Monitor { get; init; } = new();
     public DeskLayoutConfig Desk { get; init; } = new();
 
     /// <summary>The lower thirds: the designs, and the one on air since when.</summary>

@@ -401,6 +401,21 @@ public static class HelpTopics
             new[] { "Multiview", "Screens", "NDI" },
             new[] { "multiview", "tally", "badge", "program", "preview", "tile", "monitor wall", "which screen", "outputs" }),
 
+        new HelpTopic("audio-monitor", HelpGroup.RunningTheShow,
+            "What the desk is listening to: one picture's sound, not all of them",
+            "Audio page: a clip on the programme, one on a confidence screen and one in the preview are three soundtracks — the desk plays one of them, and by default it is the programme.",
+            HelpBodies.AudioMonitor,
+            new[]
+            {
+                "Audio page → WHAT THE DESK IS LISTENING TO: the programme (the default), the preview, one output on its own, or nothing.",
+                "It only changes the desk's own speakers — the room hears whatever is on air, and a clip you muted stays muted.",
+                "An output that is following the show sounds like the show; one with its own clip plays its own.",
+                "The audio playlist, VOGs and stingers are the show's own sound and always play.",
+            },
+            "",
+            new[] { "Audio", "Media", "Panel" },
+            new[] { "monitor", "listening", "audio", "sound", "overlapping", "mix", "preview sound", "clip audio", "headphones", "silent", "too loud" }),
+
         new HelpTopic("multiview-walls", HelpGroup.RunningTheShow,
             "The monitor walls: two of them, arranged how you want, on any output",
             "SETUP → Multiview: up to two monitor walls the show holds, each shown on however many outputs you tick — a spare display, an NDI send, the stream.",

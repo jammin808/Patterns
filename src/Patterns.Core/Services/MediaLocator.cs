@@ -77,7 +77,15 @@ public static class MediaLocator
     /// viewport ("1920x1080") or a deck's start page ("1"); <paramref name="Zoom"/> is a web page's zoom in per cent.
     /// </summary>
     /// <summary><paramref name="Clean"/> is the style a web page wears while CLEAN is on ("" = the page as the site drew it).</summary>
-    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "", double Zoom = 100, string Clean = "");
+    public sealed record WantedInput(string Key, WantedKind Kind, string Target, bool Loop, bool Mute, double VolumePct, string Format = "", double Zoom = 100, string Clean = "")
+    {
+        /// <summary>
+        /// Every picture that wants this mount. One clip on the programme and in the preview is one
+        /// decoder on two buses, so which of them the desk is listening to is a question about the
+        /// list rather than about a single owner.
+        /// </summary>
+        public IReadOnlyList<MediaBus> Buses { get; init; } = Array.Empty<MediaBus>();
+    }
 
     /// <summary>
     /// Every input the snapshot references — the program pattern, each enabled custom-pattern
@@ -89,8 +97,10 @@ public static class MediaLocator
     public static List<WantedInput> FindWantedInputs(ShowSnapshot snap)
     {
         var list = new List<WantedInput>();
-        var seen = new HashSet<string>();
+        var at = new Dictionary<string, int>(StringComparer.Ordinal);
+        var buses = new List<List<MediaBus>>();
         var state = snap.State;
+        var bus = MediaBus.Program;
 
         void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100, string clean = "")
         {
@@ -104,8 +114,16 @@ public static class MediaLocator
                 WantedKind.Deck => Media.InputKeys.Deck(target),
                 _ => Media.InputKeys.Ndi(target),
             };
-            if (!seen.Add(key)) return;
+            if (at.TryGetValue(key, out var already))
+            {
+                // One mount, however many pictures want it: the first one's settings stand, and
+                // the rest are recorded so the monitor knows every bus this sound is on.
+                if (!buses[already].Contains(bus)) buses[already].Add(bus);
+                return;
+            }
             if (kind == WantedKind.Capture) format = state.CaptureFormatFor(target);
+            at[key] = list.Count;
+            buses.Add(new List<MediaBus> { bus });
             list.Add(new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean));
         }
 
@@ -194,8 +212,13 @@ public static class MediaLocator
         foreach (var target in ContentTargets.ActiveCustomTargets(state))
         {
             var a = state.Independent.FirstOrDefault(x => x.ScreenId == target);
-            if (a is not null) FromPattern(a.Pattern);
+            if (a is null) continue;
+            // A screen on its own picture is its own bus: its clip's sound is heard only while
+            // the desk is listening to that screen.
+            bus = MediaBus.Output(target);
+            FromPattern(a.Pattern);
         }
+        bus = MediaBus.Program;   // the inset, the lower third: part of the programme's picture
 
         var pip = state.Overlays.Pip;
         if (pip.Enabled)
@@ -217,6 +240,7 @@ public static class MediaLocator
             }
         }
 
+        for (var i = 0; i < list.Count; i++) list[i] = list[i] with { Buses = buses[i] };
         return list;
     }
 }

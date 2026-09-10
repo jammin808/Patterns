@@ -9,6 +9,25 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-audio" Text="Audio" />
 
+    <TextBlock Classes="h2" Text="WHAT THE DESK IS LISTENING TO" />
+    <TextBlock Classes="hint tip"
+               Text="A show can have a clip on the programme, another on a confidence screen's own picture and a third loaded into the preview, and every one of them has a soundtrack. Played together they are a mix nobody chose, over the top of whatever you are trying to hear. So the desk monitors one at a time, and unless you say otherwise it is the programme — the sound the room is hearing is the sound you are checking against. This changes nothing on any screen, any NDI send or the stream: what the audience hears comes off the picture that is on air, never off the desk's own speakers. It is the clips, the capture boxes and the web pages that are monitored; the audio playlist, VOGs and stingers are the show's own sound and always play." />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Listening to" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" Name="MonitorSource" ItemsSource="{Binding MonitorSources}" HorizontalAlignment="Stretch"
+                SelectedValue="{Binding State.Monitor.Source, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*" IsVisible="{Binding MonitorIsOutput}" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Which output" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" Name="MonitorOutput" ItemsSource="{Binding MonitorOutputs}" HorizontalAlignment="Stretch"
+                SelectedValue="{Binding State.Monitor.OutputId, Mode=TwoWay}"
+                SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
+                PlaceholderText="Which screen or canvas…"
+                ToolTip.Tip="A screen that is simply following the show has the programme's sound, and that is what you will hear" />
+    </Grid>
+    <TextBlock Classes="hint" Text="{Binding MonitorWords}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
     <TextBlock Classes="h2" Text="AUDIO PLAYLIST" />
     <TextBlock Classes="hint tip"
                Text="An independent bed of music or announcements — plays whatever is on screen, to the default output or any set of devices (each HDMI screen is an audio device, so it can follow all screens, one, or a group). Add tracks one at a time or whole folders: a folder's audio files play after the rows, in name order, and a file dropped in live is seen within half a minute. Shuffle deals the order by a seed the show keeps (RESHUFFLE deals again); Loop the list starts it over at its end, off it stops there. A VOG ducks it, a stinger fades it out and back, STOP ALL stops it. On the wire: AUDIO PLAY [n or name], AUDIO NEXT, AUDIO PREV, AUDIO STOP, AUDIO VOL." />

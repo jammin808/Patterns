@@ -584,6 +584,15 @@ public static class Lists
         new(PatternKind.Multiview, "Multiview (monitor wall)"),
     };
 
+    /// <summary>What the desk's own speakers listen to.</summary>
+    public static readonly EnumItem[] MonitorSources =
+    {
+        new(AudioMonitor.Program, "The programme — what the room is hearing"),
+        new(AudioMonitor.Preview, "The preview — what the next TAKE will sound like"),
+        new(AudioMonitor.Output, "One output on its own…"),
+        new(AudioMonitor.Silent, "Nothing — every clip silent at the desk"),
+    };
+
     /// <summary>How a monitor wall arranges its tiles.</summary>
     public static readonly EnumItem[] MultiviewLayouts =
     {

@@ -69,19 +69,11 @@ public sealed class WebEngine : IDisposable
     {
         SweepRetired();
 
-        var wanted = new List<MediaLocator.WantedInput>();
-        var seen = new HashSet<string>();
-        foreach (var w in MediaLocator.FindWantedInputs(snap))
-        {
-            if (w.Kind == MediaLocator.WantedKind.Web && seen.Add(w.Key)) wanted.Add(w);
-        }
-        if (sandbox is not null)
-        {
-            foreach (var w in MediaLocator.FindWantedInputs(sandbox))
-            {
-                if (w.Kind == MediaLocator.WantedKind.Web && seen.Add(w.Key)) wanted.Add(w);
-            }
-        }
+        // The same merge and the same monitor rule the clips go through: a page has a soundtrack
+        // too, and a video playing on a page in the preview is one more thing in the mix.
+        var wanted = VideoEngine.MergeWithSandbox(MediaLocator.FindWantedInputs(snap), sandbox);
+        wanted.RemoveAll(w => w.Kind != MediaLocator.WantedKind.Web);
+        wanted = AudioMonitorRule.Apply(snap.State, wanted);
 
         // A page nobody wants any more, or one whose viewport changed, retires — kept briefly so a
         // crossfade fades out real frames — and a new viewport reopens below.

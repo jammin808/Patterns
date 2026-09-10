@@ -397,6 +397,26 @@ public enum FractalKind
     DomainWarp,
 }
 
+/// <summary>
+/// What the desk's own speakers are listening to. First member is the fallback for a value this
+/// build does not know, and the one a show that says nothing gets — the programme, which is the
+/// only sound the room is hearing.
+/// </summary>
+public enum AudioMonitor
+{
+    /// <summary>What is going out on the main programme — the audience's sound, and nothing else.</summary>
+    Program,
+
+    /// <summary>The sandboxed preview, so the next clip can be heard before it lands.</summary>
+    Preview,
+
+    /// <summary>One output's own picture, named beside this — a screen, an NDI send, the stream.</summary>
+    Output,
+
+    /// <summary>Nothing: every clip on the desk silent, whatever it is doing on the screens.</summary>
+    Silent,
+}
+
 /// <summary>How one picture becomes the next.</summary>
 public enum TransitionKind
 {
