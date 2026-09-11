@@ -28,13 +28,29 @@ public static class ShowFiles
     /// </summary>
     public const long ImportCeilingBytes = 512L * 1024 * 1024;
 
+    /// <summary>
+    /// How long a reading of the disk is trusted on the draw path. A picture element is resolved
+    /// on every frame of every sink, and a file system call per element per frame per sink is a
+    /// cost the frame budget should never carry for an answer that changes once a night. Half a
+    /// second is far below anything an operator can see and far above the frame rate.
+    /// </summary>
+    private const long FreshMs = 500;
+
+    private readonly record struct Reading(string Resolved, bool Found, long Stamp);
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Reading> Readings = new(StringComparer.OrdinalIgnoreCase);
+
     private static volatile string _media = "";
 
     /// <summary>media/ beside the show. Set once as the desk starts; empty in a build with no store.</summary>
     public static string MediaDirectory
     {
         get => _media;
-        set => _media = value ?? "";
+        set
+        {
+            _media = value ?? "";
+            Readings.Clear();                                          // another show's folder: nothing read before it holds
+        }
     }
 
     /// <summary>True when this path is already one of the show's own files.</summary>
@@ -58,27 +74,49 @@ public static class ShowFiles
     /// <summary>
     /// The file as it is on THIS machine: the path itself when it is there, else the show's own
     /// copy of that name, else the path unchanged so the readouts still name what was asked for.
+    /// For the draw path — a reading of the disk no older than half a second.
     /// </summary>
-    public static string Resolve(string? path)
+    public static string Resolve(string? path) => Read(path, fresh: false).Resolved;
+
+    /// <summary>The same answer, read from the disk now. For the checks, which run once and must be exact.</summary>
+    public static string ResolveExact(string? path) => Read(path, fresh: true).Resolved;
+
+    /// <summary>
+    /// True when the desk can actually open this file. Read from the disk now by default, for the
+    /// checks and the designer's own line; pass <c>fresh: false</c> on a draw path, where a reading
+    /// half a second old is worth far more than a file-system call every frame.
+    /// </summary>
+    public static bool Exists(string? path, bool fresh = true) => Read(path, fresh).Found;
+
+    private static Reading Read(string? path, bool fresh)
     {
-        if (string.IsNullOrWhiteSpace(path)) return "";
+        if (string.IsNullOrWhiteSpace(path)) return new Reading("", false, 0);
+        var now = Environment.TickCount64;
+        if (!fresh && Readings.TryGetValue(path, out var seen) && now - seen.Stamp < FreshMs) return seen;
+
+        var reading = Probe(path) with { Stamp = now };
+        // Bounded: a show has a handful of pictures, but a folder browsed over a long night must
+        // never grow this without end.
+        if (Readings.Count > 512) Readings.Clear();
+        Readings[path] = reading;
+        return reading;
+    }
+
+    private static Reading Probe(string path)
+    {
         try
         {
-            if (File.Exists(path)) return path;
+            if (File.Exists(path)) return new Reading(path, true, 0);
             var media = _media;
-            if (media.Length == 0) return path;
+            if (media.Length == 0) return new Reading(path, false, 0);
             var beside = Path.Combine(media, Path.GetFileName(path));
-            return File.Exists(beside) ? beside : path;
+            return File.Exists(beside) ? new Reading(beside, true, 0) : new Reading(path, false, 0);
         }
         catch
         {
-            return path;
+            return new Reading(path, false, 0);
         }
     }
-
-    /// <summary>True when the desk can actually open this file right now.</summary>
-    public static bool Exists(string? path)
-        => !string.IsNullOrWhiteSpace(path) && File.Exists(Resolve(path));
 
     /// <summary>
     /// A chosen file brought into the show. The returned path is what the show should hold: the
@@ -103,6 +141,7 @@ public static class ShowFiles
             Directory.CreateDirectory(media);
             var target = FreeName(media, info);
             if (!File.Exists(target)) File.Copy(info.FullName, target, overwrite: false);
+            Readings.Clear();                                          // the disk just changed under every reading
             return new ImportedFile(target, true, $"'{Path.GetFileName(target)}' is in the show's media folder now — copy the folder and it travels.");
         }
         catch (Exception ex)

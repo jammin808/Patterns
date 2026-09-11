@@ -360,7 +360,7 @@ public static class CueValidator
                         {
                             if (!el.Enabled) continue;
                             if (el.Kind is not (LowerThirds.LowerThirdElementKind.Image or LowerThirds.LowerThirdElementKind.Media)) continue;
-                            if (el.Path.Length == 0 || ctx.FileExists(ShowFiles.Resolve(el.Path))) continue;
+                            if (el.Path.Length == 0 || ctx.FileExists(ShowFiles.ResolveExact(el.Path))) continue;
                             Soft($"{where}: lower third '{design.Name}' — '{Path.GetFileName(el.Path)}' on '{el.Name}' is missing; it draws a blank.");
                         }
                     }

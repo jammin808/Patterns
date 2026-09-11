@@ -273,7 +273,7 @@ public sealed class LowerThirdPreview : Control
                 box.Top + (float)e.Y * designScale,
                 Math.Max(1f, (float)e.W * designScale),
                 Math.Max(1f, (float)e.H * designScale));
-            var missing = !ShowFiles.Exists(e.Path);
+            var missing = !ShowFiles.Exists(e.Path, fresh: false);      // a stage frame, not a check
             var font = sink.Paints.FontBold;
             var was = font.Size;
             font.Size = 30;

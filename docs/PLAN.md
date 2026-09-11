@@ -3885,6 +3885,13 @@ than quietly doubling a gigabyte onto the show drive in the last hour.
 machine entirely — finds its own pictures. It is called at exactly the places a lower third's file
 enters the engine, so the renderer's image, the mount, and the mount's key all agree.
 
+That put a file-system call on the draw path, which is a cost the frame budget must not carry for
+an answer that changes once a night: an element is resolved on every frame of every sink. So
+`Resolve` holds a reading for half a second — far below anything an operator can see, far above the
+frame rate — and the checks, which run once before doors and must be exact, call `ResolveExact`. An
+import clears every reading, because the disk has just changed underneath them and the designer must
+never be told the file it has this second brought in is missing.
+
 What is still missing is said rather than drawn. The designer's file row turns red with the file's
 name, and `CueValidator` warns before doors — a warning, not a refusal, because a design with one
 missing picture is still worth putting up. And because nothing mounts a decoder for the designer's

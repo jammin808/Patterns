@@ -123,6 +123,29 @@ public class ShowFilesTests : IDisposable
     }
 
     [Fact]
+    public void TheDrawPathReadsTheDiskATwentiethAsOftenAsItDrawsAndTheChecksReadItNow()
+    {
+        var chosen = Elsewhere("late.jpg");
+        var stale = Path.Combine(_dir, "gone", "late.jpg");
+
+        // Nothing there yet, and the draw path is now holding that answer.
+        Assert.Equal(stale, ShowFiles.Resolve(stale));
+
+        // The picture arrives beside the show. The checks read the disk as it is NOW — they run
+        // once, before doors, and an answer half a second old is an answer about the wrong show.
+        Directory.CreateDirectory(_media);
+        File.Copy(chosen, Path.Combine(_media, "late.jpg"));
+        Assert.Equal(Path.Combine(_media, "late.jpg"), ShowFiles.ResolveExact(stale));
+        Assert.True(ShowFiles.Exists(stale));
+
+        // An import changes the truth under every reading, so it forgets them all: the designer
+        // must never be told the file it has just brought in is missing.
+        var element = Elsewhere("brought-in.jpg");
+        var imported = ShowFiles.Import(element);
+        Assert.Equal(imported.Path, ShowFiles.Resolve(Path.Combine(_dir, "elsewhere-again", "brought-in.jpg")));
+    }
+
+    [Fact]
     public void TheCheckSaysWhichPictureDidNotTravelBeforeTheShowRatherThanDuringIt()
     {
         var state = new ShowState();
