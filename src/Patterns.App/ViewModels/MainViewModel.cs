@@ -655,6 +655,7 @@ public sealed partial class MainViewModel : Observable
         };
         HookTransition();
         HookMonitor();
+        RefreshMonitorDevices();
         RebuildGpuRows();
 
         // Switcher: sandbox sends, CUT/TAKE, tile selection. CUT and TAKE land where the wall's picker

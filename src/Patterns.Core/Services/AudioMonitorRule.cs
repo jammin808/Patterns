@@ -20,6 +20,19 @@ public readonly record struct MediaBus(bool Preview, string OutputId)
     public bool IsProgram => !Preview && OutputId.Length == 0;
 }
 
+/// <summary>Where a mounted input's sound goes — the room's outputs, the operator's own, or nowhere.</summary>
+public enum AudioDestination
+{
+    /// <summary>The programme's outputs: what the room hears.</summary>
+    Program,
+
+    /// <summary>The operator's own output, away from the room.</summary>
+    Monitor,
+
+    /// <summary>Nowhere. Mounted for its pictures, not for its sound.</summary>
+    Silent,
+}
+
 /// <summary>
 /// What the desk's own speakers play.
 ///
@@ -30,10 +43,15 @@ public readonly record struct MediaBus(bool Preview, string OutputId)
 /// gets, because the busier the rig the more clips are mounted at once.
 ///
 /// So the desk monitors one of them at a time, and by default it is the programme: the sound the
-/// room is hearing is the sound the desk should be checking against. Nothing here reaches an
-/// output, a send or the stream — a clip muted at the desk is still heard by the audience, because
-/// what the audience hears is decided by the picture that is on air, not by what the operator has
-/// their headphones on.
+/// room is hearing is the sound the desk should be checking against.
+///
+/// The first cut of this said "nothing here reaches an output — a clip muted at the desk is still
+/// heard by the audience". That was wrong, and the comment is why it took a round to notice: every
+/// sound-maker in the build opens the same default endpoint, so on a one-interface rig the desk's
+/// speakers ARE the PA and muting a programme clip to audition another picture took the room's
+/// sound with it. What makes the sentence true is the thing this round adds — a monitor output of
+/// the operator's own — and, until there is one, the rule refuses rather than pretends: the
+/// programme's mounts are never silenced by a monitor pick, and anything else has nowhere to go.
 /// </summary>
 public static class AudioMonitorRule
 {
@@ -55,18 +73,28 @@ public static class AudioMonitorRule
             : new MonitorPick(AudioMonitor.Program, "");
     }
 
-    /// <summary>True when a mount on these buses is the one the desk is listening to.</summary>
-    public static bool Hears(in MonitorPick pick, IReadOnlyList<MediaBus>? buses)
+    /// <summary>True when a mount on these buses is on the programme — the sound the room hears.</summary>
+    public static bool OnProgram(IReadOnlyList<MediaBus>? buses)
     {
-        if (pick.Source == AudioMonitor.Silent) return false;
-        if (buses is null || buses.Count == 0) return pick.Source == AudioMonitor.Program;
+        if (buses is null || buses.Count == 0) return true;   // nothing said: the programme's
+        foreach (var bus in buses)
+        {
+            if (bus.IsProgram) return true;
+        }
+        return false;
+    }
+
+    /// <summary>True when a mount on these buses is the one the operator asked to listen to.</summary>
+    public static bool Monitored(in MonitorPick pick, IReadOnlyList<MediaBus>? buses)
+    {
+        if (pick.Source is AudioMonitor.Silent or AudioMonitor.Program) return false;
+        if (buses is null) return false;
         foreach (var bus in buses)
         {
             var heard = pick.Source switch
             {
                 AudioMonitor.Preview => bus.Preview,
-                AudioMonitor.Output => !bus.Preview && bus.OutputId.Length > 0 && bus.OutputId == pick.OutputId,
-                _ => bus.IsProgram,
+                _ => !bus.Preview && bus.OutputId.Length > 0 && bus.OutputId == pick.OutputId,
             };
             if (heard) return true;
         }
@@ -74,34 +102,66 @@ public static class AudioMonitorRule
     }
 
     /// <summary>
-    /// The input as the decoder should play it: its own settings when the desk is listening to it,
-    /// silent when it is not. The operator's own mute and volume still apply on top — this only
-    /// ever takes sound away.
+    /// Where this mount's sound goes.
+    ///
+    /// The programme's sound is the room's, and the room's sound is not the desk's to take away:
+    /// a mount on the programme bus goes to the programme's outputs whatever the operator has
+    /// their headphones on. That is the correction this round makes — monitoring the preview used
+    /// to silence the programme's clip, and because every sound-maker in the build opens the same
+    /// default endpoint, silencing it at the desk silenced it in the room.
+    ///
+    /// Anything else goes to the operator's own output when they asked for it and there is one.
+    /// With no monitor output named there is nowhere for it to go that is not the room, so it
+    /// stays silent and the readout says why.
     /// </summary>
-    public static MediaLocator.WantedInput Apply(in MonitorPick pick, MediaLocator.WantedInput input)
-        => Hears(pick, input.Buses) ? input : input with { Mute = true };
+    public static AudioDestination Where(in MonitorPick pick, IReadOnlyList<MediaBus>? buses, bool hasMonitorDevice)
+    {
+        if (OnProgram(buses)) return AudioDestination.Program;
+        return hasMonitorDevice && Monitored(pick, buses) ? AudioDestination.Monitor : AudioDestination.Silent;
+    }
 
-    /// <summary>The whole list, monitored.</summary>
+    /// <summary>
+    /// The input as the decoder should play it: where its sound goes, and silent when that is
+    /// nowhere. The operator's own mute and volume still apply on top — this only ever takes sound
+    /// away, and never from the room.
+    /// </summary>
+    public static MediaLocator.WantedInput Apply(in MonitorPick pick, MediaLocator.WantedInput input, bool hasMonitorDevice)
+    {
+        var where = Where(pick, input.Buses, hasMonitorDevice);
+        return where == AudioDestination.Silent
+            ? input with { Mute = true, Destination = where }
+            : input with { Destination = where };
+    }
+
+    /// <summary>The whole list, routed.</summary>
     public static List<MediaLocator.WantedInput> Apply(ShowState state, List<MediaLocator.WantedInput> inputs)
     {
         var pick = Effective(state);
-        for (var i = 0; i < inputs.Count; i++) inputs[i] = Apply(pick, inputs[i]);
+        var hasMonitor = state.Monitor.Device.Length > 0;
+        for (var i = 0; i < inputs.Count; i++) inputs[i] = Apply(pick, inputs[i], hasMonitor);
         return inputs;
     }
 
-    /// <summary>What the desk is listening to, in a line — the Audio page's readout and the status line.</summary>
+    /// <summary>What the desk is listening to and where, in a line — the Audio page's readout.</summary>
     public static string Words(ShowState state)
     {
         var monitor = state.Monitor;
-        return monitor.Source switch
+        var room = state.AudioPlayer.Devices.Count == 0
+            ? "the machine's own output"
+            : state.AudioPlayer.Devices.Count == 1 ? state.AudioPlayer.Devices[0] : $"{state.AudioPlayer.Devices.Count} outputs";
+        var programme = $"The room hears the programme on {room}.";
+        if (monitor.Source == AudioMonitor.Program) return $"{programme} Nothing else is playing at the desk.";
+        if (monitor.Device.Length == 0)
         {
-            AudioMonitor.Silent => "Clips silent at the desk — the room still hears the programme.",
-            AudioMonitor.Preview => "Listening to the preview — what the next TAKE will sound like.",
-            AudioMonitor.Output => monitor.OutputId.Length == 0
-                ? "Listening to an output — pick which one."
-                : $"Listening to {LabelFor(state, monitor.OutputId)} — its own picture's sound, not the programme's.",
-            _ => "Listening to the programme — the sound the room is hearing.",
+            return $"{programme} Pick a monitor output below to hear anything else — with one output there is nowhere to audition that is not the room.";
+        }
+        var what = monitor.Source switch
+        {
+            AudioMonitor.Silent => "Nothing",
+            AudioMonitor.Preview => "The preview",
+            _ => monitor.OutputId.Length == 0 ? "Nothing — pick which output" : LabelFor(state, monitor.OutputId),
         };
+        return $"{programme} {what} on {monitor.Device}.";
     }
 
     /// <summary>A target id as an operator reads it: the custom label, else the id.</summary>

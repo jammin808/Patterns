@@ -345,7 +345,21 @@ public sealed class AppServices
         }
         Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
-        Video = new VideoEngine { HardwareDecoding = () => HardwareDecoding };
+        Video = new VideoEngine
+        {
+            HardwareDecoding = () => HardwareDecoding,
+            // The programme's sound goes where the room's sound goes; the operator's own
+            // monitoring goes on their own wire. A programme with several outputs cannot be
+            // resolved to one device id — a decoder plays to one — so it stays on the default,
+            // which is what a single-interface rig wants anyway.
+            DeviceFor = where => where switch
+            {
+                AudioDestination.Monitor => AudioPlayerService.DeviceIdFor(State.Monitor.Device),
+                AudioDestination.Program when State.AudioPlayer.Devices.Count == 1
+                    => AudioPlayerService.DeviceIdFor(State.AudioPlayer.Devices[0]),
+                _ => null,
+            },
+        };
         Quality = new QualityService(this);
         var video = Video;
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());

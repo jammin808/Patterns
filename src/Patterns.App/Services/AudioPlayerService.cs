@@ -77,6 +77,34 @@ public sealed class AudioPlayerService : IDisposable
         Directory.Exists(folder) ? Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories) : Array.Empty<string>();
 
     /// <summary>Active output device friendly names (WASAPI). Empty off-Windows.</summary>
+    /// <summary>
+    /// The Windows endpoint id behind a friendly name, for a decoder that routes by id rather than
+    /// by name (libVLC's mmdevice output). Null when the name is empty, the sentinel for the
+    /// default endpoint, or a device that is not plugged in — a route that cannot be made is
+    /// reported, never guessed at.
+    /// </summary>
+    public static string? DeviceIdFor(string? friendlyName)
+    {
+        if (string.IsNullOrWhiteSpace(friendlyName) || friendlyName == DefaultDeviceKey) return null;
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+            {
+                using (device)
+                {
+                    if (string.Equals(device.FriendlyName, friendlyName, StringComparison.OrdinalIgnoreCase)) return device.ID;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Reading the audio endpoints failed.", ex);
+        }
+        return null;
+    }
+
     public static IReadOnlyList<string> OutputDevices()
     {
         if (!OperatingSystem.IsWindows()) return Array.Empty<string>();
@@ -548,8 +576,39 @@ public sealed class AudioPlayerService : IDisposable
                 }
             }
         }
-        if (result.Count == 0) AddDefault();
+        if (result.Count == 0)
+        {
+            // Named an interface that is not plugged in. Falling back to the default endpoint is
+            // right — a show must not go silent because a USB cable moved — but it must never be
+            // silent about it: the programme is now coming out of the machine's own output, and
+            // an operator who is not told will find out from the room.
+            MissingDevices = names.Where(n => n != DefaultDeviceKey).ToList();
+            AddDefault();
+        }
+        else
+        {
+            MissingDevices = names
+                .Where(n => n != DefaultDeviceKey && !result.Any(d => string.Equals(d.FriendlyName, n, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+        }
         return result;
+    }
+
+    /// <summary>
+    /// Output devices the show names that Windows cannot see right now — the show is playing
+    /// somewhere it was not asked to. Empty when every named device is present.
+    /// </summary>
+    public static IReadOnlyList<string> MissingDevices { get; private set; } = Array.Empty<string>();
+
+    /// <summary>"'Scarlett 2i2' is not plugged in — the programme is on the machine's own output." Empty when all is well.</summary>
+    public static string MissingDeviceWords() => MissingDeviceWords(MissingDevices);
+
+    /// <summary>The same sentence for a list handed in — the wording, apart from the machine that has the endpoints.</summary>
+    public static string MissingDeviceWords(IReadOnlyList<string> missing)
+    {
+        if (missing.Count == 0) return "";
+        var names = missing.Count == 1 ? $"'{missing[0]}'" : string.Join(", ", missing.Select(m => $"'{m}'"));
+        return $"{names} {(missing.Count == 1 ? "is" : "are")} not plugged in — that sound is on the machine's own output instead.";
     }
 
     private void OnPlaybackStopped()

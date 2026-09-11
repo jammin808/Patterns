@@ -153,8 +153,9 @@ public sealed class VideoEngine : IDisposable
                 }
                 if (existing.Loop == w.Loop && existing.Format == w.Format)
                 {
-                    // Mute/volume apply live to the running player — never restart the media.
+                    // Mute/volume/route apply live to the running player — never restart the media.
                     existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
+                    Route(existing.Source, w);
                     _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct };
                     continue;
                 }
@@ -211,6 +212,7 @@ public sealed class VideoEngine : IDisposable
                     w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll);
             if (source is null) return;
             if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
+            Route(source, w);
             if (preRoll) source.HoldAtStart();
             _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format, preRoll);
             InputBus.Mount(w.Key, source);
@@ -245,10 +247,31 @@ public sealed class VideoEngine : IDisposable
     }
 
     /// <summary>
+    /// Where this mount's sound comes out: the show's programme outputs, or the operator's own.
+    /// The names come off the show; the ids come off Windows; a device that is not there leaves
+    /// the clip on the default output, and the decoder says so through RoutedTo.
+    /// </summary>
+    public Func<AudioDestination, string?>? DeviceFor { get; set; }
+
+    private void Route(IMountedSource source, MediaLocator.WantedInput w)
+    {
+        if (DeviceFor is not { } lookup) return;
+        try
+        {
+            source.SetOutputDevice(lookup(w.Destination));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Routing a clip's sound failed.", ex);
+        }
+    }
+
+    /// <summary>
     /// Program + sandbox wants, deduped by key, the program's settings winning a shared mount —
-    /// and then monitored: only the picture the desk is listening to is heard here. A clip the
-    /// audience is watching is never silenced by this; the room's sound comes off the picture that
-    /// is on air, not off the operator's headphones.
+    /// and then routed: the programme's sound to the programme's outputs, the picture the operator
+    /// asked to audition to their own, and anything else nowhere. A mount the programme wants is
+    /// never silenced by a monitor pick: the room's sound is not the desk's to take away, and on a
+    /// rig with one interface taking it away at the desk takes it away in the room.
     /// </summary>
     public static List<MediaLocator.WantedInput> WantedVideoInputs(ShowSnapshot snap, ShowSnapshot? sandbox)
     {
@@ -419,6 +442,17 @@ public interface IMountedSource : IVideoFrameSource, IDisposable
     void SetAudioDelay(int ms)
     {
     }
+
+    /// <summary>
+    /// Which output this source's sound plays on: a device id, or null for the system's default.
+    /// A source that cannot be routed ignores it and says so through <see cref="RoutedTo"/>.
+    /// </summary>
+    void SetOutputDevice(string? deviceId)
+    {
+    }
+
+    /// <summary>The output the source is actually on, read back from the decoder; empty when it could not be moved or was never asked.</summary>
+    string RoutedTo => "";
 
     /// <summary>The standby cue's clip: wound back and held on its first frame, silent, so GO lands on a picture.</summary>
     void HoldAtStart()
@@ -687,6 +721,26 @@ public sealed class VlcFrameSource : IMountedSource
         }
     }
 
+    private string? _wantedDevice;
+    private string _routedTo = "";
+
+    /// <summary>
+    /// Where this clip's sound goes. libVLC's device id space belongs to the output module and a
+    /// write made before the aout exists is dropped — the same hazard the mute and the volume
+    /// already work around — so it is asserted here, on every audio apply, and read back rather
+    /// than assumed. An operator who believes a route they do not have is worse off than one who
+    /// is told it did not take.
+    /// </summary>
+    public void SetOutputDevice(string? deviceId)
+    {
+        var wanted = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId;
+        if (_wantedDevice == wanted) return;
+        _wantedDevice = wanted;
+        ApplyAudio();
+    }
+
+    public string RoutedTo => _routedTo;
+
     private void ApplyAudio()
     {
         if (_disposed) return;
@@ -695,10 +749,30 @@ public sealed class VlcFrameSource : IMountedSource
             _player.Mute = _mute || _held;   // a held clip is silent whatever the look wants, until GO
             _player.Volume = (int)Math.Clamp(_volumePct, 0, 125);
             _player.SetAudioDelay(_audioDelayMs * 1000L); // microseconds
+            ApplyOutputDevice();
         }
         catch (Exception ex)
         {
             Log.Warn("Applying audio state failed.", ex);
+        }
+    }
+
+    private void ApplyOutputDevice()
+    {
+        if (_wantedDevice is null)
+        {
+            _routedTo = "";
+            return;
+        }
+        try
+        {
+            _player.SetOutputDevice(string.Empty, _wantedDevice);
+            _routedTo = _player.OutputDevice ?? "";
+        }
+        catch (Exception ex)
+        {
+            _routedTo = "";
+            Log.Warn($"Sending a clip's sound to '{_wantedDevice}' failed — it stays on the default output.", ex);
         }
     }
 

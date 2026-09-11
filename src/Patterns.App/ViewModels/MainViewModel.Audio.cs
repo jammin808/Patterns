@@ -489,6 +489,7 @@ public sealed partial class MainViewModel
         {
             AudioDevices.Add(new AudioDeviceChoice(this, name, selected.Contains(name)));
         }
+        RefreshMonitorDevices();   // the operator's own output comes off the same enumeration
     }
 
     /// <summary>Device checkbox changes → the model's device list (empty = default device).</summary>

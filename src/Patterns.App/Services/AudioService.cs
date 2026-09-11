@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using Patterns.Core.Effects;
 using Patterns.Core.Model;
@@ -118,13 +119,20 @@ public sealed class ToneSampleProvider : ISampleProvider
 /// Soundcheck tone for the audio engineer: continuous sine or channel ident (one pip LEFT,
 /// two pips RIGHT, repeating) with a matching on-screen indicator on every sink.
 /// Windows audio only; contained everywhere else.
+///
+/// It goes out on the PROGRAMME's first output — the interface feeding the room — and not on
+/// whatever Windows happens to call default. A soundcheck tone that plays on the laptop's own
+/// speakers while the PA is on a USB card checks nothing, and the engineer at the other end of
+/// the hall is the one who finds out.
 /// </summary>
 public sealed class AudioService : IDisposable
 {
     private readonly AppServices _services;
     private readonly DispatcherTimer _timer;
     private ToneSampleProvider? _provider;
-    private WaveOutEvent? _device;
+    private IWavePlayer? _device;
+    private MMDevice? _endpoint;
+    private string _openedOn = "";
     private volatile string _status = "Off";
     private int _identStep = -1;
     private DateTime _identNextUtc = DateTime.MinValue;
@@ -202,15 +210,21 @@ public sealed class AudioService : IDisposable
                 return;
             }
 
+            // Follow the programme. Changing the show's first output while the tone is up moves
+            // the tone with it rather than leaving it on the card nobody is listening to.
+            var wantedDevice = ProgrammeOutputName(_services.State);
+            if (_device is not null && !string.Equals(_openedOn, wantedDevice, StringComparison.Ordinal)) StopDevice();
+
             if (_device is null)
             {
                 _provider = new ToneSampleProvider();
-                _device = new WaveOutEvent { DesiredLatency = DeviceLatencyMs };
+                _device = OpenOn(wantedDevice);
                 _device.Init(_provider);
                 _device.Play();
+                _openedOn = wantedDevice;
                 _streamStartMaster = ShowClock.Seconds + DeviceLatencyMs / 1000.0;
                 _identStep = -1;
-                Log.Info("Tone generator started.");
+                Log.Info($"Tone generator started on {(wantedDevice.Length == 0 ? "the machine's own output" : wantedDevice)}.");
             }
 
             if (syncCheck) ScheduleSyncClicks(ShowClock.Seconds);
@@ -272,6 +286,50 @@ public sealed class AudioService : IDisposable
         _services.PublishRuntime();
     }
 
+    /// <summary>
+    /// The programme's first output by name, or "" for the machine's own. One tone on one wire:
+    /// a single stream cannot be in two endpoints at once, and the first output is the one the
+    /// room is on — the rest are confidence feeds and the stream.
+    /// </summary>
+    public static string ProgrammeOutputName(ShowState state)
+    {
+        foreach (var name in state.AudioPlayer.Devices)
+        {
+            if (!string.IsNullOrWhiteSpace(name) && name != AudioPlayerService.DefaultDeviceKey) return name;
+        }
+        return "";
+    }
+
+    /// <summary>
+    /// The output for that name. A named endpoint that this machine has not got falls back to the
+    /// machine's own rather than leaving the engineer with silence and no reason for it — the
+    /// Audio page's own line is where the missing interface is named.
+    /// </summary>
+    private IWavePlayer OpenOn(string deviceName)
+    {
+        if (deviceName.Length > 0 && OperatingSystem.IsWindows())
+        {
+            try
+            {
+                using var enumerator = new MMDeviceEnumerator();
+                foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+                {
+                    if (string.Equals(device.FriendlyName, deviceName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _endpoint = device;                                   // kept alive until StopDevice
+                        return new WasapiOut(device, AudioClientShareMode.Shared, true, DeviceLatencyMs);
+                    }
+                    device.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Tone output '{deviceName}' could not be opened; using the machine's own.", ex);
+            }
+        }
+        return new WaveOutEvent { DesiredLatency = DeviceLatencyMs };
+    }
+
     private void StopDevice()
     {
         if (_device is null) return;
@@ -284,8 +342,11 @@ public sealed class AudioService : IDisposable
         {
             Log.Warn("Tone device stop failed.", ex);
         }
+        _endpoint?.Dispose();
+        _endpoint = null;
         _device = null;
         _provider = null;
+        _openedOn = "";
         _streamStartMaster = double.NaN;
     }
 

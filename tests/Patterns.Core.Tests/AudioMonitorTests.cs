@@ -69,19 +69,45 @@ public class AudioMonitorTests
 
         var wanted = AudioMonitorRule.Apply(state, MediaLocator.FindWantedInputs(Snap(state)));
         Assert.False(Of(wanted, "/clips/programme.mp4").Mute);
+        Assert.Equal(AudioDestination.Program, Of(wanted, "/clips/programme.mp4").Destination);
         Assert.True(Of(wanted, "/clips/confidence.mp4").Mute, "the confidence screen's clip is not in the mix");
+    }
 
-        // Listening to that screen instead: the two swap over, and nothing plays twice.
+    [Fact]
+    public void MonitoringSomethingElseNeverTakesTheRoomsSoundAway()
+    {
+        // The fault this round corrects. Every sound-maker in the build opens the same default
+        // endpoint, so muting the programme's clip to audition another picture silenced it IN THE
+        // ROOM — the monitor could only ever be a mute, and a mute on a shared wire is the PA.
+        var state = Show();
+        OwnClip(state, "b", "/clips/confidence.mp4");
+
         state.Monitor.Source = AudioMonitor.Output;
         state.Monitor.OutputId = "b";
-        wanted = AudioMonitorRule.Apply(state, MediaLocator.FindWantedInputs(Snap(state)));
-        Assert.True(Of(wanted, "/clips/programme.mp4").Mute);
-        Assert.False(Of(wanted, "/clips/confidence.mp4").Mute);
+        var wanted = AudioMonitorRule.Apply(state, MediaLocator.FindWantedInputs(Snap(state)));
+        Assert.False(Of(wanted, "/clips/programme.mp4").Mute);      // the audience keeps it, always
+        Assert.Equal(AudioDestination.Program, Of(wanted, "/clips/programme.mp4").Destination);
 
-        // Silence: nothing at the desk at all.
+        // With no monitor output there is nowhere to audition that is not the room, so it stays
+        // silent rather than joining the mix.
+        Assert.True(Of(wanted, "/clips/confidence.mp4").Mute);
+        Assert.Equal(AudioDestination.Silent, Of(wanted, "/clips/confidence.mp4").Destination);
+        Assert.Contains("Pick a monitor output", AudioMonitorRule.Words(state));
+
+        // Name one and it plays there, on the operator's own wire, beside a programme that never
+        // stopped.
+        state.Monitor.Device = "Headphones (Realtek)";
+        wanted = AudioMonitorRule.Apply(state, MediaLocator.FindWantedInputs(Snap(state)));
+        Assert.False(Of(wanted, "/clips/programme.mp4").Mute);
+        Assert.Equal(AudioDestination.Program, Of(wanted, "/clips/programme.mp4").Destination);
+        Assert.False(Of(wanted, "/clips/confidence.mp4").Mute);
+        Assert.Equal(AudioDestination.Monitor, Of(wanted, "/clips/confidence.mp4").Destination);
+
+        // Silence is silence at the DESK; the room is untouched by it.
         state.Monitor.Source = AudioMonitor.Silent;
         wanted = AudioMonitorRule.Apply(state, MediaLocator.FindWantedInputs(Snap(state)));
-        Assert.All(wanted, w => Assert.True(w.Mute));
+        Assert.False(Of(wanted, "/clips/programme.mp4").Mute);
+        Assert.True(Of(wanted, "/clips/confidence.mp4").Mute);
     }
 
     [Fact]
@@ -129,6 +155,7 @@ public class AudioMonitorTests
     {
         var program = new[] { MediaBus.Program };
         var screen = new[] { MediaBus.Output("b") };
+        var preview = new[] { MediaBus.Sandbox };
         var both = new[] { MediaBus.Program, MediaBus.Sandbox };
 
         var pgm = new AudioMonitorRule.MonitorPick(AudioMonitor.Program, "");
@@ -136,42 +163,52 @@ public class AudioMonitorTests
         var outB = new AudioMonitorRule.MonitorPick(AudioMonitor.Output, "b");
         var quiet = new AudioMonitorRule.MonitorPick(AudioMonitor.Silent, "");
 
-        Assert.True(AudioMonitorRule.Hears(pgm, program));
-        Assert.False(AudioMonitorRule.Hears(pgm, screen));
-        Assert.True(AudioMonitorRule.Hears(outB, screen));
-        Assert.False(AudioMonitorRule.Hears(outB, program));
-        Assert.False(AudioMonitorRule.Hears(pvw, program));
+        // Anything the programme wants goes to the room, whatever the operator is listening to.
+        foreach (var pick in new[] { pgm, pvw, outB, quiet })
+        {
+            Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, program, true));
+            Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, Array.Empty<MediaBus>(), true));
+            // A clip open on the programme AND in the preview is one decoder on two buses: the
+            // room's claim on it wins, so auditioning never silences what is on air.
+            Assert.Equal(AudioDestination.Program, AudioMonitorRule.Where(pick, both, true));
+        }
 
-        // A clip that is on the programme and in the preview is heard either way round — the
-        // preview holds the same file, so silencing it would be silencing what is being checked.
-        Assert.True(AudioMonitorRule.Hears(pgm, both));
-        Assert.True(AudioMonitorRule.Hears(pvw, both));
-        Assert.False(AudioMonitorRule.Hears(outB, both));
+        // Everything else goes to the operator's output, but only when they asked for it.
+        Assert.Equal(AudioDestination.Monitor, AudioMonitorRule.Where(outB, screen, true));
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pgm, screen, true));
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pvw, screen, true));
+        Assert.Equal(AudioDestination.Monitor, AudioMonitorRule.Where(pvw, preview, true));
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(quiet, preview, true));
 
-        // Silence means silence, and a mount with no bus at all falls back to the programme.
-        Assert.False(AudioMonitorRule.Hears(quiet, program));
-        Assert.False(AudioMonitorRule.Hears(quiet, both));
-        Assert.True(AudioMonitorRule.Hears(pgm, Array.Empty<MediaBus>()));
-        Assert.False(AudioMonitorRule.Hears(pvw, null));
+        // And nowhere at all when there is no output of their own to put it on.
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(pvw, preview, false));
+        Assert.Equal(AudioDestination.Silent, AudioMonitorRule.Where(outB, screen, false));
     }
 
     [Fact]
-    public void TheLineSaysWhatIsBeingHeard()
+    public void TheLineSaysWhatIsHeardAndOnWhichWire()
     {
         var state = Show();
         state.Output.Placements[1].CustomLabel = "Stage left";
-        Assert.Contains("the programme", AudioMonitorRule.Words(state));
+        Assert.Contains("the machine's own output", AudioMonitorRule.Words(state));
+
+        state.AudioPlayer.Devices.Add("Scarlett 2i2");
+        Assert.Contains("Scarlett 2i2", AudioMonitorRule.Words(state));
+        Assert.Contains("Nothing else is playing at the desk", AudioMonitorRule.Words(state));
 
         state.Monitor.Source = AudioMonitor.Preview;
-        Assert.Contains("preview", AudioMonitorRule.Words(state));
+        Assert.Contains("Pick a monitor output", AudioMonitorRule.Words(state));
+        state.Monitor.Device = "Headphones";
+        Assert.Contains("The preview on Headphones", AudioMonitorRule.Words(state));
 
         state.Monitor.Source = AudioMonitor.Output;
-        Assert.Contains("pick which one", AudioMonitorRule.Words(state));
+        Assert.Contains("pick which output", AudioMonitorRule.Words(state));
         state.Monitor.OutputId = "b";
-        Assert.Contains("Stage left", AudioMonitorRule.Words(state));
+        Assert.Contains("Stage left on Headphones", AudioMonitorRule.Words(state));
 
         state.Monitor.Source = AudioMonitor.Silent;
-        Assert.Contains("room still hears", AudioMonitorRule.Words(state));
+        Assert.Contains("Nothing on Headphones", AudioMonitorRule.Words(state));
+        Assert.Contains("The room hears the programme", AudioMonitorRule.Words(state));
 
         Assert.Equal("Stage left", AudioMonitorRule.LabelFor(state, "b"));
         Assert.Equal("a", AudioMonitorRule.LabelFor(state, "a"));

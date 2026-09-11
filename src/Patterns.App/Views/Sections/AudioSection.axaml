@@ -26,8 +26,6 @@
                 PlaceholderText="Which screen or canvas…"
                 ToolTip.Tip="A screen that is simply following the show has the programme's sound, and that is what you will hear" />
     </Grid>
-    <TextBlock Classes="hint" Text="{Binding MonitorWords}" TextWrapping="Wrap" Margin="0,4,0,0" />
-
     <TextBlock Classes="h2" Text="AUDIO PLAYLIST" />
     <TextBlock Classes="hint tip"
                Text="An independent bed of music or announcements — plays whatever is on screen, to the default output or any set of devices (each HDMI screen is an audio device, so it can follow all screens, one, or a group). Add tracks one at a time or whole folders: a folder's audio files play after the rows, in name order, and a file dropped in live is seen within half a minute. Shuffle deals the order by a seed the show keeps (RESHUFFLE deals again); Loop the list starts it over at its end, off it stops there. A VOG ducks it, a stinger fades it out and back, STOP ALL stops it. On the wire: AUDIO PLAY [n or name], AUDIO NEXT, AUDIO PREV, AUDIO STOP, AUDIO VOL." />
@@ -95,6 +93,7 @@
     </Grid>
     <TextBlock Classes="label" Text="{Binding AudioPlayerStatus}" TextWrapping="Wrap" />
 
+    <TextBlock Classes="h2" Text="PROGRAMME OUT — WHAT THE ROOM HEARS" />
     <Grid ColumnDefinitions="*,8,Auto">
       <TextBlock Classes="label" Text="Play on these outputs (none ticked = computer output)" VerticalAlignment="Center" />
       <Button Grid.Column="2" Classes="mini" Content="Refresh devices" Command="{Binding RefreshAudioDevicesCommand}" />
@@ -114,7 +113,28 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <TextBlock Classes="hint tip"
-               Text="The computer audio output is the default Windows device — usually the jack or interface feeding the venue sound system — and it combines with HDMI screens (tick both to play everywhere at once). Each output has its own delay offset for lip sync. Device changes apply on the next play." />
+               Text="These are the programme's outputs: the USB or dedicated interface feeding the venue sound system, the HDMI screens, or the computer's own output (the default Windows device) — tick several to play everywhere at once. Each has its own delay offset for lip sync. Device changes apply on the next play. A named interface that is not plugged in does not stop the show: the sound falls back to the computer's own output and the line below says so, because an operator who is not told finds out from the room." />
+    <TextBlock Classes="label" Foreground="{StaticResource TallyHoldBrush}" TextWrapping="Wrap"
+               Text="{Binding AudioDeviceTrouble}" IsVisible="{Binding AudioDeviceTrouble, Converter={StaticResource NotEmpty}}" />
+
+    <TextBlock Classes="h2" Text="MONITOR — WHAT THE OPERATOR HEARS" />
+    <TextBlock Classes="hint tip"
+               Text="The desk's own output, kept off the programme's on purpose: headphones, the machine's own speakers, a spare card. It is where a picture the room is NOT watching plays — the preview, or one screen doing its own thing — so you can hear the next clip before it lands without touching the PA. The programme's sound is never taken away to make room for it: with no monitor output named there is nowhere to audition that is not the room, so nothing else plays and the line says so. Clips, capture boxes and web pages are what this routes; the audio playlist, VOGs, stingers and the tone are the show's own sound and always go to the programme's outputs." />
+    <Grid ColumnDefinitions="130,*">
+      <TextBlock Classes="label" Text="Monitor output" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" Name="MonitorDevice" ItemsSource="{Binding MonitorDevices}" HorizontalAlignment="Stretch"
+                SelectedItem="{Binding State.Monitor.Device, Mode=TwoWay}"
+                PlaceholderText="None — only the programme is heard" />
+    </Grid>
+    <Grid ColumnDefinitions="130,*,58" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Monitor level" VerticalAlignment="Center" />
+      <Slider Grid.Column="1" Minimum="0" Maximum="125" TickFrequency="5" Value="{Binding State.Monitor.VolumePct, Mode=TwoWay}" />
+      <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Text="{Binding State.Monitor.VolumePct, StringFormat={}{0:0}%}" />
+    </Grid>
+    <TextBlock Classes="hint" Text="{Binding MonitorWords}" TextWrapping="Wrap" Margin="0,4,0,0" />
+    <TextBlock Classes="hint tip"
+               Text="Honest limits: there is no mix bus anywhere in the build — every sound opens its own stream and Windows sums them — so there is no programme fader, no meters and nothing above stereo. One clip is one decoder and one decoder plays to one device, so the same clip cannot be on the PA and in the cans at once (the room's claim wins). A web page's sound cannot be routed from here at all — WebView2 offers a mute and nothing else — and a capture card's embedded audio is not opened by this build." />
 
     <TextBlock Classes="h2" Text="MASTER CLOCK &amp; SYNC" />
     <TextBlock Classes="hint tip" TextWrapping="Wrap"
@@ -384,7 +404,7 @@
     <ToggleButton Classes="blackout" Content="TONE ON / OFF" IsChecked="{Binding State.Tone.Enabled}"
                   HorizontalAlignment="Left" Padding="16,8" />
     <TextBlock Classes="label" Text="{Binding ToneStatus}" TextWrapping="Wrap" />
-    <TextBlock Classes="hint tip" Text="The tone never auto-starts with the app — it always comes up off." />
+    <TextBlock Classes="hint tip" Text="The tone never auto-starts with the app — it always comes up off. It goes out on the programme's first output above, not on whatever Windows calls default: a tone on the laptop's own speakers while the PA is on a USB card checks nothing. Change that output while the tone is up and the tone moves with it." />
 
     <StackPanel IsEnabled="{Binding State.Tone.Enabled}">
       <Grid ColumnDefinitions="130,*">

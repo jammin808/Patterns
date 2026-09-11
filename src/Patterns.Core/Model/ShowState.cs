@@ -989,11 +989,24 @@ public sealed class MonitorConfig : Observable
 {
     private AudioMonitor _source = AudioMonitor.Program;
     private string _outputId = "";
+    private string _device = "";
+    private double _volumePct = 100;
 
     public AudioMonitor Source { get => _source; set => Set(ref _source, value); }
 
     /// <summary>The content target listened to when <see cref="Source"/> is Output; empty = the programme.</summary>
     public string OutputId { get => _outputId; set => Set(ref _outputId, value ?? ""); }
+
+    /// <summary>
+    /// The operator's own output — a headphone socket, the machine's own speakers, a spare card —
+    /// kept off the programme's devices on purpose. Empty means there isn't one, and then nothing
+    /// but the programme can be heard: on a desk with a single output, auditioning a picture the
+    /// room is not watching would mean taking the room's sound away to do it.
+    /// </summary>
+    public string Device { get => _device; set => Set(ref _device, value ?? ""); }
+
+    /// <summary>How loud the monitor is, without touching what the room hears.</summary>
+    public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
 }
 
 public sealed class AudioPlayerConfig : Observable
@@ -1024,7 +1037,12 @@ public sealed class AudioPlayerConfig : Observable
 
     public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
 
-    /// <summary>Output device names to play on; empty = the default device.</summary>
+    /// <summary>
+    /// The PROGRAMME's output devices — what the room hears: a USB or dedicated interface, the
+    /// HDMI screens, or the machine's own output. Empty = the default device. The operator's own
+    /// monitoring is a separate destination (<see cref="MonitorConfig.Device"/>) so the two can be
+    /// different wires.
+    /// </summary>
     public ObservableCollection<string> Devices { get; init; } = new();
 
     /// <summary>Runtime-only: playback never auto-starts with the app.</summary>

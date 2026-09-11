@@ -85,6 +85,9 @@ public static class MediaLocator
         /// list rather than about a single owner.
         /// </summary>
         public IReadOnlyList<MediaBus> Buses { get; init; } = Array.Empty<MediaBus>();
+
+        /// <summary>Which output this mount's sound belongs on; see <see cref="AudioMonitorRule"/>.</summary>
+        public AudioDestination Destination { get; init; } = AudioDestination.Program;
     }
 
     /// <summary>
