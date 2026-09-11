@@ -211,22 +211,12 @@ public sealed class ShowSnapshot
     /// The pattern a given sink should draw: a repeater draws its source's; a content target (a
     /// single screen, or a joined canvas by its member key) with "own pattern" on uses its
     /// assignment; everything else shows the program. Hot path: plain loops, no allocation.
+    ///
+    /// One implementation, in <see cref="LookService.Shown"/>, because the look comparison has to
+    /// ask exactly the same question — and two copies of this rule would answer differently the
+    /// first time one of them was changed.
     /// </summary>
-    public PatternConfig PatternFor(string? targetId)
-    {
-        if (targetId is not null)
-        {
-            targetId = ScreenRoles.ResolveMirror(State, targetId);
-            if (ContentTargets.UsesOwnPattern(State, targetId))
-            {
-                foreach (var a in State.Independent)
-                {
-                    if (a.ScreenId == targetId) return a.Pattern;
-                }
-            }
-        }
-        return State.Pattern;
-    }
+    public PatternConfig PatternFor(string? targetId) => LookService.Shown(State, targetId);
 }
 
 public static class ColorUtil

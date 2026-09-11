@@ -1020,7 +1020,6 @@ public sealed partial class MainViewModel
     // ---- the tally: which look is in use, which VOG, stinger or sting is playing ----------------
 
     private DispatcherTimer? _tallyTimer;
-    private readonly Dictionary<string, string> _lookFingerprints = new();
 
     /// <summary>
     /// Lights the rows and chips: the look on air (exactly, or edited since), the look loaded into
@@ -1058,63 +1057,17 @@ public sealed partial class MainViewModel
         }
     }
 
-    private string FingerprintOf(LookConfig look)
-    {
-        if (_lookFingerprints.TryGetValue(look.Json, out var fp)) return fp;
-        if (_lookFingerprints.Count > 256) _lookFingerprints.Clear();
-        fp = LookService.Fingerprint(look.Json);
-        _lookFingerprints[look.Json] = fp;
-        return fp;
-    }
-
-    private long _airFingerprintVersion = -1;
-    private bool _airFingerprintSandboxed;
-    private string _airFingerprint = "";
-    private long _previewFingerprintVersion = -1;
-    private string _previewFingerprint = "";
-
-    /// <summary>
-    /// The picture on air, fingerprinted — a serialisation of the whole state, so it is kept by
-    /// the snapshot version it was taken at: every edit that reaches the air publishes a new
-    /// version (and the sandbox opening or closing swaps which state is the air), and a tick in
-    /// which nothing moved costs a comparison, not a serialisation.
-    /// </summary>
-    private string AirFingerprint()
-    {
-        var version = _services.Bus.Current.Version;
-        var sandboxed = _services.Sandbox.Active;
-        if (version != _airFingerprintVersion || sandboxed != _airFingerprintSandboxed)
-        {
-            _airFingerprint = LookService.Fingerprint(_services.AirState);
-            _airFingerprintVersion = version;
-            _airFingerprintSandboxed = sandboxed;
-        }
-        return _airFingerprint;
-    }
-
-    /// <summary>The edited state's fingerprint (the preview while the sandbox is open), kept by the sandbox snapshot's version.</summary>
-    private string PreviewFingerprint()
-    {
-        var version = _services.Bus.Sandbox?.Version ?? -1;
-        if (version != _previewFingerprintVersion)
-        {
-            _previewFingerprint = LookService.Fingerprint(State);
-            _previewFingerprintVersion = version;
-        }
-        return _previewFingerprint;
-    }
-
     private void RefreshLookTallies()
     {
         var looks = State.LooksAndCues.Looks;
         if (looks.Count == 0) return;
 
         // Program: the look last put on air, edited or not; with none recorded, the look whose picture this is.
-        var airFingerprint = AirFingerprint();
-        var onAir = looks.FirstOrDefault(l => l.Id == _services.AirLookId);
-        var airEdited = false;
-        if (onAir is not null) airEdited = FingerprintOf(onAir) != airFingerprint;
-        else onAir = looks.FirstOrDefault(l => FingerprintOf(l) == airFingerprint);
+        // One reading, shared with the wire: OnAir carries the "nothing recorded, so whichever look
+        // this picture is" fallback the page has always had, and AirEdited compares it.
+        var tally = _services.LookTally;
+        var onAir = tally.OnAir();
+        var airEdited = tally.AirEdited();
 
         // Preview: only a look loaded with → PVW, while the sandbox is open.
         LookConfig? inPreview = null;
@@ -1122,7 +1075,7 @@ public sealed partial class MainViewModel
         if (_services.Sandbox.Active && _services.PreviewLookId is { Length: > 0 } previewId)
         {
             inPreview = looks.FirstOrDefault(l => l.Id == previewId);
-            if (inPreview is not null) previewEdited = FingerprintOf(inPreview) != PreviewFingerprint();
+            if (inPreview is not null) previewEdited = tally.FingerprintOf(inPreview) != tally.PreviewFingerprint();
         }
 
         foreach (var look in looks)

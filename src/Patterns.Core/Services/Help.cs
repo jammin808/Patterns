@@ -545,6 +545,23 @@ public static class HelpTopics
             new[] { "Media", "Pattern", "Stream" },
             new[] { "playlist", "part", "section", "multiview", "stream", "streaming", "rtmp", "srt", "destination", "arm", "stream health", "slow stream", "dropped frames", "stream light", "rail", "buffering", "stream fault", "encoder" }),
 
+        new HelpTopic("test-card", HelpGroup.Content,
+            "The Patterns test card: one card for a rig day's first four questions",
+            "BUILD → Pattern → Patterns test card: which screen this is, whether the pixels arrive one to one, where the edges went and what the processor has done to black, white and grey — on one picture, read from the ladder. What a brand-new install comes up on.",
+            HelpBodies.TestCard,
+            new[]
+            {
+                "Rig is the whole card and the one a new install shows; Pixel is the mapping half at twice the size for somebody up a ladder; Levels is the measurement half full frame.",
+                "Read the edges first: both borders on all four sides means the signal arrives whole, and the ticks count the overscan in pixels.",
+                "The five one-to-one fields are each exactly half lit — even textures at native resolution, moiré through any scaler, and which one breaks says whether the scaling is horizontal, vertical or both.",
+                "The staircase and the clipping patches say what the chain threw away; the gamma solid that vanishes into the line field beside it is this display's gamma.",
+                "Both of those only mean anything unscaled and unsharpened — through a scaler you are measuring the scaler.",
+                "The card carries the Patterns mark itself, so the badge overlay stays off this one kind: two logos on a card is a mistake.",
+            },
+            "PATTERN TestCard",
+            new[] { "Pattern", "Screens" },
+            new[] { "test card", "testcard", "test pattern", "rig", "rig day", "one to one", "1:1", "pixel mapping", "overscan", "edges", "scaling", "scaler", "moire", "gamma", "greyscale", "grayscale", "staircase", "clipping", "crush", "black level", "white level", "which screen", "identify", "default", "first run", "startup", "processor", "led" }),
+
         new HelpTopic("badge", HelpGroup.Content,
             "The Patterns badge: a branded test card",
             "Branding → PATTERNS BADGE: the app's own mark — the test-card icon, PATTERNS and a line under it, in its neon colours — drawn by the engine over every test pattern, on by default in the middle of the lower third, so a test card names its maker at an expo or on a rig day; it travels with looks and keeps off a client's media unless asked.",
@@ -552,6 +569,7 @@ public static class HelpTopics
             new[]
             {
                 "Leave it on: every test pattern — the grid, the bars, the walls, the ramps, particles and fractals too — carries the badge in the middle of the lower third on every output, NDI send and the stream.",
+                "The Patterns test card is the exception that needs no setting: it carries the mark inside itself, as part of the picture, so the badge stays off it rather than making a second one.",
                 "Branding → PATTERNS BADGE: move it (nine anchors and a nudge, or drag it on the PREVIEW pane), size it as a share of the screen, set its opacity, put a venue's address or a stand number on the line under the name, or turn the line off.",
                 "Tick 'On media too' only when a client's video, image, deck or web page should carry it; the multiview never does.",
                 "A look saves the badge as it is (on, off, where): recall the look and the badge comes with it; OVERLAYS OFF from the Show panel, a cue or the wire takes it with the other overlays.",
@@ -710,6 +728,22 @@ public static class HelpTopics
             "LOOK #<n>, PATTERN <kind> and the module's actions and feedbacks; /patterns/look/index/<n> and /patterns/state/… over OSC.",
             new[] { "Remote" },
             new[] { "companion", "stream deck", "bitfocus", "preset", "bank", "feedback", "variable", "osc", "touchosc", "key", "label", "module", "groups", "tick", "clock", "countdown", "message", "pattern" }),
+
+        new HelpTopic("look-state", HelpGroup.Control,
+            "Is the look still what is on the screens — and which screen is not",
+            "A look key that says only \"on air\" cannot tell you somebody has changed the picture since. The desk now says both, on its own page, on the wire, over OSC and on a Stream Deck.",
+            HelpBodies.LookState,
+            new[]
+            {
+                "Three states, not two: the look is up and untouched, the look is up but the picture has moved since it was recalled, or it is not up.",
+                "The Looks page and the Show panel have said PROGRAM · EDITED since round 17; the wire, OSC and Companion say it too now, off the same reading — two surfaces disagreeing about a fact is worse than neither having it.",
+                "Per screen, which is the reading a rig with eight of them actually needs: the look is up, and screen 3 has gone its own way. Companion's screen_off_look lights the key that puts it back.",
+                "A screen the look itself gave its own picture is NOT a screen that has gone its own way, and a locked screen never counts — keeping its picture through a recall is what LOCK means.",
+                "Every screen also says what kind of picture it is drawing, so a key can light for \"screen 2 is on the test card\" where before only the programme's kind was on the wire.",
+            },
+            "STATE lookEdited · lookScreensOff · screens[].pattern · screens[].off · /patterns/state/look/edited · /patterns/state/look/screensoff",
+            new[] { "Looks", "Panel", "Remote" },
+            new[] { "look", "edited", "changed", "modified", "live", "on air", "tally", "companion", "stream deck", "streamdeck", "feedback", "highlight", "screen", "drifted", "off look", "per screen", "pattern per screen" }),
 
         new HelpTopic("osc", HelpGroup.Control,
             "OSC in and out",

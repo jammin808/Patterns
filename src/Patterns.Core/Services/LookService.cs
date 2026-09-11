@@ -102,6 +102,97 @@ public static class LookService
     }
 
     /// <summary>
+    /// The picture a saved look asks one target to show: its own, if the look gave it one, else the
+    /// look's programme. The live twin of this is <see cref="SnapshotBus.PatternFor"/>; they have to
+    /// agree, which is why the mirror is resolved here too.
+    /// </summary>
+    public static PatternConfig PatternFor(LookData data, ShowState rig, string? targetId)
+    {
+        if (targetId is { Length: > 0 })
+        {
+            var resolved = ScreenRoles.ResolveMirror(rig, targetId);
+            if (data.CustomScreens is null || data.CustomScreens.Contains(resolved))
+            {
+                foreach (var a in data.Independent)
+                {
+                    if (a.ScreenId == resolved) return a.Pattern;
+                }
+            }
+        }
+        return data.Pattern;
+    }
+
+    /// <summary>
+    /// Which targets are showing something other than what the look asked them to.
+    ///
+    /// The desk has always been able to say that the picture as a whole has moved since a look was
+    /// recalled — one fingerprint against another, one boolean for the whole show. What it could
+    /// never say is WHERE, and on a rig with eight screens that is the only part an operator needs:
+    /// "the look is up, but screen 3 is on something else" is a different thing to know from "the
+    /// look is up" and from "the look is not up", and a key that cannot tell the three apart is a
+    /// key you have to walk over and check.
+    ///
+    /// Compared by the same identity the engine uses to decide a picture has changed, so a layer
+    /// dragged about is not a screen going its own way.
+    /// </summary>
+    public static List<string> TargetsOffLook(ShowState air, string lookJson, IReadOnlyList<string> targetIds)
+    {
+        var off = new List<string>();
+        if (targetIds.Count == 0) return off;
+        var data = Read(lookJson);
+        if (data is null) return off;
+        foreach (var id in targetIds)
+        {
+            // A locked screen is doing exactly as it was told: LOCK means "keep your picture
+            // through looks, cues and TAKE", and Apply re-imposes what it was showing. Reading one
+            // as having gone its own way would light the key from the moment any look was recalled
+            // and never put it out — a warning that is always on is a warning nobody reads.
+            if (ScreenRoles.IsLocked(air, id)) continue;
+            var wanted = PatternFor(data, air, id);
+            var shown = Shown(air, id);
+            if (JsonUtil.SerializeIdentity(wanted) != JsonUtil.SerializeIdentity(shown)) off.Add(id);
+        }
+        return off;
+    }
+
+    /// <summary>
+    /// What a target is actually drawing right now: a repeater draws its source's, a content target
+    /// on its own picture uses its assignment, everything else shows the programme.
+    ///
+    /// The one implementation of that rule. <see cref="SnapshotBus.PatternFor"/> is the hot path and
+    /// calls this; the look comparison calls it too, because a second copy of the rule would answer
+    /// a different question the first time somebody changed one of them.
+    /// </summary>
+    public static PatternConfig Shown(ShowState state, string? targetId)
+    {
+        if (targetId is { Length: > 0 })
+        {
+            var resolved = ScreenRoles.ResolveMirror(state, targetId);
+            if (ContentTargets.UsesOwnPattern(state, resolved))
+            {
+                foreach (var a in state.Independent)
+                {
+                    if (a.ScreenId == resolved) return a.Pattern;
+                }
+            }
+        }
+        return state.Pattern;
+    }
+
+    /// <summary>A look's payload, or null when it cannot be read. Never throws: a hand-edited file is not a crash.</summary>
+    public static LookData? Read(string lookJson)
+    {
+        try
+        {
+            return JsonUtil.Deserialize<LookData>(lookJson);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// The one resolver for everything that names a look — F-keys aside, looks are referenced
     /// by name, and four code paths used to disagree on case. Id first, then name, case-insensitive.
     /// </summary>

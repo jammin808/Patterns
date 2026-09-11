@@ -225,6 +225,11 @@ public sealed class CommandRouter
         var s = _services.State;
         var airLook = LookService.Find(s, _services.AirLookId)?.Name ?? "";
         var previewLook = _services.Sandbox.Active ? LookService.Find(s, _services.PreviewLookId)?.Name ?? "" : "";
+        // One reading of "is the look on air still what is on the screens", shared with the Looks
+        // page and the Show panel — the page said PROGRAM · EDITED for rounds while every remote
+        // saw a plain green, and two surfaces disagreeing about a fact is worse than neither having it.
+        var lookEdited = _services.LookTally.AirEdited();
+        var offLook = _services.LookTally.TargetsOffLook();
         var payload = new
         {
             show = s.Name,
@@ -244,7 +249,22 @@ public sealed class CommandRouter
             patternKinds = Enum.GetNames<PatternKind>(),                    // every kind a PATTERN key can ask for, in the desk's order
 
             // The show's looks in order — a bank of keys labels itself from these: n, the name, the F-key, on air, in the preview.
-            looks = s.LooksAndCues.Looks.Select((l, i) => new { n = i + 1, name = l.Name, slot = l.Hotkey, air = l.Name == airLook && airLook.Length > 0, preview = l.Name == previewLook && previewLook.Length > 0 }).ToArray(),
+            // The show's looks in order — a bank of keys labels itself from these: n, the name, the
+            // F-key, on air, in the preview. Whether that look has been changed since it was
+            // recalled is lookEdited below, once, rather than repeated on every row: on a
+            // sixteen-look show a per-row copy is thirty-two redundant fields on the hottest JSON
+            // on the wire, pushed four times a second to every controller and to the phone, and a
+            // row can only be edited if it is the row that is on air.
+            looks = s.LooksAndCues.Looks.Select((l, i) => new
+            {
+                n = i + 1,
+                name = l.Name,
+                slot = l.Hotkey,
+                air = l.Name == airLook && airLook.Length > 0,
+                preview = l.Name == previewLook && previewLook.Length > 0,
+            }).ToArray(),
+            lookEdited = lookEdited,                                       // the picture has moved since the look was recalled
+            lookScreensOff = offLook.Count,                                // and on how many screens
             presenter = PresenterState(s),
             screens = _services.Actions.RemoteScreens(),
             audio = AudioRow(s),                                           // the audio playlist: the track on, its place, what is left, the rows

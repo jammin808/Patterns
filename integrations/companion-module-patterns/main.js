@@ -9,6 +9,11 @@ import {
 	combineRgb,
 } from '@companion-module/base'
 
+// A pattern kind as typed by a person against a pattern kind as the desk names it. An operator
+// writes "colour bars", "color_bars" or "ColorBars" and means the same key; the desk always sends
+// the enum's own spelling. Both sides go through this, so a key does not silently never light.
+const norm = (v) => String(v ?? '').replace(/[\s_-]/g, '').toLowerCase()
+
 class PatternsInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
@@ -56,6 +61,7 @@ class PatternsInstance extends InstanceBase {
 			vars[`stinger_${n}`] = this.bankName('stinger', n)
 			vars[`screen_${n}`] = this.bankName('screen', n)
 			vars[`track_${n}`] = this.bankName('track', n)
+			vars[`screen_${n}_pattern`] = this.state.screens?.find((x) => x.n === n)?.pattern ?? ''
 		}
 		for (let n = 1; n <= 6; n++) {
 			vars[`music_${n}`] = this.bankName('music', n)
@@ -264,6 +270,18 @@ class PatternsInstance extends InstanceBase {
 			lower_third_preview_person: this.state.lowerThirdPreviewPerson ?? '',
 			lower_third_default: this.state.lowerThirdDefault ?? '',
 			lower_third_edited: this.state.lowerThirdEdited ? 'EDITED' : 'off',
+			look_state: (this.state.airLook ?? '') === '' ? 'off' : this.state.lookEdited ? 'EDITED' : 'LIVE',
+			look_screens_off: String(this.state.lookScreensOff ?? 0),
+			stream_status: this.state.stream?.status ?? '',
+			stream_health: this.state.stream?.health ?? '',
+			stream_up: this.state.stream?.up ?? '',
+			stream_fps: this.state.stream?.fps == null ? '' : String(this.state.stream.fps),
+			outputs_live: this.state.live ? 'LIVE' : 'off',
+			edit_safe: this.state.editSafe ? 'ON' : 'off',
+			tone: this.state.tone ? 'ON' : 'off',
+			timing_offset: this.state.cuestack?.timing?.offset ?? '',
+			timing_next_break: this.state.cuestack?.timing?.nextBreak ?? '',
+			timing_end: this.state.cuestack?.timing?.end ?? '',
 			deck_page: this.state.deck?.count ? String(this.state.deck.page) : '',
 			deck_count: this.state.deck?.count ? String(this.state.deck.count) : '',
 			deck_file: this.state.deck?.file ?? '',
@@ -338,7 +356,9 @@ class PatternsInstance extends InstanceBase {
 			'review_on', 'weather_on', 'frozen', 'cue_armed', 'cue_hold', 'cue_standby_is', 'cue_confirm_required', 'cue_last_failed',
 			'web_on_air', 'deck_on_air', 'video_on_air', 'look_on_air', 'look_bank_on_air', 'look_f_on_air', 'look_preview', 'slot_empty',
 			'schedule_on', 'announcement_on', 'advert_on',
-			'clock_on', 'clock_hours', 'clock_seconds', 'clock_date', 'message_on', 'message_scroll', 'countdown_running', 'logo_on', 'pip_on', 'pattern_is')
+			'clock_on', 'clock_hours', 'clock_seconds', 'clock_date', 'message_on', 'message_scroll', 'countdown_running', 'logo_on', 'pip_on', 'pattern_is',
+			'look_edited', 'look_bank_edited', 'look_screens_off', 'screen_off_look', 'screen_pattern_is',
+			'stream_active', 'stream_trouble', 'outputs_live', 'edit_safe', 'tone_on', 'running_late', 'device_open')
 		this.refreshShowPresets()
 	}
 
@@ -939,12 +959,68 @@ class PatternsInstance extends InstanceBase {
 					return on !== '' && (!fb.options.name || on === fb.options.name)
 				},
 			},
+			// THE THREE STATES A LOOK KEY NEEDS. "on air" alone was one bit, and a desk at front of
+			// house needs three: the look is up and untouched, the look is up but somebody has been
+			// at the picture since, or the look is not up. Stack look_on_air (green) under
+			// look_edited (amber) on the same key and the key says which of the three it is — the
+			// topmost matching feedback wins in Companion, so the amber overrides the green.
+			look_edited: {
+				type: 'boolean',
+				name: 'A look is on air BUT the picture has changed since it was recalled',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'textinput', id: 'name', label: 'Look name (blank = whichever look is on air)', default: '' }],
+				callback: (fb) => {
+					const on = this.state.airLook ?? ''
+					if (on === '' || !this.state.lookEdited) return false
+					return !fb.options.name || on === fb.options.name
+				},
+			},
+			// The same question per screen, which is the one an operator actually asks on a rig with
+			// eight of them: the look is up, so WHICH screen has gone its own way? "own" cannot
+			// answer that — a look very often gives a screen its own picture on purpose.
+			look_screens_off: {
+				type: 'boolean',
+				name: 'A look is on air but one or more screens have changed pattern within it',
+				defaultStyle: { bgcolor: combineRgb(255, 138, 0), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => (this.state.airLook ?? '') !== '' && (this.state.lookScreensOff ?? 0) > 0,
+			},
+			screen_off_look: {
+				type: 'boolean',
+				name: 'Screen has gone its own way — not what the look on air asked of it',
+				defaultStyle: { bgcolor: combineRgb(255, 138, 0), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 }],
+				callback: (fb) => this.state.screens?.some((s) => s.n === fb.options.n && s.off) === true,
+			},
+			screen_pattern_is: {
+				type: 'boolean',
+				name: 'Screen is showing a kind of picture',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [
+					{ type: 'number', id: 'n', label: 'Screen number', default: 1, min: 1, max: 32 },
+					{ type: 'textinput', id: 'kind', label: 'Pattern kind (Grid, ColorBars, TestCard, Media…)', default: 'TestCard' },
+				],
+				callback: (fb) => {
+					const want = norm(fb.options.kind)
+					const screen = this.state.screens?.find((s) => s.n === fb.options.n)
+					return !!screen && want !== '' && norm(screen.pattern) === want
+				},
+			},
 			look_bank_on_air: {
 				type: 'boolean',
 				name: 'The look at a place in the show\'s list is on air (bank key n)',
 				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
 				options: [{ type: 'number', id: 'n', label: 'Place in the list (1–16)', default: 1, min: 1, max: 16 }],
 				callback: (fb) => !!this.state.looks?.[fb.options.n - 1]?.air,
+			},
+			look_bank_edited: {
+				type: 'boolean',
+				name: 'The look at a place in the list is on air but has been changed since (bank key n)',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'number', id: 'n', label: 'Place in the list (1–16)', default: 1, min: 1, max: 16 }],
+				// Derived rather than carried: a row can only be edited if it is the row on air, so
+				// the desk sends the fact once instead of on all sixteen rows four times a second.
+				callback: (fb) => !!this.state.looks?.[fb.options.n - 1]?.air && this.state.lookEdited === true,
 			},
 			look_f_on_air: {
 				type: 'boolean',
@@ -1220,7 +1296,67 @@ class PatternsInstance extends InstanceBase {
 				name: 'The kind of picture on air is…',
 				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
 				options: [{ type: 'textinput', id: 'kind', label: 'Kind (Grid, ColorBars, LedWall…)', default: 'Grid' }],
-				callback: (fb) => String(this.state.pattern ?? '').toLowerCase() === String(fb.options.kind ?? '').replace(/[\s_-]/g, '').toLowerCase(),
+				callback: (fb) => norm(this.state.pattern) !== '' && norm(this.state.pattern) === norm(fb.options.kind),
+			},
+			// THE FACTS THE DESK WAS ALREADY PUSHING AND NOTHING READ. The stream's whole health
+			// block has been on the wire since round 23 — the desk's own comment names "a Stream
+			// Deck's colour" as the consumer it was built for — and OSC has published it all along.
+			// A key that says the stream is live but not that it is in trouble is the one that costs
+			// a client the recording.
+			stream_active: {
+				type: 'boolean',
+				name: 'The stream is live',
+				defaultStyle: { bgcolor: combineRgb(224, 52, 46), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.stream?.active === true,
+			},
+			stream_trouble: {
+				type: 'boolean',
+				name: 'The stream is in trouble (dropping frames, reconnecting, slow)',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => !!this.state.stream?.trouble,
+			},
+			outputs_live: {
+				type: 'boolean',
+				name: 'The outputs are open (the audience can see something)',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.live === true,
+			},
+			edit_safe: {
+				type: 'boolean',
+				name: 'EDIT SAFE is open — there is a preview and a TAKE to come',
+				defaultStyle: { bgcolor: combineRgb(0, 90, 130), color: combineRgb(255, 255, 255) },
+				options: [],
+				callback: () => this.state.editSafe === true,
+			},
+			tone_on: {
+				type: 'boolean',
+				name: 'The soundcheck tone is on',
+				defaultStyle: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) },
+				options: [],
+				callback: () => this.state.tone === true,
+			},
+			// Where the day stands. The caller's own Stream Deck should be able to say "we are
+			// eleven minutes late" without anybody having to look at the desk.
+			running_late: {
+				type: 'boolean',
+				name: 'The show is running late by more than this many minutes',
+				defaultStyle: { bgcolor: combineRgb(255, 138, 0), color: combineRgb(14, 15, 19) },
+				options: [{ type: 'number', id: 'minutes', label: 'Minutes late', default: 5, min: 1, max: 120 }],
+				callback: (fb) => (this.state.cuestack?.timing?.offsetSeconds ?? 0) >= fb.options.minutes * 60,
+			},
+			device_open: {
+				type: 'boolean',
+				name: 'An Interactive device is open (any, or a named one)',
+				defaultStyle: { bgcolor: combineRgb(30, 158, 90), color: combineRgb(255, 255, 255) },
+				options: [{ type: 'textinput', id: 'name', label: 'Device name (blank = any)', default: '' }],
+				callback: (fb) => {
+					const rows = this.state.devices ?? []
+					if (!fb.options.name) return rows.some((d) => d.open)
+					return rows.some((d) => d.open && d.name === fb.options.name)
+				},
 			},
 			cue_armed: {
 				type: 'boolean',
@@ -1273,10 +1409,15 @@ class PatternsInstance extends InstanceBase {
 			banks.push({ variableId: `person_${n}`, name: `Person ${n} in the library (name, or empty)` })
 			banks.push({ variableId: `stinger_${n}`, name: `VOG / stinger ${n} (name, or empty)` })
 			banks.push({ variableId: `screen_${n}`, name: `Screen ${n} (its label, or empty)` })
+			// Eight, matching the eight keys the Audio preset group builds and the eight values
+			// bankVariables writes. The declaration used to sit inside a 1..6 loop with a `n <= 8`
+			// guard that could never be false, so track_7 and track_8 were written and used but
+			// never declared — those two keys rendered "$(patterns:track_7)" as their label.
+			banks.push({ variableId: `track_${n}`, name: `Audio playlist track ${n} (name, or empty)` })
+			banks.push({ variableId: `screen_${n}_pattern`, name: `Screen ${n} — the kind of picture it is showing` })
 		}
 		for (let n = 1; n <= 6; n++) {
 			banks.push({ variableId: `music_${n}`, name: `Break music entry ${n} (name, or empty)` })
-			if (n <= 8) banks.push({ variableId: `track_${n}`, name: `Audio playlist track ${n} (name, or empty)` })
 			banks.push({ variableId: `section_${n}`, name: `Playlist part ${n} (name, or empty)` })
 		}
 		for (let k = 1; k <= 7; k++) {
@@ -1307,6 +1448,18 @@ class PatternsInstance extends InstanceBase {
 			{ variableId: 'weather_figure', name: 'The weather chip\'s figure ("18°", "14–19°")' },
 			{ variableId: 'weather_view', name: 'The weather chip\'s view (now / day / tomorrow)' },
 			{ variableId: 'freeze', name: 'Freeze (FROZEN/off)' },
+			{ variableId: 'look_state', name: 'The look on air and whether it still is what is on the screens (LIVE / EDITED / off)' },
+			{ variableId: 'look_screens_off', name: 'How many screens have gone their own way inside the look on air' },
+			{ variableId: 'stream_status', name: 'The stream in a word (the desk\'s own status line)' },
+			{ variableId: 'stream_health', name: 'The stream\'s health (good / slow / trouble)' },
+			{ variableId: 'stream_up', name: 'How long the stream has been up' },
+			{ variableId: 'stream_fps', name: 'The stream\'s frame rate' },
+			{ variableId: 'outputs_live', name: 'The outputs (LIVE/off)' },
+			{ variableId: 'edit_safe', name: 'EDIT SAFE (ON/off)' },
+			{ variableId: 'tone', name: 'The soundcheck tone (ON/off)' },
+			{ variableId: 'timing_offset', name: 'How the day is running against the plan ("11 min late")' },
+			{ variableId: 'timing_next_break', name: 'The next break' },
+			{ variableId: 'timing_end', name: 'When the day is expected to end' },
 			{ variableId: 'black', name: 'Screens faded to black on their own (how many, or off)' },
 			{ variableId: 'black_text', name: 'Screens faded to black on their own, by name ("Screen 2 · Group A")' },
 			{ variableId: 'black_audio', name: 'The programme\'s sound is down with a fade to black (DOWN/off)' },
@@ -1400,6 +1553,7 @@ class PatternsInstance extends InstanceBase {
 				steps: [{ down: [{ actionId: 'look_name', options: { name: l.name } }], up: [] }],
 				feedbacks: [
 					{ feedbackId: 'look_on_air', options: { name: l.name }, style: { bgcolor: green } },
+					{ feedbackId: 'look_edited', options: { name: l.name }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } },
 					{ feedbackId: 'look_preview', options: { name: l.name }, style: amber },
 				],
 			}
@@ -1407,7 +1561,7 @@ class PatternsInstance extends InstanceBase {
 		;(s.lowerThirds ?? []).forEach((d) => {
 			presets[`show_lt_${d.n}_${key(d.name)}`] = {
 				type: 'button', category: 'Lower thirds — this show', name: `Lower third: ${d.name}`,
-				style: { text: `LT\\n${d.name}`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `LT\n${d.name}`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third', options: { n: d.n } }], up: [] }],
 				feedbacks: [{ feedbackId: 'lower_third_on', options: { name: d.name }, style: { bgcolor: combineRgb(224, 52, 46) } }],
 			}
@@ -1424,7 +1578,7 @@ class PatternsInstance extends InstanceBase {
 			const vog = it.kind === 'vog'
 			presets[`show_stinger_${it.n}_${key(it.name)}`] = {
 				type: 'button', category: vog ? 'VOGs — this show' : 'Stingers — this show', name: `${vog ? 'VOG' : 'Stinger'}: ${it.name}`,
-				style: { text: `${vog ? 'VOG' : 'STING'}\\n${it.name}`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `${vog ? 'VOG' : 'STING'}\n${it.name}`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: vog ? 'vog' : 'sting', options: { n: it.n } }], up: [] }],
 				feedbacks: vog
 					? [{ feedbackId: 'vog_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }]
@@ -1434,7 +1588,7 @@ class PatternsInstance extends InstanceBase {
 		;(s.audio?.items ?? []).forEach((t) => {
 			presets[`show_track_${t.n}_${key(t.name)}`] = {
 				type: 'button', category: 'Audio playlist — this show', name: `Audio track: ${t.name}`,
-				style: { text: `♪\\n${t.name}`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `♪\n${t.name}`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'audio_item', options: { n: t.n } }], up: [] }],
 				feedbacks: [{ feedbackId: 'audio_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }],
 			}
@@ -1442,7 +1596,7 @@ class PatternsInstance extends InstanceBase {
 		;(s.music?.items ?? []).forEach((m) => {
 			presets[`show_music_${m.n}_${key(m.name)}`] = {
 				type: 'button', category: 'Break music — this show', name: `Break music: ${m.name}`,
-				style: { text: `♫\\n${m.name}`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `♫\n${m.name}`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'music_item', options: { n: m.n } }], up: [] }],
 				feedbacks: [{ feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }],
 			}
@@ -1450,7 +1604,7 @@ class PatternsInstance extends InstanceBase {
 		;(s.sections ?? []).forEach((p) => {
 			presets[`show_section_${p.n}_${key(p.name)}`] = {
 				type: 'button', category: 'Playlist parts — this show', name: `Part: ${p.name}`,
-				style: { text: `PART\\n${p.name}`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `PART\n${p.name}`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'section', options: { n: p.n } }], up: [] }], feedbacks: [],
 			}
 		})
@@ -1468,7 +1622,7 @@ class PatternsInstance extends InstanceBase {
 		this.upcoming().forEach((c, i) => {
 			presets[`show_cue_${i + 1}_${key(c.number)}`] = {
 				type: 'button', category: 'Upcoming cues — this show', name: `${i === 0 ? 'Standby' : 'Cue'}: ${c.number} ${c.name}`,
-				style: { text: `${c.number}\\n${c.name}`, size: 'auto', color: white, bgcolor: i === 0 ? green : dark },
+				style: { text: `${c.number}\n${c.name}`, size: 'auto', color: white, bgcolor: i === 0 ? green : dark },
 				steps: [{ down: [{ actionId: 'cue_bank', options: { k: i + 1, mode: 'STANDBY' } }], up: [] }],
 				feedbacks: [{ feedbackId: 'cue_standby_is', options: { cue: c.number }, style: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) } }],
 			}
@@ -1492,6 +1646,50 @@ class PatternsInstance extends InstanceBase {
 		const green = combineRgb(30, 158, 90)
 		const empty = PatternsInstance.empty
 
+		// THE LOOK'S OWN KEY, in three states. Green: the look is up and the picture is still what
+		// it saved. Amber: the look is up and somebody has changed the picture since — the state a
+		// desk at front of house could never see before, because "on air" was one bit. Dark: not up.
+		presets['look_state'] = {
+			type: 'button', category: 'Looks', name: 'The look on air — live, changed since, or not up',
+			style: { text: 'LOOK\n$(patterns:air_look)\n$(patterns:look_state)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'look_back', options: {} }], up: [] }],
+			feedbacks: [
+				{ feedbackId: 'look_on_air', options: { name: '' }, style: { bgcolor: green } },
+				{ feedbackId: 'look_edited', options: { name: '' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } },
+				{ feedbackId: 'look_screens_off', options: {}, style: { bgcolor: combineRgb(255, 138, 0), color: combineRgb(14, 15, 19) } },
+			],
+		}
+		// The stream's health on a key. The desk has pushed this since round 23 and the module read
+		// none of it, which is how a client loses a recording to a key that was still showing green.
+		presets['stream_health'] = {
+			type: 'button', category: 'Stream', name: 'The stream — live, and whether it is happy',
+			style: { text: 'STREAM\n$(patterns:stream_health)\n$(patterns:stream_up)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'stream', options: { mode: 'TOGGLE' } }], up: [] }],
+			feedbacks: [
+				{ feedbackId: 'stream_active', options: {}, style: { bgcolor: combineRgb(224, 52, 46) } },
+				{ feedbackId: 'stream_trouble', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } },
+			],
+		}
+		// Where the day stands, for the caller's own surface.
+		presets['timing'] = {
+			type: 'button', category: 'Cue stack', name: 'How the day is running (and the next break)',
+			style: { text: '$(patterns:timing_offset)\n▸ $(patterns:timing_next_break)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [], up: [] }],
+			feedbacks: [{ feedbackId: 'running_late', options: { minutes: 5 }, style: { bgcolor: combineRgb(255, 138, 0), color: combineRgb(14, 15, 19) } }],
+		}
+		presets['edit_safe'] = {
+			type: 'button', category: 'Transport', name: 'EDIT SAFE — is there a preview and a TAKE to come',
+			style: { text: 'EDIT\nSAFE\n$(patterns:edit_safe)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [], up: [] }],
+			feedbacks: [{ feedbackId: 'edit_safe', options: {}, style: { bgcolor: combineRgb(0, 90, 130) } }],
+		}
+		presets['outputs_live'] = {
+			type: 'button', category: 'Transport', name: 'The outputs — open or not',
+			style: { text: 'OUTPUTS\n$(patterns:outputs_live)', size: 'auto', color: white, bgcolor: dark },
+			steps: [{ down: [{ actionId: 'go', options: {} }], up: [] }],
+			feedbacks: [{ feedbackId: 'outputs_live', options: {}, style: { bgcolor: green } }],
+		}
+
 		// Banks: keys that label themselves from the show — drag a row once and every look, design,
 		// person, stinger, track, part, screen or upcoming cue made later appears on the next key.
 		for (let n = 1; n <= 16; n++) {
@@ -1500,7 +1698,11 @@ class PatternsInstance extends InstanceBase {
 				style: { text: `$(patterns:look_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'look_bank', options: { n } }], up: [] }],
 				feedbacks: [
+					// Three states on one key, and the order is the point: Companion applies matching
+					// feedbacks in order, so the amber "changed since" sits after the green "on air"
+					// and wins when both are true.
 					{ feedbackId: 'look_bank_on_air', options: { n }, style: { bgcolor: green } },
+					{ feedbackId: 'look_bank_edited', options: { n }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } },
 					empty('look', n),
 				],
 			}
@@ -1516,24 +1718,24 @@ class PatternsInstance extends InstanceBase {
 		for (let n = 1; n <= 6; n++) {
 			presets[`section_${n}`] = {
 				type: 'button', category: 'Playlist parts', name: `Playlist part ${n} on air`,
-				style: { text: `PART ${n}\\n$(patterns:section_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `PART ${n}\n$(patterns:section_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'section', options: { n } }], up: [] }], feedbacks: [empty('section', n)],
 			}
 		}
 
 		presets.go = {
 			type: 'button', category: 'Transport', name: 'Outputs on',
-			style: { text: 'OUTPUTS\\nON', size: '14', color: white, bgcolor: combineRgb(0, 100, 50) },
+			style: { text: 'OUTPUTS\nON', size: '14', color: white, bgcolor: combineRgb(0, 100, 50) },
 			steps: [{ down: [{ actionId: 'go', options: {} }], up: [] }], feedbacks: [],
 		}
 		presets.stop = {
 			type: 'button', category: 'Transport', name: 'Outputs off',
-			style: { text: 'OUTPUTS\\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			style: { text: 'OUTPUTS\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'stop', options: {} }], up: [] }], feedbacks: [],
 		}
 		presets.blackout = {
 			type: 'button', category: 'Transport', name: 'Blackout toggle',
-			style: { text: 'BLACK\\nOUT', size: '18', color: white, bgcolor: dark },
+			style: { text: 'BLACK\nOUT', size: '18', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'blackout', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'blackout', options: {}, style: { bgcolor: combineRgb(200, 0, 0) } }],
 		}
@@ -1584,20 +1786,20 @@ class PatternsInstance extends InstanceBase {
 		const lowerOn = { feedbackId: 'lower_third_on', options: { name: '' }, style: { bgcolor: combineRgb(224, 52, 46) } }
 		presets.review = {
 			type: 'button', category: 'Transport', name: 'REVIEW — the preview on every multiview',
-			style: { text: 'REVIEW\\n$(patterns:review)', size: '14', color: white, bgcolor: dark },
+			style: { text: 'REVIEW\n$(patterns:review)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'review', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'review_on', options: {}, style: { bgcolor: combineRgb(46, 230, 138), color: combineRgb(14, 15, 19) } }],
 		}
 		// The weather chip: a key that reads the figure and the place, lit while the chip is on air; a second key turns it to tomorrow.
 		presets.weather = {
 			type: 'button', category: 'Overlays', name: 'WEATHER — the chip on air (reads the figure)',
-			style: { text: '$(patterns:weather_figure)\\n$(patterns:weather_place)', size: '14', color: white, bgcolor: dark },
+			style: { text: '$(patterns:weather_figure)\n$(patterns:weather_place)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'weather', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'weather_on', options: {}, style: { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) } }],
 		}
 		presets.weather_tomorrow = {
 			type: 'button', category: 'Overlays', name: 'WEATHER — tomorrow',
-			style: { text: 'WEATHER\\nTOMORROW', size: '14', color: white, bgcolor: dark },
+			style: { text: 'WEATHER\nTOMORROW', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'weather', options: { mode: 'TOMORROW' } }], up: [] }],
 			feedbacks: [],
 		}
@@ -1605,33 +1807,33 @@ class PatternsInstance extends InstanceBase {
 		const blue = { bgcolor: combineRgb(53, 170, 255), color: combineRgb(14, 15, 19) }
 		presets.clock = {
 			type: 'button', category: 'Clock', name: 'CLOCK — the clock overlay on air (reads the time)',
-			style: { text: 'CLOCK\\n$(patterns:clock_text)', size: '14', color: white, bgcolor: dark },
+			style: { text: 'CLOCK\n$(patterns:clock_text)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'clock', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'clock_on', options: {}, style: blue }],
 		}
 		for (const hours of [12, 24]) {
 			presets[`clock_${hours}h`] = {
 				type: 'button', category: 'Clock', name: `CLOCK — ${hours}-hour`,
-				style: { text: `CLOCK\\n${hours} H`, size: '14', color: white, bgcolor: dark },
+				style: { text: `CLOCK\n${hours} H`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'clock', options: { mode: String(hours) } }], up: [] }],
 				feedbacks: [{ feedbackId: 'clock_hours', options: { hours }, style: blue }],
 			}
 		}
 		presets.clock_seconds = {
 			type: 'button', category: 'Clock', name: 'CLOCK — seconds shown or not',
-			style: { text: 'CLOCK\\nSECONDS', size: '14', color: white, bgcolor: dark },
+			style: { text: 'CLOCK\nSECONDS', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'clock', options: { mode: 'SECONDS TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'clock_seconds', options: {}, style: blue }],
 		}
 		presets.clock_date = {
 			type: 'button', category: 'Clock', name: 'CLOCK — the date line shown or not',
-			style: { text: 'CLOCK\\nDATE', size: '14', color: white, bgcolor: dark },
+			style: { text: 'CLOCK\nDATE', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'clock', options: { mode: 'DATE TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'clock_date', options: {}, style: blue }],
 		}
 		presets.clock_off = {
 			type: 'button', category: 'Clock', name: 'CLOCK — off',
-			style: { text: 'CLOCK\\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			style: { text: 'CLOCK\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'clock', options: { mode: 'OFF' } }], up: [] }],
 			feedbacks: [],
 		}
@@ -1647,51 +1849,51 @@ class PatternsInstance extends InstanceBase {
 		for (const m of [1, 5, 10, 15, 30]) {
 			presets[`countdown_${m}`] = {
 				type: 'button', category: 'Countdown', name: `COUNTDOWN — ${m} min from now`,
-				style: { text: `⏱\\n${m} MIN`, size: '14', color: white, bgcolor: dark },
+				style: { text: `⏱\n${m} MIN`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'countdown', options: { mode: 'START', minutes: String(m), time: '', label: '' } }], up: [] }],
 				feedbacks: [counting, over],
 			}
 		}
 		presets.countdown_to = {
 			type: 'button', category: 'Countdown', name: 'COUNTDOWN — to a time of day (edit the time)',
-			style: { text: '⏱ TO\\n19:30', size: '14', color: white, bgcolor: dark },
+			style: { text: '⏱ TO\n19:30', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'TO', minutes: '', time: '19:30', label: '' } }], up: [] }],
 			feedbacks: [counting, over],
 		}
 		presets.countdown_label = {
 			type: 'button', category: 'Countdown', name: 'COUNTDOWN — the label over the digits (edit the words)',
-			style: { text: 'LABEL\\nSHOW STARTS IN', size: '14', color: white, bgcolor: dark },
+			style: { text: 'LABEL\nSHOW STARTS IN', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'LABEL', minutes: '', time: '', label: 'SHOW STARTS IN' } }], up: [] }],
 			feedbacks: [],
 		}
 		presets.countdown_stop = {
 			type: 'button', category: 'Countdown', name: 'COUNTDOWN — stop',
-			style: { text: '⏱\\nSTOP', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			style: { text: '⏱\nSTOP', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'countdown', options: { mode: 'STOP', minutes: '', time: '', label: '' } }], up: [] }],
 			feedbacks: [counting, over],
 		}
 		// The message: a key that reads the words on screen and toggles them, these words (edit them), the ticker, off.
 		presets.message = {
 			type: 'button', category: 'Message', name: 'MESSAGE — the message overlay on air (reads the words)',
-			style: { text: 'MSG\\n$(patterns:message_text)', size: 'auto', color: white, bgcolor: dark },
+			style: { text: 'MSG\n$(patterns:message_text)', size: 'auto', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'message', options: { mode: 'TOGGLE', text: '' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'message_on', options: {}, style: blue }],
 		}
 		presets.message_say = {
 			type: 'button', category: 'Message', name: 'MESSAGE — these words on screen (edit them)',
-			style: { text: 'SAY\\nDoors open at 7', size: '14', color: white, bgcolor: dark },
+			style: { text: 'SAY\nDoors open at 7', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'message', options: { mode: 'SAY', text: 'Doors open at 7' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'message_on', options: {}, style: blue }],
 		}
 		presets.message_scroll = {
 			type: 'button', category: 'Message', name: 'MESSAGE — scroll as a ticker, or stand still',
-			style: { text: 'MSG\\nSCROLL', size: '14', color: white, bgcolor: dark },
+			style: { text: 'MSG\nSCROLL', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'message', options: { mode: 'SCROLL TOGGLE', text: '' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'message_scroll', options: {}, style: blue }],
 		}
 		presets.message_off = {
 			type: 'button', category: 'Message', name: 'MESSAGE — off (the words kept)',
-			style: { text: 'MSG\\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			style: { text: 'MSG\nOFF', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'message', options: { mode: 'OFF', text: '' } }], up: [] }],
 			feedbacks: [],
 		}
@@ -1710,68 +1912,68 @@ class PatternsInstance extends InstanceBase {
 		}
 		presets.overlays_off = {
 			type: 'button', category: 'Overlays', name: 'OVERLAYS OFF — the clock, the message, the countdown, the logo, the PiP and the weather chip all off (reads what is on)',
-			style: { text: 'OVERLAYS\\nOFF\\n$(patterns:overlays_text)', size: 'auto', color: white, bgcolor: combineRgb(90, 30, 30) },
+			style: { text: 'OVERLAYS\nOFF\n$(patterns:overlays_text)', size: 'auto', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'overlays_off', options: {} }], up: [] }],
 			feedbacks: [],
 		}
 		presets.freeze = {
 			type: 'button', category: 'Transport', name: 'FREEZE — every output holds its frame',
-			style: { text: 'FREEZE\\n$(patterns:freeze)', size: '14', color: white, bgcolor: dark },
+			style: { text: 'FREEZE\n$(patterns:freeze)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'freeze', options: { mode: 'TOGGLE' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'frozen', options: {}, style: { bgcolor: combineRgb(53, 224, 208), color: combineRgb(14, 15, 19) } }],
 		}
 		presets.fade_down = {
 			type: 'button', category: 'Transport', name: 'FADE TO BLACK — 2 s',
-			style: { text: 'FADE\\nTO BLACK\\n2 s', size: '14', color: white, bgcolor: dark },
+			style: { text: 'FADE\nTO BLACK\n2 s', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2 } }], up: [] }],
 			feedbacks: [{ feedbackId: 'blackout', options: {}, style: { bgcolor: combineRgb(224, 52, 46), color: white } }],
 		}
 		presets.fade_up = {
 			type: 'button', category: 'Transport', name: 'FADE UP — 2 s',
-			style: { text: 'FADE\\nUP\\n2 s', size: '14', color: white, bgcolor: dark },
+			style: { text: 'FADE\nUP\n2 s', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2 } }], up: [] }],
 			feedbacks: [],
 		}
 		// The desk's focused wall tile alone (the PGM tile focused means every screen), and the tiles ticked on the wall.
 		presets.fade_focused_down = {
 			type: 'button', category: 'Transport', name: 'FADE TO BLACK — the focused screen, 2 s',
-			style: { text: 'FADE\\nFOCUSED\\n▼', size: '14', color: white, bgcolor: dark },
+			style: { text: 'FADE\nFOCUSED\n▼', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: 'FOCUSED' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'black_any', options: {}, style: { bgcolor: combineRgb(224, 52, 46), color: white } }],
 		}
 		presets.fade_focused_up = {
 			type: 'button', category: 'Transport', name: 'FADE UP — the focused screen, 2 s',
-			style: { text: 'FADE\\nFOCUSED\\n▲', size: '14', color: white, bgcolor: dark },
+			style: { text: 'FADE\nFOCUSED\n▲', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: 'FOCUSED' } }], up: [] }],
 			feedbacks: [],
 		}
 		presets.fade_ticked_down = {
 			type: 'button', category: 'Transport', name: 'FADE TO BLACK — the ticked screens, 2 s',
-			style: { text: 'FADE\\nTICKED\\n▼', size: '14', color: white, bgcolor: dark },
+			style: { text: 'FADE\nTICKED\n▼', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: 'TICKED' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'black_any', options: {}, style: { bgcolor: combineRgb(224, 52, 46), color: white } }],
 		}
 		presets.fade_ticked_up = {
 			type: 'button', category: 'Transport', name: 'FADE UP — the ticked screens, 2 s',
-			style: { text: 'FADE\\nTICKED\\n▲', size: '14', color: white, bgcolor: dark },
+			style: { text: 'FADE\nTICKED\n▲', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: 'TICKED' } }], up: [] }],
 			feedbacks: [],
 		}
 		presets.look_back = {
 			type: 'button', category: 'Looks', name: 'PREVIOUS LOOK — back on air',
-			style: { text: 'BACK TO\\n$(patterns:previous_look)', size: '14', color: white, bgcolor: dark },
+			style: { text: 'BACK TO\n$(patterns:previous_look)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'look_back', options: {} }], up: [] }],
 			feedbacks: [],
 		}
 		presets.lower_third_off = {
 			type: 'button', category: 'Lower thirds', name: 'Lower third off',
-			style: { text: 'LT\\nOFF\\n$(patterns:lower_third)', size: '14', color: white, bgcolor: dark },
+			style: { text: 'LT\nOFF\n$(patterns:lower_third)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'lower_third_off', options: {} }], up: [] }], feedbacks: [lowerOn],
 		}
 		for (let n = 1; n <= 6; n++) {
 			presets[`lower_third_${n}`] = {
 				type: 'button', category: 'Lower thirds', name: `Lower third ${n} (labels itself)`,
-				style: { text: `LT ${n}\\n$(patterns:lt_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `LT ${n}\n$(patterns:lt_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third', options: { n } }], up: [] }], feedbacks: [lowerOn, empty('lt', n)],
 			}
 		}
@@ -1785,35 +1987,35 @@ class PatternsInstance extends InstanceBase {
 		const lowerPvw = { feedbackId: 'lower_third_preview', options: { name: '' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }
 		presets.lower_third_take = {
 			type: 'button', category: 'Lower thirds', name: 'Lower third TAKE — the one in the preview to air',
-			style: { text: 'LT TAKE\\n$(patterns:lower_third_preview)', size: '14', color: white, bgcolor: dark },
+			style: { text: 'LT TAKE\n$(patterns:lower_third_preview)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'lower_third_take', options: {} }], up: [] }], feedbacks: [lowerPvw],
 		}
 		presets.lower_third_update = {
 			type: 'button', category: 'Lower thirds', name: 'Lower third UPDATE — push an edit to the design on air',
-			style: { text: 'LT\\nUPDATE', size: '14', color: white, bgcolor: dark },
+			style: { text: 'LT\nUPDATE', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'lower_third_update', options: {} }], up: [] }],
 			feedbacks: [{ feedbackId: 'lower_third_edited', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
 		}
 		presets.lower_third_preview_off = {
 			type: 'button', category: 'Lower thirds', name: 'Lower third preview clear',
-			style: { text: 'LT PVW\\nCLEAR', size: '14', color: white, bgcolor: dark },
+			style: { text: 'LT PVW\nCLEAR', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'lower_third_preview_off', options: {} }], up: [] }], feedbacks: [lowerPvw],
 		}
 		for (let n = 1; n <= 6; n++) {
 			presets[`lower_third_preview_${n}`] = {
 				type: 'button', category: 'Lower thirds', name: `Lower third ${n} to preview (sign-off)`,
-				style: { text: `LT PVW\\n${n}`, size: '14', color: white, bgcolor: dark },
+				style: { text: `LT PVW\n${n}`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n, person: '' } }], up: [] }], feedbacks: [lowerPvw],
 			}
 			presets[`person_preview_${n}`] = {
 				type: 'button', category: 'People', name: `Person ${n} (library) to preview, into the design in the preview, on air, or the default`,
-				style: { text: `PVW\\nPERSON ${n}`, size: '14', color: white, bgcolor: dark },
+				style: { text: `PVW\nPERSON ${n}`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'lower_third_preview', options: { n: 0, person: String(n) } }], up: [] }], feedbacks: [lowerPvw],
 			}
 		}
 		const deckOn = { feedbackId: 'deck_on_air', options: { ended: false }, style: { bgcolor: combineRgb(0, 90, 130) } }
 		const deckEnded = { feedbackId: 'deck_on_air', options: { ended: true }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }
-		for (const [id, text, mode] of [['next', 'DECK\\n▶ $(patterns:deck_page)/$(patterns:deck_count)', 'NEXT'], ['prev', 'DECK\\n◀', 'PREV'], ['first', 'DECK\\nFIRST', 'FIRST'], ['last', 'DECK\\nLAST', 'LAST']]) {
+		for (const [id, text, mode] of [['next', 'DECK\n▶ $(patterns:deck_page)/$(patterns:deck_count)', 'NEXT'], ['prev', 'DECK\n◀', 'PREV'], ['first', 'DECK\nFIRST', 'FIRST'], ['last', 'DECK\nLAST', 'LAST']]) {
 			presets[`deck_${id}`] = {
 				type: 'button', category: 'Presenter', name: `Deck — ${mode.toLowerCase()} page`,
 				style: { text, size: '14', color: white, bgcolor: dark },
@@ -1831,19 +2033,19 @@ class PatternsInstance extends InstanceBase {
 		}
 		presets.video_end = {
 			type: 'button', category: 'Presenter', name: 'VT — jump to the clip\'s last ten seconds (rehearsal)',
-			style: { text: 'VT\\n⏭ LAST 10 s', size: '14', color: white, bgcolor: dark },
+			style: { text: 'VT\n⏭ LAST 10 s', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'video_end', options: { seconds: 10 } }], up: [] }], feedbacks: [vtOn, vtOut],
 		}
 		presets.video_restart = {
 			type: 'button', category: 'Presenter', name: 'VT — the clip on air from the top',
-			style: { text: 'VT\\n⟲ TOP', size: '14', color: white, bgcolor: dark },
+			style: { text: 'VT\n⟲ TOP', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'video_restart', options: {} }], up: [] }], feedbacks: [vtOn],
 		}
 		const webOn = { feedbackId: 'web_on_air', options: { word: '' }, style: { bgcolor: combineRgb(0, 90, 130) } }
 		for (const [id, text, action] of [
-			['next', 'PAGE\\nNEXT ▶', 'next'], ['prev', 'PAGE\\n◀ PREV', 'prev'], ['first', 'PAGE\\nFIRST', 'first'], ['last', 'PAGE\\nLAST', 'last'],
-			['present', 'PAGE\\nPRESENT', 'present'], ['exit', 'PAGE\\nEXIT', 'exit'], ['play', 'PAGE\\nPLAY ❚❚', 'play'], ['mute', 'PAGE\\nMUTE', 'mute'],
-			['black', 'PAGE\\nBLACK', 'black'], ['reload', 'PAGE\\nRELOAD', 'reload'],
+			['next', 'PAGE\nNEXT ▶', 'next'], ['prev', 'PAGE\n◀ PREV', 'prev'], ['first', 'PAGE\nFIRST', 'first'], ['last', 'PAGE\nLAST', 'last'],
+			['present', 'PAGE\nPRESENT', 'present'], ['exit', 'PAGE\nEXIT', 'exit'], ['play', 'PAGE\nPLAY ❚❚', 'play'], ['mute', 'PAGE\nMUTE', 'mute'],
+			['black', 'PAGE\nBLACK', 'black'], ['reload', 'PAGE\nRELOAD', 'reload'],
 		]) {
 			presets[`web_${id}`] = {
 				type: 'button', category: 'Web page', name: `Web page — ${action} (the page on air: $(patterns:web_page))`,
@@ -1854,29 +2056,29 @@ class PatternsInstance extends InstanceBase {
 		const musicOn = { feedbackId: 'music_playing', options: {}, style: { bgcolor: combineRgb(20, 120, 90) } }
 		presets.music_play = {
 			type: 'button', category: 'Break music', name: 'Break music — play / resume',
-			style: { text: 'BREAK\\n▶', size: '14', color: white, bgcolor: dark },
+			style: { text: 'BREAK\n▶', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'music', options: { mode: 'PLAY' } }], up: [] }], feedbacks: [musicOn],
 		}
 		presets.music_pause = {
 			type: 'button', category: 'Break music', name: 'Break music — pause',
-			style: { text: 'BREAK\\n❚❚', size: '14', color: white, bgcolor: dark },
+			style: { text: 'BREAK\n❚❚', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'music', options: { mode: 'PAUSE' } }], up: [] }], feedbacks: [musicOn],
 		}
 		presets.music_skip = {
 			type: 'button', category: 'Break music', name: 'Break music — skip track',
-			style: { text: 'BREAK\\n⏭', size: '14', color: white, bgcolor: dark },
+			style: { text: 'BREAK\n⏭', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'music', options: { mode: 'NEXT' } }], up: [] }], feedbacks: [musicOn],
 		}
 		for (let n = 1; n <= 6; n++) {
 			presets[`music_${n}`] = {
 				type: 'button', category: 'Break music', name: `Break music ${n} (labels itself)`,
-				style: { text: `♫ ${n}\\n$(patterns:music_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `♫ ${n}\n$(patterns:music_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'music_item', options: { n } }], up: [] }], feedbacks: [musicOn, empty('music', n)],
 			}
 		}
 		presets.next = {
 			type: 'button', category: 'Presenter', name: 'Next step',
-			style: { text: 'NEXT\\n$(patterns:presenter_step)/$(patterns:presenter_count)', size: '14', color: white, bgcolor: combineRgb(0, 90, 130) },
+			style: { text: 'NEXT\n$(patterns:presenter_step)/$(patterns:presenter_count)', size: '14', color: white, bgcolor: combineRgb(0, 90, 130) },
 			steps: [{ down: [{ actionId: 'presenter_next', options: {} }], up: [] }], feedbacks: [],
 		}
 		presets.prev = {
@@ -1887,7 +2089,7 @@ class PatternsInstance extends InstanceBase {
 		for (let slot = 1; slot <= 12; slot++) {
 			presets[`look_${slot}`] = {
 				type: 'button', category: 'Looks', name: `Look F${slot} (labels itself)`,
-				style: { text: `F${slot}\\n$(patterns:look_f${slot})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `F${slot}\n$(patterns:look_f${slot})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'look_slot', options: { slot } }], up: [] }],
 				feedbacks: [{ feedbackId: 'look_f_on_air', options: { slot }, style: { bgcolor: green } }, empty('look_f', slot)],
 			}
@@ -1905,26 +2107,44 @@ class PatternsInstance extends InstanceBase {
 			}
 			presets[`screen_${n}_lock`] = {
 				type: 'button', category: 'Screens', name: `Screen ${n} lock / unlock`,
-				style: { text: `LOCK\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `LOCK\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'screen_lock', options: { n, mode: 'TOGGLE' } }], up: [] }],
 				feedbacks: [{ feedbackId: 'screen_locked', options: { n }, style: { bgcolor: combineRgb(160, 110, 0) } }, empty('screen', n)],
 			}
 			presets[`screen_${n}_program`] = {
 				type: 'button', category: 'Screens', name: `Screen ${n} back to the program`,
-				style: { text: `PGM\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `PGM\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'screen_program', options: { n } }], up: [] }],
-				feedbacks: [empty('screen', n)],
+				// Amber when this screen has gone its own way inside the look on air, so the key
+				// that puts it back is the key that tells you it needs putting back.
+				feedbacks: [
+					{ feedbackId: 'screen_off_look', options: { n }, style: { bgcolor: combineRgb(255, 138, 0), color: combineRgb(14, 15, 19) } },
+					empty('screen', n),
+				],
+			}
+			// What this screen is actually drawing, and whether that is still what the look asked.
+			// The one key an operator can glance at on a rig with eight screens and know which one
+			// somebody has been at.
+			presets[`screen_${n}_picture`] = {
+				type: 'button', category: 'Screens', name: `Screen ${n} — the picture it is showing`,
+				style: { text: `$(patterns:screen_${n})\n$(patterns:screen_${n}_pattern)`, size: 'auto', color: white, bgcolor: dark },
+				steps: [{ down: [{ actionId: 'screen_program', options: { n } }], up: [] }],
+				feedbacks: [
+					{ feedbackId: 'screen_own', options: { n }, style: { bgcolor: combineRgb(0, 90, 130) } },
+					{ feedbackId: 'screen_off_look', options: { n }, style: { bgcolor: combineRgb(255, 138, 0), color: combineRgb(14, 15, 19) } },
+					empty('screen', n),
+				],
 			}
 			// This screen alone to black over two seconds (red while it is), and back — the rest of the rig keeps its picture.
 			presets[`screen_${n}_fade_down`] = {
 				type: 'button', category: 'Screens', name: `Screen ${n} fade to black — 2 s`,
-				style: { text: `FADE ▼\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `FADE ▼\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: `SCREEN ${n}` } }], up: [] }],
 				feedbacks: [{ feedbackId: 'screen_black', options: { n }, style: { bgcolor: combineRgb(224, 52, 46), color: white } }, empty('screen', n)],
 			}
 			presets[`screen_${n}_fade_up`] = {
 				type: 'button', category: 'Screens', name: `Screen ${n} fade up — 2 s`,
-				style: { text: `FADE ▲\\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `FADE ▲\n$(patterns:screen_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: `SCREEN ${n}` } }], up: [] }],
 				feedbacks: [empty('screen', n)],
 			}
@@ -1932,22 +2152,22 @@ class PatternsInstance extends InstanceBase {
 		for (const letter of ['A', 'B', 'C', 'D']) {
 			presets[`group_${letter}_on`] = {
 				type: 'button', category: 'Screens', name: `Canvas ${letter} on`,
-				style: { text: `${letter}\\nON`, size: '14', color: white, bgcolor: dark },
+				style: { text: `${letter}\nON`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'group', options: { letter, mode: 'ON' } }], up: [] }], feedbacks: [],
 			}
 			presets[`group_${letter}_off`] = {
 				type: 'button', category: 'Screens', name: `Canvas ${letter} off`,
-				style: { text: `${letter}\\nOFF`, size: '14', color: white, bgcolor: dark },
+				style: { text: `${letter}\nOFF`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'group', options: { letter, mode: 'OFF' } }], up: [] }], feedbacks: [],
 			}
 			presets[`group_${letter}_fade_down`] = {
 				type: 'button', category: 'Screens', name: `Canvas ${letter} fade to black — 2 s`,
-				style: { text: `${letter}\\nFADE ▼`, size: '14', color: white, bgcolor: dark },
+				style: { text: `${letter}\nFADE ▼`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'fade', options: { dir: 'DOWN', secs: 2, target: `GROUP ${letter}` } }], up: [] }], feedbacks: [],
 			}
 			presets[`group_${letter}_fade_up`] = {
 				type: 'button', category: 'Screens', name: `Canvas ${letter} fade up — 2 s`,
-				style: { text: `${letter}\\nFADE ▲`, size: '14', color: white, bgcolor: dark },
+				style: { text: `${letter}\nFADE ▲`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'fade', options: { dir: 'UP', secs: 2, target: `GROUP ${letter}` } }], up: [] }], feedbacks: [],
 			}
 		}
@@ -1961,19 +2181,19 @@ class PatternsInstance extends InstanceBase {
 		}
 		presets.stinger_stop = {
 			type: 'button', category: 'Stingers', name: 'Stop stinger',
-			style: { text: 'STING\\nSTOP', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
+			style: { text: 'STING\nSTOP', size: '14', color: white, bgcolor: combineRgb(90, 30, 30) },
 			steps: [{ down: [{ actionId: 'stinger_stop', options: {} }], up: [] }], feedbacks: [],
 		}
 		for (let n = 1; n <= 8; n++) {
 			presets[`vog_${n}`] = {
 				type: 'button', category: 'VOG', name: `VOG ${n} (labels itself)`,
-				style: { text: `VOG\\n$(patterns:stinger_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `VOG\n$(patterns:stinger_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'vog', options: { n } }], up: [] }],
 				feedbacks: [{ feedbackId: 'vog_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }, empty('stinger', n)],
 			}
 			presets[`sting_${n}`] = {
 				type: 'button', category: 'Stingers', name: `Stinger ${n} (kind-checked, labels itself)`,
-				style: { text: `STING\\n$(patterns:stinger_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `STING\n$(patterns:stinger_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'sting', options: { n } }], up: [] }],
 				feedbacks: [
 					{ feedbackId: 'sting_playing', options: {}, style: { bgcolor: combineRgb(190, 120, 0) } },
@@ -1983,7 +2203,7 @@ class PatternsInstance extends InstanceBase {
 		}
 		presets.sting_hold_release = {
 			type: 'button', category: 'Stingers', name: 'Held stinger — put it back',
-			style: { text: 'HOLD\\nBACK', size: '14', color: white, bgcolor: dark },
+			style: { text: 'HOLD\nBACK', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'stinger_stop', options: {} }], up: [] }],
 			feedbacks: [{ feedbackId: 'sting_hold', options: {}, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
 		}
@@ -2002,7 +2222,7 @@ class PatternsInstance extends InstanceBase {
 		const audioOn = { feedbackId: 'audio_playing', options: {}, style: { bgcolor: combineRgb(0, 100, 160) } }
 		presets.audio_next = {
 			type: 'button', category: 'Audio', name: 'Audio playlist — next track',
-			style: { text: '♪ ⏭\\n$(patterns:audio_next)', size: 'auto', color: white, bgcolor: dark },
+			style: { text: '♪ ⏭\n$(patterns:audio_next)', size: 'auto', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'audio', options: { mode: 'NEXT' } }], up: [] }], feedbacks: [audioOn],
 		}
 		presets.audio_prev = {
@@ -2012,52 +2232,52 @@ class PatternsInstance extends InstanceBase {
 		}
 		presets.audio_now = {
 			type: 'button', category: 'Audio', name: 'Audio playlist — what is on (press: play / resume)',
-			style: { text: '♪ $(patterns:audio_n)/$(patterns:audio_count)\\n$(patterns:audio_track)\\n$(patterns:audio_remaining)', size: 'auto', color: white, bgcolor: dark },
+			style: { text: '♪ $(patterns:audio_n)/$(patterns:audio_count)\n$(patterns:audio_track)\n$(patterns:audio_remaining)', size: 'auto', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'audio', options: { mode: 'PLAY' } }], up: [] }], feedbacks: [audioOn],
 		}
 		for (let n = 1; n <= 8; n++) {
 			presets[`track_bank_${n}`] = {
 				type: 'button', category: 'Audio', name: `Audio playlist track ${n} (labels itself)`,
-				style: { text: `♪ ${n}\\n$(patterns:track_${n})`, size: 'auto', color: white, bgcolor: dark },
+				style: { text: `♪ ${n}\n$(patterns:track_${n})`, size: 'auto', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'audio_item', options: { n } }], up: [] }], feedbacks: [audioOn, empty('track', n)],
 			}
 		}
 		// The install: the schedule's switch, an announcement by name, an advert by number, the END keys.
 		presets.install_schedule = {
 			type: 'button', category: 'Install', name: 'SCHEDULE — the clock runs the site (green while on)',
-			style: { text: 'SCHEDULE\\n$(patterns:install)', size: '14', color: white, bgcolor: dark },
+			style: { text: 'SCHEDULE\n$(patterns:install)', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'schedule', options: { mode: 'ON' } }], up: [] }, { down: [{ actionId: 'schedule', options: { mode: 'OFF' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'schedule_on', options: {}, style: { bgcolor: green, color: white } }],
 		}
 		presets.install_announce = {
 			type: 'button', category: 'Install', name: 'ANNOUNCE — an announcement by name (edit the name)',
-			style: { text: 'ANNOUNCE\\nClosing time', size: '14', color: white, bgcolor: dark },
+			style: { text: 'ANNOUNCE\nClosing time', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'announce', options: { what: 'Closing time' } }], up: [] }],
 			feedbacks: [{ feedbackId: 'announcement_on', options: { name: 'Closing time' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
 		}
 		presets.install_announce_off = {
 			type: 'button', category: 'Install', name: 'ANNOUNCE OFF — the announcement on ends',
-			style: { text: 'ANNOUNCE\\nOFF', size: '14', color: white, bgcolor: dark },
+			style: { text: 'ANNOUNCE\nOFF', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'announce_off', options: {} }], up: [] }],
 			feedbacks: [{ feedbackId: 'announcement_on', options: { name: '' }, style: { bgcolor: combineRgb(255, 194, 77), color: combineRgb(14, 15, 19) } }],
 		}
 		for (let n = 1; n <= 4; n++) {
 			presets[`install_advert_${n}`] = {
 				type: 'button', category: 'Install', name: `ADVERT ${n} — the advert at place ${n} of the Install page, now`,
-				style: { text: `ADVERT\\n${n}`, size: '14', color: white, bgcolor: dark },
+				style: { text: `ADVERT\n${n}`, size: '14', color: white, bgcolor: dark },
 				steps: [{ down: [{ actionId: 'advert', options: { name: String(n) } }], up: [] }],
 				feedbacks: [{ feedbackId: 'advert_on', options: { name: '' }, style: { bgcolor: combineRgb(0, 90, 130), color: white } }],
 			}
 		}
 		presets.install_advert_off = {
 			type: 'button', category: 'Install', name: 'ADVERT OFF — the advert on ends, the programme comes back',
-			style: { text: 'ADVERT\\nOFF', size: '14', color: white, bgcolor: dark },
+			style: { text: 'ADVERT\nOFF', size: '14', color: white, bgcolor: dark },
 			steps: [{ down: [{ actionId: 'advert_off', options: {} }], up: [] }],
 			feedbacks: [{ feedbackId: 'advert_on', options: { name: '' }, style: { bgcolor: combineRgb(0, 90, 130), color: white } }],
 		}
 		presets.install_status = {
 			type: 'button', category: 'Install', name: 'The install: the programme on and the next change',
-			style: { text: '$(patterns:install_programme)\\n$(patterns:install_next)', size: 'auto', color: white, bgcolor: dark },
+			style: { text: '$(patterns:install_programme)\n$(patterns:install_next)', size: 'auto', color: white, bgcolor: dark },
 			steps: [], feedbacks: [],
 		}
 		return presets

@@ -65,6 +65,12 @@ public static class OscFeedback
             Text(list, root, "lowerThirdPreviewPerson", "lowerthird/preview/person");
             Text(list, root, "lowerThirdDefault", "lowerthird/default");
             Flag(list, root, "lowerThirdEdited", "lowerthird/edited");
+            // The look on air, and whether it still is what is on the screens. One reading is the
+            // whole point of it living in LookTally, so the surface that has always had the
+            // per-look facts gets it too — a lighting desk that can light a look must be able to
+            // light the difference between "up" and "up, and somebody has been at it since".
+            Flag(list, root, "lookEdited", "look/edited");
+            Number(list, root, "lookScreensOff", "look/screensoff");
             if (root.TryGetProperty("stream", out var stream))
             {
                 Flag(list, stream, "active", "stream");
@@ -227,6 +233,12 @@ public static class OscFeedback
     {
         if (!e.TryGetProperty(property, out var v)) return;
         if (v.ValueKind is JsonValueKind.True or JsonValueKind.False) list.Add(OscMessage.Of(Prefix + address, v.GetBoolean() ? 1 : 0));
+    }
+
+    private static void Number(List<OscMessage> list, JsonElement e, string property, string address)
+    {
+        if (!e.TryGetProperty(property, out var v)) return;
+        if (v.ValueKind == JsonValueKind.Number) list.Add(OscMessage.Of(Prefix + address, v.GetInt32()));
     }
 
     private static void Text(List<OscMessage> list, JsonElement e, string property, string address)

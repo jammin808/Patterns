@@ -20,6 +20,46 @@ preset groups you tick, so the key list holds only what this desk uses.
    Transport, Presenter, Looks (F1–F12), Screens, VOG, Stingers, Audio, Break music, and the
    *… — this show* categories with a preset per item of the show that is loaded.
 
+## Three states for a look, and what each screen is doing (module 2.8.0)
+
+A look key used to have one bit: on air, or not. A desk at front of house needs three, and the
+middle one is the one that matters — **the look is up, but somebody has changed the picture since
+it was recalled**. Patterns has shown that on its own Looks page since round 17 (`PROGRAM · EDITED`)
+and never put it on the wire, so a Stream Deck sat solid green over a picture nobody had checked.
+
+- `look_edited` — a look is on air BUT the picture has moved since. Stack it *after* `look_on_air`
+  on the same key: matching feedbacks apply in order, so green becomes amber when both are true.
+  The `look_bank_edited` feedback is the same for a bank key by place. Both are already on the
+  built-in **Look bank** and *Looks — this show* presets, so a fresh drag gets all three states.
+- `look_screens_off` — a look is on air and one or more screens have gone their own way inside it.
+- `screen_off_look` — **which** screen. This is the reading a whole-show answer could never give:
+  on a rig with eight screens, "something has changed" sends somebody round the back of the set.
+  It is on the **Screen n back to the program** key, so the key that puts a screen back is the key
+  that tells you it needs putting back.
+- `screen_pattern_is` — screen n is showing a kind of picture. The old `pattern_is` reads the
+  programme's kind only, so a screen on its own picture was invisible to it. The variable
+  `$(patterns:screen_n_pattern)` prints it, and the new **Screen n — the picture it is showing**
+  preset puts both on one key.
+
+A locked screen never counts as having gone its own way: keeping its picture through a look, a cue
+and a TAKE is exactly what LOCK means.
+
+## The facts the desk was already sending and nothing read (module 2.8.0)
+
+New feedbacks over state Patterns has pushed for several versions: `stream_active` and
+`stream_trouble` (the stream's own health — the desk's code names "a Stream Deck's colour" as the
+consumer this was built for), `outputs_live`, `edit_safe`, `tone_on`, `device_open` (an Interactive
+device is connected), and `running_late` (the day is behind by more than N minutes). With them the
+variables `stream_status`, `stream_health`, `stream_up`, `stream_fps`, `outputs_live`, `edit_safe`,
+`tone`, `look_state`, `look_screens_off`, `timing_offset`, `timing_next_break` and `timing_end`, and
+ready-made keys for the look's three states, the stream's health, how the day is running, EDIT SAFE
+and the outputs.
+
+**Two fixes in the same version.** `track_7` and `track_8` were written and used by the Audio preset
+keys but never declared, so those two keys rendered `$(patterns:track_7)` as their label. And 103
+button labels carried a literal `\n` instead of a line break, so they read as one run of text with
+`\n` in the middle of it.
+
 ## One key for the countdown (module 2.7.0)
 
 The `countdown` action gained a **Toggle** mode, and the countdown's reading key — the one that

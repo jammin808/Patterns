@@ -142,6 +142,12 @@ public sealed class ShowActions
                     armed = _s.Arming.IsArmed(target),                          // the next CUT / TAKE changes it
                     own = ContentTargets.UsesOwnPattern(State, target),           // its own picture, not the program's
                     black = _s.Bus.BlackTargets.Contains(target),                // faded to black on its own (FADE SCREEN n) — the blackout is separate
+                    // What this screen is actually drawing, and whether that is still what the look
+                    // on air asked of it. "own" was the nearest thing before and it is not the same
+                    // question: a look frequently gives a screen its own picture on purpose, so a
+                    // key lit from "own" cannot tell an instruction from a divergence.
+                    pattern = LookService.Shown(State, target).Kind.ToString(),
+                    off = _s.LookTally.IsOffLook(target),
                 };
             })
             .ToArray();
