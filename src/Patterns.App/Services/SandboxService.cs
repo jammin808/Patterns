@@ -97,9 +97,13 @@ public sealed class SandboxService
                         : program.Pattern;
                     var assignment = ContentTargets.EnsureAssignment(state, target);
                     ModelCopier.Copy(JsonUtil.ClonePattern(source), assignment.Pattern);
-                    // A pattern the operator chose for the target stays theirs; only a program
-                    // copy is marked as a pin the next armed send may lift.
-                    if (!ContentTargets.UsesOwnPattern(state, target)) assignment.PinnedByTake = true;
+                    // A pattern the operator chose for the target stays theirs; only a copy of the
+                    // program's picture is marked as a pin the next armed send may lift. Read that
+                    // from the PROGRAM, not from the edited state: a picture merely STAGED on this
+                    // tile is not one the audience has, so a take that leaves the tile alone must
+                    // put the program's picture back over it — the staging was not taken, and it
+                    // must leave no residue that quietly un-follows the show.
+                    if (!ContentTargets.UsesOwnPattern(program, target)) assignment.PinnedByTake = true;
                     ContentTargets.SetOwnPattern(state, target, true);
                     kept++;
                 }
@@ -127,10 +131,22 @@ public sealed class SandboxService
     /// the program into the edited state and open a fresh sandbox, which mirrors the program: the
     /// picture just built was on one screen and nowhere the operator could edit it.)
     /// </summary>
-    public void SendToTargets(IReadOnlyList<string> targetIds)
+    /// <summary>
+    /// The preview's picture onto named targets. <paramref name="toAir"/> is the whole difference
+    /// between the two gestures an operator needs:
+    ///
+    ///   toAir: false — STAGED. It lands in the edited state alone, so it is that target's own
+    ///                  picture in the preview and nowhere else: its tile's PVW miniature shows it,
+    ///                  the audience sees nothing, and a CUT or TAKE on that tile puts it up. This
+    ///                  is what a tile's SEND does, and it is not a take — nothing moved on air, so
+    ///                  nothing should transition.
+    ///   toAir: true  — LIVE. It lands in the frozen program too, so it is on the screens now. SEND
+    ///                  TO TICKED and a look sent to one screen both go this way.
+    /// </summary>
+    public void SendToTargets(IReadOnlyList<string> targetIds, bool toAir = true)
     {
         if (!Active || _program is null || targetIds.Count == 0) return;
-        using var take = _services.Bus.Take();
+        using var take = toAir ? _services.Bus.Take() : default;
         var state = _services.State;
         var program = _program;
         var pattern = JsonUtil.ClonePattern(state.Pattern);
@@ -148,11 +164,22 @@ public sealed class SandboxService
         _services.BulkEdit(() =>
         {
             Land(state);
-            Land(program);
+            if (toAir) Land(program);
         });
-        _services.AirLabel = Modified(_services.AirLabel);
-        Log.Info($"Sandbox sent to {targetIds.Count} target(s); the preview keeps the picture.");
+        if (toAir) _services.AirLabel = Modified(_services.AirLabel);
+        Log.Info(toAir
+            ? $"Sandbox sent live to {targetIds.Count} target(s); the preview keeps the picture."
+            : $"Sandbox staged on {targetIds.Count} target(s); the air is untouched until a CUT or TAKE.");
     }
+
+    /// <summary>
+    /// This target is holding a picture the preview put there that the audience has not seen — the
+    /// edited state has its own pattern for it and the frozen program does not.
+    /// </summary>
+    public bool IsStaged(string targetId)
+        => Active && _program is not null
+           && ContentTargets.UsesOwnPattern(_services.State, targetId)
+           && !ContentTargets.UsesOwnPattern(_program, targetId);
 
     /// <summary>
     /// The lower third across a TAKE. A design showing in the preview (a PVW for a sign-off) goes

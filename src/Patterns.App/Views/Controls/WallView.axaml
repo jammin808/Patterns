@@ -145,9 +145,9 @@
                    SEND shows while the sandbox is open — a fact on the tile (CanSend), not a binding up the tree -->
               <Grid Name="TileSends" ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Top">
                 <Button Name="TileSend" Classes="wall" Content="SEND" Command="{Binding SendHereCommand}" Focusable="False" IsVisible="{Binding CanSend}"
-                        ToolTip.Tip="SEND: the preview lands on this tile alone, as its own pattern, live — every other target stays as it is, and the preview keeps the picture for the next send" />
-                <Button Grid.Column="1" Name="TileToPreview" Classes="wall" Content="→ PVW" Command="{Binding ToPreviewCommand}" Focusable="False" IsVisible="{Binding !IsProgramTile}"
-                        ToolTip.Tip="→ PVW: the picture this target shows on air — its own, or the program's — into the preview, to edit; the air is untouched (EDIT SAFE opens if it was off). Then SEND it to a screen, or TAKE" />
+                        ToolTip.Tip="SEND: the preview's picture is staged on this tile — its PVW miniature shows it and the audience does not, the way a mixer holds a source on preview. The tile is focused as you press, so CUT / TAKE with FOCUSED puts it up on this tile alone. SEND TO TICKED is the live one" />
+                <Button Grid.Column="1" Name="TileToPreview" Classes="wall" Content="→ PVW" Command="{Binding ToPreviewCommand}" Focusable="False"
+                        ToolTip.Tip="→ PVW: the picture this tile shows on air — its own, its source's, or the program's on the PGM tile — into the preview, to edit; the air is untouched (EDIT SAFE opens if it was off). The tile stays focused, so SEND stages it back here and CUT / TAKE with FOCUSED puts it up" />
                 <!-- The foot line: the screen's group (MAIN, CONF, INFO, REP, NDI, STREAM), then what it repeats or its size;
                      a click opens SETUP → Screens on this screen, where the group is set. PGM's foot is its size alone -->
                 <Button Grid.Column="2" Name="TileGroup" Background="Transparent" BorderThickness="0" Padding="0" Margin="6,0,0,0" Cursor="Hand" Focusable="False"

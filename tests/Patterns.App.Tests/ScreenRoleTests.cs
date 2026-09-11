@@ -209,7 +209,7 @@ public class ScreenRoleTests
     }
 
     [AvaloniaFact]
-    public void SendOnATilePutsThePreviewThereAlone()
+    public void SendOnATileStagesThePreviewThereAloneAndATakePutsItUp()
     {
         var b = TestApp.Boot();
         try
@@ -224,11 +224,27 @@ public class ScreenRoleTests
             Dispatcher.UIThread.RunJobs();
             Assert.True(vm.IsSandboxActive);                                  // the sandbox stays open over a send
             Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);            // the preview keeps the picture
-            Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.State.Pattern.Kind); // the program on air is untouched
+
+            // STAGED, not live: that tile's own picture in the preview, and the audience sees
+            // nothing — not on the tile, not on the program, not anywhere.
+            Assert.True(b.Services.Sandbox.IsStaged("c"));
             Assert.True(vm.State.Output.Placements.First(p => p.ScreenId == "c").UseCustomPattern);
+            Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.State.Pattern.Kind);
+            Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.PatternFor("c").Kind);
+            Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.PatternFor(CanvasKey).Kind);
+            Assert.Equal(PatternKind.Focus, b.Services.Bus.Sandbox!.PatternFor("c").Kind);  // its PVW shows it
+            Assert.Contains("Staged on 3", vm.StatusMessage);
+
+            // The press focused the tile, so FOCUSED means this one — and a take puts it up there
+            // and nowhere else.
+            Assert.Equal("c", vm.SelectedTargetId);
+            Assert.True(b.Services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk, "focused").Ok);
+            Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.Focus, b.Services.Bus.Current.PatternFor("c").Kind);
             Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.PatternFor(CanvasKey).Kind);
-            Assert.Contains("Sent to 3", vm.StatusMessage);
+            Assert.False(b.Services.Sandbox.IsStaged("c"));
+
+            vm.IsSandboxActive = true;
 
             // Without the sandbox, SEND explains itself instead of doing nothing.
             vm.IsSandboxActive = false;

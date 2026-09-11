@@ -81,7 +81,10 @@ public class TileToPreviewTests
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);
             Assert.True(vm.IsSandboxActive);
             Assert.Null(vm.EditTarget.ScreenId);                                            // the editors work on the preview, not on b
-            Assert.Null(vm.SelectedTargetId);                                               // the panes show PGM and the preview
+            // The tile the picture came from stays focused, so the way back is the way it came:
+            // SEND stages it there and CUT / TAKE with FOCUSED puts it up on that tile alone.
+            // Clearing the focus here used to widen a FOCUSED take to the whole rig.
+            Assert.Equal("b", vm.SelectedTargetId);
             Assert.Equal("", services.PreviewLookId);                                       // an edit, not a look
             Assert.Contains("in the preview", vm.StatusMessage);
             Assert.DoesNotContain("EDIT SAFE opened", vm.StatusMessage);
@@ -91,8 +94,13 @@ public class TileToPreviewTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);
 
-            // And the way back: SEND it to screen a, TAKE it everywhere else.
+            // And the way back: SEND stages it on screen a, and a FOCUSED take puts it up there.
             Tile(vm, "a").SendHereCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("a", vm.SelectedTargetId);
+            Assert.True(services.Sandbox.IsStaged("a"));
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);      // not on air yet
+            Assert.True(services.Actions.Execute(ShowActionKind.Take, ActionOrigin.Desk, "focused").Ok);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.Geometry, services.Bus.Current.PatternFor("a").Kind);
             Assert.Equal(PatternKind.Geometry, vm.State.Pattern.Kind);
@@ -205,7 +213,9 @@ public class TileToPreviewTests
             foreach (var button in toPreview)
             {
                 var tile = (SwitcherTile)button.DataContext!;
-                Assert.Equal(!tile.IsProgramTile, button.IsEffectivelyVisible);   // every screen tile, never PGM
+                // Every tile, PGM included: bringing what the room is watching back into the
+                // preview is the one picture this could not reach before.
+                Assert.True(button.IsEffectivelyVisible);
                 Assert.Same(tile.ToPreviewCommand, button.Command);
             }
             Assert.All(send, x => Assert.False(x.IsEffectivelyVisible));          // nothing to send with the sandbox closed

@@ -571,19 +571,26 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>SEND on a tile: the preview lands on this target alone as its own pattern; everything else stays.</summary>
+    /// <summary>
+    /// SEND on a tile: the preview's picture lands on that tile's PVW alone. The audience sees
+    /// nothing — it is staged, the way a mixer holds a source on preview — and the next CUT or
+    /// TAKE on that tile is what puts it up. The tile is focused as part of the press, so the
+    /// FOCUSED scope beside CUT / TAKE means the tile you just staged.
+    /// </summary>
     internal void SendSandboxToTile(SwitcherTile tile)
     {
         if (tile.TargetId is not { } target) return;
         if (!_services.Sandbox.Active)
         {
-            StatusMessage = "Open EDIT SAFE and build the picture first — then SEND puts it on this tile alone.";
+            StatusMessage = "Open EDIT SAFE and build the picture first — then SEND stages it on this tile.";
             return;
         }
-        _services.Sandbox.SendToTargets(new[] { target });
+        _services.Sandbox.SendToTargets(new[] { target }, toAir: false);
         ClearSendTargets();
         Raise(nameof(IsSandboxActive));
         RebuildEditTargets(); // the target now shows its own pattern — OWN lights up
-        StatusMessage = $"Sent to {tile.Title} as its own pattern — every other target stays as it was, and the preview keeps the picture.";
+        SelectTarget(target); // the hand chose this tile: FOCUSED now means this one
+        StatusMessage = $"Staged on {tile.Title} — its PVW shows it and the audience does not. CUT or TAKE (FOCUSED) puts it up.";
     }
 
     /// <summary>
@@ -594,13 +601,19 @@ public sealed partial class MainViewModel
     /// </summary>
     internal void LoadTileIntoPreview(SwitcherTile tile)
     {
-        if (tile.TargetId is not { } target) return;
+        // The PGM tile has no target id of its own: an empty target names the programme, which is
+        // the one picture an operator most often wants back — "put what is on air into the preview
+        // so I can change it and take it again".
+        var target = tile.TargetId ?? "";
         var result = Report(_services.Actions.Execute(ShowActionKind.ScreenToPreview, ActionOrigin.Desk, target));
         if (!result.Ok) return;
         Raise(nameof(IsSandboxActive));
         RebuildEditTargets();
         EditTarget = EditTargets[0]; // the program: the preview is what is edited now, not the screen it came from
-        SelectTarget(null);          // the panes show PGM and the preview
+        // The tile the picture came from stays focused, so a FOCUSED take puts it back exactly
+        // where it came from. Pulling from the PGM tile focuses nothing, which is the programme —
+        // and FOCUSED then means every armed screen, as it always has.
+        SelectTarget(tile.TargetId);
         RefreshSwitcherTiles();
     }
 

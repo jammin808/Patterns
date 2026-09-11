@@ -193,24 +193,28 @@ public class SandboxTests
             Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);                          // the preview keeps the picture
             Assert.Equal(PatternKind.Focus, services.Bus.Sandbox!.State.Pattern.Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);         // the program on air is untouched
-            Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor("a").Kind);
+            // Staged: a's PVW holds the new picture and the audience still sees the grid.
+            Assert.Equal(PatternKind.Focus, services.Bus.Sandbox!.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("b").Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
             Assert.Equal(previewLook, services.PreviewLookId);                                // nothing else moved
-            Assert.Null(vm.EditTarget.ScreenId);                                              // still the program, not the screen just sent to
+            Assert.Null(vm.EditTarget.ScreenId);                                              // still the program, not the screen just staged on
             Assert.True(services.Bus.Current.Version > publishes, "the outputs were told");
-            Assert.Contains("keeps the picture", vm.StatusMessage);
+            Assert.Contains("Staged on", vm.StatusMessage);
             Assert.True(Tile("a").IsOwn);
 
-            // Go on editing and send to screen b: a keeps the first picture, b takes the second, the preview still has it.
+            // Go on editing and SEND TO TICKED to screen b — that one IS live, so the punch is
+            // still one press away. a keeps its staged picture, and the preview still has the new one.
             vm.State.Pattern.Kind = PatternKind.ColorBars;
             Tile("b").IsSendTarget = true;
             vm.SandboxSendSelectedCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.True(vm.IsSandboxActive);
             Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
-            Assert.Equal(PatternKind.Focus, services.Bus.Current.PatternFor("a").Kind);
-            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);
+            Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("a").Kind);        // still staged, not on air
+            Assert.Equal(PatternKind.Focus, services.Bus.Sandbox!.PatternFor("a").Kind);
+            Assert.Equal(PatternKind.ColorBars, services.Bus.Current.PatternFor("b").Kind);   // live
             Assert.Equal(PatternKind.Grid, services.Bus.Current.PatternFor("c").Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
             Assert.DoesNotContain(vm.SwitcherTiles, t => t.IsSendTarget);                     // the ticks are consumed
