@@ -144,6 +144,14 @@ public sealed class SettingsStore
             if (string.IsNullOrWhiteSpace(stinger.Id)) stinger.Id = Guid.NewGuid().ToString("N");
         }
 
+        // The badge's line: the maker's own words, changed in the source. A show written before the
+        // change carries the old ones, so a machine that has run the app once would never see the
+        // new line — the change would be real everywhere except where anybody looks. A line still
+        // exactly the old default was never typed over, so it follows; anything else is the
+        // operator's and is left alone. Saved looks keep the words they were saved with, because a
+        // look is a picture of a moment and the badge travels with looks on purpose.
+        if (state.Overlays.Badge.Line == BadgeOverlay.LegacyLine) state.Overlays.Badge.Line = BadgeOverlay.DefaultLine;
+
         // Break music: hand-edited or hand-copied entries get an id and a canonical URI, like
         // stingers. Unconditional and idempotent — no schema step, because there is nothing to
         // convert: a file written before break music existed simply has no block and defaults off.

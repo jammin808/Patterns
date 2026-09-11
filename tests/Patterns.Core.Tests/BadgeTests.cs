@@ -26,6 +26,7 @@ public class BadgeTests
         Assert.True(badge.OffsetYPct < 0, "lifted off the bottom edge into the lower third");
         Assert.True(badge.ShowLine);
         Assert.Equal(BadgeOverlay.DefaultLine, badge.Line);
+        Assert.Equal("rig · playback · show control", badge.Line);   // the maker's own words, pinned
         Assert.False(badge.OnMediaToo);
 
         // The rule: test patterns yes, media and the multiview no — unless media is asked for.
@@ -248,5 +249,33 @@ public class BadgeTests
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// The maker's line changed in the source, and a settings file already carries the words it
+    /// was written with — so without this the change would be real everywhere except where an
+    /// operator looks. A line still exactly the old one follows; anything typed over it is theirs.
+    /// </summary>
+    [Fact]
+    public void TheMakersLineFollowsTheAppUnlessSomebodyTypedOverIt()
+    {
+        var untouched = new ShowState();
+        untouched.Overlays.Badge.Line = BadgeOverlay.LegacyLine;
+        SettingsStore.Migrate(untouched);
+        Assert.Equal(BadgeOverlay.DefaultLine, untouched.Overlays.Badge.Line);
+
+        var theirs = new ShowState();
+        theirs.Overlays.Badge.Line = "The Barbican · Silk Street EC2Y 8DS";
+        SettingsStore.Migrate(theirs);
+        Assert.Equal("The Barbican · Silk Street EC2Y 8DS", theirs.Overlays.Badge.Line);
+
+        var off = new ShowState();
+        off.Overlays.Badge.Line = "";
+        SettingsStore.Migrate(off);
+        Assert.Equal("", off.Overlays.Badge.Line);                   // cleared on purpose stays cleared
+
+        // Idempotent, like every other step in the pass.
+        SettingsStore.Migrate(untouched);
+        Assert.Equal(BadgeOverlay.DefaultLine, untouched.Overlays.Badge.Line);
     }
 }

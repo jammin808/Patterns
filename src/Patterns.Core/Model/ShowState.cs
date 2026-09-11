@@ -363,7 +363,16 @@ public sealed class LogoOverlay : Observable, IAnchored
 /// </summary>
 public sealed class BadgeOverlay : Observable, IAnchored
 {
-    public const string DefaultLine = "Show display · test cards · playback";
+    public const string DefaultLine = "rig · playback · show control";
+
+    /// <summary>
+    /// What the line said before. A settings file already carries the words it was written with,
+    /// so without this the maker's own line would never change on a machine that has run the app
+    /// once — the change would land in the source and nowhere an operator can see it.
+    /// <see cref="SettingsStore.Migrate"/> moves a line that is still exactly this to the current
+    /// one, and leaves anything typed over it alone: a venue that put its address there keeps it.
+    /// </summary>
+    public const string LegacyLine = "Show display · test cards · playback";
 
     private bool _enabled = true;
     private Anchor9 _anchor = Anchor9.BottomCenter;
