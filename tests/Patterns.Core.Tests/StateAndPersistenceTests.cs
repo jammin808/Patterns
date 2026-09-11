@@ -167,7 +167,9 @@ public class SettingsStoreTests : IDisposable
         File.WriteAllText(store.SettingsPath, "garbage");
         File.WriteAllText(store.SettingsPath + ".bak", "also garbage");
         var loaded = store.Load();
-        Assert.Equal(PatternKind.Grid, loaded.Pattern.Kind);
+        // A settings file that cannot be read at all is a first run: the desk comes up on its own
+        // card rather than blank, and the card names the screen it is on.
+        Assert.Equal(PatternKind.TestCard, loaded.Pattern.Kind);
     }
 
     [Fact]

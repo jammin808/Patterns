@@ -1184,6 +1184,7 @@ public sealed partial class MainViewModel
     public EnumItem[] Anchors => Lists.Anchors;
     public EnumItem[] FitModes => Lists.FitModes;
     public EnumItem[] BarsVariants => Lists.BarsVariants;
+    public EnumItem[] TestCardVariants => Lists.TestCardVariants;
     public EnumItem[] RampVariants => Lists.RampVariants;
     public EnumItem[] MotionVariants => Lists.MotionVariants;
     public EnumItem[] BlendCurves => Lists.BlendCurves;

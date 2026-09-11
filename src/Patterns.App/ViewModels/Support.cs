@@ -565,6 +565,7 @@ public static class Lists
 
     public static readonly EnumItem[] PatternKinds =
     {
+        new(PatternKind.TestCard, "Patterns test card"),
         new(PatternKind.Grid, "Grid"),
         new(PatternKind.Checkerboard, "Checkerboard"),
         new(PatternKind.ColorBars, "Colour bars"),
@@ -751,6 +752,14 @@ public static class Lists
         new(MessageBackground.Fade, "Fade — soft band, darkest at the edge"),
     };
     public static readonly EnumItem[] FitModes = Of<FitMode>();
+    /// <summary>The three Patterns cards — they differ by density, not by subject.</summary>
+    public static readonly EnumItem[] TestCardVariants =
+    {
+        new(TestCardVariant.Rig, "Rig — everything, and the screen's name"),
+        new(TestCardVariant.Pixel, "Pixel — mapping only, big"),
+        new(TestCardVariant.Levels, "Levels — black, white, grey and gamma"),
+    };
+
     public static readonly EnumItem[] BarsVariants =
     {
         new(BarsVariant.Smpte, "SMPTE RP 219 style"),

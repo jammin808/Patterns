@@ -82,6 +82,23 @@
       <TextBlock Classes="hint tip" Text="1 px cells verify pixel-perfect signal paths. Branding colours apply when enabled in Branding." />
     </StackPanel>
 
+    <!-- Patterns test card -->
+    <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.TestCard}}">
+      <TextBlock Classes="h2" Text="PATTERNS TEST CARD" />
+      <ComboBox ItemsSource="{Binding TestCardVariants}"
+                SelectedValue="{Binding ActivePattern.TestCard.Variant, Mode=TwoWay}"
+                SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+      <CheckBox Content="Name the screen on the card" IsChecked="{Binding ActivePattern.TestCard.ShowIdentity}"
+                ToolTip.Tip="The screen's own label and its pixels, written large enough to read from the floor — the question a rig day asks more often than any other" />
+      <CheckBox Content="The Patterns mark" IsChecked="{Binding ActivePattern.TestCard.ShowMark}" />
+      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Your words" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding ActivePattern.TestCard.Label, Mode=TwoWay}"
+                 Watermark="A room, a client, a date — beside the pixel size" />
+      </Grid>
+      <TextBlock Classes="hint tip" Text="One card for a rig day's first four questions: which screen this is, whether the pixels arrive one to one, where the edges went, and what the processor has done to black, white and grey. Everything that carries a measurement is fixed — the eleven steps, the clipping patches, the gamma solids — so a reading here is a reading anywhere. The one-to-one fields moiré under any scaling; the edge ticks count the overscan in pixels; the gamma solid that vanishes into the line field beside it IS this display's gamma. Those two only mean anything at native resolution with no sharpening in the chain. The card carries the Patterns mark itself, so the badge overlay stays off it." />
+    </StackPanel>
+
     <!-- Colour bars -->
     <StackPanel IsVisible="{Binding ActivePattern.Kind, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PatternKind.ColorBars}}">
       <TextBlock Classes="h2" Text="COLOUR BARS" />

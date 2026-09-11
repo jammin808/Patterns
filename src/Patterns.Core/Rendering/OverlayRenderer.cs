@@ -74,12 +74,13 @@ public static class OverlayRenderer
     }
 
     // The app's own colours — the badge names the maker, so it never takes the show's brand kit.
-    private static readonly SKColor BadgeInk = new(0x12, 0x15, 0x1C);
-    private static readonly SKColor BadgeTile = new(0x17, 0x1A, 0x21);
-    private static readonly SKColor BadgeCyan = new(0x3E, 0xC1, 0xF3);
-    private static readonly SKColor BadgeMagenta = new(0xF0, 0x3E, 0xAE);
-    private static readonly SKColor BadgeMist = new(0xB8, 0xC0, 0xCC);
-    private static readonly string[] BadgeLetters = { "P", "A", "T", "T", "E", "R", "N", "S" };
+    // The mark itself lives in PatternsMark, because the test card draws it as part of the card
+    // and two hand-drawn copies of a logo drift apart.
+    private static readonly SKColor BadgeInk = PatternsMark.Card;
+    private static readonly SKColor BadgeCyan = PatternsMark.Cyan;
+    private static readonly SKColor BadgeMagenta = PatternsMark.Magenta;
+    private static readonly SKColor BadgeMist = PatternsMark.Mist;
+    private static readonly string[] BadgeLetters = PatternsMark.Letters;
 
     /// <summary>
     /// The Patterns badge: the app's own mark, drawn by hand so it is on every sink at any size —
@@ -139,28 +140,8 @@ public static class OverlayRenderer
         }
     }
 
-    /// <summary>The app's icon by hand: a dark rounded tile, a light 4×4 grid, a cyan cross across the middle.</summary>
     private static void DrawBadgeIcon(SKCanvas c, PaintCache pc, SKRect r, float alpha)
-    {
-        var s = r.Width;
-        var radius = s * 0.2f;
-        c.DrawRoundRect(r, radius, radius, pc.FillAA(BadgeTile.WithAlpha(Alpha(1f, alpha))));
-        var save = c.Save();
-        c.ClipRoundRect(new SKRoundRect(r, radius, radius), antialias: true);
-        var grid = pc.StrokeAA(BadgeMist.WithAlpha(Alpha(0.7f, alpha)), Math.Max(1f, s * 0.05f));
-        for (var i = 1; i < 4; i++)
-        {
-            var p = s * i / 4f;
-            c.DrawLine(r.Left + p, r.Top, r.Left + p, r.Bottom, grid);
-            c.DrawLine(r.Left, r.Top + p, r.Right, r.Top + p, grid);
-        }
-        c.RestoreToCount(save);
-        var arm = s * 0.42f;
-        var t = Math.Max(1.5f, s * 0.085f);
-        var cross = pc.FillAA(BadgeCyan.WithAlpha(Alpha(1f, alpha)));
-        c.DrawRoundRect(SKRect.Create(r.MidX - arm / 2, r.MidY - t / 2, arm, t), t / 2, t / 2, cross);
-        c.DrawRoundRect(SKRect.Create(r.MidX - t / 2, r.MidY - arm / 2, t, arm), t / 2, t / 2, cross);
-    }
+        => PatternsMark.Icon(c, pc, r, Alpha(1f, alpha));
 
     private static byte Alpha(float k, float opacity) => (byte)Math.Clamp(k * opacity * 255f, 0, 255);
 

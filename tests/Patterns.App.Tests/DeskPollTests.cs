@@ -63,6 +63,11 @@ public class DeskPollTests
         {
             var vm = b.Vm;
             var faultsBefore = HealthMonitor.Faults;
+            // Deltas, not totals. The desk's own one-second timer is running from the moment it is
+            // built, so on a slow machine a tick or two lands during the boot and before this test
+            // has said anything — which would fail it for being slow rather than for being wrong.
+            var ticksBefore = b.Services.DeskTick.Ticks;
+            var tickFaultsBefore = b.Services.DeskTick.Faults;
             var seen = new List<string>();
             vm.PollAreaProbe = area =>
             {
@@ -77,11 +82,11 @@ public class DeskPollTests
             Assert.Equal(3, seen.Count(a => a == "audio"));
             Assert.Equal(3, seen.Count(a => a == "cues"));
             Assert.Equal(3, seen.Count(a => a == "clock"));
-            Assert.Equal(3, b.Services.DeskTick.Ticks);
+            Assert.Equal(3, b.Services.DeskTick.Ticks - ticksBefore);
             Assert.StartsWith("Up ", vm.HealthText);                       // the health area, after audio, ran
 
             // Three failures, one story: counted every time, told to the health line once a minute.
-            Assert.Equal(3, b.Services.DeskTick.Faults);
+            Assert.Equal(3, b.Services.DeskTick.Faults - tickFaultsBefore);
             Assert.Equal(1, HealthMonitor.Faults - faultsBefore);
             Assert.Contains("desk poll · audio: the sound card went away", vm.HealthText);
             Assert.Contains("3 areas failed and the tick carried on", vm.DeskTickText);
@@ -89,7 +94,7 @@ public class DeskPollTests
             // Mended: nothing more is counted.
             vm.PollAreaProbe = null;
             vm.PollNow();
-            Assert.Equal(3, b.Services.DeskTick.Faults);
+            Assert.Equal(3, b.Services.DeskTick.Faults - tickFaultsBefore);
             Assert.Equal(1, HealthMonitor.Faults - faultsBefore);
         }
         finally

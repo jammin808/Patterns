@@ -24,5 +24,6 @@ public static class PatternRegistry
             [PatternKind.Particles] = new ParticlePattern(),
             [PatternKind.Fractal] = new FractalPattern(),
             [PatternKind.Reactive] = new ReactivePattern(),
+            [PatternKind.TestCard] = new TestCardPattern(),
         };
 }

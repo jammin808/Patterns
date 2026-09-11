@@ -65,6 +65,35 @@ public sealed class BarsOptions : Observable
     public bool FullRange { get => _fullRange; set => Set(ref _fullRange, value); }
 }
 
+/// <summary>
+/// Patterns' own test card. Deliberately four settings: a card whose layout can be argued with is
+/// a card you cannot trust, so everything that carries a measurement — the step values, the
+/// clipping patches, the gamma solids, the one-to-one fields — is fixed in the renderer and is the
+/// same on every machine. What is left is which card, and what it says about this screen.
+/// </summary>
+public sealed class TestCardOptions : Observable
+{
+    private TestCardVariant _variant = TestCardVariant.Rig;
+    private bool _showIdentity = true;
+    private bool _showMark = true;
+    private string _label = "";
+
+    public TestCardVariant Variant { get => _variant; set => Set(ref _variant, value); }
+
+    /// <summary>
+    /// The screen's own name, its pixels and where it sits, written on the card. The question a
+    /// rig day asks more often than any other is "which screen am I looking at", and a card that
+    /// cannot answer it sends somebody round the back of the set to find out.
+    /// </summary>
+    public bool ShowIdentity { get => _showIdentity; set => Set(ref _showIdentity, value); }
+
+    /// <summary>The Patterns mark, drawn into the card rather than over it.</summary>
+    public bool ShowMark { get => _showMark; set => Set(ref _showMark, value); }
+
+    /// <summary>Words of your own in the card's header — a room, a client, a date.</summary>
+    public string Label { get => _label; set => Set(ref _label, value ?? ""); }
+}
+
 public sealed class RampOptions : Observable
 {
     private RampVariant _variant = RampVariant.GrayHorizontal;
@@ -711,7 +740,10 @@ public sealed class LayerConfig : Observable
 /// <summary>Everything that describes what is drawn on the canvas (minus overlays).</summary>
 public sealed class PatternConfig : Observable
 {
-    private PatternKind _kind = PatternKind.Grid;
+    // What a brand-new install puts on the wall. The card that answers a rig day's first four
+    // questions at once is a better first impression — and a better first ten minutes — than a
+    // grid, which answers one of them. An existing show is untouched: its file names its kind.
+    private PatternKind _kind = PatternKind.TestCard;
     private string _multiviewId = "";
 
     public PatternKind Kind { get => _kind; set => Set(ref _kind, value); }
@@ -720,6 +752,7 @@ public sealed class PatternConfig : Observable
     public GridOptions Grid { get; init; } = new();
     public CheckerOptions Checker { get; init; } = new();
     public BarsOptions Bars { get; init; } = new();
+    public TestCardOptions TestCard { get; init; } = new();
     public RampOptions Ramp { get; init; } = new();
     public FocusOptions Focus { get; init; } = new();
     public GeometryOptions Geometry { get; init; } = new();

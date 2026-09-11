@@ -139,10 +139,11 @@ public class HeadlessUiTests
                 Assert.True(vm.ShowEditTargets);
                 Assert.Equal(placement.ScreenId, vm.EditTarget.ScreenId);
 
+                var programmeWas = services.State.Pattern.Kind;
                 vm.ActivePattern.Kind = PatternKind.Focus;
                 Assert.Equal(PatternKind.Focus,
                     services.State.Independent.First(a => a.ScreenId == placement.ScreenId).Pattern.Kind);
-                Assert.Equal(PatternKind.Grid, services.State.Pattern.Kind);
+                Assert.Equal(programmeWas, services.State.Pattern.Kind);   // the screen's own, not the show's
 
                 // Enable toggle pins the user's choice.
                 vm.SelectedEnabled = false;

@@ -97,10 +97,11 @@ public class MultiviewPageTests
 
             // One tick: the screen's own pattern on, set to this wall, and the programme untouched.
             var screen = vm.WallDestinations.Single(d => d.TargetId == "b");
+            var programmeWas = vm.State.Pattern.Kind;
             screen.IsOn = true;
             Dispatcher.UIThread.RunJobs();
             Assert.True(Multiviews.IsShowing(vm.State, "b", wall.Id));
-            Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);   // the show is still the show
+            Assert.Equal(programmeWas, vm.State.Pattern.Kind);   // the show is still the show
             Assert.Equal("showing this wall", screen.Note);
             Assert.Contains("on 1 output", vm.WallSummary);
 

@@ -144,13 +144,22 @@ public sealed class SettingsStore
             if (string.IsNullOrWhiteSpace(stinger.Id)) stinger.Id = Guid.NewGuid().ToString("N");
         }
 
-        // The badge's line: the maker's own words, changed in the source. A show written before the
-        // change carries the old ones, so a machine that has run the app once would never see the
-        // new line — the change would be real everywhere except where anybody looks. A line still
-        // exactly the old default was never typed over, so it follows; anything else is the
-        // operator's and is left alone. Saved looks keep the words they were saved with, because a
-        // look is a picture of a moment and the badge travels with looks on purpose.
-        if (state.Overlays.Badge.Line == BadgeOverlay.LegacyLine) state.Overlays.Badge.Line = BadgeOverlay.DefaultLine;
+        // v10: the badge's line, the maker's own words, changed in the source. Every property is
+        // written to the file, so a show saved by an older build carries the old words and would
+        // keep them for ever — the change would be real everywhere except where an operator looks.
+        // A line still exactly the old default was never typed over, so it follows.
+        //
+        // Version-gated, and that gate is the whole point rather than tidiness: ungated, this runs
+        // on every load, so an operator who liked the old words and typed them back in would have
+        // them taken away again at the next start, silently, for ever. One upgrade, once.
+        //
+        // Saved looks keep the words they were saved with. A look is a picture of a moment and the
+        // badge travels with looks on purpose; rewriting the payloads would change every look's
+        // fingerprint to fix a wording.
+        if (state.SchemaVersion < 10 && state.Overlays.Badge.Line == BadgeOverlay.LegacyLine)
+        {
+            state.Overlays.Badge.Line = BadgeOverlay.DefaultLine;
+        }
 
         // Break music: hand-edited or hand-copied entries get an id and a canonical URI, like
         // stingers. Unconditional and idempotent — no schema step, because there is nothing to

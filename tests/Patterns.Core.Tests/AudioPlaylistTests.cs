@@ -106,7 +106,7 @@ public class AudioPlaylistTests
         var state = new ShowState { SchemaVersion = 7 };
         state.AudioPlayer.Path = "C:/old/walk-in.mp3";
         SettingsStore.Migrate(state);
-        Assert.Equal(9, ShowState.CurrentSchemaVersion);
+        Assert.Equal(10, ShowState.CurrentSchemaVersion);
         Assert.Equal(ShowState.CurrentSchemaVersion, state.SchemaVersion);
         Assert.Single(state.AudioPlayer.Items);
         Assert.Equal("C:/old/walk-in.mp3", state.AudioPlayer.Items[0].Path);

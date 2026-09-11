@@ -21,6 +21,24 @@ public enum PatternKind
     Fractal,
     /// <summary>A curated sound-reactive scene — a tunnel, a kaleidoscope, plasma; drawn by the graphics card, with a CPU twin for NDI, the stream and thumbnails.</summary>
     Reactive,
+    /// <summary>Patterns' own test card: one picture that answers the whole first ten minutes of a rig day — which screen this is, whether the pixels are one to one, where the edges went, and what the processor is doing to black, white and grey.</summary>
+    TestCard,
+}
+
+/// <summary>
+/// The three Patterns cards. They are not three subjects — every one of them is a composite, and
+/// the single-purpose cards (bars, ramps, focus, geometry) are still the right tool when you are
+/// looking at one thing. These differ by DENSITY, which is the thing a rig day actually changes:
+/// what you can read from a ladder is not what you can read at the processor.
+/// </summary>
+public enum TestCardVariant
+{
+    /// <summary>Everything at once, and the screen's own name on it. The card you leave up on a wall.</summary>
+    Rig,
+    /// <summary>The mapping half, big enough to read from the back of a hall: one-to-one fields, the edge rulers, the circle.</summary>
+    Pixel,
+    /// <summary>The measurement half, full frame: the staircase, the clipping patches, the gamma match, the primaries.</summary>
+    Levels,
 }
 
 /// <summary>The curated reactive scenes, in the order the page offers them.</summary>

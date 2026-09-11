@@ -259,23 +259,27 @@ public class BadgeTests
     [Fact]
     public void TheMakersLineFollowsTheAppUnlessSomebodyTypedOverIt()
     {
-        var untouched = new ShowState();
+        var untouched = new ShowState { SchemaVersion = 9 };
         untouched.Overlays.Badge.Line = BadgeOverlay.LegacyLine;
         SettingsStore.Migrate(untouched);
         Assert.Equal(BadgeOverlay.DefaultLine, untouched.Overlays.Badge.Line);
 
-        var theirs = new ShowState();
+        var theirs = new ShowState { SchemaVersion = 9 };
         theirs.Overlays.Badge.Line = "The Barbican · Silk Street EC2Y 8DS";
         SettingsStore.Migrate(theirs);
         Assert.Equal("The Barbican · Silk Street EC2Y 8DS", theirs.Overlays.Badge.Line);
 
-        var off = new ShowState();
+        var off = new ShowState { SchemaVersion = 9 };
         off.Overlays.Badge.Line = "";
         SettingsStore.Migrate(off);
         Assert.Equal("", off.Overlays.Badge.Line);                   // cleared on purpose stays cleared
 
-        // Idempotent, like every other step in the pass.
-        SettingsStore.Migrate(untouched);
-        Assert.Equal(BadgeOverlay.DefaultLine, untouched.Overlays.Badge.Line);
+        // Once, not for ever. An operator who liked the old words and typed them back in keeps
+        // them — every other value-correcting step in the pass is version-gated for this reason,
+        // and an ungated one would take their line away again at every start, silently.
+        var deliberate = untouched;
+        deliberate.Overlays.Badge.Line = BadgeOverlay.LegacyLine;
+        SettingsStore.Migrate(deliberate);
+        Assert.Equal(BadgeOverlay.LegacyLine, deliberate.Overlays.Badge.Line);
     }
 }

@@ -412,9 +412,13 @@ public sealed class BadgeOverlay : Observable, IAnchored
     /// a scene was wrong to be the one exception. What it stays off is content that is not the
     /// app's to sign: someone else's media (until they ask for it with <see cref="OnMediaToo"/>),
     /// and the multiview, which is a monitoring picture rather than a picture of the show.
+    ///
+    /// The test card is the third: it carries the mark inside itself, as part of the card, so the
+    /// overlay on top of it would be a second one — and a card with two logos on it is a card
+    /// somebody made a mistake on.
     /// </summary>
     public bool ShowsOn(PatternKind kind)
-        => Enabled && kind != PatternKind.Multiview
+        => Enabled && kind != PatternKind.Multiview && kind != PatternKind.TestCard
            && (OnMediaToo || kind != PatternKind.Media);
 }
 
@@ -2030,7 +2034,7 @@ public sealed class CaptureFormatConfig : Observable
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
 public sealed class ShowState : Observable
 {
-    public const int CurrentSchemaVersion = 9;
+    public const int CurrentSchemaVersion = 10;
 
     private bool _blackout = false;
     private int _schemaVersion; // absent in old files → 0 → migrations run

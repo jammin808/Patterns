@@ -156,17 +156,18 @@ public class ScreenRoleTests
             Assert.True(vm.SwitcherTiles[2].IsMirror);
             Assert.StartsWith("REP ↳", vm.SwitcherTiles[2].FootText);   // the group first, then what it repeats
             vm.SwitcherTiles[1].IsOwn = true; // canvas A gets its own picture
+            var programmeWas = b.Services.Bus.Current.State.Pattern.Kind;
             vm.ActivePattern.Kind = PatternKind.Focus;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.Focus, b.Services.Bus.Current.PatternFor(CanvasKey).Kind);
             Assert.Equal(PatternKind.Focus, b.Services.Bus.Current.PatternFor("c").Kind);
-            Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.State.Pattern.Kind);
+            Assert.Equal(programmeWas, b.Services.Bus.Current.State.Pattern.Kind);
 
             // Back to its own content: it follows the program again.
             vm.SelectedMirrorOf = "";
             Assert.Equal("", c.MirrorOf);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(PatternKind.Grid, b.Services.Bus.Current.PatternFor("c").Kind);
+            Assert.Equal(programmeWas, b.Services.Bus.Current.PatternFor("c").Kind);
         }
         finally
         {
