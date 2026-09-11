@@ -3899,3 +3899,154 @@ stage, a clip there drew as an anonymous dark rectangle, which reads as an impor
 now carries its file name and *plays on PVW and on air*, drawn by the preview control alone — the
 shared renderer is left exactly as the outputs run it, because a file name on a wall in front of a
 room would be a far worse fault than a dark rectangle on a desk.
+
+
+## 43. Round 27 — the maker's line, the desk's own test card, three states for a look, MIDI
+
+*"Branding - Patterns Badge: default line under name message - 'rig · playback · show control'."*
+
+*"Patterns needs some unique Patterns branded test cards (not an overlay, part of the card). They
+should be pixel perfect, scientifically accurate, and technically useful for various situations. The
+strongest of these should be the default on first run/startup for the project."*
+
+*"Check the completeness of the Bitfocus Companion Module. Lots of feedback and interaction to
+Companion/Streamdeck. Different highlights for which 'Look' is live, if a 'Look' is set but one or
+more screens have changed 'Patterns' within that look, or not live (Also for Patterns on each
+screen)."*
+
+*"Patterns needs the ability to allow external controllers like the AKAI Professional APC 40 mkII
+controls to be mapped by midi. Research popular controllers to implement. Give maximum control and
+feedback."*
+
+With them the standing rule: stability, resilience, efficiency, UX, performance across system specs,
+durability and an easy show workflow; every change instant, with game-engine architecture put to AV
+use and corporate-grade resilience around it. The answers are §44. The checklist for the Windows
+machine is `docs/CHECKLIST-round27.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The maker's line (§44.1). One constant, and the migration that makes the change visible: every property is written to the file, so a machine that had run the app once would have kept the old words for ever. Gated on schema 10, because ungated it would take the line away again from anybody who typed the old words back on purpose. | done |
+| 2 | The Patterns test card (§44.2). One card for a rig day's first four questions — which screen, are the pixels one to one, where did the edges go, what has the processor done to black, white and grey — with every measurement fixed in the code so a reading can be quoted between venues. Three densities, and the first-run default. | done |
+| 3 | Three states for a look, and what each screen is drawing (§44.3). The desk has known since round 17 that the picture has moved since a look was recalled, and kept it in the view model. It moves into `LookTally`, reaches the wire, OSC and Companion, and gains the per-screen answer a rig with eight screens actually needs. Companion 2.8.0. | done |
+| 4 | MIDI control surfaces (§44.4). | in flight |
+
+## 44. Round 27 — the answers
+
+### 44.1 The maker's own line, and why one constant needed a migration
+
+"Default line under name message" is a one-line change and it was a one-line change. What it needed
+beside it was the reason the change would otherwise be invisible: `JsonUtil` writes every property
+(`DefaultIgnoreCondition = Never`), so a settings file written by any shipped build carries the old
+words in `Overlays.Badge.Line`, and deserialising it overwrites the field initialiser. On every
+machine that had ever run the app, the new line would have been real in the source and nowhere an
+operator looks.
+
+So `BadgeOverlay.LegacyLine` holds the old words and the migration moves a line that is still
+exactly them. A line typed over is the operator's and is left alone — a venue that put its address
+there meant it.
+
+The gate matters more than it looks. The first cut ran unconditionally, which meant it ran on every
+load for ever: an operator who liked the old words and typed them back in would have had them taken
+away again at the next start, silently, with no way to keep them. Every other value-correcting step
+in `Migrate` is version-gated for exactly that reason, so this one is too, and
+`CurrentSchemaVersion` goes 9 → 10 to pay for it.
+
+Saved looks keep the words they were saved with. A look is a picture of a moment and the badge
+travels with looks on purpose; rewriting the payloads would change every look's fingerprint to fix
+a wording.
+
+### 44.2 One card for a rig day's first ten minutes
+
+The desk had sixteen pictures and every one of them tested a single thing well — bars for levels,
+ramps for banding, focus for a lens, geometry for safe areas, grid and checkerboard for pixel
+mapping. That is exactly right once you already know what you are looking for, and a rig day does
+not start that way. It starts with a wall that has just lit up and four questions asked in about ten
+seconds. Four cards is four trips to the desk; on eight screens it is thirty-two. So the gap was
+never another single-purpose card — it was the composite, which is what a broadcast test card always
+was and why every station had one.
+
+**What is on it, and why each thing is there.** A one-pixel border at the very edge and a second
+three pixels in: see all four of both and the signal arrives whole. Ticks every ten pixels for the
+first hundred from every corner, longer at fifty and a hundred — count the missing ones and the
+overscan is a number rather than "a bit", which is the difference between a setting and an argument.
+Five one-to-one fields (four corners and the middle): vertical one-pixel lines, horizontal ones and
+a one-pixel checker, each exactly half lit, so at native resolution they read as three even textures
+of the same brightness and through any scaler they crawl and moiré — and *which* one breaks says
+whether the scaling is horizontal, vertical or both. A circle that is only round when the pixel
+aspect is. An eleven-step staircase, 0–255 in tens, each step carrying its own code value. Clipping
+patches at 2, 4, 6, 8 on black and 253, 251, 249, 247 on white: every patch you cannot see is a code
+value the chain threw away, and the numbers say which. A gamma match — a field of one-pixel lines
+beside solids at 177, 186 and 195, because a 50 % duty line field is half lit in *linear* light, so
+the solid that vanishes into it at a distance is 255·0.5^(1/γ) and its label is the display's gamma.
+And the screen's own name, large, which is the question a rig day asks more often than any other.
+
+**Three cards, differing by density rather than subject.** That distinction is the whole defence
+against duplicating what the desk already has: Rig is all of it and what a new install shows, Pixel
+is the mapping half at twice the size for somebody up a ladder with a processor remote, and Levels
+is the measurement half full frame — the card an engineer photographs and sends to the LED supplier.
+
+**What makes it trustworthy.** Every measurement is a fixed number in the renderer and cannot be
+configured, so the card an engineer reads in one venue is the card they read last month and a
+reading can be quoted. Every structural line goes through the desk's own hairline rule, so the
+one-to-one fields stay exactly half lit whatever the sink. Nothing needs a graphics card — three of
+six sinks draw on the processor, and a card that read differently on the stream from in the room
+would be worse than no card. Nothing moves, so `CadenceOf` leaves it Static and a wall of them left
+up all afternoon costs nothing.
+
+**And it says when it cannot measure**, which is the part that took a second pass to get right. The
+one-pixel lines are drawn at one *device* pixel, not one canvas pixel, because a canvas pixel on a
+sink drawing at a twentieth of size falls between pixel centres and vanishes — that is what keeps
+the card legible as a 96-pixel monitor-wall tile. The consequence is that on any sink whose device
+scale is not 1, the fields are drawn at the sink's pixel and are decorating rather than measuring.
+The first cut looked identical either way, which is the one thing this desk does not ship: the card
+now wears orange and says SCALED — 1:1 AND GAMMA READ ONLY AT NATIVE SIZE.
+
+The mark is drawn *into* the card, out of the same primitives the badge uses — extracted to
+`PatternsMark`, because two hand-drawn copies of a logo drift and a year later nobody knows which
+is the real one. Which is also why the badge overlay now stays off this one kind: a card with two
+logos on it is a card somebody made a mistake on.
+
+### 44.3 Three states for a look, and which screen went its own way
+
+A look key carried one bit — on air, or not — and that bit stays true however much the picture moves
+afterwards. A Stream Deck at front of house therefore showed solid green over a picture nobody had
+checked, which is worse than uninformative: it is reassuring about something it has not looked at.
+
+The desk has known better since round 17. `RefreshLookTallies` compares the look's fingerprint with
+the air's and the Looks page reads PROGRAM · EDITED. It did that arithmetic in the view model, for
+the view model, and stored it in `[JsonIgnore]` runtime fields, so `StateJson` never saw it and no
+remote could. The reading moves into `LookTally`, cached on the snapshot version, and the page, the
+TCP wire, OSC and Companion all take the same one — two surfaces disagreeing about a fact is worse
+than neither of them having it. The fallback moved with it: when nothing is recorded, the look on
+air is whichever saved look this picture *is*, which the page always did and the first cut of the
+move quietly dropped, so the page lit a look while the wire lit none.
+
+**Per screen is the part that earns its keep.** `LookService.Fingerprint` serialises the whole state
+into one string, so it can only ever say that *something* moved — which on a rig with eight screens
+is the answer an operator least needs, because it sends somebody round the back of the set.
+`LookService.TargetsOffLook` says which, comparing each target's picture against what the look asked
+of it, by the same identity the engine uses to decide a picture has changed (so a dragged layer or a
+web page's zoom is not a screen going its own way).
+
+Two things deliberately do not count, because a warning that is always on is a warning nobody reads.
+A screen the look *itself* gave its own picture is doing exactly as it was told — looks very often
+hand a confidence monitor its own content on purpose, which is why `own` could never stand in for
+this reading. And a locked screen never counts at all: keeping its picture through a look, a cue and
+a TAKE is precisely what LOCK means, so a locked screen would otherwise read as having gone its own
+way from the moment any look was recalled and stay that way for ever.
+
+`SnapshotBus.PatternFor` now delegates to `LookService.Shown`. The comparison has to ask exactly the
+same question the engine asks, and two copies of that rule would answer differently the first time
+one of them was changed.
+
+**Completeness, which was the other half of the ask.** Against the wire's verb list the module's
+actions were already near-total — only the two passcode admin verbs and the query verbs are
+unexposed, all deliberate. The gap was *state*: a large set of facts the desk pushes every 200 ms
+that no feedback and no variable read. The whole `stream{}` health block, with the desk's own
+comment naming "a Stream Deck's colour" as the consumer it was built for; whether the outputs are
+open; EDIT SAFE; the tone; the Interactive devices; and `cuestack.timing`, so a caller's own surface
+can say the day is eleven minutes late. All now have feedbacks, variables and ready-made keys.
+
+Two bugs came out of reading it. `track_7` and `track_8` were written by `bankVariables` and used by
+the Audio preset keys but never declared, so those two keys rendered `$(patterns:track_7)` as their
+label. And 103 button labels carried a literal `\n` rather than a line break.
