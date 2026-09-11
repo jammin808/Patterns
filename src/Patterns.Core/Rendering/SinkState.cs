@@ -68,6 +68,45 @@ public sealed class SinkState : IDisposable
     /// <summary>Newest snapshot version this sink has passed through the transition logic (cut detection).</summary>
     public long TransitionSeenVersion { get; set; } = -1;
 
+    /// <summary>The screen id a sink that has never drawn is standing at — never equal to any real one.</summary>
+    public const string NoScreen = "\u0001none";
+
+    // Which content target the key above belongs to, as one volatile reference so the UI thread's
+    // cadence read and the compositor thread's write can never see half of a pair. A pane that
+    // starts showing a different target is looking somewhere else, not watching a picture change:
+    // its two keys are for two pictures, and comparing them means nothing.
+    private volatile string _transitionScreen = NoScreen;
+
+    /// <summary>The content target this sink's transition key belongs to; <see cref="NoScreen"/> until it has drawn.</summary>
+    public string TransitionScreen => _transitionScreen;
+
+    /// <summary>
+    /// Points this sink at a target and says whether that is a move — a different target from the
+    /// one its key belongs to. The first frame is never a move: there is no outgoing picture.
+    /// </summary>
+    public bool MoveToScreen(string? screenId)
+    {
+        var id = screenId ?? "";
+        var was = _transitionScreen;
+        _transitionScreen = id;
+        return !ReferenceEquals(was, NoScreen) && was != NoScreen && !string.Equals(was, id, StringComparison.Ordinal);
+    }
+
+    /// <summary>Reads whether a target is a move without claiming it — the cadence decision, made before the frame.</summary>
+    public bool WouldMoveTo(string? screenId)
+    {
+        var was = _transitionScreen;
+        return was != NoScreen && !string.Equals(was, screenId ?? "", StringComparison.Ordinal);
+    }
+
+    /// <summary>Nothing is crossing any more: the outgoing picture, its clock and its matte all go.</summary>
+    public void EndTransition()
+    {
+        TransitionFrom = null;
+        TransitionEndClock = 0;
+        DropMatte();
+    }
+
     /// <summary>
     /// What the running transition looks like, settled once when it arms: the kind, the way it
     /// travels, the scene it wipes with, the colours it draws with. Everything a transition needs

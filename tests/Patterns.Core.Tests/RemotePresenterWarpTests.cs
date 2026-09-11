@@ -199,8 +199,8 @@ public class WarpMathTests
 
 public class TransitionTests
 {
-    private static ShowSnapshot Snap(ShowState state, long version)
-        => new() { State = JsonUtil.Clone(state), Version = version };
+    private static ShowSnapshot Snap(ShowState state, long version, bool isTake = true)
+        => new() { State = JsonUtil.Clone(state), Version = version, IsTake = isTake };
 
     private static ShowState FlatState(string color)
     {

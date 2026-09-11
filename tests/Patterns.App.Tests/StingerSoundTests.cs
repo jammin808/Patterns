@@ -201,7 +201,7 @@ public class StingerSoundTests
         s.Stingers.StopFadeMs = stopFadeMs;
         s.Transition.Enabled = transitionMs > 0;
         s.Transition.DurationMs = Math.Max(transitionMs, 1);
-        return new ShowSnapshot { State = s, Version = 1 };
+        return new ShowSnapshot { State = s, Version = 1, IsTake = true };
     }
 
     private static ShowSnapshot Grid(int stopFadeMs, int transitionMs)
@@ -211,7 +211,7 @@ public class StingerSoundTests
         s.Stingers.StopFadeMs = stopFadeMs;
         s.Transition.Enabled = transitionMs > 0;
         s.Transition.DurationMs = Math.Max(transitionMs, 1);
-        return new ShowSnapshot { State = s, Version = 2 };
+        return new ShowSnapshot { State = s, Version = 2, IsTake = true };
     }
 
     [AvaloniaFact]

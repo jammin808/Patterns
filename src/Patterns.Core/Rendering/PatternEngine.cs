@@ -63,33 +63,44 @@ public sealed class PatternEngine
     {
         if (!snap.FadesEnabled || kind == SinkKind.Thumbnail) return false;
         if (snap.CutAtVersion > sink.TransitionSeenVersion) return false; // a CUT switches instead of fading
+        if (sink.WouldMoveTo(screenId)) return false;                     // so does a pane pointed elsewhere
         var shown = sink.TransitionKey;
         return shown != SinkState.NoKey && shown != snap.TransitionKeyFor(screenId);
     }
 
     private void RenderLive(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
     {
-        // Crossfade on content changes: when this sink's content identity changes, the
-        // previous snapshot keeps rendering on top, fading out over the configured time.
-        // Thumbnails and fade-source re-renders themselves are excluded.
-        if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail && snap.FadesEnabled)
+        // How one picture becomes the next. Two questions, deliberately separate:
+        //
+        //   Should a transition START?  Only when the show's transitions are on AND this publish
+        //                               is a take — somebody did something to the show. An edit
+        //                               arrives at once, because a crossfade is how a picture
+        //                               changes in front of a room, not how a desk answers a
+        //                               slider.
+        //   Should a transition RUN?    Always, until it is finished. An edit landing 50 ms into
+        //                               a 400 ms dissolve must not cut it short — under EDIT SAFE
+        //                               that would be the operator's very next keystroke.
+        //
+        // Thumbnails and fade-source re-renders take part in neither.
+        if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail)
         {
             var key = snap.TransitionKeyFor(ctx.ScreenId);
-            // A CUT this sink has not shown yet: switch now, and abandon any fade in flight.
-            var cut = snap.CutAtVersion > sink.TransitionSeenVersion;
-            if (cut)
+            // A CUT this sink has not shown yet, a pane pointed at a different target, or a show
+            // with transitions switched off: nothing crosses, and anything in flight is abandoned.
+            var moved = sink.MoveToScreen(ctx.ScreenId);
+            if (moved || snap.CutAtVersion > sink.TransitionSeenVersion || snap.TransitionsOff)
             {
-                sink.TransitionFrom = null;
-                sink.TransitionEndClock = 0;
-                sink.DropMatte();
+                sink.EndTransition();
             }
-            else if (sink.TransitionKey is var shown && shown != SinkState.NoKey && shown != key && sink.LastSnapshot is { } prev)
+            else if (snap.FadesEnabled && sink.TransitionKey is var shown && shown != SinkState.NoKey && shown != key && sink.LastSnapshot is { } prev)
             {
                 sink.TransitionFrom = prev;
                 sink.TransitionStartClock = ctx.Time;
                 sink.TransitionEndClock = ctx.Time + snap.FadeSecondsFor(snap.Version);
                 ArmTransition(snap, in ctx, sink);
             }
+            // The identity is tracked whether or not anything crossed, so the next take never
+            // fades from long-stale content and a cut seen with transitions off stays seen.
             sink.TransitionKey = key;
             sink.LastSnapshot = snap;
             sink.TransitionSeenVersion = snap.Version;
@@ -100,9 +111,7 @@ public sealed class PatternEngine
                 var t = (ctx.Time - sink.TransitionStartClock) / duration;
                 if (t >= 1)
                 {
-                    sink.TransitionFrom = null;
-                    sink.TransitionEndClock = 0;
-                    sink.DropMatte();
+                    sink.EndTransition();
                 }
                 else
                 {
@@ -118,25 +127,12 @@ public sealed class PatternEngine
                         // A transition must never take the show down — drop it and carry on with
                         // the picture the show is meant to be showing.
                         Log.Warn("Transition render failed.", ex);
-                        sink.TransitionFrom = null;
-                        sink.TransitionEndClock = 0;
-                        sink.DropMatte();
+                        sink.EndTransition();
                         RenderContent(canvas, snap, in ctx, sink);
                     }
                     return;
                 }
             }
-        }
-        else if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail)
-        {
-            // Transitions off: keep tracking identity so enabling them later never fades
-            // from long-stale content.
-            sink.TransitionKey = snap.TransitionKeyFor(ctx.ScreenId);
-            sink.LastSnapshot = snap;
-            sink.TransitionFrom = null;
-            sink.TransitionEndClock = 0;
-            sink.DropMatte();
-            sink.TransitionSeenVersion = snap.Version; // a cut shown with fades off is still seen
         }
 
         RenderContent(canvas, snap, in ctx, sink);

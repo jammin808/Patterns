@@ -181,12 +181,12 @@ public class ContentTargetTests
         }
 
         // Fades off: a red frame, then a CUT to blue (the cut is a property of that snapshot).
-        Render(new ShowSnapshot { State = Flat("#FF0000", fades: false), Version = 1 }, 1.0);
-        Render(new ShowSnapshot { State = Flat("#0000FF", fades: false), Version = 2, CutAtVersion = 2 }, 1.1);
+        Render(new ShowSnapshot { State = Flat("#FF0000", fades: false), Version = 1, IsTake = true }, 1.0);
+        Render(new ShowSnapshot { State = Flat("#0000FF", fades: false), Version = 2, CutAtVersion = 2, IsTake = true }, 1.1);
         Assert.Equal(2, sink.TransitionSeenVersion);
 
         // Fades on again, content changes to green: a fade from blue, not a replay of the old cut.
-        Render(new ShowSnapshot { State = Flat("#00FF00", fades: true), Version = 3, CutAtVersion = 2 }, 1.2);
+        Render(new ShowSnapshot { State = Flat("#00FF00", fades: true), Version = 3, CutAtVersion = 2, IsTake = true }, 1.2);
         Assert.NotNull(sink.TransitionFrom);
         Assert.True(sink.TransitionEndClock > 1.2);
     }

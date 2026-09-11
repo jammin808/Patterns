@@ -10,8 +10,13 @@ public static class RenderTestHarness
 {
     public static readonly DateTime FixedUtcNow = new(2026, 8, 29, 10, 0, 0, DateTimeKind.Utc);
 
-    public static ShowSnapshot Snap(ShowState state, long version = 1, DateTime? identifyUntil = null)
-        => new() { State = state, Version = version, IdentifyUntilUtc = identifyUntil };
+    /// <summary>
+    /// A snapshot of this state. <paramref name="isTake"/> defaults to true because a test that
+    /// changes a state and renders it again is standing in for the show changing — a look, a cue,
+    /// a TAKE. A test about an operator editing passes false, and then nothing transitions.
+    /// </summary>
+    public static ShowSnapshot Snap(ShowState state, long version = 1, DateTime? identifyUntil = null, bool isTake = true)
+        => new() { State = state, Version = version, IdentifyUntilUtc = identifyUntil, IsTake = isTake };
 
     public static SKBitmap Render(
         ShowState state,

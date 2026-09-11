@@ -492,7 +492,7 @@ public class TransitionKindTests
         Assert.Null(sink.MattePixels);
 
         // A CUT abandons the change in flight, and the buffer goes with it.
-        var cut = new ShowSnapshot { State = c, Version = 3, CutAtVersion = 3 };
+        var cut = new ShowSnapshot { State = c, Version = 3, CutAtVersion = 3, IsTake = true };
         Draw(engine, sink, cut, 0.3);
         Assert.Null(sink.MatteField);
         Assert.Null(sink.MatteBitmap);

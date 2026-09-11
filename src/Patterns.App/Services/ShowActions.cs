@@ -26,6 +26,12 @@ public sealed class ShowActions
     public ActionResult Execute(ShowAction action, ActionOrigin origin)
     {
         ActionResult result;
+        // Every verb the show has comes through here — the desk's keys, the wire, OSC, Companion,
+        // a cue, the schedule, a device. That makes this the one place that can say "what happens
+        // inside this is a take", which is what decides whether the pictures it changes transition
+        // or simply arrive. Everything that is not a verb is somebody editing, and an edit is
+        // instant.
+        using var take = _s.Bus.Take();
         try
         {
             result = Run(action, origin);

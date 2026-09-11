@@ -589,6 +589,11 @@ public sealed class AppServices
     /// </summary>
     public void EditAir(Action<ShowState> edit)
     {
+        // Changing what the audience is seeing is, by definition, a take — so the pictures it
+        // changes transition. Marking the seam rather than each of its callers is the point: a
+        // stinger putting the show back, a recovery restoring the air and every verb in the
+        // action layer all come through here, and a new one cannot forget.
+        using var take = Bus.Take();
         if (!Sandbox.EditProgram(edit))
         {
             BulkEdit(() => edit(State));
@@ -1078,6 +1083,9 @@ public sealed class AppServices
     public void PublishRuntime()
     {
         if (_bulkDepth > 0 || _deskDepth > 0) return;
+        // The show moving on by itself — a playlist reaching its next item, a clip ending — is a
+        // take: the picture changed because the show changed, not because anyone is editing it.
+        using var take = Bus.Take();
         SyncDisplays();
         if (Sandbox.Active)
         {

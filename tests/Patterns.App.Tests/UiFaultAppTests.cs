@@ -159,7 +159,7 @@ public class UiFaultAppTests
                 Assert.Equal(Shell.PanelPage, vm.SelectedPageIndex);
             }
             Assert.Equal(0, UiFaults.Contained);
-            Assert.Equal(0, HealthMonitor.Faults);
+            Assert.True(HealthMonitor.Faults == 0, $"faults={HealthMonitor.Faults} last={HealthMonitor.LastFault}");
         }
         finally
         {

@@ -11,11 +11,12 @@ namespace Patterns.Core.Tests;
 /// </summary>
 public class RestartRecordTests
 {
-    private static ShowSnapshot Snap(ShowState state, long version = 1, long cutAt = 0) => new()
+    private static ShowSnapshot Snap(ShowState state, long version = 1, long cutAt = 0, bool isTake = true) => new()
     {
         State = JsonUtil.Clone(state),
         Version = version,
         CutAtVersion = cutAt,
+        IsTake = isTake,
     };
 
     // ---- the record ---------------------------------------------------------------------

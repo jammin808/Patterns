@@ -77,7 +77,8 @@
         <TextBlock Classes="label" Text="Opacity" />
         <Slider Grid.Column="1" Minimum="0.05" Maximum="1" Value="{Binding State.Overlays.Badge.Opacity, Mode=TwoWay}" />
       </Grid>
-      <CheckBox Content="On media too (video, images, decks, web pages)" IsChecked="{Binding State.Overlays.Badge.OnMediaToo}" />
+      <CheckBox Content="On media too (video, images, decks, web pages)" IsChecked="{Binding State.Overlays.Badge.OnMediaToo}"
+                ToolTip.Tip="The badge goes on every picture Patterns draws itself — the grids and ramps, the particles, the fractals, the reactive scenes. It stays off what is not the app's to sign: someone else's media, unless you tick this, and the multiview, which is a monitoring picture" />
       <CheckBox Content="With the line under the name" IsChecked="{Binding State.Overlays.Badge.ShowLine}" />
       <TextBox Watermark="The line under PATTERNS" Text="{Binding State.Overlays.Badge.Line}" IsEnabled="{Binding State.Overlays.Badge.ShowLine}" />
     </StackPanel>

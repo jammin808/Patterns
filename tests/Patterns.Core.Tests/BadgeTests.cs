@@ -147,6 +147,26 @@ public class BadgeTests
     }
 
     [Fact]
+    public void TheBadgeIsOnEveryPictureTheAppDrawsItself()
+    {
+        // A reactive scene is Patterns' own generated picture, like the particles and the fractals
+        // beside it — it was the one exception, and an operator meets that as "the logo is missing
+        // on this page and nowhere else".
+        foreach (var kind in new[]
+                 {
+                     PatternKind.Grid, PatternKind.ColorBars, PatternKind.Ramp, PatternKind.FlatField,
+                     PatternKind.Motion, PatternKind.ColorCycle, PatternKind.Particles,
+                     PatternKind.Fractal, PatternKind.Reactive,
+                 })
+        {
+            var state = Black();
+            state.Pattern.Kind = kind;
+            var (_, hits) = Render(state);
+            Assert.Contains(hits, h => h.Kind == HitKind.Badge);
+        }
+    }
+
+    [Fact]
     public void TheBadgeKeepsOffMediaAndTheMultiviewUnlessAskedOntoMedia()
     {
         var state = Black();

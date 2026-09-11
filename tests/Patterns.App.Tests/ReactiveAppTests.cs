@@ -180,10 +180,13 @@ public class ReactiveAppTests
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Dispatcher.UIThread.RunJobs();
 
-            // The desk drew it without a fault reaching the health line.
-            var faults = HealthMonitor.Faults;
+            // The desk drew it without a fault reaching the health line. The counter is
+            // process-wide, so it is reset here rather than only read: otherwise this reads a
+            // number another test left behind and fails for somebody else's reason.
+            HealthMonitor.Reset();
             vm.PollNow();
-            Assert.Equal(faults, HealthMonitor.Faults);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, HealthMonitor.Faults);
 
             using var frame = window.CaptureRenderedFrame();
             Assert.NotNull(frame);
@@ -191,6 +194,7 @@ public class ReactiveAppTests
         finally
         {
             b.Dispose();
+            HealthMonitor.Reset();
         }
     }
 }

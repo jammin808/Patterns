@@ -518,16 +518,21 @@ public class RestartAndSwitcherTests
             vm.ActivePattern.Kind = PatternKind.ColorBars;
             Dispatcher.UIThread.RunJobs();
 
-            // The tile must be asking for frames BEFORE the frame that arms the crossfade is
-            // drawn. It used to decide afterwards, so it armed the fade, drew the grid over the
-            // bars at full opacity, and then stopped — the miniature sat on the grid until some
-            // unrelated edit published again.
-            Assert.Equal(RedrawCadence.Continuous, pipeline.Cadence);
+            // Choosing a pattern type is editing, not taking: the tile arrives at the new picture
+            // on the next frame it draws, with no crossfade and nothing to keep asking for.
+            Assert.Equal(RedrawCadence.Static, pipeline.Cadence);
+            var bars = Hash(pipeline);
+            Assert.NotEqual(grid, bars);   // and it is NOT stranded on the grid — the round-22 fault
 
+            // The same change, asked for rather than edited, is a take — and round 22's fix still
+            // holds there: the tile has to be asking for frames BEFORE the frame that arms the
+            // crossfade is drawn, because that frame paints the OUTGOING picture at full opacity.
+            Assert.True(services.Actions.Execute(ShowActionKind.PatternKind, ActionOrigin.Desk, value: "grid").Ok);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(RedrawCadence.Continuous, pipeline.Cadence);
             var frames = Settle(pipeline);
             Assert.True(frames > 1, "the fade was drawn over more than one frame");
-            var bars = Hash(pipeline);
-            Assert.NotEqual(grid, bars);
+            Assert.NotEqual(bars, Hash(pipeline));
             Assert.Equal(RedrawCadence.Static, pipeline.Cadence); // and it settles back to drawing on change
         }
         finally

@@ -396,17 +396,17 @@ public sealed class BadgeOverlay : Observable, IAnchored
     public string Line { get => _line; set => Set(ref _line, value ?? ""); }
 
     /// <summary>
-    /// The rule: on, and the picture is a test pattern — anything but media (someone else's
-    /// content) and the multiview (a monitoring picture) — or media is asked for.
-    /// </summary>
-    /// <summary>
-    /// The badge is a test card's mark: it goes on the patterns, never on the multiview, and on
-    /// the operator's own content — their media, and a reactive scene, which is a walk-in
-    /// background rather than a measurement — only when they ask for it.
+    /// The badge goes on the app's own pictures and stays off everything else's.
+    ///
+    /// Every pattern this app draws carries it — the grids and the ramps, the particles, the
+    /// fractals and the reactive scenes alike: they are all Patterns' own generated pictures, and
+    /// a scene was wrong to be the one exception. What it stays off is content that is not the
+    /// app's to sign: someone else's media (until they ask for it with <see cref="OnMediaToo"/>),
+    /// and the multiview, which is a monitoring picture rather than a picture of the show.
     /// </summary>
     public bool ShowsOn(PatternKind kind)
         => Enabled && kind != PatternKind.Multiview
-           && (OnMediaToo || kind is not (PatternKind.Media or PatternKind.Reactive));
+           && (OnMediaToo || kind != PatternKind.Media);
 }
 
 public sealed class InfoOverlay : Observable

@@ -215,15 +215,24 @@ public class ReactiveTests
     }
 
     [Fact]
-    public void TheMakersBadgeStaysOffTheClientsBackground()
+    public void TheMakersBadgeIsOnAReactiveSceneLikeEveryOtherPictureTheAppDraws()
     {
-        // A reactive scene is a walk-in background, not a test card.
+        // A reactive scene is Patterns' own generated picture, exactly like the particles and the
+        // fractals beside it. Holding it back made the badge appear on every page but this one,
+        // which an operator meets as a bug rather than as a policy.
         var badge = new BadgeOverlay();
         Assert.True(badge.Enabled);
         Assert.True(badge.ShowsOn(PatternKind.Grid));
-        Assert.False(badge.ShowsOn(PatternKind.Reactive));
+        Assert.True(badge.ShowsOn(PatternKind.Particles));
+        Assert.True(badge.ShowsOn(PatternKind.Fractal));
+        Assert.True(badge.ShowsOn(PatternKind.Reactive));
+
+        // What it still keeps off: someone else's content, and the monitoring picture.
+        Assert.False(badge.ShowsOn(PatternKind.Media));
+        Assert.False(badge.ShowsOn(PatternKind.Multiview));
         badge.OnMediaToo = true;
-        Assert.True(badge.ShowsOn(PatternKind.Reactive));   // asked for, it is drawn
+        Assert.True(badge.ShowsOn(PatternKind.Media));
+        Assert.False(badge.ShowsOn(PatternKind.Multiview));  // never, asked for or not
     }
 
     [Fact]

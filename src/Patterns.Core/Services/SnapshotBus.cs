@@ -115,6 +115,13 @@ public sealed class ShowSnapshot
     /// <summary>The version the override belongs to; only the sink that starts its fade on that version uses it.</summary>
     public long FadeOverrideVersion { get; init; } = -1;
 
+    /// <summary>
+    /// This snapshot is a take: the picture changed because somebody did something to the show —
+    /// a CUT, a TAKE, a SEND, a look, a cue, a playlist advance, a blackout — rather than because
+    /// somebody is editing it. Only a take transitions; an edit arrives at once.
+    /// </summary>
+    public bool IsTake { get; init; }
+
     /// <summary>Runtime-only: a transition kind asked for by one recall (a cue or a look that names its own); null = the show's.</summary>
     public TransitionKind? TransitionOverride { get; init; }
 
@@ -149,8 +156,26 @@ public sealed class ShowSnapshot
             ? FadeOverrideMs / 1000.0
             : State.Transition.DurationMs / 1000.0;
 
-    /// <summary>Fades are on for this snapshot: the setting, or a one-off override above zero.</summary>
-    public bool FadesEnabled => State.Transition.Enabled
+    /// <summary>
+    /// A transition runs for this snapshot: the show's setting AND this being a take, or a one-off
+    /// override a recall asked for.
+    ///
+    /// The take half is what keeps transitions where they belong. A crossfade is how one picture
+    /// becomes the next in front of a room; it is not how a desk answers a slider. Without this,
+    /// every keystroke with EDIT SAFE off dissolved the wall over 400 ms, which reads as lag, and
+    /// every edit dissolved the preview, which reads as the desk struggling to keep up.
+    /// </summary>
+    /// <summary>
+    /// The show's transitions are switched off and no recall overrode that for this publish:
+    /// nothing crosses at all, and a transition already running is abandoned. Distinct from a
+    /// publish that is merely an edit, which starts nothing but must never cut short a take that
+    /// is already halfway across the screen.
+    /// </summary>
+    public bool TransitionsOff => !State.Transition.Enabled
+        && !(FadeOverrideMs > 0 && FadeOverrideVersion == Version)
+        && !(TransitionOverride is not null && TransitionOverrideVersion == Version);
+
+    public bool FadesEnabled => (State.Transition.Enabled && IsTake)
         || (FadeOverrideMs > 0 && FadeOverrideVersion == Version)
         || (TransitionOverride is not null && TransitionOverrideVersion == Version);
 
@@ -363,6 +388,40 @@ public sealed class SnapshotBus
         _kindPendingSet = true;
     }
 
+    private int _takeDepth;
+
+    /// <summary>
+    /// While one of these is alive, every publish is a take rather than an edit — so the pictures
+    /// it changes transition rather than switch.
+    ///
+    /// A scope rather than a "next publish" flag on purpose. An action that turns out to change
+    /// nothing publishes nothing, and a pending flag would then sit there waiting to attach itself
+    /// to whatever published next — which is usually the operator's next keystroke. A scope cannot
+    /// leak: it covers exactly the work inside it, nests, and closes on the way out of a throw.
+    /// </summary>
+    public TakeScope Take() => new(this);
+
+    /// <summary>True while a take is in progress — the publishes inside it transition.</summary>
+    public bool InTake => _takeDepth > 0;
+
+    /// <summary>The lifetime of a take. See <see cref="Take"/>.</summary>
+    public readonly struct TakeScope : IDisposable
+    {
+        private readonly SnapshotBus? _bus;
+
+        internal TakeScope(SnapshotBus bus)
+        {
+            _bus = bus;
+            bus._takeDepth++;
+        }
+
+        public void Dispose()
+        {
+            if (_bus is null) return;
+            if (_bus._takeDepth > 0) _bus._takeDepth--;
+        }
+    }
+
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
@@ -431,6 +490,7 @@ public sealed class SnapshotBus
             OutputsLive = OutputsLive,
             PublishedClock = now,
             Ticker = ticker,
+            IsTake = _takeDepth > 0,
             CutAtVersion = _cutVersion,
             FadeOverrideMs = _fadeMs,
             FadeOverrideVersion = _fadeVersion,

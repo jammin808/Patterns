@@ -55,6 +55,7 @@ public sealed class SandboxService
     public void SendAll(bool cut = false, IReadOnlyCollection<string>? unarmedTargets = null)
     {
         if (!Active) return;
+        using var take = _services.Bus.Take();
         // Runs on every send: un-armed targets get pinned, and pins on armed targets lift —
         // a fully armed TAKE after a scoped one is exactly when the lifting matters.
         var kept = MergeScope(unarmedTargets ?? Array.Empty<string>());
@@ -129,6 +130,7 @@ public sealed class SandboxService
     public void SendToTargets(IReadOnlyList<string> targetIds)
     {
         if (!Active || _program is null || targetIds.Count == 0) return;
+        using var take = _services.Bus.Take();
         var state = _services.State;
         var program = _program;
         var pattern = JsonUtil.ClonePattern(state.Pattern);
@@ -223,6 +225,7 @@ public sealed class SandboxService
     public bool RestoreProgram(ShowState program)
     {
         if (!Active) return false;
+        using var take = _services.Bus.Take();
         _program = program;
         _contentBefore = LookService.Capture(program); // a discard now goes back to this, not to the start
         _services.WatchAir(_program);
