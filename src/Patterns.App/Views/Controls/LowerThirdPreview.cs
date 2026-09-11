@@ -8,6 +8,7 @@ using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Patterns.App.Rendering;
 using Patterns.Core.LowerThirds;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
 using Patterns.Core.Services;
@@ -246,7 +247,44 @@ public sealed class LowerThirdPreview : Control
         };
         double? hiddenAt = design.HoldMs > 0 ? null : (design.InMs + WaitingHoldMs) / 1000.0;
         LowerThirdRenderer.Render(c, in frame, design, shownAt: 0, hiddenAt, timeMs / 1000.0);
+        DrawClipNotes(c, sink, design);
         c.Restore();
+    }
+
+    /// <summary>
+    /// What a clip element is holding, written on the stage. Nothing mounts a decoder for the
+    /// designer — the clip plays when the design is on the preview or on air — so an imported
+    /// video draws as a dark rectangle here, which reads as an import that failed. The note says
+    /// which file it is and where to watch it move, and it is drawn by THIS control alone: the
+    /// shared renderer is left exactly as the outputs run it, because a file name on the wall in
+    /// front of a room would be a far worse fault than a dark rectangle on a desk.
+    /// </summary>
+    private static void DrawClipNotes(SKCanvas c, SinkState sink, LowerThirdDesign design)
+    {
+        var box = LowerThirdRenderer.BoxOf(design, new SKSizeI(1920, 1080), out var designScale);
+        foreach (var e in design.Elements)
+        {
+            if (!e.Enabled || e.Kind != LowerThirdElementKind.Media) continue;
+            if (e.Path.Length == 0 || !PlaylistSequencer.IsVideoPath(e.Path)) continue;
+            if (InputBus.Resolve(InputKeys.Video(ShowFiles.Resolve(e.Path)), false) is not null) continue;
+
+            var rect = SKRect.Create(
+                box.Left + (float)e.X * designScale,
+                box.Top + (float)e.Y * designScale,
+                Math.Max(1f, (float)e.W * designScale),
+                Math.Max(1f, (float)e.H * designScale));
+            var missing = !ShowFiles.Exists(e.Path);
+            var font = sink.Paints.FontBold;
+            var was = font.Size;
+            font.Size = 30;
+            var name = Path.GetFileName(e.Path);
+            var note = missing ? "not found" : "plays on PVW and on air";
+            var colour = missing ? new SKColor(0xFF, 0x6B, 0x6B) : new SKColor(0xFF, 0xFF, 0xFF, 0xCC);
+            DrawUtil.TextCentered(c, name, rect.MidX, rect.MidY - 18, font, sink.Paints.Text(colour));
+            font.Size = 24;
+            DrawUtil.TextCentered(c, note, rect.MidX, rect.MidY + 22, font, sink.Paints.Text(new SKColor(0xFF, 0xFF, 0xFF, 0x99)));
+            font.Size = was;
+        }
     }
 
     private sealed class DrawOp : ICustomDrawOperation

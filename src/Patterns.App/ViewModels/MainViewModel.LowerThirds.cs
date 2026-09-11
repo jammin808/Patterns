@@ -152,6 +152,9 @@ public sealed partial class MainViewModel
     private void OnSelectedElementChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(LowerThirdElement.Kind)) RaiseElementKind();
+        // The file is typed as well as chosen: a path the desk cannot open must say so on the
+        // keystroke, in the designer, and not in front of the room.
+        else if (e.PropertyName == nameof(LowerThirdElement.Path)) Raise(nameof(ElementFileTrouble));
     }
 
     private void RaiseElementKind()
@@ -162,6 +165,7 @@ public sealed partial class MainViewModel
         Raise(nameof(ElementIsMedia));
         Raise(nameof(ElementIsParticles));
         Raise(nameof(ElementIsFractal));
+        Raise(nameof(ElementFileTrouble));
     }
 
     public bool HasElement => _selectedElement is not null;
@@ -408,22 +412,57 @@ public sealed partial class MainViewModel
         var e = SelectedElement;
         var window = _services.MainWindow;
         if (e is null || window is null) return;
+        var clip = e.Kind == LowerThirdElementKind.Media;
         try
         {
             var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = e.Kind == LowerThirdElementKind.Media ? "Choose a clip or still for this element" : "Choose a picture for this element",
+                Title = clip ? "Choose a clip or still for this element" : "Choose a picture for this element",
                 AllowMultiple = false,
-                FileTypeFilter = new[] { MediaTypes, FilePickerFileTypes.All },
+                // Only what this element can actually draw. The old filter offered audio and decks
+                // as well, which put a file in the box that the renderer draws as a dark rectangle.
+                FileTypeFilter = new[] { clip ? ClipOrStillTypes : PictureTypes, FilePickerFileTypes.All },
             });
-            var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
-            if (path is null) return;
-            e.Path = path;
-            AddToMediaLibrary(path, isVideo: PlaylistSequencer.IsVideoPath(path));
+            var picked = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            if (picked is null) return;
+            AdoptElementFile(e, picked);
         }
         catch (Exception ex)
         {
             Log.Warn("Element file pick failed.", ex);
+            StatusMessage = $"Could not open that file: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// A chosen file into an element: imported beside the show where it can be, named after the
+    /// file so the element list reads as what it holds, and in the media library so the same
+    /// picture is one click away in the next design.
+    /// </summary>
+    public void AdoptElementFile(LowerThirdElement e, string picked)
+    {
+        var imported = ShowFiles.Import(picked);
+        e.Path = imported.Path;
+        // An element still called "Image" tells the operator nothing; the file's name does. A name
+        // the operator has already typed is theirs and is left alone.
+        if (e.Name.Length == 0 || e.Name == e.Kind.ToString()) e.Name = Path.GetFileNameWithoutExtension(imported.Path);
+        AddToMediaLibrary(imported.Path, isVideo: PlaylistSequencer.IsVideoPath(imported.Path));
+        StatusMessage = imported.Words.Length > 0
+            ? imported.Words
+            : $"'{Path.GetFileName(imported.Path)}' is on '{e.Name}'.";
+    }
+
+    /// <summary>"The file is not there" — empty while the selected element's picture or clip opens.</summary>
+    public string ElementFileTrouble
+    {
+        get
+        {
+            var e = SelectedElement;
+            if (e is null || e.Kind is not (LowerThirdElementKind.Image or LowerThirdElementKind.Media)) return "";
+            if (e.Path.Length == 0) return "";
+            return ShowFiles.Exists(e.Path)
+                ? ""
+                : $"'{Path.GetFileName(e.Path)}' is not there — the design draws a blank where it should be. Choose it again to bring it into the show.";
         }
     }
 

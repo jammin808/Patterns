@@ -462,7 +462,7 @@ public static class LowerThirdRenderer
     private static void DrawImage(SKCanvas c, in PatternFrame f, LowerThirdElement e, SKRect rect)
     {
         var path = e.Kind == LowerThirdElementKind.Logo ? f.Snapshot.State.Brand.LogoPath : e.Path;
-        var img = ImageCache.Get(path);
+        var img = ImageCache.Get(ShowFiles.Resolve(path));
         c.Save();
         ClipBox(c, rect, e.CornerPx);
         if (img is null)
@@ -481,7 +481,7 @@ public static class LowerThirdRenderer
     private static void DrawMedia(SKCanvas c, in PatternFrame f, LowerThirdElement e, SKRect rect, bool leaving)
     {
         var pc = f.Paints;
-        var key = InputKeys.Video(e.Path);
+        var key = InputKeys.Video(ShowFiles.Resolve(e.Path));
         // On the way out the clip may already be unmounted: the retired source still has its last frames.
         var source = key.Length > 0 ? InputBus.Resolve(key, f.Ctx.IsFadeSource || leaving) : null;
         c.Save();
@@ -494,7 +494,7 @@ public static class LowerThirdRenderer
         }
         if (!drawn)
         {
-            var img = e.Path.Length > 0 && !PlaylistSequencer.IsVideoPath(e.Path) ? ImageCache.Get(e.Path) : null;
+            var img = e.Path.Length > 0 && !PlaylistSequencer.IsVideoPath(e.Path) ? ImageCache.Get(ShowFiles.Resolve(e.Path)) : null;
             if (img is not null)
             {
                 var dest = DrawUtil.Fit(new SKSizeI(img.Width, img.Height), rect, e.Fit);

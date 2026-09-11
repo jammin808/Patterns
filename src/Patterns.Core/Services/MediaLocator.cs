@@ -238,7 +238,9 @@ public static class MediaLocator
             {
                 if (e.Enabled && e.Kind == LowerThirds.LowerThirdElementKind.Media && PlaylistSequencer.IsVideoPath(e.Path))
                 {
-                    Add(WantedKind.VideoFile, e.Path, true, e.MediaMute, e.MediaVolumePct);
+                    // Resolved, so a show opened on another machine mounts its own copy of the
+                    // clip — and so the mount's key is the one the renderer will look up.
+                    Add(WantedKind.VideoFile, ShowFiles.Resolve(e.Path), true, e.MediaMute, e.MediaVolumePct);
                 }
             }
         }

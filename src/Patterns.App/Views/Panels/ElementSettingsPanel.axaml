@@ -89,10 +89,13 @@
             <DataTemplate x:DataType="lt:LowerThirdElement">
               <StackPanel Classes="form">
                 <Grid ColumnDefinitions="*,8,Auto">
-                  <TextBox Text="{Binding Path, Mode=TwoWay}" Watermark="A picture, a clip or a still" />
+                  <TextBox Text="{Binding Path, Mode=TwoWay}" Watermark="Choose… brings the file into the show" />
                   <Button Grid.Column="2" Classes="chip" Content="Choose…"
                           Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PickElementFileCommand}" />
                 </Grid>
+                <TextBlock Classes="label" Foreground="{StaticResource TallyHoldBrush}" TextWrapping="Wrap" Margin="0,3,0,0"
+                           Text="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ElementFileTrouble}"
+                           IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ElementFileTrouble, Converter={StaticResource NotEmpty}}" />
                 <Grid ColumnDefinitions="110,*" Margin="0,4,0,0">
                   <TextBlock Classes="label" Text="Fit" VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.FitModes}"

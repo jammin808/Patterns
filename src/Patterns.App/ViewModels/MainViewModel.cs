@@ -381,7 +381,15 @@ public sealed partial class MainViewModel : Observable
         });
         AddElementCommand = new RelayCommand<string>(kind =>
         {
-            if (Enum.TryParse<LowerThirdElementKind>(kind, true, out var k)) AddElement(k);
+            if (!Enum.TryParse<LowerThirdElementKind>(kind, true, out var k)) return;
+            var added = AddElement(k);
+            // A picture or a clip element is nothing at all until it has a file, and the file row
+            // lives a pop-out away: + PICTURE asks for the picture. Cancel and the empty element
+            // stays, with Choose… still there — one gesture, not three.
+            if (added is not null && k is LowerThirdElementKind.Image or LowerThirdElementKind.Media)
+            {
+                _ = PickElementFileAsync();
+            }
         });
         RemoveElementCommand = new RelayCommand<LowerThirdElement>(RemoveElement);
         MoveElementUpCommand = new RelayCommand<LowerThirdElement>(e => MoveElement(e, -1));
@@ -1124,6 +1132,18 @@ public sealed partial class MainViewModel : Observable
     private static readonly FilePickerFileType VideoTypes = new("Video & audio")
     {
         Patterns = Glob(PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions),
+    };
+
+    /// <summary>What a picture element can draw. No audio, no decks: offering what cannot be drawn is a trap.</summary>
+    private static readonly FilePickerFileType PictureTypes = new("Pictures")
+    {
+        Patterns = Glob(PlaylistSequencer.ImageExtensions),
+    };
+
+    /// <summary>What a clip element can draw: a short video, or a still.</summary>
+    private static readonly FilePickerFileType ClipOrStillTypes = new("Video & pictures")
+    {
+        Patterns = Glob(PlaylistSequencer.VideoExtensions, PlaylistSequencer.ImageExtensions),
     };
 
     private static readonly FilePickerFileType MediaTypes = new("Images, video, audio & decks (PDF, PowerPoint)")

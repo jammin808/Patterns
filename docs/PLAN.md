@@ -3692,3 +3692,203 @@ eight, the corners in numbers; on the desk OUTPUTS ON putting the collector in s
 latency and OUTPUTS OFF resting it, the runtime line on the Machine page; the feed reading a
 float window as the analysis reads the samples, PCM stereo over two windows with an uneven
 tail dropped, a count past the buffer clamped.
+
+## 41. Round 26 — the take told from the edit, the switcher's round trip, two audio wires, a badge, an import
+
+*"Lower thirds can have a feature to import a user image or short video."*
+
+*"In Switcher, Transitions only need to show on an actual transition of cut, take, etc.
+Transitions never need to trigger while simply choosing a screen to edit, change a patter, or edit
+anything."*
+
+*"Switcher Screen Tiles: a Focused Selection on Cut/Take should only Cut/Take/ on the selected
+screen tile. I need a feature to send Program back to Preview, to bring the Program view into
+Preview per screen tile. When 'Send' is clicked in a tile, the Preview from PGM goes to the Preview
+only, of that individual tile only."*
+
+*"Audio needs to be separated between what can be heard on PGM outputs (eg: stream, NDI, HDMI) on
+USB audio cards or dedicated audio cards, and the Patterns machine."*
+
+*"Patterns logo appears fine on every Pattern except the new Reactive section, fix. Maybe a layer
+order problem?"*
+
+With them the standing rule: stability, resilience, efficiency, UX, performance across system
+specs, durability and an easy show workflow; every change instant, with game-engine architecture
+put to AV use and corporate-grade resilience around it. The answers are §42. The checklist for the
+Windows machine is `docs/CHECKLIST-round26.md`.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 5 | The badge on a reactive scene (§42.1). Not layer order at all: `BadgeConfig.ShowsOn` excluded every kind it had not been told about, and Reactive arrived after it. The rule now names the two kinds a badge stays off — a monitor wall, and media unless asked — and lets everything the desk draws itself carry it. | done |
+| 2 | A take told from an edit (§42.2). `ShowSnapshot.IsTake`, set by `SnapshotBus.Take()` around the action layer and `EditAir`, so a transition ARMS only on a take. Three separate faults sat under the one sentence: the engine inferring a take from its consequence, a pane switching targets comparing two unrelated keys, and — with EDIT SAFE off — every keystroke fading the wall. A transition already running is never abandoned by an edit. | done |
+| 3 | The switcher's round trip (§42.3). → PVW on the PGM tile pulls the programme itself into the preview and keeps the focus where it was; SEND stages on one tile's preview instead of punching to air; a FOCUSED take then moves that tile and nothing else, and a take that leaves a staged tile alone drops the staging rather than leaving a screen that has quietly stopped following the show. | done |
+| 4 | Two audio wires, not one (§42.4). `AudioDestination` splits the programme's outputs from the operator's own, libVLC is told a device for the first time, and the soundcheck tone follows the programme's interface. Last round's monitor could only work on a rig that has a second output, and said so where it has not. | done |
+| 1 | Importing a picture or a short clip (§42.5). The model already had every part; what was missing was the import. `ShowFiles` copies the chosen file into `media/` beside the show, finds it again by name on another machine, and says what did not travel — in the designer, and in the cue checks before doors. | done |
+
+## 42. Round 26 — the answers
+
+### 42.1 The badge on a reactive scene: a rule, not a layer order
+
+The report guessed at layer order, and the guess was worth checking: `OverlayRenderer` draws the
+badge after the pattern, on every sink, from one place. It was never the order. `BadgeConfig.ShowsOn`
+read
+
+```csharp
+=> Enabled && (kind == PatternKind.Solid || kind == PatternKind.Gradient || ...);
+```
+
+— a list of the kinds the badge was known to look right on, written when there were eight of them.
+Every kind added since arrived outside the list, so the badge vanished on each one until somebody
+noticed. Reactive was simply the most recent.
+
+An allow-list of kinds is the wrong shape for this rule, because the question is not "is this one
+of the pictures we have heard of" but "is this a picture of ours at all". Two kinds genuinely
+answer no: a monitor wall, where a maker's badge would sit on top of the operator's own tally, and
+media, where the picture is the client's file and the badge goes on only when the option says so.
+The rule is now those two exceptions and nothing else:
+
+```csharp
+public bool ShowsOn(PatternKind kind)
+    => Enabled && kind != PatternKind.Multiview
+       && (OnMediaToo || kind != PatternKind.Media);
+```
+
+So the next kind after Reactive carries the badge the day it is added, rather than the day somebody
+notices it does not. The test states it that way too — every kind in the enum except the two named,
+checked by enumerating `PatternKind` rather than by listing the kinds again.
+
+### 42.2 A take told from an edit
+
+"Transitions never need to trigger while simply choosing a screen to edit, change a patter, or edit
+anything." One sentence, three separate faults, and the first is the one that mattered.
+
+**The engine was inferring a take from its consequence.** `PatternEngine.RenderLive` armed a fade
+whenever the picture a sink was drawing changed identity. That is true of a take — and equally true
+of a keystroke in the editors, because with EDIT SAFE off the editors ARE the air. So typing a
+colour faded the wall, letter by letter, over the show's crossfade time.
+
+The fix is to say the thing directly rather than to infer it. `ShowSnapshot.IsTake` is a fact
+carried on the snapshot, set by `SnapshotBus.Take()` — a nesting `TakeScope` opened around
+`ShowActions.Execute` and around `AppServices.EditAir`, which are exactly the two seams every
+deliberate change to what the audience sees goes through. Everything else publishes an ordinary
+snapshot, and an ordinary snapshot never arms anything.
+
+The trap, and it was found by review rather than by a test: **arming and running are different
+questions.** The first cut gated the whole block on `IsTake`, so the next ordinary publish — an
+autosave, a clock tick, a keystroke — tore down a transition that was halfway across the screen,
+in front of the room. `RenderLive` now runs the block for every live sink and gates only the arming;
+a transition in flight is abandoned only when the picture is cut out from under it, when the sink
+moves to another screen, or when transitions are switched off altogether (`ShowSnapshot.TransitionsOff`).
+
+**A pane switching targets compared two unrelated keys.** A sink drawing screen A and then asked to
+draw screen B compared A's identity hash with B's, found them different, and crossfaded — a
+transition between two pictures both of which were already on air somewhere. `SinkState` now records
+the screen its last identity belonged to (`TransitionScreen`, one `volatile string` because it is
+written on the compositor thread and read on the UI thread), and a move re-seeds rather than
+crossfades.
+
+### 42.3 The switcher's round trip
+
+Three asks in one paragraph, and every part of the machinery already existed. What was missing were
+the joins.
+
+**→ PVW could not name the programme.** `ScreenToPreview` resolved its target through
+`ResolveScreenTarget`, which knows screens and canvases and has no word for "the programme", so the
+PGM tile had no → PVW button at all — and "bring the Program view into Preview" had no gesture. An
+empty target (or `pgm`) now means the programme, and the PGM tile carries the button like any other.
+
+**It then cleared the focus, which silently widened the next take.** `LoadTileIntoPreview` called
+`SelectTarget(null)`, and a null focus means *every armed screen*. So the workflow the ask
+describes — pull one screen's picture in, change it, take it back — put the changed picture on the
+whole rig. It now focuses the tile it pulled from, except on the PGM tile, where every armed screen
+is genuinely what the programme means.
+
+**SEND punched straight to air.** `SandboxService.SendToTargets` landed the change on the edited
+state *and* on the frozen programme; the second `Land` was the entire difference between staging and
+going live. `SendToTargets(targets, toAir: false)` now stages: the tile's PVW miniature shows it, the
+room does not, the tile is focused as you press, and CUT or TAKE with FOCUSED puts it up there and
+nowhere else — a picture held on preview while you decide, the way a mixer holds one. `SEND TO
+TICKED` is unchanged and is still the live one.
+
+And the case that is only found in a rehearsal: a take aimed somewhere else, while a picture is
+staged on another tile. That tile was left with its own pattern pinned — a screen that had quietly
+stopped following the show, which is the worst kind of fault because nothing looks wrong until a
+look is recalled an hour later. A staging that is not taken is now dropped.
+
+### 42.4 Two wires, not one
+
+Round 25's monitor shipped with a sentence in its own documentation that turned out to be false:
+"nothing here reaches an output — a clip muted at the desk is still heard by the audience". On the
+rig most shows actually run — one audio interface — the desk's speakers ARE the PA. Every
+sound-maker in the build opens the same default endpoint, so muting the programme's clip to audition
+another picture took the room's sound with it. Worse, libVLC had never been told a device at all:
+`MediaPlayer.SetOutputDevice` was never called and the LibVLC instance was created with
+`--no-video-title-show --quiet` and nothing else, so programme and monitor were physically one wire
+and no rule written above it could have been true.
+
+The Audio page is now two halves, and the split is the feature. PROGRAMME OUT is what the room
+hears — the USB or dedicated interface feeding the venue system, the HDMI screens, the computer's
+own — each with its own lip-sync delay, played at once. MONITOR is one output that is deliberately
+none of those. `AudioDestination { Program, Monitor, Silent }` and `AudioMonitorRule.Where` state
+the rule the desk actually keeps:
+
+- a mount on the programme bus goes to the programme's outputs, whatever the operator is listening
+  to. The room's sound is not the desk's to take away;
+- anything else goes to the monitor output when one is named;
+- and when none is named there is nowhere to audition that is not the room, so it stays silent and
+  the readout says why — the rule refuses rather than pretends.
+
+`VideoEngine` now routes each mounted source to the device its bus belongs to, and the soundcheck
+tone follows the programme's first named output rather than whatever Windows calls default: a tone
+on the laptop's speakers while the PA is on a USB card checks nothing, and the engineer at the far
+end of the hall is the one who finds out.
+
+Two smaller faults came out of the same work. A named interface that is not plugged in used to fall
+back to the computer's output in silence; it now says so in red on the page, because an operator who
+is not told finds out from the room. And the monitor's own pickers were rebuilt by `Clear()` +
+`Add()` on a collection bound two ways: a list empty for even an instant drops its selection, and the
+picker writes that emptiness straight back into the show — the chosen headphones became "none" a
+moment later, which reads as a broken feature. Both pickers are reconciled in place now.
+
+*Honest limits, in the page and in Help rather than discovered at the worst moment.* There is no mix
+bus anywhere in the build — every sound opens its own stream and Windows sums them — so there is no
+programme fader, no meters and nothing above stereo. One clip is one decoder and one decoder plays
+to one device, so the same clip cannot be on the PA and in the cans at once; the room's claim wins.
+WebView2 offers a mute and no routing. A capture card's embedded audio is not opened by this build,
+and there is no NDI audio.
+
+### 42.5 An import, not a browse
+
+"Lower thirds can have a feature to import a user image or short video." The model already had every
+part of it: a Picture element, a Clip element, a path, a fit, a mute, a level, and a renderer that
+draws both. Growing the model would have been the wrong answer. What was missing was the import.
+
+Three things were wrong, in the order an operator meets them. The row that chooses a file sat two
+navigations away behind the settings pop-out, so `+ PICTURE` gave an empty box and no hint of what to
+do next; it now asks for the file as you press it, and cancelling leaves the empty element with
+`Choose…` still there. The filter offered audio and decks alongside pictures, which the element
+renderer draws as a dark rectangle — it now offers only what that element can draw. And the chosen
+file stayed wherever the operator had browsed.
+
+That last one is the fault worth the round. A headshot chosen off a Desktop the night before, a show
+file carried to the show machine on a stick, and a blank rectangle in front of the room — with
+nothing having warned anybody, because on the machine it was built on the path was perfectly good.
+`ShowFiles.Import` copies the chosen file into `media/` beside the show and the design points at the
+copy, so the folder is the show and copying the folder takes the pictures with it. The same file
+chosen twice is the same copy; a different file of the same name takes the next free name rather
+than overwriting the one another design is already using; and a file too big to carry (over 512 MB —
+a feature-length master, not a headshot) is pointed at where it is, with the desk saying so, rather
+than quietly doubling a gigabyte onto the show drive in the last hour.
+
+`ShowFiles.Resolve` is the other half: a path that no longer resolves is looked for by name in
+`media/` before it is given up on, so a show folder opened from another drive letter — or another
+machine entirely — finds its own pictures. It is called at exactly the places a lower third's file
+enters the engine, so the renderer's image, the mount, and the mount's key all agree.
+
+What is still missing is said rather than drawn. The designer's file row turns red with the file's
+name, and `CueValidator` warns before doors — a warning, not a refusal, because a design with one
+missing picture is still worth putting up. And because nothing mounts a decoder for the designer's
+stage, a clip there drew as an anonymous dark rectangle, which reads as an import that failed; it
+now carries its file name and *plays on PVW and on air*, drawn by the preview control alone — the
+shared renderer is left exactly as the outputs run it, because a file name on a wall in front of a
+room would be a far worse fault than a dark rectangle on a desk.

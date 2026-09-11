@@ -351,6 +351,19 @@ public static class CueValidator
                     var design = a.Target.Length == 0 ? state.LowerThirds.DefaultDesign : state.LowerThirds.Find(a.Target);
                     if (design is null) Hard(a.Target.Length == 0 ? $"{where}: no lower third design in the show." : $"{where}: lower third '{a.Target}' not found.");
                     else if (design.Elements.Count == 0) Soft($"{where}: lower third '{design.Name}' has nothing in it.");
+                    if (design is not null)
+                    {
+                        // A picture or a clip whose file did not travel draws a blank in front of
+                        // the room, and the machine it was built on gave no sign: the check is the
+                        // only place this is ever caught early.
+                        foreach (var el in design.Elements)
+                        {
+                            if (!el.Enabled) continue;
+                            if (el.Kind is not (LowerThirds.LowerThirdElementKind.Image or LowerThirds.LowerThirdElementKind.Media)) continue;
+                            if (el.Path.Length == 0 || ctx.FileExists(ShowFiles.Resolve(el.Path))) continue;
+                            Soft($"{where}: lower third '{design.Name}' — '{Path.GetFileName(el.Path)}' on '{el.Name}' is missing; it draws a blank.");
+                        }
+                    }
                     if (a.Value.Length > 0)
                     {
                         var who = state.LowerThirds.FindEntry(a.Value);

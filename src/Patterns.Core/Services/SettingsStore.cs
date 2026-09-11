@@ -20,6 +20,9 @@ public sealed class SettingsStore
     /// <summary>Earlier versions of the show file, kept beside it (see <see cref="ListBackups"/>).</summary>
     public string BackupsDirectory { get; }
 
+    /// <summary>media/ — pictures and short clips the show carries rather than points at.</summary>
+    public string MediaDirectory { get; }
+
     /// <summary>How many earlier versions are kept; the oldest go as new ones come.</summary>
     public const int BackupsKept = 20;
 
@@ -37,6 +40,9 @@ public sealed class SettingsStore
         BrandKitsDirectory = Path.Combine(BaseDirectory, "brandkits");
         LowerThirdsDirectory = Path.Combine(BaseDirectory, "lowerthirds");
         BackupsDirectory = Path.Combine(BaseDirectory, "backups");
+        MediaDirectory = Path.Combine(BaseDirectory, "media");
+        // The show's own files are found by the renderers, which have no store: one place says where.
+        ShowFiles.MediaDirectory = MediaDirectory;
     }
 
     public static string ResolvePortableDirectory()

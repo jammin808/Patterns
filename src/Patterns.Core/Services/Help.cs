@@ -304,13 +304,16 @@ public static class HelpTopics
             new[]
             {
                 "Pick a preset or start blank; add text, shapes, a photo or a clip; drag the elements on the preview.",
+                "+ PICTURE and + CLIP ask for the file as you press them, offering only what that element can draw.",
+                "The file is imported — copied into media/ beside the show — so copying the show folder takes the pictures with it; one too big to carry is pointed at where it is and the desk says so.",
+                "A file that did not travel is said in red on the element and warned about by the cue checks before doors; a clip on the designer's stage shows its name — PVW the design to watch it play.",
                 "The preview and its timeline stay at the top of the page while the rest scrolls under them; the line beside PREVIEW names the design and says when it is on air.",
                 "Keyframes give the way in and out; styles give the type, the colours and the edges.",
                 "SAVE the design; EXPORT to share it as a file; ★ makes it the show's default.",
             },
             "",
             new[] { "Lower thirds" },
-            new[] { "lower third", "designer", "design", "keyframe", "animation", "element", "text", "photo", "style", "preset", "export", "import", "graphics", "preview", "pinned", "scroll", "settings column", "pop-out", "selected element" }),
+            new[] { "lower third", "designer", "design", "keyframe", "animation", "element", "text", "photo", "style", "preset", "export", "import", "graphics", "preview", "pinned", "scroll", "settings column", "pop-out", "selected element", "picture", "image", "clip", "video", "media", "file", "headshot", "missing", "not found", "travelled", "usb", "stick", "copy", "media folder" }),
 
         new HelpTopic("break-music", HelpGroup.RunningTheShow,
             "Break music (Spotify): the room between sessions",
