@@ -135,19 +135,30 @@ there too. Feathering them (VIOSO and Epson allow it) only hides a misaligned zo
   neighbour's using the corners and the bends, then the black picture and the black-level
   slider. Save it as a look — the rig travels with the show.
 
+### 3.1 Round 33: the mesh and the camera
+
+The two pieces named next below are built. **The mesh** (`WarpGrid`): a 3×3 to 17×17 lattice
+of nodes over the output, each an offset from rest, drawn as one Coons patch per cell with
+Catmull-Rom tangents through the neighbours, so adjacent cells meet with matching slope; the
+edge bends are folded into the edge nodes; the density changes with the shape kept by reading
+the new lattice off the old patches; the editor is on the Screens page and the lattice can be
+shown on the projector with the picked node lit. **Camera calibration** (`Calibration.cs`):
+Gray-code structured light (white, black, columns and rows MSB-first with inverses) out of each
+projector in turn, a camera in (any NDI source, or photographs taken by hand from a written
+plan), each camera pixel decoded to the projector pixel that lit it, a normalised-DLT homography
+per projector with the worst tenth pruned, the canvas as the box around the light at the
+smallest share's pixel size, a 9×9 mesh from the local lookups (bilinear, pixel centres) where
+they agree with the fit, and a blend mask per projector — `dᵢ² / Σ dⱼ²` on chamfer distance into
+each projector's own coverage — that sums to one across every overlap however uneven; a report
+with each fit's residual, the coverage, the overlaps and the corners nobody reaches; APPLY and
+UNDO; a simulated room the tests solve against the truth. Its limits: one camera position, a
+homography plus local nodes rather than a lens model, no colour, and a room dark enough that
+the stripes read. `docs/PLAN.md` §50.1 and §50.2.
+
 ## 4. What is next, in order of worth
 
-1. **A mesh** (a 5 × 5 to 17 × 17 grid of points, bezier between them) on top of the
-   patch: the dome, the sphere, the set piece. The pipeline already draws through a patch;
-   a mesh is a grid of patches (`DrawPatch` per cell, or `DrawVertices` over a fine
-   triangulation), and the page needs a draggable grid over the preview.
-2. **Camera calibration**: structured light out of the outputs, a webcam or a USB camera
-   in, the mesh and the blend map computed. The pieces exist (the capture inputs, the
-   pattern renderer, the mesh) — the solver is the work. The AI's place here is to *read*
-   the calibration (which projector is the weak one, which join drifted) rather than to run
-   it.
-3. **Per-projector colour matching** beyond the trims: a white-point and a gamut match by
+1. **Per-projector colour matching** beyond the trims: a white-point and a gamut match by
    measurement (a colorimeter on the capture input, or by eye on the grey check).
-4. **Blend zone start and shape per edge** (Epson's "start position"): the fade beginning
+2. **Blend zone start and shape per edge** (Epson's "start position"): the fade beginning
    inside the overlap rather than at its edge, for projectors whose brightness falls off at
    the frame.

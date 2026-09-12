@@ -123,6 +123,27 @@ fault containment, and settings that can never brick startup.
   overlaps in one press, planned screens included. The research — Christie, Disguise, Pixera,
   Resolume, MadMapper, VIOSO and the projector makers — is
   [`docs/WARP-AND-BLEND.md`](docs/WARP-AND-BLEND.md).
+- **The mesh** — Screens → Geometry: a lattice of 3×3 to 17×17 points over the output, each pulled
+  where the picture must land (click, drag, or the arrow keys — Shift for ten pixels), drawn as
+  curved patches so the picture bends smoothly between the points — a dome, a set piece, a lens
+  that bows; SHOW ON THE PROJECTOR puts the lattice on the wall with the picked point lit, and
+  changing the density keeps the shape. `docs/PLAN.md` §50.1.
+- **Camera calibration** — Screens → Edge blend → Camera calibration: one camera that sees the
+  wall (a phone with an NDI camera app, a capture card through NDI Tools — or photographs by hand
+  from a written plan), RUN, and every projector shows white, black and Gray-code stripes in turn
+  while the camera is read; the solver places each projector on one canvas, meshes it straight
+  against the others and writes it a blend mask so the light adds to one across every overlap.
+  Read the report (each fit in pixels, the coverage, the overlaps, any corner nobody reaches),
+  APPLY, UNDO. DEMO reads the report against a room that is not there. `CALIBRATE RUN <camera>`
+  and friends on the wire. `docs/PLAN.md` §50.2.
+- **The show lock: nothing interrupts the show** — Machine page → SHOW LOCK, on with the outputs:
+  Windows notifications, system sounds, every other app's audio (Teams' ring, Outlook's chime, a
+  browser — the break-music player let through by name), Sticky/Filter/Toggle Keys' pop-ups,
+  sleep and the screensaver, the Windows key — held off while the show runs, put back after, and
+  put back from a receipt after a crash. Whether Windows Update has a restart pending is read and
+  said on the health line, the super-check and the brief; the restart itself is an administrator's
+  policy, set once with `tools/show-machine.ps1`. `SHOWLOCK ON` / `OFF` / `STATUS` on the wire;
+  [`docs/SHOW-MACHINE.md`](docs/SHOW-MACHINE.md) is the whole list.
 - **The caller's pad, and a note on any cue** — SHOW → Run: ▸ PAD beside the stack for the day's
   own words, saved with the show; right-click a cue row (or its ✎) for NOTE…, STANDBY HERE, GO
   THIS CUE NOW, SKIP / UNSKIP and OPEN IN THE CUE EDITOR; a note shows under the cue and on the

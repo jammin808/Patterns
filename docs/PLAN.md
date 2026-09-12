@@ -4799,3 +4799,149 @@ Every change ran against both suites: 1,037 core and 528 headless UI tests green
 the hot-plug in Core with facts and in the app through the screen service's own source, the
 launcher against a fake process, the hand-back against a fake peer on a socket, the pedestal and
 the bend rendered to raster and read back pixel by pixel.
+
+## 50. Round 33 — the mesh, the camera, and a machine that keeps quiet
+
+*"Continue with the full mesh warp and camera calibration as the next pieces of projection work.
+Lock out Windows popups, updates, alerts and system sounds. The show should never be interrupted
+by anything, especially Outlook or Teams or the operating system or any non show audio."*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The full mesh warp: a lattice of 3×3 to 17×17 points per output, each pulled where the picture must land, drawn as Coons patches with Catmull-Rom tangents; the editor on the Screens page, the lattice shown on the projector with the picked point lit, the density changed with the shape kept (§50.1). | done |
+| 2 | Camera calibration: structured light out of every projector, a camera in (an NDI source, or photographs by hand), each camera pixel decoded to the projector pixel that lit it, the rig solved into places, meshes and blend masks; APPLY and UNDO, the demo, the report, the verbs (§50.2). | done |
+| 3 | The show lock: Windows notifications, system sounds, other apps' audio, the shortcut keys, sleep and the Windows key held off while the outputs are live and put back after, restored from a receipt after a crash; what an administrator sets once for Windows Update, as a script (§50.3). | done |
+| 4 | The checks and the AI: the show lock on the health line, the super-check and the brief; the calibration's solve and apply in the journal; help topics for both (§50.4). | done |
+
+### 50.1 The mesh
+
+The shape: `WarpGrid` (Core) holds a lattice as a string of offsets per node (`"dx,dy;…"`,
+row-major, one pair per node, empty when at rest); `Nodes` puts each node at its rest position
+plus its offset, with the round-32 edge bends folded into the edge nodes (a parabola along each
+edge, so a bend set before the mesh still reads under it); and `Patches` makes one Coons patch
+per cell with Catmull-Rom tangents through the neighbouring nodes — adjacent cells' cubic edges
+meet with the same slope, so a pull on one node bends the picture smoothly across its four cells
+and nothing kinks. The pipeline draws the *finished* picture — content, zones, pedestal —
+through `DrawPatch` per cell with that cell's texture coordinates, in place of the single patch
+when a mesh is set (the bends alone still use it). `Resampled` changes the density with the
+shape kept: the new lattice is read off the old lattice's patches, so 5×5 to 9×9 keeps every
+pull and adds nodes between; the densities are 3, 5, 9 and 17.
+
+On the page: the Geometry block gains the lattice picker, `WarpMeshControl` — the output's frame
+with its nodes, click one to pick it, drag it, the arrow keys nudge a pixel (Shift for ten),
+Escape drops the pick — and SHOW ON THE PROJECTOR, which draws the lattice over the output
+itself with the picked node lit, so the pull is made against the real edge and not the preview.
+The rig editor owns the moves (`PullMeshPoint`, `SetMeshDensity`, `ShowLattice`), so the page
+and any remote share them; Reset mesh puts the lattice at rest and Reset warp takes the mesh
+with the corners and the bends. The warp is the output's alone: NDI, the monitors and the
+preview never see it.
+
+### 50.2 Camera calibration
+
+What it is: one camera that sees the whole wall from one spot, and the projectors measure
+themselves. `Calibration.cs` (Core, 760 lines) is the whole method, with no camera in it:
+
+- **The patterns.** `GrayCode.Sequence(w, h)`: white, black, then for the columns each bit
+  MSB-first and its inverse, then the rows the same — Gray code because neighbouring stripes
+  differ in one bit, so a camera pixel on a stripe's edge is off by one column at worst and
+  never by half the raster. Forty-four patterns for a 1280×720 projector.
+- **The decode.** `GrayCode.Decode` reads a camera pixel's bit as lit when the bit's frame beats
+  its inverse by the contrast (24 grey levels; below it the pixel is "not seen") and only inside
+  the white-minus-black coverage. The result is a `Correspondence`: for every camera pixel, the
+  projector pixel that lit it, or nothing.
+- **The fit.** A homography per projector (`Homography.Fit`: the normalised DLT with the worst
+  tenth of the residuals pruned), camera to raster; the residual in pixels is reported. A
+  projector the camera saw too little of is said, not thrown.
+- **The canvas.** `Calibrator.AutoCanvas` is the box around all the light in camera pixels; its
+  pixel size is the *smallest* share any projector has of it (the canvas measured in that
+  projector's own pixels), so no projector's share is wider than its raster and none is cut off
+  before its blend has faded. Each projector's place is the box of its raster corners mapped into
+  canvas pixels.
+- **The mesh.** Each node of a 9×9 lattice goes where the camera says that raster point lands on
+  the canvas: the local lookup (bilinear between four camera pixels, pixel centres at +0.5)
+  where it lies within 60 px of the fit, else the fit — so a lens that bows is captured node by
+  node while a noisy pixel is not.
+- **The mask.** Per projector, a 480×270 grey PNG over its raster: where it alone lights the
+  canvas it keeps full light; where several do, each takes `dᵢ² / Σ dⱼ²` with `d` its chamfer
+  distance into its own coverage — a fade that sums to one across every overlap, however uneven
+  and however many share it. The pipeline draws the mask by `Modulate` in the blend pass, and a
+  mask joins canvases the way automatic blend does.
+- **The report.** The canvas, each projector's place, fit and coverage, the overlaps in pixels,
+  and the corners no projector reaches — with a tolerance of 3% of the canvas, since the auto
+  canvas is the box around keystoned light and a corner sits a few pixels inside it.
+- **A room that is not there.** `CalibrationSimulator` puts projectors on a camera through
+  homographies you choose and photographs them; the tests check the solver against that truth
+  (decode within a pixel, fit under half a pixel, nodes within six, the masks summing to one in
+  the overlap), and DEMO on the page reads the report without a projector.
+
+In the app: `CalibrationOverlay` is the one place every output pipeline reads on every frame —
+while a run is on an output shows its pattern or black, raw white on the raw raster before the
+trims, the warp and the blend, because the camera must see the pixels the code names; a member
+of a joined canvas lights as its own output (the viewport's `OutputId`), not as the canvas.
+`CalibrationService` runs the sequence projector by projector with a settle after each pattern,
+reads the camera at no more than 640 px wide (`NdiCalibrationCamera`: the newest NDI frame as
+grey; `FolderCalibrationCamera`: `cal-1.png`, `cal-2.png`… in the plan's order), solves, and
+APPLY puts each placement in its place with its mesh and its mask under `media/calibration/`
+beside the show, its typed zones off; UNDO keeps what was there. The page block: a camera picker
+over the NDI sources, RUN and CANCEL with the progress, the photographs folder with WRITE PLAN
+(`cal-plan.txt`, one line per photo, the first pattern up), NEXT PATTERN and SOLVE FROM PHOTOS,
+then APPLY, UNDO, DEMO and the report. The verbs: `CALIBRATE RUN <camera>` (OK at once, STATUS
+follows it), `CANCEL`, `DEMO`, `APPLY`, `UNDO`, `STATUS` as JSON — all the desk's alone, since a
+running order never re-aims the projectors.
+
+What it does not do, said plainly: one camera position (a wall the camera cannot see whole is two
+runs); a homography plus local nodes rather than a lens model (a fisheye is not this); no colour
+matching; and it needs a room dark enough that the stripes read — the report says when the
+camera saw too little of a projector.
+
+### 50.3 The show lock
+
+The things that have interrupted shows, each its own switch, all behind one `IMachineLock`
+(`MachineLock.cs`, Windows; nothing on another platform; a fake in the tests):
+
+| Item | What is done |
+|---|---|
+| Notifications | Windows toasts and banners off for this user — the user's own switch (`PushNotifications\ToastEnabled`) and the per-user policy Explorer honours (`NoToastApplicationNotification`); the originals kept |
+| System sounds | Every event of the sound scheme silenced (`AppEvents\Schemes\Apps\*\*\.Current`) and the default beep off; the originals kept |
+| Other apps' audio | Every audio session that is not Patterns' muted through the same per-app control the volume mixer uses (NAudio's session manager) — Teams' ring, Outlook's alert, a browser — and any that starts later muted within two seconds by the lock's tick; the break-music player is let through by name (Spotify by default) under *Allowed audio* |
+| The shortcut keys | Sticky, Filter and Toggle Keys' hotkeys off the way games do it (`SystemParametersInfo`), a feature already on left on |
+| Sleep | The machine kept awake and the display on (`SetThreadExecutionState`), the screensaver off |
+| The Windows key | Swallowed by a low-level keyboard hook while the lock is on |
+| Updates | Read, not set: the pending-restart keys, said on the Machine page, the health line, the super-check and the brief |
+
+`ShowLockService` goes on with the outputs (`Outputs.LiveChanged`, *Lock when the outputs open*)
+and off with them, or by hand, or `SHOWLOCK ON` / `OFF` / `STATUS`; everything is put back on
+release and on a clean exit, and a crash leaves `showlock.receipt.json` beside the settings that
+the next start restores from, saying so. The foreground is watched too: another app taking it —
+a Teams window — is logged with the time, because the caller's keys go there until the desk is
+clicked. `LockReport` is the record — each item ✓ held, · left as it is, – not on this machine,
+⚠ needs an administrator, ✗ could not be set — and its words go everywhere the show's state
+goes. The config (`ShowState.Lock`: auto, the allowed audio) is a local section: a twin never
+mirrors this machine's hold on Windows.
+
+What the lock cannot do is stop Windows Update restarting the machine: that is a policy an
+administrator sets once, so `tools/show-machine.ps1` sets it (no automatic restart while a user
+is signed in, updates paused, active hours widened, toasts off for every account, the
+error-reporting dialog off) and `-Undo` puts it back; `docs/SHOW-MACHINE.md` is the whole list,
+with the two things only the operator can do — quit Teams and Outlook before doors, or set Teams
+to Do not disturb: their audio is muted either way, but a call still puts a window on the desk.
+
+### 50.4 The checks and the AI
+
+The super-check has a *Show lock* row (green held, amber not held while the outputs are live,
+red when a restart is pending — and no row at all when nothing was reported, so a strong machine
+still reads all clear); the health line carries the lock's words; the brief says "Show lock: …"
+so the assistant can answer "is the machine locked?" and "will Windows restart tonight?". The
+calibration's solve and apply go to the journal with the report's first line, and the help has
+topics for the show lock (Machine) and the calibration (Rig), with the edge-blend topic carrying
+the mesh.
+
+### 50.5 The suite
+
+Every change ran against both suites: 1,048 core and 536 headless UI tests green — the
+lattice's patches and the resample in Core, the mesh drawn to raster with the lattice shown; the
+calibration's codes, decode, fit and solve against the simulated room, and in the app the live
+run through a fake camera that reads the overlay, the photographs path, the demo and the wire,
+and the outputs' structured light rendered and read back; the lock against a fake machine —
+every item, the receipt, the auto-lock with the outputs, the pending restart, the wire and the
+super-check.

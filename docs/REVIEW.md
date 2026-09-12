@@ -328,3 +328,63 @@ change: 1,037 core + 528 headless UI tests green.
   or one ✎ away; a keyboard shortcut would collide with the caller's keys (Enter, arrows, Space).
 - **Wire verbs for the substitute** — left: a hot-plug offer is a walk-up decision made looking
   at the screen; the status line, the health line and the brief carry the words.
+
+## Round 33 review — the mesh, the camera, and a machine that keeps quiet
+
+The round asked for the two projection pieces left from round 32 and for a machine that never
+interrupts the show; `docs/PLAN.md` §50 says how. The suite ran against every change: 1,048
+core + 536 headless UI tests green.
+
+### Done
+
+1. **The mesh** — `WarpGrid`: a lattice of 3×3 to 17×17 nodes per output, Coons patches with
+   Catmull-Rom tangents per cell, the bends folded into the edge nodes, the density changed with
+   the shape kept; the editor on the Screens page, the lattice shown on the projector with the
+   picked node lit, arrow-key nudges, Reset mesh.
+2. **Camera calibration** — Gray-code structured light out of every projector, the camera in
+   (NDI, or photographs by a plan), each camera pixel decoded to the projector pixel that lit
+   it, a homography per projector, the canvas, a 9×9 mesh from the local lookups, a blend mask
+   that sums to one across every overlap; APPLY and UNDO, DEMO against a room that is not there,
+   the report, `CALIBRATE …` on the wire, the help topic.
+3. **The show lock** — notifications, system sounds, other apps' audio (the break-music player
+   allowed by name), the accessibility shortcuts, sleep and the screensaver, the Windows key —
+   on with the outputs and off with them, put back on release and on exit, restored from a
+   receipt after a crash; the pending restart read and said; the foreground watched; the
+   administrator's script for Windows Update; `docs/SHOW-MACHINE.md`.
+
+### Found on the way (fixed)
+
+4. **The structured light on a blended rig lit nothing** — a member of a joined canvas gets a
+   viewport keyed by the canvas, so the pattern lookup by screen id found no pattern; the
+   viewport now carries the output's own id and the overlay is keyed on it. Found by the test
+   that applies a solution (which joins the two projectors) and then reads the viewports.
+5. **The solver's lookup biased the nodes** — a 5×5 mean around the camera pixel pulled edge
+   nodes up to 13 px inward; bilinear between four camera pixels with pixel centres at +0.5,
+   falling back to the fit, brought them within six.
+6. **A projector's light was cut before its blend faded** — the canvas's pixel size came from
+   the widest share, so a narrower projector's share ran past its raster; it comes from the
+   smallest share now.
+7. **The corner check named corners a projector does reach** — the auto canvas is the box
+   around keystoned light, so a corner sits a few pixels outside it; the check has a tolerance
+   of 3% of the canvas.
+8. **A strong machine's super-check went amber** — an unreported show lock read as a failing
+   row; the facts carry the report or nothing, and nothing makes no row.
+9. **The lock's minute checks stalled against a clock that stepped back** — a clock earlier
+   than the last check read as "not yet"; a backwards clock counts as elapsed.
+
+### Measured, and left
+
+- **Colour matching by measurement** — left: the trims stay by eye on the grey check; the
+  camera's colour is not calibrated and a phone's is not trustworthy.
+- **A lens model** — left: a homography plus the local nodes covers a bowing lens and a curved
+  screen; a fisheye or a mirror rig is a different solver.
+- **More than one camera position** — left: a wall the camera cannot see whole is two runs; a
+  stitched multi-camera solve is a round of its own.
+- **Teams' window on the desk** — cannot be prevented from here without ending Teams; its audio
+  is muted, the foreground change is logged, and the doc says to quit it before doors.
+- **Windows Update's restart** — a policy, and an administrator's: the script sets it once; the
+  lock reads and says whether a restart is pending rather than pretending to hold it.
+- **The mesh on NDI and the preview** — never, on purpose: the outputs alone warp, so the picture
+  the desk and the stream see is the picture, not the projector's correction.
+- **A per-edge start position** — left as before; the mask from a calibration makes it moot on
+  a calibrated rig.
