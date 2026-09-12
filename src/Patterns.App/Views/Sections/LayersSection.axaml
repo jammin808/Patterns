@@ -40,18 +40,18 @@
           </Grid>
         </StackPanel>
         <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.NdiFeed}}">
-          <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).NdiSourceOptions}"
+          <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.NdiSourceOptions}"
                     SelectedItem="{Binding NdiSourceName, Mode=TwoWay}" PlaceholderText="NDI sources on the network…" />
           <Button Grid.Column="2" Classes="chip" Content="Refresh"
-                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RefreshNdiSourcesCommand}" />
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.RefreshNdiSourcesCommand}" />
         </Grid>
         <TextBox IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.NdiFeed}}"
                  Watermark="…or type the exact source name" Text="{Binding NdiSourceName, Mode=TwoWay}" />
         <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Capture}}">
-          <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).CaptureDeviceOptions}"
+          <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.CaptureDeviceOptions}"
                     SelectedItem="{Binding CaptureDevice, Mode=TwoWay}" PlaceholderText="Capture devices…" />
           <Button Grid.Column="2" Classes="chip" Content="Refresh"
-                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RefreshCaptureDevicesCommand}" />
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.RefreshCaptureDevicesCommand}" />
         </Grid>
         <ComboBox IsVisible="{Binding Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:LayerSource.Screen}}"
                   ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MultiviewTargets}"

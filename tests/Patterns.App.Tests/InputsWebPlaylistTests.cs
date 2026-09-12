@@ -57,27 +57,27 @@ public class InputsWebViewModelTests
         var (services, vm, window) = Boot();
         try
         {
-            var items = vm.ActivePlaylistSection.Items;
+            var items = vm.Media.ActivePlaylistSection.Items;
             items.Add(new PlaylistItemConfig { Path = "a.png" });
             items.Add(new PlaylistItemConfig { Path = "b.png" });
             items.Add(new PlaylistItemConfig { Path = "c.png" });
 
-            vm.MovePlaylistItemTo(items[0], 2);                 // a → end
+            vm.Media.MovePlaylistItemTo(items[0], 2);                 // a → end
             Assert.Equal(new[] { "b.png", "c.png", "a.png" }, items.Select(i => i.Path));
 
-            vm.MovePlaylistItemTo(items[2], 0);                 // a → front
+            vm.Media.MovePlaylistItemTo(items[2], 0);                 // a → front
             Assert.Equal(new[] { "a.png", "b.png", "c.png" }, items.Select(i => i.Path));
 
-            vm.MovePlaylistItemTo(items[1], 99);                // clamps to last
+            vm.Media.MovePlaylistItemTo(items[1], 99);                // clamps to last
             Assert.Equal(new[] { "a.png", "c.png", "b.png" }, items.Select(i => i.Path));
 
-            vm.MovePlaylistItemTo(items[0], 0);                 // no-op in place
+            vm.Media.MovePlaylistItemTo(items[0], 0);                 // no-op in place
             Assert.Equal("a.png", items[0].Path);
 
-            vm.SelectedPlaylistItem = items[1];
-            Assert.True(vm.HasPlaylistItemSelection);
-            vm.SelectedPlaylistItem = null;
-            Assert.False(vm.HasPlaylistItemSelection);
+            vm.Media.SelectedPlaylistItem = items[1];
+            Assert.True(vm.Media.HasPlaylistItemSelection);
+            vm.Media.SelectedPlaylistItem = null;
+            Assert.False(vm.Media.HasPlaylistItemSelection);
         }
         finally
         {
@@ -95,14 +95,14 @@ public class InputsWebViewModelTests
             // No NDI runtime / no Windows here — the stored names must survive a refresh
             // (the combo rebuild would otherwise null them, like the font-combo bug).
             vm.ActivePattern.Media.NdiSourceName = "TX1 (Programme)";
-            vm.RefreshNdiSourcesCommand.Execute(null);
+            vm.Media.RefreshNdiSourcesCommand.Execute(null);
             Assert.Equal("TX1 (Programme)", vm.ActivePattern.Media.NdiSourceName);
-            Assert.Contains("TX1 (Programme)", vm.NdiSourceOptions);
+            Assert.Contains("TX1 (Programme)", vm.Media.NdiSourceOptions);
 
             vm.ActivePattern.Media.CaptureDevice = "DeckLink Mini Recorder";
-            vm.RefreshCaptureDevicesCommand.Execute(null);
+            vm.Media.RefreshCaptureDevicesCommand.Execute(null);
             Assert.Equal("DeckLink Mini Recorder", vm.ActivePattern.Media.CaptureDevice);
-            Assert.Contains("DeckLink Mini Recorder", vm.CaptureDeviceOptions);
+            Assert.Contains("DeckLink Mini Recorder", vm.Media.CaptureDeviceOptions);
         }
         finally
         {
@@ -148,11 +148,11 @@ public class InputsWebViewModelTests
 
             vm.State.Web.Url = "example.com";
             vm.State.Web.SavedUrls.Add("https://kept.example");
-            vm.RemoveWebUrlCommand.Execute("https://kept.example");
+            vm.Media.RemoveWebUrlCommand.Execute("https://kept.example");
             Assert.Empty(vm.State.Web.SavedUrls);
 
             vm.State.Web.SavedUrls.Add("https://again.example");
-            vm.LoadWebUrlCommand.Execute("https://again.example");
+            vm.Media.LoadWebUrlCommand.Execute("https://again.example");
             Assert.Equal("https://again.example", vm.State.Web.Url);
         }
         finally

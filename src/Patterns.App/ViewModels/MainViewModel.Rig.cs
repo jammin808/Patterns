@@ -142,31 +142,6 @@ public sealed partial class MainViewModel
         SelectedTargetLabel = selected is null || selected.IsProgramTile ? "PGM" : selected.Title;
     }
 
-    /// <summary>Nickname for the live input currently picked in Media (NDI feed or capture).</summary>
-    public string InputNickname
-    {
-        get => CurrentInputKey() is { } key ? State.InputLabel(key, "") : "";
-        set
-        {
-            if (CurrentInputKey() is not { } key) return;
-            var entry = State.InputLabels.FirstOrDefault(l => l.Key == key);
-            if (entry is null)
-            {
-                entry = new InputLabelConfig { Key = key };
-                State.InputLabels.Add(entry);
-            }
-            entry.Label = value;
-        }
-    }
-
-    private string? CurrentInputKey() => ActivePattern.Media.Source switch
-    {
-        MediaSource.NdiFeed when ActivePattern.Media.NdiSourceName.Length > 0 => "ndi:" + ActivePattern.Media.NdiSourceName,
-        MediaSource.Capture when ActivePattern.Media.CaptureDevice.Length > 0 => "cap:" + ActivePattern.Media.CaptureDevice,
-        MediaSource.Web when ActivePattern.Media.WebUrl.Length > 0 => InputKeys.Web(ActivePattern.Media.WebUrl),
-        _ => null,
-    };
-
     // ---- remote screen/group switching --------------------------------------
 
     private List<(ScreenPlacement Placement, ScreenInfo Info)> OrderedLivePlacements(IReadOnlyList<ScreenInfo>? screens = null)
@@ -314,30 +289,4 @@ public sealed partial class MainViewModel
     }
 
     private void GoLive() => _services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
-
-    // ---- live-input pool -----------------------------------------------------
-
-    private string _activeInputsText = "No live inputs mounted.";
-    public string ActiveInputsText { get => _activeInputsText; private set => Set(ref _activeInputsText, value); }
-
-    private void RefreshActiveInputs()
-    {
-        var rows = new List<string>();
-        foreach (var (key, status) in _services.Video.MountStatuses.Concat(_services.NdiIn.MountStatuses).Concat(_services.WebIn.MountStatuses))
-        {
-            var bare = key.Length > 4 ? key[4..] : key;
-            var label = key.StartsWith("vid:", StringComparison.Ordinal)
-                ? Path.GetFileName(bare)
-                : key.StartsWith("web:", StringComparison.Ordinal)
-                    ? State.InputLabel(key, WebAddress.ShortName(bare))
-                    : State.InputLabel(key, bare);
-            rows.Add($"{label} — {status}");
-        }
-        var notes = string.Join("  ",
-            new[] { _services.Video.LimitNote, _services.NdiIn.LimitNote, _services.WebIn.LimitNote }.Where(s => s.Length > 0));
-        var text = rows.Count == 0
-            ? "No live inputs mounted."
-            : $"Live inputs ({rows.Count}): {string.Join("  ·  ", rows)}";
-        ActiveInputsText = notes.Length > 0 ? $"{text}  {notes}" : text;
-    }
 }

@@ -382,7 +382,7 @@
     <TextBlock Classes="h2" Text="STATUS" />
     <TextBlock Classes="label" Text="{Binding OutputsStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding NextCueText}" TextWrapping="Wrap" />
-    <TextBlock Classes="label" Text="{Binding PlaylistStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding Media.PlaylistStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding RemoteStatus}" TextWrapping="Wrap" />
     <TextBlock Classes="label" Text="{Binding HealthText}" TextWrapping="Wrap" />
     <TextBlock Classes="hint tip"

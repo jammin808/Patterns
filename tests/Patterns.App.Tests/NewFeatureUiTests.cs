@@ -33,8 +33,8 @@ public class NewFeatureUiTests
         {
             // Put the state into the new-feature shapes first.
             vm.ActivePattern.Media.Source = MediaSource.Playlist;
-            vm.ActivePlaylistSection.Items.Add(new PlaylistItemConfig { Path = @"C:\media\a.png", ScheduledTime = "12:30" });
-            vm.ActivePlaylistSection.Folders.Add(@"C:\media\walkin");
+            vm.Media.ActivePlaylistSection.Items.Add(new PlaylistItemConfig { Path = @"C:\media\a.png", ScheduledTime = "12:30" });
+            vm.Media.ActivePlaylistSection.Folders.Add(@"C:\media\walkin");
             vm.ActivePattern.Kind = PatternKind.LedWall;
             vm.ActivePattern.LedWall.UseCustomMap = true;
             vm.ActivePattern.LedWall.CustomTiles.Add(new LedTileConfig { X = 0, Y = 0, Width = 128, Height = 128 });
@@ -146,26 +146,26 @@ public class NewFeatureUiTests
         var (services, vm, window) = Boot();
         try
         {
-            var items = vm.ActivePlaylistSection.Items;
+            var items = vm.Media.ActivePlaylistSection.Items;
             items.Add(new PlaylistItemConfig { Path = "a.png" });
             items.Add(new PlaylistItemConfig { Path = "b.png" });
             items.Add(new PlaylistItemConfig { Path = "c.png" });
 
-            vm.MovePlaylistItemDownCommand.Execute(items[0]);          // a b c → b a c
+            vm.Media.MovePlaylistItemDownCommand.Execute(items[0]);          // a b c → b a c
             Assert.Equal(new[] { "b.png", "a.png", "c.png" }, items.Select(i => i.Path));
 
-            vm.MovePlaylistItemUpCommand.Execute(items[2]);            // b a c → b c a
+            vm.Media.MovePlaylistItemUpCommand.Execute(items[2]);            // b a c → b c a
             Assert.Equal(new[] { "b.png", "c.png", "a.png" }, items.Select(i => i.Path));
 
-            vm.MovePlaylistItemUpCommand.Execute(items[0]);            // top stays put
+            vm.Media.MovePlaylistItemUpCommand.Execute(items[0]);            // top stays put
             Assert.Equal("b.png", items[0].Path);
 
-            vm.RemovePlaylistItemCommand.Execute(items[1]);
+            vm.Media.RemovePlaylistItemCommand.Execute(items[1]);
             Assert.Equal(new[] { "b.png", "a.png" }, items.Select(i => i.Path));
 
-            vm.ActivePlaylistSection.Folders.Add(@"C:\shows\loop");
-            vm.RemovePlaylistFolderCommand.Execute(@"C:\shows\loop");
-            Assert.Empty(vm.ActivePlaylistSection.Folders);
+            vm.Media.ActivePlaylistSection.Folders.Add(@"C:\shows\loop");
+            vm.Media.RemovePlaylistFolderCommand.Execute(@"C:\shows\loop");
+            Assert.Empty(vm.Media.ActivePlaylistSection.Folders);
         }
         finally
         {

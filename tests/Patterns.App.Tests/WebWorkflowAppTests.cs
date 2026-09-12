@@ -143,25 +143,25 @@ public class WebWorkflowAppTests
             vm.State.LooksAndCues.Looks.Add(look);
 
             // No page: the chip springs back and says why.
-            vm.KeysToPage = true;
-            Assert.False(vm.KeysToPage);
+            vm.Media.KeysToPage = true;
+            Assert.False(vm.Media.KeysToPage);
             Assert.Contains("No web page", vm.StatusMessage);
 
             // A YouTube watch link typed on the Remote & web page goes on as the player alone.
             vm.State.Web.Url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-            vm.PutWebPageOnPatternCommand.Execute(null);
+            vm.Media.PutWebPageOnPatternCommand.Execute(null);
             Settle(window);
             Assert.StartsWith("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?", vm.State.Pattern.Media.WebUrl);
             Assert.Contains("https://www.youtube.com/watch?v=dQw4w9WgXcQ", vm.State.Web.SavedUrls);
             var page = made.Single();
             vm.PollNow();
-            Assert.Contains("YouTube", vm.WebPresetNote);
-            Assert.False(vm.WebCanFullFrame);
-            Assert.Contains(vm.WebPageActions, a => a.Id == "play");
+            Assert.Contains("YouTube", vm.Media.WebPresetNote);
+            Assert.False(vm.Media.WebCanFullFrame);
+            Assert.Contains(vm.Media.WebPageActions, a => a.Id == "play");
 
             // KEYS → PAGE: F5 (a look's key) and Space (blackout) go to the page, the desk's keys wait; Ctrl+Alt+K gives them back.
-            vm.KeysToPage = true;
-            Assert.True(vm.KeysToPage);
+            vm.Media.KeysToPage = true;
+            Assert.True(vm.Media.KeysToPage);
             window.KeyPress(Key.F5, RawInputModifiers.None, PhysicalKey.F5, null);
             window.KeyRelease(Key.F5, RawInputModifiers.None, PhysicalKey.F5, null);
             Assert.Equal("F5", page.Keys.Last());
@@ -175,7 +175,7 @@ public class WebWorkflowAppTests
             Assert.Equal("Ctrl+Shift+F5", page.Keys.Last());
             window.KeyPress(Key.K, RawInputModifiers.Control | RawInputModifiers.Alt, PhysicalKey.K, null);
             window.KeyRelease(Key.K, RawInputModifiers.Control | RawInputModifiers.Alt, PhysicalKey.K, null);
-            Assert.False(vm.KeysToPage);
+            Assert.False(vm.Media.KeysToPage);
             var keysBefore = page.Keys.Count;
             window.KeyPress(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
             window.KeyRelease(Key.Space, RawInputModifiers.None, PhysicalKey.Space, null);
@@ -184,12 +184,12 @@ public class WebWorkflowAppTests
             vm.State.Blackout = false;
 
             // The action chips drive the page the controls drive; a watch link on the Media page offers FULL FRAME.
-            vm.RunWebAction("mute");
+            vm.Media.RunWebAction("mute");
             Assert.Contains("isMuted", page.Scripts.Last());
             vm.State.Pattern.Media.WebUrl = "https://www.youtube.com/watch?v=other";
             vm.PollNow();
-            Assert.True(vm.WebCanFullFrame);
-            vm.WebFullFrameCommand.Execute(null);
+            Assert.True(vm.Media.WebCanFullFrame);
+            vm.Media.WebFullFrameCommand.Execute(null);
             Assert.StartsWith("https://www.youtube-nocookie.com/embed/other?", vm.State.Pattern.Media.WebUrl);
 
             // The Media page carries the chip and the actions; the Remote & web page has no browser window to open any more.

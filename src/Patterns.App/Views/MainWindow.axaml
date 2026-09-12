@@ -376,7 +376,7 @@
                          TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                          Text="{Binding IsSandboxActive, Converter={StaticResource BoolText}, ConverterParameter='sandboxed — edits stay off air until you CUT or TAKE|LIVE — every edit goes straight to the screens'}" />
               <ToggleButton Grid.Column="5" Classes="mini" Content="⌨ KEYS → PAGE" Margin="0,0,6,0"
-                            IsChecked="{Binding KeysToPage, Mode=TwoWay}" IsVisible="{Binding HasWebPage}"
+                            IsChecked="{Binding Media.KeysToPage, Mode=TwoWay}" IsVisible="{Binding Media.HasWebPage}"
                             ToolTip.Tip="The keyboard belongs to the web page the desk drives — F5 starts a PowerPoint, the arrows move a deck, k plays a YouTube video, a search box takes typing. The desk's own keys wait until you press this again or Ctrl+Alt+K" />
               <Button Grid.Column="6" Classes="mini" Content="SEND TO TICKED" Margin="0,0,6,0"
                       Command="{Binding SandboxSendSelectedCommand}" IsVisible="{Binding IsSandboxActive}"

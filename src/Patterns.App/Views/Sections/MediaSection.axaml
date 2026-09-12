@@ -11,7 +11,7 @@
     <TextBlock Classes="h1 neon-media" Text="Media" />
     <TextBlock Classes="hint tip" Text="Shown when the pattern type is 'Media'. Media composites through the engine, so it reaches spans and NDI outputs too. Every input runs separately: give each screen its own source (pick the screen in the strip, then choose here) and the same feed can sit on several screens, the PiP and the multiview at once — one decode per source." />
 
-    <TextBlock Classes="label" Text="{Binding ActiveInputsText}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding Media.ActiveInputsText}" TextWrapping="Wrap" />
 
     <TextBlock Classes="h2" Text="SOURCE" />
     <ComboBox ItemsSource="{Binding MediaSources}"
@@ -23,7 +23,7 @@
       <TextBlock Classes="h2" Text="IMAGE" />
       <Grid ColumnDefinitions="*,8,Auto">
         <TextBox Grid.Column="0" Watermark="PNG, JPEG, BMP, WebP…" Text="{Binding ActivePattern.Media.ImagePath}" />
-        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseImageCommand}" />
+        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding Media.BrowseImageCommand}" />
       </Grid>
     </StackPanel>
 
@@ -32,7 +32,7 @@
       <TextBlock Classes="h2" Text="VIDEO / AUDIO FILE" />
       <Grid ColumnDefinitions="*,8,Auto">
         <TextBox Grid.Column="0" Watermark="MP4, MOV, MKV… or MP3, WAV, FLAC…" Text="{Binding ActivePattern.Media.VideoPath}" />
-        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseVideoCommand}" />
+        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding Media.BrowseVideoCommand}" />
       </Grid>
       <CheckBox Content="Loop" IsChecked="{Binding ActivePattern.Media.Loop}" />
     </StackPanel>
@@ -41,17 +41,17 @@
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.NdiFeed}}">
       <TextBlock Classes="h2" Text="NDI FEED" />
       <Grid ColumnDefinitions="*,8,Auto">
-        <ComboBox Grid.Column="0" ItemsSource="{Binding NdiSourceOptions}"
+        <ComboBox Grid.Column="0" ItemsSource="{Binding Media.NdiSourceOptions}"
                   SelectedItem="{Binding ActivePattern.Media.NdiSourceName, Mode=TwoWay}"
                   PlaceholderText="NDI sources on the network…" />
-        <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshNdiSourcesCommand}" />
+        <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding Media.RefreshNdiSourcesCommand}" />
       </Grid>
       <TextBox Margin="0,4,0,0" Watermark="…or type the exact source name (pre-show, before the feed exists)"
                Text="{Binding ActivePattern.Media.NdiSourceName, Mode=TwoWay}" />
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Camera 1 (shown in the multiview and status)"
-                 Text="{Binding InputNickname, Mode=TwoWay}" />
+                 Text="{Binding Media.InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint tip"
                  Text="Receives a live NDI® video feed and composites it like any pattern — it reaches spans, trims and NDI outputs. The list refreshes itself while this panel is active; senders appear a few seconds after they start. Needs the NDI runtime (see the NDI page). Video only — feed audio is not passed through." />
@@ -61,10 +61,10 @@
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Capture}}">
       <TextBlock Classes="h2" Text="CAPTURE DEVICE" />
       <Grid ColumnDefinitions="*,8,Auto">
-        <ComboBox Grid.Column="0" ItemsSource="{Binding CaptureDeviceOptions}"
+        <ComboBox Grid.Column="0" ItemsSource="{Binding Media.CaptureDeviceOptions}"
                   SelectedItem="{Binding ActivePattern.Media.CaptureDevice, Mode=TwoWay}"
                   PlaceholderText="Video capture devices…" />
-        <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding RefreshCaptureDevicesCommand}" />
+        <Button Grid.Column="2" Classes="chip" Content="Refresh" Command="{Binding Media.RefreshCaptureDevicesCommand}" />
       </Grid>
       <TextBox Margin="0,4,0,0" Watermark="…or type the exact device name (pre-show, before the card is plugged in)"
                Text="{Binding ActivePattern.Media.CaptureDevice, Mode=TwoWay}" />
@@ -76,7 +76,7 @@
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Podium cam (shown in the multiview and status)"
-                 Text="{Binding InputNickname, Mode=TwoWay}" />
+                 Text="{Binding Media.InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint tip"
                  Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default." />
@@ -87,15 +87,15 @@
       <TextBlock Classes="h2" Text="DECK — A PDF OR POWERPOINT PRESENTATION" />
       <Grid ColumnDefinitions="*,8,Auto,4,Auto">
         <TextBox Grid.Column="0" Watermark="A PDF, or a PowerPoint (.pptx) — Keynote and Impress files too; a PowerPoint converts through LibreOffice once" Text="{Binding ActivePattern.Media.DeckPath, Mode=TwoWay}" />
-        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding BrowseDeckCommand}" />
-        <Button Grid.Column="4" Classes="mini" Content="RELOAD" Command="{Binding ReloadDeckCommand}"
+        <Button Grid.Column="2" Classes="chip" Content="Browse…" Command="{Binding Media.BrowseDeckCommand}" />
+        <Button Grid.Column="4" Classes="mini" Content="RELOAD" Command="{Binding Media.ReloadDeckCommand}"
                 ToolTip.Tip="Read the file again — after you edit it, or to convert a PowerPoint afresh" />
       </Grid>
       <!-- A PowerPoint: where LibreOffice was found, or what to do (and a box for its path when it is nowhere Patterns looks) -->
-      <TextBlock Classes="label" Text="{Binding DeckToolText}" TextWrapping="Wrap" Margin="0,4,0,0" IsVisible="{Binding DeckToolText, Converter={StaticResource NotEmpty}}" />
-      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0" IsVisible="{Binding DeckToolMissing}">
+      <TextBlock Classes="label" Text="{Binding Media.DeckToolText}" TextWrapping="Wrap" Margin="0,4,0,0" IsVisible="{Binding Media.DeckToolText, Converter={StaticResource NotEmpty}}" />
+      <Grid ColumnDefinitions="130,*" Margin="0,4,0,0" IsVisible="{Binding Media.DeckToolMissing}">
         <TextBlock Classes="label" Text="LibreOffice path" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Watermark="C:\Program Files\LibreOffice\program\soffice.exe — or the LibreOffice folder" Text="{Binding LibreOfficePath, Mode=TwoWay}"
+        <TextBox Grid.Column="1" Watermark="C:\Program Files\LibreOffice\program\soffice.exe — or the LibreOffice folder" Text="{Binding Media.LibreOfficePath, Mode=TwoWay}"
                  ToolTip.Tip="Where LibreOffice is on this machine when Patterns cannot find it by itself; kept in Admin" />
       </Grid>
       <Grid ColumnDefinitions="130,90,16,*" Margin="0,4,0,0">
@@ -107,12 +107,12 @@
                   IsChecked="{Binding ActivePattern.Media.DeckEndsWithGo, Mode=TwoWay}" VerticalAlignment="Center"
                   ToolTip.Tip="Off: the deck holds its last page and the caller GOes by hand" />
       </Grid>
-      <TextBlock Classes="label" Text="{Binding DeckPageText}" TextWrapping="Wrap" Margin="0,6,0,0" />
+      <TextBlock Classes="label" Text="{Binding Media.DeckPageText}" TextWrapping="Wrap" Margin="0,6,0,0" />
       <WrapPanel Margin="0,4,0,0">
-        <Button Classes="mini" Content="⏮ First" Command="{Binding DeckFirstCommand}" Margin="0,0,4,4" />
-        <Button Classes="mini" Content="◀ Previous" Command="{Binding DeckPrevCommand}" Margin="0,0,4,4" />
-        <Button Classes="chip" Content="NEXT PAGE ▶" Command="{Binding DeckNextCommand}" Margin="0,0,4,4" />
-        <Button Classes="mini" Content="Last ⏭" Command="{Binding DeckLastCommand}" Margin="0,0,12,4" />
+        <Button Classes="mini" Content="⏮ First" Command="{Binding Media.DeckFirstCommand}" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="◀ Previous" Command="{Binding Media.DeckPrevCommand}" Margin="0,0,4,4" />
+        <Button Classes="chip" Content="NEXT PAGE ▶" Command="{Binding Media.DeckNextCommand}" Margin="0,0,4,4" />
+        <Button Classes="mini" Content="Last ⏭" Command="{Binding Media.DeckLastCommand}" Margin="0,0,12,4" />
       </WrapPanel>
       <TextBlock Classes="hint tip"
                  Text="The page shows full frame at its own shape — a 4:3 deck gets bars on a 16:9 screen, never a stretch — rendered as sharp as the largest screen needs, on every output, NDI send and the stream. A PowerPoint (.pptx, .ppt, .ppsx), a Keynote or an Impress file goes through LibreOffice Impress once — headless, in the background, the PDF kept under decks/ beside the show — and the card says Converting… until the pages arrive; an edited file converts again by itself, RELOAD forces it. Once the deck is on air (through a cue, a look, or by hand) it is the click-through: the clicker's keys, NEXT / BACK on the phone, Companion's presenter keys and NEXT on the wire turn its pages, and at the last page the next click GOes the standby cue, so the cue stack resumes. A cue can turn pages too (Deck — next page / go to page), and DECK NEXT / PREV / PAGE n on the wire, OSC and Companion. The area of interest, the flips and the turn apply to a page like any picture. Animations and transitions inside a PowerPoint are not kept — a slide is a page — and fonts the machine lacks are substituted, so check the pages once before the show." />
@@ -124,7 +124,7 @@
       <Grid ColumnDefinitions="*,8,Auto">
         <TextBox Grid.Column="0" Watermark="https://example.com/schedule — or a local HTML file"
                  Text="{Binding ActivePattern.Media.WebUrl, Mode=TwoWay}" />
-        <Button Grid.Column="2" Classes="chip" Content="Remember" Command="{Binding RememberWebUrlCommand}"
+        <Button Grid.Column="2" Classes="chip" Content="Remember" Command="{Binding Media.RememberWebUrlCommand}"
                 ToolTip.Tip="Keep this address in the saved pages (shared with the Remote &amp; web page)" />
       </Grid>
       <!-- What the page is: read from the address, or named outright — then FULL FRAME for the
@@ -135,18 +135,18 @@
                   SelectedValue="{Binding ActivePattern.Media.WebService, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
                   ToolTip.Tip="Auto reads the address, which is right almost always. Name the service when the address does not say — a short link, a corporate proxy, an embed served from the client's own hostname" />
-        <Button Grid.Column="3" Classes="chip" Content="FULL FRAME" Command="{Binding WebFullFrameCommand}" IsVisible="{Binding WebCanFullFrame}"
+        <Button Grid.Column="3" Classes="chip" Content="FULL FRAME" Command="{Binding Media.WebFullFrameCommand}" IsVisible="{Binding Media.WebCanFullFrame}"
                 ToolTip.Tip="Rewrite the address for the show: the player or the deck alone, no page furniture" />
       </Grid>
-      <TextBlock Classes="label" Text="{Binding WebPresetNote}" TextWrapping="Wrap" Margin="0,3,0,0"
-                 IsVisible="{Binding WebPresetNote, Converter={StaticResource NotEmpty}}" />
+      <TextBlock Classes="label" Text="{Binding Media.WebPresetNote}" TextWrapping="Wrap" Margin="0,3,0,0"
+                 IsVisible="{Binding Media.WebPresetNote, Converter={StaticResource NotEmpty}}" />
       <CheckBox Content="CLEAN — take the service's furniture off the picture" Margin="0,3,0,0"
                 IsChecked="{Binding ActivePattern.Media.WebClean}"
                 ToolTip.Tip="A style sheet put into the page before its own scripts run. It is the site's own class names, so a service that renames one lets a piece of furniture back — never a broken page" />
-      <TextBlock Classes="hint tip" Text="{Binding WebCleanNote}" IsVisible="{Binding ActivePattern.Media.WebClean}" />
+      <TextBlock Classes="hint tip" Text="{Binding Media.WebCleanNote}" IsVisible="{Binding ActivePattern.Media.WebClean}" />
       <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Saved pages" VerticalAlignment="Center" />
-        <ComboBox Grid.Column="1" ItemsSource="{Binding State.Web.SavedUrls}" SelectedItem="{Binding SavedWebPick, Mode=TwoWay}"
+        <ComboBox Grid.Column="1" ItemsSource="{Binding State.Web.SavedUrls}" SelectedItem="{Binding Media.SavedWebPick, Mode=TwoWay}"
                   PlaceholderText="Pick a remembered address…" HorizontalAlignment="Stretch" />
       </Grid>
       <Grid ColumnDefinitions="130,*,8,Auto,*" Margin="0,4,0,0">
@@ -169,7 +169,7 @@
       <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Schedule (shown in the multiview and status)"
-                 Text="{Binding InputNickname, Mode=TwoWay}" />
+                 Text="{Binding Media.InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint tip"
                  Text="The page renders inside the engine through WebView2 (the browser engine Windows 10 and 11 ship), so it joins spans and trims, reaches NDI and the stream, and travels with looks and cues like any pattern; nothing opens outside Patterns. Drive it on the PREVIEW pane: clicks, drags and the wheel land on the page as real events; type and press keys with the PAGE CONTROLS below, or hand it the whole keyboard with KEYS → PAGE. Paste a YouTube, Vimeo, Google Slides or PowerPoint link and the line above names the service: FULL FRAME shows the player or the deck alone, and the service's own actions (NEXT, PRESENT, PLAY…) come to the PAGE CONTROLS, the phone, cues and Companion. Its sound follows Mute (SOUND, below). The same address on several targets costs one browser; up to four pages run at once." />
@@ -191,7 +191,7 @@
                 <Border Classes="tile" Classes.tileActive="{Binding IsOnAir}">
                   <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <Button Background="Transparent" BorderThickness="0" Padding="2,3" Cursor="Hand"
-                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SetPlaylistSectionCommand}"
+                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.SetPlaylistSectionCommand}"
                             CommandParameter="{Binding}" ToolTip.Tip="Put this part on air (and edit it below)">
                       <StackPanel Orientation="Horizontal" Spacing="6">
                         <TextBlock Text="▶" FontSize="10" Foreground="#2EE68A" VerticalAlignment="Center"
@@ -202,36 +202,36 @@
                       </StackPanel>
                     </Button>
                     <Button Classes="mini" Content="✕" ToolTip.Tip="Delete this part (its files stay on disk)"
-                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistSectionCommand}"
+                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.RemovePlaylistSectionCommand}"
                             CommandParameter="{Binding}" />
                   </StackPanel>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <Button Classes="chip" Content="+ Part" Command="{Binding AddPlaylistSectionCommand}"
+          <Button Classes="chip" Content="+ Part" Command="{Binding Media.AddPlaylistSectionCommand}"
                   VerticalAlignment="Center" />
         </StackPanel>
       </ScrollViewer>
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Part name" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Text="{Binding ActivePlaylistSection.Name, Mode=TwoWay}" />
+        <TextBox Grid.Column="1" Text="{Binding Media.ActivePlaylistSection.Name, Mode=TwoWay}" />
       </Grid>
       <Grid ColumnDefinitions="86,90,8,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Starts daily" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" Watermark="HH:mm" Text="{Binding ActivePlaylistSection.StartTime, Mode=TwoWay}" />
+        <TextBox Grid.Column="1" Watermark="HH:mm" Text="{Binding Media.ActivePlaylistSection.StartTime, Mode=TwoWay}" />
         <TextBlock Grid.Column="3" Classes="hint tip" VerticalAlignment="Center"
                    Text="optional — takes over at this time (24 h)" />
       </Grid>
 
       <TextBlock Classes="h2" Text="FILES IN THIS PART" />
       <Grid ColumnDefinitions="Auto,8,Auto,*">
-        <Button Grid.Column="0" Classes="chip" Content="+ Add files…" Command="{Binding AddPlaylistFilesCommand}" />
-        <Button Grid.Column="2" Classes="chip" Content="+ Add folder…" Command="{Binding AddPlaylistFolderCommand}" />
+        <Button Grid.Column="0" Classes="chip" Content="+ Add files…" Command="{Binding Media.AddPlaylistFilesCommand}" />
+        <Button Grid.Column="2" Classes="chip" Content="+ Add folder…" Command="{Binding Media.AddPlaylistFolderCommand}" />
       </Grid>
-      <TextBlock Classes="label" Text="{Binding PlaylistStatus}" Margin="0,4,0,2" TextWrapping="Wrap" />
+      <TextBlock Classes="label" Text="{Binding Media.PlaylistStatus}" Margin="0,4,0,2" TextWrapping="Wrap" />
 
-      <ItemsControl x:Name="PlaylistList" ItemsSource="{Binding ActivePlaylistSection.Items}">
+      <ItemsControl x:Name="PlaylistList" ItemsSource="{Binding Media.ActivePlaylistSection.Items}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="m:PlaylistItemConfig">
             <Border Classes="plrow" Background="{StaticResource PanelBg2Brush}" CornerRadius="8"
@@ -259,7 +259,7 @@
                   <TextBlock FontSize="10" Foreground="#C8D0DC" Text="{Binding ScheduledTime, StringFormat='⏱ {0}'}" />
                 </Border>
                 <Button Grid.Column="10" Classes="mini" Content="✕" ToolTip.Tip="Remove from playlist"
-                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistItemCommand}"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.RemovePlaylistItemCommand}"
                         CommandParameter="{Binding}" />
               </Grid>
             </Border>
@@ -271,35 +271,35 @@
 
       <!-- Selected item timing -->
       <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,8"
-              IsVisible="{Binding HasPlaylistItemSelection}" Margin="0,4,0,0">
+              IsVisible="{Binding Media.HasPlaylistItemSelection}" Margin="0,4,0,0">
         <StackPanel>
           <TextBlock FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                     Text="{Binding SelectedPlaylistItem.Path, Converter={StaticResource FileName}, FallbackValue=''}" />
+                     Text="{Binding Media.SelectedPlaylistItem.Path, Converter={StaticResource FileName}, FallbackValue=''}" />
           <Grid ColumnDefinitions="Auto,6,58,12,Auto,6,58,6,Auto,6,*" Margin="0,6,0,0">
             <TextBlock Grid.Column="0" Classes="label" Text="Hold s" VerticalAlignment="Center"
                        ToolTip.Tip="Seconds on screen; 0 = default (image dwell / full video or audio length)" />
             <NumericUpDown Grid.Column="2" Minimum="0" Maximum="86400" Increment="5" FormatString="0" ShowButtonSpinner="False"
-                           Value="{Binding SelectedPlaylistItem.DurationSeconds, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" />
+                           Value="{Binding Media.SelectedPlaylistItem.DurationSeconds, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" />
             <TextBlock Grid.Column="4" Classes="label" Text="At" VerticalAlignment="Center"
                        ToolTip.Tip="Daily play time (24 h HH:mm) — interrupts the cycle; blank = plays in turn" />
-            <TextBox Grid.Column="6" Watermark="HH:mm" Text="{Binding SelectedPlaylistItem.ScheduledTime, FallbackValue=''}" />
+            <TextBox Grid.Column="6" Watermark="HH:mm" Text="{Binding Media.SelectedPlaylistItem.ScheduledTime, FallbackValue=''}" />
             <TextBlock Grid.Column="8" Classes="label" Text="for s" VerticalAlignment="Center"
                        ToolTip.Tip="How long the timed interruption holds before the cycle resumes" />
             <NumericUpDown Grid.Column="10" Minimum="1" Maximum="86400" Increment="10" FormatString="0" ShowButtonSpinner="False"
-                           Value="{Binding SelectedPlaylistItem.ScheduledDurationSeconds, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=60}" />
+                           Value="{Binding Media.SelectedPlaylistItem.ScheduledDurationSeconds, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=60}" />
           </Grid>
         </StackPanel>
       </Border>
 
       <TextBlock Classes="h2" Text="PLAYLIST — FOLDERS" />
-      <ItemsControl ItemsSource="{Binding ActivePlaylistSection.Folders}">
+      <ItemsControl ItemsSource="{Binding Media.ActivePlaylistSection.Folders}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="x:String">
             <Grid ColumnDefinitions="*,6,Auto" Margin="0,2">
               <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"
                          TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}" />
               <Button Grid.Column="2" Classes="mini" Content="✕"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlaylistFolderCommand}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.RemovePlaylistFolderCommand}"
                       CommandParameter="{Binding}" />
             </Grid>
           </DataTemplate>
@@ -330,17 +330,17 @@
     <!-- The area of interest: crop, flip, turn — any source -->
     <TextBlock Classes="h2" Text="AREA OF INTEREST — CROP, FLIP, TURN" />
     <Grid ColumnDefinitions="Auto,8,Auto,8,*">
-      <ToggleButton Classes="chip" Content="PICK ON PREVIEW" IsChecked="{Binding CropPickActive, Mode=TwoWay}"
+      <ToggleButton Classes="chip" Content="PICK ON PREVIEW" IsChecked="{Binding Media.CropPickActive, Mode=TwoWay}"
                     ToolTip.Tip="Then drag a box on the PREVIEW pane around the part of the picture to keep — the slide, the shared screen, the caller — and the rest is cut away; a second pick refines the first" />
-      <Button Grid.Column="2" Classes="mini" Content="Clear" Command="{Binding ClearCropCommand}" ToolTip.Tip="The whole picture again" />
-      <TextBlock Grid.Column="4" Classes="label" Text="{Binding CropSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
+      <Button Grid.Column="2" Classes="mini" Content="Clear" Command="{Binding Media.ClearCropCommand}" ToolTip.Tip="The whole picture again" />
+      <TextBlock Grid.Column="4" Classes="label" Text="{Binding Media.CropSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
     </Grid>
     <WrapPanel Margin="0,4,0,0">
       <TextBlock Classes="hint" Text="Start from: " VerticalAlignment="Center" Margin="0,0,6,6" />
-      <Button Classes="mini" Content="Top bar off" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="top:8" ToolTip.Tip="Cut 8% from the top — a title bar, a tab strip" />
-      <Button Classes="mini" Content="Side panel off" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="right:25" ToolTip.Tip="Cut 25% from the right — a participants strip, a chat panel" />
-      <Button Classes="mini" Content="Bottom strip off" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="bottom:12" ToolTip.Tip="Cut 12% from the bottom — a toolbar, presenter notes" />
-      <Button Classes="mini" Content="Centre 80%" Margin="0,0,4,6" Command="{Binding CropPresetCommand}" CommandParameter="centre:80" ToolTip.Tip="Keep the middle 80% — a light zoom that loses every edge" />
+      <Button Classes="mini" Content="Top bar off" Margin="0,0,4,6" Command="{Binding Media.CropPresetCommand}" CommandParameter="top:8" ToolTip.Tip="Cut 8% from the top — a title bar, a tab strip" />
+      <Button Classes="mini" Content="Side panel off" Margin="0,0,4,6" Command="{Binding Media.CropPresetCommand}" CommandParameter="right:25" ToolTip.Tip="Cut 25% from the right — a participants strip, a chat panel" />
+      <Button Classes="mini" Content="Bottom strip off" Margin="0,0,4,6" Command="{Binding Media.CropPresetCommand}" CommandParameter="bottom:12" ToolTip.Tip="Cut 12% from the bottom — a toolbar, presenter notes" />
+      <Button Classes="mini" Content="Centre 80%" Margin="0,0,4,6" Command="{Binding Media.CropPresetCommand}" CommandParameter="centre:80" ToolTip.Tip="Keep the middle 80% — a light zoom that loses every edge" />
     </WrapPanel>
     <Grid ColumnDefinitions="130,*,44" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4,0,0">
       <TextBlock Grid.Row="0" Classes="label" Text="Cut left" VerticalAlignment="Center" />

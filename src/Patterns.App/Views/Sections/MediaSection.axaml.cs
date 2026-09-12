@@ -35,9 +35,9 @@ public partial class MediaSection : UserControl
     {
         if (Vm is { } vm)
         {
-            vm.PropertyChanged += (_, e) =>
+            vm.Media.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(MainViewModel.SelectedPlaylistItem)) RestyleRows();
+                if (e.PropertyName == nameof(MediaPage.SelectedPlaylistItem)) RestyleRows();
             };
         }
     }
@@ -59,7 +59,7 @@ public partial class MediaSection : UserControl
         var row = FindUp<Border>(e.Source, "plrow");
         if (row?.DataContext is not PlaylistItemConfig item) return;
 
-        vm.SelectedPlaylistItem = item;
+        vm.Media.SelectedPlaylistItem = item;
 
         if (FindUp<Border>(e.Source, "plhandle") is not null)
         {
@@ -81,7 +81,7 @@ public partial class MediaSection : UserControl
 
         // Re-order live: the item follows whichever row midpoint the pointer has crossed.
         var target = IndexUnder(pos.Y);
-        if (target >= 0) vm.MovePlaylistItemTo(_dragItem, target);
+        if (target >= 0) vm.Media.MovePlaylistItemTo(_dragItem, target);
         e.Handled = true;
     }
 
@@ -114,7 +114,7 @@ public partial class MediaSection : UserControl
             if (PlaylistList.ContainerFromIndex(i) is not { } container) continue;
             var row = container.FindDescendantOfType<Border>();
             if (row is null || !row.Classes.Contains("plrow")) continue;
-            var selected = ReferenceEquals(row.DataContext, vm.SelectedPlaylistItem);
+            var selected = ReferenceEquals(row.DataContext, vm.Media.SelectedPlaylistItem);
             row.BorderThickness = new Thickness(selected ? 1.5 : 0);
             row.BorderBrush = selected ? new SolidColorBrush(Color.Parse("#3EC1F3")) : null;
         }

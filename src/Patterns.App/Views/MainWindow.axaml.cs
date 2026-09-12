@@ -29,7 +29,7 @@ public partial class MainWindow : Window
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnPreviewKeyUp, RoutingStrategies.Tunnel);
         // KEYS → PAGE: the characters a key would type go to the page, never into a desk control.
-        AddHandler(TextInputEvent, (_, e) => { if (DataContext is MainViewModel { KeysToPage: true }) e.Handled = true; }, RoutingStrategies.Tunnel);
+        AddHandler(TextInputEvent, (_, e) => { if (DataContext is MainViewModel { Media.KeysToPage: true }) e.Handled = true; }, RoutingStrategies.Tunnel);
         Deactivated += (_, _) => _down.Clear(); // a key-up missed during Alt+Tab must not jam a key
         DataContextChanged += (_, _) => HookShell();
     }
@@ -510,7 +510,7 @@ public partial class MainWindow : Window
     /// <summary>PICK ON PREVIEW: a press starts the box while the pane shows an input's picture; false otherwise (the press then does what it always did).</summary>
     public bool BeginCropPick(Point dip)
     {
-        if (DataContext is not MainViewModel { CropPickActive: true } || _previewPipeline is not { LastMap: not null } pipeline) return false;
+        if (DataContext is not MainViewModel { Media.CropPickActive: true } || _previewPipeline is not { LastMap: not null } pipeline) return false;
         if (!pipeline.LastHits.Any(h => h.Kind == HitKind.MediaPicture)) return false;
         _cropPicking = true;
         _cropStart = dip;
@@ -543,7 +543,7 @@ public partial class MainWindow : Window
             vm.StatusMessage = "Too small a box to keep — drag around the part of the picture you want.";
             return false;
         }
-        vm.ApplyCropBand(left, top, right, bottom);
+        vm.Media.ApplyCropBand(left, top, right, bottom);
         return true;
     }
 
@@ -580,7 +580,7 @@ public partial class MainWindow : Window
         _webPress = hit;
         _webHoverKey = hit.Key;
         page.PointerDown(at.X, at.Y);
-        if (DataContext is MainViewModel vm) vm.NoteWebPage(hit.Key);
+        if (DataContext is MainViewModel vm) vm.Media.NoteWebPage(hit.Key);
         return true;
     }
 
@@ -745,18 +745,18 @@ public partial class MainWindow : Window
         // KEYS → PAGE: the keyboard belongs to the web page the desk drives — F5 starts a PowerPoint,
         // the arrows move a deck, k plays a YouTube video — until Ctrl+Alt+K or the chip ends it. Every
         // press goes, repeats included: a held arrow keeps a page scrolling the way a keyboard would.
-        if (vm.KeysToPage)
+        if (vm.Media.KeysToPage)
         {
             if (e.Key == Key.K && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt))
             {
                 e.Handled = true;
-                vm.KeysToPage = false;
+                vm.Media.KeysToPage = false;
                 return;
             }
             if (WebKeyboard.ChordFor(e.Key, e.KeyModifiers) is { } chord)
             {
                 e.Handled = true;
-                vm.SendKeyToPage(chord);
+                vm.Media.SendKeyToPage(chord);
                 return;
             }
         }
@@ -811,7 +811,7 @@ public partial class MainWindow : Window
         // Presenter clicker: USB presentation remotes send Page Down / Page Up (and often
         // the arrow keys — those only count when the operator isn't in a control). A deck on
         // air is a click-through of its own, armed list or not.
-        if ((vm.ClickerArmed || vm.DeckOnAir) && e.KeyModifiers == KeyModifiers.None)
+        if ((vm.ClickerArmed || vm.Media.DeckOnAir) && e.KeyModifiers == KeyModifiers.None)
         {
             var forward = e.Key is Key.PageDown || (!typing && e.Key is Key.Right);
             var back = e.Key is Key.PageUp || (!typing && e.Key is Key.Left);

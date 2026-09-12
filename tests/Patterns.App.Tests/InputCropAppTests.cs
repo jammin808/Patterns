@@ -73,7 +73,7 @@ public class InputCropAppTests
             Assert.False(window.BeginCropPick(OnPane(in map, picture.MidX, picture.MidY)));
 
             // Picking: the box from a quarter in to three quarters in keeps the middle half.
-            vm.CropPickActive = true;
+            vm.Media.CropPickActive = true;
             Assert.Contains("Drag a box", vm.StatusMessage);
             var from = OnPane(in map, picture.Left + picture.Width * 0.25f, picture.Top + picture.Height * 0.25f);
             var to = OnPane(in map, picture.Left + picture.Width * 0.75f, picture.Top + picture.Height * 0.75f);
@@ -85,8 +85,8 @@ public class InputCropAppTests
             Assert.Equal(25, m.CropTopPct, 0);
             Assert.Equal(25, m.CropRightPct, 0);
             Assert.Equal(25, m.CropBottomPct, 0);
-            Assert.False(vm.CropPickActive);
-            Assert.Contains("Keeps 50% × 50%", vm.CropSummary);
+            Assert.False(vm.Media.CropPickActive);
+            Assert.Contains("Keeps 50% × 50%", vm.Media.CropSummary);
             Assert.StartsWith("Area of interest set", vm.StatusMessage);
 
             // A second pick works on the picture as it shows now: the left half of the kept part.
@@ -94,7 +94,7 @@ public class InputCropAppTests
             RenderPane(pipeline, 800, 450);
             var shown = pipeline.LastHits.Single(h => h.Kind == HitKind.MediaPicture);
             Assert.Equal(new Patterns.Core.Media.FrameCrop(25, 25, 25, 25), shown.Crop);
-            vm.CropPickActive = true;
+            vm.Media.CropPickActive = true;
             Assert.True(window.BeginCropPick(OnPane(in map, shown.Rect.Left, shown.Rect.Top)));
             Assert.True(window.EndCropPick(OnPane(in map, shown.Rect.MidX, shown.Rect.Bottom)));
             Assert.Equal(25, m.CropLeftPct, 0);
@@ -103,26 +103,26 @@ public class InputCropAppTests
             Assert.Equal(25, m.CropBottomPct, 0);
 
             // A box too small to mean anything is ignored; a backwards drag is fine.
-            vm.CropPickActive = true;
+            vm.Media.CropPickActive = true;
             Assert.True(window.BeginCropPick(from));
             Assert.False(window.EndCropPick(new Point(from.X + 1, from.Y + 1)));
             Assert.Equal(50, m.CropRightPct, 0);
-            Assert.True(vm.CropPickActive);
-            vm.CropPickActive = false;
+            Assert.True(vm.Media.CropPickActive);
+            vm.Media.CropPickActive = false;
 
             // The presets and the clear.
-            vm.ClearCropCommand.Execute(null);
+            vm.Media.ClearCropCommand.Execute(null);
             Assert.Equal((0d, 0d, 0d, 0d), (m.CropLeftPct, m.CropTopPct, m.CropRightPct, m.CropBottomPct));
-            Assert.Equal("The whole picture.", vm.CropSummary);
-            vm.CropPresetCommand.Execute("right:25");
+            Assert.Equal("The whole picture.", vm.Media.CropSummary);
+            vm.Media.CropPresetCommand.Execute("right:25");
             Assert.Equal(25, m.CropRightPct);
-            vm.CropPresetCommand.Execute("centre:80");
+            vm.Media.CropPresetCommand.Execute("centre:80");
             Assert.Equal((10d, 10d, 10d, 10d), (m.CropLeftPct, m.CropTopPct, m.CropRightPct, m.CropBottomPct));
             m.RotateQuarters = 1;
             m.FlipHorizontal = true;
             vm.PollNow();
-            Assert.Contains("Turned 90°", vm.CropSummary);
-            Assert.Contains("Mirrored", vm.CropSummary);
+            Assert.Contains("Turned 90°", vm.Media.CropSummary);
+            Assert.Contains("Mirrored", vm.Media.CropSummary);
 
             // The Media page carries the block.
             var page = new Window { DataContext = vm, Width = 900, Height = 3000, Content = new ScrollViewer { Content = new MediaSection() } };

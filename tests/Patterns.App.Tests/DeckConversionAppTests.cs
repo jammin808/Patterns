@@ -125,10 +125,10 @@ public class DeckConversionAppTests
             Assert.Contains("Converting keynote talk.pptx", pending.StatusText);
             Assert.Equal(0, pending.PageCount);
             vm.PollNow();
-            Assert.Contains("Converting", vm.DeckPageText);
-            Assert.Contains("LibreOffice found", vm.DeckToolText);
-            Assert.False(vm.DeckToolMissing);
-            Assert.False(vm.DeckOnAir);
+            Assert.Contains("Converting", vm.Media.DeckPageText);
+            Assert.Contains("LibreOffice found", vm.Media.DeckToolText);
+            Assert.False(vm.Media.DeckToolMissing);
+            Assert.False(vm.Media.DeckOnAir);
             Assert.StartsWith("ERR", TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("DECK NEXT"))));
             var pendingState = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement.GetProperty("deck");
             Assert.True(pendingState.GetProperty("converting").GetBoolean());
@@ -153,8 +153,8 @@ public class DeckConversionAppTests
             WaitShown(deck);
             using (var page2 = RenderPane(pipeline, 800, 450)) AssertNear(SKColors.Blue, page2.GetPixel(400, 225));
             vm.PollNow();
-            Assert.True(vm.DeckOnAir);
-            Assert.StartsWith("Page 2 / 2", vm.DeckPageText);
+            Assert.True(vm.Media.DeckOnAir);
+            Assert.StartsWith("Page 2 / 2", vm.Media.DeckPageText);
             var state = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement.GetProperty("deck");
             Assert.Equal("PowerPoint", state.GetProperty("kind").GetString());
             Assert.False(state.GetProperty("converting").GetBoolean());
@@ -174,7 +174,7 @@ public class DeckConversionAppTests
             // RELOAD drops the cached PDF and converts afresh — held at a new gate, so the drop and the
             // pending deck are seen before the stand-in lands; an edited file (a new size) converts by itself.
             gate = new TaskCompletionSource();
-            vm.ReloadDeckCommand.Execute(null);
+            vm.Media.ReloadDeckCommand.Execute(null);
             Assert.Null(services.DeckIn.Converter.Cached(pptx));
             Settle(window);
             Assert.IsType<PendingDeckSource>(services.DeckIn.For(key));
@@ -231,8 +231,8 @@ public class DeckConversionAppTests
             Assert.True(pending.Failed);
             Assert.Contains("LibreOffice not found", pending.StatusText);
             vm.PollNow();
-            Assert.Contains("LibreOffice not found", vm.DeckPageText);
-            Assert.True(vm.DeckToolMissing);
+            Assert.Contains("LibreOffice not found", vm.Media.DeckPageText);
+            Assert.True(vm.Media.DeckToolMissing);
             Assert.StartsWith("ERR", TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("DECK NEXT"))));
             var state = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement.GetProperty("deck");
             Assert.False(state.GetProperty("converting").GetBoolean());

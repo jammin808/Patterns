@@ -80,7 +80,7 @@ public sealed partial class MainViewModel
         Guard("screens", PollOwnership);
         Guard("quality", PollQuality);
         Guard("machine", PollAdmin);
-        Guard("inputs", RefreshActiveInputs);
+        Guard("inputs", Media.RefreshActiveInputs);
         Guard("switcher", RefreshSwitcherTiles);
         Guard("run", PollRun);
         Guard("remote", PollRemote);
@@ -91,7 +91,7 @@ public sealed partial class MainViewModel
         Guard("cues", CheckCues);
         Guard("playlist", PollPlaylist);
         Guard("pickers", PollPickers);
-        Guard("web", RefreshWebControls);
+        Guard("web", Media.RefreshWebControls);
         Guard("clock", PollClock);
         Guard("places", PollPlaces);
         _services.DeskTick.Record(_tickWatch.Elapsed.TotalMilliseconds, _tickSlowestArea, _tickSlowestMs);
@@ -153,13 +153,11 @@ public sealed partial class MainViewModel
         NdiStatus = active > 0
             ? $"{active} sender{(active == 1 ? "" : "s")} active"
             : NdiRuntimeFound ? "Off" : "Runtime not found";
-        PlaylistStatus = _services.Playlist.Status;
+        Media.PollStatus();
         FeedStatus = _services.Feeds.Status;
         WeatherStatus = _services.Weather.Status;
         RaiseIfChanged(nameof(WeatherCoordinatesText), WeatherCoordinatesText);
         RaiseIfChanged(nameof(DirectOutputSummary), DirectOutputSummary);
-        RefreshCropSummary();
-        RefreshDeck();
         SyncVirtualScreens();
     }
 
@@ -261,21 +259,14 @@ public sealed partial class MainViewModel
         {
             item.IsNowPlaying = nowPath is not null && string.Equals(item.Path, nowPath, StringComparison.OrdinalIgnoreCase);
         }
-        RaisePlaylistSection(onlyOnChange: true);
+        Media.RaisePlaylistSection(onlyOnChange: true);
     }
 
     private void PollPickers()
     {
         // Keep pick lists warm while their panels are in use (NDI discovery is push-based
         // and cheap to read; capture enumeration is COM, so on demand + first need only).
-        if (ActivePattern.Media.Source == MediaSource.NdiFeed && ++_ndiPollTick % 3 == 0)
-        {
-            RefreshNdiSources(quiet: true);
-        }
-        if (ActivePattern.Media.Source == MediaSource.Capture && !_captureListLoaded)
-        {
-            RefreshCaptureDevices(quiet: true);
-        }
+        Media.PollPickers();
         // The Format pickers follow their device; a refresh is free while the device is unchanged.
         if (ActivePattern.Media.Source == MediaSource.Capture) CaptureFormat.Refresh();
         if (State.Overlays.Pip.Enabled && State.Overlays.Pip.Source == PipSource.Capture) PipCaptureFormat.Refresh();
@@ -306,7 +297,7 @@ public sealed partial class MainViewModel
         Raise(nameof(IsSandboxActive));
         Raise(nameof(CanvasInfo));
         Raise(nameof(ShowCanvasPanel));
-        Raise(nameof(InputNickname));
+        Media.RaiseInputNickname();
         RaiseArrangement();
         Raise(nameof(IsBlackout)); // Space, Shift+F8, a remote or an output-window key moved it
         RefreshSwitcherTiles(); // tally: blackout, a screen switched, the sandbox opened or closed

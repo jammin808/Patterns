@@ -274,7 +274,7 @@ public sealed partial class MainViewModel
     public ActionResult PreviewEntry(LowerThirdEntry entry, LowerThirdDesign? design)
         => Report(_services.Actions.Execute(ShowActionKind.LowerThirdPreview, ActionOrigin.Desk, design?.Id ?? "", entry.Id));
 
-    private ActionResult Report(ActionResult result)
+    internal ActionResult Report(ActionResult result)
     {
         if (result.Message.Length > 0) StatusMessage = result.Message;
         RefreshLowerThirdTallies();

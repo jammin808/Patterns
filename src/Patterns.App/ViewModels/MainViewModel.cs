@@ -37,6 +37,7 @@ public sealed partial class MainViewModel : Observable
     {
         _services = services;
         Screens = new ScreensPage(this, _services);
+        Media = new MediaPage(this, _services);
 
         // A contained UI fault reaches the operator at once on the status line; the health line
         // and the Machine page keep the count and the log has the stack.
@@ -58,60 +59,8 @@ public sealed partial class MainViewModel : Observable
         SaveShowCommand = new RelayCommand(() => _ = SaveShowAsync());
         LoadShowCommand = new RelayCommand(() => _ = LoadShowAsync());
         SavePresetCommand = new RelayCommand(SaveUserPreset);
-        BrowseImageCommand = new RelayCommand(() => _ = PickFileAsync("Choose image", FilePickerFileTypes.ImageAll, p =>
-        {
-            BulkEdit(() =>
-            {
-                ActivePattern.Media.ImagePath = p;
-                ActivePattern.Media.Source = MediaSource.Image;
-            });
-            AddToMediaLibrary(p, isVideo: false);
-        }));
-        BrowseVideoCommand = new RelayCommand(() => _ = PickFileAsync("Choose video", VideoTypes, p =>
-        {
-            BulkEdit(() =>
-            {
-                ActivePattern.Media.VideoPath = p;
-                ActivePattern.Media.Source = MediaSource.Video;
-            });
-            AddToMediaLibrary(p, isVideo: true);
-        }));
-        // A deck: a PDF — or a PowerPoint through LibreOffice — a page at a time; the desk's buttons turn the deck the pattern shows.
-        BrowseDeckCommand = new RelayCommand(() => _ = PickFileAsync("Choose a deck — a PDF or a PowerPoint", DeckTypes, p =>
-        {
-            BulkEdit(() =>
-            {
-                ActivePattern.Kind = PatternKind.Media;
-                ActivePattern.Media.Source = MediaSource.Deck;
-                ActivePattern.Media.DeckPath = p;
-            });
-            AddToMediaLibrary(p, isVideo: false);
-            StatusMessage = DeckConversion.NeedsConversion(p)
-                ? $"{System.IO.Path.GetFileName(p)} is the pattern — LibreOffice converts it to PDF once, then the click-through turns its pages on air."
-                : $"{System.IO.Path.GetFileName(p)} is the pattern — the click-through turns its pages once it is on air.";
-        }));
-        ReloadDeckCommand = new RelayCommand(() =>
-        {
-            var path = ActivePattern.Media.DeckPath;
-            if (path.Length == 0)
-            {
-                StatusMessage = "Choose a deck first.";
-                return;
-            }
-            _services.DeckIn.Reload(path);
-            _services.ReconcileInputs();
-            _services.PublishRuntime();
-            RefreshDeck();
-            StatusMessage = DeckConversion.NeedsConversion(path)
-                ? $"{System.IO.Path.GetFileName(path)} is being read and converted again."
-                : $"{System.IO.Path.GetFileName(path)} is being read again.";
-        });
-        DeckNextCommand = new RelayCommand(() => TurnDeskDeck("next"));
-        DeckPrevCommand = new RelayCommand(() => TurnDeskDeck("prev"));
         VideoToEndCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.VideoToEnd, ActionOrigin.Desk)));
         VideoRestartCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.VideoRestart, ActionOrigin.Desk)));
-        DeckFirstCommand = new RelayCommand(() => TurnDeskDeck("first"));
-        DeckLastCommand = new RelayCommand(() => TurnDeskDeck("last"));
         BrowseLogoCommand = new RelayCommand(() => _ = PickFileAsync("Choose logo (PNG with alpha)", FilePickerFileTypes.ImageAll, p => State.Brand.LogoPath = p));
         BrowseLayerImageCommand = new RelayCommand<LayerConfig>(layer =>
         {
@@ -161,136 +110,6 @@ public sealed partial class MainViewModel : Observable
             State.Ndi.Senders.Remove(cfg);
             SyncVirtualScreens(); // its screen, and that screen's own content, go with it
         });
-
-        // Playlist
-        AddPlaylistFilesCommand = new RelayCommand(() => _ = AddPlaylistFilesAsync());
-        AddPlaylistFolderCommand = new RelayCommand(() => _ = AddPlaylistFolderAsync());
-        RemovePlaylistItemCommand = new RelayCommand<PlaylistItemConfig>(item =>
-        {
-            if (item is not null) ActivePlaylistSection.Items.Remove(item);
-        });
-        MovePlaylistItemUpCommand = new RelayCommand<PlaylistItemConfig>(item => MovePlaylistItem(item, -1));
-        MovePlaylistItemDownCommand = new RelayCommand<PlaylistItemConfig>(item => MovePlaylistItem(item, +1));
-        RemovePlaylistFolderCommand = new RelayCommand<string>(folder =>
-        {
-            if (folder is not null) ActivePlaylistSection.Folders.Remove(folder);
-        });
-        AddPlaylistSectionCommand = new RelayCommand(() =>
-        {
-            var playlist = ActivePattern.Media.Playlist;
-            PlaylistSequencer.Normalize(playlist);
-            playlist.Sections.Add(new PlaylistSectionConfig { Name = $"Part {playlist.Sections.Count + 1}" });
-            playlist.ActiveSection = playlist.Sections.Count - 1;
-            RaisePlaylistSection();
-        });
-        RemovePlaylistSectionCommand = new RelayCommand<PlaylistSectionConfig>(section =>
-        {
-            var playlist = ActivePattern.Media.Playlist;
-            if (section is null || !playlist.Sections.Contains(section)) return;
-            if (playlist.Sections.Count <= 1)
-            {
-                StatusMessage = "The playlist needs at least one part — clear its files instead.";
-                return;
-            }
-            var index = playlist.Sections.IndexOf(section);
-            playlist.Sections.Remove(section);
-            if (playlist.ActiveSection >= index && playlist.ActiveSection > 0) playlist.ActiveSection--;
-            RaisePlaylistSection();
-        });
-        SetPlaylistSectionCommand = new RelayCommand<PlaylistSectionConfig>(section =>
-        {
-            var playlist = ActivePattern.Media.Playlist;
-            var index = section is null ? -1 : playlist.Sections.IndexOf(section);
-            if (index < 0) return;
-            playlist.ActiveSection = index;
-            RaisePlaylistSection();
-            StatusMessage = $"Playlist part '{section!.Name}' is on air.";
-        });
-
-        // Live inputs & web pages
-        RefreshNdiSourcesCommand = new RelayCommand(() => RefreshNdiSources());
-        RefreshCaptureDevicesCommand = new RelayCommand(() => RefreshCaptureDevices());
-        LoadWebUrlCommand = new RelayCommand<string>(url =>
-        {
-            if (url is not null) State.Web.Url = url;
-        });
-        RemoveWebUrlCommand = new RelayCommand<string>(url =>
-        {
-            if (url is not null) State.Web.SavedUrls.Remove(url);
-        });
-
-        // Web pages inside the engine: the page the desk last pointed at (else the pattern's) takes typed text and keys
-        SendWebTextCommand = new RelayCommand(() =>
-        {
-            if (CurrentWebSource() is not { } page)
-            {
-                StatusMessage = "No web page to type into — put one on the pattern or a layer first, then click into it on the PREVIEW pane.";
-                return;
-            }
-            var text = WebTypedText;
-            if (text.Length == 0) return;
-            page.TypeText(text);
-            WebTypedText = "";
-            StatusMessage = $"Typed into {WebAddress.ShortName(page.CurrentUrl)} — Enter sends it, if the page wants that.";
-        });
-        WebKeyCommand = new RelayCommand<string>(key =>
-        {
-            if (key is not null && CurrentWebSource() is { } page) page.PressKey(key);
-        });
-        WebBackCommand = new RelayCommand(() => CurrentWebSource()?.GoBack());
-        WebForwardCommand = new RelayCommand(() => CurrentWebSource()?.GoForward());
-        WebReloadCommand = new RelayCommand(() => CurrentWebSource()?.Reload());
-        RememberWebUrlCommand = new RelayCommand(() =>
-        {
-            var url = WebAddress.Normalize(ActivePattern.Media.WebUrl);
-            if (url.Length == 0) return;
-            if (!State.Web.SavedUrls.Contains(url)) State.Web.SavedUrls.Add(url);
-            StatusMessage = $"Remembered {WebAddress.ShortName(url)} — it is in the saved pages here and on the Remote & web page.";
-        });
-        PutWebPageOnPatternCommand = new RelayCommand(() =>
-        {
-            var typed = WebAddress.Normalize(State.Web.Url);
-            if (typed.Length == 0)
-            {
-                StatusMessage = "Enter a page address first.";
-                return;
-            }
-            // A YouTube, Vimeo or Slides link goes on as the player or the deck alone — the streamlined path;
-            // the Media page shows the address and can put the typed one back. The service named
-            // here and the CLEAN tick travel with it, so the page lands the way it was set up.
-            var pick = State.Web.Service;
-            var url = WebPresets.FullFrame(typed, pick);
-            var preset = WebPresets.For(url, pick);
-            var clean = State.Web.Clean;
-            _services.BulkEdit(() =>
-            {
-                ActivePattern.Kind = PatternKind.Media;
-                ActivePattern.Media.Source = MediaSource.Web;
-                ActivePattern.Media.WebUrl = url;
-                ActivePattern.Media.WebService = pick;
-                ActivePattern.Media.WebClean = clean;
-            });
-            if (!State.Web.SavedUrls.Contains(typed)) State.Web.SavedUrls.Add(typed);
-            RefreshWebControls();
-            StatusMessage = preset.Service == PageService.Page
-                ? $"{WebAddress.ShortName(url)} is the pattern now — drive it on the PREVIEW pane; its settings are on the Media page."
-                : $"{preset.Name} is the pattern now{(url == typed ? "" : ", full frame — the player or the deck alone")}. Drive it on the PREVIEW pane, with PAGE CONTROLS, the phone, cues or KEYS → PAGE.";
-        });
-        WebFullFrameCommand = new RelayCommand(() =>
-        {
-            var pick = ActivePattern.Media.WebService;
-            var url = WebAddress.Normalize(ActivePattern.Media.WebUrl);
-            var full = WebPresets.FullFrame(url, pick);
-            if (url.Length == 0 || full == url)
-            {
-                StatusMessage = url.Length == 0 ? "Enter a page address first." : "That address is already the page alone.";
-                return;
-            }
-            BulkEdit(() => ActivePattern.Media.WebUrl = full);
-            RefreshWebControls();
-            StatusMessage = $"{WebPresets.For(full, pick).Name} full frame: {full}";
-        });
-        WebActionCommand = new RelayCommand<string>(id => RunWebAction(id ?? ""));
 
         // Presenter click-through: the clicker list on the Cues page, stepped from here
         PresenterNextCommand = new RelayCommand(() => _services.Actions.PresenterAdvance(+1, ActionOrigin.Desk));
@@ -361,8 +180,6 @@ public sealed partial class MainViewModel : Observable
         ExportPeopleCommand = new RelayCommand(() => _ = SaveTextAsync("Export the people library", "people.csv", ExportPeopleCsv(), "People exported"));
         SavePeopleTemplateCommand = new RelayCommand(() => _ = SaveTextAsync("Save the people template", "people-template.csv", LowerThirdLibrary.Template(), "Template saved"));
         PreviewRestartCommand = new RelayCommand(() => PreviewTimeMs = 0);
-        ClearCropCommand = new RelayCommand(ClearCrop);
-        CropPresetCommand = new RelayCommand<string>(p => ApplyCropPreset(p ?? ""));
         // The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP.
         AddSerialDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Serial));
         AddIpDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Tcp));
@@ -661,16 +478,8 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand SaveShowCommand { get; }
     public RelayCommand LoadShowCommand { get; }
     public RelayCommand SavePresetCommand { get; }
-    public RelayCommand BrowseImageCommand { get; }
-    public RelayCommand BrowseVideoCommand { get; }
-    public RelayCommand BrowseDeckCommand { get; }
-    public RelayCommand ReloadDeckCommand { get; }
-    public RelayCommand DeckNextCommand { get; }
-    public RelayCommand DeckPrevCommand { get; }
     public RelayCommand VideoToEndCommand { get; }
     public RelayCommand VideoRestartCommand { get; }
-    public RelayCommand DeckFirstCommand { get; }
-    public RelayCommand DeckLastCommand { get; }
     public RelayCommand BrowseLogoCommand { get; }
     public RelayCommand<string> ApplyParticlePresetCommand { get; }
     public RelayCommand<string> ApplyCountdownLabelCommand { get; }
@@ -680,15 +489,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand ResetLayoutCommand { get; }
     public RelayCommand AddNdiSenderCommand { get; }
     public RelayCommand<NdiSenderConfig> RemoveNdiSenderCommand { get; }
-    public RelayCommand AddPlaylistFilesCommand { get; }
-    public RelayCommand AddPlaylistFolderCommand { get; }
-    public RelayCommand<PlaylistItemConfig> RemovePlaylistItemCommand { get; }
-    public RelayCommand<PlaylistItemConfig> MovePlaylistItemUpCommand { get; }
-    public RelayCommand<PlaylistItemConfig> MovePlaylistItemDownCommand { get; }
-    public RelayCommand<string> RemovePlaylistFolderCommand { get; }
-    public RelayCommand AddPlaylistSectionCommand { get; }
-    public RelayCommand<PlaylistSectionConfig> RemovePlaylistSectionCommand { get; }
-    public RelayCommand<PlaylistSectionConfig> SetPlaylistSectionCommand { get; }
     public RelayCommand SaveLookCommand { get; }
     public RelayCommand<LookConfig> ApplyLookCommand { get; }
     public RelayCommand<LookConfig> ApplyLookToPreviewCommand { get; }
@@ -700,19 +500,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand AddLedTileCommand { get; }
     public RelayCommand RemoveLedTileCommand { get; }
     public RelayCommand ImportGridToMapCommand { get; }
-    public RelayCommand RefreshNdiSourcesCommand { get; }
-    public RelayCommand RefreshCaptureDevicesCommand { get; }
-    public RelayCommand<string> LoadWebUrlCommand { get; }
-    public RelayCommand<string> RemoveWebUrlCommand { get; }
-    public RelayCommand SendWebTextCommand { get; }
-    public RelayCommand<string> WebKeyCommand { get; }
-    public RelayCommand WebBackCommand { get; }
-    public RelayCommand WebForwardCommand { get; }
-    public RelayCommand WebReloadCommand { get; }
-    public RelayCommand RememberWebUrlCommand { get; }
-    public RelayCommand PutWebPageOnPatternCommand { get; }
-    public RelayCommand WebFullFrameCommand { get; }
-    public RelayCommand<string> WebActionCommand { get; }
     public RelayCommand ImportCueSheetCommand { get; }
     public RelayCommand ImportCueSheetAppendCommand { get; }
     public RelayCommand ExportCueSheetCommand { get; }
@@ -747,8 +534,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand PickElementFileCommand { get; }
     public RelayCommand SaveLowerThirdFileCommand { get; }
     public RelayCommand<string> LoadLowerThirdFileCommand { get; }
-    public RelayCommand ClearCropCommand { get; }
-    public RelayCommand<string> CropPresetCommand { get; }
     public RelayCommand NewEntryCommand { get; }
     public RelayCommand<LowerThirdEntry> DeleteEntryCommand { get; }
     public RelayCommand<LowerThirdEntry> UseEntryCommand { get; }
@@ -871,7 +656,7 @@ public sealed partial class MainViewModel : Observable
     private static string[] Glob(params string[][] extensionSets)
         => extensionSets.SelectMany(set => set.Select(e => "*" + e)).ToArray();
 
-    private static readonly FilePickerFileType VideoTypes = new("Video & audio")
+    internal static readonly FilePickerFileType VideoTypes = new("Video & audio")
     {
         Patterns = Glob(PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions),
     };
@@ -893,7 +678,7 @@ public sealed partial class MainViewModel : Observable
         Patterns = Glob(PlaylistSequencer.ImageExtensions, PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions, PlaylistSequencer.DeckExtensions),
     };
 
-    private static readonly FilePickerFileType DeckTypes = new("Deck — PDF, PowerPoint, Keynote or Impress")
+    internal static readonly FilePickerFileType DeckTypes = new("Deck — PDF, PowerPoint, Keynote or Impress")
     {
         Patterns = Glob(PlaylistSequencer.DeckExtensions),
     };
@@ -903,7 +688,7 @@ public sealed partial class MainViewModel : Observable
         Patterns = new[] { "*.patshow.json", "*.json" },
     };
 
-    private async Task PickFileAsync(string title, FilePickerFileType type, Action<string> assign)
+    internal async Task PickFileAsync(string title, FilePickerFileType type, Action<string> assign)
     {
         var path = await PickOpenPathAsync(title, type, null);
         if (path is not null) assign(path);

@@ -99,7 +99,7 @@ public class LayersPageTests
             own.Layer1.WebUrl = "https://example.org/board";
             vm.PollNow();
             Settle(window);
-            Assert.True(vm.HasWebPage);
+            Assert.True(vm.Media.HasWebPage);
             Assert.Contains("PAGE CONTROLS", VisibleTexts(window));
 
             // The Media page carries no layers any more — its page block and the same controls stay.

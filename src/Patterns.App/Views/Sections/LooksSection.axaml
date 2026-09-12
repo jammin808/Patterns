@@ -121,7 +121,7 @@
                        ToolTip.Tip="Optional daily start time (24 h): the part takes over at this time" />
               <Button Grid.Column="6" Classes="mini" Content="ON AIR"
                       ToolTip.Tip="Put this part on air now"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SetPlaylistSectionCommand}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Media.SetPlaylistSectionCommand}"
                       CommandParameter="{Binding}" />
             </Grid>
           </DataTemplate>

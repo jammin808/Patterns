@@ -22,6 +22,12 @@ public sealed partial class MainViewModel
     /// <summary>Advances the presenter steps and applies the step's look. False = no move.</summary>
     public bool PresenterAdvance(int delta) => _services.Actions.PresenterAdvance(delta, ActionOrigin.Desk);
 
+    internal void RaisePresenterWords()
+    {
+        Raise(nameof(PresenterStepText));
+        Raise(nameof(ProgressionText));
+    }
+
     public string PresenterStepText
     {
         get
@@ -57,7 +63,7 @@ public sealed partial class MainViewModel
             var parts = new List<string>(3) { PresenterStepText };
             var follow = _services.CueStack.FollowText();
             if (follow.Length > 0) parts.Add(follow);
-            var playlist = PlaylistStatus;
+            var playlist = Media.PlaylistStatus;
             if (playlist.Length > 0 && !playlist.StartsWith("Playlist idle", StringComparison.OrdinalIgnoreCase))
             {
                 parts.Add(playlist);                                                 // a part playing: where it is and what is left
@@ -999,14 +1005,14 @@ public sealed partial class MainViewModel
             case ShowActionKind.DeckNext:
             case ShowActionKind.DeckPrev:
             case ShowActionKind.DeckPage:
-                RefreshDeck();
+                Media.RefreshDeck();
                 break;
             case ShowActionKind.PresenterNext:
             case ShowActionKind.PresenterPrev:
             case ShowActionKind.ListGo:
             case ShowActionKind.ListBack:
             case ShowActionKind.CueFire:
-                RefreshDeck();
+                Media.RefreshDeck();
                 Raise(nameof(PresenterStepText));
             Raise(nameof(ProgressionText));
                 if (result.Ok && !_services.Sandbox.Active)
@@ -1036,7 +1042,7 @@ public sealed partial class MainViewModel
                 RefreshOutputsStatus();
                 break;
             case ShowActionKind.PlaylistPart:
-                RaisePlaylistSection();
+                Media.RaisePlaylistSection();
                 break;
         }
     }

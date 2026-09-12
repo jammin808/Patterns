@@ -155,7 +155,7 @@ public class WebAppTests
             vm.State.Web.Url = "https://video.acme-corp.example/embed/abc123";
             vm.State.Web.Service = PageServicePick.YouTube;   // the address does not say; the operator does
             vm.State.Web.Clean = true;
-            vm.PutWebPageOnPatternCommand.Execute(null);
+            vm.Media.PutWebPageOnPatternCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(PatternKind.Media, vm.ActivePattern.Kind);
@@ -275,8 +275,8 @@ public class WebAppTests
             Assert.True(page.Events.Last().X > 0.5f);
             window.PreviewWebRelease(new Point(centre.X + 40, centre.Y));
             Assert.Equal("up", page.Events.Last().Kind);
-            Assert.True(vm.HasWebPage);
-            Assert.Contains("example.com", vm.WebControlsTarget);
+            Assert.True(vm.Media.HasWebPage);
+            Assert.Contains("example.com", vm.Media.WebControlsTarget);
 
             // Hovering tells the page where the pointer is; leaving the page tells it that too; the wheel scrolls.
             Assert.True(window.PreviewWebHover(centre));
@@ -308,7 +308,7 @@ public class WebAppTests
             Assert.True(window.PreviewWebPress(at));
             Assert.Equal("down", other.Events.Last().Kind);
             window.PreviewWebRelease(at);
-            Assert.Contains("other.org", vm.WebControlsTarget);
+            Assert.Contains("other.org", vm.Media.WebControlsTarget);
 
             Assert.True(window.BeginPreviewDrag(at));
             window.MovePreviewDrag(new Point(at.X + 40, at.Y));
@@ -334,32 +334,32 @@ public class WebAppTests
 
             // From the Remote & web page: the typed address becomes the pattern and is remembered.
             vm.State.Web.Url = "schedule.example.org";
-            vm.PutWebPageOnPatternCommand.Execute(null);
+            vm.Media.PutWebPageOnPatternCommand.Execute(null);
             Settle(window);
             Assert.Equal(PatternKind.Media, vm.State.Pattern.Kind);
             Assert.Equal(MediaSource.Web, vm.State.Pattern.Media.Source);
             Assert.Equal("https://schedule.example.org", vm.State.Pattern.Media.WebUrl);
             Assert.Contains("https://schedule.example.org", vm.State.Web.SavedUrls);
             var page = made.Single();
-            Assert.True(vm.HasWebPage);
+            Assert.True(vm.Media.HasWebPage);
 
             // The controls drive the pattern's page until the desk points at another.
-            vm.WebTypedText = "hello";
-            vm.SendWebTextCommand.Execute(null);
+            vm.Media.WebTypedText = "hello";
+            vm.Media.SendWebTextCommand.Execute(null);
             Assert.Equal("hello", Assert.Single(page.Typed));
-            Assert.Equal("", vm.WebTypedText);
-            vm.WebKeyCommand.Execute("Enter");
+            Assert.Equal("", vm.Media.WebTypedText);
+            vm.Media.WebKeyCommand.Execute("Enter");
             Assert.Equal("Enter", Assert.Single(page.Keys));
-            vm.WebBackCommand.Execute(null);
-            vm.WebForwardCommand.Execute(null);
-            vm.WebReloadCommand.Execute(null);
+            vm.Media.WebBackCommand.Execute(null);
+            vm.Media.WebForwardCommand.Execute(null);
+            vm.Media.WebReloadCommand.Execute(null);
             Assert.Equal((1, 1, 1), (page.Backs, page.Forwards, page.Reloads));
 
             // A saved page picked on the Media page becomes the pattern's address; Remember keeps a typed one.
-            vm.SavedWebPick = "https://other.org";
+            vm.Media.SavedWebPick = "https://other.org";
             Assert.Equal("https://other.org", vm.State.Pattern.Media.WebUrl);
             vm.State.Pattern.Media.WebUrl = "third.example";
-            vm.RememberWebUrlCommand.Execute(null);
+            vm.Media.RememberWebUrlCommand.Execute(null);
             Assert.Contains("https://third.example", vm.State.Web.SavedUrls);
 
             // The Media page carries the page block and the controls; the Remote & web page its button.
@@ -375,8 +375,8 @@ public class WebAppTests
             // Without a page anywhere, the controls say so instead of throwing.
             vm.State.Pattern.Media.Source = MediaSource.Image;
             Settle(window);
-            vm.WebTypedText = "x";
-            vm.SendWebTextCommand.Execute(null);
+            vm.Media.WebTypedText = "x";
+            vm.Media.SendWebTextCommand.Execute(null);
             Assert.Contains("No web page", vm.StatusMessage);
         }
         finally

@@ -102,8 +102,8 @@ public class DeckAppTests
             Assert.Equal(1920, deck.Raster.Width);                      // the rig's raster, at the page's 16:9 shape
             Assert.Equal(new SKSize(800, 450), deck.PageShape);
             vm.PollNow();
-            Assert.True(vm.DeckOnAir);
-            Assert.StartsWith("Page 1 / 3", vm.DeckPageText);
+            Assert.True(vm.Media.DeckOnAir);
+            Assert.StartsWith("Page 1 / 3", vm.Media.DeckPageText);
             Assert.Contains("page 1 of 3", vm.PresenterStepText);
 
             // The page on the PREVIEW pane, full frame: red, then green after a NEXT from the desk.
@@ -127,13 +127,13 @@ public class DeckAppTests
             Assert.Equal(1, deck.Page);
             Assert.True(services.Actions.PresenterAdvance(-1, ActionOrigin.Clicker));
             Assert.Equal(1, deck.Page);
-            vm.DeckLastCommand.Execute(null);
+            vm.Media.DeckLastCommand.Execute(null);
             Assert.Equal(3, deck.Page);
-            vm.DeckFirstCommand.Execute(null);
+            vm.Media.DeckFirstCommand.Execute(null);
             Assert.Equal(1, deck.Page);
-            vm.DeckNextCommand.Execute(null);
+            vm.Media.DeckNextCommand.Execute(null);
             Assert.Equal(2, deck.Page);
-            vm.DeckPrevCommand.Execute(null);
+            vm.Media.DeckPrevCommand.Execute(null);
             Assert.Equal(1, deck.Page);
             Assert.StartsWith("ERR", Send(router, "DECK PAGE 0"));
 
