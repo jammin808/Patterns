@@ -194,8 +194,8 @@ public class PrepModeTests
             });
             services.State.Ndi.Senders.Add(new NdiSenderConfig { SourceScreenId = plannedCanvasKey });
             // …and a look saved at the desk, whose captured JSON names the planned screen.
-            vm.NewLookName = "Desk look";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Desk look";
+            vm.Show.SaveLookCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Contains(services.State.LooksAndCues.Looks, l => l.Json.Contains(plannedId, StringComparison.Ordinal));
 

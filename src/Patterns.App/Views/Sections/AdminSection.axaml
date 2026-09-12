@@ -382,13 +382,13 @@
                Text="On this machine: a second copy of Patterns in its own folder (its own settings, its own logs, its own crash domain) set to Standby with 'Main is at' 127.0.0.1 — the watchdog restarts a crashed desk in seconds; the twin has the show already up and skips the seconds. On another machine: the same as the beacon's backup, in step instead of merely told; the pictures reach the room through the switcher or the same NDI names, so taking over stays your press unless the switcher follows by itself. What never travels: these twin settings, the watchdog and the beacon, the install, the graphics card, the remote's ports, the operator's monitor and the desk layout — each machine keeps its own. TWIN STATUS, TWIN TAKEOVER and TWIN STANDBY are the wire's words." />
 
     <TextBlock Classes="h2" Text="EARLIER VERSIONS OF THE SHOW" />
-    <TextBlock Classes="label" Text="{Binding BackupsSummary}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding Show.BackupsSummary}" TextWrapping="Wrap" />
     <Grid ColumnDefinitions="*,8,Auto,8,Auto" Margin="0,4,0,0">
-      <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding BackupChoices}" SelectedItem="{Binding SelectedBackup, Mode=TwoWay}"
+      <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Show.BackupChoices}" SelectedItem="{Binding Show.SelectedBackup, Mode=TwoWay}"
                 PlaceholderText="No earlier version yet" ToolTip.Tip="The previous save, then the kept versions, newest first" />
-      <Button Grid.Column="2" Classes="chip" Content="RESTORE" Command="{Binding RestoreBackupCommand}"
+      <Button Grid.Column="2" Classes="chip" Content="RESTORE" Command="{Binding Show.RestoreBackupCommand}"
               ToolTip.Tip="The chosen version becomes the show — every list starts over, exactly as Load show does; the show as it is now goes to the versions first" />
-      <Button Grid.Column="4" Classes="chip" Content="OPEN FOLDER" Command="{Binding OpenBackupsFolderCommand}" />
+      <Button Grid.Column="4" Classes="chip" Content="OPEN FOLDER" Command="{Binding Show.OpenBackupsFolderCommand}" />
     </Grid>
     <TextBlock Classes="hint tip"
                Text="Every save keeps the previous file as .bak, and the first save that changes something after five quiet minutes keeps the file as it was in backups/ under its time — twenty of them, the oldest going as new ones come. So the show as it was before the last change, and as it was an hour or a day ago, is one RESTORE away, on this machine, without a network. The GitHub history is the other ladder: every push is a version of the software with its build attached (README → Versions and rolling back)." />

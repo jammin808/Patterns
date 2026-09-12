@@ -18,7 +18,7 @@ public sealed partial class MainViewModel
             RebuildEditTargets();
             RaiseModeChanged();
         }
-        if (p.Looks.Count > 0) Raise(nameof(LookNames));
+        if (p.Looks.Count > 0) Show.RaiseLookNames();
         if (p.LowerThirds.Count > 0)
         {
             SelectedLowerThird = State.LowerThirds.Designs.LastOrDefault();

@@ -92,8 +92,8 @@ public class LiveDuckTests
         {
             b.Vm.IsSandboxActive = false;
             b.Vm.ActivePattern.Kind = PatternKind.Grid;
-            b.Vm.NewLookName = "Awards";
-            b.Vm.SaveLookCommand.Execute(null);
+            b.Vm.Show.NewLookName = "Awards";
+            b.Vm.Show.SaveLookCommand.Execute(null);
             b.Vm.State.AudioPlayer.Playing = true;
 
             Assert.Equal(ActionStatus.Done, b.Services.Actions.Execute(ShowActionKind.DuckOn, ActionOrigin.Desk).Status);

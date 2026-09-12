@@ -75,8 +75,8 @@ public class ActionLayerTests
         try
         {
             b.Vm.State.Pattern.Kind = PatternKind.LedWall;
-            b.Vm.NewLookName = "Walk-in";
-            b.Vm.SaveLookCommand.Execute(null);
+            b.Vm.Show.NewLookName = "Walk-in";
+            b.Vm.Show.SaveLookCommand.Execute(null);
             var look = b.Vm.State.LooksAndCues.Looks.Single();
 
             var result = b.Services.Actions.ApplyLook(look, new ActionOrigin(OriginKind.Companion, "FOH deck"));
@@ -164,27 +164,27 @@ public class ActionLayerTests
         var b = TestApp.Boot();
         try
         {
-            b.Vm.NewLookName = "Walk-in";
-            b.Vm.SaveLookCommand.Execute(null);
+            b.Vm.Show.NewLookName = "Walk-in";
+            b.Vm.Show.SaveLookCommand.Execute(null);
             var look = b.Vm.State.LooksAndCues.Looks.Single();
             Assert.Same(look, LookService.Find(b.Vm.State, "walk-IN"));
             Assert.Same(look, LookService.Find(b.Vm.State, look.Id));
 
             // Saving under a case variant updates the same look rather than making a twin.
-            b.Vm.NewLookName = "WALK-IN";
-            b.Vm.SaveLookCommand.Execute(null);
+            b.Vm.Show.NewLookName = "WALK-IN";
+            b.Vm.Show.SaveLookCommand.Execute(null);
             Assert.Single(b.Vm.State.LooksAndCues.Looks);
 
             var clicker = CueStacks.Clicker(b.Vm.State);
             var cue = new RunCueConfig { Number = "01.010", Name = "Opening" };
             cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ApplyLook, Target = look.Id });
             clicker.Cues.Add(cue);
-            b.Vm.DeleteLookCommand.Execute(look);
+            b.Vm.Show.DeleteLookCommand.Execute(look);
             Assert.Single(b.Vm.State.LooksAndCues.Looks);
             Assert.Contains("Clicker list cue 01.010 Opening", b.Vm.StatusMessage);
 
             clicker.Cues.Clear();
-            b.Vm.DeleteLookCommand.Execute(look);
+            b.Vm.Show.DeleteLookCommand.Execute(look);
             Assert.Empty(b.Vm.State.LooksAndCues.Looks);
         }
         finally

@@ -91,8 +91,8 @@ public class SpotifyAppTests
     private static LookConfig SaveLook(MainViewModel vm, string name, PatternKind kind)
     {
         vm.ActivePattern.Kind = kind;
-        vm.NewLookName = name;
-        vm.SaveLookCommand.Execute(null);
+        vm.Show.NewLookName = name;
+        vm.Show.SaveLookCommand.Execute(null);
         return LookService.Find(vm.State, name)!;
     }
 
@@ -1203,8 +1203,8 @@ public class SpotifyAppTests
             vm.State.Spotify.Enabled = true;
             var bed = new SpotifyItemConfig { Name = "Interval bed", Uri = "spotify:playlist:X" };
             vm.State.Spotify.Items.Add(bed);
-            vm.NewLookName = "Walk-in";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Walk-in";
+            vm.Show.SaveLookCommand.Execute(null);
             var look = LookService.Find(vm.State, "Walk-in")!;
             look.MusicItemId = bed.Id;
             vm.PollNow();

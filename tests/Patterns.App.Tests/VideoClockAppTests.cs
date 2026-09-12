@@ -59,13 +59,13 @@ public class VideoClockAppTests
 
             // The panel, the Run strip and STATE read the same seconds.
             vm.PollNow();
-            Assert.True(vm.HasVideoClock);
-            Assert.Equal("VT", vm.VideoClockTag);
-            Assert.EndsWith("sponsor.mp4", vm.VideoClockName);
-            Assert.Equal("1:02 / 3:30 · 2:28 left", vm.VideoClockTimes);
-            Assert.False(vm.VideoClockOut);
-            Assert.Equal("", vm.VideoClockCall);
-            Assert.InRange(vm.VideoClockFraction, 0.29, 0.30);
+            Assert.True(vm.Show.HasVideoClock);
+            Assert.Equal("VT", vm.Show.VideoClockTag);
+            Assert.EndsWith("sponsor.mp4", vm.Show.VideoClockName);
+            Assert.Equal("1:02 / 3:30 · 2:28 left", vm.Show.VideoClockTimes);
+            Assert.False(vm.Show.VideoClockOut);
+            Assert.Equal("", vm.Show.VideoClockCall);
+            Assert.InRange(vm.Show.VideoClockFraction, 0.29, 0.30);
             Assert.True(vm.Run.HasVideo);
             Assert.Equal("VT 2:28", vm.Run.VideoChip);
             Assert.False(vm.Run.VideoOut);
@@ -107,9 +107,9 @@ public class VideoClockAppTests
             // The last ten seconds: red, with the caller's word, on every surface.
             fake.Position = 203;
             vm.PollNow();
-            Assert.True(vm.VideoClockOut);
-            Assert.Equal("OUT IN 7", vm.VideoClockCall);
-            Assert.Equal("3:23 / 3:30 · 0:07 left", vm.VideoClockTimes);
+            Assert.True(vm.Show.VideoClockOut);
+            Assert.Equal("OUT IN 7", vm.Show.VideoClockCall);
+            Assert.Equal("3:23 / 3:30 · 0:07 left", vm.Show.VideoClockTimes);
             Assert.True(vm.Run.VideoOut);
             Assert.Equal("VT 0:07", vm.Run.VideoChip);
             var near = router.StateJson();
@@ -119,9 +119,9 @@ public class VideoClockAppTests
             // Ended, then the top again brings it back.
             fake.Ended = true;
             vm.PollNow();
-            Assert.Equal("ended", vm.VideoClockTimes);
+            Assert.Equal("ended", vm.Show.VideoClockTimes);
             Assert.Equal("VT ENDED", vm.Run.VideoChip);
-            Assert.False(vm.VideoClockOut);
+            Assert.False(vm.Show.VideoClockOut);
             Assert.StartsWith("OK", Send(router, "VIDEO RESTART"));
             Assert.False(fake.Ended);
             Assert.Equal(0, fake.Position);
@@ -137,8 +137,8 @@ public class VideoClockAppTests
             Dispatcher.UIThread.RunJobs();
             services.ReconcileInputs();
             vm.PollNow();
-            Assert.False(vm.HasVideoClock);
-            Assert.Equal("", vm.VideoClockText);
+            Assert.False(vm.Show.HasVideoClock);
+            Assert.Equal("", vm.Show.VideoClockText);
             Assert.False(vm.Run.HasVideo);
             Assert.Contains("No video is on air", Send(router, "VIDEO END"));
             Assert.Contains("\"video\":null", router.StateJson());

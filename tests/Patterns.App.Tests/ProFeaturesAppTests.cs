@@ -107,11 +107,11 @@ public class ProFeaturesAppTests
             services.Store.Save(vm.State);
             vm.State.Name = "Show B";
             services.Store.Save(vm.State);
-            vm.RefreshBackups();
-            Assert.NotEmpty(vm.BackupChoices);
-            Assert.Contains("earlier version", vm.BackupsSummary);
-            vm.SelectedBackup = vm.BackupChoices.Last();   // the oldest timed version: the show as it was named A
-            vm.RestoreBackupCommand.Execute(null);
+            vm.Show.RefreshBackups();
+            Assert.NotEmpty(vm.Show.BackupChoices);
+            Assert.Contains("earlier version", vm.Show.BackupsSummary);
+            vm.Show.SelectedBackup = vm.Show.BackupChoices.Last();   // the oldest timed version: the show as it was named A
+            vm.Show.RestoreBackupCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Show A", vm.State.Name);
             Assert.StartsWith("Show restored", vm.StatusMessage);

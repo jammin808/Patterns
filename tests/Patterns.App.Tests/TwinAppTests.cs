@@ -216,7 +216,7 @@ public class TwinAppTests
             PumpUntil(() => twin.Phase == TwinPhase.InStep);
             Assert.Equal("From the main", vm.State.Name);
             Assert.Equal("Walk-in", Assert.Single(vm.State.LooksAndCues.Looks).Name);
-            Assert.Contains("Walk-in", vm.LookNames);                         // the desk's lists followed
+            Assert.Contains("Walk-in", vm.Show.LookNames);                         // the desk's lists followed
             Assert.Equal(TwinRole.Standby, vm.State.Twin.Role);               // its own settings stayed
             Assert.False(vm.State.Watchdog.BeaconEnabled);
             Assert.Equal("MAIN-DESK", twin.MainName);

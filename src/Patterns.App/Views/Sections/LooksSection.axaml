@@ -13,9 +13,9 @@
 
     <TextBlock Classes="h2" Text="SAVE THE CURRENT STATE AS A LOOK" />
     <Grid ColumnDefinitions="*,8,110,8,Auto">
-      <TextBox Grid.Column="0" Watermark="Look name — e.g. Walk-in" Text="{Binding NewLookName}" />
-      <ComboBox Grid.Column="2" ItemsSource="{Binding HotkeySlots}"
-                SelectedItem="{Binding NewLookHotkey, Mode=TwoWay}"
+      <TextBox Grid.Column="0" Watermark="Look name — e.g. Walk-in" Text="{Binding Show.NewLookName}" />
+      <ComboBox Grid.Column="2" ItemsSource="{Binding Show.HotkeySlots}"
+                SelectedItem="{Binding Show.NewLookHotkey, Mode=TwoWay}"
                 ToolTip.Tip="Hotkey slot: F1–F12, or no key">
         <ComboBox.ItemTemplate>
           <DataTemplate x:DataType="x:Int32">
@@ -23,7 +23,7 @@
           </DataTemplate>
         </ComboBox.ItemTemplate>
       </ComboBox>
-      <Button Grid.Column="4" Classes="chip" Content="Save look" Command="{Binding SaveLookCommand}" />
+      <Button Grid.Column="4" Classes="chip" Content="Save look" Command="{Binding Show.SaveLookCommand}" />
     </Grid>
     <TextBlock Classes="hint tip" Text="Saving with an existing name updates that look. A hotkey slot in use moves to the new look." />
 
@@ -63,18 +63,18 @@
                         ToolTip.Tip="Start or stop the stream as this look goes on air — the same verb a cue runs. Loading the look into the preview never touches it: nothing that has not gone to air may reach the internet" />
               <Button Grid.Column="10" Classes="mini" Content="→ PVW"
                       ToolTip.Tip="Load into the preview to tweak, then CUT or TAKE it to air"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookToPreviewCommand}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Show.ApplyLookToPreviewCommand}"
                       CommandParameter="{Binding}" />
               <Button Grid.Column="11" Classes="mini" Content="ON AIR"
                       ToolTip.Tip="Put this look on the screens now (same as its F-key)"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyLookCommand}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Show.ApplyLookCommand}"
                       CommandParameter="{Binding}" />
               <Button Grid.Column="12" Classes="mini" Content="⟳"
                       ToolTip.Tip="Overwrite this look with the current screen state"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).UpdateLookCommand}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Show.UpdateLookCommand}"
                       CommandParameter="{Binding}" />
               <Button Grid.Column="13" Classes="mini" Content="✕" ToolTip.Tip="Delete look"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DeleteLookCommand}"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Show.DeleteLookCommand}"
                       CommandParameter="{Binding}" />
             </Grid>
           </Border>
@@ -92,7 +92,7 @@
             <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" ToolTip.Tip="Cue armed" />
             <TextBox Grid.Column="2" Watermark="HH:mm" Text="{Binding Time}" />
             <ComboBox Grid.Column="4"
-                      ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LookNames}"
+                      ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Show.LookNames}"
                       SelectedItem="{Binding LookName, Mode=TwoWay}"
                       PlaceholderText="Look to fire…" />
             <Button Grid.Column="6" Classes="mini" Content="✕"

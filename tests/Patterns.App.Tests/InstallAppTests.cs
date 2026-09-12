@@ -38,8 +38,8 @@ public class InstallAppTests
     private static LookConfig MakeLook(MainViewModel vm, string name, PatternKind kind)
     {
         vm.ActivePattern.Kind = kind;
-        vm.NewLookName = name;
-        vm.SaveLookCommand.Execute(null);
+        vm.Show.NewLookName = name;
+        vm.Show.SaveLookCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
         return LookService.Find(vm.State, name) ?? throw new InvalidOperationException($"look {name} was not saved");
     }

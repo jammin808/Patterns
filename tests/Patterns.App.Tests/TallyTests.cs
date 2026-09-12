@@ -20,8 +20,8 @@ public class TallyTests
     private static LookConfig Save(TestApp.Booted b, string name, PatternKind kind)
     {
         b.Vm.ActivePattern.Kind = kind;
-        b.Vm.NewLookName = name;
-        b.Vm.SaveLookCommand.Execute(null);
+        b.Vm.Show.NewLookName = name;
+        b.Vm.Show.SaveLookCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
         return LookService.Find(b.Vm.State, name)!;
     }
@@ -44,7 +44,7 @@ public class TallyTests
             Assert.False(grid.IsOnAir);
             Assert.Equal("", grid.TallyText);
 
-            vm.ApplyLook(grid);
+            vm.Show.ApplyLook(grid);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(grid.Id, b.Services.AirLookId);
             Assert.True(grid.IsOnAir && !bars.IsOnAir);
@@ -57,13 +57,13 @@ public class TallyTests
             Assert.True(grid.IsOnAir);
             Assert.Equal("PROGRAM · EDITED", grid.TallyText);
 
-            vm.ApplyLook(bars);
+            vm.Show.ApplyLook(bars);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(("PROGRAM", ""), (bars.TallyText, grid.TallyText));
 
             // The preview: → PVW in the sandbox lights green; the program stays red on its own look.
             vm.IsSandboxActive = true;
-            vm.ApplyLookToPreview(grid);
+            vm.Show.ApplyLookToPreview(grid);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(grid.Id, b.Services.PreviewLookId);
             Assert.True(grid.IsInPreview && !grid.IsOnAir);
@@ -85,7 +85,7 @@ public class TallyTests
 
             // A preview look that is discarded goes dark; the program's tally is untouched.
             vm.IsSandboxActive = true;
-            vm.ApplyLookToPreview(bars);
+            vm.Show.ApplyLookToPreview(bars);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("PREVIEW", bars.TallyText);
             vm.IsSandboxActive = false;
@@ -102,7 +102,7 @@ public class TallyTests
             Assert.Equal("", b.Services.AirLookId);
 
             // The Looks page renders the chip.
-            vm.ApplyLook(bars);
+            vm.Show.ApplyLook(bars);
             Dispatcher.UIThread.RunJobs();
             var host = new Window { DataContext = vm, Width = 900, Height = 700, Content = new ScrollViewer { Content = new LooksSection() } };
             host.Show();

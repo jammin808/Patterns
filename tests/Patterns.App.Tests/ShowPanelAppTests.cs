@@ -33,8 +33,8 @@ public class ShowPanelAppTests
     private static LookConfig SaveLook(MainViewModel vm, string name, PatternKind kind)
     {
         vm.ActivePattern.Kind = kind;
-        vm.NewLookName = name;
-        vm.SaveLookCommand.Execute(null);
+        vm.Show.NewLookName = name;
+        vm.Show.SaveLookCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
         return LookService.Find(vm.State, name) ?? throw new InvalidOperationException($"look '{name}' was not saved");
     }
@@ -61,7 +61,7 @@ public class ShowPanelAppTests
             vm.RebuildSwitcherTiles();
             var daytime = SaveLook(vm, "Daytime", PatternKind.Grid);
             var sponsor = SaveLook(vm, "Sponsor", PatternKind.ColorBars);
-            vm.ApplyLookCommand.Execute(daytime);
+            vm.Show.ApplyLookCommand.Execute(daytime);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.Grid, vm.State.Pattern.Kind);
             Assert.False(side.UseCustomPattern);
@@ -111,14 +111,14 @@ public class ShowPanelAppTests
             Assert.Contains("alone", vm.StatusMessage);
 
             // A whole-look recall sweeps the send; a lock keeps it.
-            vm.ApplyLookCommand.Execute(daytime);
+            vm.Show.ApplyLookCommand.Execute(daytime);
             Dispatcher.UIThread.RunJobs();
             Assert.False(side.UseCustomPattern);
             tile.SendLookCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.ColorBars, OwnKind(vm.State, side.ScreenId));
             ScreenRoles.SetLocked(vm.State, side.ScreenId, true);
-            vm.ApplyLookCommand.Execute(daytime);
+            vm.Show.ApplyLookCommand.Execute(daytime);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.ColorBars, OwnKind(vm.State, side.ScreenId));
             ScreenRoles.SetLocked(vm.State, side.ScreenId, false);

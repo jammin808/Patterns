@@ -56,11 +56,11 @@ public class RemoteCueTests
     {
         b.Vm.IsSandboxActive = false;
         b.Vm.ActivePattern.Kind = PatternKind.ColorBars;
-        b.Vm.NewLookName = "A";
-        b.Vm.SaveLookCommand.Execute(null);
+        b.Vm.Show.NewLookName = "A";
+        b.Vm.Show.SaveLookCommand.Execute(null);
         b.Vm.ActivePattern.Kind = PatternKind.Focus;
-        b.Vm.NewLookName = "B";
-        b.Vm.SaveLookCommand.Execute(null);
+        b.Vm.Show.NewLookName = "B";
+        b.Vm.Show.SaveLookCommand.Execute(null);
         b.Vm.ActivePattern.Kind = PatternKind.Grid;
         var stack = CueStacks.Caller(b.Vm.State);
         RunCueConfig Cue(string number, string name, string look)

@@ -220,13 +220,13 @@ public class MultiviewStreamAppTests
         {
             vm.State.Pattern.Kind = PatternKind.Multiview;
             vm.ActivePattern.Multiview.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
-            vm.NewLookName = "MV look";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "MV look";
+            vm.Show.SaveLookCommand.Execute(null);
 
             vm.State.Pattern.Kind = PatternKind.Grid;
             Assert.True(vm.ApplyLookHotkey(0) || true); // by-name apply below
             var look = vm.State.LooksAndCues.Looks.First(l => l.Name == "MV look");
-            vm.ApplyLook(look);
+            vm.Show.ApplyLook(look);
             Assert.Equal(PatternKind.Multiview, vm.State.Pattern.Kind);
             Assert.Single(vm.State.Pattern.Multiview.Tiles);
         }

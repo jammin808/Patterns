@@ -204,7 +204,7 @@ public sealed partial class MainViewModel
     private void PollRun()
     {
         Run.Tick();
-        RefreshVideoClock();
+        Show.RefreshVideoClock();
         var progression = ProgressionText;
         if (progression != _progressionSeen)
         {

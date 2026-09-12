@@ -167,11 +167,11 @@ public class RemoteControlTests
         try
         {
             vm.ActivePattern.Kind = PatternKind.ColorBars;
-            vm.NewLookName = "One";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "One";
+            vm.Show.SaveLookCommand.Execute(null);
             vm.ActivePattern.Kind = PatternKind.Focus;
-            vm.NewLookName = "Two";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Two";
+            vm.Show.SaveLookCommand.Execute(null);
 
             var clicker = CueStacks.Clicker(vm.State);
             foreach (var name in new[] { "One", "Two" })

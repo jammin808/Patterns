@@ -186,8 +186,8 @@ public class LayerAppTests
             vm.State.Pattern.Layer1.Source = LayerSource.NdiFeed;
             vm.State.Pattern.Layer1.NdiSourceName = "CAM 7";
             vm.State.Pattern.Layer1.XPct = 42;
-            vm.NewLookName = "Layered";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Layered";
+            vm.Show.SaveLookCommand.Execute(null);
             vm.State.Pattern.Layer1.Enabled = false;
             vm.State.Pattern.Layer1.XPct = 5;
             Assert.True(services.Actions.Execute(new ShowAction(ShowActionKind.ApplyLook, "Layered"), ActionOrigin.Desk).Ok);

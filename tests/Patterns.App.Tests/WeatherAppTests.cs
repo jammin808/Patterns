@@ -200,12 +200,12 @@ public class WeatherAppTests
 
             // A look carries the chip and its view; the place stays the show's.
             vm.ActivePattern.Kind = PatternKind.Grid;
-            vm.NewLookName = "Weather look";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Weather look";
+            vm.Show.SaveLookCommand.Execute(null);
             var look = LookService.Find(vm.State, "Weather look")!;
             vm.State.Overlays.Weather.Enabled = false;
             vm.State.Weather.Place = "Elsewhere";
-            vm.ApplyLook(look);
+            vm.Show.ApplyLook(look);
             Dispatcher.UIThread.RunJobs();
             Assert.True(services.AirState.Overlays.Weather.Enabled);
             Assert.Equal("Elsewhere", vm.State.Weather.Place);

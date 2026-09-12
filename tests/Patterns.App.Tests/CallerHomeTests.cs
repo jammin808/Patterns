@@ -18,8 +18,8 @@ public class CallerHomeTests
     private static LookConfig SaveLook(MainViewModel vm, string name, PatternKind kind)
     {
         vm.ActivePattern.Kind = kind;
-        vm.NewLookName = name;
-        vm.SaveLookCommand.Execute(null);
+        vm.Show.NewLookName = name;
+        vm.Show.SaveLookCommand.Execute(null);
         return LookService.Find(vm.State, name)!;
     }
 

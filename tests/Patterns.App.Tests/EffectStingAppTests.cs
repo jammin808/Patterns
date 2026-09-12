@@ -75,9 +75,9 @@ public class EffectStingAppTests
             Assert.Contains("\"kind\":\"sting\"", router.StateJson());
 
             // A cue with a pulse and a look validates clean and fires both.
-            vm.NewLookName = "Bars";
+            vm.Show.NewLookName = "Bars";
             vm.ActivePattern.Kind = PatternKind.ColorBars;
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.SaveLookCommand.Execute(null);
             var look = LookService.Find(vm.State, "Bars")!;
             vm.ActivePattern.Kind = PatternKind.Grid;
             var stack = CueStacks.Caller(vm.State);

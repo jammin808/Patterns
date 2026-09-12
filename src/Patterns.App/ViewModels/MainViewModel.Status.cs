@@ -64,7 +64,7 @@ public sealed partial class MainViewModel
         if (set.Contains(nameof(ShowState.LooksAndCues)) || set.Contains(nameof(ShowState.Stacks)))
         {
             Cues.OnShowLoaded();
-            Raise(nameof(LookNames));
+            Show.RaiseLookNames();
             RefreshTallies();
         }
         if (set.Contains(nameof(ShowState.LowerThirds)))

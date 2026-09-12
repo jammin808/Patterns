@@ -87,9 +87,9 @@ public class NewFeatureUiTests
         {
             vm.ActivePattern.Kind = PatternKind.ColorBars;
             vm.State.Overlays.Message.Text = "WALK-IN";
-            vm.NewLookName = "Walk-in";
-            vm.NewLookHotkey = 3;
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Walk-in";
+            vm.Show.NewLookHotkey = 3;
+            vm.Show.SaveLookCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
 
             var look = Assert.Single(vm.State.LooksAndCues.Looks);
@@ -123,12 +123,12 @@ public class NewFeatureUiTests
         var (services, vm, window) = Boot();
         try
         {
-            vm.NewLookName = "One";
-            vm.NewLookHotkey = 5;
-            vm.SaveLookCommand.Execute(null);
-            vm.NewLookName = "Two";
-            vm.NewLookHotkey = 5;
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "One";
+            vm.Show.NewLookHotkey = 5;
+            vm.Show.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Two";
+            vm.Show.NewLookHotkey = 5;
+            vm.Show.SaveLookCommand.Execute(null);
 
             Assert.Equal(0, vm.State.LooksAndCues.Looks.First(l => l.Name == "One").Hotkey);
             Assert.Equal(5, vm.State.LooksAndCues.Looks.First(l => l.Name == "Two").Hotkey);

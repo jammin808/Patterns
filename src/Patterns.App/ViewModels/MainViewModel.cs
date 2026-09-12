@@ -38,6 +38,7 @@ public sealed partial class MainViewModel : Observable
         _services = services;
         Screens = new ScreensPage(this, _services);
         Media = new MediaPage(this, _services);
+        Show = new ShowPage(this, _services);
 
         // A contained UI fault reaches the operator at once on the status line; the health line
         // and the Machine page keep the count and the log has the stack.
@@ -227,9 +228,6 @@ public sealed partial class MainViewModel : Observable
         _services.FocusedTarget = () => _selectedTargetId;
         _services.TickedTargets = () => SwitcherTiles.Where(t => t.IsSendTarget && t.TargetId is not null).Select(t => t.TargetId!).ToList();
         LookBackCommand = new RelayCommand(() => StatusMessage = _services.Actions.Execute(ShowActionKind.LookBack, ActionOrigin.Desk).Message);
-        RestoreBackupCommand = new RelayCommand(RestoreBackup);
-        OpenBackupsFolderCommand = new RelayCommand(OpenBackupsFolder);
-        RefreshBackups();
         WalkRoles = Enum.GetValues<DeskRole>().Select(r => new WalkRoleChip(this, r)).ToList();
         RebuildWalkList();
         if (Walkthroughs.For(_walkRole).FirstOrDefault() is { } firstWalk) StartWalkthrough(firstWalk.Id);
@@ -312,35 +310,6 @@ public sealed partial class MainViewModel : Observable
             StatusMessage = "Every target armed — the next CUT / TAKE goes everywhere.";
         });
 
-        // Looks & cues
-        SaveLookCommand = new RelayCommand(SaveLook);
-        ApplyLookToPreviewCommand = new RelayCommand<LookConfig>(look =>
-        {
-            if (look is not null) ApplyLookToPreview(look);
-        });
-        ApplyLookCommand = new RelayCommand<LookConfig>(look =>
-        {
-            if (look is not null) ApplyLook(look);
-        });
-        UpdateLookCommand = new RelayCommand<LookConfig>(look =>
-        {
-            if (look is null) return;
-            look.Json = LookService.Capture(State);
-            StatusMessage = $"Look '{look.Name}' updated with the current state.";
-        });
-        DeleteLookCommand = new RelayCommand<LookConfig>(look =>
-        {
-            if (look is null) return;
-            // Orphaned references fail silently at show time; refuse and say what points here.
-            var refs = LookService.References(State, look);
-            if (refs.Count > 0)
-            {
-                StatusMessage = $"'{look.Name}' is still used by {string.Join(", ", refs)} — remove those first.";
-                return;
-            }
-            State.LooksAndCues.Looks.Remove(look);
-            Raise(nameof(LookNames));
-        });
         AddCueCommand = new RelayCommand(() =>
         {
             State.LooksAndCues.Cues.Add(new CueConfig
@@ -489,11 +458,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand ResetLayoutCommand { get; }
     public RelayCommand AddNdiSenderCommand { get; }
     public RelayCommand<NdiSenderConfig> RemoveNdiSenderCommand { get; }
-    public RelayCommand SaveLookCommand { get; }
-    public RelayCommand<LookConfig> ApplyLookCommand { get; }
-    public RelayCommand<LookConfig> ApplyLookToPreviewCommand { get; }
-    public RelayCommand<LookConfig> UpdateLookCommand { get; }
-    public RelayCommand<LookConfig> DeleteLookCommand { get; }
     public RelayCommand AddCueCommand { get; }
     public RelayCommand<CueConfig> RemoveCueCommand { get; }
     public RelayCommand RefreshFeedCommand { get; }
@@ -576,8 +540,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand FadeToBlackCommand { get; }
     public RelayCommand FadeUpCommand { get; }
     public RelayCommand LookBackCommand { get; }
-    public RelayCommand RestoreBackupCommand { get; }
-    public RelayCommand OpenBackupsFolderCommand { get; }
     public RelayCommand SandboxSendAllCommand { get; }
     public RelayCommand SandboxSendSelectedCommand { get; }
     public RelayCommand TakeCommand { get; }
@@ -814,7 +776,7 @@ public sealed partial class MainViewModel : Observable
     }
 
     /// <summary>A show read from a file becomes the show: the model copied over, every list started over, the desk refreshed.</summary>
-    private void ApplyLoadedShow(ShowState loaded, string status)
+    internal void ApplyLoadedShow(ShowState loaded, string status)
     {
         _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
         RefreshAfterShowReplaced();

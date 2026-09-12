@@ -113,8 +113,8 @@ public class StreamDeskTests
             Destination(vm);
 
             vm.ActivePattern.Kind = PatternKind.LedWall;
-            vm.NewLookName = "Doors open";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Doors open";
+            vm.Show.SaveLookCommand.Execute(null);
             var look = vm.State.LooksAndCues.Looks.First(l => l.Name == "Doors open");
             look.Stream = LookConfig.LookStream.Start;
             look.Hotkey = 4;
@@ -130,7 +130,7 @@ public class StreamDeskTests
             // gone to air may reach the internet.
             vm.State.Stream.Active = false;
             vm.IsSandboxActive = true;
-            vm.ApplyLookToPreviewCommand.Execute(look);
+            vm.Show.ApplyLookToPreviewCommand.Execute(look);
             Dispatcher.UIThread.RunJobs();
             Assert.False(vm.State.Stream.Active);
 

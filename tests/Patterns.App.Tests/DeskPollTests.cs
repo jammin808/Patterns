@@ -30,8 +30,8 @@ public class DeskPollTests
         for (var i = 0; i < 12; i++)
         {
             vm.ActivePattern.Kind = kinds[i % kinds.Length];
-            vm.NewLookName = $"Look {i + 1}";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = $"Look {i + 1}";
+            vm.Show.SaveLookCommand.Execute(null);
         }
         for (var i = 0; i < 6; i++)
         {

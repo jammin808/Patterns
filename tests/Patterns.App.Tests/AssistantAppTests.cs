@@ -206,7 +206,7 @@ public class AssistantAppTests
             Assert.Equal(PatternKind.Particles, vm.State.Pattern.Kind);
             Assert.True(vm.State.Overlays.Clock.Enabled);
             Assert.Equal("WELCOME", vm.State.Overlays.Message.Text);
-            Assert.Contains("Walk-in", vm.LookNames);
+            Assert.Contains("Walk-in", vm.Show.LookNames);
             Assert.Equal(1, LookService.Find(vm.State, "Walk-in")!.Hotkey);
             Assert.Equal(airBefore, services.AirState.Pattern.Kind);
             Assert.False(services.AirState.Overlays.Clock.Enabled);

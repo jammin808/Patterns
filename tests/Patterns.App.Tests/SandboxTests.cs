@@ -285,8 +285,8 @@ public class SandboxTests
         try
         {
             vm.ActivePattern.Kind = PatternKind.Grid;
-            vm.NewLookName = "Cue look";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Cue look";
+            vm.Show.SaveLookCommand.Execute(null);
             vm.State.LooksAndCues.Cues.Add(new CueConfig
             {
                 Time = $"{DateTime.Now:HH\\:mm}",
@@ -442,8 +442,8 @@ public class SandboxTests
         try
         {
             vm.ActivePattern.Kind = PatternKind.Focus;
-            vm.NewLookName = "Focus look";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Focus look";
+            vm.Show.SaveLookCommand.Execute(null);
             var look = vm.State.LooksAndCues.Looks.First(l => l.Name == "Focus look");
 
             vm.State.Pattern.Kind = PatternKind.Grid;
@@ -451,14 +451,14 @@ public class SandboxTests
             Dispatcher.UIThread.RunJobs();
 
             // → PVW loads it into the editors; air keeps the program.
-            vm.ApplyLookToPreviewCommand.Execute(look);
+            vm.Show.ApplyLookToPreviewCommand.Execute(look);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.Focus, vm.State.Pattern.Kind);
             Assert.Equal(PatternKind.Grid, services.Bus.Current.State.Pattern.Kind);
 
             // ON AIR fires it to the program without disturbing the preview.
             vm.State.Pattern.Kind = PatternKind.ColorBars;
-            vm.ApplyLookCommand.Execute(look);
+            vm.Show.ApplyLookCommand.Execute(look);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.Focus, services.Bus.Current.State.Pattern.Kind);
             Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind);
@@ -596,8 +596,8 @@ public class SandboxTests
         try
         {
             vm.ActivePattern.Kind = PatternKind.LedWall;
-            vm.NewLookName = "Cue look";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "Cue look";
+            vm.Show.SaveLookCommand.Execute(null);
             var cueLook = vm.State.LooksAndCues.Looks.First(l => l.Name == "Cue look");
 
             vm.State.Pattern.Kind = PatternKind.Grid; // what is on air when programming starts
@@ -606,7 +606,7 @@ public class SandboxTests
             Dispatcher.UIThread.RunJobs();
 
             // Air moves on underneath: a scheduled cue fires its look.
-            vm.ApplyLookCommand.Execute(cueLook);
+            vm.Show.ApplyLookCommand.Execute(cueLook);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(PatternKind.LedWall, services.Bus.Current.State.Pattern.Kind);
 
@@ -638,8 +638,8 @@ public class SandboxTests
         try
         {
             vm.ActivePattern.Kind = PatternKind.LedWall;
-            vm.NewLookName = "On air";
-            vm.SaveLookCommand.Execute(null);
+            vm.Show.NewLookName = "On air";
+            vm.Show.SaveLookCommand.Execute(null);
             var onAir = vm.State.LooksAndCues.Looks.First(l => l.Name == "On air");
 
             vm.State.Pattern.Kind = PatternKind.Grid;
@@ -648,7 +648,7 @@ public class SandboxTests
             Assert.True(services.Outputs.IsLive);
 
             vm.IsSandboxActive = true;
-            vm.ApplyLookCommand.Execute(onAir);          // air = LedWall
+            vm.Show.ApplyLookCommand.Execute(onAir);          // air = LedWall
             vm.State.Pattern.Kind = PatternKind.ColorBars; // preview = the untaken edit
             Dispatcher.UIThread.RunJobs();
 
