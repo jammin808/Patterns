@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using System.Text;
 
 namespace Patterns.Core.Services;
@@ -116,6 +117,13 @@ public sealed class CheckFacts
     public bool BeaconListening { get; init; }
     /// <summary>What the listener makes of it — <see cref="BeaconWatch.Describe"/>'s words.</summary>
     public string BeaconWatch { get; init; } = "";
+
+    /// <summary>The twin link: off, main or standby.</summary>
+    public TwinRole TwinRole { get; init; } = TwinRole.Off;
+    /// <summary>Where the link stands.</summary>
+    public TwinPhase TwinPhase { get; init; } = TwinPhase.Off;
+    /// <summary>The link's line — <see cref="TwinWatch"/>'s words.</summary>
+    public string TwinWords { get; init; } = "";
 
     public bool NdiRuntime { get; init; }
     public int NdiSendersConfigured { get; init; }
@@ -446,7 +454,33 @@ public static class SuperCheck
             rows.Add(new CheckRow(s, "Main machine", silent ? CheckLight.Red : waiting ? CheckLight.Amber : CheckLight.Green,
                 silent ? "silent" : waiting ? "not heard yet" : "alive", f.BeaconWatch));
         }
+        if (f.TwinRole != TwinRole.Off)
+        {
+            rows.Add(new CheckRow(s, "Twin", TwinLight(f.TwinPhase), TwinValue(f.TwinRole, f.TwinPhase), f.TwinWords));
+        }
     }
+
+    /// <summary>The twin's light: in step is green, a link still forming is amber, a main gone silent or a refused link is red, a takeover is amber until the desk stands by again.</summary>
+    public static CheckLight TwinLight(TwinPhase phase) => phase switch
+    {
+        TwinPhase.InStep or TwinPhase.Listening => CheckLight.Green,
+        TwinPhase.MainSilent or TwinPhase.Refused => CheckLight.Red,
+        TwinPhase.Off => CheckLight.Grey,
+        _ => CheckLight.Amber,
+    };
+
+    /// <summary>The twin's one or two words for a row and the tile.</summary>
+    public static string TwinValue(TwinRole role, TwinPhase phase) => phase switch
+    {
+        TwinPhase.Off => "off",
+        TwinPhase.Listening => "main",
+        TwinPhase.Connecting => "connecting",
+        TwinPhase.InStep => "in step",
+        TwinPhase.MainSilent => "MAIN SILENT",
+        TwinPhase.TookOver => "TOOK OVER",
+        TwinPhase.Refused => "refused",
+        _ => role.ToString().ToLowerInvariant(),
+    };
 
     /// <summary>
     /// The desk's tick: green under a desk frame, amber past one (the desk skipped a frame), red

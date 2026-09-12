@@ -21,6 +21,8 @@ public enum RemoteCommandKind
     Hello,
     /// <summary>CUE LIST — the caller's stack as JSON rows.</summary>
     CueList,
+    /// <summary>TWIN STATUS — the twin link's role, phase and words as JSON.</summary>
+    TwinStatus,
 }
 
 /// <summary>
@@ -688,6 +690,16 @@ public static class ControlProtocol
                     "ON" => Act(ShowActionKind.ReviewOn),
                     "OFF" => Act(ShowActionKind.ReviewOff),
                     _ => Act(ShowActionKind.ReviewToggle),
+                };
+
+            // The twin: the standby's own verbs, and the link's state.
+            case "TWIN":
+                return arg.ToUpperInvariant().Replace(" ", "") switch
+                {
+                    "TAKEOVER" => Act(ShowActionKind.TwinTakeOver),
+                    "STANDBY" => Act(ShowActionKind.TwinStandBy),
+                    "STATUS" or "" => Query(RemoteCommandKind.TwinStatus),
+                    _ => Unknown(s),
                 };
 
             case "FREEZE":

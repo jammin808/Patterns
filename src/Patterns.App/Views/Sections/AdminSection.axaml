@@ -348,6 +348,39 @@
     <TextBlock Classes="hint tip"
                Text="The backup-machine path: two machines on the same network, the same show file on both (a USB stick, or Export the show), the same displays cabled to a switcher or the same NDI names, the main one sending its beacon and the backup listening. The backup's health line reads 'Main machine seen 1 s ago: live · Walk-in · standby 01.020' while all is well, 'MAIN MACHINE SILENT for 6 s — take over?' when the main goes quiet, and 'its watchdog gave up' when the main's supervisor stood down; the super-check shows the same as a red row. Taking over is still your call — OUTPUTS ON here, the switcher to this machine — and that is deliberate: two machines both deciding to be the main is the one failure worse than one being down. Nothing but this datagram leaves the machine; the beacon carries no control." />
 
+    <TextBlock Classes="h2" Text="TWIN (A SECOND PATTERNS, IN STEP)" />
+    <TextBlock Classes="hint tip"
+               Text="A second Patterns kept in step with this one — another folder on this machine, or another machine — with the whole show already loaded and every edit mirrored as it lands, its outputs held closed until it takes over. Stronger than the beacon alone: the beacon says the main has gone; a twin has the show up and takes it." />
+    <Grid ColumnDefinitions="110,*,8,Auto,8,90">
+      <TextBlock Classes="label" Text="Role" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding TwinRoles}"
+                SelectedValue="{Binding State.Twin.Role, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                ToolTip.Tip="Main: this desk runs the show and a standby may join it. Standby: this desk follows a main with its outputs held closed, ready to take the show" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Port" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="5" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Twin.Port, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The port the main listens on and the standby dials" />
+    </Grid>
+    <Grid ColumnDefinitions="110,*,8,Auto,8,*">
+      <TextBlock Classes="label" Text="Main is at" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Twin.MainHost, Mode=TwoWay}" Watermark="empty = whichever main's beacon this machine hears"
+               ToolTip.Tip="For a standby: the main's address or name. Leave it empty and the standby dials whichever main's beacon it hears — the main's beacon names its twin port" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Key" VerticalAlignment="Center" />
+      <TextBox Grid.Column="5" Text="{Binding State.Twin.Key, Mode=TwoWay}" Watermark="a word both sides share (optional)"
+               ToolTip.Tip="The same word on the main and the standby, or the main refuses the link; empty lets any standby on the network join" />
+    </Grid>
+    <CheckBox Content="Take over by itself once the main has been silent for five seconds"
+              IsChecked="{Binding State.Twin.AutoTakeOver}"
+              ToolTip.Tip="Safe for a second process on this machine: a main that has hung is ended as the standby takes the screens. For a second machine leave it off unless the switcher follows by itself — two machines each deciding to be the main is the one failure worse than one being down" />
+    <TextBlock Classes="label" Text="{Binding TwinStatus}" TextWrapping="Wrap" />
+    <WrapPanel>
+      <Button Classes="go" Content="TAKE OVER NOW" Padding="14,8" Margin="0,4,8,0" Command="{Binding TwinTakeOverCommand}"
+              ToolTip.Tip="The standby runs the show from here: the hold on its outputs lifts and what the main had on air goes on, with the caller's place — TWIN TAKEOVER on the wire" />
+      <Button Classes="mini" Content="STAND BY AGAIN" Margin="0,4,0,0" VerticalAlignment="Center" Command="{Binding TwinStandByCommand}"
+              ToolTip.Tip="After a takeover: the outputs are held closed again and the main is followed once more — TWIN STANDBY on the wire" />
+    </WrapPanel>
+    <TextBlock Classes="hint tip"
+               Text="On this machine: a second copy of Patterns in its own folder (its own settings, its own logs, its own crash domain) set to Standby with 'Main is at' 127.0.0.1 — the watchdog restarts a crashed desk in seconds; the twin has the show already up and skips the seconds. On another machine: the same as the beacon's backup, in step instead of merely told; the pictures reach the room through the switcher or the same NDI names, so taking over stays your press unless the switcher follows by itself. What never travels: these twin settings, the watchdog and the beacon, the install, the graphics card, the remote's ports, the operator's monitor and the desk layout — each machine keeps its own. TWIN STATUS, TWIN TAKEOVER and TWIN STANDBY are the wire's words." />
+
     <TextBlock Classes="h2" Text="EARLIER VERSIONS OF THE SHOW" />
     <TextBlock Classes="label" Text="{Binding BackupsSummary}" TextWrapping="Wrap" />
     <Grid ColumnDefinitions="*,8,Auto,8,Auto" Margin="0,4,0,0">

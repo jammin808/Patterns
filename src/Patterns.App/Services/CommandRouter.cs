@@ -57,6 +57,8 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok(); // the connection renamed its origin; nothing to run
             case RemoteCommandKind.CueList:
                 return ControlProtocol.Ok(CueListJson());
+            case RemoteCommandKind.TwinStatus:
+                return ControlProtocol.Ok(_services.Twin.StatusJson());
         }
 
         var action = cmd.Action;

@@ -381,6 +381,16 @@ public enum ShowMode
     Show,
 }
 
+/// <summary>What this Patterns is to a twin — a second Patterns, on this machine or another, kept in step.</summary>
+public enum TwinRole
+{
+    Off,
+    /// <summary>This desk runs the show and lets a standby join it and follow.</summary>
+    Main,
+    /// <summary>This desk follows a main with its outputs held closed, ready to take the show.</summary>
+    Standby,
+}
+
 /// <summary>Which graphics card the app should render (and decode video) on.</summary>
 public enum GpuPreferenceKind
 {

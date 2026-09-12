@@ -1017,6 +1017,13 @@ public static class Lists
         new(GapAxis.Horizontal, "Horizontal (between rows, at a y)"),
     };
 
+    public static readonly EnumItem[] TwinRoles =
+    {
+        new(TwinRole.Off, "Off — this desk runs alone"),
+        new(TwinRole.Main, "Main — a standby may join and follow this desk"),
+        new(TwinRole.Standby, "Standby — follow a main with the outputs held, ready to take over"),
+    };
+
     public static readonly EnumItem[] ToneModes =
     {
         new(ToneMode.ChannelIdent, "Channel ident (L pip · R pip-pip)"),

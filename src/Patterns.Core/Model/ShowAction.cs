@@ -273,6 +273,10 @@ public enum ShowActionKind
     /// <summary>HOLD on the caller's stack: GO is refused until released.</summary>
     CueHoldOn,
     CueHoldOff,
+    /// <summary>The standby twin runs the show from here: its hold on the outputs lifts and the air it mirrored goes on.</summary>
+    TwinTakeOver,
+    /// <summary>A twin that took over goes back to standing by: the link is dialled again and the outputs are held.</summary>
+    TwinStandBy,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

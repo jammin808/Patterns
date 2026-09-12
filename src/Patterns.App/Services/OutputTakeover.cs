@@ -228,7 +228,7 @@ public static class OutputTakeover
     /// process whose module cannot be read still answers with its own recorded path). Never ends
     /// anything that is not Patterns.
     /// </summary>
-    private static bool IsPatterns(string livePath, string recordedPath)
+    internal static bool IsPatterns(string livePath, string recordedPath)
     {
         var mine = Environment.ProcessPath ?? "";
         var candidate = livePath.Length > 0 ? livePath : recordedPath;

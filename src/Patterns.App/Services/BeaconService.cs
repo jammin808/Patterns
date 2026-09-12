@@ -28,6 +28,7 @@ public sealed class BeaconService : IDisposable
     private long _heard;
     private volatile Beacon? _last;
     private DateTime? _lastSeenUtc;
+    private volatile IPEndPoint? _lastFrom;
 
     public BeaconService(AppServices services)
     {
@@ -45,6 +46,9 @@ public sealed class BeaconService : IDisposable
     public long Sent => Interlocked.Read(ref _sent);
     public long Heard => Interlocked.Read(ref _heard);
     public Beacon? LastBeacon => _last;
+
+    /// <summary>Where the last beacon came from — the address a standby twin dials when no main was named.</summary>
+    public IPEndPoint? LastFrom => _lastFrom;
 
     /// <summary>How this machine names itself.</summary>
     public string MachineName => _services.State.Watchdog.BeaconName.Length > 0 ? _services.State.Watchdog.BeaconName : Environment.MachineName;
@@ -192,6 +196,7 @@ public sealed class BeaconService : IDisposable
             Windows = metrics?.OutputWindows ?? 0,
             Stream = s.Stream.Active,
             Show = s.Name,
+            Twin = s.Twin.Role == TwinRole.Main ? s.Twin.Port : 0,
         };
     }
 
@@ -214,6 +219,7 @@ public sealed class BeaconService : IDisposable
                 var beacon = Beacon.Parse(r.Buffer);
                 if (beacon is null || beacon.Instance == Instance) continue; // not a beacon, or our own broadcast coming back
                 _last = beacon;
+                _lastFrom = r.RemoteEndPoint;
                 _lastSeenUtc = DateTime.UtcNow;
                 Interlocked.Increment(ref _heard);
             }
@@ -291,6 +297,7 @@ public sealed class BeaconService : IDisposable
         try { sender?.Close(); } catch { /* already down */ }
         try { listener?.Close(); } catch { /* already down */ }
         _last = null;
+        _lastFrom = null;
         _lastSeenUtc = null;
     }
 

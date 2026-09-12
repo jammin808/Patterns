@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 namespace Patterns.Core.Services;
 
 /// <summary>
@@ -226,6 +227,12 @@ public static class HealthDashboard
 
     private static DashboardTile Watchdog(CheckFacts f)
     {
+        // A twin in trouble outranks everything else on the tile: a main gone silent under a
+        // standby, a refused link, a desk that took the show and has not stood by again.
+        if (f.TwinRole != TwinRole.Off && f.TwinPhase is not (TwinPhase.InStep or TwinPhase.Listening))
+        {
+            return new DashboardTile("watchdog", "WATCHDOG", SuperCheck.TwinLight(f.TwinPhase), SuperCheck.TwinValue(f.TwinRole, f.TwinPhase), f.TwinWords);
+        }
         if (f.BeaconListening && f.BeaconWatch.StartsWith("MAIN MACHINE", StringComparison.Ordinal))
         {
             return new DashboardTile("watchdog", "WATCHDOG", CheckLight.Red, "MAIN SILENT", f.BeaconWatch);
@@ -235,10 +242,11 @@ public static class HealthDashboard
         {
             return new DashboardTile("watchdog", "WATCHDOG", CheckLight.Amber, $"{f.WatchdogRestarts} restart{(f.WatchdogRestarts == 1 ? "" : "s")}", "it restarted the app — patterns.watchdog.log says when");
         }
-        var detail = f.BeaconSending ? "on · beacon sending"
+        var detail = f.TwinRole != TwinRole.Off ? "on · " + f.TwinWords
+            : f.BeaconSending ? "on · beacon sending"
             : f.BeaconListening ? "on · " + (f.BeaconWatch.Length > 0 ? f.BeaconWatch : "listening for the main machine")
             : "on · no restarts";
-        return new DashboardTile("watchdog", "WATCHDOG", CheckLight.Green, "on", detail);
+        return new DashboardTile("watchdog", "WATCHDOG", CheckLight.Green, f.TwinRole != TwinRole.Off ? SuperCheck.TwinValue(f.TwinRole, f.TwinPhase) : "on", detail);
     }
 
     private static DashboardTile Power(CheckFacts f, MetricSample? now)

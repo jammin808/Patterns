@@ -26,6 +26,57 @@ public sealed partial class MainViewModel
     /// <summary>The OSC port, where feedback goes, the counts and the last message — the Remote page's line.</summary>
     public string OscStatus { get => _oscStatus; private set => Set(ref _oscStatus, value); }
 
+    private string _twinStatus = "Twin off.";
+    /// <summary>The twin link's line — the main's standbys, or the standby's main and where the link stands — the Machine page's line.</summary>
+    public string TwinStatus { get => _twinStatus; private set => Set(ref _twinStatus, value); }
+
+    public EnumItem[] TwinRoles => Lists.TwinRoles;
+
+    private RelayCommand? _twinTakeOver;
+    private RelayCommand? _twinStandBy;
+
+    /// <summary>The standby runs the show from here — the same verb the wire's TWIN TAKEOVER sends.</summary>
+    public RelayCommand TwinTakeOverCommand => _twinTakeOver ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk)));
+
+    /// <summary>After a takeover: hold the outputs and follow the main again.</summary>
+    public RelayCommand TwinStandByCommand => _twinStandBy ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinStandBy, ActionOrigin.Desk)));
+
+    /// <summary>
+    /// The twin mirrored the show (null) or the sections named onto this desk's state, in place:
+    /// the lists that read those sections follow. The rest reconciles on the poll.
+    /// </summary>
+    internal void RefreshAfterMirror(IReadOnlyCollection<string>? sections)
+    {
+        if (sections is null)
+        {
+            RefreshAfterShowReplaced();
+            return;
+        }
+        var set = new HashSet<string>(sections, StringComparer.Ordinal);
+        if (set.Contains(nameof(ShowState.Output)) || set.Contains(nameof(ShowState.Independent)) || set.Contains(nameof(ShowState.Multiviews)))
+        {
+            _services.Screens.Refresh();
+            RefreshWallDestinations();
+            ReconcilePlacements();
+            RebuildEditTargets();
+            RaiseModeChanged();
+        }
+        if (set.Contains(nameof(ShowState.LooksAndCues)) || set.Contains(nameof(ShowState.Stacks)))
+        {
+            Cues.OnShowLoaded();
+            Raise(nameof(LookNames));
+            RefreshTallies();
+        }
+        if (set.Contains(nameof(ShowState.LowerThirds)))
+        {
+            if (SelectedLowerThird is { } selected && !State.LowerThirds.Designs.Contains(selected)) SelectedLowerThird = State.LowerThirds.Designs.FirstOrDefault();
+            RefreshLowerThirdTallies();
+        }
+        if (set.Contains(nameof(ShowState.MediaLibrary))) BuildLibrary();
+        if (set.Contains(nameof(ShowState.Transition))) HookTransition();
+        if (set.Contains(nameof(ShowState.Pattern))) Raise(nameof(ActivePattern));
+    }
+
     private string _beaconStatus = "";
     /// <summary>The beacon going out, the listener, and what it makes of the main machine — the Machine page's line.</summary>
     public string BeaconStatus { get => _beaconStatus; private set => Set(ref _beaconStatus, value); }

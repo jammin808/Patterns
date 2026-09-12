@@ -61,6 +61,9 @@ public sealed record Beacon
     /// <summary>"" for a heartbeat; "gave-up" or "could-not-start" from the supervisor when the app is not running.</summary>
     public string Event { get; init; } = "";
 
+    /// <summary>The port a standby twin may join this machine on; 0 when it is not a twin main.</summary>
+    public int Twin { get; init; }
+
     public string ToJson() => JsonSerializer.Serialize(this, Options);
 
     public byte[] ToBytes() => Encoding.UTF8.GetBytes(ToJson());

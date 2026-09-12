@@ -1665,6 +1665,36 @@ public sealed class WatchdogConfig : Observable
     public string BeaconName { get => _beaconName; set => Set(ref _beaconName, (value ?? "").Trim()); }
 }
 
+/// <summary>
+/// The twin link: a second Patterns kept in step with this one — every edit mirrored as it lands,
+/// the air record with it — with its outputs held closed until the main goes silent or the
+/// operator says TAKE OVER. On this machine it is a second process in its own folder (a second
+/// crash domain); on another machine it is the beacon's backup, in step instead of merely told.
+/// </summary>
+public sealed class TwinConfig : Observable
+{
+    private TwinRole _role;
+    private int _port = 9699;
+    private string _mainHost = "";
+    private string _key = "";
+    private bool _autoTakeOver;
+
+    /// <summary>Off, the main that lets a standby join, or the standby that follows one.</summary>
+    public TwinRole Role { get => _role; set => Set(ref _role, value); }
+
+    /// <summary>The port the main listens on and the standby dials.</summary>
+    public int Port { get => _port; set => Set(ref _port, Math.Clamp(value, 1024, 65535)); }
+
+    /// <summary>The main's address or name for a standby; empty = whichever main's beacon this machine hears.</summary>
+    public string MainHost { get => _mainHost; set => Set(ref _mainHost, (value ?? "").Trim()); }
+
+    /// <summary>A word both machines must share for the link to open; empty = any standby on the network may join.</summary>
+    public string Key { get => _key; set => Set(ref _key, (value ?? "").Trim()); }
+
+    /// <summary>The standby takes the show by itself once the main has been silent past the limit; off, TAKE OVER is the operator's press.</summary>
+    public bool AutoTakeOver { get => _autoTakeOver; set => Set(ref _autoTakeOver, value); }
+}
+
 /// <summary>Which GPU renders the show. Applied at startup — changing it needs an app restart.</summary>
 public sealed class GraphicsConfig : Observable
 {
@@ -2113,6 +2143,9 @@ public sealed class ShowState : Observable
     public SpotifyConfig Spotify { get; init; } = new();
 
     public WatchdogConfig Watchdog { get; init; } = new();
+
+    /// <summary>A twin: a second Patterns kept in step with this one, on this machine or another, that can take the show. This machine's own — never mirrored.</summary>
+    public TwinConfig Twin { get; init; } = new();
     public StreamConfig Stream { get; init; } = new();
     public AdminConfig Admin { get; init; } = new();
     public SwitcherConfig Switcher { get; init; } = new();

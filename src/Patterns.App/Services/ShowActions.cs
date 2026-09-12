@@ -115,6 +115,7 @@ public sealed partial class ShowActions
             ?? RunContent(a, origin)
             ?? RunAudio(a, origin)
             ?? RunInstall(a, origin)
+            ?? RunTwin(a, origin)
             ?? ActionResult.Refused($"Unknown action '{a.Kind}'.");
     }
 

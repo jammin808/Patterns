@@ -19,6 +19,10 @@ public sealed partial class ShowActions
                 {
                     return ActionResult.Refused("PREP MODE — outputs are held closed. Switch to SHOW in the header when you are at the venue.");
                 }
+                if (_s.OutputsHeldBy.Length > 0)
+                {
+                    return ActionResult.Refused($"Outputs are held closed — {_s.OutputsHeldBy}. TAKE OVER lifts the hold (Machine page, TWIN).");
+                }
                 _s.Outputs.Apply();
                 // Output windows take focus when they open and nothing hands it back: the next
                 // keystroke would land on the audience surface. The desk owns the keyboard —

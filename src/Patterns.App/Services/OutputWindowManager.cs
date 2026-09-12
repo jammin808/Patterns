@@ -48,6 +48,14 @@ public sealed class OutputWindowManager
     /// <summary>Open (or retarget) output windows for the current arrangement.</summary>
     public void Apply()
     {
+        // A standby twin's screens stay closed however the ask arrives — a hot-plug, a retarget, a remote.
+        if (_services.OutputsHeldBy.Length > 0)
+        {
+            if (IsLive) CloseAll();
+            Log.Info($"Outputs held closed: {_services.OutputsHeldBy}.");
+            LiveChanged?.Invoke();
+            return;
+        }
         var targets = BuildViewports(_services.State.Output.Placements, _services.Screens.All,
             masterFps: _services.State.Output.MasterFps, canvases: _services.State.Output.CanvasNames);
         if (targets.Count == 0)

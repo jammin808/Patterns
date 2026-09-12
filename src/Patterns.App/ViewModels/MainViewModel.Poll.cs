@@ -172,7 +172,10 @@ public sealed partial class MainViewModel
     private void PollHealth()
     {
         var watch = _services.Beacon.WatchText;
+        var twin = _services.Twin.HealthWords;
+        if (twin.Length > 0) watch = watch.Length > 0 ? twin + " · " + watch : twin;
         HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);
+        TwinStatus = _services.Twin.Status;
         StreamStatus = _services.Stream.Status;
         StreamHealth = _services.Stream.Health;
         var beacon = _services.Beacon;

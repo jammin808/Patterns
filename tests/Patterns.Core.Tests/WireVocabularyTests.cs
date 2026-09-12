@@ -119,6 +119,8 @@ public class WireVocabularyTests
         ("WEATHER", new(ShowActionKind.WeatherToggle)),
         ("WEATHER TOMORROW", new(ShowActionKind.WeatherView, "", "tomorrow")),
         ("REVIEW ON", new(ShowActionKind.ReviewOn)),
+        ("TWIN TAKEOVER", new(ShowActionKind.TwinTakeOver)),
+        ("TWIN STANDBY", new(ShowActionKind.TwinStandBy)),
         ("REVIEW OFF", new(ShowActionKind.ReviewOff)),
         ("REVIEW", new(ShowActionKind.ReviewToggle)),
         ("FREEZE ON", new(ShowActionKind.FreezeOn)),
@@ -139,9 +141,9 @@ public class WireVocabularyTests
     [Fact]
     public void EveryVerbOfTheWireIsAShowActionAndTheWireHasNoVocabularyOfItsOwn()
     {
-        // Five things a wire says are not actions; everything else the parser produces is one.
+        // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)
@@ -161,6 +163,7 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.Ping, ControlProtocol.Parse("PING").Kind);
         Assert.Equal(RemoteCommandKind.Status, ControlProtocol.Parse("STATUS").Kind);
         Assert.Equal(RemoteCommandKind.CueList, ControlProtocol.Parse("CUE LIST").Kind);
+        Assert.Equal(RemoteCommandKind.TwinStatus, ControlProtocol.Parse("TWIN STATUS").Kind);
         var hello = ControlProtocol.Parse("HELLO FOH deck");
         Assert.Equal(RemoteCommandKind.Hello, hello.Kind);
         Assert.Equal("FOH deck", hello.Text);

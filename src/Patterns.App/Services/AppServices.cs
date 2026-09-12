@@ -70,6 +70,16 @@ public sealed class AppServices
     /// <summary>How the app leaves with an exit code the watchdog reads — set by the desktop lifetime; null in a headless test.</summary>
     public Func<int, bool>? ExitRequest { get; set; }
     public BeaconService Beacon { get; }
+
+    /// <summary>The twin link: a second Patterns kept in step, on this machine or another, that can take the show.</summary>
+    public TwinService Twin { get; }
+
+    /// <summary>
+    /// Why the outputs must stay closed whatever asks for them — "" when nothing holds them. A
+    /// standby twin sets it: its screens open only when it takes the show. Runtime only, never
+    /// saved, and read by OUTPUTS ON and by the window manager itself.
+    /// </summary>
+    public string OutputsHeldBy { get; set; } = "";
     public StingerService Stingers { get; }
     public SandboxService Sandbox { get; }
     public StreamService Stream { get; }
@@ -406,6 +416,7 @@ public sealed class AppServices
         Updates = new UpdateService(this);
         Management = new ManagementService(this);
         Beacon = new BeaconService(this);
+        Twin = new TwinService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -809,21 +820,42 @@ public sealed class AppServices
         var place = PlaceForRecovery();
         if (current.Live || current.Audio || place is not null)
         {
-            Recovery.Write(RecoveryRecord(place));
+            var record = RecoveryRecord(place);
+            Recovery.Write(record);
             _recoveryPending = false; // the file is this run's now
+            RaiseSafely(() => RecoveryMoved?.Invoke(record), "the recovery record's listener");
         }
         else if (!_recoveryPending)
         {
             Recovery.Clear();
+            RaiseSafely(() => RecoveryMoved?.Invoke(null), "the recovery record's listener");
         }
     }
+
+    /// <summary>
+    /// The recovery record as it was last written, or null as it was cleared — on the UI thread,
+    /// only when it moved. The twin link sends it to a standby: what is on air, whether the desk is
+    /// split, the caller's place — everything a takeover puts back.
+    /// </summary>
+    internal event Action<RecoverySnapshot?>? RecoveryMoved;
+
+    /// <summary>
+    /// The twin mirrored the show, or the sections named, onto this desk's state in place (UI
+    /// thread, after the publish). The desk refreshes the lists that read those sections.
+    /// </summary>
+    public event Action<IReadOnlyCollection<string>?>? ShowMirrored;
+
+    internal void NotifyShowMirrored(IReadOnlyCollection<string>? sections)
+        => RaiseSafely(() => ShowMirrored?.Invoke(sections), "the mirror's listener");
 
     /// <summary>The caller's place goes to the sidecar on every GO, atomically, live or not.</summary>
     public void WriteRunPlace()
     {
         if (_restartRequested || _handedOver) return;
         _recoveryWritten = RecoveryKey();
-        Recovery.Write(RecoveryRecord(CueStack.Place()));
+        var record = RecoveryRecord(CueStack.Place());
+        Recovery.Write(record);
+        RaiseSafely(() => RecoveryMoved?.Invoke(record), "the recovery record's listener");
     }
 
     private string? _pinnedAirLook;
@@ -892,6 +924,28 @@ public sealed class AppServices
                 return;
             }
 
+            RestoreRecord(was, took, vm);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Recovery after restart failed.", ex);
+        }
+        finally
+        {
+            // The record has been read and acted on: ordinary bookkeeping owns the file again.
+            _recoveryPending = false;
+        }
+    }
+
+
+    /// <summary>
+    /// The record back on this desk: the split as it was, the program on the outputs, the screens
+    /// faded on their own, the audio, what the desk calls the picture, the caller's place. The
+    /// watchdog's relaunch, a start that took the screens back, and a twin taking the show over all
+    /// end here — one way of putting a show back, so none of them can put back a different one.
+    /// </summary>
+    private void RestoreRecord(RecoverySnapshot was, bool took, ViewModels.MainViewModel vm, string? headOverride = null)
+    {
             // The desk was split when it went down — EDIT SAFE open, the audience on one picture
             // and the operator building another. Put the split back before the content: the air
             // look then lands on the frozen program through the air seam and the settings file
@@ -974,11 +1028,11 @@ public sealed class AppServices
             // Name the restart honestly: the watchdog's own relaunch says so, and the same path
             // now serves a restart the operator asked for, which is not the watchdog's doing.
             var who = HealthMonitor.Restarts > 0 ? "Restarted by the watchdog" : "Restarted";
-            var head = Takeover.TookOver
+            var head = headOverride ?? (Takeover.TookOver
                 ? Takeover.Words
                 : restored
                     ? $"{who} — the show was put back on."
-                    : $"{who}.";
+                    : $"{who}.");
             vm.StatusMessage = head + streamNote;
             if (was.Run is { } place)
             {
@@ -986,21 +1040,36 @@ public sealed class AppServices
                 // takeover's words lead the banner — the one sentence saying the windows in the
                 // room are this desk's now, not the ghost's, must not be pushed off the strip by
                 // the surface the recovery itself opens.
-                var lead = Takeover.TookOver ? head + " " : "";
+                var lead = Takeover.TookOver || headOverride is not null ? head + " " : "";
                 RecoveryBanner = lead + CueStack.RestorePlace(place) + streamNote;
                 vm.StatusMessage = RecoveryBanner;
                 vm.IsRunLayout = true;
             }
-            Log.Info(vm.StatusMessage);
+        Log.Info(vm.StatusMessage);
+    }
+
+    /// <summary>
+    /// The standby twin took the show: the air record the main sent last goes back on here, the way
+    /// a restart puts it back — or, with none (nothing was live at the main), the outputs stay closed
+    /// and the desk says so.
+    /// </summary>
+    public void RecoverFromTwin(RecoverySnapshot? was, string head)
+    {
+        var vm = MainWindow?.DataContext as ViewModels.MainViewModel;
+        if (was is null || vm is null)
+        {
+            var words = head + " Nothing was on air at the main — the outputs stay closed until OUTPUTS ON.";
+            Notify(words);
+            Log.Info(words);
+            return;
+        }
+        try
+        {
+            RestoreRecord(was, took: false, vm, head);
         }
         catch (Exception ex)
         {
-            Log.Error("Recovery after restart failed.", ex);
-        }
-        finally
-        {
-            // The record has been read and acted on: ordinary bookkeeping owns the file again.
-            _recoveryPending = false;
+            Log.Error("Taking the show over from the twin failed.", ex);
         }
     }
 
@@ -1093,6 +1162,7 @@ public sealed class AppServices
         Osc.Reconcile();
         Devices.Reconcile();
         Beacon.Reconcile();
+        Twin.Reconcile();
     }
 
     /// <summary>
@@ -1282,6 +1352,7 @@ public sealed class AppServices
             Devices.Dispose();
             Management.Dispose();
             Beacon.Dispose();
+            Twin.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();
             WebIn.Dispose();

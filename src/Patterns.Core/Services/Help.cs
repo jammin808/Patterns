@@ -857,6 +857,21 @@ public static class HelpTopics
             new[] { "Machine", "Install" },
             new[] { "watchdog", "supervisor", "crash", "restart", "recovery", "beacon", "heartbeat", "backup", "second machine", "failover", "resilience", "access violation", "0xc0000005", "native fault", "mini-dump", "crash dump", "createdump", "safe run", "video decoding", "software decoding", "hardware decoding", "exit code", "fault contained", "ui fault", "exception", "unhandled", "0xe0434352", "crash between menus", "page crash", "menu crash", "status line", "stuck outputs", "orphan windows", "windows still playing", "cannot stop the screens", "two copies", "second instance", "take the screens back", "re-own", "ownership", "hung", "edit safe after a restart", "preview went to program", "wrong picture after restart", "restart", "put the show back" }),
 
+        new HelpTopic("twin", HelpGroup.TheMachine,
+            "A twin: a second Patterns in step, ready to take the show",
+            "Machine page, TWIN: this desk as the main and a second Patterns — another folder on this machine, or another machine — as the standby that mirrors every edit and can run the show the moment the main stops.",
+            HelpBodies.Twin,
+            new[]
+            {
+                "On the main: Role = Main, a port, a key if you want one. On the standby: Role = Standby, the main's address (or leave it empty and let the main's beacon name it), the same key.",
+                "The standby's line reads 'STANDBY for MAIN-DESK — in step, heard just now, 4 sections mirrored · outputs held closed' while all is well; its outputs stay closed however many times OUTPUTS ON is pressed.",
+                "The main goes quiet: 'MAIN MAIN-DESK SILENT for 6 s — TAKE OVER?' — press TAKE OVER NOW (or tick 'take over by itself' beforehand) and the standby puts on what the main had on air, with the caller's place, and runs the show from here.",
+                "On this machine the standby is a second copy of Patterns in its own folder; on takeover it ends a main that has hung, so the room never shows two sets of windows.",
+                "The main is back: STAND BY AGAIN on the standby, and it follows once more. The main's own twin, watchdog, beacon, install, graphics, remote, monitor and desk-layout settings never travel — each machine keeps its own.",
+            },
+            "TWIN STATUS · TWIN TAKEOVER · TWIN STANDBY",
+            new[] { "Machine" },
+            new[] { "twin", "standby", "hot standby", "redundancy", "redundant", "second process", "dual", "synced", "in step", "mirror", "failover", "take over", "takeover", "backup machine", "second machine", "resilience", "endurance", "another folder", "hung main", "main silent" }),
         new HelpTopic("portable-files", HelpGroup.TheMachine,
             "Portable files: what is on the stick",
             "One exe, one settings file, the media beside them — the whole show travels.",

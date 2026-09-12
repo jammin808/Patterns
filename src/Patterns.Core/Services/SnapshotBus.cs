@@ -428,6 +428,13 @@ public sealed class SnapshotBus
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// Raised on the publisher's thread as a snapshot is built from a root, with the root's sections
+    /// the tracker named dirty — null when everything moved, or could not be named. The twin link
+    /// mirrors exactly those sections to a standby; nothing else need walk the show to find out.
+    /// </summary>
+    public event Action<ShowState, HashSet<string>?>? SectionsPublished;
+
     /// <param name="changes">The tracker watching <paramref name="state"/>, when one tracks its sections: the publish then copies only what moved.</param>
     public void Publish(ShowState state, ChangeTracker? changes = null)
     {
@@ -498,6 +505,7 @@ public sealed class SnapshotBus
         // tracker for another root, or none, or a first publish from this root, copies everything.
         var previous = _lastBuilt.TryGetValue(state, out var last) ? last : null;
         var dirty = changes is not null && ReferenceEquals(changes.Root, state) ? changes.TakeDirty() : null;
+        SectionsPublished?.Invoke(state, dirty);
         ShowState clone;
         RigGeometry rig;
         var displays = Displays;

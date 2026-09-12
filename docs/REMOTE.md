@@ -117,6 +117,9 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
+| `TWIN STATUS` | `OK <json>` — the twin link: `role` (off, main, standby), `phase` (listening, connecting, inStep, mainSilent, tookOver, refused), `words` (the Machine page's line), `main` (the main's name as a standby knows it), `standbys` (the names a main has in step) |
+| `TWIN TAKEOVER` | The standby twin runs the show from here: its hold on the outputs lifts and what the main had on air goes on, with the caller's place — `ERR` on a desk that is not a standby |
+| `TWIN STANDBY` | A twin that took over follows the main again: the link is dialled and the outputs are held closed |
 
 One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in
 Audio-page order — there is deliberately no per-kind numbering, because two numbering schemes on a

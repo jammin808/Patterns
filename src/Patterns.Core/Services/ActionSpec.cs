@@ -253,6 +253,8 @@ public static class ActionSpec
         ShowActionKind.ScreenToPreview => "Screen — its picture into the preview",
         ShowActionKind.UpdateApply => "Apply the staged update",
         ShowActionKind.Restart => "Restart Patterns",
+        ShowActionKind.TwinTakeOver => "Twin — take the show over",
+        ShowActionKind.TwinStandBy => "Twin — stand by again",
         _ => kind.ToString(),
     };
 
@@ -318,6 +320,7 @@ public static class ActionSpec
         ShowActionKind.ScreenToPreview => "the desk loading its preview from a screen to edit — an edit, not a step of the show",
         ShowActionKind.UpdateApply or ShowActionKind.Restart => "an admin verb behind the passcode",
         ShowActionKind.ScreenLabel => "the rig's own naming, at set-up on the Screens page or from a remote — a running order never renames a screen",
+        ShowActionKind.TwinTakeOver or ShowActionKind.TwinStandBy => "the standby twin's own decision to run the show, or to follow again — a cue never decides which machine is the main",
         _ => null,
     };
 

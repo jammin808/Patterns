@@ -23,34 +23,41 @@ public static class ModelCopier
         {
             if (pi.GetIndexParameters().Length != 0) continue;
             if (pi.GetCustomAttribute<JsonIgnoreAttribute>() is not null) continue;
+            CopyValue(pi, pi.GetValue(source), target);
+        }
+    }
 
-            var type = pi.PropertyType;
-            var value = pi.GetValue(source);
+    /// <summary>
+    /// One property's value onto <paramref name="target"/>, the way <see cref="Copy"/> lands each of
+    /// them: a value or a string is set, a list is cleared and refilled with detached clones, an
+    /// observable is copied into in place. The twin mirror lands a section with it.
+    /// </summary>
+    public static void CopyValue(PropertyInfo pi, object? value, object target)
+    {
+        var type = pi.PropertyType;
+        if (type.IsValueType || type == typeof(string))
+        {
+            if (pi.CanWrite) pi.SetValue(target, value);
+            return;
+        }
 
-            if (type.IsValueType || type == typeof(string))
+        var targetValue = pi.GetValue(target);
+        if (value is null || targetValue is null) return;
+
+        if (typeof(IList).IsAssignableFrom(type) && value is IList srcList && targetValue is IList dstList)
+        {
+            dstList.Clear();
+            foreach (var item in srcList)
             {
-                if (pi.CanWrite) pi.SetValue(target, value);
-                continue;
+                // Collection items are detached clones so later edits don't alias.
+                dstList.Add(item is Observable ? CloneItem(item) : item);
             }
+            return;
+        }
 
-            var targetValue = pi.GetValue(target);
-            if (value is null || targetValue is null) continue;
-
-            if (typeof(IList).IsAssignableFrom(type) && value is IList srcList && targetValue is IList dstList)
-            {
-                dstList.Clear();
-                foreach (var item in srcList)
-                {
-                    // Collection items are detached clones so later edits don't alias.
-                    dstList.Add(item is Observable ? CloneItem(item) : item);
-                }
-                continue;
-            }
-
-            if (value is Observable && targetValue is Observable)
-            {
-                Copy(value, targetValue);
-            }
+        if (value is Observable && targetValue is Observable)
+        {
+            Copy(value, targetValue);
         }
     }
 

@@ -615,6 +615,7 @@ public sealed partial class MainViewModel : Observable
         Assistant = new AssistantPage(this, _services);
         Music = new MusicPage(this, _services);
         Audio = new AudioPage(this, _services);
+        _services.ShowMirrored += RefreshAfterMirror;
 
         // The caller's home: a running order in and out of the Cues page
         var cues = Cues;
@@ -1092,9 +1093,16 @@ public sealed partial class MainViewModel : Observable
     /// <summary>A show read from a file becomes the show: the model copied over, every list started over, the desk refreshed.</summary>
     private void ApplyLoadedShow(ShowState loaded, string status)
     {
+        _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
+        RefreshAfterShowReplaced();
+        StatusMessage = status;
+    }
+
+    /// <summary>The model under the desk is another show now — loaded from a file, restored from a version, mirrored from a twin: every list starts over and every hook is re-tied.</summary>
+    private void RefreshAfterShowReplaced()
+    {
         // A different show: nothing the last one left waiting may run against it.
         _services.Tail.DropAll();
-        _services.BulkEdit(() => ModelCopier.Copy(loaded, State));
         HookTransition();
         HookMonitor();
         RefreshWallDestinations();   // another show, another set of walls and outputs
@@ -1104,6 +1112,5 @@ public sealed partial class MainViewModel : Observable
         Audio.OnShowLoaded();
         ReconcilePlacements();
         BuildLibrary();
-        StatusMessage = status;
     }
 }
