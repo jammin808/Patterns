@@ -434,8 +434,7 @@ public static class ActionSpec
     }
 
     /// <summary>A switch value as the executor reads it (<see cref="OverlayControl.SwitchTo"/>): on, off or toggle, in any of their usual spellings.</summary>
-    public static bool IsSwitchWord(string? value) => (value ?? "").Trim().ToLowerInvariant() is
-        "on" or "1" or "true" or "show" or "yes" or "off" or "0" or "false" or "hide" or "no" or "toggle" or "flip";
+    public static bool IsSwitchWord(string? value) => OverlayControl.IsSwitchWord(value);
 
     /// <summary>The clock's hours: 12 or 24.</summary>
     public static bool TryParseHours(string? value, out int hours)

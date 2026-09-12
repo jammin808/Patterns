@@ -906,11 +906,55 @@ public sealed class CueEditor : Observable
         }
     }
 
-    /// <summary>An action or field changed: re-read the summary and the checks soon (debounced).</summary>
+    /// <summary>
+    /// An action or field changed: the rows re-read what depends on it and the checks run soon
+    /// (debounced). In place, never a rebuild: the rows are the cue's own steps, one each, and
+    /// rebuilding them tore the TextBox the operator was typing a value into out from under the
+    /// hand on every keystroke — one character per click. The row that changed has already raised
+    /// its own properties; what the others share is their timing and their choices.
+    /// </summary>
     public void OnCueEdited()
     {
-        RebuildActionRows();
+        SyncActionRows();
+        foreach (var row in ActionRows)
+        {
+            row.RefreshChoices();
+            row.RefreshTiming();
+        }
         ScheduleRevalidate();
+    }
+
+    /// <summary>
+    /// The rows brought level with the cue's steps: a step added gets a row at its place, a step
+    /// removed loses its row, a step moved takes its row with it — and every row whose step is still
+    /// there is the same object, so the box the operator is typing into stays under the hand.
+    /// </summary>
+    private void SyncActionRows()
+    {
+        if (SelectedCue is null)
+        {
+            ActionRows.Clear();
+            return;
+        }
+        var actions = SelectedCue.Actions;
+        for (var i = ActionRows.Count - 1; i >= 0; i--)
+        {
+            if (!actions.Contains(ActionRows[i].Action)) ActionRows.RemoveAt(i);
+        }
+        for (var i = 0; i < actions.Count; i++)
+        {
+            var at = -1;
+            for (var j = 0; j < ActionRows.Count; j++)
+            {
+                if (ReferenceEquals(ActionRows[j].Action, actions[i]))
+                {
+                    at = j;
+                    break;
+                }
+            }
+            if (at < 0) ActionRows.Insert(i, new ActionRow(this, actions[i]));
+            else if (at != i) ActionRows.Move(at, i);
+        }
     }
 
     /// <summary>A wait changed: every row below it now runs at a different second.</summary>

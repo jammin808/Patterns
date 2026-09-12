@@ -114,6 +114,10 @@ public static class CueValidator
                 Hard($"{where}: {ActionSpec.Label(a.Kind)} is {deskOnly} — not a step a cue can carry.");
                 continue;
             }
+            // The one table of the verbs that change the picture (ActionSpec.ChangesContent): a video
+            // stinger cannot share a cue with any of them. The cases below add what the table cannot
+            // know, and the two used to disagree — a preset on a screen slipped past this rule.
+            if (ActionSpec.ChangesContent(a.Kind)) hasContent = true;
             switch (a.Kind)
             {
                 case ShowActionKind.Unknown:

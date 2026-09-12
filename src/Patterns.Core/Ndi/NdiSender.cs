@@ -145,6 +145,9 @@ public sealed class NdiSender : IDisposable
 
                     var size = new SKSizeI(Math.Max(16, cfg.Width), Math.Max(16, cfg.Height));
                     var wantTenBit = cfg.TenBit && !tenBitUnavailable;
+                    // P216 carries one Cb/Cr pair per two pixels: an odd width has no room for the
+                    // last column's chroma, so a 10-bit send is always an even width.
+                    if (wantTenBit && (size.Width & 1) == 1) size.Width -= 1;
                     if (surfaceA is null || size != currentSize || wantTenBit != currentTenBit)
                     {
                         surfaceA?.Dispose();

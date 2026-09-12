@@ -19,8 +19,22 @@ public static class FrameStage
     public const string Wall = "wall";
     public const string Freeze = "freeze";
 
-    /// <summary>The pattern stage, named by the pattern it drew: "pattern:Fractal".</summary>
-    public static string PatternOf(PatternKind kind) => Pattern + ":" + kind;
+    private static readonly string[] PatternNames = BuildPatternNames();
+
+    private static string[] BuildPatternNames()
+    {
+        var kinds = Enum.GetValues<PatternKind>();
+        var names = new string[kinds.Max(k => (int)k) + 1];
+        foreach (var k in kinds) names[(int)k] = Pattern + ":" + k;
+        return names;
+    }
+
+    /// <summary>The pattern stage, named by the pattern it drew: "pattern:Fractal". Named once per kind — this is read on every frame of every sink.</summary>
+    public static string PatternOf(PatternKind kind)
+    {
+        var i = (int)kind;
+        return (uint)i < (uint)PatternNames.Length && PatternNames[i] is { } name ? name : Pattern + ":" + kind;
+    }
 
     /// <summary>The stage in the desk's words: "the Fractal pattern", "the lower third", "the crossfade".</summary>
     public static string Words(string stage)

@@ -850,16 +850,16 @@ public sealed partial class MainViewModel
         // model — capture and restore the operator's choice around the rebuild.
         var current = ActivePattern.Media.NdiSourceName;
         var found = _services.NdiIn.DiscoverSources();
-        NdiSourceOptions.Clear();
-        foreach (var s in found)
+        var wanted = new List<string>(found);
+        if (!string.IsNullOrWhiteSpace(current) && !wanted.Contains(current)) wanted.Insert(0, current);
+        // Rewritten only when the sources changed: the list is the ItemsSource of three pickers,
+        // and clearing it every three seconds closed an open dropdown under the pointer.
+        if (!NdiSourceOptions.SequenceEqual(wanted))
         {
-            NdiSourceOptions.Add(s);
+            NdiSourceOptions.Clear();
+            foreach (var s in wanted) NdiSourceOptions.Add(s);
+            ActivePattern.Media.NdiSourceName = current;
         }
-        if (!string.IsNullOrWhiteSpace(current) && !NdiSourceOptions.Contains(current))
-        {
-            NdiSourceOptions.Insert(0, current);
-        }
-        ActivePattern.Media.NdiSourceName = current;
         if (!quiet)
         {
             StatusMessage = found.Count == 0
@@ -1210,11 +1210,8 @@ public sealed partial class MainViewModel
     public EnumItem[] ScaleModes => Lists.ScaleModes;
     public ResolutionPreset[] Resolutions => Lists.Resolutions;
     public string[] CountdownLabels => Lists.CountdownLabels;
-    public string[] ParticlePresetNames => ParticlePresets.Names;
 
     // ---- fractal ------------------------------------------------------------
-
-    public string[] FractalPresetNames => FractalPresets.Names;
 
     /// <summary>The Fractals page's chips: every family in order, then "Custom" — the operator's saved fractal presets.</summary>
     public ObservableCollection<FractalSceneGroup> FractalSceneGroups { get; } = new();
@@ -1317,10 +1314,6 @@ public sealed partial class MainViewModel
         StatusMessage = $"'{item.Name}' taken out of the library — the file itself stays.";
         RefreshLibrary();
     });
-
-    private RelayCommand? _refreshLibrary;
-
-    public RelayCommand RefreshLibraryCommand => _refreshLibrary ??= new RelayCommand(RefreshLibrary);
 
     /// <summary>Rebuilds every tile — the factory table, the show's media, the saved presets, the brand kits — and re-renders the thumbnails.</summary>
     public void RefreshLibrary() => BuildLibrary();

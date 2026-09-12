@@ -2180,7 +2180,7 @@ public sealed class MediaLibraryEntry : Observable
     /// <summary>Stable identity (schema 7): thumbnails and the Library page key on it, never on the file name.</summary>
     public string Id { get => _id; set => Set(ref _id, value); }
 
-    public string Path { get => _path; set => Set(ref _path, value); }
+    public string Path { get => _path; set => Set(ref _path, value ?? ""); }
 
     /// <summary>Decoded by libVLC (a video or an audio file) rather than shown as a picture. Kept for older files; <see cref="Kind"/> is the finer truth.</summary>
     public bool IsVideo { get => _isVideo; set => Set(ref _isVideo, value); }

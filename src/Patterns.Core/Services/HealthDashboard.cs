@@ -264,5 +264,5 @@ public static class HealthDashboard
     /// <summary>The live reading when there is one (-1 is "unknown"), else the fact.</summary>
     private static double Pick(double? live, double fallback) => live is >= 0 ? live.Value : fallback;
 
-    private static string Mb(double v) => v >= 1024 ? $"{v / 1024.0:0.0} GB" : $"{v:0} MB";
+    private static string Mb(double v) => MemoryBudget.Mb(v);
 }

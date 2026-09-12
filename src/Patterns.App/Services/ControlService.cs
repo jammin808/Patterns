@@ -444,7 +444,9 @@ public sealed partial class ControlService : IDisposable
                 {
                     contentType = "application/zip";
                     payload = "";
-                    binary = await Task.Run(BuildSupportBundle);
+                    // The words come off the UI thread with the show they describe; the zip is built off it.
+                    var info = await Dispatcher.UIThread.InvokeAsync(SupportBundleInfo);
+                    binary = await Task.Run(() => BuildSupportBundle(info));
                 }
             }
             else if (method == "GET" && path.StartsWith("/pgm.jpg"))
@@ -516,12 +518,9 @@ public sealed partial class ControlService : IDisposable
         }
     }
 
-    /// <summary>The support bundle as bytes for the ADMIN page's download: written beside the settings, then read back.</summary>
-    private byte[] BuildSupportBundle()
-    {
-        var dir = _services.Store.BaseDirectory;
-        var path = Path.Combine(dir, SupportBundle.FileNameFor(DateTime.Now));
-        var info = string.Join(Environment.NewLine,
+    /// <summary>The bundle's own page of facts, read on the UI thread where the show and the services live.</summary>
+    private string SupportBundleInfo()
+        => string.Join(Environment.NewLine,
             $"Patterns support bundle — {DateTime.Now:yyyy-MM-dd HH:mm} (from the ADMIN page)",
             $"Site: {(_services.State.Install.SiteName.Length > 0 ? _services.State.Install.SiteName : "(unnamed)")} · machine {Environment.MachineName}",
             $"Build: {UpdateService.RunningVersion} · .NET {Environment.Version} · {Environment.OSVersion}",
@@ -529,6 +528,12 @@ public sealed partial class ControlService : IDisposable
             $"Install: {_services.Install.Status}",
             $"Update: {_services.Updates.Status}",
             $"Management: {_services.Management.Status}");
+
+    /// <summary>The support bundle as bytes for the ADMIN page's download: written beside the settings, then read back.</summary>
+    private byte[] BuildSupportBundle(string info)
+    {
+        var dir = _services.Store.BaseDirectory;
+        var path = Path.Combine(dir, SupportBundle.FileNameFor(DateTime.Now));
         SupportBundle.Build(dir, path, info);
         Log.Info($"Support bundle written for the ADMIN page: {path}");
         return File.ReadAllBytes(path);

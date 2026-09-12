@@ -233,12 +233,7 @@ public static class CueSummary
         _ => "left to right",
     };
 
-    private static string SwitchWords(string value) => value.Trim().ToLowerInvariant() switch
-    {
-        "on" or "1" or "true" or "show" or "yes" => "on",
-        "off" or "0" or "false" or "hide" or "no" => "off",
-        _ => "toggle",
-    };
+    private static string SwitchWords(string value) => OverlayControl.SwitchWord(value);
 
     /// <summary>" → the page" when a web action names one; "" for the page on air.</summary>
     private static string PageSuffix(CueActionConfig a)

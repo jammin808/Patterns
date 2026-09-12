@@ -129,9 +129,15 @@ public sealed class MidiSurfaceLink : IDeviceLink
     /// open the port. Both here, because a surface somebody plugs in mid-rig should simply start
     /// working, and winmm will not tell anybody it arrived.
     /// </summary>
+    private int _ticking;
+
     private void Tick()
     {
         if (_disposed) return;
+        // A thread-pool timer fires again on schedule whether or not the last tick has returned —
+        // and a tick that is opening a port or writing a warning can outlast the sample period.
+        // Two ticks at once would share the drain list; the late one simply waits for the next.
+        if (Interlocked.CompareExchange(ref _ticking, 1, 0) != 0) return;
         try
         {
             if (!_open) Reopen();
@@ -143,6 +149,10 @@ public sealed class MidiSurfaceLink : IDeviceLink
         catch (Exception ex)
         {
             Log.Warn("MIDI tick failed.", ex);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _ticking, 0);
         }
     }
 
@@ -363,7 +373,11 @@ public sealed class MidiSurfaceLink : IDeviceLink
     public void Dispose()
     {
         _disposed = true;
-        _sampler.Dispose();
+        // Wait for a tick in flight: one that is opening the port would otherwise land its
+        // handles after Close ran, and a winmm port is single-client — nothing could open it
+        // again until the process ended.
+        using var done = new ManualResetEvent(false);
+        if (_sampler.Dispose(done)) done.WaitOne(TimeSpan.FromSeconds(2));
         Close();
     }
 }

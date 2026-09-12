@@ -508,8 +508,12 @@ public sealed class SerialDeviceLink : IDeviceLink
                     foreach (var line in DeviceLines.Split(_buffer)) LineReceived?.Invoke(line);
                 }
             }
-            catch (Exception ex) when (!ct.IsCancellationRequested)
+            catch (Exception ex)
             {
+                // Dispose cancels and then closes the port under the read, which throws: that is
+                // the closing, not a fault. Left uncaught it faulted the loop's task, and the
+                // runtime's unobserved-exception sweep counted it against the health line.
+                if (ct.IsCancellationRequested) break;
                 _status = $"closed: {ex.Message} — retrying";
             }
             finally

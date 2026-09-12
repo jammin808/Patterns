@@ -11,12 +11,28 @@ namespace Patterns.Core.Services;
 public static class OverlayControl
 {
     /// <summary>on / off as asked ("on", "1", "show" / "off", "0", "hide"), else the opposite of what is (toggle, or no word).</summary>
-    public static bool SwitchTo(string value, bool current) => value.Trim().ToLowerInvariant() switch
+    public static bool SwitchTo(string value, bool current) => SwitchWord(value) switch
     {
-        "on" or "1" or "true" or "show" or "yes" => true,
-        "off" or "0" or "false" or "hide" or "no" => false,
+        "on" => true,
+        "off" => false,
         _ => !current,
     };
+
+    /// <summary>
+    /// "on", "off" or "toggle" from any of a switch's usual spellings — the one table the
+    /// executor, the checks, the wire and the cue summary read, so a word the checks accept is
+    /// a word the verb obeys, and the other way round.
+    /// </summary>
+    public static string SwitchWord(string? value) => (value ?? "").Trim().ToLowerInvariant() switch
+    {
+        "on" or "1" or "true" or "show" or "yes" => "on",
+        "off" or "0" or "false" or "hide" or "no" => "off",
+        _ => "toggle",
+    };
+
+    /// <summary>A word <see cref="SwitchWord"/> reads as anything but a bare toggle-by-default: the spellings a check accepts.</summary>
+    public static bool IsSwitchWord(string? value) => (value ?? "").Trim().ToLowerInvariant() is
+        "on" or "1" or "true" or "show" or "yes" or "off" or "0" or "false" or "hide" or "no" or "toggle" or "flip";
 
     /// <summary>"14:32:07" / "2:32 PM" — the time as the clock overlay draws it now (its hours, its seconds).</summary>
     public static string ClockText(ClockOverlay clock, DateTime localNow)

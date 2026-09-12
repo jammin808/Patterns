@@ -27,12 +27,27 @@ public sealed class MonitorTileControl : SkiaCanvasControl
         ViewportProperty.Changed.AddClassHandler<MonitorTileControl>((c, _) => c.Rebuild());
     }
 
+    /// <summary>
+    /// The viewport changed: the pipeline it has follows it, as an output window's does — its
+    /// sink state, its caches and its running crossfade all stay. Disposing and remaking the
+    /// pipeline here was the cost of every retitle (a label typed on the Screens page reaches the
+    /// tile per keystroke) and of every wall rebuild.
+    /// </summary>
     private void Rebuild()
     {
-        Pipeline?.Dispose();
-        Pipeline = null;
         var vp = Viewport;
-        if (vp is null || AppServices.Instance is null) return;
+        if (vp is null || AppServices.Instance is null)
+        {
+            Pipeline?.Dispose();
+            Pipeline = null;
+            return;
+        }
+        if (Pipeline is { } existing)
+        {
+            existing.Viewport = vp;
+            InvalidateVisual();
+            return;
+        }
         Pipeline = new RenderPipeline(AppServices.Instance.Bus, vp);
     }
 

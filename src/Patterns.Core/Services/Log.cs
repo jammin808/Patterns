@@ -45,7 +45,7 @@ public static class Log
         try
         {
             var sb = new StringBuilder()
-                .Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"))
+                .Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture))
                 .Append(" [").Append(level).Append("] ")
                 .Append(message);
             if (ex is not null) sb.Append(" :: ").Append(ex);

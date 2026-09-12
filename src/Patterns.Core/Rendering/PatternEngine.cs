@@ -522,6 +522,10 @@ public sealed class PatternEngine
             Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
             SinkIndex = 0,
             SinkLabel = f.Snapshot.Rig.LabelFor(f.Snapshot.State, targetId),
+            // A miniature, like a tile: its hairlines widen to this box's own pixels, and the test
+            // card knows it is scaled. Without it the layer read the host's scale — a 1 px line
+            // drawn at a third of a pixel, and a card claiming a 1:1 read on a picture that is not.
+            DeviceScale = f.DeviceScale * scale,
         };
         var save = canvas.Save();
         try
@@ -845,6 +849,7 @@ public sealed class PatternEngine
             Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
             SinkIndex = 0,
             SinkLabel = "PREVIEW",
+            DeviceScale = f.DeviceScale * scale,   // a miniature: see DrawLayerScreen
         };
         var save = canvas.Save();
         try

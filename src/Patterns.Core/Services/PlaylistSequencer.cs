@@ -66,22 +66,22 @@ public sealed class PlaylistSequencer
         return true;
     }
 
-    public static bool IsVideoPath(string path)
-        => VideoExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+    public static bool IsVideoPath(string? path)
+        => VideoExtensions.Contains(System.IO.Path.GetExtension(path ?? "").ToLowerInvariant());
 
-    public static bool IsAudioPath(string path)
-        => AudioExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+    public static bool IsAudioPath(string? path)
+        => AudioExtensions.Contains(System.IO.Path.GetExtension(path ?? "").ToLowerInvariant());
 
     /// <summary>Media that needs the libVLC decoder and plays to a natural end (video or audio).</summary>
     public static bool IsDecodedPath(string path) => IsVideoPath(path) || IsAudioPath(path);
 
     /// <summary>A deck: a PDF — or a PowerPoint, Keynote or Impress file — shown a page at a time.</summary>
-    public static bool IsDeckPath(string path)
-        => DeckExtensions.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+    public static bool IsDeckPath(string? path)
+        => DeckExtensions.Contains(System.IO.Path.GetExtension(path ?? "").ToLowerInvariant());
 
-    public static bool IsMediaPath(string path)
+    public static bool IsMediaPath(string? path)
     {
-        var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+        var ext = System.IO.Path.GetExtension(path ?? "").ToLowerInvariant();
         return ImageExtensions.Contains(ext) || VideoExtensions.Contains(ext) || AudioExtensions.Contains(ext);
     }
 

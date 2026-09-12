@@ -78,26 +78,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     private long _lastFrameUtcTicks;
     private volatile bool _createFailed;
 
-    private static readonly object RetiredGate = new();
-    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Retired = new();
-    private static readonly TimeSpan RetireHold = TimeSpan.FromSeconds(2);
-
-    private static void RetireImage(SKImage? image)
-    {
-        lock (RetiredGate)
-        {
-            if (image is not null) Retired.Add((image, DateTime.UtcNow));
-            var cutoff = DateTime.UtcNow - RetireHold;
-            for (var i = Retired.Count - 1; i >= 0; i--)
-            {
-                if (Retired[i].RetiredUtc < cutoff)
-                {
-                    Retired[i].Image.Dispose();
-                    Retired.RemoveAt(i);
-                }
-            }
-        }
-    }
+    private static void RetireImage(SKImage? image) => Media.RetiredFrames.Retire(image);
 
     public NdiReceiver(string sourceName)
     {

@@ -196,19 +196,23 @@ public static class LowerThirdRenderer
     /// <summary>The words a text element shows.</summary>
     public static string TextOf(LowerThirdElement e, LowerThirdDesign d, DateTime now, string brandCompany)
     {
-        var date = d.DateText.Length > 0 ? d.DateText : now.ToString("ddd d MMM yyyy");
-        var time = d.TimeText.Length > 0 ? d.TimeText : now.ToString("HH:mm");
+        // Formatted only by the element that shows it: this runs for every text element on every
+        // frame the lower third is on air, and a name has no date in it.
         return e.TextKind switch
         {
             LowerThirdTextKind.Name => d.PersonName,
             LowerThirdTextKind.Role => d.PersonRole,
             LowerThirdTextKind.Company => d.Company.Length > 0 ? d.Company : brandCompany,
-            LowerThirdTextKind.Date => date,
-            LowerThirdTextKind.Time => time,
-            LowerThirdTextKind.DateAndTime => $"{date} · {time}",
+            LowerThirdTextKind.Date => DateOf(d, now),
+            LowerThirdTextKind.Time => TimeOf(d, now),
+            LowerThirdTextKind.DateAndTime => $"{DateOf(d, now)} · {TimeOf(d, now)}",
             _ => e.Text,
         };
     }
+
+    private static string DateOf(LowerThirdDesign d, DateTime now) => d.DateText.Length > 0 ? d.DateText : now.ToString("ddd d MMM yyyy");
+
+    private static string TimeOf(LowerThirdDesign d, DateTime now) => d.TimeText.Length > 0 ? d.TimeText : now.ToString("HH:mm");
 
     /// <summary>A colour word (primary, secondary, accent, text, background) from the brand kit, or a hex colour.</summary>
     public static SKColor ColorOf(in PatternFrame f, string value, SKColor fallback)

@@ -90,23 +90,36 @@ public sealed class SettingsStore
     {
         foreach (var candidate in new[] { path, path + ".bak" })
         {
+            ShowState? state;
             try
             {
                 if (!File.Exists(candidate)) continue;
-                var state = JsonUtil.Deserialize<ShowState>(File.ReadAllText(candidate));
-                if (state is not null)
-                {
-                    LastLoadMigrated = state.SchemaVersion < ShowState.CurrentSchemaVersion;
-                    Migrate(state);
-                    if (state.Name.Length == 0) state.Name = ShowNameFor(path);
-                    return state;
-                }
+                state = JsonUtil.Deserialize<ShowState>(File.ReadAllText(candidate));
             }
             catch (Exception ex)
             {
                 Log.Warn($"Settings file '{candidate}' unreadable — quarantining.", ex);
                 Quarantine(candidate);
+                continue;
             }
+            if (state is null) continue;
+
+            // The file read: it is the show now, whatever the upgrade makes of it. A migration that
+            // throws on one odd row used to quarantine the whole file and boot the save before it —
+            // the operator's latest edits gone for a hand-typed entry. It is logged and the show
+            // keeps its old schema number, so the upgrade is tried again at the next start.
+            LastLoadMigrated = state.SchemaVersion < ShowState.CurrentSchemaVersion;
+            try
+            {
+                Migrate(state);
+            }
+            catch (Exception ex)
+            {
+                LastLoadMigrated = false;
+                Log.Error($"Settings file '{candidate}' loaded but its upgrade failed — running it as read.", ex);
+            }
+            if (state.Name.Length == 0) state.Name = ShowNameFor(path);
+            return state;
         }
         return null;
     }
@@ -359,7 +372,7 @@ public sealed class SettingsStore
         {
             if (File.Exists(path))
             {
-                File.Move(path, $"{path}.corrupt-{DateTime.Now:yyyyMMdd-HHmmss}", overwrite: true);
+                File.Move(path, $"{path}.corrupt-{DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture)}", overwrite: true);
             }
         }
         catch
@@ -370,27 +383,47 @@ public sealed class SettingsStore
 
     // ---- Pattern presets ----------------------------------------------------
 
+    private IReadOnlyList<(string Name, string Path)>? _presets;
+    private long _presetsReadAt;
+
+    /// <summary>How long a listing of the presets folder is trusted: a file copied in by hand still appears within this.</summary>
+    public static readonly TimeSpan PresetsListingHold = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// The presets folder, read at most every <see cref="PresetsListingHold"/> and at once after
+    /// this store writes or removes one. The desk's tally asked for the list every second and after
+    /// every action, on the UI thread — a directory read a second, on a USB stick or a share.
+    /// </summary>
     public IReadOnlyList<(string Name, string Path)> ListPresets()
     {
+        var now = Environment.TickCount64;
+        if (_presets is { } cached && now - _presetsReadAt < PresetsListingHold.TotalMilliseconds) return cached;
         try
         {
-            if (!Directory.Exists(PresetsDirectory)) return Array.Empty<(string, string)>();
-            return Directory.EnumerateFiles(PresetsDirectory, "*.json")
-                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
-                .Select(p => (Path.GetFileNameWithoutExtension(p), p))
-                .ToList();
+            _presets = !Directory.Exists(PresetsDirectory)
+                ? Array.Empty<(string, string)>()
+                : Directory.EnumerateFiles(PresetsDirectory, "*.json")
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                    .Select(p => (Path.GetFileNameWithoutExtension(p), p))
+                    .ToList();
         }
         catch (Exception ex)
         {
             Log.Warn("Could not list presets.", ex);
-            return Array.Empty<(string, string)>();
+            _presets = Array.Empty<(string, string)>();
         }
+        _presetsReadAt = now;
+        return _presets;
     }
+
+    /// <summary>The next listing reads the folder again — after a write, or a test that put a file there by hand.</summary>
+    public void ForgetPresetListing() => _presets = null;
 
     public void SavePreset(string name, PatternConfig pattern)
     {
         var safe = Sanitize(name);
         WriteAtomic(Path.Combine(PresetsDirectory, safe + ".json"), JsonUtil.Serialize(pattern));
+        ForgetPresetListing();
     }
 
     public PatternConfig? LoadPreset(string path)
@@ -437,6 +470,7 @@ public sealed class SettingsStore
             try
             {
                 File.Delete(path);
+                ForgetPresetListing();
                 return true;
             }
             catch (Exception ex)

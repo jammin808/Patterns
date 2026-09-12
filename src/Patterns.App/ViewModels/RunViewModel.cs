@@ -48,7 +48,6 @@ public sealed class RunRow : Observable
     public bool HasNotes => Cue.Notes.Length > 0;
     public bool Enabled => Cue.Enabled;
     public bool RequireConfirm => Cue.RequireConfirm;
-    public bool NotReady => !Cue.Ready;
 
     public bool IsStandby { get => _isStandby; set { if (Set(ref _isStandby, value)) Raise(nameof(Tag)); } }
     public bool IsLast { get => _isLast; set { if (Set(ref _isLast, value)) Raise(nameof(Tag)); } }

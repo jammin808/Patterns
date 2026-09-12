@@ -156,7 +156,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         bool isLocked = false, string roleBadge = "", string mirrorNote = "", bool isCollapsed = false, string kindWord = "")
     {
         _vm = vm;
-        Title = title;
+        _title = title;
         TargetId = targetId;
         MemberIds = memberIds;
         Size = size;
@@ -290,8 +290,21 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         private set => Set(ref _canSend, value);
     }
 
-    /// <summary>"PGM", "A · Main wall" or "2 · Stage left".</summary>
-    public string Title { get; }
+    private string _title;
+
+    /// <summary>"PGM", "A · Main wall" or "2 · Stage left". Follows a label typed on the Screens page without the wall being rebuilt.</summary>
+    public string Title
+    {
+        get => _title;
+        set
+        {
+            if (!Set(ref _title, value)) return;
+            PgmViewport = PgmViewport with { Label = value };
+            PvwViewport = PvwViewport with { Label = value };
+            Raise(nameof(PgmViewport));
+            Raise(nameof(PvwViewport));
+        }
+    }
 
     /// <summary>The content target this tile stands for: a screen id, a canvas key (a+b), or null for the program.</summary>
     public string? TargetId { get; }
@@ -309,10 +322,10 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     public string SizeText => $"{Size.Width}×{Size.Height}";
 
     /// <summary>What is on air for this target (never the sandbox).</summary>
-    public Patterns.App.Rendering.PipelineViewport PgmViewport { get; }
+    public Patterns.App.Rendering.PipelineViewport PgmViewport { get; private set; }
 
     /// <summary>What the next TAKE would put there (the sandbox while it is open, else the same as PGM).</summary>
-    public Patterns.App.Rendering.PipelineViewport PvwViewport { get; }
+    public Patterns.App.Rendering.PipelineViewport PvwViewport { get; private set; }
 
     /// <summary>Screen this tile edits when clicked; null = the program.</summary>
     public string? EditScreenId => IsOwn ? TargetId : null;
@@ -491,11 +504,7 @@ public sealed record EnumItem(object Value, string Label)
 }
 
 /// <summary>One line of the Install page's day: "09:00–17:00 · PROGRAMME · Daytime · look Daytime · NOW".</summary>
-public sealed record InstallRow(string TimeText, string KindText, string Name, string Detail, string State)
-{
-    public bool IsNow => State == "NOW";
-    public bool IsPast => State == "done";
-}
+public sealed record InstallRow(string TimeText, string KindText, string Name, string Detail, string State);
 
 /// <summary>One advisor line on the Admin tab, with its severity colour resolved.</summary>
 public sealed record SuggestionRow(string Title, string Detail, Avalonia.Media.IBrush Dot);

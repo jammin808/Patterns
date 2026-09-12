@@ -135,10 +135,13 @@ public class DeskPollTests
         try
         {
             var vm = b.Vm;
-            Assert.Equal("", vm.DeskTickText);
-            for (var i = 0; i < 6; i++) vm.PollNow();
             var budget = b.Services.DeskTick;
-            Assert.Equal(6, budget.Ticks);
+            // The desk's own timer ticks once a second from the moment the desk is built, so a slow
+            // (cold) boot may have ticked before the test looks: the text is empty only until the first tick.
+            var ticked = budget.Ticks;
+            if (ticked == 0) Assert.Equal("", vm.DeskTickText);
+            for (var i = 0; i < 6; i++) vm.PollNow();
+            Assert.Equal(ticked + 6, budget.Ticks);
             Assert.True(budget.WorstMs >= 0 && budget.AverageMs >= 0);
             Assert.NotEqual("", budget.WorstArea);
             Assert.StartsWith("Desk tick ", vm.DeskTickText);
@@ -149,11 +152,12 @@ public class DeskPollTests
             Assert.Equal(budget.WorstArea, facts.DeskTickWorstArea);
             Assert.Contains("desk tick worst", HealthDashboard.Tiles(facts).Single(t => t.Id == "render").Detail);
 
+            var worstArea = budget.WorstArea;                             // the rows are built now; the pump below may tick again
             vm.RunSuperCheck();
             Dispatcher.UIThread.RunJobs();
             var row = vm.SuperCheckRows.Single(r => r.Item == "Desk tick");
             Assert.Contains("worst", row.Value);
-            Assert.Contains($"({budget.WorstArea})", row.Value);
+            Assert.Contains($"({worstArea})", row.Value);
         }
         finally
         {

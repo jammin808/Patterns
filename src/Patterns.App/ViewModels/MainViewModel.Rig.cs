@@ -731,7 +731,7 @@ public sealed partial class MainViewModel
             if (_selectedPlacement is { } p && p.CustomLabel != value)
             {
                 p.CustomLabel = value;
-                RebuildEditTargets(); // labels ripple into the strip, targets and remotes
+                RefreshTargetNames(); // labels ripple into the strip, targets and remotes — in place, per keystroke
             }
         }
     }
@@ -766,9 +766,59 @@ public sealed partial class MainViewModel
             if (entry.Name != value)
             {
                 entry.Name = value;
-                RebuildSwitcherTiles();
+                RefreshTargetNames();
             }
         }
+    }
+
+    /// <summary>
+    /// A screen's label or a canvas's name was typed: every tile and edit target that names it
+    /// takes the new words in place. This runs on every keystroke, and rebuilding the wall here —
+    /// every tile a new object, every PGM and PVW pane a new render pipeline — was a wall that
+    /// re-mounted itself under the pointer for each letter typed.
+    /// </summary>
+    private void RefreshTargetNames()
+    {
+        var geo = Rig.Geometry(State, _services.Screens.All);
+        foreach (var tile in SwitcherTiles)
+        {
+            if (tile.TargetId is { } target) tile.Title = geo.LabelFor(State, target);
+        }
+        var groups = CanvasGroups();
+        for (var i = 0; i < EditTargets.Count; i++)
+        {
+            var t = EditTargets[i];
+            if (t.ScreenId is not { } id) continue;
+            string label;
+            if (ContentTargets.IsCanvasKey(id))
+            {
+                var at = groups.FindIndex(g => CanvasNameConfig.KeyFor(g.Select(m => m.ScreenId)) == id);
+                if (at < 0) continue;
+                var letter = ((char)('A' + at)).ToString();
+                label = $"Canvas {letter} — {CanvasNameFor(groups[at], letter)}";
+            }
+            else
+            {
+                var p = State.Output.Placements.FirstOrDefault(x => x.ScreenId == id);
+                var info = p is null ? null : LiveInfo(p);
+                if (p is null || info is null) continue;
+                label = $"Screen {info.Index + 1} — {LabelFor(p, info)}";
+            }
+            if (t.Label == label) continue;
+            var renamed = new EditTarget(label, id);
+            EditTargets[i] = renamed;
+            if (_editTarget?.ScreenId == id)
+            {
+                // The picker's own instance: re-published so the two-way binding finds it in the
+                // list (the setter refuses the null a replaced item briefly leaves behind).
+                _editTarget = renamed;
+                Raise(nameof(EditTarget));
+                Raise(nameof(EditTargetBanner));
+            }
+        }
+        Raise(nameof(SelectedScreenTitle));
+        var selected = SwitcherTiles.FirstOrDefault(t => t.TargetId == _selectedTargetId);
+        SelectedTargetLabel = selected is null || selected.IsProgramTile ? "PGM" : selected.Title;
     }
 
     /// <summary>Nickname for the live input currently picked in Media (NDI feed or capture).</summary>

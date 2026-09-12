@@ -118,7 +118,6 @@ public class OutputTakeoverAppTests
             Assert.Equal(OutputClaim.HeldByHungDesk, result.Claim);
             Assert.True(result.TookOver);
             Assert.True(result.EndedOwner);
-            Assert.True(result.ScreensWereLive);
             Assert.Equal(new[] { 4242 }, probe.Killed);
             Assert.Contains("2 screens (Main wall, Foyer)", result.Words);
             // Both sidecars are cleared: this desk owns nothing until its own outputs open.

@@ -107,9 +107,11 @@ public static class CueSheet
             var follow = table.Get(r, FollowHeaders);
             if (follow.Length > 0)
             {
-                if (IsYes(follow) || follow == "0") cue.FollowSeconds = 0;
+                // A number is a delay before a word is a yes: the export writes the seconds bare, and
+                // "1" used to read back as "yes" — a one-second follow became a follow at once.
+                if (CueTiming.ParseDuration(follow) is { } seconds) cue.FollowSeconds = seconds;
+                else if (IsYes(follow)) cue.FollowSeconds = 0;
                 else if (IsNo(follow)) cue.FollowSeconds = null;
-                else if (CueTiming.ParseDuration(follow) is { } seconds) cue.FollowSeconds = seconds;
                 else result.Notes.Add($"Row {rowNo}: follow '{follow}' is not yes, no, or a delay (use 0, 5 s or 1:30).");
             }
             if (hasMarkColumn)

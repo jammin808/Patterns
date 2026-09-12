@@ -97,12 +97,7 @@ public static class ControlProtocol
     }
 
     /// <summary>"on" / "off" / "toggle" from ON / SHOW / 1 / TRUE, OFF / HIDE / 0 / FALSE, or nothing (a bare verb toggles).</summary>
-    public static string SwitchWord(string text) => text.Trim().ToUpperInvariant() switch
-    {
-        "ON" or "SHOW" or "1" or "TRUE" or "YES" => "on",
-        "OFF" or "HIDE" or "0" or "FALSE" or "NO" => "off",
-        _ => "toggle",
-    };
+    public static string SwitchWord(string text) => OverlayControl.SwitchWord(text);
 
     /// <summary>"5", "2.5", "2:30" (minutes:seconds), "90s", "5m", "5 min": minutes as a decimal; false for words, nothing, zero or over a day.</summary>
     public static bool TryParseMinutes(string text, out double minutes)

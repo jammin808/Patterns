@@ -148,14 +148,10 @@ public static class DeckInput
 /// <summary>
 /// The newest frame of a live source: published from any thread, drawn from any render thread.
 /// A replaced frame is kept for a moment before it is disposed, so a draw in flight never touches
-/// a dead image — the same discipline the NDI receiver keeps.
+/// a dead image — the one discipline every source keeps (<see cref="RetiredFrames"/>).
 /// </summary>
 public sealed class FrameSlot : IDisposable
 {
-    private static readonly object RetiredGate = new();
-    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Retired = new();
-    public static readonly TimeSpan RetireHold = TimeSpan.FromSeconds(2);
-
     private readonly object _gate = new();
     private SKImage? _latest;
     private long _publishedUtcTicks;
@@ -224,22 +220,7 @@ public sealed class FrameSlot : IDisposable
         }
     }
 
-    private static void Retire(SKImage? image)
-    {
-        lock (RetiredGate)
-        {
-            if (image is not null) Retired.Add((image, DateTime.UtcNow));
-            var cutoff = DateTime.UtcNow - RetireHold;
-            for (var i = Retired.Count - 1; i >= 0; i--)
-            {
-                if (Retired[i].RetiredUtc < cutoff)
-                {
-                    Retired[i].Image.Dispose();
-                    Retired.RemoveAt(i);
-                }
-            }
-        }
-    }
+    private static void Retire(SKImage? image) => RetiredFrames.Retire(image);
 }
 
 /// <summary>Canonical mount keys — the same "ndi:"/"cap:"/"web:" scheme the operator input labels use.</summary>

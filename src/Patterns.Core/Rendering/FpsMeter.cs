@@ -34,13 +34,4 @@ public sealed class FpsMeter
         }
         _lastTime = timeSeconds;
     }
-
-    public void Reset()
-    {
-        _filled = 0;
-        _next = 0;
-        _lastTime = double.NaN;
-        Fps = 0;
-        WorstMs = 0;
-    }
 }

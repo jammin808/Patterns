@@ -45,7 +45,6 @@ public sealed class BeaconService : IDisposable
     public long Sent => Interlocked.Read(ref _sent);
     public long Heard => Interlocked.Read(ref _heard);
     public Beacon? LastBeacon => _last;
-    public DateTime? LastSeenUtc => _lastSeenUtc;
 
     /// <summary>How this machine names itself.</summary>
     public string MachineName => _services.State.Watchdog.BeaconName.Length > 0 ? _services.State.Watchdog.BeaconName : Environment.MachineName;
@@ -116,6 +115,7 @@ public sealed class BeaconService : IDisposable
             _target = new IPEndPoint(address, port);
             return $"beacon to {address}:{port} as {MachineName}";
         }
+        var sender = _sender; // the lookup belongs to this socket; an answer for a host since changed is thrown away
         _ = Task.Run(() =>
         {
             IPAddress? pick = null;
@@ -130,7 +130,7 @@ public sealed class BeaconService : IDisposable
             }
             Dispatcher.UIThread.Post(() =>
             {
-                if (_sender is null) return;
+                if (_sender is null || !ReferenceEquals(_sender, sender)) return;
                 if (pick is null)
                 {
                     _status = $"beacon host '{host}' not found — nothing goes out.";

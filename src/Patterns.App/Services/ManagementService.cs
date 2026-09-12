@@ -24,7 +24,7 @@ public sealed class ManagementService : IDisposable
     private int _busy;
     private volatile string _status = "No management URL — the site does not check in.";
     private long _checkIns;
-    private long _commandsRun;
+    private long _lastOkTicks;
 
     public ManagementService(AppServices services)
     {
@@ -33,9 +33,9 @@ public sealed class ManagementService : IDisposable
     }
 
     public string Status => _status;
-    public DateTime? LastOkUtc { get; private set; }
+    /// <summary>When the site last checked in and was answered; set on the check-in's own thread, read by the page.</summary>
+    public DateTime? LastOkUtc => Interlocked.Read(ref _lastOkTicks) is var t && t != 0 ? new DateTime(t, DateTimeKind.Utc) : null;
     public long CheckIns => Interlocked.Read(ref _checkIns);
-    public long CommandsRun => Interlocked.Read(ref _commandsRun);
 
     /// <summary>The 1 s poll: a check-in when the interval has passed (UI thread).</summary>
     public void Tick(DateTime utcNow)
@@ -87,13 +87,14 @@ public sealed class ManagementService : IDisposable
 
     private async Task RunCheckInAsync()
     {
-        var cfg = _s.State.Install;
-        var url = cfg.ManagementUrl;
-        var token = cfg.ManagementToken;
+        // Everything read from the show is read on the UI thread, where the show lives.
+        var (url, token, site, health, state) = await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var cfg = _s.State.Install;
+            return (cfg.ManagementUrl, cfg.ManagementToken,
+                cfg.SiteName.Length > 0 ? cfg.SiteName : Environment.MachineName, HealthMonitor.Summary(DateTime.UtcNow), _router.StateJson());
+        });
         if (url.Length == 0 || CheckIn.ProblemWithUrl(url) is not null) return;
-
-        var (site, health, state) = await Dispatcher.UIThread.InvokeAsync(() =>
-            (cfg.SiteName.Length > 0 ? cfg.SiteName : Environment.MachineName, HealthMonitor.Summary(DateTime.UtcNow), _router.StateJson()));
         var payload = CheckIn.Payload(site, UpdateService.RunningVersion, Environment.MachineName, health, state, DateTime.UtcNow);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
@@ -106,7 +107,7 @@ public sealed class ManagementService : IDisposable
             return;
         }
         Interlocked.Increment(ref _checkIns);
-        LastOkUtc = DateTime.UtcNow;
+        Interlocked.Exchange(ref _lastOkTicks, DateTime.UtcNow.Ticks);
         var reply = CheckIn.Parse(body, token);
         if (reply.Problem.Length > 0)
         {
@@ -119,7 +120,6 @@ public sealed class ManagementService : IDisposable
         foreach (var line in reply.Commands)
         {
             var answer = await _router.ExecuteAsync(ControlProtocol.Parse(line), origin);
-            Interlocked.Increment(ref _commandsRun);
             if (!answer.StartsWith("OK", StringComparison.Ordinal)) notes.Add($"{line} → {answer}");
         }
         if (reply.Update is { } update)
@@ -133,7 +133,7 @@ public sealed class ManagementService : IDisposable
         }
         else if (reply.Restart)
         {
-            var result = await Dispatcher.UIThread.InvokeAsync(() => _s.Actions.Execute(new ShowAction(ShowActionKind.Restart, cfg.AdminPasscode), origin));
+            var result = await Dispatcher.UIThread.InvokeAsync(() => _s.Actions.Execute(new ShowAction(ShowActionKind.Restart, _s.State.Install.AdminPasscode), origin));
             notes.Add($"restart: {result.Message}");
         }
         var summary = reply.Commands.Count == 0 ? "nothing to do" : $"{reply.Commands.Count} command{(reply.Commands.Count == 1 ? "" : "s")}";

@@ -135,6 +135,7 @@ public sealed class OscService : IDisposable
             MarkChanged(); // the first state goes out at once
             return $"feedback to {address}:{port}";
         }
+        var socket = _udp; // the lookup belongs to this socket: a later Reconcile has another, and an old answer must not redirect it
         _ = Task.Run(() =>
         {
             try
@@ -143,7 +144,7 @@ public sealed class OscService : IDisposable
                 var pick = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork) ?? addresses.FirstOrDefault();
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (_udp is null) return; // stopped meanwhile
+                    if (_udp is null || !ReferenceEquals(_udp, socket)) return; // stopped, or reconfigured, meanwhile
                     if (pick is null)
                     {
                         _status = $"OSC in on port {inPort} · feedback host '{host}' not found.";
@@ -156,7 +157,7 @@ public sealed class OscService : IDisposable
             }
             catch (Exception ex)
             {
-                Dispatcher.UIThread.Post(() => { if (_udp is not null) _status = $"OSC in on port {inPort} · feedback host '{host}' not found ({ex.Message})."; });
+                Dispatcher.UIThread.Post(() => { if (_udp is not null && ReferenceEquals(_udp, socket)) _status = $"OSC in on port {inPort} · feedback host '{host}' not found ({ex.Message})."; });
             }
         });
         return $"looking up feedback host '{host}'";

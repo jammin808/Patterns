@@ -39,9 +39,6 @@ public sealed class ShowLog
 
     public string Path { get; }
 
-    /// <summary>Raised on the recording thread after a line is appended (UI thread in the app).</summary>
-    public event Action<ShowLogEntry>? Recorded;
-
     public void Record(ShowLogEntry entry)
     {
         try
@@ -56,7 +53,6 @@ public sealed class ShowLog
         {
             Log.Warn("Show log write failed.", ex);
         }
-        Recorded?.Invoke(entry);
     }
 
     public void Record(string origin, string kind, string target, string outcome, string message = "")

@@ -724,17 +724,6 @@ public sealed class LayerConfig : Observable
     public bool Mute { get => _mute; set => Set(ref _mute, value); }
     public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
 
-    /// <summary>Something is chosen for the source (a path, a name, a target).</summary>
-    [JsonIgnore]
-    public bool HasSource => _source switch
-    {
-        LayerSource.Image => _imagePath.Length > 0,
-        LayerSource.Video => _videoPath.Length > 0,
-        LayerSource.NdiFeed => _ndiSourceName.Length > 0,
-        LayerSource.Capture => _captureDevice.Length > 0,
-        LayerSource.Web => _webUrl.Length > 0,
-        _ => _targetId.Length > 0,
-    };
 }
 
 /// <summary>Everything that describes what is drawn on the canvas (minus overlays).</summary>

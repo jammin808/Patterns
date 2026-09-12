@@ -126,7 +126,7 @@ public static class FeedParser
         return events
             .Where(e => e.Start >= localNow.AddHours(-1) && e.Start <= localNow.AddHours(24))
             .OrderBy(e => e.Start)
-            .Select(e => $"{e.Start:HH:mm}  {e.Summary}")
+            .Select(e => $"{e.Start.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)}  {e.Summary}")
             .ToList();
     }
 
@@ -141,7 +141,9 @@ public static class FeedParser
         string[] formats = { "yyyyMMdd'T'HHmmss", "yyyyMMdd'T'HHmm", "yyyyMMdd" };
         foreach (var f in formats)
         {
-            if (DateTime.TryParseExact(s, f, null, System.Globalization.DateTimeStyles.None, out var dt))
+            // Invariant on purpose: an ICS date is Gregorian by definition, and a null provider reads
+            // it in the machine's own calendar — Buddhist Thai Windows put every event five centuries out.
+            if (DateTime.TryParseExact(s, f, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
             {
                 result = utc ? DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToLocalTime() : dt;
                 return true;

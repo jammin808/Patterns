@@ -78,9 +78,6 @@ public sealed record TakeoverResult(
     string Words)
 {
     public static readonly TakeoverResult None = new(OutputClaim.Free, null, false, false, "");
-
-    /// <summary>The previous run was playing on real screens when this one started.</summary>
-    public bool ScreensWereLive => TookOver;
 }
 
 /// <summary>

@@ -81,8 +81,6 @@ public static class Shell
     /// <summary>The page that is the Run layout: selecting it takes the whole window.</summary>
     public const int RunPage = 1;
 
-    public static ShellGroup GroupOf(int index) => Pages[index].Group;
-
     public static int FirstPage(ShellGroup group) => Pages.First(p => p.Group == group).Index;
 
     public static int IndexOf(string header) => Pages.First(p => p.Header == header).Index;

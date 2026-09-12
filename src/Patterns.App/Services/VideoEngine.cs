@@ -498,42 +498,13 @@ public sealed class VlcFrameSource : IMountedSource
 
     // Frames handed to render sinks may be recorded into GPU-deferred canvases that read the
     // pixels at flush time — so each decoded frame becomes its own immutable SKImage, and
-    // superseded frames are retired for a grace period instead of disposed immediately.
-    // Static so a successor source still sweeps a disposed predecessor's leftovers.
-    private static readonly object RetiredGate = new();
-    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Retired = new();
-    // Long enough to outlive any deferred GPU flush, short enough that several decoders'
-    // retired frames never add up: a 2 s hold across four 1080p sources is gigabytes.
-    private static readonly TimeSpan RetireHold = TimeSpan.FromMilliseconds(400);
+    // superseded frames are retired for a grace period instead of disposed immediately, in the
+    // one pool every live source shares (RetiredFrames: a short hold and a cap on the count).
 
-    /// <summary>Decoded frames held for a fade right now, across every source: the memory ceilings' number.</summary>
-    public static int RetiredImageCount
-    {
-        get
-        {
-            lock (RetiredGate)
-            {
-                return Retired.Count;
-            }
-        }
-    }
+    /// <summary>Frames held for a fade right now, across every live source: the memory ceilings' number.</summary>
+    public static int RetiredImageCount => RetiredFrames.Count;
 
-    private static void RetireImage(SKImage? image)
-    {
-        lock (RetiredGate)
-        {
-            if (image is not null) Retired.Add((image, DateTime.UtcNow));
-            var cutoff = DateTime.UtcNow - RetireHold;
-            for (var i = Retired.Count - 1; i >= 0; i--)
-            {
-                if (Retired[i].RetiredUtc < cutoff)
-                {
-                    Retired[i].Image.Dispose();
-                    Retired.RemoveAt(i);
-                }
-            }
-        }
-    }
+    private static void RetireImage(SKImage? image) => RetiredFrames.Retire(image);
 
     /// <summary>
     /// Media options for a DirectShow capture device. A chosen mode ("1920x1080@60") asks the

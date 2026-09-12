@@ -421,9 +421,11 @@ public sealed class AudioPlayerService : IDisposable
         using var enumerator = new MMDeviceEnumerator();
         foreach (var device in ResolveDevices(enumerator, deviceNames))
         {
+            AudioFileReader? reader = null;
+            WasapiOut? output = null;
             try
             {
-                var reader = new AudioFileReader(path);
+                reader = new AudioFileReader(path);
                 IWaveProvider source = loop ? new LoopingWaveStream(reader) : reader;
                 // The chain: the file → the sample-rate converter that locks this device to the
                 // master clock → its lip-sync delay → the device.
@@ -431,7 +433,7 @@ public sealed class AudioPlayerService : IDisposable
                 var key = DelayKeyFor(device, deviceNames);
                 var delayMs = delayFor(key);
                 ISampleProvider tail = delayMs > 0 ? new DelaySampleProvider(asrc, delayMs) : asrc;
-                var output = new WasapiOut(device, AudioClientShareMode.Shared, true, 200);
+                output = new WasapiOut(device, AudioClientShareMode.Shared, true, 200);
                 output.Init(new SampleToWaveProvider(tail));
                 output.PlaybackStopped += (_, _) => OnPlaybackStopped();
                 output.Play();
@@ -440,6 +442,9 @@ public sealed class AudioPlayerService : IDisposable
             catch (Exception ex)
             {
                 Log.Warn($"Audio start failed on '{device.FriendlyName}'.", ex);
+                // The half-built chain goes with the device: an open reader held the file locked.
+                try { output?.Dispose(); } catch { /* never opened */ }
+                try { reader?.Dispose(); } catch { /* already gone */ }
                 device.Dispose();
             }
         }

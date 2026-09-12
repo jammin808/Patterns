@@ -20,9 +20,6 @@ public sealed class SinkState : IDisposable
     /// <summary>This sink's particle sims, one per field it draws (a crossfade, a monitor wall and a layer each draw another).</summary>
     public ParticleSimCache ParticleSims { get; } = new();
 
-    /// <summary>The particle sim drawn most recently on this sink, if any.</summary>
-    public ParticleSim? Particles => ParticleSims.Latest;
-
     /// <summary>Checkerboard shader cache (rebuilt only when colours/cell change).</summary>
     public Patterns.CheckerShaderCache Checker { get; } = new();
 
