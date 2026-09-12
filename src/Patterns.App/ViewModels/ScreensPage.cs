@@ -43,10 +43,12 @@ public sealed class ScreensPage : Observable
                 placement.WarpBrx = 0; placement.WarpBry = 0;
                 placement.WarpTopBow = 0; placement.WarpRightBow = 0;
                 placement.WarpBottomBow = 0; placement.WarpLeftBow = 0;
+                placement.WarpMesh = "";
             });
             RaiseSelection();
         });
         ArrangeBlendGridCommand = new RelayCommand(ArrangeBlendGrid);
+        ResetMeshCommand = new RelayCommand(ResetMesh);
         ResetBlendCommand = new RelayCommand(ResetBlend);
         ResetTrimsCommand = new RelayCommand(() =>
         {
@@ -97,6 +99,70 @@ public sealed class ScreensPage : Observable
     }
 
     public bool HasSelection => _selectedPlacement is not null && _desk.LiveInfo(_selectedPlacement) is not null;
+
+    // ---- the mesh warp --------------------------------------------------------------------
+
+    private int _meshSelectedIndex = -1;
+    private bool _showLatticeOnOutput;
+
+    /// <summary>The lattice's point picked in the editor (-1 = none); the projector rings it while the lattice is shown there.</summary>
+    public int MeshSelectedIndex
+    {
+        get => _meshSelectedIndex;
+        set
+        {
+            if (!Set(ref _meshSelectedIndex, value)) return;
+            Raise(nameof(MeshDescription));
+            if (_showLatticeOnOutput && _selectedPlacement is { } p) _services.RigEditor.ShowLattice(p.ScreenId, value);
+        }
+    }
+
+    /// <summary>"point 3,2 of 5×5 — pulled 12 px right, 4 px up", or how to begin.</summary>
+    public string MeshDescription => _selectedPlacement is { } p
+        ? WarpGrid.Describe(_meshSelectedIndex, p.WarpMeshColumns, p.WarpMeshRows, WarpGrid.Parse(p.WarpMesh, p.WarpMeshColumns, p.WarpMeshRows))
+        : "";
+
+    public int[] MeshDensityOptions => WarpGrid.Densities;
+
+    /// <summary>The lattice's density (square); the mesh is resampled to keep its shape.</summary>
+    public int SelectedMeshDensity
+    {
+        get => _selectedPlacement?.WarpMeshColumns ?? 5;
+        set
+        {
+            if (_selectedPlacement is not { } p || value == p.WarpMeshColumns && value == p.WarpMeshRows) return;
+            _services.RigEditor.SetMeshDensity(p, value, value);
+            MeshSelectedIndex = -1;
+            RaiseMesh();
+        }
+    }
+
+    /// <summary>The lattice drawn over the picture on the projector, so the walk-up sees which point is which.</summary>
+    public bool ShowLatticeOnOutput
+    {
+        get => _showLatticeOnOutput;
+        set
+        {
+            if (!Set(ref _showLatticeOnOutput, value)) return;
+            _services.RigEditor.ShowLattice(value && _selectedPlacement is { } p ? p.ScreenId : "", value ? _meshSelectedIndex : -1);
+        }
+    }
+
+    /// <summary>Every point back to rest.</summary>
+    public void ResetMesh()
+    {
+        if (_selectedPlacement is not { } p) return;
+        _services.BulkEdit(() => p.WarpMesh = "");
+        MeshSelectedIndex = -1;
+        RaiseMesh();
+    }
+
+    /// <summary>The mesh changed under the page (a pull, a nudge, a density): the words and the pickers follow.</summary>
+    public void RaiseMesh()
+    {
+        Raise(nameof(MeshDescription));
+        Raise(nameof(SelectedMeshDensity));
+    }
 
     public string SelectedScreenTitle
     {
@@ -506,6 +572,7 @@ public sealed class ScreensPage : Observable
 
     public RelayCommand ResetWarpCommand { get; }
     public RelayCommand ArrangeBlendGridCommand { get; }
+    public RelayCommand ResetMeshCommand { get; }
     public RelayCommand ResetBlendCommand { get; }
     public RelayCommand ResetTrimsCommand { get; }
 
@@ -849,6 +916,11 @@ public sealed class ScreensPage : Observable
     public void RaiseSelection()
     {
         Raise(nameof(HasSelection));
+        // The mesh editor follows the selection: its pick drops, and the lattice on the projector moves to the new screen.
+        _meshSelectedIndex = -1;
+        Raise(nameof(MeshSelectedIndex));
+        RaiseMesh();
+        if (_showLatticeOnOutput) _services.RigEditor.ShowLattice(_selectedPlacement?.ScreenId ?? "", -1);
         Raise(nameof(SelectedScreenTitle));
         Raise(nameof(SelectedEnabled));
         Raise(nameof(SelectedUseCustom));

@@ -60,6 +60,17 @@ public sealed record PipelineViewport(
 
     public bool HasBend => WarpTopBow != 0 || WarpRightBow != 0 || WarpBottomBow != 0 || WarpLeftBow != 0;
 
+    /// <summary>The mesh warp: the lattice's density and each point's pull ("" = at rest).</summary>
+    public int WarpMeshColumns { get; init; } = 5;
+    public int WarpMeshRows { get; init; } = 5;
+    public string WarpMesh { get; init; } = "";
+
+    public bool HasMesh => WarpMesh.Length > 0;
+
+    /// <summary>The lattice drawn over the picture on the output while the Screens page edits it; the selected point is marked.</summary>
+    public bool ShowLattice { get; init; }
+    public int LatticePoint { get; init; } = -1;
+
     /// <summary>Per-output colour trims (100/1.0/100/100/100 = neutral).</summary>
     public double BrightnessPct { get; init; } = 100;
     public double Gamma { get; init; } = 1.0;
@@ -295,8 +306,35 @@ public sealed class RenderPipeline : IDisposable
                 layered = true;
             }
 
-            var bent = vp.HasBend && vp.Kind == SinkKind.Output;
-            if (bent)
+            var meshed = vp.HasMesh && vp.Kind == SinkKind.Output;
+            var bent = !meshed && vp.HasBend && vp.Kind == SinkKind.Output;
+            if (meshed)
+            {
+                // The mesh: the finished picture — content, zones, pedestal — drawn through a grid
+                // of Coons patches with Catmull-Rom tangents (the bends folded into the edge
+                // points), under the keystone's perspective and the rotation.
+                var surface = EnsureOffscreen(effectivePx);
+                DrawContent(surface.Canvas, vp, in ctx);
+                if (vp.HasBlend) DrawBlendMask(surface.Canvas, vp, effectivePx);
+                surface.Canvas.Flush();
+                using var image = surface.Snapshot();
+                canvas.Clear(SKColors.Black);
+                var patched = canvas.Save();
+                if (vp.HasWarp) canvas.Concat(KeystoneOf(vp, physicalPx));
+                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
+                using var shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+                _patchPaint.Shader = shader;
+                var nodes = WarpGrid.Nodes(vp.WarpMeshColumns, vp.WarpMeshRows, effectivePx.Width, effectivePx.Height,
+                    WarpGrid.Parse(vp.WarpMesh, vp.WarpMeshColumns, vp.WarpMeshRows), vp.WarpTopBow, vp.WarpRightBow, vp.WarpBottomBow, vp.WarpLeftBow);
+                foreach (var (cubics, texture) in WarpGrid.Patches(nodes, vp.WarpMeshColumns, vp.WarpMeshRows, effectivePx.Width, effectivePx.Height))
+                {
+                    canvas.DrawPatch(cubics, null, texture, _patchPaint);
+                }
+                _patchPaint.Shader = null;
+                if (vp.ShowLattice) DrawLattice(canvas, nodes, vp);
+                canvas.RestoreToCount(patched);
+            }
+            else if (bent)
             {
                 // The edge bends: the finished picture — content, its blend zones and its black
                 // pedestal, all in the picture's own space — drawn through one Coons patch whose
@@ -362,7 +400,19 @@ public sealed class RenderPipeline : IDisposable
                 canvas.Restore();
             }
 
-            if (vp.HasBlend && !bent)
+            if (vp.ShowLattice && !meshed)
+            {
+                // The lattice at rest (or with the bends alone), so the first pull has something to grab.
+                var latticeSave = canvas.Save();
+                if (vp.HasWarp) canvas.Concat(KeystoneOf(vp, physicalPx));
+                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
+                var nodes = WarpGrid.Nodes(vp.WarpMeshColumns, vp.WarpMeshRows, effectivePx.Width, effectivePx.Height,
+                    WarpGrid.Parse(vp.WarpMesh, vp.WarpMeshColumns, vp.WarpMeshRows), vp.WarpTopBow, vp.WarpRightBow, vp.WarpBottomBow, vp.WarpLeftBow);
+                DrawLattice(canvas, nodes, vp);
+                canvas.RestoreToCount(latticeSave);
+            }
+
+            if (vp.HasBlend && !bent && !meshed)
             {
                 // Last, over the trimmed picture, through the same warp and rotation the picture
                 // took: the zones sit on the picture's own edges, so a keystoned projector's
@@ -555,6 +605,39 @@ public sealed class RenderPipeline : IDisposable
         }
         _blendPaint.Shader = shader;
         canvas.DrawRect(rect, _blendPaint);
+    }
+
+    private static SKMatrix KeystoneOf(PipelineViewport vp, SKSizeI physicalPx)
+        => WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
+            new SKPoint(vp.WarpTlx, vp.WarpTly),
+            new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
+            new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
+            new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry));
+
+    private readonly SKPaint _latticeLine = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2, Color = new SKColor(0x3E, 0xC1, 0xF3) };
+    private readonly SKPaint _latticeDot = new() { IsAntialias = true, Style = SKPaintStyle.Fill, Color = new SKColor(0x3E, 0xC1, 0xF3) };
+    private readonly SKPaint _latticePick = new() { IsAntialias = true, Style = SKPaintStyle.Fill, Color = new SKColor(0xFF, 0xB0, 0x2E) };
+    private readonly SKPaint _latticeRing = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 3, Color = SKColors.White };
+
+    /// <summary>The lattice over the projector's picture while the Screens page pulls it: lines, dots, and the picked point ringed — what the walk-up sees.</summary>
+    private void DrawLattice(SKCanvas canvas, SKPoint[] nodes, PipelineViewport vp)
+    {
+        foreach (var (a, b) in WarpGrid.Lines(nodes, vp.WarpMeshColumns, vp.WarpMeshRows))
+        {
+            canvas.DrawLine(a, b, _latticeLine);
+        }
+        for (var k = 0; k < nodes.Length; k++)
+        {
+            if (k == vp.LatticePoint)
+            {
+                canvas.DrawCircle(nodes[k], 14, _latticeRing);
+                canvas.DrawCircle(nodes[k], 10, _latticePick);
+            }
+            else
+            {
+                canvas.DrawCircle(nodes[k], 6, _latticeDot);
+            }
+        }
     }
 
     private SKSurface? _offscreen;

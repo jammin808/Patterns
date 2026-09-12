@@ -131,6 +131,43 @@ public sealed class RigEditor
                + (members.Count > placed ? $" {members.Count - placed} screen(s) did not fit the grid and stayed where they were." : "");
     }
 
+    /// <summary>The output whose lattice is drawn over its picture while the Screens page pulls it ("" = none), and the point picked there.</summary>
+    public string LatticeOn { get; private set; } = "";
+
+    public int LatticePoint { get; private set; } = -1;
+
+    /// <summary>The lattice shown on an output (or on none), with the picked point: the output re-applies at once, no model edit.</summary>
+    public void ShowLattice(string screenId, int point)
+    {
+        if (LatticeOn == screenId && LatticePoint == point) return;
+        LatticeOn = screenId;
+        LatticePoint = point;
+        _s.Outputs.OnScreensChanged();   // a live window takes its viewport again
+        _s.RepublishNow();
+    }
+
+    /// <summary>One point of a placement's mesh pulled to an offset; the show file carries it.</summary>
+    public void PullMeshPoint(ScreenPlacement placement, int index, float dx, float dy)
+    {
+        var line = WarpGrid.Moved(placement.WarpMesh, placement.WarpMeshColumns, placement.WarpMeshRows, index, dx, dy);
+        if (line != placement.WarpMesh) _s.BulkEdit(() => placement.WarpMesh = line);
+    }
+
+    /// <summary>The mesh over another density, its shape kept.</summary>
+    public void SetMeshDensity(ScreenPlacement placement, int columns, int rows)
+    {
+        columns = WarpGrid.ClampSize(columns);
+        rows = WarpGrid.ClampSize(rows);
+        if (columns == placement.WarpMeshColumns && rows == placement.WarpMeshRows) return;
+        var line = WarpGrid.Resampled(placement.WarpMesh, placement.WarpMeshColumns, placement.WarpMeshRows, columns, rows);
+        _s.BulkEdit(() =>
+        {
+            placement.WarpMeshColumns = columns;
+            placement.WarpMeshRows = rows;
+            placement.WarpMesh = line;
+        });
+    }
+
     /// <summary>To the right of everything arranged, a gap away: where a screen that arrives on its own goes.</summary>
     public int NextFreeX()
     {

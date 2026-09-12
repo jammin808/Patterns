@@ -158,11 +158,22 @@
           <NumericUpDown Grid.Row="2" Grid.Column="4" Minimum="-4096" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
                          Value="{Binding Screens.SelectedPlacement.WarpRightBow, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Positive bows the right edge out" />
         </Grid>
+        <TextBlock Classes="label" Text="Mesh — a lattice of points pulled into place" Margin="0,6,0,0" />
+        <Grid ColumnDefinitions="76,86,8,Auto,*,Auto">
+          <TextBlock Classes="label" Text="Lattice" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Screens.MeshDensityOptions}" SelectedItem="{Binding Screens.SelectedMeshDensity, Mode=TwoWay}"
+                    ToolTip.Tip="How many points across and down — 3 for a gentle curve, 9 or 17 for a dome or a set piece; the mesh keeps its shape when the density changes" />
+          <ToggleButton Grid.Column="3" Classes="mini" Content="SHOW ON THE PROJECTOR" IsChecked="{Binding Screens.ShowLatticeOnOutput, Mode=TwoWay}"
+                        ToolTip.Tip="The lattice drawn over the picture on this output, the picked point ringed — for the walk-up" />
+          <Button Grid.Column="5" Classes="chip" Content="Reset mesh" Command="{Binding Screens.ResetMeshCommand}" ToolTip.Tip="Every point back to rest" />
+        </Grid>
+        <c:WarpMeshControl Height="230" />
+        <TextBlock Classes="hint" Text="{Binding Screens.MeshDescription}" TextWrapping="Wrap" />
         <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Classes="chip" Content="Reset warp" Command="{Binding Screens.ResetWarpCommand}" />
+          <Button Classes="chip" Content="Reset warp" Command="{Binding Screens.ResetWarpCommand}" ToolTip.Tip="The corners, the bends and the mesh back to rest" />
         </StackPanel>
         <TextBlock Classes="hint tip"
-                   Text="Corners pull the picture into a keystone — a perspective, so straight lines stay straight inside. Bends bow each edge at its middle on top of that: a curved screen, a cyclorama, a lens's pincushion or barrel. Together they cover what a walk-up alignment needs; the finished picture, its blend zones and its black pedestal all go through the same bend, so a bowed projector's fade follows its bow. Put the Projection blend pattern up (Content ▸ Projection blend) and line the grid up with the neighbour's." />
+                   Text="The mesh: click a point in the lattice above and drag it; the projector follows when you let go. Arrows nudge the picked point a pixel, Shift for ten, Escape drops the pick. Show on the projector puts the lattice over the picture on that output with the picked point ringed, so you can see which point you are pulling from the room. A gentle curve wants 3 or 5 points; a dome or a set piece 9 or 17. Corners pull the picture into a keystone — a perspective, so straight lines stay straight inside. Bends bow each edge at its middle on top of that: a curved screen, a cyclorama, a lens's pincushion or barrel. Together they cover what a walk-up alignment needs; the finished picture, its blend zones and its black pedestal all go through the same bend, so a bowed projector's fade follows its bow. Put the Projection blend pattern up (Content ▸ Projection blend) and line the grid up with the neighbour's." />
 
         <TextBlock Classes="label" Text="Edge blend (projectors)" Margin="0,8,0,0" />
         <CheckBox Content="Automatic — fade the edges this screen overlaps with a neighbour"

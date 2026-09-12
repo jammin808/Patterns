@@ -2,6 +2,7 @@ using Avalonia;
 using Patterns.App.Rendering;
 using Patterns.App.Services;
 using Patterns.Core.Model;
+using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;
@@ -94,6 +95,32 @@ public class EdgeBlendPipelineTests
         using var keyed = Frame(WhiteBus(), Output() with { WarpTopBow = 10, WarpTlx = 60 }, 400, 200);
         Assert.True(keyed.GetPixel(10, 2).Red < 30, $"top-left, keystoned: {keyed.GetPixel(10, 2).Red}");
         Assert.Equal(255, keyed.GetPixel(200, 100).Red);
+    }
+
+    [Fact]
+    public void AMeshDrawsThePictureThroughItsLatticeAndTheLatticeCanBeShown()
+    {
+        // A lattice at rest, spelled out: the picture is the picture.
+        var rest = string.Join(";", Enumerable.Repeat("0,0", 9));
+        using var still = Frame(WhiteBus(), Output() with { WarpMeshColumns = 3, WarpMeshRows = 3, WarpMesh = rest }, 400, 200);
+        Assert.Equal(255, still.GetPixel(2, 2).Red);
+        Assert.Equal(255, still.GetPixel(200, 100).Red);
+        Assert.Equal(255, still.GetPixel(397, 197).Red);
+        // The top-left point pulled inward: that corner is outside the picture now; the middle and the far corner stay.
+        using var pulled = Frame(WhiteBus(), Output() with { WarpMeshColumns = 3, WarpMeshRows = 3, WarpMesh = WarpGrid.Moved(rest, 3, 3, 0, 80, 60) }, 400, 200);
+        Assert.True(pulled.GetPixel(10, 10).Red < 30, $"top-left, pulled: {pulled.GetPixel(10, 10).Red}");
+        Assert.Equal(255, pulled.GetPixel(200, 100).Red);
+        Assert.Equal(255, pulled.GetPixel(397, 197).Red);
+        // …and with a right zone, the fade rides the mesh.
+        using var zoned = Frame(WhiteBus(), Output() with { WarpMeshColumns = 3, WarpMeshRows = 3, WarpMesh = WarpGrid.Moved(rest, 3, 3, 0, 80, 60), BlendRightPx = 100, BlendCurve = BlendCurve.Linear }, 400, 200);
+        Assert.True(zoned.GetPixel(395, 100).Red < 40, $"outer edge through the mesh: {zoned.GetPixel(395, 100).Red}");
+        // The lattice shown: the picked corner point is ringed in the pick colour over the picture.
+        using var shown = Frame(WhiteBus(), Output() with { WarpMeshColumns = 3, WarpMeshRows = 3, ShowLattice = true, LatticePoint = 4 }, 400, 200);
+        var centre = shown.GetPixel(200, 100);
+        Assert.True(centre.Red > 200 && centre.Blue < 120, $"the picked point: {centre}");
+        var edge = shown.GetPixel(200, 3);
+        Assert.True(edge.Blue > 200 && edge.Red < 120, $"a lattice line: {edge}");
+        Assert.Equal(255, shown.GetPixel(100, 50).Red);                                    // the picture between the lines
     }
 
     [Fact]
