@@ -23,6 +23,8 @@ public enum RemoteCommandKind
     CueList,
     /// <summary>TWIN STATUS — the twin link's role, phase and words as JSON.</summary>
     TwinStatus,
+    /// <summary>SHOWLOCK STATUS — what the show lock holds, as JSON.</summary>
+    ShowLockStatus,
 }
 
 /// <summary>
@@ -700,6 +702,18 @@ public static class ControlProtocol
                     "STANDBY" => Act(ShowActionKind.TwinStandBy),
                     "TAKEBACK" => Act(ShowActionKind.TwinTakeBack),
                     "STATUS" or "" => Query(RemoteCommandKind.TwinStatus),
+                    _ => Unknown(s),
+                };
+
+            // The show lock: the machine held for the show, released, or read.
+            case "SHOWLOCK":
+            case "SHOW-LOCK":
+            case "MACHINELOCK":
+                return arg.ToUpperInvariant() switch
+                {
+                    "ON" or "LOCK" => Act(ShowActionKind.ShowLockOn),
+                    "OFF" or "UNLOCK" or "RELEASE" => Act(ShowActionKind.ShowLockOff),
+                    "STATUS" or "" => Query(RemoteCommandKind.ShowLockStatus),
                     _ => Unknown(s),
                 };
 

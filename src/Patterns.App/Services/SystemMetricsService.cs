@@ -472,6 +472,7 @@ public sealed class SystemMetricsService : IDisposable
             TwinRole = state.Twin.Role,
             TwinPhase = _services.Twin.Phase,
             TwinWords = _services.Twin.Status,
+            ShowLock = _services.ShowLock.Report,
             NdiRuntime = Patterns.Core.Ndi.NdiSender.RuntimeAvailable,
             NdiSendersConfigured = senders.Count,
             NdiSendersActive = _services.Ndi.ActiveCount,

@@ -122,6 +122,8 @@ public class WireVocabularyTests
         ("TWIN TAKEOVER", new(ShowActionKind.TwinTakeOver)),
         ("TWIN STANDBY", new(ShowActionKind.TwinStandBy)),
         ("TWIN TAKEBACK", new(ShowActionKind.TwinTakeBack)),
+        ("SHOWLOCK ON", new(ShowActionKind.ShowLockOn)),
+        ("SHOWLOCK OFF", new(ShowActionKind.ShowLockOff)),
         ("REVIEW OFF", new(ShowActionKind.ReviewOff)),
         ("REVIEW", new(ShowActionKind.ReviewToggle)),
         ("FREEZE ON", new(ShowActionKind.FreezeOn)),
@@ -144,7 +146,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)

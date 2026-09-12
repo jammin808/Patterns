@@ -905,6 +905,22 @@ public static class HelpTopics
             new[] { "Machine", "Install" },
             new[] { "watchdog", "supervisor", "crash", "restart", "recovery", "beacon", "heartbeat", "backup", "second machine", "failover", "resilience", "access violation", "0xc0000005", "native fault", "mini-dump", "crash dump", "createdump", "safe run", "video decoding", "software decoding", "hardware decoding", "exit code", "fault contained", "ui fault", "exception", "unhandled", "0xe0434352", "crash between menus", "page crash", "menu crash", "status line", "stuck outputs", "orphan windows", "windows still playing", "cannot stop the screens", "two copies", "second instance", "take the screens back", "re-own", "ownership", "hung", "edit safe after a restart", "preview went to program", "wrong picture after restart", "restart", "put the show back" }),
 
+        new HelpTopic("show-lock", HelpGroup.TheMachine,
+            "The show lock: nothing interrupts the show",
+            "Machine page, SHOW LOCK: notifications, system sounds, other apps' audio, the shortcut keys, sleep and the Windows key held off while the outputs are live — and what an administrator sets once for Windows Update.",
+            HelpBodies.ShowLock,
+            new[]
+            {
+                "Leave 'Lock when the outputs open' ticked: OUTPUTS ON holds the machine, OUTPUTS OFF puts it back. LOCK THE MACHINE FOR THE SHOW does it by hand.",
+                "Read the lines under it: ✓ held, ✗ could not be set (patterns.log says why), ⚠ needs an administrator, – not on this machine.",
+                "Allowed audio: the break-music player the show drives (Spotify) is let through; add anything else the show itself plays through another program.",
+                "Before the tour, once, as an administrator: tools/show-machine.ps1 — Windows Update cannot restart the machine during the show.",
+                "Before doors: quit Teams and Outlook, or set Teams to Do not disturb.",
+            },
+            "SHOWLOCK ON · SHOWLOCK OFF · SHOWLOCK STATUS",
+            new[] { "Machine" },
+            new[] { "show lock", "lock", "interrupt", "interruption", "notification", "notifications", "toast", "popup", "pop-up", "outlook", "teams", "new mail", "chime", "ding", "system sounds", "mute", "audio", "sticky keys", "filter keys", "toggle keys", "windows key", "start menu", "sleep", "screensaver", "screen saver", "windows update", "restart", "update", "focus", "focus assist", "do not disturb", "presentation mode", "quiet", "show machine" }),
+
         new HelpTopic("twin", HelpGroup.TheMachine,
             "A twin: a second Patterns in step, ready to take the show",
             "Machine page, TWIN: this desk as the main and a second Patterns — another folder on this machine, or another machine — as the standby that mirrors every edit and can run the show the moment the main stops.",

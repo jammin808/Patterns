@@ -35,6 +35,46 @@ public sealed partial class MainViewModel
     private RelayCommand? _twinTakeOver;
     private RelayCommand? _twinStandBy;
     private RelayCommand? _twinTakeBack;
+    private RelayCommand? _showLockOn;
+    private RelayCommand? _showLockOff;
+    private string _showLockStatus = "";
+
+    /// <summary>The show lock's line — what the machine is held off, or that it is not held — the Machine page's line.</summary>
+    public string ShowLockStatus
+    {
+        get => _showLockStatus;
+        private set
+        {
+            if (Set(ref _showLockStatus, value))
+            {
+                Raise(nameof(ShowLockItems));
+                Raise(nameof(IsShowLocked));
+                Raise(nameof(ShowLockButtonText));
+            }
+        }
+    }
+
+    /// <summary>Each item the lock holds, as a line for the page.</summary>
+    public IReadOnlyList<string> ShowLockItems => _services.ShowLock.Report.Items.Select(i => i.Line).ToList();
+
+    public bool IsShowLocked => _services.ShowLock.Locked;
+
+    public string ShowLockButtonText => IsShowLocked ? "RELEASE THE MACHINE" : "LOCK THE MACHINE FOR THE SHOW";
+
+    /// <summary>The machine held for the show — SHOWLOCK ON on the wire.</summary>
+    public RelayCommand ShowLockOnCommand => _showLockOn ??= new RelayCommand(() => { Report(_services.Actions.Execute(ShowActionKind.ShowLockOn, ActionOrigin.Desk)); ShowLockStatus = _services.ShowLock.Status; });
+
+    /// <summary>Everything put back — SHOWLOCK OFF on the wire.</summary>
+    public RelayCommand ShowLockOffCommand => _showLockOff ??= new RelayCommand(() => { Report(_services.Actions.Execute(ShowActionKind.ShowLockOff, ActionOrigin.Desk)); ShowLockStatus = _services.ShowLock.Status; });
+
+    private RelayCommand? _showLockToggle;
+
+    /// <summary>The one button: lock, or release.</summary>
+    public RelayCommand ShowLockToggleCommand => _showLockToggle ??= new RelayCommand(() =>
+    {
+        if (_services.ShowLock.Locked) ShowLockOffCommand.Execute(null);
+        else ShowLockOnCommand.Execute(null);
+    });
 
     /// <summary>The standby runs the show from here — the same verb the wire's TWIN TAKEOVER sends.</summary>
     public RelayCommand TwinTakeOverCommand => _twinTakeOver ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk)));

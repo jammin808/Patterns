@@ -167,6 +167,7 @@ public sealed class AssistantService
             EditingTarget = EditingTarget,
             OutputsLive = s.Outputs.IsLive,
             OutputWindows = s.Outputs.Windows.Count,
+            ShowLock = s.ShowLock.Status,
             Canvases = canvases,
             ScreenShows = shows,
             StackArmed = s.CueStack.Armed,

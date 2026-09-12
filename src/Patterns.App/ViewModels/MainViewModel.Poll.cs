@@ -175,8 +175,12 @@ public sealed partial class MainViewModel
         if (twin.Length > 0) watch = watch.Length > 0 ? twin + " · " + watch : twin;
         var missing = _services.HotPlug.HealthWords;   // a screen without its display leads the line: the room is short a picture
         if (missing.Length > 0) watch = watch.Length > 0 ? missing + " · " + watch : missing;
+        var held = _services.ShowLock.HealthWords;
+        if (held.Length > 0) watch = watch.Length > 0 ? held + " · " + watch : held;
         HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);
         TwinStatus = _services.Twin.Status;
+        _services.ShowLock.Tick();   // new audio sessions muted, the foreground watched, the pending restart read
+        ShowLockStatus = _services.ShowLock.Status;
         StreamStatus = _services.Stream.Status;
         StreamHealth = _services.Stream.Health;
         var beacon = _services.Beacon;

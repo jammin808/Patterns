@@ -288,6 +288,22 @@ public sealed class ScreenPlacement : Observable
     [JsonIgnore]
     public bool HasBend => _warpTopBow != 0 || _warpRightBow != 0 || _warpBottomBow != 0 || _warpLeftBow != 0;
 
+    // ---- the mesh: a lattice of points pulled into place, for a dome, a set piece, a lens ----------
+
+    private int _warpMeshColumns = 5;
+    private int _warpMeshRows = 5;
+    private string _warpMesh = "";
+
+    /// <summary>The lattice's density; the offsets are resampled when it changes.</summary>
+    public int WarpMeshColumns { get => _warpMeshColumns; set => Set(ref _warpMeshColumns, Math.Clamp(value, 2, 17)); }
+    public int WarpMeshRows { get => _warpMeshRows; set => Set(ref _warpMeshRows, Math.Clamp(value, 2, 17)); }
+
+    /// <summary>Each point's pull from its rest in this output's pixels — "dx,dy;dx,dy;…" row by row; "" is a lattice at rest.</summary>
+    public string WarpMesh { get => _warpMesh; set => Set(ref _warpMesh, value ?? ""); }
+
+    [JsonIgnore]
+    public bool HasMesh => _warpMesh.Length > 0;
+
     public bool HasWarp =>
         _warpTlx != 0 || _warpTly != 0 || _warpTrx != 0 || _warpTry != 0 ||
         _warpBlx != 0 || _warpBly != 0 || _warpBrx != 0 || _warpBry != 0;
@@ -1761,6 +1777,49 @@ public sealed class TwinConfig : Observable
     public bool LocalStandby { get => _localStandby; set => Set(ref _localStandby, value); }
 }
 
+/// <summary>
+/// The show lock: what Patterns holds off on this machine while the show runs — the things that
+/// have interrupted shows: a toast over the desk, a new-mail chime through the PA, a Teams call
+/// ringing, Sticky Keys popping up when the caller hammers Shift, the screen going to sleep, the
+/// Windows key opening Start. Each is its own switch; the lock goes on with the outputs by
+/// default and comes off with them, or by hand.
+/// </summary>
+public sealed class LockConfig : Observable
+{
+    private bool _autoWithOutputs = true;
+    private bool _notifications = true;
+    private bool _sounds = true;
+    private bool _otherAudio = true;
+    private bool _shortcuts = true;
+    private bool _keepAwake = true;
+    private bool _windowsKey = true;
+    private string _allowedAudio = "Spotify";
+
+    /// <summary>Lock when the outputs open, unlock when they close.</summary>
+    public bool AutoWithOutputs { get => _autoWithOutputs; set => Set(ref _autoWithOutputs, value); }
+
+    /// <summary>Windows toasts and banners off for this user.</summary>
+    public bool Notifications { get => _notifications; set => Set(ref _notifications, value); }
+
+    /// <summary>The system sound scheme silenced: no chime, no ding, no default beep.</summary>
+    public bool Sounds { get => _sounds; set => Set(ref _sounds, value); }
+
+    /// <summary>Every other app's audio session muted, and kept muted as new ones start — Teams' ring, Outlook's alert, a browser.</summary>
+    public bool OtherAudio { get => _otherAudio; set => Set(ref _otherAudio, value); }
+
+    /// <summary>The Sticky Keys, Filter Keys and Toggle Keys shortcuts off, so a caller hammering Shift never gets a dialog and a beep.</summary>
+    public bool Shortcuts { get => _shortcuts; set => Set(ref _shortcuts, value); }
+
+    /// <summary>The machine kept awake and the display on; the screensaver off.</summary>
+    public bool KeepAwake { get => _keepAwake; set => Set(ref _keepAwake, value); }
+
+    /// <summary>The Windows key swallowed, so nothing opens Start over the desk.</summary>
+    public bool WindowsKey { get => _windowsKey; set => Set(ref _windowsKey, value); }
+
+    /// <summary>Apps whose audio the lock lets through, by process name — the break-music player the show itself drives.</summary>
+    public string AllowedAudio { get => _allowedAudio; set => Set(ref _allowedAudio, value ?? ""); }
+}
+
 /// <summary>Which GPU renders the show. Applied at startup — changing it needs an app restart.</summary>
 public sealed class GraphicsConfig : Observable
 {
@@ -2248,6 +2307,9 @@ public sealed class ShowState : Observable
 
     /// <summary>A twin: a second Patterns kept in step with this one, on this machine or another, that can take the show. This machine's own — never mirrored.</summary>
     public TwinConfig Twin { get; init; } = new();
+
+    /// <summary>The show lock: what the machine is held off during the show — this machine's own, never mirrored to a twin.</summary>
+    public LockConfig Lock { get; init; } = new();
     public StreamConfig Stream { get; init; } = new();
     public AdminConfig Admin { get; init; } = new();
     public SwitcherConfig Switcher { get; init; } = new();

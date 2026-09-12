@@ -74,6 +74,9 @@ public sealed class AppServices
     /// <summary>The twin link: a second Patterns kept in step, on this machine or another, that can take the show.</summary>
     public TwinService Twin { get; }
 
+    /// <summary>The show lock: the machine held off notifications, sounds, other apps' audio, the shortcut keys, sleep and the Windows key while the show runs.</summary>
+    public ShowLockService ShowLock { get; }
+
     /// <summary>Output hot-plug: a display unplugged, back, or new, and what the rig does about it.</summary>
     public HotPlugService HotPlug { get; }
 
@@ -420,6 +423,7 @@ public sealed class AppServices
         Management = new ManagementService(this);
         Beacon = new BeaconService(this);
         Twin = new TwinService(this);
+        ShowLock = new ShowLockService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -483,6 +487,7 @@ public sealed class AppServices
             if (moved) PublishRuntime();   // a hot-plug moves no model: push the new shapes ourselves
         };
         Outputs.LiveChanged += UpdateRecovery;
+        Outputs.LiveChanged += ShowLock.OnOutputsLiveChanged;   // the machine held with the outputs, released with them
         // The screens change hands the moment they open or close, not at the next poll: a start a
         // second later must never read a record for windows that are already gone.
         Outputs.LiveChanged += Ownership.OnLiveChanged;
@@ -520,6 +525,7 @@ public sealed class AppServices
 
     public void AttachMainWindow(MainWindow window)
     {
+        ShowLock.RestoreAfterCrash();
         MainWindow = window;
         Startup.Mark(StartupBudget.Pages);   // the window's XAML is built by now
         window.Opened += (_, _) =>
@@ -1358,6 +1364,7 @@ public sealed class AppServices
             Devices.Dispose();
             Management.Dispose();
             Beacon.Dispose();
+            ShowLock.Dispose();   // everything the lock changed goes back before the desk is gone
             Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
             Twin.Dispose();
             Ndi.StopAll();

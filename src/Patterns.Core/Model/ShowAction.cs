@@ -279,6 +279,10 @@ public enum ShowActionKind
     TwinStandBy,
     /// <summary>The main takes the show back from a standby that ran it: the standby's show and air land here, the outputs open, the standby is told to follow again.</summary>
     TwinTakeBack,
+    /// <summary>The show lock on: notifications, system sounds, other apps' audio, the shortcut keys, sleep and the Windows key held off for the show.</summary>
+    ShowLockOn,
+    /// <summary>The show lock off: everything put back as it was.</summary>
+    ShowLockOff,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

@@ -393,6 +393,9 @@ public sealed class ShowFacts
     public bool OutputsLive { get; init; }
     public int OutputWindows { get; init; }
 
+    /// <summary>The show lock's line — what the machine is held off, or that it is not held.</summary>
+    public string ShowLock { get; init; } = "";
+
     /// <summary>The joined canvases, in wall order.</summary>
     public IReadOnlyList<CanvasFact> Canvases { get; init; } = Array.Empty<CanvasFact>();
 
@@ -569,6 +572,10 @@ public static class ShowBrief
             sb.AppendLine(s.Twin.Role == TwinRole.Main
                 ? "Twin: this desk is the main — a standby Patterns may follow it in step" + (s.Twin.LocalStandby ? ", and it runs one as a second process on this machine (TAKE BACK on the Machine page once that standby has run the show)." : ".")
                 : "Twin: this desk is a standby — it mirrors a main and its outputs are held closed until it takes the show over (TAKE OVER on the Machine page).");
+        }
+        if (facts is { ShowLock.Length: > 0 })
+        {
+            sb.Append("Show lock: ").AppendLine(facts.ShowLock);
         }
         var lostScreens = HotPlugWatch.LostScreens(s);
         if (lostScreens.Count > 0)

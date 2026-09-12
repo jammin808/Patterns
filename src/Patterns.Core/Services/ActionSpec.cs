@@ -256,6 +256,8 @@ public static class ActionSpec
         ShowActionKind.TwinTakeOver => "Twin — take the show over",
         ShowActionKind.TwinStandBy => "Twin — stand by again",
         ShowActionKind.TwinTakeBack => "Twin — take the show back",
+        ShowActionKind.ShowLockOn => "Show lock — hold the machine",
+        ShowActionKind.ShowLockOff => "Show lock — release the machine",
         _ => kind.ToString(),
     };
 
@@ -322,6 +324,7 @@ public static class ActionSpec
         ShowActionKind.UpdateApply or ShowActionKind.Restart => "an admin verb behind the passcode",
         ShowActionKind.ScreenLabel => "the rig's own naming, at set-up on the Screens page or from a remote — a running order never renames a screen",
         ShowActionKind.TwinTakeOver or ShowActionKind.TwinStandBy or ShowActionKind.TwinTakeBack => "the standby twin's own decision to run the show, or to follow again, or the main's to take it back — a cue never decides which machine is the main",
+        ShowActionKind.ShowLockOn or ShowActionKind.ShowLockOff => "this machine's own hold on Windows — it goes on with the outputs and off with them, or from the Machine page and the wire; a cue never changes the machine's settings",
         _ => null,
     };
 

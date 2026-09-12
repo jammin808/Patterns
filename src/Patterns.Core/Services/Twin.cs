@@ -184,11 +184,11 @@ public static class TwinHandover
 /// </summary>
 public static class TwinSync
 {
-    /// <summary>The sections that are this machine's own: the twin link, the watchdog and the beacon, the install, the machine's admin (its graphics card), the remote's ports, the operator's monitor, the desk's layout.</summary>
+    /// <summary>The sections that are this machine's own: the twin link, the watchdog and the beacon, the install, the machine's admin (its graphics card), the remote's ports, the operator's monitor, the desk's layout, the show lock.</summary>
     public static readonly IReadOnlyList<string> LocalSections = new[]
     {
         nameof(ShowState.Twin), nameof(ShowState.Watchdog), nameof(ShowState.Install), nameof(ShowState.Admin),
-        nameof(ShowState.Control), nameof(ShowState.Monitor), nameof(ShowState.Desk),
+        nameof(ShowState.Control), nameof(ShowState.Monitor), nameof(ShowState.Desk), nameof(ShowState.Lock),
     };
 
     private static readonly IReadOnlyList<PropertyInfo> Roots = typeof(ShowState)

@@ -294,6 +294,37 @@
               ToolTip.Tip="Settings, logs, presets and the metrics record live beside Patterns.exe" />
     </WrapPanel>
 
+    <TextBlock Classes="h2" Text="SHOW LOCK (NOTHING INTERRUPTS THE SHOW)" />
+    <TextBlock Classes="hint tip"
+               Text="The things that have interrupted shows, held off while this one runs: a toast over the desk, a new-mail chime through the PA, a Teams call ringing out of the show's speakers, Sticky Keys popping up under a caller's Shift, the display going to sleep, the Windows key opening Start. On with the outputs and off with them, or by hand; everything is put back on release and on exit, and a crash leaves a receipt the next start puts back from." />
+    <CheckBox Content="Lock when the outputs open, release when they close"
+              IsChecked="{Binding State.Lock.AutoWithOutputs}" />
+    <WrapPanel>
+      <CheckBox Content="Notifications off" IsChecked="{Binding State.Lock.Notifications}" Margin="0,0,14,0" ToolTip.Tip="Windows toasts and banners off for this user while the lock is on" />
+      <CheckBox Content="System sounds off" IsChecked="{Binding State.Lock.Sounds}" Margin="0,0,14,0" ToolTip.Tip="Every event's sound and the default beep silenced" />
+      <CheckBox Content="Other apps' audio muted" IsChecked="{Binding State.Lock.OtherAudio}" Margin="0,0,14,0" ToolTip.Tip="Every audio session that is not Patterns' — Teams, Outlook, a browser — muted, and any that starts later within two seconds; the apps named below are let through" />
+      <CheckBox Content="Shortcut keys off" IsChecked="{Binding State.Lock.Shortcuts}" Margin="0,0,14,0" ToolTip.Tip="The Sticky, Filter and Toggle Keys shortcuts (five Shifts, eight seconds of Shift, five seconds of NumLock) off; a feature that is on stays on" />
+      <CheckBox Content="Stay awake" IsChecked="{Binding State.Lock.KeepAwake}" Margin="0,0,14,0" ToolTip.Tip="The machine kept awake, the display on, the screensaver off" />
+      <CheckBox Content="Windows key off" IsChecked="{Binding State.Lock.WindowsKey}" ToolTip.Tip="The Windows key swallowed, so nothing opens Start over the desk" />
+    </WrapPanel>
+    <Grid ColumnDefinitions="110,*">
+      <TextBlock Classes="label" Text="Allowed audio" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Lock.AllowedAudio, Mode=TwoWay}" Watermark="Spotify"
+               ToolTip.Tip="Apps whose audio the lock lets through, by process name — the break-music player the show itself drives; commas between names" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding ShowLockStatus}" TextWrapping="Wrap" />
+    <ItemsControl ItemsSource="{Binding ShowLockItems}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <TextBlock Classes="hint" Text="{Binding}" TextWrapping="Wrap" Margin="8,0,0,0" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Classes="go" Content="{Binding ShowLockButtonText}" Padding="14,8" Margin="0,4,0,0" Command="{Binding ShowLockToggleCommand}"
+            ToolTip.Tip="Hold the machine for the show now, or put everything back — SHOWLOCK ON / OFF on the wire" />
+    <TextBlock Classes="hint tip"
+               Text="What needs an administrator once, before the tour — Windows Update's restart and its pause, toasts for every account, the error-reporting dialog — is tools/show-machine.ps1; docs/SHOW-MACHINE.md says what it sets. A pending Windows Update restart is read here, on the health line, in the super-check and in the assistant's brief. Quit Teams and Outlook before doors, or set Teams to Do not disturb: the lock mutes their audio, but a call still pops a window on the desk's screen — the log says when the foreground went elsewhere." />
+
     <TextBlock Classes="h2" Text="STABILITY (WATCHDOG)" />
     <CheckBox Content="Watchdog: auto-restart after a crash or hang"
               IsChecked="{Binding State.Watchdog.Enabled}"

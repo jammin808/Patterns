@@ -125,6 +125,9 @@ public sealed class CheckFacts
     /// <summary>The link's line — <see cref="TwinWatch"/>'s words.</summary>
     public string TwinWords { get; init; } = "";
 
+    /// <summary>The show lock as it stands; null when the app did not report it (no row).</summary>
+    public LockReport? ShowLock { get; init; }
+
     public bool NdiRuntime { get; init; }
     public int NdiSendersConfigured { get; init; }
     public int NdiSendersActive { get; init; }
@@ -460,6 +463,7 @@ public static class SuperCheck
         {
             rows.Add(new CheckRow(s, "Twin", TwinLight(f.TwinPhase), TwinValue(f.TwinRole, f.TwinPhase), f.TwinWords));
         }
+        if (f.ShowLock is { } held) rows.Add(new CheckRow(s, "Show lock", held.Light(f.OutputsLive), held.Value, held.Summary));
     }
 
     /// <summary>The twin's light: in step is green, a link still forming is amber, a main gone silent or a refused link is red, a takeover is amber until the desk stands by again.</summary>
