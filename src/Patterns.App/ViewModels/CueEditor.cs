@@ -271,7 +271,7 @@ public sealed class ActionRow : Observable
         ValueKind.Text => Action.Kind switch
         {
             ShowActionKind.WebType => "the text typed into the field that has the page's focus",
-            ShowActionKind.DeviceSend => "the line the device expects, e.g. RELAY 1 or SHOW 3",
+            ShowActionKind.DeviceSend => "the device's words — a board: RELAY 1 · a projector: POWER ON, INPUT HDMI 1, SHUTTER ON · Disguise: PLAY, CUE 1.2, TRACK name · Pixera: TIMELINE Main PLAY · OSC: /cue/1/start · HTTP: GET /api/play",
             ShowActionKind.Announce => "the words on screen (when no announcement is chosen above)",
             _ => "the message text",
         },

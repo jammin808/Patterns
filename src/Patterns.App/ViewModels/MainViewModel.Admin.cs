@@ -29,6 +29,19 @@ public sealed partial class MainViewModel
     /// <summary>"Interactive on · 2 devices, 1 open" — the page's status line.</summary>
     public string InteractiveStatus { get => _interactiveStatus; private set => Set(ref _interactiveStatus, value); }
 
+    private RelayCommand<string>? _addEndpoint;
+
+    /// <summary>The page's chips for the boxes a show talks to: a projector, Disguise, Pixera, an OSC box, an HTTP endpoint — each added as the profile's preset.</summary>
+    public RelayCommand<string> AddEndpointCommand => _addEndpoint ??= new RelayCommand<string>(AddEndpoint);
+
+    private void AddEndpoint(string? profileName)
+    {
+        if (!Enum.TryParse<DeviceProfile>(profileName ?? "", ignoreCase: true, out var profile)) return;
+        var device = Core.Services.DeviceProfiles.Preset(profile, State.Interactive.Devices.Count + 1);
+        State.Interactive.Devices.Add(device);
+        StatusMessage = $"{device.Name} added — type its address; its words: {device.Words}";
+    }
+
     private void AddDevice(DeviceLink link)
     {
         var n = State.Interactive.Devices.Count + 1;

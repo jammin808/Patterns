@@ -416,10 +416,10 @@ class PatternsInstance extends InstanceBase {
 			},
 			// The Interactive area: a line to a device — an Arduino's relay, a Pi's script, a controller's command.
 			device_send: {
-				name: 'Device — send a line to an Arduino or an IP device (the Interactive page)',
+				name: 'Device — send a line to a device of the Interactive page (a board, a projector, Disguise, Pixera, an OSC box, an HTTP endpoint)',
 				options: [
 					{ type: 'textinput', id: 'device', label: 'Device name (blank or * = the first)', default: '*' },
-					{ type: 'textinput', id: 'text', label: 'The line the device expects', default: 'RELAY 1' },
+					{ type: 'textinput', id: 'text', label: 'The device\'s words: RELAY 1 · POWER ON · PLAY · CUE 1.2 · TIMELINE Main PLAY · /cue/1/start', default: 'RELAY 1' },
 				],
 				callback: (a) => {
 					const text = String(a.options.text || '').trim()

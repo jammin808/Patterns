@@ -926,6 +926,16 @@ public static class Lists
         new(DeviceLink.Tcp, "TCP — Raspberry Pi, ESP32, a controller on the network"),
         new(DeviceLink.Udp, "UDP — datagrams on the network, no connection"),
         new(DeviceLink.Midi, "MIDI — a control surface: APC40, Launchpad, nanoKONTROL, X-Touch"),
+        new(DeviceLink.Http, "HTTP — a box with a web API: each line is a request (GET /api/play)"),
+    };
+
+    public static readonly EnumItem[] DeviceProfiles =
+    {
+        new(DeviceProfile.Lines, "Plain lines — a board, a script, a web API: the words go as they are"),
+        new(DeviceProfile.PjLink, "Projector (PJLink) — POWER ON, INPUT HDMI 1, SHUTTER ON"),
+        new(DeviceProfile.Disguise, "Disguise d3 (OSC) — PLAY, STOP, NEXT, CUE 1.2, TRACK name"),
+        new(DeviceProfile.Pixera, "Pixera (JSON-RPC) — TIMELINE name PLAY, CUE timeline cue"),
+        new(DeviceProfile.Osc, "OSC device — /address and its arguments (QLab, Resolume, TouchDesigner…)"),
     };
 
     /// <summary>The starter row sets, by name — what the page's picker offers.</summary>

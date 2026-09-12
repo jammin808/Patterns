@@ -1775,6 +1775,23 @@ public enum DeviceLink
     /// the trigger table, the action layer, the journal and the arm fence are the ones already here.
     /// </summary>
     Midi,
+    /// <summary>A box with an HTTP API — a line is a request: GET /api/play, POST /cue {"n":3}; the answer's status and first line come back as a line.</summary>
+    Http,
+}
+
+/// <summary>
+/// What a device is, beyond where it is: the vocabulary its words are turned into. Plain lines
+/// for a board or a script; a projector's PJLink; Disguise's show control over OSC; Pixera's
+/// JSON-RPC; any OSC box. The profile is the reason a cue can say POWER ON to a projector and
+/// PLAY to a media server in the same words a person would.
+/// </summary>
+public enum DeviceProfile
+{
+    Lines,
+    PjLink,
+    Disguise,
+    Pixera,
+    Osc,
 }
 
 /// <summary>The line break a device expects at the end of every line Patterns writes.</summary>
@@ -1819,8 +1836,27 @@ public sealed class DeviceConfig : Observable
     private bool _echoReplies = true;
     private string _testText = "PING";
     private string _status = "";
+    private DeviceProfile _profile;
+    private string _secret = "";
 
     public string Id { get => _id; set => Set(ref _id, value ?? ""); }
+
+    /// <summary>The vocabulary the device speaks — plain lines, PJLink, Disguise, Pixera, OSC; see <see cref="Services.DeviceProfiles"/>.</summary>
+    public DeviceProfile Profile
+    {
+        get => _profile;
+        set
+        {
+            if (Set(ref _profile, value)) Raise(nameof(Words));
+        }
+    }
+
+    /// <summary>A password the box asks for — a projector's PJLink password. Kept with the show, as the rig's other addresses are.</summary>
+    public string Secret { get => _secret; set => Set(ref _secret, value ?? ""); }
+
+    /// <summary>The words this device understands, for the page — the profile's list.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Words => Services.DeviceProfiles.Words(_profile);
 
     /// <summary>What the cues and the wire call it: DEVICE Arduino RELAY 1.</summary>
     public string Name { get => _name; set => Set(ref _name, value ?? ""); }

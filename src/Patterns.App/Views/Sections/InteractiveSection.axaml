@@ -24,6 +24,19 @@
       <Button Classes="chip" Content="+ MIDI CONTROL SURFACE" Command="{Binding AddMidiDeviceCommand}" Margin="0,0,8,6"
               ToolTip.Tip="An APC40, a Launchpad, a nanoKONTROL, an X-Touch: pick its port, press LEARN and press a control. Windows only" />
     </WrapPanel>
+    <TextBlock Classes="label" Text="THE ROOM'S OTHER BOXES — media servers, projectors, anything with a port" Margin="0,4,0,0" />
+    <WrapPanel Margin="0,4,0,4">
+      <Button Classes="chip" Content="+ PROJECTOR (PJLINK)" Command="{Binding AddEndpointCommand}" CommandParameter="PjLink" Margin="0,0,8,6"
+              ToolTip.Tip="Any venue projector on the network (PJLink, TCP 4352): POWER ON / OFF, INPUT HDMI 1, SHUTTER ON, and its state read every ten seconds — power, lamp hours, errors. Type its password if it asks for one" />
+      <Button Classes="chip" Content="+ DISGUISE D3" Command="{Binding AddEndpointCommand}" CommandParameter="Disguise" Margin="0,0,8,6"
+              ToolTip.Tip="Disguise's show control over its OSC device: PLAY, STOP, NEXT, PREV, CUE 1.2, TRACK name, VOLUME 80, BRIGHTNESS 50 — the address of the d3 machine and the port its OSC device receives on (7401 as shipped)" />
+      <Button Classes="chip" Content="+ PIXERA" Command="{Binding AddEndpointCommand}" CommandParameter="Pixera" Margin="0,0,8,6"
+              ToolTip.Tip="Pixera's JSON-RPC API (TCP 1400): TIMELINE name PLAY / PAUSE / STOP, CUE timeline cue, API any.method {params}, RAW {json-rpc}" />
+      <Button Classes="chip" Content="+ OSC DEVICE" Command="{Binding AddEndpointCommand}" CommandParameter="Osc" Margin="0,0,8,6"
+              ToolTip.Tip="Any box that speaks OSC over UDP — QLab, Resolume, TouchDesigner, a lighting desk: the words are the address and its arguments, /cue/1/start" />
+      <Button Classes="chip" Content="+ HTTP ENDPOINT" Command="{Binding AddEndpointCommand}" CommandParameter="Lines" Margin="0,0,8,6"
+              ToolTip.Tip="A box with a web API — Companion's own, a Q-SYS core, a Crestron or Extron processor, an encoder: each line is a request (GET /api/play, POST /cue {&quot;n&quot;:3}); the answer's status comes back as a line" />
+    </WrapPanel>
 
     <ItemsControl ItemsSource="{Binding State.Interactive.Devices}">
       <ItemsControl.ItemTemplate>
@@ -46,6 +59,19 @@
                           SelectedValue="{Binding LineEnding, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
                           ToolTip.Tip="What ends every line Patterns writes; an Arduino's Serial.println expects LF" />
               </Grid>
+              <Grid ColumnDefinitions="130,*,8,Auto,8,*" Margin="0,2,0,0"
+                    IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
+                <TextBlock Classes="label" Text="Speaks" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.DeviceProfiles}"
+                          SelectedValue="{Binding Profile, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                          ToolTip.Tip="The box's own vocabulary: what a cue's words are turned into on the wire — plain lines for a board or a web API, PJLink for a projector, Disguise's OSC, Pixera's JSON-RPC, plain OSC" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Password" VerticalAlignment="Center"
+                           IsVisible="{Binding Profile, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceProfile.PjLink}}" />
+                <TextBox Grid.Column="5" Text="{Binding Secret, Mode=TwoWay}" PasswordChar="•" Watermark="only if the projector asks (PJLink authentication)"
+                         IsVisible="{Binding Profile, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceProfile.PjLink}}" />
+              </Grid>
+              <TextBlock Classes="hint tip" Text="{Binding Words}" TextWrapping="Wrap"
+                         IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}" />
               <!-- A control surface: its port from the machine's own list, and which starter rows the button puts in. -->
               <Grid ColumnDefinitions="130,*,8,Auto,8,*" Margin="0,2,0,0"
                     IsVisible="{Binding Link, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
@@ -64,7 +90,7 @@
               <Grid ColumnDefinitions="130,*,8,Auto,8,100,8,Auto,8,90"
                     IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
                 <TextBlock Classes="label" Text="Port / address" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1" Text="{Binding Port, Mode=TwoWay}" Watermark="COM3 · /dev/ttyUSB0 · 192.168.1.50 · pi.local:7000" />
+                <TextBox Grid.Column="1" Text="{Binding Port, Mode=TwoWay}" Watermark="COM3 · /dev/ttyUSB0 · 192.168.1.50 · pi.local:7000 · http://10.0.0.9:8080" />
                 <TextBlock Grid.Column="3" Classes="label" Text="Baud" VerticalAlignment="Center" />
                 <NumericUpDown Grid.Column="5" Minimum="300" Maximum="4000000" Increment="9600" FormatString="0" ShowButtonSpinner="False"
                                Value="{Binding Baud, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Serial only: the speed the sketch opens (Serial.begin(115200))" />
@@ -83,7 +109,7 @@
               <TextBlock Classes="label" Text="{Binding Status}" TextWrapping="Wrap" />
               <Grid ColumnDefinitions="130,*,8,Auto">
                 <TextBlock Classes="label" Text="Send a line" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1" Text="{Binding TestText, Mode=TwoWay}" Watermark="PING · RELAY 1 · SHOW 3" />
+                <TextBox Grid.Column="1" Text="{Binding TestText, Mode=TwoWay}" Watermark="PING · RELAY 1 · POWER ON · PLAY · /cue/1/start · GET /api/play" />
                 <Button Grid.Column="3" Classes="chip" Content="SEND" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).TestDeviceCommand}" CommandParameter="{Binding}"
                         ToolTip.Tip="Write this line to the device now — the same as DEVICE name text on the wire or a cue's Device — send a line" />
               </Grid>

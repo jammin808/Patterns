@@ -298,10 +298,18 @@ public static class DeviceAddress
                 var port = SerialPort(d.Port);
                 return port.Length == 0 ? "no serial port named — COM3, or /dev/ttyUSB0" : $"{port} at {d.Baud.ToString(CultureInfo.InvariantCulture)}";
             }
+            case DeviceLink.Http:
+            {
+                var url = d.Port.Trim();
+                if (url.Length == 0) return "no address — http://192.168.1.50:8080";
+                if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) url = "http://" + url;
+                return $"{url} (HTTP)";
+            }
             default:
             {
                 if (!TryParseHost(d.Port, d.NetPort, out var host, out var port)) return "no address — 192.168.1.50, or host:7000";
-                return $"{host}:{port.ToString(CultureInfo.InvariantCulture)} ({(d.Link == DeviceLink.Udp ? "UDP" : "TCP")})";
+                var profile = d.Profile == DeviceProfile.Lines ? "" : ", " + DeviceProfiles.Label(d.Profile);
+                return $"{host}:{port.ToString(CultureInfo.InvariantCulture)} ({(d.Link == DeviceLink.Udp ? "UDP" : "TCP")}{profile})";
             }
         }
     }

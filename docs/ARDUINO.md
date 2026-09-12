@@ -21,6 +21,10 @@ page is **SETUP → Interactive**.
 The area is **off by default** — opening a serial port or a network connection is a deliberate
 act — and every device can be switched off on its own.
 
+The room's other boxes — projectors (PJLink), Disguise, Pixera, anything that speaks OSC, anything
+with a web API — are devices here too, each with a **profile** that turns a cue's words into the
+box's own protocol: `docs/ENDPOINTS.md`.
+
 ## Links
 
 | Link | For | Address |

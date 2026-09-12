@@ -806,6 +806,23 @@ public static class HelpTopics
             new[] { "Interactive", "Cues" },
             new[] { "arduino", "raspberry pi", "serial", "usb", "tcp", "udp", "device", "button", "sensor", "relay", "gpio", "trigger", "interactive", "lamp" }),
 
+        new HelpTopic("endpoints", HelpGroup.Control,
+            "Media servers, projectors and the room's other boxes",
+            "SETUP → Interactive, the second row of chips: a projector, Disguise, Pixera, an OSC box, an HTTP endpoint — each a device with its own words, so a cue says POWER ON or PLAY and the profile speaks the box's protocol.",
+            HelpBodies.Endpoints,
+            new[]
+            {
+                "+ PROJECTOR (PJLINK): the projector's address (TCP 4352) and its password if it asks; POWER ON, INPUT HDMI 1, SHUTTER ON; the card reads its power, lamp hours and errors every ten seconds.",
+                "+ DISGUISE D3: the d3 machine's address and its OSC device's receive port (7401 as shipped); PLAY, STOP, NEXT, PREV, CUE 1.5, TRACK name, VOLUME 80, BRIGHTNESS 50; RAW /d3/showcontrol/… for the rest of d3's list.",
+                "+ PIXERA: the address (TCP 1400); TIMELINE Main PLAY / PAUSE / STOP, CUE Main Intro, API any.method {params}, RAW {json-rpc}.",
+                "+ OSC DEVICE: any box on UDP — QLab, Resolume, TouchDesigner; the words are the address and its arguments, /cue/1/start.",
+                "+ HTTP ENDPOINT: a web API — each line is a request, GET /api/play or POST /go {\"cue\":3}; the answer's status comes back as a line.",
+                "In a cue: Device — send a line, the box as the target, its words as the value; on the wire DEVICE Projector POWER ON; the assistant knows each box's words.",
+            },
+            "DEVICE <name> <the box's words> (SEND is an alias). The boxes and their words: docs/ENDPOINTS.md.",
+            new[] { "Interactive", "Cues" },
+            new[] { "projector", "pjlink", "disguise", "d3", "pixera", "media server", "osc", "qlab", "resolume", "touchdesigner", "http", "web api", "rest", "endpoint", "endpoints", "power on", "shutter", "input", "timeline", "show control", "q-sys", "crestron", "extron", "encoder", "integration", "brain", "nervous system" }),
+
         new HelpTopic("installs", HelpGroup.Control,
             "Permanent installs: the clock runs the site",
             "PLAN → Install: a shop window, a hotel lobby, a museum wall — the machine nobody sits at, looked after from somewhere else.",

@@ -23,6 +23,9 @@ public interface IDeviceLink : IDisposable
     /// <summary>Writes one framed line; never throws — a failed write closes the link, which reopens by itself.</summary>
     void Write(string framedLine);
 
+    /// <summary>Writes one frame as bytes — an OSC message, a digest and a command; a link that only knows text writes the bytes as UTF-8.</summary>
+    void WriteBytes(byte[] frame) => Write(Encoding.UTF8.GetString(frame));
+
     /// <summary>Raised with every whole line the device sends, on the link's own thread.</summary>
     event Action<string>? LineReceived;
 }
@@ -41,6 +44,9 @@ public sealed class DeviceService : IDisposable
         public required DeviceConfig Config;
         public required IDeviceLink Link;
         public required string Key;
+        /// <summary>The device's vocabulary for this connection: what its words become, what its bytes mean.</summary>
+        public required ProfileSession Session;
+        public DateTime NextPollUtc;
         public Dictionary<string, string>? Heard;
         public bool WasOpen;
         public string LastUnmapped = "";
@@ -116,6 +122,8 @@ public sealed class DeviceService : IDisposable
             {
                 open.Heard = null;
                 open.AnnounceOpen = true;
+                open.Session.OnConnected();
+                open.NextPollUtc = DateTime.UtcNow.AddSeconds(1);   // a projector is asked how it is a moment after it answers
                 MarkChanged();
             }
             open.WasOpen = live;
@@ -136,13 +144,14 @@ public sealed class DeviceService : IDisposable
             if (_open.ContainsKey(id)) continue;
             try
             {
-                var link = LinkFactory is { } make ? make(d) : Make(d);
+                var session = ProfileSession.For(d);
+                var link = LinkFactory is { } make ? make(d) : Make(d, session);
                 if (link is null)
                 {
                     d.Status = DeviceAddress.Describe(d);
                     continue;
                 }
-                var open = new Open { Config = d, Link = link, Key = KeyOf(d) };
+                var open = new Open { Config = d, Link = link, Key = KeyOf(d), Session = session };
                 link.LineReceived += line => OnLine(id, line);
                 _open[id] = open;
                 d.Status = link.Status;
@@ -162,8 +171,18 @@ public sealed class DeviceService : IDisposable
         }
     }
 
-    /// <summary>Refreshes the status words (the 1 s poll) and reconciles, so a device switched on or a link that dropped shows within a second.</summary>
-    public void Poll() => Reconcile();
+    /// <summary>Refreshes the status words (the 1 s poll) and reconciles, so a device switched on or a link that dropped shows within a second — and asks a box that answers questions (a projector's POWER ?) how it is.</summary>
+    public void Poll()
+    {
+        Reconcile();
+        var now = DateTime.UtcNow;
+        foreach (var open in _open.Values)
+        {
+            if (open.Session.PollWords is not { } poll || !open.Link.IsOpen || now < open.NextPollUtc) continue;
+            open.NextPollUtc = now + open.Session.PollEvery;
+            WriteTo(open, poll, out _, quiet: true);
+        }
+    }
 
     /// <summary>A line to a device — the DEVICE verb, the cue action, the page's SEND. The name may be blank or * for the first enabled device.</summary>
     public ActionResult Send(string deviceNameOrNumber, string text)
@@ -180,7 +199,7 @@ public sealed class DeviceService : IDisposable
             Reconcile();
             if (!_open.TryGetValue(device.Id, out open)) return ActionResult.Failed($"Device '{device.Name}' is not open: {device.Status}");
         }
-        WriteTo(open, line);
+        if (!WriteTo(open, line, out var problem)) return ActionResult.Refused(problem);
         return ActionResult.Done($"Device {device.Name}: {line}");
     }
 
@@ -193,6 +212,7 @@ public sealed class DeviceService : IDisposable
             n = i + 1,
             name = d.Name,
             link = d.Link.ToString().ToLowerInvariant(),
+            profile = d.Profile.ToString().ToLowerInvariant(),
             address = DeviceAddress.Describe(d),
             enabled = d.Enabled,
             open = _open.TryGetValue(d.Id, out var o) && o.Link.IsOpen,
@@ -202,7 +222,7 @@ public sealed class DeviceService : IDisposable
         }).ToList();
     }
 
-    private static string KeyOf(DeviceConfig d) => $"{d.Link}|{d.Port}|{d.Baud}|{d.NetPort}|{d.LineEnding}";
+    private static string KeyOf(DeviceConfig d) => $"{d.Link}|{d.Port}|{d.Baud}|{d.NetPort}|{d.LineEnding}|{d.Profile}|{d.Secret}";
 
     private static string StatusLine(Open open)
     {
@@ -211,10 +231,12 @@ public sealed class DeviceService : IDisposable
         return s;
     }
 
-    private static IDeviceLink? Make(DeviceConfig d)
+    private static IDeviceLink? Make(DeviceConfig d, ProfileSession session)
     {
         switch (d.Link)
         {
+            case DeviceLink.Http:
+                return d.Port.Trim().Length == 0 ? null : new HttpDeviceLink(d.Port);
             case DeviceLink.Serial:
             {
                 var serialPort = DeviceAddress.SerialPort(d.Port);
@@ -225,9 +247,9 @@ public sealed class DeviceService : IDisposable
                 // operator with one of them expects and saves a trip to the Admin page.
                 return new MidiSurfaceLink(d.Port);
             case DeviceLink.Tcp:
-                return DeviceAddress.TryParseHost(d.Port, d.NetPort, out var host, out var tcpPort) ? new TcpDeviceLink(host, tcpPort) : null;
+                return DeviceAddress.TryParseHost(d.Port, d.NetPort, out var host, out var tcpPort) ? new TcpDeviceLink(host, tcpPort, session.Split) : null;
             default:
-                return DeviceAddress.TryParseHost(d.Port, d.NetPort, out var uhost, out var uport) ? new UdpDeviceLink(uhost, uport) : null;
+                return DeviceAddress.TryParseHost(d.Port, d.NetPort, out var uhost, out var uport) ? new UdpDeviceLink(uhost, uport, session.Decode) : null;
         }
     }
 
@@ -247,8 +269,16 @@ public sealed class DeviceService : IDisposable
 
     private readonly List<string> _lamps = new();
 
-    private void WriteTo(Open open, string line)
+    private void WriteTo(Open open, string line) => WriteTo(open, line, out _);
+
+    /// <summary>
+    /// The words to the device through its profile — a board's line as it is, a projector's %1POWR 1,
+    /// a media server's OSC or JSON-RPC. False, with the reason, when the words are not the
+    /// profile's; a quiet write (the poll) leaves the counters alone.
+    /// </summary>
+    private bool WriteTo(Open open, string line, out string problem, bool quiet = false)
     {
+        problem = "";
         // A surface that cannot read words can still light. A fact the show sends is turned into
         // whatever lamps this device's own rows say it lights, and the words themselves are not
         // sprayed at it — a MIDI port given "LOOK Walk-in" as bytes is a fault nobody could
@@ -264,13 +294,24 @@ public sealed class DeviceService : IDisposable
                 open.LastOut = lamp;
             }
             if (_lamps.Count > 0) open.Config.Status = StatusLine(open);
-            return;
+            return true;
         }
 
-        open.Link.Write(DeviceLines.Frame(line, open.Config.LineEnding));
-        open.Out++;
-        open.LastOut = line;
+        var frames = open.Session.Encode(line, out problem);
+        if (frames.Count == 0)
+        {
+            if (problem.Length == 0) problem = $"'{line}' could not be sent to {open.Config.Name}.";
+            Log.Warn($"Device '{open.Config.Name}': {problem}");
+            return false;
+        }
+        foreach (var frame in frames) open.Link.WriteBytes(frame);
+        if (!quiet)
+        {
+            open.Out++;
+            open.LastOut = line;
+        }
         open.Config.Status = StatusLine(open);
+        return true;
     }
 
     private readonly Dictionary<string, Action<string>> _learning = new(StringComparer.OrdinalIgnoreCase);
@@ -330,7 +371,16 @@ public sealed class DeviceService : IDisposable
         {
             if (_disposed || !_open.TryGetValue(id, out var open)) return;
             open.In++;
-            open.LastIn = line;
+            // What the box said, in the profile's words — and what it asks to send next (a media
+            // server's handle found is the play that wanted it).
+            var reply = open.Session.OnReceived(line);
+            open.LastIn = reply.Words;
+            foreach (var frame in reply.SendNext)
+            {
+                open.Link.WriteBytes(frame);
+                open.Out++;
+            }
+            if (reply.IsError) Log.Warn($"Device '{open.Config.Name}' answered: {reply.Words}");
             open.Config.Status = StatusLine(open);
 
             // A row waiting to be learned takes this line and nothing else happens: the operator is
@@ -345,6 +395,9 @@ public sealed class DeviceService : IDisposable
             var command = DeviceMap.Resolve(open.Config, line);
             if (command is null)
             {
+                // A box's own answer — a projector's status, a media server's result, a web API's
+                // reply — was read above; it is not a command to the show unless a trigger row says so.
+                if (open.Config.Profile != DeviceProfile.Lines || open.Config.Link == DeviceLink.Http) return;
                 // Said once per line, not once per message. Sixteen unmapped encoders on a control
                 // surface are hundreds of identical lines a second, and a log nobody can read
                 // through is a log that hides the one line that mattered.
@@ -561,16 +614,19 @@ public sealed class TcpDeviceLink : IDeviceLink
 {
     private readonly string _host;
     private readonly int _port;
+    private readonly Func<StringBuilder, IReadOnlyList<string>> _split;
     private readonly CancellationTokenSource _cts = new();
     private readonly StringBuilder _buffer = new();
     private NetworkStream? _stream;
     private volatile string _status = "connecting…";
     private volatile bool _open;
 
-    public TcpDeviceLink(string host, int port)
+    /// <param name="split">How the byte stream is cut into frames — lines unless the box frames otherwise (Pixera's 0xPX).</param>
+    public TcpDeviceLink(string host, int port, Func<StringBuilder, IReadOnlyList<string>>? split = null)
     {
         _host = host;
         _port = port;
+        _split = split ?? DeviceLines.Split;
         _ = Task.Run(LoopAsync);
     }
 
@@ -580,14 +636,15 @@ public sealed class TcpDeviceLink : IDeviceLink
 
     public event Action<string>? LineReceived;
 
-    public void Write(string framedLine)
+    public void Write(string framedLine) => WriteBytes(Encoding.UTF8.GetBytes(framedLine));
+
+    public void WriteBytes(byte[] frame)
     {
         try
         {
             var stream = _stream;
             if (stream is null) return;
-            var bytes = Encoding.UTF8.GetBytes(framedLine);
-            stream.Write(bytes, 0, bytes.Length);
+            stream.Write(frame, 0, frame.Length);
         }
         catch (Exception ex)
         {
@@ -617,7 +674,7 @@ public sealed class TcpDeviceLink : IDeviceLink
                     var read = await _stream.ReadAsync(chunk, ct);
                     if (read <= 0) break;   // the device hung up
                     _buffer.Append(Encoding.UTF8.GetString(chunk, 0, read));
-                    foreach (var line in DeviceLines.Split(_buffer)) LineReceived?.Invoke(line);
+                    foreach (var line in _split(_buffer)) LineReceived?.Invoke(line);
                 }
                 _status = "closed by the device — reconnecting";
             }
@@ -665,13 +722,16 @@ public sealed class UdpDeviceLink : IDeviceLink
     private readonly IPEndPoint? _to;
     private readonly string _host;
     private readonly int _port;
+    private readonly Func<byte[], string?> _decode;
     private readonly CancellationTokenSource _cts = new();
     private volatile string _status;
 
-    public UdpDeviceLink(string host, int port)
+    /// <param name="decode">A datagram as text — OSC decoded to its address and arguments; null for one that is not the box's.</param>
+    public UdpDeviceLink(string host, int port, Func<byte[], string?>? decode = null)
     {
         _host = host;
         _port = port;
+        _decode = decode ?? (bytes => Encoding.UTF8.GetString(bytes));
         _udp = new UdpClient(AddressFamily.InterNetwork);
         _to = IPAddress.TryParse(host, out var ip) ? new IPEndPoint(ip, port) : null;
         _status = $"open ({host}:{port}, UDP)";
@@ -682,15 +742,19 @@ public sealed class UdpDeviceLink : IDeviceLink
 
     public bool IsOpen => true;
 
+    /// <summary>The socket's own end, so a box (or a test) can answer to it.</summary>
+    public IPEndPoint? LocalEndpoint => _udp.Client.LocalEndPoint as IPEndPoint;
+
     public event Action<string>? LineReceived;
 
-    public void Write(string framedLine)
+    public void Write(string framedLine) => WriteBytes(Encoding.UTF8.GetBytes(framedLine));
+
+    public void WriteBytes(byte[] frame)
     {
         try
         {
-            var bytes = Encoding.UTF8.GetBytes(framedLine);
-            if (_to is not null) _udp.Send(bytes, bytes.Length, _to);
-            else _udp.Send(bytes, bytes.Length, _host, _port);
+            if (_to is not null) _udp.Send(frame, frame.Length, _to);
+            else _udp.Send(frame, frame.Length, _host, _port);
         }
         catch (Exception ex)
         {
@@ -707,7 +771,9 @@ public sealed class UdpDeviceLink : IDeviceLink
             try
             {
                 var result = await _udp.ReceiveAsync(ct);
-                buffer.Append(Encoding.UTF8.GetString(result.Buffer));
+                var text = _decode(result.Buffer);
+                if (text is null) continue;
+                buffer.Append(text);
                 if (buffer.Length > 0 && buffer[^1] is not ('\n' or '\r')) buffer.Append('\n');   // a datagram is a line
                 foreach (var line in DeviceLines.Split(buffer)) LineReceived?.Invoke(line);
             }
