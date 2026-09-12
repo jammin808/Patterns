@@ -52,6 +52,22 @@ public class TwinLauncherTests
     [Fact]
     public void TheLauncherStartsTheProcessStartsItAgainAfterItExitsWithAGrowingPauseAndEndsItUnlessItHasTheShow()
     {
+        // The launcher makes the standby's folder before it starts the process, so the folder
+        // must be one this test may make: under the temp path, not at the file system's root
+        // (a CI runner is not root, and "/show" cannot be created there).
+        var home = Path.Combine(Path.GetTempPath(), "patterns-tests-twin-" + Guid.NewGuid().ToString("N"), "twin-standby");
+        try
+        {
+            RunTheLauncher(home);
+        }
+        finally
+        {
+            try { Directory.Delete(Path.GetDirectoryName(home)!, recursive: true); } catch { /* left for the OS */ }
+        }
+    }
+
+    private static void RunTheLauncher(string home)
+    {
         var now = new DateTime(2026, 9, 12, 20, 0, 0, DateTimeKind.Utc);
         var launcher = new TwinLauncher(() => now);
         var spawned = new List<(string File, IReadOnlyList<string> Args)>();
@@ -69,7 +85,7 @@ public class TwinLauncherTests
         launcher.Tick(standbyHoldsShow: false);
         Assert.Empty(spawned);                                                        // nothing wanted, nothing started
 
-        launcher.Want("/show/twin-standby", 9699, "k", standbyHoldsShow: false);
+        launcher.Want(home, 9699, "k", standbyHoldsShow: false);
         Assert.Equal("Standby process starting…", launcher.Words);
         launcher.Tick(standbyHoldsShow: false);
         var (_, args) = Assert.Single(spawned);
@@ -116,11 +132,53 @@ public class TwinLauncherTests
         launcher.Want(null, 9699, "k", standbyHoldsShow: true);
         Assert.False(children[2].Killed);
         Assert.False(launcher.Wanted);
-        launcher.Want("/show/twin-standby", 9699, "k", standbyHoldsShow: false);
+        launcher.Want(home, 9699, "k", standbyHoldsShow: false);
         launcher.Tick(standbyHoldsShow: false);
         Assert.Equal(4, spawned.Count);
         launcher.Dispose();
         Assert.True(children[3].Killed);
         Assert.Equal("", launcher.Words);
+    }
+
+    [Fact]
+    public void TheLauncherSaysWhyAStartFailedAndTriesAgain()
+    {
+        var now = new DateTime(2026, 9, 12, 20, 0, 0, DateTimeKind.Utc);
+        var launcher = new TwinLauncher(() => now);
+        var home = Path.Combine(Path.GetTempPath(), "patterns-tests-twin-" + Guid.NewGuid().ToString("N"), "twin-standby");
+        var fail = true;
+        var spawned = 0;
+        launcher.Spawn = (_, _) =>
+        {
+            if (fail) throw new UnauthorizedAccessException("the folder is read-only");
+            spawned++;
+            return new FakeTwinChild { Pid = 5000 };
+        };
+        launcher.FolderOwned = _ => false;
+        try
+        {
+            launcher.Want(home, 9699, "k", standbyHoldsShow: false);
+            launcher.Tick(standbyHoldsShow: false);
+            Assert.Equal(0, spawned);
+            Assert.Null(launcher.Pid);
+            Assert.Equal("Standby process could not be started — the folder is read-only; trying again in 2 s.", launcher.Words);
+            now += TimeSpan.FromSeconds(1);
+            launcher.Tick(standbyHoldsShow: false);
+            Assert.Equal(0, spawned);                                                 // too soon, and the reason still stands
+            Assert.StartsWith("Standby process could not be started — the folder is read-only; trying again in 1 s.", launcher.Words);
+
+            // The cause fixed: the next try starts it, and the reason goes.
+            fail = false;
+            now += TimeSpan.FromSeconds(2);
+            launcher.Tick(standbyHoldsShow: false);
+            Assert.Equal(1, spawned);
+            Assert.Equal(5000, launcher.Pid);
+            Assert.Equal("Standby process running (pid 5000).", launcher.Words);
+        }
+        finally
+        {
+            launcher.Dispose();
+            try { Directory.Delete(Path.GetDirectoryName(home)!, recursive: true); } catch { /* left for the OS */ }
+        }
     }
 }

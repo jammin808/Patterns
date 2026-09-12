@@ -79,6 +79,7 @@ public sealed class TwinLauncher : IDisposable
     private TimeSpan _retry = FirstRetry;
     private int _starts;
     private int? _lastExitCode;
+    private string? _lastStartError;
     private bool _adopted;
 
     public TwinLauncher(Func<DateTime>? clock = null)
@@ -113,6 +114,7 @@ public sealed class TwinLauncher : IDisposable
         _retry = FirstRetry;
         _nextStartUtc = null;
         _adopted = false;
+        _lastStartError = null;
     }
 
     /// <summary>Once a second: start it, or start it again after it exited — never while a standby has the show or one already owns the folder.</summary>
@@ -155,10 +157,14 @@ public sealed class TwinLauncher : IDisposable
             _child = Spawn(file, args) ?? throw new InvalidOperationException("no process");
             _starts++;
             _nextStartUtc = null;
+            _lastStartError = null;
             Log.Info($"Twin: started the standby process (pid {_child.Pid}) in {_home}.");
         }
         catch (Exception ex)
         {
+            // A folder that cannot be made (a read-only show drive, a path the account may not
+            // write), an exe that will not start: said on the Machine page, not only in the log.
+            _lastStartError = ex.Message;
             _nextStartUtc = _clock() + _retry;
             Log.Warn($"Twin: the standby process could not be started — {ex.Message}; trying again in {_retry.TotalSeconds:0} s.", ex);
             _retry = TimeSpan.FromTicks(Math.Min(_retry.Ticks * 2, MaxRetry.Ticks));
@@ -176,6 +182,7 @@ public sealed class TwinLauncher : IDisposable
             if (_nextStartUtc is { } at)
             {
                 var wait = Math.Max(0, (at - _clock()).TotalSeconds);
+                if (_lastStartError is { } why) return $"Standby process could not be started — {why}; trying again in {wait:0} s.";
                 return _lastExitCode is { } code ? $"Standby process exited (code {code}); starting again in {wait:0} s." : $"Standby process starting in {wait:0} s.";
             }
             return "Standby process starting…";

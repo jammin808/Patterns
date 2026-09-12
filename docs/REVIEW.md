@@ -371,6 +371,13 @@ core + 536 headless UI tests green.
    row; the facts carry the report or nothing, and nothing makes no row.
 9. **The lock's minute checks stalled against a clock that stepped back** — a clock earlier
    than the last check read as "not yet"; a backwards clock counts as elapsed.
+10. **The twin launcher's test failed on CI and nowhere else** — it named `/show/twin-standby`
+    as the standby's folder, which the launcher makes before it starts the process; a runner
+    that is not root cannot make a folder at the file system's root, so nothing started and the
+    suite went red on GitHub while passing on a root container. Reproduced as an unprivileged
+    user; the test uses a temp folder. Found with it: a start that failed said only "starting
+    in 2 s" on the Machine page — it now names the reason (a read-only show drive, a path the
+    account may not write) until a try succeeds.
 
 ### Measured, and left
 
