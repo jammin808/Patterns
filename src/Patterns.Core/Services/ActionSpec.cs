@@ -50,6 +50,8 @@ public enum ValueKind
     DeckPage,
     /// <summary>A look of the show (id or name) — a picker, not a text box.</summary>
     Look,
+    /// <summary>A pattern saved as a preset, by name — a picker filled from the presets folder beside the show.</summary>
+    Preset,
     /// <summary>A number of seconds (decimals allowed); empty means the action's own default.</summary>
     Seconds,
     /// <summary>The weather chip's view: now, day (the rest of today) or tomorrow.</summary>
@@ -112,6 +114,8 @@ public static class ActionSpec
         ShowActionKind.Announce => (TargetKind.Slot, ValueKind.Text),
         ShowActionKind.AdvertPlay => (TargetKind.Slot, ValueKind.None),
         ShowActionKind.ScreenLook => (TargetKind.Screen, ValueKind.Look),
+        ShowActionKind.PatternPreset => (TargetKind.None, ValueKind.Preset),
+        ShowActionKind.ScreenPreset => (TargetKind.Screen, ValueKind.Preset),
         ShowActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.ScreenToPreview => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
@@ -220,6 +224,8 @@ public static class ActionSpec
         ShowActionKind.ScheduleOn => "Install schedule on",
         ShowActionKind.ScheduleOff => "Install schedule off",
         ShowActionKind.ScreenLook => "Screen — its own look",
+        ShowActionKind.PatternPreset => "Preset — recall a saved pattern",
+        ShowActionKind.ScreenPreset => "Screen — a saved preset on it alone",
         ShowActionKind.ScreenProgram => "Screen — back to the program",
         ShowActionKind.VideoToEnd => "Video — jump to its last seconds",
         ShowActionKind.VideoRestart => "Video — restart from the top",
@@ -264,6 +270,7 @@ public static class ActionSpec
         ShowActionKind.ScreenOn, ShowActionKind.ScreenOff, ShowActionKind.ScreenToggle,
         ShowActionKind.ScreenLock, ShowActionKind.ScreenUnlock, ShowActionKind.ScreenLockToggle,
         ShowActionKind.ScreenLook, ShowActionKind.ScreenProgram,
+        ShowActionKind.PatternPreset, ShowActionKind.ScreenPreset,
         ShowActionKind.CanvasOn, ShowActionKind.CanvasOff,
         ShowActionKind.PatternKind,
         ShowActionKind.CountdownStart, ShowActionKind.CountdownTo, ShowActionKind.CountdownStop, ShowActionKind.CountdownToggle, ShowActionKind.CountdownLabel,
@@ -314,7 +321,8 @@ public static class ActionSpec
     public static bool ChangesContent(ShowActionKind kind) => kind is
         ShowActionKind.ApplyLook or ShowActionKind.PlaylistPart or ShowActionKind.PatternKind or
         ShowActionKind.ScreenOn or ShowActionKind.ScreenOff or ShowActionKind.ScreenToggle or ShowActionKind.CanvasOn or ShowActionKind.CanvasOff or
-        ShowActionKind.ScreenLook or ShowActionKind.ScreenProgram;
+        ShowActionKind.ScreenLook or ShowActionKind.ScreenProgram
+        or ShowActionKind.PatternPreset or ShowActionKind.ScreenPreset;
 
     /// <summary>A percent value: a number from 0 to 125 (the player's own ceiling, ≈ +2 dB).</summary>
     public static bool TryParsePercent(string? value, out double percent)

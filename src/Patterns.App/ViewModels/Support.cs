@@ -172,6 +172,7 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         OpenSetupCommand = new RelayCommand(() => _vm.OpenScreenSetup(this));
         SendHereCommand = new RelayCommand(() => _vm.SendSandboxToTile(this));
         SendLookCommand = new RelayCommand(() => _vm.SendLookToTile(this, PendingLook));
+        SendChoiceCommand = new RelayCommand(() => _vm.SendChoiceToTile(this, PendingSend));
         ProgramCommand = new RelayCommand(() => _vm.SendProgramToTile(this));
         CollapseCommand = new RelayCommand(() => IsCollapsed = true);
         ExpandCommand = new RelayCommand(() => IsCollapsed = false);
@@ -191,6 +192,29 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
     }
 
     public bool HasPendingLook => _pendingLook is not null;
+
+    private SendChoice? _pendingSend;
+
+    /// <summary>
+    /// What → THIS SCREEN will put here: a look of the show, or a pattern saved as a preset.
+    ///
+    /// One picker rather than two, because the operator's question is "what do I want on this
+    /// screen" and not "which of the desk's two kinds of saved thing am I reaching for". The row is
+    /// already five controls wide; a second picker would have made it unreadable on a laptop.
+    /// </summary>
+    public SendChoice? PendingSend
+    {
+        get => _pendingSend;
+        set
+        {
+            if (Set(ref _pendingSend, value)) Raise(nameof(HasPendingSend));
+        }
+    }
+
+    public bool HasPendingSend => _pendingSend is not null;
+
+    /// <summary>→ THIS SCREEN: whichever kind was chosen lands on this target alone, live.</summary>
+    public RelayCommand SendChoiceCommand { get; }
 
     /// <summary>→ THIS SCREEN: the pending look's picture lands on this target alone (live, every other screen stays).</summary>
     public RelayCommand SendLookCommand { get; }
@@ -435,6 +459,32 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
 public sealed record WebActionChip(string Id, string Label, string Hint);
 
 /// <summary>A labelled enum value for combo boxes.</summary>
+/// <summary>
+/// Something the Show panel can put on one screen: a look of the show, or a pattern saved as a
+/// preset. Grouped so the picker reads as two lists in one, which is what lets the row keep a
+/// single control — the operator's question is "what do I want on this screen", not "which of the
+/// desk's two kinds of saved thing am I reaching for".
+/// </summary>
+/// <summary>A saved pattern on the Pattern page: press to recall it, ✕ to forget it.</summary>
+public sealed class PresetChip
+{
+    public PresetChip(MainViewModel vm, string name)
+    {
+        Name = name;
+        RecallCommand = new RelayCommand(() => vm.RecallPreset(name));
+        DeleteCommand = new RelayCommand(() => vm.ForgetPreset(name));
+    }
+
+    public string Name { get; }
+    public RelayCommand RecallCommand { get; }
+    public RelayCommand DeleteCommand { get; }
+}
+
+public sealed record SendChoice(string Name, string Group, bool IsPreset, string Id)
+{
+    public override string ToString() => Name;
+}
+
 public sealed record EnumItem(object Value, string Label)
 {
     public override string ToString() => Label;

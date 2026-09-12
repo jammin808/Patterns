@@ -423,10 +423,30 @@
                     ToolTip.Tip="Every multiview — a wall on a screen, an NDI send of one, /multiview — draws the sandboxed preview full-frame with a REVIEW chip until you switch it off: check the next look on the monitor wall before the TAKE. Never saved with the show" />
     </StackPanel>
 
-    <TextBlock Classes="h2" Text="SAVE AS PRESET" />
+    <TextBlock Classes="h2" Text="PRESETS" />
     <Grid ColumnDefinitions="*,8,Auto">
       <TextBox Grid.Column="0" Watermark="Preset name…" Text="{Binding NewPresetName}" />
       <Button Grid.Column="2" Classes="chip" Content="Save" Command="{Binding SavePresetCommand}" />
     </Grid>
+    <!-- Recall lives where saving does. It used to be on the Library page and nothing here said so. -->
+    <ItemsControl ItemsSource="{Binding PresetChips}" Margin="0,6,0,0">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:PresetChip">
+          <Grid ColumnDefinitions="Auto,Auto" Margin="0,0,6,6">
+            <Button Classes="chip" Content="{Binding Name}" Command="{Binding RecallCommand}"
+                    ToolTip.Tip="Recall this pattern into the picture you are editing. With EDIT SAFE open it lands in the preview and waits for the TAKE" />
+            <Button Grid.Column="1" Classes="mini" Content="✕" Command="{Binding DeleteCommand}"
+                    ToolTip.Tip="Forget this preset — the file is the preset, so this removes the file" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint" Text="{Binding PresetHint}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint tip" Text="A preset is this picture and nothing else — the kind and all its settings, with no overlays, no countdown and no per-screen arrangement, which is what makes it safe to drop onto one screen without disturbing the rest of the show. Press one to recall it here. On the Show panel each screen's row offers your presets beside the show's looks, so → THIS SCREEN puts a saved picture on one screen alone; the Library page shows them with thumbnails. A cue can recall one (Preset — recall a saved pattern, or Screen — a saved preset on it alone) and so can the wire: PRESET Walk-in, SCREEN 2 PRESET Walk-in. Presets are files in the presets folder beside Patterns.exe, so they travel with the folder rather than inside a show file — copy the folder to take them to another machine." />
   </StackPanel>
 </UserControl>

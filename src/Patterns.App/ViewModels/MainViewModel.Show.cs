@@ -188,6 +188,9 @@ public sealed partial class MainViewModel
             RefreshPopOut();   // the settings column follows the page: open for a selection here, closed elsewhere
             // The Multiview page reads the rig and what every output is doing: level on arrival.
             if (page.Header == "Multiview") RefreshWallDestinations();
+            // The presets are files beside the show, so the two pages that offer them read the
+            // folder as they come in: one saved a minute ago, or copied in by hand, is simply there.
+            if (page.Header is "Pattern" or "Panel" or "Run") RefreshPresetChips();
         }, $"the switch to {page.Header}");
     }
 
@@ -633,6 +636,41 @@ public sealed partial class MainViewModel
         if (result.Ok) RebuildEditTargets(); // OWN lights up on the tile and the editors see the new assignment
     }
 
+    /// <summary>
+    /// → THIS SCREEN with the one picker that offers both: a look of the show, or a pattern saved as
+    /// a preset. Both go through the action layer, so both are journalled and both are the same
+    /// thing a cue or the wire would do.
+    /// </summary>
+    internal void SendChoiceToTile(SwitcherTile tile, SendChoice? choice)
+    {
+        if (tile.TargetId is not { } target) return;
+        if (choice is null)
+        {
+            StatusMessage = $"Pick a look or a preset for {tile.Title} first — then → THIS SCREEN puts it there alone.";
+            return;
+        }
+        var kind = choice.IsPreset ? ShowActionKind.ScreenPreset : ShowActionKind.ScreenLook;
+        var result = Report(_services.Actions.Execute(kind, ActionOrigin.Desk, target, choice.Id));
+        if (result.Ok) RebuildEditTargets(); // OWN lights up on the tile and the editors see the new assignment
+    }
+
+    /// <summary>
+    /// Everything the panel can put on one screen, in one list: the show's looks, then the patterns
+    /// saved as presets. Rebuilt when either changes — the presets live beside the show as files, so
+    /// one saved on the Pattern page has to appear here without a restart.
+    /// </summary>
+    public ObservableCollection<SendChoice> SendChoices { get; } = new();
+
+    public void RefreshSendChoices()
+    {
+        var wanted = new List<SendChoice>();
+        foreach (var look in State.LooksAndCues.Looks) wanted.Add(new SendChoice(look.Name, "Looks", false, look.Id));
+        foreach (var name in _services.Store.PresetNames()) wanted.Add(new SendChoice(name, "Presets", true, name));
+        if (SendChoices.SequenceEqual(wanted)) return;
+        SendChoices.Clear();
+        foreach (var choice in wanted) SendChoices.Add(choice);
+    }
+
     /// <summary>PROGRAM on the Show panel: this target drops its own picture and follows the program again, live.</summary>
     internal void SendProgramToTile(SwitcherTile tile)
     {
@@ -1060,6 +1098,7 @@ public sealed partial class MainViewModel
     private void RefreshLookTallies()
     {
         var looks = State.LooksAndCues.Looks;
+        RefreshSendChoices();          // a look saved or renamed reaches the panel's picker at once
         if (looks.Count == 0) return;
 
         // Program: the look last put on air, edited or not; with none recorded, the look whose picture this is.

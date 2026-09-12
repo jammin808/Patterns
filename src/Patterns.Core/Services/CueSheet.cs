@@ -270,6 +270,8 @@ public static class CueSheet
             "schedule" or "scheduleon" or "install" or "installon" or "installschedule" or "installscheduleon" => ShowActionKind.ScheduleOn,
             "scheduleoff" or "installoff" or "installscheduleoff" or "schedulestop" => ShowActionKind.ScheduleOff,
             "screenlook" or "lookonscreen" or "lookon" or "sendlook" or "screensend" or "own" or "ownlook" => ShowActionKind.ScreenLook,
+            "preset" or "patternpreset" or "recallpreset" or "presetrecall" => ShowActionKind.PatternPreset,
+            "screenpreset" or "presetonscreen" or "preseton" or "sendpreset" => ShowActionKind.ScreenPreset,
             "screenprogram" or "screenpgm" or "backtoprogram" or "toprogram" or "program" or "pgm" or "follow" => ShowActionKind.ScreenProgram,
             "videoend" or "videotoend" or "vtend" or "clipend" or "lastseconds" or "skiptoend" or "videolast" or "vtlast" => ShowActionKind.VideoToEnd,
             "videorestart" or "vtrestart" or "cliprestart" or "restartvideo" or "restartclip" or "videostart" or "vtstart" or "rewind" => ShowActionKind.VideoRestart,

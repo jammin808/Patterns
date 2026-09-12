@@ -100,6 +100,8 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `LOGO ON` / `OFF` / `TOGGLE` | The brand logo overlay (the file is the Branding page's); bare `LOGO` toggles |
 | `PIP ON` / `OFF` / `TOGGLE` | The picture-in-picture inset, its source as the Overlays page set it; bare `PIP` toggles |
 | `OVERLAYS OFF` | The clock, the message, the countdown, the logo, the PiP and the weather chip all off: a clean picture in one press |
+| `PRESET <name>` | A pattern saved on the Pattern page, back into the picture being edited (with EDIT SAFE open it lands in the preview and waits for the TAKE). Presets are files in the presets folder beside the exe, so a machine that has not got one answers `ERR` naming the ones it does have |
+| `SCREEN <n> PRESET <name>` | That preset becomes screen *n*'s own picture, live — every other screen stays, exactly like `SCREEN n LOOK` |
 | `PATTERN <kind>` | The kind of picture on air — `Grid`, `ColorBars`, `LedWall`, `Particles`, `Fractal`… (spaces ignored: `PATTERN LED wall`); the pattern's settings are kept, so a look's grid comes back a grid. STATE's `patternKinds` lists every kind; a stranger answers `ERR` with the list |
 | `REVIEW ON` / `OFF` / `TOGGLE` | Every multiview (a screen's own multiview pattern, an NDI send of it, `/multiview`) draws the desk's sandboxed preview full-frame with a REVIEW chip until switched off — the next look checked on the monitor wall before the TAKE; the audience's screens do not change. A latch (bare `REVIEW` toggles), never saved |
 | `SECTION <n>` / `SECTION <name>` | Put playlist show part *n* (Media-page order) on air |

@@ -545,6 +545,23 @@ public static class HelpTopics
             new[] { "Media", "Pattern", "Stream" },
             new[] { "playlist", "part", "section", "multiview", "stream", "streaming", "rtmp", "srt", "destination", "arm", "stream health", "slow stream", "dropped frames", "stream light", "rail", "buffering", "stream fault", "encoder" }),
 
+        new HelpTopic("presets", HelpGroup.Content,
+            "Presets: save a picture, and get it back",
+            "BUILD → Pattern → PRESETS: one picture saved by name — the kind and its settings, nothing else. Press a chip to recall it; pick it in a screen's row on the Show panel to put it on that screen alone.",
+            HelpBodies.Presets,
+            new[]
+            {
+                "Build the picture, type a name, press Save. It becomes a file in the presets folder beside Patterns.exe, so it travels with the folder rather than inside a show.",
+                "The chips under the Save box ARE the recall: press one and the picture comes back into what you are editing. With EDIT SAFE open it lands in the preview and waits for the TAKE.",
+                "On the Show panel, each screen's row offers your presets beside the show's looks in one picker — → THIS SCREEN puts either on that screen alone, live, with every other screen untouched.",
+                "A preset is a pattern, not a look: no overlays, no countdown, no per-screen arrangement. That is what makes it safe to drop onto one screen.",
+                "A cue and the wire reach both: PRESET Walk-in, SCREEN 2 PRESET Walk-in.",
+                "The Library page still shows them with thumbnails — the right place when you are looking for a picture rather than recalling one you just made.",
+            },
+            "PRESET <name> · SCREEN <n> PRESET <name>",
+            new[] { "Pattern", "Panel", "Library" },
+            new[] { "preset", "presets", "save", "recall", "saved pattern", "save as preset", "build rail", "library", "chip", "send to screen", "one screen", "reuse", "favourite", "favorite" }),
+
         new HelpTopic("test-card", HelpGroup.Content,
             "The Patterns test card: one card for a rig day's first four questions",
             "BUILD → Pattern → Patterns test card: which screen this is, whether the pixels arrive one to one, where the edges went and what the processor has done to black, white and grey — on one picture, read from the ladder. What a brand-new install comes up on.",

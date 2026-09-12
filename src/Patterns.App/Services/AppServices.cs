@@ -225,6 +225,10 @@ public sealed class AppServices
     {
         VideoDecoderAvailable = ValidationVideoOverride is { } video ? video() : _videoDecoder.Value,
         MusicReady = Spotify.Connected,
+        // A preset is a file beside the show rather than part of it, so the pure checks cannot see
+        // one: the desk hands the list in. A cue that names a preset this machine has not got is
+        // worth a look, not a refusal — the folder may simply not have travelled yet.
+        Presets = Store.PresetNames().ToList(),
     };
 
     /// <summary>Tests only: stand in for "is libVLC present" so a video-stinger cue can run headless.</summary>

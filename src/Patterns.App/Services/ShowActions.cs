@@ -86,6 +86,21 @@ public sealed class ShowActions
     }
 
     /// <summary>The journal names looks and break music, not their ids — a caller reading it back should not need the show file.</summary>
+    /// <summary>
+    /// Why a preset could not be recalled, in words that say what to do. Presets are files beside
+    /// the show rather than part of it, so a show carried to another machine can name one that is
+    /// not there — and "no preset 'Walk-in'" alone would leave an operator hunting.
+    /// </summary>
+    private string PresetMissing(string name)
+    {
+        var wanted = (name ?? "").Trim();
+        if (wanted.Length == 0) return "Which preset? Save one on the Pattern page first.";
+        var have = _s.Store.PresetNames();
+        return have.Count == 0
+            ? $"No preset '{wanted}' — this machine's presets folder is empty. Save one on the Pattern page, or copy the folder across with the show."
+            : $"No preset '{wanted}' here. This machine has: {string.Join(", ", have.Take(8))}{(have.Count > 8 ? "…" : "")}";
+    }
+
     private string JournalTarget(ShowAction action) => action.Kind switch
     {
         ShowActionKind.ApplyLook or ShowActionKind.ApplyLookToPreview => ResolveLook(action.Target, out _)?.Name ?? action.Target,
@@ -756,6 +771,43 @@ public sealed class ShowActions
                 if (_s.Sandbox.Active) _s.EditAir(Land);
                 var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
                 return ActionResult.Done($"Look '{look.Name}' on {label} alone — every other screen stays.");
+            }
+            case ShowActionKind.PatternPreset:
+            {
+                // A preset is a PATTERN, not a look: it carries no overlays, no countdown and no
+                // per-screen arrangement, so recalling one changes what the picture IS and leaves
+                // everything the show has dressed it with alone. It lands in the editors like any
+                // other change, which is what makes EDIT SAFE hold it for the next TAKE — a recall
+                // that jumped straight to air would be a different verb, and a dangerous one.
+                var preset = _s.Store.FindPreset(a.Value);
+                if (preset is null) return ActionResult.Refused(PresetMissing(a.Value));
+                // The programme's picture, in the EDITED state — so with EDIT SAFE open a recall
+                // lands in the preview and waits for the TAKE, which is what an operator building a
+                // show expects of a recall. Onto one screen is ScreenPreset, and that one is live.
+                _s.BulkEdit(() => ModelCopier.Copy(preset, State.Pattern));
+                return ActionResult.Done($"Preset '{a.Value.Trim()}' recalled into {(_s.Sandbox.Active ? "the preview" : "the picture")}.");
+            }
+            case ShowActionKind.ScreenPreset:
+            {
+                // The twin of ScreenLook, and the reason a preset saved on the Pattern page is
+                // usable from the Show panel without building a whole look around it.
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var preset = _s.Store.FindPreset(a.Value);
+                if (preset is null) return ActionResult.Refused(PresetMissing(a.Value));
+                void LandPreset(ShowState state)
+                {
+                    var assignment = ContentTargets.EnsureAssignment(state, target);
+                    ModelCopier.Copy(JsonUtil.ClonePattern(preset), assignment.Pattern);
+                    assignment.PinnedByTake = false;
+                    ContentTargets.SetOwnPattern(state, target, true);
+                }
+                // Both the edited state and the frozen program, exactly as a per-screen look send:
+                // the air changes now and the next TAKE carries it.
+                _s.BulkEdit(() => LandPreset(State));
+                if (_s.Sandbox.Active) _s.EditAir(LandPreset);
+                var presetLabel = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                return ActionResult.Done($"Preset '{a.Value.Trim()}' on {presetLabel} alone — every other screen stays.");
             }
             case ShowActionKind.ScreenProgram:
             {

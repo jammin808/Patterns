@@ -100,12 +100,20 @@
                 <TextBlock Grid.Column="4" Classes="runTag" Text="{Binding RoleBadge}" IsVisible="{Binding HasBadge}" Margin="6,0,0,0" VerticalAlignment="Center" ToolTip.Tip="{Binding BadgeTip}" />
               </Grid>
               <Grid ColumnDefinitions="*,6,Auto,6,Auto,6,Auto,6,Auto">
-                <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).State.LooksAndCues.Looks}"
-                          SelectedItem="{Binding PendingLook, Mode=TwoWay}" PlaceholderText="Which look…" HorizontalAlignment="Stretch"
-                          DisplayMemberBinding="{Binding Name, x:DataType=m:LookConfig}"
-                          ToolTip.Tip="The look whose picture → THIS SCREEN puts here alone" />
-                <Button Grid.Column="2" Classes="go" Content="→ THIS SCREEN" Command="{Binding SendLookCommand}" IsEnabled="{Binding HasPendingLook}"
-                        ToolTip.Tip="That look's picture for this screen lands here alone, live — every other screen stays as it is; a whole-look recall or a cue replaces it, TAKE leaves it, LOCK keeps it" />
+                <ComboBox ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SendChoices}"
+                          SelectedItem="{Binding PendingSend, Mode=TwoWay}" PlaceholderText="Which look or preset…" HorizontalAlignment="Stretch"
+                          ToolTip.Tip="What → THIS SCREEN puts here alone: a look of the show, or a pattern you saved as a preset on the Pattern page">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SendChoice">
+                      <Grid ColumnDefinitions="*,8,Auto">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Classes="label" Text="{Binding Group}" VerticalAlignment="Center" />
+                      </Grid>
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Grid.Column="2" Classes="go" Content="→ THIS SCREEN" Command="{Binding SendChoiceCommand}" IsEnabled="{Binding HasPendingSend}"
+                        ToolTip.Tip="That look's picture — or that preset's pattern — lands on this screen alone, live; every other screen stays as it is. A whole-look recall or a cue replaces it, TAKE leaves it, LOCK keeps it" />
                 <Button Grid.Column="4" Classes="chip" Content="PROGRAM" Command="{Binding ProgramCommand}"
                         ToolTip.Tip="Back to the program: this screen drops its own picture" />
                 <ToggleButton Grid.Column="6" Classes="mini" Content="LOCK" IsChecked="{Binding IsLocked, Mode=TwoWay}"
@@ -118,7 +126,7 @@
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="hint tip" Text="Independent screen changes without leaving the panel: pick a look in a row and → THIS SCREEN puts that look's picture (its own picture for this screen if the look carried one, else the look's program) on that screen alone — every other screen stays exactly as it was. PROGRAM puts the screen back on the program. On the wire: SCREEN 2 LOOK Sponsor, SCREEN 2 PROGRAM; a cue's Screen — its own look; /patterns/screen/2/look over OSC; Companion's screen_look key." />
+    <TextBlock Classes="hint tip" Text="Independent screen changes without leaving the panel: pick a look OR a preset in a row and → THIS SCREEN puts it on that screen alone — every other screen stays exactly as it was. A look sends its picture for this screen (its own if the look carried one, else the look's program); a preset sends the pattern you saved on the Pattern page, which is how a saved picture reaches one screen without building a whole look around it. PROGRAM puts the screen back on the program. On the wire: SCREEN 2 LOOK Sponsor, SCREEN 2 PRESET Walk-in, SCREEN 2 PROGRAM; a cue's Screen — its own look and Screen — a saved preset on it alone; /patterns/screen/2/look over OSC; Companion's screen_look key." />
 
     <TextBlock Classes="h2" Text="PROGRESSION" />
     <!-- The caller's VT clock: the clip on air, where it is, what is left — red in its last ten seconds — with the rehearsal's skip and the top. -->

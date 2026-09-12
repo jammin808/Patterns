@@ -4128,3 +4128,58 @@ there is no master fader here to give them. Endless encoders send a nudge rather
 are not supported. No SysEx either way, so a Launchpad needs putting into programmer mode by its own
 tool, and the "No MIDI / MSC" gap narrows to "no MSC, no timecode" rather than closing. Nothing
 answers back to a surface, because there is nowhere on a pad to put a sentence.
+
+
+## 45. Round 28 — the maker's line, and getting a saved picture back
+
+*"Branding - Patterns Badge: default line under name message should be - 'rig · playback · show
+control'."*
+
+*"When I save a Pattern as a Preset in the Build Rail, how do I recall it? It needs an easy recall
+feature that also can be quickly used to send to a screen from the show panel."*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The badge's line, confirmed (§44.1 — landed in round 27, with the migration that makes it visible on a machine that has already run the app). | done |
+| 2 | Presets recalled (§45.1). The chips under the Save box are the recall; the Show panel's per-screen picker offers presets beside looks; `PatternPreset` and `ScreenPreset` put both on the one action layer, so a cue, the wire, OSC and Companion reach them. | done |
+
+### 45.1 A saved picture you could not get back
+
+The question answered itself: recall existed, on the Library page, and nothing where the operator
+saved said so. That is the whole fault — a feature is not findable because it is implemented, it is
+findable because it is where you are when you want it. So the recall moved to where the saving is:
+the chips under the Save box on the Pattern page ARE the preset list, one press each, with ✕ to
+forget one. The Library page still shows them with thumbnails, which is the right surface when you
+are looking for a picture rather than recalling one you made a minute ago.
+
+**The second half of the ask is the part that needed a verb.** "Quickly used to send to a screen from
+the show panel" had no path at all: a preset could only ever become the whole programme's picture,
+through the editors. The panel's per-screen row already had exactly the right gesture for a look —
+pick one, press → THIS SCREEN, and it lands on that screen alone, live, while every other screen
+stays. A preset wants the same gesture, so it got the same one: `ShowActionKind.ScreenPreset` is the
+twin of `ScreenLook`, landing on both the edited state and the frozen programme like a per-screen
+look send.
+
+That row is already five controls wide, so rather than a second picker there is one picker offering
+both, grouped — because the operator's question is "what do I want on this screen", not "which of
+the desk's two kinds of saved thing am I reaching for".
+
+**Why a preset and a look are both worth having** is the thing that decides the semantics. A look is
+the whole show picture: the pattern, the per-screen arrangement, the overlays, the countdown, the
+blackout, the lower third. A preset is one picture and nothing else. That difference is exactly what
+makes a preset safe to drop onto a single screen — sending a *look* to one screen has to work out
+which part of it belongs to that screen, while a preset simply is the picture.
+
+It also decides where a recall lands. `PatternPreset` recalls into the EDITED state, so with EDIT
+SAFE open it goes to the preview and waits for the TAKE. A recall is something an operator does
+while building, and a recall that jumped to air would be a different and far more dangerous verb.
+`ScreenPreset` is live, because a per-screen send always has been.
+
+**Presets are files beside the show rather than part of it**, which is right — they travel with the
+folder and serve every show on the stick — and it has one consequence worth handling out loud. A
+show carried to another machine can name a preset that machine has not got. The cue checks therefore
+take the preset list from the desk (`CueValidationContext.Presets`, the same seam the file and video
+probes use) and warn rather than refuse: the folder may simply not have travelled yet, and refusing
+the cue would be refusing a show that is about to be fine as soon as somebody copies it. A recall
+that cannot find its preset says what this machine does have, rather than leaving an operator
+hunting through a folder at four o'clock.

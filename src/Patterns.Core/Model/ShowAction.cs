@@ -194,6 +194,20 @@ public enum ShowActionKind
     /// picture for that target lands on it alone as its own pattern — every other target stays.
     /// </summary>
     ScreenLook,
+    /// <summary>
+    /// Value = a saved preset by name: the picture being edited becomes it. A preset is a PATTERN,
+    /// not a look — it carries no overlays, no countdown, no per-screen arrangement — so recalling
+    /// one changes what the picture IS and leaves everything the show has dressed it with alone.
+    /// It lands in the editors like any other change, so EDIT SAFE holds it for the next TAKE.
+    /// </summary>
+    PatternPreset,
+    /// <summary>
+    /// Target = a screen (number, placement id or canvas key), Value = a saved preset by name: that
+    /// preset becomes that screen's own picture, live — the twin of <see cref="ScreenLook"/>, and
+    /// the reason a preset saved on the Pattern page is usable from the Show panel without
+    /// building a whole look around it.
+    /// </summary>
+    ScreenPreset,
     /// <summary>Target = a screen or canvas: its own pattern is dropped and it shows the program again.</summary>
     ScreenProgram,
     /// <summary>

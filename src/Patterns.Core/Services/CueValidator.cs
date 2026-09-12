@@ -24,6 +24,13 @@ public sealed class CueValidationContext
 
     /// <summary>Spotify is signed in — break music can actually run tonight.</summary>
     public bool MusicReady { get; init; } = true;
+
+    /// <summary>
+    /// The presets this machine has, by name. A preset is a file beside the show rather than part of
+    /// it, so the pure checks cannot see one; the desk hands the list in. Null means "this build
+    /// cannot tell", and a cue naming a preset is then left alone rather than warned about wrongly.
+    /// </summary>
+    public IReadOnlyCollection<string>? Presets { get; init; }
 }
 
 /// <summary>The result of validating one list.</summary>
@@ -214,6 +221,21 @@ public static class CueValidator
                     else if (scope.Value.Kind == FadeScopeKind.Target && !ContentTargets.IsInRig(state, scope.Value.Arg)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     if (a.Value.Trim().Length > 0 && !(double.TryParse(a.Value.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var secs) && secs >= 0 && secs <= 600))
                         Hard($"{where}: '{a.Value}' is not a number of seconds for the fade.");
+                    break;
+                }
+                case ShowActionKind.PatternPreset:
+                case ShowActionKind.ScreenPreset:
+                {
+                    if (a.Value.Length == 0) Hard($"{where}: which preset? Choose one saved on the Pattern page.");
+                    else if (ctx.Presets is { } presets && !presets.Any(p => string.Equals(p, a.Value, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        // Soft, not hard: presets live beside the show rather than in it, so a show
+                        // carried to another machine names presets that machine may not have yet —
+                        // and refusing the cue would be refusing a show that is about to be fine as
+                        // soon as somebody copies the folder.
+                        Soft($"{where}: preset '{a.Value}' is not in the presets folder on this machine — the picture stays as it is.");
+                    }
+                    if (a.Kind == ShowActionKind.ScreenPreset && a.Target.Length == 0) Hard($"{where}: which screen?");
                     break;
                 }
                 case ShowActionKind.ScreenLook:

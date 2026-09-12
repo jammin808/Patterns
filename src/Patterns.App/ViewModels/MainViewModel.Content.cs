@@ -1516,14 +1516,54 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>A saved pattern, as the Pattern page's own chip: press to recall, ✕ to forget.</summary>
+    public ObservableCollection<PresetChip> PresetChips { get; } = new();
+
+    /// <summary>"Three presets. Press one to recall it." — or what to do when there are none.</summary>
+    public string PresetHint => PresetChips.Count == 0
+        ? "No presets yet. Build a picture, name it above and press Save — then it is one press from here, from each screen's row on the Show panel, and from a cue."
+        : $"{PresetChips.Count} preset{(PresetChips.Count == 1 ? "" : "s")}. Press one to recall it into the picture you are editing.";
+
+    /// <summary>
+    /// The chips, rebuilt from the folder. Presets are files rather than part of the show, so the
+    /// list is read from disk — one saved a moment ago, or one copied into the folder by hand while
+    /// the desk is running, both appear without a restart.
+    /// </summary>
+    public void RefreshPresetChips()
+    {
+        var names = _services.Store.PresetNames();
+        if (PresetChips.Count == names.Count && PresetChips.Select(c => c.Name).SequenceEqual(names)) return;
+        PresetChips.Clear();
+        foreach (var name in names) PresetChips.Add(new PresetChip(this, name));
+        Raise(nameof(PresetHint));
+        RefreshSendChoices();
+    }
+
+    /// <summary>Press a chip: the saved pattern back into the picture being edited, through the action layer.</summary>
+    internal void RecallPreset(string name)
+        => Report(_services.Actions.Execute(ShowActionKind.PatternPreset, ActionOrigin.Desk, "", name));
+
+    /// <summary>✕ on a chip: the file is the preset, so forgetting it removes the file.</summary>
+    internal void ForgetPreset(string name)
+    {
+        StatusMessage = _services.Store.DeletePreset(name)
+            ? $"Preset '{name}' forgotten."
+            : $"Preset '{name}' could not be removed — see the log.";
+        RefreshPresetChips();
+        BuildLibrary();
+    }
+
     private void SaveUserPreset()
     {
         var name = string.IsNullOrWhiteSpace(NewPresetName) ? $"Preset {DateTime.Now:HHmmss}" : NewPresetName.Trim();
         try
         {
             _services.Store.SavePreset(name, ActivePattern);
-            StatusMessage = $"Preset '{name}' saved.";
+            // Say where it went and how to get it back. It used to say only "saved", and the answer
+            // to "so how do I recall it?" was a different page that nothing here mentioned.
+            StatusMessage = $"Preset '{name}' saved — press it below to recall it, or pick it in a screen's row on the Show panel.";
             NewPresetName = "";
+            RefreshPresetChips();
             BuildLibrary();
         }
         catch (Exception ex)

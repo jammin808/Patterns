@@ -289,13 +289,19 @@ public static class ControlProtocol
                     var look = rest[5..].Trim();
                     return look.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenLook, n, look);
                 }
+                // "SCREEN 2 PRESET Walk-in": a saved pattern on that screen alone, live.
+                if (rest.StartsWith("PRESET ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var preset = rest[7..].Trim();
+                    return preset.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenPreset, n, preset);
+                }
                 var action = rest.ToUpperInvariant();
                 return action switch
                 {
                     "ON" => Act(ShowActionKind.ScreenOn, n),
                     "OFF" => Act(ShowActionKind.ScreenOff, n),
                     "PROGRAM" or "PGM" or "FOLLOW" => Act(ShowActionKind.ScreenProgram, n),
-                    "LOOK" => Unknown(s),
+                    "LOOK" or "PRESET" => Unknown(s),
                     _ => Act(ShowActionKind.ScreenToggle, n),
                 };
             }
@@ -650,6 +656,9 @@ public static class ControlProtocol
             case "OVERLAYS":
                 return arg.ToUpperInvariant() is "OFF" or "CLEAR" or "NONE" ? Act(ShowActionKind.OverlaysOff) : Unknown(s);
             // "PATTERN Grid" / "PATTERN LED wall": the kind of picture on air, by its name (spaces ignored).
+            // "PRESET Walk-in": a pattern saved on the Pattern page, back into the picture being edited.
+            case "PRESET":
+                return arg.Length == 0 ? Unknown(s) : Act(ShowActionKind.PatternPreset, "", arg);
             case "PATTERN":
                 return arg.Trim().Length == 0 ? Unknown(s) : Act(ShowActionKind.PatternKind, "", arg.Trim());
 

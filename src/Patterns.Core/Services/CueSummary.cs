@@ -93,6 +93,8 @@ public static class CueSummary
             case ShowActionKind.ScreenOn: return $"Screen '{ScreenLabel(state, a.Target)}' on";
             case ShowActionKind.ScreenOff: return $"Screen '{ScreenLabel(state, a.Target)}' off";
             case ShowActionKind.ScreenToggle: return $"Screen '{ScreenLabel(state, a.Target)}' on / off";
+            case ShowActionKind.PatternPreset: return $"Preset '{(a.Value.Length > 0 ? a.Value : "?")}'";
+            case ShowActionKind.ScreenPreset: return $"Screen '{ScreenLabel(state, a.Target)}' → preset '{(a.Value.Length > 0 ? a.Value : "?")}'";
             case ShowActionKind.ScreenLook: return $"Screen '{ScreenLabel(state, a.Target)}' → look '{LookService.Find(state, a.Value)?.Name ?? (a.Value.Length > 0 ? a.Value + " (not found)" : "?")}'";
             case ShowActionKind.ScreenProgram: return $"Screen '{ScreenLabel(state, a.Target)}' → the program";
             case ShowActionKind.ScreenLock: return $"Screen '{ScreenLabel(state, a.Target)}' locked — keeps its picture";

@@ -378,6 +378,51 @@ public sealed class SettingsStore
         }
     }
 
+    /// <summary>
+    /// A preset by the name an operator typed, or null.
+    ///
+    /// The one resolver, because a preset is now named by four things that must agree — the chips on
+    /// the Pattern page and the Show panel, a cue action, the wire's PRESET verb and the checks —
+    /// and four code paths that each did their own matching is exactly how the looks resolver came
+    /// to exist. Case-blind, and a name whose file has been renamed by hand still matches on the
+    /// file's own name.
+    /// </summary>
+    public PatternConfig? FindPreset(string? name)
+    {
+        var wanted = (name ?? "").Trim();
+        if (wanted.Length == 0) return null;
+        foreach (var (found, path) in ListPresets())
+        {
+            if (string.Equals(found, wanted, StringComparison.OrdinalIgnoreCase)) return LoadPreset(path);
+        }
+        return null;
+    }
+
+    /// <summary>Every preset's name, in the order the pickers offer them.</summary>
+    public IReadOnlyList<string> PresetNames() => ListPresets().Select(p => p.Name).ToList();
+
+    /// <summary>Forgets a preset. The file is the preset, so removing the file is removing it.</summary>
+    public bool DeletePreset(string name)
+    {
+        var wanted = (name ?? "").Trim();
+        if (wanted.Length == 0) return false;
+        foreach (var (found, path) in ListPresets())
+        {
+            if (!string.Equals(found, wanted, StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                File.Delete(path);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Preset '{wanted}' could not be removed.", ex);
+                return false;
+            }
+        }
+        return false;
+    }
+
     // ---- Brand kits ---------------------------------------------------------
 
     public IReadOnlyList<(string Name, string Path)> ListBrandKits()
