@@ -4201,7 +4201,7 @@ ShowActions, leaving the VM as bindings; keep Spotify / Assistant / Weather out 
 | 6 | A clock redraws once a second, on the second, not four times (§46.4). | done |
 | 7 | The render core is pinned to its seam by a test that reads the compiled code (§46.6). | done |
 | 8 | The sweep's findings, fixed — twenty-odd, from a lost crossfade to a cue box that lost focus per keystroke (`docs/REVIEW.md`, round 29). | done |
-| 9 | MainViewModel peeled into page services (§46.5). | recommended, not this round |
+| 9 | MainViewModel peeled into page services (§46.5). | done in round 30 (§47) |
 
 ### 46.1 The snapshot is a projection now — the same types, enforced
 
@@ -4314,3 +4314,129 @@ the compiled assembly — fields, signatures and every method body's tokens — 
 the day a renderer reaches for a socket or a break-music type, so the seam cannot drift quietly.
 Moving them to another process is not worth a pipe: they are HTTP clients on their own async paths,
 behind fakes, and cannot take a render thread down.
+
+## 47. Round 30 — the recommendations, taken
+
+*"Continue to implement the recommendations not done yet."* Round 29 listed what it had measured
+and left; this round takes each in the order §46.5 gave, and answers what it left again.
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The Library as a catalogue and one thumbnail queue: one file picked draws one thumbnail, every other tile keeps its instance and its picture; two builds in a row are one pass (§47.1). | done |
+| 2 | The fractal and reactive CPU rasters keep a frame per size a sink draws, so a multiview, a screen layer or a dissolve no longer reallocates twice a frame (§47.2). | done |
+| 3 | A multiview's badges and captions once per snapshot; the run list's rows follow the cues in place; a PDF page outside the window lands from a worker (§47.2). | done |
+| 4 | `ShowActions` by area: the same class in ten files, one partial per kind of verb, no verb changed (§47.3). | done |
+| 5 | The lower-thirds designer's edits in `LowerThirdDesigner` (Core), tested without a desk; the view model keeps every binding (§47.4). | done |
+| 6 | The rig's edits in `RigEditor`; a screen's role and name as verbs — `ScreenRole`, `ScreenLabel` — for the page, a cue, the wire and the journal (§47.5). | done |
+| 7 | What was measured and left again: the shader uniforms, frame coalescing, a label per keystroke (§47.6). | assessed |
+
+### 47.1 The Library: a catalogue, and one queue
+
+One file picked into the Library rebuilt every tile — the page cleared and refilled, the
+ItemsControl re-mounting the lot — and started a thumbnail pass over every tile beside the passes
+already running, none of them ever cancelled; each pass cloned the whole show on the UI thread
+and then once more per tile on a worker.
+
+The tiles are a catalogue now (`LibraryCatalogue`): built from the show and the store, reconciled
+into the page in place — a tile that is still the same tile keeps its instance, its thumbnail and
+its container, and takes the fresh tile's actions — and handed to the one `ThumbnailQueue`. The
+queue draws a tile when the picture it would put up (the pattern on the show's brand) differs
+from the one it drew last, skips the rest, drops the tiles of a build superseded before they were
+drawn, and posts each bitmap to the UI thread; its `Idle` completes there, behind the last bitmap,
+so a test that awaits the pass sees every tile filled. The thumbnails draw over the published
+snapshot, immutable, and a thumbnail's state shares every section it does not write
+(`SnapshotClone.Branch`). The view model keeps the collections and the bindings: `BuildLibrary`
+is fifteen lines.
+
+Two things the change found. A fresh show got its playlist's first part lazily, on the first
+poll, so the show's first publish differed from its second for nothing — it is normalised at
+creation now, as a loaded show is. And a worker that asks for `Dispatcher.UIThread` itself can be
+the first to ask after the headless test session has reset the dispatcher and before it has built
+the platform again, minting one with no run loop for the next test to trip over
+(`PlatformNotSupportedException` from `PushFrame`, in a test that had nothing to do with
+thumbnails, once in a suite). The queue takes the dispatcher where it is made, on the UI thread,
+posts nothing once disposed, and its `Dispose` waits for the tile in hand. Any service that posts
+from a worker should do the same; the existing ones hold a captured dispatcher or post nothing
+after shutdown.
+
+### 47.2 A frame per size, words once per snapshot, rows that stay, a page from a worker
+
+The fractal and reactive CPU rasters kept one frame per sink and reallocated it whenever the size
+changed — and one sink draws two sizes a frame more often than it looks: a multiview draws a tile
+per screen at the tile's shape, a screen layer draws another target inside a box, a dissolve draws
+the outgoing look under the incoming one. The frame, its bitmap and its pixel buffer were disposed
+and made afresh twice a frame for as long as the two sizes were on. `SurfacePool<T>` (the shape
+`ParticleSimCache` already had) keeps a frame per size, four at most, the least recently drawn
+going. The lower third's fractal element keeps its frame per size as well: its raster was found to
+be the design's own working size, so two tiles of one wall already shared one frame and its 25 fps
+gate held across them — the per-size frame matters there when the quality ladder or the design
+moves the size, not per tile.
+
+A multiview's badges, captions and air state were built afresh for every tile on every frame of
+the wall. `MultiviewWords` works them out once per snapshot — the key is the snapshot's version,
+the preview snapshot's version and the wall's options object — and the engine reads them until one
+of those moves.
+
+The run list cleared and remade every row on every publish, so the caller lost the selection and
+the scroll position mid-show. The rows follow the cues in place (`ObservableSync`): a cue still
+there keeps its row, takes its words afresh and raises what reads through; a new one comes in
+where it sits; a gone one goes. The Library's tiles use the same sync.
+
+A PDF page outside the rendered window — a jump, a cue to a far page, the first page of a deck
+just opened — was rendered on the desk's own thread under the process-wide PDFium gate, behind
+every other deck's pre-rendering. `PdfDeckSource.GoTo` renders it on a worker and publishes when
+it lands; the page on the slot stays up until then, and `PageShown` says when the page on show is
+the one on the slot. The open itself still reads the page count and the first page's size under
+the gate on the caller's thread: two metadata calls, bounded by one other deck's page render.
+
+### 47.3 ShowActions by area
+
+The action layer was one file of 1,734 lines with one switch of 960. It is the same class in ten
+files: the core (`Execute`, the journal, the dispatch) and nine partials — the rig, the switcher,
+the looks, the cues, the overlays, the lower thirds, the content, the sound, the installation.
+Each area answers its own verbs and null for the rest, and the dispatch asks them in turn; the
+helpers each area alone uses moved with it. The case bodies are the ones that were there, moved
+by a script and not edited: no verb changed, `ActionSpec`'s tables stayed as they were, and the
+vocabulary's door test held.
+
+### 47.4 The lower-thirds designer
+
+Seven hundred lines of the view model's lower-thirds partial were the designer: what a new design
+is called, which design is the default and where it goes when that one is deleted, what an element
+is sized to, how it moves, what a motion chip and a key do, which colour field a brand word lands
+in, how a file names its element, how a people list comes in and goes out. `LowerThirdDesigner`
+(Core) holds those edits, over the show's lower-thirds section, tested without a desk. The view
+model keeps the selection, the preview's clock, the tallies, the file pickers, the action calls and
+the words on the status line, and asks the designer for every edit; every binding and command keeps
+its name, so the three `x:DataType` pages and the tests that read them are as they were.
+
+### 47.5 The rig editor, and a role and a name as verbs
+
+The Screens page's view model placed the rig itself: placements kept in step with the displays,
+planned screens made, removed and adopted onto hardware, a display re-identified after a mode
+change, a canvas's own entry, the dead strips of a wall, a feed's screen. `RigEditor` holds those
+edits; the view model keeps the selection and the bindings.
+
+A screen's role and its name were the page's own writes to the model. They are verbs —
+`ShowActionKind.ScreenRole` and `ScreenLabel` — so the picker on the page, a cue, the wire
+(`SCREEN n ROLE confidence`, `SCREEN n LABEL Stage left`) and the journal share them, and the
+frozen program takes the change with the live show. A confidence or info screen is locked as it
+takes the role, the way the page did it; a main screen or a repeater follows again. The role may
+ride a cue (a running order that turns the side screens to notes for the Q&A); the label is the
+rig's own naming and stays the desk's and the remote's (`DeskOnly`). The blends, the trims and the
+gaps stay direct edits: they are continuous values under a hand, and a verb per tick would be a
+journal row per tick.
+
+### 47.6 Measured, and left again
+
+- **The shader uniforms.** The fractal, reactive and zone-plate shaders build a
+  `SKRuntimeEffectUniforms` and a handful of small float arrays per frame. The values change every
+  frame (the time, the audio, the view), so the shader itself must be rebuilt; what a cache would
+  save is a few hundred bytes of managed allocation per frame per sink — under the noise of the
+  frame at 60 Hz on eight sinks. Left.
+- **Coalescing publishes across a dispatcher frame.** §46.2's reasons stand: at 0.25 ms a publish
+  the case is not there, and the deferral would move the "an edit publishes and returns" contract
+  every test relies on.
+- **A label per keystroke.** The Screens page's label box writes the model per keystroke and
+  retitles the tiles in place; through the verb it would be a journal row per letter. The verb is
+  for the deliberate rename — a cue, the wire, Companion — and the box stays an edit.

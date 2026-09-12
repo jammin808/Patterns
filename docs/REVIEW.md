@@ -175,12 +175,51 @@ architecture questions of the round are answered in `docs/PLAN.md` §46; the fin
     one-second timer, so a cold boot (the first test of a run; new test classes moved it there)
     failed it. It now counts from the ticks the timer already took.
 
-### Recommended, not done
+### Recommended, not done (taken in round 30)
 
-- Coalescing publishes across a dispatcher frame (the design and the reason it waits: §46.2).
-- Peeling `MainViewModel` into page services, in the order §46.5 gives; `ShowActions` split by area.
-- One file picked into the library rebuilds every tile and starts a thumbnail pass that is never
-  cancelled; the fractal and reactive CPU surfaces are one slot per sink and thrash when a sink
-  draws two sizes a frame; the multiview's tally strings, shader uniforms and the run list's rows
-  are rebuilt per frame or per publish. Each is contained and measured before it is touched.
-- A PDF page outside the pre-rendered window renders on the UI thread under a process-wide lock.
+- Coalescing publishes across a dispatcher frame (the design and the reason it waits: §46.2) —
+  still waits (§47.6).
+- The rest of this list was taken in round 30, below.
+
+## Round 30 review — the recommendations, taken
+
+The round-29 list, in the order `docs/PLAN.md` §46.5 gave; §47 says how. The suite ran against
+every change: 1000 core + 511 headless UI tests green.
+
+### Done
+
+1. **The Library** — a catalogue reconciled in place and one thumbnail queue: one file picked draws
+   one thumbnail (it drew eighty-six), the other tiles keep their instances and pictures, two
+   builds in a row are one pass, the thumbnails draw over the published snapshot and share what
+   they do not write.
+2. **The CPU rasters** — a frame per size per sink for the fractal and reactive patterns and the
+   lower third's fractal element: a multiview, a screen layer or a dissolve no longer disposes and
+   reallocates a frame twice per frame.
+3. **The multiview's words** — badges, captions and the air state once per snapshot, not per tile
+   per frame.
+4. **The run list's rows** — reconciled by cue in place; the caller keeps the selection and the
+   scroll position across a publish.
+5. **A PDF page outside the window** — rendered on a worker and published when it lands; the desk's
+   thread never waits on PDFium's gate for a page.
+6. **`ShowActions` by area** — ten partials, no verb changed.
+7. **The lower-thirds designer** — its edits in a Core class with no desk in it, tested there.
+8. **The rig editor** — the placements, the planned screens, the gaps and the feeds' screens in a
+   service; a screen's role and name as verbs the page, a cue, the wire and the journal share.
+
+### Found on the way (fixed)
+
+9. **A fresh show's first publish differed from its second for nothing** — the playlist's first
+   part arrived on the first poll rather than at creation. Normalised at creation.
+10. **A worker asking for `Dispatcher.UIThread` between two headless tests** minted a dispatcher
+    with no run loop for the next test — a `PlatformNotSupportedException` from `PushFrame` in an
+    unrelated test, once in a suite, introduced by the thumbnail worker and confirmed absent on
+    the round-28 build. The queue holds the dispatcher it was made on, posts nothing once disposed,
+    and its `Dispose` waits for the tile in hand.
+
+### Measured, and left
+
+- The shader uniforms rebuilt per frame: a few hundred bytes of managed allocation per frame per
+  sink, whose values change every frame anyway (§47.6).
+- The label box's per-keystroke write stays a direct edit; the verb is for the deliberate rename.
+- `PdfDeckSource.Open` still reads the page count and the first page's size under the PDFium gate
+  on the caller's thread: two metadata calls, bounded by one page render of another deck.
