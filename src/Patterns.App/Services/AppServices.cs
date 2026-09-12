@@ -96,6 +96,9 @@ public sealed class AppServices
     /// <summary>The desk's tick budget: what the once-a-second poll costs on the UI thread, its worst minute, the areas that failed.</summary>
     public TickBudget DeskTick { get; } = new();
 
+    /// <summary>The one worker that draws the Library's thumbnails.</summary>
+    public ThumbnailQueue Thumbnails { get; } = new();
+
     /// <summary>How long this start took to become a desk, phase by phase (the Machine page, the super-check).</summary>
     public StartupBudget Startup { get; } = new();
 
@@ -1285,6 +1288,7 @@ public sealed class AppServices
             Feeds.Dispose();
             Weather.Dispose();
             Video.Dispose();
+            Thumbnails.Dispose();
             Metrics.Dispose();
             Analyser.Dispose();
             Tail.Dispose();

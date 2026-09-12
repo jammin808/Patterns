@@ -71,12 +71,15 @@ public sealed class SettingsStore
 
     public ShowState Load() => LoadFrom(SettingsPath) ?? Fresh();
 
-    /// <summary>A new show: current schema, both cue lists present.</summary>
+    /// <summary>A new show: current schema, both cue lists present, the playlist with its first part — as a loaded show has them.</summary>
     public static ShowState Fresh()
     {
         var state = new ShowState { SchemaVersion = ShowState.CurrentSchemaVersion };
         CueStacks.Caller(state);
         CueStacks.Clicker(state);
+        // A loaded show is normalised on the way in; a new one got its first part lazily, on the
+        // first poll — so the show's first publish differed from its second for no reason.
+        PlaylistSequencer.Normalize(state.Pattern.Media.Playlist);
         return state;
     }
 

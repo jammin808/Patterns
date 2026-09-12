@@ -260,4 +260,26 @@ public class SnapshotSharingTests
         }
         Assert.False(weak.IsAlive, "a look taken out of the show is still held by the change tracker");
     }
+
+    [Fact]
+    public void ABranchCopiesTheSectionsItIsToldToAndSharesTheRest()
+    {
+        var live = new ShowState { Name = "Show" };
+        live.Brand.PrimaryColor = "#111111";
+        live.Pattern.Kind = PatternKind.Focus;
+        var published = SnapshotClone.Clone(live);
+
+        var branch = SnapshotClone.Branch(published, new HashSet<string> { nameof(ShowState.Pattern) });
+
+        Assert.Equal("Show", branch.Name);
+        Assert.Same(published.Brand, branch.Brand);                        // the published object itself
+        Assert.Same(published.LooksAndCues, branch.LooksAndCues);
+        Assert.NotSame(published.Pattern, branch.Pattern);                 // its own copy
+        Assert.Equal(PatternKind.Focus, branch.Pattern.Kind);
+        Assert.False(branch.Pattern.IsPublished);
+        branch.Pattern.Kind = PatternKind.ColorBars;                       // writable
+        Assert.Equal(PatternKind.Focus, published.Pattern.Kind);
+        Assert.Throws<InvalidOperationException>(() => branch.Brand.PrimaryColor = "#222222"); // shared, so still latched
+    }
 }
+

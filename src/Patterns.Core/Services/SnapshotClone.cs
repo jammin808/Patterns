@@ -63,6 +63,28 @@ public static class SnapshotClone
         return result;
     }
 
+    /// <summary>
+    /// A working copy over a published show for a one-off render — a Library thumbnail: the
+    /// sections named in <paramref name="copied"/> are copied and may be written, every other
+    /// section is the published object itself, read and never written, and the scalars are read
+    /// across. A thumbnail used to clone the whole show for every tile of the page.
+    /// </summary>
+    public static ShowState Branch(ShowState from, IReadOnlySet<string> copied)
+    {
+        var result = new ShowState();
+        foreach (var p in Sections)
+        {
+            var type = p.PropertyType;
+            if (type.IsValueType || type == typeof(string))
+            {
+                p.SetValue(result, p.GetValue(from));
+                continue;
+            }
+            p.SetValue(result, copied.Contains(p.Name) ? CloneSection(p.GetValue(from), type, mark: false) : p.GetValue(from));
+        }
+        return result;
+    }
+
     private static bool ScalarsAgree(ShowState live, ShowState previous)
     {
         foreach (var p in Sections)
@@ -87,13 +109,13 @@ public static class SnapshotClone
         return shared;
     }
 
-    private static object? CloneSection(object? value, Type type)
+    private static object? CloneSection(object? value, Type type, bool mark = true)
     {
         if (value is null) return null;
         var json = JsonSerializer.Serialize(value, type, JsonUtil.CloneOptions);
         var copy = JsonSerializer.Deserialize(json, type, JsonUtil.CloneOptions)
                    ?? throw new InvalidOperationException($"Clone of {type.Name} produced null.");
-        MarkPublished(copy);
+        if (mark) MarkPublished(copy);
         return copy;
     }
 

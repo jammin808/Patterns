@@ -1265,9 +1265,7 @@ public sealed partial class MainViewModel
     // ---- library ------------------------------------------------------------
 
     /// <summary>The section chips, in the order they are shown; "All" first.</summary>
-    public static readonly string[] SectionNames = { "All", "Patterns", "Images", "Videos", "Audio", "Particles", "Fractals", "Presets", "Brand kits" };
-
-    public string[] LibrarySections => SectionNames;
+    public string[] LibrarySections => LibraryCatalogue.SectionNames;
 
     /// <summary>Every tile, whatever the chips and the search say.</summary>
     public List<PresetItem> LibraryAll { get; } = new();
@@ -1315,7 +1313,7 @@ public sealed partial class MainViewModel
         RefreshLibrary();
     });
 
-    /// <summary>Rebuilds every tile — the factory table, the show's media, the saved presets, the brand kits — and re-renders the thumbnails.</summary>
+    /// <summary>Brings every tile up to date — the factory table, the show's media, the saved presets, the brand kits — and draws the thumbnails that changed.</summary>
     public void RefreshLibrary() => BuildLibrary();
 
     // ---- particle scenes, by pack ----------------------------------------------
@@ -1358,167 +1356,33 @@ public sealed partial class MainViewModel
         foreach (var g in groups) ParticlePackGroups.Add(g);
     }
 
+    /// <summary>
+    /// The tiles, brought up to date in place — a tile that is still the same tile keeps its
+    /// instance, its thumbnail and its place in the ItemsControl — and the thumbnails handed to
+    /// the one queue, the visible tiles first. One file picked used to rebuild every tile and
+    /// start a thumbnail pass over all of them beside the passes already running.
+    /// </summary>
     private void BuildLibrary()
     {
         RefreshParticlePackGroups();
         RefreshFractalSceneGroups();
-        LibraryAll.Clear();
-        foreach (var b in BuiltInPresets.All)
-        {
-            var preset = b;
-            LibraryAll.Add(new PresetItem
-            {
-                Id = $"builtin:{preset.Category}:{preset.Name}",
-                Section = preset.Section,
-                Category = preset.Category,
-                Name = preset.Name,
-                Apply = () => _services.BulkEdit(() => preset.Apply(ActivePattern)),
-                ThumbConfig = baseState =>
-                {
-                    var config = JsonUtil.ClonePattern(baseState.Pattern);
-                    preset.Apply(config);
-                    return config;
-                },
-            });
-        }
-
-        foreach (var media in State.MediaLibrary.ToList())
-        {
-            var entry = media;
-            var kind = entry.Kind == LibraryMediaKind.Unknown ? MediaLibraryEntry.KindOf(entry.Path, entry.IsVideo) : entry.Kind;
-            var (section, category) = kind switch
-            {
-                LibraryMediaKind.Video => ("Videos", "My videos"),
-                LibraryMediaKind.Audio => ("Audio", "My audio"),
-                LibraryMediaKind.Deck => ("Decks", "My decks"),
-                _ => ("Images", "My images"),
-            };
-            LibraryAll.Add(new PresetItem
-            {
-                Id = "media:" + entry.Id,
-                Section = section,
-                Category = category,
-                Name = entry.DisplayName,
-                Apply = () => _services.BulkEdit(() => ApplyMedia(ActivePattern, entry, kind)),
-                ThumbConfig = baseState =>
-                {
-                    var config = JsonUtil.ClonePattern(baseState.Pattern);
-                    ApplyMedia(config, entry, kind);
-                    return config;
-                },
-                Remove = () => State.MediaLibrary.Remove(entry),
-            });
-        }
-
-        foreach (var (name, path) in _services.Store.ListPresets())
-        {
-            var p = path;
-            LibraryAll.Add(new PresetItem
-            {
-                Id = "preset:" + p,
-                Section = "Presets",
-                Category = "My presets",
-                Name = name,
-                Apply = () =>
-                {
-                    var cfg = _services.Store.LoadPreset(p);
-                    if (cfg is not null) _services.BulkEdit(() => ModelCopier.Copy(cfg, ActivePattern));
-                },
-                ThumbConfig = _ => _services.Store.LoadPreset(p),
-            });
-        }
-
-        foreach (var (name, path) in _services.Store.ListBrandKits())
-        {
-            var p = path;
-            var kit = _services.Store.LoadBrandKit(p);
-            if (kit is null) continue;
-            var kitName = name;
-            LibraryAll.Add(new PresetItem
-            {
-                Id = "brand:" + p,
-                Section = "Brand kits",
-                Category = "Brand kit",
-                Name = kitName,
-                Apply = () =>
-                {
-                    var fresh = _services.Store.LoadBrandKit(p);
-                    if (fresh is null) return;
-                    _services.BulkEdit(() => ModelCopier.Copy(fresh, State.Brand));
-                    StatusMessage = $"Brand kit '{kitName}' applied.";
-                },
-                Swatch = new[] { kit.PrimaryColor, kit.SecondaryColor, kit.AccentColor, kit.BackgroundColor, kit.TextColor },
-            });
-        }
-
+        var desk = new LibraryCatalogue.Desk(() => ActivePattern, _services.BulkEdit, words => StatusMessage = words);
+        LibraryCatalogue.Reconcile(LibraryAll, LibraryCatalogue.Build(State, _services.Store, desk));
         ApplyLibraryFilter();
-        LibraryThumbnails = RenderThumbnailsAsync(LibraryAll.ToList());
-    }
-
-    /// <summary>A media tile on a pattern: an image shows; a deck opens at its first page; a video or an audio file plays through the decoder.</summary>
-    private static void ApplyMedia(PatternConfig target, MediaLibraryEntry entry, LibraryMediaKind kind)
-    {
-        target.Kind = PatternKind.Media;
-        if (kind == LibraryMediaKind.Image)
-        {
-            target.Media.Source = MediaSource.Image;
-            target.Media.ImagePath = entry.Path;
-        }
-        else if (kind == LibraryMediaKind.Deck)
-        {
-            target.Media.Source = MediaSource.Deck;
-            target.Media.DeckPath = entry.Path;
-        }
-        else
-        {
-            target.Media.Source = MediaSource.Video;
-            target.Media.VideoPath = entry.Path;
-        }
+        // The published picture of the show is what the thumbnails draw over: immutable, so the
+        // worker reads it while the desk goes on editing.
+        var over = _services.Bus.Sandbox?.State ?? _services.Bus.Current.State;
+        var brand = JsonUtil.SerializeCompact(over.Brand);
+        var jobs = Library.Concat(LibraryAll.Except(Library)).Select(tile => LibraryCatalogue.JobFor(tile, over, brand)).ToList();
+        LibraryThumbnails = _services.Thumbnails.Submit(jobs);
     }
 
     /// <summary>The chip and the search box together: every search word must appear in the tile's name, category or section.</summary>
     private void ApplyLibraryFilter()
     {
-        var words = LibrarySearch.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var section = SelectedLibrarySection;
-        var shown = LibraryAll
-            .Where(i => section == "All" || i.Section == section)
-            .Where(i => words.All(w => i.SearchKey.Contains(w, StringComparison.Ordinal)))
-            .ToList();
-        Library.Clear();
-        foreach (var i in shown) Library.Add(i);
-        var where = section == "All" ? "" : $" · {section}";
-        var searched = words.Length == 0 ? "" : $" · '{LibrarySearch.Trim()}'";
-        LibrarySummary = shown.Count == LibraryAll.Count
-            ? $"{LibraryAll.Count} tiles"
-            : $"{shown.Count} of {LibraryAll.Count}{where}{searched}";
-    }
-
-    /// <summary>One thumbnail per tile, keyed by the tile itself — two files of one name in two folders each get their own.</summary>
-    private async Task RenderThumbnailsAsync(IReadOnlyList<PresetItem> items)
-    {
-        var baseState = JsonUtil.Clone(State);
-        foreach (var item in items)
-        {
-            try
-            {
-                Bitmap? bmp = null;
-                if (item.Swatch is { } swatch)
-                {
-                    var caption = item.Name;
-                    bmp = await Task.Run(() => ThumbnailRenderer.Swatch(swatch, caption));
-                }
-                else if (item.ThumbConfig?.Invoke(baseState) is { } cfg)
-                {
-                    bmp = await Task.Run(() => ThumbnailRenderer.Render(baseState, cfg));
-                }
-                if (bmp is not null) item.Thumbnail = bmp;
-            }
-            catch (Exception ex)
-            {
-                Log.Warn($"Thumbnail for '{item.Name}' failed.", ex);
-            }
-        }
+        var shown = LibraryCatalogue.Filter(LibraryAll, SelectedLibrarySection, LibrarySearch);
+        LibraryCatalogue.Sync(Library, shown);
+        LibrarySummary = LibraryCatalogue.Summary(shown.Count, LibraryAll.Count, SelectedLibrarySection, LibrarySearch);
     }
 
     /// <summary>A saved pattern, as the Pattern page's own chip: press to recall, ✕ to forget.</summary>

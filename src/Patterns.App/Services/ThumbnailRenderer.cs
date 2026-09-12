@@ -12,6 +12,12 @@ public static class ThumbnailRenderer
     public const int Width = 256;
     public const int Height = 144;
 
+    /// <summary>The sections a thumbnail writes; every other section of the show it reads as published.</summary>
+    private static readonly HashSet<string> Written = new(StringComparer.Ordinal)
+    {
+        nameof(ShowState.Pattern), nameof(ShowState.Overlays), nameof(ShowState.Countdown), nameof(ShowState.LowerThirds),
+    };
+
     /// <summary>
     /// The show a thumbnail is drawn over: the tile's own pattern on the show's brand, with
     /// everything the show has dressed the picture with taken off — the overlays, the badge, the
@@ -21,7 +27,9 @@ public static class ThumbnailRenderer
     /// </summary>
     public static ShowState ThumbnailState(ShowState baseState, PatternConfig pattern)
     {
-        var state = JsonUtil.Clone(baseState);
+        // Only the sections written here are copied; the rest of the show is read as it stands.
+        // A thumbnail used to clone the whole show, per tile, on every pass over the Library.
+        var state = SnapshotClone.Branch(baseState, Written);
         ModelCopier.Copy(pattern, state.Pattern);
         state.Blackout = false;
         state.Overlays.Clock.Enabled = false;

@@ -22,39 +22,6 @@ public sealed record EditTarget(string Label, string? ScreenId)
     public override string ToString() => Label;
 }
 
-/// <summary>
-/// One tile in the Library: a factory pattern, a media file, a saved preset or a brand kit.
-/// Identified by <see cref="Id"/> (never by name — two files of one name in two folders are
-/// two tiles), filed under a <see cref="Section"/>, found by <see cref="SearchKey"/>, drawn from
-/// <see cref="ThumbConfig"/> or a <see cref="Swatch"/>.
-/// </summary>
-public sealed class PresetItem : Observable
-{
-    private Bitmap? _thumbnail;
-
-    public required string Id { get; init; }
-    public required string Section { get; init; }
-    public required string Category { get; init; }
-    public required string Name { get; init; }
-    public required Action Apply { get; init; }
-
-    /// <summary>The pattern the thumbnail shows, built over the show's state; null for a swatch tile.</summary>
-    public Func<ShowState, PatternConfig?>? ThumbConfig { get; init; }
-
-    /// <summary>A brand kit's colours: the thumbnail is bands of them.</summary>
-    public IReadOnlyList<string>? Swatch { get; init; }
-
-    /// <summary>Takes the tile out of the library (a media entry); null for what cannot be removed here.</summary>
-    public Action? Remove { get; init; }
-
-    public bool CanRemove => Remove is not null;
-
-    /// <summary>Lower-case words the search box matches against: the name, the category, the section.</summary>
-    public string SearchKey => $"{Name} {Category} {Section}".ToLowerInvariant();
-
-    public Bitmap? Thumbnail { get => _thumbnail; set => Set(ref _thumbnail, value); }
-}
-
 public sealed partial class MainViewModel : Observable
 {
     private readonly AppServices _services;
