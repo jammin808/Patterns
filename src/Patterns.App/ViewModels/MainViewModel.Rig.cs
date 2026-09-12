@@ -36,6 +36,7 @@ public sealed partial class MainViewModel
     {
         var placements = State.Output.Placements;
         _services.RigEditor.ReconcilePlacements(screens);
+        _services.HotPlug.RememberDisplays();   // a screen placed just now is known again after the next hot-plug
 
         if (Screens.SelectedPlacement is null || placements.All(p => p != Screens.SelectedPlacement))
         {
@@ -56,6 +57,44 @@ public sealed partial class MainViewModel
 
     public ScreenInfo? LiveInfo(ScreenPlacement placement)
         => _services.Screens.All.FirstOrDefault(s => s.Id == placement.ScreenId);
+
+    // ---- hot-plug: a display unplugged, back, or new ---------------------------------------
+
+    /// <summary>The choices waiting on the operator: a new display while a screen is missing its own.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<HotPlugOffer> HotPlugOffers => _services.HotPlug.Offers;
+
+    private string _hotPlugStatus = "";
+
+    /// <summary>Which screens wait for their display, or what was decided last — the Screens page's banner.</summary>
+    public string HotPlugStatus
+    {
+        get => _hotPlugStatus;
+        private set
+        {
+            if (Set(ref _hotPlugStatus, value)) Raise(nameof(HasHotPlug));
+        }
+    }
+
+    public bool HasHotPlug => _services.HotPlug.LostScreens.Count > 0 || HotPlugOffers.Count > 0;
+
+    private RelayCommand<HotPlugOffer>? _substituteScreen;
+    private RelayCommand<HotPlugOffer>? _ownScreen;
+
+    /// <summary>The new display stands in for the missing screen — now, or once its mode is forced.</summary>
+    public RelayCommand<HotPlugOffer> SubstituteScreenCommand => _substituteScreen ??= new RelayCommand<HotPlugOffer>(o =>
+    {
+        if (o is null) return;
+        StatusMessage = _services.HotPlug.Substitute(o);
+        RefreshOutputsStatus();
+    });
+
+    /// <summary>The new display is a screen of its own; the missing screen keeps waiting.</summary>
+    public RelayCommand<HotPlugOffer> OwnScreenCommand => _ownScreen ??= new RelayCommand<HotPlugOffer>(o =>
+    {
+        if (o is null) return;
+        StatusMessage = _services.HotPlug.KeepOwn(o);
+        RefreshOutputsStatus();
+    });
 
     /// <summary>The Machine page's line: how many outputs ask, what is in force, what the next start does.</summary>
     public string DirectOutputSummary => DirectOutputService.Summary(State);

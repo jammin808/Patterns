@@ -561,8 +561,16 @@ public static class ShowBrief
         if (s.Twin.Role != TwinRole.Off)
         {
             sb.AppendLine(s.Twin.Role == TwinRole.Main
-                ? "Twin: this desk is the main — a standby Patterns may follow it in step."
+                ? "Twin: this desk is the main — a standby Patterns may follow it in step" + (s.Twin.LocalStandby ? ", and it runs one as a second process on this machine (TAKE BACK on the Machine page once that standby has run the show)." : ".")
                 : "Twin: this desk is a standby — it mirrors a main and its outputs are held closed until it takes the show over (TAKE OVER on the Machine page).");
+        }
+        var lostScreens = HotPlugWatch.LostScreens(s);
+        if (lostScreens.Count > 0)
+        {
+            // A screen whose display was unplugged: the operator's first question is what to do — the answer is in the words.
+            sb.Append(lostScreens.Count == 1 ? "A screen is missing its display: " : $"{lostScreens.Count} screens are missing their displays: ")
+              .AppendLine(string.Join(" ", lostScreens.Select(p => HotPlugWatch.LostWords(p))))
+              .AppendLine("The screen waits planned and off; its own display coming back is adopted and turned on by itself; a different display connected is offered on the Screens page as a substitute (when its resolution and rate match, or can be forced) or as its own screen.");
         }
         sb.Append("Sound: audio playlist ").Append(s.AudioPlayer.Items.Count).Append(s.AudioPlayer.Items.Count == 1 ? " track" : " tracks")
           .Append(s.AudioPlayer.Folders.Count > 0 ? $" and {s.AudioPlayer.Folders.Count} folder(s)" : "")

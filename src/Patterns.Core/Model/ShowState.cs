@@ -134,6 +134,33 @@ public sealed class ScreenPlacement : Observable
     /// <summary>Id prefix that marks a placement as planned rather than a detected display.</summary>
     public const string PlannedIdPrefix = "planned:";
 
+    // ---- what the screen remembers of its display: hot-plug ------------------------------------
+
+    private string _displayKey = "";
+    private string _displayOrigin = "";
+    private int _displayHz;
+    private DateTime? _lostAtUtc;
+    private bool _wasEnabled;
+    private bool _wasPinned;
+
+    /// <summary>The display last seen behind this screen — its name and size ("DELL U2415|1920x1080") — so a display that re-indexed, or a lost one that comes back, is known again.</summary>
+    public string DisplayKey { get => _displayKey; set => Set(ref _displayKey, value ?? ""); }
+
+    /// <summary>Where that display sat on the desktop ("1920,0"): the tie-break between two displays of one name and size.</summary>
+    public string DisplayOrigin { get => _displayOrigin; set => Set(ref _displayOrigin, value ?? ""); }
+
+    /// <summary>That display's refresh rate when it was known, 0 otherwise — a substitute must match it, or be forced to.</summary>
+    public int DisplayHz { get => _displayHz; set => Set(ref _displayHz, Math.Max(0, value)); }
+
+    /// <summary>When the display was unplugged — the screen then waits, planned and off, for it or a substitute; null while it has its display.</summary>
+    public DateTime? LostAtUtc { get => _lostAtUtc; set => Set(ref _lostAtUtc, value); }
+
+    /// <summary>Whether the screen was on when its display went — restored when the display, or a substitute, is adopted.</summary>
+    public bool WasEnabled { get => _wasEnabled; set => Set(ref _wasEnabled, value); }
+
+    /// <summary>Whether the operator had pinned the screen's on/off before it was lost.</summary>
+    public bool WasPinned { get => _wasPinned; set => Set(ref _wasPinned, value); }
+
     private string _virtual = "";
 
     /// <summary>

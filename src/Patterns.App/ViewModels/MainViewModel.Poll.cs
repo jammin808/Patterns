@@ -173,6 +173,8 @@ public sealed partial class MainViewModel
         _services.Twin.Poll(); // the marker a standby on this machine leaves when it takes the show
         var twin = _services.Twin.HealthWords;
         if (twin.Length > 0) watch = watch.Length > 0 ? twin + " · " + watch : twin;
+        var missing = _services.HotPlug.HealthWords;   // a screen without its display leads the line: the room is short a picture
+        if (missing.Length > 0) watch = watch.Length > 0 ? missing + " · " + watch : missing;
         HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);
         TwinStatus = _services.Twin.Status;
         StreamStatus = _services.Stream.Status;
@@ -326,6 +328,8 @@ public sealed partial class MainViewModel
         Raise(nameof(PlannedScreenCount));
         Raise(nameof(VirtualScreenCount));
         Raise(nameof(PrepSummary));
+        HotPlugStatus = _services.HotPlug.Status;
+        Raise(nameof(HasHotPlug));
     }
 
     public bool IsLive => _services.Outputs.IsLive;

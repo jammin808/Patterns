@@ -423,6 +423,7 @@ public sealed partial class MainViewModel : Observable
         });
         ToggleRunLayoutCommand = new RelayCommand(() => IsRunLayout = !IsRunLayout); // refused while armed, in SelectPage
         _services.Screens.Changed += OnScreensChanged;
+        _services.HotPlug.Offers.CollectionChanged += (_, _) => Raise(nameof(HasHotPlug));
 
         var statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         statusTimer.Tick += (_, _) => PollStatus();

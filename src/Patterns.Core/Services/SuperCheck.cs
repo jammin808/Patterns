@@ -22,7 +22,7 @@ public enum CheckLight
 public sealed record CheckRow(string Section, string Item, CheckLight Light, string Value, string Note = "");
 
 /// <summary>One display as the check sees it.</summary>
-public sealed record CheckDisplay(string Label, int Width, int Height, double Scaling, bool Primary, bool Enabled, bool Planned, int RefreshHz = -1);
+public sealed record CheckDisplay(string Label, int Width, int Height, double Scaling, bool Primary, bool Enabled, bool Planned, int RefreshHz = -1, string Missing = "");
 
 /// <summary>What level of show the hardware is good for, from a points score; the live numbers still decide.</summary>
 public sealed record ShowLevel(string Name, string Detail, int Score, IReadOnlyList<string> Reasons);
@@ -397,7 +397,9 @@ public static class SuperCheck
             var mode = $"{d.Width}×{d.Height}{(d.RefreshHz > 0 ? $" @ {d.RefreshHz} Hz" : "")}";
             if (d.Planned)
             {
-                rows.Add(new CheckRow(s, d.Label, CheckLight.Amber, $"{mode} · planned", "waiting for a display — adopt it on the Screens page when it is attached"));
+                rows.Add(d.Missing.Length > 0
+                    ? new CheckRow(s, d.Label, CheckLight.Red, $"{mode} · MISSING", d.Missing)
+                    : new CheckRow(s, d.Label, CheckLight.Amber, $"{mode} · planned", "waiting for a display — adopt it on the Screens page when it is attached"));
                 continue;
             }
             var value = $"{mode}{(d.Scaling != 1 ? $" · {d.Scaling * 100:0}% scaling" : "")}{(d.Primary ? " · primary" : "")} · {(d.Enabled ? "output on" : "output off")}";

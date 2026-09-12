@@ -74,6 +74,9 @@ public sealed class AppServices
     /// <summary>The twin link: a second Patterns kept in step, on this machine or another, that can take the show.</summary>
     public TwinService Twin { get; }
 
+    /// <summary>Output hot-plug: a display unplugged, back, or new, and what the rig does about it.</summary>
+    public HotPlugService HotPlug { get; }
+
     /// <summary>
     /// Why the outputs must stay closed whatever asks for them — "" when nothing holds them. A
     /// standby twin sets it: its screens open only when it takes the show. Runtime only, never
@@ -432,6 +435,7 @@ public sealed class AppServices
         _recoveryPending = PendingRecovery is not null;
         Actions = new ShowActions(this);
         RigEditor = new RigEditor(this);
+        HotPlug = new HotPlugService(this);
         LookTally = new LookTally(this);
         // A waiting step runs through the same action layer its cue's immediate steps went
         // through, and is journaled with its cue's name and its place in it.
@@ -473,6 +477,7 @@ public sealed class AppServices
         Screens.PlannedProvider = PlannedScreens;
         Screens.Changed += () =>
         {
+            HotPlug.OnScreensChanged();    // first: a display that re-indexed keeps its screen, one unplugged leaves its screen waiting
             var moved = SyncDisplays();
             Outputs.OnScreensChanged();
             if (moved) PublishRuntime();   // a hot-plug moves no model: push the new shapes ourselves
@@ -1104,11 +1109,12 @@ public sealed class AppServices
         foreach (var p in State.Output.Placements)
         {
             if (!p.Planned) continue;
+            var missing = HotPlugWatch.IsLost(p);
             yield return new ScreenInfo(
                 p.ScreenId,
-                p.CustomLabel.Length > 0 ? p.CustomLabel : p.IsVirtual ? p.VirtualKind : "Planned screen",
+                p.CustomLabel.Length > 0 ? p.CustomLabel : p.IsVirtual ? p.VirtualKind : missing ? HotPlugWatch.LostName(p) : "Planned screen",
                 new Avalonia.PixelRect(p.X, p.Y, p.PlannedWidth, p.PlannedHeight),
-                1.0, false, 0, IsPlanned: true, IsVirtual: p.IsVirtual);
+                1.0, false, 0, IsPlanned: true, IsVirtual: p.IsVirtual, IsMissing: missing);
         }
     }
 

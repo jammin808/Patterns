@@ -3,6 +3,7 @@
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:c="using:Patterns.App.Views.Controls"
              xmlns:m="using:Patterns.Core.Model"
+             xmlns:s="using:Patterns.App.Services"
              x:Class="Patterns.App.Views.Sections.OutputsSection"
              Classes="hue-screens"
              x:DataType="vm:MainViewModel">
@@ -18,6 +19,32 @@
     </StackPanel>
     <TextBlock Classes="hint tip"
                Text="PREP is for the day before: add the screens the venue will have, arrange and label them, give each its pattern, type in the NDI and capture names the rig will use, and build every look — all without a display, a camera or a wall attached. Outputs are held closed so nothing can go live by accident. At the venue, switch to SHOW and adopt each planned screen onto the display it turned out to be; everything programmed against it comes with it." />
+
+    <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10,8" Margin="0,4" IsVisible="{Binding HasHotPlug}">
+      <StackPanel Spacing="6">
+        <TextBlock Classes="h2" Text="A DISPLAY CHANGED" />
+        <TextBlock Classes="label" Text="{Binding HotPlugStatus}" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding HotPlugOffers}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="s:HotPlugOffer">
+              <StackPanel Spacing="4" Margin="0,4,0,0">
+                <TextBlock Classes="label" Text="{Binding Words}" TextWrapping="Wrap" />
+                <WrapPanel>
+                  <Button Classes="go" Content="{Binding SubstituteLabel}" IsVisible="{Binding CanSubstitute}" Padding="12,6" Margin="0,0,8,4"
+                          ToolTip.Tip="Everything programmed for the missing screen — position, label, pattern, trims, warp, blend and every look that names it — goes onto this display, and it is turned on as the screen was"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SubstituteScreenCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="mini" Content="ITS OWN SCREEN" VerticalAlignment="Center" Margin="0,0,0,4"
+                          ToolTip.Tip="This display is a new screen of its own, turned on; the missing screen keeps waiting for its display"
+                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).OwnScreenCommand}" CommandParameter="{Binding}" />
+                </WrapPanel>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="hint tip"
+                   Text="A display unplugged mid-show leaves its screen waiting — planned, off, everything programmed for it kept. Plug the same display back in and it is recognised, adopted and turned on by itself. A different display connected meanwhile is offered here: as a substitute when its resolution and rate match the missing screen's (or its mode can be forced to), or as a screen of its own." />
+      </StackPanel>
+    </Border>
 
     <TextBlock Classes="h2" Text="PLANNED SCREENS" IsVisible="{Binding PlannedScreenCount, Converter={StaticResource Positive}}" />
     <ItemsControl ItemsSource="{Binding State.Output.Placements}">

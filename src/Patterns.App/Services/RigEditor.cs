@@ -92,14 +92,15 @@ public sealed class RigEditor
             CustomLabel = label,
             Enabled = true,
             UserPinned = true,
-            X = NextPlannedX(),
+            X = NextFreeX(),
         };
         State.Output.Placements.Add(placement);
         _s.Screens.Refresh();
         return placement;
     }
 
-    private int NextPlannedX()
+    /// <summary>To the right of everything arranged, a gap away: where a screen that arrives on its own goes.</summary>
+    public int NextFreeX()
     {
         var right = 0;
         foreach (var (placement, info) in Rig.OrderedLivePlacements(State, _s.Screens.All))

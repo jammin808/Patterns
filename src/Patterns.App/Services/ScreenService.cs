@@ -11,13 +11,15 @@ namespace Patterns.App.Services;
 /// one with no hardware behind it yet (<see cref="IsPlanned"/>).
 /// </summary>
 public sealed record ScreenInfo(string Id, string Label, PixelRect Bounds, double Scaling, bool IsPrimary, int Index,
-    bool IsPlanned = false, bool IsVirtual = false)
+    bool IsPlanned = false, bool IsVirtual = false, int Hz = 0, bool IsMissing = false)
 {
     public string Description => IsVirtual
         ? $"{Bounds.Width}×{Bounds.Height} · {(Id.StartsWith("ndi:", StringComparison.Ordinal) ? "NDI send" : "stream")}'s own screen"
+        : IsMissing
+        ? $"{Bounds.Width}×{Bounds.Height} · MISSING — its display was unplugged; waiting for it, or a substitute"
         : IsPlanned
         ? $"{Bounds.Width}×{Bounds.Height} · planned (no display yet)"
-        : $"{Bounds.Width}×{Bounds.Height} @ {Bounds.X},{Bounds.Y}{(IsPrimary ? " · primary" : "")}";
+        : $"{Bounds.Width}×{Bounds.Height} @ {Bounds.X},{Bounds.Y}{(IsPrimary ? " · primary" : "")}{(Hz > 0 ? $" · {Hz} Hz" : "")}";
 }
 
 /// <summary>Enumerates screens off the main window and tracks hot-plug changes.</summary>
@@ -40,6 +42,9 @@ public sealed class ScreenService
     /// <summary>Raised on the UI thread after the screen list was rebuilt.</summary>
     public event Action? Changed;
 
+    /// <summary>The displays, when something other than the window supplies them — the tests plug and unplug through this.</summary>
+    public Func<IReadOnlyList<ScreenInfo>>? Source { get; set; }
+
     public void Attach(Window window)
     {
         _screens = window.Screens;
@@ -57,6 +62,13 @@ public sealed class ScreenService
     public void Refresh()
     {
         All.Clear();
+        if (Source is { } source)
+        {
+            foreach (var s in source()) All.Add(s);
+            MergePlanned();
+            Changed?.Invoke();
+            return;
+        }
         if (_screens is null)
         {
             MergePlanned();
@@ -75,10 +87,25 @@ public sealed class ScreenService
             var s = ordered[i];
             var name = string.IsNullOrWhiteSpace(s.DisplayName) ? $"Display {i + 1}" : s.DisplayName!;
             var id = $"{i}:{s.Bounds.Width}x{s.Bounds.Height}@{s.Bounds.X},{s.Bounds.Y}";
-            All.Add(new ScreenInfo(id, name, s.Bounds, s.Scaling, s.IsPrimary, i));
+            All.Add(new ScreenInfo(id, name, s.Bounds, s.Scaling, s.IsPrimary, i, Hz: RateOf(s.Bounds)));
         }
         MergePlanned();
         Changed?.Invoke();
+    }
+
+    /// <summary>The display's refresh rate where the platform tells it (Windows); 0 elsewhere — a substitute is matched on it.</summary>
+    private static int RateOf(PixelRect bounds)
+    {
+        if (!DisplayModes.Supported) return 0;
+        try
+        {
+            var device = DisplayModes.DeviceFor(bounds);
+            return device is null ? 0 : DisplayModes.Current(device)?.Hz ?? 0;
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
     }
 
     /// <summary>Appends the planned screens after the real ones, skipping any id already present.</summary>

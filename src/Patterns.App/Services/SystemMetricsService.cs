@@ -357,7 +357,8 @@ public sealed class SystemMetricsService : IDisposable
                     }
                 }
                 displays.Add(new CheckDisplay(placement is null ? sc.Label : Rig.LabelFor(placement, sc), sc.Bounds.Width, sc.Bounds.Height, sc.Scaling, sc.IsPrimary,
-                    placement?.Enabled ?? false, sc.IsPlanned, hz));
+                    placement?.Enabled ?? false, sc.IsPlanned, hz,
+                    Missing: placement is not null && HotPlugWatch.IsLost(placement) ? HotPlugWatch.LostWords(placement) : ""));
             }
         }
         catch (Exception ex)
