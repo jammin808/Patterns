@@ -93,6 +93,25 @@ fault containment, and settings that can never brick startup.
   none is it stays silent and the line says why. The soundcheck tone follows the programme's
   interface rather than whatever Windows calls default, and a named interface that is not plugged
   in is said out loud in red instead of silently substituted.
+- **A twin: a second Patterns in step, ready to take the show** — Machine page → TWIN: this
+  desk as the main and a second Patterns (another folder on this machine, or another machine) as
+  the standby that gets the whole show, then every edit as it lands and the air record, with its
+  outputs held closed. The main goes quiet for five seconds and the standby says so; TAKE OVER
+  NOW (or `TWIN TAKEOVER`, or "take over by itself") puts what the main had on air back on here
+  through the same path a watchdog restart uses — the split, the program, the caller's place —
+  and ends a main on this machine that has hung, so the room never shows two sets of windows.
+  Stronger than the beacon alone, which only says the main has gone. `docs/PLAN.md` §48.2.
+- **The room's other boxes** — projectors (PJLink: POWER ON, INPUT HDMI 1, SHUTTER ON, with the
+  password when asked, and the projector's state read every ten seconds), Disguise d3 over OSC
+  (PLAY, STOP, NEXT, CUE 1.5, TRACK name), Pixera over JSON-RPC (TIMELINE Main PLAY, CUE timeline
+  cue), any OSC box and any web API are devices of the Interactive area with a profile each: a cue
+  says the words, the profile speaks the protocol, the card reads the answer. `DEVICE Projector
+  POWER ON` on the wire, `device_send` in Companion, the assistant knows every box by name.
+  [`docs/ENDPOINTS.md`](docs/ENDPOINTS.md).
+- **The desk peeled to the end** — the Assistant, break-music and Audio pages are page objects of
+  their own; the desk keeps one hook per page. Where the AI goes next — pre-show checks in
+  words, read-only tools over the wire's own queries, a running order to a rig — and where it
+  deliberately does not (nothing it says goes on air) is `docs/PLAN.md` §48.5.
 - **The badge goes on every picture the desk draws** — the rule was an allow-list of pattern
   kinds written when there were eight, so every kind added since arrived without it (Reactive was
   simply the most recent). It now names its exceptions — never on a monitor wall, on media only

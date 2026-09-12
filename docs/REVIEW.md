@@ -223,3 +223,55 @@ every change: 1000 core + 511 headless UI tests green.
 - The label box's per-keystroke write stays a direct edit; the verb is for the deliberate rename.
 - `PdfDeckSource.Open` still reads the page count and the first page's size under the PDFium gate
   on the caller's thread: two metadata calls, bounded by one page render of another deck.
+
+## Round 31 review — the peel finished, a twin, the room's other boxes
+
+The round asked for three things and a judgement; `docs/PLAN.md` §48 says how. The suite ran
+against every change: 1,022 core + 516 headless UI tests green.
+
+### Done
+
+1. **The peel** — the Assistant, break-music and Audio pages are page objects reached as
+   `Assistant.X`, `Music.X`, `Audio.X`; the desk keeps one hook per page; the Spotify rules moved
+   to Core with tests; the partial left behind is named for what it holds.
+2. **The twin** — a second Patterns kept in step over a plain newline link: the whole show, the
+   air record, then every section the publish names dirty (the bus now says which) and a beat a
+   second; the standby lands each section in place with its outputs held closed and takes the
+   show over by press, by `TWIN TAKEOVER`, or by itself, through the one restore path a watchdog
+   restart uses. The machine's own sections never travel; a main saying goodbye is never taken
+   from. The WATCHDOG tile, the super-check, the health line, `TWIN STATUS`, the beacon's twin
+   port, a help topic and REMOTE.md carry it.
+3. **Endpoints** — projectors (PJLink, with authentication and the reply words), Disguise d3
+   (OSC), Pixera (JSON-RPC with handle look-ups), any OSC box and any web API (a new HTTP link)
+   as devices of the Interactive area with a profile each; presets on the page, the profile on
+   the card and in STATE, the words in the cue editor's hint and the assistant's catalogue;
+   `docs/ENDPOINTS.md` with the honest notes per protocol.
+4. **The assistant** — its brief lists the room's boxes by the operator's names with each one's
+   words (never an address or a password) and the twin's role; the assessment of where the AI
+   goes next, and where it deliberately does not, is §48.5.
+
+### Found on the way (fixed)
+
+5. **A proposal's new lower-third design** did not adopt the show's default style the way the
+   designer's own NEW does — it does now, through the designer.
+6. **`TryRecover` was one method** carrying the whole restore; the restore is its own method
+   now, so the twin's takeover and a watchdog restart cannot drift apart.
+7. **The twin's beat and flush rode dispatcher timers** — under the headless suite's load a
+   one-second timer went unfired for four seconds while a 200 ms one fired; the beat now comes
+   from a worker that waits the second and asks the UI thread to tick (a hung desk still stops
+   beating, which is the point), the flush the same way, and the main beats once as a standby
+   joins. The twin tests accept connections until one says JOIN, because a dial the standby
+   cut short itself sits in the listener's backlog saying nothing.
+
+### Measured, and left
+
+- **A thread as a twin** — no: a thread shares the crash and the graphics device; the watchdog
+  already covers the hung UI thread; the process is the unit of resilience (§48.2).
+- **A separate endpoints service** — no: the Interactive area already had every seam; a profile
+  per device was the whole of the missing piece, and the verb, the wire, OSC, Companion and the
+  assistant came with it unchanged.
+- **Encryption on the twin link** — left: the same LAN trust as the control wire and the beacon,
+  with an optional key against an accidental join; said on the page and in the plan.
+- **Companion actions for the twin** — left: `TWIN TAKEOVER` and `TWIN STANDBY` are one line
+  each on the generic TCP module, and a takeover is a press the operator makes looking at the
+  desk.

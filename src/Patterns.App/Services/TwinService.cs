@@ -21,9 +21,8 @@ namespace Patterns.App.Services;
 public sealed class TwinService : IDisposable
 {
     private readonly AppServices _services;
-    private readonly DispatcherTimer _timer;
-    private readonly DispatcherTimer _flushTimer;
     private readonly object _gate = new();
+    private bool _flushScheduled;
     private string _activeKey = "";
     private CancellationTokenSource? _cts;
     private TwinRole _role;
@@ -61,16 +60,61 @@ public sealed class TwinService : IDisposable
     public TwinService(AppServices services)
     {
         _services = services;
-        _timer = new DispatcherTimer { Interval = TwinWatch.BeatEvery };
-        _timer.Tick += (_, _) => Tick();
-        _flushTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-        _flushTimer.Tick += (_, _) =>
-        {
-            _flushTimer.Stop();
-            Flush();
-        };
         _services.Bus.SectionsPublished += OnBuilt;
         _services.RecoveryMoved += OnRecoveryMoved;
+    }
+
+    /// <summary>
+    /// The beat, once a second for as long as the role's session lasts: a worker waits the second
+    /// and asks the UI thread to tick, so a desk whose UI thread has stopped answering stops
+    /// beating — which is what the standby is listening for — while the waiting itself never
+    /// rides a dispatcher timer.
+    /// </summary>
+    private void StartBeating(CancellationTokenSource cts)
+    {
+        _ = Task.Run(async () =>
+        {
+            var ct = cts.Token;
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    await Task.Delay(TwinWatch.BeatEvery, ct);
+                    await Dispatcher.UIThread.InvokeAsync(Tick);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                if (!ct.IsCancellationRequested) Log.Warn("Twin beat loop ended.", ex);
+            }
+        });
+    }
+
+    /// <summary>The pending lines go after a trailing 200 ms, edits inside it riding the same flush — the remote's own cadence.</summary>
+    private void ScheduleFlush()
+    {
+        if (_flushScheduled) return;
+        _flushScheduled = true;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(200);
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    _flushScheduled = false;
+                    Flush();
+                });
+            }
+            catch (Exception ex)
+            {
+                _flushScheduled = false;
+                Log.Warn("Twin flush failed.", ex);
+            }
+        });
     }
 
     /// <summary>A random id per process, so a standby never joins itself through its own beacon.</summary>
@@ -177,7 +221,7 @@ public sealed class TwinService : IDisposable
                     Log.Warn(_note, ex);
                     _activeKey = ""; // retried on the next change
                 }
-                _timer.Start();
+                StartBeating(_cts);
                 break;
             case TwinRole.Standby:
                 _cts = new CancellationTokenSource();
@@ -189,19 +233,14 @@ public sealed class TwinService : IDisposable
                     _services.Outputs.CloseAll();
                     _services.Notify("Twin: this desk is the standby now — its outputs are held closed until it takes over.");
                 }
-                _timer.Start();
+                StartBeating(_cts);
                 Dial();
-                break;
-            default:
-                _timer.Stop();
                 break;
         }
     }
 
     private void Stop(bool sayGoodbye)
     {
-        _timer.Stop();
-        _flushTimer.Stop();
         _cts?.Cancel();
         _cts = null;
         List<Standby> standbys;
@@ -294,7 +333,7 @@ public sealed class TwinService : IDisposable
         if (_role != TwinRole.Main || !ReferenceEquals(state, _services.State)) return;
         if (dirty is null) _pendingWhole = true;
         else foreach (var s in TwinSync.Mirrored(dirty)) _pendingSections.Add(s);
-        if (!_flushTimer.IsEnabled) _flushTimer.Start();
+        ScheduleFlush();
     }
 
     /// <summary>The recovery record moved (UI thread): what is on air, the caller's place — a standby needs it to take over.</summary>
@@ -303,7 +342,7 @@ public sealed class TwinService : IDisposable
         _air = record;
         if (_role != TwinRole.Main) return;
         _pendingAir = true;
-        if (!_flushTimer.IsEnabled) _flushTimer.Start();
+        ScheduleFlush();
     }
 
     /// <summary>The pending lines, built on the UI thread (the show is read here) and written on a worker.</summary>
@@ -422,7 +461,8 @@ public sealed class TwinService : IDisposable
                 var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _services.State.Name);
                 return (w.ToJson(), TwinSync.ShowJson(_services.State), AirLine());
             });
-            if (!standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome)) || !standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) || !standby.TryWrite(air))
+            if (!standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome)) || !standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) || !standby.TryWrite(air)
+                || !standby.TryWrite(TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString())))
             {
                 standby.Dispose();
                 return;
@@ -726,6 +766,8 @@ public sealed class TwinService : IDisposable
         _mirroredAir = null;
         _lastDialUtc = DateTime.MinValue;
         Log.Info($"Twin: standing by again for {_mainName} ({origin.Label}).");
+        _cts ??= new CancellationTokenSource();
+        StartBeating(_cts);
         Dial();
         return ActionResult.Done($"Standing by again — the outputs are held closed and the link to {(_mainName.Length > 0 ? _mainName : "the main")} is being dialled.");
     }

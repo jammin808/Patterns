@@ -4440,3 +4440,189 @@ journal row per tick.
 - **A label per keystroke.** The Screens page's label box writes the model per keystroke and
   retitles the tiles in place; through the verb it would be a journal row per letter. The verb is
   for the deliberate rename — a cue, the wire, Companion — and the box stays an edit.
+
+## 48. Round 31 — the desk peeled to the end, a twin, the room's other boxes, and where the AI goes next
+
+*"MainViewModel is still the desk. Finish the VM peel — Audio / Assistant / Spotify. Could
+redundancy be useful on another thread as well as a second machine on the beacon? Consider adding
+a feature to toggle on optional dual running synced processes for stability, endurance, and
+resilience. Patterns now looks like it could be a central show 'Brain'. If it could communicate
+with media servers like Disguise D3, Pixera, etc, and any other AV tools, controls, or end points,
+enhancing and evolving the AI capability. Could AI be embedded even more into Patterns now?"*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | The Assistant, break-music and Audio pages as page objects of their own — `AssistantPage`, `MusicPage`, `AudioPage` — reached as `Assistant.X`, `Music.X`, `Audio.X`; the desk sheds ~1,000 lines and keeps one hook per page (§48.1). | done |
+| 2 | A twin: a second Patterns kept in step with this one — on this machine in its own folder, or on another machine — that mirrors every edit and the air record and takes the show over by press, by the wire or by itself (§48.2). | done |
+| 3 | Endpoints: projectors (PJLink), Disguise d3 (OSC), Pixera (JSON-RPC), any OSC box and any web API as devices of the Interactive area with a profile — a cue says POWER ON or PLAY and the profile speaks the box's protocol (§48.3). | done |
+| 4 | The assistant knows the room's boxes and the twin: its brief lists each device with its words, so a running order that says "projector on, d3 to cue 3" proposes the steps (§48.4). | done |
+| 5 | Where the AI goes next — an assessment against the architecture as it stands, with what is worth building and what is not (§48.5). | written |
+
+### 48.1 The peel, finished
+
+The desk was still the desk for three pages: every assistant row, chip and draft, every Spotify
+device, playlist, search hit and command, and the audio player's devices, the sync check, the
+stinger chips and the "after" pickers all lived on `MainViewModel`. Each is a page object now,
+built by the desk once (`Assistant = new AssistantPage(this, _services)`) and reached from its
+section as `{Binding Assistant.X}`; the section keeps the desk as its `DataContext`. That last
+choice was measured, not preferred: switching a section's `DataContext` to the page left every
+`ItemsSource` binding null under compiled bindings, while a path through the desk kept every
+binding and every test.
+
+What a page owns: its own state, its commands, its poll (`Music.Poll()`, `Audio.Poll()` from the
+desk's one-second tick, one area), and its `OnShowLoaded`. What stays on the desk: the status
+line, the media library, the monitor list the audio page shares, and one hook per page for the
+lists a page's action adds to (`AfterAssistantApplied` refreshes the look names and the edit
+targets when a proposal added screens or looks). The pure rules went to Core where they were not
+already there: `SpotifyLibrary.LookChoices`, `TryAddLink`, `AddEntry`, `TryRemove`, each tested.
+The partial that held the audio members is renamed to what is left in it — the status lines the
+tick fills and the apply-style pickers — rather than carrying a name it no longer earns.
+
+### 48.2 The twin — "another thread, or a second process?"
+
+**A second thread buys nothing that the watchdog does not already give.** A thread shares the
+process: a native fault in a decoder or a driver ends every thread together, a hung UI thread is
+the one the watchdog already watches, and the graphics device is one per process. What a thread
+could do — render on its own, decode on its own — the engine already does per sink and per file.
+So the redundancy worth having is a **second process**, and the same design serves a second
+machine: the *twin*.
+
+**How it works.** Machine page → TWIN: a role (main or standby), a port, the main's address (or
+none — the main's beacon names its twin port and the standby dials whoever beacons), a shared key,
+and whether the standby takes over by itself. The main opens the port. A standby joins with the
+key; the main answers with who it is — its name, its process id and start time (so a standby on
+the same machine can end a main that has hung, and only that process) — then the **whole show**,
+then the **air record**, then every **section the publish names dirty** and a **beat** a second.
+The snapshot bus already knew which sections each publish moved (round 29's section-scoped
+compose); it now says so on an event, and the twin sends exactly those — `SECTION LooksAndCues
+{…}` — over a plain newline protocol on TCP. The standby copies each onto its own show *in place*
+(`ModelCopier.CopyValue`, the same landing the show-file load uses), so its bindings, its lists
+and its tallies follow without a reload; its outputs are **held closed** whatever asks — a
+runtime hold the window manager and OUTPUTS ON both honour — and it beats back. Five missed
+beats is a peer that is gone.
+
+**Taking over.** By press (TAKE OVER NOW), by the wire (`TWIN TAKEOVER`, a verb of the show's
+vocabulary, DeskOnly, in the journal), or by itself when told it may: the link drops for good,
+a main on this machine that is still up but stopped beating is ended (the screens are then free,
+exactly as a start takes back the previous run's windows), the hold lifts, and the air record
+the main sent last goes back on **through the same path a watchdog restart uses** — the split as
+it was, the program on the outputs, the screens faded on their own, the audio, what the desk
+calls the picture, the caller's place. That is the design's one non-negotiable: there is one way
+of putting a show back, so a takeover can never put back a different show from a restart. A main
+that says goodbye (its role changed, a clean exit) is never taken from. STAND BY AGAIN follows
+once more.
+
+**What never travels.** The machine's own sections: the twin settings themselves (a standby that
+copied them would become a main), the watchdog and the beacon (it would start sending the main's
+heartbeat), the install, the graphics card, the remote's ports, the operator's monitor, the desk
+layout. `TwinSync.LocalSections` is the list and a test holds it against the file's own sections.
+
+**Timing without dispatcher timers.** The beat and the trailing flush ride a worker that waits
+and asks the UI thread to run them, rather than a dispatcher timer: under the headless suite's
+load a one-second dispatcher timer went unfired for four seconds while a 200 ms one fired, and a
+beat that depends on the desk's timer plumbing is a beat that can lie. The liveness meaning is
+kept — the tick runs on the UI thread, so a desk whose UI thread has stopped answering stops
+beating — and the main beats once as a standby joins, so "heard just now" is true at once.
+
+**The honest limits.** The link carries no encryption — it is the same LAN trust the control wire
+and the beacon already assume, with an optional key against an accidental join. On a second
+machine the pictures reach the room through the switcher or the same NDI names, so the automatic
+takeover is off by default there and the page says why: two machines each deciding to be the
+main is the one failure worse than one being down. On the same machine the standby is a second
+copy of Patterns in its own folder (its own settings, logs, crash domain), and the automatic
+takeover is safe to leave on. A standby's own edits are overwritten by the next section from the
+main — it is a mirror, and the page says so.
+
+### 48.3 Endpoints — the room's other boxes
+
+Patterns already had the right seam for this and the round is largely the recognition of it. The
+Interactive area gives any device a link that opens and reopens by itself, a name a cue can say,
+the `DEVICE` verb on the wire and in OSC, Companion's `device_send`, the journal, the checks and
+the assistant's catalogue. What a projector or a media server adds is a **vocabulary**, and that is
+what a *profile* is: a session per connection that turns a cue's words into the box's bytes and
+the box's bytes into words for the card.
+
+- **PJLink** (every venue projector, TCP 4352): `POWER ON`, `INPUT HDMI 1` and the standard's
+  input families, `SHUTTER`, `MUTE`, `LAMP ?`, `ERRORS ?`; the MD5 digest of the projector's seed
+  and the password in front of the first command of each connection; every reply read to words;
+  `POWER ?` every ten seconds so the card reads the box without a press. A protocol with a
+  published standard, followed to the letter and tested to the byte.
+- **Disguise d3** over its OSC device: the `/d3/showcontrol/` addresses as words — `PLAY`, `STOP`,
+  `NEXT`, `CUE 1.5`, `TRACK name`, `VOLUME 80` — and `RAW` for the rest of d3's list; what d3
+  sends back arrives as lines a trigger row can read.
+- **Pixera** over JSON-RPC (TCP 1400, `0xPX` frames): the API works on handles, so `TIMELINE Main
+  PLAY` is a look-up whose reply sends the play with the handle Pixera answers — the pending steps
+  live in the session; `API` and `RAW` reach any method. The method names follow the reference;
+  the docs say to check them against the box before the show, because a wire this side cannot.
+- **Any OSC box** (QLab, Resolume, TouchDesigner): the address and its typed arguments.
+- **Any web API**: a new HTTP link where each line is a request and the answer's status comes back
+  as a line — Companion's own API, a Q-SYS core, a processor, an encoder.
+
+The page's chips add each as a preset with the right link and port and **no chatter back** (a
+projector must never be sent `OK`); a profile picker and a password box sit on the card, the
+profile's words as a hint; STATE's device rows carry the profile; the cue editor's hint and the
+assistant's catalogue know the words. A box's answers are never taken as commands to the show
+unless a trigger row says so. `docs/ENDPOINTS.md` is the list with the ports and the honest notes.
+
+### 48.4 The AI over the new verbs
+
+The catalogue is generated from the same tables the desk uses, so the two twin verbs arrived in
+it as DeskOnly (a cue never decides which machine is the main) and the device verb's target words
+now name what a device can be and what its value may say. The brief — the show as the model reads
+it before every ask — lists the devices on the Interactive page by the operator's names with each
+one's profile and words, never its address or password, and says whether this desk is a twin's
+main or standby. That is the whole of what a proposal needs to say *Device — send a line to
+Projector: POWER ON* as a step of the walk-in cue, and the checks hold it to a device that exists.
+
+### 48.5 Could the AI be embedded more? — the assessment
+
+What the assistant is today, precisely: an optional page, an operator's own key, one request per
+ask through the official SDK with the reply pinned to a schema, a brief that carries the desk's
+whole state at the moment of the ask, attachments read as material, and four layers of validation
+between a proposal and the show (the schema, the parser, `AssistantApply` against the real
+state, the cue checks). It proposes; the operator applies; nothing it says goes on air. That last
+line is a design, not a gap, and the assessment starts from it.
+
+**Worth building next, in order.**
+
+1. **Pre-show checks in words.** The super-check and the health dashboard are facts with lights;
+   the assistant could read the same `CheckFacts` (already pure, already gathered every second)
+   and answer "am I ready for doors?" with the three things that matter and what to do — the
+   advice cards exist, the model would rank and phrase them against the running order. No new
+   capability, no new risk: the facts are already on the machine, the reply is words.
+2. **Tools, not a bigger brief.** The brief is a snapshot; a question about a cue three days deep
+   in a forty-cue stack, or a device's last reply, wants the model to *ask*. The SDK's tool runner
+   is the right shape: read-only tools first (`cue_list`, `device_status`, `twin_status`, the
+   journal's last hour), each one a function over state the desk already exposes to the wire —
+   `STATUS`, `CUE LIST`, `TWIN STATUS` and STATE's device rows are the tools, already tested.
+   Every tool result is data, and the fence already says so. Write tools (fire a cue, send to a
+   device) would need the same gate every remote goes through — the action layer with its own
+   origin, the arm fence, the journal — and should wait until the read tools have earned trust
+   on a real show.
+3. **A running order in, a show out, end to end.** The attachment path reads a spreadsheet into
+   cues today; the natural next step is the *rig* end: a photo of the stage and the projector's
+   model → planned screens *and* the endpoints (a PJLink device with the right name), because
+   the profiles now make a device something the assistant can propose rather than describe.
+4. **The journal explained.** After a show, "what went wrong at 19:42?" over the journal and the
+   log — a read-only tool again, and the same fence.
+
+**Not worth building, and why.** *Autonomous operation* — the model calling cues or taking a
+twin over on its own judgement: the one failure worse than a machine down is two machines
+deciding, and the same is true of a model deciding; every verb that changes what the audience
+sees stays behind a press or a running order the operator wrote. *A local model* — the SDK,
+the schema pinning and the attachment reading are the value; a smaller local model would
+lose the reading and keep the risk. *Voice at the desk* — a show caller's channel is already
+full; a typed ask on the Assistant page with the reply lit is the right register. *Generated
+content on air* — the assistant drafts looks and lower thirds into the preview, and that is
+where drafting belongs; the wall is TAKE's.
+
+**What the round did toward it.** The brief carries the boxes and the twin (§48.4); the catalogue
+carries the new verbs by construction; the endpoints are proposable. The tool runner and the
+pre-show check are the two next rounds' work, in that order, and neither needs a change to the
+architecture this round leaves.
+
+### 48.6 The suite
+
+Every change ran against both suites: 1,022 core and 516 headless UI tests green, the
+twin tested in Core without a socket and in the app against a fake peer on one, the endpoints
+against a fake projector, a fake Pixera, an OSC listener and a web API.

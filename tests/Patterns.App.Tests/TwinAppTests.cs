@@ -62,6 +62,38 @@ public class TwinAppTests
 
     private static void Write(NetworkStream stream, string line) => stream.Write(Encoding.UTF8.GetBytes(line + "\n"));
 
+    /// <summary>
+    /// The next standby that joins: connections are accepted until one says JOIN. A dial the standby
+    /// cut short itself — a takeover or a goodbye landing while a connect was in flight — sits in the
+    /// listener's backlog with nothing said and is simply closed.
+    /// </summary>
+    private static (TcpClient Peer, StreamReader Reader, TwinJoin Join) AcceptJoin(TcpListener main, int timeoutMs = 15000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (Environment.TickCount64 < deadline)
+        {
+            var accept = main.AcceptTcpClientAsync();
+            PumpUntil(() => accept.IsCompleted, (int)Math.Max(1000, deadline - Environment.TickCount64));
+            var peer = accept.Result;
+            var reader = new StreamReader(peer.GetStream(), Encoding.UTF8, false, 4096, leaveOpen: true);
+            try
+            {
+                var join = TwinJoin.Parse(ReadWord(reader, TwinWord.Join, 3000).Payload);
+                if (join is not null) return (peer, reader, join);
+            }
+            catch (IOException)
+            {
+                // closed before it said anything: a dial cut short
+            }
+            catch (TimeoutException)
+            {
+            }
+            reader.Dispose();
+            peer.Dispose();
+        }
+        throw new TimeoutException("no standby joined");
+    }
+
     [AvaloniaFact]
     public void TheMainWelcomesAStandbyMirrorsAnEditAsItsSectionAndBeats()
     {
@@ -124,7 +156,8 @@ public class TwinAppTests
             Assert.NotEqual("null", air.Payload);
             Assert.NotNull(JsonUtil.Deserialize<RecoverySnapshot>(air.Payload));
 
-            // A beat within a couple of seconds; the standby's own beat is counted.
+            // A beat: one rode the welcome, and every tick sends another; the standby's own beat is counted.
+            services.Twin.Tick();
             var beat = ReadWord(reader, TwinWord.Beat, 4000);
             Assert.True(long.Parse(beat.Payload) >= 1);
             Write(stream, TwinMessage.Format(TwinWord.Beat, "1"));
@@ -166,14 +199,11 @@ public class TwinAppTests
             Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
 
             // The fake main accepts the join and hands over a show.
-            var accept = main.AcceptTcpClientAsync();
-            PumpUntil(() => accept.IsCompleted);
-            using var peer = accept.Result;
-            using var stream = peer.GetStream();
-            using var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
-            var join = TwinJoin.Parse(ReadWord(reader, TwinWord.Join).Payload);
-            Assert.NotNull(join);
-            Assert.Equal("hunter2", join!.Key);
+            var (peer, reader, join) = AcceptJoin(main);
+            using var _peer = peer;
+            using var _reader = reader;
+            var stream = peer.GetStream();
+            Assert.Equal("hunter2", join.Key);
             Assert.Equal(twin.Instance, join.Instance);
 
             var theirs = new ShowState { Name = "From the main" };
@@ -198,6 +228,7 @@ public class TwinAppTests
             Assert.False(on.Ok);
             Assert.Contains("held closed", on.Message);
             Assert.False(services.Outputs.IsLive);
+            twin.Tick();
             Assert.Equal(TwinWord.Beat, ReadWord(reader, TwinWord.Beat, 4000).Word);
 
             // A section lands in place; a name change on the main is a name change here.
@@ -242,11 +273,10 @@ public class TwinAppTests
             Assert.True(again.Ok, again.Message);
             Assert.Equal(TwinPhase.Connecting, twin.Phase);
             Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
-            var accept2 = main.AcceptTcpClientAsync();
-            PumpUntil(() => accept2.IsCompleted, 15000);
-            using var peer2 = accept2.Result;
-            using var reader2 = new StreamReader(peer2.GetStream(), Encoding.UTF8, false, 4096, leaveOpen: true);
-            Assert.Equal(TwinWord.Join, ReadWord(reader2, TwinWord.Join).Word);
+            var (peer2, reader2, join2) = AcceptJoin(main);
+            using var _peer2 = peer2;
+            using var _reader2 = reader2;
+            Assert.Equal("hunter2", join2.Key);
 
             // Off: the hold lifts and the outputs are this desk's again.
             vm.State.Twin.Role = TwinRole.Off;
@@ -280,13 +310,11 @@ public class TwinAppTests
             vm.State.Twin.Role = TwinRole.Standby;
             Dispatcher.UIThread.RunJobs();
 
-            var accept = main.AcceptTcpClientAsync();
-            PumpUntil(() => accept.IsCompleted);
-            using (var peer = accept.Result)
+            var (peer, reader, _) = AcceptJoin(main);
+            using (peer)
+            using (reader)
             {
-                using var stream = peer.GetStream();
-                using var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
-                ReadWord(reader, TwinWord.Join);
+                var stream = peer.GetStream();
                 Write(stream, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef01", 1, 0, "", "Gala").ToJson()));
                 Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(new ShowState { Name = "Gala" })));
                 Write(stream, TwinMessage.Format(TwinWord.Air, "null"));
@@ -302,13 +330,11 @@ public class TwinAppTests
             }
 
             // Joined again, then the main dies: five silent seconds and the standby takes the show by itself.
-            var accept2 = main.AcceptTcpClientAsync();
-            PumpUntil(() => accept2.IsCompleted, 15000);
-            using (var peer2 = accept2.Result)
+            var (peer2, reader2, _) = AcceptJoin(main);
+            using (peer2)
+            using (reader2)
             {
-                using var stream2 = peer2.GetStream();
-                using var reader2 = new StreamReader(stream2, Encoding.UTF8, false, 4096, leaveOpen: true);
-                ReadWord(reader2, TwinWord.Join);
+                var stream2 = peer2.GetStream();
                 Write(stream2, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef01", 1, 0, "", "Gala").ToJson()));
                 Write(stream2, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(new ShowState { Name = "Gala again" })));
                 Write(stream2, TwinMessage.Format(TwinWord.Air, "null"));
