@@ -55,7 +55,7 @@ public class ShowPanelLayoutTests
             vm.PollNow();
             var host = Panel(vm);
 
-            var stop = host.GetVisualDescendants().OfType<Button>().Single(x => x.Content as string == "■ Stop" && ReferenceEquals(x.Command, vm.StopStingerCommand));
+            var stop = host.GetVisualDescendants().OfType<Button>().Single(x => x.Content as string == "■ Stop" && ReferenceEquals(x.Command, vm.Audio.StopStingerCommand));
             var stingers = host.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "STINGERS");
             var lowerThirds = host.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "LOWER THIRDS");
             var people = host.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "PEOPLE");
@@ -74,7 +74,7 @@ public class ShowPanelLayoutTests
             vm.State.LowerThirds.Designs.Clear();
             vm.State.LowerThirds.Entries.Clear();
             host = Panel(vm);
-            Assert.Single(host.GetVisualDescendants().OfType<Button>(), x => x.Content as string == "■ Stop" && ReferenceEquals(x.Command, vm.StopStingerCommand));
+            Assert.Single(host.GetVisualDescendants().OfType<Button>(), x => x.Content as string == "■ Stop" && ReferenceEquals(x.Command, vm.Audio.StopStingerCommand));
             host.Close();
         }
         finally

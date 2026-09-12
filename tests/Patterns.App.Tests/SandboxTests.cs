@@ -323,9 +323,9 @@ public class SandboxTests
         var (services, vm, window) = Boot();
         try
         {
-            vm.RefreshAudioDevicesCommand.Execute(null);
-            Assert.True(vm.AudioDevices.Count >= 1);
-            var pinned = vm.AudioDevices[0];
+            vm.Audio.RefreshDevicesCommand.Execute(null);
+            Assert.True(vm.Audio.Devices.Count >= 1);
+            var pinned = vm.Audio.Devices[0];
             Assert.Equal(AudioPlayerService.DefaultDeviceKey, pinned.Name);
             Assert.Contains("Computer audio output", pinned.Label);
 

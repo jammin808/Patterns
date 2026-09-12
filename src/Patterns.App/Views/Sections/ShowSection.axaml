@@ -163,9 +163,9 @@
     </Grid>
     <TextBlock Classes="hint tip" Text="Where the show goes next, by itself or by a click, in one line: the clicker list's place (NEXT / BACK here, Page Down / Page Up from a USB clicker while Clicker armed is ticked), a deck's page while a PDF is on air, an auto-follow counting down in the cue stack, and the playlist's part with what is left of it. While a clip plays — the program's video, a playlist's, a stinger's — the VT clock above reads its name, where it is, how long it is and what is left, and goes red for the last ten seconds with the caller's word (OUT IN 7); ⏭ LAST 10 s jumps a rehearsal to the end of the clip so the out and whatever follows it are seen for real, ⟲ RESTART plays it from the top. The same clock is on the Run strip, the phone, Companion and OSC; on the wire VIDEO END, VIDEO END 30, VIDEO RESTART." />
 
-    <StackPanel IsVisible="{Binding VogChips.Count, Converter={StaticResource Positive}}">
+    <StackPanel IsVisible="{Binding Audio.VogChips.Count, Converter={StaticResource Positive}}">
       <TextBlock Classes="h2" Text="VOG" />
-      <ItemsControl ItemsSource="{Binding VogChips}">
+      <ItemsControl ItemsSource="{Binding Audio.VogChips}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <UniformGrid Columns="3" />
@@ -175,7 +175,7 @@
           <DataTemplate x:DataType="m:StingerItemConfig">
             <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding OnAirText}"
-                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireVogCommand}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Audio.FireVogCommand}"
                     CommandParameter="{Binding}">
               <StackPanel Spacing="1">
                 <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
@@ -188,9 +188,9 @@
       </ItemsControl>
     </StackPanel>
 
-    <StackPanel IsVisible="{Binding StingChips.Count, Converter={StaticResource Positive}}">
+    <StackPanel IsVisible="{Binding Audio.StingChips.Count, Converter={StaticResource Positive}}">
       <TextBlock Classes="h2" Text="STINGERS" />
-      <ItemsControl ItemsSource="{Binding StingChips}">
+      <ItemsControl ItemsSource="{Binding Audio.StingChips}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <UniformGrid Columns="3" />
@@ -200,7 +200,7 @@
           <DataTemplate x:DataType="m:StingerItemConfig">
             <Button Classes="chip" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding OnAirText}"
-                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).FireStingCommand}"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Audio.FireStingCommand}"
                     CommandParameter="{Binding}">
               <StackPanel Spacing="1">
                 <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
@@ -215,19 +215,19 @@
     </StackPanel>
 
     <!-- The stop for what the VOG and STINGER chips fire sits right under them (round 15), never below the lower thirds -->
-    <Border Classes="runBanner" IsVisible="{Binding StingerHolding}">
+    <Border Classes="runBanner" IsVisible="{Binding Audio.StingerHolding}">
       <Grid ColumnDefinitions="*,8,Auto">
         <StackPanel Spacing="2">
           <TextBlock Classes="runTag" Text="STING HOLD" />
-          <TextBlock Classes="label" Text="{Binding StingerHoldText}" TextWrapping="Wrap" />
+          <TextBlock Classes="label" Text="{Binding Audio.StingerHoldText}" TextWrapping="Wrap" />
           <TextBlock Classes="hint tip" Text="TAKE the preview, GO the next cue — or put it back." />
         </StackPanel>
-        <Button Grid.Column="2" Classes="stop" Content="PUT IT BACK" Command="{Binding StopStingerCommand}" VerticalAlignment="Center" />
+        <Button Grid.Column="2" Classes="stop" Content="PUT IT BACK" Command="{Binding Audio.StopStingerCommand}" VerticalAlignment="Center" />
       </Grid>
     </Border>
     <Grid ColumnDefinitions="*,8,Auto" Name="StingerStopRow">
-      <TextBlock Classes="label" Text="{Binding StingerStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
-      <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding StopStingerCommand}"
+      <TextBlock Classes="label" Text="{Binding Audio.StingerStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
+      <Button Grid.Column="2" Classes="mini" Content="■ Stop" Command="{Binding Audio.StopStingerCommand}"
               ToolTip.Tip="Stops the VOG, stinger or surge that is playing and puts the show back" />
     </Grid>
     <TextBlock Classes="hint tip"
@@ -304,11 +304,11 @@
     <TextBlock Classes="h2" Text="AUDIO PLAYLIST" />
     <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto">
       <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center" TextWrapping="Wrap"
-                 Text="{Binding AudioPlayerStatus}" />
-      <Button Grid.Column="2" Classes="mini" Content="⏮" Command="{Binding AudioPrevCommand}" ToolTip.Tip="The previous track" />
-      <Button Grid.Column="3" Classes="mini" Content="▶ Play" Command="{Binding PlayAudioCommand}" ToolTip.Tip="The list from where it stopped, or its first track" />
-      <Button Grid.Column="4" Classes="mini" Content="■ Stop" Command="{Binding StopAudioCommand}" />
-      <Button Grid.Column="5" Classes="mini" Content="⏭" Command="{Binding AudioNextCommand}" ToolTip.Tip="The next track" />
+                 Text="{Binding Audio.PlayerStatus}" />
+      <Button Grid.Column="2" Classes="mini" Content="⏮" Command="{Binding Audio.PrevCommand}" ToolTip.Tip="The previous track" />
+      <Button Grid.Column="3" Classes="mini" Content="▶ Play" Command="{Binding Audio.PlayCommand}" ToolTip.Tip="The list from where it stopped, or its first track" />
+      <Button Grid.Column="4" Classes="mini" Content="■ Stop" Command="{Binding Audio.StopCommand}" />
+      <Button Grid.Column="5" Classes="mini" Content="⏭" Command="{Binding Audio.NextCommand}" ToolTip.Tip="The next track" />
     </Grid>
     <TextBlock Classes="hint tip" Text="The bed of tracks and folders built on the Audio page (SETUP): what is on, where it is and what comes next; ⏮ ⏭ step it, a cue can play a track by name. The message, clock, countdown and the list's volume are in the SHOW CONTROLS drawer under the wall." />
 

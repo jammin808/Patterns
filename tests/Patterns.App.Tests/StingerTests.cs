@@ -149,13 +149,13 @@ public class StingerTests
             var stack = CueStacks.Caller(vm.State);
             stack.Cues.Add(new RunCueConfig { Number = "1", Name = "Call", Actions = { new CueActionConfig { Kind = ShowActionKind.StingerFire, Target = item.Id } } });
 
-            vm.RemoveStingerCommand.Execute(item);
+            vm.Audio.RemoveStingerCommand.Execute(item);
             Assert.Contains(item, vm.State.Stingers.Items);
             Assert.Contains("Take your seats", vm.StatusMessage);
             Assert.Contains("cue 1 Call", vm.StatusMessage);
 
             stack.Cues.Clear();
-            vm.RemoveStingerCommand.Execute(item);
+            vm.Audio.RemoveStingerCommand.Execute(item);
             Assert.DoesNotContain(item, vm.State.Stingers.Items);
         }
         finally

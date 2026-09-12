@@ -74,8 +74,8 @@ public class AudioPlaylistAppTests
             Assert.False(list.Items[1].IsNowPlaying);
             Assert.Equal("intro", services.AudioPlayer.NextName);
             vm.PollNow();
-            Assert.Contains("1/4: Walk-in", vm.AudioPlayerStatus);
-            Assert.Contains("next: intro", vm.AudioPlayerStatus);
+            Assert.Contains("1/4: Walk-in", vm.Audio.PlayerStatus);
+            Assert.Contains("next: intro", vm.Audio.PlayerStatus);
             Assert.Contains("\"playing\":true,\"track\":\"Walk-in\",\"n\":1,\"count\":4,\"next\":\"intro\"", router.StateJson());
             Assert.Contains("\"items\":[{\"n\":1,\"name\":\"Walk-in\"},{\"n\":2,\"name\":\"intro\"},{\"n\":3,\"name\":\"01 opener\"}", router.StateJson());
 
@@ -107,10 +107,10 @@ public class AudioPlaylistAppTests
             Assert.Equal(40, list.VolumePct);
 
             // The panel's own keys.
-            vm.AudioNextCommand.Execute(null);
+            vm.Audio.NextCommand.Execute(null);
             Assert.Equal(closing, services.AudioPlayer.NowPath);
             Assert.Contains("4/4", vm.StatusMessage);
-            vm.PlayAudioItemCommand.Execute(list.Items[0]);
+            vm.Audio.PlayItemCommand.Execute(list.Items[0]);
             Assert.Equal(walkIn, services.AudioPlayer.NowPath);
 
             // A natural end moves on; at the end without loop the list stops and says so; with loop it starts over.

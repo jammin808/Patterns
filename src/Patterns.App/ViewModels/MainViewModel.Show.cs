@@ -918,9 +918,6 @@ public sealed partial class MainViewModel
         }
     }
 
-    private string _stingerStatus = "Ready.";
-    public string StingerStatus { get => _stingerStatus; private set => Set(ref _stingerStatus, value); }
-
     // ---- looks & cues -------------------------------------------------------
 
     private string _newLookName = "";

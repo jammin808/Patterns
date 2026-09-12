@@ -302,43 +302,6 @@ public sealed partial class MainViewModel : Observable
             Raise(nameof(ProgressionText));
         });
 
-        // The audio playlist
-        AddAudioFilesCommand = new RelayCommand(() => _ = AddAudioFilesAsync());
-        AddAudioFolderCommand = new RelayCommand(() => _ = AddAudioFolderAsync());
-        RemoveAudioItemCommand = new RelayCommand<AudioTrackConfig>(item =>
-        {
-            if (item is not null) State.AudioPlayer.Items.Remove(item);
-        });
-        RemoveAudioFolderCommand = new RelayCommand<string>(folder =>
-        {
-            if (folder is not null) State.AudioPlayer.Folders.Remove(folder);
-        });
-        PlayAudioItemCommand = new RelayCommand<AudioTrackConfig>(item =>
-        {
-            if (item is null) return;
-            if (AudioDevices.Count == 0) RefreshAudioDevices();
-            Report(_services.Actions.Execute(ShowActionKind.AudioPlay, ActionOrigin.Desk, item.Id));
-        });
-        MoveAudioItemUpCommand = new RelayCommand<AudioTrackConfig>(item => MoveAudioItem(item, -1));
-        MoveAudioItemDownCommand = new RelayCommand<AudioTrackConfig>(item => MoveAudioItem(item, +1));
-        AudioNextCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.AudioNext, ActionOrigin.Desk)));
-        AudioPrevCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.AudioPrev, ActionOrigin.Desk)));
-        ReshuffleAudioCommand = new RelayCommand(() =>
-        {
-            BulkEdit(() =>
-            {
-                State.AudioPlayer.ShuffleSeed = Random.Shared.Next(1, int.MaxValue);
-                State.AudioPlayer.Shuffle = true;
-            });
-            StatusMessage = "The audio playlist dealt a new order.";
-        });
-        PlayAudioCommand = new RelayCommand(() =>
-        {
-            if (AudioDevices.Count == 0) RefreshAudioDevices();
-            _services.Actions.Execute(ShowActionKind.AudioPlay, ActionOrigin.Desk);
-        });
-        StopAudioCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.AudioStop, ActionOrigin.Desk));
-        RefreshAudioDevicesCommand = new RelayCommand(RefreshAudioDevices);
         NewLowerThirdCommand = new RelayCommand(() => NewLowerThird(NewLowerThirdPreset));
         DuplicateLowerThirdCommand = new RelayCommand<LowerThirdDesign>(DuplicateLowerThird);
         DeleteLowerThirdCommand = new RelayCommand<LowerThirdDesign>(DeleteLowerThird);
@@ -479,42 +442,6 @@ public sealed partial class MainViewModel : Observable
         ClearHelpCommand = new RelayCommand(() => HelpQuery = "");
         RefreshHelpRows();
 
-        // Stingers
-        AddStingerFilesCommand = new RelayCommand(() => _ = AddStingerFilesAsync());
-        RemoveStingerCommand = new RelayCommand<StingerItemConfig>(item =>
-        {
-            if (item is null) return;
-            // A cue that fires a deleted stinger fails at show time; refuse and say what points here.
-            var refs = StingerLibrary.References(State, item);
-            if (refs.Count > 0)
-            {
-                StatusMessage = $"'{item.DisplayName}' is still used by {string.Join(", ", refs)} — remove those first.";
-                return;
-            }
-            State.Stingers.Items.Remove(item);
-            RefreshStingerGroups();
-        });
-        FireStingerCommand = new RelayCommand<StingerItemConfig>(item =>
-        {
-            if (item is null) return;
-            _services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id);
-        });
-        StopStingerCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StingerStop, ActionOrigin.Desk));
-
-        // VOG / stinger: the desk's own chips assert the kind, so a panel that is stale after a
-        // re-kind on the Audio page refuses rather than surprises.
-        FireVogCommand = new RelayCommand<StingerItemConfig>(item =>
-        {
-            if (item is null) return;
-            _services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id, "vog");
-        });
-        FireStingCommand = new RelayCommand<StingerItemConfig>(item =>
-        {
-            if (item is null) return;
-            _services.Actions.Execute(ShowActionKind.StingerFire, ActionOrigin.Desk, item.Id, "sting");
-        });
-        RefreshStingerGroups();
-        RefreshAfterChoices();
         _services.Stingers.Changed += RefreshTallies; // a session ending on the service's own timer lights the rows off
 
         // Streaming
@@ -643,11 +570,7 @@ public sealed partial class MainViewModel : Observable
             if (cue is not null) State.LooksAndCues.Cues.Remove(cue);
         });
 
-        // Audio, feed, trims
-        ToneFrequencyCommand = new RelayCommand<string>(f =>
-        {
-            if (double.TryParse(f, out var hz)) State.Tone.FrequencyHz = hz;
-        });
+        // Feed, trims
         RefreshFeedCommand = new RelayCommand(() => _services.Feeds.RefreshNow());
         ResetTrimsCommand = new RelayCommand(() =>
         {
@@ -691,6 +614,7 @@ public sealed partial class MainViewModel : Observable
         Run = new RunViewModel(_services, this);
         Assistant = new AssistantPage(this, _services);
         Music = new MusicPage(this, _services);
+        Audio = new AudioPage(this, _services);
 
         // The caller's home: a running order in and out of the Cues page
         var cues = Cues;
@@ -822,7 +746,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand<LookConfig> DeleteLookCommand { get; }
     public RelayCommand AddCueCommand { get; }
     public RelayCommand<CueConfig> RemoveCueCommand { get; }
-    public RelayCommand<string> ToneFrequencyCommand { get; }
     public RelayCommand RefreshFeedCommand { get; }
     public RelayCommand ResetTrimsCommand { get; }
     public RelayCommand AddLedTileCommand { get; }
@@ -848,19 +771,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand PresenterNextCommand { get; }
     public RelayCommand PresenterPrevCommand { get; }
     public RelayCommand PresenterResetCommand { get; }
-    public RelayCommand AddAudioFilesCommand { get; }
-    public RelayCommand AddAudioFolderCommand { get; }
-    public RelayCommand<AudioTrackConfig> RemoveAudioItemCommand { get; }
-    public RelayCommand<string> RemoveAudioFolderCommand { get; }
-    public RelayCommand<AudioTrackConfig> PlayAudioItemCommand { get; }
-    public RelayCommand<AudioTrackConfig> MoveAudioItemUpCommand { get; }
-    public RelayCommand<AudioTrackConfig> MoveAudioItemDownCommand { get; }
-    public RelayCommand AudioNextCommand { get; }
-    public RelayCommand AudioPrevCommand { get; }
-    public RelayCommand ReshuffleAudioCommand { get; }
-    public RelayCommand PlayAudioCommand { get; }
-    public RelayCommand StopAudioCommand { get; }
-    public RelayCommand RefreshAudioDevicesCommand { get; }
     public RelayCommand NewLowerThirdCommand { get; }
     public RelayCommand<LowerThirdDesign> DuplicateLowerThirdCommand { get; }
     public RelayCommand<LowerThirdDesign> DeleteLowerThirdCommand { get; }
@@ -940,12 +850,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand LookBackCommand { get; }
     public RelayCommand RestoreBackupCommand { get; }
     public RelayCommand OpenBackupsFolderCommand { get; }
-    public RelayCommand AddStingerFilesCommand { get; }
-    public RelayCommand<StingerItemConfig> RemoveStingerCommand { get; }
-    public RelayCommand<StingerItemConfig> FireStingerCommand { get; }
-    public RelayCommand<StingerItemConfig> FireVogCommand { get; }
-    public RelayCommand<StingerItemConfig> FireStingCommand { get; }
-    public RelayCommand StopStingerCommand { get; }
     public RelayCommand SandboxSendAllCommand { get; }
     public RelayCommand SandboxSendSelectedCommand { get; }
     public RelayCommand TakeCommand { get; }
@@ -971,7 +875,7 @@ public sealed partial class MainViewModel : Observable
     }
 
 
-    private static readonly FilePickerFileType AudioTypes = new("Audio")
+    internal static readonly FilePickerFileType AudioTypes = new("Audio")
     {
         Patterns = Glob(PlaylistSequencer.AudioExtensions),
     };
@@ -1045,7 +949,7 @@ public sealed partial class MainViewModel : Observable
         Patterns = Glob(PlaylistSequencer.VideoExtensions, PlaylistSequencer.ImageExtensions),
     };
 
-    private static readonly FilePickerFileType MediaTypes = new("Images, video, audio & decks (PDF, PowerPoint)")
+    internal static readonly FilePickerFileType MediaTypes = new("Images, video, audio & decks (PDF, PowerPoint)")
     {
         Patterns = Glob(PlaylistSequencer.ImageExtensions, PlaylistSequencer.VideoExtensions, PlaylistSequencer.AudioExtensions, PlaylistSequencer.DeckExtensions),
     };
@@ -1197,8 +1101,7 @@ public sealed partial class MainViewModel : Observable
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();
         Music.OnShowLoaded();
-        RefreshStingerGroups();
-        RefreshAfterChoices();
+        Audio.OnShowLoaded();
         ReconcilePlacements();
         BuildLibrary();
         StatusMessage = status;

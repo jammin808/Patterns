@@ -614,7 +614,7 @@ public sealed partial class MainViewModel
 
     // ---- media library ------------------------------------------------------
 
-    private void AddToMediaLibrary(string path, bool isVideo)
+    internal void AddToMediaLibrary(string path, bool isVideo)
     {
         if (State.MediaLibrary.Any(m => string.Equals(m.Path, path, StringComparison.OrdinalIgnoreCase)))
         {
@@ -661,40 +661,6 @@ public sealed partial class MainViewModel
         }
     }
 
-    private async Task AddStingerFilesAsync()
-    {
-        var window = _services.MainWindow;
-        if (window is null) return;
-        try
-        {
-            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "Add VOGs / stingers (sounds or video clips)",
-                AllowMultiple = true,
-                FileTypeFilter = new[] { MediaTypes, FilePickerFileTypes.All },
-            });
-            var skipped = 0;
-            foreach (var file in files)
-            {
-                var path = file.TryGetLocalPath();
-                if (path is null) continue;
-                if (!PlaylistSequencer.IsDecodedPath(path))
-                {
-                    skipped++; // images have no natural end — nothing to revert on
-                    continue;
-                }
-                State.Stingers.Items.Add(new StingerItemConfig { Path = path });
-                AddToMediaLibrary(path, PlaylistSequencer.IsVideoPath(path));
-            }
-            if (skipped > 0) StatusMessage = $"VOGs and stingers are sounds or video clips — {skipped} other file{(skipped == 1 ? "" : "s")} skipped.";
-            RefreshStingerGroups();
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Stinger file picker failed.", ex);
-        }
-    }
-
     private async Task AddPlaylistFolderAsync()
     {
         var window = _services.MainWindow;
@@ -719,71 +685,6 @@ public sealed partial class MainViewModel
         {
             Log.Error("Playlist folder picker failed.", ex);
         }
-    }
-
-    /// <summary>Tracks for the audio playlist: every audio file picked becomes a row (and a library entry); a file already in the list is left where it is.</summary>
-    private async Task AddAudioFilesAsync()
-    {
-        var window = _services.MainWindow;
-        if (window is null) return;
-        try
-        {
-            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-            {
-                Title = "Add audio tracks",
-                AllowMultiple = true,
-                FileTypeFilter = new[] { AudioTypes, FilePickerFileTypes.All },
-            });
-            var added = 0;
-            foreach (var file in files)
-            {
-                var path = file.TryGetLocalPath();
-                if (path is null || !PlaylistSequencer.IsAudioPath(path)) continue;
-                if (State.AudioPlayer.Items.Any(i => string.Equals(i.Path, path, StringComparison.OrdinalIgnoreCase))) continue;
-                State.AudioPlayer.Items.Add(new AudioTrackConfig { Path = path });
-                AddToMediaLibrary(path, isVideo: true);
-                added++;
-            }
-            if (added > 0) StatusMessage = $"{added} track{(added == 1 ? "" : "s")} added to the audio playlist.";
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Audio track picker failed.", ex);
-        }
-    }
-
-    /// <summary>A folder for the audio playlist: its audio files play after the rows, in name order, and files dropped in later are seen.</summary>
-    private async Task AddAudioFolderAsync()
-    {
-        var window = _services.MainWindow;
-        if (window is null) return;
-        try
-        {
-            var folders = await window.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
-            {
-                Title = "Add a folder of audio tracks",
-                AllowMultiple = true,
-            });
-            foreach (var folder in folders)
-            {
-                var path = folder.TryGetLocalPath();
-                if (path is not null && !State.AudioPlayer.Folders.Contains(path)) State.AudioPlayer.Folders.Add(path);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Audio folder picker failed.", ex);
-        }
-    }
-
-    private void MoveAudioItem(AudioTrackConfig? item, int delta)
-    {
-        if (item is null) return;
-        var items = State.AudioPlayer.Items;
-        var index = items.IndexOf(item);
-        var target = index + delta;
-        if (index < 0 || target < 0 || target >= items.Count) return;
-        items.Move(index, target);
     }
 
     private void MovePlaylistItem(PlaylistItemConfig? item, int delta)
@@ -1089,15 +990,10 @@ public sealed partial class MainViewModel
 
     // ---- audio / fonts / feed / LED map ------------------------------------
 
-    public EnumItem[] ToneModes => Lists.ToneModes;
-    public EnumItem[] ToneChannelsList => Lists.ToneChannelsList;
     public EnumItem[] FeedKinds => Lists.FeedKinds;
     public EnumItem[] MessageBackgrounds => Lists.MessageBackgrounds;
     public EnumItem[] Rotations => Lists.Rotations;
     public EnumItem[] PipSources => Lists.PipSources;
-
-    private string _toneStatus = "Off";
-    public string ToneStatus { get => _toneStatus; private set => Set(ref _toneStatus, value); }
 
     private string _feedStatus = "";
     public string FeedStatus { get => _feedStatus; private set => Set(ref _feedStatus, value); }

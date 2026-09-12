@@ -120,10 +120,10 @@ public class SyncAppTests
 
             // The Audio page shows the master-clock block; the check toggles the channel and the sinks flash.
             vm.PollNow();
-            Assert.StartsWith("Locked to the master clock.", vm.SyncStatus);
+            Assert.StartsWith("Locked to the master clock.", vm.Audio.SyncStatus);
             vm.State.AudioPlayer.SyncLock = false;
             vm.PollNow();
-            Assert.StartsWith("Outputs free-run", vm.SyncStatus);
+            Assert.StartsWith("Outputs free-run", vm.Audio.SyncStatus);
             var host = new Window { DataContext = vm, Width = 900, Height = 1800, Content = new ScrollViewer { Content = new AudioSection() } };
             host.Show();
             Dispatcher.UIThread.RunJobs();
@@ -133,7 +133,7 @@ public class SyncAppTests
             Assert.False(SyncMarks.Enabled);
             toggle.IsChecked = true;
             Dispatcher.UIThread.RunJobs();
-            Assert.True(vm.SyncCheck);
+            Assert.True(vm.Audio.SyncCheck);
             Assert.True(SyncMarks.Enabled);
             Assert.Contains("Sync check on", vm.StatusMessage);
             toggle.IsChecked = false;
@@ -143,11 +143,11 @@ public class SyncAppTests
             host.Close();
 
             // A device's delay lives on the show and the page's row (filled on refresh) reads and writes it.
-            vm.RefreshAudioDevicesCommand.Execute(null);
+            vm.Audio.RefreshDevicesCommand.Execute(null);
             vm.State.AudioPlayer.SetDelay(AudioPlayerService.DefaultDeviceKey, 150);
             Assert.Equal(150, vm.State.AudioPlayer.DelayFor(AudioPlayerService.DefaultDeviceKey));
-            Assert.Equal(150, vm.AudioDevices.First(d => d.Name == AudioPlayerService.DefaultDeviceKey).DelayMs);
-            vm.AudioDevices.First(d => d.Name == AudioPlayerService.DefaultDeviceKey).DelayMs = 0;
+            Assert.Equal(150, vm.Audio.Devices.First(d => d.Name == AudioPlayerService.DefaultDeviceKey).DelayMs);
+            vm.Audio.Devices.First(d => d.Name == AudioPlayerService.DefaultDeviceKey).DelayMs = 0;
             Assert.Empty(vm.State.AudioPlayer.OutputDelays);
         }
         finally

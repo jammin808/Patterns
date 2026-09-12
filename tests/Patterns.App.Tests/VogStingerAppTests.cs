@@ -353,8 +353,8 @@ public class VogStingerAppTests
             Assert.Contains("Holding", services.Stingers.Status);
             Assert.Equal(0.0, services.Stingers.MusicGainAt(T0.AddSeconds(3)));
             vm.PollNow();
-            Assert.True(vm.StingerHolding);
-            Assert.Contains("Whoosh", vm.StingerHoldText);
+            Assert.True(vm.Audio.StingerHolding);
+            Assert.Contains("Whoosh", vm.Audio.StingerHoldText);
             Assert.True(vm.Run.IsStingHolding);
             Assert.Equal("STING HOLD: Whoosh", vm.Run.StingHoldText);
             services.Stingers.Poll(T0.AddSeconds(30));
@@ -372,7 +372,7 @@ public class VogStingerAppTests
             services.Stingers.Poll(T0.AddSeconds(32));
             Assert.Equal(PatternKind.ColorBars, vm.State.Pattern.Kind); // no zombie revert
             vm.PollNow();
-            Assert.False(vm.StingerHolding);
+            Assert.False(vm.Audio.StingerHolding);
         }
         finally
         {
@@ -913,10 +913,10 @@ public class VogStingerAppTests
             var sting = new StingerItemConfig { Path = "C:/show/whoosh.mp4", Name = "Whoosh", Kind = StingerKind.Sting, After = StingerAfter.Custom, AfterTarget = look.Id };
             vm.State.Stingers.Items.Add(sting);
             vm.PollNow();
-            Assert.Single(vm.VogChips);
-            Assert.Single(vm.StingChips);
-            Assert.Contains(vm.AfterLookOrCueChoices, p => p.Id == look.Id);
-            Assert.Equal("", vm.AfterListChoices[0].Id);   // the caller's list
+            Assert.Single(vm.Audio.VogChips);
+            Assert.Single(vm.Audio.StingChips);
+            Assert.Contains(vm.Audio.AfterLookOrCueChoices, p => p.Id == look.Id);
+            Assert.Equal("", vm.Audio.AfterListChoices[0].Id);   // the caller's list
 
             foreach (var page in new[] { "Panel", "Audio" })
             {
@@ -929,11 +929,11 @@ public class VogStingerAppTests
             // A re-kind regroups the chips; a renamed look keeps the picker in step.
             sting.Kind = StingerKind.Vog;
             vm.PollNow();
-            Assert.Equal(2, vm.VogChips.Count);
-            Assert.Empty(vm.StingChips);
+            Assert.Equal(2, vm.Audio.VogChips.Count);
+            Assert.Empty(vm.Audio.StingChips);
             look.Name = "Awards 2";
             vm.PollNow();
-            Assert.Contains(vm.AfterLookOrCueChoices, p => p.Id == look.Id && p.Label.Contains("Awards 2"));
+            Assert.Contains(vm.Audio.AfterLookOrCueChoices, p => p.Id == look.Id && p.Label.Contains("Awards 2"));
         }
         finally
         {

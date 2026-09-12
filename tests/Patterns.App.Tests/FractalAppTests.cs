@@ -40,7 +40,7 @@ public class FractalAppTests
                 Assert.Empty(AudioAnalyserService.CaptureDevices());
             }
             b.Vm.PollNow();
-            Assert.Equal(analyser.Status, b.Vm.FractalAudioStatus);
+            Assert.Equal(analyser.Status, b.Vm.Audio.AnalyserStatus);
 
             // An independent screen's fractal counts too; a fractal that is not listening does not.
             b.Vm.State.Pattern.Fractal.AudioSource = AudioSourceKind.None;
@@ -155,8 +155,8 @@ public class FractalAppTests
 
             vm.ActivePattern.Fractal.AudioSource = AudioSourceKind.External;
             vm.ActivePattern.Fractal.AudioDevice = "Desk mic";
-            vm.RefreshAudioCaptureDevices();
-            Assert.Contains("Desk mic", vm.AudioCaptureDevices); // the show's choice stays offered when the input is not here
+            vm.Audio.RefreshCaptureDevices();
+            Assert.Contains("Desk mic", vm.Audio.CaptureDevices); // the show's choice stays offered when the input is not here
 
             var host = new Window { DataContext = vm, Width = 900, Height = 1600, Content = new ScrollViewer { Content = new FractalsSection() } };
             host.Show();

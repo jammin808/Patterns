@@ -165,17 +165,8 @@ public sealed partial class MainViewModel
 
     private void PollAudio()
     {
-        ToneStatus = _services.Audio.Status;
-        AudioPlayerStatus = _services.AudioPlayer.Status;
-        SyncStatus = BuildSyncStatus();
-        StingerStatus = _services.Stingers.Status;
-        RefreshStingerGroups();
-        RefreshAfterChoices();
-        StingerHolding = _services.Stingers.Holding;
-        StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";
+        Audio.Poll();
         Music.Poll();
-        FractalAudioStatus = _services.Analyser.Status;
-        if (ActivePattern.Kind is PatternKind.Fractal or PatternKind.Reactive) RefreshAudioCaptureDevices();
     }
 
     private void PollHealth()

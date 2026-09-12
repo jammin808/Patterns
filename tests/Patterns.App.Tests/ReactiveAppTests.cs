@@ -132,26 +132,26 @@ public class ReactiveAppTests
             vm.ActivePattern.Reactive.AudioDevice = "Digital Audio Interface (2- USB Capture HDMI+)";
             Dispatcher.UIThread.RunJobs();
             Assert.Equal((AudioSourceKind.External, "Digital Audio Interface (2- USB Capture HDMI+)"), analyser.Wanted());
-            Assert.Equal("Digital Audio Interface (2- USB Capture HDMI+)", vm.ChosenAudioDevice);
+            Assert.Equal("Digital Audio Interface (2- USB Capture HDMI+)", vm.Audio.ChosenCaptureDevice);
 
             // The page has an input picker on it, and it fills from the same list the fractal page uses.
             var page = window.GetVisualDescendants().OfType<ReactiveSection>().Single();
             var picker = page.GetVisualDescendants().OfType<ComboBox>()
-                .FirstOrDefault(c => ReferenceEquals(c.ItemsSource, vm.AudioCaptureDevices));
+                .FirstOrDefault(c => ReferenceEquals(c.ItemsSource, vm.Audio.CaptureDevices));
             Assert.NotNull(picker);
 
             // The list always offers the machine's own input, and keeps the box this show names
             // even when it is not plugged into this machine — a rig is patched after the desk
             // comes up, and losing the setting at that moment is how a show ends up silent.
             vm.PollNow();
-            Assert.Equal(AudioInput.DefaultDevice, vm.AudioCaptureDevices[0]);
-            Assert.Contains("Digital Audio Interface (2- USB Capture HDMI+)", vm.AudioCaptureDevices);
+            Assert.Equal(AudioInput.DefaultDevice, vm.Audio.CaptureDevices[0]);
+            Assert.Contains("Digital Audio Interface (2- USB Capture HDMI+)", vm.Audio.CaptureDevices);
 
             // Nothing named is the machine's own input, not a fault, and the picker says so.
             vm.ActivePattern.Reactive.AudioDevice = AudioInput.DefaultDevice;
             vm.PollNow();
-            Assert.Equal(new[] { AudioInput.DefaultDevice }, vm.AudioCaptureDevices.ToArray());
-            Assert.Equal(analyser.Status, vm.FractalAudioStatus);
+            Assert.Equal(new[] { AudioInput.DefaultDevice }, vm.Audio.CaptureDevices.ToArray());
+            Assert.Equal(analyser.Status, vm.Audio.AnalyserStatus);
 
             // And a scene that is not the pattern on screen opens nothing.
             vm.ActivePattern.Kind = PatternKind.Grid;

@@ -56,12 +56,12 @@ public sealed class RelayCommand<T> : ICommand
 /// <summary>One audio output device row with a live selection checkbox.</summary>
 public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
 {
-    private readonly MainViewModel _vm;
+    private readonly AudioPage _page;
     private bool _isSelected;
 
-    public AudioDeviceChoice(MainViewModel vm, string name, bool selected, string? label = null)
+    public AudioDeviceChoice(AudioPage page, string name, bool selected, string? label = null)
     {
-        _vm = vm;
+        _page = page;
         Name = name;
         Label = label ?? name;
         _isSelected = selected;
@@ -76,11 +76,11 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
     /// <summary>The lip-sync offset of this output, ms (Audio page slider): the track, VOGs and stingers on it leave this much later.</summary>
     public int DelayMs
     {
-        get => _vm.State.AudioPlayer.DelayFor(Name);
+        get => _page.State.AudioPlayer.DelayFor(Name);
         set
         {
             if (value == DelayMs) return;
-            _vm.State.AudioPlayer.SetDelay(Name, value);
+            _page.State.AudioPlayer.SetDelay(Name, value);
             Raise(nameof(DelayMs));
         }
     }
@@ -90,7 +90,7 @@ public sealed class AudioDeviceChoice : Patterns.Core.Model.Observable
         get => _isSelected;
         set
         {
-            if (Set(ref _isSelected, value)) _vm.AudioDeviceChanged(this);
+            if (Set(ref _isSelected, value)) _page.DeviceChanged(this);
         }
     }
 }

@@ -97,9 +97,9 @@ public class EffectStingAppTests
             Assert.Equal(PulsePreset.Rush, EffectImpulses.Current.Preset);
 
             // Deleting it is refused while the cue names it; the Audio page's chip adds one and the row renders.
-            vm.RemoveStingerCommand.Execute(item);
+            vm.Audio.RemoveStingerCommand.Execute(item);
             Assert.Contains(item, vm.State.Stingers.Items);
-            vm.AddEffectPulseCommand.Execute(null);
+            vm.Audio.AddEffectPulseCommand.Execute(null);
             var added = vm.State.Stingers.Items.Last();
             Assert.True(added.IsPulse);
             Assert.Equal("Explosion pulse", added.DisplayName);
@@ -170,7 +170,7 @@ public class EffectStingAppTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(3100, One(5000).Value);
             EffectImpulses.Clear();
-            vm.FireStingerCommand.Execute(item);
+            vm.Audio.FireStingerCommand.Execute(item);
             Assert.Equal(3.1, EffectImpulses.Current.LengthSeconds, 3);
             Assert.Equal(PulsePreset.Vortex, EffectImpulses.Current.Preset);
             host.Close();
