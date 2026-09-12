@@ -275,3 +275,56 @@ against every change: 1,022 core + 516 headless UI tests green.
 - **Companion actions for the twin** — left: `TWIN TAKEOVER` and `TWIN STANDBY` are one line
   each on the generic TCP module, and a takeover is a press the operator makes looking at the
   desk.
+
+## Round 32 review — pages, a standby that runs itself, hot-plug, warp and black, the caller's pad
+
+The round asked five questions; `docs/PLAN.md` §49 says how. The suite ran against every
+change: 1,037 core + 528 headless UI tests green.
+
+### Done
+
+1. **The peel** — `ScreensPage`, `MediaPage` and `ShowPage` as page objects reached as
+   `Screens.X`, `Media.X`, `Show.X`; the desk's partials from 7,935 to 6,077 lines; the desk
+   keeps only what every page needs.
+2. **The twin as a second process** — the main starts, restarts, adopts and ends its own standby
+   in a folder beside its own (`--home`, `--standby-of`, `--key`); a standby that took the show
+   marks it on disk; a returning main holds its outputs while that process lives; `TWIN
+   TAKEBACK` hands the show back with the edits made meanwhile, and the standby follows again.
+3. **Hot-plug** — a display that re-indexed keeps its screen; one unplugged leaves its screen
+   waiting with everything kept and the alert on the status line, the journal, the health line,
+   the super-check and the brief; its own display back is adopted and turned on; a stranger is
+   offered as a substitute (the mode forced first when it must be) or as its own screen.
+4. **Warp and blend** — the research written down with the 2×2's middle explained; edge bends
+   through a Coons patch, black-level matching by the pedestal rule, arrange as a blend grid.
+5. **The caller's pad and notes** — the pad, a note on any cue in the show, the row's menu by
+   right-click with the ✎ chip for touch; the evaluation is §49.5.
+
+### Found on the way (fixed)
+
+6. **A display unplugged on the left orphaned every screen to its right** — display ids embed
+   the index; the rig now remembers each screen's display and re-identifies by name, size and
+   place.
+7. **A hot-plug pass published mid-move** — each rename republished, and the desk's reconcile
+   on that publish added a placement for a display the pass was about to give to a waiting
+   screen; the pass is one quiet edit with one publish, losses before renames, a swapped screen
+   moved aside.
+8. **A standby that took over stopped dialling** — the main could never take the show back
+   over the link; it dials again after a takeover, saying so in its join.
+9. **A dial that failed logged once a second** — one line for the first failure, then one in
+   thirty.
+10. **A restart of the main ended its standby** — RESTART and UPDATE APPLY keep the standby for
+    the desk that comes back, which adopts it.
+
+### Measured, and left
+
+- **A full mesh warp** — left: the patch covers curved screens and lens bows; a dome or a set
+  piece needs a grid of control points and a draggable grid over the preview, which is the next
+  piece of work, not this round's.
+- **Camera calibration** — left, with the pieces named: the capture inputs, the pattern
+  renderer and the mesh exist; the solver is the work.
+- **Feathered pedestal edges** — left on purpose: the black floor steps at the band's edge, so a
+  hard step is right; a feather only hides a misaligned zone.
+- **Keyboard access to the cue row's menu** — left: the standby row's note is one right-click
+  or one ✎ away; a keyboard shortcut would collide with the caller's keys (Enter, arrows, Space).
+- **Wire verbs for the substitute** — left: a hot-plug offer is a walk-up decision made looking
+  at the screen; the status line, the health line and the brief carry the words.

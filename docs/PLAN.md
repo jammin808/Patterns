@@ -4626,3 +4626,176 @@ architecture this round leaves.
 Every change ran against both suites: 1,022 core and 516 headless UI tests green, the
 twin tested in Core without a socket and in the app against a fake peer on one, the endpoints
 against a fake projector, a fake Pixera, an OSC listener and a web API.
+
+## 49. Round 32 — the desk modular to the last page, a standby that runs itself, a display that goes and comes back, warp and black for projection, the caller's pad
+
+*"Could MainViewModel be peeled and modularised more? Maybe Content, Show, and Rig? Is the Twin
+second process now implemented? If an output is unplugged, Patterns should alert the user, then
+turn that screen off and set it to planned. When the same screen is plugged back in, it is
+recognised, adopted and turned on. If it is a different screen, the user should be given the
+option to accept it as a substitute (if aspect and resolution and frame rate are or can be forced
+to be the same), or give the newly connected screen its own identity. For true projector blending,
+Patterns needs warp and mapping abilities. Research how others do it, the technique, how it could
+be simplified into the workflow. Also consider how blending works when projectors are stacked in a
+2×2 screen blend — what happens in the central area where all four projectors overlap? In the Show
+area, a showcaller should be able to have a scratchpad, with each cue being able to have its own
+scratchpad for last minute or in-show notes. Evaluate if a right-click context menu to edit a live
+cue would be better for usability over a visual button."*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | Three more page objects — `ScreensPage` (the rig's selection, modes, blend, gaps, roles, planned screens), `MediaPage` (sources, crop, playlist, inputs, web pages, decks) and `ShowPage` (looks, the VT clock, the show file's versions) — reached as `Screens.X`, `Media.X`, `Show.X`; the desk sheds another ~1,900 lines (§49.1). | done |
+| 2 | The twin as a second process on this machine, run by the main: a tick starts it in its own folder, restarts it, adopts it, ends it; a standby that took the show marks it on disk, the returning main holds its outputs, and TAKE BACK hands the show back (§49.2). | done |
+| 3 | Output hot-plug: a display that re-indexed keeps its screen; one unplugged leaves its screen waiting, planned and off, with everything kept and the alert everywhere; its own display back is adopted and turned on; a stranger is offered as a substitute — the mode forced when it must be — or as its own screen (§49.3). | done |
+| 4 | Projector warp and blend: the field's practice researched and written down (`docs/WARP-AND-BLEND.md`), the 2×2's middle explained, and three pieces built — edge bends through a Coons patch, black-level matching, arrange as a blend grid (§49.4). | done |
+| 5 | The caller's pad, a note on any cue in the show, and the cue row's own menu — right-click and a ✎ chip — with the evaluation of which (§49.5). | done |
+| 6 | The AI at each step: the brief carries the standby the main runs, the missing screens and what to do, the caller's pad and every note (§49.6). | done |
+
+### 49.1 The peel, further
+
+The shape from round 31 held: a page object is `XPage : Observable` built by the desk once and
+reached as `{Binding Page.X}` from a section that keeps the desk as its `DataContext` — a
+section's own `DataContext` still loses every `ItemsSource` under compiled bindings, so the
+path through the desk stays. Three pages went this round:
+
+- **`ScreensPage`** (842 lines): the selected placement and its title, enabled, custom pattern,
+  direct output, groups, the master and per-screen rate, the display modes (apply, keep, revert,
+  the re-identification after a mode change), the blend (auto, widths, curve, gamma, the
+  readback with the audit, and this round's black level and blend grid), the gaps, the roles,
+  the mirror sources, the labels, rotation and trims, the planned screens and their adoption.
+- **`MediaPage`** (853 lines): the browses for images, clips and decks, the deck's pages, the
+  playlist and its parts, the crop band picked on the preview, the live inputs' pickers and
+  nicknames and the input pool's words, the web pages and every control that drives them.
+- **`ShowPage`** (250 lines): the looks — save, update, delete, fire to air or into the preview —
+  the caller's VT clock, and the show file's earlier versions.
+
+The desk's partials went from 7,935 lines to 6,077 across the round, and each partial is now
+named for what it still holds: the switcher and the shell in `Show`, the editing target and the
+library in `Content`, the arrangement and the hot-plug bindings in `Rig`. What stays on the desk
+is what every page needs — the status line, the pattern being edited, the sandbox, the
+reconciliation of the rig and the edit targets — and each page asks the desk for those through
+`internal` methods rather than reaching around it.
+
+### 49.2 The twin as a second process — "is it implemented now?"
+
+Round 31 built the link; a standby on this machine was a second copy started by hand in its own
+folder. This round the main runs it:
+
+- **The launcher.** *Run a standby of this desk as a second process on this machine* on the
+  Machine page. The main starts the same build (`HostCommand.Resolve`: the exe, or `dotnet
+  Patterns.dll` under a test host) with `--home <base>/twin-standby --standby-of 127.0.0.1:<port>
+  --key <k> --no-watchdog`; `--home` is a folder override every `SettingsStore` made without one
+  picks up (`SettingsStore.HomeOverride`), so the standby has its own settings, logs, backups and
+  crash domain beside the main's; `--standby-of` configures it as a standby of that main
+  whatever its own file says (`TwinLaunch.ConfigureStandby`: role, address, key, automatic
+  takeover; its own watchdog, beacon and remote-control ports off — the main holds the
+  machine's). `TwinLauncher` looks once a second: exited → started again after 2, 4, 8… 30
+  seconds; the folder already owned (the instance mutex of the standby the previous main
+  started) → adopted, not doubled; a clean exit ends it, a RESTART or an update keeps it for
+  the desk that comes back, and it is always kept while it has the show. No job object on
+  purpose: the standby must outlive a main that crashes.
+- **The mark.** A standby that takes the show writes `twin.tookover.json` in its own folder:
+  its process id and start time, when, from whom. A main on the same machine that comes back —
+  restarted by its watchdog after the standby ended it as hung, or relaunched by hand — reads
+  the mark in the twin service's constructor, before its first window, and holds its outputs
+  (`OutputsHeldBy`) while that process lives; `Poll` re-reads it once a second whatever the
+  role, so a standby that dies with the show holds nothing and the hold lifts with the words
+  "OUTPUTS ON puts the show on here".
+- **The hand-back.** A standby that took over keeps dialling (it used to stop); its `JOIN`
+  says `TookOver`; the main welcomes it and mirrors nothing — the standby's show is the newer
+  one — and keeps the `SHOW` and `AIR` it sends. `TWIN TAKEBACK` (the verb, the wire, the
+  button) lands its show here, restores its air the way a takeover does, lifts the hold, writes
+  `HANDBACK`, and sends the whole show and air back over the link; the standby closes its
+  outputs, clears its mark, and the `SHOW` that follows puts it in step. A linked holder that
+  leaves the link releases the main (the marker still holds on the same machine).
+
+Tested end to end in the app against a fake peer on a socket, in Core for the words and the
+mark, and the launcher against a fake process. Limits, said: the standby on the same machine
+shares the LAN — its remote ports are off and NDI senders are the main's; the twin link is the
+same LAN trust as the wire.
+
+### 49.3 Output hot-plug
+
+Display ids embed the index and the geometry (`0:1920x1080@0,0`), so a display unplugged on the
+left re-identifies every display to its right — and before this round that read as two
+screens gone and two new ones. Every placement now remembers its display (`DisplayKey` = name
+and size, `DisplayOrigin`, `DisplayHz`), stamped after every reconcile. The pure watch
+(`HotPlugWatch.Decide`) claims a display by id *and* make (a coinciding id under another make is
+not it), then tells a **renamed** display (the same name and size free, nearest place; or the
+same name and place after a mode change or a like-for-like swap) from a **lost** one, a lost
+screen's own display **returned** (name and size) from a **stranger** (never met).
+
+The service applies it as one quiet edit with one publish — losses first (a lost screen's old id
+may be the id a re-indexed display now carries), a swapped screen moved aside before another
+takes its id, then renames, returns, the pending substitute, the strangers — so the desk never
+reconciles a rig half-moved. A lost screen: `Planned`, off, pinned, `LostAtUtc`, its size kept,
+its id `planned:lost-…` (no display can carry it), everything programmed for it renamed along;
+the alert on the status line, the journal (`ScreenLost`), the health line, the super-check (a red
+row) and the brief. Returned: adopted through the same path as a planned screen at the venue,
+`Enabled` and `UserPinned` as they were, and the outputs re-apply so a live show opens its window.
+A stranger while a screen waits arrives off with an offer per waiting screen:
+`HotPlugWatch.Assess` says it fits (size and rate, an unknown rate never a mismatch), can be
+forced (the display offers the size at the rate: the mode is applied first and the substitution
+completes when the display comes back under its new id), or cannot (another aspect, a size it
+cannot reach) — in words. The Screens page's banner carries the offers with USE AS SUBSTITUTE
+and ITS OWN SCREEN. A stranger with no screen waiting is a screen of its own, as ever.
+
+### 49.4 Warp and blend
+
+`docs/WARP-AND-BLEND.md` is the research: what Christie Twist, Disguise (Dynamic Blend,
+QuickCal, OmniCal), Pixera (FFD, soft-edge), Resolume, MadMapper, VIOSO, Scalable and the
+projector makers do; the technique — fades that sum to one in *light* through the gamma, the
+curve mattering less than its mirror; and the 2×2's middle, which has three truths: the light
+sums to one by itself when each projector's corner is the product of its two edge fades
+(Patterns draws its bands as separate multiplies, so it is), black does *not* fade — two blacks
+in every band and four in the middle square — and alignment errors show twice there. The cure
+for black is the pedestal rule every blender implements: each projector adds, per region,
+`black × (deepest − coverage) / coverage` — three blacks in a 2×2's single region, one in each
+band, nothing in the corner — through the inverse gamma, and the canvas sits on one floor at the
+cost of contrast.
+
+Built: **edge bends** — one number per edge bows it at its middle; `WarpMesh.Cubics` makes the
+twelve points of a Coons patch (handles at 4/3 of the bow so the cubic passes through the bow at
+its middle) and the pipeline draws the *finished* picture — content, zones, pedestal — through
+`DrawPatch` under the keystone's homography and the rotation, so straight lines inside stay
+straight and only the edges curve; **black-level matching** — `BlackLevel.Cells` tiles the
+picture into the nine regions the zones make with the projectors reaching each, `Signal` is the
+rule above, and the pipeline adds it with `SKBlendMode.Plus` after the fades (the pedestal's
+edges are hard steps on purpose: the black floor steps there too); **arrange as a blend grid** —
+`BlendGridLayout.Positions` lays columns × rows out with the overlap and every screen goes on
+automatic blend, planned screens included. What is next, in order: a mesh (a grid of patches
+or a fine triangulation), camera calibration (structured light out, a capture in, the solver),
+colour matching by measurement, a per-edge start position.
+
+### 49.5 The caller's pad, notes on cues, and the row's menu
+
+The pad (`CueStackConfig.Scratchpad`) is free words for the day beside the stack, open by a
+toggle the show remembers (`Desk.RunPadOpen`). A note on a cue (`RunCueConfig.LiveNotes`) is the
+in-show kind, apart from the programmed `Notes`: typed in place on the row, shown under the cue
+and on the standby card in the preview's green, saved with the show. Both reach the brief.
+
+**Right-click or a button?** Both, deliberately. The row's one big click is standby — the thing
+a caller does most — and a strip of buttons on every row competes with it and invites a fat
+finger. A right-click menu (`ContextMenu` on the row; a popup climbs no parent control, so the
+commands come through the row's `Owner`) is the fastest thing a mouse-driven caller has and
+costs the row nothing; but it is invisible to a first-time user and does not exist on a touch
+screen. So the ✎ chip keeps the one verb a caller reaches for mid-show — the note — visible and
+touchable, and the heavier verbs live in the menu: STANDBY HERE, GO THIS CUE NOW (a jump — the
+cue fires whatever is on standby), NOTE…, SKIP / UNSKIP, OPEN IN THE CUE EDITOR (the Cues page
+with the cue selected, for what the surface should not do). Typing in the note never moves
+standby: the box takes the press.
+
+### 49.6 The AI at each step
+
+The brief says when the main runs a standby (and that TAKE BACK exists), which screens are
+missing their display with what to do, and — before the plan — the caller's pad and each cue's
+note, since a caller's own words are the show's most current material. The help has topics for
+the unplugged display, the caller's pad, and the twin's hand-back, and the edge-blend topic
+carries the bends, the black level and the grid.
+
+### 49.7 The suite
+
+Every change ran against both suites: 1,037 core and 528 headless UI tests green —
+the hot-plug in Core with facts and in the app through the screen service's own source, the
+launcher against a fake process, the hand-back against a fake peer on a socket, the pedestal and
+the bend rendered to raster and read back pixel by pixel.
