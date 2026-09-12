@@ -22,6 +22,11 @@ public sealed class ThumbnailQueue : IDisposable
     public sealed record Job(string Id, Func<Work?> Prepare, Action<Bitmap> Apply);
 
     private readonly object _gate = new();
+    // The desk's dispatcher, taken here on the UI thread: a worker that asked for Dispatcher.UIThread
+    // itself could be the first to ask after a headless test session reset it, and would mint one
+    // with no run loop for the next test to trip over.
+    private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
+    private readonly ManualResetEventSlim _stopped = new(true);
     private readonly Dictionary<string, string> _drawn = new(StringComparer.Ordinal);
     private List<Job> _queue = new();
     private bool _running;
@@ -73,6 +78,7 @@ public sealed class ThumbnailQueue : IDisposable
             if (!_running)
             {
                 _running = true;
+                _stopped.Reset();
                 _idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 _ = Task.Run(Worker);
             }
@@ -81,6 +87,18 @@ public sealed class ThumbnailQueue : IDisposable
     }
 
     private void Worker()
+    {
+        try
+        {
+            Drain();
+        }
+        finally
+        {
+            _stopped.Set();
+        }
+    }
+
+    private void Drain()
     {
         while (true)
         {
@@ -93,7 +111,7 @@ public sealed class ThumbnailQueue : IDisposable
                     var idle = _idle;
                     // Completed on the UI thread, behind the bitmaps posted before it: whoever awaits
                     // the pass sees every tile filled in.
-                    Dispatcher.UIThread.Post(() => idle.TrySetResult(), DispatcherPriority.Background);
+                    if (!_disposed) _dispatcher.Post(() => idle.TrySetResult(), DispatcherPriority.Background);
                     return;
                 }
                 job = _queue[0];
@@ -114,10 +132,11 @@ public sealed class ThumbnailQueue : IDisposable
                 if (bitmap is null) continue;
                 lock (_gate)
                 {
+                    if (_disposed) continue;
                     _drawn[job.Id] = work.Key;
                     _rendered++;
                 }
-                Dispatcher.UIThread.Post(() => job.Apply(bitmap), DispatcherPriority.Background);
+                _dispatcher.Post(() => job.Apply(bitmap), DispatcherPriority.Background);
             }
             catch (Exception ex)
             {
@@ -126,6 +145,7 @@ public sealed class ThumbnailQueue : IDisposable
         }
     }
 
+    /// <summary>Stops the queue: the tiles waiting are dropped, and the worker's tile in hand is finished and forgotten before this returns.</summary>
     public void Dispose()
     {
         lock (_gate)
@@ -133,5 +153,6 @@ public sealed class ThumbnailQueue : IDisposable
             _disposed = true;
             _queue.Clear();
         }
+        _stopped.Wait(TimeSpan.FromSeconds(5));
     }
 }
