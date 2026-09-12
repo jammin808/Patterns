@@ -54,7 +54,7 @@ public class ShowPanelAppTests
             var router = new CommandRouter(services);
 
             // A planned side screen standing on its own (a new one lands flush beside the last, which would join it into a canvas).
-            var side = vm.AddPlannedScreen(1920, 1080, "Side");
+            var side = vm.Screens.AddPlannedScreen(1920, 1080, "Side");
             side.X = 0;
             side.Y = 8000;
             Dispatcher.UIThread.RunJobs();
@@ -143,7 +143,7 @@ public class ShowPanelAppTests
         {
             var (services, vm, window) = b;
             vm.IsSandboxActive = false;
-            var side = vm.AddPlannedScreen(1920, 1080, "Side");
+            var side = vm.Screens.AddPlannedScreen(1920, 1080, "Side");
             side.X = 0;
             side.Y = 8000;
             Dispatcher.UIThread.RunJobs();

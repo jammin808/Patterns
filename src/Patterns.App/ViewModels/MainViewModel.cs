@@ -32,11 +32,11 @@ public sealed partial class MainViewModel : Observable
     private ResolutionPreset? _selectedResolution;
     private int _selectedTileSize;
     private string _statusMessage = "";
-    private ScreenPlacement? _selectedPlacement;
 
     public MainViewModel(AppServices services)
     {
         _services = services;
+        Screens = new ScreensPage(this, _services);
 
         // A contained UI fault reaches the operator at once on the status line; the health line
         // and the Machine page keep the count and the log has the stack.
@@ -363,20 +363,6 @@ public sealed partial class MainViewModel : Observable
         PreviewRestartCommand = new RelayCommand(() => PreviewTimeMs = 0);
         ClearCropCommand = new RelayCommand(ClearCrop);
         CropPresetCommand = new RelayCommand<string>(p => ApplyCropPreset(p ?? ""));
-        ResetWarpCommand = new RelayCommand(() =>
-        {
-            if (_selectedPlacement is not { } placement) return;
-            BulkEdit(() =>
-            {
-                placement.WarpTlx = 0; placement.WarpTly = 0;
-                placement.WarpTrx = 0; placement.WarpTry = 0;
-                placement.WarpBlx = 0; placement.WarpBly = 0;
-                placement.WarpBrx = 0; placement.WarpBry = 0;
-            });
-            RaiseSelection();
-        });
-        ResetBlendCommand = new RelayCommand(ResetBlend);
-
         // The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP.
         AddSerialDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Serial));
         AddIpDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Tcp));
@@ -408,10 +394,6 @@ public sealed partial class MainViewModel : Observable
             StatusMessage = State.Install.ManagementUrl.Length == 0 ? "Type the management server's check-in URL first." : "Checking in…";
         });
         ApplyUpdateCommand = new RelayCommand(ApplyUpdate);
-        AddGapCommand = new RelayCommand(AddGap);
-        RemoveGapCommand = new RelayCommand<WallGap>(RemoveGap);
-        SetGapsFromGridCommand = new RelayCommand(SetGapsFromGrid);
-        ClearGapsCommand = new RelayCommand(ClearGaps);
 
         // Walkthroughs on the Help page: the roles, the first role's scenarios, the first scenario open.
         WalkNextCommand = new RelayCommand(WalkNext);
@@ -455,22 +437,6 @@ public sealed partial class MainViewModel : Observable
         // The monitor walls (SETUP → Multiview): the show's own, up to two, each on however many
         // outputs are ticked for it.
         BuildMultiviewCommands();
-
-        // Prep mode: planned screens and adoption
-        AddPlannedScreenCommand = new RelayCommand(() => AddPlannedScreen());
-        RemovePlannedScreenCommand = new RelayCommand<ScreenPlacement>(p =>
-        {
-            if (p is not null) RemovePlannedScreen(p);
-        });
-        AdoptPlannedScreenCommand = new RelayCommand<ScreenPlacement>(p =>
-        {
-            if (p is null) return;
-            if (!AdoptPlannedScreen(p, p.AdoptTargetId))
-            {
-                StatusMessage = "Choose which detected display this planned screen becomes.";
-            }
-        });
-        RefreshAdoptTargetsCommand = new RelayCommand(RefreshAdoptTargets);
 
         // Admin: graphics choice + restart + folder
         RestartAppCommand = new RelayCommand(RestartApp);
@@ -572,20 +538,6 @@ public sealed partial class MainViewModel : Observable
 
         // Feed, trims
         RefreshFeedCommand = new RelayCommand(() => _services.Feeds.RefreshNow());
-        ResetTrimsCommand = new RelayCommand(() =>
-        {
-            if (_selectedPlacement is not { } placement) return;
-            BulkEdit(() =>
-            {
-                placement.BrightnessPct = 100;
-                placement.Gamma = 1.0;
-                placement.TrimRPct = 100;
-                placement.TrimGPct = 100;
-                placement.TrimBPct = 100;
-            });
-            RaiseSelection();
-        });
-
         // LED map
         AddLedTileCommand = new RelayCommand(AddLedTile);
         RemoveLedTileCommand = new RelayCommand(() =>
@@ -632,9 +584,6 @@ public sealed partial class MainViewModel : Observable
         ShowControls = new ShowControls(_services, m => StatusMessage = m);
         CaptureFormat = new CaptureFormatPicker(() => State, () => ActivePattern.Media.CaptureDevice, () => _services.RepublishNow());
         PipCaptureFormat = new CaptureFormatPicker(() => State, () => State.Overlays.Pip.CaptureDevice, () => _services.RepublishNow());
-        ApplyDisplayModeCommand = new RelayCommand(ApplyDisplayMode);
-        KeepDisplayModeCommand = new RelayCommand(KeepDisplayMode);
-        RevertDisplayModeCommand = new RelayCommand(RevertDisplayMode);
         SelectGroupCommand = new RelayCommand<ShellGroup>(SelectGroup);
         SelectPageCommand = new RelayCommand<int>(SelectPage);
         // A row dragged in a reorderable list, named by the list it came from: a cue's step, which
@@ -748,7 +697,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand AddCueCommand { get; }
     public RelayCommand<CueConfig> RemoveCueCommand { get; }
     public RelayCommand RefreshFeedCommand { get; }
-    public RelayCommand ResetTrimsCommand { get; }
     public RelayCommand AddLedTileCommand { get; }
     public RelayCommand RemoveLedTileCommand { get; }
     public RelayCommand ImportGridToMapCommand { get; }
@@ -813,8 +761,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand ExportPeopleCommand { get; }
     public RelayCommand SavePeopleTemplateCommand { get; }
     public RelayCommand PreviewRestartCommand { get; }
-    public RelayCommand ResetWarpCommand { get; }
-    public RelayCommand ResetBlendCommand { get; }
     public RelayCommand AddSerialDeviceCommand { get; }
     public RelayCommand AddIpDeviceCommand { get; }
     public RelayCommand<DeviceConfig> RemoveDeviceCommand { get; }
@@ -838,10 +784,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand SupportBundleCommand { get; }
     public RelayCommand CheckInNowCommand { get; }
     public RelayCommand ApplyUpdateCommand { get; }
-    public RelayCommand AddGapCommand { get; }
-    public RelayCommand<WallGap> RemoveGapCommand { get; }
-    public RelayCommand SetGapsFromGridCommand { get; }
-    public RelayCommand ClearGapsCommand { get; }
     public RelayCommand WalkNextCommand { get; }
     public RelayCommand WalkBackCommand { get; }
     public RelayCommand WalkRestartCommand { get; }
@@ -861,10 +803,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand StopStreamCommand { get; }
     public RelayCommand RestartAppCommand { get; }
     public RelayCommand OpenAppFolderCommand { get; }
-    public RelayCommand AddPlannedScreenCommand { get; }
-    public RelayCommand<ScreenPlacement> RemovePlannedScreenCommand { get; }
-    public RelayCommand<ScreenPlacement> AdoptPlannedScreenCommand { get; }
-    public RelayCommand RefreshAdoptTargetsCommand { get; }
 
     /// <summary>A send consumes its targets — the next look starts from a clean strip.</summary>
     private void ClearSendTargets()

@@ -322,40 +322,8 @@ public sealed partial class MainViewModel
     private void RaiseArrangement()
     {
         Raise(nameof(GroupSummary));
-        Raise(nameof(SelectedIsGrouped));
-        Raise(nameof(BlendReadback));
+        Screens.RaiseArrangement();
     }
 
-    private void RaiseSelection()
-    {
-        Raise(nameof(HasSelection));
-        Raise(nameof(SelectedScreenTitle));
-        Raise(nameof(SelectedEnabled));
-        Raise(nameof(SelectedUseCustom));
-        Raise(nameof(SelectedIsGrouped));
-        Raise(nameof(GroupSummary));
-        Raise(nameof(SelectedRotation));
-        Raise(nameof(SelectedBrightness));
-        Raise(nameof(SelectedGamma));
-        Raise(nameof(SelectedTrimR));
-        Raise(nameof(SelectedTrimG));
-        Raise(nameof(SelectedTrimB));
-        Raise(nameof(SelectedScreenLabel));
-        Raise(nameof(SelectedCanvasName));
-        Raise(nameof(SelectedIsInCanvas));
-        Raise(nameof(SelectedFpsOverride));
-        Raise(nameof(SelectedIsDisplay));
-        Raise(nameof(SelectedDirectOutput));
-        Raise(nameof(DirectOutputStatus));
-        Raise(nameof(SelectedRole));
-        Raise(nameof(SelectedFollowsCues));
-        Raise(nameof(SelectedMirrorOf));
-        RebuildMirrorSources();
-        RaiseBlend();
-        Raise(nameof(SelectedGaps));
-        Raise(nameof(SelectedSeamGapX));
-        Raise(nameof(SelectedSeamGapY));
-        Raise(nameof(GapSummary));
-        RefreshDisplayModes();
-    }
+    internal void RaiseGroupSummary() => Raise(nameof(GroupSummary));
 }

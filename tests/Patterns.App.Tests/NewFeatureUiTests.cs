@@ -212,13 +212,13 @@ public class NewFeatureUiTests
 
             if (vm.State.Output.Placements.Count > 0)
             {
-                vm.SelectedPlacement = vm.State.Output.Placements[0];
-                vm.SelectedBrightness = 60;
-                vm.SelectedGamma = 1.8;
-                vm.SelectedTrimB = 80;
+                vm.Screens.SelectedPlacement = vm.State.Output.Placements[0];
+                vm.Screens.SelectedBrightness = 60;
+                vm.Screens.SelectedGamma = 1.8;
+                vm.Screens.SelectedTrimB = 80;
                 Assert.True(vm.State.Output.Placements[0].HasTrims);
 
-                vm.ResetTrimsCommand.Execute(null);
+                vm.Screens.ResetTrimsCommand.Execute(null);
                 Assert.False(vm.State.Output.Placements[0].HasTrims);
             }
         }

@@ -29,7 +29,7 @@
               <Grid ColumnDefinitions="*,8,Auto">
                 <TextBox Grid.Column="0" Watermark="Name (e.g. Main wall)" Text="{Binding CustomLabel}" />
                 <Button Grid.Column="2" Classes="mini" Content="✕" ToolTip.Tip="Remove this planned screen"
-                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemovePlannedScreenCommand}"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Screens.RemovePlannedScreenCommand}"
                         CommandParameter="{Binding}" />
               </Grid>
               <Grid ColumnDefinitions="46,86,4,86,*">
@@ -43,13 +43,13 @@
               </Grid>
               <Grid ColumnDefinitions="*,8,Auto">
                 <ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
-                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AdoptTargets}"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Screens.AdoptTargets}"
                           SelectedValue="{Binding AdoptTargetId, Mode=TwoWay}"
                           SelectedValueBinding="{Binding ScreenId, x:DataType=vm:EditTarget}"
                           PlaceholderText="At the venue: which display is this?" />
                 <Button Grid.Column="2" Classes="chip" Content="Adopt"
                         ToolTip.Tip="Bind this planned screen to the chosen display — position, label, pattern, trims and looks all follow"
-                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AdoptPlannedScreenCommand}"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Screens.AdoptPlannedScreenCommand}"
                         CommandParameter="{Binding}" />
               </Grid>
             </StackPanel>
@@ -58,8 +58,8 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
-      <Button Classes="chip" Content="+ Plan a screen" Command="{Binding AddPlannedScreenCommand}" />
-      <Button Classes="chip" Content="Refresh displays" Command="{Binding RefreshAdoptTargetsCommand}" />
+      <Button Classes="chip" Content="+ Plan a screen" Command="{Binding Screens.AddPlannedScreenCommand}" />
+      <Button Classes="chip" Content="Refresh displays" Command="{Binding Screens.RefreshAdoptTargetsCommand}" />
     </StackPanel>
 
     <TextBlock Classes="h2" Text="FEED SCREENS (NDI SENDS, THE STREAM)" IsVisible="{Binding VirtualScreenCount, Converter={StaticResource Positive}}" />
@@ -97,8 +97,8 @@
     <TextBlock Classes="h2" Text="FRAME RATE" />
     <Grid ColumnDefinitions="130,*">
       <TextBlock Classes="label" Text="Master rate" VerticalAlignment="Center" />
-      <ComboBox Grid.Column="1" ItemsSource="{Binding MasterFpsOptions}"
-                SelectedValue="{Binding MasterFps, Mode=TwoWay}"
+      <ComboBox Grid.Column="1" ItemsSource="{Binding Screens.MasterFpsOptions}"
+                SelectedValue="{Binding Screens.MasterFps, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:FpsOption}" />
     </Grid>
     <TextBlock Classes="hint tip"
@@ -106,13 +106,13 @@
 
     <TextBlock Classes="h2" Text="SELECTED SCREEN" />
     <!-- The selected screen's settings live in the pop-out column beside this page (round 19): the overview keeps its room. -->
-    <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding HasSelection}">
+    <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding Screens.HasSelection}">
       <TextBlock Classes="hint" Text="{Binding PopOutHint}" TextWrapping="Wrap" VerticalAlignment="Center" />
       <Button Grid.Column="2" Classes="mini" Content="SETTINGS ▸" Command="{Binding OpenPopOutCommand}" IsVisible="{Binding !PopOut.IsOpen}"
               ToolTip.Tip="Open the selected screen's settings in the column beside this page" />
     </Grid>
-    <TextBlock Classes="hint" Text="Click a screen in the overview to select it." IsVisible="{Binding !HasSelection}" />
-    <TextBlock Classes="hint" IsVisible="{Binding !HasSelection}" Text="Click a screen tile to select it." />
+    <TextBlock Classes="hint" Text="Click a screen in the overview to select it." IsVisible="{Binding !Screens.HasSelection}" />
+    <TextBlock Classes="hint" IsVisible="{Binding !Screens.HasSelection}" Text="Click a screen tile to select it." />
 
     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
       <Button Classes="chip" Content="Identify screens" Command="{Binding IdentifyCommand}" />

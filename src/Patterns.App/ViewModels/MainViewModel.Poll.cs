@@ -230,7 +230,7 @@ public sealed partial class MainViewModel
             _reviewSeen = _services.Bus.ReviewOnMultiview; // a remote flipped it: the desk's toggles follow
             Raise(nameof(ReviewOnMultiview));
         }
-        if (_selectedPlacement is { Gaps.Count: > 0 }) RaiseIfChanged(nameof(GapSummary), GapSummary); // a gap row edited in place: the words follow
+        Screens.Poll();                                                               // a gap row edited in place: the words follow
         ObserveWalkChecks();                                                          // a walkthrough step ticks itself as the desk does the work
         if (_frozenSeen != _services.Bus.Frozen)
         {

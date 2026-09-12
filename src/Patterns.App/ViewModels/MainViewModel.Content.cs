@@ -565,11 +565,11 @@ public sealed partial class MainViewModel
         }
     }
 
-    private void EnsureAssignment(string targetId) => ContentTargets.EnsureAssignment(State, targetId);
+    internal void EnsureAssignment(string targetId) => ContentTargets.EnsureAssignment(State, targetId);
 
-    private void RebuildEditTargets()
+    internal void RebuildEditTargets()
     {
-        RefreshAdoptTargets();
+        Screens.RefreshAdoptTargets();
         var current = _editTarget?.ScreenId;
         EditTargets.Clear();
         EditTargets.Add(new EditTarget("Program", null));
@@ -818,7 +818,7 @@ public sealed partial class MainViewModel
     /// moved: clearing a ComboBox's items drops its selection, and the binding would write that
     /// empty selection back into the show. Same entries, same order = nothing happens.
     /// </summary>
-    private static void ReplaceIfChanged(ObservableCollection<EditTarget> current, List<EditTarget> wanted)
+    internal static void ReplaceIfChanged(ObservableCollection<EditTarget> current, List<EditTarget> wanted)
     {
         if (current.Count == wanted.Count && current.SequenceEqual(wanted)) return;
         current.Clear();

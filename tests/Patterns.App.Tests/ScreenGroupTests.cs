@@ -96,21 +96,21 @@ public class ScreenGroupTests
             Tile(vm, B).OpenSetupCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(Shell.IndexOf("Screens"), vm.SelectedPageIndex);
-            Assert.Equal(B, vm.SelectedPlacement?.ScreenId);
-            Assert.Equal(ScreenRole.Confidence, vm.SelectedRole);
+            Assert.Equal(B, vm.Screens.SelectedPlacement?.ScreenId);
+            Assert.Equal(ScreenRole.Confidence, vm.Screens.SelectedRole);
             Assert.Contains("group", vm.StatusMessage);
-            vm.SelectedRole = ScreenRole.Info;
+            vm.Screens.SelectedRole = ScreenRole.Info;
             Assert.Equal("INFO · 1920×1080", Tile(vm, B).FootText);
             Assert.Equal("INFO", Tile(vm, B).RoleBadge);
-            vm.SelectedRole = ScreenRole.Main;
+            vm.Screens.SelectedRole = ScreenRole.Main;
             Assert.Equal("MAIN · 1920×1080", Tile(vm, B).FootText);
             Assert.Equal("", Tile(vm, B).RoleBadge);
 
             // The repeater's source changed on the page reads on its tile at once too.
             Tile(vm, C).OpenSetupCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(C, vm.SelectedPlacement?.ScreenId);
-            vm.SelectedMirrorOf = B;
+            Assert.Equal(C, vm.Screens.SelectedPlacement?.ScreenId);
+            vm.Screens.SelectedMirrorOf = B;
             Assert.StartsWith("REP ↳ ", Tile(vm, C).FootText);
             Assert.Contains("Right", Tile(vm, C).FootText);
 

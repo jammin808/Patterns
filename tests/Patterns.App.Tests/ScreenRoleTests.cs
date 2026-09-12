@@ -120,37 +120,37 @@ public class ScreenRoleTests
             var vm = b.Vm;
             vm.IsSandboxActive = false;
             var c = vm.State.Output.Placements.First(p => p.ScreenId == "c");
-            vm.SelectedPlacement = c;
-            Assert.Equal(ScreenRole.Main, vm.SelectedRole);
-            Assert.True(vm.SelectedFollowsCues);
-            Assert.Equal("", vm.MirrorSources[0].ScreenId);
-            Assert.Contains(vm.MirrorSources, t => t.ScreenId == CanvasKey);
-            Assert.DoesNotContain(vm.MirrorSources, t => t.ScreenId == "c");
+            vm.Screens.SelectedPlacement = c;
+            Assert.Equal(ScreenRole.Main, vm.Screens.SelectedRole);
+            Assert.True(vm.Screens.SelectedFollowsCues);
+            Assert.Equal("", vm.Screens.MirrorSources[0].ScreenId);
+            Assert.Contains(vm.Screens.MirrorSources, t => t.ScreenId == CanvasKey);
+            Assert.DoesNotContain(vm.Screens.MirrorSources, t => t.ScreenId == "c");
 
             // A confidence monitor is locked as it is chosen; the tile wears the badge and the lock.
-            vm.SelectedRole = ScreenRole.Confidence;
+            vm.Screens.SelectedRole = ScreenRole.Confidence;
             Assert.False(c.FollowsCues);
-            Assert.False(vm.SelectedFollowsCues);
+            Assert.False(vm.Screens.SelectedFollowsCues);
             Assert.Equal("CONF", vm.SwitcherTiles[2].RoleBadge);
             Assert.True(vm.SwitcherTiles[2].HasBadge);
             Assert.True(vm.SwitcherTiles[2].IsLocked);
-            vm.SelectedFollowsCues = true; // the operator can still let it follow
+            vm.Screens.SelectedFollowsCues = true; // the operator can still let it follow
             Assert.True(c.FollowsCues);
             Assert.False(vm.SwitcherTiles[2].IsLocked);
 
             // A repeater of a screen: its source cannot be told to repeat it back.
-            vm.SelectedRole = ScreenRole.Repeater;
-            vm.SelectedMirrorOf = "a";
+            vm.Screens.SelectedRole = ScreenRole.Repeater;
+            vm.Screens.SelectedMirrorOf = "a";
             Assert.Equal("a", c.MirrorOf);
             Assert.Equal("REP", vm.SwitcherTiles[2].RoleBadge);
-            vm.SelectedPlacement = vm.State.Output.Placements.First(p => p.ScreenId == "a");
-            Assert.DoesNotContain(vm.MirrorSources, t => t.ScreenId == "c");
-            Assert.DoesNotContain(vm.MirrorSources, t => t.ScreenId == "a");
-            Assert.DoesNotContain(vm.MirrorSources, t => t.ScreenId == CanvasKey); // a is inside it
+            vm.Screens.SelectedPlacement = vm.State.Output.Placements.First(p => p.ScreenId == "a");
+            Assert.DoesNotContain(vm.Screens.MirrorSources, t => t.ScreenId == "c");
+            Assert.DoesNotContain(vm.Screens.MirrorSources, t => t.ScreenId == "a");
+            Assert.DoesNotContain(vm.Screens.MirrorSources, t => t.ScreenId == CanvasKey); // a is inside it
 
             // A repeater of the canvas draws the canvas's own picture, has none of its own, and says so on the wall.
-            vm.SelectedPlacement = c;
-            vm.SelectedMirrorOf = CanvasKey;
+            vm.Screens.SelectedPlacement = c;
+            vm.Screens.SelectedMirrorOf = CanvasKey;
             Assert.Equal(CanvasKey, c.MirrorOf);
             Assert.False(c.UseCustomPattern);
             Assert.True(vm.SwitcherTiles[2].IsMirror);
@@ -164,7 +164,7 @@ public class ScreenRoleTests
             Assert.Equal(programmeWas, b.Services.Bus.Current.State.Pattern.Kind);
 
             // Back to its own content: it follows the program again.
-            vm.SelectedMirrorOf = "";
+            vm.Screens.SelectedMirrorOf = "";
             Assert.Equal("", c.MirrorOf);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(programmeWas, b.Services.Bus.Current.PatternFor("c").Kind);

@@ -67,7 +67,7 @@ public class PrepModeTests
         {
             var realCount = services.Screens.Real.Count;
 
-            var planned = vm.AddPlannedScreen(3840, 1080, "Main wall");
+            var planned = vm.Screens.AddPlannedScreen(3840, 1080, "Main wall");
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(planned.Planned);
@@ -83,8 +83,8 @@ public class PrepModeTests
             Assert.Contains(vm.SwitcherTiles, t => t.MemberIds.Contains(planned.ScreenId));
 
             // Give it its own pattern (the operator's path) and it becomes an edit target.
-            vm.SelectedPlacement = planned;
-            vm.SelectedUseCustom = true;
+            vm.Screens.SelectedPlacement = planned;
+            vm.Screens.SelectedUseCustom = true;
             Dispatcher.UIThread.RunJobs();
             Assert.Contains(vm.EditTargets, t => t.ScreenId == planned.ScreenId);
 
@@ -107,7 +107,7 @@ public class PrepModeTests
         var (services, vm, window) = Boot();
         try
         {
-            var planned = vm.AddPlannedScreen(1920, 1080, "Side");
+            var planned = vm.Screens.AddPlannedScreen(1920, 1080, "Side");
             planned.PlannedWidth = 2560;
             planned.PlannedHeight = 1440;
             Dispatcher.UIThread.RunJobs();
@@ -129,11 +129,11 @@ public class PrepModeTests
         var (services, vm, window) = Boot();
         try
         {
-            var planned = vm.AddPlannedScreen(1920, 1080, "Temp");
+            var planned = vm.Screens.AddPlannedScreen(1920, 1080, "Temp");
             services.State.Independent.Add(new OutputAssignment { ScreenId = planned.ScreenId });
             Dispatcher.UIThread.RunJobs();
 
-            vm.RemovePlannedScreen(planned);
+            vm.Screens.RemovePlannedScreen(planned);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(0, vm.PlannedScreenCount);
@@ -157,7 +157,7 @@ public class PrepModeTests
             // The display the venue turned out to have (headless supplies one).
             var venueId = services.Screens.Real[0].Id;
 
-            var planned = vm.AddPlannedScreen(3840, 2160, "Main wall");
+            var planned = vm.Screens.AddPlannedScreen(3840, 2160, "Main wall");
             planned.Rotation = OutputRotation.Rot90;
             planned.BrightnessPct = 82;
             planned.UseCustomPattern = true;
@@ -199,7 +199,7 @@ public class PrepModeTests
             Dispatcher.UIThread.RunJobs();
             Assert.Contains(services.State.LooksAndCues.Looks, l => l.Json.Contains(plannedId, StringComparison.Ordinal));
 
-            Assert.True(vm.AdoptPlannedScreen(planned, venueId));
+            Assert.True(vm.Screens.AdoptPlannedScreen(planned, venueId));
             Dispatcher.UIThread.RunJobs();
 
             // The placement is now the real display, keeping everything programmed against it.
@@ -253,9 +253,9 @@ public class PrepModeTests
         var (services, vm, window) = Boot();
         try
         {
-            var planned = vm.AddPlannedScreen();
-            Assert.False(vm.AdoptPlannedScreen(planned, "not-a-screen"));
-            Assert.False(vm.AdoptPlannedScreen(planned, ""));
+            var planned = vm.Screens.AddPlannedScreen();
+            Assert.False(vm.Screens.AdoptPlannedScreen(planned, "not-a-screen"));
+            Assert.False(vm.Screens.AdoptPlannedScreen(planned, ""));
             Assert.True(planned.Planned);
         }
         finally
@@ -304,7 +304,7 @@ public class PrepModeTests
             placement.UserPinned = false;
             var wasEnabled = placement.Enabled;
 
-            vm.AddPlannedScreen(1920, 1080, "Planned");
+            vm.Screens.AddPlannedScreen(1920, 1080, "Planned");
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(wasEnabled, placement.Enabled);

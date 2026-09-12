@@ -97,8 +97,8 @@ public sealed partial class MainViewModel
         {
             if (header == "Cues" && Cues.SelectedCue is { } cue)
                 want = ("cue", $"SELECTED CUE · {cue.Number} {cue.Name}".TrimEnd(), "cue:" + cue.Id);
-            else if (header == "Screens" && HasSelection && SelectedPlacement is { } placement)
-                want = ("screen", "SELECTED SCREEN · " + SelectedScreenTitle, "screen:" + placement.ScreenId);
+            else if (header == "Screens" && Screens.HasSelection && Screens.SelectedPlacement is { } placement)
+                want = ("screen", "SELECTED SCREEN · " + Screens.SelectedScreenTitle, "screen:" + placement.ScreenId);
             else if (header == "Lower thirds" && SelectedElement is { } element)
                 want = ("element", "SELECTED ELEMENT · " + (element.Name.Length > 0 ? element.Name : element.Kind.ToString()), "element:" + element.Id);
         }

@@ -326,7 +326,7 @@ public sealed partial class MainViewModel
 
     public string TakeScopeText => HeldCount is var n && n > 0 ? $"{n} held" : "";
 
-    private void RefreshTakeScope()
+    internal void RefreshTakeScope()
     {
         Raise(nameof(HeldCount));
         Raise(nameof(AnyHeld));
@@ -514,7 +514,7 @@ public sealed partial class MainViewModel
         RefreshTakeScope();
         // A join creates and destroys canvases, so the tile picker's targets move with the wall.
         RebuildMultiviewTargets();
-        RebuildMirrorSources();
+        Screens.RebuildMirrorSources();
     }
 
     /// <summary>
@@ -535,7 +535,7 @@ public sealed partial class MainViewModel
         var id = ContentTargets.IsCanvasKey(target) ? ContentTargets.Members(target).FirstOrDefault() ?? "" : target;
         var placement = State.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
         if (placement is null) return;
-        SelectedPlacement = placement;
+        Screens.SelectedPlacement = placement;
         SelectPage(Shell.IndexOf("Screens"));
         StatusMessage = $"{tile.Title}: its group is set here — Role, whether it follows cues, and what it repeats.";
     }

@@ -92,7 +92,7 @@ public class HintsAndModesTests
             Assert.DoesNotContain(tips, t => t.Text.StartsWith("{", StringComparison.Ordinal)); // words, never a binding
 
             // Nothing selected: the column closes and its tips go with it; the page's stay, in the same order.
-            vm.SelectedPlacement = null;
+            vm.Screens.SelectedPlacement = null;
             Settle(window);
             Assert.False(vm.PopOut.IsOpen);
             var pageOnly = window.CurrentPageTips();
@@ -101,7 +101,7 @@ public class HintsAndModesTests
             Assert.DoesNotContain(pageOnly, t => t.Text.StartsWith("For displays mounted in portrait", StringComparison.Ordinal));
 
             // A screen selected again brings the column and its tips back.
-            vm.SelectedPlacement = vm.AddPlannedScreen(1920, 1080, "Side");
+            vm.Screens.SelectedPlacement = vm.Screens.AddPlannedScreen(1920, 1080, "Side");
             Settle(window);
             Assert.True(vm.PopOut.IsOpen);
             Assert.Equal(tips.Count, window.CurrentPageTips().Count);

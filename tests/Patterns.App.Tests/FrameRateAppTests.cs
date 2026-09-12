@@ -157,7 +157,7 @@ public class FrameRateAppTests
             Assert.Equal("1920x1080@60", new DisplayMode(1920, 1080, 60).Key);
             Assert.Equal("1920×1080 @ 60 Hz", new DisplayMode(1920, 1080, 60).Label);
 
-            b.Vm.MasterFps = 30;
+            b.Vm.Screens.MasterFps = 30;
             Assert.Equal(30, b.Vm.State.Output.MasterFps);
             Assert.Equal(30, b.Services.Metrics.BuildContext(new MetricSample()).TargetFps);
         }

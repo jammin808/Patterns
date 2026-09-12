@@ -45,11 +45,11 @@ public class VirtualScreenAppTests
             Assert.Equal(1, vm.VirtualScreenCount);
 
             // Never adopted, never removed on its own; a look of its own like any screen.
-            Assert.False(vm.AdoptPlannedScreen(placement, b.Services.Screens.Real.FirstOrDefault()?.Id ?? "0:1x1@0,0"));
-            vm.RemovePlannedScreen(placement);
+            Assert.False(vm.Screens.AdoptPlannedScreen(placement, b.Services.Screens.Real.FirstOrDefault()?.Id ?? "0:1x1@0,0"));
+            vm.Screens.RemovePlannedScreen(placement);
             Assert.Contains(placement, vm.State.Output.Placements);
-            vm.SelectedPlacement = placement;
-            vm.SelectedUseCustom = true;
+            vm.Screens.SelectedPlacement = placement;
+            vm.Screens.SelectedUseCustom = true;
             Dispatcher.UIThread.RunJobs();
             Assert.Contains(vm.EditTargets, t => t.ScreenId == sender.OwnScreenId);
             sender.SourceScreenId = sender.OwnScreenId;

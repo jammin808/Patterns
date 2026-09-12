@@ -24,24 +24,24 @@ public class WallGapAppTests
             var services = b.Services;
 
             // A planned LED wall: three pillars packed in a 600 × 200 raster, standing on its own (a new planned screen lands flush beside the last one).
-            var wall = vm.AddPlannedScreen(600, 200, "Pillars");
+            var wall = vm.Screens.AddPlannedScreen(600, 200, "Pillars");
             wall.X = 0;
             wall.Y = 4000;
             Dispatcher.UIThread.RunJobs();
-            vm.SelectedPlacement = wall;
-            Assert.True(vm.HasSelection);
-            Assert.StartsWith("No gaps", vm.GapSummary);
+            vm.Screens.SelectedPlacement = wall;
+            Assert.True(vm.Screens.HasSelection);
+            Assert.StartsWith("No gaps", vm.Screens.GapSummary);
 
-            vm.GapGridColumns = 3;
-            vm.GapGridRows = 1;
-            vm.GapGridPx = 100;
-            vm.SetGapsFromGridCommand.Execute(null);
+            vm.Screens.GapGridColumns = 3;
+            vm.Screens.GapGridRows = 1;
+            vm.Screens.GapGridPx = 100;
+            vm.Screens.SetGapsFromGridCommand.Execute(null);
             Assert.Equal(new[] { 200, 400 }, wall.Gaps.Select(g => g.At));
             Assert.All(wall.Gaps, g => Assert.Equal(GapAxis.Vertical, g.Axis));
             Assert.All(wall.Gaps, g => Assert.Equal(100, g.Size));
-            Assert.Contains("2 vertical", vm.GapSummary);
-            Assert.Contains("800×200", vm.GapSummary);
-            Assert.Contains("3 runs", vm.GapSummary);
+            Assert.Contains("2 vertical", vm.Screens.GapSummary);
+            Assert.Contains("800×200", vm.Screens.GapSummary);
+            Assert.Contains("3 runs", vm.Screens.GapSummary);
             Assert.Equal(wall.ScreenId, Rig.Geometry(vm.State, services.Screens.All).TargetOf(wall.ScreenId));
 
             // The output viewport of it: the surface with the strips put back, three runs of real pixels.
@@ -62,30 +62,30 @@ public class WallGapAppTests
             Dispatcher.UIThread.RunJobs();
             var removes = host.GetVisualDescendants().OfType<Button>().Where(x => x.DataContext is WallGap && x.Content as string == "✕").ToList();
             Assert.Equal(2, removes.Count);
-            Assert.Contains(host.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.GapSummary);
+            Assert.Contains(host.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == vm.Screens.GapSummary);
             removes[0].Command!.Execute(removes[0].CommandParameter);
             Dispatcher.UIThread.RunJobs();
             Assert.Single(wall.Gaps);
             Assert.Equal(400, wall.Gaps[0].At);
-            vm.AddGapCommand.Execute(null);
+            vm.Screens.AddGapCommand.Execute(null);
             Assert.Equal(2, wall.Gaps.Count);
             Assert.Equal(300, wall.Gaps[1].At);
             host.Close();
 
             // Two planned displays joined into a canvas: the bezel between them seams it.
-            var left = vm.AddPlannedScreen(1920, 1080, "Left");
-            var right = vm.AddPlannedScreen(1920, 1080, "Right");
+            var left = vm.Screens.AddPlannedScreen(1920, 1080, "Left");
+            var right = vm.Screens.AddPlannedScreen(1920, 1080, "Right");
             left.X = 0; left.Y = 8000;
             right.X = 1920; right.Y = 8000;
             Dispatcher.UIThread.RunJobs();
-            vm.SelectedPlacement = right;
-            Assert.True(vm.SelectedIsInCanvas);
-            Assert.Equal(0, vm.SelectedSeamGapX);
-            vm.SelectedSeamGapX = 40;
+            vm.Screens.SelectedPlacement = right;
+            Assert.True(vm.Screens.SelectedIsInCanvas);
+            Assert.Equal(0, vm.Screens.SelectedSeamGapX);
+            vm.Screens.SelectedSeamGapX = 40;
             var key = CanvasNameConfig.KeyFor(new[] { left.ScreenId, right.ScreenId });
             Assert.Equal(40, vm.State.Output.CanvasNames.Single(c => c.MemberKey == key).SeamGapX);
-            Assert.Equal(40, vm.SelectedSeamGapX);
-            Assert.Contains("1 vertical", vm.GapSummary);
+            Assert.Equal(40, vm.Screens.SelectedSeamGapX);
+            Assert.Contains("1 vertical", vm.Screens.GapSummary);
             vps = OutputWindowManager.BuildViewports(vm.State.Output.Placements, services.Screens.All,
                 includePlanned: true, canvases: vm.State.Output.CanvasNames);
             var r = vps.Single(x => x.Screen.Id == right.ScreenId).Viewport;
@@ -111,12 +111,12 @@ public class WallGapAppTests
             Assert.Equal(40, clone.Output.CanvasNames.Single(c => c.MemberKey == key).SeamGapX);
 
             // Clear takes the strips and the seams away.
-            vm.ClearGapsCommand.Execute(null);
-            Assert.Equal(0, vm.SelectedSeamGapX);
-            vm.SelectedPlacement = wall;
-            vm.ClearGapsCommand.Execute(null);
+            vm.Screens.ClearGapsCommand.Execute(null);
+            Assert.Equal(0, vm.Screens.SelectedSeamGapX);
+            vm.Screens.SelectedPlacement = wall;
+            vm.Screens.ClearGapsCommand.Execute(null);
             Assert.Empty(wall.Gaps);
-            Assert.StartsWith("No gaps", vm.GapSummary);
+            Assert.StartsWith("No gaps", vm.Screens.GapSummary);
         }
         finally
         {

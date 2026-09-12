@@ -108,18 +108,18 @@ public class PopOutTests
             Assert.True(vm.PopOut.IsOpen);
 
             // The Screens page: the selected screen's settings.
-            var side = vm.AddPlannedScreen(1920, 1080, "Side");
+            var side = vm.Screens.AddPlannedScreen(1920, 1080, "Side");
             vm.SelectPage(Shell.IndexOf("Screens"));
-            vm.SelectedPlacement = side;
+            vm.Screens.SelectedPlacement = side;
             Settle(window);
             Assert.Equal("screen", vm.PopOut.Key);
-            Assert.Equal("SELECTED SCREEN · " + vm.SelectedScreenTitle, vm.PopOut.Title);
+            Assert.Equal("SELECTED SCREEN · " + vm.Screens.SelectedScreenTitle, vm.PopOut.Title);
             Assert.IsType<ScreenSettingsPanel>(host.Panel);
             Assert.Contains(host.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Output trims");
             Assert.Equal("hue-screens", vm.PopOut.Hue);
             Assert.DoesNotContain("hue-cues", host.Classes);   // the Cues hue went with the page
             Assert.True(WearsHue(host.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("h2")), "Screens"));
-            vm.SelectedPlacement = null;
+            vm.Screens.SelectedPlacement = null;
             Assert.False(vm.PopOut.IsOpen);
 
             // The Lower thirds page: the selected element's settings.

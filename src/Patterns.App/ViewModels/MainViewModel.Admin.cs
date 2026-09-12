@@ -375,20 +375,6 @@ public sealed partial class MainViewModel
         }
     }
 
-    private void ResetBlend()
-    {
-        if (_selectedPlacement is not { } p) return;
-        BulkEdit(() =>
-        {
-            p.BlendAuto = false;
-            p.BlendLeftPx = p.BlendTopPx = p.BlendRightPx = p.BlendBottomPx = 0;
-            p.BlendCurve = BlendCurve.SCurve;
-            p.BlendGamma = 1.0;
-        });
-        ReconcilePlacements();
-        RaiseSelection();
-    }
-
     // ---- admin ---------------------------------------------------------------
 
     private const double SparkW = 300;

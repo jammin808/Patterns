@@ -129,8 +129,8 @@ public class AssistantAppTests
             };
             vm.State.Name = "Autumn conference";
             vm.State.Brand.CompanyName = "Acme";
-            var main = vm.AddPlannedScreen(3840, 1080, "Main LED");
-            var side = vm.AddPlannedScreen(1920, 1080, "Side LED");
+            var main = vm.Screens.AddPlannedScreen(3840, 1080, "Main LED");
+            var side = vm.Screens.AddPlannedScreen(1920, 1080, "Side LED");
             main.X = 0; main.Y = 8000;          // away from the desk's own display
             side.X = 3840; side.Y = 8000;       // dragged flush by hand: one canvas with the main wall
             services.Screens.Refresh();

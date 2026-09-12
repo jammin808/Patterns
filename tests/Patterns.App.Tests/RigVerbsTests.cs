@@ -35,10 +35,10 @@ public class RigVerbsTests
             Assert.False(actions.Execute(ShowActionKind.ScreenRole, ActionOrigin.Desk, "9", "info").Ok);
 
             // The Screens page's picker is the same verb.
-            vm.SelectedPlacement = placement;
-            vm.SelectedRole = ScreenRole.Info;
+            vm.Screens.SelectedPlacement = placement;
+            vm.Screens.SelectedRole = ScreenRole.Info;
             Assert.Equal(ScreenRole.Info, placement.Role);
-            Assert.False(vm.SelectedFollowsCues);
+            Assert.False(vm.Screens.SelectedFollowsCues);
             Assert.Equal("ScreenRole", b.Services.Journal.Tail(1).Single().Kind);
 
             // A cue may carry it; the sheet reads it back by its words.
@@ -66,8 +66,8 @@ public class RigVerbsTests
             Assert.True(named.Ok, named.Message);
             Assert.Equal("Stage left", placement.CustomLabel);
             Assert.Contains("Stage left", Rig.Geometry(vm.State, b.Services.Screens.All).LabelFor(vm.State, placement.ScreenId));
-            vm.SelectedPlacement = placement;
-            Assert.Equal("Stage left", vm.SelectedScreenLabel);
+            vm.Screens.SelectedPlacement = placement;
+            Assert.Equal("Stage left", vm.Screens.SelectedScreenLabel);
 
             Assert.True(actions.Execute(ShowActionKind.ScreenLabel, ActionOrigin.Desk, "1", "").Ok);
             Assert.Equal("", placement.CustomLabel);
@@ -83,10 +83,10 @@ public class RigVerbsTests
             Assert.Same(entry, RigEditor.CanvasConfigFor(state, "canvas:a+b", create: false));
 
             // The rig editor plans, places and removes screens; the view model keeps its lists in step.
-            var planned = vm.AddPlannedScreen(1920, 1080, "Side");
+            var planned = vm.Screens.AddPlannedScreen(1920, 1080, "Side");
             Assert.True(planned.IsPlannedDisplay);
             Assert.Contains(planned, vm.State.Output.Placements);
-            vm.RemovePlannedScreen(planned);
+            vm.Screens.RemovePlannedScreen(planned);
             Assert.DoesNotContain(planned, vm.State.Output.Placements);
         }
         finally

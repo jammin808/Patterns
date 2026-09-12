@@ -93,8 +93,8 @@ public class EditTargetAppTests
             Assert.Same(vm.EditTarget, picker.SelectedItem);
             Assert.Contains(vm.EditTargets, t => ReferenceEquals(t, vm.EditTarget));   // the target is the list's own instance
 
-            vm.SelectedPlacement = vm.State.Output.Placements.First(p => p.ScreenId == "c");
-            vm.SelectedScreenLabel = "Foyer wall";
+            vm.Screens.SelectedPlacement = vm.State.Output.Placements.First(p => p.ScreenId == "c");
+            vm.Screens.SelectedScreenLabel = "Foyer wall";
             Settle(window);
             Assert.Equal("c", vm.EditTarget.ScreenId);
             Assert.Contains("Foyer wall", vm.EditTarget.Label);                        // the fresh label

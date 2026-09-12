@@ -172,7 +172,7 @@ public sealed class ScreenArrangeControl : Control
             var view = new Rect(offX + rect.Left * scale, offY + rect.Top * scale, rect.Width * scale, rect.Height * scale);
             var (gi, gs) = p.Enabled && groupIndexOf.TryGetValue(p.ScreenId, out var g) ? g : (-1, 1);
             viewports.TryGetValue(p.ScreenId, out var vp);
-            tiles.Add(new Tile(p, info, rect, view, p == _vm.SelectedPlacement, gi, gs, p.Enabled ? vp : null, numberOf[p.ScreenId]));
+            tiles.Add(new Tile(p, info, rect, view, p == _vm.Screens.SelectedPlacement, gi, gs, p.Enabled ? vp : null, numberOf[p.ScreenId]));
         }
 
         var outlines = new List<(Rect, string, int)>();
@@ -415,7 +415,7 @@ public sealed class ScreenArrangeControl : Control
         var hit = view.Tiles.LastOrDefault(t => t.View.Contains(pos));
         if (hit is null) return;
 
-        _vm.SelectedPlacement = hit.Placement;
+        _vm.Screens.SelectedPlacement = hit.Placement;
         _dragPlacement = hit.Placement;
         _dragStartRect = hit.Arranged;
         _dragPreview = hit.Arranged;

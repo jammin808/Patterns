@@ -56,12 +56,12 @@ public class DirectOutputAppTests
             Assert.True(File.Exists(fuse));
 
             // Ticking again clears it: the next start tries again, and the desk says restart.
-            vm.SelectedPlacement = placement;
-            vm.SelectedDirectOutput = false;
-            vm.SelectedDirectOutput = true;
+            vm.Screens.SelectedPlacement = placement;
+            vm.Screens.SelectedDirectOutput = false;
+            vm.Screens.SelectedDirectOutput = true;
             Assert.False(DirectOutputService.FuseTripped);
             Assert.False(File.Exists(fuse));
-            Assert.StartsWith("Restart Patterns", vm.DirectOutputStatus);
+            Assert.StartsWith("Restart Patterns", vm.Screens.DirectOutputStatus);
             Assert.Equal("1 output asks · restart Patterns to take effect.", vm.DirectOutputSummary);
 
             // The super-check reads the same facts and lights the row amber until it is in force.
@@ -90,10 +90,10 @@ public class DirectOutputAppTests
             var vm = b.Vm;
             DirectOutputService.WindowHook = (w, direct) => prepared.Add(((OutputWindow)w, direct));
             var placement = vm.State.Output.Placements.First(p => !p.Planned);
-            vm.SelectedPlacement = placement;
-            Assert.True(vm.SelectedIsDisplay);
-            Assert.False(vm.SelectedDirectOutput);
-            vm.SelectedDirectOutput = true;
+            vm.Screens.SelectedPlacement = placement;
+            Assert.True(vm.Screens.SelectedIsDisplay);
+            Assert.False(vm.Screens.SelectedDirectOutput);
+            vm.Screens.SelectedDirectOutput = true;
             Assert.True(placement.DirectOutput);
 
             // Outputs on: the direct window is prepared as direct the moment it opens.
@@ -106,7 +106,7 @@ public class DirectOutputAppTests
 
             // Unticked with the outputs live: the same window takes the defaults back — no reopen.
             prepared.Clear();
-            vm.SelectedDirectOutput = false;
+            vm.Screens.SelectedDirectOutput = false;
             Dispatcher.UIThread.RunJobs();
             Assert.Same(window, b.Services.Outputs.Windows.Single(w => w.TargetScreenId == placement.ScreenId));
             Assert.False(window.IsDirect);
@@ -115,14 +115,14 @@ public class DirectOutputAppTests
             Dispatcher.UIThread.RunJobs();
 
             // The Screens page's settings column (the selected screen's panel): the tick and its line for a display, and the tick writes back.
-            vm.SelectedDirectOutput = true;
+            vm.Screens.SelectedDirectOutput = true;
             var host = new Window { DataContext = vm, Width = 900, Height = 2400, Content = new ScrollViewer { Content = new ScreenSettingsPanel() } };
             host.Show();
             Dispatcher.UIThread.RunJobs();
             var tick = host.GetVisualDescendants().OfType<CheckBox>().Single(c => c.Content as string == "Direct output — bypass the desktop compositor");
             Assert.True(tick.IsVisible);
             Assert.True(tick.IsChecked);
-            Assert.NotEmpty(vm.DirectOutputStatus);
+            Assert.NotEmpty(vm.Screens.DirectOutputStatus);
             tick.IsChecked = false;
             Dispatcher.UIThread.RunJobs();
             Assert.False(placement.DirectOutput);
@@ -131,8 +131,8 @@ public class DirectOutputAppTests
             // A planned screen never opens a window: no tick for it.
             var planned = new ScreenPlacement { ScreenId = ScreenPlacement.PlannedIdPrefix + "wall", Planned = true };
             vm.State.Output.Placements.Add(planned);
-            vm.SelectedPlacement = planned;
-            Assert.False(vm.SelectedIsDisplay);
+            vm.Screens.SelectedPlacement = planned;
+            Assert.False(vm.Screens.SelectedIsDisplay);
             vm.State.Output.Placements.Remove(planned);
 
             // The Machine page carries the summary.

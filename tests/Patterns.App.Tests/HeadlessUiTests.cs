@@ -130,8 +130,8 @@ public class HeadlessUiTests
             if (screens.Count > 0)
             {
                 var placement = vm.State.Output.Placements.First(p => p.ScreenId == screens[0].Id);
-                vm.SelectedPlacement = placement;
-                vm.SelectedUseCustom = true;
+                vm.Screens.SelectedPlacement = placement;
+                vm.Screens.SelectedUseCustom = true;
                 Dispatcher.UIThread.RunJobs();
 
                 // Assignment created, edit target appeared and was auto-selected.
@@ -146,7 +146,7 @@ public class HeadlessUiTests
                 Assert.Equal(programmeWas, services.State.Pattern.Kind);   // the screen's own, not the show's
 
                 // Enable toggle pins the user's choice.
-                vm.SelectedEnabled = false;
+                vm.Screens.SelectedEnabled = false;
                 Assert.True(placement.UserPinned);
                 Assert.False(placement.Enabled);
             }
