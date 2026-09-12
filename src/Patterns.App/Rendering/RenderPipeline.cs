@@ -52,6 +52,14 @@ public sealed record PipelineViewport(
         WarpTlx != 0 || WarpTly != 0 || WarpTrx != 0 || WarpTry != 0 ||
         WarpBlx != 0 || WarpBly != 0 || WarpBrx != 0 || WarpBry != 0;
 
+    /// <summary>The edge bends, in physical pixels: how far each edge bows outward at its middle (all zero = straight edges).</summary>
+    public int WarpTopBow { get; init; }
+    public int WarpRightBow { get; init; }
+    public int WarpBottomBow { get; init; }
+    public int WarpLeftBow { get; init; }
+
+    public bool HasBend => WarpTopBow != 0 || WarpRightBow != 0 || WarpBottomBow != 0 || WarpLeftBow != 0;
+
     /// <summary>Per-output colour trims (100/1.0/100/100/100 = neutral).</summary>
     public double BrightnessPct { get; init; } = 100;
     public double Gamma { get; init; } = 1.0;
@@ -75,6 +83,9 @@ public sealed record PipelineViewport(
     public int BlendBottomPx { get; init; }
     public BlendCurve BlendCurve { get; init; } = BlendCurve.SCurve;
     public double BlendGamma { get; init; } = 1.0;
+
+    /// <summary>Black-level matching: the pedestal added outside the zones, as a percentage of white (0 = off).</summary>
+    public double BlendBlackPct { get; init; }
 
     /// <summary>The rate this sink presents at (0 = every vsync). Outputs only; the preview and monitors stay unpaced.</summary>
     public int TargetFps { get; init; }
@@ -100,7 +111,7 @@ public sealed record PipelineViewport(
     public bool SameBlendAs(PipelineViewport other)
         => BlendLeftPx == other.BlendLeftPx && BlendTopPx == other.BlendTopPx
            && BlendRightPx == other.BlendRightPx && BlendBottomPx == other.BlendBottomPx
-           && BlendCurve == other.BlendCurve && BlendGamma.Equals(other.BlendGamma);
+           && BlendCurve == other.BlendCurve && BlendGamma.Equals(other.BlendGamma) && BlendBlackPct.Equals(other.BlendBlackPct);
 }
 
 /// <summary>
@@ -284,7 +295,40 @@ public sealed class RenderPipeline : IDisposable
                 layered = true;
             }
 
-            if (vp.HasWarp)
+            var bent = vp.HasBend && vp.Kind == SinkKind.Output;
+            if (bent)
+            {
+                // The edge bends: the finished picture — content, its blend zones and its black
+                // pedestal, all in the picture's own space — drawn through one Coons patch whose
+                // edges bow as the operator set them, under the keystone (a perspective, so the
+                // inside stays straight) and the rotation.
+                var surface = EnsureOffscreen(effectivePx);
+                DrawContent(surface.Canvas, vp, in ctx);
+                if (vp.HasBlend) DrawBlendMask(surface.Canvas, vp, effectivePx);
+                surface.Canvas.Flush();
+                using var image = surface.Snapshot();
+                canvas.Clear(SKColors.Black);
+                var patched = canvas.Save();
+                if (vp.HasWarp)
+                {
+                    canvas.Concat(WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
+                        new SKPoint(vp.WarpTlx, vp.WarpTly),
+                        new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
+                        new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
+                        new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry)));
+                }
+                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
+                using var shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+                _patchPaint.Shader = shader;
+                canvas.DrawPatch(
+                    WarpMesh.Cubics(effectivePx.Width, effectivePx.Height, vp.WarpTopBow, vp.WarpRightBow, vp.WarpBottomBow, vp.WarpLeftBow),
+                    null,
+                    WarpMesh.TextureCorners(effectivePx.Width, effectivePx.Height),
+                    _patchPaint);
+                _patchPaint.Shader = null;
+                canvas.RestoreToCount(patched);
+            }
+            else if (vp.HasWarp)
             {
                 // Keystone path: content renders to an offscreen surface at the effective
                 // size, then blits through warp ∘ rotation as one perspective image draw.
@@ -318,11 +362,12 @@ public sealed class RenderPipeline : IDisposable
                 canvas.Restore();
             }
 
-            if (vp.HasBlend)
+            if (vp.HasBlend && !bent)
             {
                 // Last, over the trimmed picture, through the same warp and rotation the picture
                 // took: the zones sit on the picture's own edges, so a keystoned projector's
                 // fade follows its keystone. Black with alpha, so each band multiplies the light.
+                // (A bent picture took its zones inside the patch above.)
                 canvas.Save();
                 if (vp.HasWarp)
                 {
@@ -483,6 +528,22 @@ public sealed class RenderPipeline : IDisposable
             Band(canvas, "B", SKRect.Create(0, h - zone, w, zone),
                 new SKPoint(0, h), new SKPoint(0, h - zone), stops);
         }
+        if (vp.BlendBlackPct > 0)
+        {
+            // Black-level matching: the regions the zones do not cover, and the bands where only
+            // two projectors meet, are lifted to the floor of the deepest overlap — added light,
+            // so a dark scene shows one black across the canvas instead of bright seams and a
+            // brighter square where four projectors share a corner.
+            var widths = new BlendWidths(vp.BlendLeftPx, vp.BlendTopPx, vp.BlendRightPx, vp.BlendBottomPx);
+            var deepest = BlackLevel.MaxCoverage(widths);
+            foreach (var (rect, coverage) in BlackLevel.Cells(w, h, widths))
+            {
+                var level = BlackLevel.Level(vp.BlendBlackPct, coverage, deepest, vp.BlendGamma);
+                if (level == 0) continue;
+                _pedestalPaint.Color = new SKColor(level, level, level);
+                canvas.DrawRect(rect, _pedestalPaint);
+            }
+        }
     }
 
     private void Band(SKCanvas canvas, string edge, SKRect rect, SKPoint outer, SKPoint inner, SKColor[] stops)
@@ -499,6 +560,8 @@ public sealed class RenderPipeline : IDisposable
     private SKSurface? _offscreen;
     private SKSizeI _offscreenSize;
     private readonly SKPaint _warpPaint = new() { IsAntialias = true };
+    private readonly SKPaint _patchPaint = new() { IsAntialias = true };
+    private readonly SKPaint _pedestalPaint = new() { BlendMode = SKBlendMode.Plus };
 
     private SKSurface EnsureOffscreen(SKSizeI size)
     {

@@ -41,9 +41,12 @@ public sealed class ScreensPage : Observable
                 placement.WarpTrx = 0; placement.WarpTry = 0;
                 placement.WarpBlx = 0; placement.WarpBly = 0;
                 placement.WarpBrx = 0; placement.WarpBry = 0;
+                placement.WarpTopBow = 0; placement.WarpRightBow = 0;
+                placement.WarpBottomBow = 0; placement.WarpLeftBow = 0;
             });
             RaiseSelection();
         });
+        ArrangeBlendGridCommand = new RelayCommand(ArrangeBlendGrid);
         ResetBlendCommand = new RelayCommand(ResetBlend);
         ResetTrimsCommand = new RelayCommand(() =>
         {
@@ -399,6 +402,30 @@ public sealed class ScreensPage : Observable
         set { if (_selectedPlacement is { } p) { p.BlendCurve = value; RaiseBlend(); } }
     }
 
+    /// <summary>The black pedestal outside the zones, as a percentage of white — found on a black test picture.</summary>
+    public double SelectedBlendBlack
+    {
+        get => _selectedPlacement?.BlendBlackPct ?? 0;
+        set { if (_selectedPlacement is { } p) { p.BlendBlackPct = value; RaiseBlend(); } }
+    }
+
+    private int _blendGridColumns = 2;
+    private int _blendGridRows = 2;
+    private int _blendGridOverlap = 192;
+
+    /// <summary>The grid ARRANGE AS A BLEND GRID lays out: columns, rows, and the overlap every join gets.</summary>
+    public int BlendGridColumns { get => _blendGridColumns; set => Set(ref _blendGridColumns, Math.Clamp(value, 1, 8)); }
+    public int BlendGridRows { get => _blendGridRows; set => Set(ref _blendGridRows, Math.Clamp(value, 1, 8)); }
+    public int BlendGridOverlap { get => _blendGridOverlap; set => Set(ref _blendGridOverlap, Math.Clamp(value, 0, 4096)); }
+
+    /// <summary>Every screen that is on, laid out as the grid with the overlaps, on automatic blend.</summary>
+    public void ArrangeBlendGrid()
+    {
+        _desk.StatusMessage = _services.RigEditor.LayoutBlendGrid(BlendGridColumns, BlendGridRows, BlendGridOverlap);
+        _desk.ReconcilePlacements();
+        RaiseSelection();
+    }
+
     public double SelectedBlendGamma
     {
         get => _selectedPlacement?.BlendGamma ?? 1.0;
@@ -426,6 +453,15 @@ public sealed class ScreensPage : Observable
                 : used.Any
                     ? $"Overlaps found: {words} — every projector that shares them draws them, faded."
                     : "No overlap with another screen yet — drag this screen over its neighbour by the overlap width.";
+            if (used.Any)
+            {
+                var deepest = BlackLevel.MaxCoverage(used);
+                head += p.BlendBlackPct > 0
+                    ? $" Black level: the picture between the zones is lifted {p.BlendBlackPct:0.#}% of white per missing projector to meet the {(deepest == 4 ? "corner where four meet" : "overlap")}."
+                    : deepest == 4
+                        ? " Black level: off — on a black scene the overlaps show as brighter bands and the corner where four projectors meet as a brighter square; a pedestal lifts the rest to match."
+                        : " Black level: off — on a black scene the overlap shows as a brighter band; a pedestal lifts the rest to match.";
+            }
             var notes = BlendAudit.For(p.ScreenId, arranged, id => State.Output.Placements.FirstOrDefault(x => x.ScreenId == id), NameOfScreen);
             return notes.Count == 0 ? head : head + "\n" + BlendAudit.Summary(notes);
         }
@@ -449,6 +485,7 @@ public sealed class ScreensPage : Observable
             p.BlendLeftPx = p.BlendTopPx = p.BlendRightPx = p.BlendBottomPx = 0;
             p.BlendCurve = BlendCurve.SCurve;
             p.BlendGamma = 1.0;
+            p.BlendBlackPct = 0;
         });
         _desk.ReconcilePlacements();
         RaiseSelection();
@@ -463,10 +500,12 @@ public sealed class ScreensPage : Observable
         Raise(nameof(SelectedBlendBottom));
         Raise(nameof(SelectedBlendCurve));
         Raise(nameof(SelectedBlendGamma));
+        Raise(nameof(SelectedBlendBlack));
         Raise(nameof(SelectedBlendAuto));
     }
 
     public RelayCommand ResetWarpCommand { get; }
+    public RelayCommand ArrangeBlendGridCommand { get; }
     public RelayCommand ResetBlendCommand { get; }
     public RelayCommand ResetTrimsCommand { get; }
 

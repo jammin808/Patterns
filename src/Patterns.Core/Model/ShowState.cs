@@ -272,6 +272,22 @@ public sealed class ScreenPlacement : Observable
     public int WarpBrx { get => _warpBrx; set => Set(ref _warpBrx, Math.Clamp(value, -4096, 4096)); }
     public int WarpBry { get => _warpBry; set => Set(ref _warpBry, Math.Clamp(value, -4096, 4096)); }
 
+    // ---- the edge bends: a curved screen or a lens's bow, on top of the keystone ----------------
+
+    private int _warpTopBow;
+    private int _warpRightBow;
+    private int _warpBottomBow;
+    private int _warpLeftBow;
+
+    /// <summary>How far the top edge bows outward at its middle, in this output's pixels (negative bows inward).</summary>
+    public int WarpTopBow { get => _warpTopBow; set => Set(ref _warpTopBow, Math.Clamp(value, -4096, 4096)); }
+    public int WarpRightBow { get => _warpRightBow; set => Set(ref _warpRightBow, Math.Clamp(value, -4096, 4096)); }
+    public int WarpBottomBow { get => _warpBottomBow; set => Set(ref _warpBottomBow, Math.Clamp(value, -4096, 4096)); }
+    public int WarpLeftBow { get => _warpLeftBow; set => Set(ref _warpLeftBow, Math.Clamp(value, -4096, 4096)); }
+
+    [JsonIgnore]
+    public bool HasBend => _warpTopBow != 0 || _warpRightBow != 0 || _warpBottomBow != 0 || _warpLeftBow != 0;
+
     public bool HasWarp =>
         _warpTlx != 0 || _warpTly != 0 || _warpTrx != 0 || _warpTry != 0 ||
         _warpBlx != 0 || _warpBly != 0 || _warpBrx != 0 || _warpBry != 0;
@@ -295,6 +311,16 @@ public sealed class ScreenPlacement : Observable
     public BlendCurve BlendCurve { get => _blendCurve; set => Set(ref _blendCurve, value); }
     /// <summary>Compensates the projectors' gamma so the two ramps add up to flat light; 1 = the raw curve.</summary>
     public double BlendGamma { get => _blendGamma; set => Set(ref _blendGamma, Math.Clamp(value, 0.5, 3.0)); }
+
+    private double _blendBlackPct;
+
+    /// <summary>
+    /// Black-level matching: the pedestal this projector adds outside its blend zones, as a
+    /// percentage of white, so the picture between the zones sits on the same floor as the
+    /// overlaps (two blacks bright) and a grid's corner (four). 0 = off. Found on a black test
+    /// picture: slide it until the bands and the middle square go.
+    /// </summary>
+    public double BlendBlackPct { get => _blendBlackPct; set => Set(ref _blendBlackPct, Math.Clamp(value, 0, 25)); }
 
     public bool HasBlend => _blendAuto || _blendLeftPx > 0 || _blendTopPx > 0 || _blendRightPx > 0 || _blendBottomPx > 0;
 }

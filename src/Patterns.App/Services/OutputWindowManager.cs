@@ -187,10 +187,13 @@ public sealed class OutputWindowManager
                     WarpTrx = placement.WarpTrx, WarpTry = placement.WarpTry,
                     WarpBlx = placement.WarpBlx, WarpBly = placement.WarpBly,
                     WarpBrx = placement.WarpBrx, WarpBry = placement.WarpBry,
+                    WarpTopBow = placement.WarpTopBow, WarpRightBow = placement.WarpRightBow,
+                    WarpBottomBow = placement.WarpBottomBow, WarpLeftBow = placement.WarpLeftBow,
                     BlendLeftPx = blend.Left, BlendTopPx = blend.Top,
                     BlendRightPx = blend.Right, BlendBottomPx = blend.Bottom,
                     BlendCurve = placement.BlendCurve,
                     BlendGamma = placement.BlendGamma,
+                    BlendBlackPct = placement.BlendBlackPct,
                     // The screen's own rate wins; else the master; 0 leaves the display's refresh.
                     TargetFps = placement.FpsOverride > 0 ? placement.FpsOverride : masterFps,
                 };

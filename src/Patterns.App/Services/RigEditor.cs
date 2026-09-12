@@ -1,4 +1,5 @@
 using Patterns.Core.Model;
+using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 
@@ -97,6 +98,37 @@ public sealed class RigEditor
         State.Output.Placements.Add(placement);
         _s.Screens.Refresh();
         return placement;
+    }
+
+    /// <summary>
+    /// The live screens laid out as a grid of projectors that blend: columns × rows in arrangement
+    /// order, each overlapping its neighbours by the zone width, every one on automatic blend so
+    /// the zones follow the overlaps and the joins come out equal. Planned screens take part —
+    /// the grid is built at the desk before the projectors are — feeds' own screens never.
+    /// Returns the words for the status line.
+    /// </summary>
+    public string LayoutBlendGrid(int columns, int rows, int overlap)
+    {
+        var members = Rig.OrderedLivePlacements(State, _s.Screens.All)
+            .Select(x => x.Placement)
+            .Where(p => !p.IsVirtual && p.Enabled)
+            .ToList();
+        if (members.Count < 2) return "A blend grid needs at least two screens on — projectors, or planned screens standing in for them.";
+        var sizes = members.Select(RasterOf).ToList();
+        var positions = BlendGridLayout.Positions(sizes, columns, rows, overlap);
+        _s.BulkEdit(() =>
+        {
+            for (var i = 0; i < positions.Count; i++)
+            {
+                members[i].X = positions[i].X;
+                members[i].Y = positions[i].Y;
+                members[i].BlendAuto = true;
+            }
+        });
+        _s.Screens.Refresh();
+        var placed = Math.Min(positions.Count, members.Count);
+        return $"{placed} screen{(placed == 1 ? "" : "s")} arranged as a blend grid — {BlendGridLayout.Describe(sizes, positions, columns, rows, overlap)} Every one fades its overlaps; Edge blend on each screen reads the joins."
+               + (members.Count > placed ? $" {members.Count - placed} screen(s) did not fit the grid and stayed where they were." : "");
     }
 
     /// <summary>To the right of everything arranged, a gap away: where a screen that arrives on its own goes.</summary>

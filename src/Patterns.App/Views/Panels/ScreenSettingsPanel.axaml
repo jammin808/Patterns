@@ -142,11 +142,27 @@
           <NumericUpDown Grid.Row="2" Grid.Column="8" Minimum="-4096" Maximum="4096" Increment="4" FormatString="0" ShowButtonSpinner="False"
                          Value="{Binding Screens.SelectedPlacement.WarpBry, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Y" />
         </Grid>
+        <TextBlock Classes="label" Text="Edge bends — px outward at the middle of each edge" Margin="0,6,0,0" />
+        <Grid ColumnDefinitions="76,*,12,76,*" RowDefinitions="Auto,4,Auto">
+          <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Top" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="0" Grid.Column="1" Minimum="-4096" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding Screens.SelectedPlacement.WarpTopBow, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}"
+                         ToolTip.Tip="Positive bows the top edge up, negative pulls it down — a curved screen's sweep, a lens's pincushion or barrel" />
+          <TextBlock Grid.Row="0" Grid.Column="3" Classes="label" Text="Bottom" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="0" Grid.Column="4" Minimum="-4096" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding Screens.SelectedPlacement.WarpBottomBow, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Positive bows the bottom edge down" />
+          <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Left" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="2" Grid.Column="1" Minimum="-4096" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding Screens.SelectedPlacement.WarpLeftBow, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Positive bows the left edge out" />
+          <TextBlock Grid.Row="2" Grid.Column="3" Classes="label" Text="Right" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Row="2" Grid.Column="4" Minimum="-4096" Maximum="4096" Increment="2" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding Screens.SelectedPlacement.WarpRightBow, Mode=TwoWay, Converter={StaticResource Num}, FallbackValue=0}" ToolTip.Tip="Positive bows the right edge out" />
+        </Grid>
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Classes="chip" Content="Reset warp" Command="{Binding Screens.ResetWarpCommand}" />
         </StackPanel>
         <TextBlock Classes="hint tip"
-                   Text="Pulls each corner of this output by the given pixels — a light keystone for casually placed projectors, not a full warp engine. Positive X moves right, positive Y moves down." />
+                   Text="Corners pull the picture into a keystone — a perspective, so straight lines stay straight inside. Bends bow each edge at its middle on top of that: a curved screen, a cyclorama, a lens's pincushion or barrel. Together they cover what a walk-up alignment needs; the finished picture, its blend zones and its black pedestal all go through the same bend, so a bowed projector's fade follows its bow. Put the Projection blend pattern up (Content ▸ Projection blend) and line the grid up with the neighbour's." />
 
         <TextBlock Classes="label" Text="Edge blend (projectors)" Margin="0,8,0,0" />
         <CheckBox Content="Automatic — fade the edges this screen overlaps with a neighbour"
@@ -176,6 +192,27 @@
                   Value="{Binding Screens.SelectedBlendGamma, Mode=TwoWay}" />
           <TextBlock Grid.Row="1" Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                      Text="{Binding Screens.SelectedBlendGamma, StringFormat={}{0:0.00}}" />
+        </Grid>
+        <Grid ColumnDefinitions="76,*,60" Margin="0,4,0,0">
+          <TextBlock Classes="label" Text="Black level" VerticalAlignment="Center"
+                     ToolTip.Tip="Black-level matching: the pedestal added outside the zones, as a percentage of white. Put a black picture up: the overlaps show as brighter bands and a grid's middle as a brighter square; slide until they go" />
+          <Slider Grid.Column="1" Minimum="0" Maximum="25" TickFrequency="0.5" IsSnapToTickEnabled="True"
+                  Value="{Binding Screens.SelectedBlendBlack, Mode=TwoWay}" />
+          <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
+                     Text="{Binding Screens.SelectedBlendBlack, StringFormat={}{0:0.#}%}" />
+        </Grid>
+        <Grid ColumnDefinitions="76,50,Auto,50,8,Auto,70,8,Auto" Margin="0,4,0,0">
+          <TextBlock Classes="label" Text="Blend grid" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Column="1" Minimum="1" Maximum="8" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding Screens.BlendGridColumns, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Columns" />
+          <TextBlock Grid.Column="2" Classes="label" Text=" × " VerticalAlignment="Center" />
+          <NumericUpDown Grid.Column="3" Minimum="1" Maximum="8" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding Screens.BlendGridRows, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Rows" />
+          <TextBlock Grid.Column="5" Classes="label" Text="overlap" VerticalAlignment="Center" />
+          <NumericUpDown Grid.Column="6" Minimum="0" Maximum="4096" Increment="8" FormatString="0" ShowButtonSpinner="False"
+                         Value="{Binding Screens.BlendGridOverlap, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The zone every join gets, in pixels — a tenth of a projector's width is the usual start" />
+          <Button Grid.Column="8" Classes="chip" Content="Arrange as a blend grid" Command="{Binding Screens.ArrangeBlendGridCommand}"
+                  ToolTip.Tip="Every screen that is on, laid out columns × rows in arrangement order, each overlapping its neighbours by the zone, all on automatic blend — the zones follow the overlaps and every join comes out equal. Planned screens take part, so the grid is built before the projectors are" />
         </Grid>
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Classes="chip" Content="Reset blend" Command="{Binding Screens.ResetBlendCommand}" />
