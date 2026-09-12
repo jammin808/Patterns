@@ -21,6 +21,8 @@
               ToolTip.Tip="A board on a USB cable: type its port (COM3 on Windows, /dev/ttyUSB0 or /dev/ttyACM0 elsewhere) and the speed the sketch opens" />
       <Button Classes="chip" Content="+ DEVICE OVER IP" Command="{Binding AddIpDeviceCommand}" Margin="0,0,8,6"
               ToolTip.Tip="A Raspberry Pi, an ESP32, a show controller: type its address and port; TCP connects and reconnects by itself, UDP sends datagrams" />
+      <Button Classes="chip" Content="+ MIDI CONTROL SURFACE" Command="{Binding AddMidiDeviceCommand}" Margin="0,0,8,6"
+              ToolTip.Tip="An APC40, a Launchpad, a nanoKONTROL, an X-Touch: pick its port, press LEARN and press a control. Windows only" />
     </WrapPanel>
 
     <ItemsControl ItemsSource="{Binding State.Interactive.Devices}">
@@ -44,7 +46,23 @@
                           SelectedValue="{Binding LineEnding, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
                           ToolTip.Tip="What ends every line Patterns writes; an Arduino's Serial.println expects LF" />
               </Grid>
-              <Grid ColumnDefinitions="130,*,8,Auto,8,100,8,Auto,8,90">
+              <!-- A control surface: its port from the machine's own list, and which starter rows the button puts in. -->
+              <Grid ColumnDefinitions="130,*,8,Auto,8,*" Margin="0,2,0,0"
+                    IsVisible="{Binding Link, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
+                <TextBlock Classes="label" Text="Surface port" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MidiInputs}"
+                          SelectedItem="{Binding Port, Mode=TwoWay}"
+                          PlaceholderText="Whatever is plugged in" />
+                <TextBlock Grid.Column="3" Classes="label" Text="Starter rows" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="5" HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).MidiSurfaceNames}"
+                          SelectedValue="{Binding StarterSet, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                          PlaceholderText="Which controller this is" />
+              </Grid>
+
+              <Grid ColumnDefinitions="130,*,8,Auto,8,100,8,Auto,8,90"
+                    IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
                 <TextBlock Classes="label" Text="Port / address" VerticalAlignment="Center" />
                 <TextBox Grid.Column="1" Text="{Binding Port, Mode=TwoWay}" Watermark="COM3 · /dev/ttyUSB0 · 192.168.1.50 · pi.local:7000" />
                 <TextBlock Grid.Column="3" Classes="label" Text="Baud" VerticalAlignment="Center" />
@@ -82,12 +100,31 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Button Classes="mini" Content="+ TRIGGER" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AddTriggerCommand}" CommandParameter="{Binding}" HorizontalAlignment="Left" />
+              <WrapPanel>
+                <Button Classes="mini" Content="+ TRIGGER" Margin="0,0,6,0" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AddTriggerCommand}" CommandParameter="{Binding}" />
+                <Button Classes="chip" Content="LEARN — press a control" Margin="0,0,6,0"
+                        IsVisible="{Binding Link, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LearnMidiCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="The next thing this surface sends becomes a row. Nobody can state a controller's note numbers without the hardware in front of them, so the desk asks you to press it" />
+                <Button Classes="mini" Content="+ STARTER ROWS"
+                        IsVisible="{Binding Link, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}"
+                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SeedMidiCommand}" CommandParameter="{Binding}"
+                        ToolTip.Tip="The chosen surface's published numbers, put into this table where you can read and edit them — a starting point, never run against the hardware here" />
+              </WrapPanel>
             </StackPanel>
           </Border>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
+
+    <TextBlock Classes="label" Foreground="{StaticResource TallyHoldBrush}" TextWrapping="Wrap"
+               Text="{Binding MidiLearnText}" IsVisible="{Binding MidiLearnText, Converter={StaticResource NotEmpty}}" />
+
+    <TextBlock Classes="h2" Text="A MIDI CONTROL SURFACE" />
+    <TextBlock Classes="hint tip"
+               Text="An APC40, a Launchpad, a nanoKONTROL, an X-Touch — a control surface is a device like any other here, because its messages arrive as the same text lines an Arduino sends: NOTE 1 53 127 when a pad goes down, NOTEOFF 1 53 when it comes up, CC 1 7 50 as a fader passes halfway. So the trigger table above is the map, and the action layer, the journal and the arm fence are the ones the desk already had. A release is its own word so a pad fires once, not again on the way up; a fader reads 0 to 100 rather than 0 to 127 because the desk's level verbs refuse anything higher, and a control that silently dies in the top of its travel is worse than one that never worked. Rows read both ways in the one table: NOTE 1 53 * → LOOK 3 is the pad firing the look, and LOOK Walk-in → LAMP 1 53 21 is the look lighting the pad (21 is a colour in that surface's own palette; % on the right takes the show's own 0–100 reading and stretches it onto an LED ring). LEARN is the fastest way to any of it: press it, press the control, and the row writes itself — nobody can state a controller's note numbers with confidence without the hardware in front of them, so the desk asks instead of guessing. + STARTER ROWS puts a known surface's published numbers into your table where you can read and change them; every set says on the button that it has not been run against hardware here." />
+    <TextBlock Classes="hint tip"
+               Text="Honest limits. MIDI is Windows only on this build, and Windows' MIDI ports are single-client: if Ableton or the vendor's own utility is holding the surface, Patterns cannot open it and says so rather than sitting silent. A fader's moves reach the show fifty times a second rather than on every message — a hand cannot tell, and it is what keeps a sweep from becoming hundreds of journal lines on the thread that draws the desk; a press is never delayed or merged. Only two things in the whole show take a level (the audio playlist and break music), so the other faders on a surface can fire and step but cannot mix — there is no master fader here to give them. Endless encoders send a nudge rather than a position and are not supported. SysEx is not sent or received, so a Launchpad needs putting into programmer mode by its own tool, and there is still no MIDI Show Control or timecode chase. A Korg nanoKONTROL2 lights nothing until its own editor is used to hand its lamps over — the desk will say so rather than looking connected and doing nothing. Answers do not go back to a surface; there is nowhere on a pad to put a sentence, so watch this card's status line." />
 
     <TextBlock Classes="h2" Text="WHAT A DEVICE HEARS" />
     <TextBlock Classes="hint tip"

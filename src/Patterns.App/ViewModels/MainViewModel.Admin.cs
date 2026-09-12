@@ -34,15 +34,102 @@ public sealed partial class MainViewModel
         var n = State.Interactive.Devices.Count + 1;
         var device = new DeviceConfig
         {
-            Name = link == DeviceLink.Serial ? (n == 1 ? "Arduino" : $"Arduino {n}") : (n == 1 ? "Pi" : $"Device {n}"),
+            Name = link switch
+            {
+                DeviceLink.Serial => n == 1 ? "Arduino" : $"Arduino {n}",
+                DeviceLink.Midi => n == 1 ? "Surface" : $"Surface {n}",
+                _ => n == 1 ? "Pi" : $"Device {n}",
+            },
             Link = link,
         };
+
+        if (link == DeviceLink.Midi)
+        {
+            // A surface speaks no protocol of its own and hears no words: it is pads and faders
+            // in, lamps out. Starting it any other way would have the desk answering "ERR no
+            // trigger for NOTE 1 53 127" into a port with nowhere to put the sentence.
+            device.SpeaksProtocol = false;
+            device.EchoReplies = false;
+            device.Port = MidiSurfaceLink.Inputs().FirstOrDefault() ?? "";
+            var starter = Core.Services.MidiSurfaces.For(device.Port);
+            if (starter is not null) Core.Services.MidiSurfaces.Seed(device, starter);
+            BulkEdit(() => State.Interactive.Devices.Add(device));
+            StatusMessage = device.Port.Length == 0
+                ? "Surface added — plug a controller in, pick its port, then switch the Interactive area on."
+                : starter is not null
+                    ? $"{device.Name} added on {device.Port}, with the {starter.Name} starter rows — press a pad and LEARN any that do not fire."
+                    : $"{device.Name} added on {device.Port} — press LEARN, then press a pad on the surface.";
+            return;
+        }
+
         device.Triggers.Add(new DeviceTriggerConfig { Match = "BTN1", Command = "CUE GO" });
         device.Triggers.Add(new DeviceTriggerConfig { Match = "BTN2", Command = "NEXT" });
         BulkEdit(() => State.Interactive.Devices.Add(device));
         StatusMessage = link == DeviceLink.Serial
             ? $"{device.Name} added — type its port (COM3, or /dev/ttyUSB0), then switch the Interactive area on."
             : $"{device.Name} added — type its address (192.168.1.50, or host:7000), then switch the Interactive area on.";
+    }
+
+    /// <summary>Every MIDI input this machine has — the surface picker's list, refreshed with the page.</summary>
+    public ObservableCollection<string> MidiInputs { get; } = new();
+
+    /// <summary>The starter sets by name, for the page's picker.</summary>
+    public EnumItem[] MidiSurfaceNames => Lists.MidiSurfaces;
+
+    private string _midiLearnFor = "";
+
+    /// <summary>"Press a control on Surface…" while a row is waiting to be learned, else empty.</summary>
+    public string MidiLearnText => _midiLearnFor.Length == 0
+        ? ""
+        : $"Press a control on {_midiLearnFor} — the next thing it sends fills the row in.";
+
+    /// <summary>
+    /// LEARN: the next line this surface sends becomes a row. Nobody can state a controller's note
+    /// numbers with confidence without the hardware in front of them — not the vendor's sheet, not
+    /// this desk — so the desk asks the operator to press the thing instead, and that turns a whole
+    /// class of at-the-venue bug into a thirty-second gesture.
+    /// </summary>
+    private void LearnMidi(DeviceConfig? device)
+    {
+        if (device is null) return;
+        _midiLearnFor = device.Name;
+        Raise(nameof(MidiLearnText));
+        _services.Devices.Learn(device.Name, line =>
+        {
+            _midiLearnFor = "";
+            Raise(nameof(MidiLearnText));
+            if (line.Length == 0) return;
+            BulkEdit(() => device.Triggers.Add(new DeviceTriggerConfig { Match = line, Command = "" }));
+            StatusMessage = $"Learned {line} — now choose what it does.";
+        });
+        StatusMessage = MidiLearnText;
+    }
+
+    /// <summary>Puts a starter set into this surface's own table, where it can be read and edited.</summary>
+    private void SeedMidi(DeviceConfig? device)
+    {
+        if (device is null) return;
+        var surface = Core.Services.MidiSurfaces.All.FirstOrDefault(s => s.Name == device.StarterSet)
+                      ?? Core.Services.MidiSurfaces.For(device.Port);
+        if (surface is null)
+        {
+            StatusMessage = "Choose a surface first — the starter rows are that controller's published numbers, as a starting point.";
+            return;
+        }
+        var added = 0;
+        BulkEdit(() => added = Core.Services.MidiSurfaces.Seed(device, surface));
+        StatusMessage = added == 0
+            ? $"{surface.Name}: every starter row is already here."
+            : $"{added} {surface.Name} rows added. {surface.Note}";
+    }
+
+    /// <summary>Refreshes the MIDI input list — on the page's own beat, never on every tick.</summary>
+    public void RefreshMidiInputs()
+    {
+        var wanted = MidiSurfaceLink.Inputs();
+        if (MidiInputs.Count == wanted.Count && MidiInputs.SequenceEqual(wanted)) return;
+        MidiInputs.Clear();
+        foreach (var input in wanted) MidiInputs.Add(input);
     }
 
     private void RemoveDevice(DeviceConfig? device)
@@ -82,7 +169,14 @@ public sealed partial class MainViewModel
         InteractiveStatus = !config.Enabled
             ? config.Devices.Count == 0 ? "Interactive area off — add a device below." : $"Interactive area off — {config.Devices.Count} device{(config.Devices.Count == 1 ? "" : "s")} waiting."
             : $"Interactive on · {config.Devices.Count} device{(config.Devices.Count == 1 ? "" : "s")}, {open} open.";
-        if (_statusTicks % 5 == 0 && SelectedPageIndex == Shell.IndexOf("Interactive")) SerialPortsText = "Serial ports on this machine: " + DeviceService.SerialPortsText();
+        // Both lists cost a trip to the operating system, so they are read on the page's own beat
+        // and only while somebody is looking at it — a desk that enumerated every port every second
+        // would stutter on a machine with a lot of them, for a list nobody is reading.
+        if (_statusTicks % 5 == 0 && SelectedPageIndex == Shell.IndexOf("Interactive"))
+        {
+            SerialPortsText = "Serial ports on this machine: " + DeviceService.SerialPortsText();
+            RefreshMidiInputs();
+        }
     }
 
     // ---- the Install page: a permanent install's clock, remote administration, updates ------------

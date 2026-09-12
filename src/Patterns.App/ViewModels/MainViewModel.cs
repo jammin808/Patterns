@@ -432,6 +432,9 @@ public sealed partial class MainViewModel : Observable
         // The Interactive area: Arduinos over serial, Raspberry Pis and controllers over IP.
         AddSerialDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Serial));
         AddIpDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Tcp));
+        AddMidiDeviceCommand = new RelayCommand(() => AddDevice(DeviceLink.Midi));
+        LearnMidiCommand = new RelayCommand<DeviceConfig>(LearnMidi);
+        SeedMidiCommand = new RelayCommand<DeviceConfig>(SeedMidi);
         RemoveDeviceCommand = new RelayCommand<DeviceConfig>(RemoveDevice);
         TestDeviceCommand = new RelayCommand<DeviceConfig>(TestDevice);
         ResendDeviceCommand = new RelayCommand<DeviceConfig>(d =>
@@ -1008,6 +1011,13 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand<DeviceConfig> ResendDeviceCommand { get; }
     public RelayCommand<DeviceConfig> AddTriggerCommand { get; }
     public RelayCommand<DeviceTriggerConfig> RemoveTriggerCommand { get; }
+    public RelayCommand AddMidiDeviceCommand { get; }
+
+    /// <summary>Press a control on the surface and the row writes itself — the desk asks rather than assuming.</summary>
+    public RelayCommand<DeviceConfig> LearnMidiCommand { get; }
+
+    /// <summary>The published numbers for a known surface, as rows the operator can read and edit.</summary>
+    public RelayCommand<DeviceConfig> SeedMidiCommand { get; }
     public RelayCommand AddProgrammeCommand { get; }
     public RelayCommand AddAdvertCommand { get; }
     public RelayCommand AddAnnouncementCommand { get; }

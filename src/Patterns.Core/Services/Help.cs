@@ -729,6 +729,23 @@ public static class HelpTopics
             new[] { "Remote" },
             new[] { "companion", "stream deck", "bitfocus", "preset", "bank", "feedback", "variable", "osc", "touchosc", "key", "label", "module", "groups", "tick", "clock", "countdown", "message", "pattern" }),
 
+        new HelpTopic("midi", HelpGroup.Control,
+            "A MIDI control surface: pads, faders and lamps",
+            "SETUP → Interactive → + MIDI CONTROL SURFACE. An APC40, a Launchpad, a nanoKONTROL, an X-Touch is a device like an Arduino here, because its messages arrive as the same text lines — so the trigger table is the map and everything above it is code the desk already had.",
+            HelpBodies.Midi,
+            new[]
+            {
+                "+ MIDI CONTROL SURFACE, pick its port, then LEARN and press the control — the row writes itself, because nobody can state a controller's note numbers without the hardware in front of them.",
+                "+ STARTER ROWS puts a known controller's published numbers into your own table, where you can read and change them; every set says it has not been run against hardware here.",
+                "One table, both ways: NOTE 1 53 * → LOOK 3 is the pad firing the look, LOOK Walk-in → LAMP 1 53 21 is the look lighting the pad, and VOL * → CC 1 48 % drives an LED ring from the show's own level.",
+                "A release is its own word, so a pad fires once and not again on the way up; a fader reads 0 to 100, because the level verbs refuse anything higher and a fader that dies in the top of its travel is worse than none.",
+                "Presses are instant; faders are read fifty times a second, which is finer than a hand moves and is what keeps a sweep from becoming hundreds of journal lines on the thread that draws the desk.",
+                "Limits, out loud: Windows only; the port is single-client, so another application holding the surface blocks it; only two things in the show take a level; no endless encoders, no SysEx, no MSC or timecode; a nanoKONTROL2 lights nothing until its own editor hands its lamps over.",
+            },
+            "The trigger rows are the map; a surface's commands are journalled 'from device <name>' like any other.",
+            new[] { "Interactive" },
+            new[] { "midi", "controller", "control surface", "apc40", "apc", "akai", "launchpad", "novation", "nanokontrol", "korg", "x-touch", "behringer", "pad", "fader", "knob", "encoder", "lamp", "led", "learn", "note", "cc", "sysex", "msc", "show control", "timecode" }),
+
         new HelpTopic("look-state", HelpGroup.Control,
             "Is the look still what is on the screens — and which screen is not",
             "A look key that says only \"on air\" cannot tell you somebody has changed the picture since. The desk now says both, on its own page, on the wire, over OSC and on a Stream Deck.",

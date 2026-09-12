@@ -3928,7 +3928,7 @@ machine is `docs/CHECKLIST-round27.md`.
 | 1 | The maker's line (§44.1). One constant, and the migration that makes the change visible: every property is written to the file, so a machine that had run the app once would have kept the old words for ever. Gated on schema 10, because ungated it would take the line away again from anybody who typed the old words back on purpose. | done |
 | 2 | The Patterns test card (§44.2). One card for a rig day's first four questions — which screen, are the pixels one to one, where did the edges go, what has the processor done to black, white and grey — with every measurement fixed in the code so a reading can be quoted between venues. Three densities, and the first-run default. | done |
 | 3 | Three states for a look, and what each screen is drawing (§44.3). The desk has known since round 17 that the picture has moved since a look was recalled, and kept it in the view model. It moves into `LookTally`, reaches the wire, OSC and Companion, and gains the per-screen answer a rig with eight screens actually needs. Companion 2.8.0. | done |
-| 4 | MIDI control surfaces (§44.4). | in flight |
+| 4 | MIDI control surfaces (§44.4). A surface is a device on the Interactive page, because its messages arrive as the same text lines an Arduino sends — so the trigger table is the map and the action layer, the journal and the arm fence are the ones the desk already had. Press LEARN and press the control. One table both ways: a pad fires a look, and the look lights the pad. | done |
 
 ## 44. Round 27 — the answers
 
@@ -4050,3 +4050,81 @@ can say the day is eleven minutes late. All now have feedbacks, variables and re
 Two bugs came out of reading it. `track_7` and `track_8` were written by `bankVariables` and used by
 the Audio preset keys but never declared, so those two keys rendered `$(patterns:track_7)` as their
 label. And 103 button labels carried a literal `\n` rather than a line break.
+
+### 44.4 A control surface is a device, and the table it already had is the map
+
+There is no MIDI anywhere in this desk, and `docs/PLAN.md` has listed that as a deliberate gap for
+rounds. The instinct when the ask arrived was a MIDI subsystem: a config list, a service, a page, a
+new origin, a profile format, a driver per controller. Reading the Interactive area first is what
+stopped that, because it turns out the hard part was written in the round that added Arduinos.
+
+That area is a generic bidirectional control-surface integration that happens to have been built for
+boards: a swappable link, a two-column table where the operator maps a line the device sends onto a
+line to run (whole, or a prefix ending `*` whose tail rides into the command), every command through
+the one action layer with the device as its origin, a diffed feedback feed on a trailing throttle,
+and a status card. Render a MIDI message as `NOTE 1 53 127` and a surface IS a device that speaks
+lines. The whole model cost is one enum member.
+
+The fencing comes free and that matters more than the line count: `OriginKind.Device` is already
+inside `ShowActions.IsRemote`, so a surface cannot arm a cue stack that TCP, OSC and Companion
+cannot. A separate MIDI origin would have had to be remembered into that list, and forgetting it
+would have been silent and would only have shown up mid-show.
+
+**The three things that genuinely had no precedent**, because an Arduino never needed them.
+
+*The rate.* The Interactive area posts a closure to the UI thread per line and every command it runs
+writes a journal row to disk synchronously on that thread. A board sends a few lines a second; one
+fader sweep is hundreds, and sixteen encoders can move at once. So the surface is sampled the way a
+game engine samples a gamepad rather than treated as a stream of events: `MidiCoalescer` sends edges
+— pads, transport, bank buttons — straight through, because a GO button's whole value is that it is
+immediate, and writes axes into a pre-allocated slot read out fifty times a second. A control that
+has not moved produces nothing at all. The crossing itself became one closure per drain on the
+leading edge rather than one per line, which fixes the same latent problem for Arduinos. And a level
+from a surface is journalled about once a second carrying where the fader actually reached, because
+nobody has ever wanted to know that it went through 47 on its way to 60.
+
+*The echo.* A lamp this desk lights is not somebody pressing anything, and several surfaces report
+their own LEDs back. Every byte written is remembered for a moment and the same message returning is
+dropped. The other half is a hand: a continuous control is not written to for half a second after it
+is touched, and the value lands the moment they let go — a motorised fader driven while somebody is
+holding it fights them, and an LED ring redrawn under a turning knob flickers.
+
+*The port.* winmm has no hot-plug notification and no multi-client sharing, so the link retries
+quietly and says in plain words what it is waiting for — most often that another application is
+holding the surface, which is something an operator can actually act on. A port that comes back is
+told everything again, because a surface whose lamps went dark with the cable and stayed dark when
+it returned is one nobody can trust.
+
+**Two faults the first cut had, both worth naming.** A release rendered as another `NOTE` matched the
+same row as the press, so a GO button would have run two cues on one press; a release is its own word
+now. And a fader rendered raw would have been refused past 125 by the audio verb and past 100 by
+break music, so it would have worked to about four fifths of its travel and then silently stopped —
+readings are percentages, and both ends are exact.
+
+**Feedback reads backwards through the same table**, which is what keeps it from being a second
+subsystem. `NOTE 1 53 * → LOOK 3` is a pad firing a look; `LOOK Walk-in → LAMP 1 53 21` is the look
+lighting the pad. Which way a row reads is not a setting — a left-hand side that is a surface line is
+a control, anything else is the show. `%` on the right takes a fact read as 0–100 and stretches it
+onto the wire, which drives a ring of light round a knob from the audio level; and the two levels the
+show actually has became device facts so there is something for it to follow.
+
+**On researching controllers.** The tempting answer is a driver per surface. This repository already
+refused that once, for the same problem: the Interactive area supports Arduinos, Teensys, Pis and
+show controllers with zero device-specific code, because vendor knowledge belongs on the operator's
+side of the wire. A MIDI note map is a worse candidate than a serial protocol, not a better one — it
+changes with firmware, it differs between a unit's modes, and nobody can state one with confidence
+without the hardware in front of them. So what ships is STARTER ROWS: the published numbers for four
+surfaces chosen because each breaks a different assumption (an APC40 for a grid whose lamps are
+host-driven, a Launchpad for the same idea with another palette, a nanoKONTROL2 for a surface with no
+usable feedback at all, an X-Touch Mini for faders and encoder rings), put into the operator's own
+table where they can be read, edited and re-learned. Every set says on the page that it has not been
+run against hardware here. LEARN is the real answer: press it, press the control, and the row writes
+itself — which turns "the numbers might be wrong" from a bug that appears at a venue into a
+thirty-second gesture.
+
+*What this does not do, said here as well as on the page.* Windows only. One program per port. Only
+two things in the whole show take a level, so the other faders can fire and step but cannot mix —
+there is no master fader here to give them. Endless encoders send a nudge rather than a position and
+are not supported. No SysEx either way, so a Launchpad needs putting into programmer mode by its own
+tool, and the "No MIDI / MSC" gap narrows to "no MSC, no timecode" rather than closing. Nothing
+answers back to a surface, because there is nowhere on a pad to put a sentence.

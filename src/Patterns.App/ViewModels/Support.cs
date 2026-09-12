@@ -866,7 +866,12 @@ public static class Lists
         new(DeviceLink.Serial, "Serial (USB) — Arduino, Teensy, RS-232"),
         new(DeviceLink.Tcp, "TCP — Raspberry Pi, ESP32, a controller on the network"),
         new(DeviceLink.Udp, "UDP — datagrams on the network, no connection"),
+        new(DeviceLink.Midi, "MIDI — a control surface: APC40, Launchpad, nanoKONTROL, X-Touch"),
     };
+
+    /// <summary>The starter row sets, by name — what the page's picker offers.</summary>
+    public static readonly EnumItem[] MidiSurfaces =
+        Patterns.Core.Services.MidiSurfaces.All.Select(s => new EnumItem(s.Name, s.Name)).ToArray();
     public static readonly EnumItem[] LineEndings =
     {
         new(LineEnding.Lf, "LF  (\\n — Arduino println)"),

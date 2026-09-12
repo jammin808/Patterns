@@ -35,7 +35,9 @@ public class MidiLineTests
         var fader = MidiLines.Read(0xB0, 7, 64);
         Assert.Equal(MidiKind.Control, fader.Kind);
         Assert.True(fader.IsContinuous);
-        Assert.Equal("CC 1 7 64", MidiLines.Format(fader));
+        // Read as the percentage the desk's level verbs take, not the raw 0–127: those verbs refuse
+        // anything past 125, so a raw fader would silently stop responding in the top of its travel.
+        Assert.Equal("CC 1 7 50", MidiLines.Format(fader));
         Assert.Equal("CC 1 7 *", MidiLines.Trigger(fader));
 
         // A bank button, and a wheel.
@@ -48,6 +50,10 @@ public class MidiLineTests
 
         // The channel rides: a surface on channel 8 reads as 8, not as 7 or as 0.
         Assert.Equal("NOTE 8 36 100", MidiLines.Format(MidiLines.Read(0x97, 36, 100)));
+
+        // A release is its own word, so a row learned from a press cannot fire again on the way up.
+        Assert.Equal("NOTEOFF 1 53", MidiLines.Format(MidiLines.Read(0x80, 53, 0)));
+        Assert.Equal("NOTEOFF 1 53", MidiLines.Format(MidiLines.Read(0x90, 53, 0)));
 
         // Anything the desk has no word for still arrives, so a row can be written for it rather
         // than the control simply doing nothing with no explanation.
@@ -141,7 +147,8 @@ public class MidiLineTests
         // And a fader carries its value through the * into the command's tail.
         var fader = MidiLines.Read(0xB0, 7, 64);
         device.Triggers.Add(new DeviceTriggerConfig { Match = MidiLines.Trigger(fader), Command = "AUDIO LEVEL *" });
-        Assert.Equal("AUDIO LEVEL 64", DeviceMap.Resolve(device, MidiLines.Format(fader)));
+        Assert.Equal("AUDIO LEVEL 50", DeviceMap.Resolve(device, MidiLines.Format(fader)));
+        Assert.Equal("AUDIO LEVEL 100", DeviceMap.Resolve(device, MidiLines.Format(MidiLines.Read(0xB0, 7, 127))));
         Assert.Equal("AUDIO LEVEL 0", DeviceMap.Resolve(device, MidiLines.Format(MidiLines.Read(0xB0, 7, 0))));
     }
 }

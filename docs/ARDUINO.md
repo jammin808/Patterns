@@ -147,3 +147,73 @@ On the page: **+ DEVICE OVER IP**, the Pi's address, IP port 7000, Link TCP. An 
 The Interactive page shows every device's state — open, reconnecting, closed and why — with the
 last line in and out and the counts, so a wiring problem is visible before doors. The STATE every
 remote reads carries the same rows (`devices[{n,name,link,address,enabled,open,status,lastIn,lastOut}]`).
+
+## A MIDI control surface
+
+An APC40, a Launchpad, a nanoKONTROL, an X-Touch is a device on this page too, and for the same
+reason everything above works: its messages arrive as the same short text lines a board sends, so the
+trigger table IS the map.
+
+| The surface sends | The line it arrives as |
+| --- | --- |
+| A pad or key down | `NOTE <ch> <note> <velocity>` — `NOTE 1 53 127` |
+| A pad or key up (or a note-on at velocity 0) | `NOTEOFF <ch> <note>` — its own word, so a row learned from a press fires once and not again on the way up |
+| A fader, knob or button reporting as a controller | `CC <ch> <controller> <0–100>` — a percentage, because the desk's level verbs refuse anything higher and a raw fader would silently die in the top of its travel |
+| A wheel, or a motorised fader moved by hand | `BEND <ch> <0–100>` |
+| A bank or patch button | `PROGRAM <ch> <n>` |
+| Anything else | `MIDI <ch> <d1> <d2>` — carried so a row can still be written for it |
+
+Channels are shown 1-based, as every controller's own manual numbers them.
+
+### Mapping it
+
+Press **LEARN** on the card and then press the control: the row writes itself. That is the fastest
+way and the honest one — nobody can state a controller's note numbers with confidence without the
+hardware in front of them, so the desk asks rather than shipping a table that is wrong at a venue.
+**+ STARTER ROWS** is the other way in: a known controller's published numbers land in your own
+table, editable and re-learnable, and the desk says on the button that they have not been run
+against hardware.
+
+### Lamps: the same table, read backwards
+
+A surface cannot hear words — there is nowhere on a pad to put a sentence — but it can light. A row
+whose left-hand side is one of the show's facts and whose right is a lamp reads the other way:
+
+```
+NOTE 1 53 *   →  LOOK 3           the pad fires the look
+LOOK Walk-in  →  LAMP 1 53 21     the look lights the pad
+BLACKOUT 1    →  LAMP 1 82 5
+BLACKOUT 0    →  LAMP 1 82 0
+VOL *         →  CC 1 48 %        the audio level drives the ring of light round a knob
+OPEN 1        →  LAMP 1 98 3      the surface has just arrived (or come back)
+```
+
+Which way a row reads is not a setting: a left-hand side that is a surface line is a control doing
+something, and anything else is the show. `LAMP ch note velocity` is a note-on — the velocity is a
+colour index in that surface's own palette. `CC` and `BEND` write a controller and a 14-bit fader.
+`*` puts the fact's own words in; `%` reads the fact as 0–100 and stretches it onto the wire.
+
+### What the desk does for you
+
+- **Presses are instant. Faders are sampled fifty times a second** — finer than a hand moves, and it
+  turns a full sweep from several hundred actions into about a dozen. A control that has not moved
+  produces nothing at all.
+- **A level from a surface is journalled about once a second**, carrying where the fader reached.
+  The level itself is instant; only the record is paced, because the journal writes to disk on the
+  thread that draws the desk.
+- **A lamp the desk lights is not read back as a press**, and a control with a hand on it is not
+  written to for half a second — the value lands the moment they let go, so a motorised fader does
+  not fight them.
+- **A port that comes back is told everything again**, so a surface unplugged mid-show does not come
+  back dark.
+
+### Limits, so you find them here and not at a venue
+
+Windows only. Windows' MIDI ports are single-client, so another application holding the surface
+blocks it — the card says that is the likely reason and retries. Only two things in the whole show
+take a level (the audio playlist and break music), so the other faders can fire and step but cannot
+mix; there is no master fader here to give them. Endless encoders send a nudge rather than a position
+and are not supported. SysEx is neither sent nor received, so a Launchpad needs putting into
+programmer mode with its own tool, and there is still no MIDI Show Control and no timecode chase. A
+Korg nanoKONTROL2 lights nothing until its own editor hands its lamps over. Nothing answers back to a
+surface, so the card's status line is where to look.

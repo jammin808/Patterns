@@ -1739,6 +1739,12 @@ public enum DeviceLink
     Serial,
     Tcp,
     Udp,
+    /// <summary>
+    /// A MIDI control surface — an APC40, a Launchpad, a nanoKONTROL, an X-Touch. It is a device
+    /// like the rest because its messages are rendered as the same text lines an Arduino sends, so
+    /// the trigger table, the action layer, the journal and the arm fence are the ones already here.
+    /// </summary>
+    Midi,
 }
 
 /// <summary>The line break a device expects at the end of every line Patterns writes.</summary>
@@ -1778,6 +1784,7 @@ public sealed class DeviceConfig : Observable
     private bool _enabled = true;
     private LineEnding _lineEnding = LineEnding.Lf;
     private bool _speaksProtocol = true;
+    private string _starterSet = "";
     private bool _hearsShow = true;
     private bool _echoReplies = true;
     private string _testText = "PING";
@@ -1805,6 +1812,14 @@ public sealed class DeviceConfig : Observable
 
     /// <summary>A line with no trigger row of its own is taken as a protocol command when it is one (GO, LOOK 3, BLACKOUT ON).</summary>
     public bool SpeaksProtocol { get => _speaksProtocol; set => Set(ref _speaksProtocol, value); }
+
+    /// <summary>
+    /// Which starter set the page's button puts in, for a MIDI surface. It is only ever a starting
+    /// point: the rows it adds are this operator's own from the moment they land, editable and
+    /// re-learnable, because a note map nobody has run against the hardware is a guess and the desk
+    /// should not hide a guess behind a device name.
+    /// </summary>
+    public string StarterSet { get => _starterSet; set => Set(ref _starterSet, value ?? ""); }
 
     /// <summary>The device hears the show: BLACKOUT 1, LOOK Walk-in, CUE 01.020 … whenever a value changes.</summary>
     public bool HearsShow { get => _hearsShow; set => Set(ref _hearsShow, value); }

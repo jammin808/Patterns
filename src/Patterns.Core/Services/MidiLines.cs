@@ -70,10 +70,19 @@ public static class MidiLines
     /// </summary>
     public static string Format(in MidiMessage m) => m.Kind switch
     {
-        MidiKind.Note or MidiKind.NoteOff => $"NOTE {m.Channel + 1} {m.Data1} {m.Data2}",
-        MidiKind.Control => $"CC {m.Channel + 1} {m.Data1} {m.Data2}",
+        // A release is its own word. Rendered as another NOTE it would match the same row as the
+        // press — so "NOTE 1 53 *" → CUE GO would GO once when the pad went down and again when it
+        // came up, which is the fault the word "once" exists for and the kind nobody finds until
+        // a show.
+        MidiKind.NoteOff => $"NOTEOFF {m.Channel + 1} {m.Data1}",
+        MidiKind.Note when m.Data2 == 0 => $"NOTEOFF {m.Channel + 1} {m.Data1}",
+        MidiKind.Note => $"NOTE {m.Channel + 1} {m.Data1} {m.Data2}",
+        // Nought to a hundred, not nought to 127. The desk's level verbs refuse anything past 125
+        // (and past 100 for break music), so a raw fader would simply stop responding in the top of
+        // its travel — a control that silently dies halfway is worse than one that never worked.
+        MidiKind.Control => $"CC {m.Channel + 1} {m.Data1} {Percent(m.Data2)}",
         MidiKind.Program => $"PROGRAM {m.Channel + 1} {m.Data1}",
-        MidiKind.Bend => $"BEND {m.Channel + 1} {m.Data2}",
+        MidiKind.Bend => $"BEND {m.Channel + 1} {Percent(m.Value)}",
         _ => $"MIDI {m.Channel + 1} {m.Data1} {m.Data2}",
     };
 
@@ -84,12 +93,37 @@ public static class MidiLines
     /// </summary>
     public static string Trigger(in MidiMessage m) => m.Kind switch
     {
-        MidiKind.Note or MidiKind.NoteOff => $"NOTE {m.Channel + 1} {m.Data1} *",
+        MidiKind.NoteOff => $"NOTEOFF {m.Channel + 1} {m.Data1}",
+        MidiKind.Note when m.Data2 == 0 => $"NOTEOFF {m.Channel + 1} {m.Data1}",
+        MidiKind.Note => $"NOTE {m.Channel + 1} {m.Data1} *",
         MidiKind.Control => $"CC {m.Channel + 1} {m.Data1} *",
         MidiKind.Program => $"PROGRAM {m.Channel + 1} {m.Data1}",
         MidiKind.Bend => $"BEND {m.Channel + 1} *",
         _ => $"MIDI {m.Channel + 1} {m.Data1} *",
     };
+
+    /// <summary>
+    /// True when this line is a surface's own, rather than one of the show's plain-text facts. It is
+    /// what lets one trigger table carry both directions: a row whose left-hand side is a surface
+    /// line is a control doing something, and a row whose left-hand side is a fact is the show
+    /// lighting a lamp.
+    /// </summary>
+    public static bool IsSurfaceLine(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return false;
+        var text = line.TrimStart();
+        foreach (var word in Words)
+        {
+            if (text.StartsWith(word, StringComparison.OrdinalIgnoreCase)
+                && (text.Length == word.Length || text[word.Length] == ' '))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static readonly string[] Words = { "NOTEOFF", "NOTE", "CC", "BEND", "PROGRAM", "MIDI", "LAMP" };
 
     /// <summary>The three raw bytes as a message; anything this desk has no word for still arrives as Other.</summary>
     public static MidiMessage Read(int status, int data1, int data2)

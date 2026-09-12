@@ -72,6 +72,11 @@ public static class DeviceMap
         {
             var match = trigger.Match.Trim();
             if (match.Length == 0 || trigger.Command.Trim().Length == 0) continue;
+            // A row that reads the other way — a show fact on the left, a lamp on the right — is
+            // the same table carrying feedback, and it is not a control doing anything. Without
+            // this, a surface's lamp row would fire as a command the moment the show said the fact
+            // it lights for, which is a desk running its own feedback back through itself.
+            if (!MidiLines.IsSurfaceLine(match) && MidiLines.IsSurfaceLine(trigger.Command)) continue;
             if (match.EndsWith('*'))
             {
                 var prefix = match[..^1];
@@ -88,6 +93,65 @@ public static class DeviceMap
         if (!device.SpeaksProtocol) return null;
         return ControlProtocol.Parse(text).Kind == RemoteCommandKind.Unknown ? null : text;
     }
+
+    /// <summary>
+    /// The other direction, through the same table: what to write when the show says something.
+    ///
+    /// A MIDI surface cannot hear "LOOK Walk-in" — there is nowhere on a pad to put words. What it
+    /// can do is light. So a row whose left-hand side is one of the show's facts and whose right is
+    /// a lamp reads backwards, and the operator ends up with one two-column table carrying both
+    /// directions rather than two tables to keep in step:
+    ///
+    ///   NOTE 1 53 *   →  LOOK 3            (the pad fires the look)
+    ///   LOOK Walk-in  →  LAMP 1 53 21      (the look lights the pad)
+    ///   BLACKOUT 1    →  LAMP 1 82 5
+    ///   BLACKOUT *    →  LAMP 1 82 0       (anything else puts it out)
+    ///
+    /// Which way a row reads is not a setting: a left-hand side that is a surface line is a control
+    /// doing something, and anything else is the show. Every matching row fires, because one fact
+    /// often lights more than one lamp.
+    ///
+    /// Two substitutions on the right: * is the fact's own words, and % is the fact read as a
+    /// number from 0 to 100 and stretched to what the wire wants — which is what drives an LED ring
+    /// round a knob from the audio level ("VOL * → CC 1 48 %") without the operator doing sums.
+    /// </summary>
+    public static void Lamps(DeviceConfig device, string factLine, List<string> into)
+    {
+        var text = (factLine ?? "").Trim();
+        if (text.Length == 0) return;
+        foreach (var trigger in device.Triggers)
+        {
+            var match = trigger.Match.Trim();
+            var command = trigger.Command.Trim();
+            if (match.Length == 0 || command.Length == 0) continue;
+            if (MidiLines.IsSurfaceLine(match)) continue;              // that row is a control, not a lamp
+            if (!MidiLines.IsSurfaceLine(command)) continue;            // and this one does not light anything
+
+            if (match.EndsWith('*'))
+            {
+                var prefix = match[..^1];
+                var word = prefix.TrimEnd();
+                string tail;
+                if (text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) tail = text[prefix.Length..].Trim();
+                else if (string.Equals(text, word, StringComparison.OrdinalIgnoreCase)) tail = "";
+                else continue;
+                into.Add(Fill(command, tail));
+                continue;
+            }
+            if (string.Equals(match, text, StringComparison.OrdinalIgnoreCase)) into.Add(Fill(command, ""));
+        }
+    }
+
+    /// <summary>A lamp line with the fact's tail put into it: * as it came, % stretched onto the wire's 0–127.</summary>
+    private static string Fill(string command, string tail)
+    {
+        var filled = command.EndsWith('*') ? (command[..^1] + tail).Trim() : command;
+        if (!filled.Contains('%')) return filled;
+        var scaled = int.TryParse(tail.Trim(), out var pct)
+            ? (int)Math.Round(Math.Clamp(pct, 0, 100) * MidiLines.Max / 100.0)
+            : 0;
+        return filled.Replace("%", scaled.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
 }
 
 /// <summary>
@@ -99,6 +163,14 @@ public static class DeviceMap
 public static class DeviceFeedback
 {
     /// <summary>The facts as KEY → VALUE, from the state JSON; a fact the JSON lacks is not in the map.</summary>
+    /// <summary>A nested number as a whole-number fact — "VOL 63" — or nothing when the block is not there.</summary>
+    private static void Level(Dictionary<string, string> facts, JsonElement root, string block, string property, string name)
+    {
+        if (!root.TryGetProperty(block, out var e) || e.ValueKind != JsonValueKind.Object) return;
+        if (!e.TryGetProperty(property, out var v) || v.ValueKind != JsonValueKind.Number) return;
+        facts[name] = ((int)Math.Round(v.GetDouble())).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     public static IReadOnlyDictionary<string, string> Facts(string stateJson)
     {
         var facts = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -124,6 +196,13 @@ public static class DeviceFeedback
             Text(facts, root, "airLabel", "PROGRAM");
             Text(facts, root, "stingerPlaying", "STINGER");
             Text(facts, root, "lowerThird", "LOWERTHIRD");
+            // The two things in the show that carry a level. Without them a surface's faders have
+            // nothing to follow and a ring of light round a knob cannot show where the audio is —
+            // which is half the answer to "and feedback", missing. An Arduino with a meter on it
+            // gains the same reading for nothing.
+            Level(facts, root, "audio", "level", "VOL");
+            Level(facts, root, "music", "level", "MUSICVOL");
+            Bit(facts, root, "lookEdited", "LOOKEDITED");
             if (root.TryGetProperty("cuestack", out var cue) && cue.ValueKind == JsonValueKind.Object)
             {
                 Bit(facts, cue, "armed", "ARMED");

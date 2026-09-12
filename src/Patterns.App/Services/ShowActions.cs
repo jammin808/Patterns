@@ -42,7 +42,8 @@ public sealed class ShowActions
             result = ActionResult.Failed(ex.Message);
         }
 
-        if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify or ShowActionKind.CueStandby))
+        if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify or ShowActionKind.CueStandby)
+            && !SweptPast(action, origin))
         {
             _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(), result.Message);
         }
@@ -52,6 +53,37 @@ public sealed class ShowActions
 
     public ActionResult Execute(ShowActionKind kind, ActionOrigin origin, string target = "", string value = "")
         => Execute(new ShowAction(kind, target, value), origin);
+
+    private readonly Dictionary<string, long> _swept = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A level still moving under somebody's hand, so its row is not written yet.
+    ///
+    /// The journal writes to disk synchronously, on the thread that draws the desk. That has always
+    /// been fine because every verb was a gesture: a GO, a look, a blackout. A fader is not a
+    /// gesture, it is a sweep — fifty readings a second while a hand is on it — and fifty file
+    /// appends a second on the UI thread would blow the desk's tick budget for as long as somebody
+    /// held it.
+    ///
+    /// So a level from a control surface is recorded about once a second, and the row carries where
+    /// the fader actually is rather than every place it passed through. What lands in the journal is
+    /// the operator's intent, which is what a journal is read for — nobody has ever wanted to know
+    /// that the level went through 47 on its way to 60. The level itself is instant; only the record
+    /// is paced. A move that stops writes its last row on the next one, so the settled value is
+    /// never the one that got away.
+    /// </summary>
+    private bool SweptPast(ShowAction action, ActionOrigin origin)
+    {
+        if (action.Kind is not (ShowActionKind.AudioVolume or ShowActionKind.SpotifyVolume)) return false;
+        if (origin.Kind != OriginKind.Device) return false;                 // a typed level is a gesture, and is recorded
+
+        var key = action.Kind + "\u0001" + origin.Label;
+        var now = Environment.TickCount64;
+        if (_swept.TryGetValue(key, out var next) && now < next) return true;
+        _swept[key] = now + 1000;
+        if (_swept.Count > 64) _swept.Clear();
+        return false;
+    }
 
     /// <summary>The journal names looks and break music, not their ids — a caller reading it back should not need the show file.</summary>
     private string JournalTarget(ShowAction action) => action.Kind switch

@@ -42,6 +42,9 @@ public sealed class DeviceService : IDisposable
         public required IDeviceLink Link;
         public required string Key;
         public Dictionary<string, string>? Heard;
+        public bool WasOpen;
+        public string LastUnmapped = "";
+        public bool AnnounceOpen;
         public string LastIn = "";
         public string LastOut = "";
         public long In;
@@ -100,7 +103,24 @@ public sealed class DeviceService : IDisposable
         var wanted = new Dictionary<string, DeviceConfig>(StringComparer.Ordinal);
         if (config.Enabled)
         {
-            foreach (var d in config.Devices)
+            // A link that reconnects on its own — a serial port replugged, a TCP host back up, a
+        // surface whose port another application let go — has just become a device that knows
+        // nothing about the show. Everything is sent again, exactly as it is for one that has only
+        // now connected, because a surface whose lamps went dark with the cable and stayed dark
+        // when it came back is a surface an operator cannot trust.
+        foreach (var open in _open.Values)
+        {
+            var live = open.Link.IsOpen;
+            if (live && !open.WasOpen)
+            {
+                open.Heard = null;
+                open.AnnounceOpen = true;
+                MarkChanged();
+            }
+            open.WasOpen = live;
+        }
+
+        foreach (var d in config.Devices)
             {
                 if (d.Enabled && d.Id.Length > 0) wanted[d.Id] = d;
             }
@@ -199,6 +219,10 @@ public sealed class DeviceService : IDisposable
                 var serialPort = DeviceAddress.SerialPort(d.Port);
                 return serialPort.Length == 0 ? null : new SerialDeviceLink(serialPort, d.Baud);
             }
+            case DeviceLink.Midi:
+                // An empty port name takes whatever surface is plugged in, which is what an
+                // operator with one of them expects and saves a trip to the Admin page.
+                return new MidiSurfaceLink(d.Port);
             case DeviceLink.Tcp:
                 return DeviceAddress.TryParseHost(d.Port, d.NetPort, out var host, out var tcpPort) ? new TcpDeviceLink(host, tcpPort) : null;
             default:
@@ -220,33 +244,121 @@ public sealed class DeviceService : IDisposable
         Log.Info($"Device '{open.Config.Name}' closed.");
     }
 
+    private readonly List<string> _lamps = new();
+
     private void WriteTo(Open open, string line)
     {
+        // A surface that cannot read words can still light. A fact the show sends is turned into
+        // whatever lamps this device's own rows say it lights, and the words themselves are not
+        // sprayed at it — a MIDI port given "LOOK Walk-in" as bytes is a fault nobody could
+        // diagnose from the surface.
+        if (open.Config.Link == DeviceLink.Midi)
+        {
+            _lamps.Clear();
+            DeviceMap.Lamps(open.Config, line, _lamps);
+            foreach (var lamp in _lamps)
+            {
+                open.Link.Write(lamp);
+                open.Out++;
+                open.LastOut = lamp;
+            }
+            if (_lamps.Count > 0) open.Config.Status = StatusLine(open);
+            return;
+        }
+
         open.Link.Write(DeviceLines.Frame(line, open.Config.LineEnding));
         open.Out++;
         open.LastOut = line;
         open.Config.Status = StatusLine(open);
     }
 
-    /// <summary>A line from a device, on the link's thread: mapped, then run on the UI thread like every remote command.</summary>
+    private readonly Dictionary<string, Action<string>> _learning = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The next line this device sends goes to the caller instead of being run.
+    ///
+    /// This is how a control surface is mapped without anybody knowing its note numbers: press the
+    /// pad, and the row writes itself. The vendor's published sheet is a starting point and the
+    /// hardware is the truth, which is why the desk asks rather than assumes.
+    /// </summary>
+    public void Learn(string deviceName, Action<string> onLine)
+    {
+        if (string.IsNullOrWhiteSpace(deviceName)) return;
+        _learning[deviceName.Trim()] = onLine;
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(string Id, string Line)> _inbound = new();
+    private int _draining;
+
+    /// <summary>
+    /// A line from a device, on the link's thread: queued, and run on the UI thread like every
+    /// remote command.
+    ///
+    /// It used to post a closure per line, which was right while every device was a board sending a
+    /// few lines a second. A control surface is not that even after its faders are sampled — sixteen
+    /// encoders moving at once is hundreds of closures a second, each one an allocation on somebody
+    /// else's driver thread and a turn of the dispatcher on the thread that draws the desk. So lines
+    /// go into a queue and ONE closure is posted for the lot, on the leading edge: the first line
+    /// still runs in the very next dispatcher turn, and everything arriving behind it rides the
+    /// same drain rather than queueing a turn each.
+    /// </summary>
     private void OnLine(string id, string line)
     {
-        Dispatcher.UIThread.Post(() =>
+        _inbound.Enqueue((id, line));
+        if (Interlocked.Exchange(ref _draining, 1) != 0) return;
+        Dispatcher.UIThread.Post(Drain);
+    }
+
+    private void Drain()
+    {
+        try
+        {
+            while (_inbound.TryDequeue(out var item)) Handle(item.Id, item.Line);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _draining, 0);
+            // A line that arrived while the flag was still set would otherwise wait for the next
+            // one to wake the drain, so the queue is looked at once more after it is cleared.
+            if (!_inbound.IsEmpty && Interlocked.Exchange(ref _draining, 1) == 0) Dispatcher.UIThread.Post(Drain);
+        }
+    }
+
+    private void Handle(string id, string line)
+    {
         {
             if (_disposed || !_open.TryGetValue(id, out var open)) return;
             open.In++;
             open.LastIn = line;
             open.Config.Status = StatusLine(open);
+
+            // A row waiting to be learned takes this line and nothing else happens: the operator is
+            // pressing the pad to say which one it is, not asking the show to do anything.
+            if (_learning.Remove(open.Config.Name, out var learner))
+            {
+                Log.Info($"Device '{open.Config.Name}' learned '{line}'.");
+                learner(line);
+                return;
+            }
+
             var command = DeviceMap.Resolve(open.Config, line);
             if (command is null)
             {
-                Log.Info($"Device '{open.Config.Name}' said '{line}' — no trigger for it.");
+                // Said once per line, not once per message. Sixteen unmapped encoders on a control
+                // surface are hundreds of identical lines a second, and a log nobody can read
+                // through is a log that hides the one line that mattered.
+                if (open.LastUnmapped != line)
+                {
+                    open.LastUnmapped = line;
+                    Log.Info($"Device '{open.Config.Name}' said '{line}' — no trigger for it.");
+                }
                 if (open.Config.EchoReplies) WriteTo(open, $"ERR no trigger for '{line}'");
                 return;
             }
+            open.LastUnmapped = "";
             var origin = new ActionOrigin(OriginKind.Device, open.Config.Name);
             _ = RunAsync(open, command, origin);
-        });
+        }
     }
 
     private async Task RunAsync(Open open, string command, ActionOrigin origin)
@@ -285,6 +397,16 @@ public sealed class DeviceService : IDisposable
         var facts = DeviceFeedback.Facts(_router.StateJson());
         foreach (var open in listeners)
         {
+            // A device that has just arrived is told so, as a fact like any other — so a row can
+            // light a lamp, or wake a surface that needs a first word, without the desk growing a
+            // second way of saying things. It rides the throttled feedback rather than the
+            // reconcile, because writing to a device sets its status, and a status change is a
+            // model change that runs the reconcile again: announcing from there was a loop.
+            if (open.AnnounceOpen)
+            {
+                open.AnnounceOpen = false;
+                WriteTo(open, "OPEN 1");
+            }
             var changes = DeviceFeedback.Changes(facts, open.Heard);
             foreach (var line in changes) WriteTo(open, line);
             open.Heard = new Dictionary<string, string>(facts, StringComparer.Ordinal);
