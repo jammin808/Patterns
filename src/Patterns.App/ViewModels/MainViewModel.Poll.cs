@@ -173,18 +173,7 @@ public sealed partial class MainViewModel
         RefreshAfterChoices();
         StingerHolding = _services.Stingers.Holding;
         StingerHoldText = StingerHolding ? $"'{_services.Stingers.HoldName}' is holding the screens." : "";
-        SpotifyStatus = _services.Spotify.Status;
-        SpotifyAccountText = _services.Spotify.AccountText;
-        SpotifyNowPlaying = _services.Spotify.NowPlaying;
-        if (!ReferenceEquals(_spotifyDevicesSeen, _services.Spotify.Devices)) RefreshSpotifyDevices();       // CONNECT filled them in
-        if (!ReferenceEquals(_spotifyPlaylistsSeen, _services.Spotify.Playlists)) RefreshSpotifyPlaylists();
-        if (!ReferenceEquals(_spotifyTracksSeen, _services.Spotify.Tracks) ||
-            !ReferenceEquals(_spotifySearchSeen, _services.Spotify.SearchHits) ||
-            SpotifyBrowseStatus != _services.Spotify.BrowseStatus)
-        {
-            RefreshSpotifyBrowse();
-        }
-        RefreshLookMusicChoices(); // a renamed or added entry, a loaded show
+        Music.Poll();
         FractalAudioStatus = _services.Analyser.Status;
         if (ActivePattern.Kind is PatternKind.Fractal or PatternKind.Reactive) RefreshAudioCaptureDevices();
     }

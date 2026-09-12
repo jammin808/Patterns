@@ -457,6 +457,78 @@ public class SpotifyLibraryTests
         Assert.False(SpotifyLibrary.StartsMusic(state.LooksAndCues.Looks[1]));
         Assert.False(SpotifyLibrary.StartsMusic(state.LooksAndCues.Looks[2]));
     }
+
+    [Fact]
+    public void TheLookPickerListsLeavePauseEveryEntryAndAnOrphanedChoice()
+    {
+        var state = new ShowState();
+        state.Spotify.Items.Add(new SpotifyItemConfig { Id = "m-a", Name = "Interval bed", Uri = "spotify:playlist:A" });
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", MusicItemId = "m-a" });
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Old", MusicItemId = "m-gone" });   // the entry was deleted under it
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Speech", MusicItemId = LookConfig.PauseMusic });
+
+        var choices = SpotifyLibrary.LookChoices(state);
+        Assert.Equal(new[] { "", LookConfig.PauseMusic, "m-a", "m-gone" }, choices.Select(c => c.Id));
+        Assert.Equal("Leave the music alone", choices[0].Label);
+        Assert.Equal("Pause break music", choices[1].Label);
+        Assert.Equal("▶ Interval bed", choices[2].Label);
+        Assert.Equal("▶ (no longer in break music)", choices[3].Label);
+    }
+
+    [Fact]
+    public void ALinkBecomesAnEntryAndAnythingElseIsRefusedWithTheReason()
+    {
+        var state = new ShowState();
+        Assert.False(SpotifyLibrary.TryAddLink(state, "https://example.com/not-spotify", out var none, out var problem));
+        Assert.Null(none);
+        Assert.Contains("not a Spotify link", problem);
+        Assert.Empty(state.Spotify.Items);
+
+        Assert.True(SpotifyLibrary.TryAddLink(state, "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc", out var entry, out problem));
+        Assert.Equal("", problem);
+        Assert.NotNull(entry);
+        Assert.Equal("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M", entry!.Uri);
+        Assert.Same(entry, Assert.Single(state.Spotify.Items));
+    }
+
+    [Fact]
+    public void ABrowsedSongIsAddedOnceAndTheSecondPressFindsTheFirst()
+    {
+        var state = new ShowState();
+        var first = SpotifyLibrary.AddEntry(state, "spotify:track:T1", "Song — Artist", out var added);
+        Assert.True(added);
+        Assert.NotNull(first);
+        Assert.Equal("Song — Artist", first!.Name);
+        var again = SpotifyLibrary.AddEntry(state, "https://open.spotify.com/track/T1", "Song again", out added);
+        Assert.False(added);
+        Assert.Same(first, again);
+        Assert.Single(state.Spotify.Items);
+        Assert.Null(SpotifyLibrary.AddEntry(state, "nonsense", "x", out added));
+        Assert.False(added);
+    }
+
+    [Fact]
+    public void AnEntryACueOrALookStillUsesStaysUntilTheyLetGo()
+    {
+        var state = new ShowState();
+        var a = new SpotifyItemConfig { Id = "m-a", Name = "Interval bed", Uri = "spotify:playlist:A" };
+        var b = new SpotifyItemConfig { Id = "m-b", Uri = "spotify:album:B" };
+        state.Spotify.Items.Add(a);
+        state.Spotify.Items.Add(b);
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in", MusicItemId = "m-a" });
+
+        Assert.False(SpotifyLibrary.TryRemove(state, a, out var problem));
+        Assert.Equal("'Interval bed' is still used by look 'Walk-in' — remove those first.", problem);
+        Assert.Equal(2, state.Spotify.Items.Count);
+
+        Assert.True(SpotifyLibrary.TryRemove(state, b, out problem));
+        Assert.Equal("", problem);
+        Assert.Same(a, Assert.Single(state.Spotify.Items));
+
+        state.LooksAndCues.Looks[0].MusicItemId = "";
+        Assert.True(SpotifyLibrary.TryRemove(state, a, out _));
+        Assert.Empty(state.Spotify.Items);
+    }
 }
 
 /// <summary>Browsing and searching — the URLs and the readers, pure — and what a look remembers about music.</summary>

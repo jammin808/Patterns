@@ -501,96 +501,6 @@ public sealed partial class MainViewModel : Observable
         });
         StopStingerCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.StingerStop, ActionOrigin.Desk));
 
-        // Break music (Spotify): the desk's buttons go through the same verbs a cue and the remote use.
-        SpotifyConnectCommand = new RelayCommand(() => _ = ConnectSpotifyAsync());
-        SpotifyDisconnectCommand = new RelayCommand(() =>
-        {
-            _services.Spotify.Disconnect();
-            RefreshSpotifyDevices();
-            RefreshSpotifyPlaylists();
-        });
-        RefreshSpotifyDevicesCommand = new RelayCommand(() => _ = RefreshSpotifyDevicesAsync());
-        RefreshSpotifyPlaylistsCommand = new RelayCommand(() => _ = RefreshSpotifyPlaylistsAsync());
-        AddMusicItemCommand = new RelayCommand(() =>
-        {
-            if (!SpotifyUri.TryParse(MusicLinkDraft, out var r))
-            {
-                StatusMessage = "That is not a Spotify link — copy one from Spotify with Share → Copy link.";
-                return;
-            }
-            State.Spotify.Items.Add(new SpotifyItemConfig { Uri = r.Uri });
-            MusicLinkDraft = "";
-        });
-        AddSpotifyPlaylistCommand = new RelayCommand(() =>
-        {
-            if (SelectedSpotifyPlaylist is not { } list)
-            {
-                StatusMessage = "Choose one of your playlists first — press Refresh my playlists after CONNECT.";
-                return;
-            }
-            if (!SpotifyUri.TryParse(list.Uri, out var r)) return;
-            State.Spotify.Items.Add(new SpotifyItemConfig { Uri = r.Uri, Name = list.Name });
-        });
-        RemoveMusicItemCommand = new RelayCommand<SpotifyItemConfig>(item =>
-        {
-            if (item is null) return;
-            // A cue that plays a deleted entry fails at show time; refuse and say what points here.
-            var refs = SpotifyLibrary.References(State, item);
-            if (refs.Count > 0)
-            {
-                StatusMessage = $"'{item.DisplayName}' is still used by {string.Join(", ", refs)} — remove those first.";
-                return;
-            }
-            State.Spotify.Items.Remove(item);
-        });
-        PlayMusicItemCommand = new RelayCommand<SpotifyItemConfig>(item =>
-        {
-            if (item is null) return;
-            _services.Actions.Execute(ShowActionKind.SpotifyPlay, ActionOrigin.Desk, item.Id);
-        });
-        ResumeMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyPlay, ActionOrigin.Desk));
-        PauseMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyPause, ActionOrigin.Desk));
-        SkipMusicCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.SpotifyNext, ActionOrigin.Desk));
-        BrowseSpotifyPlaylistCommand = new RelayCommand(() =>
-        {
-            if (SelectedSpotifyPlaylist is not { } list)
-            {
-                StatusMessage = "Choose one of your playlists first — press Refresh my playlists after CONNECT.";
-                return;
-            }
-            _ = BrowseSpotifyAsync(list.Uri);
-        });
-        BrowseSpotifyLinkCommand = new RelayCommand(() =>
-        {
-            if (!SpotifyUri.TryParse(MusicLinkDraft, out var r))
-            {
-                StatusMessage = "Paste a Spotify playlist, album or artist link to browse its songs.";
-                return;
-            }
-            _ = BrowseSpotifyAsync(r.Uri);
-        });
-        AddSpotifyTrackCommand = new RelayCommand(() =>
-        {
-            if (SelectedSpotifyTrack is not { } track)
-            {
-                StatusMessage = "Pick a song in the list first.";
-                return;
-            }
-            AddMusicEntry(track.Uri, track.Line);
-        });
-        SearchSpotifyCommand = new RelayCommand(() => _ = SearchSpotifyAsync());
-        AddSpotifySearchHitCommand = new RelayCommand(() =>
-        {
-            if (SelectedSpotifySearchHit is not { } hit)
-            {
-                StatusMessage = "Pick a result first.";
-                return;
-            }
-            AddMusicEntry(hit.Uri, hit.EntryName);
-        });
-        RefreshSpotifyDevices();
-        RefreshLookMusicChoices();
-
         // VOG / stinger: the desk's own chips assert the kind, so a panel that is stale after a
         // re-kind on the Audio page refuses rather than surprises.
         FireVogCommand = new RelayCommand<StingerItemConfig>(item =>
@@ -779,6 +689,8 @@ public sealed partial class MainViewModel : Observable
             if (e.PropertyName == nameof(CueEditor.SelectedCue)) RefreshPopOut();   // the settings column follows the selected cue
         };
         Run = new RunViewModel(_services, this);
+        Assistant = new AssistantPage(this, _services);
+        Music = new MusicPage(this, _services);
 
         // The caller's home: a running order in and out of the Cues page
         var cues = Cues;
@@ -1034,17 +946,6 @@ public sealed partial class MainViewModel : Observable
     public RelayCommand<StingerItemConfig> FireVogCommand { get; }
     public RelayCommand<StingerItemConfig> FireStingCommand { get; }
     public RelayCommand StopStingerCommand { get; }
-    public RelayCommand SpotifyConnectCommand { get; }
-    public RelayCommand SpotifyDisconnectCommand { get; }
-    public RelayCommand RefreshSpotifyDevicesCommand { get; }
-    public RelayCommand RefreshSpotifyPlaylistsCommand { get; }
-    public RelayCommand AddMusicItemCommand { get; }
-    public RelayCommand AddSpotifyPlaylistCommand { get; }
-    public RelayCommand<SpotifyItemConfig> RemoveMusicItemCommand { get; }
-    public RelayCommand<SpotifyItemConfig> PlayMusicItemCommand { get; }
-    public RelayCommand ResumeMusicCommand { get; }
-    public RelayCommand PauseMusicCommand { get; }
-    public RelayCommand SkipMusicCommand { get; }
     public RelayCommand SandboxSendAllCommand { get; }
     public RelayCommand SandboxSendSelectedCommand { get; }
     public RelayCommand TakeCommand { get; }
@@ -1295,7 +1196,7 @@ public sealed partial class MainViewModel : Observable
         RefreshWallDestinations();   // another show, another set of walls and outputs
         _services.Cues.Reset(); // every list starts over, disarmed
         Cues.OnShowLoaded();
-        RefreshSpotifyDevices();
+        Music.OnShowLoaded();
         RefreshStingerGroups();
         RefreshAfterChoices();
         ReconcilePlacements();

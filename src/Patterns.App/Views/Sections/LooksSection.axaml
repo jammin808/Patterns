@@ -50,7 +50,7 @@
               <ComboBox Grid.Column="6" Name="LookMusic" MinWidth="150" MaxWidth="230"
                         SelectedValueBinding="{Binding Id, x:DataType=vm:LookMusicChoice}"
                         DisplayMemberBinding="{Binding Label, x:DataType=vm:LookMusicChoice}"
-                        ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LookMusicChoices}"
+                        ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Music.LookChoices}"
                         SelectedValue="{Binding MusicItemId, Mode=TwoWay}"
                         IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).State.Spotify.Enabled}"
                         ToolTip.Tip="Break music this look starts, or pauses, as it goes on air (Audio page entries)" />

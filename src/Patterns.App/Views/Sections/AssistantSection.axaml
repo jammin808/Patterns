@@ -66,29 +66,29 @@
                Text="An assistant for building the show: say how many screens you have, what the day looks like, which overlays you want, and it drafts planned screens, looks, cues, lower thirds and a brand as proposals — APPLY the ones you want; nothing changes until you do. A proposal that draws lands in the PREVIEW (EDIT SAFE opens if it was off) with the editing target on Program: what is on air stays exactly as it is until you press TAKE or CUT. It talks about Patterns and live-event AV only, never about how Patterns works inside. It needs the internet and your own Anthropic API key; the key lives beside the settings file on this machine, never in a show file. What it sees of your show: names and counts — screens, looks, cues, designs, overlays, the brand's colours — never a file, an address, a passcode or a key." />
 
     <TextBlock Classes="h2" Text="KEY" />
-    <TextBlock Classes="hint" Text="{Binding AssistantKeyText}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint" Text="{Binding Assistant.KeyText}" TextWrapping="Wrap" />
     <Grid ColumnDefinitions="*,6,Auto,6,Auto">
-      <TextBox Text="{Binding AssistantKeyDraft, Mode=TwoWay}" PasswordChar="•" Watermark="Paste an Anthropic API key (sk-ant-…) — from your own account at console.anthropic.com" />
-      <Button Grid.Column="2" Classes="mini" Content="SAVE KEY" Command="{Binding SaveAssistantKeyCommand}" ToolTip.Tip="Kept beside the settings file on this machine; nothing is sent until a question is asked" />
-      <Button Grid.Column="4" Classes="mini" Content="FORGET" Command="{Binding ForgetAssistantKeyCommand}" IsVisible="{Binding HasAssistantKey}" ToolTip.Tip="The key leaves this machine; the assistant is off" />
+      <TextBox Text="{Binding Assistant.KeyDraft, Mode=TwoWay}" PasswordChar="•" Watermark="Paste an Anthropic API key (sk-ant-…) — from your own account at console.anthropic.com" />
+      <Button Grid.Column="2" Classes="mini" Content="SAVE KEY" Command="{Binding Assistant.SaveKeyCommand}" ToolTip.Tip="Kept beside the settings file on this machine; nothing is sent until a question is asked" />
+      <Button Grid.Column="4" Classes="mini" Content="FORGET" Command="{Binding Assistant.ForgetKeyCommand}" IsVisible="{Binding Assistant.HasKey}" ToolTip.Tip="The key leaves this machine; the assistant is off" />
     </Grid>
 
     <TextBlock Classes="h2" Text="ASK" />
     <Grid ColumnDefinitions="*,8,Auto">
-      <TextBox Classes="ask" Text="{Binding AssistantInput, Mode=TwoWay}" IsEnabled="{Binding CanAskAssistant}" TextWrapping="Wrap"
+      <TextBox Classes="ask" Text="{Binding Assistant.Input, Mode=TwoWay}" IsEnabled="{Binding Assistant.CanAsk}" TextWrapping="Wrap"
                Watermark="Two screens, a walk-in look, a keynote at ten and a break at eleven — plan it for me…">
         <TextBox.KeyBindings>
-          <KeyBinding Gesture="Enter" Command="{Binding AskAssistantCommand}" />
+          <KeyBinding Gesture="Enter" Command="{Binding Assistant.AskCommand}" />
         </TextBox.KeyBindings>
       </TextBox>
-      <Button Grid.Column="2" Content="ASK" Command="{Binding AskAssistantCommand}" IsEnabled="{Binding CanAskAssistant}" VerticalAlignment="Stretch" Padding="18,8" FontWeight="Bold" ToolTip.Tip="Enter asks too" />
+      <Button Grid.Column="2" Content="ASK" Command="{Binding Assistant.AskCommand}" IsEnabled="{Binding Assistant.CanAsk}" VerticalAlignment="Stretch" Padding="18,8" FontWeight="Bold" ToolTip.Tip="Enter asks too" />
     </Grid>
     <!-- Files ride with the next ask: a screenshot, a brief, notes, a running order, a PDF, a Word or PowerPoint file, or a mixture -->
     <Grid ColumnDefinitions="Auto,10,*">
-      <Button Grid.Column="0" Classes="mini" Content="ATTACH…" Command="{Binding AttachAssistantFilesCommand}" IsEnabled="{Binding CanAskAssistant}" VerticalAlignment="Top"
+      <Button Grid.Column="0" Classes="mini" Content="ATTACH…" Command="{Binding Assistant.AttachFilesCommand}" IsEnabled="{Binding Assistant.CanAsk}" VerticalAlignment="Top"
               ToolTip.Tip="Pictures (a screenshot, a photo of the rig), PDFs, text and notes, spreadsheets (a running order), Word and PowerPoint files — read now, sent with the next ask; a picture is reduced to what the assistant reads best, a sheet becomes a table of words. Nothing is sent until you ASK." />
       <StackPanel Grid.Column="2" Spacing="4">
-        <ItemsControl ItemsSource="{Binding AssistantAttachments}" IsVisible="{Binding HasAssistantAttachments}">
+        <ItemsControl ItemsSource="{Binding Assistant.Attachments}" IsVisible="{Binding Assistant.HasAttachments}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <WrapPanel />
@@ -106,10 +106,10 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <TextBlock Classes="hint" Text="{Binding AssistantAttachmentsText}" TextWrapping="Wrap" IsVisible="{Binding HasAssistantAttachments}" />
+        <TextBlock Classes="hint" Text="{Binding Assistant.AttachmentsText}" TextWrapping="Wrap" IsVisible="{Binding Assistant.HasAttachments}" />
       </StackPanel>
     </Grid>
-    <ItemsControl ItemsSource="{Binding AssistantStarters}">
+    <ItemsControl ItemsSource="{Binding Assistant.Starters}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
           <WrapPanel />
@@ -118,21 +118,21 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="x:String">
           <Button Classes="mini" Margin="0,0,6,6" Content="{Binding}"
-                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AssistantStarterCommand}"
+                  Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Assistant.StarterCommand}"
                   CommandParameter="{Binding}" />
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>
-    <TextBlock Classes="label" Text="{Binding AssistantStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding Assistant.Status}" TextWrapping="Wrap" />
 
-    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasAssistantRows}" Margin="0,6,0,0">
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Assistant.HasRows}" Margin="0,6,0,0">
       <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
         <TextBlock Classes="h2" Text="CONVERSATION" Margin="0" />
         <TextBlock Classes="hint" Text="newest first" VerticalAlignment="Center" />
       </StackPanel>
-      <Button Grid.Column="1" Classes="mini" Content="CLEAR" Command="{Binding ClearAssistantCommand}" ToolTip.Tip="Start afresh — the assistant forgets this session's turns" />
+      <Button Grid.Column="1" Classes="mini" Content="CLEAR" Command="{Binding Assistant.ClearCommand}" ToolTip.Tip="Start afresh — the assistant forgets this session's turns" />
     </Grid>
-    <ItemsControl ItemsSource="{Binding AssistantRows}">
+    <ItemsControl ItemsSource="{Binding Assistant.Rows}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:AssistantRow">
           <Border Classes="turn" Classes.mine="{Binding IsMine}" Classes.declined="{Binding IsDeclined}" Classes.latest="{Binding IsLatest}">

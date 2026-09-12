@@ -807,9 +807,9 @@ public class SpotifyAppTests
             b.Vm.State.Spotify.Items.Add(new SpotifyItemConfig { Name = "Interval bed", Uri = "spotify:playlist:X" });
             b.Vm.State.Spotify.Items.Add(new SpotifyItemConfig { Uri = "spotify:track:Y", Shuffle = true });
             Dispatcher.UIThread.RunJobs();
-            Assert.Contains("http://127.0.0.1:8724/callback", b.Vm.SpotifyRedirectUris);
-            Assert.Equal(3, b.Vm.SpotifyRedirectUris.Split('\n').Length);
-            Assert.Equal("Whichever device is active", Assert.Single(b.Vm.SpotifyDevices).Label);
+            Assert.Contains("http://127.0.0.1:8724/callback", b.Vm.Music.RedirectUris);
+            Assert.Equal(3, b.Vm.Music.RedirectUris.Split('\n').Length);
+            Assert.Equal("Whichever device is active", Assert.Single(b.Vm.Music.Devices).Label);
 
             var host = new Window { DataContext = b.Vm, Width = 700, Height = 1400 };
             var show = new ShowSection();
@@ -898,12 +898,12 @@ public class SpotifyAppTests
             var stack = CueStacks.Caller(vm.State);
             stack.Cues.Add(new RunCueConfig { Number = "03.020", Name = "Interval", Actions = { new CueActionConfig { Kind = ShowActionKind.SpotifyPlay, Target = a.Id } } });
 
-            vm.RemoveMusicItemCommand.Execute(a);
+            vm.Music.RemoveCommand.Execute(a);
             Assert.Contains(a, vm.State.Spotify.Items);
             Assert.Contains("03.020 Interval", vm.StatusMessage);
             Assert.Contains("Interval bed", vm.StatusMessage);
 
-            vm.RemoveMusicItemCommand.Execute(other);
+            vm.Music.RemoveCommand.Execute(other);
             Assert.DoesNotContain(other, vm.State.Spotify.Items);
         }
         finally
@@ -919,34 +919,34 @@ public class SpotifyAppTests
         try
         {
             var vm = b.Vm;
-            vm.MusicLinkDraft = "https://open.spotify.com/playlist/X?si=1";
-            vm.AddMusicItemCommand.Execute(null);
+            vm.Music.LinkDraft = "https://open.spotify.com/playlist/X?si=1";
+            vm.Music.AddLinkCommand.Execute(null);
             var item = Assert.Single(vm.State.Spotify.Items);
             Assert.Equal("spotify:playlist:X", item.Uri);
             Assert.Equal("LIST", item.KindLabel);
-            Assert.Equal("", vm.MusicLinkDraft);
+            Assert.Equal("", vm.Music.LinkDraft);
 
-            vm.MusicLinkDraft = "https://youtube.com/x";
-            vm.AddMusicItemCommand.Execute(null);
+            vm.Music.LinkDraft = "https://youtube.com/x";
+            vm.Music.AddLinkCommand.Execute(null);
             Assert.Single(vm.State.Spotify.Items);
             Assert.Contains("Share → Copy link", vm.StatusMessage);
-            Assert.Equal("https://youtube.com/x", vm.MusicLinkDraft); // left for the operator to fix
+            Assert.Equal("https://youtube.com/x", vm.Music.LinkDraft); // left for the operator to fix
 
-            vm.AddSpotifyPlaylistCommand.Execute(null);   // nothing chosen yet: a sentence, not a crash
+            vm.Music.AddPlaylistCommand.Execute(null);   // nothing chosen yet: a sentence, not a crash
             Assert.Contains("Refresh my playlists", vm.StatusMessage);
-            vm.SpotifyPlaylists.Add(new SpotifyPlaylistRef("spotify:playlist:P", "Walk-in", 40));
-            vm.SelectedSpotifyPlaylist = vm.SpotifyPlaylists[0];
-            vm.AddSpotifyPlaylistCommand.Execute(null);
+            vm.Music.Playlists.Add(new SpotifyPlaylistRef("spotify:playlist:P", "Walk-in", 40));
+            vm.Music.SelectedPlaylist = vm.Music.Playlists[0];
+            vm.Music.AddPlaylistCommand.Execute(null);
             Assert.Equal(2, vm.State.Spotify.Items.Count);
             Assert.Equal(("spotify:playlist:P", "Walk-in"), (vm.State.Spotify.Items[1].Uri, vm.State.Spotify.Items[1].Name));
 
             // The device picker keeps the show's choice even when Spotify has not listed it.
             vm.State.Spotify.DeviceName = "Lobby speaker";
-            vm.RefreshSpotifyDevicesCommand.Execute(null);
+            vm.Music.RefreshDevicesCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal("Lobby speaker", vm.SelectedSpotifyDevice!.Name);
-            Assert.Contains("not on Spotify right now", vm.SelectedSpotifyDevice.Label);
-            vm.SelectedSpotifyDevice = vm.SpotifyDevices[0];
+            Assert.Equal("Lobby speaker", vm.Music.SelectedDevice!.Name);
+            Assert.Contains("not on Spotify right now", vm.Music.SelectedDevice.Label);
+            vm.Music.SelectedDevice = vm.Music.Devices[0];
             Assert.Equal("", vm.State.Spotify.DeviceName);
         }
         finally
@@ -987,11 +987,11 @@ public class SpotifyAppTests
         var total = 120;
         r.Fake.Answer = q => q.Url.Contains("/playlists/P/tracks") ? new SpotifyReply(200, PlaylistPage(OffsetOf(q.Url), total)) : null;
         var vm = r.Vm;
-        vm.BrowseSpotifyPlaylistCommand.Execute(null);          // nothing chosen yet: a sentence
+        vm.Music.BrowsePlaylistCommand.Execute(null);          // nothing chosen yet: a sentence
         Assert.Contains("Choose one of your playlists", vm.StatusMessage);
-        vm.SpotifyPlaylists.Add(new SpotifyPlaylistRef("spotify:playlist:P", "Walk-in", total));
-        vm.SelectedSpotifyPlaylist = vm.SpotifyPlaylists[0];
-        vm.BrowseSpotifyPlaylistCommand.Execute(null);
+        vm.Music.Playlists.Add(new SpotifyPlaylistRef("spotify:playlist:P", "Walk-in", total));
+        vm.Music.SelectedPlaylist = vm.Music.Playlists[0];
+        vm.Music.BrowsePlaylistCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(new[] { 0, 50, 100 }, r.Fake.Of("/playlists/P/tracks").Select(q => OffsetOf(q.Url)).ToArray());
@@ -999,43 +999,43 @@ public class SpotifyAppTests
         Assert.Equal(118, r.Spotify.Tracks.Count);              // the local file and the removed song are skipped
         Assert.Equal("spotify:playlist:P", r.Spotify.TracksOf);
         Assert.Equal("118 songs.", r.Spotify.BrowseStatus);
-        Assert.Equal(118, vm.SpotifyTracks.Count);
-        Assert.Equal("118 songs.", vm.SpotifyBrowseStatus);
-        Assert.Equal("Artist · Song 0  ·  3:00", vm.SpotifyTracks[0].ToString());
+        Assert.Equal(118, vm.Music.Tracks.Count);
+        Assert.Equal("118 songs.", vm.Music.BrowseStatus);
+        Assert.Equal("Artist · Song 0  ·  3:00", vm.Music.Tracks[0].ToString());
 
         // A browsed song becomes a one-press entry named like the read-back; the same song twice stays one entry.
-        vm.AddSpotifyTrackCommand.Execute(null);
+        vm.Music.AddTrackCommand.Execute(null);
         Assert.Contains("Pick a song", vm.StatusMessage);
-        vm.SelectedSpotifyTrack = vm.SpotifyTracks[5];       // songs 0, 3, 4, 5, 6, 7 — the two skipped ones are not there
-        vm.AddSpotifyTrackCommand.Execute(null);
+        vm.Music.SelectedTrack = vm.Music.Tracks[5];       // songs 0, 3, 4, 5, 6, 7 — the two skipped ones are not there
+        vm.Music.AddTrackCommand.Execute(null);
         var item = Assert.Single(vm.State.Spotify.Items);
         Assert.Equal(("spotify:track:T7", "Artist · Song 7"), (item.Uri, item.Name));
-        vm.AddSpotifyTrackCommand.Execute(null);
+        vm.Music.AddTrackCommand.Execute(null);
         Assert.Single(vm.State.Spotify.Items);
         Assert.Contains("already", vm.StatusMessage);
 
         // A long listing stops at the cap and says so; a pasted link browses the same way.
         total = 900;
         r.Fake.Requests.Clear();
-        vm.MusicLinkDraft = "https://open.spotify.com/playlist/P?si=1";
-        vm.BrowseSpotifyLinkCommand.Execute(null);
+        vm.Music.LinkDraft = "https://open.spotify.com/playlist/P?si=1";
+        vm.Music.BrowseLinkCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(10, r.Fake.Count("/playlists/P/tracks"));
         Assert.Equal(498, r.Spotify.Tracks.Count);
-        Assert.Equal("First 498 songs of 900.", vm.SpotifyBrowseStatus);
+        Assert.Equal("First 498 songs of 900.", vm.Music.BrowseStatus);
 
         // A song has nothing to browse; a link that is not Spotify is a sentence, not a request.
         r.Fake.Requests.Clear();
-        vm.MusicLinkDraft = "spotify:track:T1";
-        vm.BrowseSpotifyLinkCommand.Execute(null);
+        vm.Music.LinkDraft = "spotify:track:T1";
+        vm.Music.BrowseLinkCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
-        Assert.Contains("a song has nothing inside it", vm.SpotifyBrowseStatus);
-        vm.MusicLinkDraft = "https://youtube.com/x";
-        vm.BrowseSpotifyLinkCommand.Execute(null);
+        Assert.Contains("a song has nothing inside it", vm.Music.BrowseStatus);
+        vm.Music.LinkDraft = "https://youtube.com/x";
+        vm.Music.BrowseLinkCommand.Execute(null);
         Assert.Contains("Paste a Spotify playlist", vm.StatusMessage);
         // No browse went out; the desk's own one-second poll may have asked Spotify for the player's state in the meantime, which is not a browse.
         Assert.DoesNotContain(r.Fake.Requests, q => q.Url.Contains("/playlists") || q.Url.Contains("/tracks") || q.Url.Contains("/search"));
-        Assert.Equal(498, vm.SpotifyTracks.Count);              // the last good listing stays
+        Assert.Equal(498, vm.Music.Tracks.Count);              // the last good listing stays
     }
 
     [AvaloniaFact]
@@ -1048,43 +1048,43 @@ public class SpotifyAppTests
                 "\"playlists\":{\"items\":[null,{\"uri\":\"spotify:playlist:P\",\"name\":\"Chill\",\"owner\":{\"display_name\":\"Ben\"}}]}}")
             : null;
         var vm = r.Vm;
-        vm.SearchSpotifyCommand.Execute(null);                  // nothing typed
+        vm.Music.SearchCommand.Execute(null);                  // nothing typed
         Dispatcher.UIThread.RunJobs();
-        Assert.Contains("Type a song", vm.SpotifyBrowseStatus);
+        Assert.Contains("Type a song", vm.Music.BrowseStatus);
         Assert.Empty(r.Fake.Of("/search?"));
 
-        vm.MusicSearchDraft = " bonobo ";
-        vm.SearchSpotifyCommand.Execute(null);
+        vm.Music.SearchDraft = " bonobo ";
+        vm.Music.SearchCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
         var search = Assert.Single(r.Fake.Of("/search?"));
         Assert.Contains("q=bonobo&", search.Url);
         Assert.Equal("A", search.Bearer);
-        Assert.Equal(2, vm.SpotifySearchHits.Count);
-        Assert.Equal("2 results — pick one and ADD.", vm.SpotifyBrowseStatus);
-        Assert.Equal("SONG  Kerala — Bonobo", vm.SpotifySearchHits[0].ToString());
+        Assert.Equal(2, vm.Music.SearchHits.Count);
+        Assert.Equal("2 results — pick one and ADD.", vm.Music.BrowseStatus);
+        Assert.Equal("SONG  Kerala — Bonobo", vm.Music.SearchHits[0].ToString());
 
-        vm.AddSpotifySearchHitCommand.Execute(null);            // nothing picked
+        vm.Music.AddSearchHitCommand.Execute(null);            // nothing picked
         Assert.Contains("Pick a result", vm.StatusMessage);
-        vm.SelectedSpotifySearchHit = vm.SpotifySearchHits[1];
-        vm.AddSpotifySearchHitCommand.Execute(null);
-        vm.SelectedSpotifySearchHit = vm.SpotifySearchHits[0];
-        vm.AddSpotifySearchHitCommand.Execute(null);
+        vm.Music.SelectedSearchHit = vm.Music.SearchHits[1];
+        vm.Music.AddSearchHitCommand.Execute(null);
+        vm.Music.SelectedSearchHit = vm.Music.SearchHits[0];
+        vm.Music.AddSearchHitCommand.Execute(null);
         Assert.Equal(new[] { ("spotify:playlist:P", "Chill"), ("spotify:track:T", "Bonobo · Kerala") },
             vm.State.Spotify.Items.Select(i => (i.Uri, i.Name)).ToArray());
 
         r.Fake.Throw = true;
-        vm.SearchSpotifyCommand.Execute(null);
+        vm.Music.SearchCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("Spotify is unavailable — check the network.", vm.SpotifyBrowseStatus);
-        Assert.Equal(2, vm.SpotifySearchHits.Count);            // the last good answer stays listed
+        Assert.Equal("Spotify is unavailable — check the network.", vm.Music.BrowseStatus);
+        Assert.Equal(2, vm.Music.SearchHits.Count);            // the last good answer stays listed
 
         // Not signed in: a sentence, and no request at all.
         r.Fake.Throw = false;
         r.Fake.Requests.Clear();
         r.Spotify.Disconnect();
-        vm.SearchSpotifyCommand.Execute(null);
+        vm.Music.SearchCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal("Not connected — press CONNECT on the Audio page.", vm.SpotifyBrowseStatus);
+        Assert.Equal("Not connected — press CONNECT on the Audio page.", vm.Music.BrowseStatus);
         Assert.Empty(r.Fake.Requests);
     }
 
@@ -1188,7 +1188,7 @@ public class SpotifyAppTests
 
         // Deleting an entry a look starts is refused and names the look.
         look.MusicItemId = item.Id;
-        vm.RemoveMusicItemCommand.Execute(item);
+        vm.Music.RemoveCommand.Execute(item);
         Assert.Contains(item, vm.State.Spotify.Items);
         Assert.Contains("look 'Walk-in'", vm.StatusMessage);
     }
@@ -1208,8 +1208,8 @@ public class SpotifyAppTests
             var look = LookService.Find(vm.State, "Walk-in")!;
             look.MusicItemId = bed.Id;
             vm.PollNow();
-            Assert.Equal(new[] { "", LookConfig.PauseMusic, bed.Id }, vm.LookMusicChoices.Select(c => c.Id).ToArray());
-            Assert.Equal("▶ Interval bed", vm.LookMusicChoices[2].Label);
+            Assert.Equal(new[] { "", LookConfig.PauseMusic, bed.Id }, vm.Music.LookChoices.Select(c => c.Id).ToArray());
+            Assert.Equal("▶ Interval bed", vm.Music.LookChoices[2].Label);
 
             var host = new Window { DataContext = vm, Width = 900, Height = 700, Content = new ScrollViewer { Content = new LooksSection() } };
             host.Show();
@@ -1225,21 +1225,21 @@ public class SpotifyAppTests
             vm.State.Spotify.Items.Add(new SpotifyItemConfig { Name = "Walk-out", Uri = "spotify:album:Y" });
             vm.PollNow();
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal("▶ Doors bed", vm.LookMusicChoices[2].Label);
-            Assert.Equal(4, vm.LookMusicChoices.Count);
+            Assert.Equal("▶ Doors bed", vm.Music.LookChoices[2].Label);
+            Assert.Equal(4, vm.Music.LookChoices.Count);
             Assert.Equal(bed.Id, look.MusicItemId);
-            Assert.Same(vm.LookMusicChoices[2], picker.SelectedItem);
+            Assert.Same(vm.Music.LookChoices[2], picker.SelectedItem);
 
             // A look naming an entry that has gone keeps an offered, marked choice rather than losing it.
             look.MusicItemId = "ghost";
             vm.PollNow();
-            Assert.Contains(vm.LookMusicChoices, c => c.Id == "ghost" && c.Label.Contains("no longer"));
+            Assert.Contains(vm.Music.LookChoices, c => c.Id == "ghost" && c.Label.Contains("no longer"));
             look.MusicItemId = bed.Id;
             vm.PollNow();
-            Assert.DoesNotContain(vm.LookMusicChoices, c => c.Id == "ghost");
+            Assert.DoesNotContain(vm.Music.LookChoices, c => c.Id == "ghost");
 
             // Picking "pause" writes through; switching break music off hides the picker.
-            picker.SelectedItem = vm.LookMusicChoices[1];
+            picker.SelectedItem = vm.Music.LookChoices[1];
             Assert.Equal(LookConfig.PauseMusic, look.MusicItemId);
             vm.State.Spotify.Enabled = false;
             Dispatcher.UIThread.RunJobs();

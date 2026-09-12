@@ -49,4 +49,58 @@ public static class SpotifyLibrary
     /// <summary>True when a look names an entry to play (not "leave it", not "pause").</summary>
     public static bool StartsMusic(LookConfig look)
         => look.MusicItemId.Length > 0 && look.MusicItemId != LookConfig.PauseMusic;
+
+    /// <summary>The Music picker's choices on every look: leave it, pause it, each entry, and any entry a look still names that is no longer in the list (marked, so the look keeps its choice until it is pointed elsewhere).</summary>
+    public static List<(string Id, string Label)> LookChoices(ShowState state)
+    {
+        var wanted = new List<(string Id, string Label)> { ("", "Leave the music alone"), (LookConfig.PauseMusic, "Pause break music") };
+        foreach (var m in state.Spotify.Items) wanted.Add((m.Id, "▶ " + m.DisplayName));
+        foreach (var look in state.LooksAndCues.Looks)
+        {
+            var id = look.MusicItemId;
+            if (id.Length > 0 && wanted.All(w => w.Id != id)) wanted.Add((id, "▶ (no longer in break music)"));
+        }
+        return wanted;
+    }
+
+    /// <summary>A Spotify link pasted on the desk becomes an entry (named by its kind until the operator names it); false with the reason when it is not a Spotify link.</summary>
+    public static bool TryAddLink(ShowState state, string? link, out SpotifyItemConfig? entry, out string problem)
+    {
+        entry = null;
+        problem = "";
+        if (!SpotifyUri.TryParse(link ?? "", out var r))
+        {
+            problem = "That is not a Spotify link — copy one from Spotify with Share → Copy link.";
+            return false;
+        }
+        entry = new SpotifyItemConfig { Uri = r.Uri };
+        state.Spotify.Items.Add(entry);
+        return true;
+    }
+
+    /// <summary>A browsed song, a playlist or a search hit becomes a one-press entry; the same link twice stays one entry (the existing one comes back, <paramref name="added"/> false).</summary>
+    public static SpotifyItemConfig? AddEntry(ShowState state, string uri, string name, out bool added)
+    {
+        added = false;
+        if (!SpotifyUri.TryParse(uri, out var r)) return null;
+        if (state.Spotify.Items.FirstOrDefault(i => i.Uri == r.Uri) is { } existing) return existing;
+        var entry = new SpotifyItemConfig { Uri = r.Uri, Name = name };
+        state.Spotify.Items.Add(entry);
+        added = true;
+        return entry;
+    }
+
+    /// <summary>Takes an entry out of the list — refused, with what still points at it, while a cue plays it or a look starts it (a deleted entry fails at show time).</summary>
+    public static bool TryRemove(ShowState state, SpotifyItemConfig item, out string problem)
+    {
+        problem = "";
+        var refs = References(state, item);
+        if (refs.Count > 0)
+        {
+            problem = $"'{item.DisplayName}' is still used by {string.Join(", ", refs)} — remove those first.";
+            return false;
+        }
+        state.Spotify.Items.Remove(item);
+        return true;
+    }
 }

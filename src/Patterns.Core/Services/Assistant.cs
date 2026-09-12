@@ -1055,6 +1055,7 @@ public static class AssistantApply
         design.Preset = preset;
         Fill(design, part);
         state.LowerThirds.Designs.Add(design);
+        new LowerThirds.LowerThirdDesigner(state.LowerThirds).AdoptDefault(design);   // the first design of a show is its default (★)
         report.Applied.Add($"lower third '{name}' ({preset}) added");
         return design;
     }
