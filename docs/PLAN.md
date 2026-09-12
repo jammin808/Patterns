@@ -4945,3 +4945,114 @@ run through a fake camera that reads the overlay, the photographs path, the demo
 and the outputs' structured light rendered and read back; the lock against a fake machine —
 every item, the receipt, the auto-lock with the outputs, the pending restart, the wire and the
 super-check.
+
+## 51. Round 34 — the twin's ownership hardened
+
+*A review of the branch put it plainly: the twin had become capable enough that its remaining
+edge cases could reach a live show. Two fail-open paths in the takeover — a hung main that could
+not be ended, a marker that could not be written — and the takeover went ahead regardless; a
+main with no key, which any machine on the network could join, hold closed and hand a show; and
+the cross-machine silence, which cannot tell a main that died from a cable that was cut. The
+invariant asked for: at any instant, exactly one Patterns process can possess output authority.*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | A main with no key is given one before its port opens, and said out loud; a join without it — or with it wrong, whatever it claims — is refused (§51.1). | done |
+| 2 | The takeover fails closed: marked on disk first, the hung main ended second and confirmed gone; either failing, refused with the reason and the hold kept; TAKE OVER ANYWAY / `TWIN TAKEOVER FORCE` by hand only; a refused takeover by itself tried again after ten seconds, not every second (§51.2). | done |
+| 3 | A standby on this machine that dies with the show: the main lands what it sent and puts the show back on itself, saying so (§51.3). | done |
+| 4 | The wall-switch cue as the cross-machine fence, fired on takeover and on take-back; taking over by itself from another machine needs one (§51.4). | done |
+| 5 | Adversarial tests: the kill that fails, the marker that cannot be written, the forged join, the standby that dies with the show, the silence without a switch (§51.5). | done |
+
+### 51.1 The key
+
+`TwinKeys.New()` (Core): sixteen letters and digits from the machine's random source, in fours,
+from an alphabet with nothing that reads two ways over a phone (no i, l, o, 0 or 1). The twin
+service's `Reconcile` makes one the moment the role is Main and the key is empty, saves it through
+the desk's own edit path and says it on the status line — the port opens on the publish that
+follows, never before. The join check no longer has a keyless branch: a main whose key is empty
+refuses every join ("this main has no key yet"), and any other join is refused unless the keys
+match, whether or not it claims to have the show. What this closes: a machine on the network
+that joined a keyless main was welcomed with the whole mirrored show — the weather API key and
+every interactive device's secret among it, since those sections travel — and one that claimed
+the show closed the main's outputs at once and could then send a show the main would keep and
+apply on TAKE BACK. The local launcher already passed the key to the standby it starts, so a
+main that runs its own standby needs nothing done.
+
+### 51.2 The fence, in order
+
+`TakeOver` is now a fence and then a commit, and nothing is let go of until the fence holds:
+
+1. **The marker first.** The takeover is written to disk in the standby's own folder — cheap and
+   reversible. Only a main on this machine ever reads it, so a write that fails is fatal only
+   when the main is local; for a main elsewhere it is logged and the takeover goes on.
+2. **The hung main second.** A main on this very machine that is still up but stopped beating
+   is ended — and only a process that is provably the one the welcome named (the same start
+   time) and provably Patterns. `SystemProcessProbe.Kill` now says "ended" only once the process
+   is gone: it returns what `WaitForExit` returns, where before a process still on its way out
+   after five seconds was reported as ended and the screens were opened on the strength of it.
+   The start-up reclaim of orphaned windows uses the same probe and gets the same fix.
+3. **Either failing, refused.** The marker just written is cleared (a marker that says this
+   desk has the show would be a lie), the hold stays, the phase stays, the link is left as it
+   was, and the words say why: "Not taken over: MAIN-DESK's process (pid 4242) is still up and
+   could not be ended. The outputs stay held closed — TAKE OVER ANYWAY (Machine page, TWIN) or
+   TWIN TAKEOVER FORCE overrides, by hand only." The status line carries the reason while the
+   silence lasts; a takeover by itself that was refused is tried again after ten seconds
+   (`TwinWatch.RetryAfterRefusal`), not on every tick.
+4. **The override.** TAKE OVER ANYWAY on the Machine page and `TWIN TAKEOVER FORCE` on the wire
+   take over regardless, and the words say "— taken over anyway". A press only: the tick's own
+   takeover never forces.
+5. **Then the commit** as before: the link dropped for good, the hold lifted, the air record
+   the main sent last put back through the watchdog's path — and now the wall-switch cue.
+
+### 51.3 The standby that dies with the show
+
+Before: the launcher restarted a standby that crashed with the show, it came back standing by
+with its outputs held, the main saw the marker's process gone, released its hold and told the
+operator that OUTPUTS ON would put the show on. The room stayed dark until somebody pressed
+something, which is the very thing a standby is there to prevent. Now `CheckMarker` tells the
+two endings apart: a marker that is *cleared* means the standby stood by again on purpose
+(release, as before); a marker that *stands but whose process is gone* means it died with the
+show, and `HolderDied` lands the show the standby sent while it ran, if any, and puts what it
+had on air back on this desk through the same recovery path a takeover uses, saying so. For that
+the held show and air must survive the link dropping: the standby's socket closes before its
+marker reads dead, and the link-loss path used to throw them away — it now keeps them while the
+marker holds and lets the marker decide. A standby *elsewhere* that merely leaves the link is
+not this: a link that dropped cannot say whether that desk still runs the show, so the main
+releases and the operator decides, as before.
+
+### 51.4 The wall switch
+
+Between two machines the room does not see either desk's outputs directly: the pictures reach
+the wall through a switcher, a matrix or a projector's input, and whichever input the room shows
+is the desk that is running the show. That is the exclusive ownership the review asked for, in
+the form the room actually has, and Patterns already drives those boxes — the endpoints of round
+31: a switcher's HTTP or OSC verb, a PJLink input, in a cue. So `TwinConfig` gains a wall-switch
+cue (`TakeOverCue`: by number, name or id) and a take-back cue (`TakeBackCue`), each machine's
+own since the twin section never travels. The standby fires its cue once the show is on after a
+takeover; the main fires its own on TAKE BACK; the words say "Wall switch: cue 'Wall to standby'
+fired." or why not. And `TwinWatch.AutoTakeOverBlocked` is the rule: a standby may take over by
+itself when the main is on this machine (the kill is the fence) or when a wall-switch cue is set
+(the switcher is); otherwise the silence reads "MAIN X SILENT for 8 s — TAKE OVER? · no
+wall-switch cue for a main on another machine, so not by itself: TAKE OVER is yours", said once
+on the status line and in the log. `CueFire` — and so the cue named here — now resolves a cue by
+its id, its number or its name, as CUE STANDBY always did.
+
+Said plainly, what still stands: with the switch cue set, a cut cable between two machines
+makes the standby take the wall while the main, still running, keeps its outputs live behind a
+switcher that no longer shows them — the room follows the switch, which is the intended
+resolution, and the main's operator sees the standby's join say it has the show once the link
+returns. A lease on a third machine, a witness, would be the next step; not this round's.
+
+### 51.5 The suite
+
+Every change ran against both suites: 1,049 core and 543 headless UI tests green. New:
+a main with no key is given one and a join without it — even one claiming the show — is refused
+with the outputs never held; a takeover on this machine refused while the hung main cannot be
+ended (the kill counted once per ten seconds, the marker not left behind, the hold kept), a
+press refused the same way, and FORCE taking over anyway; a takeover refused when the marker
+cannot be written for a main on this machine and not for one elsewhere, and refused before
+anything is ended; a main whose local standby dies with the show — the link dropping first,
+the held show kept, then the process gone — landing its show and putting its air back on; a
+standby of a main on another machine that will not take over by itself without a wall-switch
+cue, and does with one, firing it; the real probe ending a process and saying so only once it is
+gone; `TWIN TAKEOVER FORCE` on the wire; the rules and the words in Core.

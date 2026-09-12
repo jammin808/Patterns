@@ -20,7 +20,7 @@ public sealed partial class ShowActions
 
             case ShowActionKind.CueFire:
             {
-                var found = CueStacks.FindCue(State, a.Target);
+                var found = CueStacks.FindCueByWord(State, a.Target);      // its id, its number or its name
                 if (found is null) return ActionResult.Refused($"No cue '{a.Target}'.");
                 return RunCue(found.Value.Stack, found.Value.Cue, origin);
             }

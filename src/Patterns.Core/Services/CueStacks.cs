@@ -47,6 +47,32 @@ public static class CueStacks
         return null;
     }
 
+    /// <summary>A cue by its id, else its number, else its name (case blind), across every stack — the word a verb, a setting or an operator gives.</summary>
+    public static (CueStackConfig Stack, RunCueConfig Cue)? FindCueByWord(ShowState state, string word)
+    {
+        word = (word ?? "").Trim();
+        if (word.Length == 0) return null;
+        if (FindCue(state, word) is { } byId) return byId;
+        if (CueNumber.Parse(word) is not null)
+        {
+            foreach (var s in state.Stacks)
+            {
+                foreach (var c in s.Cues)
+                {
+                    if (CueNumber.Compare(c.Number, word) == 0) return (s, c);
+                }
+            }
+        }
+        foreach (var s in state.Stacks)
+        {
+            foreach (var c in s.Cues)
+            {
+                if (string.Equals(c.Name, word, StringComparison.OrdinalIgnoreCase)) return (s, c);
+            }
+        }
+        return null;
+    }
+
     public static (CueStackConfig Stack, RunCueConfig Cue)? FindCue(ShowState state, string cueId)
     {
         foreach (var s in state.Stacks)

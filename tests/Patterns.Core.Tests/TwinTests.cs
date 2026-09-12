@@ -157,6 +157,8 @@ public class TwinTests
         Assert.EndsWith("1 section mirrored · outputs held closed · takes over on silence.", TwinWatch.DescribeStandby(TwinPhase.InStep, "MAIN-DESK", now, 1, true, now));
         Assert.Equal("MAIN MAIN-DESK SILENT for 7 s — TAKE OVER?", TwinWatch.DescribeStandby(TwinPhase.MainSilent, "MAIN-DESK", now.AddSeconds(-7), 4, false, now));
         Assert.Equal("MAIN MAIN-DESK SILENT for 7 s — taking over…", TwinWatch.DescribeStandby(TwinPhase.MainSilent, "MAIN-DESK", now.AddSeconds(-7), 4, true, now));
+        Assert.Equal("MAIN MAIN-DESK SILENT for 7 s — TAKE OVER? · not taken over: the hung main could not be ended",
+            TwinWatch.DescribeStandby(TwinPhase.MainSilent, "MAIN-DESK", now.AddSeconds(-7), 4, false, now, "not taken over: the hung main could not be ended"));
         Assert.Equal("TOOK OVER from MAIN-DESK at 19:00:00 — this desk runs the show now. STAND BY AGAIN once MAIN-DESK is back.",
             TwinWatch.DescribeStandby(TwinPhase.TookOver, "MAIN-DESK", null, 4, false, now, "at 19:00:00"));
         Assert.Equal("STANDBY — MAIN-DESK refused the link: wrong key. Check the key on both machines.",
@@ -210,5 +212,21 @@ public class TwinTests
         Assert.Equal("in step", HealthDashboard.Tiles(inStep).Single(t => t.Id == "watchdog").Value);
         Assert.Contains(SuperCheck.Run(inStep).Rows, r => r.Item == "Twin" && r.Light == CheckLight.Green);
         Assert.DoesNotContain(SuperCheck.Run(new CheckFacts()).Rows, r => r.Item == "Twin");
+    }
+
+    [Fact]
+    public void AMainIsGivenAKeyThatReadsOneWayAndTakingOverByItselfAcrossMachinesNeedsAWallSwitch()
+    {
+        var key = TwinKeys.New();
+        Assert.Matches("^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$", key);
+        Assert.DoesNotContain(key, c => c is 'i' or 'l' or 'o' or '0' or '1');
+        Assert.NotEqual(key, TwinKeys.New());
+        Assert.True(TwinKeys.LooksMade(key));
+        Assert.False(TwinKeys.LooksMade("hunter2"));
+
+        Assert.Null(TwinWatch.AutoTakeOverBlocked(mainOnThisMachine: true, wallSwitchSet: false));    // the kill is the fence
+        Assert.Null(TwinWatch.AutoTakeOverBlocked(mainOnThisMachine: false, wallSwitchSet: true));    // the switcher is
+        Assert.Equal("no wall-switch cue for a main on another machine, so not by itself: TAKE OVER is yours", TwinWatch.AutoTakeOverBlocked(mainOnThisMachine: false, wallSwitchSet: false));
+        Assert.Equal(TimeSpan.FromSeconds(10), TwinWatch.RetryAfterRefusal);
     }
 }

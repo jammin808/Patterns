@@ -53,8 +53,9 @@ public sealed class SystemProcessProbe : IProcessProbe
         {
             using var p = Process.GetProcessById(pid);
             p.Kill(entireProcessTree: true);
-            p.WaitForExit(5000);
-            return true;
+            // "Ended" means gone: a process still on its way out after five seconds is not ended,
+            // and whoever asked must not open the screens on the strength of it.
+            return p.WaitForExit(5000) || p.HasExited;
         }
         catch (Exception ex)
         {

@@ -118,6 +118,28 @@ public sealed record TwinTookOverMarker(string Standby, string Machine, int Pid,
     public string ToJson() => JsonUtil.SerializeCompact(this);
 }
 
+/// <summary>
+/// The key a main is given when it has none. A main with no key would let any machine on the
+/// network join, hold its outputs closed and hand it a show, so there is no such main: the key is
+/// made from the machine's random source — sixteen letters and digits in fours, with nothing that
+/// reads two ways over a phone — and shown on the Machine page for the standby to copy.
+/// </summary>
+public static class TwinKeys
+{
+    private const string Alphabet = "abcdefghjkmnpqrstuvwxyz23456789";   // no i, l, o, 0 or 1
+
+    public static string New()
+    {
+        var chars = new char[19];
+        for (var i = 0; i < 16; i++) chars[i + i / 4] = Alphabet[System.Security.Cryptography.RandomNumberGenerator.GetInt32(Alphabet.Length)];
+        chars[4] = chars[9] = chars[14] = '-';
+        return new string(chars);
+    }
+
+    /// <summary>A key this desk made, or one an operator typed in the same shape.</summary>
+    public static bool LooksMade(string key) => key.Length == 19 && key[4] == '-' && key[9] == '-' && key[14] == '-';
+}
+
 /// <summary>The marker's file, its folder beside the main's, and the one decision: does it hold?</summary>
 public static class TwinHandover
 {
@@ -301,6 +323,21 @@ public static class TwinWatch
     public static bool ShouldTakeOver(bool autoTakeOver, TwinPhase phase, DateTime? lastHeardUtc, DateTime utcNow)
         => autoTakeOver && phase is TwinPhase.InStep or TwinPhase.MainSilent && IsSilent(lastHeardUtc, utcNow);
 
+    /// <summary>After a takeover by itself was refused (the hung main could not be ended, the marker could not be written): the next try, not one every second.</summary>
+    public static readonly TimeSpan RetryAfterRefusal = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Why a standby may not take over by itself, or null when it may. A silence cannot tell a
+    /// main that died from a cable that was cut, and two machines each deciding to be the main is
+    /// the one failure worse than one being down. On this machine the fence is the kill: a main
+    /// that is still up is ended first, so the decision is safe. From another machine the fence
+    /// is the room's own — the wall-switch cue that puts this machine's input on the wall, so
+    /// whichever desk the switcher shows is the one running the show — and without one, taking
+    /// over stays the operator's press.
+    /// </summary>
+    public static string? AutoTakeOverBlocked(bool mainOnThisMachine, bool wallSwitchSet)
+        => mainOnThisMachine || wallSwitchSet ? null : "no wall-switch cue for a main on another machine, so not by itself: TAKE OVER is yours";
+
     /// <summary>"just now", "3 s ago".</summary>
     public static string Age(DateTime? utc, DateTime utcNow)
     {
@@ -328,7 +365,7 @@ public static class TwinWatch
                        + (autoTakeOver ? " · takes over on silence." : " · TAKE OVER is yours.");
             case TwinPhase.MainSilent:
                 var silent = lastHeardUtc is { } heard ? $"{(utcNow - heard).TotalSeconds:0} s" : "a while";
-                return $"MAIN {main} SILENT for {silent} — {(autoTakeOver ? "taking over…" : "TAKE OVER?")}";
+                return $"MAIN {main} SILENT for {silent} — {(autoTakeOver ? "taking over…" : "TAKE OVER?")}" + (note.Length > 0 ? $" · {note}" : "");
             case TwinPhase.TookOver:
                 return linked
                     ? $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show; {main} is back on the link and its TAKE BACK puts the show there again, or STAND BY AGAIN here."

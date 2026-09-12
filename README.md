@@ -109,6 +109,15 @@ fault containment, and settings that can never brick startup.
   back reads the mark before its first window and holds its own outputs — the room never sees two
   desks on one set of screens — and TAKE BACK (`TWIN TAKEBACK`) puts the show, with the edits made
   while the standby ran it, back here; the standby follows again. `docs/PLAN.md` §49.2.
+- **The twin's fences** — a main with no key is given one before its port opens (a keyless main
+  would let any machine on the network hold its outputs closed and hand it a show); a takeover on
+  this machine marks itself on disk first and ends the hung main second, confirming it gone, and
+  either failing it is refused with the reason and the outputs stay held — TAKE OVER ANYWAY, or
+  `TWIN TAKEOVER FORCE`, overrides by hand only; a standby on this machine that dies with the show
+  has its show and air put back on by the main, not left for a press; and between two machines the
+  room's switcher is the fence: a wall switch cue (the switcher's own verb through an endpoint)
+  fires on takeover, a take-back cue on TAKE BACK, and taking over by itself from another machine
+  needs one, because a silence cannot tell a dead main from a cut cable. `docs/PLAN.md` §51.
 - **A display unplugged, back, or new** — every screen remembers its display, so one that merely
   re-indexed keeps its screen. A cable out leaves the screen waiting — planned, off, everything
   programmed for it kept — with the alert on the status line, the journal, the health line

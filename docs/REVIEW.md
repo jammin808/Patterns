@@ -395,3 +395,58 @@ core + 536 headless UI tests green.
   the desk and the stream see is the picture, not the projector's correction.
 - **A per-edge start position** — left as before; the mask from a calibration makes it moot on
   a calibrated rig.
+
+## Round 34 review — the twin's ownership hardened
+
+A review of the branch found the twin's remaining edge cases reachable from a live show and
+asked for one invariant: at any instant, exactly one Patterns process can possess output
+authority. `docs/PLAN.md` §51 says how. The suite ran against every change: 1,049 core +
+543 headless UI tests green.
+
+### Done
+
+1. **The key** — a main with no key is given one before its port opens and says so; every join
+   is checked against it, whatever it claims. A keyless main used to hand any machine on the
+   network the whole mirrored show (secrets among it) and let it close the main's outputs.
+2. **Fail closed** — the takeover marks itself on disk first and ends the hung main second,
+   confirming it gone; either failing, it is refused with the reason, the marker cleared and the
+   hold kept; TAKE OVER ANYWAY / `TWIN TAKEOVER FORCE` override by hand only; a refused takeover
+   by itself is tried again after ten seconds.
+3. **The standby that dies with the show** — the main lands what it sent and puts the show back
+   on itself, rather than releasing its hold and waiting for a press.
+4. **The wall switch** — a takeover cue and a take-back cue per machine, fired once the show is
+   on; taking over by itself from another machine needs the takeover cue, and the status line
+   says so when it has none.
+
+### Found on the way (fixed)
+
+5. **"Ended" on a timeout** — the process probe returned true after `Kill` whatever
+   `WaitForExit(5000)` said, so a process still on its way out was reported as ended and the
+   screens opened on the strength of it; it returns what the wait returns. The start-up
+   reclaim of orphaned windows shares the fix.
+6. **The held show thrown away before the marker could use it** — a local standby's socket
+   closes before its marker reads dead, and the link-loss path dropped the show and air it had
+   sent; they are kept while the marker holds.
+7. **A cue by id only** — `CueFire` found a cue by its id alone, so a cue named in a setting or
+   on the wire by its number or name was "no cue"; it resolves all three, as CUE STANDBY did.
+8. **The page and the help called the key optional** — they say what happens now.
+9. **A versions test that failed under load** — it picked the oldest kept version as "the show
+   as it was named A", which held only if the autosave had not written the file before the
+   test's own saves; on a loaded machine (the Core suite running alongside) the autosave landed
+   first and an older, unnamed version sat behind it. It picks the newest timed version, which
+   is that show whatever the autosave did; verified three times under the same load.
+
+### Measured, and left
+
+- **A cut cable with the switch cue set** — the standby takes the wall and the main keeps its
+  outputs live behind a switcher that no longer shows them; the room follows the switch, which
+  is the intended resolution, and the operators see it on both status lines once the link is
+  back. A witness on a third machine is the next step, not this round's.
+- **The protocol in the clear** — newline JSON over TCP on a LAN, as the remote control is; the
+  key is now mandatory for a main, and a challenge on the join (an HMAC of a nonce with the key)
+  would cost little if a show network is ever not trusted.
+- **Two competing standbys** — the main holds for one; two that both took over would each mark
+  their own folder and the room would show the switch's choice. Not tested this round.
+- **A restart of the main mid-takeover** — the marker path covers a main that comes back after;
+  one that comes back during (between the marker and the kill) reads the marker and holds, which
+  is right; not tested as a race.

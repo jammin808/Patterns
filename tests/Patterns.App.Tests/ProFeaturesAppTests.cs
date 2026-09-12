@@ -110,7 +110,9 @@ public class ProFeaturesAppTests
             vm.Show.RefreshBackups();
             Assert.NotEmpty(vm.Show.BackupChoices);
             Assert.Contains("earlier version", vm.Show.BackupsSummary);
-            vm.Show.SelectedBackup = vm.Show.BackupChoices.Last();   // the oldest timed version: the show as it was named A
+            // The newest timed version is the show as it was named A whatever the autosave did meanwhile
+            // (an autosave that landed before the first save leaves an older, unnamed version behind it).
+            vm.Show.SelectedBackup = vm.Show.BackupChoices.First(c => !c.Label.StartsWith("The previous save", StringComparison.Ordinal));
             vm.Show.RestoreBackupCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Show A", vm.State.Name);

@@ -701,6 +701,7 @@ public static class ControlProtocol
                 return arg.ToUpperInvariant().Replace(" ", "") switch
                 {
                     "TAKEOVER" => Act(ShowActionKind.TwinTakeOver),
+                    "TAKEOVERFORCE" or "TAKEOVERANYWAY" or "FORCETAKEOVER" => Act(ShowActionKind.TwinTakeOver, "", "force"),
                     "STANDBY" => Act(ShowActionKind.TwinStandBy),
                     "TAKEBACK" => Act(ShowActionKind.TwinTakeBack),
                     "STATUS" or "" => Query(RemoteCommandKind.TwinStatus),

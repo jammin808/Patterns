@@ -1761,6 +1761,8 @@ public sealed class TwinConfig : Observable
     private string _key = "";
     private bool _autoTakeOver;
     private bool _localStandby;
+    private string _takeOverCue = "";
+    private string _takeBackCue = "";
 
     /// <summary>Off, the main that lets a standby join, or the standby that follows one.</summary>
     public TwinRole Role { get => _role; set => Set(ref _role, value); }
@@ -1771,11 +1773,22 @@ public sealed class TwinConfig : Observable
     /// <summary>The main's address or name for a standby; empty = whichever main's beacon this machine hears.</summary>
     public string MainHost { get => _mainHost; set => Set(ref _mainHost, (value ?? "").Trim()); }
 
-    /// <summary>A word both machines must share for the link to open; empty = any standby on the network may join.</summary>
+    /// <summary>A word both machines must share for the link to open. A main with none is given one (<see cref="Patterns.Core.Services.TwinKeys"/>) before its port opens: a keyless main would let any machine on the network hold its outputs.</summary>
     public string Key { get => _key; set => Set(ref _key, (value ?? "").Trim()); }
 
-    /// <summary>The standby takes the show by itself once the main has been silent past the limit; off, TAKE OVER is the operator's press.</summary>
+    /// <summary>The standby takes the show by itself once the main has been silent past the limit; off, TAKE OVER is the operator's press. From another machine, only with a wall-switch cue.</summary>
     public bool AutoTakeOver { get => _autoTakeOver; set => Set(ref _autoTakeOver, value); }
+
+    /// <summary>
+    /// The cue this desk fires once it has taken the show over: the wall switched to this machine's
+    /// input — a switcher's HTTP or OSC verb, a PJLink input, a matrix route — so whichever desk the
+    /// room shows is the one running the show. The room's own fence, and what taking over by itself
+    /// from another machine needs. Named by its number, its name or its id; empty = none.
+    /// </summary>
+    public string TakeOverCue { get => _takeOverCue; set => Set(ref _takeOverCue, (value ?? "").Trim()); }
+
+    /// <summary>The cue the main fires on TAKE BACK: the wall switched back to this machine's input. Empty = none.</summary>
+    public string TakeBackCue { get => _takeBackCue; set => Set(ref _takeBackCue, (value ?? "").Trim()); }
 
     /// <summary>
     /// A main runs its own standby as a second process on this machine: the same build, its own

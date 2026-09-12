@@ -79,6 +79,11 @@ public sealed partial class MainViewModel
     /// <summary>The standby runs the show from here — the same verb the wire's TWIN TAKEOVER sends.</summary>
     public RelayCommand TwinTakeOverCommand => _twinTakeOver ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk)));
 
+    private RelayCommand? _twinTakeOverAnyway;
+
+    /// <summary>TAKE OVER ANYWAY: over a refusal — the hung main could not be ended, the marker could not be written — by hand only.</summary>
+    public RelayCommand TwinTakeOverAnywayCommand => _twinTakeOverAnyway ??= new RelayCommand(() => Report(_services.Actions.Execute(new ShowAction(ShowActionKind.TwinTakeOver, "", "force"), ActionOrigin.Desk)));
+
     /// <summary>After a takeover: hold the outputs and follow the main again.</summary>
     public RelayCommand TwinStandByCommand => _twinStandBy ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinStandBy, ActionOrigin.Desk)));
 

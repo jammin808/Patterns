@@ -60,6 +60,8 @@ public sealed class TwinService : IDisposable
     private DateTime _lastDialUtc;
     private int _dialFailures;
     private long _beat;
+    private DateTime _nextAutoTakeOverUtc;      // after a takeover by itself was refused: the next try
+    private bool _keyBeingMade;
 
     /// <summary>The clock the watch reads; the tests move it.</summary>
     public Func<DateTime> Clock { get; set; } = () => DateTime.UtcNow;
@@ -191,7 +193,11 @@ public sealed class TwinService : IDisposable
                     }
                     return TwinWatch.DescribeMain(_services.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words);
                 case TwinRole.Standby:
-                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, _services.State.Twin.AutoTakeOver, now, _note, linked: _stream is not null);
+                {
+                    var cfg = _services.State.Twin;
+                    var auto = cfg.AutoTakeOver && TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0) is null && !_note.StartsWith("not taken over", StringComparison.Ordinal);
+                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, auto, now, _note, linked: _stream is not null);
+                }
                 default:
                     return _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK." : "Twin off.";
             }
@@ -214,6 +220,8 @@ public sealed class TwinService : IDisposable
             standbys = StandbyNames,
             holder = _holder,
             launcher = _launcher.Words,
+            takeOverCue = _services.State.Twin.TakeOverCue,
+            takeBackCue = _services.State.Twin.TakeBackCue,
             sectionsSent = _sectionsSent,
             sectionsMirrored = _sectionsApplied,
         });
@@ -225,6 +233,25 @@ public sealed class TwinService : IDisposable
     public void Reconcile()
     {
         var cfg = _services.State.Twin;
+        if (cfg.Role == TwinRole.Main && cfg.Key.Length == 0)
+        {
+            // A main with no key would let any machine on the network join, hold its outputs closed
+            // and hand it a show: it is given one, and said out loud, before its port opens.
+            if (!_keyBeingMade)
+            {
+                _keyBeingMade = true;
+                var made = TwinKeys.New();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _keyBeingMade = false;
+                    var twin = _services.State.Twin;
+                    if (twin.Role == TwinRole.Main && twin.Key.Length == 0) _services.BulkEdit(() => twin.Key = made);
+                });
+                Log.Info("Twin: this main had no key; one was made for it — the port opens once it is saved.");
+                _services.Notify($"Twin: this main was given the key {made} — the standby needs the same key (Machine page, TWIN).");
+            }
+            return;
+        }
         var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}|{cfg.LocalStandby}";
         if (key == _activeKey) return;
         _activeKey = key;
@@ -337,14 +364,24 @@ public sealed class TwinService : IDisposable
                 }
                 case TwinRole.Standby:
                 {
+                    var cfg = _services.State.Twin;
                     if (_phase == TwinPhase.InStep && TwinWatch.IsSilent(_lastHeardUtc, now))
                     {
                         _phase = TwinPhase.MainSilent;
                         Log.Warn($"Twin: the main {_mainName} has been silent for {TwinWatch.SilentAfter.TotalSeconds:0} s.");
                     }
-                    if (TwinWatch.ShouldTakeOver(_services.State.Twin.AutoTakeOver, _phase, _lastHeardUtc, now))
+                    // By itself only where it is safe: a main on this machine (the hung one is ended first) or,
+                    // from another machine, with the wall-switch cue that makes this desk the one the room shows.
+                    var blocked = cfg.AutoTakeOver && _phase == TwinPhase.MainSilent ? TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0) : null;
+                    if (blocked is not null && _note.Length == 0)
                     {
-                        TakeOver(ActionOrigin.Recovery);
+                        _note = blocked;
+                        Log.Warn($"Twin: the main {_mainName} is silent; {blocked}.");
+                        _services.Notify($"Twin: the main {_mainName} is silent — {blocked}.");
+                    }
+                    if (blocked is null && now >= _nextAutoTakeOverUtc && TwinWatch.ShouldTakeOver(cfg.AutoTakeOver, _phase, _lastHeardUtc, now))
+                    {
+                        if (!TakeOver(ActionOrigin.Recovery).Ok) _nextAutoTakeOverUtc = now + TwinWatch.RetryAfterRefusal;
                         break;
                     }
                     if (_stream is not null)
@@ -485,7 +522,8 @@ public sealed class TwinService : IDisposable
             var key = _services.State.Twin.Key;
             string? refused = join is null ? "the first line was not a JOIN"
                 : join.Proto != TwinMessage.Proto ? $"another version of the link (yours {join.Proto}, mine {TwinMessage.Proto})"
-                : key.Length > 0 && !string.Equals(join.Key, key, StringComparison.Ordinal) ? "wrong key"
+                : key.Length == 0 ? "this main has no key yet"
+                : !string.Equals(join.Key, key, StringComparison.Ordinal) ? "wrong key"
                 : join.Instance == Instance ? "that is this very desk"
                 : null;
             if (refused is not null)
@@ -560,9 +598,12 @@ public sealed class TwinService : IDisposable
                     {
                         if (!_holderLinked) return;
                         _holderLinked = false;
+                        // Its process is still up by the marker: the marker decides, and what it sent
+                        // is kept for this desk to put back should that process die with the show.
+                        if (_holderMarked) return;
                         _heldShowJson = null;
                         _heldAir = null;
-                        if (!_holderMarked) Release("left the link");
+                        Release("left the link");
                     });
                 }
             }
@@ -605,8 +646,49 @@ public sealed class TwinService : IDisposable
         else if (!holds && _holderMarked)
         {
             _holderMarked = false;
-            if (!_holderLinked) Release("ended");
+            if (marker is not null) HolderDied(marker.Standby);       // the marker stands but its process is gone: it died with the show
+            else if (!_holderLinked) Release("ended");                // the marker was cleared: it stood by again on purpose
         }
+    }
+
+    /// <summary>
+    /// The standby on this machine died with the show — its marker's process is gone. The show it
+    /// sent while it ran, if any, lands here, and what it had on air goes back on here the way a
+    /// restart puts it back: a room left dark until somebody presses OUTPUTS ON is the very thing
+    /// a standby was there to prevent. A standby elsewhere that merely leaves the link is not this:
+    /// a link that dropped cannot say whether that desk still runs the show.
+    /// </summary>
+    private void HolderDied(string name)
+    {
+        var who = _holder.Length > 0 ? _holder : name.Length > 0 ? name : "the standby";
+        var head = $"The standby {who} died with the show at {Clock().ToLocalTime():HH:mm:ss} — put back on here.";
+        var notes = new List<string>();
+        if (_heldShowJson is { } json)
+        {
+            var ok = false;
+            _services.BulkEdit(() => ok = TwinSync.ApplyShow(_services.State, json));
+            notes.Add(ok ? "its show landed here" : "its show could not be read — this desk's show stands");
+            if (!ok) Log.Warn("Twin: the standby's show could not be read after it died.");
+        }
+        var air = _heldAir ?? _air;
+        _holder = "";
+        _holderSinceUtc = null;
+        _holderLinked = false;
+        _heldShowJson = null;
+        _heldAir = null;
+        try
+        {
+            TwinHandover.Clear(TwinHandover.StandbyHome(_services.Store.BaseDirectory));
+        }
+        catch (Exception)
+        {
+            // a marker whose process is gone holds nothing either way
+        }
+        if (_role != TwinRole.Standby) _services.OutputsHeldBy = "";
+        var words = head + (notes.Count > 0 ? " " + string.Join(", ", notes) + "." : "");
+        Log.Warn($"Twin: {words}");
+        _services.Notify(words);
+        _services.RecoverFromTwin(air, head, peer: who);
     }
 
     /// <summary>From the desk's poll, once a second, whatever the role.</summary>
@@ -695,8 +777,26 @@ public sealed class TwinService : IDisposable
         _pendingWhole = true;
         _pendingAir = true;
         ScheduleFlush();
-        return ActionResult.Done(words);
+        var wall = FireWallSwitch(_services.State.Twin.TakeBackCue);
+        return ActionResult.Done(wall.Length > 0 ? words + " " + wall : words);
     }
+
+    /// <summary>
+    /// The wall-switch cue — the room's own fence. A cue that puts this machine's input on the wall
+    /// (a switcher's HTTP or OSC verb, a PJLink input, a matrix route) fired once the show is on
+    /// here, so whichever desk the room shows is the one running the show. "" when there is none.
+    /// </summary>
+    private string FireWallSwitch(string cue)
+    {
+        if (cue.Length == 0) return "";
+        var result = _services.Actions.Execute(new ShowAction(ShowActionKind.CueFire, cue), ActionOrigin.Recovery);
+        var words = result.Ok ? $"Wall switch: cue '{cue}' fired." : $"Wall switch: cue '{cue}' could not fire — {result.Message}";
+        if (result.Ok) Log.Info($"Twin: {words}");
+        else Log.Warn($"Twin: {words}");
+        return words;
+    }
+
+    private bool MainIsOnThisMachine() => _welcome is { } w && string.Equals(w.Machine, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
 
     private static long ProcessStartTicks()
     {
@@ -856,7 +956,7 @@ public sealed class TwinService : IDisposable
                 {
                     _sectionsApplied++;
                     _lastHeardUtc = now;
-                    if (_phase == TwinPhase.MainSilent) _phase = TwinPhase.InStep;
+                    if (_phase == TwinPhase.MainSilent) { _phase = TwinPhase.InStep; _note = ""; }
                     _services.NotifyShowMirrored(new[] { msg.Name });
                 }
                 else
@@ -871,7 +971,7 @@ public sealed class TwinService : IDisposable
                 break;
             case TwinWord.Beat:
                 _lastHeardUtc = now;
-                if (_phase == TwinPhase.MainSilent) _phase = TwinPhase.InStep;
+                if (_phase == TwinPhase.MainSilent) { _phase = TwinPhase.InStep; _note = ""; }
                 break;
             case TwinWord.Bye:
                 // A main leaving on purpose (its role changed, a clean exit) is not a main that died: nothing is taken over.
@@ -971,12 +1071,16 @@ public sealed class TwinService : IDisposable
     // ---- the standby: the show ---------------------------------------------------------------
 
     /// <summary>
-    /// The standby runs the show from here: the link is dropped, a main on this machine that has
-    /// hung is ended (the screens are then free, exactly as a start takes back the previous run's
-    /// windows), the hold on the outputs lifts, and the air record the main sent last goes back
-    /// on the way a watchdog restart puts it back.
+    /// The standby runs the show from here. The fence first, before anything is let go of: the
+    /// takeover is marked on disk for a main on this machine that comes back, and a main on this
+    /// very machine that is still up but stopped beating — hung; its windows would play on under
+    /// nobody's hand and ours would open behind them — is ended, and only once it is provably gone
+    /// does the hold on the outputs lift and the air record the main sent last go back on, the way
+    /// a watchdog restart puts it back. Either fence failing, nothing is taken by itself: two desks
+    /// on one set of screens is the one failure worse than one being down. A press can override
+    /// (TAKE OVER ANYWAY, TWIN TAKEOVER FORCE), and says so in its words.
     /// </summary>
-    public ActionResult TakeOver(ActionOrigin origin)
+    public ActionResult TakeOver(ActionOrigin origin, bool force = false)
     {
         if (_role != TwinRole.Standby) return ActionResult.Refused("This desk is not a standby twin — Machine page, TWIN.");
         if (_phase == TwinPhase.TookOver) return ActionResult.Done("This desk already took the show over.");
@@ -984,41 +1088,63 @@ public sealed class TwinService : IDisposable
         var now = Clock();
         var main = _mainName.Length > 0 ? _mainName : "the main";
         var notes = new List<string>();
+        var w = _welcome;
+        var localMain = MainIsOnThisMachine();
+
+        // The marker: said on disk, in this desk's own folder, so a main on this machine that comes
+        // back reads it before its first window opens and holds its outputs while this process
+        // lives. Only such a main ever reads it; one elsewhere loses nothing by its absence.
+        string? fence = null;
+        var marked = false;
+        try
+        {
+            TwinHandover.Write(_services.Store.BaseDirectory, new TwinTookOverMarker(Name, Environment.MachineName, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", now, main));
+            marked = true;
+        }
+        catch (Exception ex)
+        {
+            if (localMain) fence = $"the takeover could not be marked on disk ({ex.Message})";
+            else Log.Warn("Twin: the takeover could not be marked on disk — the main is on another machine and nothing reads it there.", ex);
+        }
+
+        // The hung main on this very machine: ended, and only a process that is provably the one
+        // the welcome named and provably Patterns — a pid is never enough to end something by.
+        if (fence is null && localMain && w.Pid > 0 && w.Pid != Environment.ProcessId)
+        {
+            var started = Probe.StartTicks(w.Pid);
+            if (started is not null && started == w.StartedAtUtcTicks && OutputTakeover.IsPatterns(Probe.ExePath(w.Pid), w.ExePath))
+            {
+                if (Probe.Kill(w.Pid)) notes.Add($"ended {main}'s process (pid {w.Pid}) — it had stopped answering");
+                else fence = $"{main}'s process (pid {w.Pid}) is still up and could not be ended";
+            }
+        }
+
+        if (fence is not null && !force)
+        {
+            if (marked) TwinHandover.Clear(_services.Store.BaseDirectory);       // a marker that says this desk has the show would be a lie
+            var refusal = $"Not taken over: {fence}. The outputs stay held closed — TAKE OVER ANYWAY (Machine page, TWIN) or TWIN TAKEOVER FORCE overrides, by hand only.";
+            var first = _note != "not taken over: " + fence;
+            _note = "not taken over: " + fence;
+            Log.Warn($"Twin: {refusal} ({origin.Label})");
+            if (first) _services.Notify(refusal);
+            return ActionResult.Refused(refusal);
+        }
+        if (fence is not null) notes.Add(fence + " — taken over anyway");
+
         _cts?.Cancel();
         _cts = new CancellationTokenSource(); // the redial never restarts on its own
         CloseLink();
         _phase = TwinPhase.TookOver;
         _note = $"at {now.ToLocalTime():HH:mm:ss}";
-
-        // A main on this very machine that is still up but stopped beating has hung: its windows
-        // would play on under nobody's hand and ours would open behind them.
-        var w = _welcome;
-        if (string.Equals(w.Machine, Environment.MachineName, StringComparison.OrdinalIgnoreCase) && w.Pid > 0 && w.Pid != Environment.ProcessId)
-        {
-            var started = Probe.StartTicks(w.Pid);
-            if (started is not null && started == w.StartedAtUtcTicks && OutputTakeover.IsPatterns(Probe.ExePath(w.Pid), w.ExePath))
-            {
-                notes.Add(Probe.Kill(w.Pid) ? $"ended {main}'s process (pid {w.Pid}) — it had stopped answering" : $"could not end {main}'s process (pid {w.Pid})");
-            }
-        }
         _services.OutputsHeldBy = "";
-        // Said on disk, in this desk's own folder: a main on this machine that comes back reads it
-        // before its first window opens and holds its outputs while this process lives.
-        try
-        {
-            TwinHandover.Write(_services.Store.BaseDirectory, new TwinTookOverMarker(Name, Environment.MachineName, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", now, main));
-        }
-        catch (Exception ex)
-        {
-            Log.Warn("Twin: the takeover could not be marked on disk.", ex);
-        }
         // The beat goes on: this desk keeps dialling, so the main, once it is back, can take the show back over the link.
         StartBeating(_cts);
         _lastDialUtc = DateTime.MinValue;
         var head = $"TOOK OVER from {main} {_note}" + (notes.Count > 0 ? " — " + string.Join(", ", notes) : "") + ".";
         Log.Warn($"Twin: {head} ({origin.Label})");
         _services.RecoverFromTwin(_mirroredAir, head);
-        return ActionResult.Done(head);
+        var wall = FireWallSwitch(_services.State.Twin.TakeOverCue);
+        return ActionResult.Done(wall.Length > 0 ? head + " " + wall : head);
     }
 
     /// <summary>After a takeover: the outputs held again, the link dialled again, the show mirrored again.</summary>

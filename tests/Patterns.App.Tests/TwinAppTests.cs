@@ -315,7 +315,7 @@ public class TwinAppTests
             using (reader)
             {
                 var stream = peer.GetStream();
-                Write(stream, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef01", 1, 0, "", "Gala").ToJson()));
+                Write(stream, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", Environment.MachineName, "ef01", 0, 0, "", "Gala").ToJson()));   // this machine: by itself is allowed
                 Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(new ShowState { Name = "Gala" })));
                 Write(stream, TwinMessage.Format(TwinWord.Air, "null"));
                 PumpUntil(() => twin.Phase == TwinPhase.InStep);
@@ -335,7 +335,7 @@ public class TwinAppTests
             using (reader2)
             {
                 var stream2 = peer2.GetStream();
-                Write(stream2, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef01", 1, 0, "", "Gala").ToJson()));
+                Write(stream2, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", Environment.MachineName, "ef01", 0, 0, "", "Gala").ToJson()));
                 Write(stream2, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(new ShowState { Name = "Gala again" })));
                 Write(stream2, TwinMessage.Format(TwinWord.Air, "null"));
                 PumpUntil(() => twin.Phase == TwinPhase.InStep && vm.State.Name == "Gala again");
@@ -358,9 +358,37 @@ public class TwinAppTests
     private sealed class TicksProbe : IProcessProbe
     {
         public Dictionary<int, long> Alive { get; } = new();
+        public bool KillFails { get; set; }
+        public int Kills { get; private set; }
         public long? StartTicks(int pid) => Alive.TryGetValue(pid, out var ticks) ? ticks : null;
         public string ExePath(int pid) => "";
-        public bool Kill(int pid) => Alive.Remove(pid);
+        public bool Kill(int pid)
+        {
+            Kills++;
+            return !KillFails && Alive.Remove(pid);
+        }
+    }
+
+    /// <summary>A fake main's welcome: on this very machine when the pid is given, elsewhere otherwise.</summary>
+    private static string WelcomeFrom(string machine, int pid = 0, long startedTicks = 0)
+        => new TwinWelcome("MAIN-DESK", machine, "ef01", pid, startedTicks, pid > 0 ? Environment.ProcessPath ?? "Patterns.exe" : "", "From the main").ToJson();
+
+    /// <summary>The fake main hands over a show with one look and that look on air.</summary>
+    private static void HandOverTheShow(NetworkStream stream, string welcome)
+    {
+        var theirs = new ShowState { Name = "From the main" };
+        theirs.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in" });
+        Write(stream, TwinMessage.Format(TwinWord.Welcome, welcome));
+        Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(theirs)));
+        Write(stream, TwinMessage.Format(TwinWord.Air, JsonUtil.SerializeCompact(new RecoverySnapshot(false, false, DateTime.UtcNow, AirLabel: "Walk-in", AirLookId: theirs.LooksAndCues.Looks[0].Id))));
+    }
+
+    private static RunCueConfig CallerCue(ShowState state, string name, ShowActionKind kind, string value)
+    {
+        var cue = new RunCueConfig { Name = name };
+        cue.Actions.Add(new CueActionConfig { Kind = kind, Value = value });
+        CueStacks.Caller(state).Cues.Add(cue);
+        return cue;
     }
 
     /// <summary>The next join that says the standby has the show; a dial from before the takeover still in the backlog is closed.</summary>
@@ -386,8 +414,12 @@ public class TwinAppTests
             var vm = b.Vm;
             var services = b.Services;
             var twin = services.Twin;
+            vm.IsSandboxActive = false;
             vm.State.Name = "Gala";
             vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.TakeBackCue = "Wall to main";
+            CallerCue(vm.State, "Wall to main", ShowActionKind.MessageOn, "Wall: main");
             vm.State.Twin.Role = TwinRole.Main;
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(TwinPhase.Listening, twin.Phase);
@@ -401,7 +433,7 @@ public class TwinAppTests
             TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
             using var stream = client.GetStream();
             using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-            Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "", TookOver: true).ToJson()));
+            Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2", TookOver: true).ToJson()));
             Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
             Assert.Equal(TwinWord.Beat, TwinMessage.Parse(ReadLine(reader)).Word);   // no SHOW, no AIR
             PumpUntil(() => services.OutputsHeldBy.Length > 0);
@@ -419,6 +451,7 @@ public class TwinAppTests
             // What it has — its show, edited while it ran, and its air — is kept here, not applied.
             var theirs = new ShowState { Name = "Edited at the standby" };
             theirs.LooksAndCues.Looks.Add(new LookConfig { Name = "Standby look" });
+            CallerCue(theirs, "Wall to main", ShowActionKind.MessageOn, "Wall: main");     // the show travels; the cue is in it on both machines
             Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(theirs)));
             Write(stream, TwinMessage.Format(TwinWord.Air, JsonUtil.SerializeCompact(new RecoverySnapshot(false, false, DateTime.UtcNow, AirLabel: "Standby look", AirLookId: theirs.LooksAndCues.Looks[0].Id))));
             PumpUntil(() => twin.HeldLines >= 2);
@@ -429,6 +462,8 @@ public class TwinAppTests
             Assert.True(back.Ok, back.Message);
             Assert.StartsWith("TOOK BACK from Backup desk at", back.Message);
             Assert.Contains("its show landed here", back.Message);
+            Assert.Contains("Wall switch: cue 'Wall to main' fired.", back.Message);   // the wall back to this machine
+            Assert.Equal("Wall: main", vm.State.Overlays.Message.Text);
             Assert.Equal("Edited at the standby", vm.State.Name);
             Assert.Equal("", services.OutputsHeldBy);
             Assert.Equal("", twin.Holder);
@@ -563,6 +598,7 @@ public class TwinAppTests
 
             // As the main: the same hold, and TAKE BACK waits for the standby to be on the link.
             vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
             vm.State.Twin.Role = TwinRole.Main;
             Dispatcher.UIThread.RunJobs();
             Assert.StartsWith("MAIN — the standby Backup desk HAS THE SHOW", twin.Status);
@@ -577,7 +613,7 @@ public class TwinAppTests
             twin.Poll();
             Assert.Equal("", twin.Holder);
             Assert.Equal("", services.OutputsHeldBy);
-            Assert.Contains("ended", vm.StatusMessage);
+            Assert.Contains("died with the show", vm.StatusMessage);
             Assert.StartsWith("MAIN — listening for a standby", twin.Status);
         }
         finally
@@ -626,6 +662,313 @@ public class TwinAppTests
         }
         finally
         {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AMainWithNoKeyIsGivenOneAndAJoinWithoutItIsRefusedEvenWhenItClaimsTheShow()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "";
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            PumpUntil(() => twin.Phase == TwinPhase.Listening);
+            var key = vm.State.Twin.Key;
+            Assert.True(TwinKeys.LooksMade(key), key);
+            Assert.Contains($"was given the key {key}", vm.StatusMessage);
+
+            // No key, a wrong key, and a wrong key that claims the show: refused, and the outputs never held.
+            foreach (var (theirs, tookOver) in new[] { ("", false), ("nope", false), ("nope", true) })
+            {
+                using var client = new TcpClient();
+                TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+                using var stream = client.GetStream();
+                using var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
+                Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Stranger", "SOME-PC", "ffff0000", theirs, TookOver: tookOver).ToJson()));
+                var refused = ReadWord(reader, TwinWord.Refused);
+                Assert.Equal("wrong key", refused.Payload);
+                Assert.Equal("", services.OutputsHeldBy);
+                Assert.Equal("", twin.Holder);
+            }
+
+            // The key it was given opens the link.
+            using (var client = new TcpClient())
+            {
+                TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+                using var stream = client.GetStream();
+                using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
+                Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", key, TookOver: false).ToJson()));
+                Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
+            }
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ATakeoverOnThisMachineIsRefusedWhileTheHungMainCannotBeEndedAndForcedByHandOnly()
+    {
+        var b = TestApp.Boot();
+        using var main = new TcpListener(IPAddress.Loopback, 0);
+        main.Start();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var probe = new TicksProbe { KillFails = true };
+            probe.Alive[4242] = 77;
+            twin.Probe = probe;
+            var clockOffset = TimeSpan.Zero;
+            twin.Clock = () => DateTime.UtcNow + clockOffset;
+            vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
+            vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.AutoTakeOver = true;
+            vm.State.Twin.Role = TwinRole.Standby;
+            Dispatcher.UIThread.RunJobs();
+
+            // The main is on this very machine: its welcome names its process.
+            var (peer, reader, _) = AcceptJoin(main);
+            using var _peer = peer;
+            using var _reader = reader;
+            HandOverTheShow(peer.GetStream(), WelcomeFrom(Environment.MachineName, pid: 4242, startedTicks: 77));
+            PumpUntil(() => twin.Phase == TwinPhase.InStep);
+
+            // It hangs: the link drops, the silence is counted, and the takeover by itself is refused —
+            // the process is still up and cannot be ended — with the hold kept and the marker not left behind.
+            peer.Close();
+            PumpUntil(() => twin.Phase == TwinPhase.MainSilent);
+            clockOffset = TimeSpan.FromSeconds(8);
+            twin.Tick();
+            Assert.Equal(TwinPhase.MainSilent, twin.Phase);
+            Assert.Equal(1, probe.Kills);
+            Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
+            Assert.Null(TwinHandover.Read(services.Store.BaseDirectory));
+            Assert.Contains("not taken over: MAIN-DESK's process (pid 4242) is still up and could not be ended", twin.Status);
+            Assert.Contains("TAKE OVER?", twin.Status);
+            Assert.Contains("TAKE OVER ANYWAY", vm.StatusMessage);
+            Assert.False(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+
+            // Not every second: the fence is tried again after ten.
+            twin.Tick();
+            Assert.Equal(1, probe.Kills);
+            clockOffset = TimeSpan.FromSeconds(19);
+            twin.Tick();
+            Assert.Equal(2, probe.Kills);
+            Assert.Equal(TwinPhase.MainSilent, twin.Phase);
+
+            // A press is refused the same way; FORCE takes over anyway and says so.
+            var pressed = services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk);
+            Assert.False(pressed.Ok);
+            Assert.StartsWith("Not taken over: MAIN-DESK's process (pid 4242) is still up and could not be ended.", pressed.Message);
+            Assert.Equal(3, probe.Kills);
+            var forced = services.Actions.Execute(new ShowAction(ShowActionKind.TwinTakeOver, "", "force"), ActionOrigin.Desk);
+            Assert.True(forced.Ok, forced.Message);
+            Assert.Contains("could not be ended — taken over anyway", forced.Message);
+            Assert.Equal(TwinPhase.TookOver, twin.Phase);
+            Assert.StartsWith("OK", TestApp.Pump(new CommandRouter(services).ExecuteAsync(ControlProtocol.Parse("TWIN TAKEOVER FORCE"))));   // the wire's word for it
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("Walk-in", services.AirLabel);
+            var marker = TwinHandover.Read(services.Store.BaseDirectory);
+            Assert.NotNull(marker);
+            Assert.Equal(Environment.ProcessId, marker!.Pid);
+        }
+        finally
+        {
+            main.Stop();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ATakeoverIsRefusedWhenItCannotBeMarkedOnDiskForAMainOnThisMachineButNotForOneElsewhere()
+    {
+        var b = TestApp.Boot();
+        using var main = new TcpListener(IPAddress.Loopback, 0);
+        main.Start();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var probe = new TicksProbe();
+            probe.Alive[4242] = 77;
+            twin.Probe = probe;
+            var clockOffset = TimeSpan.Zero;
+            twin.Clock = () => DateTime.UtcNow + clockOffset;
+            Directory.CreateDirectory(TwinHandover.PathFor(services.Store.BaseDirectory));   // a folder where the marker file would go: the write fails
+            vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
+            vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Standby;
+            Dispatcher.UIThread.RunJobs();
+
+            // A main on another machine never reads the marker: taken over, the failure only logged.
+            var (peer, reader, _) = AcceptJoin(main);
+            HandOverTheShow(peer.GetStream(), WelcomeFrom("SOME-OTHER-PC"));
+            PumpUntil(() => twin.Phase == TwinPhase.InStep);
+            peer.Close();
+            reader.Dispose();
+            PumpUntil(() => twin.Phase == TwinPhase.MainSilent);
+            var took = services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk);
+            Assert.True(took.Ok, took.Message);
+            Assert.Equal(TwinPhase.TookOver, twin.Phase);
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.True(services.Actions.Execute(ShowActionKind.TwinStandBy, ActionOrigin.Desk).Ok);
+            Assert.Equal(TwinPhase.Connecting, twin.Phase);
+
+            // A main on this machine would read it: refused, with the reason, before anything is ended.
+            var (peer2, reader2, _) = AcceptJoin(main);
+            using var _peer2 = peer2;
+            using var _reader2 = reader2;
+            HandOverTheShow(peer2.GetStream(), WelcomeFrom(Environment.MachineName, pid: 4242, startedTicks: 77));
+            PumpUntil(() => twin.Phase == TwinPhase.InStep);
+            peer2.Close();
+            PumpUntil(() => twin.Phase == TwinPhase.MainSilent);
+            var refused = services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk);
+            Assert.False(refused.Ok);
+            Assert.Contains("the takeover could not be marked on disk", refused.Message);
+            Assert.Equal(0, probe.Kills);
+            Assert.Equal(TwinPhase.MainSilent, twin.Phase);
+            Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
+            Assert.Contains(4242, probe.Alive.Keys);
+        }
+        finally
+        {
+            main.Stop();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AMainWhoseStandbyOnThisMachineDiesWithTheShowPutsTheShowBackOnItself()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var probe = new TicksProbe();
+            probe.Alive[4242] = 77;
+            twin.Probe = probe;
+            var clockOffset = TimeSpan.Zero;
+            twin.Clock = () => DateTime.UtcNow + clockOffset;
+            vm.State.Name = "Gala";
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            var home = TwinHandover.StandbyHome(services.Store.BaseDirectory);
+            TwinHandover.Write(home, new TwinTookOverMarker("Backup desk", Environment.MachineName, 4242, 77, "", DateTime.UtcNow, "MAIN-DESK"));
+            clockOffset = TimeSpan.FromSeconds(3);
+            twin.Poll();
+            Assert.Equal("Backup desk", twin.Holder);
+
+            // On the link too, with the show it edited and what it has on air.
+            using var client = new TcpClient();
+            TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+            var stream = client.GetStream();
+            using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
+            Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", Environment.MachineName, "abcd1234", "hunter2", TookOver: true).ToJson()));
+            Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
+            var theirs = new ShowState { Name = "Edited at the standby" };
+            theirs.LooksAndCues.Looks.Add(new LookConfig { Name = "Standby look" });
+            Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(theirs)));
+            Write(stream, TwinMessage.Format(TwinWord.Air, JsonUtil.SerializeCompact(new RecoverySnapshot(false, false, DateTime.UtcNow, AirLabel: "Standby look", AirLookId: theirs.LooksAndCues.Looks[0].Id))));
+            PumpUntil(() => twin.HeldLines >= 2);
+            Assert.Equal("Gala", vm.State.Name);
+
+            // It crashes: the link drops first — the marker's process still stands, so the hold and what it sent are kept…
+            client.Close();
+            PumpUntil(() => twin.StandbyNames.Count == 0);
+            clockOffset = TimeSpan.FromSeconds(6);
+            twin.Poll();
+            Assert.Equal("Backup desk", twin.Holder);
+            Assert.StartsWith("the standby twin Backup desk has the show", services.OutputsHeldBy);
+            Assert.Equal("Gala", vm.State.Name);
+
+            // …then the process is gone: its show lands here, its air goes back on here, the hold lifts, the marker goes.
+            probe.Alive.Clear();
+            clockOffset = TimeSpan.FromSeconds(9);
+            twin.Poll();
+            Assert.Equal("", twin.Holder);
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("Edited at the standby", vm.State.Name);
+            Assert.Equal("Standby look", services.AirLabel);
+            Assert.Contains("died with the show", vm.StatusMessage);
+            Assert.Null(TwinHandover.Read(home));
+            Assert.DoesNotContain("held closed", services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Message);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStandbyOnAnotherMachineTakesOverByItselfOnlyWithAWallSwitchCueAndFiresIt()
+    {
+        var b = TestApp.Boot();
+        using var main = new TcpListener(IPAddress.Loopback, 0);
+        main.Start();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var clockOffset = TimeSpan.Zero;
+            twin.Clock = () => DateTime.UtcNow + clockOffset;
+            vm.IsSandboxActive = false;
+            vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
+            vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.AutoTakeOver = true;
+            vm.State.Twin.Role = TwinRole.Standby;
+            Dispatcher.UIThread.RunJobs();
+            var (peer, reader, _) = AcceptJoin(main);
+            using var _peer = peer;
+            using var _reader = reader;
+            HandOverTheShow(peer.GetStream(), WelcomeFrom("SOME-OTHER-PC"));
+            PumpUntil(() => twin.Phase == TwinPhase.InStep);
+            Assert.EndsWith("· TAKE OVER is yours.", twin.Status);              // told it may, but from another machine without a wall switch it will not
+
+            // The main goes silent: nothing is taken by itself, and the line says why.
+            peer.Close();
+            PumpUntil(() => twin.Phase == TwinPhase.MainSilent);
+            clockOffset = TimeSpan.FromSeconds(8);
+            twin.Tick();
+            Assert.Equal(TwinPhase.MainSilent, twin.Phase);
+            Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
+            Assert.Contains("TAKE OVER? · no wall-switch cue for a main on another machine, so not by itself: TAKE OVER is yours", twin.Status);
+            Assert.Contains("no wall-switch cue", vm.StatusMessage);
+
+            // A wall switch cue — here, words on the message overlay stand in for the switcher's verb — and it takes over by itself, firing it.
+            CallerCue(vm.State, "Wall to standby", ShowActionKind.MessageOn, "Wall: standby");
+            vm.State.Twin.TakeOverCue = "Wall to standby";
+            Dispatcher.UIThread.RunJobs();
+            clockOffset = TimeSpan.FromSeconds(9);
+            twin.Tick();
+            Assert.Equal(TwinPhase.TookOver, twin.Phase);
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("Walk-in", services.AirLabel);
+            Assert.Equal("Wall: standby", vm.State.Overlays.Message.Text);
+            Assert.True(vm.State.Overlays.Message.Enabled);
+            Assert.Contains("\"takeOverCue\":\"Wall to standby\"", twin.StatusJson());
+        }
+        finally
+        {
+            main.Stop();
             b.Dispose();
         }
     }

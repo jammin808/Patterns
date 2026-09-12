@@ -11,7 +11,7 @@ public sealed partial class ShowActions
         switch (a.Kind)
         {
             case ShowActionKind.TwinTakeOver:
-                return _s.Twin.TakeOver(origin);
+                return _s.Twin.TakeOver(origin, force: a.Value.Equals("force", StringComparison.OrdinalIgnoreCase));
             case ShowActionKind.TwinStandBy:
                 return _s.Twin.StandByAgain(origin);
             case ShowActionKind.TwinTakeBack:

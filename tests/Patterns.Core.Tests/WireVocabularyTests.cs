@@ -120,6 +120,7 @@ public class WireVocabularyTests
         ("WEATHER TOMORROW", new(ShowActionKind.WeatherView, "", "tomorrow")),
         ("REVIEW ON", new(ShowActionKind.ReviewOn)),
         ("TWIN TAKEOVER", new(ShowActionKind.TwinTakeOver)),
+        ("TWIN TAKEOVER FORCE", new(ShowActionKind.TwinTakeOver, "", "force")),
         ("TWIN STANDBY", new(ShowActionKind.TwinStandBy)),
         ("TWIN TAKEBACK", new(ShowActionKind.TwinTakeBack)),
         ("SHOWLOCK ON", new(ShowActionKind.ShowLockOn)),
