@@ -546,6 +546,24 @@ public static class ShowBrief
           .Append(designs.Count == 0 ? "none yet" : string.Join(", ", designs.Select(d => d.Preset.Length > 0 ? $"{d.Name} ({d.Preset})" : d.Name)))
           .Append("; people library: ").Append(s.LowerThirds.Entries.Count).AppendLine(s.LowerThirds.Entries.Count == 1 ? " entry." : " entries.");
 
+        var devices = s.Interactive.Devices;
+        if (devices.Count > 0)
+        {
+            // The boxes a cue can talk to, by the names the operator gave them, with what each one
+            // speaks — so "turn the projector on" proposes Device — send a line to Projector: POWER ON.
+            sb.Append("Devices on the Interactive page (").Append(s.Interactive.Enabled ? "area on" : "area off — lines go nowhere until it is on").AppendLine("):");
+            foreach (var d in devices)
+            {
+                sb.Append("  ").Append(d.Name).Append(" — ").Append(d.Profile == DeviceProfile.Lines ? d.Link == DeviceLink.Http ? "a web API" : "plain lines" : DeviceProfiles.Label(d.Profile))
+                  .Append(d.Enabled ? "" : ", switched off").Append("; words: ").Append(DeviceProfiles.Words(d.Profile)).AppendLine();
+            }
+        }
+        if (s.Twin.Role != TwinRole.Off)
+        {
+            sb.AppendLine(s.Twin.Role == TwinRole.Main
+                ? "Twin: this desk is the main — a standby Patterns may follow it in step."
+                : "Twin: this desk is a standby — it mirrors a main and its outputs are held closed until it takes the show over (TAKE OVER on the Machine page).");
+        }
         sb.Append("Sound: audio playlist ").Append(s.AudioPlayer.Items.Count).Append(s.AudioPlayer.Items.Count == 1 ? " track" : " tracks")
           .Append(s.AudioPlayer.Folders.Count > 0 ? $" and {s.AudioPlayer.Folders.Count} folder(s)" : "")
           .Append("; VOGs and stingers ").Append(s.Stingers.Items.Count)

@@ -221,6 +221,36 @@ public class AssistantTests
     }
 
     [Fact]
+    public void TheBriefNamesTheRoomsBoxesWithTheirWordsAndTheTwin()
+    {
+        var s = new ShowState();
+        Assert.DoesNotContain("Devices on the Interactive page", ShowBrief.Summarise(s));
+        Assert.DoesNotContain("Twin:", ShowBrief.Summarise(s));
+        var projector = DeviceProfiles.Preset(DeviceProfile.PjLink, 1);
+        projector.Port = "10.0.0.20";
+        projector.Secret = "hunter2";
+        s.Interactive.Devices.Add(projector);
+        var d3 = DeviceProfiles.Preset(DeviceProfile.Disguise, 1);
+        d3.Enabled = false;
+        s.Interactive.Devices.Add(d3);
+        s.Interactive.Devices.Add(new DeviceConfig { Name = "Arduino", Link = DeviceLink.Serial, Port = "COM3" });
+        s.Twin.Role = TwinRole.Standby;
+        var brief = ShowBrief.Summarise(s);
+        Assert.Contains("Devices on the Interactive page (area off", brief);
+        Assert.Contains("Projector — Projector (PJLink); words: POWER ON", brief);
+        Assert.Contains("Disguise — Disguise d3 (OSC), switched off; words: PLAY", brief);
+        Assert.Contains("Arduino — plain lines; words:", brief);
+        Assert.DoesNotContain("hunter2", brief);            // a password never rides in the brief
+        Assert.DoesNotContain("10.0.0.20", brief);          // nor an address
+        Assert.Contains("Twin: this desk is a standby", brief);
+        s.Interactive.Enabled = true;
+        s.Twin.Role = TwinRole.Main;
+        var on = ShowBrief.Summarise(s);
+        Assert.Contains("(area on)", on);
+        Assert.Contains("Twin: this desk is the main", on);
+    }
+
+    [Fact]
     public void TheSystemPromptCarriesTheFenceTheCatalogueAndTheBrief()
     {
         var prompt = AssistantScope.SystemPrompt(ShowBrief.Summarise(Fixture()));
