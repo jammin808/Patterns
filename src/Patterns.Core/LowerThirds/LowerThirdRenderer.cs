@@ -53,17 +53,56 @@ public sealed class LowerThirdElementCache : IDisposable
     private SKShader? _gradient;
     private string _gradientKey = "";
 
+    /// <summary>
+    /// A fractal element's CPU frame at one size: the raster, the image drawn from it until the
+    /// next frame is due, and when and of what kind that frame was.
+    /// </summary>
+    public sealed class FractalFrame : IDisposable
+    {
+        public FractalFrame(SKSizeI size) => Surface = new FractalSurface(size);
+
+        public FractalSurface Surface;
+        public SKImage? Image;
+        public double Time = double.NegativeInfinity;
+        public FractalKind Kind;
+
+        public void Dispose()
+        {
+            Image?.Dispose();
+            Image = null;
+            Surface.Dispose();
+        }
+    }
+
     public ParticleSim? Sim;
     public long SimVersion = -1;
     public SKSizeI SimCanvas;
-    public FractalSurface? Fractal;
     public string FractalColorsKey = "";
     public SKColor[] FractalColors = Array.Empty<SKColor>();
 
-    /// <summary>The last rendered fractal frame as an image, drawn again until the next frame is due.</summary>
-    public SKImage? FractalImage;
-    public double FractalTime = double.NegativeInfinity;
-    public FractalKind FractalKind;
+    // One frame per size the element is drawn at on this sink: a monitor wall draws the lower
+    // third on every tile at the tile's size, and one frame for all of them was rastered afresh
+    // for each tile, every frame — the 25 fps gate never held.
+    private readonly SurfacePool<FractalFrame> _fractals = new();
+
+    /// <summary>The element's frame at this size, made on first use.</summary>
+    public FractalFrame FractalFrameFor(SKSizeI size) => _fractals.Get(size, static s => new FractalFrame(s));
+
+    /// <summary>A new palette or design: every size draws afresh at once, whatever the clock.</summary>
+    public void RedrawFractal()
+    {
+        foreach (var frame in _fractals.All) frame.Time = double.NegativeInfinity;
+    }
+
+    /// <summary>The raster drawn most recently, and its image (tests and the desk's readouts).</summary>
+    public FractalSurface? Fractal => _fractals.Latest?.Surface;
+
+    public SKImage? FractalImage => _fractals.Latest?.Image;
+
+    /// <summary>How many sizes this element holds frames for on this sink.</summary>
+    public int FractalSizes => _fractals.Count;
+
+    /// <summary>Frames rastered for this element on this sink, every size counted.</summary>
     public int FractalFrames;
 
     /// <summary>The snapshot version an element threw at: it sits out until the design changes.</summary>
@@ -92,10 +131,7 @@ public sealed class LowerThirdElementCache : IDisposable
     {
         Sim?.Dispose();
         Sim = null;
-        Fractal?.Dispose();
-        Fractal = null;
-        FractalImage?.Dispose();
-        FractalImage = null;
+        _fractals.Dispose();
         _gradient?.Dispose();
         _gradient = null;
         _shadow.Dispose();
@@ -538,7 +574,7 @@ public static class LowerThirdRenderer
         {
             cache.FractalColors = Patterns.FractalPattern.PaletteOf(o.ColorsCsv);   // the same five the pattern's shader reads
             cache.FractalColorsKey = o.ColorsCsv;
-            cache.FractalTime = double.NegativeInfinity;   // a new palette draws at once
+            cache.RedrawFractal();                          // a new palette draws at once
         }
         var quality = QualityLadder.Shared.Factor;
         var box = new SKSizeI(Math.Max(8, (int)rect.Width), Math.Max(8, (int)rect.Height));
@@ -565,23 +601,24 @@ public static class LowerThirdRenderer
         // would be the one thing on a lower third that could crowd out the decoders on a small
         // machine. It gets a new frame FractalFps times a second and the same picture between —
         // a size, kind or palette change, or a time that jumped back (a fresh show), draws at once.
-        var due = cache.FractalImage is null || cache.Fractal is null || cache.Fractal.Size != size || cache.FractalKind != o.Kind
-                  || time < cache.FractalTime || time - cache.FractalTime >= FractalFrameSeconds;
+        var frame = cache.FractalFrameFor(size);
+        var due = frame.Image is null || frame.Kind != o.Kind
+                  || time < frame.Time || time - frame.Time >= FractalFrameSeconds;
         if (due)
         {
             var audio = o.AudioSource == AudioSourceKind.None ? AudioLevelFrame.Zero : AudioLevels.Read(f.Ctx.UtcNow);
             var view = FractalView.Of(o, time, audio, surge: surge, quality: quality);
-            cache.Fractal = FractalRaster.Render(cache.Fractal, size, o.Kind, cache.FractalColors, view);
-            cache.FractalImage?.Dispose();
-            cache.FractalImage = SKImage.FromBitmap(cache.Fractal.Bitmap);
-            cache.FractalTime = time;
-            cache.FractalKind = o.Kind;
+            frame.Surface = FractalRaster.Render(frame.Surface, size, o.Kind, cache.FractalColors, view);
+            frame.Image?.Dispose();
+            frame.Image = SKImage.FromBitmap(frame.Surface.Bitmap);
+            frame.Time = time;
+            frame.Kind = o.Kind;
             cache.FractalFrames++;
         }
-        if (cache.FractalImage is null) return;
+        if (frame.Image is null) return;
         c.Save();
         ClipBox(c, rect, e.CornerPx);
-        c.DrawImage(cache.FractalImage, rect, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
+        c.DrawImage(frame.Image, rect, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
         c.Restore();
     }
 

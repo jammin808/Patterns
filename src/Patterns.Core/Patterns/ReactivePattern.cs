@@ -60,8 +60,8 @@ public sealed class ReactivePattern : IPatternRenderer
         if (!drawn)
         {
             var size = ReactiveRaster.SizeFor(o.Quality, f.Canvas, Services.QualityLadder.RasterScale(quality));
-            sink.Reactive = ReactiveRaster.Render(sink.Reactive, size, o.Scene, palette, in view);
-            using var image = SKImage.FromBitmap(sink.Reactive.Bitmap);
+            var surface = ReactiveRaster.Render(sink.Reactives.Get(size, static s => new ReactiveSurface(s)), size, o.Scene, palette, in view);
+            using var image = SKImage.FromBitmap(surface.Bitmap);
             if (image is not null) c.DrawImage(image, dest, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
         }
 

@@ -103,13 +103,48 @@ public sealed class PdfDeckSource : IDeckSource, IDisposable
         if (_disposed || PageCount == 0 || _bytes is null) return false;
         var target = Math.Clamp(page, 1, PageCount);
         if (target == _page) return false;
-        var image = Rendered(target);
-        if (image is null) return false;
         _page = target;
-        _slot.Publish(image);
-        _ = Task.Run(() => RenderAround(target));
+        Interlocked.Exchange(ref _wanted, target);
+        SKImage? ready = null;
+        lock (_cache)
+        {
+            if (_pages.TryGetValue(target, out var cached)) ready = CopyForSlot(cached);
+        }
+        if (ready is not null)
+        {
+            _shown = target;
+            _slot.Publish(ready);
+            _ = Task.Run(() => RenderAround(target));
+            return true;
+        }
+        // Outside the rendered window — a jump, a cue to a far page, the first page of a deck just
+        // opened: rendered on a worker and published when it lands, the page on the slot staying
+        // up until then. This used to render here, on the desk's thread, under the process-wide
+        // gate — behind every other deck's own pre-rendering.
+        _ = Task.Run(() =>
+        {
+            var image = Rendered(target);
+            if (image is null) return;
+            if (_disposed || Volatile.Read(ref _wanted) != target)
+            {
+                image.Dispose();   // the deck moved on while this page was drawn
+                return;
+            }
+            _shown = target;
+            _slot.Publish(image);
+            RenderAround(target);
+        });
         return true;
     }
+
+    /// <summary>The page most recently asked for: a render that lands for an earlier ask is dropped.</summary>
+    private int _wanted;
+
+    /// <summary>The page whose picture is on the slot.</summary>
+    private volatile int _shown;
+
+    /// <summary>True once the page on show has been rendered and published — a page outside the window lands from a worker; the desk and the tests wait on it.</summary>
+    public bool PageShown => _shown == _page && _slot.HasFrame;
 
     // ---- the frame source ----------------------------------------------------------------------
 

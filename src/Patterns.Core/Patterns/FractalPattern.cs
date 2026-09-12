@@ -221,8 +221,8 @@ public sealed class FractalPattern : IPatternRenderer
 
         var cpuView = FractalView.Of(o, f.Ctx.Time, audio, surge: surge, quality: quality);
         var size = FractalRaster.SizeFor(o.Quality, f.Canvas, Services.QualityLadder.RasterScale(quality));
-        sink.Fractal = FractalRaster.Render(sink.Fractal, size, o.Kind, palette, cpuView);
-        using var image = SKImage.FromBitmap(sink.Fractal.Bitmap);
+        var surface = FractalRaster.Render(sink.Fractals.Get(size, static s => new FractalSurface(s)), size, o.Kind, palette, cpuView);
+        using var image = SKImage.FromBitmap(surface.Bitmap);
         if (image is not null) c.DrawImage(image, dest, DrawUtil.Smooth, f.Paints.Fill(SKColors.White));
         if (shaking) c.Restore();
         EffectFlash.Draw(c, w, h, surge.Flash, f.Paints, sink.Flash, f.Ctx.Time);

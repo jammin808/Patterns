@@ -580,9 +580,11 @@ public sealed class PatternEngine
             return;
         }
 
-        var tiles = opts.Tiles.Count > 0 ? opts.Tiles.ToList() : DefaultTiles(f.Snapshot);
+        // The tiles and their words, once per snapshot: badges, captions and the air state were
+        // built afresh for every tile on every frame of the wall.
+        var words = sink.MultiviewWords.For(f.Snapshot, opts);
         canvas.Clear(MultiviewBg);
-        if (tiles.Count == 0)
+        if (words.Count == 0)
         {
             DrawTileSlate(canvas, f, SKRect.Create(0, 0, f.W, f.H), "Add multiview tiles on the Multiview page");
             return;
@@ -592,11 +594,12 @@ public sealed class PatternEngine
         // ones are the first in the list, the rest go in the strip beside or under them.
         var gap = Math.Max(2f, f.W * 0.004f);
         var area = SKRect.Create(gap, gap, f.W - gap * 2, f.H - gap * 2);
-        var plan = MultiviewLayoutPlan.Plan(opts.Layout, tiles.Count, area, opts.Columns, gap);
+        var plan = MultiviewLayoutPlan.Plan(opts.Layout, words.Count, area, opts.Columns, gap);
 
         foreach (var placed in plan)
         {
-            var tile = tiles[placed.Index];
+            var said = words[placed.Index];
+            var tile = said.Tile;
             var cell = placed.Box;
             // A small tile's caption is a smaller caption: the strip is half the height of the
             // large row and a label sized off the big cells would eat the picture under it.
@@ -610,22 +613,22 @@ public sealed class PatternEngine
             // clock have no target of their own and stay 16:9.
             var vp = TileViewport(f.Snapshot, tile);
             var video = FitRect(content, vp?.Aspect ?? 16f / 9f);
-            DrawTileContent(canvas, in f, sink, tile, video, vp);
+            DrawTileContent(canvas, in f, sink, tile, video, vp, said.Name);
 
             if (opts.ShowTally)
             {
                 // The border: red live to the audience, green for the preview; then the badges —
                 // PGM / OFF / BLACK / FROZEN, NEXT or HELD for the next TAKE, LOCKED, OWN, REP.
-                var on = MultiviewTally.IsOnAir(f.Snapshot, tile);
-                var pvw = tile.Source == MultiviewSource.Preview && MultiviewTally.HasPreview(f.Snapshot);
+                var on = said.OnAir;
+                var pvw = said.Preview;
                 canvas.DrawRect(video, f.Paints.StrokeAA(on ? TallyRed : pvw ? TallyGreen : TallyIdle, on || pvw ? 3 : 1.5f));
-                DrawTileBadges(canvas, in f, video, MultiviewTally.Badges(f.Snapshot, tile));
+                DrawTileBadges(canvas, in f, video, said.Badges);
             }
 
             if (opts.ShowLabels)
             {
                 var bar = SKRect.Create(video.Left, cell.Bottom - labelH, video.Width, labelH);
-                DrawTileCaption(canvas, in f, bar, MultiviewTally.Name(f.Snapshot, tile), MultiviewTally.Kind(f.Snapshot, tile));
+                DrawTileCaption(canvas, in f, bar, said.Name, said.Kind);
             }
         }
     }
@@ -704,7 +707,7 @@ public sealed class PatternEngine
     }
 
     private void DrawTileContent(SKCanvas canvas, in PatternFrame f, SinkState sink, MultiviewTileConfig tile,
-        SKRect rect, TargetViewport? vp)
+        SKRect rect, TargetViewport? vp, string caption)
     {
         switch (tile.Source)
         {
@@ -737,7 +740,7 @@ public sealed class PatternEngine
                     // /mv.jpg's thumbnail tiles stay free of PiP, tone and info chips.
                     Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
                     SinkIndex = 0,
-                    SinkLabel = MultiviewTally.Name(f.Snapshot, tile),
+                    SinkLabel = caption,
                     // A tile is a miniature: its hairlines widen to the multiview's own pixels.
                     DeviceScale = f.DeviceScale * scale,
                 };

@@ -32,6 +32,18 @@ public class DeckAppTests
         }
     }
 
+    /// <summary>A page outside the rendered window lands from a worker: the pane is read once it has.</summary>
+    private static void WaitShown(PdfDeckSource deck)
+    {
+        var deadline = Environment.TickCount64 + 10000;
+        while (!deck.PageShown && Environment.TickCount64 < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+        }
+        Assert.True(deck.PageShown, $"page {deck.Page} did not land");
+    }
+
     private static SKBitmap RenderPane(RenderPipeline pipeline, int width, int height)
     {
         var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -96,14 +108,17 @@ public class DeckAppTests
 
             // The page on the PREVIEW pane, full frame: red, then green after a NEXT from the desk.
             var pipeline = window.PreviewPipeline!;
+            WaitShown(deck);
             using (var page1 = RenderPane(pipeline, 800, 450)) AssertNear(SKColors.Red, page1.GetPixel(400, 225));
             Assert.True(services.Actions.PresenterAdvance(+1, ActionOrigin.Desk));
             Assert.Equal(2, deck.Page);
+            WaitShown(deck);
             using (var page2 = RenderPane(pipeline, 800, 450)) AssertNear(SKColors.Lime, page2.GetPixel(400, 225));
 
             // The wire, a cue and the desk's buttons turn it too; the first page stays put on PREV.
             Assert.Equal("OK", Send(router, "DECK PAGE 3"));
             Assert.Equal(3, deck.Page);
+            WaitShown(deck);
             using (var page3 = RenderPane(pipeline, 800, 450)) AssertNear(SKColors.Blue, page3.GetPixel(400, 225));
             Assert.Equal("OK", Send(router, "DECK PREV"));
             Assert.Equal(2, deck.Page);

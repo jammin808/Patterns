@@ -33,6 +33,18 @@ public class DeckConversionAppTests
         }
     }
 
+    /// <summary>A page outside the rendered window lands from a worker: the pane is read once it has.</summary>
+    private static void WaitShown(PdfDeckSource deck)
+    {
+        var deadline = Environment.TickCount64 + 10000;
+        while (!deck.PageShown && Environment.TickCount64 < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+        }
+        Assert.True(deck.PageShown, $"page {deck.Page} did not land");
+    }
+
     private static SKBitmap RenderPane(RenderPipeline pipeline, int width, int height)
     {
         var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -134,9 +146,11 @@ public class DeckConversionAppTests
             Assert.NotNull(services.DeckIn.Converter.Cached(pptx));
             Assert.StartsWith(services.DeckIn.Converter.CacheDirectory, services.DeckIn.Converter.Cached(pptx)!);
             var pipeline = window.PreviewPipeline!;
+            WaitShown(deck);
             using (var page1 = RenderPane(pipeline, 800, 450)) AssertNear(SKColors.Red, page1.GetPixel(400, 225));
             Assert.True(services.Actions.PresenterAdvance(+1, ActionOrigin.Clicker));
             Assert.Equal(2, deck.Page);
+            WaitShown(deck);
             using (var page2 = RenderPane(pipeline, 800, 450)) AssertNear(SKColors.Blue, page2.GetPixel(400, 225));
             vm.PollNow();
             Assert.True(vm.DeckOnAir);

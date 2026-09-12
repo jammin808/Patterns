@@ -14,11 +14,12 @@ public sealed class RunRow : Observable
     private bool _isNext;
     private string _problem = "";
     private string _plan = "";
+    private string _summary = "";
 
     public RunRow(RunCueConfig cue, string summary)
     {
         Cue = cue;
-        Summary = summary;
+        _summary = summary;
     }
 
     /// <summary>"10:35 → 10:42 · 12:00": planned start, expected start, planned length — whichever the cue has.</summary>
@@ -43,7 +44,7 @@ public sealed class RunRow : Observable
     public RunCueConfig Cue { get; }
     public string Number => Cue.Number;
     public string Name => Cue.Name;
-    public string Summary { get; }
+    public string Summary { get => _summary; set => Set(ref _summary, value); }
     public string Notes => Cue.Notes;
     public bool HasNotes => Cue.Notes.Length > 0;
     public bool Enabled => Cue.Enabled;
@@ -56,6 +57,21 @@ public sealed class RunRow : Observable
     public bool IsBroken => _problem.Length > 0;
 
     public string Tag => IsStandby ? "STANDBY" : IsLast ? "LAST" : IsNext ? "NEXT" : "";
+
+    /// <summary>The cue was edited in place: everything that reads through to it is raised.</summary>
+    public void RaiseCue()
+    {
+        Raise(nameof(Number));
+        Raise(nameof(Name));
+        Raise(nameof(Notes));
+        Raise(nameof(HasNotes));
+        Raise(nameof(Enabled));
+        Raise(nameof(RequireConfirm));
+        Raise(nameof(HasFollow));
+        Raise(nameof(FollowTag));
+        Raise(nameof(MarkTag));
+        Raise(nameof(HasMark));
+    }
 }
 
 /// <summary>
@@ -458,17 +474,37 @@ public sealed class RunViewModel : Observable
         _refresh.Start();
     }
 
-    /// <summary>Rebuilds the rows from the caller's stack and re-validates it.</summary>
+    /// <summary>
+    /// Brings the rows to the caller's stack and re-validates it. The rows follow the cues in
+    /// place: a cue still in the list keeps its row — its container, its selection, the caller's
+    /// place in the list — takes its words afresh and raises what reads through; a cue gone goes;
+    /// a new one comes in where it sits. Every publish used to clear the list and remake every row.
+    /// </summary>
     public void Refresh()
     {
         _refresh.Stop();
         var stack = _s.CueStack.Stack;
         _report = CueValidator.Validate(_s.State, stack, _s.ValidationContext);
-        Rows.Clear();
+        var byCue = new Dictionary<RunCueConfig, RunRow>(ReferenceEqualityComparer.Instance);
+        foreach (var row in Rows) byCue[row.Cue] = row;
+        var wanted = new List<RunRow>(stack.Cues.Count);
         foreach (var cue in stack.Cues)
         {
-            Rows.Add(new RunRow(cue, CueSummary.Describe(_s.State, cue)) { Problem = _report.ReasonFor(cue.Id) ?? "" });
+            var summary = CueSummary.Describe(_s.State, cue);
+            var problem = _report.ReasonFor(cue.Id) ?? "";
+            if (byCue.TryGetValue(cue, out var row))
+            {
+                row.Summary = summary;
+                row.Problem = problem;
+                row.RaiseCue();
+            }
+            else
+            {
+                row = new RunRow(cue, summary) { Problem = problem };
+            }
+            wanted.Add(row);
         }
+        ObservableSync.Sync(Rows, wanted);
         RefreshFlags();
         RefreshTiming();
         RaiseLive();

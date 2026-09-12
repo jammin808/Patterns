@@ -223,23 +223,8 @@ public static class LibraryCatalogue
         return shown == total ? $"{total} tiles" : $"{shown} of {total}{where}{searched}";
     }
 
-    /// <summary>Brings a page's collection to <paramref name="wanted"/> in place: what stays keeps its container.</summary>
-    public static void Sync<T>(ObservableCollection<T> page, IReadOnlyList<T> wanted) where T : class
-    {
-        var want = new HashSet<T>(wanted, ReferenceEqualityComparer.Instance);
-        for (var i = page.Count - 1; i >= 0; i--)
-        {
-            if (!want.Contains(page[i])) page.RemoveAt(i);
-        }
-        for (var i = 0; i < wanted.Count; i++)
-        {
-            var item = wanted[i];
-            var at = page.IndexOf(item);
-            if (at == i) continue;
-            if (at < 0) page.Insert(i, item);
-            else page.Move(at, i);
-        }
-    }
+    /// <summary>Brings the page's collection to <paramref name="wanted"/> in place: what stays keeps its container.</summary>
+    public static void Sync<T>(ObservableCollection<T> page, IReadOnlyList<T> wanted) where T : class => ObservableSync.Sync(page, wanted);
 
     /// <summary>What the queue draws for a tile: the key names the picture (the pattern on the show's brand), the render makes it.</summary>
     public static ThumbnailQueue.Job JobFor(PresetItem tile, ShowState over, string brandKey)

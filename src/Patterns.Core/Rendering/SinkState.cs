@@ -141,8 +141,8 @@ public sealed class SinkState : IDisposable
 
     public HashSet<FractalKind> FractalUnavailable { get; } = new();
 
-    /// <summary>The CPU path's low-resolution frame and its pixel buffer, reused frame to frame.</summary>
-    public Effects.FractalSurface? Fractal { get; set; }
+    /// <summary>The CPU path's low-resolution fractal frames, one per size this sink draws, reused frame to frame.</summary>
+    public Effects.SurfacePool<Effects.FractalSurface> Fractals { get; } = new();
 
     /// <summary>
     /// How often this sink's picture may flash. A whole-screen light change is the one effect with
@@ -157,8 +157,8 @@ public sealed class SinkState : IDisposable
     /// <summary>Scenes whose shader would not compile here: drawn on the CPU instead, asked for once.</summary>
     public HashSet<Model.ReactiveScene> ReactiveUnavailable { get; } = new();
 
-    /// <summary>The CPU path's reactive frame, reused frame to frame.</summary>
-    public Effects.ReactiveSurface? Reactive { get; set; }
+    /// <summary>The CPU path's reactive frames, one per size this sink draws, reused frame to frame.</summary>
+    public Effects.SurfacePool<Effects.ReactiveSurface> Reactives { get; } = new();
 
     /// <summary>The colours the reactive scene last resolved to, and the key they came from.</summary>
     public string ReactiveColorsKey { get; set; } = "";
@@ -173,6 +173,9 @@ public sealed class SinkState : IDisposable
 
     /// <summary>Message ticker caches: the measured text width and the fade-band shader.</summary>
     public TickerCache Ticker { get; } = new();
+
+    /// <summary>What a multiview's tiles say, worked out once per snapshot rather than per tile per frame.</summary>
+    public MultiviewWords MultiviewWords { get; } = new();
 
     /// <summary>The lower third's per-element caches on this sink (sims, rasters, gradients, blurs), by element id.</summary>
     public Dictionary<string, LowerThirds.LowerThirdElementCache> LowerThirds { get; } = new();
@@ -274,10 +277,9 @@ public sealed class SinkState : IDisposable
         LowerThirds.Clear();
         foreach (var fx in FractalEffects.Values) fx.Dispose();
         foreach (var fx in ReactiveEffects.Values) fx.Dispose();
-        Reactive?.Dispose();
+        Reactives.Dispose();
         FractalEffects.Clear();
-        Fractal?.Dispose();
-        Fractal = null;
+        Fractals.Dispose();
         Paints.Dispose();
         ParticleSims.Dispose();
         Checker.Dispose();
