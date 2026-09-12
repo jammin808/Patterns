@@ -69,21 +69,41 @@ public sealed partial class ShowActions
                     ShowActionKind.ScreenUnlock => false,
                     _ => !ScreenRoles.IsLocked(State, target),
                 };
-                // "Keep what you show": the picture on air for the target, whichever state holds
-                // it — the live model, or the frozen program while the sandbox is open. Both get
-                // the lock, so a look to air and the next TAKE agree.
-                var air = _s.AirState;
-                var source = ScreenRoles.ResolveMirror(air, target);
-                var showing = ContentTargets.UsesOwnPattern(air, source)
-                    ? air.Independent.FirstOrDefault(x => x.ScreenId == source)?.Pattern ?? air.Pattern
-                    : air.Pattern;
-                var picture = JsonUtil.ClonePattern(showing);
-                _s.BulkEdit(() => ScreenRoles.SetLocked(State, target, locked, picture));
-                if (_s.Sandbox.Active) _s.EditAir(program => ScreenRoles.SetLocked(program, target, locked, picture));
-                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
-                return ActionResult.Done(locked
-                    ? $"{label} locked — it keeps its picture through looks, cues, TAKE ALL and stingers."
-                    : $"{label} follows looks, cues and TAKE again.");
+                return SetLock(target, locked);
+            }
+            case ShowActionKind.ScreenRole:
+            {
+                var target = ResolveScreenTarget(a.Target);
+                var placement = target is null ? null : State.Output.Placements.FirstOrDefault(p => p.ScreenId == target);
+                if (placement is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                if (ScreenRoles.Parse(a.Value) is not { } role) return ActionResult.Refused($"'{a.Value}' is not a role — main, confidence, info or repeater.");
+                var id = placement.ScreenId;
+                _s.BulkEdit(() => placement.Role = role);
+                if (_s.Sandbox.Active) _s.EditAir(program => { if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air) air.Role = role; });
+                // The role picks its follow default, the way the Screens page does: a confidence or an info screen keeps its picture.
+                var follows = ScreenRoles.DefaultFollows(role);
+                var held = placement.FollowsCues != follows ? " " + SetLock(id, !follows).Message : "";
+                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, id);
+                return ActionResult.Done($"{label} is a {ScreenRoles.Word(role)} screen.{held}");
+            }
+            case ShowActionKind.ScreenLabel:
+            {
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen or canvas '{a.Target}'.");
+                var text = a.Value.Trim();
+                var id = target;
+                if (ContentTargets.IsCanvasKey(id))
+                {
+                    _s.BulkEdit(() => RigEditor.CanvasConfigFor(State, id, create: true)!.Name = text);
+                    if (_s.Sandbox.Active) _s.EditAir(program => RigEditor.CanvasConfigFor(program, id, create: true)!.Name = text);
+                }
+                else
+                {
+                    _s.BulkEdit(() => { if (State.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } p) p.CustomLabel = text; });
+                    if (_s.Sandbox.Active) _s.EditAir(program => { if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } p) p.CustomLabel = text; });
+                }
+                var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, id);
+                return ActionResult.Done(text.Length > 0 ? $"{label} — named '{text}'." : $"{label} — label cleared.");
             }
             case ShowActionKind.CanvasOn:
             case ShowActionKind.CanvasOff:
@@ -117,6 +137,27 @@ public sealed partial class ShowActions
         placement.Enabled = target ?? !placement.Enabled;
         placement.UserPinned = true;
         return true;
+    }
+
+    /// <summary>
+    /// A target locked or released. "Keep what you show": the picture on air for the target,
+    /// whichever state holds it — the live model, or the frozen program while the sandbox is
+    /// open. Both get the lock, so a look to air and the next TAKE agree.
+    /// </summary>
+    private ActionResult SetLock(string target, bool locked)
+    {
+        var air = _s.AirState;
+        var source = ScreenRoles.ResolveMirror(air, target);
+        var showing = ContentTargets.UsesOwnPattern(air, source)
+            ? air.Independent.FirstOrDefault(x => x.ScreenId == source)?.Pattern ?? air.Pattern
+            : air.Pattern;
+        var picture = JsonUtil.ClonePattern(showing);
+        _s.BulkEdit(() => ScreenRoles.SetLocked(State, target, locked, picture));
+        if (_s.Sandbox.Active) _s.EditAir(program => ScreenRoles.SetLocked(program, target, locked, picture));
+        var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+        return ActionResult.Done(locked
+            ? $"{label} locked — it keeps its picture through looks, cues, TAKE ALL and stingers."
+            : $"{label} follows looks, cues and TAKE again.");
     }
 
     /// <summary>A screen by overview number (1-based), a placement id, or a canvas key — as a content target the rig has; null when it does not.</summary>

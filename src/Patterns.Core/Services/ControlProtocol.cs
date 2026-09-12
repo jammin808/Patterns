@@ -290,13 +290,23 @@ public static class ControlProtocol
                     var preset = rest[7..].Trim();
                     return preset.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenPreset, n, preset);
                 }
+                // "SCREEN 2 ROLE confidence": what the screen is for; "SCREEN 2 LABEL Stage left": its name on the desk (bare LABEL clears it).
+                if (rest.StartsWith("ROLE ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var role = rest[5..].Trim();
+                    return role.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenRole, n, role);
+                }
+                if (rest.StartsWith("LABEL ", StringComparison.OrdinalIgnoreCase) || rest.Equals("LABEL", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Act(ShowActionKind.ScreenLabel, n, rest.Length > 6 ? rest[6..].Trim() : "");
+                }
                 var action = rest.ToUpperInvariant();
                 return action switch
                 {
                     "ON" => Act(ShowActionKind.ScreenOn, n),
                     "OFF" => Act(ShowActionKind.ScreenOff, n),
                     "PROGRAM" or "PGM" or "FOLLOW" => Act(ShowActionKind.ScreenProgram, n),
-                    "LOOK" or "PRESET" => Unknown(s),
+                    "LOOK" or "PRESET" or "ROLE" => Unknown(s),
                     _ => Act(ShowActionKind.ScreenToggle, n),
                 };
             }

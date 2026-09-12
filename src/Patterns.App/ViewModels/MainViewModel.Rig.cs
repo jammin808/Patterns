@@ -202,9 +202,7 @@ public sealed partial class MainViewModel
         }
 
         var oldId = change.ScreenId;
-        _services.BulkEdit(() => ContentTargets.RenameScreen(State, oldId, replacement.Id));
-        if (_services.Sandbox.ProgramState is { } air) ContentTargets.RenameScreen(air, oldId, replacement.Id);
-        _services.RepublishNow();
+        _services.RigEditor.RenameScreen(oldId, replacement.Id);
         _modeChange = settled ? null : change with { ScreenId = replacement.Id };
         if (_selectedPlacement == placement) RaiseSelection();
         Log.Info($"Display re-identified after a mode change: {oldId} → {replacement.Id}.");
@@ -213,59 +211,13 @@ public sealed partial class MainViewModel
     public void ReconcilePlacements() => ReconcilePlacements(_services.Screens.All.ToList());
 
     /// <summary>
-    /// Displays that physically exist among the given list. The "primary goes off when there
-    /// are other screens" default must count these only — a planned screen has no hardware,
-    /// so letting it tip the count would turn off the operator's one real output.
-    /// </summary>
-    private static int RealCount(IReadOnlyList<ScreenInfo> screens)
-    {
-        var n = 0;
-        foreach (var s in screens)
-        {
-            if (!s.IsPlanned) n++;
-        }
-        return n;
-    }
-
-    /// <summary>
-    /// Keeps placements in sync with detected screens: new screens appear to the right of the
-    /// arrangement (disconnected), and — until the operator pins a choice — the primary screen
-    /// defaults to disabled whenever other screens exist, so GO never covers the control UI.
+    /// Keeps placements in sync with detected screens (the rig editor does the placing), then
+    /// keeps a screen selected and brings every list that reads the rig up to date.
     /// </summary>
     public void ReconcilePlacements(IReadOnlyList<ScreenInfo> screens)
     {
         var placements = State.Output.Placements;
-
-        foreach (var screen in screens)
-        {
-            if (placements.All(p => p.ScreenId != screen.Id))
-            {
-                var maxRight = 0;
-                foreach (var p in placements)
-                {
-                    var info = screens.FirstOrDefault(s => s.Id == p.ScreenId);
-                    if (info is not null) maxRight = Math.Max(maxRight, p.X + info.Bounds.Width);
-                }
-                placements.Add(new ScreenPlacement
-                {
-                    ScreenId = screen.Id,
-                    X = placements.Count == 0 ? 0 : maxRight + 120,
-                    Y = 0,
-                    Enabled = !(screen.IsPrimary && RealCount(screens) > 1),
-                });
-            }
-        }
-
-        // Re-evaluate the default for anything the user hasn't pinned.
-        foreach (var p in placements)
-        {
-            if (p.UserPinned) continue;
-            var info = screens.FirstOrDefault(s => s.Id == p.ScreenId);
-            if (info is not null)
-            {
-                p.Enabled = !(info.IsPrimary && RealCount(screens) > 1);
-            }
-        }
+        _services.RigEditor.ReconcilePlacements(screens);
 
         if (_selectedPlacement is null || placements.All(p => p != _selectedPlacement))
         {
@@ -504,19 +456,7 @@ public sealed partial class MainViewModel
 
     /// <summary>The joined canvas the selected screen is in (its stored entry, made on demand), or null for a stand-alone screen.</summary>
     private CanvasNameConfig? SelectedCanvasConfig(bool create)
-    {
-        if (_selectedPlacement is not { } p) return null;
-        var group = CanvasGroups().FirstOrDefault(g => g.Any(m => m.ScreenId == p.ScreenId));
-        if (group is null) return null;
-        var key = CanvasNameConfig.KeyFor(group.Select(m => m.ScreenId));
-        var entry = State.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key);
-        if (entry is null && create)
-        {
-            entry = new CanvasNameConfig { MemberKey = key };
-            State.Output.CanvasNames.Add(entry);
-        }
-        return entry;
-    }
+        => _selectedPlacement is { } p ? _services.RigEditor.CanvasConfigFor(p, create) : null;
 
     /// <summary>Bezel compensation of the canvas the selected screen is in: the dead width between two members side by side.</summary>
     public int SelectedSeamGapX
@@ -556,18 +496,12 @@ public sealed partial class MainViewModel
     public int GapGridPx { get => _gapGridPx; set => Set(ref _gapGridPx, Math.Clamp(value, 1, 4096)); }
 
     /// <summary>The selected screen's raster as the room sees it: the display's rotation-aware size, or the planned one.</summary>
-    private SKSizeI SelectedRasterSize()
-    {
-        if (_selectedPlacement is not { } p) return SKSizeI.Empty;
-        var info = LiveInfo(p);
-        return info is null ? new SKSizeI(p.PlannedWidth, p.PlannedHeight) : OutputWindowManager.EffectiveSize(p, info);
-    }
+    private SKSizeI SelectedRasterSize() => _selectedPlacement is { } p ? _services.RigEditor.RasterOf(p) : SKSizeI.Empty;
 
     private void AddGap()
     {
         if (_selectedPlacement is not { } p) return;
-        var size = SelectedRasterSize();
-        p.Gaps.Add(new WallGap { Axis = GapAxis.Vertical, At = Math.Max(1, size.Width / 2), Size = 100 });
+        RigEditor.AddGap(p, SelectedRasterSize());
         RaiseGaps();
     }
 
@@ -582,19 +516,7 @@ public sealed partial class MainViewModel
     private void SetGapsFromGrid()
     {
         if (_selectedPlacement is not { } p) return;
-        var size = SelectedRasterSize();
-        _services.BulkEdit(() =>
-        {
-            p.Gaps.Clear();
-            for (var k = 1; k < _gapGridColumns; k++)
-            {
-                p.Gaps.Add(new WallGap { Axis = GapAxis.Vertical, At = (int)Math.Round(size.Width * (double)k / _gapGridColumns), Size = _gapGridPx });
-            }
-            for (var k = 1; k < _gapGridRows; k++)
-            {
-                p.Gaps.Add(new WallGap { Axis = GapAxis.Horizontal, At = (int)Math.Round(size.Height * (double)k / _gapGridRows), Size = _gapGridPx });
-            }
-        });
+        _services.RigEditor.SetGapsFromGrid(p, SelectedRasterSize(), _gapGridColumns, _gapGridRows, _gapGridPx);
         RaiseGaps();
         StatusMessage = $"{p.Gaps.Count} gap{(p.Gaps.Count == 1 ? "" : "s")} set from a {_gapGridColumns} × {_gapGridRows} grid, {_gapGridPx} px each.";
     }
@@ -602,15 +524,7 @@ public sealed partial class MainViewModel
     private void ClearGaps()
     {
         if (_selectedPlacement is not { } p) return;
-        _services.BulkEdit(() =>
-        {
-            p.Gaps.Clear();
-            if (SelectedCanvasConfig(create: false) is { } e)
-            {
-                e.SeamGapX = 0;
-                e.SeamGapY = 0;
-            }
-        });
+        _services.RigEditor.ClearGaps(p);
         RaiseGaps();
     }
 
@@ -641,16 +555,16 @@ public sealed partial class MainViewModel
 
     public EnumItem[] ScreenRoleItems => Lists.ScreenRoles;
 
-    /// <summary>What the selected screen is for; picking a role also picks its follow default.</summary>
+    /// <summary>What the selected screen is for; picking a role also picks its follow default. Through the action layer: journaled, the frozen program agrees, a cue and the wire have the same verb.</summary>
     public ScreenRole SelectedRole
     {
         get => _selectedPlacement?.Role ?? ScreenRole.Main;
         set
         {
             if (_selectedPlacement is null || _selectedPlacement.Role == value) return;
-            _selectedPlacement.Role = value;
-            var follows = ScreenRoles.DefaultFollows(value);
-            if (_selectedPlacement.FollowsCues != follows) SetLocked(_selectedPlacement.ScreenId, !follows);
+            _services.Actions.Execute(new ShowAction(ShowActionKind.ScreenRole, _selectedPlacement.ScreenId, ScreenRoles.Word(value)), ActionOrigin.Desk);
+            RebuildEditTargets();
+            RefreshTakeScope();
             RaiseSelection();
             RebuildSwitcherTiles();   // the tile's badge and foot line read the group at once
         }
@@ -743,31 +657,12 @@ public sealed partial class MainViewModel
     /// <summary>The name of the canvas containing the selected screen ("Main wall").</summary>
     public string SelectedCanvasName
     {
-        get
-        {
-            if (_selectedPlacement is not { } p) return "";
-            var group = CanvasGroups().FirstOrDefault(g => g.Any(m => m.ScreenId == p.ScreenId));
-            if (group is null) return "";
-            var key = CanvasNameConfig.KeyFor(group.Select(m => m.ScreenId));
-            return State.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key)?.Name ?? "";
-        }
+        get => SelectedCanvasConfig(create: false)?.Name ?? "";
         set
         {
-            if (_selectedPlacement is not { } p) return;
-            var group = CanvasGroups().FirstOrDefault(g => g.Any(m => m.ScreenId == p.ScreenId));
-            if (group is null) return;
-            var key = CanvasNameConfig.KeyFor(group.Select(m => m.ScreenId));
-            var entry = State.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == key);
-            if (entry is null)
-            {
-                entry = new CanvasNameConfig { MemberKey = key };
-                State.Output.CanvasNames.Add(entry);
-            }
-            if (entry.Name != value)
-            {
-                entry.Name = value;
-                RefreshTargetNames();
-            }
+            if (SelectedCanvasConfig(create: true) is not { } entry || entry.Name == value) return;
+            entry.Name = value;
+            RefreshTargetNames();
         }
     }
 
@@ -943,12 +838,7 @@ public sealed partial class MainViewModel
 
     private void AddNdiSender()
     {
-        var n = State.Ndi.Senders.Count + 1;
-        State.Ndi.Senders.Add(new NdiSenderConfig
-        {
-            Name = n == 1 ? "Patterns" : $"Patterns {n}",
-            Enabled = false,
-        });
+        _services.RigEditor.AddNdiSender();
         SyncVirtualScreens(); // every send owns a screen of its own from the moment it exists
         StatusMessage = "NDI sender added — it owns a screen on the rig: mirror any target, or give it a look of its own.";
     }
@@ -1045,47 +935,16 @@ public sealed partial class MainViewModel
     /// <summary>Adds a screen that does not exist yet, so the whole rig can be built at the desk.</summary>
     public ScreenPlacement AddPlannedScreen(int width = 1920, int height = 1080, string label = "")
     {
-        var placement = new ScreenPlacement
-        {
-            ScreenId = ScreenPlacement.PlannedIdPrefix + Guid.NewGuid().ToString("N")[..8],
-            Planned = true,
-            PlannedWidth = width,
-            PlannedHeight = height,
-            CustomLabel = label,
-            Enabled = true,
-            UserPinned = true,
-            X = NextPlannedX(),
-        };
-        State.Output.Placements.Add(placement);
-        _services.Screens.Refresh();
+        var placement = _services.RigEditor.AddPlannedScreen(width, height, label);
         RebuildEditTargets();
         RaiseModeChanged();
         StatusMessage = $"Planned screen added ({width}×{height}). Arrange, pattern and label it like any other.";
         return placement;
     }
 
-    /// <summary>
-    /// Places a new planned screen to the right of everything already arranged, a gap away: its
-    /// own target until it is dragged flush — flush is what joins screens into one canvas, and a
-    /// rig built screen by screen used to come out as one wide wall.
-    /// </summary>
-    private int NextPlannedX()
-    {
-        var right = 0;
-        foreach (var (placement, info) in OrderedLivePlacements())
-        {
-            right = Math.Max(right, placement.X + OutputWindowManager.EffectiveSize(placement, info).Width + Patterns.Core.Rendering.ScreenLayout.ApartGap);
-        }
-        return right;
-    }
-
     public void RemovePlannedScreen(ScreenPlacement placement)
     {
-        if (!placement.IsPlannedDisplay) return; // a feed's own screen goes with its feed, never on its own
-        State.Output.Placements.Remove(placement);
-        var assignment = State.Independent.FirstOrDefault(a => a.ScreenId == placement.ScreenId);
-        if (assignment is not null) State.Independent.Remove(assignment);
-        _services.Screens.Refresh();
+        if (!_services.RigEditor.RemovePlannedScreen(placement)) return; // a feed's own screen goes with its feed, never on its own
         RebuildEditTargets();
         RaiseModeChanged();
         StatusMessage = "Planned screen removed.";
@@ -1098,40 +957,9 @@ public sealed partial class MainViewModel
     /// </summary>
     public bool AdoptPlannedScreen(ScreenPlacement planned, string realScreenId)
     {
-        if (!planned.IsPlannedDisplay || realScreenId.Length == 0) return false; // a feed's own screen is never a display
-        if (_services.Screens.Real.All(s => s.Id != realScreenId)) return false;
-
-        var oldId = planned.ScreenId;
-        if (State.Output.Placements.FirstOrDefault(p => p.ScreenId == realScreenId) is { } existing)
-        {
-            // That display already has a placement — retire it and let the planned one take over.
-            State.Output.Placements.Remove(existing);
-            var stale = State.Independent.FirstOrDefault(a => a.ScreenId == realScreenId);
-            if (stale is not null) State.Independent.Remove(stale);
-        }
-
-        _services.BulkEdit(() =>
-        {
-            planned.Planned = false;
-            ContentTargets.RenameScreen(State, oldId, realScreenId);
-        });
-
-        // The rig lives in the frozen program too while EDIT SAFE is on — adopt there as well,
-        // or the audience keeps the planned screen the operator just replaced.
-        if (_services.Sandbox.ProgramState is { } air)
-        {
-            foreach (var p in air.Output.Placements.Where(p => p.ScreenId == oldId))
-            {
-                p.Planned = false;
-            }
-            ContentTargets.RenameScreen(air, oldId, realScreenId);
-            _services.RepublishNow();
-        }
-
-        _services.Screens.Refresh();
+        if (_services.RigEditor.AdoptPlannedScreen(planned, realScreenId) is not { } info) return false; // not a planned display, or no such display here
         RebuildEditTargets();
         RaiseModeChanged();
-        var info = _services.Screens.Real.First(s => s.Id == realScreenId);
         StatusMessage = $"Adopted onto {info.Label} ({info.Bounds.Width}×{info.Bounds.Height}) — everything programmed for it carried over.";
         Log.Info(StatusMessage);
         return true;

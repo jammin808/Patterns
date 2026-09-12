@@ -115,6 +115,14 @@ public enum ShowActionKind
     ScreenLock,
     ScreenUnlock,
     ScreenLockToggle,
+    /// <summary>
+    /// Target = a screen (number, id); Value = its role — main, confidence, info or repeater. A
+    /// confidence or info screen is locked as it takes the role, the way the Screens page does
+    /// it; a main screen or a repeater follows again.
+    /// </summary>
+    ScreenRole,
+    /// <summary>Target = a screen (number, id) or a canvas key; Value = the name it goes by on the desk, the wall and the remotes (empty clears a screen's label).</summary>
+    ScreenLabel,
     /// <summary>Every multiview draws the sandboxed preview full-frame — a review before the TAKE — or its tiles again. A runtime flag, never saved.</summary>
     ReviewOn,
     ReviewOff,

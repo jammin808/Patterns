@@ -143,4 +143,22 @@ public class ScreenRolesTests
         Assert.Equal(ScreenRole.Main, newer.Output.Placements[0].Role);
         Assert.Equal(ScreenRole.Info, JsonUtil.Deserialize<ShowState>(json)!.Output.Placements[0].Role);
     }
+
+    [Theory]
+    [InlineData("main", ScreenRole.Main)]
+    [InlineData("PGM", ScreenRole.Main)]
+    [InlineData("confidence", ScreenRole.Confidence)]
+    [InlineData("conf", ScreenRole.Confidence)]
+    [InlineData("stage", ScreenRole.Confidence)]
+    [InlineData("info", ScreenRole.Info)]
+    [InlineData("foyer", ScreenRole.Info)]
+    [InlineData("repeater", ScreenRole.Repeater)]
+    [InlineData("mirror", ScreenRole.Repeater)]
+    public void ARoleHasWordsTheWireAndACueUse(string word, ScreenRole role)
+    {
+        Assert.Equal(role, ScreenRoles.Parse(word));
+        Assert.Equal(role, ScreenRoles.Parse(ScreenRoles.Word(role)));   // the word it gives back reads again
+        Assert.Null(ScreenRoles.Parse("sideways"));
+        Assert.Null(ScreenRoles.Parse(""));
+    }
 }

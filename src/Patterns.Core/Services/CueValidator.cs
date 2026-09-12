@@ -216,6 +216,10 @@ public static class CueValidator
                 case ShowActionKind.ScreenUnlock:
                     if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     break;
+                case ShowActionKind.ScreenRole:
+                    if (state.Output.Placements.All(p => p.ScreenId != a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    if (ScreenRoles.Parse(a.Value) is null) Hard($"{where}: a role is main, confidence, info or repeater — not '{a.Value}'.");
+                    break;
                 case ShowActionKind.FadeToBlack:
                 case ShowActionKind.FadeUp:
                 {

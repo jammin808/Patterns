@@ -13,6 +13,19 @@ public static class ScreenRoles
     /// <summary>The follow default a role picks when it is chosen: main and repeater screens follow, monitors do not.</summary>
     public static bool DefaultFollows(ScreenRole role) => role is ScreenRole.Main or ScreenRole.Repeater;
 
+    /// <summary>A role by its word — main, confidence (conf, stage, notes), info (foyer), repeater (rep, mirror) — or null.</summary>
+    public static ScreenRole? Parse(string? word) => (word ?? "").Trim().ToLowerInvariant() switch
+    {
+        "main" or "program" or "pgm" or "audience" => ScreenRole.Main,
+        "confidence" or "conf" or "stage" or "monitor" or "notes" => ScreenRole.Confidence,
+        "info" or "foyer" or "information" => ScreenRole.Info,
+        "repeater" or "rep" or "mirror" or "repeat" => ScreenRole.Repeater,
+        _ => null,
+    };
+
+    /// <summary>The role's word on the wire and in a cue: main, confidence, info, repeater.</summary>
+    public static string Word(ScreenRole role) => role.ToString().ToLowerInvariant();
+
     /// <summary>The wall tile's badge; empty for a main screen.</summary>
     public static string Badge(ScreenRole role) => role switch
     {

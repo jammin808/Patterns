@@ -669,7 +669,7 @@ public static class HelpTopics
                 "LOCK a screen (the wall, the panel, the wire) to keep its picture through looks, cues, TAKE ALL and stingers.",
                 "NDI sends and the stream are feed screens of their own, made on the NDI and Stream pages; what they show is chosen there.",
             },
-            "LOCK <n> ON / OFF / TOGGLE · SCREEN <n> ON / OFF · GROUP <letter> ON / OFF",
+            "LOCK <n> ON / OFF / TOGGLE · SCREEN <n> ON / OFF · SCREEN <n> ROLE main / confidence / info / repeater · SCREEN <n> LABEL <name> · GROUP <letter> ON / OFF",
             new[] { "Screens", "Panel" },
             new[] { "role", "group", "groups", "main", "confidence", "info", "info desk", "infodesk", "lock", "locked", "repeater", "repeaters", "mirror", "follow", "independent", "stage monitor", "foyer", "feed", "ndi feed", "feed screen", "allocate", "settings column", "pop-out", "selected screen" }),
 

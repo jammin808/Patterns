@@ -287,6 +287,7 @@ public sealed class ActionRow : Observable
         ValueKind.WeatherView => "now · day (the rest of today) · tomorrow",
         ValueKind.Switch => "on · off · toggle",
         ValueKind.Hours => "12 or 24",
+        ValueKind.Role => "main · confidence · info · repeater",
         ValueKind.ClockTime => "a time of day, HH:mm (24-hour), e.g. 14:00",
         ValueKind.PatternKind => "Grid · ColorBars · Media · Particles · Fractal … (the Pattern page's kinds)",
         ValueKind.Address => "https://… or a local HTML file",

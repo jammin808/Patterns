@@ -49,6 +49,8 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `SCREEN <n> ON` / `OFF` / `TOGGLE` | Enable/disable screen *n* (overview numbering) |
 | `SCREEN <n> LOOK <name or id>` | The look's picture for screen *n* lands on it alone as its own pattern — every other screen stays; a whole-look recall or a cue later replaces it, TAKE leaves it, a lock keeps it |
 | `SCREEN <n> PROGRAM` (`PGM`, `FOLLOW`) | Screen *n* drops its own picture and shows the program again |
+| `SCREEN <n> ROLE <main\|confidence\|info\|repeater>` | What screen *n* is for; a confidence or info screen is locked as it takes the role, a main screen or a repeater follows again (the Screens page's picker is the same verb, and a cue may carry it) |
+| `SCREEN <n> LABEL <name>` | Screen *n*'s name on the desk, the wall and the remotes; bare `SCREEN <n> LABEL` clears it. A canvas key as the target names the canvas |
 | `LOCK <n> ON` / `OFF` / `TOGGLE` | Lock screen *n*: it keeps its picture through looks, cues, TAKE ALL and stingers (a confidence monitor, an info screen); unlock lets it follow again. Bare `LOCK <n>` toggles |
 | `GROUP <letter> ON` / `OFF` | All screens of joined canvas A/B/… at once |
 | `AUDIO PLAY` | The audio playlist plays — from where it stopped, or its first track (`TRACK` is an alias of `AUDIO`; `ERR` with an empty list) |

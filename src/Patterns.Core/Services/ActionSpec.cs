@@ -66,6 +66,8 @@ public enum ValueKind
     PatternKind,
     /// <summary>A web address (https://…) or a local HTML file.</summary>
     Address,
+    /// <summary>A screen's role: main, confidence, info or repeater.</summary>
+    Role,
 }
 
 /// <summary>
@@ -88,6 +90,8 @@ public static class ActionSpec
         ShowActionKind.PlaylistPart => (TargetKind.Part, ValueKind.None),
         ShowActionKind.ScreenOn or ShowActionKind.ScreenOff or ShowActionKind.ScreenToggle => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.ScreenLock or ShowActionKind.ScreenUnlock or ShowActionKind.ScreenLockToggle => (TargetKind.Screen, ValueKind.None),
+        ShowActionKind.ScreenRole => (TargetKind.Screen, ValueKind.Role),
+        ShowActionKind.ScreenLabel => (TargetKind.Screen, ValueKind.Text),
         ShowActionKind.CanvasOn or ShowActionKind.CanvasOff => (TargetKind.Canvas, ValueKind.None),
         ShowActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
         ShowActionKind.CountdownTo => (TargetKind.None, ValueKind.ClockTime),
@@ -162,6 +166,8 @@ public static class ActionSpec
         ShowActionKind.ScreenLock => "Screen lock (keeps its picture)",
         ShowActionKind.ScreenUnlock => "Screen unlock (follows cues)",
         ShowActionKind.ScreenLockToggle => "Screen lock toggle",
+        ShowActionKind.ScreenRole => "Screen role (main, confidence, info, repeater)",
+        ShowActionKind.ScreenLabel => "Screen label (its name on the desk)",
         ShowActionKind.CanvasOn => "Canvas on",
         ShowActionKind.CanvasOff => "Canvas off",
         ShowActionKind.PatternKind => "Pattern — change its kind",
@@ -268,7 +274,7 @@ public static class ActionSpec
         ShowActionKind.FreezeOn, ShowActionKind.FreezeOff, ShowActionKind.FreezeToggle,
         ShowActionKind.OutputsOn, ShowActionKind.OutputsOff,
         ShowActionKind.ScreenOn, ShowActionKind.ScreenOff, ShowActionKind.ScreenToggle,
-        ShowActionKind.ScreenLock, ShowActionKind.ScreenUnlock, ShowActionKind.ScreenLockToggle,
+        ShowActionKind.ScreenLock, ShowActionKind.ScreenUnlock, ShowActionKind.ScreenLockToggle, ShowActionKind.ScreenRole,
         ShowActionKind.ScreenLook, ShowActionKind.ScreenProgram,
         ShowActionKind.PatternPreset, ShowActionKind.ScreenPreset,
         ShowActionKind.CanvasOn, ShowActionKind.CanvasOff,
@@ -311,6 +317,7 @@ public static class ActionSpec
         ShowActionKind.ReviewOn or ShowActionKind.ReviewOff or ShowActionKind.ReviewToggle => "the desk's own check of its preview on the multiview",
         ShowActionKind.ScreenToPreview => "the desk loading its preview from a screen to edit — an edit, not a step of the show",
         ShowActionKind.UpdateApply or ShowActionKind.Restart => "an admin verb behind the passcode",
+        ShowActionKind.ScreenLabel => "the rig's own naming, at set-up on the Screens page or from a remote — a running order never renames a screen",
         _ => null,
     };
 

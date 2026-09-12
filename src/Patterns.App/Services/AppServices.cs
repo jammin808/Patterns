@@ -108,6 +108,9 @@ public sealed class AppServices
     /// <summary>The one way to do something to the show — see <see cref="ShowActions"/>.</summary>
     public ShowActions Actions { get; }
 
+    /// <summary>The rig's edits that are logic rather than a binding: placements, planned screens, gaps, a feed's screen.</summary>
+    public RigEditor RigEditor { get; }
+
     /// <summary>Is the look on air still what is on the screens, and where has a screen gone its own way — read by the page, the wire, OSC and Companion alike.</summary>
     public LookTally LookTally { get; }
 
@@ -417,6 +420,7 @@ public sealed class AppServices
         // would find nothing at all, which is the one failure the record exists for.
         _recoveryPending = PendingRecovery is not null;
         Actions = new ShowActions(this);
+        RigEditor = new RigEditor(this);
         LookTally = new LookTally(this);
         // A waiting step runs through the same action layer its cue's immediate steps went
         // through, and is journaled with its cue's name and its place in it.

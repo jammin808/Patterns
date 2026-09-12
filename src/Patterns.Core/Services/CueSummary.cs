@@ -100,6 +100,10 @@ public static class CueSummary
             case ShowActionKind.ScreenLock: return $"Screen '{ScreenLabel(state, a.Target)}' locked — keeps its picture";
             case ShowActionKind.ScreenUnlock: return $"Screen '{ScreenLabel(state, a.Target)}' follows cues again";
             case ShowActionKind.ScreenLockToggle: return $"Screen '{ScreenLabel(state, a.Target)}' lock toggle";
+            case ShowActionKind.ScreenRole:
+                return $"Screen '{ScreenLabel(state, a.Target)}' role → {(ScreenRoles.Parse(a.Value) is { } role ? ScreenRoles.Word(role) : a.Value.Length > 0 ? a.Value + " (not a role)" : "?")}";
+            case ShowActionKind.ScreenLabel:
+                return a.Value.Trim().Length > 0 ? $"Screen '{ScreenLabel(state, a.Target)}' named '{Shorten(a.Value.Trim())}'" : $"Screen '{ScreenLabel(state, a.Target)}' label cleared";
             case ShowActionKind.CanvasOn: return $"Canvas '{CanvasLabel(state, a.Target)}' on";
             case ShowActionKind.CanvasOff: return $"Canvas '{CanvasLabel(state, a.Target)}' off";
             case ShowActionKind.PatternKind:
