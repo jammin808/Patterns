@@ -40,6 +40,62 @@ public class EdgeBlendPipelineTests
 
     private static PipelineViewport Output() => new(SinkKind.Output, SKSizeI.Empty, default, null, 1, "test");
 
+    private static SnapshotBus BlackBus()
+    {
+        var state = new ShowState();
+        state.Pattern.Canvas.FollowOutput = true;
+        state.Pattern.Kind = PatternKind.FlatField;
+        state.Pattern.FlatField.Color = "#000000";
+        state.Pattern.FlatField.ShowLabel = false;
+        state.Pattern.FlatField.ShowBorder = false;
+        state.Overlays.Clock.Enabled = false;
+        state.Overlays.Info.Enabled = false;
+        state.Countdown.Enabled = false;
+        var bus = new SnapshotBus(state);
+        bus.Publish(state);
+        return bus;
+    }
+
+    [Fact]
+    public void TheBlackPedestalLiftsThePictureOutsideTheZoneAndNotTheZone()
+    {
+        // A row: a black scene on the projector with a left zone. Outside the zone one black's worth is added (10% of white); inside, nothing — the neighbour's black already lifts it.
+        using var bmp = Frame(BlackBus(), Output() with { BlendLeftPx = 100, BlendCurve = BlendCurve.Linear, BlendBlackPct = 10, BlendGamma = 1.0 }, 400, 200);
+        Assert.InRange(bmp.GetPixel(300, 100).Red, 24, 27);
+        Assert.InRange(bmp.GetPixel(300, 100).Green, 24, 27);
+        Assert.Equal(0, bmp.GetPixel(50, 100).Red);
+        // A grid's projector: the picture gets three blacks, each band one, the corner none.
+        using var grid = Frame(BlackBus(), Output() with { BlendRightPx = 100, BlendBottomPx = 50, BlendCurve = BlendCurve.Linear, BlendBlackPct = 10, BlendGamma = 1.0 }, 400, 200);
+        Assert.InRange(grid.GetPixel(100, 100).Red, 75, 78);      // 30% of white
+        Assert.InRange(grid.GetPixel(350, 100).Red, 24, 27);      // the side band: 10%
+        Assert.InRange(grid.GetPixel(100, 175).Red, 24, 27);      // the bottom band: 10%
+        Assert.Equal(0, grid.GetPixel(350, 175).Red);              // the corner where four meet
+        // Off, a black scene stays black.
+        using var off = Frame(BlackBus(), Output() with { BlendLeftPx = 100, BlendCurve = BlendCurve.Linear }, 400, 200);
+        Assert.Equal(0, off.GetPixel(300, 100).Red);
+    }
+
+    [Fact]
+    public void AnEdgeBendDrawsThePictureThroughThePatchAndItsZoneRidesTheBend()
+    {
+        // The top edge pulled in by 40 px at its middle: the middle-top pixels are outside the picture (black), the corners and the middle are white.
+        using var bent = Frame(WhiteBus(), Output() with { WarpTopBow = -40 }, 400, 200);
+        Assert.Equal(255, bent.GetPixel(200, 100).Red);
+        Assert.Equal(255, bent.GetPixel(2, 2).Red);
+        Assert.Equal(255, bent.GetPixel(397, 2).Red);
+        Assert.True(bent.GetPixel(200, 4).Red < 30, $"middle-top: {bent.GetPixel(200, 4).Red}");
+        Assert.Equal(255, bent.GetPixel(200, 60).Red);
+        // …and with a right zone: the fade is inside the patch, so the picture still darkens towards the right edge.
+        using var both = Frame(WhiteBus(), Output() with { WarpTopBow = -40, BlendRightPx = 100, BlendCurve = BlendCurve.Linear }, 400, 200);
+        Assert.Equal(255, both.GetPixel(100, 100).Red);
+        Assert.True(both.GetPixel(395, 100).Red < 40, $"outer edge through the bend: {both.GetPixel(395, 100).Red}");
+        Assert.InRange(both.GetPixel(350, 100).Red, 100, 156);
+        // The keystone stays a perspective under the bend: a corner pulled in moves the corner, the bend does not.
+        using var keyed = Frame(WhiteBus(), Output() with { WarpTopBow = 10, WarpTlx = 60 }, 400, 200);
+        Assert.True(keyed.GetPixel(10, 2).Red < 30, $"top-left, keystoned: {keyed.GetPixel(10, 2).Red}");
+        Assert.Equal(255, keyed.GetPixel(200, 100).Red);
+    }
+
     [Fact]
     public void ARightZoneFallsMonotonicallyToBlackAndTheRestStaysWhite()
     {
