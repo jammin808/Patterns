@@ -309,16 +309,22 @@ public sealed class LedMapEditorControl : Control
                     minX = Math.Min(minX, t.X);
                     minY = Math.Min(minY, t.Y);
                 }
-                _dragTile.X = Math.Max(0, _dragPreview.Left - minX);
-                _dragTile.Y = Math.Max(0, _dragPreview.Top - minY);
-                if (minX != 0 || minY != 0)
+                // One drop, one publish: every panel that shifts is part of the same movement.
+                var dragged = _dragTile;
+                var preview = _dragPreview;
+                _vm.Services.BulkEdit(() =>
                 {
-                    foreach (var t in tiles.Where(t => t != _dragTile))
+                    dragged.X = Math.Max(0, preview.Left - minX);
+                    dragged.Y = Math.Max(0, preview.Top - minY);
+                    if (minX != 0 || minY != 0)
                     {
-                        t.X = Math.Max(0, t.X - minX);
-                        t.Y = Math.Max(0, t.Y - minY);
+                        foreach (var t in tiles.Where(t => t != dragged))
+                        {
+                            t.X = Math.Max(0, t.X - minX);
+                            t.Y = Math.Max(0, t.Y - minY);
+                        }
                     }
-                }
+                });
             }
         }
 

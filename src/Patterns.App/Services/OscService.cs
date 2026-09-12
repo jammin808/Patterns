@@ -44,6 +44,7 @@ public sealed class OscService : IDisposable
             SendFeedback();
         };
         _services.SnapshotPublished += MarkChanged;
+        _services.RuntimeChanged += MarkChanged;
     }
 
     /// <summary>"OSC in on port 9698 · feedback to 10.0.0.9:9699." — or why not.</summary>
@@ -278,6 +279,7 @@ public sealed class OscService : IDisposable
     {
         _pushTimer.Stop();
         _services.SnapshotPublished -= MarkChanged;
+        _services.RuntimeChanged -= MarkChanged;
         Stop();
     }
 

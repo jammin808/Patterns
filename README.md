@@ -1371,7 +1371,10 @@ the show). Export the show to a file of your own for a version you want to keep 
 
 One UI-independent render engine (`Patterns.Core`, SkiaSharp) draws every sink — the preview,
 each fullscreen output, preset thumbnails and NDI frames — from immutable show-state snapshots
-published on change. Output windows render at 1:1 device pixels (per-monitor-V2 DPI aware) with
+published on change. Immutable by construction: every object in a published snapshot is marked
+and a write to it throws; a publish copies only the sections of the show that moved and shares
+the rest with the snapshot before it, so a drag copies one section, not the show
+([`docs/PLAN.md`](docs/PLAN.md) §46). Output windows render at 1:1 device pixels (per-monitor-V2 DPI aware) with
 antialiasing off for alignment content; spans use union-rect viewports and are covered by a
 stitching test. Redraw is demand-driven: static patterns cost ~0 when idle, clocks tick once a
 second, animation runs at vsync. A renderer that throws is contained to an on-screen error card —

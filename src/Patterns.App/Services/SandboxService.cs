@@ -44,8 +44,8 @@ public sealed class SandboxService
     {
         if (_program is null) return;
         _program.Blackout = _services.State.Blackout; // transport is never sandboxed
-        _services.Bus.Publish(_program);
-        _services.Bus.PublishSandbox(_services.State);
+        _services.Bus.Publish(_program, _services.AirWatch);
+        _services.Bus.PublishSandbox(_services.State, _services.StateWatch);
     }
 
     /// <summary>

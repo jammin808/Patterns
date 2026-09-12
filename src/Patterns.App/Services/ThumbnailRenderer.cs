@@ -12,20 +12,38 @@ public static class ThumbnailRenderer
     public const int Width = 256;
     public const int Height = 144;
 
+    /// <summary>
+    /// The show a thumbnail is drawn over: the tile's own pattern on the show's brand, with
+    /// everything the show has dressed the picture with taken off — the overlays, the badge, the
+    /// weather chip, the PiP inset, the countdown and the lower third on air. A tile shows the
+    /// pattern itself; the badge and a lower third used to land on every tile of the Library the
+    /// moment one of them was on.
+    /// </summary>
+    public static ShowState ThumbnailState(ShowState baseState, PatternConfig pattern)
+    {
+        var state = JsonUtil.Clone(baseState);
+        ModelCopier.Copy(pattern, state.Pattern);
+        state.Blackout = false;
+        state.Overlays.Clock.Enabled = false;
+        state.Overlays.Info.Enabled = false;
+        state.Overlays.Message.Enabled = false;
+        state.Overlays.Logo.Enabled = false;
+        state.Overlays.Badge.Enabled = false;
+        state.Overlays.Weather.Enabled = false;
+        state.Overlays.Pip.Enabled = false;
+        state.Countdown.Enabled = false;
+        state.LowerThirds.ActiveId = "";
+        state.LowerThirds.ShownAtUtc = null;
+        state.LowerThirds.HiddenAtUtc = null;
+        return state;
+    }
+
     /// <summary>Renders a thumbnail off the UI thread; returns null on any failure.</summary>
     public static Bitmap? Render(ShowState baseState, PatternConfig pattern)
     {
         try
         {
-            var state = JsonUtil.Clone(baseState);
-            ModelCopier.Copy(pattern, state.Pattern);
-            state.Blackout = false;
-            // Thumbnails show the pattern itself, not the show overlays.
-            state.Overlays.Clock.Enabled = false;
-            state.Overlays.Info.Enabled = false;
-            state.Overlays.Message.Enabled = false;
-            state.Overlays.Logo.Enabled = false;
-            state.Countdown.Enabled = false;
+            var state = ThumbnailState(baseState, pattern);
 
             var snap = new ShowSnapshot { State = state, Version = 1 };
             var engine = new PatternEngine();

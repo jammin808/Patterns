@@ -478,8 +478,13 @@ public sealed class ScreenArrangeControl : Control
                           overlapped.All(t => t.Placement.BlendAuto);
             if (allowed)
             {
-                _dragPlacement.X = _dragPreview.Left;
-                _dragPlacement.Y = _dragPreview.Top;
+                var placement = _dragPlacement;
+                var preview = _dragPreview;
+                _vm.Services.BulkEdit(() =>
+                {
+                    placement.X = preview.Left;
+                    placement.Y = preview.Top;
+                });
             }
         }
 

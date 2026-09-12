@@ -71,6 +71,7 @@ public sealed class DeviceService : IDisposable
             SendFeedback();
         };
         _services.SnapshotPublished += MarkChanged;
+        _services.RuntimeChanged += MarkChanged;
     }
 
     /// <summary>Tests stand in for the wires: a device → a link, or null to leave it unopened.</summary>
@@ -427,6 +428,7 @@ public sealed class DeviceService : IDisposable
         _disposed = true;
         _pushTimer.Stop();
         _services.SnapshotPublished -= MarkChanged;
+        _services.RuntimeChanged -= MarkChanged;
         foreach (var id in _open.Keys.ToList()) Close(id);
     }
 }

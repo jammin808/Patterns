@@ -436,7 +436,7 @@ public sealed class AppServices
         _saveTimer.Tick += (_, _) =>
         {
             _saveTimer.Stop();
-            SaveNow();
+            SaveInBackground();
         };
 
         _reapplyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
@@ -446,7 +446,11 @@ public sealed class AppServices
             if (Outputs.IsLive) Outputs.Apply();
         };
 
-        _ = new ChangeTracker(State, OnStateChanged);
+        // The watch on the live show tracks which sections each edit lands in, so a publish
+        // copies those and shares the rest with the snapshot before (see SnapshotClone). A write to
+        // the desk's own chrome — every [JsonIgnore] property: a tally, a status line, a device's
+        // counters — is told apart and never publishes (see OnRuntimeOnlyChanged).
+        StateWatch = new ChangeTracker(State, OnStateChanged, trackSections: true, onRuntimeOnlyChanged: OnRuntimeOnlyChanged);
 
         Screens.PlannedProvider = PlannedScreens;
         Screens.Changed += () =>
@@ -636,6 +640,30 @@ public sealed class AppServices
         }
     }
 
+    /// <summary>
+    /// A runtime-only property moved — the audio player's playing flag, a device's line counters,
+    /// a look's tally text, a status line. None of it reaches a snapshot, so nothing publishes: a
+    /// publish for it used to hand every sink a picture identical to the one it had, run every
+    /// side effect, restart the autosave, and — the real harm — spend the snapshot version a
+    /// look's own wipe or fade was riding on, so a device streaming readings after a recall turned
+    /// the recall's transition into a plain switch. What such a change does move is the recovery
+    /// record (the audio and the stream are in it) and the remotes' STATE, which read the live show.
+    /// </summary>
+    private void OnRuntimeOnlyChanged()
+    {
+        if (_bulkDepth > 0 || _deskDepth > 0) return;
+        UpdateRecovery();
+        RaiseSafely(RuntimeChanged, "a runtime-change listener");
+    }
+
+    /// <summary>
+    /// Raised on the UI thread after a runtime-only property moved without a publish — the
+    /// feedback surfaces (the wire's STATE, OSC, the devices) listen to this beside
+    /// <see cref="SnapshotPublished"/>, because their state text reads the live show and a flag
+    /// like "audio playing" is in it.
+    /// </summary>
+    public event Action? RuntimeChanged;
+
     private void OnStateChanged()
     {
         if (_bulkDepth > 0 || _deskDepth > 0) return;
@@ -647,7 +675,7 @@ public sealed class AppServices
         }
         else
         {
-            Bus.Publish(State);
+            Bus.Publish(State, StateWatch);
         }
         ApplySideEffects();
 
@@ -673,6 +701,12 @@ public sealed class AppServices
     private long _airVersion;
     private ChangeTracker? _airWatch;
 
+    /// <summary>The watch on the live show: what each edit touched, for the publish that follows it.</summary>
+    internal ChangeTracker StateWatch { get; }
+
+    /// <summary>The watch on the frozen program while EDIT SAFE is open (null otherwise): what each air edit touched.</summary>
+    internal ChangeTracker? AirWatch => _airWatch;
+
     /// <summary>
     /// Watches the frozen program so the recovery record follows the air by construction. Every
     /// way the air can move while EDIT SAFE is open — a cue, a look recall, a stinger, a
@@ -684,7 +718,7 @@ public sealed class AppServices
     internal void WatchAir(ShowState? program)
     {
         // The old clone and its handlers go together; nothing else holds either.
-        _airWatch = program is null ? null : new ChangeTracker(program, () => _airVersion++);
+        _airWatch = program is null ? null : new ChangeTracker(program, () => _airVersion++, trackSections: true, onRuntimeOnlyChanged: static () => { });
         AirMoved(); // opening or closing the split is itself a move of the record
     }
 
@@ -1117,12 +1151,17 @@ public sealed class AppServices
         }
         else
         {
-            Bus.Publish(State);
+            Bus.Publish(State, StateWatch);
         }
         Outputs.NotifySnapshot();
         RaiseSafely(SnapshotPublished, "a snapshot listener");
     }
 
+    /// <summary>
+    /// The show to disk now, on this thread: a restart, the exit, the write-back after a migration
+    /// — and the tests. Any autosave still on its way to the disk lands first, so the file always
+    /// ends on the newest show.
+    /// </summary>
     public void SaveNow()
     {
         if (!_autosave) return;
@@ -1136,6 +1175,7 @@ public sealed class AppServices
             _saveTimer.Start();
             return;
         }
+        AwaitPendingSaves();
         try
         {
             Store.Save(State);
@@ -1143,6 +1183,77 @@ public sealed class AppServices
         catch (Exception ex)
         {
             Log.Error("Settings save failed.", ex);
+        }
+    }
+
+    private readonly object _saveGate = new();
+    private Task _saves = Task.CompletedTask;
+
+    /// <summary>
+    /// The autosave, off the frame budget: the show is serialised here, on the UI thread, where the
+    /// model is consistent, and the bytes go to a worker for the disk. A show file on a USB stick
+    /// or a network share could hold the desk — and with it the vsync callbacks every animated
+    /// output waits on — for as long as the write took, once after every edit. Writes queue in the
+    /// order they were asked for; the last one is what the file holds.
+    /// </summary>
+    public void SaveInBackground()
+    {
+        if (!_autosave) return;
+        if (Stingers is { OwnsScreens: true })
+        {
+            _saveTimer.Stop();
+            _saveTimer.Start();
+            return;
+        }
+        string json;
+        try
+        {
+            json = JsonUtil.Serialize(State);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Settings save failed.", ex);
+            return;
+        }
+        var store = Store;
+        lock (_saveGate)
+        {
+            _saves = _saves.ContinueWith(_ =>
+            {
+                try
+                {
+                    store.SaveJsonTo(store.SettingsPath, json);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Settings save failed.", ex);
+                }
+            }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        }
+    }
+
+    /// <summary>The autosaves still on their way to the disk — complete when the file holds the last of them.</summary>
+    public Task PendingSaves
+    {
+        get
+        {
+            lock (_saveGate) return _saves;
+        }
+    }
+
+    /// <summary>Waits for the queued autosaves, briefly: a write that is stuck on a dead share must not stop an exit.</summary>
+    private void AwaitPendingSaves()
+    {
+        Task pending;
+        lock (_saveGate) pending = _saves;
+        if (pending.IsCompleted) return;
+        try
+        {
+            if (!pending.Wait(TimeSpan.FromSeconds(10))) Log.Warn("An autosave is still writing after ten seconds — saving over it.");
+        }
+        catch
+        {
+            // A queued write logs its own failure; the save below writes the newest show regardless.
         }
     }
 

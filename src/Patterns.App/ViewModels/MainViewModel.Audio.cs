@@ -566,9 +566,12 @@ public sealed partial class MainViewModel
             // re-applied after switching edit targets.
             if (Set(ref _selectedResolution, value) && value is not null)
             {
-                ActivePattern.Canvas.FollowOutput = false;
-                ActivePattern.Canvas.Width = value.W;
-                ActivePattern.Canvas.Height = value.H;
+                BulkEdit(() =>
+                {
+                    ActivePattern.Canvas.FollowOutput = false;
+                    ActivePattern.Canvas.Width = value.W;
+                    ActivePattern.Canvas.Height = value.H;
+                });
                 _selectedResolution = null;
                 Raise();
             }
@@ -584,8 +587,11 @@ public sealed partial class MainViewModel
         {
             if (Set(ref _selectedTileSize, value) && value > 0)
             {
-                ActivePattern.LedWall.TileWidth = value;
-                ActivePattern.LedWall.TileHeight = value;
+                BulkEdit(() =>
+                {
+                    ActivePattern.LedWall.TileWidth = value;
+                    ActivePattern.LedWall.TileHeight = value;
+                });
                 _selectedTileSize = 0;
                 Raise();
             }
@@ -601,8 +607,11 @@ public sealed partial class MainViewModel
         {
             if (Set(ref _selectedVideoWallResolution, value) && value is not null)
             {
-                ActivePattern.VideoWall.ElementWidth = value.W;
-                ActivePattern.VideoWall.ElementHeight = value.H;
+                BulkEdit(() =>
+                {
+                    ActivePattern.VideoWall.ElementWidth = value.W;
+                    ActivePattern.VideoWall.ElementHeight = value.H;
+                });
                 _selectedVideoWallResolution = null;
                 Raise();
             }

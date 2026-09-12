@@ -239,12 +239,29 @@ public sealed class SettingsStore
 
     public void Save(ShowState state) => SaveTo(SettingsPath, state);
 
-    public void SaveTo(string path, ShowState state)
+    public void SaveTo(string path, ShowState state) => SaveJsonTo(path, JsonUtil.Serialize(state));
+
+    /// <summary>
+    /// Writes a show already serialised — the desk serialises on its own thread, where the model
+    /// is consistent, and hands the bytes to a worker for the disk. The settings file and its
+    /// backups are written under one gate, so a background write and a restart's own save (or
+    /// the Machine page reading the versions) never cross on the disk.
+    /// </summary>
+    public void SaveJsonTo(string path, string json)
     {
-        var json = JsonUtil.Serialize(state);
-        if (string.Equals(path, SettingsPath, StringComparison.OrdinalIgnoreCase)) KeepBackup(json);
+        if (string.Equals(path, SettingsPath, StringComparison.OrdinalIgnoreCase))
+        {
+            lock (_settingsGate)
+            {
+                KeepBackup(json);
+                WriteAtomic(path, json);
+            }
+            return;
+        }
         WriteAtomic(path, json);
     }
+
+    private readonly object _settingsGate = new();
 
     private const string BackupPrefix = "patterns.settings.";
     private const string BackupStamp = "yyyyMMdd-HHmmss-fff";
@@ -262,7 +279,7 @@ public sealed class SettingsStore
         {
             if (!File.Exists(SettingsPath)) return;
             if (File.ReadAllText(SettingsPath) == newJson) return;
-            var kept = ListBackups();
+            var kept = ListBackupsLocked();
             if (kept.Count > 0 && DateTime.Now - kept[0].When < BackupSpacing) return;
             Directory.CreateDirectory(BackupsDirectory);
             var stamp = DateTime.Now.ToString(BackupStamp, System.Globalization.CultureInfo.InvariantCulture);
@@ -272,7 +289,7 @@ public sealed class SettingsStore
                 target = Path.Combine(BackupsDirectory, $"{BackupPrefix}{stamp}-{n}.json");   // two in one millisecond: the second keeps its own file
             }
             File.Copy(SettingsPath, target, overwrite: false);
-            foreach (var stale in ListBackups().Skip(BackupsKept)) File.Delete(stale.Path);
+            foreach (var stale in ListBackupsLocked().Skip(BackupsKept)) File.Delete(stale.Path);
         }
         catch (Exception ex)
         {
@@ -282,6 +299,14 @@ public sealed class SettingsStore
 
     /// <summary>The kept versions of the show file, newest first: when each was the show, and where it is.</summary>
     public IReadOnlyList<(DateTime When, string Path)> ListBackups()
+    {
+        lock (_settingsGate)
+        {
+            return ListBackupsLocked();
+        }
+    }
+
+    private IReadOnlyList<(DateTime When, string Path)> ListBackupsLocked()
     {
         try
         {

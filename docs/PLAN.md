@@ -1580,7 +1580,7 @@ proof the suite carries on every push.
 
 | The habit | In Patterns | The proof |
 | --- | --- | --- |
-| **State as immutable frames.** | Every edit publishes a `ShowSnapshot`; every sink — the preview, each output, an NDI send, the stream, a thumbnail — draws the same snapshot on its own thread; runtime facts (the playlist item, the feed text, the forecast) ride the snapshot too, so no sink reads a live object. | The stitching and snapshot tests; the weather test asserting the chip on the snapshot every sink draws. |
+| **State as immutable frames.** | Every edit publishes a `ShowSnapshot`; every sink — the preview, each output, an NDI send, the stream, a thumbnail — draws the same snapshot on its own thread; runtime facts (the playlist item, the feed text, the forecast) ride the snapshot too, so no sink reads a live object. Since round 29 the frame is immutable by construction (a write to a published object throws) and a publish copies only the sections that moved (§46). | The stitching and snapshot tests; the weather test asserting the chip on the snapshot every sink draws; `SnapshotSharingTests`. |
 | **A fixed cadence with a budget.** | The engine: static pictures cost nothing idle, clocks tick once a second, motion runs at vsync at the show's frame rate. The desk: one tick a second in nineteen guarded, timed areas with a minute's budget read on the STABILITY line, the super-check's *Desk tick* row and the RENDER tile — 0.3–1.6 ms a tick against a 16 ms frame (§16.1). | `DeskPollTests` with its fence; `TickBudgetTests`. |
 | **Systems isolated.** | A renderer that throws is an error card on that sink, the show runs; a desk area that throws is carried past, counted and told once a minute; the native edges (video, web, PDF, the stream, serial) sit behind seams with fakes; the stingers pin the air look so a relaunch mid-clip puts the show back, not the clip. | The guarded-tick tests; the renderer error-card test; the recovery tests. |
 | **Input answered in the frame.** | One action layer for the desk, the keyboard, the phone, Companion, OSC, the schedule and the devices: an action is accepted, journaled and returned before the picture moves; the executor's gate (armed, hold, standby fence, 300 ms lockout, the confirm window) is the input filter; every selection on the desk is an index change or a property set, never a rebuild (§14.3). | `EveryPageRendersAndTheStripNamesIt`, the fit test, the executor tests. |
@@ -4183,3 +4183,134 @@ probes use) and warn rather than refuse: the folder may simply not have travelle
 the cue would be refusing a show that is about to be fine as soon as somebody copies it. A recall
 that cannot find its preset says what this machine does have, rather than leaving an operator
 hunting through a folder at four o'clock.
+
+## 46. Round 29 — the review: what a publish costs, the chrome that spent it, and what the sweep found
+
+*"Triage for any bugs, tidy up any leftover or redundant code, recommend any changes. Consider:
+making ShowSnapshot.State a real immutable (or frozen) projection, not a cloned ShowState; coalesce
+publishes — never JSON-clone on a pointer move; peel MainViewModel into page services that talk to
+ShowActions, leaving the VM as bindings; keep Spotify / Assistant / Weather out of the render core."*
+
+| Item | What lands | Status |
+| --- | --- | --- |
+| 1 | A published snapshot is immutable by construction, not by convention: every object in it is marked, and a write throws (§46.1). | done |
+| 2 | A publish copies only the sections that moved and shares the rest with the snapshot before it: a layer drag copies the pattern, a clock drag the overlays, the looks and cues never (§46.2). 10.5 ms → 0.25 ms per publish on a corporate show. | done |
+| 3 | A drag is one publish per pointer move, not two; every gesture that writes several properties is one edit (§46.2). | done |
+| 4 | The desk's chrome — every runtime-only property — no longer publishes at all, and no longer spends the version a look's transition rides on (§46.3). | done |
+| 5 | The autosave writes off the UI thread; a restart's own save still lands last (§46.4). | done |
+| 6 | A clock redraws once a second, on the second, not four times (§46.4). | done |
+| 7 | The render core is pinned to its seam by a test that reads the compiled code (§46.6). | done |
+| 8 | The sweep's findings, fixed — twenty-odd, from a lost crossfade to a cue box that lost focus per keystroke (`docs/REVIEW.md`, round 29). | done |
+| 9 | MainViewModel peeled into page services (§46.5). | recommended, not this round |
+
+### 46.1 The snapshot is a projection now — the same types, enforced
+
+The ask was a "real immutable projection, not a cloned ShowState". The honest answer is that the
+property wanted — nothing can write to what a sink draws, and the desk does not copy the whole show
+to get it — does not need a second type hierarchy, and a second hierarchy would cost more than it
+gives. Twenty-seven rendering files read the model's types directly; a parallel set of records
+would be a thousand lines of mapping that every new property has to be added to twice, and the
+thing it enforces can be enforced in one line.
+
+So it is enforced in one line. `Observable` carries a one-way latch (`MarkPublished`): every object
+the bus hands to the sinks is marked when it is built, and `Set` on a marked object throws. The
+whole suite — the real engine, headless, on every pattern, every overlay, every transition — ran
+with the latch on and nothing threw, which is the proof that the convention had been kept; from
+here it is not a convention. A renderer that "tidies" a value on the copy it was handed becomes an
+error card on that one sink and a red test before that, instead of a silently corrupted picture on
+every other sink.
+
+The one test that wrote to a snapshot's state did so on a snapshot it built itself, outside the
+bus; those are not marked and never were the concern.
+
+### 46.2 What a publish copies
+
+Before this round every publish was a JSON round trip of the whole show: every keystroke, every
+slider tick, every pixel of a drag, and twice that while EDIT SAFE held a frozen programme beside
+the edits — the sandbox is on by default, so twice was the normal case. The show being copied is
+mostly the parts that did not move: twelve looks with their payloads, forty cues, the stinger
+library, the people. On a show of that size the copy is 10.5 ms, on the UI thread, per publish, and
+a pointer move was two publishes.
+
+Now the change tracker that already versions the show remembers which of the root's sections each
+write landed under, and the bus copies those sections and shares the rest with the snapshot before
+it. Sharing is safe precisely because of §46.1: a published section is never written, so two
+snapshots may hold the same one. The rig geometry is rebuilt only when the placements or the display
+table moved, and the transition-key memo carries over when none of its inputs did. When nothing
+moved at all — the frozen programme republished beside every edit of the preview — the previous copy
+stands, and not one object is made. The benchmark in `PublishCostTests` puts the layer drag at 0.25
+ms per publish against 10.5.
+
+The drags themselves were two publishes per pointer move (X, then Y, each its own `Set`); they are
+one now, and so is every gesture found writing several properties in a row — a reset of the warp or
+the trims, a resolution preset, a file picked into a layer.
+
+**What was not done, and why.** Coalescing publishes across a dispatcher frame — mark dirty, flush
+once before the next render pass — would take the remaining cost of a drag to a single publish per
+frame instead of per pointer event. It was left alone on purpose. The contract "an edit publishes a
+snapshot and returns" is what every test in the suite that reads `Bus.Current` after a write relies
+on, and what the action layer's take scope relies on: `Execute` wraps a verb in `Bus.Take()` and the
+publishes inside it are takes. A deferred flush would have to carry that flag across the deferral
+and would move every assertion in fourteen hundred tests. At 0.25 ms a publish the case is not
+there; if a profile ever shows it, the shape is: `OnStateChanged` marks pending and posts one flush
+at `DispatcherPriority.Render`, the flush wraps itself in a take when any marked write was one, and
+`RepublishNow`/`PublishRuntime` flush synchronously.
+
+### 46.3 Chrome does not get to spend the show's versions
+
+`DeskEdit` existed for this and had one caller. Every `[JsonIgnore]` property in the model is the
+desk's own chrome — a look's tally text, a stinger's progress, a device's line counters, an NDI
+sender's status line, the adopt picker's choice — and none of it reaches a snapshot, yet every
+write to one published: a whole-show copy handed to sinks that already held an identical picture,
+every side effect run, the autosave restarted, and the snapshot version claimed. That last part was
+the real harm: a look's own fade or wipe rides on the version it was published with, and a device
+streaming readings after a recall (or the tally timer, five times a second while a sting played)
+minted the next version before any sink had drawn — the recall's transition became a plain switch.
+
+The change tracker now tells a runtime-only write apart and the desk routes it elsewhere: the
+recovery record is refreshed (the audio and the stream flags live there) and the feedback surfaces
+— the wire's STATE, OSC, the devices — are told through `RuntimeChanged`, because their state text
+reads the live show and "audio playing" is in it. Nothing publishes. `DeskEdit` stays, redundant
+and harmless.
+
+### 46.4 Off the frame budget
+
+The autosave serialised the show and wrote the file on the UI thread, nine hundred milliseconds
+after the last edit. The serialisation stays there — the model is only consistent on that thread —
+and the write goes to a worker, queued in order; a restart's or an exit's own save waits for the
+queue and lands last. On a USB stick or a share the write was the one thing that could hold every
+animated output's vsync callback for as long as the disk wanted.
+
+The per-second redraw timer for a clock or a countdown ticked four times a second, three of them
+for nothing, and still changed the digits up to a quarter of a second late. It wakes just after
+each wall-clock second now: one draw, on time.
+
+### 46.5 MainViewModel: assessed, not peeled
+
+Nine thousand three hundred lines across fifteen partials. §16.1 argued the size costs nothing at
+runtime and the tick was the thing to fix; that still holds, and this round's sweep found the
+view model's real faults where behaviour lives rather than in its size — the cue box that lost focus
+per keystroke, the wall re-mounting itself per letter typed into a label, the presets folder read
+every second, the NDI picker closing under the pointer — and fixed each in place.
+
+A peel is worth doing, but as its own rounds, by the seams the code already has. The order that
+pays: the media library and its thumbnail pipeline (`MainViewModel.Content`, one file picked
+rebuilds every tile and overlapping renders are never cancelled — a service with one queue fixes
+that and the view model keeps a collection); the lower-thirds designer (seven hundred lines of
+editing logic with no desk in it); the rig editors (labels, gaps, blends, roles) over `ShowActions`
+verbs that do not yet exist for them; then the Spotify and assistant pages, which are already
+services with a thin binding layer. Each step is a move with a test that boots the desk headless
+and reads the same properties, as the partial split was. `ShowActions` itself (1,700 lines, one
+switch) would take the same partial-by-area cut the view model had, at zero risk.
+
+### 46.6 Spotify, the assistant and the weather are already out of the render core
+
+Verified rather than assumed: `Patterns.Core` has no network type in it at all, the Spotify,
+assistant and weather files in `Core/Services` are parsers and models the App fetches through,
+and nothing under `Rendering`, `Patterns`, `Effects`, `Particles`, `LowerThirds`, `Media`, `Ndi`
+or `Audio` names a Spotify or assistant type. The forecast reaches the weather chip as an immutable
+report on the snapshot, which is the one crossing the chip needs. `RenderCoreBoundaryTests` reads
+the compiled assembly — fields, signatures and every method body's tokens — and fails the build
+the day a renderer reaches for a socket or a break-music type, so the seam cannot drift quietly.
+Moving them to another process is not worth a pipe: they are HTTP clients on their own async paths,
+behind fakes, and cannot take a render thread down.

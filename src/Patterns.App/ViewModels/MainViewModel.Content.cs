@@ -73,7 +73,7 @@ public sealed partial class MainViewModel
     public Func<HitKind, PlaceEditor.PlacedBox?>? PreviewBox { get; set; }
 
     private PlaceEditor PlaceFor(HitKind kind)
-        => new(() => AnchoredOf(kind), () => PreviewBox?.Invoke(kind));
+        => new(() => AnchoredOf(kind), () => PreviewBox?.Invoke(kind), _services.BulkEdit);
 
     /// <summary>The place editors the overlay pages' pixel rows bind to — one per overlay, built once.</summary>
     public PlaceEditor ClockPlace => _clockPlace ??= PlaceFor(HitKind.Clock);
@@ -154,20 +154,32 @@ public sealed partial class MainViewModel
         _ => null,
     };
 
-    /// <summary>Puts a draggable thing at a place (the same units <see cref="DragPlaceOf"/> reads); the model publishes, the panes follow.</summary>
+    /// <summary>
+    /// Puts a draggable thing at a place (the same units <see cref="DragPlaceOf"/> reads); the
+    /// model publishes, the panes follow. The pair lands as one edit: this runs on every pointer
+    /// move, and two writes were two publishes — two copies of the section and two rounds of
+    /// side effects — for one movement of the hand.
+    /// </summary>
     public void DragPlace(HitKind kind, double x, double y)
     {
         if (AnchoredOf(kind) is { } placed)
         {
-            placed.OffsetXPct = x;
-            placed.OffsetYPct = y;
+            BulkEdit(() =>
+            {
+                placed.OffsetXPct = x;
+                placed.OffsetYPct = y;
+            });
             return;
         }
         var p = PreviewPattern;
         switch (kind)
         {
-            case HitKind.Layer1: p.Layer1.XPct = x; p.Layer1.YPct = y; break;
-            case HitKind.Layer2: p.Layer2.XPct = x; p.Layer2.YPct = y; break;
+            case HitKind.Layer1:
+                BulkEdit(() => { p.Layer1.XPct = x; p.Layer1.YPct = y; });
+                break;
+            case HitKind.Layer2:
+                BulkEdit(() => { p.Layer2.XPct = x; p.Layer2.YPct = y; });
+                break;
         }
     }
 

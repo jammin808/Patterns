@@ -96,9 +96,11 @@ public sealed class ShowSnapshot
 
     /// <summary>
     /// Runtime-only: the rig's pixel geometry for the placements in <see cref="State"/> — every
-    /// content target's size and name, and each screen's slice of the canvas it joined. Derived
-    /// here on every publish (never cached across them) so it can never disagree with this
-    /// snapshot's own placements, including the frozen program clone while the sandbox is open.
+    /// content target's size and name, and each screen's slice of the canvas it joined. Resolved
+    /// from this snapshot's own placements: built afresh whenever they or the display table
+    /// moved, and otherwise the previous snapshot's, whose placements are then the very same
+    /// frozen objects — so it can never disagree with them, including the frozen program clone
+    /// while the sandbox is open.
     /// </summary>
     public RigGeometry Rig { get; init; } = RigGeometry.Empty;
 
@@ -185,7 +187,15 @@ public sealed class ShowSnapshot
         return _colorCache.GetOrAdd(hex, static (h, fb) => ColorUtil.TryParse(h, out var c) ? c : fb, fallback);
     }
 
-    private readonly ConcurrentDictionary<string, int> _transitionKeys = new();
+    private ConcurrentDictionary<string, int> _transitionKeys = new();
+
+    /// <summary>
+    /// Takes over the memo of a snapshot whose inputs to <see cref="TransitionKeyFor"/> are this
+    /// one's — the same pattern, per-screen and rig sections, the same blackout, the same
+    /// per-target blacks and playlist item — so a drag of an overlay does not serialise every
+    /// target's picture again on every sink's next frame. The bus decides when that holds.
+    /// </summary>
+    internal void ShareTransitionKeysWith(ShowSnapshot previous) => _transitionKeys = previous._transitionKeys;
 
     /// <summary>
     /// Identity of the content a sink shows — changes when a crossfade should run (pattern
@@ -266,8 +276,11 @@ public static class ColorUtil
 
 /// <summary>
 /// Publishes show-state snapshots to render sinks. The UI thread mutates <see cref="ShowState"/>;
-/// every change publishes a fresh deep-cloned snapshot that render threads pick up via
-/// a single volatile read — no locks anywhere on the render path.
+/// every change publishes a fresh snapshot that render threads pick up via a single volatile
+/// read — no locks anywhere on the render path. The snapshot's copy of the show is marked
+/// published (no setter may touch it again), and built by <see cref="SnapshotClone"/>: with a <see cref="ChangeTracker"/> that tracks sections
+/// handed in, only the sections written since the last publish from that root are copied and the
+/// rest are shared with the snapshot before; without one, the whole show is copied as it always was.
 /// </summary>
 public sealed class SnapshotBus
 {
@@ -287,7 +300,7 @@ public sealed class SnapshotBus
         var now = _clock();
         _current = new ShowSnapshot
         {
-            State = JsonUtil.Clone(initial),
+            State = SnapshotClone.Clone(initial),
             Version = 0,
             PublishedClock = now,
             Ticker = _ticker,
@@ -415,9 +428,10 @@ public sealed class SnapshotBus
     /// <summary>Raised on the publisher's (UI) thread after a new snapshot is available.</summary>
     public event Action? Changed;
 
-    public void Publish(ShowState state)
+    /// <param name="changes">The tracker watching <paramref name="state"/>, when one tracks its sections: the publish then copies only what moved.</param>
+    public void Publish(ShowState state, ChangeTracker? changes = null)
     {
-        _current = Build(state, ref _ticker);
+        _current = Build(state, ref _ticker, changes);
         Changed?.Invoke();
     }
 
@@ -429,18 +443,31 @@ public sealed class SnapshotBus
     /// </summary>
     public ShowSnapshot? Sandbox => _sandbox;
 
-    public void PublishSandbox(ShowState state)
+    public void PublishSandbox(ShowState state, ChangeTracker? changes = null)
     {
         // The sandbox keeps a ticker line of its own, seeded from the program's when it opens:
         // a speed tried in the sandbox must never re-anchor the train that is on air.
         if (_sandbox is null) _sandboxTicker = _ticker;
-        _sandbox = Build(state, ref _sandboxTicker);
+        _sandbox = Build(state, ref _sandboxTicker, changes);
         Changed?.Invoke();
     }
 
     public void ClearSandbox() => _sandbox = null;
 
-    private ShowSnapshot Build(ShowState state, ref Rendering.TickerLine ticker)
+    /// <summary>What the last snapshot built from a root carried: the copy, its rig, and the display table the rig was resolved against.</summary>
+    private sealed record Built(ShowSnapshot Snapshot, IReadOnlyDictionary<string, ScreenGeometry> Displays);
+
+    /// <summary>
+    /// The last snapshot built from each root the bus has published — the live show, the frozen
+    /// program — so the next one can share what did not move. Weak on the root: a program clone
+    /// dropped when EDIT SAFE closes takes its record with it.
+    /// </summary>
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ShowState, Built> _lastBuilt = new();
+
+    /// <summary>The sections <see cref="ShowSnapshot.TransitionKeyFor"/> reads; a change to any of them starts the memo afresh.</summary>
+    private static readonly string[] TransitionKeySections = { nameof(ShowState.Pattern), nameof(ShowState.Independent), nameof(ShowState.Output) };
+
+    private ShowSnapshot Build(ShowState state, ref Rendering.TickerLine ticker, ChangeTracker? changes)
     {
         var version = ++_version;
         var now = _clock();
@@ -467,8 +494,26 @@ public sealed class SnapshotBus
             _wayPending = null;
             _kindPendingSet = false;
         }
-        var clone = JsonUtil.Clone(state);
-        return new ShowSnapshot
+        // Only what moved is copied; the rest is the previous snapshot's own frozen objects. A
+        // tracker for another root, or none, or a first publish from this root, copies everything.
+        var previous = _lastBuilt.TryGetValue(state, out var last) ? last : null;
+        var dirty = changes is not null && ReferenceEquals(changes.Root, state) ? changes.TakeDirty() : null;
+        ShowState clone;
+        RigGeometry rig;
+        var displays = Displays;
+        if (previous is null || dirty is null)
+        {
+            clone = SnapshotClone.Clone(state);
+            rig = RigGeometry.Build(clone, displays);
+        }
+        else
+        {
+            clone = SnapshotClone.Compose(state, previous.Snapshot.State, dirty);
+            rig = dirty.Contains(nameof(ShowState.Output)) || !ReferenceEquals(previous.Displays, displays)
+                ? RigGeometry.Build(clone, displays)
+                : previous.Snapshot.Rig;
+        }
+        var snapshot = new ShowSnapshot
         {
             State = clone,
             Version = version,
@@ -488,13 +533,23 @@ public sealed class SnapshotBus
             TransitionSceneOverride = _sceneOverride,
             TransitionDirectionOverride = _wayOverride,
             TransitionOverrideVersion = _kindVersion,
-            Rig = RigGeometry.Build(clone, Displays),
+            Rig = rig,
             PreviewSource = _previewSource,
             ReviewOnMultiview = ReviewOnMultiview,
             Frozen = Frozen,
             UnarmedTargets = UnarmedTargets,
             BlackTargets = BlackTargets,
         };
+        if (previous is not null && dirty is not null
+            && !dirty.Overlaps(TransitionKeySections)
+            && previous.Snapshot.State.Blackout == clone.Blackout
+            && ReferenceEquals(previous.Snapshot.BlackTargets, snapshot.BlackTargets)
+            && ReferenceEquals(previous.Snapshot.PlaylistNow, snapshot.PlaylistNow))
+        {
+            snapshot.ShareTransitionKeysWith(previous.Snapshot);
+        }
+        _lastBuilt.AddOrUpdate(state, new Built(snapshot, displays));
+        return snapshot;
     }
 }
 

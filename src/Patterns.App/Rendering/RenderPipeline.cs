@@ -63,7 +63,10 @@ public sealed record PipelineViewport(
         Math.Abs(BrightnessPct - 100) > 0.01 || Math.Abs(Gamma - 1.0) > 0.001 ||
         Math.Abs(TrimRPct - 100) > 0.01 || Math.Abs(TrimGPct - 100) > 0.01 || Math.Abs(TrimBPct - 100) > 0.01;
 
-    public string TrimKey => $"{BrightnessPct:0.##}|{Gamma:0.###}|{TrimRPct:0.##}|{TrimGPct:0.##}|{TrimBPct:0.##}";
+    /// <summary>The same trims as another viewport's — read every frame, so a comparison and never a key string.</summary>
+    public bool SameTrimsAs(PipelineViewport other)
+        => BrightnessPct.Equals(other.BrightnessPct) && Gamma.Equals(other.Gamma)
+           && TrimRPct.Equals(other.TrimRPct) && TrimGPct.Equals(other.TrimGPct) && TrimBPct.Equals(other.TrimBPct);
 
     /// <summary>Edge-blend zones in this output's own pixels (arrangement space: before rotation and warp).</summary>
     public int BlendLeftPx { get; init; }
@@ -93,7 +96,11 @@ public sealed record PipelineViewport(
     public bool HasBlend => Kind == SinkKind.Output &&
         (BlendLeftPx > 0 || BlendTopPx > 0 || BlendRightPx > 0 || BlendBottomPx > 0);
 
-    public string BlendKey => $"{BlendLeftPx}|{BlendTopPx}|{BlendRightPx}|{BlendBottomPx}|{BlendCurve}|{BlendGamma:0.###}";
+    /// <summary>The same blend zones as another viewport's — read every frame of a blended output, so a comparison and never a key string.</summary>
+    public bool SameBlendAs(PipelineViewport other)
+        => BlendLeftPx == other.BlendLeftPx && BlendTopPx == other.BlendTopPx
+           && BlendRightPx == other.BlendRightPx && BlendBottomPx == other.BlendBottomPx
+           && BlendCurve == other.BlendCurve && BlendGamma.Equals(other.BlendGamma);
 }
 
 /// <summary>
@@ -195,7 +202,7 @@ public sealed class RenderPipeline : IDisposable
     public PaneMap? LastMap => _lastMap;
 
     private SKColorFilter? _trimFilter;
-    private string _trimFilterKey = "";
+    private PipelineViewport? _trimFilterFor;
     private readonly SKPaint _trimPaint = new();
     private static readonly byte[] IdentityTable = BuildIdentity();
 
@@ -262,7 +269,7 @@ public sealed class RenderPipeline : IDisposable
             var layered = false;
             if (vp.HasTrims)
             {
-                if (_trimFilter is null || _trimFilterKey != vp.TrimKey)
+                if (_trimFilter is null || _trimFilterFor is not { } trimmed || !trimmed.SameTrimsAs(vp))
                 {
                     _trimFilter?.Dispose();
                     _trimFilter = SKColorFilter.CreateTable(
@@ -270,7 +277,7 @@ public sealed class RenderPipeline : IDisposable
                         TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimRPct),
                         TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimGPct),
                         TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimBPct));
-                    _trimFilterKey = vp.TrimKey;
+                    _trimFilterFor = vp;
                 }
                 _trimPaint.ColorFilter = _trimFilter;
                 canvas.SaveLayer(_trimPaint);
@@ -416,7 +423,8 @@ public sealed class RenderPipeline : IDisposable
     // ---- edge blend ---------------------------------------------------------
 
     private readonly Dictionary<string, SKShader> _blendShaders = new();
-    private string _blendShaderKey = "";
+    private PipelineViewport? _blendShadersFor;
+    private SKSizeI _blendShadersSize;
     private readonly SKPaint _blendPaint = new();
     private SKColor[] _blendStops = Array.Empty<SKColor>();
     private (BlendCurve Curve, double Gamma) _blendStopsFor = ((BlendCurve)(-1), double.NaN);
@@ -444,11 +452,12 @@ public sealed class RenderPipeline : IDisposable
     /// </summary>
     private void DrawBlendMask(SKCanvas canvas, PipelineViewport vp, SKSizeI size)
     {
-        if (_blendShaderKey != vp.BlendKey + "|" + size)
+        if (_blendShadersFor is not { } blended || !blended.SameBlendAs(vp) || _blendShadersSize != size)
         {
             foreach (var s in _blendShaders.Values) s.Dispose();
             _blendShaders.Clear();
-            _blendShaderKey = vp.BlendKey + "|" + size;
+            _blendShadersFor = vp;
+            _blendShadersSize = size;
         }
         var stops = BlendStops(vp.BlendCurve, vp.BlendGamma);
         int w = size.Width, h = size.Height;

@@ -83,24 +83,30 @@ public sealed partial class MainViewModel : Observable
         StopCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.OutputsOff, ActionOrigin.Desk));
         IdentifyCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Identify, ActionOrigin.Desk));
         BlackoutCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.BlackoutToggle, ActionOrigin.Desk));
-        ArmCountdownCommand = new RelayCommand(() =>
+        ArmCountdownCommand = new RelayCommand(() => BulkEdit(() =>
         {
             State.Countdown.ArmedAtUtc = DateTime.UtcNow;
             State.Countdown.Enabled = true;
-        });
+        }));
         SaveShowCommand = new RelayCommand(() => _ = SaveShowAsync());
         LoadShowCommand = new RelayCommand(() => _ = LoadShowAsync());
         SavePresetCommand = new RelayCommand(SaveUserPreset);
         BrowseImageCommand = new RelayCommand(() => _ = PickFileAsync("Choose image", FilePickerFileTypes.ImageAll, p =>
         {
-            ActivePattern.Media.ImagePath = p;
-            ActivePattern.Media.Source = MediaSource.Image;
+            BulkEdit(() =>
+            {
+                ActivePattern.Media.ImagePath = p;
+                ActivePattern.Media.Source = MediaSource.Image;
+            });
             AddToMediaLibrary(p, isVideo: false);
         }));
         BrowseVideoCommand = new RelayCommand(() => _ = PickFileAsync("Choose video", VideoTypes, p =>
         {
-            ActivePattern.Media.VideoPath = p;
-            ActivePattern.Media.Source = MediaSource.Video;
+            BulkEdit(() =>
+            {
+                ActivePattern.Media.VideoPath = p;
+                ActivePattern.Media.Source = MediaSource.Video;
+            });
             AddToMediaLibrary(p, isVideo: true);
         }));
         // A deck: a PDF — or a PowerPoint through LibreOffice — a page at a time; the desk's buttons turn the deck the pattern shows.
@@ -145,9 +151,12 @@ public sealed partial class MainViewModel : Observable
             if (layer is null) return;
             _ = PickFileAsync("Choose the layer's image", FilePickerFileTypes.ImageAll, p =>
             {
-                layer.ImagePath = p;
-                layer.Source = LayerSource.Image;
-                layer.Enabled = true;
+                BulkEdit(() =>
+                {
+                    layer.ImagePath = p;
+                    layer.Source = LayerSource.Image;
+                    layer.Enabled = true;
+                });
                 AddToMediaLibrary(p, isVideo: false);
             });
         });
@@ -156,9 +165,12 @@ public sealed partial class MainViewModel : Observable
             if (layer is null) return;
             _ = PickFileAsync("Choose the layer's clip", VideoTypes, p =>
             {
-                layer.VideoPath = p;
-                layer.Source = LayerSource.Video;
-                layer.Enabled = true;
+                BulkEdit(() =>
+                {
+                    layer.VideoPath = p;
+                    layer.Source = LayerSource.Video;
+                    layer.Enabled = true;
+                });
                 AddToMediaLibrary(p, isVideo: true);
             });
         });
@@ -346,8 +358,11 @@ public sealed partial class MainViewModel : Observable
         AudioPrevCommand = new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.AudioPrev, ActionOrigin.Desk)));
         ReshuffleAudioCommand = new RelayCommand(() =>
         {
-            State.AudioPlayer.ShuffleSeed = Random.Shared.Next(1, int.MaxValue);
-            State.AudioPlayer.Shuffle = true;
+            BulkEdit(() =>
+            {
+                State.AudioPlayer.ShuffleSeed = Random.Shared.Next(1, int.MaxValue);
+                State.AudioPlayer.Shuffle = true;
+            });
             StatusMessage = "The audio playlist dealt a new order.";
         });
         PlayAudioCommand = new RelayCommand(() =>
@@ -420,11 +435,14 @@ public sealed partial class MainViewModel : Observable
         CropPresetCommand = new RelayCommand<string>(p => ApplyCropPreset(p ?? ""));
         ResetWarpCommand = new RelayCommand(() =>
         {
-            if (_selectedPlacement is null) return;
-            _selectedPlacement.WarpTlx = 0; _selectedPlacement.WarpTly = 0;
-            _selectedPlacement.WarpTrx = 0; _selectedPlacement.WarpTry = 0;
-            _selectedPlacement.WarpBlx = 0; _selectedPlacement.WarpBly = 0;
-            _selectedPlacement.WarpBrx = 0; _selectedPlacement.WarpBry = 0;
+            if (_selectedPlacement is not { } placement) return;
+            BulkEdit(() =>
+            {
+                placement.WarpTlx = 0; placement.WarpTly = 0;
+                placement.WarpTrx = 0; placement.WarpTry = 0;
+                placement.WarpBlx = 0; placement.WarpBly = 0;
+                placement.WarpBrx = 0; placement.WarpBry = 0;
+            });
             RaiseSelection();
         });
         ResetBlendCommand = new RelayCommand(ResetBlend);
@@ -756,12 +774,15 @@ public sealed partial class MainViewModel : Observable
         RefreshFeedCommand = new RelayCommand(() => _services.Feeds.RefreshNow());
         ResetTrimsCommand = new RelayCommand(() =>
         {
-            if (_selectedPlacement is null) return;
-            _selectedPlacement.BrightnessPct = 100;
-            _selectedPlacement.Gamma = 1.0;
-            _selectedPlacement.TrimRPct = 100;
-            _selectedPlacement.TrimGPct = 100;
-            _selectedPlacement.TrimBPct = 100;
+            if (_selectedPlacement is not { } placement) return;
+            BulkEdit(() =>
+            {
+                placement.BrightnessPct = 100;
+                placement.Gamma = 1.0;
+                placement.TrimRPct = 100;
+                placement.TrimGPct = 100;
+                placement.TrimBPct = 100;
+            });
             RaiseSelection();
         });
 

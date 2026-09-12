@@ -365,10 +365,13 @@ public sealed partial class MainViewModel
     private void ResetBlend()
     {
         if (_selectedPlacement is not { } p) return;
-        p.BlendAuto = false;
-        p.BlendLeftPx = p.BlendTopPx = p.BlendRightPx = p.BlendBottomPx = 0;
-        p.BlendCurve = BlendCurve.SCurve;
-        p.BlendGamma = 1.0;
+        BulkEdit(() =>
+        {
+            p.BlendAuto = false;
+            p.BlendLeftPx = p.BlendTopPx = p.BlendRightPx = p.BlendBottomPx = 0;
+            p.BlendCurve = BlendCurve.SCurve;
+            p.BlendGamma = 1.0;
+        });
         ReconcilePlacements();
         RaiseSelection();
     }

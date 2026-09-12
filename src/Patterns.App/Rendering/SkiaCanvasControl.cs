@@ -25,11 +25,23 @@ public class SkiaCanvasControl : Control
     {
         _secondTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
-            Interval = TimeSpan.FromMilliseconds(250),
+            Interval = UntilNextSecond(DateTime.Now),
         };
-        _secondTimer.Tick += (_, _) => InvalidateVisual();
+        _secondTimer.Tick += (_, _) =>
+        {
+            // Wake just after each wall-clock second turns, so a clock or a countdown changes its
+            // digits within a few milliseconds of the true second — and draws once for it. A fixed
+            // quarter-second timer drew every sink with a clock on it four times a second, three of
+            // them for nothing, and still changed the digits up to a quarter of a second late.
+            _secondTimer.Interval = UntilNextSecond(DateTime.Now);
+            InvalidateVisual();
+        };
         ClipToBounds = true;
     }
+
+    /// <summary>How long until the next second turns, plus a little so the frame lands after it — never less than a few milliseconds.</summary>
+    public static TimeSpan UntilNextSecond(DateTime now)
+        => TimeSpan.FromMilliseconds(Math.Max(5, 1000 - now.Millisecond + 5));
 
     public RenderPipeline? Pipeline
     {
@@ -67,7 +79,11 @@ public class SkiaCanvasControl : Control
                 break;
 
             case RedrawCadence.PerSecond:
-                if (!_secondTimer.IsEnabled) _secondTimer.Start();
+                if (!_secondTimer.IsEnabled)
+                {
+                    _secondTimer.Interval = UntilNextSecond(DateTime.Now);
+                    _secondTimer.Start();
+                }
                 break;
 
             default:

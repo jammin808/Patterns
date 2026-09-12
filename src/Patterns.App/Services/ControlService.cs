@@ -44,12 +44,14 @@ public sealed partial class ControlService : IDisposable
             var json = _router.StateJson();
             _ = Task.Run(() => Broadcast("STATE " + json));
         };
-        _services.SnapshotPublished += () =>
+        void Moved()
         {
             Interlocked.Increment(ref _rev);
             _pushPending = true;
             if (!_pushTimer.IsEnabled) _pushTimer.Start();
-        };
+        }
+        _services.SnapshotPublished += Moved;
+        _services.RuntimeChanged += Moved;   // "audio playing", "stream live": in STATE, never in a snapshot
         _router.Rev = () => Interlocked.Read(ref _rev);
 
         // The caller's VT clock moves every second while a clip is on air, and so does a running

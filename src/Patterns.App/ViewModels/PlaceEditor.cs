@@ -20,12 +20,15 @@ public sealed class PlaceEditor : Observable
 {
     private readonly Func<IAnchored?> _target;
     private readonly Func<PlacedBox?> _box;
+    private readonly Action<Action> _edit;
     private string _words = "";
 
-    public PlaceEditor(Func<IAnchored?> target, Func<PlacedBox?> box)
+    /// <param name="edit">Runs a group of model writes as one publish (the desk's BulkEdit); each write publishes on its own without it.</param>
+    public PlaceEditor(Func<IAnchored?> target, Func<PlacedBox?> box, Action<Action>? edit = null)
     {
         _target = target;
         _box = box;
+        _edit = edit ?? (work => work());
         ResetCommand = new RelayCommand(Reset);
     }
 
@@ -44,9 +47,12 @@ public sealed class PlaceEditor : Observable
         set
         {
             if (_target() is not { } placed || placed.Anchor == value) return;
-            placed.Anchor = value;
-            placed.OffsetXPct = 0;
-            placed.OffsetYPct = 0;
+            _edit(() =>
+            {
+                placed.Anchor = value;
+                placed.OffsetXPct = 0;
+                placed.OffsetYPct = 0;
+            });
             Refresh();
         }
     }
@@ -60,8 +66,11 @@ public sealed class PlaceEditor : Observable
     private void Reset()
     {
         if (_target() is not { } placed) return;
-        placed.OffsetXPct = 0;
-        placed.OffsetYPct = 0;
+        _edit(() =>
+        {
+            placed.OffsetXPct = 0;
+            placed.OffsetYPct = 0;
+        });
         Refresh();
     }
 
@@ -127,8 +136,11 @@ public sealed class PlaceEditor : Observable
         if (_target() is not { } placed || _box() is not { } b) return;
         var (x, y) = OverlayPlace.NudgeForTopLeft(
             b.Space, b.Rect.Width, b.Rect.Height, placed.Anchor, leftPx, topPx, b.Margin);
-        placed.OffsetXPct = x;
-        placed.OffsetYPct = y;
+        _edit(() =>
+        {
+            placed.OffsetXPct = x;
+            placed.OffsetYPct = y;
+        });
         Refresh();
     }
 }
