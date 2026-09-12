@@ -231,6 +231,39 @@
         <TextBlock Classes="hint tip"
                    Text="Projectors that overlap on the wall — two, a row of three or four, a stack, a 2×2 grid: tick Automatic on every one, drag each over its neighbour by the overlap, and the overlaps become one joined canvas they all draw, each fading every shared edge to black so the light adds up to one picture; a middle projector fades both sides, a grid's projector a side and a top or bottom, and where two zones meet in a corner the fades multiply, which is what four projectors sharing a corner need. The lines above audit each join of the selected screen — the neighbour must fade the facing edge by the same width with the same curve — so a rig is checked join by join before doors. Put the Projection blend pattern's grey check on the canvas and turn the gamma until the overlaps read as flat as the rest. Only this output fades; NDI, monitors and the preview never do." />
 
+        <TextBlock Classes="label" Text="Camera calibration — the projectors measured, the meshes and blends solved" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="76,*,Auto,8,Auto,Auto" Margin="0,2,0,0">
+          <TextBlock Classes="label" Text="Camera" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Screens.CalibrationCameras}"
+                    SelectedItem="{Binding Screens.SelectedCalibrationCamera, Mode=TwoWay}" PlaceholderText="an NDI source — a phone's camera app, a capture card"
+                    ToolTip.Tip="The camera is any NDI source that sees the whole wall: a phone running an NDI camera app on the same network, or a camera through a capture card and NDI Tools. Press ↻ to look for sources again" />
+          <Button Grid.Column="2" Classes="mini" Content="↻" Command="{Binding Screens.RefreshCalibrationCamerasCommand}" ToolTip.Tip="Look for NDI sources again" />
+          <Button Grid.Column="4" Classes="chip" Content="Run" Command="{Binding Screens.RunCalibrationCommand}"
+                  ToolTip.Tip="Every projector shows the structured light in turn — white, black, then the stripes — while the camera is read after each; about a minute for two projectors. Nothing moves until APPLY" />
+          <Button Grid.Column="5" Classes="chip" Content="Cancel" Command="{Binding Screens.CancelCalibrationCommand}" IsVisible="{Binding Screens.CalibrationRunning}" />
+        </Grid>
+        <Grid ColumnDefinitions="76,*,8,Auto,Auto,Auto" Margin="0,2,0,0">
+          <TextBlock Classes="label" Text="Photos" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding Screens.CalibrationFolder, Mode=TwoWay}" Watermark="a folder for cal-1.png, cal-2.png…"
+                   ToolTip.Tip="No NDI camera: WRITE PLAN puts the first pattern up and writes cal-plan.txt (one line per photo); photograph each as cal-1.png, cal-2.png… from one spot, NEXT PATTERN between shots, then SOLVE FROM PHOTOS" />
+          <Button Grid.Column="3" Classes="chip" Content="Write plan" Command="{Binding Screens.WriteCalibrationPlanCommand}" />
+          <Button Grid.Column="4" Classes="chip" Content="Next pattern" Command="{Binding Screens.NextCalibrationPatternCommand}" />
+          <Button Grid.Column="5" Classes="chip" Content="Solve from photos" Command="{Binding Screens.SolveCalibrationFromPhotosCommand}" />
+        </Grid>
+        <ProgressBar Minimum="0" Maximum="1" Height="6" Margin="0,4,0,0" Value="{Binding Screens.CalibrationProgress}" IsVisible="{Binding Screens.CalibrationRunning}" />
+        <TextBlock Classes="hint" Text="{Binding Screens.CalibrationStatus}" TextWrapping="Wrap" Margin="0,2,0,0" />
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+          <Button Classes="chip" Content="Apply" Command="{Binding Screens.ApplyCalibrationCommand}" IsEnabled="{Binding Screens.HasCalibrationSolution}"
+                  ToolTip.Tip="Each projector into its solved place on the canvas with its mesh and its blend mask (a PNG under media/calibration); its blend zones go off — the mask blends" />
+          <Button Classes="chip" Content="Undo" Command="{Binding Screens.UndoCalibrationCommand}" IsEnabled="{Binding Screens.CanUndoCalibration}" ToolTip.Tip="The placements as they were before APPLY" />
+          <Button Classes="chip" Content="Demo" Command="{Binding Screens.DemoCalibrationCommand}"
+                  ToolTip.Tip="A run against a room that is not there — this rig's projectors as if a camera saw them side by side — to read what the report says, without a projector or a camera. Applying it moves the placements like any solution; UNDO puts them back" />
+        </StackPanel>
+        <TextBlock Classes="hint" Text="{Binding Screens.CalibrationReport}" TextWrapping="Wrap" FontFamily="Consolas,Menlo,monospace" FontSize="11" Margin="0,4,0,0"
+                   IsVisible="{Binding Screens.HasCalibrationSolution}" />
+        <TextBlock Classes="hint tip"
+                   Text="One camera that sees the whole wall, and the projectors measure themselves: each shows white, black and Gray-code stripes in turn, the camera's frames say which projector pixel lit each camera pixel, and the solver fits each projector's picture to a common canvas — its place on the canvas, a mesh that straightens its keystone and its lens, and a blend mask so the light adds to one across every overlap. The report says how well each fit (a residual under a pixel or two is a good one), how much of the canvas each covers, where they overlap, and any corner nobody reaches. APPLY moves the placements; the meshes stay editable above, and UNDO puts everything back. The camera need not be straight or level — it is the common eye, and the canvas is the wall as the camera sees it." />
+
         <TextBlock Classes="label" Text="Wall gaps — bezels, the air between LED pillars" Margin="0,8,0,0" />
         <Grid ColumnDefinitions="86,*,12,86,*" IsVisible="{Binding Screens.SelectedIsInCanvas}" Margin="0,2,0,4">
           <TextBlock Grid.Column="0" Classes="label" Text="Bezel H px" VerticalAlignment="Center" />

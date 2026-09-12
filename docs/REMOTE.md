@@ -121,6 +121,13 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `TWIN TAKEOVER` | The standby twin runs the show from here: its hold on the outputs lifts and what the main had on air goes on, with the caller's place — `ERR` on a desk that is not a standby |
 | `TWIN STANDBY` | A twin that took over follows the main again: the link is dialled and the outputs are held closed |
 | `TWIN TAKEBACK` | The main takes the show back from a standby that ran it: the standby's show (the edits made while it ran) and what it had on air land on the main, its outputs open, and the standby closes its own and follows again — `ERR` on a desk that is not the main, or when no standby has the show, or when the one that has it is not on the link |
+| `SHOWLOCK ON` / `OFF` | The show lock: Windows notifications, system sounds, other apps' audio, the shortcut keys, sleep and the Windows key held off for the show — and put back. `SHOW-LOCK` and `MACHINELOCK` are aliases |
+| `SHOWLOCK STATUS` | `OK <json>` — what the lock holds, item by item, and whether Windows Update has a restart pending |
+| `CALIBRATE RUN <camera>` | The camera calibration through an NDI source: every projector shows the structured light in turn while the camera is read, then the rig is solved — `OK` at once, `CALIBRATE STATUS` follows it; nothing moves until APPLY. `ERR` with no projector or a camera that cannot be opened |
+| `CALIBRATE CANCEL` | Stops a run; the outputs show the show again |
+| `CALIBRATE DEMO` | A solve against a room that is not there — the report's words without a projector or a camera |
+| `CALIBRATE APPLY` / `UNDO` | Each projector into its solved place with its mesh and its blend mask, its blend zones off; and back as it was before APPLY |
+| `CALIBRATE STATUS` | `OK <json>` — `running`, `progress` (0–1), `status`, `solved`, `applied`, `canvas` (`width`, `height`), `projectors` (each `id`, `name`, `x`, `y`, `mesh`, `coverage`, `residualPx`, `words`) and the `report`. `CALIBRATION` and `CAL` are aliases of the verb |
 
 One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in
 Audio-page order — there is deliberately no per-kind numbering, because two numbering schemes on a

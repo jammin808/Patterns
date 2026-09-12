@@ -117,6 +117,7 @@ public sealed partial class ShowActions
             ?? RunInstall(a, origin)
             ?? RunTwin(a, origin)
             ?? RunLock(a, origin)
+            ?? RunCalibration(a, origin)
             ?? ActionResult.Refused($"Unknown action '{a.Kind}'.");
     }
 

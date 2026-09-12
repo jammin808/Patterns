@@ -283,6 +283,16 @@ public enum ShowActionKind
     ShowLockOn,
     /// <summary>The show lock off: everything put back as it was.</summary>
     ShowLockOff,
+    /// <summary>CALIBRATE RUN &lt;camera&gt;: the projectors measured through a camera — the structured light out, the frames in, the rig solved. Nothing is applied until CALIBRATE APPLY.</summary>
+    CalibrateRun,
+    /// <summary>CALIBRATE CANCEL: a run stopped; the outputs show the show again.</summary>
+    CalibrateCancel,
+    /// <summary>CALIBRATE DEMO: a solve against a room that is not there — the report's words without a projector.</summary>
+    CalibrateDemo,
+    /// <summary>CALIBRATE APPLY: each projector into its solved place with its mesh and its blend mask.</summary>
+    CalibrateApply,
+    /// <summary>CALIBRATE UNDO: the placements as they were before APPLY.</summary>
+    CalibrateUndo,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

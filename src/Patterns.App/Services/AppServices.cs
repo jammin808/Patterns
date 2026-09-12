@@ -77,6 +77,9 @@ public sealed class AppServices
     /// <summary>The show lock: the machine held off notifications, sounds, other apps' audio, the shortcut keys, sleep and the Windows key while the show runs.</summary>
     public ShowLockService ShowLock { get; }
 
+    /// <summary>The camera calibration: patterns on the projectors, a camera watching, the rig solved from what it saw.</summary>
+    public CalibrationService Calibration { get; }
+
     /// <summary>Output hot-plug: a display unplugged, back, or new, and what the rig does about it.</summary>
     public HotPlugService HotPlug { get; }
 
@@ -424,6 +427,7 @@ public sealed class AppServices
         Beacon = new BeaconService(this);
         Twin = new TwinService(this);
         ShowLock = new ShowLockService(this);
+        Calibration = new CalibrationService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);

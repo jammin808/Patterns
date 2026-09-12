@@ -124,6 +124,11 @@ public class WireVocabularyTests
         ("TWIN TAKEBACK", new(ShowActionKind.TwinTakeBack)),
         ("SHOWLOCK ON", new(ShowActionKind.ShowLockOn)),
         ("SHOWLOCK OFF", new(ShowActionKind.ShowLockOff)),
+        ("CALIBRATE RUN Phone (NDI Camera)", new(ShowActionKind.CalibrateRun, "", "Phone (NDI Camera)")),
+        ("CALIBRATE CANCEL", new(ShowActionKind.CalibrateCancel)),
+        ("CALIBRATE DEMO", new(ShowActionKind.CalibrateDemo)),
+        ("CALIBRATE APPLY", new(ShowActionKind.CalibrateApply)),
+        ("CAL UNDO", new(ShowActionKind.CalibrateUndo)),
         ("REVIEW OFF", new(ShowActionKind.ReviewOff)),
         ("REVIEW", new(ShowActionKind.ReviewToggle)),
         ("FREEZE ON", new(ShowActionKind.FreezeOn)),
@@ -146,7 +151,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)
@@ -167,6 +172,8 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.Status, ControlProtocol.Parse("STATUS").Kind);
         Assert.Equal(RemoteCommandKind.CueList, ControlProtocol.Parse("CUE LIST").Kind);
         Assert.Equal(RemoteCommandKind.TwinStatus, ControlProtocol.Parse("TWIN STATUS").Kind);
+        Assert.Equal(RemoteCommandKind.CalibrationStatus, ControlProtocol.Parse("CALIBRATE STATUS").Kind);
+        Assert.Equal(RemoteCommandKind.CalibrationStatus, ControlProtocol.Parse("CALIBRATE").Kind);
         var hello = ControlProtocol.Parse("HELLO FOH deck");
         Assert.Equal(RemoteCommandKind.Hello, hello.Kind);
         Assert.Equal("FOH deck", hello.Text);

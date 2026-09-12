@@ -127,7 +127,7 @@ public sealed class OutputWindowManager
                 return new ArrangedScreen(
                     x.Placement.ScreenId,
                     SKRectI.Create(x.Placement.X, x.Placement.Y, size.Width, size.Height),
-                    x.Placement.BlendAuto);
+                    x.Placement.BlendsOverlaps);
             })
             .ToList();
         var groups = ScreenLayout.Groups(arranged);
@@ -191,6 +191,7 @@ public sealed class OutputWindowManager
                     WarpTopBow = placement.WarpTopBow, WarpRightBow = placement.WarpRightBow,
                     WarpBottomBow = placement.WarpBottomBow, WarpLeftBow = placement.WarpLeftBow,
                     WarpMeshColumns = placement.WarpMeshColumns, WarpMeshRows = placement.WarpMeshRows, WarpMesh = placement.WarpMesh,
+                    OutputId = placement.ScreenId,
                     ShowLattice = latticeOn.Length > 0 && latticeOn == placement.ScreenId,
                     LatticePoint = latticeOn.Length > 0 && latticeOn == placement.ScreenId ? latticePoint : -1,
                     BlendLeftPx = blend.Left, BlendTopPx = blend.Top,
@@ -198,6 +199,7 @@ public sealed class OutputWindowManager
                     BlendCurve = placement.BlendCurve,
                     BlendGamma = placement.BlendGamma,
                     BlendBlackPct = placement.BlendBlackPct,
+                    BlendMaskPath = placement.BlendMaskPath,
                     // The screen's own rate wins; else the master; 0 leaves the display's refresh.
                     TargetFps = placement.FpsOverride > 0 ? placement.FpsOverride : masterFps,
                 };

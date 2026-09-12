@@ -48,6 +48,16 @@ public sealed class ScreensPage : Observable
             RaiseSelection();
         });
         ArrangeBlendGridCommand = new RelayCommand(ArrangeBlendGrid);
+        _calibrationFolder = Path.Combine(services.Store.MediaDirectory, "calibration", "photos");
+        RefreshCalibrationCamerasCommand = new RelayCommand(RefreshCalibrationCameras);
+        RunCalibrationCommand = new RelayCommand(RunCalibration);
+        CancelCalibrationCommand = new RelayCommand(() => { _services.Calibration.Cancel(); PollCalibration(); });
+        WriteCalibrationPlanCommand = new RelayCommand(() => { _desk.StatusMessage = _services.Calibration.WritePlan(CalibrationFolder); PollCalibration(); });
+        NextCalibrationPatternCommand = new RelayCommand(() => { _desk.StatusMessage = _services.Calibration.NextPattern(); PollCalibration(); });
+        SolveCalibrationFromPhotosCommand = new RelayCommand(() => ReportCalibration(_services.Calibration.SolveFromFolder(CalibrationFolder)));
+        DemoCalibrationCommand = new RelayCommand(() => ReportCalibration(_services.Calibration.RunDemo()));
+        ApplyCalibrationCommand = new RelayCommand(() => ReportCalibration(_services.Actions.Execute(ShowActionKind.CalibrateApply, ActionOrigin.Desk), rigChanged: true));
+        UndoCalibrationCommand = new RelayCommand(() => ReportCalibration(_services.Actions.Execute(ShowActionKind.CalibrateUndo, ActionOrigin.Desk), rigChanged: true));
         ResetMeshCommand = new RelayCommand(ResetMesh);
         ResetBlendCommand = new RelayCommand(ResetBlend);
         ResetTrimsCommand = new RelayCommand(() =>
@@ -492,6 +502,95 @@ public sealed class ScreensPage : Observable
         RaiseSelection();
     }
 
+    // ---- the camera calibration -------------------------------------------------------
+
+    private string _selectedCalibrationCamera = "";
+    private string _calibrationFolder;
+    private string _calibrationStatus = "";
+    private double _calibrationProgress;
+    private bool _calibrationRunning;
+    private string _calibrationReport = "";
+    private (bool Solved, bool Applied) _calibrationSeen;
+
+    /// <summary>The NDI sources a camera could be — a phone with an NDI camera app, a capture card through NDI Tools; ↻ looks again.</summary>
+    public ObservableCollection<string> CalibrationCameras { get; } = new();
+
+    public string SelectedCalibrationCamera { get => _selectedCalibrationCamera; set => Set(ref _selectedCalibrationCamera, value ?? ""); }
+
+    /// <summary>The folder the photographs path uses: cal-plan.txt and cal-1.png, cal-2.png… by hand.</summary>
+    public string CalibrationFolder { get => _calibrationFolder; set => Set(ref _calibrationFolder, value ?? ""); }
+
+    public string CalibrationStatus { get => _calibrationStatus; private set => Set(ref _calibrationStatus, value); }
+
+    /// <summary>0..1 through the patterns while a run reads them.</summary>
+    public double CalibrationProgress { get => _calibrationProgress; private set => Set(ref _calibrationProgress, value); }
+
+    public bool CalibrationRunning { get => _calibrationRunning; private set => Set(ref _calibrationRunning, value); }
+
+    /// <summary>The solver's report: the canvas, each projector's place and fit, the overlaps, what nobody reaches.</summary>
+    public string CalibrationReport { get => _calibrationReport; private set => Set(ref _calibrationReport, value); }
+
+    public bool HasCalibrationSolution => _services.Calibration.Solution is not null;
+
+    public bool CanUndoCalibration => _services.Calibration.Applied;
+
+    public void RefreshCalibrationCameras()
+    {
+        var names = _services.Calibration.CameraNames();
+        CalibrationCameras.Clear();
+        foreach (var name in names) CalibrationCameras.Add(name);
+        if (SelectedCalibrationCamera.Length == 0 || !names.Contains(SelectedCalibrationCamera)) SelectedCalibrationCamera = names.Count > 0 ? names[0] : "";
+        _desk.StatusMessage = names.Count == 0 ? "No NDI source on the network to be the camera — or photograph the patterns by hand with WRITE PLAN." : $"{names.Count} NDI source{(names.Count == 1 ? "" : "s")} a camera could be.";
+    }
+
+    /// <summary>RUN: the patterns out, the camera read, the rig solved — through the one verb, so the wire and the desk are the same run.</summary>
+    public void RunCalibration()
+    {
+        if (SelectedCalibrationCamera.Length == 0)
+        {
+            _desk.StatusMessage = "Pick the camera — an NDI source — or photograph the patterns by hand with WRITE PLAN.";
+            return;
+        }
+        ReportCalibration(_services.Actions.Execute(new ShowAction(ShowActionKind.CalibrateRun, "", SelectedCalibrationCamera), ActionOrigin.Desk));
+    }
+
+    private void ReportCalibration(ActionResult result, bool rigChanged = false)
+    {
+        _desk.StatusMessage = result.Message;
+        if (rigChanged && result.Ok)
+        {
+            _desk.ReconcilePlacements();
+            RaiseSelection();
+        }
+        PollCalibration();
+    }
+
+    /// <summary>On the desk's tick and after every press: the service's words, progress and state onto the page, raised only when they moved.</summary>
+    public void PollCalibration()
+    {
+        var cal = _services.Calibration;
+        CalibrationStatus = cal.Status;
+        CalibrationProgress = cal.Progress;
+        CalibrationRunning = cal.Running;
+        CalibrationReport = cal.Solution?.Report ?? "";
+        var now = (cal.Solution is not null, cal.Applied);
+        if (now == _calibrationSeen) return;
+        _calibrationSeen = now;
+        Raise(nameof(HasCalibrationSolution));
+        Raise(nameof(CanUndoCalibration));
+        if (now.Item2 || !now.Item1) RaiseSelection();                                // applied or undone from the wire: the selected screen's numbers moved
+    }
+
+    public RelayCommand RefreshCalibrationCamerasCommand { get; }
+    public RelayCommand RunCalibrationCommand { get; }
+    public RelayCommand CancelCalibrationCommand { get; }
+    public RelayCommand WriteCalibrationPlanCommand { get; }
+    public RelayCommand NextCalibrationPatternCommand { get; }
+    public RelayCommand SolveCalibrationFromPhotosCommand { get; }
+    public RelayCommand DemoCalibrationCommand { get; }
+    public RelayCommand ApplyCalibrationCommand { get; }
+    public RelayCommand UndoCalibrationCommand { get; }
+
     public double SelectedBlendGamma
     {
         get => _selectedPlacement?.BlendGamma ?? 1.0;
@@ -678,9 +777,10 @@ public sealed class ScreensPage : Observable
 
     private string _gapSummarySeen = "";
 
-    /// <summary>On the desk's tick: a gap row edited in place moves the words.</summary>
+    /// <summary>On the desk's tick: a run's progress, and a gap row edited in place moves the words.</summary>
     public void Poll()
     {
+        PollCalibration();
         if (_selectedPlacement is not { Gaps.Count: > 0 }) return;
         var now = GapSummary;
         if (now == _gapSummarySeen) return;

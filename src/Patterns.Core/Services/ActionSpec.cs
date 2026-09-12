@@ -258,6 +258,11 @@ public static class ActionSpec
         ShowActionKind.TwinTakeBack => "Twin — take the show back",
         ShowActionKind.ShowLockOn => "Show lock — hold the machine",
         ShowActionKind.ShowLockOff => "Show lock — release the machine",
+        ShowActionKind.CalibrateRun => "Calibrate — measure the projectors through a camera",
+        ShowActionKind.CalibrateCancel => "Calibrate — cancel the run",
+        ShowActionKind.CalibrateDemo => "Calibrate — a run against a room that is not there",
+        ShowActionKind.CalibrateApply => "Calibrate — apply the solution to the rig",
+        ShowActionKind.CalibrateUndo => "Calibrate — undo the last apply",
         _ => kind.ToString(),
     };
 
@@ -325,6 +330,8 @@ public static class ActionSpec
         ShowActionKind.ScreenLabel => "the rig's own naming, at set-up on the Screens page or from a remote — a running order never renames a screen",
         ShowActionKind.TwinTakeOver or ShowActionKind.TwinStandBy or ShowActionKind.TwinTakeBack => "the standby twin's own decision to run the show, or to follow again, or the main's to take it back — a cue never decides which machine is the main",
         ShowActionKind.ShowLockOn or ShowActionKind.ShowLockOff => "this machine's own hold on Windows — it goes on with the outputs and off with them, or from the Machine page and the wire; a cue never changes the machine's settings",
+        ShowActionKind.CalibrateRun or ShowActionKind.CalibrateCancel or ShowActionKind.CalibrateDemo or ShowActionKind.CalibrateApply or ShowActionKind.CalibrateUndo
+            => "the rig's own measuring at set-up — the outputs show structured light for a minute and the placements move; a running order never re-aims the projectors",
         _ => null,
     };
 

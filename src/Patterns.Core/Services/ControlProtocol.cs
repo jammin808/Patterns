@@ -25,6 +25,8 @@ public enum RemoteCommandKind
     TwinStatus,
     /// <summary>SHOWLOCK STATUS — what the show lock holds, as JSON.</summary>
     ShowLockStatus,
+    /// <summary>CALIBRATE STATUS — the camera calibration: running, progress, solved, applied, the solution, as JSON.</summary>
+    CalibrationStatus,
 }
 
 /// <summary>
@@ -716,6 +718,26 @@ public static class ControlProtocol
                     "STATUS" or "" => Query(RemoteCommandKind.ShowLockStatus),
                     _ => Unknown(s),
                 };
+
+            // The camera calibration: a run through a camera, cancelled, the demo, applied, undone, or read.
+            case "CALIBRATE":
+            case "CALIBRATION":
+            case "CAL":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                var what = sub.Length > 0 ? sub[0].ToUpperInvariant() : "";
+                var rest = sub.Length > 1 ? sub[1] : "";
+                return what switch
+                {
+                    "RUN" or "START" => Act(ShowActionKind.CalibrateRun, "", rest),
+                    "CANCEL" or "STOP" => Act(ShowActionKind.CalibrateCancel),
+                    "DEMO" => Act(ShowActionKind.CalibrateDemo),
+                    "APPLY" => Act(ShowActionKind.CalibrateApply),
+                    "UNDO" => Act(ShowActionKind.CalibrateUndo),
+                    "STATUS" or "" => Query(RemoteCommandKind.CalibrationStatus),
+                    _ => Unknown(s),
+                };
+            }
 
             case "FREEZE":
                 return arg.ToUpperInvariant() switch

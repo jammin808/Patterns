@@ -61,6 +61,8 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok(_services.Twin.StatusJson());
             case RemoteCommandKind.ShowLockStatus:
                 return ControlProtocol.Ok(_services.ShowLock.StatusJson());
+            case RemoteCommandKind.CalibrationStatus:
+                return ControlProtocol.Ok(_services.Calibration.StatusJson());
         }
 
         var action = cmd.Action;

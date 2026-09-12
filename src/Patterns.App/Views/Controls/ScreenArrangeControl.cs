@@ -146,7 +146,7 @@ public sealed class ScreenArrangeControl : Control
 
         // Grouping over ENABLED screens at their committed (or previewed) positions.
         var enabledArr = entries.Where(x => x.P.Enabled)
-            .Select(x => new ArrangedScreen(x.P.ScreenId, x.Rect, x.P.BlendAuto))
+            .Select(x => new ArrangedScreen(x.P.ScreenId, x.Rect, x.P.BlendsOverlaps))
             .ToList();
         var groups = ScreenLayout.Groups(enabledArr);
         var groupIndexOf = new Dictionary<string, (int Index, int Size)>();
@@ -449,12 +449,12 @@ public sealed class ScreenArrangeControl : Control
         {
             if (t.Placement == _dragPlacement) continue;
             others.Add(t.Arranged);
-            if (t.Placement.Enabled) enabledOthers.Add(new ArrangedScreen(t.Placement.ScreenId, t.Arranged, t.Placement.BlendAuto));
+            if (t.Placement.Enabled) enabledOthers.Add(new ArrangedScreen(t.Placement.ScreenId, t.Arranged, t.Placement.BlendsOverlaps));
         }
 
         var threshold = Math.Max(12, (int)(18 / view.Scale));
         _dragPreview = ScreenLayout.Snap(moving, others, threshold);
-        var preview = new ArrangedScreen(_dragPlacement.ScreenId, _dragPreview, _dragPlacement.BlendAuto);
+        var preview = new ArrangedScreen(_dragPlacement.ScreenId, _dragPreview, _dragPlacement.BlendsOverlaps);
         _snapConnected = _dragPlacement.Enabled &&
                          enabledOthers.Any(o => ScreenLayout.Connected(preview, o));
         InvalidateVisual();
@@ -474,8 +474,8 @@ public sealed class ScreenArrangeControl : Control
             // it: then the overlap is the blend zone, and the drop is exactly what was meant.
             var overlapped = tiles.Where(t => ScreenLayout.OverlapsAny(_dragPreview, new[] { t.Arranged })).ToList();
             var allowed = overlapped.Count == 0 ||
-                          _dragPlacement.BlendAuto ||
-                          overlapped.All(t => t.Placement.BlendAuto);
+                          _dragPlacement.BlendsOverlaps ||
+                          overlapped.All(t => t.Placement.BlendsOverlaps);
             if (allowed)
             {
                 var placement = _dragPlacement;

@@ -68,6 +68,9 @@ public sealed record PipelineViewport(
     public bool HasMesh => WarpMesh.Length > 0;
 
     /// <summary>The lattice drawn over the picture on the output while the Screens page edits it; the selected point is marked.</summary>
+    /// <summary>The output's own screen id — a member of a joined canvas keeps its own here while ScreenId names the canvas (the calibration lights one projector, not a canvas).</summary>
+    public string OutputId { get; init; } = "";
+
     public bool ShowLattice { get; init; }
     public int LatticePoint { get; init; } = -1;
 
@@ -98,6 +101,9 @@ public sealed record PipelineViewport(
     /// <summary>Black-level matching: the pedestal added outside the zones, as a percentage of white (0 = off).</summary>
     public double BlendBlackPct { get; init; }
 
+    /// <summary>A blend mask from a camera calibration — a grey picture over this output's raster that multiplies its light — or "" for the zones alone.</summary>
+    public string BlendMaskPath { get; init; } = "";
+
     /// <summary>The rate this sink presents at (0 = every vsync). Outputs only; the preview and monitors stay unpaced.</summary>
     public int TargetFps { get; init; }
 
@@ -116,13 +122,14 @@ public sealed record PipelineViewport(
 
     /// <summary>Only a real output fades its edges — never a monitor, a preview, NDI or a thumbnail.</summary>
     public bool HasBlend => Kind == SinkKind.Output &&
-        (BlendLeftPx > 0 || BlendTopPx > 0 || BlendRightPx > 0 || BlendBottomPx > 0);
+        (BlendLeftPx > 0 || BlendTopPx > 0 || BlendRightPx > 0 || BlendBottomPx > 0 || BlendMaskPath.Length > 0);
 
     /// <summary>The same blend zones as another viewport's — read every frame of a blended output, so a comparison and never a key string.</summary>
     public bool SameBlendAs(PipelineViewport other)
         => BlendLeftPx == other.BlendLeftPx && BlendTopPx == other.BlendTopPx
            && BlendRightPx == other.BlendRightPx && BlendBottomPx == other.BlendBottomPx
-           && BlendCurve == other.BlendCurve && BlendGamma.Equals(other.BlendGamma) && BlendBlackPct.Equals(other.BlendBlackPct);
+           && BlendCurve == other.BlendCurve && BlendGamma.Equals(other.BlendGamma) && BlendBlackPct.Equals(other.BlendBlackPct)
+           && BlendMaskPath == other.BlendMaskPath;
 }
 
 /// <summary>
@@ -287,6 +294,18 @@ public sealed class RenderPipeline : IDisposable
             // Undo DPI scaling so the engine draws in device pixels — pixel-exact output.
             canvas.Scale((float)(1.0 / renderScaling));
             canvas.ClipRect(SKRect.Create(0, 0, physicalPx.Width, physicalPx.Height));
+
+            if (vp.Kind == SinkKind.Output && CalibrationOverlay.Active)
+            {
+                // The structured light: this output's pattern, or black while another is read —
+                // raw white on the raw raster, before the trims, the warp and the blend, because
+                // the camera must see the pixels the code names. A member of a joined canvas is
+                // its own output here, not the canvas.
+                canvas.Clear(SKColors.Black);
+                var outputId = vp.OutputId.Length > 0 ? vp.OutputId : vp.ScreenId;
+                if (CalibrationOverlay.PatternFor(outputId) is { } pattern) CalibrationOverlay.Draw(canvas, pattern, physicalPx.Width, physicalPx.Height, _patternPaint);
+                return;
+            }
 
             var layered = false;
             if (vp.HasTrims)
@@ -521,6 +540,24 @@ public sealed class RenderPipeline : IDisposable
     private PipelineViewport? _blendShadersFor;
     private SKSizeI _blendShadersSize;
     private readonly SKPaint _blendPaint = new();
+    private readonly SKPaint _maskPaint = new() { BlendMode = SKBlendMode.Modulate };
+    private readonly SKPaint _patternPaint = new() { Color = SKColors.White, IsAntialias = false };
+    private SKImage? _maskImage;
+    private string _maskImageFor = "";
+
+    private static SKImage? LoadMask(string path)
+    {
+        try
+        {
+            using var bitmap = SKBitmap.Decode(path);
+            return bitmap is null ? null : SKImage.FromBitmap(bitmap);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"The blend mask '{path}' could not be read.", ex);
+            return null;
+        }
+    }
     private SKColor[] _blendStops = Array.Empty<SKColor>();
     private (BlendCurve Curve, double Gamma) _blendStopsFor = ((BlendCurve)(-1), double.NaN);
 
@@ -556,6 +593,17 @@ public sealed class RenderPipeline : IDisposable
         }
         var stops = BlendStops(vp.BlendCurve, vp.BlendGamma);
         int w = size.Width, h = size.Height;
+        if (vp.BlendMaskPath.Length > 0)
+        {
+            // A camera's mask: every pixel's share of the light, multiplied over the raster.
+            if (_maskImage is null || _maskImageFor != vp.BlendMaskPath)
+            {
+                _maskImage?.Dispose();
+                _maskImage = LoadMask(vp.BlendMaskPath);
+                _maskImageFor = vp.BlendMaskPath;
+            }
+            if (_maskImage is not null) canvas.DrawImage(_maskImage, SKRect.Create(0, 0, w, h), Patterns.Core.Rendering.DrawUtil.Smooth, _maskPaint);
+        }
         if (vp.BlendLeftPx > 0)
         {
             Band(canvas, "L", SKRect.Create(0, 0, Math.Min(vp.BlendLeftPx, w), h),

@@ -338,7 +338,16 @@ public sealed class ScreenPlacement : Observable
     /// </summary>
     public double BlendBlackPct { get => _blendBlackPct; set => Set(ref _blendBlackPct, Math.Clamp(value, 0, 25)); }
 
-    public bool HasBlend => _blendAuto || _blendLeftPx > 0 || _blendTopPx > 0 || _blendRightPx > 0 || _blendBottomPx > 0;
+    private string _blendMaskPath = "";
+
+    /// <summary>A blend mask a camera calibration made — a grey picture over this output's raster that multiplies its light — or "" for the zones alone. A masked output blends, so it joins the canvas its overlaps make.</summary>
+    public string BlendMaskPath { get => _blendMaskPath; set => Set(ref _blendMaskPath, value ?? ""); }
+
+    public bool HasBlend => _blendAuto || _blendLeftPx > 0 || _blendTopPx > 0 || _blendRightPx > 0 || _blendBottomPx > 0 || _blendMaskPath.Length > 0;
+
+    /// <summary>The overlaps this screen has join it to a canvas: on automatic blend, or with a camera's mask.</summary>
+    [JsonIgnore]
+    public bool BlendsOverlaps => _blendAuto || _blendMaskPath.Length > 0;
 }
 
 /// <summary>Per-screen pattern in Independent mode.</summary>
