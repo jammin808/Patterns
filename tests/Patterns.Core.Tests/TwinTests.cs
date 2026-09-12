@@ -178,6 +178,8 @@ public class TwinTests
         Assert.Equal(new ShowAction(ShowActionKind.TwinTakeOver), ControlProtocol.Parse("TWIN TAKEOVER").Action);
         Assert.Equal(new ShowAction(ShowActionKind.TwinTakeOver), ControlProtocol.Parse("twin take over").Action);
         Assert.Equal(new ShowAction(ShowActionKind.TwinStandBy), ControlProtocol.Parse("TWIN STANDBY").Action);
+        Assert.NotNull(ActionSpec.DeskOnly(ShowActionKind.TwinTakeBack));
+        Assert.Equal(new ShowAction(ShowActionKind.TwinTakeBack), ControlProtocol.Parse("TWIN TAKE BACK").Action);
         Assert.Equal(RemoteCommandKind.TwinStatus, ControlProtocol.Parse("TWIN STATUS").Kind);
         Assert.Equal(RemoteCommandKind.TwinStatus, ControlProtocol.Parse("TWIN").Kind);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("TWIN DANCE").Kind);

@@ -170,6 +170,7 @@ public sealed partial class MainViewModel
     private void PollHealth()
     {
         var watch = _services.Beacon.WatchText;
+        _services.Twin.Poll(); // the marker a standby on this machine leaves when it takes the show
         var twin = _services.Twin.HealthWords;
         if (twin.Length > 0) watch = watch.Length > 0 ? twin + " · " + watch : twin;
         HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);

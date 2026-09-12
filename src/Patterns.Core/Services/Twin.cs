@@ -25,6 +25,8 @@ public enum TwinWord
     Beat,
     /// <summary>Either way: the peer is leaving on purpose (a role changed, a clean exit) — not a fault.</summary>
     Bye,
+    /// <summary>Main → a standby that took over: the main has the show again — close the outputs, follow again; the show and the air follow the word.</summary>
+    HandBack,
 }
 
 /// <summary>
@@ -51,6 +53,7 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "AIR" => TwinWord.Air,
             "BEAT" => TwinWord.Beat,
             "BYE" => TwinWord.Bye,
+            "HANDBACK" => TwinWord.HandBack,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";
@@ -71,8 +74,12 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
     }
 }
 
-/// <summary>What a standby says as it joins: who it is and the key the main asked for.</summary>
-public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto)
+/// <summary>
+/// What a standby says as it joins: who it is and the key the main asked for — and, when it ran the
+/// show while the main was away, that it has the show: the main then holds its own outputs, takes
+/// nothing for granted, and TAKE BACK is the operator's press.
+/// </summary>
+public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto, bool TookOver = false)
 {
     public string ToJson() => JsonUtil.SerializeCompact(this);
 
@@ -96,6 +103,74 @@ public sealed record TwinWelcome(string Name, string Machine, string Instance, i
         try { return JsonUtil.Deserialize<TwinWelcome>(json); }
         catch (JsonException) { return null; }
     }
+}
+
+/// <summary>
+/// A standby that took the show over says so on disk, in its own folder: which process has the
+/// show, and since when. A main on the same machine — restarted by its watchdog, or relaunched by
+/// hand — reads it before a window opens and holds its outputs while that process lives: two desks
+/// driving the same screens is the one failure worse than one being down. A marker whose process
+/// is gone (the standby crashed with the show) holds nothing, and the main runs the show as a
+/// restart would.
+/// </summary>
+public sealed record TwinTookOverMarker(string Standby, string Machine, int Pid, long StartedAtUtcTicks, string ExePath, DateTime AtUtc, string MainName)
+{
+    public string ToJson() => JsonUtil.SerializeCompact(this);
+}
+
+/// <summary>The marker's file, its folder beside the main's, and the one decision: does it hold?</summary>
+public static class TwinHandover
+{
+    public const string FileName = "twin.tookover.json";
+
+    /// <summary>The folder a standby launched by this desk lives in: beside the show, its own settings, logs and crash domain.</summary>
+    public const string StandbyFolder = "twin-standby";
+
+    public static string StandbyHome(string mainHome) => Path.Combine(mainHome, StandbyFolder);
+
+    public static string PathFor(string home) => Path.Combine(home, FileName);
+
+    public static void Write(string home, TwinTookOverMarker marker)
+    {
+        Directory.CreateDirectory(home);
+        File.WriteAllText(PathFor(home), marker.ToJson());
+    }
+
+    /// <summary>The marker in a folder, or null: none, or one this build cannot read.</summary>
+    public static TwinTookOverMarker? Read(string home)
+    {
+        try
+        {
+            var path = PathFor(home);
+            if (!File.Exists(path)) return null;
+            return JsonUtil.Deserialize<TwinTookOverMarker>(File.ReadAllText(path));
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    public static void Clear(string home)
+    {
+        try
+        {
+            File.Delete(PathFor(home));
+        }
+        catch (Exception)
+        {
+            // gone already, or a folder that never was
+        }
+    }
+
+    /// <summary>The marker holds while its process lives and is the process that wrote it (the same start time) — a process id reused by another program holds nothing.</summary>
+    public static bool Holds(TwinTookOverMarker? marker, Func<int, long?> startTicksOf)
+        => marker is { Pid: > 0 } && startTicksOf(marker.Pid) is { } started && started == marker.StartedAtUtcTicks;
+
+    /// <summary>"the standby twin Backup desk has the show (took over at 19:41:58) — TAKE BACK on the Machine page".</summary>
+    public static string HoldWords(string standby, DateTime? atUtc)
+        => $"the standby twin {(standby.Length > 0 ? standby : "")}".TrimEnd() + " has the show"
+           + (atUtc is { } at ? $" (took over at {at.ToLocalTime():HH:mm:ss})" : "") + " — TAKE BACK on the Machine page";
 }
 
 /// <summary>
@@ -235,7 +310,7 @@ public static class TwinWatch
     }
 
     /// <summary>The standby's line on the Machine page and the health line.</summary>
-    public static string DescribeStandby(TwinPhase phase, string mainName, DateTime? lastHeardUtc, long sectionsApplied, bool autoTakeOver, DateTime utcNow, string note = "")
+    public static string DescribeStandby(TwinPhase phase, string mainName, DateTime? lastHeardUtc, long sectionsApplied, bool autoTakeOver, DateTime utcNow, string note = "", bool linked = false)
     {
         var main = mainName.Length > 0 ? mainName : "the main";
         switch (phase)
@@ -255,19 +330,28 @@ public static class TwinWatch
                 var silent = lastHeardUtc is { } heard ? $"{(utcNow - heard).TotalSeconds:0} s" : "a while";
                 return $"MAIN {main} SILENT for {silent} — {(autoTakeOver ? "taking over…" : "TAKE OVER?")}";
             case TwinPhase.TookOver:
-                return $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show now. STAND BY AGAIN once {main} is back.";
+                return linked
+                    ? $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show; {main} is back on the link and its TAKE BACK puts the show there again, or STAND BY AGAIN here."
+                    : $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show now. STAND BY AGAIN once {main} is back.";
             default:
                 return phase.ToString();
         }
     }
 
-    /// <summary>The main's line: the port, and each standby with when it was last heard.</summary>
-    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow)
+    /// <summary>The main's line: the port, and each standby with when it was last heard — and, when a standby has the show, that this desk's outputs wait on TAKE BACK.</summary>
+    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "")
     {
-        if (standbys.Count == 0) return $"MAIN — listening for a standby on port {port}; none connected.";
+        var tail = launcher.Length > 0 ? " " + launcher : "";
+        if (holder.Length > 0)
+        {
+            var linked = standbys.Any(s => s.Name == holder);
+            return $"MAIN — the standby {holder} HAS THE SHOW; this desk's outputs are held closed. "
+                   + (linked ? "TAKE BACK puts the show back here." : $"It is not on the link yet — TAKE BACK once it is, or OUTPUTS ON if it is gone.") + tail;
+        }
+        if (standbys.Count == 0) return $"MAIN — listening for a standby on port {port}; none connected." + tail;
         var parts = standbys.Select(s => IsSilent(s.LastBeatUtc, utcNow)
             ? $"standby {s.Name} SILENT for {(utcNow - s.LastBeatUtc).TotalSeconds:0} s"
             : $"standby {s.Name} in step (heard {Age(s.LastBeatUtc, utcNow)})");
-        return $"MAIN — {string.Join(" · ", parts)} · {sectionsSent} section{(sectionsSent == 1 ? "" : "s")} sent.";
+        return $"MAIN — {string.Join(" · ", parts)} · {sectionsSent} section{(sectionsSent == 1 ? "" : "s")} sent." + tail;
     }
 }

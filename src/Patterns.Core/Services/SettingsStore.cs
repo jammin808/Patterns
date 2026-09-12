@@ -32,9 +32,16 @@ public sealed class SettingsStore
     /// </summary>
     public TimeSpan BackupSpacing { get; set; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// The folder every store made without one uses, when a launch named it (<c>--home</c>): the
+    /// standby twin a main runs on this machine lives in its own folder beside the main's, with its
+    /// own settings, logs and backups. Null, the folder is the portable one beside the exe.
+    /// </summary>
+    public static string? HomeOverride { get; set; }
+
     public SettingsStore(string? baseDirectory = null)
     {
-        BaseDirectory = baseDirectory ?? ResolvePortableDirectory();
+        BaseDirectory = baseDirectory ?? HomeOverride ?? ResolvePortableDirectory();
         SettingsPath = Path.Combine(BaseDirectory, "patterns.settings.json");
         PresetsDirectory = Path.Combine(BaseDirectory, "presets");
         BrandKitsDirectory = Path.Combine(BaseDirectory, "brandkits");

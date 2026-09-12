@@ -22,8 +22,25 @@ internal static class LaunchOptions
     /// <summary>How many times the watchdog has restarted the app this session.</summary>
     public static int Restarts { get; private set; }
 
+    /// <summary>The folder this desk lives in — its settings, logs, backups — when the launch named one; null is the portable folder beside the exe.</summary>
+    public static string? Home { get; private set; }
+
+    /// <summary>This desk is a standby launched by a main: "host:port" of the main it follows and takes over from.</summary>
+    public static string? StandbyOf { get; private set; }
+
+    /// <summary>The twin key the launch carries for a standby.</summary>
+    public static string? Key { get; private set; }
+
     /// <summary>Anything not ours — forwarded to Avalonia (and to restarted children).</summary>
     public static string[] Passthrough { get; private set; } = Array.Empty<string>();
+
+    /// <summary>The switches a supervised child needs again: the folder and the standby's main travel with it.</summary>
+    public static IEnumerable<string> Forwarded()
+    {
+        if (Home is { } home) { yield return "--home"; yield return home; }
+        if (StandbyOf is { } of) { yield return "--standby-of"; yield return of; }
+        if (Key is { } key) { yield return "--key"; yield return key; }
+    }
 
     public static void Parse(string[] args)
     {
@@ -36,6 +53,9 @@ internal static class LaunchOptions
                 case "--no-watchdog": NoWatchdog = true; break;
                 case "--recover": Recover = true; break;
                 case "--beat" when i + 1 < args.Length: BeatHandle = args[++i]; break;
+                case "--home" when i + 1 < args.Length: Home = args[++i]; break;
+                case "--standby-of" when i + 1 < args.Length: StandbyOf = args[++i]; break;
+                case "--key" when i + 1 < args.Length: Key = args[++i]; break;
                 case "--restarts" when i + 1 < args.Length && int.TryParse(args[i + 1], out var n):
                     Restarts = n; i++; break;
                 default: rest.Add(args[i]); break;
@@ -117,6 +137,10 @@ internal static class Supervisor
                 psi.ArgumentList.Add("--recover");
                 psi.ArgumentList.Add("--restarts");
                 psi.ArgumentList.Add(restarts.ToString());
+            }
+            foreach (var arg in LaunchOptions.Forwarded())
+            {
+                psi.ArgumentList.Add(arg);
             }
             foreach (var arg in LaunchOptions.Passthrough)
             {

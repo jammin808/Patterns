@@ -698,6 +698,7 @@ public static class ControlProtocol
                 {
                     "TAKEOVER" => Act(ShowActionKind.TwinTakeOver),
                     "STANDBY" => Act(ShowActionKind.TwinStandBy),
+                    "TAKEBACK" => Act(ShowActionKind.TwinTakeBack),
                     "STATUS" or "" => Query(RemoteCommandKind.TwinStatus),
                     _ => Unknown(s),
                 };

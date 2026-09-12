@@ -354,4 +354,279 @@ public class TwinAppTests
             b.Dispose();
         }
     }
+
+    private sealed class TicksProbe : IProcessProbe
+    {
+        public Dictionary<int, long> Alive { get; } = new();
+        public long? StartTicks(int pid) => Alive.TryGetValue(pid, out var ticks) ? ticks : null;
+        public string ExePath(int pid) => "";
+        public bool Kill(int pid) => Alive.Remove(pid);
+    }
+
+    /// <summary>The next join that says the standby has the show; a dial from before the takeover still in the backlog is closed.</summary>
+    private static (TcpClient Peer, StreamReader Reader, TwinJoin Join) AcceptTookOverJoin(TcpListener main)
+    {
+        var deadline = Environment.TickCount64 + 15000;
+        while (Environment.TickCount64 < deadline)
+        {
+            var (peer, reader, join) = AcceptJoin(main);
+            if (join.TookOver) return (peer, reader, join);
+            reader.Dispose();
+            peer.Dispose();
+        }
+        throw new TimeoutException("no standby that has the show joined");
+    }
+
+    [AvaloniaFact]
+    public void TheMainHoldsItsOutputsForAStandbyThatHasTheShowAndTakesItBack()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.State.Name = "Gala";
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(TwinPhase.Listening, twin.Phase);
+            var nothing = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.False(nothing.Ok);
+            Assert.Contains("nothing to take back", nothing.Message);
+
+            // A standby that ran the show while this desk was away joins and says so: it is welcomed,
+            // nothing is mirrored to it (its show is the newer one), and this desk's outputs are held.
+            using var client = new TcpClient();
+            TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+            using var stream = client.GetStream();
+            using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
+            Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "", TookOver: true).ToJson()));
+            Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
+            Assert.Equal(TwinWord.Beat, TwinMessage.Parse(ReadLine(reader)).Word);   // no SHOW, no AIR
+            PumpUntil(() => services.OutputsHeldBy.Length > 0);
+            Assert.StartsWith("the standby twin Backup desk has the show", services.OutputsHeldBy);
+            Assert.Equal("Backup desk", twin.Holder);
+            var on = services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
+            Assert.False(on.Ok);
+            Assert.Contains("held closed", on.Message);
+            PumpUntil(() => twin.StandbyNames.Count == 1);
+            Assert.StartsWith("MAIN — the standby Backup desk HAS THE SHOW; this desk's outputs are held closed. TAKE BACK puts the show back here.", twin.Status);
+            Assert.Equal(twin.Status, twin.HealthWords);
+            Assert.Contains("\"holder\":\"Backup desk\"", twin.StatusJson());
+            Assert.Contains("has the show", vm.StatusMessage);
+
+            // What it has — its show, edited while it ran, and its air — is kept here, not applied.
+            var theirs = new ShowState { Name = "Edited at the standby" };
+            theirs.LooksAndCues.Looks.Add(new LookConfig { Name = "Standby look" });
+            Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(theirs)));
+            Write(stream, TwinMessage.Format(TwinWord.Air, JsonUtil.SerializeCompact(new RecoverySnapshot(false, false, DateTime.UtcNow, AirLabel: "Standby look", AirLookId: theirs.LooksAndCues.Looks[0].Id))));
+            PumpUntil(() => twin.HeldLines >= 2);
+            Assert.Equal("Gala", vm.State.Name);
+
+            // TAKE BACK: its show lands here, its air goes on here, the hold lifts, and it is told to follow again — then the whole show goes back over the link.
+            var back = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.True(back.Ok, back.Message);
+            Assert.StartsWith("TOOK BACK from Backup desk at", back.Message);
+            Assert.Contains("its show landed here", back.Message);
+            Assert.Equal("Edited at the standby", vm.State.Name);
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("", twin.Holder);
+            Assert.Equal("Standby look", services.AirLabel);
+            Assert.Equal(TwinWord.HandBack, ReadWord(reader, TwinWord.HandBack).Word);
+            var show = JsonUtil.Deserialize<ShowState>(ReadWord(reader, TwinWord.Show).Payload);
+            Assert.Equal("Edited at the standby", show!.Name);
+            Assert.Equal(TwinWord.Air, ReadWord(reader, TwinWord.Air).Word);   // the air as it stands here (nothing is live headless: "null")
+            Write(stream, TwinMessage.Format(TwinWord.Beat, "1"));
+            PumpUntil(() => twin.Status.Contains("standby Backup desk in step"));
+            Assert.Equal("", twin.HealthWords);
+
+            vm.State.Twin.Role = TwinRole.Off;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(TwinPhase.Off, twin.Phase);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStandbyThatTookOverMarksItOnDiskKeepsDiallingAndFollowsAgainWhenTheMainTakesBack()
+    {
+        var b = TestApp.Boot();
+        using var main = new TcpListener(IPAddress.Loopback, 0);
+        main.Start();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var clockOffset = TimeSpan.Zero;
+            twin.Clock = () => DateTime.UtcNow + clockOffset;
+            vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
+            vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Role = TwinRole.Standby;
+            Dispatcher.UIThread.RunJobs();
+
+            var theirs = new ShowState { Name = "From the main" };
+            theirs.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in" });
+            var (peer, reader, join) = AcceptJoin(main);
+            Assert.False(join.TookOver);
+            using (peer)
+            using (reader)
+            {
+                var stream = peer.GetStream();
+                Write(stream, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef01", 1, 0, "", "From the main").ToJson()));
+                Write(stream, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(theirs)));
+                Write(stream, TwinMessage.Format(TwinWord.Air, JsonUtil.SerializeCompact(new RecoverySnapshot(false, false, DateTime.UtcNow, AirLabel: "Walk-in", AirLookId: theirs.LooksAndCues.Looks[0].Id))));
+                PumpUntil(() => twin.Phase == TwinPhase.InStep);
+                peer.Close();
+            }
+            PumpUntil(() => twin.Phase == TwinPhase.MainSilent);
+
+            // TAKE OVER: marked in this desk's own folder — a main on this machine reads it before its first window.
+            var took = services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk);
+            Assert.True(took.Ok, took.Message);
+            var marker = TwinHandover.Read(services.Store.BaseDirectory);
+            Assert.NotNull(marker);
+            Assert.Equal(Environment.ProcessId, marker!.Pid);
+            Assert.Equal("MAIN-DESK", marker.MainName);
+            Assert.Equal(Environment.MachineName, marker.Machine);
+
+            // It keeps dialling; the join says it has the show; the main gets the show it has — edited while it ran — and its air.
+            vm.State.Name = "Edited while it ran";
+            services.WriteRunPlace();   // the caller's place moved while it ran: the air record it sends is this one
+            var (peer2, reader2, join2) = AcceptTookOverJoin(main);
+            using var _peer2 = peer2;
+            using var _reader2 = reader2;
+            Assert.True(join2.TookOver);
+            var stream2 = peer2.GetStream();
+            Write(stream2, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef02", 1, 0, "", "From the main").ToJson()));
+            var show = JsonUtil.Deserialize<ShowState>(ReadWord(reader2, TwinWord.Show).Payload);
+            Assert.Equal("Edited while it ran", show!.Name);
+            Assert.NotEqual("null", ReadWord(reader2, TwinWord.Air).Payload);
+            PumpUntil(() => twin.Status.Contains("is back on the link"));
+            Assert.Equal(TwinPhase.TookOver, twin.Phase);
+
+            // Nothing the main sends lands while this desk has the show.
+            Write(stream2, TwinMessage.Format(TwinWord.Section, "\"Renamed at the main\"", nameof(ShowState.Name)));
+            Write(stream2, TwinMessage.Format(TwinWord.Beat, "1"));
+            twin.Tick();
+            Assert.Equal(TwinWord.Beat, ReadWord(reader2, TwinWord.Beat, 4000).Word);
+            Assert.Equal("Edited while it ran", vm.State.Name);
+
+            // HANDBACK: the outputs close and are held again, the marker goes, and the show that follows puts this desk in step.
+            Write(stream2, TwinMessage.Format(TwinWord.HandBack));
+            PumpUntil(() => twin.Phase == TwinPhase.Connecting);
+            Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
+            Assert.Null(TwinHandover.Read(services.Store.BaseDirectory));
+            Assert.Contains("took the show back", vm.StatusMessage);
+            Write(stream2, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(new ShowState { Name = "Back at the main" })));
+            PumpUntil(() => twin.Phase == TwinPhase.InStep);
+            Assert.Equal("Back at the main", vm.State.Name);
+            Assert.False(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+        }
+        finally
+        {
+            main.Stop();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AMainReadsTheMarkAStandbyOnThisMachineLeftAndHoldsItsOutputsWhileThatProcessLives()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var probe = new TicksProbe();
+            probe.Alive[4242] = 77;
+            twin.Probe = probe;
+            var clockOffset = TimeSpan.Zero;
+            twin.Clock = () => DateTime.UtcNow + clockOffset;
+            var home = TwinHandover.StandbyHome(services.Store.BaseDirectory);
+            TwinHandover.Write(home, new TwinTookOverMarker("Backup desk", Environment.MachineName, 4242, 77, "", DateTime.UtcNow, "MAIN-DESK"));
+
+            // Whatever the role: the poll reads the mark and this desk's outputs are held while that process lives.
+            clockOffset = TimeSpan.FromSeconds(3);
+            twin.Poll();
+            Assert.Equal("Backup desk", twin.Holder);
+            Assert.StartsWith("the standby twin Backup desk has the show", services.OutputsHeldBy);
+            Assert.False(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+            Assert.Contains("the standby Backup desk has the show", twin.Status);
+            Assert.Contains("has the show", twin.HealthWords);
+            Assert.Contains("TAKE BACK", vm.StatusMessage);
+
+            // As the main: the same hold, and TAKE BACK waits for the standby to be on the link.
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            Assert.StartsWith("MAIN — the standby Backup desk HAS THE SHOW", twin.Status);
+            Assert.Contains("not on the link yet", twin.Status);
+            var back = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.False(back.Ok);
+            Assert.Contains("not on the link", back.Message);
+
+            // The process ends: the hold lifts and the outputs are this desk's again.
+            probe.Alive.Clear();
+            clockOffset = TimeSpan.FromSeconds(6);
+            twin.Poll();
+            Assert.Equal("", twin.Holder);
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Contains("ended", vm.StatusMessage);
+            Assert.StartsWith("MAIN — listening for a standby", twin.Status);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AMainAskedForALocalStandbyStartsTheProcessInTheTwinStandbyFolderAndEndsItWhenSwitchedOff()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var spawned = new List<IReadOnlyList<string>>();
+            var child = new FakeTwinChild { Pid = 4321 };
+            twin.Launcher.Spawn = (_, args) =>
+            {
+                spawned.Add(args);
+                return child;
+            };
+            twin.Launcher.FolderOwned = _ => false;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.LocalStandby = true;
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            twin.Tick();
+            var args = Assert.Single(spawned).ToList();
+            Assert.Equal(TwinHandover.StandbyHome(services.Store.BaseDirectory), args[args.IndexOf("--home") + 1]);
+            Assert.Equal($"127.0.0.1:{vm.State.Twin.Port}", args[args.IndexOf("--standby-of") + 1]);
+            Assert.Equal("hunter2", args[args.IndexOf("--key") + 1]);
+            Assert.Contains("--no-watchdog", args);
+            Assert.Contains("Standby process running (pid 4321).", twin.Status);
+            Assert.Contains("\"launcher\":\"Standby process running (pid 4321).\"", twin.StatusJson());
+            twin.Tick();
+            Assert.Single(spawned);
+
+            vm.State.Twin.LocalStandby = false;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(child.Killed);
+            Assert.DoesNotContain("Standby process", twin.Status);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
 }

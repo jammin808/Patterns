@@ -16,6 +16,9 @@ internal static class Program
 
         StartupBudget.MarkProcessStart();
         LaunchOptions.Parse(args);
+        // A launch that named its folder (the standby twin a main runs on this machine lives in
+        // its own, beside the main's): every store made from here on is that folder's.
+        if (LaunchOptions.Home is { } home) SettingsStore.HomeOverride = home;
 
         // A plain launch becomes the watchdog and runs the real app as a child of the same
         // exe. `--no-watchdog` (or the Watchdog setting, or a debugger) runs it directly.
@@ -38,6 +41,20 @@ internal static class Program
         catch (Exception ex)
         {
             Log.Warn("The settings could not be read before the desk — the desk reads them itself.", ex);
+        }
+        // A standby launched by a main: it follows that main whatever its own file says, takes over
+        // when the main stops beating, and keeps off the ports the main holds on this machine.
+        if (LaunchOptions.StandbyOf is { } standbyOf)
+        {
+            if (Services.TwinLaunch.ParseStandbyOf(standbyOf) is { } main)
+            {
+                early ??= SettingsStore.Fresh();
+                Services.TwinLaunch.ConfigureStandby(early, main.Host, main.Port, LaunchOptions.Key ?? "");
+            }
+            else
+            {
+                Log.Warn($"--standby-of '{standbyOf}' is not host:port — this desk starts as its file says.");
+            }
         }
         StartupBudget.MarkEarly(StartupBudget.Settings);
         // Pick the GPU before Avalonia creates its D3D device (and before libVLC decodes).

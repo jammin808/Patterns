@@ -277,6 +277,8 @@ public enum ShowActionKind
     TwinTakeOver,
     /// <summary>A twin that took over goes back to standing by: the link is dialled again and the outputs are held.</summary>
     TwinStandBy,
+    /// <summary>The main takes the show back from a standby that ran it: the standby's show and air land here, the outputs open, the standby is told to follow again.</summary>
+    TwinTakeBack,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

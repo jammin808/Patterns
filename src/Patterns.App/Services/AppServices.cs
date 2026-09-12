@@ -1053,12 +1053,12 @@ public sealed class AppServices
     /// a restart puts it back — or, with none (nothing was live at the main), the outputs stay closed
     /// and the desk says so.
     /// </summary>
-    public void RecoverFromTwin(RecoverySnapshot? was, string head)
+    public void RecoverFromTwin(RecoverySnapshot? was, string head, string peer = "the main")
     {
         var vm = MainWindow?.DataContext as ViewModels.MainViewModel;
         if (was is null || vm is null)
         {
-            var words = head + " Nothing was on air at the main — the outputs stay closed until OUTPUTS ON.";
+            var words = head + $" Nothing was on air at {peer} — the outputs stay closed until OUTPUTS ON.";
             Notify(words);
             Log.Info(words);
             return;
@@ -1352,6 +1352,7 @@ public sealed class AppServices
             Devices.Dispose();
             Management.Dispose();
             Beacon.Dispose();
+            Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
             Twin.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();

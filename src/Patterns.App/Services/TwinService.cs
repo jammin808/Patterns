@@ -29,6 +29,15 @@ public sealed class TwinService : IDisposable
 
     // ---- the main's side ----
     private TcpListener? _listener;
+    private readonly TwinLauncher _launcher;
+    private string _holder = "";            // the standby that has the show — on the link, or marked on disk
+    private bool _holderLinked;             // …and on the link: its SHOW and AIR can land here
+    private bool _holderMarked;             // …by the marker in the twin-standby folder, its process alive
+    private DateTime? _holderSinceUtc;
+    private string? _heldShowJson;
+    private RecoverySnapshot? _heldAir;
+    private int _heldLines;
+    private DateTime _markerCheckedUtc;
     private readonly List<Standby> _standbys = new();
     private readonly HashSet<string> _pendingSections = new(StringComparer.Ordinal);
     private bool _pendingWhole;
@@ -49,6 +58,7 @@ public sealed class TwinService : IDisposable
     private RecoverySnapshot? _mirroredAir;
     private bool _dialling;
     private DateTime _lastDialUtc;
+    private int _dialFailures;
     private long _beat;
 
     /// <summary>The clock the watch reads; the tests move it.</summary>
@@ -60,9 +70,25 @@ public sealed class TwinService : IDisposable
     public TwinService(AppServices services)
     {
         _services = services;
+        _launcher = new TwinLauncher(() => Clock());
         _services.Bus.SectionsPublished += OnBuilt;
         _services.RecoveryMoved += OnRecoveryMoved;
+        // Before a window opens: a standby on this machine that took the show while this desk was
+        // away still has the screens — this desk's outputs wait on TAKE BACK.
+        CheckMarker(force: true);
     }
+
+    /// <summary>The standby process a main runs on this machine; the tests hand it a fake spawner.</summary>
+    public TwinLauncher Launcher => _launcher;
+
+    /// <summary>The standby that has the show — "" when none; this desk's outputs are held while it is set.</summary>
+    public string Holder => _holder;
+
+    /// <summary>How many SHOW and AIR lines a standby that has the show sent this desk (the tests wait on it).</summary>
+    public int HeldLines => _heldLines;
+
+    /// <summary>A restart, not an exit: the standby process stays up and the desk that comes back adopts it — set by the shutdown that knows.</summary>
+    public bool KeepStandbyOnExit { get; set; }
 
     /// <summary>
     /// The beat, once a second for as long as the role's session lasts: a worker waits the second
@@ -163,17 +189,17 @@ public sealed class TwinService : IDisposable
                     {
                         beats = _standbys.Select(s => (s.Name, s.LastBeatUtc)).ToList();
                     }
-                    return TwinWatch.DescribeMain(_services.State.Twin.Port, beats, _sectionsSent, now);
+                    return TwinWatch.DescribeMain(_services.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words);
                 case TwinRole.Standby:
-                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, _services.State.Twin.AutoTakeOver, now, _note);
+                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, _services.State.Twin.AutoTakeOver, now, _note, linked: _stream is not null);
                 default:
-                    return "Twin off.";
+                    return _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK." : "Twin off.";
             }
         }
     }
 
     /// <summary>The words for the health line: the twin's line while it is not simply in step, "" otherwise.</summary>
-    public string HealthWords => _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? "" : Status;
+    public string HealthWords => _holder.Length > 0 ? Status : _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? "" : Status;
 
     /// <summary>TWIN STATUS's payload.</summary>
     public string StatusJson()
@@ -186,6 +212,8 @@ public sealed class TwinService : IDisposable
             words = Status,
             main = _mainName,
             standbys = StandbyNames,
+            holder = _holder,
+            launcher = _launcher.Words,
             sectionsSent = _sectionsSent,
             sectionsMirrored = _sectionsApplied,
         });
@@ -197,15 +225,18 @@ public sealed class TwinService : IDisposable
     public void Reconcile()
     {
         var cfg = _services.State.Twin;
-        var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}";
+        var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}|{cfg.LocalStandby}";
         if (key == _activeKey) return;
         _activeKey = key;
         Stop(sayGoodbye: true);
         _role = cfg.Role;
         _note = "";
+        // The standby process this desk runs: wanted by a main that asked for one, ended otherwise — unless it has the show.
+        _launcher.Want(cfg.Role == TwinRole.Main && cfg.LocalStandby ? TwinHandover.StandbyHome(_services.Store.BaseDirectory) : null, cfg.Port, cfg.Key, _holder.Length > 0);
         switch (cfg.Role)
         {
             case TwinRole.Main:
+                CheckMarker(force: true);
                 _cts = new CancellationTokenSource();
                 try
                 {
@@ -260,6 +291,14 @@ public sealed class TwinService : IDisposable
         _pendingWhole = false;
         _pendingAir = false;
         _sectionsSent = 0;
+        if (_holderLinked)
+        {
+            // The link to the standby that has the show went with the role; the marker, if any, still holds.
+            _holderLinked = false;
+            _heldShowJson = null;
+            _heldAir = null;
+            if (!_holderMarked) Release("is off the link");
+        }
         if (_role == TwinRole.Standby)
         {
             if (sayGoodbye) TryWriteToMain(TwinMessage.Format(TwinWord.Bye));
@@ -292,6 +331,8 @@ public sealed class TwinService : IDisposable
                         standbys = _standbys.ToList();
                     }
                     if (standbys.Count > 0) _ = Task.Run(() => { foreach (var s in standbys) if (!s.TryWrite(line)) Drop(s); });
+                    _launcher.Tick(standbyHoldsShow: _holder.Length > 0);
+                    CheckMarker(force: false);
                     break;
                 }
                 case TwinRole.Standby:
@@ -311,9 +352,9 @@ public sealed class TwinService : IDisposable
                         var line = TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString());
                         _ = Task.Run(() => TryWriteToMain(line));
                     }
-                    else if (_phase is TwinPhase.Connecting or TwinPhase.MainSilent)
+                    else if (_phase is TwinPhase.Connecting or TwinPhase.MainSilent or TwinPhase.TookOver)
                     {
-                        Dial();
+                        Dial(); // after a takeover too: the main, once it is back, takes the show back over this link
                     }
                     break;
                 }
@@ -454,15 +495,20 @@ public sealed class TwinService : IDisposable
                 client.Dispose();
                 return;
             }
-            standby = new Standby(client, stream, join!.Name.Length > 0 ? join.Name : join.Machine, Clock());
-            // The welcome and the whole show, read on the UI thread — the show is its own.
+            standby = new Standby(client, stream, join!.Name.Length > 0 ? join.Name : join.Machine, Clock()) { HoldsShow = join.TookOver };
+            // The welcome and the whole show, read on the UI thread — the show is its own. A standby
+            // that ran the show while this desk was away gets the welcome and nothing to mirror: its
+            // show is the newer one, and this desk holds its outputs until TAKE BACK.
             var (welcome, show, air) = await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _services.State.Name);
-                return (w.ToJson(), TwinSync.ShowJson(_services.State), AirLine());
+                if (standby.HoldsShow) Hold(standby.Name, null, linked: true);
+                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.ShowJson(_services.State), AirLine());
             });
-            if (!standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome)) || !standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) || !standby.TryWrite(air)
-                || !standby.TryWrite(TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString())))
+            var welcomed = standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome))
+                           && (standby.HoldsShow || (standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) && standby.TryWrite(air)))
+                           && standby.TryWrite(TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString()));
+            if (!welcomed)
             {
                 standby.Dispose();
                 return;
@@ -471,7 +517,9 @@ public sealed class TwinService : IDisposable
             {
                 _standbys.Add(standby);
             }
-            Log.Info($"Twin: the standby {standby.Name} joined and has the show.");
+            Log.Info(standby.HoldsShow
+                ? $"Twin: the standby {standby.Name} joined and HAS THE SHOW — this desk's outputs are held until TAKE BACK."
+                : $"Twin: the standby {standby.Name} joined and has the show.");
             while (!ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync(ct);
@@ -479,6 +527,16 @@ public sealed class TwinService : IDisposable
                 var msg = TwinMessage.Parse(line);
                 if (msg.Word == TwinWord.Beat) standby.LastBeatUtc = Clock();
                 else if (msg.Word == TwinWord.Bye) break;
+                else if (standby.HoldsShow && msg.Word is TwinWord.Show or TwinWord.Air)
+                {
+                    // What the standby has: kept for TAKE BACK, never applied on its own.
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (msg.Word == TwinWord.Show) _heldShowJson = msg.Payload;
+                        else _heldAir = msg.Payload == "null" ? null : ReadAir(msg.Payload);
+                        _heldLines++;
+                    });
+                }
             }
         }
         catch (Exception)
@@ -496,12 +554,148 @@ public sealed class TwinService : IDisposable
                 }
                 if (listed) Log.Info($"Twin: the standby {standby.Name} left.");
                 standby.Dispose();
+                if (standby.HoldsShow)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        if (!_holderLinked) return;
+                        _holderLinked = false;
+                        _heldShowJson = null;
+                        _heldAir = null;
+                        if (!_holderMarked) Release("left the link");
+                    });
+                }
             }
             else
             {
                 client.Dispose();
             }
         }
+    }
+
+    // ---- the main: a standby that has the show ------------------------------------------------
+
+    /// <summary>
+    /// The marker a standby on this machine writes when it takes the show, read from the folder this
+    /// desk launches one into: while that process lives this desk's outputs are held — two desks
+    /// driving the same screens is the one failure worse than one being down. Once a second from the
+    /// desk's poll (any role: a main restarted by its watchdog reads it before its first window),
+    /// at once when forced.
+    /// </summary>
+    private void CheckMarker(bool force)
+    {
+        var now = Clock();
+        if (!force && now - _markerCheckedUtc < TimeSpan.FromSeconds(2)) return;
+        _markerCheckedUtc = now;
+        TwinTookOverMarker? marker;
+        try
+        {
+            marker = TwinHandover.Read(TwinHandover.StandbyHome(_services.Store.BaseDirectory));
+        }
+        catch (Exception)
+        {
+            return;
+        }
+        var holds = marker is not null && TwinHandover.Holds(marker, Probe.StartTicks);
+        if (holds && !_holderMarked)
+        {
+            _holderMarked = true;
+            Hold(marker!.Standby, marker.AtUtc, linked: _holderLinked);
+        }
+        else if (!holds && _holderMarked)
+        {
+            _holderMarked = false;
+            if (!_holderLinked) Release("ended");
+        }
+    }
+
+    /// <summary>From the desk's poll, once a second, whatever the role.</summary>
+    public void Poll() => CheckMarker(force: false);
+
+    /// <summary>A standby has the show: this desk's outputs are held (and closed, were they open) until TAKE BACK.</summary>
+    private void Hold(string standby, DateTime? sinceUtc, bool linked)
+    {
+        var fresh = _holder.Length == 0;
+        _holder = standby.Length > 0 ? standby : "the standby";
+        _holderSinceUtc ??= sinceUtc;
+        if (linked) _holderLinked = true;
+        if (_role == TwinRole.Standby) return; // a standby's own hold has its own words
+        _services.OutputsHeldBy = TwinHandover.HoldWords(_holder, _holderSinceUtc);
+        if (_services.Outputs.IsLive)
+        {
+            _services.Outputs.CloseAll();
+            Log.Warn($"Twin: the standby {_holder} has the show — this desk's outputs are closed.");
+        }
+        if (fresh) _services.Notify($"Twin: the standby {_holder} has the show — this desk's outputs are held closed. TAKE BACK (Machine page, TWIN) puts the show back here.");
+    }
+
+    /// <summary>The standby no longer has the show: this desk's outputs are its own again — OUTPUTS ON is the operator's press.</summary>
+    private void Release(string reason)
+    {
+        var who = _holder.Length > 0 ? _holder : "the standby";
+        _holder = "";
+        _holderSinceUtc = null;
+        _holderLinked = false;
+        _holderMarked = false;
+        _heldShowJson = null;
+        _heldAir = null;
+        if (_role != TwinRole.Standby) _services.OutputsHeldBy = "";
+        Log.Info($"Twin: the standby {who} {reason} — this desk's outputs are its own again.");
+        _services.Notify($"Twin: the standby {who} {reason} — this desk's outputs are its own again; OUTPUTS ON puts the show on here.");
+    }
+
+    /// <summary>
+    /// The main takes the show back from a standby that ran it: the standby's show — the edits made
+    /// while it ran — lands here first, what it had on air goes on here the way a restart puts it
+    /// back, the standby is told to close its outputs and follow again, and the whole show goes back
+    /// over the link so it is in step from here.
+    /// </summary>
+    public ActionResult TakeBack(ActionOrigin origin)
+    {
+        if (_role != TwinRole.Main) return ActionResult.Refused("This desk is not the main twin — Machine page, TWIN.");
+        if (_holder.Length == 0) return ActionResult.Refused("No standby has the show — nothing to take back.");
+        Standby? holder;
+        lock (_gate)
+        {
+            holder = _standbys.FirstOrDefault(s => s.HoldsShow);
+        }
+        if (holder is null) return ActionResult.Refused($"The standby {_holder} has the show but is not on the link — TAKE BACK once it is, or OUTPUTS ON if it is gone.");
+        var now = Clock();
+        var head = $"TOOK BACK from {holder.Name} at {now.ToLocalTime():HH:mm:ss}.";
+        var notes = new List<string>();
+        if (_heldShowJson is { } json)
+        {
+            var ok = false;
+            _services.BulkEdit(() => ok = TwinSync.ApplyShow(_services.State, json));
+            notes.Add(ok ? "its show landed here" : "its show could not be read — this desk's show stands");
+            if (!ok) Log.Warn("Twin: the standby's show could not be read on TAKE BACK.");
+        }
+        var air = _heldAir;
+        holder.HoldsShow = false;
+        _holderLinked = false;
+        _holderMarked = false;
+        _holder = "";
+        _holderSinceUtc = null;
+        _heldShowJson = null;
+        _heldAir = null;
+        try
+        {
+            TwinHandover.Clear(TwinHandover.StandbyHome(_services.Store.BaseDirectory));
+        }
+        catch (Exception)
+        {
+            // the standby clears its own; the marker holds nothing once the process stands by again
+        }
+        _services.OutputsHeldBy = "";
+        // The word goes before the show that follows it, on this thread, so the standby reads them in that order.
+        if (!holder.TryWrite(TwinMessage.Format(TwinWord.HandBack))) Drop(holder);
+        var words = head + (notes.Count > 0 ? " " + string.Join(", ", notes) + "." : "");
+        Log.Warn($"Twin: {words} ({origin.Label})");
+        _services.RecoverFromTwin(air, head, peer: holder.Name);
+        _pendingWhole = true;
+        _pendingAir = true;
+        ScheduleFlush();
+        return ActionResult.Done(words);
     }
 
     private static long ProcessStartTicks()
@@ -525,7 +719,7 @@ public sealed class TwinService : IDisposable
 
     private void Dial()
     {
-        if (_dialling || _stream is not null || _phase is TwinPhase.TookOver or TwinPhase.Refused or TwinPhase.Off) return;
+        if (_dialling || _stream is not null || _phase is TwinPhase.Refused or TwinPhase.Off) return;
         var now = Clock();
         if (now - _lastDialUtc < TwinWatch.BeatEvery) return;
         _lastDialUtc = now;
@@ -536,7 +730,7 @@ public sealed class TwinService : IDisposable
         var cts = _cts;
         if (cts is null) return;
         _dialling = true;
-        var join = new TwinJoin(Name, Environment.MachineName, Instance, _services.State.Twin.Key).ToJson();
+        var join = new TwinJoin(Name, Environment.MachineName, Instance, _services.State.Twin.Key, TookOver: _phase == TwinPhase.TookOver).ToJson();
         _ = Task.Run(async () =>
         {
             TcpClient? client = null;
@@ -553,12 +747,15 @@ public sealed class TwinService : IDisposable
                     _client = client;
                     _stream = stream;
                     _dialling = false;
+                    _dialFailures = 0;
                 });
                 await ReadLoop(client, stream, cts.Token);
             }
             catch (Exception ex)
             {
-                if (!cts.IsCancellationRequested) Log.Info($"Twin: could not reach the main at {host}:{port} — {ex.Message}");
+                // The first failure is said, then one in thirty: a main that is down for an hour is one line a half-minute, not one a second.
+                var failures = Interlocked.Increment(ref _dialFailures);
+                if (!cts.IsCancellationRequested && (failures == 1 || failures % 30 == 0)) Log.Info($"Twin: could not reach the main at {host}:{port} — {ex.Message}");
                 client?.Dispose();
                 Dispatcher.UIThread.Post(() =>
                 {
@@ -612,11 +809,21 @@ public sealed class TwinService : IDisposable
                 if (_welcome is not null && _welcome.Name.Length > 0) _mainName = _welcome.Name;
                 _lastHeardUtc = now;
                 _note = "";
+                if (_phase == TwinPhase.TookOver) SendWhatIHave();
                 break;
             case TwinWord.Refused:
                 _phase = TwinPhase.Refused;
                 _note = msg.Payload;
                 Log.Warn($"Twin: the main {_mainName} refused the link — {msg.Payload}.");
+                break;
+            case TwinWord.Show when _phase == TwinPhase.TookOver:
+            case TwinWord.Section when _phase == TwinPhase.TookOver:
+            case TwinWord.Air when _phase == TwinPhase.TookOver:
+                // This desk has the show: nothing the main sends lands until it takes the show back.
+                _lastHeardUtc = now;
+                break;
+            case TwinWord.HandBack:
+                HandedBack(now);
                 break;
             case TwinWord.Show:
             {
@@ -669,12 +876,60 @@ public sealed class TwinService : IDisposable
             case TwinWord.Bye:
                 // A main leaving on purpose (its role changed, a clean exit) is not a main that died: nothing is taken over.
                 CloseLink();
-                _phase = TwinPhase.Connecting;
-                _lastHeardUtc = null;
-                _note = "";
+                if (_phase != TwinPhase.TookOver)
+                {
+                    _phase = TwinPhase.Connecting;
+                    _lastHeardUtc = null;
+                    _note = "";
+                }
                 Log.Info($"Twin: the main {_mainName} said goodbye.");
                 break;
         }
+    }
+
+    /// <summary>A standby that has the show, welcomed back by the main: its show and its air go to the main, for TAKE BACK.</summary>
+    private void SendWhatIHave()
+    {
+        string show;
+        string air;
+        try
+        {
+            show = TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(_services.State));
+            air = AirLine();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Twin: this desk's show could not be written for the main.", ex);
+            return;
+        }
+        _ = Task.Run(() =>
+        {
+            TryWriteToMain(show);
+            TryWriteToMain(air);
+        });
+    }
+
+    /// <summary>The main took the show back: the outputs close and are held again, the marker goes, the show that follows the word puts this desk in step.</summary>
+    private void HandedBack(DateTime now)
+    {
+        if (_phase != TwinPhase.TookOver) return;
+        var main = _mainName.Length > 0 ? _mainName : "the main";
+        _services.OutputsHeldBy = "this desk is the standby twin";
+        if (_services.Outputs.IsLive) _services.Outputs.CloseAll();
+        try
+        {
+            TwinHandover.Clear(_services.Store.BaseDirectory);
+        }
+        catch (Exception)
+        {
+            // a folder that would not take the marker did not take one
+        }
+        _phase = TwinPhase.Connecting;
+        _note = "";
+        _lastHeardUtc = now;
+        _mirroredAir = null;
+        Log.Warn($"Twin: {main} took the show back; this desk stands by again.");
+        _services.Notify($"Twin: {main} took the show back — this desk's outputs are held closed and it follows again.");
     }
 
     private static RecoverySnapshot? ReadAir(string json)
@@ -747,6 +1002,19 @@ public sealed class TwinService : IDisposable
             }
         }
         _services.OutputsHeldBy = "";
+        // Said on disk, in this desk's own folder: a main on this machine that comes back reads it
+        // before its first window opens and holds its outputs while this process lives.
+        try
+        {
+            TwinHandover.Write(_services.Store.BaseDirectory, new TwinTookOverMarker(Name, Environment.MachineName, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", now, main));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Twin: the takeover could not be marked on disk.", ex);
+        }
+        // The beat goes on: this desk keeps dialling, so the main, once it is back, can take the show back over the link.
+        StartBeating(_cts);
+        _lastDialUtc = DateTime.MinValue;
         var head = $"TOOK OVER from {main} {_note}" + (notes.Count > 0 ? " — " + string.Join(", ", notes) : "") + ".";
         Log.Warn($"Twin: {head} ({origin.Label})");
         _services.RecoverFromTwin(_mirroredAir, head);
@@ -760,13 +1028,23 @@ public sealed class TwinService : IDisposable
         if (_phase != TwinPhase.TookOver) return ActionResult.Done("This desk is standing by already.");
         _services.OutputsHeldBy = "this desk is the standby twin";
         if (_services.Outputs.IsLive) _services.Outputs.CloseAll();
+        try
+        {
+            TwinHandover.Clear(_services.Store.BaseDirectory);
+        }
+        catch (Exception)
+        {
+            // nothing marked
+        }
+        CloseLink(); // a link dialled after the takeover said TookOver: the next join says standby
         _phase = TwinPhase.Connecting;
         _note = "";
         _lastHeardUtc = null;
         _mirroredAir = null;
         _lastDialUtc = DateTime.MinValue;
         Log.Info($"Twin: standing by again for {_mainName} ({origin.Label}).");
-        _cts ??= new CancellationTokenSource();
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
         StartBeating(_cts);
         Dial();
         return ActionResult.Done($"Standing by again — the outputs are held closed and the link to {(_mainName.Length > 0 ? _mainName : "the main")} is being dialled.");
@@ -780,6 +1058,8 @@ public sealed class TwinService : IDisposable
     public void Dispose()
     {
         Stop(sayGoodbye: true);
+        // A clean exit ends the standby process it started — unless that process has the show, or this is a restart and the next desk adopts it.
+        _launcher.End(standbyHoldsShow: _holder.Length > 0 || _holderMarked || KeepStandbyOnExit);
         _services.Bus.SectionsPublished -= OnBuilt;
         _services.RecoveryMoved -= OnRecoveryMoved;
     }
@@ -801,6 +1081,9 @@ public sealed class TwinService : IDisposable
         }
 
         public string Name { get; }
+
+        /// <summary>It ran the show while this desk was away: nothing is mirrored to it, and this desk's outputs wait on TAKE BACK.</summary>
+        public bool HoldsShow { get; set; }
 
         public DateTime LastBeatUtc
         {

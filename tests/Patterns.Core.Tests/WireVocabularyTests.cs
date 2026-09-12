@@ -121,6 +121,7 @@ public class WireVocabularyTests
         ("REVIEW ON", new(ShowActionKind.ReviewOn)),
         ("TWIN TAKEOVER", new(ShowActionKind.TwinTakeOver)),
         ("TWIN STANDBY", new(ShowActionKind.TwinStandBy)),
+        ("TWIN TAKEBACK", new(ShowActionKind.TwinTakeBack)),
         ("REVIEW OFF", new(ShowActionKind.ReviewOff)),
         ("REVIEW", new(ShowActionKind.ReviewToggle)),
         ("FREEZE ON", new(ShowActionKind.FreezeOn)),

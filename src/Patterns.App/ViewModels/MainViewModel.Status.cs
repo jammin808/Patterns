@@ -34,12 +34,16 @@ public sealed partial class MainViewModel
 
     private RelayCommand? _twinTakeOver;
     private RelayCommand? _twinStandBy;
+    private RelayCommand? _twinTakeBack;
 
     /// <summary>The standby runs the show from here — the same verb the wire's TWIN TAKEOVER sends.</summary>
     public RelayCommand TwinTakeOverCommand => _twinTakeOver ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk)));
 
     /// <summary>After a takeover: hold the outputs and follow the main again.</summary>
     public RelayCommand TwinStandByCommand => _twinStandBy ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinStandBy, ActionOrigin.Desk)));
+
+    /// <summary>The main takes the show back from the standby that ran it — TWIN TAKEBACK on the wire.</summary>
+    public RelayCommand TwinTakeBackCommand => _twinTakeBack ??= new RelayCommand(() => Report(_services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk)));
 
     /// <summary>
     /// The twin mirrored the show (null) or the sections named onto this desk's state, in place:

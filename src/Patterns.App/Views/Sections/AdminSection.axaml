@@ -371,15 +371,20 @@
     <CheckBox Content="Take over by itself once the main has been silent for five seconds"
               IsChecked="{Binding State.Twin.AutoTakeOver}"
               ToolTip.Tip="Safe for a second process on this machine: a main that has hung is ended as the standby takes the screens. For a second machine leave it off unless the switcher follows by itself — two machines each deciding to be the main is the one failure worse than one being down" />
+    <CheckBox Content="Run a standby of this desk as a second process on this machine"
+              IsChecked="{Binding State.Twin.LocalStandby}"
+              ToolTip.Tip="A main only: the same build started in its own folder beside this one (twin-standby — its own settings, logs and crash domain), dialled to this desk, taking over by itself when this desk stops beating, started again by this desk when it exits. Its outputs are held closed until it takes over; TAKE BACK puts the show back here. A clean exit of this desk ends it — unless it has the show" />
     <TextBlock Classes="label" Text="{Binding TwinStatus}" TextWrapping="Wrap" />
     <WrapPanel>
       <Button Classes="go" Content="TAKE OVER NOW" Padding="14,8" Margin="0,4,8,0" Command="{Binding TwinTakeOverCommand}"
               ToolTip.Tip="The standby runs the show from here: the hold on its outputs lifts and what the main had on air goes on, with the caller's place — TWIN TAKEOVER on the wire" />
-      <Button Classes="mini" Content="STAND BY AGAIN" Margin="0,4,0,0" VerticalAlignment="Center" Command="{Binding TwinStandByCommand}"
+      <Button Classes="mini" Content="STAND BY AGAIN" Margin="0,4,8,0" VerticalAlignment="Center" Command="{Binding TwinStandByCommand}"
               ToolTip.Tip="After a takeover: the outputs are held closed again and the main is followed once more — TWIN STANDBY on the wire" />
+      <Button Classes="mini" Content="TAKE BACK" Margin="0,4,0,0" VerticalAlignment="Center" Command="{Binding TwinTakeBackCommand}"
+              ToolTip.Tip="The main, after its standby ran the show: the standby's show (the edits made while it ran) and what it had on air land here, this desk's outputs open, and the standby closes its own and follows again — TWIN TAKEBACK on the wire" />
     </WrapPanel>
     <TextBlock Classes="hint tip"
-               Text="On this machine: a second copy of Patterns in its own folder (its own settings, its own logs, its own crash domain) set to Standby with 'Main is at' 127.0.0.1 — the watchdog restarts a crashed desk in seconds; the twin has the show already up and skips the seconds. On another machine: the same as the beacon's backup, in step instead of merely told; the pictures reach the room through the switcher or the same NDI names, so taking over stays your press unless the switcher follows by itself. What never travels: these twin settings, the watchdog and the beacon, the install, the graphics card, the remote's ports, the operator's monitor and the desk layout — each machine keeps its own. TWIN STATUS, TWIN TAKEOVER and TWIN STANDBY are the wire's words." />
+               Text="On this machine: tick 'Run a standby' and this desk starts one — the same build in the twin-standby folder beside this one, in step within a second, its outputs held closed. If this desk hangs or crashes, the standby takes the screens by itself (it ends a hung main first, so nothing plays on under nobody's hand) and the watchdog brings this desk back — which reads the standby's mark and holds its own outputs: the room never sees two desks on the same screens. When you are ready, TAKE BACK: the standby's show and air land here, the outputs open here, and the standby follows again. Without the tick: a second copy of Patterns in its own folder set to Standby with 'Main is at' 127.0.0.1 is the same thing started by hand. On another machine: the same as the beacon's backup, in step instead of merely told; the pictures reach the room through the switcher or the same NDI names, so taking over stays your press unless the switcher follows by itself. What never travels: these twin settings, the watchdog and the beacon, the install, the graphics card, the remote's ports, the operator's monitor and the desk layout — each machine keeps its own. TWIN STATUS, TWIN TAKEOVER, TWIN STANDBY and TWIN TAKEBACK are the wire's words." />
 
     <TextBlock Classes="h2" Text="EARLIER VERSIONS OF THE SHOW" />
     <TextBlock Classes="label" Text="{Binding Show.BackupsSummary}" TextWrapping="Wrap" />

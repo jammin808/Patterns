@@ -1678,6 +1678,7 @@ public sealed class TwinConfig : Observable
     private string _mainHost = "";
     private string _key = "";
     private bool _autoTakeOver;
+    private bool _localStandby;
 
     /// <summary>Off, the main that lets a standby join, or the standby that follows one.</summary>
     public TwinRole Role { get => _role; set => Set(ref _role, value); }
@@ -1693,6 +1694,14 @@ public sealed class TwinConfig : Observable
 
     /// <summary>The standby takes the show by itself once the main has been silent past the limit; off, TAKE OVER is the operator's press.</summary>
     public bool AutoTakeOver { get => _autoTakeOver; set => Set(ref _autoTakeOver, value); }
+
+    /// <summary>
+    /// A main runs its own standby as a second process on this machine: the same build, its own
+    /// folder beside the show (twin-standby), dialled to this desk, taking over by itself when this
+    /// desk stops beating, restarted by this desk when it exits. Off, a standby is started by hand
+    /// or lives on another machine.
+    /// </summary>
+    public bool LocalStandby { get => _localStandby; set => Set(ref _localStandby, value); }
 }
 
 /// <summary>Which GPU renders the show. Applied at startup — changing it needs an app restart.</summary>
