@@ -536,7 +536,13 @@ public static class ShowBrief
                 sb.Append("  ").Append(cue.Number).Append(' ').Append(cue.Name);
                 if (cue.Actions.Count > 0) sb.Append(" — ").Append(string.Join(" / ", cue.Actions.Select(a => ActionSpec.Label(a.Kind))));
                 if (cue.PlannedStart.Length > 0) sb.Append(" @ ").Append(cue.PlannedStart);
+                if (cue.LiveNotes.Length > 0) sb.Append(" — the caller's note: ").Append(cue.LiveNotes.Replace('\n', ' '));
                 sb.AppendLine();
+            }
+            if (stack.Scratchpad.Length > 0)
+            {
+                // The caller's own words for the day are the show's most current material: read them before the plan.
+                sb.Append("  The caller's pad: ").AppendLine(stack.Scratchpad.Replace('\n', ' '));
             }
         }
         if (s.Stacks.Count == 0) sb.AppendLine("Cues: none yet.");

@@ -78,13 +78,20 @@
       <GridSplitter Grid.Column="1" Name="RunSplitter" Width="12" Background="Transparent" ResizeDirection="Columns" DragCompleted="OnSplitterDragCompleted"
                     ToolTip.Tip="Drag: how much of the Run area the cue stack takes — the show remembers it" />
 
-      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,2,6">
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,8,Auto" Margin="2,0,2,6">
           <TextBlock Classes="runTag" Text="CUE STACK" />
-          <TextBlock Grid.Column="1" Classes="runNotes" Text="{Binding Run.ValidationSummary}" Foreground="{StaticResource TextDimBrush}" />
+          <TextBlock Grid.Column="1" Classes="runNotes" Text="{Binding Run.ValidationSummary}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
+          <ToggleButton Grid.Column="3" Classes="mini" Content="{Binding Run.PadToggleText}" IsChecked="{Binding Run.IsPadOpen, Mode=TwoWay}" Focusable="False"
+                        ToolTip.Tip="The show caller's pad: free words for the day — timings, names, what changed at the rehearsal — saved with the show. The assistant reads it too" />
         </Grid>
+        <!-- The caller's pad: the day's own words beside the stack -->
+        <Border Grid.Row="1" Classes="runBanner" Margin="0,0,0,6" IsVisible="{Binding Run.IsPadOpen}">
+          <TextBox Text="{Binding Run.Scratchpad, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56" MaxHeight="180"
+                   Watermark="The caller's pad — timings, names, what changed at the rehearsal. Saved with the show." />
+        </Border>
         <!-- The day's clock: where the marks are expected, and the caller's four quick edits -->
-        <Border Grid.Row="1" Classes="runBanner" IsVisible="{Binding Run.HasPlan}" Margin="0,0,0,6">
+        <Border Grid.Row="2" Classes="runBanner" IsVisible="{Binding Run.HasPlan}" Margin="0,0,0,6">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Classes="runNotes" Text="{Binding Run.ScheduleSummary}" VerticalAlignment="Center" TextWrapping="Wrap" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
@@ -99,17 +106,27 @@
             </StackPanel>
           </Grid>
         </Border>
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
           <ItemsControl ItemsSource="{Binding Run.Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:RunRow">
                 <Border Classes="runRow" Classes.standby="{Binding IsStandby}" Classes.last="{Binding IsLast}" Classes.next="{Binding IsNext}"
                         Classes.broken="{Binding IsBroken}" Classes.off="{Binding !Enabled}">
+                  <!-- Right-click: the row's own verbs. A popup climbs no parent, so the commands come through the row's Owner. -->
+                  <Border.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="STANDBY HERE" Command="{Binding Owner.SelectRowCommand}" CommandParameter="{Binding}" />
+                      <MenuItem Header="GO THIS CUE NOW" Command="{Binding Owner.FireRowCommand}" CommandParameter="{Binding}" />
+                      <MenuItem Header="NOTE…" Command="{Binding Owner.EditNotesCommand}" CommandParameter="{Binding}" />
+                      <MenuItem Header="{Binding SkipLabel}" Command="{Binding Owner.ToggleSkipCommand}" CommandParameter="{Binding}" />
+                      <MenuItem Header="OPEN IN THE CUE EDITOR" Command="{Binding Owner.OpenInEditorCommand}" CommandParameter="{Binding}" />
+                    </ContextMenu>
+                  </Border.ContextMenu>
                   <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" Focusable="False"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Run.SelectRowCommand}" CommandParameter="{Binding}"
-                          ToolTip.Tip="Click: put this cue on standby (changes nothing on air)">
-                    <Grid ColumnDefinitions="88,Auto,*">
+                          ToolTip.Tip="Click: put this cue on standby (changes nothing on air). Right-click, or ✎: the row's own verbs — go now, a note, skip, the editor">
+                    <Grid ColumnDefinitions="88,Auto,*,Auto">
                       <StackPanel Grid.Column="0" VerticalAlignment="Top">
                         <TextBlock Classes="runNumber" Text="{Binding Number}" />
                         <TextBlock Classes="runNotes" Text="{Binding Plan}" IsVisible="{Binding HasPlan}" Foreground="{StaticResource TextDimBrush}" FontFamily="Consolas,Menlo,monospace" TextWrapping="Wrap" />
@@ -129,8 +146,19 @@
                         <TextBlock Classes="runName" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Classes="runNotes" Text="{Binding Summary}" Foreground="{StaticResource TextDimBrush}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Classes="runNotes runCueNotes" Text="{Binding Notes}" IsVisible="{Binding HasNotes}" TextWrapping="Wrap" />
+                        <TextBlock Classes="runNotes runCueNotes" Foreground="{StaticResource TallyPvwBrush}" Text="{Binding LiveNotes}" IsVisible="{Binding HasLiveNotes}" TextWrapping="Wrap"
+                                   ToolTip.Tip="The caller's in-show note on this cue" />
                         <TextBlock Classes="runNotes" Foreground="{StaticResource TallyPgmBrush}" Text="{Binding Problem}" IsVisible="{Binding IsBroken}" TextWrapping="Wrap" />
+                        <!-- The note, typed in place: a TextBox takes the press, so typing here never moves standby -->
+                        <StackPanel Spacing="4" IsVisible="{Binding IsEditingNotes}">
+                          <TextBox Text="{Binding Cue.LiveNotes, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="40" MaxHeight="120"
+                                   Watermark="In-show note for this cue — saved with the show" />
+                          <Button Classes="mini" Content="DONE" HorizontalAlignment="Right" Command="{Binding Owner.CloseNotesCommand}" CommandParameter="{Binding}" Focusable="False" />
+                        </StackPanel>
                       </StackPanel>
+                      <Button Grid.Column="3" Classes="mini" Content="✎" VerticalAlignment="Top" Margin="6,0,0,0" Focusable="False"
+                              Command="{Binding Owner.EditNotesCommand}" CommandParameter="{Binding}"
+                              ToolTip.Tip="A note on this cue — the caller's, in the show; the same as right-click ▸ NOTE… for a touch screen" />
                     </Grid>
                   </Button>
                 </Border>
@@ -158,6 +186,8 @@
                     ToolTip.Tip="{Binding Run.StandbyPreRollTip}"><TextBlock Text="{Binding Run.StandbyPreRollWait}" /></Border>
           </Grid>
           <TextBlock Classes="runNotes runCueNotes" Text="{Binding Run.StandbyNotes}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Run.StandbyNotes, Converter={StaticResource NotEmpty}}" />
+          <TextBlock Classes="runNotes runCueNotes" Foreground="{StaticResource TallyPvwBrush}" Text="{Binding Run.StandbyLiveNotes}" TextWrapping="Wrap" IsVisible="{Binding Run.StandbyLiveNotes, Converter={StaticResource NotEmpty}}"
+                     ToolTip.Tip="The caller's in-show note on the standby cue" />
           <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Run.StandbyPlanText, Converter={StaticResource NotEmpty}}">
             <TextBlock Classes="runNotes" Text="{Binding Run.StandbyPlanText}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
             <Border Classes="runChip holdChip" IsVisible="{Binding Run.HasFollow}" ToolTip.Tip="The next cue fires by itself when this runs out — press STOP FOLLOW, HOLD, or move standby to keep it"><TextBlock Text="{Binding Run.FollowText}" /></Border>

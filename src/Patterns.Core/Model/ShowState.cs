@@ -1625,6 +1625,7 @@ public sealed class DeskLayoutConfig : Observable
     private bool _showHints;
     private double _runCueShare = DefaultRunCueShare;
     private bool _runWallCollapsed;
+    private bool _runPadOpen;
 
     /// <summary>The page column's width in pixels (the divider between the page and the screens).</summary>
     public double EditorWidth
@@ -1670,6 +1671,9 @@ public sealed class DeskLayoutConfig : Observable
 
     /// <summary>The Run area's wall tiles collapsed to vertical title bars — the tally and the name on their side — so the stack has the room.</summary>
     public bool RunWallCollapsed { get => _runWallCollapsed; set => Set(ref _runWallCollapsed, value); }
+
+    /// <summary>The caller's pad open on the Run surface.</summary>
+    public bool RunPadOpen { get => _runPadOpen; set => Set(ref _runPadOpen, value); }
 
     /// <summary>
     /// The wall tiles collapsed one by one to their title bars (▸ on a tile's title row; ▾ on the

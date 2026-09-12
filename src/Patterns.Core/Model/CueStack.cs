@@ -70,6 +70,7 @@ public sealed class RunCueConfig : Observable
     private bool _enabled = true;
     private string _track = "";
     private string _notes = "";
+    private string _liveNotes = "";
     private bool _requireConfirm;
     private bool _ready;
     private int? _plannedSeconds;
@@ -85,6 +86,9 @@ public sealed class RunCueConfig : Observable
     /// <summary>The script's column: "Video", "VT", "Audio" — free text.</summary>
     public string Track { get => _track; set => Set(ref _track, value); }
     public string Notes { get => _notes; set => Set(ref _notes, value); }
+
+    /// <summary>The caller's in-show note on this cue — a last-minute change, a warning, a name to say — written on the Run surface, shown on the row and the standby card, saved with the show.</summary>
+    public string LiveNotes { get => _liveNotes; set => Set(ref _liveNotes, value ?? ""); }
     /// <summary>GO asks for a second press within a few seconds.</summary>
     public bool RequireConfirm { get => _requireConfirm; set => Set(ref _requireConfirm, value); }
     /// <summary>Set by the visual operator: "this one is built". Not a gate.</summary>
@@ -111,6 +115,7 @@ public sealed class CueStackConfig : Observable
     private string _name = "Cue stack";
     private StackRole _role = StackRole.Caller;
     private bool _loopAtEnd;
+    private string _scratchpad = "";
     private bool _suspendAutomationWhileArmed = true;
 
     public string Id { get => _id; set => Set(ref _id, value); }
@@ -118,6 +123,9 @@ public sealed class CueStackConfig : Observable
     public StackRole Role { get => _role; set => Set(ref _role, value); }
     /// <summary>After the last cue the list starts over (was Presenter.Loop).</summary>
     public bool LoopAtEnd { get => _loopAtEnd; set => Set(ref _loopAtEnd, value); }
+
+    /// <summary>The show caller's pad: free words for the day — timings, names, what changed at the rehearsal — beside the stack on the Run surface, saved with the show.</summary>
+    public string Scratchpad { get => _scratchpad; set => Set(ref _scratchpad, value ?? ""); }
     /// <summary>The daily schedule and playlist part start times wait while this stack is armed.</summary>
     public bool SuspendAutomationWhileArmed { get => _suspendAutomationWhileArmed; set => Set(ref _suspendAutomationWhileArmed, value); }
 

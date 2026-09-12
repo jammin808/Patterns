@@ -16,8 +16,11 @@ public sealed class RunRow : Observable
     private string _plan = "";
     private string _summary = "";
 
-    public RunRow(RunCueConfig cue, string summary)
+    private bool _isEditingNotes;
+
+    public RunRow(RunCueConfig cue, string summary, RunViewModel? owner = null)
     {
+        Owner = owner;
         Cue = cue;
         _summary = summary;
     }
@@ -47,6 +50,19 @@ public sealed class RunRow : Observable
     public string Summary { get => _summary; set => Set(ref _summary, value); }
     public string Notes => Cue.Notes;
     public bool HasNotes => Cue.Notes.Length > 0;
+
+    /// <summary>The Run surface this row belongs to — the right-click menu's commands are reached through it, since a popup has no parent control to climb.</summary>
+    public RunViewModel? Owner { get; }
+
+    /// <summary>The caller's in-show note: shown on the row, edited in place.</summary>
+    public string LiveNotes => Cue.LiveNotes;
+    public bool HasLiveNotes => Cue.LiveNotes.Length > 0;
+
+    /// <summary>The row's note is open for typing.</summary>
+    public bool IsEditingNotes { get => _isEditingNotes; set => Set(ref _isEditingNotes, value); }
+
+    /// <summary>The menu's word for the enabled flip: a cue that is on can be skipped, one that is off put back.</summary>
+    public string SkipLabel => Cue.Enabled ? "SKIP THIS CUE" : "UNSKIP — BACK IN THE RUN";
     public bool Enabled => Cue.Enabled;
     public bool RequireConfirm => Cue.RequireConfirm;
 
@@ -65,6 +81,9 @@ public sealed class RunRow : Observable
         Raise(nameof(Name));
         Raise(nameof(Notes));
         Raise(nameof(HasNotes));
+        Raise(nameof(LiveNotes));
+        Raise(nameof(HasLiveNotes));
+        Raise(nameof(SkipLabel));
         Raise(nameof(Enabled));
         Raise(nameof(RequireConfirm));
         Raise(nameof(HasFollow));
@@ -123,6 +142,38 @@ public sealed class RunViewModel : Observable
             _vm.StatusMessage = "Auto-follow cancelled — the next cue waits for GO.";
             RefreshTiming();
         });
+
+        // The row's own menu — right-click, or the ✎ chip for a touch screen: the same verbs either way.
+        EditNotesCommand = new RelayCommand<RunRow>(row =>
+        {
+            if (row is null) return;
+            foreach (var r in Rows) r.IsEditingNotes = ReferenceEquals(r, row) && !r.IsEditingNotes;
+        });
+        CloseNotesCommand = new RelayCommand<RunRow>(row =>
+        {
+            if (row is not null) row.IsEditingNotes = false;
+            RaiseNotes();
+        });
+        FireRowCommand = new RelayCommand<RunRow>(row =>
+        {
+            if (row is null) return;
+            var result = _s.Actions.FireCue(row.Cue, ActionOrigin.Desk);
+            if (result.Message.Length > 0) _vm.StatusMessage = result.Message;
+        });
+        ToggleSkipCommand = new RelayCommand<RunRow>(row =>
+        {
+            if (row is null) return;
+            row.Cue.Enabled = !row.Cue.Enabled;
+            _vm.StatusMessage = row.Cue.Enabled ? $"{row.Number} {row.Name} is back in the run." : $"{row.Number} {row.Name} is skipped — GO passes over it.";
+            row.RaiseCue();
+        });
+        OpenInEditorCommand = new RelayCommand<RunRow>(row =>
+        {
+            if (row is null) return;
+            _vm.Cues.SelectedCue = row.Cue;
+            _vm.SelectPage(Shell.IndexOf("Cues"));
+        });
+        TogglePadCommand = new RelayCommand(() => IsPadOpen = !IsPadOpen);
 
         _s.CueStack.Changed += OnRuntimeChanged;
         _s.AirLabelChanged += () => Raise(nameof(LiveLabel));
@@ -375,6 +426,52 @@ public sealed class RunViewModel : Observable
     public RelayCommand ResumeNowCommand { get; }
     public RelayCommand CatchUpCommand { get; }
     public RelayCommand CancelFollowCommand { get; }
+    public RelayCommand<RunRow> EditNotesCommand { get; }
+    public RelayCommand<RunRow> CloseNotesCommand { get; }
+    public RelayCommand<RunRow> FireRowCommand { get; }
+    public RelayCommand<RunRow> ToggleSkipCommand { get; }
+    public RelayCommand<RunRow> OpenInEditorCommand { get; }
+    public RelayCommand TogglePadCommand { get; }
+
+    // ---- the caller's pad and the in-show notes ---------------------------------------------
+
+    /// <summary>The show caller's pad: free words for the day beside the stack, saved with the show.</summary>
+    public string Scratchpad
+    {
+        get => CueStacks.Caller(_s.State).Scratchpad;
+        set
+        {
+            var stack = CueStacks.Caller(_s.State);
+            if (stack.Scratchpad == value) return;
+            stack.Scratchpad = value;
+            Raise(nameof(Scratchpad));
+        }
+    }
+
+    /// <summary>Whether the pad is open — the show remembers it; a pad with words on it opens by itself.</summary>
+    public bool IsPadOpen
+    {
+        get => _s.State.Desk.RunPadOpen;
+        set
+        {
+            if (_s.State.Desk.RunPadOpen == value) return;
+            _s.State.Desk.RunPadOpen = value;
+            Raise(nameof(IsPadOpen));
+            Raise(nameof(PadToggleText));
+        }
+    }
+
+    public string PadToggleText => IsPadOpen ? "▾ PAD" : "▸ PAD";
+
+    /// <summary>The standby cue's in-show note, under its name on the standby card.</summary>
+    public string StandbyLiveNotes => _s.CueStack.StandbyCue?.LiveNotes ?? "";
+
+    /// <summary>A note changed on a row: the standby card and the row's own words follow.</summary>
+    public void RaiseNotes()
+    {
+        Raise(nameof(StandbyLiveNotes));
+        foreach (var r in Rows) r.RaiseCue();
+    }
 
     /// <summary>GO from the desk or the Enter key: the standby the sender sees is the one right now.</summary>
     public ActionResult Go(ActionOrigin origin)
@@ -458,6 +555,10 @@ public sealed class RunViewModel : Observable
         Raise(nameof(HasStandbyPlan));
         Raise(nameof(HasValidationSummary));
         Raise(nameof(StandbyNotes));
+        Raise(nameof(StandbyLiveNotes));
+        Raise(nameof(Scratchpad));
+        Raise(nameof(IsPadOpen));
+        Raise(nameof(PadToggleText));
         Raise(nameof(StandbyProblem));
         Raise(nameof(StandbyIsBroken));
         Raise(nameof(StandbyReadyText));
@@ -500,7 +601,7 @@ public sealed class RunViewModel : Observable
             }
             else
             {
-                row = new RunRow(cue, summary) { Problem = problem };
+                row = new RunRow(cue, summary, this) { Problem = problem };
             }
             wanted.Add(row);
         }
