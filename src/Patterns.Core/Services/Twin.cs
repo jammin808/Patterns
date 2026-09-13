@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Patterns.Core.Model;
@@ -33,6 +34,10 @@ public enum TwinWord
     Act,
     /// <summary>A caller → main: the cues it planned at home — the Stacks section as JSON — offered for the desk to apply, never applied by itself.</summary>
     Plan,
+    /// <summary>Main → a joiner: a nonce of the main's own and the main's proof of the key over the joiner's nonce — <see cref="TwinChallenge"/> as JSON. The key itself never travels.</summary>
+    Challenge,
+    /// <summary>A joiner → main: its proof of the key over the main's nonce, hex. Wrong, the main refuses; right, the welcome follows.</summary>
+    Proof,
 }
 
 /// <summary>
@@ -41,8 +46,8 @@ public enum TwinWord
 /// </summary>
 public readonly record struct TwinMessage(TwinWord Word, string Name, string Payload)
 {
-    /// <summary>The link's version; a peer speaking another answers REFUSED.</summary>
-    public const int Proto = 1;
+    /// <summary>The link's version; a peer speaking another answers REFUSED. 2: the key is proved, never sent.</summary>
+    public const int Proto = 2;
 
     public static TwinMessage Parse(string? line)
     {
@@ -63,6 +68,8 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "LIVE" => TwinWord.Live,
             "ACT" => TwinWord.Act,
             "PLAN" => TwinWord.Plan,
+            "CHALLENGE" => TwinWord.Challenge,
+            "PROOF" => TwinWord.Proof,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";
@@ -88,7 +95,9 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
 /// show while the main was away, that it has the show: the main then holds its own outputs, takes
 /// nothing for granted, and TAKE BACK is the operator's press.
 /// </summary>
-public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto, bool TookOver = false, string Kind = "standby")
+/// <param name="Key">Empty since link version 2: the key is proved over the main's nonce, never written on the wire.</param>
+/// <param name="Nonce">The joiner's nonce, which the main proves the key over first — so a stranger listening on the port cannot hand a standby a show.</param>
+public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto, bool TookOver = false, string Kind = "standby", string Nonce = "")
 {
     /// <summary>A caller node joining: it follows the show and calls it, never holds an output, and may send its cues back.</summary>
     public bool IsCaller => string.Equals(Kind, "caller", StringComparison.OrdinalIgnoreCase);
@@ -121,6 +130,52 @@ public sealed record TwinLive(string Standby, string Last, bool Armed, bool Hold
     {
         try { return JsonUtil.Deserialize<TwinLive>(json); }
         catch (JsonException) { return null; }
+    }
+}
+
+/// <summary>The main's answer to a JOIN: a nonce of its own for the joiner to prove the key over, and its proof of the key over the joiner's nonce.</summary>
+public sealed record TwinChallenge(string Nonce, string Proof)
+{
+    public string ToJson() => JsonUtil.SerializeCompact(this);
+
+    public static TwinChallenge? Parse(string json)
+    {
+        try { return JsonUtil.Deserialize<TwinChallenge>(json); }
+        catch (JsonException) { return null; }
+    }
+}
+
+/// <summary>
+/// The key proved, never sent. Each side draws a nonce; each side answers the other's nonce with
+/// an HMAC of the key over it and a name — the main's over the joiner's nonce and the main's own,
+/// the joiner's over the main's nonce and the joiner's instance — so a line read off the wire
+/// holds no key, a proof replayed answers a nonce that will never be asked again, and a stranger
+/// on the port who cannot prove the key gets no show and holds no outputs closed.
+/// </summary>
+public static class TwinAuth
+{
+    /// <summary>Twenty-four random bytes as text — one per side per dial.</summary>
+    public static string NewNonce()
+    {
+        var bytes = new byte[24];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    /// <summary>HMAC-SHA256 of the key over "nonce|name", lowercase hex.</summary>
+    public static string Proof(string key, string nonce, string name)
+    {
+        var mac = System.Security.Cryptography.HMACSHA256.HashData(Encoding.UTF8.GetBytes(key ?? ""), Encoding.UTF8.GetBytes((nonce ?? "") + "|" + (name ?? "")));
+        return Convert.ToHexString(mac).ToLowerInvariant();
+    }
+
+    /// <summary>Whether a proof is the key's, in constant time — a key of any length, a proof of any shape.</summary>
+    public static bool Verify(string key, string nonce, string name, string proof)
+    {
+        if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(nonce) || string.IsNullOrEmpty(proof)) return false;
+        var expected = Encoding.ASCII.GetBytes(Proof(key, nonce, name));
+        var given = Encoding.ASCII.GetBytes(proof.Trim().ToLowerInvariant());
+        return expected.Length == given.Length && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expected, given);
     }
 }
 
@@ -291,8 +346,66 @@ public static class TwinSync
         return JsonSerializer.Serialize(pi.GetValue(state), pi.PropertyType, JsonUtil.CloneOptions);
     }
 
-    /// <summary>The whole show as compact JSON: the SHOW line's payload.</summary>
-    public static string ShowJson(ShowState state) => JsonUtil.SerializeCompact(state);
+    /// <summary>The SHOW line's payload: the mirrored sections, with the credentials the show carries — see <see cref="WireJson"/>.</summary>
+    public static string ShowJson(ShowState state) => WireJson(state, sendSecrets: true);
+
+    /// <summary>
+    /// The show as it travels: the mirrored sections only — the machine's own (the twin's key, the
+    /// admin passcode, the management token, the remote's ports) never leave this desk — and,
+    /// unless the main sends its credentials, a projector's password and the weather key blanked,
+    /// for a standby that has its own. A landing keeps whatever it already has where the wire is blank.
+    /// </summary>
+    public static string WireJson(ShowState state, bool sendSecrets)
+    {
+        var root = new System.Text.Json.Nodes.JsonObject();
+        foreach (var pi in Roots)
+        {
+            if (LocalSections.Contains(pi.Name)) continue;
+            root[pi.Name] = JsonSerializer.SerializeToNode(pi.GetValue(state), pi.PropertyType, JsonUtil.CloneOptions);
+        }
+        if (!sendSecrets) BlankSecrets(root);
+        return root.ToJsonString(JsonUtil.CloneOptions);
+    }
+
+    /// <summary>One section as it travels — its JSON, with its credentials blanked unless they are sent.</summary>
+    public static string WireSectionJson(ShowState state, string section, bool sendSecrets)
+    {
+        var json = SectionJson(state, section);
+        if (sendSecrets || !CarriesSecrets(section)) return json;
+        var node = System.Text.Json.Nodes.JsonNode.Parse(json);
+        if (node is null) return json;
+        var root = new System.Text.Json.Nodes.JsonObject { [section] = node };
+        BlankSecrets(root);
+        return root[section]!.ToJsonString(JsonUtil.CloneOptions);
+    }
+
+    /// <summary>The sections that carry a credential the show needs: a box's password, the weather key.</summary>
+    public static bool CarriesSecrets(string section) => section is nameof(ShowState.Interactive) or nameof(ShowState.Weather);
+
+    private static void BlankSecrets(System.Text.Json.Nodes.JsonObject root)
+    {
+        if (root[nameof(ShowState.Weather)] is System.Text.Json.Nodes.JsonObject weather && weather.ContainsKey(nameof(WeatherSettings.ApiKey))) weather[nameof(WeatherSettings.ApiKey)] = "";
+        if (root[nameof(ShowState.Interactive)] is System.Text.Json.Nodes.JsonObject interactive && interactive[nameof(InteractiveConfig.Devices)] is System.Text.Json.Nodes.JsonArray devices)
+        {
+            foreach (var d in devices)
+            {
+                if (d is System.Text.Json.Nodes.JsonObject device && device.ContainsKey(nameof(DeviceConfig.Secret))) device[nameof(DeviceConfig.Secret)] = "";
+            }
+        }
+    }
+
+    /// <summary>What the target holds before a landing, so a blank on the wire never wipes a credential the standby typed itself.</summary>
+    private static (string WeatherKey, Dictionary<string, string> DeviceSecrets) OwnSecrets(ShowState target)
+        => (target.Weather.ApiKey, target.Interactive.Devices.Where(d => d.Secret.Length > 0).ToDictionary(d => d.Id, d => d.Secret, StringComparer.Ordinal));
+
+    private static void KeepSecrets(ShowState target, (string WeatherKey, Dictionary<string, string> DeviceSecrets) own)
+    {
+        if (target.Weather.ApiKey.Length == 0 && own.WeatherKey.Length > 0) target.Weather.ApiKey = own.WeatherKey;
+        foreach (var d in target.Interactive.Devices)
+        {
+            if (d.Secret.Length == 0 && own.DeviceSecrets.TryGetValue(d.Id, out var secret)) d.Secret = secret;
+        }
+    }
 
     /// <summary>
     /// A section's JSON onto the show, in place. False — and nothing touched — for a section that
@@ -312,7 +425,9 @@ public static class TwinSync
             return false;
         }
         if (value is null && !pi.PropertyType.IsValueType && pi.PropertyType != typeof(string)) return false;
+        var own = CarriesSecrets(section) ? OwnSecrets(target) : default;
         ModelCopier.CopyValue(pi, value, target);
+        if (CarriesSecrets(section)) KeepSecrets(target, own);
         return true;
     }
 
@@ -329,11 +444,13 @@ public static class TwinSync
             return false;
         }
         if (incoming is null) return false;
+        var own = OwnSecrets(target);
         foreach (var pi in Roots)
         {
             if (LocalSections.Contains(pi.Name)) continue;
             ModelCopier.CopyValue(pi, pi.GetValue(incoming), target);
         }
+        KeepSecrets(target, own);
         return true;
     }
 }

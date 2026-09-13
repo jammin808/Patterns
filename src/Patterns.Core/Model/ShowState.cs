@@ -1831,6 +1831,7 @@ public sealed class WatchdogConfig : Observable
 /// </summary>
 public sealed class TwinConfig : Observable
 {
+    private bool _sendSecrets = true;
     private TwinRole _role;
     private int _port = 9699;
     private string _mainHost = "";
@@ -1866,6 +1867,14 @@ public sealed class TwinConfig : Observable
 
     /// <summary>The cue the main fires on TAKE BACK: the wall switched back to this machine's input. Empty = none.</summary>
     public string TakeBackCue { get => _takeBackCue; set => Set(ref _takeBackCue, (value ?? "").Trim()); }
+
+    /// <summary>
+    /// Whether the credentials the show carries — a projector's PJLink password, the weather key —
+    /// travel to the standby. On: the standby runs the show with nothing typed twice. Off: they are
+    /// blanked on the wire and the standby keeps the ones typed on it, for a link on a network that
+    /// is not the show's own. The twin's key, the admin passcode and the management token never travel either way.
+    /// </summary>
+    public bool SendSecrets { get => _sendSecrets; set => Set(ref _sendSecrets, value); }
 
     /// <summary>
     /// A caller node may link to this desk: the desk sends and hears the beacon so the two find each

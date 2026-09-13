@@ -6151,3 +6151,53 @@ on displays the room is not looking at, by design: the operator's next press, or
 finishes it.
 
 Counts at the end of the round: Core 1,120, App 582 — both suites green here.
+
+## 62. Round 44 — what travels on the twin link, and how the key is known
+
+*The triage's last two items: the twin's JOIN sent the key in the clear over plain TCP, and the
+SHOW line serialised the whole show — the machine's own sections included — with the receiver
+alone deciding what not to apply. And a drill, because nothing about a real room is known from a
+headless one.*
+
+### 62.1 The key proved, never sent
+
+Link version 2. A joiner's JOIN carries a nonce and no key. The main answers with a
+`CHALLENGE`: a nonce of its own and its proof of the key — HMAC-SHA256 of the key over the
+joiner's nonce and the main's — so a stranger listening on the port, who could otherwise welcome
+a standby and hand it a show while holding its outputs closed, is found out first: a standby
+whose main cannot prove the key closes the link and says so, and proves nothing itself — and a
+standby with no key of its own says where the key goes, in its own words, rather than hearing
+"wrong key" from the main. Then the joiner's `PROOF` over the main's nonce and the joiner's
+instance; a wrong proof is "wrong key", the same refusal as before. Nothing read off the wire holds the key, and a proof replayed answers
+a nonce that will never be asked again. A version-1 joiner is refused for its version, as any
+mismatch always was. `TwinAuth` (Core) is the nonce, the proof and a constant-time verify; the
+handshake is two lines on each side of `TwinService`, and every fake twin in the tests speaks it.
+
+### 62.2 The wire carries the mirrored sections and nothing of the machine's own
+
+`TwinSync.WireJson` writes the mirrored sections only: the twin's key, the admin passcode, the
+management token, the remote's ports, the watchdog, the install, the monitor, the desk layout and
+the show lock never leave the desk, where before they travelled and were dropped on landing. The
+credentials the show itself needs — a projector's PJLink password, the weather key — travel by
+default, because a standby runs the same cues against the same projector; a main told not to send
+them (Machine page, TWIN: "Send the show's credentials to the standby") blanks them on the wire,
+and a landing keeps whatever the standby has where the wire is blank, so a password typed on the
+standby is never wiped by a mirror. The SHOW line, the SECTION lines and the show a standby sends
+home all go through the same door.
+
+### 62.3 The drill
+
+`docs/DRILL.md`: the rig, the record to keep, eighteen scenarios with the failure to inject, the
+picture the room should see and the log lines that should be there, and what decides. It is a
+release gate for the redundancy: until it has been run in a real room and filmed, the claims in
+§48 to §61 are claims about the simulated room the tests build.
+
+### 62.4 Considered and left
+
+Transport encryption. HMAC authenticates the peer; it does not make the running show private on
+the wire. The link is meant for the show's own VLAN; a link that must cross a shared network
+wants TLS with a certificate pinned by the key, which is a round of its own and is said in the
+docs rather than pretended. The credentials that travel by default are the ones the standby
+cannot run the show without; the switch is there for the network that is not the show's own.
+
+Counts at the end of the round: Core 1,124, App 585 — both suites green here.

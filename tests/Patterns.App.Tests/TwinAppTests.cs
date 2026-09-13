@@ -62,6 +62,27 @@ public class TwinAppTests
 
     private static void Write(NetworkStream stream, string line) => stream.Write(Encoding.UTF8.GetBytes(line + "\n"));
 
+    /// <summary>The key every test's twin shares.</summary>
+    private const string Key = "hunter2";
+
+    /// <summary>
+    /// A fake standby joining a real main: the JOIN with a nonce and no key, the main's proof over
+    /// that nonce checked, this side's proof over the main's nonce written — then the main's
+    /// WELCOME or REFUSED is the caller's to read. False when the main could not prove the key
+    /// with <paramref name="key"/> (a stranger's key against a real main, in the tests that try one).
+    /// </summary>
+    private static bool Join(NetworkStream stream, StreamReader reader, TwinJoin join, string key)
+    {
+        var nonce = TwinAuth.NewNonce();
+        Write(stream, TwinMessage.Format(TwinWord.Join, (join with { Key = "", Nonce = nonce }).ToJson()));
+        var first = TwinMessage.Parse(ReadLine(reader));
+        if (first.Word != TwinWord.Challenge) return false;                     // refused before any proof: the caller reads the reason
+        var challenge = TwinChallenge.Parse(first.Payload)!;
+        var mainProved = TwinAuth.Verify(key, nonce, challenge.Nonce, challenge.Proof);
+        Write(stream, TwinMessage.Format(TwinWord.Proof, TwinAuth.Proof(key, challenge.Nonce, join.Instance)));
+        return mainProved;
+    }
+
     /// <summary>
     /// Whether a word arrives within the time, reading only what is there — never a read left in
     /// flight on the reader, which the next read would trip over. The state assertions beside it
@@ -101,7 +122,18 @@ public class TwinAppTests
             try
             {
                 var join = TwinJoin.Parse(ReadWord(reader, TwinWord.Join, 3000).Payload);
-                if (join is not null) return (peer, reader, join);
+                if (join is not null)
+                {
+                    // The key is proved, never read off the wire: this fake main answers the joiner's
+                    // nonce with its own proof, then checks the joiner's over its nonce.
+                    Assert.Equal("", join.Key);
+                    Assert.Equal(48, join.Nonce.Length);
+                    var nonce = TwinAuth.NewNonce();
+                    Write(peer.GetStream(), TwinMessage.Format(TwinWord.Challenge, new TwinChallenge(nonce, TwinAuth.Proof(Key, join.Nonce, nonce)).ToJson()));
+                    var proof = ReadWord(reader, TwinWord.Proof, 3000);
+                    Assert.True(TwinAuth.Verify(Key, nonce, join.Instance, proof.Payload), "the standby proved the key");
+                    return (peer, reader, join);
+                }
             }
             catch (IOException)
             {
@@ -139,7 +171,7 @@ public class TwinAppTests
                 TestApp.Pump(stranger.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
                 using var strangerStream = stranger.GetStream();
                 using var strangerReader = new StreamReader(strangerStream, Encoding.UTF8, false, 4096, leaveOpen: true);
-                Write(strangerStream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Stranger", "OTHER-PC", "zzzz", "wrong").ToJson()));
+                Join(strangerStream, strangerReader, new TwinJoin("Stranger", "OTHER-PC", "zzzz", "wrong"), "wrong");
                 var refused = TwinMessage.Parse(ReadLine(strangerReader));
                 Assert.Equal(TwinWord.Refused, refused.Word);
                 Assert.Equal("wrong key", refused.Payload);
@@ -149,16 +181,19 @@ public class TwinAppTests
             TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
             using var stream = client.GetStream();
             using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-            Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2").ToJson()));
+            Join(stream, reader, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2"), "hunter2");
 
             var welcome = TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload);
             Assert.NotNull(welcome);
             Assert.Equal("Gala", welcome!.Show);
             Assert.Equal(Environment.ProcessId, welcome.Pid);
             Assert.Equal(services.Twin.Instance, welcome.Instance);
-            var show = JsonUtil.Deserialize<ShowState>(ReadWord(reader, TwinWord.Show).Payload);
+            var showJson = ReadWord(reader, TwinWord.Show).Payload;
+            var show = JsonUtil.Deserialize<ShowState>(showJson);
             Assert.Equal("Gala", show!.Name);
-            Assert.Equal(TwinRole.Main, show.Twin.Role);  // the file as it is; a standby never lands that section (TwinSync.ApplyShow skips it)
+            Assert.DoesNotContain("\"Twin\":", showJson);       // the machine's own sections never travel: the wire carries the mirrored ones only
+            Assert.DoesNotContain("hunter2", showJson);
+            Assert.Equal(TwinRole.Off, show.Twin.Role);
             Assert.Equal("null", ReadWord(reader, TwinWord.Air).Payload);   // nothing is live
             PumpUntil(() => services.Twin.StandbyNames.Count == 1);
             Assert.Equal("Backup desk", services.Twin.StandbyNames[0]);
@@ -225,7 +260,8 @@ public class TwinAppTests
             using var _peer = peer;
             using var _reader = reader;
             var stream = peer.GetStream();
-            Assert.Equal("hunter2", join.Key);
+            Assert.Equal("", join.Key);                                     // proved over the nonces, never on the wire
+            Assert.Equal(48, join.Nonce.Length);
             Assert.Equal(twin.Instance, join.Instance);
 
             var theirs = new ShowState { Name = "From the main" };
@@ -298,7 +334,7 @@ public class TwinAppTests
             var (peer2, reader2, join2) = AcceptJoin(main);
             using var _peer2 = peer2;
             using var _reader2 = reader2;
-            Assert.Equal("hunter2", join2.Key);
+            Assert.Equal("", join2.Key);
 
             // Off: the hold lifts and the outputs are this desk's again.
             vm.State.Twin.Role = TwinRole.Off;
@@ -328,6 +364,7 @@ public class TwinAppTests
             twin.Clock = () => DateTime.UtcNow + clockOffset;
             vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
             vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "hunter2";
             vm.State.Twin.AutoTakeOver = true;
             vm.State.Twin.Role = TwinRole.Standby;
             Dispatcher.UIThread.RunJobs();
@@ -460,7 +497,7 @@ public class TwinAppTests
             TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
             using var stream = client.GetStream();
             using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-            Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2", TookOver: true).ToJson()));
+            Join(stream, reader, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2", TookOver: true), "hunter2");
             Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
             Assert.Equal(TwinWord.Beat, TwinMessage.Parse(ReadLine(reader)).Word);   // no SHOW, no AIR
             PumpUntil(() => services.OutputsHeldBy.Length > 0);
@@ -523,7 +560,7 @@ public class TwinAppTests
         TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
         var stream = client.GetStream();
         var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-        Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", machine, "abcd1234", "hunter2", TookOver: true).ToJson()));
+        Join(stream, reader, new TwinJoin("Backup desk", machine, "abcd1234", "hunter2", TookOver: true), "hunter2");
         Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
         PumpUntil(() => services.OutputsHeldBy.Length > 0);
         Assert.Equal("Backup desk", twin.Holder);
@@ -665,8 +702,6 @@ public class TwinAppTests
             Assert.Equal("take back across machines: target ready → route requested → route confirmed → authority committed → old owner released → complete", twin.LastHandover!.Trail);
             Assert.Contains("Wall switch confirmed: Proj: INPUT HDMI 1 — accepted (INPT: OK)", vm.StatusMessage);
 
-            // Silence is a no as well: the standby is never released on a switch that did not answer.
-            Write(client.GetStream(), TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2", TookOver: true).ToJson()));
         }
         finally
         {
@@ -757,6 +792,134 @@ public class TwinAppTests
     }
 
     [AvaloniaFact]
+    public void AStandbyProvesTheKeyOnlyToAMainThatProvedItFirstAndTheKeyIsNeverOnTheWire()
+    {
+        var b = TestApp.Boot();
+        using var main = new TcpListener(IPAddress.Loopback, 0);
+        main.Start();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
+            vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Standby;
+            Dispatcher.UIThread.RunJobs();
+
+            // A stranger listening on the port: it reads a JOIN with no key in it, answers the nonce
+            // with a proof it cannot make — and gets no proof back, no show landed, no hold taken.
+            var accept = main.AcceptTcpClientAsync();
+            PumpUntil(() => accept.IsCompleted);
+            using var stranger = accept.Result;
+            using var reader = new StreamReader(stranger.GetStream(), Encoding.UTF8, false, 4096, leaveOpen: true);
+            var join = TwinJoin.Parse(ReadWord(reader, TwinWord.Join, 3000).Payload)!;
+            Assert.Equal("", join.Key);
+            Assert.Equal(48, join.Nonce.Length);
+            Assert.Equal(TwinMessage.Proto, join.Proto);
+            Write(stranger.GetStream(), TwinMessage.Format(TwinWord.Challenge, new TwinChallenge(TwinAuth.NewNonce(), TwinAuth.Proof("guess", join.Nonce, "x")).ToJson()));
+            PumpUntil(() => twin.Phase == TwinPhase.Refused);
+            Assert.Contains("did not prove the key", twin.Status);
+            Assert.False(Arrives(stranger, reader, TwinWord.Proof, 800));
+            Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
+            Assert.NotEqual("From the main", vm.State.Name);
+        }
+        finally
+        {
+            main.Stop();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStandbyWithNoKeySaysSoInItsOwnWordsAndProvesNothing()
+    {
+        var b = TestApp.Boot();
+        using var main = new TcpListener(IPAddress.Loopback, 0);
+        main.Start();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
+            vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "";
+            vm.State.Twin.Role = TwinRole.Standby;
+            Dispatcher.UIThread.RunJobs();
+
+            // The main's challenge arrives and this desk has nothing to prove with: the words are its
+            // own — where the key goes — not a "wrong key" from the main; no PROOF leaves, the hold stays.
+            var accept = main.AcceptTcpClientAsync();
+            PumpUntil(() => accept.IsCompleted);
+            using var client = accept.Result;
+            using var reader = new StreamReader(client.GetStream(), Encoding.UTF8, false, 4096, leaveOpen: true);
+            var join = TwinJoin.Parse(ReadWord(reader, TwinWord.Join, 3000).Payload)!;
+            Assert.Equal("", join.Key);
+            Write(client.GetStream(), TwinMessage.Format(TwinWord.Challenge, new TwinChallenge(TwinAuth.NewNonce(), TwinAuth.Proof("hunter2", join.Nonce, "x")).ToJson()));
+            PumpUntil(() => twin.Phase == TwinPhase.Refused);
+            Assert.Contains("this desk has no key", twin.Status);
+            Assert.False(Arrives(client, reader, TwinWord.Proof, 800));
+            Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
+        }
+        finally
+        {
+            main.Stop();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheWireCarriesNoMachineSectionsAndTheShowsCredentialsOnlyWhenTold()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            vm.IsSandboxActive = false;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.SendSecrets = false;
+            vm.State.Install.AdminPasscode = "9876";
+            vm.State.Weather.ApiKey = "wx-key";
+            vm.State.Interactive.Devices.Add(new DeviceConfig { Id = "proj", Name = "Proj", Profile = DeviceProfile.PjLink, Link = DeviceLink.Tcp, Port = "10.0.0.7", Secret = "pjpass", Enabled = false });
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+
+            using var client = new TcpClient();
+            TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+            using var stream = client.GetStream();
+            using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
+            Assert.True(Join(stream, reader, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2"), "hunter2"), "the main proved the key first");
+            Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
+            var show = ReadWord(reader, TwinWord.Show).Payload;
+            Assert.DoesNotContain("hunter2", show);                                 // the key
+            Assert.DoesNotContain("9876", show);                                    // the admin passcode
+            Assert.DoesNotContain("\"Twin\":", show);                               // nor the sections they live in
+            Assert.DoesNotContain("\"Admin\":", show);
+            Assert.DoesNotContain("\"Control\":", show);
+            Assert.DoesNotContain("pjpass", show);                                  // the credentials, not sent
+            Assert.DoesNotContain("wx-key", show);
+            Assert.Contains("\"Name\":\"Proj\"", show);                               // the box itself, yes
+            Assert.Equal("pjpass", vm.State.Interactive.Devices[0].Secret);        // and the main keeps its own
+
+            // Told to send them, the next edit's section carries them.
+            services.BulkEdit(() => vm.State.Twin.SendSecrets = true);
+            services.BulkEdit(() => vm.State.Interactive.Devices[0].Name = "Projector");
+            var section = ReadWord(reader, TwinWord.Section);
+            Assert.Equal("Interactive", section.Name);
+            Assert.Contains("pjpass", section.Payload);
+            Assert.Contains("\"Name\":\"Projector\"", section.Payload);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void ATakeBackOnThisMachineReleasesTheStandbyFirstBecauseItsWindowsAreTheseDisplays()
     {
         var b = TestApp.Boot();
@@ -806,6 +969,7 @@ public class TwinAppTests
             twin.Clock = () => DateTime.UtcNow + clockOffset;
             vm.State.Twin.Port = ((IPEndPoint)main.LocalEndpoint).Port;
             vm.State.Twin.MainHost = "127.0.0.1";
+            vm.State.Twin.Key = "hunter2";
             vm.State.Twin.Role = TwinRole.Standby;
             Dispatcher.UIThread.RunJobs();
 
@@ -1005,7 +1169,7 @@ public class TwinAppTests
                 TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
                 using var stream = client.GetStream();
                 using var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
-                Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Stranger", "SOME-PC", "ffff0000", theirs, TookOver: tookOver).ToJson()));
+                Join(stream, reader, new TwinJoin("Stranger", "SOME-PC", "ffff0000", theirs, TookOver: tookOver), theirs);
                 var refused = ReadWord(reader, TwinWord.Refused);
                 Assert.Equal("wrong key", refused.Payload);
                 Assert.Equal("", services.OutputsHeldBy);
@@ -1018,7 +1182,7 @@ public class TwinAppTests
                 TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
                 using var stream = client.GetStream();
                 using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-                Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", key, TookOver: false).ToJson()));
+                Join(stream, reader, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", key, TookOver: false), key);
                 Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
             }
         }
@@ -1194,7 +1358,7 @@ public class TwinAppTests
             TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
             var stream = client.GetStream();
             using var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-            Write(stream, TwinMessage.Format(TwinWord.Join, new TwinJoin("Backup desk", Environment.MachineName, "abcd1234", "hunter2", TookOver: true).ToJson()));
+            Join(stream, reader, new TwinJoin("Backup desk", Environment.MachineName, "abcd1234", "hunter2", TookOver: true), "hunter2");
             Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
             var theirs = new ShowState { Name = "Edited at the standby" };
             theirs.LooksAndCues.Looks.Add(new LookConfig { Name = "Standby look" });

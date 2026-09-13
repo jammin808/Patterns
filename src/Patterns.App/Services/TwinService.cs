@@ -62,6 +62,7 @@ public sealed class TwinService : IDisposable, ILinkReport
     private int _dialFailures;
     private long _beat;
     private DateTime _nextAutoTakeOverUtc;      // after a takeover by itself was refused: the next try
+    private string _dialNonce = "";             // this dial's nonce: the main proves the key over it before this desk answers
     private TwinTransaction? _handover;         // the last handover run here, its stages and where it stopped
     private string _handoverNote = "";          // a take-back stopped at the wall switch: the words until it finishes
     private bool _handoverBusy;                 // a wall switch was asked and its answer is awaited: no second handover meanwhile
@@ -777,7 +778,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         {
             if (_pendingWhole)
             {
-                lines.Add(TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(_kernel.State)));
+                lines.Add(TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets)));
                 origins.Add(null);
                 _sectionsSent += TwinSync.MirroredSections.Count;
             }
@@ -785,7 +786,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             {
                 foreach (var section in TwinSync.Mirrored(_pendingSections))
                 {
-                    lines.Add(TwinMessage.Format(TwinWord.Section, TwinSync.SectionJson(_kernel.State, section), section));
+                    lines.Add(TwinMessage.Format(TwinWord.Section, TwinSync.WireSectionJson(_kernel.State, section, _kernel.State.Twin.SendSecrets), section));
                     origins.Add(_echoSkip.TryGetValue(section, out var from) ? from : null);
                     _sectionsSent++;
                 }
@@ -867,11 +868,26 @@ public sealed class TwinService : IDisposable, ILinkReport
             string? refused = join is null ? "the first line was not a JOIN"
                 : join.Proto != TwinMessage.Proto ? $"another version of the link (yours {join.Proto}, mine {TwinMessage.Proto})"
                 : key.Length == 0 ? "this main has no key yet"
-                : !string.Equals(join.Key, key, StringComparison.Ordinal) ? "wrong key"
+                : join.Nonce.Length == 0 ? "the JOIN carried no nonce to prove the key over"
                 : join.Instance == Instance ? "that is this very desk"
                 : !join.IsFollower && _role != TwinRole.Main ? "this desk is not a twin main — it links callers and stage timers only"
                 : join.IsFollower && !_kernel.IsDesk ? "a node does not host callers or stage timers"
                 : null;
+            if (refused is null)
+            {
+                // The key, proved and never read off the wire: this desk answers the joiner's nonce
+                // first — a stranger listening on the port could otherwise hand a standby a show —
+                // then the joiner answers this desk's, and a wrong answer is a wrong key.
+                var serverNonce = TwinAuth.NewNonce();
+                var challenge = new TwinChallenge(serverNonce, TwinAuth.Proof(key, join!.Nonce, serverNonce));
+                await WriteLineAsync(stream, TwinMessage.Format(TwinWord.Challenge, challenge.ToJson()), ct);
+                using var proofWait = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                proofWait.CancelAfter(TimeSpan.FromSeconds(5));
+                var answer = TwinMessage.Parse(await reader.ReadLineAsync(proofWait.Token));
+                refused = answer.Word != TwinWord.Proof ? "the line after the challenge was not a PROOF"
+                    : !TwinAuth.Verify(key, serverNonce, join.Instance, answer.Payload) ? "wrong key"
+                    : null;
+            }
             if (refused is not null)
             {
                 await WriteLineAsync(stream, TwinMessage.Format(TwinWord.Refused, refused), ct);
@@ -887,7 +903,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             {
                 var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _kernel.State.Name);
                 if (standby.HoldsShow) Hold(standby.Name, null, linked: true);
-                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.ShowJson(_kernel.State), AirLine());
+                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets), AirLine());
             });
             var welcomed = standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome))
                            && (standby.HoldsShow || (standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) && standby.TryWrite(air)))
@@ -1328,7 +1344,8 @@ public sealed class TwinService : IDisposable, ILinkReport
         var cts = _cts;
         if (cts is null) return;
         _dialling = true;
-        var join = new TwinJoin(Name, Environment.MachineName, Instance, _kernel.State.Twin.Key, TookOver: _phase == TwinPhase.TookOver, Kind: IsFollowerNode ? NodeKinds.Wire(_kernel.Profile) : "standby").ToJson();
+        _dialNonce = TwinAuth.NewNonce();
+        var join = new TwinJoin(Name, Environment.MachineName, Instance, "", TookOver: _phase == TwinPhase.TookOver, Kind: IsFollowerNode ? NodeKinds.Wire(_kernel.Profile) : "standby", Nonce: _dialNonce).ToJson();
         _ = Task.Run(async () =>
         {
             TcpClient? client = null;
@@ -1403,6 +1420,32 @@ public sealed class TwinService : IDisposable, ILinkReport
         var now = Clock();
         switch (msg.Word)
         {
+            case TwinWord.Challenge:
+            {
+                // The main proves the key over this dial's nonce before this desk proves anything —
+                // a main that cannot is a stranger on the port, and gets no proof, no show and no hold.
+                var challenge = TwinChallenge.Parse(msg.Payload);
+                var key = _kernel.State.Twin.Key;
+                if (key.Length == 0)
+                {
+                    // Nothing to prove with: said here, in this desk's own words, not as a "wrong key" from the main.
+                    _phase = TwinPhase.Refused;
+                    _note = "this desk has no key — the main's key goes on the Machine page, TWIN";
+                    Log.Warn("Twin: this desk has no key to prove to the main; the link is closed.");
+                    CloseLink();
+                    break;
+                }
+                if (challenge is null || !TwinAuth.Verify(key, _dialNonce, challenge.Nonce, challenge.Proof))
+                {
+                    _phase = TwinPhase.Refused;
+                    _note = "the main did not prove the key — is its key the same as this desk's?";
+                    Log.Warn($"Twin: the main at {_mainName} could not prove the key; the link is closed.");
+                    CloseLink();
+                    break;
+                }
+                if (!TryWriteToMain(TwinMessage.Format(TwinWord.Proof, TwinAuth.Proof(key, challenge.Nonce, Instance)))) CloseLink();
+                break;
+            }
             case TwinWord.Welcome:
                 _welcome = TwinWelcome.Parse(msg.Payload);
                 if (_welcome is not null && _welcome.Name.Length > 0) _mainName = _welcome.Name;
@@ -1519,7 +1562,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         string air;
         try
         {
-            show = TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(_kernel.State));
+            show = TwinMessage.Format(TwinWord.Show, TwinSync.WireJson(_kernel.State, _kernel.State.Twin.SendSecrets));
             air = AirLine();
         }
         catch (Exception ex)

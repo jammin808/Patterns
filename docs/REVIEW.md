@@ -907,3 +907,28 @@ releases the standby last, a box's answer confirms a switch.*
   stops on `ERR3`; a takeover by itself that refuses on silence and goes ahead on a yes.
 - **Left, and said:** one expected answer per device; the cue stack's late-failure watch does
   not read receipts yet.
+
+## Round 44 review — what travels, and how the key is known
+
+*The key proved over nonces on both sides; the machine's own sections off the wire; the show's
+credentials sent by choice; the drill written down.*
+
+### 44.1 — the handshake
+
+- **Done.** JOIN with a nonce and no key, CHALLENGE with the main's proof, PROOF with the
+  joiner's; a main that cannot prove the key gets no proof and no standby. `docs/PLAN.md` §62.1.
+- **What it bought:** a line read off the wire holds no key, and a rogue main is found out
+  before it can hand a standby a show. Both sides prove; the triage asked for one.
+
+### 44.2 — the wire's scope
+
+- **Done.** Mirrored sections only; credentials sent by default and blanked by choice; a landing
+  keeps the standby's own where the wire is blank. `docs/PLAN.md` §62.2.
+- **The honest limit:** the credentials the standby needs to run the show are the ones that
+  travel; the switch exists for a link that is not on the show's own network, and encryption is
+  named as the next thing, not claimed.
+
+### 44.3 — the drill
+
+- **Written.** `docs/DRILL.md`, eighteen scenarios, to be run in a real room and filmed. `docs/PLAN.md` §62.3.
+- **Not done here:** it cannot be. It is the gate the next release in a real room passes or does not.

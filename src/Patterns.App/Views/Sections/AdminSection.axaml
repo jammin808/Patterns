@@ -418,6 +418,9 @@
     <CheckBox Content="Take over by itself once the main has been silent for five seconds (from another machine: only with a wall switch cue)"
               IsChecked="{Binding State.Twin.AutoTakeOver}"
               ToolTip.Tip="On this machine: a main that has hung is ended first, and the takeover is refused if it cannot be — so it is safe. From another machine a silence cannot tell a dead main from a cut cable, so the standby only takes over by itself when a wall switch cue makes it the desk the room shows; without one, TAKE OVER stays your press" />
+    <CheckBox Content="Send the show's credentials to the standby (a projector's password, the weather key)"
+              IsChecked="{Binding State.Twin.SendSecrets}"
+              ToolTip.Tip="On: the standby runs the show with nothing typed twice. Off, for a link on a network that is not the show's own: they are blanked on the wire and the standby keeps the ones typed on it. The twin's key is never sent either way — each side proves it over the other's nonce — and the admin passcode, the management token and the remote's ports never travel" />
     <CheckBox Content="Run a standby of this desk as a second process on this machine"
               IsChecked="{Binding State.Twin.LocalStandby}"
               ToolTip.Tip="A main only: the same build started in its own folder beside this one (twin-standby — its own settings, logs and crash domain), dialled to this desk, taking over by itself when this desk stops beating, started again by this desk when it exits. Its outputs are held closed until it takes over; TAKE BACK puts the show back here. A clean exit of this desk ends it — unless it has the show" />
