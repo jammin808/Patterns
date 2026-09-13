@@ -720,7 +720,12 @@ public partial class MainWindow : Window
     private static PipelineViewport PreviewViewport(MainViewModel vm)
         => PipelineViewport.Preview with { ReferenceSize = vm.SelectedTargetSize, FitReference = true };
 
-    private void OnPreviewKeyUp(object? sender, KeyEventArgs e) => _down.Remove(e.Key);
+    private void OnPreviewKeyUp(object? sender, KeyEventArgs e)
+    {
+        _down.Remove(e.Key);
+        // An arcade node's pads: the key up is the button up.
+        if (DataContext is MainViewModel vm && (vm.IsArcadeNode || vm.IsArcadePage) && ArcadeKeys.Map(e.Key) is { } pad) vm.Services.Arcade.Key(pad.Player, pad.Button, false);
+    }
 
     /// <summary>
     /// One physical press, one action: Avalonia reports no repeat flag, so a held key arrives
@@ -782,6 +787,24 @@ public partial class MainWindow : Window
         }
 
         var typing = FocusManager?.GetFocusedElement() is TextBox or NumericUpDown or ComboBox or AutoCompleteBox;
+
+        // An arcade node's window is the game, and a desk's Arcade page is while it shows: the pads'
+        // keys go to the engine and nowhere else; a number picks a game for the house to show.
+        if ((vm.IsArcadeNode || vm.IsArcadePage) && !typing && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift)
+        {
+            if (ArcadeKeys.Map(e.Key) is { } pad)
+            {
+                e.Handled = true;
+                vm.Services.Arcade.Key(pad.Player, pad.Button, true);
+                return;
+            }
+            if (e.Key is >= Key.D1 and <= Key.D3)
+            {
+                e.Handled = true;
+                vm.Services.Arcade.PickGame(e.Key - Key.D1 + 1);
+                return;
+            }
+        }
 
         // The caller's keys, only on the Run surface and never in a text box: Enter is GO on
         // the caller's stack (the gate refuses it unarmed), ↑ ↓ move standby without touching

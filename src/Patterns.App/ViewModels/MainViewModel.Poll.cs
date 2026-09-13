@@ -173,6 +173,7 @@ public sealed partial class MainViewModel
         _services.Twin.Poll(); // the marker a standby on this machine leaves when it takes the show
         PollNodes();           // the beacons onto the Nodes page and the rail's foot
         PollStage();           // the stage timer's line and the receipts
+        PollArcade();          // the arcade node's words, its picture's status and its board
         var twin = _services.Twin.HealthWords;
         if (twin.Length > 0) watch = watch.Length > 0 ? twin + " · " + watch : twin;
         var missing = _services.HotPlug.HealthWords;   // a screen without its display leads the line: the room is short a picture

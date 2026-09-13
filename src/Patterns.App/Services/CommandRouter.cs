@@ -26,6 +26,12 @@ public sealed class CommandRouter
     {
         try
         {
+            // The arcade's status from a desk is the arcade nodes' — asked on their wires, off the UI thread.
+            if (cmd.Kind == RemoteCommandKind.ArcadeStatus && _services.Profile != NodeKind.Arcade
+                && await Dispatcher.UIThread.InvokeAsync(() => _services.Nodes.Arcades().Count) > 0)
+            {
+                return ControlProtocol.Ok(await _services.Nodes.AskArcadesAsync("ARCADE " + (cmd.Text.Length == 0 ? "STATUS" : cmd.Text)));
+            }
             return await Dispatcher.UIThread.InvokeAsync(() => Execute(cmd, origin ?? new ActionOrigin(OriginKind.Tcp)));
         }
         catch (Exception ex)
@@ -67,6 +73,8 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok(_services.Nodes.StatusJson());
             case RemoteCommandKind.StageStatus:
                 return ControlProtocol.Ok(_services.Stage.StatusJson());
+            case RemoteCommandKind.ArcadeStatus:
+                return ControlProtocol.Ok(_services.Arcade.StatusJson(cmd.Text));
         }
 
         var action = cmd.Action;

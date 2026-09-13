@@ -56,6 +56,7 @@ public sealed class LazyPage : ContentControl
         ["Remote"] = () => Scroll(new WebSection()),
         ["Interactive"] = () => Scroll(new InteractiveSection()),
         ["Nodes"] = () => Scroll(new NodesSection()),
+        ["Arcade"] = () => new ArcadeSection(),               // the game fills the page; nothing scrolls
         ["Machine"] = () => Scroll(new AdminSection()),
         ["Help"] = () => Scroll(new HelpSection()),
     };

@@ -5085,7 +5085,7 @@ without the desk; everything else is the nodes.
 | Round | What lands | Status |
 | --- | --- | --- |
 | A | The node kernel; `--node caller` (the Show pages alone, cues planned at home, offered as a diff at the venue, in step during the show over the twin's link with a third role, never holding outputs); the stage timer and messages as pages the desk serves (`/stage`, the timer's verbs and segments from the running order, messages with a receipt); the NODES rail item and page. | **built — §53** |
-| B | `--node arcade`: a fixed-step, interpolated, deterministic Skia engine; keyboard, XInput pads, Companion keys and a phone pad; Pong, Snake, Breakout; attract mode and a leaderboard; NDI or the ring to the wall; `ARCADE …` verbs and cue actions. | assessed |
+| B | `--node arcade`: a fixed-step, interpolated, deterministic Skia engine; keyboard, XInput pads, Companion keys and a phone pad; Pong, Snake, Breakout; attract mode and a leaderboard; NDI or the ring to the wall; `ARCADE …` verbs and cue actions. | **built — §54** |
 | C | Audience play on the hub PC: `/play` with a room code and QR, polls, quizzes with speed points, word clouds, results on the wall and in the desk's overlays, a message back to each phone, moderation with the assistant, Draughts on the wall, the path the room votes. | assessed |
 | D | Rig day gamified, opt-in: the alignment game on the mesh against the calibration's targets, the show-ready score on the health line, Blend Quest across a rig's joins. | assessed |
 
@@ -5237,3 +5237,113 @@ both suites green.
 
 Round B, the arcade node — §52's second row: the engine, three games, the pad, attract mode, the
 leaderboard, the picture to the wall, `ARCADE` verbs and cue actions.
+
+## 54. Round 36 — Round B of the nodes: the arcade
+
+§52's second row: `--node arcade` — the engine, three games, the pads, the attract mode, the
+board, the picture to the wall, the verbs. The order of worth put it second because it is the
+technicians' rig-day toy and the base audience play (round C) stands on: the engine, the pads and
+the picture lane are the same there.
+
+### 54.1 The engine — what game engines know, kept small
+
+`Patterns.Core.Arcade` is pure and desk-free: `ArcadeEngine`, the three games as state machines,
+the pads, the board. Five rules, each a line of code rather than a framework:
+
+- **A fixed step with an accumulator.** The world advances in exact steps of 1/120 s whatever
+  the frame rate; `Advance(elapsed)` runs the steps the wall time holds, at most eight (a stall
+  drops its debt rather than chasing it), and leaves the remainder as `Alpha`, the frame's place
+  between the last two steps. A hair of slack in the comparison makes 1/60 s two steps, not one
+  and a rounding error.
+- **Interpolated rendering.** Every moving thing keeps its previous position; `Draw(alpha)`
+  lerps — a paddle, a ball, a snake's head sliding from its last cell to its next by the move's
+  progress — so 60 fps over a 120 Hz simulation is smooth, not stepped.
+- **Input at the step.** The pads are read once per step, never per frame, so a dropped frame
+  never drops a press; a tap from the wire is held for twelve steps and released by the loop.
+- **Seeded and recorded.** Every match has a seed (`ArcadeRandom`, xorshift64*) and records each
+  pad's state at the steps it changed; `Replay(game, players, seed, presses, steps)` is the same
+  match — a test proves it, and a bug report is a seed and a recording.
+- **Data first, nothing allocated in a step or a frame.** Arrays of ints and floats, a ring
+  buffer for a snake's body, the one `PaintCache` mutated per draw, text through the desk's own
+  font path; the games live in 1920×1080 units and the engine fits that to the size it renders.
+
+The phases are the arcade's: **Idle** (the title card, the catalogue by number), **Attract** (the
+house plays itself, PRESS START blinks, the board shows the best five), **Joining** (START took
+a seat; three seconds while other pads join), **Playing**, **Paused** (START during a match),
+**Over** (six seconds of the words, then the attract mode again). Seats the pads do not own are
+the house's — the game plays them — so one player has an opponent and nobody at all is the demo.
+Difficulty moves by itself from each game's hint: the house winning big makes the next match a
+tenth easier, the people winning big a tenth harder, within 0.1–1.
+
+### 54.2 The games
+
+**Pong** — paddles at 1000 u/s, a ball at 650–1200 u/s by difficulty that quickens 4 % per hit to
+1.6× and leaves at the angle it was struck (the offset on the paddle, up to ±57°), first to
+seven; the house tracks the ball with an error set at each serve that shrinks with difficulty,
+and drifts home when the ball is going away. **Snake** — a 48×27 board (40-unit cells, exactly
+the stage), up to four snakes by colour, three pieces of food, growth by three, a wall, a body
+or another snake ends it, two heads into one cell end both; alone it is the classic, with rivals
+the last one moving wins or the longest score at two minutes; the house steers by the safe turn
+that gets nearest the nearest food. **Breakout** — fourteen by six bricks worth 60 down to 10 by
+row, a paddle that narrows and a ball that quickens 8 % with each level, three lives, A to
+serve; the house keeps the paddle under the ball.
+
+### 54.3 The node, the pads, the picture
+
+`ArcadeService` (App) is the loop: a thread paced to the picture's rate (60 by default) that
+advances the engine by wall time, merges the pads, renders into one of three CPU buffers — the
+page draws the newest whole one while the next is drawn, so neither waits — and hands the frame
+to NDI when asked. On an arcade node it runs from boot; on a desk from the first verb. The Arcade
+page (`ArcadeSection`, `ArcadeSurface` drawing the newest frame through the Skia lease at the
+display's rate) is the node's home page and a page of the desk's Setup group.
+
+Input, cheapest to richest: the **keyboard** on the window as four pads (P1 the arrows, Space,
+Enter; P2 WASD, Left Shift, Q; P3 IJKL, U, H; P4 the numpad; 1 2 3 pick a game for the house to
+show) — routed in the window's tunnel handler on an arcade node, and on a desk only while the
+Arcade page shows, never from a text box; **XInput** on Windows through one P/Invoke
+(`xinput1_4.dll`), four pads polled at the step, the left stick folded into the d-pad, a pad that
+is not there asked again once a second; a **Stream Deck** or any wire client through `ARCADE KEY
+<pad> <button> [DOWN|UP|TAP]`; and the **phone pad** at `/pad` on the node — a d-pad, A, B and
+START for a chosen player, each press and release a POST to `/api/arcade/key`, the words polled
+from `/api/arcade`. The picture: the window, and **NDI** as `PATTERNS ARCADE (<machine>)`
+(`NdiFrameSender`, Core — a sender fed frames by its caller, where `NdiSender` renders the show
+from the bus) when `ARCADE NDI ON`; the desk puts it on a screen or a canvas like any NDI source,
+at the size `ARCADE SIZE` gives it (3840×1080 for a joined canvas). The board (`Leaderboard`,
+Core) is `arcade-scores.json` in the node's folder: fifty per game, the best five on the attract
+screen, `ARCADE NAME ABC` signs the last score.
+
+### 54.4 The verbs, and where they run
+
+`ARCADE START <game> [players]` (or `ARCADE pong 2`), `STOP`, `PAUSE`, `RESUME`, `ATTRACT
+[game]`, `KEY`, `SIZE WxH`, `NDI ON|OFF`, `NAME <initials>`, and the queries `STATUS`, `GAMES`,
+`SCORES [game]` — on the wire, as cue actions (`ArcadeStart` … `ArcadeName`), from the assistant.
+`ShowActions.RunArcade` decides where: an arcade node runs them; a desk sends them on the wires
+of the arcade nodes it hears (`NodesService.SendToArcades` — fire and forget, a refusal comes
+back as a status line; `AskArcadesAsync` for the queries, each node's answer in one JSON list),
+and with no arcade heard runs the game itself — the show machine on a rig day. The desk's
+`/api/arcade` follows the same rule. The node's card on the desk's Nodes page carries its wire
+(`NodeCard.WirePort` from the beacon).
+
+### 54.5 Tests
+
+Core `ArcadeTests`: the catalogue by id, title and number; the accumulator's steps, cap and
+alpha; a match replayed from its seed and presses is the same match; Pong scores and the house
+wins at seven, the difficulty moving after; START takes a seat, counts down, joins a second pad,
+pauses and resumes; Snake grows and ends on a wall; Breakout serves on A and loses a life; the
+house clears bricks in the attract mode; the board's fifty, ranks, initials and JSON; every
+phase drawn at four sizes. App `ArcadeAppTests`: an arcade node boots on its Arcade page with
+the loop running, takes a match from the wire, a size, a tapped key released by the loop, the
+status, games and scores, the keyboard, the phone pad's page and its POST, pause and resume,
+the house, NDI on without a runtime as a status, the title card; a desk with no arcade heard
+runs the game itself, and hearing one sends it the verbs, asks it for status, and a cue's
+`ArcadeStop` reaches it. Counts at the end of the round: Core 1,065, App 549 — both suites green
+(one timed cue-delay test failed once while a Release build ran alongside, and passed alone and
+in the full run).
+
+### 54.6 Left for later
+
+Sound (the node's own device, or the desk's stinger bus when a cue says so) — the games are
+silent this round. The frame ring lane on the same machine (the desk reading `ring:<node>` as a
+source) — NDI covers the same-machine case with the runtime present. The racer, the duck shoot,
+Draughts and Space Invaders. Companion presets for the pad. The WebSocket pad (the POST per press
+is 5–20 ms on a LAN, fine for Pong at a party).

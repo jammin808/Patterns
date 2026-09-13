@@ -920,6 +920,22 @@ public static class HelpTopics
             new[] { "Nodes", "Machine" },
             new[] { "node", "nodes", "caller node", "show caller", "caller", "plan at home", "cue planning", "external control", "control node", "beacon", "discover", "discovery", "network", "another machine", "second process", "link", "linked", "offer plan", "apply plan", "--node" }),
 
+        new HelpTopic("arcade", HelpGroup.Control,
+            "The arcade node: Pong, Snake and Breakout out front, driven from the desk",
+            "The Arcade page of a Patterns started with --node arcade; from the desk, ARCADE verbs on the wire, in cues and from the Nodes page's card.",
+            HelpBodies.Arcade,
+            new[]
+            {
+                "On the hub PC: Patterns.exe --node arcade. Its window is the game; its beacon puts an arcade card on the desk's Nodes page.",
+                "Pick a game on the page (or a number on the keyboard), or from the desk: ARCADE START pong 2 — the game and how many people; the rest is the house.",
+                "Players: the keyboard, XInput pads, a Stream Deck (ARCADE KEY 1 UP TAP), or phones on the node's /pad page.",
+                "To the wall: ARCADE NDI ON on the node, then the desk puts the NDI source 'PATTERNS ARCADE (…)' on a screen or a canvas like any other; ARCADE SIZE 3840x1080 shapes it for a joined canvas.",
+                "Between matches the house plays itself and the board shows; ARCADE NAME ABC signs the last score.",
+            },
+            "ARCADE START pong 2",
+            new[] { "Arcade", "Nodes" },
+            new[] { "arcade", "game", "games", "pong", "snake", "breakout", "mini game", "mini games", "attract mode", "leaderboard", "high score", "initials", "pad", "gamepad", "xinput", "controller", "phone pad", "hub", "games hub", "node", "arcade node", "start game", "fixed step", "engine" }),
+
         new HelpTopic("machine", HelpGroup.TheMachine,
             "The Machine page: health at a glance, the GPU, the super-check",
             "ADMIN → Machine before doors and whenever something feels slow: one headline over twelve lit tiles says what needs attention, the cards under it say what to do, the lines show the last three minutes and the day.",

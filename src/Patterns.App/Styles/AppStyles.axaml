@@ -41,6 +41,7 @@
   <Style Selector="TextBlock.h1.neon-assistant"><Setter Property="Foreground" Value="#7CF5C8" /></Style>
   <Style Selector="TextBlock.h1.neon-interactive"><Setter Property="Foreground" Value="#7CF5C8" /></Style>
   <Style Selector="TextBlock.h1.neon-nodes"><Setter Property="Foreground" Value="#5FD0FF" /></Style>
+  <Style Selector="TextBlock.h1.neon-arcade"><Setter Property="Foreground" Value="#E0FF5F" /></Style>
   <Style Selector="TextBlock.h1.neon-help"><Setter Property="Foreground" Value="#C0CBDB" /></Style>
 
   <!-- The navigation rail: seventeen pages fit a 720 px window without wrapping -->
@@ -890,6 +891,11 @@
     <Setter Property="Background" Value="#1A5FD0FF" />
   </Style>
   <Style Selector=":is(UserControl).hue-nodes Border.panel"><Setter Property="BorderBrush" Value="#405FD0FF" /></Style>
+  <Style Selector=":is(UserControl).hue-arcade TextBlock.h2">
+    <Setter Property="Foreground" Value="#E0FF5F" />
+    <Setter Property="Background" Value="#1AE0FF5F" />
+  </Style>
+  <Style Selector=":is(UserControl).hue-arcade Border.panel"><Setter Property="BorderBrush" Value="#40E0FF5F" /></Style>
   <Style Selector=":is(UserControl).hue-machine TextBlock.h2">
     <Setter Property="Foreground" Value="#B8E356" />
     <Setter Property="Background" Value="#1AB8E356" />

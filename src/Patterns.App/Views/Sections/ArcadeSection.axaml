@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:ctl="using:Patterns.App.Views.Controls"
+             x:Class="Patterns.App.Views.Sections.ArcadeSection"
+             Classes="hue-arcade"
+             x:DataType="vm:MainViewModel">
+  <DockPanel Margin="4,8,12,8">
+    <StackPanel DockPanel.Dock="Top" Classes="form">
+      <TextBlock Classes="h1 neon-arcade" Text="Arcade" />
+      <TextBlock Classes="hint tip"
+                 Text="Old-school games for a games hub out front, or a rig day on this machine: the picture below is the game, the keyboard and any XInput pad are the players, phones join at /pad, and ARCADE verbs drive it — from a cue, a Stream Deck key or the assistant. On an arcade node (Patterns.exe --node arcade) this page is the node; on a desk the verbs go to the arcade nodes it hears, and with none heard the game runs here. The house plays between matches; START on a pad takes a seat." />
+
+      <TextBlock Classes="h2" Text="GAME" />
+      <WrapPanel>
+        <Button Classes="chip" Content="PONG" Margin="0,0,8,6" Command="{Binding ArcadeGameCommand}" CommandParameter="pong" ToolTip.Tip="Two paddles, first to seven; one player faces the house" />
+        <Button Classes="chip" Content="SNAKE" Margin="0,0,8,6" Command="{Binding ArcadeGameCommand}" CommandParameter="snake" ToolTip.Tip="Up to four by colour on one board" />
+        <Button Classes="chip" Content="BREAKOUT" Margin="0,0,16,6" Command="{Binding ArcadeGameCommand}" CommandParameter="breakout" ToolTip.Tip="Six rows, three lives" />
+        <Button Classes="mini" Content="START 1P" Margin="0,0,8,6" Command="{Binding ArcadeStartCommand}" CommandParameter="1" ToolTip.Tip="The game in hand for one person; the rest is the house" />
+        <Button Classes="mini" Content="START 2P" Margin="0,0,8,6" Command="{Binding ArcadeStartCommand}" CommandParameter="2" />
+        <Button Classes="mini" Content="PAUSE / RESUME" Margin="0,0,8,6" Command="{Binding ArcadePauseCommand}" />
+        <Button Classes="mini" Content="STOP" Margin="0,0,8,6" Command="{Binding ArcadeStopCommand}" ToolTip.Tip="The title card" />
+      </WrapPanel>
+      <TextBlock Classes="label" Text="{Binding ArcadeWords}" TextWrapping="Wrap" />
+
+      <TextBlock Classes="h2" Text="PICTURE" />
+      <WrapPanel>
+        <CheckBox Content="NDI out" Margin="0,0,12,0" IsChecked="{Binding ArcadeNdi}" VerticalAlignment="Center"
+                  ToolTip.Tip="The game on the network as 'PATTERNS ARCADE (this machine)': the desk puts it on a screen or a canvas like any NDI source" />
+        <ComboBox ItemsSource="{Binding ArcadeSizes}" SelectedItem="{Binding ArcadeSize}" Margin="0,0,12,0" VerticalAlignment="Center" ToolTip.Tip="The picture's size — 3840x1080 for a joined canvas of two projectors" />
+        <TextBlock Classes="label" Text="{Binding ArcadeStatus}" VerticalAlignment="Center" />
+      </WrapPanel>
+
+      <TextBlock Classes="h2" Text="BEST" />
+      <TextBlock Classes="label" Text="{Binding ArcadeBoard}" TextWrapping="Wrap" />
+      <TextBlock Classes="hint tip"
+                 Text="Keys: P1 arrows, Space, Enter is START · P2 W A S D, Left Shift, Q · P3 I J K L, U, H · P4 numpad 8 4 5 6, 0, + · 1 2 3 pick a game · XInput pads on Windows · phones at /pad on this machine's remote port · ARCADE NAME ABC on the wire signs the last score." />
+    </StackPanel>
+    <ctl:ArcadeSurface Margin="0,8,0,0" />
+  </DockPanel>
+</UserControl>

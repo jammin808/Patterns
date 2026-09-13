@@ -1,3 +1,7 @@
+using Avalonia.Threading;
+using System.Text.Json;
+using System.Text;
+using System.Net.Sockets;
 using System.Collections.ObjectModel;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -60,6 +64,77 @@ public sealed class NodesService
     }
 
     /// <summary>NODES on the wire: every card as JSON.</summary>
+    /// <summary>The arcade nodes heard lately, with a wire to speak to.</summary>
+    public IReadOnlyList<NodeCard> Arcades() => Nodes.Where(c => c.Kind == NodeKind.Arcade && c.Fresh && c.WirePort > 0 && c.Address is not null).ToList();
+
+    /// <summary>
+    /// An arcade verb from this desk to every arcade node it hears, on their wires — a cue, a Stream
+    /// Deck key, the assistant. Sent, not awaited: the line is the desk's, a refusal comes back as a
+    /// status line. No arcade heard is a refusal that says what to start.
+    /// </summary>
+    public ActionResult SendToArcades(string line)
+    {
+        var arcades = Arcades();
+        if (arcades.Count == 0) return ActionResult.Refused("No arcade node heard — start Patterns.exe --node arcade on the hub PC, with its Remote page's wire on.");
+        foreach (var card in arcades)
+        {
+            var target = card;
+            _ = Task.Run(async () =>
+            {
+                var reply = await AskAsync(target, line);
+                if (!reply.StartsWith("OK", StringComparison.Ordinal))
+                {
+                    Dispatcher.UIThread.Post(() => _s.Notify($"Arcade {target.Name}: {reply}"));
+                }
+            });
+        }
+        return ActionResult.Done($"{line} → {arcades.Count} arcade node{(arcades.Count == 1 ? "" : "s")}: {string.Join(", ", arcades.Select(a => a.Name))}");
+    }
+
+    /// <summary>ARCADE STATUS / GAMES / SCORES through this desk: each arcade node's answer, as one JSON list.</summary>
+    public async Task<string> AskArcadesAsync(string line)
+    {
+        var arcades = await Dispatcher.UIThread.InvokeAsync(Arcades);
+        var replies = await Task.WhenAll(arcades.Select(a => AskAsync(a, line)));
+        var rows = new List<object>();
+        for (var i = 0; i < arcades.Count; i++)
+        {
+            var reply = replies[i];
+            object? status = null;
+            if (reply.StartsWith("OK ", StringComparison.Ordinal))
+            {
+                try { status = JsonDocument.Parse(reply[3..]).RootElement.Clone(); }
+                catch (JsonException) { }
+            }
+            rows.Add(new { node = arcades[i].Name, instance = arcades[i].Instance, address = arcades[i].Address?.ToString() ?? "", status, reply = status is null ? reply : "" });
+        }
+        return JsonUtil.SerializeCompact(rows);
+    }
+
+    private static async Task<string> AskAsync(NodeCard card, string line)
+    {
+        try
+        {
+            using var client = new TcpClient { NoDelay = true };
+            using var cts = new CancellationTokenSource(1500);
+            await client.ConnectAsync(card.Address!, card.WirePort, cts.Token);
+            var stream = client.GetStream();
+            await stream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"), cts.Token);
+            using var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
+            for (var i = 0; i < 6; i++)
+            {
+                var reply = await reader.ReadLineAsync(cts.Token);
+                if (reply is null) break;
+                if (reply.StartsWith("OK", StringComparison.Ordinal) || reply.StartsWith("ERR", StringComparison.Ordinal)) return reply;
+            }
+            return ControlProtocol.Err("no reply");
+        }
+        catch (Exception ex)
+        {
+            return ControlProtocol.Err($"{card.Name} unreachable — {ex.Message}");
+        }
+    }
+
     public string StatusJson()
         => System.Text.Json.JsonSerializer.Serialize(new
         {

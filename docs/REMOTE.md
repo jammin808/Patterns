@@ -8,7 +8,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   the last), LOOKS, SCREENS (a switch and a padlock per screen, show parts), AUDIO (the audio
   track, break music, VOGs, stingers, tone), LOWER THIRDS (designs and people) and SETUP (the
   health line, the machine, the stream, the main machine's beacon, links to `/run` and
-  `/multiview`, `/timer` and `/stage`); a sticky header names what is on air with its chips and a connection dot, the
+  `/multiview`, `/timer`, `/stage` and `/pad`); a sticky header names what is on air with its chips and a connection dot, the
   tab you were on is remembered, and the page waits on `GET /api/state?since=<rev>` so it
   changes the moment the show does. Works in any browser on the same network.
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
@@ -138,6 +138,15 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `STAGE CLEAR` | Every pending message marked seen |
 | `STAGE FLASH` | As `TIMER FLASH` |
 | `STAGE STATUS` | `OK <json>` — `rev`, `timer` (`phase` idle/running/paused/over, `remaining`, `text`, `colour`, `progress`, `label`, `paused`, `amber`, `red`, `flashUntilUtc`), `segment` (the running order's current cue and the next), `messages` (each `id`, `text`, `channel`, `sentUtc`, `ackUtc`, `flash`, `from`, `seen`) |
+| `ARCADE START <game> [players]` | A match on the arcade — `pong`, `snake` or `breakout` (or its number), for that many people (P1 first; the rest is the house); `ARCADE pong 2` is the same. On a desk the verb goes to the arcade nodes the beacon hears, and with none heard runs the game on the desk's own Arcade page |
+| `ARCADE STOP` / `PAUSE` / `RESUME` | The title card; a match held; on again |
+| `ARCADE ATTRACT [game]` | The house plays itself — the attract screen with the board; START on a pad joins |
+| `ARCADE KEY <pad> <button> [DOWN\|UP\|TAP]` | A pad's key from a Stream Deck or any client: the pad 1–4, UP DOWN LEFT RIGHT A B START; TAP (the default) is held a tenth of a second |
+| `ARCADE SIZE <w>x<h>` | The picture's size — `3840x1080` for a joined canvas of two projectors |
+| `ARCADE NDI ON` / `OFF` | The picture on the network as `PATTERNS ARCADE (<machine>)`; the desk puts it on a screen or a canvas like any NDI source |
+| `ARCADE NAME <initials>` | Signs the last score on the board |
+| `ARCADE STATUS` | `OK <json>` — `phase` (idle, attract, joining, playing, paused, over), `game`, `title`, `seats`, `scores`, `humans`, `winner`, `step`, `seed`, `difficulty`, `words`, `running`, `fps`, `size`, `ndi` (`on`, `name`, `status`, `receivers`), `board` (the best five), `games`. Through a desk that hears arcade nodes: a list, one entry per node with its `status` |
+| `ARCADE GAMES` / `ARCADE SCORES [game]` | The catalogue; the board's best ten for a game |
 
 One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in
 Audio-page order — there is deliberately no per-kind numbering, because two numbering schemes on a
@@ -330,6 +339,7 @@ key or two; the Patterns module (TCP) for the full feedback.
 - `GET /api/cues` → the caller's cue list with notes, summaries, broken reasons and each cue's plan (planned start and length, follow delay, mark).
 - `GET /api/stage?since=<rev>` → the stage payload (`STAGE STATUS`), waiting up to the long-poll's limit for a change past `rev`; the `/stage` and `/timer` pages live on it.
 - `POST /api/stage/ack` with the message id as the body → `{"ok":true}` once; `{"ok":false,"reason":…}` for a message already seen or unknown.
+- `GET /api/arcade` → the arcade's status (`ARCADE STATUS`) — on a desk that hears arcade nodes, their list; `POST /api/arcade/key` with `<pad> <button> DOWN|UP|TAP` as the body → `{"ok":…,"msg":…}`; the phone pad at `/pad` is built on both.
 - `GET /pgm.jpg` → the program as a JPEG thumbnail.
 - `POST /api/cmd` with a command line as the body → `{"ok":true|false,"msg":"…"}`. Cue commands
   (`CUE …`, `STOPALL`) need an `X-Patterns-Client: <anything>` header, so a page from another

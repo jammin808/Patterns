@@ -501,3 +501,37 @@ node kernel, the caller node, the stage timer and messages, the NODES rail — t
   this was to be measured against sit as local projects the build machine could not reach; what
   is built is the professional shape as described. When they are reachable, the comparison is
   the first thing to do.
+
+## Round 36 review — Round B of the nodes: the arcade
+
+*The brief's second row: the arcade node — the engine, the games, the pads, the picture, the verbs.*
+
+### Done
+
+- `Patterns.Core.Arcade`: the engine (a fixed 120 Hz step with an accumulator and a cap,
+  interpolated rendering, input at the step, seeded and recorded matches with a replay, no
+  allocation in a step or a frame), Pong, Snake and Breakout as pure state machines, the pads,
+  the board. `docs/PLAN.md` §54.1–54.2.
+- `ArcadeService`: the loop on its own thread paced to the picture's rate, triple-buffered
+  frames, the pads merged (keyboard, wire, phone, XInput), NDI out through `NdiFrameSender`, the
+  board as a file; `ArcadeSurface` and the Arcade page; `/pad` and `/api/arcade`; the ARCADE verbs
+  and cue actions; a desk that sends them to the arcade nodes it hears and runs them itself with
+  none heard. §54.3–54.4.
+- Help topic "arcade"; REMOTE.md rows; README bullet; `docs/NODES.md` marked.
+
+### Found on the way (fixed)
+
+1. **1/60 s was one step, not two** — the accumulator compared against a float `1/120` that
+   rounds up; a hair of slack in the comparison, and a test that pins two steps per 60 Hz frame.
+2. **A node's card had no wire** — the desk could see an arcade and not speak to it; the beacon's
+   wire port is on the card now.
+
+### Measured, and left
+
+- **Silent games** — no sound this round; the node's own device is the plan (§54.6).
+- **The frame ring lane** — NDI on the same machine costs an encode and a decode the ring would
+  not; the ring source on the desk is a day's work for the day a hub shares the show machine.
+- **The pad over HTTP** — a POST per press and release, 5–20 ms on a LAN; a WebSocket would halve
+  it and was not needed for Pong at a party.
+- **Determinism across machines** — the replay test holds on one build and one machine (float
+  maths, one platform); across CPUs it is expected and not proven this round.

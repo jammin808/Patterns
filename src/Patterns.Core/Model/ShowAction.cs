@@ -305,6 +305,20 @@ public enum ShowActionKind
     StageMessage,
     /// <summary>STAGE CLEAR: the message off the displays.</summary>
     StageClear,
+    /// <summary>
+    /// The arcade node's verbs — run there when this process is the arcade, sent to every arcade node
+    /// the beacon hears when it is the desk. Value carries the words: "pong 2" (the game and its
+    /// players), "1 UP TAP" (a pad's key), "1280x720" (the picture's size), "on" (NDI), initials.
+    /// </summary>
+    ArcadeStart,
+    ArcadeStop,
+    ArcadePause,
+    ArcadeResume,
+    ArcadeAttract,
+    ArcadeKey,
+    ArcadeSize,
+    ArcadeNdi,
+    ArcadeName,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

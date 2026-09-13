@@ -419,6 +419,28 @@ public sealed partial class ControlService : IDisposable
                 var acked = await Dispatcher.UIThread.InvokeAsync(() => _services.Stage.Ack(id));
                 payload = acked ? "{\"ok\":true}" : "{\"ok\":false,\"msg\":\"no such message, or seen already\"}";
             }
+            else if (method == "GET" && (path == "/pad" || path.StartsWith("/pad?")))
+            {
+                payload = PadPage;
+            }
+            else if (method == "GET" && (path == "/api/arcade" || path.StartsWith("/api/arcade?")))
+            {
+                contentType = "application/json";
+                // On the arcade node its own state; on a desk the arcade nodes' — asked on their wires.
+                var forward = _services.Profile != NodeKind.Arcade && await Dispatcher.UIThread.InvokeAsync(() => _services.Nodes.Arcades().Count) > 0;
+                payload = forward
+                    ? await _services.Nodes.AskArcadesAsync("ARCADE STATUS")
+                    : await Dispatcher.UIThread.InvokeAsync(() => _services.Arcade.StatusJson(QueryValue(path, "what")));
+            }
+            else if (method == "POST" && path == "/api/arcade/key")
+            {
+                // "<player> <button> DOWN|UP|TAP" from the phone pad: the same verb the wire runs.
+                contentType = "application/json";
+                var words = body.Trim();
+                var padOrigin = new ActionOrigin(OriginKind.Http, "pad", client.Client.RemoteEndPoint?.ToString() ?? "");
+                var result = await Dispatcher.UIThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.ArcadeKey, "", words), padOrigin));
+                payload = JsonUtil.SerializeCompact(new { ok = result.Ok, msg = result.Message });
+            }
             else if (method == "GET" && path == "/admin")
             {
                 payload = AdminPage;

@@ -240,6 +240,7 @@
               <TabItem Header="Stream"><ctl:LazyPage Page="Stream" /></TabItem>
               <TabItem Header="Remote"><ctl:LazyPage Page="Remote" /></TabItem>
               <TabItem Header="Interactive"><ctl:LazyPage Page="Interactive" /></TabItem>
+              <TabItem Header="Arcade"><ctl:LazyPage Page="Arcade" /></TabItem>
               <TabItem Header="Nodes"><ctl:LazyPage Page="Nodes" /></TabItem>
               <TabItem Header="Machine"><ctl:LazyPage Page="Machine" /></TabItem>
               <TabItem Header="Help"><ctl:LazyPage Page="Help" /></TabItem>

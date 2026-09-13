@@ -55,7 +55,7 @@ public static class NodeKinds
     {
         NodeKind.Caller => new[] { "Run", "Cues", "Countdown", "Nodes", "Machine", "Help" },
         NodeKind.Timer => new[] { "Countdown", "Nodes", "Machine", "Help" },
-        NodeKind.Arcade => new[] { "Nodes", "Machine", "Help" },
+        NodeKind.Arcade => new[] { "Arcade", "Nodes", "Machine", "Help" },
         _ => null,
     };
 }
@@ -71,7 +71,7 @@ public static class NodeKinds
 /// <param name="HttpPort">Its pages; 0 when none.</param>
 /// <param name="Age">Since it was last heard.</param>
 /// <param name="Live">Its outputs are open.</param>
-public sealed record NodeCard(string Instance, NodeKind Kind, string Name, IPAddress? Address, string Show, string Words, int LinkPort, int HttpPort, TimeSpan Age, bool Live)
+public sealed record NodeCard(string Instance, NodeKind Kind, string Name, IPAddress? Address, string Show, string Words, int LinkPort, int HttpPort, TimeSpan Age, bool Live, int WirePort = 0)
 {
     /// <summary>Heard within the last few beats.</summary>
     public bool Fresh => Age < NodeRegistry.StaleAfter;
@@ -107,7 +107,7 @@ public static class NodeRegistry
     public static readonly TimeSpan ForgottenAfter = TimeSpan.FromMinutes(2);
 
     public static NodeCard Card(Beacon beacon, IPAddress? from, DateTime heardUtc, DateTime utcNow)
-        => new(beacon.Instance, NodeKinds.Parse(beacon.Kind), beacon.Machine, from, beacon.Show, beacon.Health, beacon.Link, beacon.Http, utcNow - heardUtc, beacon.Live);
+        => new(beacon.Instance, NodeKinds.Parse(beacon.Kind), beacon.Machine, from, beacon.Show, beacon.Health, beacon.Link, beacon.Http, utcNow - heardUtc, beacon.Live, beacon.Wire);
 
     /// <summary>The cards in rail order: desks first, then callers, arcades, timers; each kind by name.</summary>
     public static IReadOnlyList<NodeCard> Order(IEnumerable<NodeCard> cards)

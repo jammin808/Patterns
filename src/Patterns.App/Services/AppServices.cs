@@ -83,6 +83,9 @@ public sealed class AppServices
     /// <summary>Every other Patterns heard on the beacon — desks, callers, arcades, timers — and what is linked to this one.</summary>
     public NodesService Nodes { get; }
 
+    /// <summary>The arcade: the engine's loop, the pads, the picture to NDI, the board — run here on an arcade node; a desk sends the verbs to the nodes it hears.</summary>
+    public ArcadeService Arcade { get; }
+
     /// <summary>The stage timer and the messages to stage, on the countdown's clock; the stage and timer pages read it.</summary>
     public StageService Stage { get; }
 
@@ -444,6 +447,7 @@ public sealed class AppServices
         ShowLock = new ShowLockService(this);
         Calibration = new CalibrationService(this);
         Nodes = new NodesService(this);
+        Arcade = new ArcadeService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -532,6 +536,7 @@ public sealed class AppServices
         };
         // A node never opens an output: the hold the window manager and OUTPUTS ON both honour is on from the first second.
         if (!IsDesk) OutputsHeldBy = NodeKinds.HoldWords(Profile);
+        if (Profile == NodeKind.Arcade) Arcade.Start();          // the game is the node's window from its first frame
         Screens.Refresh(); // planned screens exist before any display is attached
         Startup.Mark(StartupBudget.Services);
         // The desk's first frame is the budget's last mark; a pipeline tells it once.
@@ -1399,6 +1404,7 @@ public sealed class AppServices
             ShowLock.Dispose();   // everything the lock changed goes back before the desk is gone
             Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
             Twin.Dispose();
+            Arcade.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();
             WebIn.Dispose();

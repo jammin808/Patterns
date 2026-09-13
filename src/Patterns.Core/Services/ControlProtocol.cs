@@ -31,6 +31,8 @@ public enum RemoteCommandKind
     NodesStatus,
     /// <summary>STAGE STATUS — the stage timer and the messages with their receipts, as JSON.</summary>
     StageStatus,
+    /// <summary>ARCADE STATUS / GAMES / SCORES: the arcade node's state, its catalogue, its board — from the node itself, or through the desk from the nodes it hears.</summary>
+    ArcadeStatus,
 }
 
 /// <summary>
@@ -150,6 +152,8 @@ public static class ControlProtocol
         => Act(kind, number.ToString(System.Globalization.CultureInfo.InvariantCulture), value);
 
     private static RemoteCommand Query(RemoteCommandKind kind, string text = "") => new(kind, ShowAction.None, text);
+
+    private static bool ArcadeGameWord(string word) => word is "PONG" or "SNAKE" or "BREAKOUT" or "1" or "2" or "3";
 
     private static RemoteCommand Unknown(string line) => Query(RemoteCommandKind.Unknown, line);
 
@@ -750,6 +754,35 @@ public static class ControlProtocol
             }
 
             // The nodes: every other Patterns on the network, as the Nodes page lists them.
+            // The arcade: a game started for its players, stopped, paused, the house playing itself, a
+            // pad's key from a Stream Deck or a phone, the picture's size and its NDI, initials for the
+            // board, and what it is doing. Run on an arcade node; the desk sends them to the arcade nodes it hears.
+            case "ARCADE":
+            case "GAME":
+            {
+                var sp = arg.IndexOf(' ');
+                var sub = (sp < 0 ? arg : arg[..sp]).ToUpperInvariant();
+                var tail = sp < 0 ? "" : arg[(sp + 1)..].Trim();
+                switch (sub)
+                {
+                    case "": case "STATUS": return Query(RemoteCommandKind.ArcadeStatus);
+                    case "GAMES": case "LIST": return Query(RemoteCommandKind.ArcadeStatus, "games");
+                    case "SCORES": case "BOARD": case "LEADERBOARD": return Query(RemoteCommandKind.ArcadeStatus, "scores " + tail);
+                    case "START": case "PLAY": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.ArcadeStart, "", tail);
+                    case "STOP": case "OFF": case "END": return Act(ShowActionKind.ArcadeStop);
+                    case "PAUSE": case "HOLD": return Act(ShowActionKind.ArcadePause);
+                    case "RESUME": case "CONTINUE": case "UNPAUSE": return Act(ShowActionKind.ArcadeResume);
+                    case "ATTRACT": case "DEMO": case "HOUSE": return Act(ShowActionKind.ArcadeAttract, "", tail);
+                    case "KEY": case "PAD": case "PRESS": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.ArcadeKey, "", tail);
+                    case "SIZE": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.ArcadeSize, "", tail);
+                    case "NDI": return Act(ShowActionKind.ArcadeNdi, "", tail.Length == 0 ? "on" : tail);
+                    case "NAME": case "INITIALS": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.ArcadeName, "", tail);
+                    default:
+                        // "ARCADE pong 2": the game's own name starts it.
+                        return ArcadeGameWord(sub) ? Act(ShowActionKind.ArcadeStart, "", arg.Trim()) : Unknown(s);
+                }
+            }
+
             case "NODES":
             case "NODE":
                 return arg.ToUpperInvariant() switch

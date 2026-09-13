@@ -72,6 +72,7 @@ public static class Shell
         ("Stream", ShellGroup.Setup, "#FF5C7A"),
         ("Remote", ShellGroup.Setup, "#35E0D0"),
         ("Interactive", ShellGroup.Setup, "#7CF5C8"),
+        ("Arcade", ShellGroup.Setup, "#E0FF5F"),
         ("Nodes", ShellGroup.Setup, "#5FD0FF"),
         ("Machine", ShellGroup.Admin, "#B8E356"),
         ("Help", ShellGroup.Admin, "#C0CBDB"));
