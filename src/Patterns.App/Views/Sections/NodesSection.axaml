@@ -5,7 +5,7 @@
              xmlns:app="using:Patterns.App.Services"
              x:Class="Patterns.App.Views.Sections.NodesSection"
              Classes="hue-nodes"
-             x:DataType="vm:MainViewModel">
+             x:DataType="vm:INodesPage">
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-nodes" Text="Nodes" />
     <TextBlock Classes="hint tip"
@@ -23,7 +23,7 @@
       <TextBlock Classes="label" Text="{Binding PlanWords}" VerticalAlignment="Center" />
     </StackPanel>
 
-    <ItemsControl ItemsSource="{Binding Services.Twin.Plans}" IsVisible="{Binding IsDesk}">
+    <ItemsControl ItemsSource="{Binding Plans}" IsVisible="{Binding IsDesk}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
       </ItemsControl.ItemsPanel>
@@ -37,10 +37,10 @@
                 <TextBlock Classes="label" Text="{Binding Words}" TextWrapping="Wrap" />
               </StackPanel>
               <Button Grid.Column="1" Classes="chip" Content="Apply" Margin="8,0,0,0" VerticalAlignment="Center"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyPlanCommand}" CommandParameter="{Binding}"
+                      Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).ApplyPlanCommand}" CommandParameter="{Binding}"
                       ToolTip.Tip="The plan's stacks onto this show — the show as it was is kept under EARLIER VERSIONS first" />
               <Button Grid.Column="2" Classes="mini" Content="✕" Margin="8,0,0,0" VerticalAlignment="Center"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DismissPlanCommand}" CommandParameter="{Binding}" ToolTip.Tip="Set the plan aside" />
+                      Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).DismissPlanCommand}" CommandParameter="{Binding}" ToolTip.Tip="Set the plan aside" />
             </Grid>
           </Border>
         </DataTemplate>
@@ -49,7 +49,7 @@
 
     <TextBlock Classes="h2" Text="ON THE NETWORK" />
     <TextBlock Classes="hint" Text="{Binding NodesLine}" TextWrapping="Wrap" />
-    <ItemsControl ItemsSource="{Binding Services.Nodes.Nodes}">
+    <ItemsControl ItemsSource="{Binding Nodes}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
       </ItemsControl.ItemsPanel>
@@ -62,11 +62,11 @@
                 <TextBlock Classes="label" Text="{Binding Line}" TextWrapping="Wrap" />
               </StackPanel>
               <Button Grid.Column="1" Classes="chip" Content="Link" Margin="8,0,0,0" VerticalAlignment="Center"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LinkNodeCommand}" CommandParameter="{Binding}"
-                      IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).IsCallerNode}"
+                      Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).LinkNodeCommand}" CommandParameter="{Binding}"
+                      IsVisible="{Binding $parent[UserControl].((vm:INodesPage)DataContext).IsCallerNode}"
                       ToolTip.Tip="This caller follows that desk: its show lands here, every edit as it lands, and GO from here goes there" />
               <Button Grid.Column="2" Classes="chip" Content="Open pages" Margin="8,0,0,0" VerticalAlignment="Center"
-                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).OpenNodePagesCommand}" CommandParameter="{Binding}"
+                      Command="{Binding $parent[UserControl].((vm:INodesPage)DataContext).OpenNodePagesCommand}" CommandParameter="{Binding}"
                       IsVisible="{Binding PagesUrl, Converter={StaticResource NotEmpty}}"
                       ToolTip.Tip="Its phone remote, caller's page, stage timer — in the browser" />
             </Grid>

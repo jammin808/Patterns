@@ -28,7 +28,7 @@ public sealed class ArcadeSurface : Control
         _timer.Tick += (_, _) => InvalidateVisual();
     }
 
-    private ArcadeService? Service => (DataContext as MainViewModel)?.Services.Arcade;
+    private ArcadeService? Service => (DataContext as IArcadePage)?.Arcade;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {

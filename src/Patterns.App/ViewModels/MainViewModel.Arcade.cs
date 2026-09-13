@@ -11,6 +11,9 @@ public sealed partial class MainViewModel
 
     public bool IsArcadeNode => _services.Profile == NodeKind.Arcade;
 
+    /// <summary>The arcade the page draws and the keys drive — the desk's.</summary>
+    public ArcadeService Arcade => _services.Arcade;
+
     /// <summary>The Arcade page is the one showing — on a desk, the keys are the pads only then.</summary>
     public bool IsArcadePage => SelectedPageIndex == Shell.IndexOf("Arcade");
 

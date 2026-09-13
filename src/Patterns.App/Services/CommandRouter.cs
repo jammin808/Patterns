@@ -12,7 +12,7 @@ namespace Patterns.App.Services;
 /// reply, answers the handshakes and queries itself, and builds the state JSON remotes display.
 /// Needs no window.
 /// </summary>
-public sealed class CommandRouter
+public sealed class CommandRouter : IRouter
 {
     private readonly AppServices _services;
 

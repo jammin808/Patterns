@@ -47,6 +47,27 @@ public sealed class NoLink : ILinkReport
     public int CallerCount => 0;
 }
 
+/// <summary>The action layer as a capability: every verb of the show's vocabulary, run and answered. The desk's is <see cref="ShowActions"/>; a node's is <see cref="NodeActions"/>, which runs its own kinds and refuses the desk's.</summary>
+public interface IActionLayer
+{
+    ActionResult Execute(ShowAction action, ActionOrigin origin);
+}
+
+/// <summary>The wire's dispatcher as a capability: a command in, the protocol's reply out. The desk's is <see cref="CommandRouter"/>; a node's is <see cref="NodeRouter"/>.</summary>
+public interface IRouter
+{
+    /// <summary>A revision the tablet long-polls on: bumped by the control service on every push-worthy change.</summary>
+    Func<long>? Rev { get; set; }
+
+    Task<string> ExecuteAsync(RemoteCommand cmd, ActionOrigin? origin = null);
+
+    string StateJson();
+
+    Task<string> StateJsonAsync();
+
+    Task<string> CueListJsonAsync();
+}
+
 /// <summary>
 /// What the twin asks of the desk it runs in: the action layer (a caller's verbs, the wall-switch
 /// cue), the edit scopes, the cue runtime for the live word, the outputs to hold closed and the
@@ -54,7 +75,7 @@ public sealed class NoLink : ILinkReport
 /// </summary>
 public interface ITwinHost
 {
-    ShowActions Actions { get; }
+    IActionLayer Actions { get; }
     string AirLabel { get; }
     CueStackService CueStack { get; }
     CueRuntime Cues { get; }
@@ -77,19 +98,22 @@ public interface ITwinHost
 /// </summary>
 public interface IWireHost
 {
-    ShowActions Actions { get; }
+    IActionLayer Actions { get; }
     ShowState AirState { get; }
-    CueStackService CueStack { get; }
-    InstallService Install { get; }
-    ManagementService Management { get; }
-    UpdateService Updates { get; }
+    /// <summary>The running order — null on a node, which has none.</summary>
+    CueStackService? CueStack { get; }
+    /// <summary>The desk's install, management and updates, whose status the admin page shows — null on a node.</summary>
+    InstallService? Install { get; }
+    ManagementService? Management { get; }
+    UpdateService? Updates { get; }
     OscService? Osc { get; }
     PlayService Play { get; }
-    StageService Stage { get; }
+    /// <summary>The stage timer — null on a node that has none.</summary>
+    StageService? Stage { get; }
     VideoReading? VideoOnAir();
     event Action? RuntimeChanged;
     event Action? SnapshotPublished;
-    CommandRouter NewRouter();
+    IRouter NewRouter();
 }
 
 /// <summary>What the stage timer asks of the desk: the air to read and edit, the running order, the status strip.</summary>

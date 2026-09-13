@@ -14,6 +14,12 @@ public sealed partial class MainViewModel
 
     public bool IsDesk => _services.IsDesk;
 
+    /// <summary>Every other Patterns heard on the beacon, as cards.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<NodeCard> Nodes => _services.Nodes.Nodes;
+
+    /// <summary>The plans callers have offered this desk.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<TwinService.PlanOffer> Plans => _services.Twin.Plans;
+
     public bool IsCallerNode => _services.Profile == NodeKind.Caller;
 
     public string NodesWord => _services.Nodes.RailWord;

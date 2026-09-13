@@ -15,21 +15,8 @@ public sealed partial class MainViewModel
 
     public string PlayJoinUrl => _services.Play.JoinUrl;
 
-    /// <summary>"ABCD · 12 joined · open: quiz 'Which hall?' — 8 answers · 2 waiting for you".</summary>
-    public string PlayWords
-    {
-        get
-        {
-            var room = _services.Play.Room;
-            var q = room.Current;
-            var waiting = room.Waiting().Count;
-            var parts = new List<string> { $"{room.PlayerCount} joined" };
-            parts.Add(q is null ? "no question yet" : $"{q.State.ToString().ToLowerInvariant()}: {q.KindWord} '{q.Text}' — {q.AnswerCount} answer{(q.AnswerCount == 1 ? "" : "s")}");
-            if (waiting > 0) parts.Add($"{waiting} waiting for you");
-            parts.Add($"wall: {_services.Play.Wall.ToString().ToLowerInvariant()}");
-            return string.Join(" · ", parts);
-        }
-    }
+    /// <summary>"12 joined · open: quiz 'Which hall?' — 8 answers · 2 waiting for you · wall: results".</summary>
+    public string PlayWords => _services.Play.Words;
 
     public string PlayQuestionLine
     {

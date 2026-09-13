@@ -45,6 +45,24 @@ public sealed class PlayService : IDisposable
     /// <summary>Whether the queue's waiting items are shown to the desk's assistant before the host.</summary>
     public bool AskAssistant { get; set; } = true;
     public string Code { get { lock (_gate) return Room.Code; } }
+
+    /// <summary>"12 joined · open: quiz 'Which hall?' — 8 answers · 2 waiting for you · wall: results" — the room in one line, for any page that shows it.</summary>
+    public string Words
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var q = Room.Current;
+                var waiting = Room.Waiting().Count;
+                var parts = new List<string> { $"{Room.PlayerCount} joined" };
+                parts.Add(q is null ? "no question yet" : $"{q.State.ToString().ToLowerInvariant()}: {q.KindWord} '{q.Text}' — {q.AnswerCount} answer{(q.AnswerCount == 1 ? "" : "s")}");
+                if (waiting > 0) parts.Add($"{waiting} waiting for you");
+                parts.Add($"wall: {Wall.ToString().ToLowerInvariant()}");
+                return string.Join(" · ", parts);
+            }
+        }
+    }
     public long Rev { get { lock (_gate) return Room.Rev + _wallRev; } }
     /// <summary>The budgets the room and its socket keep — hard numbers; the player cap follows the Remote page's setting.</summary>
     public AudienceBudget Budget { get; set; } = new();

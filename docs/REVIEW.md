@@ -758,3 +758,17 @@ frozen, the node kernel built. This review grows as each lands.*
   never do. The desk gets the chip; the wall gets nothing it did not ask for.
 - **Left:** a sound on the desk for the moment (the stinger voices are there); the multiview
   could carry the chip, which needs a runtime word on the snapshot like the review's.
+
+### 40.3 — the arcade node from the kernel alone
+
+- **Done.** `NodeHost`, `NodeActions`, `NodeRouter`, `NodeViewModel`, `NodeWindow`; `IActionLayer`
+  and `IRouter`; the Arcade and Nodes pages bound to `IArcadePage` and `INodesPage`; the app
+  booting the arcade node without a desk. `docs/PLAN.md` §58.3.
+- **The proof the ecosystem conversation asked for:** a computational function on a machine the
+  desk finds on the beacon, appearing as a source (its NDI send) and answering the one
+  vocabulary, with nothing on it that could open a screen — and built from the kernel, not the
+  desk with its hands tied.
+- **Honest about the rest:** the caller and the timer still boot the desk. Moving them is the
+  twin link, the cue stack and the countdown's display onto the kernel — a round of its own.
+- **Found on the way:** the wire served the desk's remote page as any process's front door; a
+  node's is its own now.

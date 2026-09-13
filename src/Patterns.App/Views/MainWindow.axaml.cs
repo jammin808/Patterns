@@ -724,7 +724,7 @@ public partial class MainWindow : Window
     {
         _down.Remove(e.Key);
         // An arcade node's pads: the key up is the button up.
-        if (DataContext is MainViewModel vm && (vm.IsArcadeNode || vm.IsArcadePage) && ArcadeKeys.Map(e.Key) is { } pad) vm.Services.Arcade.Key(pad.Player, pad.Button, false);
+        if (DataContext is MainViewModel vm && (vm.IsArcadeNode || vm.IsArcadePage)) ArcadeKeys.Press(vm.Services.Arcade, e.Key, e.KeyModifiers, down: false);
     }
 
     /// <summary>
@@ -797,20 +797,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        if ((vm.IsArcadeNode || vm.IsArcadePage) && !typing && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift)
+        if ((vm.IsArcadeNode || vm.IsArcadePage) && !typing && ArcadeKeys.Press(vm.Services.Arcade, e.Key, e.KeyModifiers, down: true))
         {
-            if (ArcadeKeys.Map(e.Key) is { } pad)
-            {
-                e.Handled = true;
-                vm.Services.Arcade.Key(pad.Player, pad.Button, true);
-                return;
-            }
-            if (e.Key is >= Key.D1 and <= Key.D3)
-            {
-                e.Handled = true;
-                vm.Services.Arcade.PickGame(e.Key - Key.D1 + 1);
-                return;
-            }
+            e.Handled = true;
+            return;
         }
 
         // The caller's keys, only on the Run surface and never in a text box: Enter is GO on

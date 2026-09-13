@@ -321,3 +321,64 @@ day pieces are half a round on top of the calibration. Each round lands with its
 booted headless, discovered on a loopback beacon, driven by the wire, its picture read back from
 the ring; a game's simulation stepped deterministically from recorded inputs; a poll's room of
 fake phones voting; the caller's diff and merge against a show edited on both sides.
+
+## 13. The charter: broad edge, narrow core
+
+*Written after the ecosystem conversation of round 40, as the standard the rounds after it are
+judged by.*
+
+Patterns is not a switcher, a media server, a cueing app or a polling site, and it is not "all of
+them in one window" either. It is a **production operating layer**: a common model of the event
+— what the room is supposed to be doing and what it is doing — that runs capabilities where it
+should, orchestrates the specialist boxes where they are stronger (an Aquilon's routing, QLab's
+audio, Companion's surfaces), and keeps the difference between expected and actual in view.
+The present ecosystem is an accumulation of excellent islands wired together on the day, with
+the system between them designed by nobody; Patterns' job is to be that system, on purpose.
+
+That makes breadth the point rather than the risk — on one condition. **The centre stays small
+so the edges can become very large.** The core abstractions are few, and everything plugs into
+them:
+
+```text
+SHOW
+├── Sources      a file, a deck, NDI, a capture, a browser, a node's picture, a generator
+├── Targets      a screen, a canvas, an NDI send, the stream
+├── Looks        what the targets should show
+├── Actions      the one vocabulary the desk, a cue, the wire, Companion and the assistant share
+├── Cues         when
+├── Devices      the boxes Patterns speaks to
+├── Nodes        the other Patterns on the network, by role
+├── State        the show file, versioned; the snapshot, immutable
+├── Health       what is true right now, and what is not
+└── Authority    who may change what, over which port, with which key
+```
+
+A capability earns its place by answering seven questions, in writing, before it is built:
+
+1. **What production problem does it remove?** Not "what can it do".
+2. **Which of the core abstractions does it use?** A capability that needs a new one is a
+   design conversation first.
+3. **Can it run locally or move to another node?** Where it runs is a deployment choice, not
+   a design one.
+4. **Can Patterns observe its state?** If the desk cannot say what it is doing, it is an island.
+5. **Can it fail without taking unrelated capabilities down?** A process boundary, a fault
+   gate, a held output — something must contain it.
+6. **Can another product already do the job?** If so:
+7. **Can Patterns orchestrate that product instead of reinventing it?** A device, its actions,
+   its state — usually the better answer.
+
+Some of what Patterns already carries reads differently under this charter. The arcade is not
+Pong; it is the proof that a computational function can move to a discovered node and appear as
+a production source (round 40 builds that node from the kernel alone). Audience play is not
+polling; it is the proof that an audience-facing subsystem can live on another machine, be
+served on a port of its own, send structured state back and be driven through the one
+vocabulary. Projector warp, blend and the camera calibration stay, and stay first-class: not
+every show can afford an Event Master, and when Patterns is the last thing before the screens
+it has to be able to put a picture on a wall of projectors itself.
+
+And the engineering the hardening round did is what the charter rests on, not a detour from it:
+hard trust boundaries (the audience port), explicit ownership (the twin's fences), immutable
+state (the frozen snapshot), capability boundaries (the kernel and its contracts), bounded
+readers everywhere a wire comes in. If Patterns is the connective tissue, the audience room
+crashing must not touch the switching, and a phone must never reach programme control. The
+breadth is legitimate exactly as long as that stays true.

@@ -18,6 +18,30 @@ public sealed class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            if (AppServices.LaunchProfile == Patterns.Core.Model.NodeKind.Arcade)
+            {
+                // The arcade node from the kernel alone: no desk is built. The kernel, the arcade, the
+                // room, the wire and a window of two pages — a computational function on a machine the
+                // desk finds on the beacon, and nothing on it that could open a screen.
+                var pre = AppServices.Preloaded;
+                AppServices.Preloaded = null;
+                var host = NodeHost.Build(Patterns.Core.Model.NodeKind.Arcade, pre?.Store, pre?.State);
+                HealthMonitor.Restarts = LaunchOptions.Restarts;
+                var nodeVm = new NodeViewModel(host);
+                var nodeWindow = new NodeWindow { DataContext = nodeVm };
+                desktop.MainWindow = nodeWindow;
+                host.Start();
+                desktop.ShutdownRequested += (_, _) => host.Shutdown();
+                desktop.Exit += (_, _) =>
+                {
+                    host.Shutdown();
+                    Log.Info("Clean exit.");
+                };
+                if (LaunchOptions.BeatHandle is { } beat) StartHeartbeat(beat);
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
+
             var services = new AppServices();
             AppServices.Instance = services;
             HealthMonitor.Restarts = LaunchOptions.Restarts;

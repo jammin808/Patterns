@@ -1284,6 +1284,16 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>A router over this desk's action layer: every wire (TCP, HTTP, OSC, a device, the management server) dispatches through one.</summary>
     public CommandRouter NewRouter() => new(this);
 
+    // The contracts' view of the desk's own members: the same objects, typed as the capability.
+    IActionLayer ITwinHost.Actions => Actions;
+    IActionLayer IWireHost.Actions => Actions;
+    CueStackService? IWireHost.CueStack => CueStack;
+    InstallService? IWireHost.Install => Install;
+    ManagementService? IWireHost.Management => Management;
+    UpdateService? IWireHost.Updates => Updates;
+    StageService? IWireHost.Stage => Stage;
+    IRouter IWireHost.NewRouter() => NewRouter();
+
     /// <summary>A line for the desk's status strip — the place confirmations belong, never the audience surface.</summary>
     public void Notify(string message)
     {

@@ -5812,3 +5812,50 @@ nothing on the wall, and the desk's line carries the chip ("★ ALIGNED · show-
 track naming each transition once and the baseline never); `RigDayAppTests` (a snap's LOCKED on
 the lattice's viewport and on no other, in the status and the desk's words; every node walked
 home reading ALIGNED).
+
+### 58.3 The arcade node, built from the kernel alone
+
+**The step.** Round 39's kernel (§57.4) was the type; every role still booted the desk's
+composition with its outputs held. This round builds the first role from the kernel alone:
+`--node arcade` no longer constructs an `AppServices`. `NodeHost` (App) is the composition root
+for a process that is not the desk — the kernel, the audience room, the node's action layer, the
+wire — and nothing of the desk: no outputs, no engines, no sandbox, no cue stack. What the wire
+and the room ask of their host, the node answers itself: it implements `IWireHost` (with null
+where the desk would have had the stage timer, the install, the management, the updates, the cue
+stack) and `IPlayHost` (an edit is an edit; the audience port's facts from its own wire).
+
+**Two contracts more.** `IActionLayer` — every verb of the show's vocabulary, run and answered —
+is what the twin and the wire now take of their host; the desk's is `ShowActions`, the node's is
+`NodeActions`: the arcade's kinds, the room's, the audience port's and a note run on the node,
+and every other kind is refused with whose it is ("Blackout on is the desk's — not on this
+arcade node; send it to the desk's wire"), journaled as refused. `IRouter` — a command in, the
+protocol's reply out — is what the wire dispatches through; the desk's is `CommandRouter`, the
+node's is `NodeRouter`: PING, HELLO, STATUS (the node's own state: kind, machine, show, ports,
+the arcade's words, the room's code), the arcade's, the room's and the nodes' status, every
+action through the node's layer, and an ERR that says so for the queries that are the desk's
+alone (the cue list, the twin, the stage, the assistant). The wire's front door on a node is a
+page of its own with its links — the pad, the host page, the audience's join — never the desk's
+remote.
+
+**The pages, told nothing.** The Arcade page and the Nodes page are the desk's XAML, and they
+now bind to `IArcadePage` and `INodesPage` rather than to the desk's view model: the desk's
+implements both, and so does `NodeViewModel`, a view model over a `NodeHost` with a status line
+and nothing else. `NodeWindow` is those two pages and the line; the keys are the pads through
+`ArcadeKeys.Press`, which the desk's window uses too. The room's words moved into
+`PlayService.Words`, since two pages say them.
+
+**What stays.** The caller and the timer still boot the desk's composition: the caller needs
+the Show pages and the cue stack, the timer the countdown's display, and both need the twin
+link — three services written against the desk. They are the next roles to move, and the kernel
+and the contracts are what they will move onto. `AppServices` keeps its `Profile` so a test can
+still boot a desk in a node's shape.
+
+**Proof.** `NodeHostTests`: an arcade node booted from a settings folder — greeting with its own
+state, its verbs answered (ARCADE, PLAY, NODES STATUS), the desk's refused with the reason and
+journaled, a phone seated on the audience port, the front door its own, the stage timer 404, the
+beacon saying arcade with nothing on air, the view model's words, a setting landing in its own
+folder, the ports closed on shutdown; and the boundary as a test — nothing of the desk reachable
+from the node host's type, its pieces never taking the desk, both view models implementing both
+pages.
+
+Counts at the end of the round: Core 1,095, App 565 — both suites green here.

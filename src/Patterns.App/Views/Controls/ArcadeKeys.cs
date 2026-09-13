@@ -1,4 +1,5 @@
 using Avalonia.Input;
+using Patterns.App.Services;
 using Patterns.Core.Arcade;
 
 namespace Patterns.App.Views.Controls;
@@ -9,6 +10,23 @@ namespace Patterns.App.Views.Controls;
 /// </summary>
 public static class ArcadeKeys
 {
+    /// <summary>A key onto the pads (down or up), a number onto the house's game: true when the key was the arcade's. Shift is the only modifier a pad takes.</summary>
+    public static bool Press(ArcadeService arcade, Key key, KeyModifiers modifiers, bool down)
+    {
+        if (modifiers is not (KeyModifiers.None or KeyModifiers.Shift)) return false;
+        if (Map(key) is { } pad)
+        {
+            arcade.Key(pad.Player, pad.Button, down);
+            return true;
+        }
+        if (down && key is >= Key.D1 and <= Key.D3)
+        {
+            arcade.PickGame(key - Key.D1 + 1);
+            return true;
+        }
+        return false;
+    }
+
     public static (int Player, PadButtons Button)? Map(Key key) => key switch
     {
         Key.Up => (0, PadButtons.Up),

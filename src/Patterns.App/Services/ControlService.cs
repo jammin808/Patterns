@@ -20,7 +20,7 @@ public sealed partial class ControlService : IDisposable
 {
     private readonly ServiceKernel _kernel;
     private readonly IWireHost _services;
-    private readonly CommandRouter _router;
+    private readonly IRouter _router;
     private readonly object _gate = new();
     private readonly List<TcpClient> _tcpClients = new();
     private TcpListener? _tcp;
@@ -302,6 +302,23 @@ public sealed partial class ControlService : IDisposable
     /// <summary>The most bytes a line on the wire may run to: a command is a few dozen, a plan or a show file a few thousand.</summary>
     public const int WireLineBytes = 64 * 1024;
 
+    /// <summary>A node's front door on its control port: what it is, its pages, and where the desk finds it — the desk's remote page is the desk's.</summary>
+    private string NodePage()
+    {
+        var kind = NodeKinds.Label(_kernel.Profile);
+        var links = new List<string>();
+        if (_kernel.Profile == NodeKind.Arcade) links.Add("<a href='/pad'>the phone pad</a>");
+        links.Add("<a href='/host'>the audience host page</a>");
+        var join = _services.Play.JoinUrl;
+        if (join.Length > 0) links.Add($"the audience joins at <a href='{join}'>{join}</a>");
+        return "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+             + $"<title>Patterns — {kind} node</title>"
+             + "<style>body{font:16px system-ui,sans-serif;background:#0b0d12;color:#e6e9ef;padding:24px;max-width:720px}a{color:#5fd0ff}h1{font-weight:600;font-size:22px}p{line-height:1.5}</style></head>"
+             + $"<body><h1>Patterns — {kind} node</h1><p>{System.Net.WebUtility.HtmlEncode(_kernel.Beacon.MachineName)} · {System.Net.WebUtility.HtmlEncode(_kernel.State.Name)}</p>"
+             + $"<p>{string.Join(" · ", links)}</p>"
+             + "<p>The desk finds this node on the beacon; the node's own verbs answer on this port, and the desk's do not.</p></body></html>";
+    }
+
     private static async Task WriteLine(NetworkStream stream, string line, CancellationToken ct)
     {
         var bytes = Encoding.UTF8.GetBytes(line + "\n");
@@ -525,7 +542,7 @@ public sealed partial class ControlService : IDisposable
             }
             else if (method == "GET" && (path == "/" || path == "/index.html"))
             {
-                payload = RemotePage;
+                payload = _kernel.IsDesk ? RemotePage : NodePage();      // a node's front door is its own, never the desk's remote
             }
             else if (method == "GET" && (path == "/multiview" || path == "/mv"))
             {
@@ -583,22 +600,31 @@ public sealed partial class ControlService : IDisposable
             else if (method == "GET" && (path == "/api/stage" || path.StartsWith("/api/stage?")))
             {
                 contentType = "application/json";
-                // ?since=<rev> long-polls the stage's own revision: a message, a receipt, the timer moved.
-                if (long.TryParse(QueryValue(path, "since"), out var seenStage))
+                if (_services.Stage is not { } stage)
                 {
-                    var deadline = DateTime.UtcNow.AddSeconds(25);
-                    while (_services.Stage.Rev == seenStage && DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
-                    {
-                        await Task.Delay(150, ct);
-                    }
+                    status = "404 Not Found";
+                    contentType = "text/plain";
+                    payload = "The stage timer is the desk's — not on this node.";
                 }
-                payload = await UiThread.InvokeAsync(() => _services.Stage.StatusJson());
+                else
+                {
+                    // ?since=<rev> long-polls the stage's own revision: a message, a receipt, the timer moved.
+                    if (long.TryParse(QueryValue(path, "since"), out var seenStage))
+                    {
+                        var deadline = DateTime.UtcNow.AddSeconds(25);
+                        while (stage.Rev == seenStage && DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                        {
+                            await Task.Delay(150, ct);
+                        }
+                    }
+                    payload = await UiThread.InvokeAsync(() => stage.StatusJson());
+                }
             }
             else if (method == "POST" && path == "/api/stage/ack")
             {
                 contentType = "application/json";
                 var id = body.Trim().Trim('"');
-                var acked = await UiThread.InvokeAsync(() => _services.Stage.Ack(id));
+                var acked = _services.Stage is { } ackStage && await UiThread.InvokeAsync(() => ackStage.Ack(id));
                 payload = acked ? "{\"ok\":true}" : "{\"ok\":false,\"msg\":\"no such message, or seen already\"}";
             }
             else if (method == "GET" && (path == "/pad" || path.StartsWith("/pad?")))
@@ -828,9 +854,9 @@ public sealed partial class ControlService : IDisposable
             $"Site: {(_kernel.State.Install.SiteName.Length > 0 ? _kernel.State.Install.SiteName : "(unnamed)")} · machine {Environment.MachineName}",
             $"Build: {UpdateService.RunningVersion} · .NET {Environment.Version} · {Environment.OSVersion}",
             $"Health: {HealthMonitor.Summary(DateTime.UtcNow)}",
-            $"Install: {_services.Install.Status}",
-            $"Update: {_services.Updates.Status}",
-            $"Management: {_services.Management.Status}");
+            $"Install: {_services.Install?.Status ?? "not on this node"}",
+            $"Update: {_services.Updates?.Status ?? "not on this node"}",
+            $"Management: {_services.Management?.Status ?? "not on this node"}");
 
     /// <summary>The support bundle as bytes for the ADMIN page's download: written beside the settings, then read back.</summary>
     private byte[] BuildSupportBundle(string info)

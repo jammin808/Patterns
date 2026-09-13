@@ -163,7 +163,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `AUDIENCE ON [port]` / `AUDIENCE OFF` | The audience listener — the phones' own port, the play pages and nothing else — opened (on the port given, or the one set) or closed; a control setting, never a cue |
 | `AUDIENCE STATUS` | `OK <json>` — `enabled`, `listening`, `port`, `bind`, `urls`, `joinUrl`, `players`, `maxPlayers`, `connections`, `longPolls`, `longPollsPeak`, the `budget`, `assistantOnWire` |
 | `RIGDAY ON` / `OFF` | Rig day's games, opt-in: the show-ready bar on the health line, the alignment game and Blend Quest on the Screens page, the on-time streak on the Run surface — off, nothing of them shows |
-| `RIGDAY STATUS` | `OK <json>` — `enabled`, `ready` (`done`, `total`, `bar`, `words`, `next`, `steps`), `align` (the game, or null), `quest` (`words`, `levels`), `streak` |
+| `RIGDAY STATUS` | `OK <json>` — `enabled`, `ready` (`done`, `total`, `bar`, `words`, `next`, `steps`), `align` (the game, or null), `quest` (`words`, `levels`), `streak`, `celebration` (the moment being marked: `kind`, `words`, `chip`, `phase`; null when none) |
 | `ALIGN START <screen>` | The alignment game on a projector with a calibration (the solver's mesh as the targets, ringed on the projector's lattice); `ALIGN NEXT` / `PREV` walk the open nodes, `ALIGN NUDGE <dx> <dy>` moves the lit node in the output's pixels, `ALIGN SNAP` lands it on its target, `ALIGN STOP` ends it; `ALIGN STATUS` is the game as JSON. The desk's own — never a cue |
 
 One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in

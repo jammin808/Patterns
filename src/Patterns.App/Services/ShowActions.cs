@@ -12,7 +12,7 @@ namespace Patterns.App.Services;
 /// written to the show journal with its origin, and raises <see cref="Performed"/> so the
 /// view model can resync its editors. Nothing here needs the window to exist.
 /// </summary>
-public sealed partial class ShowActions
+public sealed partial class ShowActions : IActionLayer
 {
     private readonly AppServices _s;
 

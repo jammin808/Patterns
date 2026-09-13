@@ -5,7 +5,7 @@
              xmlns:play="using:Patterns.Core.Play"
              x:Class="Patterns.App.Views.Sections.ArcadeSection"
              Classes="hue-arcade"
-             x:DataType="vm:MainViewModel">
+             x:DataType="vm:IArcadePage">
   <DockPanel Margin="4,8,12,8">
     <StackPanel DockPanel.Dock="Top" Classes="form">
       <TextBlock Classes="h1 neon-arcade" Text="Arcade" />
@@ -65,8 +65,8 @@
               <TextBlock Classes="label" TextWrapping="Wrap" VerticalAlignment="Center">
                 <Run Text="{Binding Nick}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Text}" /><Run Text="  " /><Run Text="{Binding Note}" Foreground="#9AA4B5" />
               </TextBlock>
-              <Button Grid.Column="1" Classes="mini" Content="APPROVE" Margin="8,0,0,0" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlayApproveCommand}" CommandParameter="{Binding}" />
-              <Button Grid.Column="2" Classes="mini" Content="REJECT" Margin="8,0,0,0" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlayRejectCommand}" CommandParameter="{Binding}" />
+              <Button Grid.Column="1" Classes="mini" Content="APPROVE" Margin="8,0,0,0" Command="{Binding $parent[UserControl].((vm:IArcadePage)DataContext).PlayApproveCommand}" CommandParameter="{Binding}" />
+              <Button Grid.Column="2" Classes="mini" Content="REJECT" Margin="8,0,0,0" Command="{Binding $parent[UserControl].((vm:IArcadePage)DataContext).PlayRejectCommand}" CommandParameter="{Binding}" />
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
