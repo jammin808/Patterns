@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.Core.Model;
+using Patterns.Core.RigDay;
 using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using Xunit;
@@ -82,6 +83,19 @@ public class RigDayAppTests
             Assert.True(game.IsLocked(picked));
             Assert.Equal(lockedBefore + 1, game.LockedCount);
             Assert.NotEqual(picked, game.Picked);                                        // walked on to the next open node
+            // The moment: a node locked is celebrated briefly — on the lattice's viewport, in the status, in the desk's words.
+            Assert.Equal(CelebrationKind.NodeLocked, rig.Celebration?.Kind);
+            Assert.Contains("\"celebration\":{\"kind\":\"NodeLocked\"", Wire("RIGDAY STATUS"));
+            Assert.StartsWith("★ LOCKED · show-ready", vm.RigDayWords);
+            var vps = OutputWindowManager.BuildViewports(vm.State.Output.Placements, services.Screens.All, canvases: vm.State.Output.CanvasNames,
+                latticeOn: services.RigEditor.LatticeOn, latticePoint: services.RigEditor.LatticePoint, latticeTargets: services.RigEditor.LatticeTargets, celebration: rig.Celebration);
+            Assert.Contains(vps, v => v.Viewport.OutputId == projector.ScreenId && v.Viewport.Celebration?.Kind == CelebrationKind.NodeLocked);
+            Assert.DoesNotContain(vps, v => v.Viewport.OutputId != projector.ScreenId && v.Viewport.Celebration is not null);
+            // Every node walked home: the projector aligned, the long moment.
+            for (var guard = 0; !game.IsDone && guard < 200; guard++) Assert.StartsWith("OK", Wire("ALIGN SNAP"));
+            Assert.True(game.IsDone);
+            Assert.Equal(CelebrationKind.ProjectorAligned, rig.Celebration?.Kind);
+            Assert.Equal("★ ALIGNED", rig.CelebrationChip);
             Assert.True(vm.IsAligning);
             vm.SelectPage(Shell.IndexOf("Screens"));
             Assert.True(vm.IsScreensPage);

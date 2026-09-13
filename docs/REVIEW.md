@@ -747,3 +747,14 @@ frozen, the node kernel built. This review grows as each lands.*
 - **What it bought:** the last runtime reach out of a published snapshot is closed; a snapshot
   can now be handed to another process (a node, a recorder) with nothing in it that points
   back at the desk.
+
+### 40.2 — rig day's moments
+
+- **Done.** `Celebration` and `CelebrationTrack` (pure), the service's hooks, the sweep over the
+  lattice, the chip in the words and the status. `docs/PLAN.md` §58.2.
+- **Where it draws, and where it does not:** over the lattice, which is up only while somebody is
+  aligning that projector. The show-ready bar filling with the outputs live and a room watching
+  draws nothing on the wall — a celebration on the programme is the one thing the games must
+  never do. The desk gets the chip; the wall gets nothing it did not ask for.
+- **Left:** a sound on the desk for the moment (the stinger voices are there); the multiview
+  could carry the chip, which needs a runtime word on the snapshot like the review's.

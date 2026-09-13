@@ -5784,3 +5784,31 @@ preview shows it exactly as before; the difference is where the knowledge lives.
 **Proof.** The multiview review, tally, words, stream and virtual-screen tests, each handing
 the sandbox in where it used to be reached through the snapshot, and the wall's words asserting
 a sink with no preview says so; the App's multiview tally test passing the desk's sandbox.
+
+### 58.2 Rig day's moments: a sweep on the lattice, a chip on the desk
+
+**Why.** The reminder asked for the job to be more fun than it usually is, and rig day (§56)
+had the games but not the moments: a node walked home said "locked" on the status line and
+nothing else; the bar filling was one sentence. A game with no reward at the moment of the win
+is a checklist.
+
+**What.** `Celebration` (Core, RigDay, pure): a kind (a node locked, the projector aligned, a
+join cleared, the boss cleared, the bar full), its words, when, and how long — brief for a node
+(it happens twenty-five times a lattice), four seconds for the rest — with `Phase(now)`,
+`IsOver(now)`, the chip's capitals and `Ring(phase)`: the sweep's radius (out fast, easing) and
+alpha (gone at the end), the maths the pipeline draws by, tested without a canvas.
+`CelebrationTrack` reads the transitions the facts go through and names each once — the bar
+filling (and again after it emptied), a join clearing, the boss cleared — never the state the
+games were switched on in: a rig that is ready when the games come on was built by somebody
+else. `RigDayService` runs the track on its two-second poll and raises the game's own moments
+from the keys (a node locked, the projector aligned); a moment says its words on the status
+line, hands the outputs their viewports again, and shows in `RIGDAY STATUS` as `celebration`
+with its phase. The pipeline draws it over the **lattice only** — a ring from the centre out
+past the corners, fading, the chip's words in the middle — because the lattice is what the
+walk-up is looking at and the room never is; a moment on a projector with no lattice up draws
+nothing on the wall, and the desk's line carries the chip ("★ ALIGNED · show-ready 4/5 …").
+
+**Proof.** `CelebrationTests` (the phase, the end, the chips; the sweep out fast and fading; the
+track naming each transition once and the baseline never); `RigDayAppTests` (a snap's LOCKED on
+the lattice's viewport and on no other, in the status and the desk's words; every node walked
+home reading ALIGNED).

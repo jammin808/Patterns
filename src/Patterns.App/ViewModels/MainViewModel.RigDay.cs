@@ -19,7 +19,9 @@ public sealed partial class MainViewModel
         }
     }
 
-    public string RigDayWords => _services.RigDay.ReadyWords.Length == 0 ? "" : $"{_services.RigDay.ReadyWords} — {_services.RigDay.ReadyNext}";
+    /// <summary>The bar and its next step — with the moment's chip in front while one runs ("★ ALIGNED · show-ready 4/5 …").</summary>
+    public string RigDayWords => _services.RigDay.ReadyWords.Length == 0 ? ""
+        : (_services.RigDay.CelebrationChip.Length > 0 ? _services.RigDay.CelebrationChip + " · " : "") + $"{_services.RigDay.ReadyWords} — {_services.RigDay.ReadyNext}";
 
     public string QuestWords => _services.RigDay.QuestWords;
 

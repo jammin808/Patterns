@@ -77,6 +77,9 @@ public sealed record PipelineViewport(
     /// <summary>The alignment game's targets — the solver's node positions in the output's pixels — ringed on the lattice; null when no game runs.</summary>
     public IReadOnlyList<SKPoint>? LatticeTargets { get; init; }
 
+    /// <summary>Rig day's moment, swept over the lattice while it lasts (a node locked, the projector aligned, a level cleared, the bar full); null when none.</summary>
+    public Patterns.Core.RigDay.Celebration? Celebration { get; init; }
+
     /// <summary>Per-output colour trims (100/1.0/100/100/100 = neutral).</summary>
     public double BrightnessPct { get; init; } = 100;
     public double Gamma { get; init; } = 1.0;
@@ -703,6 +706,41 @@ public sealed class RenderPipeline : IDisposable
             {
                 canvas.DrawCircle(nodes[k], 6, _latticeDot);
             }
+        }
+        if (vp.Celebration is { } moment) DrawCelebration(canvas, vp, moment);
+    }
+
+    private readonly SKPaint _sweep = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, Color = new SKColor(0x7C, 0xF5, 0xC8) };
+    private readonly SKPaint _sweepText = new() { IsAntialias = true, Style = SKPaintStyle.Fill, Color = SKColors.White };
+    private readonly SKFont _sweepFont = new() { Size = 64, Embolden = true };
+
+    /// <summary>
+    /// The sweep: a ring from the picture's centre out past its corners, fading as it goes, and
+    /// the chip's words in the middle — over the lattice only, which the room is never watching.
+    /// A node locked is a small quick ring; the projector aligned, a level cleared or the bar
+    /// full is the whole picture's worth. Nothing once the moment is over.
+    /// </summary>
+    private void DrawCelebration(SKCanvas canvas, PipelineViewport vp, Patterns.Core.RigDay.Celebration moment)
+    {
+        var now = DateTime.UtcNow;
+        if (moment.IsOver(now)) return;
+        var phase = moment.Phase(now);
+        var (radius, alpha) = Patterns.Core.RigDay.Celebration.Ring(phase);
+        var bounds = canvas.LocalClipBounds;                 // the picture as this pass draws it: the lattice's own space
+        var w = bounds.Width;
+        var h = bounds.Height;
+        var half = (float)(Math.Sqrt((double)w * w + (double)h * h) / 2);
+        var reach = moment.Kind == Patterns.Core.RigDay.CelebrationKind.NodeLocked ? half * 0.25f : half * 1.05f;
+        _sweep.Color = _sweep.Color.WithAlpha(alpha);
+        _sweep.StrokeWidth = (float)(8 - 6 * phase);
+        canvas.DrawCircle(bounds.MidX, bounds.MidY, (float)(radius * reach), _sweep);
+        if (moment.Kind != Patterns.Core.RigDay.CelebrationKind.NodeLocked)
+        {
+            _sweepText.Color = SKColors.White.WithAlpha(alpha);
+            _sweepFont.Size = Math.Max(24, Math.Min(w, h) * 0.08f);
+            var text = moment.Chip;
+            var width = _sweepFont.MeasureText(text);
+            canvas.DrawText(text, bounds.MidX - width / 2f, bounds.MidY + _sweepFont.Size * 0.35f, SKTextAlign.Left, _sweepFont, _sweepText);
         }
     }
 

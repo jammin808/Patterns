@@ -19,6 +19,8 @@ public sealed class RigDayService
     private readonly AppServices _s;
     private DateTime _lastFactsUtc = DateTime.MinValue;
     private bool _wasFull;
+    private readonly CelebrationTrack _track = new();
+    private Celebration? _celebration;
     private int _lockedBefore;
 
     public RigDayService(AppServices s) => _s = s;
@@ -33,6 +35,20 @@ public sealed class RigDayService
     public string QuestWords => Enabled ? BlendQuest.Words(Quest) : "";
     public string AlignWords => Enabled && Align is { } a ? a.Words : "";
     public string StreakWords => Enabled ? Streak.Words : "";
+
+    /// <summary>What is being celebrated right now — null once it is over, or with the games off.</summary>
+    public Celebration? Celebration => Enabled && _celebration is { } c && !c.IsOver(DateTime.UtcNow) ? c : null;
+
+    /// <summary>"★ SHOW READY" while a celebration runs, for the desk's lines; "" otherwise.</summary>
+    public string CelebrationChip => Celebration is { } c ? "★ " + c.Chip : "";
+
+    /// <summary>A moment marked: the word on the desk, the sweep on the lattice (the outputs take their viewports again), the chip in the status.</summary>
+    private void Celebrate(Celebration c)
+    {
+        _celebration = c;
+        _s.Notify("Rig day: " + c.Words);
+        _s.Outputs.OnScreensChanged();
+    }
 
     public ActionResult SetEnabled(bool on)
     {
@@ -102,8 +118,8 @@ public sealed class RigDayService
             _s.Calibration.Applied,
             _s.ShowLock.Locked,
             _s.Metrics.LastReport?.Overall));
-        if (Ready.IsFull && !_wasFull) _s.Notify("Rig day: show-ready 5/5 — every step clear. The rig is ready.");
         _wasFull = Ready.IsFull;
+        if (_track.Observe(Ready, Quest, now) is { } moment) Celebrate(moment);
     }
 
     // ---- the alignment game -------------------------------------------------------------------
@@ -188,7 +204,9 @@ public sealed class RigDayService
         var locked = game.LockedCount;
         if (locked > _lockedBefore)
         {
-            _s.Notify(game.IsDone ? $"Rig day: {game.Words}" : $"Rig day: node {node + 1} locked — {locked} of {game.NodeCount}.");
+            Celebrate(game.IsDone
+                ? Celebration.For(CelebrationKind.ProjectorAligned, game.Words, DateTime.UtcNow)
+                : Celebration.For(CelebrationKind.NodeLocked, $"node {node + 1} locked — {locked} of {game.NodeCount}.", DateTime.UtcNow));
             if (!game.IsDone) game.Next();
         }
         _lockedBefore = locked;
@@ -212,6 +230,7 @@ public sealed class RigDayService
             ready = Ready is null ? null : new { done = Ready.Done, total = Ready.Total, full = Ready.IsFull, bar = Ready.Bar, words = Ready.Words, next = Ready.Next, steps = Ready.Steps.Select(s => new { s.Name, s.Done, s.Applies, s.Words }).ToArray() },
             align = align is null ? null : new { screen = align.ScreenId, name = align.Name, picked = align.Picked + 1, nodes = align.NodeCount, locked = align.LockedCount, worst = Math.Round(align.WorstResidual, 2), residual = Math.Round(align.Residual(align.Picked), 2), done = align.IsDone, nudges = align.Nudges, words = align.Words },
             quest = new { words = QuestWords, levels = Quest.Select(l => new { l.Name, l.Cleared, l.Boss, l.Words, members = l.Members }).ToArray() },
+            celebration = Celebration is { } cel ? new { kind = cel.Kind.ToString(), words = cel.Words, chip = cel.Chip, phase = Math.Round(cel.Phase(DateTime.UtcNow), 2) } : null,
             streak = new { Streak.Streak, Streak.Best, Streak.Counted, words = StreakWords },
         });
     }
