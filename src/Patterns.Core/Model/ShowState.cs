@@ -24,10 +24,10 @@ public sealed class OutputConfig : Observable
     /// spanned canvas; screens standing alone are independent outputs. Placement positions
     /// are in arrangement space (device pixels), unrelated to the OS desktop layout.
     /// </summary>
-    public ObservableCollection<ScreenPlacement> Placements { get; init; } = new();
+    public ShowCollection<ScreenPlacement> Placements { get; init; } = new();
 
     /// <summary>Operator names for joined canvases ("Main wall"), keyed by their member set.</summary>
-    public ObservableCollection<CanvasNameConfig> CanvasNames { get; init; } = new();
+    public ShowCollection<CanvasNameConfig> CanvasNames { get; init; } = new();
 }
 
 /// <summary>A custom name for one joined canvas. The key survives letters shifting as screens rearrange.</summary>
@@ -241,7 +241,7 @@ public sealed class ScreenPlacement : Observable
     /// laid out across them and this output leaves them out. A member of a joined canvas adds
     /// its strips to the canvas's, beside the seams the canvas compensates itself.
     /// </summary>
-    public ObservableCollection<WallGap> Gaps { get; init; } = new();
+    public ShowCollection<WallGap> Gaps { get; init; } = new();
 
     private int _fpsOverride;
 
@@ -802,10 +802,10 @@ public sealed class StageConfig : Observable
     public double PausedRemainingSeconds { get => _pausedRemainingSeconds; set => Set(ref _pausedRemainingSeconds, Math.Max(0, value)); }
 
     /// <summary>The words one press sends to the speaker.</summary>
-    public System.Collections.ObjectModel.ObservableCollection<string> Presets { get; init; } = new() { "Wrap up", "5 minutes", "1 minute", "Q&A next", "Louder please", "Slower please", "Look at camera 1" };
+    public ShowCollection<string> Presets { get; init; } = new() { "Wrap up", "5 minutes", "1 minute", "Q&A next", "Louder please", "Slower please", "Look at camera 1" };
 
     /// <summary>The messages sent this show, newest last, capped by the service.</summary>
-    public System.Collections.ObjectModel.ObservableCollection<StageMessage> Messages { get; init; } = new();
+    public ShowCollection<StageMessage> Messages { get; init; } = new();
 
     /// <summary>Runtime: the displays flash until this moment — a FLASH without a message.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
@@ -892,7 +892,7 @@ public sealed class NdiSenderConfig : Observable
 public sealed class NdiConfig : Observable
 {
     /// <summary>All configured NDI sources; each enabled one runs its own sender thread.</summary>
-    public ObservableCollection<NdiSenderConfig> Senders { get; init; } = new();
+    public ShowCollection<NdiSenderConfig> Senders { get; init; } = new();
 }
 
 /// <summary>Soundcheck tone generator (Windows audio device).</summary>
@@ -1019,8 +1019,8 @@ public sealed class CueConfig : Observable
 
 public sealed class LooksConfig : Observable
 {
-    public ObservableCollection<LookConfig> Looks { get; init; } = new();
-    public ObservableCollection<CueConfig> Cues { get; init; } = new();
+    public ShowCollection<LookConfig> Looks { get; init; } = new();
+    public ShowCollection<CueConfig> Cues { get; init; } = new();
 }
 
 /// <summary>Crossfade between content changes on every sink (looks, playlist advances, blackout).</summary>
@@ -1102,7 +1102,7 @@ public sealed class PresenterConfig : Observable
     public bool Loop { get => _loop; set => Set(ref _loop, value); }
 
     /// <summary>Kept for files from before schema 5; migrated into the clicker list on load.</summary>
-    public ObservableCollection<PresenterStepConfig> Steps { get; init; } = new();
+    public ShowCollection<PresenterStepConfig> Steps { get; init; } = new();
 
     /// <summary>Runtime-only: the step currently applied (-1 = not started).</summary>
     [JsonIgnore]
@@ -1189,10 +1189,10 @@ public sealed class AudioPlayerConfig : Observable
     public string Path { get => _path; set => Set(ref _path, value ?? ""); }
 
     /// <summary>The rows, in the order they play (unless shuffled).</summary>
-    public ObservableCollection<AudioTrackConfig> Items { get; init; } = new();
+    public ShowCollection<AudioTrackConfig> Items { get; init; } = new();
 
     /// <summary>Folders whose audio files play after the rows, in name order — dropped in live, they are seen within half a minute.</summary>
-    public ObservableCollection<string> Folders { get; init; } = new();
+    public ShowCollection<string> Folders { get; init; } = new();
 
     /// <summary>The list loops at its end; off, it stops there.</summary>
     public bool Loop { get => _loop; set => Set(ref _loop, value); }
@@ -1210,7 +1210,7 @@ public sealed class AudioPlayerConfig : Observable
     /// monitoring is a separate destination (<see cref="MonitorConfig.Device"/>) so the two can be
     /// different wires.
     /// </summary>
-    public ObservableCollection<string> Devices { get; init; } = new();
+    public ShowCollection<string> Devices { get; init; } = new();
 
     /// <summary>Runtime-only: playback never auto-starts with the app.</summary>
     [JsonIgnore]
@@ -1230,7 +1230,7 @@ public sealed class AudioPlayerConfig : Observable
     public int VideoAudioDelayMs { get => _videoAudioDelayMs; set => Set(ref _videoAudioDelayMs, Math.Clamp(value, -1000, 2000)); }
 
     /// <summary>Per-output lip-sync offsets: the track, VOGs and stingers on that device leave this much later.</summary>
-    public ObservableCollection<OutputDelayConfig> OutputDelays { get; init; } = new();
+    public ShowCollection<OutputDelayConfig> OutputDelays { get; init; } = new();
 
     /// <summary>The delay set for a device (its friendly name or the computer-output key), 0 when none.</summary>
     public int DelayFor(string device)
@@ -1470,7 +1470,7 @@ public sealed class StingerConfig : Observable
     private int _duckFadeMs = 300;
     private bool _duckActive;
 
-    public ObservableCollection<StingerItemConfig> Items { get; init; } = new();
+    public ShowCollection<StingerItemConfig> Items { get; init; } = new();
 
     /// <summary>Music-track level (as % of its own volume) while a <em>VOG sound</em> plays. A stinger fades the music out instead.</summary>
     public double DuckPct { get => _duckPct; set => Set(ref _duckPct, Math.Clamp(value, 0, 100)); }
@@ -1564,7 +1564,7 @@ public sealed class SpotifyConfig : Observable
     /// <summary>Off by default: a show that does not use break music behaves exactly as before.</summary>
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
 
-    public ObservableCollection<SpotifyItemConfig> Items { get; init; } = new();
+    public ShowCollection<SpotifyItemConfig> Items { get; init; } = new();
 
     /// <summary>The Spotify device's own volume, 0–100 (Spotify's range, not the file player's 0–125).</summary>
     public double LevelPct { get => _levelPct; set => Set(ref _levelPct, Math.Clamp(value, 0, 100)); }
@@ -1655,7 +1655,7 @@ public sealed class StreamConfig : Observable
     /// <summary>The stream's lip-sync offset, −1000–2000 ms: the sound is held back (or brought forward) against the picture in the encode.</summary>
     public int AudioDelayMs { get => _audioDelayMs; set => Set(ref _audioDelayMs, Math.Clamp(value, -1000, 2000)); }
 
-    public ObservableCollection<StreamDestinationConfig> Destinations { get; init; } = new();
+    public ShowCollection<StreamDestinationConfig> Destinations { get; init; } = new();
 
     /// <summary>Runtime-only: streaming never auto-starts with the app.</summary>
     [JsonIgnore]
@@ -1781,7 +1781,7 @@ public sealed class DeskLayoutConfig : Observable
     /// bar opens it again): their target ids — a screen id, a canvas key, "" for PGM. Absent in an
     /// older file, so every tile opens full.
     /// </summary>
-    public ObservableCollection<string> CollapsedTiles { get; init; } = new();
+    public ShowCollection<string> CollapsedTiles { get; init; } = new();
 }
 
 /// <summary>Watchdog: the supervisor process that restarts the show after a crash or hang.</summary>
@@ -2146,7 +2146,7 @@ public sealed class DeviceConfig : Observable
     /// <summary>The line the page's SEND button writes — a handshake to try the wiring.</summary>
     public string TestText { get => _testText; set => Set(ref _testText, value ?? ""); }
 
-    public ObservableCollection<DeviceTriggerConfig> Triggers { get; init; } = new();
+    public ShowCollection<DeviceTriggerConfig> Triggers { get; init; } = new();
 
     /// <summary>Runtime: open, reconnecting, the last line in and out — set by the service, never saved.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
@@ -2160,7 +2160,7 @@ public sealed class InteractiveConfig : Observable
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
 
-    public ObservableCollection<DeviceConfig> Devices { get; init; } = new();
+    public ShowCollection<DeviceConfig> Devices { get; init; } = new();
 }
 
 /// <summary>What a slot of a permanent install's schedule is.</summary>
@@ -2306,7 +2306,7 @@ public sealed class InstallConfig : Observable
     /// <summary>How long a free-text announcement (ANNOUNCE some words) stays up.</summary>
     public int AnnouncementSeconds { get => _announcementSeconds; set => Set(ref _announcementSeconds, Math.Clamp(value, 1, 3600)); }
 
-    public ObservableCollection<ScheduleSlotConfig> Slots { get; init; } = new();
+    public ShowCollection<ScheduleSlotConfig> Slots { get; init; } = new();
 
     /// <summary>The passcode the web remote's ADMIN page, RESTART and UPDATE APPLY ask for; "" = remote administration off.</summary>
     public string AdminPasscode { get => _adminPasscode; set => Set(ref _adminPasscode, (value ?? "").Trim()); }
@@ -2351,7 +2351,7 @@ public sealed class WebConfig : Observable
     public string TargetScreenId { get => _targetScreenId; set => Set(ref _targetScreenId, value); }
 
     /// <summary>Quick-recall URLs (session schedules, dashboards, wayfinding pages).</summary>
-    public ObservableCollection<string> SavedUrls { get; init; } = new();
+    public ShowCollection<string> SavedUrls { get; init; } = new();
 }
 
 /// <summary>The mode a capture device opens in — what the card's driver calls a stream capability.</summary>
@@ -2396,7 +2396,7 @@ public sealed class ShowState : Observable
     /// <summary>The program pattern (Duplicate/Span modes, preview, NDI).</summary>
     public PatternConfig Pattern { get; init; } = new();
     /// <summary>Per-screen patterns for Independent mode.</summary>
-    public ObservableCollection<OutputAssignment> Independent { get; init; } = new();
+    public ShowCollection<OutputAssignment> Independent { get; init; } = new();
 
     /// <summary>
     /// The monitor walls this show has — up to <see cref="Multiviews.Max"/> of them, each with its
@@ -2404,7 +2404,7 @@ public sealed class ShowState : Observable
     /// screen: the show's picture stays the show's picture, and however many outputs point at a
     /// wall — a spare display, an NDI send, the stream — they all draw the same one.
     /// </summary>
-    public ObservableCollection<MultiviewOptions> Multiviews { get; init; } = new();
+    public ShowCollection<MultiviewOptions> Multiviews { get; init; } = new();
     public OverlaySet Overlays { get; init; } = new();
     public CountdownConfig Countdown { get; init; } = new();
 
@@ -2422,7 +2422,7 @@ public sealed class ShowState : Observable
     public PresenterConfig Presenter { get; init; } = new();
 
     /// <summary>The caller's cue stack and the speaker's clicker list (schema 5); see <see cref="Services.CueStacks"/>.</summary>
-    public ObservableCollection<CueStackConfig> Stacks { get; init; } = new();
+    public ShowCollection<CueStackConfig> Stacks { get; init; } = new();
     public AudioPlayerConfig AudioPlayer { get; init; } = new();
     public ControlConfig Control { get; init; } = new();
 
@@ -2455,10 +2455,10 @@ public sealed class ShowState : Observable
     public global::Patterns.Core.LowerThirds.LowerThirdsConfig LowerThirds { get; init; } = new();
 
     /// <summary>Operator nicknames for live inputs, keyed "ndi:&lt;source&gt;" / "cap:&lt;device&gt;".</summary>
-    public ObservableCollection<InputLabelConfig> InputLabels { get; init; } = new();
+    public ShowCollection<InputLabelConfig> InputLabels { get; init; } = new();
 
     /// <summary>The mode each capture device opens in ("1920x1080@60"), by device name; absent = the device's default.</summary>
-    public ObservableCollection<CaptureFormatConfig> CaptureFormats { get; init; } = new();
+    public ShowCollection<CaptureFormatConfig> CaptureFormats { get; init; } = new();
 
     /// <summary>The stored mode key for a capture device, or "" for the device's default.</summary>
     public string CaptureFormatFor(string device)
@@ -2495,7 +2495,7 @@ public sealed class ShowState : Observable
     }
 
     /// <summary>Media the operator has loaded — surfaces in the Library under "My media".</summary>
-    public ObservableCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();
+    public ShowCollection<MediaLibraryEntry> MediaLibrary { get; init; } = new();
 }
 
 public sealed class MediaLibraryEntry : Observable

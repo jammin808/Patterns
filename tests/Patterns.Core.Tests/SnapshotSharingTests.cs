@@ -102,6 +102,77 @@ public class SnapshotSharingTests
         // The live show is never marked, and a write to it never reaches a published copy.
         state.Pattern.Grid.CellSize = 9;
         Assert.NotEqual(9, bus.Current.State.Pattern.Grid.CellSize);
+
+        // The lists too: a published section's lists are frozen — added to, taken from, cleared,
+        // reordered or written at an index, they throw the exception the scalars throw — the
+        // shared ones stay frozen, and the live show's lists are open as ever.
+        var looks = bus.Current.State.LooksAndCues.Looks;
+        Assert.True(looks.IsFrozen);
+        Assert.Throws<InvalidOperationException>(() => looks.Add(new LookConfig { Name = "Sneaked in" }));
+        Assert.Throws<InvalidOperationException>(() => looks.RemoveAt(0));
+        Assert.Throws<InvalidOperationException>(() => looks.Clear());
+        Assert.Throws<InvalidOperationException>(() => looks[0] = new LookConfig());
+        Assert.Throws<InvalidOperationException>(() => looks.Insert(0, new LookConfig()));
+        Assert.Single(looks);
+        Assert.True(bus.Current.State.Output.Placements.IsFrozen);
+        Assert.Throws<InvalidOperationException>(() => bus.Current.State.Output.Placements.Move(0, 0));
+        Assert.False(state.LooksAndCues.Looks.IsFrozen);
+        state.LooksAndCues.Looks.Add(new LookConfig { Name = "Second" });
+        Assert.Single(bus.Current.State.LooksAndCues.Looks);
+        bus.Publish(state, changes);
+        Assert.Equal(2, bus.Current.State.LooksAndCues.Looks.Count);
+        Assert.True(bus.Current.State.LooksAndCues.Looks.IsFrozen);
+    }
+
+    [Fact]
+    public void EveryListInTheShowIsOneAPublishFreezes()
+    {
+        // The walk that marks a snapshot freezes what it can freeze: every list that can travel
+        // in a show file must be a ShowCollection, or a sink could write it unnoticed. Walked by
+        // type, so a new section's List<T> fails here before it ships.
+        var seen = new HashSet<Type>();
+        var wrong = new List<string>();
+        void Walk(Type type, string path)
+        {
+            if (!seen.Add(type)) return;
+            foreach (var p in type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+            {
+                if (p.GetIndexParameters().Length != 0) continue;
+                if (p.GetCustomAttributes(typeof(System.Text.Json.Serialization.JsonIgnoreAttribute), true).Length > 0) continue;   // never in a snapshot
+                var pt = p.PropertyType;
+                if (pt.IsValueType || pt == typeof(string)) continue;
+                var here = path + "." + p.Name;
+                if (typeof(System.Collections.IEnumerable).IsAssignableFrom(pt))
+                {
+                    if (!(pt.IsGenericType && pt.GetGenericTypeDefinition() == typeof(ShowCollection<>))) wrong.Add($"{here}: {pt.Name}");
+                    else Walk(pt.GetGenericArguments()[0], here + "[]");
+                    continue;
+                }
+                Walk(pt, here);
+            }
+        }
+        Walk(typeof(ShowState), nameof(ShowState));
+        Assert.True(wrong.Count == 0, "Lists a publish cannot freeze: " + string.Join(", ", wrong));
+    }
+
+    [Fact]
+    public void AFrozenListCopiedByJsonIsOpenAgain()
+    {
+        var live = new ShowState();
+        live.LooksAndCues.Looks.Add(new LookConfig { Name = "Walk-in" });
+        var published = SnapshotClone.Clone(live);
+        Assert.True(published.LooksAndCues.Looks.IsFrozen);
+        Assert.False(live.LooksAndCues.Looks.IsFrozen);
+        // A copy made by JSON — a recovery record read back, a show landing from the twin, a
+        // thumbnail's branch — is a new, open list; frozenness is the snapshot's, never the data's.
+        var copy = JsonUtil.Clone(published);
+        Assert.False(copy.LooksAndCues.Looks.IsFrozen);
+        Assert.False(copy.LooksAndCues.Looks[0].IsPublished);
+        copy.LooksAndCues.Looks.Add(new LookConfig { Name = "Second" });
+        Assert.Equal(2, copy.LooksAndCues.Looks.Count);
+        Assert.Single(published.LooksAndCues.Looks);
+        Assert.DoesNotContain("IsFrozen", JsonUtil.Serialize(published));
+        Assert.DoesNotContain("IsPublished", JsonUtil.Serialize(published));
     }
 
     [Fact]
@@ -280,6 +351,12 @@ public class SnapshotSharingTests
         branch.Pattern.Kind = PatternKind.ColorBars;                       // writable
         Assert.Equal(PatternKind.Focus, published.Pattern.Kind);
         Assert.Throws<InvalidOperationException>(() => branch.Brand.PrimaryColor = "#222222"); // shared, so still latched
+        // Its lists follow the same line: the copied section's are open, the shared section's are frozen.
+        Assert.False(branch.Pattern.Media.Playlist.Items.IsFrozen);
+        branch.Pattern.Media.Playlist.Items.Add(new PlaylistItemConfig { Path = "a.png" });
+        Assert.True(branch.LooksAndCues.Looks.IsFrozen);
+        Assert.Throws<InvalidOperationException>(() => branch.LooksAndCues.Looks.Add(new LookConfig()));
+        Assert.Empty(published.Pattern.Media.Playlist.Items);
     }
 }
 

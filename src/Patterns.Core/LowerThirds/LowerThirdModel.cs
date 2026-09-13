@@ -251,10 +251,10 @@ public sealed class LowerThirdElement : Observable
     public FractalOptions Fractal { get; init; } = new();
 
     /// <summary>The way in, 0 = the start of the in phase, 1 = at rest. Empty = a plain fade.</summary>
-    public ObservableCollection<LowerThirdKeyframe> In { get; init; } = new();
+    public ShowCollection<LowerThirdKeyframe> In { get; init; } = new();
 
     /// <summary>The way out, 0 = at rest, 1 = gone. Empty = a plain fade.</summary>
-    public ObservableCollection<LowerThirdKeyframe> Out { get; init; } = new();
+    public ShowCollection<LowerThirdKeyframe> Out { get; init; } = new();
 
     [JsonIgnore]
     public bool HasBox => Kind == LowerThirdElementKind.Bar || Fill != LowerThirdFill.None
@@ -330,7 +330,7 @@ public sealed class LowerThirdDesign : Observable
     /// <summary>Empty = the time of day, live.</summary>
     public string TimeText { get => _timeText; set => Set(ref _timeText, value ?? ""); }
 
-    public ObservableCollection<LowerThirdElement> Elements { get; init; } = new();
+    public ShowCollection<LowerThirdElement> Elements { get; init; } = new();
 
     /// <summary>In, hold and out together, ms (the hold counts only when it ends by itself).</summary>
     [JsonIgnore]
@@ -545,10 +545,10 @@ public sealed class LowerThirdsConfig : Observable
     private DateTime? _shownAtUtc;
     private DateTime? _hiddenAtUtc;
 
-    public ObservableCollection<LowerThirdDesign> Designs { get; init; } = new();
+    public ShowCollection<LowerThirdDesign> Designs { get; init; } = new();
 
     /// <summary>The library: people and lines ready to recall into any design, in the page's order (the remote's PERSON n).</summary>
-    public ObservableCollection<LowerThirdEntry> Entries { get; init; } = new();
+    public ShowCollection<LowerThirdEntry> Entries { get; init; } = new();
 
     /// <summary>The design on air (or last on air).</summary>
     public string ActiveId { get => _activeId; set => Set(ref _activeId, value ?? ""); }

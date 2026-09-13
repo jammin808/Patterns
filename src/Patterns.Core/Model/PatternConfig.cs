@@ -190,7 +190,7 @@ public sealed class LedWallOptions : Observable
     /// <summary>Irregular wall: use <see cref="CustomTiles"/> (mixed sizes, offsets, gaps) instead of the grid.</summary>
     public bool UseCustomMap { get => _useCustomMap; set => Set(ref _useCustomMap, value); }
 
-    public ObservableCollection<LedTileConfig> CustomTiles { get; init; } = new();
+    public ShowCollection<LedTileConfig> CustomTiles { get; init; } = new();
 
     /// <summary>Pixel width of one LED panel/cabinet (free input; presets offered by the UI).</summary>
     public int TileWidth { get => _tileWidth; set => Set(ref _tileWidth, Math.Clamp(value, 8, 1024)); }
@@ -365,8 +365,8 @@ public sealed class PlaylistSectionConfig : Observable
     [JsonIgnore]
     public bool IsOnAir { get => _isOnAir; set => Set(ref _isOnAir, value); }
 
-    public ObservableCollection<PlaylistItemConfig> Items { get; init; } = new();
-    public ObservableCollection<string> Folders { get; init; } = new();
+    public ShowCollection<PlaylistItemConfig> Items { get; init; } = new();
+    public ShowCollection<string> Folders { get; init; } = new();
 }
 
 /// <summary>Media playlist: named sections for parts of the show; the active one loops.</summary>
@@ -381,15 +381,15 @@ public sealed class PlaylistOptions : Observable
     private int _activeSection;
 
     /// <summary>The show's parts; exactly one plays at a time (see <see cref="ActiveSection"/>).</summary>
-    public ObservableCollection<PlaylistSectionConfig> Sections { get; init; } = new();
+    public ShowCollection<PlaylistSectionConfig> Sections { get; init; } = new();
 
     /// <summary>Index of the section on air (clamped by readers; persists across restarts).</summary>
     public int ActiveSection { get => _activeSection; set => Set(ref _activeSection, Math.Max(0, value)); }
 
     /// <summary>Legacy flat list (pre-sections) — migrated into the first section on load.</summary>
-    public ObservableCollection<PlaylistItemConfig> Items { get; init; } = new();
+    public ShowCollection<PlaylistItemConfig> Items { get; init; } = new();
     /// <summary>Legacy folder list (pre-sections) — migrated into the first section on load.</summary>
-    public ObservableCollection<string> Folders { get; init; } = new();
+    public ShowCollection<string> Folders { get; init; } = new();
 
     public double ImageDwellSeconds { get => _imageDwellSeconds; set => Set(ref _imageDwellSeconds, Math.Clamp(value, 1, 3600)); }
     /// <summary>Play videos to their end (needs libVLC); off = videos get the image dwell time.</summary>
@@ -614,7 +614,7 @@ public sealed class MultiviewOptions : Observable
     [TransitionNeutral]
     public string Name { get => _name; set => Set(ref _name, value ?? ""); }
 
-    public ObservableCollection<MultiviewTileConfig> Tiles { get; init; } = new();
+    public ShowCollection<MultiviewTileConfig> Tiles { get; init; } = new();
 
     /// <summary>How the tiles are arranged; the large ones are the first one or two in the list.</summary>
     public MultiviewLayout Layout { get => _layout; set => Set(ref _layout, value); }

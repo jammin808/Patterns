@@ -122,14 +122,16 @@ public static class SnapshotClone
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, PropertyInfo[]> Walkable = new();
 
     /// <summary>
-    /// Marks every <see cref="Observable"/> in a graph published — the object, what its properties
-    /// hold, what its collections hold. A JSON-shaped tree has no cycles, and marking twice is
-    /// nothing, so the walk needs no visited set.
+    /// Marks every <see cref="Observable"/> in a graph published and freezes every list
+    /// (<see cref="IFreezable"/>) — the object, what its properties hold, what its collections
+    /// hold. A JSON-shaped tree has no cycles, and marking twice is nothing, so the walk needs
+    /// no visited set.
     /// </summary>
     public static void MarkPublished(object? node)
     {
         if (node is null || node is string) return;
         if (node is Observable obs) obs.MarkPublished();
+        if (node is IFreezable list) list.Freeze();
         if (node is IEnumerable items)
         {
             foreach (var item in items) MarkPublished(item);

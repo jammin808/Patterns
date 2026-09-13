@@ -640,3 +640,16 @@ frozen, the node kernel built. This review grows as each lands.*
 - **Left:** a cue that *reports* fired but whose endpoint verb fails later (an HTTP verb sent
   and refused) is still "fired" here; the endpoint's own health line says so. Making the wall
   switch wait for the switcher's answer is an endpoint round, not a twin one.
+
+### H3 — the published snapshot's lists frozen
+
+- **Done.** `ShowCollection<T>`, the freeze in the publish walk, every list in the show moved
+  over, the tests. `docs/PLAN.md` §57.3.
+- **Found on the way:** the type walk found five lists the file-by-file pass had missed — the
+  lower-third model lives outside `Model/`. The walk stays as a test, so a section added later
+  with a `List<T>` fails before it ships.
+- **Kept:** `LookData` (a look's capture, made and consumed in one call) keeps a plain
+  `ObservableCollection`; it is never published.
+- **A cost, measured at nothing:** the guard is one boolean read per write on a list that is
+  never frozen; the live show's lists pay it on every edit and no publish, thumbnail or sink
+  writes a list at all.

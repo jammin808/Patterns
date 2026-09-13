@@ -105,7 +105,7 @@ public sealed class RunCueConfig : Observable
     /// <summary>A break, lunch or the end of the day — what the caller's estimates count down to.</summary>
     public CueMark Mark { get => _mark; set => Set(ref _mark, value); }
 
-    public ObservableCollection<CueActionConfig> Actions { get; init; } = new();
+    public ShowCollection<CueActionConfig> Actions { get; init; } = new();
 }
 
 /// <summary>A list of cues with one role. The show holds exactly two: the caller's stack and the clicker list.</summary>
@@ -129,7 +129,7 @@ public sealed class CueStackConfig : Observable
     /// <summary>The daily schedule and playlist part start times wait while this stack is armed.</summary>
     public bool SuspendAutomationWhileArmed { get => _suspendAutomationWhileArmed; set => Set(ref _suspendAutomationWhileArmed, value); }
 
-    public ObservableCollection<RunCueConfig> Cues { get; init; } = new();
+    public ShowCollection<RunCueConfig> Cues { get; init; } = new();
 
     [JsonIgnore]
     public bool IsClicker => _role == StackRole.Clicker;

@@ -5596,3 +5596,29 @@ ended and the screens are not taken; the record kept), `TwinAppTests` (a takeove
 the hung main cannot be read, forced by hand; the marker's hold kept through an unreadable phase;
 a wall-switch cue that cannot fire refusing the automatic takeover until it can, and a press
 going ahead with the words).
+
+### 57.3 The published snapshot's lists frozen
+
+**The gap.** Since the snapshot bus, a published snapshot's scalars have thrown on a write
+(`Observable.Set` after `MarkPublished`); its lists never did. A sink that added to, took from or
+reordered a published look's overlays would have changed the picture on every other sink — and
+on the next snapshot, which shares that section — silently. The contract was enforced for half
+the model.
+
+**The list.** `ShowCollection<T>` (Core, Model) is an `ObservableCollection<T>` with `Freeze()`:
+frozen, its Add, Insert, Remove, Clear, Move and indexer throw the exception the scalars throw.
+`IFreezable` is the one thing the publish walk needs to know; `SnapshotClone.MarkPublished`
+freezes each list it walks over. Every list in the show — thirty-six across `ShowState`,
+`PatternConfig`, `CueStack` and the lower-third model — is one now; the declarations changed and
+nothing else did, since a `ShowCollection<T>` is an `ObservableCollection<T>` to every binding,
+tracker and service. Frozenness is the snapshot's, never the data's: `IsFrozen` is `[JsonIgnore]`,
+and a copy made by JSON (a recovery record read back, a show landing from the twin, a
+thumbnail's branch) is a new, open list. `Branch` keeps its line — a copied section's lists are
+open, a shared section's stay frozen.
+
+**Proof.** `SnapshotSharingTests`: a published section's lists refuse every write and the live
+show's stay open; a later publish carries the live list's new item frozen; a branch's copied
+lists open and its shared lists frozen; a frozen list copied by JSON open again with nothing of
+the freeze in the file; and a walk of `ShowState` by type asserting every list a show file can
+carry is a `ShowCollection<T>` — the test that found the lower-third model's five lists, which
+the first pass had missed.
