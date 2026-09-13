@@ -5056,3 +5056,38 @@ the held show kept, then the process gone — landing its show and putting its a
 standby of a main on another machine that will not take over by itself without a wall-switch
 cue, and does with one, firing it; the real probe ending a process and saying so only once it is
 gone; `TWIN TAKEOVER FORCE` on the wire; the rules and the words in Core.
+
+## 52. Nodes — the arcade, the hub, the caller and the timer: the assessment
+
+*"Consider the idea of simple old school type mini games, like Pong or Space Invaders or Snake, or
+a racing game, or a duck shoot game, or an adventure game, or Draughts, etc., or something new and
+novel. Maybe as a separate exe mini gaming engine that when run is picked up, linked and UX
+integrated by Patterns (preferred option if viable)? Or at the very least as a separate process.
+Low CPU/GPU, high stability, abstraction. Use the latest gaming techniques… started and stopped
+via the Patterns interface (a menu item in the left rail above the streaming area). Keyboard, a
+hand-held controller, or a remote. The engine could also run interactive audience polls and
+questions, like a mini Slido with gamification, with messages back to the audience — a
+discoverable process so a PC out front could be the games hub. Consider a professional stage
+timer and messages-to-stage. Consider a show caller's exe: a stripped install to plan cues at
+home, then export a file Patterns imports, or discovery, and during the show the caller's node in
+sync with Patterns as an external control node. Consider AI at each step; gamify what would
+benefit, possibly the projector blending."*
+
+The assessment is `docs/NODES.md`. The verdict: viable, and the preferred shape is right with one
+correction — not a separate exe but a separate *process of the same exe*, `Patterns.exe --node
+<role>`, the fifth way this build already runs itself (the watchdog, the desk, `--host encoder`,
+the standby twin). A node boots a kernel of the desk's services (store, log, beacon, the wire,
+journal, assistant client), announces its kind on the beacon, is driven by the verbs the desk
+already speaks, and puts its picture on the wall as a source — NDI from another machine, the
+shared frame ring on this one. The one real refactor is a composition root that boots the kernel
+without the desk; everything else is the nodes.
+
+| Round | What lands | Status |
+| --- | --- | --- |
+| A | The node kernel; `--node caller` (the Show pages alone, cues planned at home, offered as a diff at the venue, in step during the show over the twin's link with a third role, never holding outputs); the stage timer and messages as pages the desk serves (`/stage`, the timer's verbs and segments from the running order, messages with a receipt); the NODES rail item and page. | assessed |
+| B | `--node arcade`: a fixed-step, interpolated, deterministic Skia engine; keyboard, XInput pads, Companion keys and a phone pad; Pong, Snake, Breakout; attract mode and a leaderboard; NDI or the ring to the wall; `ARCADE …` verbs and cue actions. | assessed |
+| C | Audience play on the hub PC: `/play` with a room code and QR, polls, quizzes with speed points, word clouds, results on the wall and in the desk's overlays, a message back to each phone, moderation with the assistant, Draughts on the wall, the path the room votes. | assessed |
+| D | Rig day gamified, opt-in: the alignment game on the mesh against the calibration's targets, the show-ready score on the health line, Blend Quest across a rig's joins. | assessed |
+
+What not to do is §11 of the doc: another engine runtime, a browser as the game surface, a plugin
+system, a timer in its own process, audience phones on the show LAN, gamification on by default.
