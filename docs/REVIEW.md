@@ -620,3 +620,23 @@ frozen, the node kernel built. This review grows as each lands.*
   machine; a thousand over a venue's Wi-Fi is the venue's to measure. The per-address budgets
   assume phones on distinct addresses — a room behind one NAT needs them raised on the Remote
   page (`AudienceBudget` is a record; the seats are the one setting persisted).
+
+### H2 — the twin's fences closed
+
+- **Done.** The three-answer `ProcessSight`, the probe that tells gone from unreadable, the
+  four fence sites (the twin takeover on this machine, the start-up takeover, the marker's
+  hold, the ownership read), the wall switch before the outputs and the refusal of an automatic
+  takeover it cannot make, the tests. `docs/PLAN.md` §57.2.
+- **A rule, written down:** *a process that cannot be read is a fence, not an absence.* Every
+  fence used to collapse "I could not see it" into "it is gone"; a hold kept a little long costs
+  a press, a hold dropped costs two desks on one set of screens.
+- **Changed on purpose:** a start-up takeover that finds an owner it cannot end now leaves the
+  ownership record in place (it used to clear it) — the next start must find the hung owner
+  again rather than open a second set behind it. The ask, which was ours, is still cleared.
+- **The order of the wall switch:** before the outputs, on takeover, costs the room a moment of
+  no signal from this machine's input (the outputs open in the same call, so it is the window's
+  open time); after, it would cost a takeover the room cannot see. On take-back the order is the
+  other way round for the same reason — the standby's picture is up until the switch has moved.
+- **Left:** a cue that *reports* fired but whose endpoint verb fails later (an HTTP verb sent
+  and refused) is still "fired" here; the endpoint's own health line says so. Making the wall
+  switch wait for the switcher's answer is an endpoint round, not a twin one.

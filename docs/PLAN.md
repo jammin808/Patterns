@@ -5552,3 +5552,47 @@ the host and the feed all 404 on the audience port; the play calls 404 on the co
 when a question opens (under a second), answer together and every answer counts — in about four
 seconds on the build machine — then the budgets bite: a phone past its answers is told to slow
 down, an address past its joins is refused, a full room turns a phone away.
+
+### 57.2 The twin's fences closed
+
+**The gap.** Round 34's fences read a process two ways — there, or not — and a process that could
+not be read (another user's session, an elevated one, a protected one) answered "not there": the
+takeover on this machine went ahead with nothing ended, the start-up takeover called the screens
+its own, and a main read its standby's marker as a dead process. Each was a desk opening its
+outputs behind a process that may well still have had them. And between two machines the wall
+switch fired *after* the outputs had opened, so a cue that could not fire left a standby running
+a show on a wall the room was not looking at — and, taken by itself, left two machines each
+believing it was the main.
+
+**The read.** `ProcessSight` (Core, pure) is the three-answer look: gone; up but unreadable; up
+and read, with its start time and exe. `IsTheOne(started)`, `IsGoneOrReused(started)` and
+`IsUnreadable` are the whole vocabulary of the fences, and every fence reads the middle answer as
+a fence, never as an absence. `IProcessProbe.Look` gives it (a default built from the two old
+reads keeps every fake's world, where all that can be seen can be read); `SystemProcessProbe`
+tells `ArgumentException` (no such process) from every other failure (a process this one may not
+open), and a process whose times are refused reads as unreadable with whatever module it will
+give. `OutputOwnership.Read` and `TwinHandover.Holds` take the look (the old two-answer
+overloads delegate to it).
+
+**The fences, now.** On this machine, `TwinService.TakeOver`: gone or reused → nothing to end;
+unreadable → refused ("is still up but cannot be read from here … so it cannot be ended");
+readable but not Patterns → refused; readable and Patterns → ended, or refused when it will not
+end. `OutputTakeover` at start-up: the same four ways, and a run that cannot be read is not
+taken — the record stays for the next start, the ask is cleared, the words say "close it by
+hand". `CheckMarker`: a marker whose process is up but unreadable holds. Between machines: the
+wall-switch cue fires *before* a single output opens here, and a cue that could not fire refuses
+an automatic takeover (`origin.Kind == Recovery`, not forced) with the reason on the line — the
+room could not be told which desk to show, so no desk is changed; the next try comes after the
+usual ten seconds, and it goes ahead the moment the cue fires. A press goes ahead with the
+failure in its words, so the operator switches the wall by hand. The take-back cue stays after
+the main's outputs open: the standby's picture is up until the switch has moved, and the HANDBACK
+word closes it — no fence is needed there. `RefuseTakeOver` is the one refusal path (marker taken
+back, note, said once).
+
+**Proof.** `OutputOwnershipTests` (an unreadable owner reads as live or hung by its heartbeat,
+never free; the three answers and what each fence makes of them), `TwinHandoverTests` (an
+unreadable marker holds), `OutputTakeoverAppTests` (a hung run that cannot be read is never
+ended and the screens are not taken; the record kept), `TwinAppTests` (a takeover refused while
+the hung main cannot be read, forced by hand; the marker's hold kept through an unreadable phase;
+a wall-switch cue that cannot fire refusing the automatic takeover until it can, and a press
+going ahead with the words).

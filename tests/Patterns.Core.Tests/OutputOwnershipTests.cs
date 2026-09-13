@@ -45,6 +45,50 @@ public class OutputOwnershipTests
     {
         // Same number, different process: Windows reuses ids, so the start time is what decides.
         Assert.Equal(OutputClaim.Stale, OutputOwnership.Read(Owner(started: 1000), 7, Me, Now, Running(4242, 9999)));
+        Assert.Equal(OutputClaim.Stale, OutputOwnership.Read(Owner(started: 1000), 7, Me, Now, _ => ProcessSight.Alive(9999)));
+    }
+
+    [Fact]
+    public void AnOwnerThatCannotBeReadIsAFenceNotAnAbsence()
+    {
+        // Up, and not this process's to read (another user's, elevated): "could not see it" is never
+        // "it is gone". It reads as an owner — the heartbeat alone says whether its desk answers —
+        // and never as free screens.
+        Func<int, ProcessSight> unreadable = pid => pid == 4242 ? ProcessSight.Unreadable() : ProcessSight.Gone;
+        var live = OutputOwnership.Read(Owner(beatSecondsAgo: 1), 7, Me, Now, unreadable);
+        Assert.Equal(OutputClaim.HeldByLiveDesk, live);
+        var hung = OutputOwnership.Read(Owner(beatSecondsAgo: 30), 7, Me, Now, unreadable);
+        Assert.Equal(OutputClaim.HeldByHungDesk, hung);
+        Assert.True(OutputOwnership.ShouldTakeOver(hung));
+        // Gone is still gone, and the two-answer read still means what it meant.
+        Assert.Equal(OutputClaim.Stale, OutputOwnership.Read(Owner(), 7, Me, Now, _ => ProcessSight.Gone));
+        Assert.Equal(OutputClaim.HeldByLiveDesk, OutputOwnership.Read(Owner(beatSecondsAgo: 1), 7, Me, Now, ProcessSight.From(Running(4242, 1000))));
+        Assert.Equal(OutputClaim.Stale, OutputOwnership.Read(Owner(), 7, Me, Now, ProcessSight.From(NothingRunning)));
+    }
+
+    [Fact]
+    public void ALookAnswersThreeWaysAndTheFencesReadEachOne()
+    {
+        var gone = ProcessSight.Gone;
+        var mine = ProcessSight.Alive(1000, @"C:\Patterns\Patterns.exe");
+        var other = ProcessSight.Alive(2000);
+        var shut = ProcessSight.Unreadable();
+        Assert.False(gone.Exists);
+        Assert.True(mine.IsTheOne(1000));
+        Assert.False(other.IsTheOne(1000));
+        Assert.False(shut.IsTheOne(1000));                                          // it may be, but nobody can say so
+        Assert.True(gone.IsGoneOrReused(1000));
+        Assert.True(other.IsGoneOrReused(1000));
+        Assert.False(mine.IsGoneOrReused(1000));
+        Assert.False(shut.IsGoneOrReused(1000));                                    // and it may not be gone either: the fence
+        Assert.True(shut.IsUnreadable);
+        Assert.False(mine.IsUnreadable);
+        Assert.False(gone.IsUnreadable);
+        Assert.Equal("", shut.ExePath);
+        Assert.Equal(@"C:\Patterns\Patterns.exe", mine.ExePath);
+        var from = ProcessSight.From(pid => pid == 1 ? 1000 : null);
+        Assert.True(from(1).IsTheOne(1000));
+        Assert.Same(ProcessSight.Gone, from(2));
     }
 
     [Fact]

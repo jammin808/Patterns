@@ -970,7 +970,7 @@ public sealed class TwinService : IDisposable
         {
             return;
         }
-        var holds = marker is not null && TwinHandover.Holds(marker, Probe.StartTicks);
+        var holds = marker is not null && TwinHandover.Holds(marker, Probe.Look);   // a process that cannot be read still holds: a fence, not an absence
         if (holds && !_holderMarked)
         {
             _holderMarked = true;
@@ -1110,23 +1110,28 @@ public sealed class TwinService : IDisposable
         _pendingWhole = true;
         _pendingAir = true;
         ScheduleFlush();
+        // The take-back cue fires once the show is on here: the standby's picture stays up until the
+        // switch has moved, and the HANDBACK word above is what closes its outputs — no fence needed.
         var wall = FireWallSwitch(_services.State.Twin.TakeBackCue);
-        return ActionResult.Done(wall.Length > 0 ? words + " " + wall : words);
+        return ActionResult.Done(wall.Words.Length > 0 ? words + " " + wall.Words : words);
     }
+
+    /// <summary>What firing the wall-switch cue came to: no cue set, fired, or not — with the reason, and the words for the line.</summary>
+    private readonly record struct WallSwitch(bool Ok, string Reason, string Words);
 
     /// <summary>
     /// The wall-switch cue — the room's own fence. A cue that puts this machine's input on the wall
-    /// (a switcher's HTTP or OSC verb, a PJLink input, a matrix route) fired once the show is on
-    /// here, so whichever desk the room shows is the one running the show. "" when there is none.
+    /// (a switcher's HTTP or OSC verb, a PJLink input, a matrix route), so whichever desk the room
+    /// shows is the one running the show. Ok with no words when there is none.
     /// </summary>
-    private string FireWallSwitch(string cue)
+    private WallSwitch FireWallSwitch(string cue)
     {
-        if (cue.Length == 0) return "";
+        if (cue.Length == 0) return new WallSwitch(true, "", "");
         var result = _services.Actions.Execute(new ShowAction(ShowActionKind.CueFire, cue), ActionOrigin.Recovery);
         var words = result.Ok ? $"Wall switch: cue '{cue}' fired." : $"Wall switch: cue '{cue}' could not fire — {result.Message}";
         if (result.Ok) Log.Info($"Twin: {words}");
         else Log.Warn($"Twin: {words}");
-        return words;
+        return new WallSwitch(result.Ok, result.Ok ? "" : result.Message, words);
     }
 
     private bool MainIsOnThisMachine() => _welcome is { } w && string.Equals(w.Machine, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
@@ -1489,28 +1494,49 @@ public sealed class TwinService : IDisposable
         }
 
         // The hung main on this very machine: ended, and only a process that is provably the one
-        // the welcome named and provably Patterns — a pid is never enough to end something by.
+        // the welcome named and provably Patterns — a pid is never enough to end something by. A
+        // process that is gone, or whose id was handed out again, holds nothing; one that is up
+        // but cannot be read from here is a fence, not an absence: it may well still have the
+        // screens, and "could not see it" is never "it is gone".
         if (fence is null && localMain && w.Pid > 0 && w.Pid != Environment.ProcessId)
         {
-            var started = Probe.StartTicks(w.Pid);
-            if (started is not null && started == w.StartedAtUtcTicks && OutputTakeover.IsPatterns(Probe.ExePath(w.Pid), w.ExePath))
+            var sight = Probe.Look(w.Pid);
+            if (sight.IsGoneOrReused(w.StartedAtUtcTicks))
             {
-                if (Probe.Kill(w.Pid)) notes.Add($"ended {main}'s process (pid {w.Pid}) — it had stopped answering");
-                else fence = $"{main}'s process (pid {w.Pid}) is still up and could not be ended";
+                // gone with its windows, or another program wearing its id: nothing to end
+            }
+            else if (sight.IsUnreadable)
+            {
+                fence = $"{main}'s process (pid {w.Pid}) is still up but cannot be read from here (another user's, or elevated?), so it cannot be ended";
+            }
+            else if (!OutputTakeover.IsPatterns(sight.ExePath, w.ExePath))
+            {
+                fence = $"pid {w.Pid} is up with {main}'s start time but is not Patterns ({sight.ExePath}), so it is not ended";
+            }
+            else if (Probe.Kill(w.Pid))
+            {
+                notes.Add($"ended {main}'s process (pid {w.Pid}) — it had stopped answering");
+            }
+            else
+            {
+                fence = $"{main}'s process (pid {w.Pid}) is still up and could not be ended";
             }
         }
 
-        if (fence is not null && !force)
-        {
-            if (marked) TwinHandover.Clear(_services.Store.BaseDirectory);       // a marker that says this desk has the show would be a lie
-            var refusal = $"Not taken over: {fence}. The outputs stay held closed — TAKE OVER ANYWAY (Machine page, TWIN) or TWIN TAKEOVER FORCE overrides, by hand only.";
-            var first = _note != "not taken over: " + fence;
-            _note = "not taken over: " + fence;
-            Log.Warn($"Twin: {refusal} ({origin.Label})");
-            if (first) _services.Notify(refusal);
-            return ActionResult.Refused(refusal);
-        }
+        if (fence is not null && !force) return RefuseTakeOver(fence, marked, origin);
         if (fence is not null) notes.Add(fence + " — taken over anyway");
+
+        // The wall switch — the room's own fence, between two machines — fires before a single
+        // output opens here, so the room is looking at this machine by the time its picture is
+        // up. Taken by itself from another machine, a cue that could not fire refuses the
+        // takeover: the room could not be told which desk to show, so no desk is changed; the
+        // next try comes after the usual pause. A press goes ahead and carries the failure in its
+        // words — the operator can switch the wall by hand.
+        var wall = FireWallSwitch(_services.State.Twin.TakeOverCue);
+        if (!wall.Ok && !localMain && origin.Kind == OriginKind.Recovery && !force)
+        {
+            return RefuseTakeOver($"the wall switch cue '{_services.State.Twin.TakeOverCue}' could not fire ({wall.Reason}), so the room could not be told to show this desk", marked, origin);
+        }
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource(); // the redial never restarts on its own
@@ -1524,8 +1550,19 @@ public sealed class TwinService : IDisposable
         var head = $"TOOK OVER from {main} {_note}" + (notes.Count > 0 ? " — " + string.Join(", ", notes) : "") + ".";
         Log.Warn($"Twin: {head} ({origin.Label})");
         _services.RecoverFromTwin(_mirroredAir, head);
-        var wall = FireWallSwitch(_services.State.Twin.TakeOverCue);
-        return ActionResult.Done(wall.Length > 0 ? head + " " + wall : head);
+        return ActionResult.Done(wall.Words.Length > 0 ? head + " " + wall.Words : head);
+    }
+
+    /// <summary>A takeover a fence stopped: the marker taken back (one that says this desk has the show would be a lie), the reason on the line, said once, and refused.</summary>
+    private ActionResult RefuseTakeOver(string fence, bool marked, ActionOrigin origin)
+    {
+        if (marked) TwinHandover.Clear(_services.Store.BaseDirectory);
+        var refusal = $"Not taken over: {fence}. The outputs stay held closed — TAKE OVER ANYWAY (Machine page, TWIN) or TWIN TAKEOVER FORCE overrides, by hand only.";
+        var first = _note != "not taken over: " + fence;
+        _note = "not taken over: " + fence;
+        Log.Warn($"Twin: {refusal} ({origin.Label})");
+        if (first) _services.Notify(refusal);
+        return ActionResult.Refused(refusal);
     }
 
     /// <summary>After a takeover: the outputs held again, the link dialled again, the show mirrored again.</summary>

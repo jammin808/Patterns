@@ -21,11 +21,17 @@ public class OutputTakeoverAppTests
         public readonly Dictionary<int, long> Alive = new();
         public readonly Dictionary<int, string> Paths = new();
         public readonly List<int> Killed = new();
+        public readonly HashSet<int> Unreadable = new();    // up, and not this process's to read
         public bool KillWorks = true;
 
         public long? StartTicks(int pid) => Alive.TryGetValue(pid, out var t) ? t : null;
 
         public string ExePath(int pid) => Paths.TryGetValue(pid, out var p) ? p : "";
+
+        public ProcessSight Look(int pid)
+            => Unreadable.Contains(pid) ? ProcessSight.Unreadable()
+                : Alive.TryGetValue(pid, out var t) ? ProcessSight.Alive(t, ExePath(pid))
+                : ProcessSight.Gone;
 
         public bool Kill(int pid)
         {
@@ -122,6 +128,39 @@ public class OutputTakeoverAppTests
             Assert.Contains("2 screens (Main wall, Foyer)", result.Words);
             // Both sidecars are cleared: this desk owns nothing until its own outputs open.
             Assert.Null(store.Read());
+            Assert.Null(store.ReadRequest());
+        }
+        finally
+        {
+            OutputTakeover.Reset();
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AHungRunThatCannotBeReadIsNeverEndedAndTheScreensAreNotTaken()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = new OutputOwnerStore(dir);
+            // Up, silent — and not this process's to read: another user's session, or elevated.
+            var silent = DateTime.UtcNow - OutputOwnership.HeartbeatSilent - TimeSpan.FromSeconds(5);
+            store.Write(Record(4242, 1000, silent, "Main wall"));
+            var probe = new FakeProbe();
+            probe.Unreadable.Add(4242);
+
+            var result = OutputTakeover.ClaimAtStart(dir, enabled: true, probe, wait: _ => { });
+
+            // A fence, not an absence: asked, not answered, not ended, not taken — and said so.
+            Assert.Equal(OutputClaim.HeldByHungDesk, result.Claim);
+            Assert.False(result.TookOver);
+            Assert.False(result.EndedOwner);
+            Assert.Empty(probe.Killed);
+            Assert.Contains("(pid 4242) and cannot be read from here", result.Words);
+            Assert.Contains("close it by hand, then OUTPUTS ON here", result.Words);
+            // The record stays for the next start to read; the ask, which was ours, is cleared.
+            Assert.NotNull(store.Read());
             Assert.Null(store.ReadRequest());
         }
         finally

@@ -16,32 +16,71 @@ public interface IProcessProbe
 
     /// <summary>Ends the process and everything it started. False when it could not be ended.</summary>
     bool Kill(int pid);
+
+    /// <summary>
+    /// The whole look at once, with the answer the two reads above cannot give: a process that is
+    /// up but that this one may not read, which every fence treats as a fence and never as an
+    /// absence. The default builds it from the two reads — a world where every process that can
+    /// be seen can be read, which is the tests' — so a probe that knows better overrides it.
+    /// </summary>
+    ProcessSight Look(int pid) => StartTicks(pid) is { } started ? ProcessSight.Alive(started, ExePath(pid)) : ProcessSight.Gone;
 }
 
-/// <summary>The real thing: <see cref="Process"/>, with every failure read as "no such process".</summary>
+/// <summary>
+/// The real thing: <see cref="Process"/>. "No such process" and "a process this one may not read"
+/// are told apart, because they mean opposite things to a fence: the first has let go of the
+/// screens, the second may well still have them.
+/// </summary>
 public sealed class SystemProcessProbe : IProcessProbe
 {
-    public long? StartTicks(int pid)
+    public long? StartTicks(int pid) => Look(pid).StartTicks;
+
+    public string ExePath(int pid) => Look(pid).ExePath;
+
+    public ProcessSight Look(int pid)
     {
+        if (pid <= 0) return ProcessSight.Gone;
+        Process p;
         try
         {
-            using var p = Process.GetProcessById(pid);
-            return p.HasExited ? null : p.StartTime.ToUniversalTime().Ticks;
+            p = Process.GetProcessById(pid);
         }
-        catch
+        catch (ArgumentException)
         {
-            return null;   // gone, or not ours to look at — either way it does not hold our screens
+            return ProcessSight.Gone;                       // no process with that id
+        }
+        catch (Exception)
+        {
+            return ProcessSight.Unreadable();               // there is one, and it is not this process's to open
+        }
+        using (p)
+        {
+            long started;
+            try
+            {
+                if (p.HasExited) return ProcessSight.Gone;
+                started = p.StartTime.ToUniversalTime().Ticks;
+            }
+            catch (InvalidOperationException)
+            {
+                return ProcessSight.Gone;                   // it ended between the two calls
+            }
+            catch (Exception)
+            {
+                return ProcessSight.Unreadable(Module(p));  // up, and its times refused: another user's, elevated, protected
+            }
+            return ProcessSight.Alive(started, Module(p));
         }
     }
 
-    public string ExePath(int pid)
+    /// <summary>The main module's file, "" when it cannot be read — a process that can be timed can still refuse its modules.</summary>
+    private static string Module(Process p)
     {
         try
         {
-            using var p = Process.GetProcessById(pid);
             return p.MainModule?.FileName ?? "";
         }
-        catch
+        catch (Exception)
         {
             return "";
         }
@@ -150,7 +189,7 @@ public static class OutputTakeover
             wait ??= Thread.Sleep;
             var store = new OutputOwnerStore(baseDirectory);
             var owner = store.Read();
-            var claim = OutputOwnership.Read(owner, Environment.ProcessId, Environment.MachineName, clock(), probe.StartTicks);
+            var claim = OutputOwnership.Read(owner, Environment.ProcessId, Environment.MachineName, clock(), probe.Look);
 
             switch (claim)
             {
@@ -193,20 +232,31 @@ public static class OutputTakeover
             }
 
             var ended = false;
+            var why = "would not let go";
             if (!handed)
             {
                 // It never answered — the hung case. End it, but only once it is provably the same
-                // process and provably Patterns: a pid is never enough to end something by.
-                if (probe.StartTicks(owner.Pid) == owner.StartedAtUtcTicks && IsPatterns(probe.ExePath(owner.Pid), owner.ExePath))
+                // process and provably Patterns: a pid is never enough to end something by. A
+                // process this desk cannot read is a fence, not an absence: it may well still have
+                // the screens, so nothing is taken and the record stays for the next start to read.
+                var sight = probe.Look(owner.Pid);
+                if (sight.IsGoneOrReused(owner.StartedAtUtcTicks))
                 {
-                    ended = probe.Kill(owner.Pid);
+                    handed = true;                          // it let go between the last look and this one, or its id was handed out again
+                }
+                else if (sight.IsUnreadable)
+                {
+                    why = "cannot be read from here (another user's, or elevated?), so it is not ended";
+                }
+                else if (!IsPatterns(sight.ExePath, owner.ExePath))
+                {
+                    why = $"is not Patterns ({sight.ExePath}), so it is not ended";
                 }
                 else
                 {
-                    // It let go between the last look and this one.
-                    handed = true;
+                    ended = probe.Kill(owner.Pid);
                 }
-                store.Clear();
+                if (handed || ended) store.Clear();
             }
 
             store.ClearRequest();
@@ -214,7 +264,7 @@ public static class OutputTakeover
             return new TakeoverResult(claim, owner, took, ended,
                 took
                     ? OutputOwnership.TakenWords(owner, ended)
-                    : $"The last run still has {OutputOwnership.TargetWords(owner.Targets)} (pid {owner.Pid}) and would not let go — " +
+                    : $"The last run still has {OutputOwnership.TargetWords(owner.Targets)} (pid {owner.Pid}) and {why} — " +
                       "close it by hand, then OUTPUTS ON here.");
         }
         catch (Exception ex)

@@ -213,9 +213,19 @@ public static class TwinHandover
         }
     }
 
-    /// <summary>The marker holds while its process lives and is the process that wrote it (the same start time) — a process id reused by another program holds nothing.</summary>
+    /// <summary>The marker holds while its process lives and is the process that wrote it (the same start time) — a process id reused by another program holds nothing. The two-answer read: every process it can see, it can read.</summary>
     public static bool Holds(TwinTookOverMarker? marker, Func<int, long?> startTicksOf)
-        => marker is { Pid: > 0 } && startTicksOf(marker.Pid) is { } started && started == marker.StartedAtUtcTicks;
+        => Holds(marker, ProcessSight.From(startTicksOf));
+
+    /// <summary>
+    /// The marker holds while its process lives and is the process that wrote it (the same start
+    /// time), and also while its process is up but cannot be read from here: a standby this desk
+    /// may not look into may still have the show, and a hold kept a little long costs a press
+    /// where a hold dropped costs two desks on one set of screens. A process id reused by another
+    /// program holds nothing.
+    /// </summary>
+    public static bool Holds(TwinTookOverMarker? marker, Func<int, ProcessSight> look)
+        => marker is { Pid: > 0 } && look(marker.Pid) is { Exists: true } sight && (!sight.Readable || sight.StartTicks == marker.StartedAtUtcTicks);
 
     /// <summary>"the standby twin Backup desk has the show (took over at 19:41:58) — TAKE BACK on the Machine page".</summary>
     public static string HoldWords(string standby, DateTime? atUtc)

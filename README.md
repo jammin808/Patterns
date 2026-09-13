@@ -116,8 +116,11 @@ fault containment, and settings that can never brick startup.
   `TWIN TAKEOVER FORCE`, overrides by hand only; a standby on this machine that dies with the show
   has its show and air put back on by the main, not left for a press; and between two machines the
   room's switcher is the fence: a wall switch cue (the switcher's own verb through an endpoint)
-  fires on takeover, a take-back cue on TAKE BACK, and taking over by itself from another machine
-  needs one, because a silence cannot tell a dead main from a cut cable. `docs/PLAN.md` §51.
+  fires on takeover — before a single output opens, and a cue that cannot fire refuses a takeover
+  by itself — a take-back cue on TAKE BACK, and taking over by itself from another machine
+  needs one, because a silence cannot tell a dead main from a cut cable. A process that cannot be
+  read (another user's, elevated) is a fence, not an absence: it is never ended, its screens are
+  never taken, its marker still holds. `docs/PLAN.md` §51, §57.2.
 - **Nodes: a caller's own Patterns, and the desk that finds it** — `Patterns.exe --node caller`
   is the same build as a small process: the Show pages alone, no outputs, no generators, planning
   cues at home on its own show file. At the venue the beacon shows it on the desk's Nodes page

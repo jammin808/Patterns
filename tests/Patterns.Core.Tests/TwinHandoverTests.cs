@@ -41,8 +41,15 @@ public class TwinHandoverTests
             Assert.Equal(at, read.AtUtc);
             Assert.True(TwinHandover.Holds(read, pid => pid == 4242 ? 77 : null));        // alive, the same process
             Assert.False(TwinHandover.Holds(read, pid => pid == 4242 ? 78 : null));       // the id reused by another program
-            Assert.False(TwinHandover.Holds(read, _ => null));                          // gone
+            Assert.False(TwinHandover.Holds(read, _ => (long?)null));                        // gone
             Assert.False(TwinHandover.Holds(read with { Pid = 0 }, _ => 77));            // never a process
+            // The three-answer look: a process that is up but cannot be read from here still holds — a
+            // fence, not an absence — and the other answers mean what they meant.
+            Assert.True(TwinHandover.Holds(read, _ => ProcessSight.Unreadable()));
+            Assert.True(TwinHandover.Holds(read, _ => ProcessSight.Alive(77)));
+            Assert.False(TwinHandover.Holds(read, _ => ProcessSight.Alive(78)));
+            Assert.False(TwinHandover.Holds(read, _ => ProcessSight.Gone));
+            Assert.False(TwinHandover.Holds(read with { Pid = 0 }, _ => ProcessSight.Unreadable()));
             TwinHandover.Clear(home);
             Assert.Null(TwinHandover.Read(home));
             TwinHandover.Clear(home);                                                   // twice is fine

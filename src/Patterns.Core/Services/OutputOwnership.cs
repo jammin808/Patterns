@@ -76,7 +76,7 @@ public static class OutputOwnership
     /// <summary>
     /// What the record means here and now. <paramref name="processStartTicks"/> answers null when
     /// there is no process with that id (UTC ticks otherwise), so pid reuse reads as stale rather
-    /// than as an owner.
+    /// than as an owner. The two-answer read: every process it can see, it can read.
     /// </summary>
     public static OutputClaim Read(
         OutputOwner? owner,
@@ -84,15 +84,29 @@ public static class OutputOwnership
         string myMachine,
         DateTime utcNow,
         Func<int, long?> processStartTicks)
+        => Read(owner, myPid, myMachine, utcNow, ProcessSight.From(processStartTicks));
+
+    /// <summary>
+    /// What the record means here and now, from a look that can answer three ways. A process that
+    /// is gone, or whose id was handed out again, took its windows with it: stale. One that is up
+    /// but cannot be read from here is a fence, not an absence — it may well still have the
+    /// screens, and the heartbeat alone says whether its desk still answers — so it reads as an
+    /// owner, live or hung, never as free.
+    /// </summary>
+    public static OutputClaim Read(
+        OutputOwner? owner,
+        int myPid,
+        string myMachine,
+        DateTime utcNow,
+        Func<int, ProcessSight> look)
     {
         if (owner is null) return OutputClaim.Free;
         if (owner.Pid == myPid) return OutputClaim.Ours;
         if (!string.Equals(owner.Machine, myMachine, StringComparison.OrdinalIgnoreCase)) return OutputClaim.AnotherMachine;
         if (utcNow - owner.HeartbeatUtc > Forgotten) return OutputClaim.Stale;
 
-        var started = processStartTicks(owner.Pid);
-        if (started is null) return OutputClaim.Stale;                    // the owner is gone; so are its windows
-        if (started != owner.StartedAtUtcTicks) return OutputClaim.Stale; // the id was handed out again
+        var sight = look(owner.Pid);
+        if (sight.IsGoneOrReused(owner.StartedAtUtcTicks)) return OutputClaim.Stale;   // gone, and so are its windows; or the id handed out again
 
         return utcNow - owner.HeartbeatUtc > HeartbeatSilent
             ? OutputClaim.HeldByHungDesk
