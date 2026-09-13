@@ -13,6 +13,19 @@ namespace Patterns.App.Tests;
 /// </summary>
 public class LivePolicyAppTests
 {
+    private static bool WaitFor(Func<bool> done, int timeoutMs = 4000)
+    {
+        var deadline = Environment.TickCount64 + timeoutMs;
+        while (Environment.TickCount64 < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (done()) return true;
+            Thread.Sleep(15);
+        }
+        Dispatcher.UIThread.RunJobs();
+        return done();
+    }
+
     [AvaloniaFact]
     public void ArmedAndLiveRefusesTheWorkThatIsNotTheShowAndDisarmLiftsIt()
     {
@@ -55,6 +68,9 @@ public class LivePolicyAppTests
             services.CueStack.SetArmed(false, ActionOrigin.Desk);
             var calibrate = services.Actions.Execute(new ShowAction(ShowActionKind.CalibrateRun, "", "cam"), ActionOrigin.Desk);
             Assert.DoesNotContain("Not while", calibrate.Message);
+            // A run that started here — a projector was found — is ended here: its structured light is process-wide.
+            if (services.Calibration.Running) services.Actions.Execute(ShowActionKind.CalibrateCancel, ActionOrigin.Desk);
+            Assert.True(WaitFor(() => !services.Calibration.Running));
             var update = services.Actions.Execute(new ShowAction(ShowActionKind.UpdateApply, "", "wrong"), ActionOrigin.Desk);
             Assert.DoesNotContain("Not while", update.Message);
             Assert.Contains("refused", update.Message);                               // the passcode's own refusal

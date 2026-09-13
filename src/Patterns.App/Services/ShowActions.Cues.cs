@@ -26,6 +26,12 @@ public sealed partial class ShowActions
             }
             case ShowActionKind.CueGo:
                 return _s.CueStack.Go(origin, a.Target.Length == 0 ? null : a.Target);
+            case ShowActionKind.PlanShift:
+                return CueTiming.ParseDelta(a.Value) is { } delta ? ActionResult.Done(_s.CueStack.ShiftPlan(delta, origin)) : ActionResult.Refused($"'{a.Value}' is not a slip — +2:00, -0:30, +90.");
+            case ShowActionKind.PlanResume:
+                return ActionResult.Done(_s.CueStack.ResumeNow(origin));
+            case ShowActionKind.PlanCatchUp:
+                return ActionResult.Done(_s.CueStack.CatchUp(origin));
             case ShowActionKind.CueStandby:
             {
                 // next / prev, or a cue by its number, its name or its id: the standby moves, nothing fires.

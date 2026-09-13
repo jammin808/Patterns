@@ -6374,3 +6374,83 @@ the caller's stack; left as it is. A verb to land a waiting plan now: DISARM is 
 is the honest one.
 
 Counts at the end of the round: Core 1,130, App 592 — both suites green here.
+
+## 65. Round 47 — the glance, and one clock for the day
+
+*Two things the reviews asked for that an operator and a caller feel every night: one line both
+trust, and the day's slip as one action that every clock follows.*
+
+### 65.1 Frames the room did not get
+
+`FramePacer.ShouldPresent` now says how many presentation slots went by unpresented between one
+present and the next: a frame in the same slot as the last is a wait, not a drop; a frame two or
+more slots on is a drop of the slots between. That count is the frames the room did not get, and
+it goes onto the sink's `FrameBudget` (`RecordMissed`) from the pacer's own arithmetic, not from
+a guess at the frame time. The budget's sixty one-second buckets also keep a histogram now — half-
+millisecond bins to 64 ms and one past it, cleared and reused, never reallocated — so the last
+minute's p95 is a walk of 129 bins on the read the desk already makes once a second. The reading
+carries `P95Ms` and `Missed`; the Machine page's render line and each sink's words say "p95 8.1 ms"
+and "3 dropped"; the metrics CSV gains `p95FrameMs` and `droppedFrames` (the worst output's p95, the
+outputs' drops in the last minute), and a file written under an older header is kept as `.old`
+and started again, so a row never lands under the wrong columns.
+
+### 65.2 The glance line
+
+`Glance` (Core, pure) makes the one line: each output's frame rate, p95 and drops, then the
+preview's, then the words each service gave — the twin in a few words (`TwinService.GlanceWords`:
+a main with its standbys and their silence, a standby with the main and when it was heard, a
+caller or a timer with the desk it follows), the screens the room is short, the last box that said
+no, where the day stands against the plan, the lock — joined with a dot, empty parts left out.
+`IRunHost.GlanceWords` is the one member the two hosts implement: the desk from its own services,
+a node from its link alone. `RunViewModel.GlanceText` joins the sinks, the host's words and the
+plan's, once a second, and the Run surface shows it under the LIVE strip on the desk, in the
+pop-out and in the caller node's window alike.
+
+The last box that said no: `DeviceService.LastFailed` is the last receipt that failed — a no, a
+silence, a line that could not go — until that box answers again; its words join the desk's
+health line as well, so a PJLink shutter's NAK is on the line an operator is already reading,
+without the Interactive page open.
+
+### 65.3 One clock for the day
+
+`PLAN SHIFT <±m:ss>`, `PLAN RESUME` and `PLAN CATCHUP` are wire verbs now — `ShowActionKind.PlanShift`,
+`PlanResume`, `PlanCatchUp` — over the same `CueStackService.ShiftPlan`, `ResumeNow` and `CatchUp`
+the Run surface's buttons press, so a Companion key, OSC (`/patterns/plan/shift +2:00`) and a
+cue can slip the day; a caller node forwards them to the desk it follows as it forwards GO, and
+runs them on its own paper stack alone. The slip is carried exactly (`CueTiming.FormatDeltaExact`:
+"+2:00", "-0:30"), never rounded to the minute.
+
+The countdown follows the running order: `CountdownConfig.FollowPlan` (the Countdown page's
+checkbox, `COUNTDOWN FOLLOW ON|OFF`, `/patterns/countdown/follow`). While it is on, every move of
+the stack — a GO, a standby moved, a slip, a resume, a catch-up — re-aims the countdown at the
+standby cue's planned start as a time of day, so the speaker timer, the stage display, the info
+screen and the overlay on every sink keep the caller's one clock; a standby cue with no planned
+start leaves the countdown where it was. One APPLY of the plan on the desk, one slip, and every
+follower's clock moves with it, because the followers already mirror the countdown.
+
+### 65.4 Tests and docs
+
+Core: the pacer's missed slots; the budget's p95 and drops, in the words and gone with the
+window; the glance words and the line; a slip parsed as the wire says it and the words that are
+not one; the plan verbs and the countdown's follow on the wire; the CSV's columns. App: PLAN SHIFT
+moving the planned starts with the journal's words, the countdown following the plan through a
+slip and a standby move and staying put when told not to; the glance line and the health line
+naming the box that said no until it answers again, the lock's word with the outputs live; the CSV
+starting again under a new header with the old file kept. Docs: this section, REVIEW round 47,
+REMOTE.md, the help, README.
+
+Found on the way: a calibration run in flight outlived the desk that started it — the structured
+light is a process-wide flag every output sink paints black behind, and shutdown never cancelled
+the run — so the desk's shutdown ends the run and the overlay now, and the suite's rendering tests
+no longer go black behind a run another test started.
+
+### 65.5 Considered and left
+
+A per-minute aggregate row in the CSV: the row every thirty seconds already reads the last
+minute's p95 and drops, so a minute's worst is in it; the cadence stays. Per-segment slips
+(`SEGMENT n +0:30`): the standby cue is the segment the day is at, and everything after it moves
+together; a slip of one segment alone is an edit on the Cues page. The Companion module's buttons
+for the plan verbs: the module maps any line, and the verbs are documented; a preset is a later
+touch.
+
+Counts at the end of the round: Core 1,146, App 595 — both suites green here.

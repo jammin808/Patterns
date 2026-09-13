@@ -221,6 +221,56 @@ public sealed class TwinService : IDisposable, ILinkReport
     /// <summary>The main's name as a standby knows it; "" before the first welcome.</summary>
     public string MainName => _mainName;
 
+    /// <summary>
+    /// The twin in a few words for the glance line: a main with its standbys and their silence, a
+    /// standby with the main and when it was heard, a caller or a timer with the desk it follows;
+    /// "" with the twin off and nothing linked.
+    /// </summary>
+    public string GlanceWords
+    {
+        get
+        {
+            var now = Clock();
+            switch (_role)
+            {
+                case TwinRole.Main:
+                {
+                    if (_listener is null) return "";
+                    if (_holder.Length > 0) return $"TWIN main · {_holder} HAS THE SHOW";
+                    List<(string Name, DateTime Beat)> standbys;
+                    lock (_gate)
+                    {
+                        standbys = _standbys.Where(s => !s.IsFollower).Select(s => (s.Name, s.LastBeatUtc)).ToList();
+                    }
+                    if (standbys.Count == 0) return "TWIN main · no standby";
+                    var silent = standbys.Where(s => TwinWatch.IsSilent(s.Beat, now)).Select(s => s.Name).ToList();
+                    return silent.Count > 0 ? $"TWIN main · {string.Join(", ", silent)} SILENT" : $"TWIN main · {standbys.Count} standby in step";
+                }
+                case TwinRole.Standby:
+                    return _phase switch
+                    {
+                        TwinPhase.TookOver => "TWIN standby · TOOK OVER",
+                        TwinPhase.MainSilent => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} SILENT",
+                        TwinPhase.InStep => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} heard {TwinWatch.Age(_lastHeardUtc, now)}",
+                        TwinPhase.Refused => "TWIN standby · REFUSED",
+                        _ => "TWIN standby · dialling",
+                    };
+                default:
+                    if (IsFollowerNode)
+                    {
+                        return _phase switch
+                        {
+                            TwinPhase.InStep when _stream is not null => $"LINKED {(_mainName.Length > 0 ? _mainName : "the desk")} · heard {TwinWatch.Age(_lastHeardUtc, now)}",
+                            TwinPhase.MainSilent => $"{(_mainName.Length > 0 ? _mainName : "the desk")} SILENT",
+                            TwinPhase.Connecting => "LINKING",
+                            _ => "ALONE",
+                        };
+                    }
+                    return "";
+            }
+        }
+    }
+
     /// <summary>The standbys a main has, by name (UI thread or not).</summary>
     public IReadOnlyList<string> StandbyNames
     {

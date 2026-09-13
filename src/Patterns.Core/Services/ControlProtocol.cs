@@ -664,10 +664,35 @@ public static class ControlProtocol
                         return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.CountdownTo, "", rest);
                     case "LABEL": case "TEXT": case "TITLE":
                         return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.CountdownLabel, "", rest);
+                    case "FOLLOW": case "PLAN":
+                        return rest.ToUpperInvariant() switch
+                        {
+                            "" or "ON" or "1" or "PLAN" => Act(ShowActionKind.CountdownFollow, "", "on"),
+                            "OFF" or "0" => Act(ShowActionKind.CountdownFollow, "", "off"),
+                            _ => Unknown(s),
+                        };
                     default:
                         // TIMER +60 / TIMER -30: seconds onto what is left; else a bare number of minutes starts it.
                         if (what.Length > 0 && (what[0] == '+' || what[0] == '-') && StageTimer.ParseSeconds(what) is { } nudge) return Act(ShowActionKind.TimerAdd, "", nudge >= 0 ? $"+{nudge:0}" : $"{nudge:0}");
                         return TryParseMinutes(arg, out var bare) ? Act(ShowActionKind.CountdownStart, "", Minutes(bare)) : Unknown(s);
+                }
+            }
+            case "PLAN":
+            {
+                // PLAN SHIFT +2:00 / PLAN SHIFT -30 / PLAN RESUME / PLAN CATCHUP: the day's slip, as the Run surface's buttons do it.
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                var what = sub.Length > 0 ? sub[0].ToUpperInvariant() : "";
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "SHIFT": case "SLIP": case "MOVE":
+                        return CueTiming.ParseDelta(rest) is { } delta ? Act(ShowActionKind.PlanShift, "", CueTiming.FormatDeltaExact(delta)) : Unknown(s);
+                    case "RESUME": case "NOW":
+                        return Act(ShowActionKind.PlanResume);
+                    case "CATCHUP": case "CATCH":
+                        return Act(ShowActionKind.PlanCatchUp);
+                    default:
+                        return what.Length > 0 && (what[0] == '+' || what[0] == '-') && CueTiming.ParseDelta(arg) is { } bare ? Act(ShowActionKind.PlanShift, "", CueTiming.FormatDeltaExact(bare)) : Unknown(s);
                 }
             }
             case "LOGO":

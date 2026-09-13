@@ -1011,3 +1011,33 @@ findings. Their P1 list is kept for the rounds after this one.*
 - **Also found:** the desk builds its cue stack after its twin, so a hook wired in the twin's
   constructor sees no stack; the earlier hook on the hosting tick worked by timing. The landing is
   idempotent and hooked wherever the stack first is or something is first queued.
+
+## Round 47 review — the glance, and one clock for the day
+
+*True drops from the pacer, a p95 from bins, one line on the Run surface, and the day's slip as a
+verb every clock follows.*
+
+### 47.1 — the numbers
+
+- **Done.** The pacer counts the slots the room did not get; the budget keeps a histogram per
+  second and reads a p95 in one walk; the CSV carries both and rotates on a changed header.
+  `docs/PLAN.md` §65.1.
+- **The honest limit:** a p95 from half-millisecond bins is exact to the bin's upper edge; a
+  frame past 64 ms reads as "over 64 ms". Good enough to see a night, not a profiler.
+
+### 47.2 — the line
+
+- **Done.** `Glance` is pure and tested; the two hosts give their words through one member;
+  the desk, the pop-out and the caller's window show the same line. The last box that said no is
+  on the health line too. `docs/PLAN.md` §65.2.
+- **What it is not:** a dashboard. One line, facts only, in the order a caller reads them.
+
+### 47.3 — the clock
+
+- **Done.** PLAN SHIFT, RESUME and CATCHUP on the wire and from a caller node; the countdown
+  follows the standby cue's planned start when told to. `docs/PLAN.md` §65.3.
+- **Kept small on purpose:** no scheduling engine — the plan is the cues' planned starts, the
+  slip moves them, and the countdown reads the one that is next.
+- **Found on the way:** a calibration run outlived its desk and blackened every output sink in the
+  process behind it; shutdown ends the run now. In the suite it read as rendering tests failing at
+  random under load — a flake with a cause, found by asking what paints black.

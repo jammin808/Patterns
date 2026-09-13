@@ -8,9 +8,11 @@ namespace Patterns.Core.Services;
 /// the last minute's average and worst frame with the stage that took it, and the frame rate
 /// the last minute's complete seconds measured.
 /// </summary>
+/// <param name="P95Ms">The frame time 95% of the last minute's frames came in under, from the buckets' histograms; -1 with no frame.</param>
+/// <param name="Missed">The presentation slots the last minute missed — frames the room did not get — as the pacer counted them.</param>
 public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Label, long Frames, long SlowFrames,
                                         int FramesInWindow, double AverageMs, double WorstMs, string WorstStage, double Fps,
-                                        double LastSecondWorstMs = -1)
+                                        double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0)
 {
     /// <summary>"Preview", "Output 1 (Main)", "Monitor PGM".</summary>
     public string Name => Kind switch
@@ -28,7 +30,9 @@ public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Lab
         {
             var stage = WorstStage.Length > 0 ? $" ({FrameStage.Words(WorstStage)})" : "";
             var fps = Fps >= 0 ? $" at {Fps:0} fps" : "";
-            return $"{Name} {AverageMs:0.0} ms avg{fps} · worst {WorstMs:0.0} ms{stage}";
+            var p95 = P95Ms >= 0 ? $" · p95 {P95Ms:0.0} ms" : "";
+            var missed = Missed > 0 ? $" · {Missed} dropped" : "";
+            return $"{Name} {AverageMs:0.0} ms avg{fps}{p95} · worst {WorstMs:0.0} ms{stage}{missed}";
         }
     }
 }
@@ -52,6 +56,10 @@ public sealed class FrameBudget
     /// <summary>The window the worst and the average are read over, in seconds.</summary>
     public const int Window = 60;
 
+    /// <summary>Half-millisecond bins to 64 ms and one for everything past it: a p95 a walk away, nothing allocated per frame.</summary>
+    public const int Bins = 129;
+    public const double BinMs = 0.5;
+
     private struct Bucket
     {
         public long Second;
@@ -60,6 +68,8 @@ public sealed class FrameBudget
         public double WorstMs;
         public string? WorstStage;
         public int Slow;
+        public int Missed;
+        public int[]? Hist;
     }
 
     private readonly Bucket[] _buckets = new Bucket[Window];
@@ -90,6 +100,30 @@ public sealed class FrameBudget
 
     public string WorstEverStage { get; private set; } = "";
 
+    /// <summary>Presentation slots missed this session — frames the room did not get.</summary>
+    public long Missed { get; private set; }
+
+    /// <summary>The pacer found slots gone by unpresented: counted on the second of the show clock they were found at.</summary>
+    public void RecordMissed(int missed, double clockSeconds)
+    {
+        if (missed <= 0) return;
+        var second = (long)Math.Floor(clockSeconds);
+        lock (_gate)
+        {
+            Missed += missed;
+            ref var b = ref _buckets[(int)(((second % Window) + Window) % Window)];
+            if (b.Second != second)
+            {
+                var hist = b.Hist;
+                b = default;
+                b.Second = second;
+                b.Hist = hist;
+                if (hist is not null) Array.Clear(hist);
+            }
+            b.Missed += missed;
+        }
+    }
+
     /// <summary>The sink's viewport can be re-described (a screen renamed, a window moved): the budget follows.</summary>
     public void Relabel(SinkKind kind, int sinkIndex, string label)
     {
@@ -119,9 +153,14 @@ public sealed class FrameBudget
             ref var b = ref _buckets[(int)(((second % Window) + Window) % Window)];
             if (b.Second != second)
             {
+                var hist = b.Hist;                                   // the bins are kept, cleared, never reallocated
                 b = default;
                 b.Second = second;
+                b.Hist = hist;
+                if (hist is not null) Array.Clear(hist);
             }
+            b.Hist ??= new int[Bins];
+            b.Hist[Math.Min(Bins - 1, (int)(ms / BinMs))]++;
             b.Frames++;
             b.SumMs += ms;
             if (ms > b.WorstMs || b.WorstStage is null)
@@ -147,10 +186,15 @@ public sealed class FrameBudget
             var complete = 0;
             var completeFrames = 0;
             var lastSecondWorst = -1.0;
+            var missed = 0;
+            Span<int> hist = stackalloc int[Bins];
             for (var i = 0; i < Window; i++)
             {
                 ref var b = ref _buckets[i];
-                if (b.Frames == 0 || b.Second < oldest || b.Second > now) continue;
+                if (b.Second < oldest || b.Second > now) continue;
+                missed += b.Missed;
+                if (b.Frames == 0) continue;
+                if (b.Hist is { } h) for (var k = 0; k < Bins; k++) hist[k] += h[k];
                 frames += b.Frames;
                 sum += b.SumMs;
                 if (b.WorstMs > worst)
@@ -166,8 +210,24 @@ public sealed class FrameBudget
                 if (b.Second == now - 1) lastSecondWorst = b.WorstMs;   // the last complete second: what the quality ladder judges
             }
             var fps = complete > 0 ? completeFrames / (double)complete : -1;
+            var p95 = -1.0;
+            if (frames > 0)
+            {
+                // The bin the 95th frame falls in, its upper edge: past the last bin it is "over 64 ms".
+                var want = (long)Math.Ceiling(frames * 0.95);
+                long seen = 0;
+                for (var k = 0; k < Bins; k++)
+                {
+                    seen += hist[k];
+                    if (seen >= want)
+                    {
+                        p95 = (k + 1) * BinMs;
+                        break;
+                    }
+                }
+            }
             return new FrameBudgetReading(Kind, SinkIndex, Label, Frames, SlowFrames, frames,
-                frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst);
+                frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst, p95, missed);
         }
     }
 
@@ -178,6 +238,7 @@ public sealed class FrameBudget
             Array.Clear(_buckets);
             Frames = 0;
             SlowFrames = 0;
+            Missed = 0;
             LastMs = -1;
             WorstEverMs = -1;
             WorstEverStage = "";
@@ -259,9 +320,11 @@ public static class FrameBudgets
         var parts = new List<string> { $"Render frame worst {worst.WorstMs:0.0} ms{stage} on {worst.Name} in the last minute" };
         foreach (var r in readings)
         {
-            parts.Add($"{r.Name} {r.AverageMs:0.0} ms avg{(r.Fps >= 0 ? $" at {r.Fps:0} fps" : "")}");
+            parts.Add($"{r.Name} {r.AverageMs:0.0} ms avg{(r.Fps >= 0 ? $" at {r.Fps:0} fps" : "")}{(r.P95Ms >= 0 ? $", p95 {r.P95Ms:0.0} ms" : "")}{(r.Missed > 0 ? $", {r.Missed} dropped" : "")}");
         }
         parts.Add($"{SlowFrames(readings)} past {FrameBudget.SlowMs:0} ms this session");
+        var dropped = readings.Sum(r => (long)r.Missed);
+        if (dropped > 0) parts.Add($"{dropped} frame{(dropped == 1 ? "" : "s")} dropped in the last minute");
         return string.Join(" · ", parts);
     }
 

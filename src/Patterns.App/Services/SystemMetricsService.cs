@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Avalonia.Threading;
+using Patterns.Core.Model;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;
@@ -24,6 +25,7 @@ public sealed class SystemMetricsService : IDisposable
     private DateTime _prevProcessWallUtc = DateTime.UtcNow;
     private int _sinceCsv;
     private bool _csvHeaderChecked;
+    private bool _csvHeaderRead;
 
     public MetricsHistory History { get; } = new();
     public MetricSample? Current { get; private set; }
@@ -116,6 +118,7 @@ public sealed class SystemMetricsService : IDisposable
     private MetricSample Sample(DateTime utcNow, double elapsedSeconds)
     {
         var (previewFps, outputFps, windows, worstMs, slow) = RenderStats.Drain(elapsedSeconds);
+        var outputs = FrameBudgets.Readings(ShowClock.Seconds).Where(r => r.Kind == SinkKind.Output).ToList();   // the last minute's p95 and drops, per output
 
         double cpuSys = -1;
         if (Win32Perf.TryGetSystemTimes(out var idle, out var kernel, out var user))
@@ -204,6 +207,8 @@ public sealed class SystemMetricsService : IDisposable
             OutputWindows = windows,
             WorstFrameMs = worstMs,
             SlowFrames = slow,
+            P95FrameMs = outputs.Count > 0 ? outputs.Max(r => r.P95Ms) : -1,
+            DroppedFrames = outputs.Sum(r => r.Missed),
             Threads = threads,
             Handles = handles,
             GcPausePct = gcPause,
@@ -228,6 +233,19 @@ public sealed class SystemMetricsService : IDisposable
                 _csvHeaderChecked = true;
                 if (File.Exists(path) && new FileInfo(path).Length > 1024 * 1024)
                 {
+                    File.Copy(path, path + ".old", overwrite: true);
+                    File.Delete(path);
+                }
+            }
+            if (File.Exists(path) && !_csvHeaderRead)
+            {
+                // A file from a build with other columns is kept as .old and started again: a row never lands under the wrong header.
+                _csvHeaderRead = true;
+                using var reader = new StreamReader(path);
+                var first = reader.ReadLine();
+                if (first is not null && first != MetricsCsv.Header)
+                {
+                    reader.Dispose();
                     File.Copy(path, path + ".old", overwrite: true);
                     File.Delete(path);
                 }

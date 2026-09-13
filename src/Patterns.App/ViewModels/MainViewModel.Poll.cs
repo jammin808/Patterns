@@ -181,6 +181,8 @@ public sealed partial class MainViewModel
         if (missing.Length > 0) watch = watch.Length > 0 ? missing + " · " + watch : missing;
         var held = _services.ShowLock.HealthWords;
         if (held.Length > 0) watch = watch.Length > 0 ? held + " · " + watch : held;
+        var device = _services.Devices.HealthWords;   // the last box that said no, until it answers again
+        if (device.Length > 0) watch = watch.Length > 0 ? watch + " · " + device : device;
         PollRigDay();          // the show-ready facts every two seconds, the quest, the game's words — when the games are on
         var ready = _services.RigDay.ReadyWords;
         HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);

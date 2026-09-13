@@ -360,6 +360,14 @@ public enum ShowActionKind
     /// <summary>The audience listener on (Value: a port, or empty for the one set) or off — a control setting, the desk's own.</summary>
     AudienceOn,
     AudienceOff,
+    /// <summary>The plan slips: every planned start from the standby cue on moves by the Value ("+2:00", "-0:30", "+90").</summary>
+    PlanShift,
+    /// <summary>"We resume now": the standby cue's planned start becomes the clock and the day moves with it.</summary>
+    PlanResume,
+    /// <summary>The lateness made up before the next mark, the planned lengths squeezed in proportion.</summary>
+    PlanCatchUp,
+    /// <summary>The countdown follows the running order — its target is the standby cue's planned start (Value: on / off).</summary>
+    CountdownFollow,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

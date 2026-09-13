@@ -99,6 +99,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `COUNTDOWN` / `COUNTDOWN TOGGLE` | The countdown flips — off when it is on air, else started as the desk has it set up (its time of day, else its duration from now). One key on a phone or a Stream Deck, like a bare `CLOCK`, `MESSAGE`, `LOGO` or `PIP`; `TIMER` is the same |
 | `COUNTDOWN STOP` | The countdown leaves (`OFF` / `HIDE` / `CLEAR` are the same) |
 | `COUNTDOWN LABEL <text>` | The words over the digits — BACK FROM LUNCH IN |
+| `COUNTDOWN FOLLOW ON` / `OFF` | The countdown follows the running order: its target is the standby cue's planned start, as a time of day, and it moves on every GO, standby move, slip, resume or catch-up — so the speaker timer, the stage display and the info screen keep the caller's one clock (`TIMER FOLLOW` is the same; a standby cue with no planned start leaves it where it was) |
 | `LOGO ON` / `OFF` / `TOGGLE` | The brand logo overlay (the file is the Branding page's); bare `LOGO` toggles |
 | `PIP ON` / `OFF` / `TOGGLE` | The picture-in-picture inset, its source as the Overlays page set it; bare `PIP` toggles |
 | `OVERLAYS OFF` | The clock, the message, the countdown, the logo, the PiP and the weather chip all off: a clean picture in one press |
@@ -112,6 +113,9 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `CUE STANDBY NEXT` / `PREV` / `<number>` / `<name>` | Put a cue on standby — changes nothing on air |
 | `CUE HOLD ON` / `OFF` | A latched GO inhibit and nothing else |
 | `CUE ARM ON` / `OFF` | Arm / disarm the stack — accepted only when the Remote page allows remotes to arm |
+| `PLAN SHIFT <±m:ss>` | The day slips: every planned start from the standby cue on moves by the delta — `+2:00`, `-0:30`, `+90`, `-2m` (`SLIP` / `MOVE` are the same, and `PLAN +2:00` alone) — the Run surface's −1 MIN / +1 MIN as any delta; journaled as PlanShift; a caller node sends it to the desk it follows |
+| `PLAN RESUME` | "We resume now": the standby cue's planned start becomes the clock and the rest of the day moves with it (RESUME NOW on the Run surface) |
+| `PLAN CATCHUP` | The lateness made up before the next break, lunch or end by squeezing the planned lengths in proportion, never below 30 s a cue (CATCH UP on the Run surface) |
 | `CUE LIST` | `OK <json>` — the whole list with notes, summaries, broken reasons and each cue's plan (`plannedStart`, `plannedSeconds`, `followSeconds`, `mark`); `listRev` changes when the list does |
 | `STOPALL` | Stops the audio track, break music, any VOG or stinger (a clip or a held frame reverts, no ending runs) and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |

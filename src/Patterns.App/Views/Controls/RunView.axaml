@@ -8,8 +8,9 @@
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-    <!-- LIVE strip: what is on air, by name, and the chips a caller glances at -->
+    <!-- LIVE strip: what is on air, by name, and the chips a caller glances at — and, under it, the glance line: the outputs' frames, the twin, the screens, the last box that said no, the plan, the lock -->
     <Border Grid.Row="0" Classes="runLive">
+     <StackPanel>
       <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <Ellipse Classes="tally" Classes.air="{Binding !Run.IsBlackout}" Width="12" Height="12" />
@@ -40,6 +41,8 @@
           <TextBlock Classes="runClock" Text="{Binding HeaderClock}" VerticalAlignment="Center" />
         </StackPanel>
       </Grid>
+      <TextBlock Classes="runNotes" Text="{Binding Run.GlanceText}" IsVisible="{Binding Run.HasGlance}" Foreground="{StaticResource TextDimBrush}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip.Tip="The glance line: each output's frame rate, its p95 frame time and the frames it dropped in the last minute; the twin; the screens the room is short; the last box that said no; where the day stands against the plan; the lock" />
+     </StackPanel>
     </Border>
 
     <!-- After a watchdog relaunch: the place came back, nothing fired -->

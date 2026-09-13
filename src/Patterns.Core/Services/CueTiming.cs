@@ -221,6 +221,46 @@ public static class CueTiming
     }
 
     /// <summary>"+7 min", "−2 min", "+40 s".</summary>
+    /// <summary>"+2:00", "-0:30", "+90", "-2m", "1:30" (forward): a slip of the plan as a wire verb says it; null for words that are not one.</summary>
+    public static TimeSpan? ParseDelta(string? text)
+    {
+        var t = (text ?? "").Trim();
+        if (t.Length == 0) return null;
+        var sign = t[0] == '-' || t[0] == '\u2212' ? -1 : 1;
+        var body = t[0] is '+' or '-' or '\u2212' ? t[1..].Trim() : t;
+        if (body.Length == 0) return null;
+        double seconds;
+        var parts = body.Split(':');
+        if (parts.Length is 2 or 3)
+        {
+            if (!parts.All(p => int.TryParse(p, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _))) return null;
+            var n = parts.Select(p => int.Parse(p, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+            seconds = parts.Length == 2 ? n[0] * 60 + n[1] : n[0] * 3600 + n[1] * 60 + n[2];
+        }
+        else if (StageTimer.ParseSeconds(body) is { } s)
+        {
+            seconds = s;
+        }
+        else
+        {
+            return null;
+        }
+        if (seconds <= 0) return null;
+        return TimeSpan.FromSeconds(sign * seconds);
+    }
+
+    /// <summary>"+2:00", "-0:30", "+1:02:03": a slip exactly as the wire carries it — the value a PLAN SHIFT verb keeps, never rounded to the minute.</summary>
+    public static string FormatDeltaExact(TimeSpan d)
+    {
+        var sign = d < TimeSpan.Zero ? "-" : "+";
+        var abs = d.Duration();
+        var total = (long)Math.Round(abs.TotalSeconds);
+        var h = total / 3600;
+        var m = total % 3600 / 60;
+        var s = total % 60;
+        return h > 0 ? $"{sign}{h}:{m:00}:{s:00}" : $"{sign}{m}:{s:00}";
+    }
+
     public static string FormatDelta(TimeSpan d)
     {
         var sign = d < TimeSpan.Zero ? "−" : "+";

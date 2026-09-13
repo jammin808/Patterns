@@ -38,7 +38,7 @@ public class FrameBudgetTests
         Assert.Equal((4 + 31 + 5 + 6 + 7) / 5.0, r.AverageMs, 6);
         Assert.Equal(3, r.Fps);                                   // the one complete second held three frames
         Assert.Equal("Output 1 (Main)", r.Name);
-        Assert.Equal("Output 1 (Main) 10.6 ms avg at 3 fps · worst 31.0 ms (the Fractal pattern)", r.Words);
+        Assert.Equal("Output 1 (Main) 10.6 ms avg at 3 fps · p95 31.5 ms · worst 31.0 ms (the Fractal pattern)", r.Words);   // five frames: the 95th-percentile frame is the slow one, its bin's upper edge
         Assert.Equal(7, b.LastMs);
         Assert.Equal(31, b.WorstEverMs);
         Assert.Equal("pattern:Fractal", b.WorstEverStage);

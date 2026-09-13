@@ -164,6 +164,10 @@ public sealed record MetricSample
     public int OutputWindows { get; init; }
     public double WorstFrameMs { get; init; }
     public int SlowFrames { get; init; }
+    /// <summary>The worst output's 95th-percentile frame time over the last minute, ms; -1 unmeasured.</summary>
+    public double P95FrameMs { get; init; } = -1;
+    /// <summary>Presentation slots the outputs missed in the last minute — frames the room did not get.</summary>
+    public int DroppedFrames { get; init; }
     public int Threads { get; init; }
     public int Handles { get; init; }
     public double GcPausePct { get; init; } = -1;
@@ -221,6 +225,8 @@ public sealed class MetricsHistory
             OutputFps = Avg(window, s => s.OutputFps),
             WorstFrameMs = window.Max(s => s.WorstFrameMs),
             SlowFrames = window.Sum(s => s.SlowFrames),
+            P95FrameMs = window.Max(s => s.P95FrameMs),
+            DroppedFrames = window.Max(s => s.DroppedFrames),   // each sample already reads the last minute: the window's worst minute, not a sum
         };
     }
 
@@ -525,7 +531,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,droppedFrames";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -535,7 +541,9 @@ public static class MetricsCsv
         s.Threads.ToString(System.Globalization.CultureInfo.InvariantCulture),
         s.Handles.ToString(System.Globalization.CultureInfo.InvariantCulture),
         s.OnBattery ? "1" : "0",
-        s.Faults.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        s.Faults.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        R(s.P95FrameMs),
+        s.DroppedFrames.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);

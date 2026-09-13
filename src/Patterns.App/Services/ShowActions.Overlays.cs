@@ -37,6 +37,13 @@ public sealed partial class ShowActions
             case ShowActionKind.CountdownStop:
                 _s.EditAir(air => air.Countdown.Enabled = false);
                 return ActionResult.Done("Countdown off.");
+            case ShowActionKind.CountdownFollow:
+            {
+                var follow = !a.Value.Equals("off", StringComparison.OrdinalIgnoreCase);
+                _s.EditAir(air => air.Countdown.FollowPlan = follow);
+                if (follow) _s.FollowPlanNow();   // the target is the standby cue's planned start from this moment
+                return ActionResult.Done(follow ? "Countdown follows the running order — the standby cue's planned start is its target, and moves with the plan." : "Countdown no longer follows the running order.");
+            }
             case ShowActionKind.CountdownToggle:
                 // One key for the countdown, the way the clock, the message, the logo, the PiP and
                 // the weather chip already have one: off when it is on air, else started as the

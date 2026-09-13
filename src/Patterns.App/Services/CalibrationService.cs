@@ -285,6 +285,17 @@ public sealed class CalibrationService
 
     public void Cancel() => _cts?.Cancel();
 
+    /// <summary>
+    /// The desk is going: a run in flight is cancelled and the structured light ends now, not when
+    /// the camera's grab notices — the overlay is a process-wide flag, and every output sink paints
+    /// black while it stands, so it must not outlive the desk that raised it.
+    /// </summary>
+    public void Shutdown()
+    {
+        Cancel();
+        CalibrationOverlay.End();
+    }
+
     private ActionResult Solve(IReadOnlyList<ScreenPlacement> projectors, Func<string, IReadOnlyList<GreyFrame>> framesOf)
     {
         var samples = new List<ProjectorSample>();

@@ -497,6 +497,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         CueStack = new CueStackService(Kernel, this);
         // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
         CueStack.Changed += ReconcileInputs;
+        CueStack.Changed += FollowPlan;
         Stage = new StageService(this);
         Kernel.Air = this;                                       // the beacon packet and the nodes page read the desk's air from here on
         GpuService.RecordAppliedPath(State);
@@ -1288,6 +1289,47 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>The outputs are open: the beacon's LIVE, the twin's hold.</summary>
     public bool OutputsLive => Outputs.IsLive;
 
+    /// <summary>The glance line's facts from this desk's services: the twin, the screens the room is short, the last box that said no, the lock.</summary>
+    public string GlanceWords
+    {
+        get
+        {
+            var parts = new List<string>();
+            var twin = Twin.GlanceWords;
+            if (twin.Length > 0) parts.Add(twin);
+            var lost = HotPlug.LostScreens.Count;
+            if (lost > 0) parts.Add(lost == 1 ? "1 SCREEN MISSING" : $"{lost} SCREENS MISSING");
+            var device = Devices.HealthWords;
+            if (device.Length > 0) parts.Add(device);
+            if (Outputs.IsLive) parts.Add(ShowLock.Locked ? "LOCK ON" : "LOCK OFF");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>
+    /// The countdown that follows the running order: on every move of the stack — a GO, a standby
+    /// moved, a slip, a resume, a catch-up — its target is the standby cue's planned start, as a time
+    /// of day, so the speaker timer, the stage display and the info screen keep the caller's one
+    /// clock. A standby cue with no planned start leaves the countdown where it was.
+    /// </summary>
+    /// <summary>COUNTDOWN FOLLOW ON: the target from this moment, not the next move of the stack.</summary>
+    public void FollowPlanNow() => FollowPlan();
+
+    private void FollowPlan()
+    {
+        var countdown = AirState.Countdown;
+        if (!countdown.FollowPlan) return;
+        var start = CueStack.StandbyCue?.PlannedStart ?? "";
+        if (!CountdownService.TryParseTime(start, out _)) return;
+        if (countdown.TargetKind == CountdownTargetKind.TimeOfDay && countdown.TargetTime == start && countdown.Enabled) return;
+        EditAir(air =>
+        {
+            air.Countdown.TargetKind = CountdownTargetKind.TimeOfDay;
+            air.Countdown.TargetTime = start;
+            air.Countdown.Enabled = true;
+        });
+    }
+
     /// <summary>The twin's hold: every output window closed, whatever they were showing.</summary>
     public void CloseOutputs() => Outputs.CloseAll();
 
@@ -1618,6 +1660,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         try
         {
             Outputs.CloseAll();
+            Calibration.Shutdown();   // a run in flight ends with the desk: the structured light is process-wide
             Stream.Dispose();
             Stingers.Dispose();
             Spotify.Dispose();

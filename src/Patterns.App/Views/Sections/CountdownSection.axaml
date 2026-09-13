@@ -37,6 +37,9 @@
       <TextBlock Classes="label" Text="Time (HH:mm)" />
       <TextBox Grid.Column="1" Text="{Binding State.Countdown.TargetTime}" Watermark="19:30" />
     </Grid>
+    <CheckBox Content="Follow the running order — the target is the standby cue's planned start, and moves with the plan"
+              IsChecked="{Binding State.Countdown.FollowPlan}"
+              ToolTip.Tip="On: every GO, standby move, slip (−1 MIN / +1 MIN, PLAN SHIFT on the wire), RESUME NOW or CATCH UP re-aims the countdown at the standby cue's planned start, so the speaker timer, the stage display and the info screen keep the caller's one clock. A standby cue with no planned start leaves the countdown where it was" />
     <Grid ColumnDefinitions="130,*,8,Auto">
       <TextBlock Classes="label" Text="Duration (min)" />
       <NumericUpDown Grid.Column="1" Minimum="0.1" Maximum="1440" Increment="1" FormatString="0.#"

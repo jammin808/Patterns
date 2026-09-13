@@ -79,9 +79,10 @@ public sealed class NodeActions : IActionLayer
         return _host.ExitRequest(code) ? ActionResult.Requested("Restarting — the watchdog brings this node back in a moment.") : ActionResult.Failed("The app did not accept the exit request.");
     }
 
-    /// <summary>The stack's own verbs — the ones a caller runs alone, on paper.</summary>
+    /// <summary>The stack's own verbs — the ones a caller runs alone, on paper — the plan's slip among them.</summary>
     public static bool IsCueKind(ShowActionKind kind) => kind is ShowActionKind.CueGo or ShowActionKind.CueStandby or ShowActionKind.CueHoldOn or ShowActionKind.CueHoldOff
-        or ShowActionKind.CueFire or ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.ListGo or ShowActionKind.ListBack or ShowActionKind.ListReset;
+        or ShowActionKind.CueFire or ShowActionKind.ListArm or ShowActionKind.ListDisarm or ShowActionKind.ListGo or ShowActionKind.ListBack or ShowActionKind.ListReset
+        or ShowActionKind.PlanShift or ShowActionKind.PlanResume or ShowActionKind.PlanCatchUp;
 
     /// <summary>The stage's verbs: the timer's transport, a message, its receipt.</summary>
     public static bool IsStageKind(ShowActionKind kind) => kind is ShowActionKind.TimerPause or ShowActionKind.TimerResume or ShowActionKind.TimerAdd or ShowActionKind.TimerFlash
@@ -89,7 +90,7 @@ public sealed class NodeActions : IActionLayer
 
     /// <summary>The countdown's verbs — the stage timer's clock, started, aimed, stopped, labelled.</summary>
     public static bool IsCountdownKind(ShowActionKind kind) => kind is ShowActionKind.CountdownStart or ShowActionKind.CountdownTo or ShowActionKind.CountdownStop
-        or ShowActionKind.CountdownToggle or ShowActionKind.CountdownLabel;
+        or ShowActionKind.CountdownToggle or ShowActionKind.CountdownLabel or ShowActionKind.CountdownFollow;
 
     // ---- the stack, on paper ----------------------------------------------------------------
 
@@ -124,6 +125,12 @@ public sealed class NodeActions : IActionLayer
                 stack.SetHold(hold, origin);
                 return ActionResult.Done(hold ? "HOLD — GO is refused until released." : "HOLD released.");
             }
+            case ShowActionKind.PlanShift:
+                return CueTiming.ParseDelta(a.Value) is { } delta ? ActionResult.Done(stack.ShiftPlan(delta, origin)) : ActionResult.Refused($"'{a.Value}' is not a slip — +2:00, -0:30, +90.");
+            case ShowActionKind.PlanResume:
+                return ActionResult.Done(stack.ResumeNow(origin));
+            case ShowActionKind.PlanCatchUp:
+                return ActionResult.Done(stack.CatchUp(origin));
             case ShowActionKind.CueFire:
             {
                 var found = CueStacks.FindCueByWord(Kernel.State, a.Target);
@@ -221,6 +228,12 @@ public sealed class NodeActions : IActionLayer
             case ShowActionKind.CountdownStop:
                 _host.EditAir(air => air.Countdown.Enabled = false);
                 return ActionResult.Done("Countdown off.");
+            case ShowActionKind.CountdownFollow:
+            {
+                var follow = !a.Value.Equals("off", StringComparison.OrdinalIgnoreCase);
+                _host.EditAir(air => air.Countdown.FollowPlan = follow);
+                return ActionResult.Done(follow ? "Countdown follows the running order — the standby cue's planned start is its target." : "Countdown no longer follows the running order.");
+            }
             case ShowActionKind.CountdownToggle when countdown.Enabled:
                 _host.EditAir(air => air.Countdown.Enabled = false);
                 return ActionResult.Done("Countdown off.");
@@ -602,6 +615,9 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     long ITwinHost.DeviceMark() => 0;
 
     int ITwinHost.DeviceSentSince(long mark) => 0;
+
+    /// <summary>The glance line on a node: the link to the desk it follows, and nothing of a rig it does not have.</summary>
+    public string GlanceWords => Twin?.GlanceWords ?? "";
 
     Task<IReadOnlyList<DeviceReceipt>> ITwinHost.DeviceConfirmSince(long mark) => Task.FromResult((IReadOnlyList<DeviceReceipt>)Array.Empty<DeviceReceipt>());
 

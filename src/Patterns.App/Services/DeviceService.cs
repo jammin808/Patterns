@@ -144,6 +144,12 @@ public sealed class DeviceService : IDisposable
     /// <summary>Every receipt as it lands, on the UI thread — the journal's and the page's.</summary>
     public event Action<DeviceReceipt>? Receipt;
 
+    /// <summary>The last receipt that failed — a no, a silence, a line that could not go — until that box answers again; null while every box is answering.</summary>
+    public DeviceReceipt? LastFailed { get; private set; }
+
+    /// <summary>The health line's and the glance line's clause: "" while every box answers, else the last that did not.</summary>
+    public string HealthWords => LastFailed is { } r ? "DEVICE: " + r.Line : "";
+
     /// <summary>A mark before a cue fires, so what it sent can be waited for.</summary>
     public long Mark() => Interlocked.Read(ref _seq);
 
@@ -536,6 +542,8 @@ public sealed class DeviceService : IDisposable
         {
             if (_disposed) return;
             if (!ok) Log.Warn($"Device '{receipt.Device}': {receipt.Line}");
+            if (!ok) LastFailed = receipt;
+            else if (LastFailed is { } failed && failed.Device == receipt.Device) LastFailed = null;   // the box that said no answers again
             if (_open.TryGetValue(pending.Open.Config.Id, out var open)) open.Config.Status = StatusLine(open) + " · " + (ok ? DeviceConfirmation.Label(reached) : receipt.Answer);
             Receipt?.Invoke(receipt);
         });

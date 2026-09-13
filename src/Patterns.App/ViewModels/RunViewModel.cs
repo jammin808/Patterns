@@ -284,6 +284,15 @@ public sealed class RunViewModel : Observable
 
     public bool IsOnPlan => _timing.OffsetText.Length > 0 && !_timing.IsLate;
 
+    /// <summary>
+    /// The one line a caller and an operator both trust, under the LIVE strip: each output's frame
+    /// rate, p95 and drops, the twin, the screens the room is short, the last box that said no, where
+    /// the day stands, the lock. A node's line is the link and the plan alone.
+    /// </summary>
+    public string GlanceText => Glance.Line(FrameBudgets.Readings(ShowClock.Seconds), _s.GlanceWords, "", "", Glance.PlanWords(_timing.OffsetText, _timing.IsLate), "");
+
+    public bool HasGlance => GlanceText.Length > 0;
+
     /// <summary>"Next break ≈ 10:42 (planned 10:35, +7 min) · Lunch … · End …".</summary>
     public string ScheduleSummary => _timing.Summary;
 
@@ -518,6 +527,8 @@ public sealed class RunViewModel : Observable
         RaiseIfChanged(nameof(StandbyPreRollWait), StandbyPreRollWait);
         RaiseIfChanged(nameof(RunningOverPlanned), RunningOverPlanned);
         RaiseIfChanged(nameof(NextAutoText), NextAutoText);
+        RaiseIfChanged(nameof(GlanceText), GlanceText);
+        RaiseIfChanged(nameof(HasGlance), HasGlance);
         RaiseIfChanged(nameof(IsMusicPlaying), IsMusicPlaying);
         RaiseIfChanged(nameof(MusicTip), MusicTip);     // follows the track
         RaiseIfChanged(nameof(IsStingHolding), IsStingHolding);

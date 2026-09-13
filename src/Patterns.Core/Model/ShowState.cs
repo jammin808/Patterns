@@ -723,6 +723,14 @@ public sealed class CountdownConfig : Observable, IAnchored
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
     /// <summary>e.g. “BACK FROM LUNCH AT”, “REHEARSAL RESUMES IN”, “DOORS IN”.</summary>
     public string Label { get => _label; set => Set(ref _label, value); }
+    private bool _followPlan;
+    /// <summary>
+    /// The countdown follows the running order: its target is the standby cue's planned start, as a
+    /// time of day, and it moves when the plan does — a slip, a resume, a catch-up, a GO that moves
+    /// the standby — so the speaker timer, the stage display and the info screen read the one clock the
+    /// caller is keeping. A standby cue with no planned start leaves the countdown as it was.
+    /// </summary>
+    public bool FollowPlan { get => _followPlan; set => Set(ref _followPlan, value); }
     public CountdownTargetKind TargetKind { get => _targetKind; set => Set(ref _targetKind, value); }
     /// <summary>Wall-clock target “HH:mm” (24 h), local time.</summary>
     public string TargetTime { get => _targetTime; set => Set(ref _targetTime, value); }

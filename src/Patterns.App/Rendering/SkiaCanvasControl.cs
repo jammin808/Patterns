@@ -106,11 +106,18 @@ public class SkiaCanvasControl : Control
         {
             _frameRequested = false;
             var target = _pipeline?.Viewport.TargetFps ?? 0;
-            if (target > 0 && _pipeline?.Cadence == RedrawCadence.Continuous &&
-                !FramePacer.ShouldPresent(ShowClock.Seconds, target, ref _pacerSlot))
+            if (target > 0 && _pipeline?.Cadence == RedrawCadence.Continuous)
             {
-                RequestFrame();
-                return;
+                // The slots that went by unpresented are the frames the room did not get: counted on
+                // this sink's budget, so the glance line and the metrics say "dropped" from the pacer's
+                // own arithmetic, not from a guess at the frame time.
+                var present = FramePacer.ShouldPresent(ShowClock.Seconds, target, ref _pacerSlot, out var missed);
+                if (missed > 0) _pipeline.Budget.RecordMissed(missed, ShowClock.Seconds);
+                if (!present)
+                {
+                    RequestFrame();
+                    return;
+                }
             }
             InvalidateVisual();
         });

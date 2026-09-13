@@ -219,6 +219,8 @@ public interface IRunHost : ICueHost
     string BreakMusicWords { get; }
     /// <summary>A stinger holding the screens for the caller's take; never on a node.</summary>
     (bool Holding, string Name) StingHold { get; }
+    /// <summary>The glance line's facts from the host's own services, joined with a dot: the twin, the screens the room is short, the last box that said no, the lock — "" when there is nothing to say.</summary>
+    string GlanceWords { get; }
 }
 
 /// <summary>The one-line verbs on any action layer — a kind with its target and value, one cue fired — as the desk's own layer always offered them.</summary>
