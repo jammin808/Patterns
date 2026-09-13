@@ -582,7 +582,7 @@ public sealed class PatternEngine
 
         // The tiles and their words, once per snapshot: badges, captions and the air state were
         // built afresh for every tile on every frame of the wall.
-        var words = sink.MultiviewWords.For(f.Snapshot, opts);
+        var words = sink.MultiviewWords.For(f.Snapshot, f.Ctx.Preview, opts);
         canvas.Clear(MultiviewBg);
         if (words.Count == 0)
         {
@@ -611,7 +611,7 @@ public sealed class PatternEngine
             // the wall does with AspectBox + RenderFitted, so a 3840×1080 canvas is a wide strip
             // and a portrait screen a tall box, never a re-layout at 16:9. Live inputs and the
             // clock have no target of their own and stay 16:9.
-            var vp = TileViewport(f.Snapshot, tile);
+            var vp = TileViewport(f.Snapshot, f.Ctx.Preview, tile);
             var video = FitRect(content, vp?.Aspect ?? 16f / 9f);
             DrawTileContent(canvas, in f, sink, tile, video, vp, said.Name);
 
@@ -822,13 +822,14 @@ public sealed class PatternEngine
 
     /// <summary>
     /// The sandboxed preview — the program target as the desk is building it — fitted into a
-    /// rect, rendered from the preview's own snapshot through the sink's preview sub-sink so the
-    /// program's fault gate and caches never see another snapshot's versions. A slate while
-    /// EDIT SAFE is off (there is no preview then), and while the preview has no program target.
+    /// rect, rendered from the preview's own snapshot (the sink hands it in with the frame)
+    /// through the sink's preview sub-sink so the program's fault gate and caches never see
+    /// another snapshot's versions. A slate while EDIT SAFE is off (there is no preview then),
+    /// and while the preview has no program target.
     /// </summary>
     private void DrawPreview(SKCanvas canvas, in PatternFrame f, SinkState sink, SKRect rect)
     {
-        var preview = f.Snapshot.PreviewSource?.Invoke();
+        var preview = f.Ctx.Preview;
         if (preview is null)
         {
             DrawTileSlate(canvas, f, rect, "Preview — EDIT SAFE is off");
@@ -885,13 +886,13 @@ public sealed class PatternEngine
     /// live input or the clock straight into its rect, and null for a Screen tile whose id
     /// names nothing in this show — that one draws a slate.
     /// </summary>
-    private static TargetViewport? TileViewport(ShowSnapshot snap, MultiviewTileConfig tile)
+    private static TargetViewport? TileViewport(ShowSnapshot snap, ShowSnapshot? preview, MultiviewTileConfig tile)
         => tile.Source switch
         {
             MultiviewSource.Program => snap.Rig.ViewportForTarget(null),
             MultiviewSource.Screen when ContentTargets.IsInRig(snap.State, tile.ScreenId)
                 => snap.Rig.ViewportForTile(tile.ScreenId),
-            MultiviewSource.Preview => snap.PreviewSource?.Invoke()?.Rig.ViewportForTarget(null),
+            MultiviewSource.Preview => preview?.Rig.ViewportForTarget(null),
             _ => null,
         };
 

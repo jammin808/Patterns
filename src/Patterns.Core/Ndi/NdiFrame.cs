@@ -35,7 +35,7 @@ public readonly record struct FrameFit(float Scale, float OffsetX, float OffsetY
 public static class NdiFrame
 {
     public static void Render(PatternEngine engine, ShowSnapshot snap, SinkState sink, SKCanvas canvas, SKSizeI frame,
-                              string sourceId, SinkKind kind, string label, long frameNumber, double time)
+                              string sourceId, SinkKind kind, string label, long frameNumber, double time, ShowSnapshot? preview = null)
     {
         var target = string.IsNullOrEmpty(sourceId) ? null : sourceId;
         var fit = target is null ? new FrameFit(1, 0, 0, frame) : FrameFit.Compute(frame, snap.Rig.SizeOf(target));
@@ -53,6 +53,7 @@ public static class NdiFrame
             SinkLabel = label,
             ScreenId = target,
             MeasuredFps = sink.Fps.Fps,
+            Preview = preview,
         };
         if (fit.IsExact)
         {

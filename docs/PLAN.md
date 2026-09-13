@@ -5752,3 +5752,35 @@ join of seventy thousand bytes closed on with no welcome, the main listening on)
 
 Counts at the end of the round: Core 1,092, App 563 — both suites green here and on the build
 machine.
+
+## 58. Round 40 — the next steps, and the platform they serve
+
+The hardening round left three next steps: a node built from the kernel alone, a sink that
+composes the program and the preview so the snapshot stops carrying a window onto the desk, and
+the fun the reminder asked for. This round takes them, and takes the frame the ecosystem
+conversation gave them (`docs/NODES.md` §13, the charter): broad edge, narrow core — Patterns
+can hold hundreds of capabilities as long as the abstractions they plug into stay few, every
+capability answers the seven questions, and the centre is small enough for the edges to grow.
+
+### 58.1 The preview seam retired: the sink composes two snapshots
+
+**The gap.** Since the multiview's PREVIEW tile (round 22) the program snapshot carried
+`PreviewSource`, a function reaching the sandboxed preview as it is right now — the one way a
+published, immutable snapshot could see something that moved. It solved a real problem (the
+preview republishes on every edit while the program stays frozen, so a copy would be stale) at
+the cost of the snapshot's contract; the critique called it medium and intentional, and it was.
+
+**The cut.** A snapshot is a snapshot; the *sink* is what has the bus and draws two of them.
+`RenderContext.Preview` is the preview handed in with the frame by the sink that has one —
+the pipeline's windows and monitors, the wire's multiview JPEG, an NDI send and the stream
+(`NdiFrame.Render` takes it) — and null on a sink with none to give (a thumbnail, a test).
+`PatternEngine.DrawPreview` and the PREVIEW tile's viewport read the frame's; `MultiviewWords`
+keys its cache on the preview's version as before, now from the argument; `MultiviewTally`'s
+`HasPreview`, `Badges`, `Caption`, `Kind` and `PreviewTargets` take the preview (null by
+default: a wall told nothing says NO PREVIEW and EDIT SAFE OFF, as a thumbnail's should).
+`ShowSnapshot.PreviewSource` and the bus's accessor are gone. Every sink that could show the
+preview shows it exactly as before; the difference is where the knowledge lives.
+
+**Proof.** The multiview review, tally, words, stream and virtual-screen tests, each handing
+the sandbox in where it used to be reached through the snapshot, and the wall's words asserting
+a sink with no preview says so; the App's multiview tally test passing the desk's sandbox.

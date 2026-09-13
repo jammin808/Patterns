@@ -24,10 +24,9 @@ public sealed class MultiviewWords
     /// <summary>How many times the words were worked out (tests).</summary>
     public int Builds { get; private set; }
 
-    /// <summary>The wall's tiles and their words for this snapshot — the same list until the snapshot, the preview or the wall moves.</summary>
-    public IReadOnlyList<TileWords> For(ShowSnapshot snap, MultiviewOptions opts)
+    /// <summary>The wall's tiles and their words for this snapshot and this preview — the same list until the snapshot, the preview or the wall moves.</summary>
+    public IReadOnlyList<TileWords> For(ShowSnapshot snap, ShowSnapshot? preview, MultiviewOptions opts)
     {
-        var preview = snap.PreviewSource?.Invoke();
         var previewVersion = preview?.Version ?? -1;
         if (snap.Version == _version && previewVersion == _previewVersion && ReferenceEquals(opts, _opts)) return _tiles;
 
@@ -37,11 +36,11 @@ public sealed class MultiviewWords
         {
             words.Add(new TileWords(
                 tile,
-                MultiviewTally.Badges(snap, tile),
+                MultiviewTally.Badges(snap, tile, preview),
                 MultiviewTally.Name(snap, tile),
-                MultiviewTally.Kind(snap, tile),
+                MultiviewTally.Kind(snap, tile, preview),
                 MultiviewTally.IsOnAir(snap, tile),
-                tile.Source == MultiviewSource.Preview && MultiviewTally.HasPreview(snap)));
+                tile.Source == MultiviewSource.Preview && MultiviewTally.HasPreview(preview)));
         }
         _tiles = words;
         _version = snap.Version;

@@ -24,8 +24,8 @@ public class MultiviewTallyAppTests
             Dispatcher.UIThread.RunJobs();
             var target = services.Bus.Current.Rig.Targets.First();
             var tile = new MultiviewTileConfig { Source = MultiviewSource.Screen, ScreenId = target };
-            Assert.Contains("NEXT", MultiviewTally.Badges(services.Bus.Current, tile).Select(x => x.Text));
-            Assert.StartsWith("NEXT TAKE → ", MultiviewTally.PreviewTargets(services.Bus.Current));
+            Assert.Contains("NEXT", MultiviewTally.Badges(services.Bus.Current, tile, services.Bus.Sandbox).Select(x => x.Text));
+            Assert.StartsWith("NEXT TAKE → ", MultiviewTally.PreviewTargets(services.Bus.Current, services.Bus.Sandbox));
 
             // Held on the wall: the program snapshot and the sandbox snapshot both carry it, without a model change.
             var version = services.Bus.Current.Version;
@@ -34,8 +34,8 @@ public class MultiviewTallyAppTests
             Assert.True(services.Bus.Current.Version > version);
             Assert.Contains(target, services.Bus.Current.UnarmedTargets);
             Assert.Contains(target, services.Bus.Sandbox!.UnarmedTargets);
-            Assert.Contains("HELD", MultiviewTally.Badges(services.Bus.Current, tile).Select(x => x.Text));
-            Assert.Equal("NEXT TAKE → NOTHING (ALL HELD)", MultiviewTally.PreviewTargets(services.Bus.Current));
+            Assert.Contains("HELD", MultiviewTally.Badges(services.Bus.Current, tile, services.Bus.Sandbox).Select(x => x.Text));
+            Assert.Equal("NEXT TAKE → NOTHING (ALL HELD)", MultiviewTally.PreviewTargets(services.Bus.Current, services.Bus.Sandbox));
             var json = router.StateJson();
             Assert.Contains("\"editSafe\":true", json);
             Assert.Contains("\"armed\":false", json);
@@ -54,7 +54,7 @@ public class MultiviewTallyAppTests
             vm.IsSandboxActive = false;
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("\"editSafe\":false", router.StateJson());
-            Assert.Equal("EDIT SAFE OFF", MultiviewTally.PreviewTargets(services.Bus.Current));
+            Assert.Equal("EDIT SAFE OFF", MultiviewTally.PreviewTargets(services.Bus.Current, services.Bus.Sandbox));
         }
         finally
         {

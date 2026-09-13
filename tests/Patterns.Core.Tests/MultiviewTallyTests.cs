@@ -41,7 +41,7 @@ public class MultiviewTallyTests
 
     private static MultiviewTileConfig Screen(string id) => new() { Source = MultiviewSource.Screen, ScreenId = id };
 
-    private static string[] Words(ShowSnapshot snap, MultiviewTileConfig tile) => MultiviewTally.Badges(snap, tile).Select(b => b.Text).ToArray();
+    private static string[] Words(ShowSnapshot snap, MultiviewTileConfig tile, ShowSnapshot? preview = null) => MultiviewTally.Badges(snap, tile, preview).Select(b => b.Text).ToArray();
 
     [Fact]
     public void TheBadgesSayProgramNextHeldLockedOwnAndOff()
@@ -68,26 +68,28 @@ public class MultiviewTallyTests
         bus.UnarmedTargets = new HashSet<string>(StringComparer.Ordinal) { Lobby };
         bus.Publish(state);
         snap = bus.Current;
-        Assert.Equal(new[] { "PGM", "NEXT" }, Words(snap, Screen(CanvasKey)));
-        Assert.Equal(new[] { "PGM", "HELD" }, Words(snap, Screen(Lobby)));
-        Assert.Equal(new[] { "PVW" }, Words(snap, preview));
-        Assert.Equal("NEXT TAKE → A", MultiviewTally.PreviewTargets(snap));
+        var pvw = bus.Sandbox;                                                          // the sink hands the preview in with the frame
+        Assert.Equal(new[] { "PGM", "NEXT" }, Words(snap, Screen(CanvasKey), pvw));
+        Assert.Equal(new[] { "PGM", "HELD" }, Words(snap, Screen(Lobby), pvw));
+        Assert.Equal(new[] { "PVW" }, Words(snap, preview, pvw));
+        Assert.Equal("NEXT TAKE → A", MultiviewTally.PreviewTargets(snap, pvw));
+        Assert.Equal(new[] { "NO PREVIEW" }, Words(snap, preview));                    // a sink with no preview to give says so
         bus.UnarmedTargets = Array.Empty<string>();
         bus.Publish(state);
-        Assert.Equal("NEXT TAKE → A · 2", MultiviewTally.PreviewTargets(bus.Current));
+        Assert.Equal("NEXT TAKE → A · 2", MultiviewTally.PreviewTargets(bus.Current, bus.Sandbox));
 
         // A lock says it all — the take leaves the target alone, and the program is no longer on it.
         ScreenRoles.SetLocked(state, Lobby, true);
         bus.Publish(state);
         snap = bus.Current;
-        Assert.Equal(new[] { "PGM", "LOCKED" }, Words(snap, Screen(Lobby)));
+        Assert.Equal(new[] { "PGM", "LOCKED" }, Words(snap, Screen(Lobby), pvw));
         Assert.Equal("ON A", MultiviewTally.ProgramTargets(snap));
-        Assert.Equal("NEXT TAKE → A", MultiviewTally.PreviewTargets(snap));
+        Assert.Equal("NEXT TAKE → A", MultiviewTally.PreviewTargets(snap, pvw));
         // Unlocked, the picture it kept stays its own: OWN, and the next TAKE reaches it again.
         ScreenRoles.SetLocked(state, Lobby, false);
         bus.Publish(state);
         snap = bus.Current;
-        Assert.Equal(new[] { "PGM", "OWN", "NEXT" }, Words(snap, Screen(Lobby)));
+        Assert.Equal(new[] { "PGM", "OWN", "NEXT" }, Words(snap, Screen(Lobby), pvw));
         Assert.Equal("ON A", MultiviewTally.ProgramTargets(snap));
         ContentTargets.SetOwnPattern(state, Lobby, false);
 
@@ -115,7 +117,7 @@ public class MultiviewTallyTests
         bus.Frozen = true;
         bus.Publish(state);
         Assert.Equal(new[] { "PGM", "FROZEN" }, Words(bus.Current, program));
-        Assert.Equal(new[] { "PGM", "FROZEN", "NEXT" }, Words(bus.Current, Screen(CanvasKey)));
+        Assert.Equal(new[] { "PGM", "FROZEN", "NEXT" }, Words(bus.Current, Screen(CanvasKey), bus.Sandbox));
 
         // A tile naming nothing, or something not in this rig.
         Assert.Equal(new[] { "NOT IN RIG" }, Words(bus.Current, Screen("ghost")));
@@ -155,7 +157,7 @@ public class MultiviewTallyTests
         Assert.Equal("ghost", MultiviewTally.Short(snap, "ghost"));
     }
 
-    private static SKBitmap Render(ShowSnapshot snap, MultiviewOptions opts, int w, int h)
+    private static SKBitmap Render(ShowSnapshot snap, MultiviewOptions opts, int w, int h, ShowSnapshot? preview = null)
     {
         var engine = new PatternEngine();
         using var sink = new SinkState();
@@ -171,6 +173,7 @@ public class MultiviewTallyTests
             Sink = SinkKind.Output,
             SinkIndex = 0,
             SinkLabel = "mv-tally",
+            Preview = preview,
         };
         var frame = new PatternFrame
         {
@@ -215,7 +218,7 @@ public class MultiviewTallyTests
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Preview });
 
         // Two by two on 640×360, the content blue: a chip's colour is found only where its tile is.
-        using (var bmp = Render(bus.Current, opts, 640, 360))
+        using (var bmp = Render(bus.Current, opts, 640, 360, bus.Sandbox))
         {
             Assert.True(Has(bmp, 0, 0, 320, 180, MultiviewTally.Program), "the PROGRAM tile wears a red PGM chip");
             Assert.True(Has(bmp, 320, 0, 320, 180, MultiviewTally.Preview), "the canvas tile wears a green NEXT chip");
@@ -226,7 +229,7 @@ public class MultiviewTallyTests
 
         // Tally off: no chips, no coloured border, the picture alone.
         opts.ShowTally = false;
-        using (var plain = Render(bus.Current, opts, 640, 360))
+        using (var plain = Render(bus.Current, opts, 640, 360, bus.Sandbox))
         {
             Assert.False(Has(plain, 0, 0, 320, 180, MultiviewTally.Program));
             Assert.False(Has(plain, 0, 180, 320, 180, MultiviewTally.Held));

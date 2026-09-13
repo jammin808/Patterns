@@ -204,7 +204,7 @@ public sealed class NdiSender : IDisposable
                     var time = ShowClock.Seconds;
                     sink.Fps.Tick(time);
                     // The program fills the frame; a mirrored target keeps its shape; the sender's own screen fills it.
-                    NdiFrame.Render(_engine, snap, sink, surface.Canvas, size, cfg.SourceScreenId, SinkKind.Ndi, $"NDI {name}", frame++, time);
+                    NdiFrame.Render(_engine, snap, sink, surface.Canvas, size, cfg.SourceScreenId, SinkKind.Ndi, $"NDI {name}", frame++, time, _bus.Sandbox);
                     surface.Canvas.Flush();
 
                     var (rateN, rateD) = NdiRateTable.Resolve(cfg.RateKey, snap.State.Output.MasterFps);

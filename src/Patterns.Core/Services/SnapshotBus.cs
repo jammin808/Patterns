@@ -43,14 +43,6 @@ public sealed class ShowSnapshot
     /// <summary>Runtime-only: the sims leading each particle field drawn under this snapshot, so a sink that starts a field late shows the same particles (see <see cref="Particles.ParticleLeaders"/>).</summary>
     public Particles.ParticleLeaders ParticleLeaders { get; } = new();
 
-    /// <summary>
-    /// Runtime-only: the way to the sandboxed preview as it is right now (null result = no
-    /// sandbox). An accessor rather than the snapshot itself: the preview republishes on every
-    /// edit while the program stays frozen, so a copy taken at the program's publish would
-    /// show the desk a stale picture.
-    /// </summary>
-    public Func<ShowSnapshot?>? PreviewSource { get; init; }
-
     /// <summary>Runtime-only: every multiview draws the preview full-frame instead of its tiles — a review before the TAKE.</summary>
     public bool ReviewOnMultiview { get; init; }
 
@@ -296,7 +288,6 @@ public sealed class SnapshotBus
         _clock = clock ?? (static () => ShowClock.Seconds);
         _ticker = Rendering.TickerLine.From(initial.Overlays.Message.ScrollPxPerSec);
         _sandboxTicker = _ticker;
-        _previewSource = () => _sandbox;
         var now = _clock();
         _current = new ShowSnapshot
         {
@@ -304,11 +295,8 @@ public sealed class SnapshotBus
             Version = 0,
             PublishedClock = now,
             Ticker = _ticker,
-            PreviewSource = _previewSource,
         };
     }
-
-    private readonly Func<ShowSnapshot?> _previewSource;
 
     public ShowSnapshot Current => _current;
 
@@ -542,7 +530,6 @@ public sealed class SnapshotBus
             TransitionDirectionOverride = _wayOverride,
             TransitionOverrideVersion = _kindVersion,
             Rig = rig,
-            PreviewSource = _previewSource,
             ReviewOnMultiview = ReviewOnMultiview,
             Frozen = Frozen,
             UnarmedTargets = UnarmedTargets,

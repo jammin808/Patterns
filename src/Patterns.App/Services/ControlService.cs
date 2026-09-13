@@ -874,6 +874,7 @@ public sealed partial class ControlService : IDisposable
                 UtcNow = DateTime.UtcNow,
                 Sink = Patterns.Core.Model.SinkKind.Thumbnail,
                 SinkIndex = 0,
+                Preview = _kernel.Bus.Sandbox,
                 SinkLabel = "pgm-remote",
             };
             _mvEngine.Render(surface.Canvas, snap, in ctx, _mvSink);
@@ -944,6 +945,7 @@ public sealed partial class ControlService : IDisposable
                 UtcNow = DateTime.UtcNow,
                 Sink = Patterns.Core.Model.SinkKind.Thumbnail,
                 SinkIndex = 0,
+                Preview = _kernel.Bus.Sandbox,
                 SinkLabel = "mv-remote",
             };
             var frame = new PatternFrame

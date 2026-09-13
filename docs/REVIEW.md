@@ -731,3 +731,19 @@ frozen, the node kernel built. This review grows as each lands.*
   root under the same JSON.
 - **The Companion wire's slow client** holds a slot for ten seconds (the control port's
   head seconds); the audience port's is five. The control port is the production network's.
+
+## Round 40 review — the next steps
+
+*The hardening round's three next steps, taken under the platform charter (`docs/NODES.md`
+§13): broad edge, narrow core.*
+
+### 40.1 — the preview seam retired
+
+- **Done.** `RenderContext.Preview`, handed in by every sink that has a bus; the snapshot's
+  `PreviewSource` gone; the engine, the words and the tally reading the frame's.
+  `docs/PLAN.md` §58.1.
+- **What it cost:** one parameter through the tally's five readers and the NDI frame's render,
+  and a `null` in the tests that never had a preview. Nothing drew differently.
+- **What it bought:** the last runtime reach out of a published snapshot is closed; a snapshot
+  can now be handed to another process (a node, a recorder) with nothing in it that points
+  back at the desk.

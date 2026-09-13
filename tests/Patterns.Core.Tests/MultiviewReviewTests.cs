@@ -17,7 +17,7 @@ public class MultiviewReviewTests
         s.Pattern.Canvas.FollowOutput = true;
     });
 
-    private static SKBitmap Render(ShowSnapshot snap, MultiviewOptions opts, int w = 320, int h = 180)
+    private static SKBitmap Render(ShowSnapshot snap, MultiviewOptions opts, ShowSnapshot? preview = null, int w = 320, int h = 180)
     {
         var engine = new PatternEngine();
         using var sink = new SinkState();
@@ -33,6 +33,7 @@ public class MultiviewReviewTests
             Sink = SinkKind.Output,
             SinkIndex = 0,
             SinkLabel = "mv-review",
+            Preview = preview,
         };
         var frame = new PatternFrame
         {
@@ -58,21 +59,20 @@ public class MultiviewReviewTests
         var bus = new SnapshotBus(Flat("#0000FF"));
         bus.Publish(Flat("#0000FF"));           // the program: blue
         bus.PublishSandbox(Flat("#FF0000"));    // the desk is building red
-        Assert.NotNull(bus.Current.PreviewSource);
-        Assert.Same(bus.Sandbox, bus.Current.PreviewSource!());
+        Assert.NotNull(bus.Sandbox);                                                   // the sink hands it in with the frame: the snapshot carries no way to it
 
         var opts = new MultiviewOptions { ShowLabels = false, ShowTally = false };
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Program });
         opts.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Preview });
-        using (var bmp = Render(bus.Current, opts))
+        using (var bmp = Render(bus.Current, opts, bus.Sandbox))
         {
             Assert.True(Blue(bmp.GetPixel(80, 90)), $"the program tile is blue, got {bmp.GetPixel(80, 90)}");
             Assert.True(Red(bmp.GetPixel(240, 90)), $"the preview tile is red, got {bmp.GetPixel(240, 90)}");
         }
 
-        // The preview follows the desk without a program publish: the accessor reads the bus, not a copy.
+        // The preview follows the desk without a program publish: the sink reads the bus each frame, not a copy.
         bus.PublishSandbox(Flat("#00FF00"));
-        using (var bmp = Render(bus.Current, opts))
+        using (var bmp = Render(bus.Current, opts, bus.Sandbox))
         {
             var c = bmp.GetPixel(240, 90);
             Assert.True(c.Green > 200 && c.Red < 60, $"the preview tile follows the sandbox, got {c}");
@@ -84,7 +84,7 @@ public class MultiviewReviewTests
         bus.ReviewOnMultiview = true;
         bus.Publish(Flat("#0000FF"));
         Assert.True(bus.Current.ReviewOnMultiview);
-        using (var bmp = Render(bus.Current, opts))
+        using (var bmp = Render(bus.Current, opts, bus.Sandbox))
         {
             Assert.True(Red(bmp.GetPixel(160, 90)), $"the review is the preview full-frame, got {bmp.GetPixel(160, 90)}");
             Assert.True(Red(bmp.GetPixel(80, 90)), "no program tile during a review");
@@ -93,14 +93,14 @@ public class MultiviewReviewTests
 
         // No sandbox: the tile and the review read a slate, never the program in disguise.
         bus.ClearSandbox();
-        using (var bmp = Render(bus.Current, opts))
+        using (var bmp = Render(bus.Current, opts, bus.Sandbox))
         {
             var c = bmp.GetPixel(160, 90);
             Assert.False(Red(c) || Blue(c), $"a slate without a sandbox, got {c}");
         }
         bus.ReviewOnMultiview = false;
         bus.Publish(Flat("#0000FF"));
-        using (var bmp = Render(bus.Current, opts))
+        using (var bmp = Render(bus.Current, opts, bus.Sandbox))
         {
             Assert.True(Blue(bmp.GetPixel(80, 90)));
             var c = bmp.GetPixel(240, 90);

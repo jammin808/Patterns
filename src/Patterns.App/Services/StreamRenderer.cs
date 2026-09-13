@@ -92,7 +92,7 @@ public sealed class StreamRenderer : IDisposable
             Log.Warn($"Stream renderer: {Failure}.");
             return false;
         }
-        NdiFrame.Render(_engine, snap, sink, surface.Canvas, _size, _sourceId, SinkKind.Stream, "Stream", frame, time);
+        NdiFrame.Render(_engine, snap, sink, surface.Canvas, _size, _sourceId, SinkKind.Stream, "Stream", frame, time, _bus.Sandbox);
         surface.Canvas.Flush();
         Ring.EndWrite(slot, frame);
         FramesRendered++;

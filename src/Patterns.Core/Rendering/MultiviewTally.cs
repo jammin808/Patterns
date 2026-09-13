@@ -23,8 +23,8 @@ public static class MultiviewTally
     public static readonly SKColor Frozen = new(0x35, 0xE0, 0xD0);    // cyan: the outputs hold their frame
     public static readonly SKColor Black = new(0x9A, 0xA3, 0xB3);     // a blackout
 
-    /// <summary>EDIT SAFE is open: there is a preview the tiles can speak of.</summary>
-    public static bool HasPreview(ShowSnapshot snap) => snap.PreviewSource?.Invoke() is not null;
+    /// <summary>EDIT SAFE is open: there is a preview the tiles can speak of — the one the sink handed in with the frame.</summary>
+    public static bool HasPreview(ShowSnapshot? preview) => preview is not null;
 
     /// <summary>The next CUT / TAKE changes this target (everything is armed unless the wall un-armed it).</summary>
     public static bool IsArmed(ShowSnapshot snap, string targetId) => !snap.UnarmedTargets.Contains(targetId);
@@ -45,7 +45,7 @@ public static class MultiviewTally
     }
 
     /// <summary>The badges for a tile, in the order they are drawn, left to right; empty for a live input or the clock.</summary>
-    public static List<TileBadge> Badges(ShowSnapshot snap, MultiviewTileConfig tile)
+    public static List<TileBadge> Badges(ShowSnapshot snap, MultiviewTileConfig tile, ShowSnapshot? preview = null)
     {
         var list = new List<TileBadge>(4);
         var state = snap.State;
@@ -71,7 +71,7 @@ public static class MultiviewTally
                 else if (ContentTargets.UsesOwnPattern(state, id)) list.Add(new TileBadge("OWN", Held, false));
                 // With EDIT SAFE open the tile says whether the next TAKE reaches it. A lock or a
                 // repeater already says the take leaves it alone.
-                if (HasPreview(snap) && mirror.Length == 0 && !locked)
+                if (HasPreview(preview) && mirror.Length == 0 && !locked)
                 {
                     list.Add(IsArmed(snap, id) ? new TileBadge("NEXT", Preview, true) : new TileBadge("HELD", Held, false));
                 }
@@ -79,7 +79,7 @@ public static class MultiviewTally
             }
 
             case MultiviewSource.Preview:
-                list.Add(HasPreview(snap) ? new TileBadge("PVW", Preview, true) : new TileBadge("NO PREVIEW", Off, false));
+                list.Add(HasPreview(preview) ? new TileBadge("PVW", Preview, true) : new TileBadge("NO PREVIEW", Off, false));
                 break;
         }
         return list;
@@ -107,8 +107,8 @@ public static class MultiviewTally
     }
 
     /// <summary>The tile's caption: the target's name (or the tile's own label), and what kind of thing it is with its size.</summary>
-    public static (string Name, string Kind) Caption(ShowSnapshot snap, MultiviewTileConfig tile)
-        => (Name(snap, tile), Kind(snap, tile));
+    public static (string Name, string Kind) Caption(ShowSnapshot snap, MultiviewTileConfig tile, ShowSnapshot? preview = null)
+        => (Name(snap, tile), Kind(snap, tile, preview));
 
     /// <summary>The words on the tile: its own label when it has one, else the target's name, the feed's nickname, or the source.</summary>
     public static string Name(ShowSnapshot snap, MultiviewTileConfig tile)
@@ -141,7 +141,7 @@ public static class MultiviewTally
     /// ("SCREEN 2 · 1920×1080", "CANVAS A · 3840×1080 · 2 SCREENS", "NDI SEND 4 · 1920×1080"),
     /// which targets the program is on, which the next TAKE changes, or the input's kind.
     /// </summary>
-    public static string Kind(ShowSnapshot snap, MultiviewTileConfig tile)
+    public static string Kind(ShowSnapshot snap, MultiviewTileConfig tile, ShowSnapshot? preview = null)
     {
         var state = snap.State;
         switch (tile.Source)
@@ -149,7 +149,7 @@ public static class MultiviewTally
             case MultiviewSource.Program:
                 return ProgramTargets(snap);
             case MultiviewSource.Preview:
-                return PreviewTargets(snap);
+                return PreviewTargets(snap, preview);
             case MultiviewSource.Screen:
             {
                 var id = tile.ScreenId;
@@ -205,9 +205,9 @@ public static class MultiviewTally
     /// The targets the next TAKE changes — the PREVIEW tile's second line, "NEXT TAKE → 1 · A":
     /// every armed target that is not locked; why there is none otherwise.
     /// </summary>
-    public static string PreviewTargets(ShowSnapshot snap)
+    public static string PreviewTargets(ShowSnapshot snap, ShowSnapshot? preview = null)
     {
-        if (!HasPreview(snap)) return "EDIT SAFE OFF";
+        if (!HasPreview(preview)) return "EDIT SAFE OFF";
         var words = new List<string>();
         foreach (var t in snap.Rig.Targets)
         {

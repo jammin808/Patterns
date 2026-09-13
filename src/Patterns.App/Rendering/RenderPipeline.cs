@@ -288,6 +288,7 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
+            Preview = _bus.Sandbox,          // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws
         };
         _sink.Fps.Tick(ctx.Time);
 
@@ -507,6 +508,7 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
+            Preview = _bus.Sandbox,          // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws
             // A miniature: the patterns widen their hairlines to this pane's own pixels.
             DeviceScale = scale,
         };

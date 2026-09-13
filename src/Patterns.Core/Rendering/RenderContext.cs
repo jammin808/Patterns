@@ -1,4 +1,5 @@
 using Patterns.Core.Model;
+using Patterns.Core.Services;
 using SkiaSharp;
 
 namespace Patterns.Core.Rendering;
@@ -46,6 +47,15 @@ public readonly record struct RenderContext
 
     /// <summary>True while rendering inside a multiview tile — nested multiviews draw a slate instead.</summary>
     public bool InMultiview { get; init; }
+
+    /// <summary>
+    /// The sandboxed preview as it is right now, handed in by the sink that has the bus: a
+    /// multiview's PREVIEW tile draws it, its words and badges speak of it, a review fills the
+    /// wall with it. Null when there is no preview (EDIT SAFE off) or the sink has none to give
+    /// (a thumbnail, a test). The program snapshot itself carries no way to it — a snapshot is a
+    /// snapshot, and the sink is what composes two of them.
+    /// </summary>
+    public ShowSnapshot? Preview { get; init; }
 
     /// <summary>True while rendering another target's picture inside a layer — a layer in there draws nothing, so two screens showing each other cannot recurse.</summary>
     public bool InLayer { get; init; }

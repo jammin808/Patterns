@@ -51,8 +51,8 @@ public class MultiviewWordsTests
         Render(first, opts, sink);
         Render(first, opts, sink);
         Assert.Equal(1, sink.MultiviewWords.Builds);                                 // three frames, one set of words
-        var words = sink.MultiviewWords.For(first, opts);
-        Assert.Same(words, sink.MultiviewWords.For(first, opts));
+        var words = sink.MultiviewWords.For(first, null, opts);
+        Assert.Same(words, sink.MultiviewWords.For(first, null, opts));
         Assert.NotEmpty(words);
         Assert.Equal(MultiviewTally.Name(first, words[0].Tile), words[0].Name);        // the tally's own words
         Assert.Equal(MultiviewTally.Kind(first, words[0].Tile), words[0].Kind);
@@ -66,7 +66,7 @@ public class MultiviewWordsTests
         another.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Clock });
         Render(second, another, sink);
         Assert.Equal(3, sink.MultiviewWords.Builds);                                 // another wall: its own words
-        Assert.Single(sink.MultiviewWords.For(second, another));
+        Assert.Single(sink.MultiviewWords.For(second, null, another));
         Render(second, another, sink);
         Assert.Equal(3, sink.MultiviewWords.Builds);
     }
