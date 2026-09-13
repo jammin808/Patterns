@@ -308,6 +308,12 @@ public sealed partial class ControlService : IDisposable
         var kind = NodeKinds.Label(_kernel.Profile);
         var links = new List<string>();
         if (_kernel.Profile == NodeKind.Arcade) links.Add("<a href='/pad'>the phone pad</a>");
+        if (_kernel.Profile is NodeKind.Caller or NodeKind.Timer)
+        {
+            links.Add("<a href='/stage'>the stage display</a>");
+            links.Add("<a href='/stage?view=crew'>the crew's view</a>");
+            links.Add("<a href='/timer'>the timer controller</a>");
+        }
         links.Add("<a href='/host'>the audience host page</a>");
         var join = _services.Play.JoinUrl;
         if (join.Length > 0) links.Add($"the audience joins at <a href='{join}'>{join}</a>");
@@ -623,8 +629,11 @@ public sealed partial class ControlService : IDisposable
             else if (method == "POST" && path == "/api/stage/ack")
             {
                 contentType = "application/json";
+                // The display's ACK is a verb of the vocabulary: the desk's stage marks the message seen;
+                // a timer node forwards it to the desk it follows, and marks its own copy when alone.
                 var id = body.Trim().Trim('"');
-                var acked = _services.Stage is { } ackStage && await UiThread.InvokeAsync(() => ackStage.Ack(id));
+                var ackOrigin = new ActionOrigin(OriginKind.Http, "stage display", client.Client.RemoteEndPoint?.ToString() ?? "");
+                var acked = id.Length > 0 && (await UiThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.StageAck, "", id), ackOrigin))).Ok;
                 payload = acked ? "{\"ok\":true}" : "{\"ok\":false,\"msg\":\"no such message, or seen already\"}";
             }
             else if (method == "GET" && (path == "/pad" || path.StartsWith("/pad?")))
@@ -638,7 +647,7 @@ public sealed partial class ControlService : IDisposable
                 var forward = _kernel.Profile != NodeKind.Arcade && await UiThread.InvokeAsync(() => _kernel.Nodes.Arcades().Count) > 0;
                 payload = forward
                     ? await _kernel.Nodes.AskArcadesAsync("ARCADE STATUS")
-                    : await UiThread.InvokeAsync(() => _kernel.Arcade.StatusJson(QueryValue(path, "what")));
+                    : await UiThread.InvokeAsync(() => _services.Arcade.StatusJson(QueryValue(path, "what")));
             }
             else if (method == "POST" && path == "/api/arcade/key")
             {

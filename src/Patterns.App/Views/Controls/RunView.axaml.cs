@@ -27,7 +27,22 @@ public partial class RunView : UserControl
 
     private void Hook()
     {
+        if (DataContext is not IRunPage page) return;
+        if (!page.HasRunWall)
+        {
+            // A node: no wall — the history keeps a third, the stack the rest; nothing to remember.
+            var columns = RunSplit.ColumnDefinitions;
+            columns[0].Width = new GridLength(30, GridUnitType.Star);
+            columns[2].Width = new GridLength(70, GridUnitType.Star);
+            return;
+        }
         if (DataContext is not MainViewModel vm) return;
+        if (WallHost.Content is null)
+        {
+            var wall = new WallView();
+            wall.Bind(WallView.CollapsedProperty, new Avalonia.Data.Binding(nameof(IRunPage.IsRunWallCollapsed)));
+            WallHost.Content = wall;
+        }
         var desk = vm.State.Desk;
         if (!ReferenceEquals(_desk, desk))
         {

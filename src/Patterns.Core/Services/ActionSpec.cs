@@ -95,7 +95,7 @@ public static class ActionSpec
         ShowActionKind.CanvasOn or ShowActionKind.CanvasOff => (TargetKind.Canvas, ValueKind.None),
         ShowActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
         ShowActionKind.TimerAdd => (TargetKind.None, ValueKind.Text),
-        ShowActionKind.StageMessage => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.StageMessage or ShowActionKind.StageAck => (TargetKind.None, ValueKind.Text),
         ShowActionKind.ArcadeStart or ShowActionKind.ArcadeAttract or ShowActionKind.ArcadeKey or ShowActionKind.ArcadeSize or ShowActionKind.ArcadeNdi or ShowActionKind.ArcadeName => (TargetKind.None, ValueKind.Text),
         ShowActionKind.PlayAdd or ShowActionKind.PlayOpen or ShowActionKind.PlayShow or ShowActionKind.PlayMessage or ShowActionKind.PlayApprove or ShowActionKind.PlayReject or ShowActionKind.PlayAuto or ShowActionKind.PlayPath or ShowActionKind.PlayDraughts or ShowActionKind.PlayRoom => (TargetKind.None, ValueKind.Text),
         ShowActionKind.AlignStart or ShowActionKind.AlignNudge => (TargetKind.None, ValueKind.Text),
@@ -188,6 +188,7 @@ public static class ActionSpec
         ShowActionKind.TimerFlash => "Stage displays — flash",
         ShowActionKind.StageMessage => "Message to stage",
         ShowActionKind.StageClear => "Message to stage — clear",
+        ShowActionKind.StageAck => "Stage display — a message seen (ACK)",
         ShowActionKind.ArcadeStart => "Arcade — start a game (pong 2, snake, breakout)",
         ShowActionKind.ArcadeStop => "Arcade — stop",
         ShowActionKind.ArcadePause => "Arcade — pause",
@@ -383,6 +384,7 @@ public static class ActionSpec
             => "rig day's games are the desk's own — the keys, the Screens page and the wire, never a cue",
         ShowActionKind.AudienceOn or ShowActionKind.AudienceOff
             => "the audience listener is a control setting — the Remote page and the wire, never a cue",
+        ShowActionKind.StageAck => "a stage display's own receipt — the ACK on the stage page, forwarded by a timer node; never a cue",
         _ => null,
     };
 

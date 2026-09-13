@@ -305,6 +305,8 @@ public enum ShowActionKind
     StageMessage,
     /// <summary>STAGE CLEAR: the message off the displays.</summary>
     StageClear,
+    /// <summary>STAGE ACK &lt;id&gt;: a stage display's receipt of a message — the desk shows it as "seen at"; a timer node forwards it to the desk.</summary>
+    StageAck,
     /// <summary>
     /// The arcade node's verbs — run there when this process is the arcade, sent to every arcade node
     /// the beacon hears when it is the desk. Value carries the words: "pong 2" (the game and its

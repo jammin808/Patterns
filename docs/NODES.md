@@ -16,7 +16,9 @@ Snake and Breakout, the pads, NDI out, the ARCADE verbs; round 37 (§55) audienc
 five kinds of question, the wall, messages back, the queue with the assistant's second look,
 draughts and the path; round 38 (§56) rig day gamified — the show-ready bar, the alignment
 game, Blend Quest, the on-time streak, all behind one opt-in switch. The four rounds are built;
-what is left of the plan is in each round's "left for later".*
+what is left of the plan is in each round's "left for later". Round 40 (§58) built the arcade
+node from the kernel alone; round 41 (§59) moved the caller and the timer onto it too — no node
+boots the desk's composition now — and put the machine's own services on the kernel.*
 
 ## 0. The verdict, first
 
@@ -212,7 +214,10 @@ clock, the next cue), the running order with planned starts and durations, the c
 These are pages and verbs on the desk (and on the caller node), not a process: a timer that ran in
 its own process would be one more thing to keep in step with the stack that owns the time. The
 `--node timer` role earns its place only on a machine with nothing else on it — a tablet's
-kiosk, a small PC behind the lectern — and is then the stage page served locally.
+kiosk, a small PC behind the lectern — and is then the stage page served locally. Built (round
+41): the timer node follows the desk on the twin's link as a caller does, owning nothing; its
+window is the display itself; its pages are served from its own port; its ACKs go home as
+`STAGE ACK`; and alone it is a stage timer of its own.
 
 ## 7. The caller's own install
 
@@ -243,7 +248,10 @@ working set is a fraction.
 
 Why not a smaller separate app: the pages exist, peeled (`ShowPage`, the run list, the pad); the
 protocol exists (the twin's mirror); the file formats exist. A second app would rebuild the pages
-and then drift from them. The profile costs the kernel refactor of §1 and a page filter.
+and then drift from them. The profile costs the kernel refactor of §1 and a page filter. Built
+(round 41): the caller is `NodeHost` — the kernel, the stack rehearsed on paper alone and the
+desk's while linked, the stage, the link, the wire, and a window of the Run surface, the Cues
+page, the Stage block and Nodes over the same XAML the desk binds. No engines, ever.
 
 ## 8. Where it sits on the desk
 
@@ -369,7 +377,9 @@ A capability earns its place by answering seven questions, in writing, before it
 
 Some of what Patterns already carries reads differently under this charter. The arcade is not
 Pong; it is the proof that a computational function can move to a discovered node and appear as
-a production source (round 40 builds that node from the kernel alone). Audience play is not
+a production source (round 40 builds that node from the kernel alone; round 41 the caller and
+the timer, and takes the arcade *off* the kernel — the kernel is what every role needs, not what
+every role could use, so an engine is a role's and an update channel is everyone's). Audience play is not
 polling; it is the proof that an audience-facing subsystem can live on another machine, be
 served on a port of its own, send structured state back and be driven through the one
 vocabulary. Projector warp, blend and the camera calibration stay, and stay first-class: not

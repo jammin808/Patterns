@@ -104,7 +104,7 @@ public class KernelTests
         {
             Assert.DoesNotContain(p.PropertyType, deskOnly);
         }
-        foreach (var kernelService in new[] { typeof(AssistantService), typeof(BeaconService), typeof(NodesService), typeof(ArcadeService) })
+        foreach (var kernelService in new[] { typeof(AssistantService), typeof(BeaconService), typeof(NodesService), typeof(ArcadeService) })   // the arcade is built on the kernel by a role, never by the kernel
         {
             foreach (var ctor in kernelService.GetConstructors())
             {
@@ -114,7 +114,7 @@ public class KernelTests
         }
 
         // The desk-facing services say what they need of the desk, as a contract — never the desk itself.
-        foreach (var (service, contract) in new[] { (typeof(TwinService), typeof(ITwinHost)), (typeof(ControlService), typeof(IWireHost)), (typeof(StageService), typeof(IStageHost)), (typeof(PlayService), typeof(IPlayHost)) })
+        foreach (var (service, contract) in new[] { (typeof(TwinService), typeof(ITwinHost)), (typeof(ControlService), typeof(IWireHost)), (typeof(StageService), typeof(IStageHost)), (typeof(PlayService), typeof(IPlayHost)), (typeof(CueStackService), typeof(ICueHost)), (typeof(UpdateService), typeof(IMachineHost)), (typeof(ManagementService), typeof(IMachineHost)) })
         {
             foreach (var ctor in service.GetConstructors())
             {
@@ -128,6 +128,11 @@ public class KernelTests
         Assert.True(typeof(IWireHost).IsAssignableFrom(typeof(AppServices)));
         Assert.True(typeof(IStageHost).IsAssignableFrom(typeof(AppServices)));
         Assert.True(typeof(IPlayHost).IsAssignableFrom(typeof(AppServices)));
+        Assert.True(typeof(ICueHost).IsAssignableFrom(typeof(AppServices)));
+        Assert.True(typeof(IRunHost).IsAssignableFrom(typeof(AppServices)));
+        Assert.True(typeof(IMachineHost).IsAssignableFrom(typeof(AppServices)));
+        // The arcade is nobody's kernel: the roles that want a game build it.
+        Assert.DoesNotContain(typeof(ServiceKernel).GetProperties(BindingFlags.Public | BindingFlags.Instance), p => p.PropertyType == typeof(ArcadeService));
         Assert.True(typeof(ILinkReport).IsAssignableFrom(typeof(TwinService)));
     }
 
@@ -146,7 +151,7 @@ public class KernelTests
             Assert.Same(kernel.Beacon, services.Beacon);
             Assert.Same(kernel.Nodes, services.Nodes);
             Assert.Same(kernel.Assistant, services.Assistant);
-            Assert.Same(kernel.Arcade, services.Arcade);
+            Assert.Same(kernel.Cues, services.Cues);
             Assert.True(kernel.IsDesk);
             // The slots: the desk's air, the twin's link, the status strip, the desk's brief.
             Assert.Same(services, kernel.Air);

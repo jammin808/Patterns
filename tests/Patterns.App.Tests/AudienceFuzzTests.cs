@@ -297,14 +297,17 @@ public class AudienceFuzzTests
             PumpUntil(() => CanConnect(wire));
 
             // A line that never ends is not a command: said once, the door closed, the wire still there for the next.
+            // A STATE push may land in between — the desk goes on changing while the line is read — and is no answer to the line.
             var answer = Wire(wire, Encoding.ASCII.GetBytes(new string('x', 200_000)));
             Assert.StartsWith("STATE ", answer[0]);
-            Assert.Equal(2, answer.Count);
-            Assert.StartsWith("ERR", answer[1]);
-            Assert.Contains($"past {ControlService.WireLineBytes} bytes", answer[1]);
+            var replies = answer.Where(l => !l.StartsWith("STATE ", StringComparison.Ordinal)).ToList();
+            var refusal = Assert.Single(replies);
+            Assert.StartsWith("ERR", refusal);
+            Assert.Contains($"past {ControlService.WireLineBytes} bytes", refusal);
+            Assert.Equal(refusal, answer[^1]);                                          // the door closed on the refusal, nothing after it
             var next = Wire(wire, Encoding.ASCII.GetBytes("STATUS\n"), waitMs: 1500);
             Assert.StartsWith("STATE ", next[0]);
-            Assert.StartsWith("OK", next[1]);
+            Assert.StartsWith("OK", next.First(l => !l.StartsWith("STATE ", StringComparison.Ordinal)));
 
             // The twin's door: a JOIN past the ceiling is closed on before the key is even read, and the main listens on.
             vm.State.Twin.Port = FreePort();

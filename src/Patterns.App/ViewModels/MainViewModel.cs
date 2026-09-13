@@ -22,7 +22,7 @@ public sealed record EditTarget(string Label, string? ScreenId)
     public override string ToString() => Label;
 }
 
-public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage
+public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage, IRunPage, ICuesPage, IStagePage, IRunPageOwner
 {
     private readonly AppServices _services;
     private EditTarget _editTarget = new("Program", null);

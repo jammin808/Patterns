@@ -109,17 +109,16 @@ public sealed class StageService
         return ActionResult.Done(n == 0 ? "Nothing on the displays to clear." : $"{n} message{(n == 1 ? "" : "s")} cleared from the displays.");
     }
 
-    /// <summary>The display's ACK: the message is seen, and the desk knows when.</summary>
-    public bool Ack(string id)
+    /// <summary>The display's ACK: the message is seen, and the desk knows when — the receipt's words, or null for a message that is not there to see.</summary>
+    public string? Ack(string id)
     {
         StageMessage? found = null;
         _s.EditAir(air => found = air.Stage.Messages.FirstOrDefault(m => m.Id == id && m.AckUtc is null));
-        if (found is null) return false;
+        if (found is null) return null;
         var now = UtcNow();
         _s.EditAir(_ => found.AckUtc = now);
         Bump();
-        _s.Notify($"Stage: '{found.Text}' seen at {now.ToLocalTime():HH:mm:ss}.");
-        return true;
+        return $"Stage: '{found.Text}' seen at {now.ToLocalTime():HH:mm:ss}.";
     }
 
     /// <summary>The latest unseen message on a channel, or null.</summary>

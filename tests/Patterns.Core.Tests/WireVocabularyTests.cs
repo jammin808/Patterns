@@ -141,6 +141,7 @@ public class WireVocabularyTests
         ("STAGE CREW Mic 2 is live", new(ShowActionKind.StageMessage, "crew", "Mic 2 is live")),
         ("STAGE Five minutes", new(ShowActionKind.StageMessage, "speaker", "Five minutes")),
         ("STAGE CLEAR", new(ShowActionKind.StageClear)),
+        ("STAGE ACK m-42", new(ShowActionKind.StageAck, "", "m-42")),
         ("ARCADE START pong 2", new(ShowActionKind.ArcadeStart, "", "pong 2")),
         ("ARCADE snake", new(ShowActionKind.ArcadeStart, "", "snake")),
         ("ARCADE STOP", new(ShowActionKind.ArcadeStop)),

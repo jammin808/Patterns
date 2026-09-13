@@ -129,8 +129,11 @@ fault containment, and settings that can never brick startup.
   as a diff ("2 cues to add, 1 the desk has that the plan does not") for APPLY — a version kept
   first — and during the show its GO, STANDBY and HOLD run on the desk as the caller's own hand
   while the desk's standby cue, ARM and HOLD show on the caller once a second. A desk hosts
-  callers with the twin off (Machine page → TWIN → *Accept caller nodes*). `docs/PLAN.md` §53,
-  the assessment in `docs/NODES.md`.
+  callers with the twin off (Machine page → TWIN → *Accept caller nodes*). Since round 41 the
+  caller and the stage timer node are built from the kernel alone, like the arcade: a caller
+  alone rehearses its stack on paper (GO moves the stack and runs nothing), a timer node's
+  window is the stage display itself and its ACKs go home as `STAGE ACK`. `docs/PLAN.md` §53,
+  §59, the assessment in `docs/NODES.md`.
 - **The stage timer and messages to stage** — the countdown is the speaker's clock: green,
   amber at two minutes, red at one, over in red with the seconds gone; `/stage?view=speaker` on
   the confidence monitor, `/stage?view=crew` for the stage manager, `/timer` as the controller
@@ -1503,13 +1506,17 @@ abstractions (sources, targets, looks, actions, cues, devices, nodes, state, hea
 that every capability plugs into, and seven questions a capability answers before it is built.
 
 A kernel first: `ServiceKernel` is what every role stands on — the store and the show, the log,
-the journal, the last run's notes, the snapshot bus, the assistant client, the beacon, the nodes
-registry, the arcade — built before a single desk service, with slots the desk fills (what is
-on air, the link, the status strip, the brief) and null objects a node answers with. The desk
-(`AppServices`) stands on it and provides, as contracts, what its twin, its wire, its stage timer
-and its audience room ask of it. The arcade node is built from the kernel alone (`NodeHost`: no
-desk, no outputs, no engines — the kernel, the room, the node's action layer, the wire, two
-pages). `docs/PLAN.md` §57.4, §58.3.
+the journal, the last run's notes, the snapshot bus, the runtime of the cue lists, the assistant
+client, the beacon, the nodes registry — built before a single desk service, with slots the desk
+fills (what is on air, the link, the status strip, the brief) and null objects a node answers
+with. The desk (`AppServices`) stands on it and provides, as contracts, what its twin, its wire,
+its cue stack, its stage timer, its audience room and the machine's own services ask of it.
+Every node is built from the kernel alone (`NodeHost`: no desk, no outputs, no engines — the
+kernel, the room, the stack rehearsed on paper, the stage, a follower's link, the node's action
+layer, the wire, and the pages its kind shows over the same XAML the desk binds): the arcade,
+the caller, the stage timer. The kernel is what every role needs, not what every role could use
+— the arcade engine is a role's, the updates folder and the management check-in are everyone's.
+`docs/PLAN.md` §57.4, §58.3, §59.
 
 One UI-independent render engine (`Patterns.Core`, SkiaSharp) draws every sink — the preview,
 each fullscreen output, preset thumbnails and NDI frames — from immutable show-state snapshots

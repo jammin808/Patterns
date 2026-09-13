@@ -4,7 +4,7 @@
              xmlns:m="using:Patterns.Core.Model"
              xmlns:c="using:Patterns.App.Views.Controls"
              x:Class="Patterns.App.Views.Panels.CueSettingsPanel"
-             x:DataType="vm:MainViewModel">
+             x:DataType="vm:ICuesPage">
   <!-- The selected item's settings, shown in the pop-out column beside the page (PopOutHost) rather than under the list. -->
   <StackPanel Classes="form" Margin="12,8,14,16">
     <StackPanel IsVisible="{Binding Cues.HasSelection}" Spacing="4">
@@ -73,11 +73,11 @@
                              ToolTip.Tip="Drag to reorder. The waits stay where they are, so the cue's timing is the timing you built — only the step moves" />
                   <ComboBox Grid.Column="2" ItemsSource="{Binding KindChoices}" SelectedItem="{Binding SelectedKind, Mode=TwoWay}" HorizontalAlignment="Stretch" />
                   <Button Grid.Column="4" Classes="mini" Content="↑"
-                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionUpCommand}" CommandParameter="{Binding}" />
+                          Command="{Binding $parent[UserControl].((vm:ICuesPage)DataContext).Cues.MoveActionUpCommand}" CommandParameter="{Binding}" />
                   <Button Grid.Column="5" Classes="mini" Content="↓"
-                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.MoveActionDownCommand}" CommandParameter="{Binding}" />
+                          Command="{Binding $parent[UserControl].((vm:ICuesPage)DataContext).Cues.MoveActionDownCommand}" CommandParameter="{Binding}" />
                   <Button Grid.Column="6" Classes="mini" Content="✕"
-                          Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Cues.RemoveActionCommand}" CommandParameter="{Binding}" />
+                          Command="{Binding $parent[UserControl].((vm:ICuesPage)DataContext).Cues.RemoveActionCommand}" CommandParameter="{Binding}" />
                 </Grid>
                 <!-- The wait before this step, and where it lands in the cue -->
                 <Grid ColumnDefinitions="Auto,6,86,8,Auto,*">

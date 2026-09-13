@@ -424,6 +424,16 @@ public sealed partial class MainViewModel
     /// <summary>The Run surface's state and commands.</summary>
     public RunViewModel Run { get; }
 
+    /// <summary>The desk has the wall beside the caller's list.</summary>
+    public bool HasRunWall => true;
+
+    /// <summary>A row's OPEN IN EDITOR: the cue selected on the Cues page, and the page shown.</summary>
+    public void OpenCueInEditor(RunCueConfig cue)
+    {
+        Cues.SelectedCue = cue;
+        SelectPage(Shell.IndexOf("Cues"));
+    }
+
     private bool _isRunLayout;
 
     /// <summary>

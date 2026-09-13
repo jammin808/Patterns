@@ -12,24 +12,30 @@ namespace Patterns.App.Services;
 /// protocol lines to run (with the server as their origin, fenced like any remote's), an update
 /// to download into the updates folder (checked against its SHA-256 before it counts as staged),
 /// an apply, a restart. Outbound only, so a shop screen behind a router needs no port opened;
-/// off until a URL is typed. Every failure is a line on the page, never a fault in the show.
+/// off until a URL is typed. Every failure is a line on the page, never a fault in the show. Built
+/// on the kernel and the machine's host, so a node checks in as a desk does: the fleet's server
+/// sees every machine that runs Patterns, whatever it runs it as.
 /// </summary>
 public sealed class ManagementService : IDisposable
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
-    private readonly AppServices _s;
-    private readonly CommandRouter _router;
+    private readonly ServiceKernel _kernel;
+    private readonly IMachineHost _host;
+    private readonly UpdateService _updates;
+    private readonly IRouter _router;
     private DateTime _lastTryUtc = DateTime.MinValue;
     private int _busy;
     private volatile string _status = "No management URL — the site does not check in.";
     private long _checkIns;
     private long _lastOkTicks;
 
-    public ManagementService(AppServices services)
+    public ManagementService(ServiceKernel kernel, IMachineHost host, UpdateService updates)
     {
-        _s = services;
-        _router = new CommandRouter(services);
+        _kernel = kernel;
+        _host = host;
+        _updates = updates;
+        _router = host.NewRouter();
     }
 
     public string Status => _status;
@@ -40,7 +46,7 @@ public sealed class ManagementService : IDisposable
     /// <summary>The 1 s poll: a check-in when the interval has passed (UI thread).</summary>
     public void Tick(DateTime utcNow)
     {
-        var cfg = _s.State.Install;
+        var cfg = _kernel.State.Install;
         if (cfg.ManagementUrl.Length == 0)
         {
             _status = "No management URL — the site does not check in.";
@@ -90,7 +96,7 @@ public sealed class ManagementService : IDisposable
         // Everything read from the show is read on the UI thread, where the show lives.
         var (url, token, site, health, state) = await UiThread.InvokeAsync(() =>
         {
-            var cfg = _s.State.Install;
+            var cfg = _kernel.State.Install;
             return (cfg.ManagementUrl, cfg.ManagementToken,
                 cfg.SiteName.Length > 0 ? cfg.SiteName : Environment.MachineName, HealthMonitor.Summary(DateTime.UtcNow), _router.StateJson());
         });
@@ -128,12 +134,12 @@ public sealed class ManagementService : IDisposable
         }
         if (reply.ApplyUpdate)
         {
-            var result = await UiThread.InvokeAsync(() => _s.Updates.Apply("", origin, byPolicy: true));
+            var result = await UiThread.InvokeAsync(() => _updates.Apply("", origin, byPolicy: true));
             notes.Add($"apply: {result.Message}");
         }
         else if (reply.Restart)
         {
-            var result = await UiThread.InvokeAsync(() => _s.Actions.Execute(new ShowAction(ShowActionKind.Restart, _s.State.Install.AdminPasscode), origin));
+            var result = await UiThread.InvokeAsync(() => _host.Actions.Execute(new ShowAction(ShowActionKind.Restart, _kernel.State.Install.AdminPasscode), origin));
             notes.Add($"restart: {result.Message}");
         }
         var summary = reply.Commands.Count == 0 ? "nothing to do" : $"{reply.Commands.Count} command{(reply.Commands.Count == 1 ? "" : "s")}";
@@ -144,7 +150,7 @@ public sealed class ManagementService : IDisposable
     /// <summary>Downloads an offered package into the updates folder and keeps it only when its SHA-256 is the one promised.</summary>
     private async Task<string> StageAsync(ManagementUpdate update)
     {
-        var folder = _s.Updates.Folder;
+        var folder = _updates.Folder;
         Directory.CreateDirectory(folder);
         var name = $"patterns-update-{Sanitise(update.Version)}.zip";
         var target = Path.Combine(folder, name);
@@ -166,7 +172,7 @@ public sealed class ManagementService : IDisposable
                 return $"update {update.Version} refused — its SHA-256 is not the one promised";
             }
             File.Move(tmp, target, overwrite: true);
-            await UiThread.InvokeAsync(_s.Updates.Scan);
+            await UiThread.InvokeAsync(_updates.Scan);
             Log.Info($"Update {update.Version} staged from the management server: {target}");
             return $"update {update.Version} staged";
         }

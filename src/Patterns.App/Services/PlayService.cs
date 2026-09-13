@@ -198,7 +198,7 @@ public sealed class PlayService : IDisposable
         WallMessage = message;
         _wallRev++;
         Signal();
-        if (mode != PlayBoardMode.Off) _k.Arcade.Start();
+        if (mode != PlayBoardMode.Off) _s.StartWall();                          // the wall rides the picture lane: the host runs it
     }
 
     /// <summary>The wall's picture, on the arcade's lane: true and drawn while the wall is on.</summary>

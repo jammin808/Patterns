@@ -5886,3 +5886,99 @@ says nothing sees it exactly once and is reported as silent; a node that greets 
 and then answers is read past the greeting to the reply.
 
 Counts at the end of the round: Core 1,095, App 567 — both suites green here.
+
+## 59. Round 41 — the caller and the timer on the kernel, and what else belongs there
+
+*The next step the round before named: the caller and the timer nodes still booted the desk's
+composition with its hands tied — every engine built and idle, every page filtered. Moving them
+meant putting the twin's link, the cue stack and the stage on the kernel, which meant deciding
+what a stack, a link and a stage ask of the process they run in. Then the question the move
+raises: what else is every role's, and what is on the kernel that should not be.*
+
+### 59.1 The cue stack on a contract, the runtime on the kernel
+
+`CueStackService` took the desk (`AppServices`) and reached into it for the runtime of the lists,
+the action layer that runs a cue's steps, the air label, the recovery sidecar, the sidecar
+services it watches for a late failure and rig day's streak. Now it takes the kernel and
+`ICueHost`: `RunCue` (the desk's action layer; a node's rehearsal on paper), `AirLabel`,
+`WriteRunPlace`, `WatchedStatuses`, `RecordGo`, `BulkEdit`. The runtime of the lists
+(`CueRuntime`) moved onto the kernel — every role that shows a stack reads it: the desk's Run
+surface, a caller's, a timer's segment. The desk implements the contract with what it always
+did; a node implements it with a runner that reads a cue's steps, counts them and runs none —
+the stack moves, the history records the GO, the day's clock reads from it — "rehearsed on paper:
+1 step read, none run". A caller at home walks the running order for real, and nothing anywhere
+changes a picture.
+
+### 59.2 The follower's link
+
+`NodeHost` implements `ITwinHost`: the twin's follower paths (dial the desk named, the show lands
+whole and then section by section, the live word adopted onto the runtime, the caller's own
+sections sent back) run on a node exactly as they ran on the desk-as-caller, with `BulkEdit`
+publishing once after a mirrored show lands and `DeskEdit` moving the runtime without a publish.
+The node's own `OnStateChanged` publishes to the bus with the dirty sections, which is how the
+link learns what a caller edited. A stage timer joins as a follower of a new kind — `timer` in
+the JOIN — that owns no section and offers no plan; the desk welcomes it, mirrors to it, sends
+it the live word, counts it as linked, runs the verbs and the receipts it sends, and ignores a
+section or a plan from it. The twin's caller-only checks became follower checks where the meaning
+was "a node that follows", and stayed caller-only where it was "a node that owns cues".
+
+### 59.3 The follower's action layer, and STAGE ACK
+
+`NodeActions` on a follower: in step with a desk, every verb but a note is forwarded and runs
+there as this node's own — GO, STANDBY, a message to stage, TIMER PAUSE, BLACKOUT, whatever the
+page or the wire pressed. Alone, a caller's cue verbs run the paper stack (GO through the same
+gate, STANDBY next/prev/by number, HOLD, ARM, a list stepped), the stage's verbs run the node's
+own `StageService` and the countdown's its own clock; the arcade's are the arcade node's, and the
+desk's are refused with where LINK would take them. `STAGE ACK <id>` is a verb of the vocabulary
+now — the stage page's ACK sends it, the desk marks the message seen and answers with the
+receipt's words, a timer node forwards it to the desk it follows and marks its own copy alone —
+so a receipt is a line on the wire like any other, journaled nowhere (a display's tap is not an
+operator's verb) and shown once on the strip.
+
+### 59.4 The stage on a node
+
+`NodeHost` implements `IStageHost`: the node's `StageService` runs over the show as it stands
+there — the desk's, mirrored, while linked; its own alone — and the node's wire serves `/stage`,
+`/stage?view=crew`, `/timer` and `/api/stage` from it, so a tablet's browser pointed at the timer
+node shows the desk's clock without the desk's port. A timer node alone is a stage timer of its
+own: `TIMER START 5` on its wire, the display in its window, PAUSE, the messages — no desk
+needed, which is what a laptop behind a lectern at a small event wants. The arcade node serves no
+stage pages: those are a follower's.
+
+### 59.5 The pages and the windows
+
+The Run surface, the Cues page and the STAGE block bind to interfaces — `IRunPage`, `ICuesPage`,
+`IStagePage` — that the desk's view model and the node's both implement, as the Arcade and Nodes
+pages already did; `RunViewModel` and `CueEditor` take `IRunHost` (the stack's pages' contract:
+the show, the runtime, the stack, the action layer, the validation context, the rig's screens for
+the target pickers, and the LIVE strip's chips a desk has and a node has not) instead of the
+desk. The Run surface's wall is the desk's alone: `HasRunWall` hides it and the history takes a
+third of the room on a node. The STAGE block left the Countdown page for a section of its own
+(`StageSection`), which the Countdown page still carries under the countdown's settings. A
+`StageDisplay` control is the stage page as a native surface — the time in the colour of what is
+left, the label, the message with its ACK, the segment, a flash — and a timer node's window is
+that display with the controls folded under it; a caller's window is Run, Cues, Stage (controls
+open) and Nodes; the arcade's is Arcade and Nodes. `--node caller` and `--node timer` boot
+`NodeHost` now; the desk's action layer no longer carries a forwarding branch it could not reach.
+
+### 59.6 What else belongs on the kernel, or off it
+
+Off: the arcade. The kernel built an `ArcadeService` for every role — a caller carried a game
+engine it would never run. An engine is a role's to build: the arcade node's, the desk's for a
+rig day's toy; the kernel builds none, and the room asks its host to start the picture lane the
+wall rides (`IPlayHost.StartWall`). On: the machine's own services. The updates folder and the
+management check-in took the desk; they are every machine's — a node on a hub PC is kept current
+and seen by the fleet's server the way a desk is — so `UpdateService` and `ManagementService`
+take the kernel and `IMachineHost` (the way out for a restart, the router the server's lines
+dispatch through, the action layer), every node builds them, `RESTART` and `UPDATE APPLY` are a
+node's verbs with the same passcode gate, and the wire's admin page on a node reads their status.
+
+Considered and left: the show lock (Windows held off notifications, sleep and the rest) is
+arguably every machine's too, but it is tied to the outputs' opening and closing and to the
+desk's journal of focus losses — a node's version is a smaller thing and a round's design of its
+own. The metrics service is the desk's dashboard and stays. The install schedule is the desk's.
+The assistant, the beacon, the nodes registry, the bus and the journal were already the kernel's
+and read right there. A node's window still has no Machine or Help page.
+
+Counts at the end of the round: Core 1,095, App 567 — both suites green here.
+

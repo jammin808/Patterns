@@ -372,7 +372,7 @@ public sealed class CueEditor : Observable
     public static readonly IReadOnlyList<PickItem> KindChoices =
         ActionSpec.CueKinds.Select(k => new PickItem(k.ToString(), ActionSpec.Label(k))).ToList();
 
-    private readonly AppServices _s;
+    private readonly IRunHost _s;
     private readonly Action<string> _status;
     private readonly DispatcherTimer _revalidate;
     private CueStackConfig? _selectedStack;
@@ -382,7 +382,7 @@ public sealed class CueEditor : Observable
     private string _stackNotesText = "";
     private ObservableCollection<CueActionConfig>? _watchedActions;
 
-    public CueEditor(AppServices services, Action<string> status)
+    public CueEditor(IRunHost services, Action<string> status)
     {
         _s = services;
         _status = status;
@@ -826,13 +826,13 @@ public sealed class CueEditor : Observable
             }
             case TargetKind.Screen:
             {
-                var known = _s.Screens.All;
+                var known = _s.Screens;
                 return Rig.OrderedLivePlacements(state, known)
                     .Select((x, i) => new PickItem(x.Placement.ScreenId, $"{i + 1} · {Rig.LabelFor(x.Placement, x.Info)}"));
             }
             case TargetKind.Canvas:
             {
-                var groups = Rig.CanvasGroups(state, _s.Screens.All);
+                var groups = Rig.CanvasGroups(state, _s.Screens);
                 var items = new List<PickItem>();
                 for (var i = 0; i < groups.Count; i++)
                 {
@@ -869,7 +869,7 @@ public sealed class CueEditor : Observable
                     new(FadeScope.Ticked.Words, "The ticked wall tiles"),
                     new(FadeScope.Groups.Words, "The ticked groups"),
                 };
-                var known = _s.Screens.All;
+                var known = _s.Screens;
                 var groups = Rig.CanvasGroups(state, known);
                 for (var i = 0; i < groups.Count; i++)
                 {

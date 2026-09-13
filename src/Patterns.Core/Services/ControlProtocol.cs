@@ -754,6 +754,7 @@ public static class ControlProtocol
                     case "MESSAGE": case "MSG": case "SAY": case "SPEAKER": return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.StageMessage, "speaker", rest);
                     case "CREW": return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.StageMessage, "crew", rest);
                     case "CLEAR": case "OFF": return Act(ShowActionKind.StageClear);
+                    case "ACK": case "SEEN": return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.StageAck, "", rest);
                     case "FLASH": case "BLINK": return Act(ShowActionKind.TimerFlash);
                     default: return Act(ShowActionKind.StageMessage, "speaker", arg);      // "STAGE Wrap up": the words, to the speaker
                 }

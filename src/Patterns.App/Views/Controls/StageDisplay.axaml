@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Controls.StageDisplay"
+             x:DataType="vm:IStageDisplay">
+  <!-- The stage page as a native surface: the time in the colour of what is left, the label, the message in large
+       type with its ACK, the segment for the crew, a flash when the caller says so. A stage timer node's window is
+       this, on a machine with nothing else on it. -->
+  <Grid Background="#05070B">
+    <Border Background="#F2F2F2" Opacity="0.85" IsVisible="{Binding DisplayFlashing}" />
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="32,24">
+      <TextBlock Grid.Row="0" Text="{Binding DisplayLabel}" FontSize="28" Foreground="#C0CBDB" HorizontalAlignment="Center" TextWrapping="Wrap" />
+      <Viewbox Grid.Row="1" Stretch="Uniform" MaxHeight="420">
+        <TextBlock Text="{Binding DisplayTime}" FontSize="240" FontWeight="Bold" FontFamily="Consolas,Menlo,monospace" Foreground="{Binding DisplayBrush}" />
+      </Viewbox>
+      <Border Grid.Row="2" Background="#141A24" CornerRadius="10" Padding="24,16" Margin="0,12" IsVisible="{Binding DisplayHasMessage}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding DisplayMessage}" FontSize="44" FontWeight="SemiBold" Foreground="#FFFFFF" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="ACK" FontSize="28" Padding="28,12" Margin="16,0,0,0" Command="{Binding DisplayAckCommand}" />
+        </Grid>
+      </Border>
+      <StackPanel Grid.Row="3" Spacing="4">
+        <TextBlock Text="{Binding DisplaySegment}" FontSize="22" Foreground="#8FA5FF" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding DisplayLinkWords}" FontSize="14" Foreground="#4A505E" TextWrapping="Wrap" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

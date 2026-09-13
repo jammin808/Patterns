@@ -18,18 +18,25 @@ public sealed class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (AppServices.LaunchProfile == Patterns.Core.Model.NodeKind.Arcade)
+            if (AppServices.LaunchProfile != Patterns.Core.Model.NodeKind.Desk)
             {
-                // The arcade node from the kernel alone: no desk is built. The kernel, the arcade, the
-                // room, the wire and a window of two pages — a computational function on a machine the
-                // desk finds on the beacon, and nothing on it that could open a screen.
+                // A node from the kernel alone: no desk is built. The kernel, the room, the stack on
+                // paper, the stage, a follower's link, the wire and a window of the pages its kind
+                // shows — the arcade the desk finds on the beacon, a caller that calls the desk, a
+                // stage timer that shows the desk's clock — and nothing on it that could open a screen.
                 var pre = AppServices.Preloaded;
                 AppServices.Preloaded = null;
-                var host = NodeHost.Build(Patterns.Core.Model.NodeKind.Arcade, pre?.Store, pre?.State);
+                var host = NodeHost.Build(AppServices.LaunchProfile, pre?.Store, pre?.State);
                 HealthMonitor.Restarts = LaunchOptions.Restarts;
                 var nodeVm = new NodeViewModel(host);
                 var nodeWindow = new NodeWindow { DataContext = nodeVm };
                 desktop.MainWindow = nodeWindow;
+                // RESTART and UPDATE APPLY from the wire or the management server leave through the same door as a desk's.
+                host.ExitRequest = code =>
+                {
+                    Dispatcher.UIThread.Post(() => desktop.Shutdown(code));
+                    return true;
+                };
                 host.Start();
                 desktop.ShutdownRequested += (_, _) => host.Shutdown();
                 desktop.Exit += (_, _) =>
@@ -50,8 +57,6 @@ public sealed class App : Application
             var window = new MainWindow { DataContext = vm };
             services.AttachMainWindow(window);
             desktop.MainWindow = window;
-            // A node opens on the first page of the few it shows — the caller on its Run surface.
-            if (!services.IsDesk) vm.SelectPage(Shell.HomePage(services.Profile));
             // After a watchdog relaunch the show goes back on as soon as the window has opened —
             // and so it does after this start took the screens back from a run that was still
             // playing on them, whether or not a watchdog was in the story (a hand relaunch of a

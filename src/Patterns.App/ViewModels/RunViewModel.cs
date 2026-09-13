@@ -96,18 +96,20 @@ public sealed class RunRow : Observable
 /// <summary>
 /// The Run surface: what a caller reads from a metre — the LIVE strip, the list with standby /
 /// last / next, the transport row — over the cue stack service. Everything a key or a button
-/// does here goes through that service and the action layer.
+/// does here goes through that service and the action layer. Built on <see cref="IRunHost"/>:
+/// the desk's, with the wall, the clips and the music behind the chips; a caller node's, with the
+/// stack alone and every verb going to the desk it follows.
 /// </summary>
 public sealed class RunViewModel : Observable
 {
-    private readonly AppServices _s;
-    private readonly MainViewModel _vm;
+    private readonly IRunHost _s;
+    private readonly IRunPageOwner _vm;
     private readonly DispatcherTimer _refresh;
     private CueValidationReport? _report;
     private DateTime? _lastEscUtc;
     private string _banner = "";
 
-    public RunViewModel(AppServices services, MainViewModel vm)
+    public RunViewModel(IRunHost services, IRunPageOwner vm)
     {
         _s = services;
         _vm = vm;
@@ -170,8 +172,7 @@ public sealed class RunViewModel : Observable
         OpenInEditorCommand = new RelayCommand<RunRow>(row =>
         {
             if (row is null) return;
-            _vm.Cues.SelectedCue = row.Cue;
-            _vm.SelectPage(Shell.IndexOf("Cues"));
+            _vm.OpenCueInEditor(row.Cue);
         });
         TogglePadCommand = new RelayCommand(() => IsPadOpen = !IsPadOpen);
 
@@ -194,9 +195,9 @@ public sealed class RunViewModel : Observable
     public bool IsBlackout => _s.State.Blackout;
 
     /// <summary>A stinger landed and is holding the screens for the caller's take.</summary>
-    public bool IsStingHolding => _s.Stingers.Holding;
+    public bool IsStingHolding => _s.StingHold.Holding;
 
-    public string StingHoldText => _s.Stingers.Holding ? $"STING HOLD: {_s.Stingers.HoldName}" : "";
+    public string StingHoldText => _s.StingHold.Holding ? $"STING HOLD: {_s.StingHold.Name}" : "";
 
     /// <summary>The chip: break music is on and asked to play. Sound, so never the label — the label is the picture.</summary>
     public bool IsMusicPlaying => _s.State.Spotify.Enabled && _s.State.Spotify.Playing;
@@ -206,8 +207,8 @@ public sealed class RunViewModel : Observable
 
     public string DuckTip => $"Live duck: music, stinger sounds and clip audio held at {_s.State.Stingers.DuckToPct:0}% for an announcement — press D or DUCK again to lift it; STOP ALL leaves it";
 
-    public string MusicTip => _s.Spotify.NowPlaying.Length > 0
-        ? $"Break music: {_s.Spotify.NowPlaying}{(_s.Spotify.DeviceLabel.Length > 0 ? " — " + _s.Spotify.DeviceLabel : "")} — STOP ALL pauses it"
+    public string MusicTip => _s.BreakMusicWords.Length > 0
+        ? $"Break music: {_s.BreakMusicWords} — STOP ALL pauses it"
         : "Break music playing — STOP ALL pauses it";
     public string NextAutoText => _s.CueStack.NextAutoText(DateTime.Now);
 
@@ -250,7 +251,7 @@ public sealed class RunViewModel : Observable
     private (string Good, string Wait) PreRollWords()
     {
         var wants = PreRoll.WantedFor(_s.State, _s.CueStack.StandbyCue);
-        return PreRoll.Words(_s.Video.PreRollStates(wants));
+        return PreRoll.Words(_s.PreRollStates(wants));
     }
 
     public string RunningText

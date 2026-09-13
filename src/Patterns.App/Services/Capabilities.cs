@@ -1,3 +1,4 @@
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -70,15 +71,15 @@ public interface IRouter
 
 /// <summary>
 /// What the twin asks of the desk it runs in: the action layer (a caller's verbs, the wall-switch
-/// cue), the edit scopes, the cue runtime for the live word, the outputs to hold closed and the
-/// show to put back after a takeover. Everything else the twin needs is the kernel's.
+/// cue), the edit scopes, the cue stack for the live word, the outputs to hold closed and the
+/// show to put back after a takeover. Everything else the twin needs is the kernel's — the show,
+/// the runtime of its lists, the beacon, the journal.
 /// </summary>
 public interface ITwinHost
 {
     IActionLayer Actions { get; }
     string AirLabel { get; }
     CueStackService CueStack { get; }
-    CueRuntime Cues { get; }
     bool OutputsLive { get; }
     string OutputsHeldBy { get; set; }
     void CloseOutputs();
@@ -108,6 +109,8 @@ public interface IWireHost
     UpdateService? Updates { get; }
     OscService? Osc { get; }
     PlayService Play { get; }
+    /// <summary>The games — built by the desk for a rig day and by every node, running only on the arcade node.</summary>
+    ArcadeService Arcade { get; }
     /// <summary>The stage timer — null on a node that has none.</summary>
     StageService? Stage { get; }
     VideoReading? VideoOnAir();
@@ -126,11 +129,96 @@ public interface IStageHost
     event Action? SnapshotPublished;
 }
 
+/// <summary>
+/// What the machine's own services — the updates folder, the management check-in — ask of the
+/// process they run in, whatever its role: the way out for a restart that the watchdog brings
+/// back, the router the management server's lines dispatch through, and the action layer. Every
+/// node is a machine somebody has to keep current and can reach from the fleet's server; none of
+/// that is the desk's alone.
+/// </summary>
+public interface IMachineHost
+{
+    /// <summary>The way out: the app's exit with a code the watchdog reads — null in a session that cannot restart.</summary>
+    Func<int, bool>? ExitRequest { get; }
+
+    /// <summary>What is saved and marked before a deliberate exit; the exit code the watchdog acts on, 0 when it is not there.</summary>
+    int PrepareRestart(bool forUpdate = false);
+
+    IRouter NewRouter();
+
+    IActionLayer Actions { get; }
+}
+
 /// <summary>What the audience room asks of the desk: the edit scope, and the audience port's facts from the wire.</summary>
 public interface IPlayHost
 {
     void BulkEdit(Action edit);
+    /// <summary>The wall went on: the picture lane it rides (the arcade's loop) runs from here.</summary>
+    void StartWall();
     IReadOnlyList<string> AudienceUrls();
     bool AudienceListening { get; }
     int AudienceConnections { get; }
+}
+
+/// <summary>
+/// What the cue stack asks of the process it runs in. The desk runs a cue's steps through its
+/// action layer, writes the caller's place to the recovery sidecar, watches its sidecar services
+/// for a late failure and feeds rig day's streak; a node rehearses a cue on paper and has none of
+/// the rest. The show, the runtime of the lists and the journal are the kernel's.
+/// </summary>
+public interface ICueHost
+{
+    /// <summary>Runs one cue's steps — the desk's action layer, or a node's rehearsal on paper — and says what became of them.</summary>
+    ActionResult RunCue(CueStackConfig stack, RunCueConfig cue, ActionOrigin origin);
+
+    /// <summary>What is on air by name; the stack sets it after a GO that landed.</summary>
+    string AirLabel { get; set; }
+
+    /// <summary>The caller's place for a relaunch, written on every GO — the desk's sidecar; a node writes none.</summary>
+    void WriteRunPlace();
+
+    /// <summary>The status lines of the services a Requested cue may fail in later (the stream, the tracks, the stingers, break music); none on a node.</summary>
+    IEnumerable<string> WatchedStatuses();
+
+    /// <summary>A person's GO against the running order, for rig day's streak while the games are on; nothing on a node.</summary>
+    void RecordGo(TimeSpan? offset);
+
+    void BulkEdit(Action edit);
+}
+
+/// <summary>
+/// What the stack's pages — the Run surface and the Cues page — ask beyond the stack: the show and
+/// the runtime, the action layer for a row's verbs, the validation context, the rig's screens for
+/// the target pickers, the events they refresh on, and the LIVE strip's chips a desk has and a
+/// node has not (a clip's clock, the pre-roll, break music, a stinger's hold).
+/// </summary>
+public interface IRunHost : ICueHost
+{
+    ShowState State { get; }
+    CueRuntime Cues { get; }
+    CueStackService CueStack { get; }
+    IActionLayer Actions { get; }
+    CueValidationContext ValidationContext { get; }
+    IReadOnlyList<ScreenInfo> Screens { get; }
+    event Action? SnapshotPublished;
+    event Action? AirLabelChanged;
+    /// <summary>The clip on air and where it is — null with none, and always null on a node.</summary>
+    VideoReading? VideoOnAir();
+    /// <summary>The standby cue's clips in the pool — empty on a node, which opens nothing.</summary>
+    IReadOnlyList<PreRoll.State> PreRollStates(IReadOnlyList<MediaLocator.WantedInput> wants);
+    /// <summary>"Track — device" while break music plays here; "" otherwise, and on a node.</summary>
+    string BreakMusicWords { get; }
+    /// <summary>A stinger holding the screens for the caller's take; never on a node.</summary>
+    (bool Holding, string Name) StingHold { get; }
+}
+
+/// <summary>The one-line verbs on any action layer — a kind with its target and value, one cue fired — as the desk's own layer always offered them.</summary>
+public static class ActionLayerVerbs
+{
+    public static ActionResult Execute(this IActionLayer actions, ShowActionKind kind, ActionOrigin origin, string target = "", string value = "")
+        => actions.Execute(new ShowAction(kind, target, value), origin);
+
+    /// <summary>One cue, wherever it is: the row's GO THIS CUE NOW, the Cues page's FIRE.</summary>
+    public static ActionResult FireCue(this IActionLayer actions, RunCueConfig cue, ActionOrigin origin)
+        => actions.Execute(new ShowAction(ShowActionKind.CueFire, cue.Id), origin);
 }

@@ -8,7 +8,9 @@ namespace Patterns.App.Services;
 /// The caller's stack at show time: standby, GO through the one gate, HOLD, confirm, history,
 /// asynchronous settling, the sidecar's place and the automation it holds while armed. Runs on
 /// the UI thread like every other model edit; the executor is synchronous with a re-entrancy
-/// guard, so a GO that arrives while a cue executes is dropped and recorded, never queued.
+/// guard, so a GO that arrives while a cue executes is dropped and recorded, never queued. Built
+/// on the kernel and a host (<see cref="ICueHost"/>): the desk's, which runs a cue's steps for
+/// real; a node's, which rehearses them on paper.
 /// </summary>
 public sealed class CueStackService
 {
@@ -18,20 +20,22 @@ public sealed class CueStackService
     /// <summary>The clock every poll and GO without a time of its own reads — the desk's, or a test's, so a row stamped by a test's clock is never settled by the desk's own poll reading the wall's.</summary>
     public Func<DateTime> NowUtc { get; set; } = () => DateTime.UtcNow;
 
-    private readonly AppServices _s;
+    private readonly ServiceKernel _kernel;
+    private readonly ICueHost _host;
 
-    public CueStackService(AppServices services)
+    public CueStackService(ServiceKernel kernel, ICueHost host)
     {
-        _s = services;
-        _s.Cues.Changed += () => Changed?.Invoke();
+        _kernel = kernel;
+        _host = host;
+        _kernel.Cues.Changed += () => Changed?.Invoke();
     }
 
     /// <summary>Raised on the UI thread after anything a caller can see changes.</summary>
     public event Action? Changed;
 
-    public CueStackConfig Stack => CueStacks.Caller(_s.State);
+    public CueStackConfig Stack => CueStacks.Caller(_kernel.State);
 
-    public StackRuntime Runtime => _s.Cues.For(Stack);
+    public StackRuntime Runtime => _kernel.Cues.For(Stack);
 
     /// <summary>Newest first, bounded; the journal file is the durable copy.</summary>
     public ObservableCollection<CueExecutionRecord> History { get; } = new();
@@ -176,7 +180,7 @@ public sealed class CueStackService
         // The double-press lockout is for fingers; a follow is the cue's own doing and may land on the same tick.
         var lastGo = origin.Kind == OriginKind.Follow ? null : rt.LastGoUtc;
         var (decision, reason) = GoGate.Check(new GoGate.Inputs(
-            rt.Armed, rt.Hold, _s.State.Blackout, rt.Executing,
+            rt.Armed, rt.Hold, _kernel.State.Blackout, rt.Executing,
             standby?.Id, seenStandbyId, lastGo, now,
             standby?.RequireConfirm ?? false, rt.ConfirmPendingCueId, rt.ConfirmDeadlineUtc));
 
@@ -203,7 +207,7 @@ public sealed class CueStackService
         ActionResult result;
         try
         {
-            result = _s.Actions.RunCue(Stack, standby!, origin);
+            result = _host.RunCue(Stack, standby!, origin);
         }
         finally
         {
@@ -224,13 +228,13 @@ public sealed class CueStackService
             // The place moves first, so the sidecar the record writes already points past this cue.
             rt.LastCueId = standby!.Id;
             rt.CurrentIndex = Stack.Cues.IndexOf(standby);
-            if (result.Ok) _s.AirLabel = $"{standby.Number} {standby.Name}";
+            if (result.Ok) _host.AirLabel = $"{standby.Number} {standby.Name}";
             AdvanceStandbyAfter(standby);
             if (result.Ok) ArmFollow(standby, now);
         }
         Record(standby, outcome, origin, done, standby!.Actions.Count, result.Message, now);
-        // Rig day's streak: this GO against the running order — only when the games are on, only a person's GO.
-        if (outcome is not CueOutcome.Refused && origin.Kind != OriginKind.Follow && _s.RigDay.Enabled) _s.RigDay.RecordGo(Timing(now.ToLocalTime()).Offset);
+        // Rig day's streak: this GO against the running order — only a person's GO; the host says whether the games are on.
+        if (outcome is not CueOutcome.Refused && origin.Kind != OriginKind.Follow) _host.RecordGo(Timing(now.ToLocalTime()).Offset);
         Bump();
         // A zero-second follow fires the next cue now, through the same gate, as its own GO.
         if (rt.FollowDueUtc is { } due && due <= now) FireDueFollow(now);
@@ -267,8 +271,8 @@ public sealed class CueStackService
         var record = new CueExecutionRecord(now, cue?.Id ?? "", cue?.Number ?? "", cue?.Name ?? "", outcome, origin.Label, done, total, detail);
         History.Insert(0, record);
         while (History.Count > HistoryRows) History.RemoveAt(History.Count - 1);
-        _s.Journal.Record(origin.Label, "CueGo", record.Label, outcome.ToString(), detail);
-        _s.WriteRunPlace();
+        _kernel.Journal.Record(origin.Label, "CueGo", record.Label, outcome.ToString(), detail);
+        _host.WriteRunPlace();
     }
 
     /// <summary>The caller's place for the sidecar, written on every GO.</summary>
@@ -332,7 +336,7 @@ public sealed class CueStackService
             if (failure is not null)
             {
                 History[i] = row with { Outcome = CueOutcome.FailedLate, Detail = $"{row.Detail} — later: {failure}" };
-                _s.Journal.Record(row.Origin, "CueSettled", row.Label, CueOutcome.FailedLate.ToString(), failure);
+                _kernel.Journal.Record(row.Origin, "CueSettled", row.Label, CueOutcome.FailedLate.ToString(), failure);
                 Bump();
             }
             else if (now - row.AtUtc > SettleWindow)
@@ -350,7 +354,7 @@ public sealed class CueStackService
     /// </summary>
     private string? LateFailure()
     {
-        foreach (var status in new[] { _s.Stream.Status, _s.AudioPlayer.Status, _s.Stingers.Status, _s.Spotify.CommandFailure })
+        foreach (var status in _host.WatchedStatuses())
         {
             if (StatusWords.ReadsAsFailure(status)) return status;
         }
@@ -387,11 +391,11 @@ public sealed class CueStackService
     public string ShiftPlan(TimeSpan delta, ActionOrigin origin)
     {
         var moved = 0;
-        _s.BulkEdit(() => moved = CueTiming.Shift(Stack.Cues, EditFromIndex(), delta));
+        _host.BulkEdit(() => moved = CueTiming.Shift(Stack.Cues, EditFromIndex(), delta));
         var text = moved == 0
             ? "No planned start times from the standby cue on — set them on the Cues page or import a running order."
             : $"{moved} planned start{(moved == 1 ? "" : "s")} moved {CueTiming.FormatDelta(delta)} from the standby cue on.";
-        _s.Journal.Record(origin.Label, "PlanShift", Stack.Name, ActionStatus.Done.ToString(), text);
+        _kernel.Journal.Record(origin.Label, "PlanShift", Stack.Name, ActionStatus.Done.ToString(), text);
         Bump();
         return text;
     }
@@ -405,11 +409,11 @@ public sealed class CueStackService
         var before = cue.PlannedStart;
         var now = (nowLocal ?? DateTime.Now).TimeOfDay;
         var changed = 0;
-        _s.BulkEdit(() => changed = CueTiming.Rebase(Stack.Cues, from, now));
+        _host.BulkEdit(() => changed = CueTiming.Rebase(Stack.Cues, from, now));
         var text = before.Length > 0
             ? $"{cue.Number} now planned for {CueTiming.FormatClock(now)} (was {before}); {Math.Max(0, changed - 1)} later start{(changed - 1 == 1 ? "" : "s")} moved with it."
             : $"{cue.Number} now planned for {CueTiming.FormatClock(now)}.";
-        _s.Journal.Record(origin.Label, "PlanResume", Stack.Name, ActionStatus.Done.ToString(), text);
+        _kernel.Journal.Record(origin.Label, "PlanResume", Stack.Name, ActionStatus.Done.ToString(), text);
         Bump();
         return text;
     }
@@ -420,13 +424,13 @@ public sealed class CueStackService
         var timing = Timing(nowLocal);
         if (timing.Offset is not { } offset || offset <= CueTiming.Tolerance) return "Not behind the plan — nothing to catch up.";
         var recovered = 0;
-        _s.BulkEdit(() => recovered = CueTiming.CatchUp(Stack.Cues, EditFromIndex(), offset));
+        _host.BulkEdit(() => recovered = CueTiming.CatchUp(Stack.Cues, EditFromIndex(), offset));
         var text = recovered == 0
             ? "Nothing to squeeze before the next mark — the cues there have no planned lengths above 30 s."
             : recovered >= (int)offset.TotalSeconds - 1
                 ? $"Caught up: {CueTiming.FormatDuration(recovered)} taken off the planned lengths before the next mark."
                 : $"{CueTiming.FormatDuration(recovered)} found before the next mark — still {CueTiming.FormatDuration((int)offset.TotalSeconds - recovered)} behind.";
-        _s.Journal.Record(origin.Label, "PlanCatchUp", Stack.Name, ActionStatus.Done.ToString(), text);
+        _kernel.Journal.Record(origin.Label, "PlanCatchUp", Stack.Name, ActionStatus.Done.ToString(), text);
         Bump();
         return text;
     }
@@ -434,7 +438,7 @@ public sealed class CueStackService
     /// <summary>"no auto" or "HELD: next auto 19:45 'Break'" — whether anything else can move the picture.</summary>
     public string NextAutoText(DateTime localNow)
     {
-        var next = LookService.NextCue(_s.State.LooksAndCues.Cues, localNow);
+        var next = LookService.NextCue(_kernel.State.LooksAndCues.Cues, localNow);
         if (next is not { } n) return SuspendsAutomation ? "AUTO HELD" : "no auto";
         var when = $"{n.At:HH:mm} '{n.Cue.LookName}'";
         return SuspendsAutomation ? $"HELD: next auto {when}" : $"NEXT AUTO {when}";

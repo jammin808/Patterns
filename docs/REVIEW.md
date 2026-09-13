@@ -791,3 +791,46 @@ frozen, the node kernel built. This review grows as each lands.*
   which is what Companion expects; a line that reached the node's socket before the desk gave
   up is read past the desk's close and run, so the desk's second ask covers the one case that
   loses a verb — the line that never left.
+
+## Round 41 review — the caller and the timer on the kernel
+
+*The desk-as-caller retired; what a stack, a link and a stage ask of their host said in
+contracts; the kernel narrowed by one engine and widened by the machine's own services.*
+
+### 41.1 — the cue stack on a contract
+
+- **Done.** `ICueHost`, `CueStackService(ServiceKernel, ICueHost)`, `CueRuntime` on the kernel,
+  the paper runner on the node. `docs/PLAN.md` §59.1.
+- **The trade:** a caller alone used to run cues for real — looks landed on a local air state
+  nobody saw. Now it reads them. Honest, and cheaper: the caller never needed the engines it
+  was carrying to do that.
+
+### 41.2–41.4 — the follower's link, its action layer, the stage
+
+- **Done.** The node host as the twin's, the stage's and the stack's host; a timer that joins as
+  a follower; every verb forwarded while in step; `STAGE ACK` in the vocabulary; the stage pages
+  served from the node. `docs/PLAN.md` §59.2–59.4.
+- **What it bought:** a stage timer node that is a stage timer alone, and the desk's clock when
+  linked; a caller whose window is the Run surface and the Cues page over the kernel, with the
+  same XAML the desk binds.
+- **Left:** the timer's verbs from its own `/timer` page while linked go to the desk and come
+  back mirrored — right, and a second slower than the desk's own page; a node's window has no
+  Machine or Help page yet.
+
+### 41.5 — the pages on interfaces
+
+- **Done.** `IRunPage`, `ICuesPage`, `IStagePage`, `IStageDisplay`; `RunViewModel` and
+  `CueEditor` on `IRunHost`; `StageSection` and `StageDisplay`; the node window's tabs by kind;
+  the boot. `docs/PLAN.md` §59.5.
+- **The seam that showed:** the Run surface carried the wall; the wall is the desk's. `HasRunWall`
+  and a code-behind that builds the wall only on a desk keep one XAML for both.
+
+### 41.6 — on the kernel, or off it
+
+- **Done.** The arcade off the kernel; the updates folder and the management check-in on it
+  through `IMachineHost`. `docs/PLAN.md` §59.6.
+- **The rule that fell out:** the kernel is what every role *needs*, not what every role *could
+  use* — an engine is the second, an update channel the first.
+- **Left, and said:** the show lock and the metrics stay the desk's for now, with the reasons in
+  the plan.
+

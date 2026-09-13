@@ -107,20 +107,23 @@ public sealed class TwinService : IDisposable, ILinkReport
     /// <summary>The plans callers brought, for the desk's Nodes page: APPLY lands one, DISMISS forgets it.</summary>
     public System.Collections.ObjectModel.ObservableCollection<PlanOffer> Plans { get; } = new();
 
-    /// <summary>This caller node is on the link and in step: its verbs go to the desk.</summary>
-    public bool IsLinkedToDesk => _kernel.Profile == NodeKind.Caller && _phase == TwinPhase.InStep && _stream is not null;
+    /// <summary>This process is a node that follows a desk's show without ever holding an output: a caller, or a stage timer.</summary>
+    private bool IsFollowerNode => _kernel.Profile is NodeKind.Caller or NodeKind.Timer;
+
+    /// <summary>This caller or stage timer node is on the link and in step: its verbs go to the desk.</summary>
+    public bool IsLinkedToDesk => IsFollowerNode && _phase == TwinPhase.InStep && _stream is not null;
 
     /// <summary>The desk's stack as it runs there, as a caller last heard it.</summary>
     public TwinLive? Live => _live;
 
-    /// <summary>Caller nodes on the link right now.</summary>
+    /// <summary>Follower nodes on the link right now — callers and stage timers.</summary>
     public int CallerCount
     {
         get
         {
             lock (_gate)
             {
-                return _standbys.Count(s => s.IsCaller);
+                return _standbys.Count(s => s.IsFollower);
             }
         }
     }
@@ -231,7 +234,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                     List<(string, DateTime)> beats;
                     lock (_gate)
                     {
-                        beats = _standbys.Select(s => (s.IsCaller ? "caller " + s.Name : s.Name, s.LastBeatUtc)).ToList();
+                        beats = _standbys.Select(s => (s.IsCaller ? "caller " + s.Name : s.IsFollower ? "timer " + s.Name : s.Name, s.LastBeatUtc)).ToList();
                     }
                     return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words);
                 case TwinRole.Off when _hosting:
@@ -239,18 +242,18 @@ public sealed class TwinService : IDisposable, ILinkReport
                     List<string> callers;
                     lock (_gate)
                     {
-                        callers = _standbys.Where(s => s.IsCaller).Select(s => s.Name).ToList();
+                        callers = _standbys.Where(s => s.IsFollower).Select(s => s.IsCaller ? s.Name : "timer " + s.Name).ToList();
                     }
-                    if (_kernel.Profile == NodeKind.Caller) return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now);
+                    if (IsFollowerNode) return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now, timer: _kernel.Profile == NodeKind.Timer);
                     var held = _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK. " : "Twin off — ";
                     return callers.Count == 0
                         ? $"{held}callers may link on port {_kernel.State.Twin.Port}; none linked."
                         : $"{held}caller{(callers.Count == 1 ? "" : "s")} {string.Join(", ", callers)} linked; GO, STANDBY and HOLD from there run here.";
                 }
-                case TwinRole.Off when _kernel.Profile == NodeKind.Caller:
-                    return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now);
-                case TwinRole.Standby when _kernel.Profile == NodeKind.Caller:
-                    return TwinWatch.DescribeCaller(_phase, _mainName, _lastHeardUtc, _sectionsApplied, now, _note, linked: _stream is not null, airLabel: _live?.AirLabel ?? "");
+                case TwinRole.Off when IsFollowerNode:
+                    return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now, timer: _kernel.Profile == NodeKind.Timer);
+                case TwinRole.Standby when IsFollowerNode:
+                    return TwinWatch.DescribeCaller(_phase, _mainName, _lastHeardUtc, _sectionsApplied, now, _note, linked: _stream is not null, airLabel: _live?.AirLabel ?? "", timer: _kernel.Profile == NodeKind.Timer);
                 case TwinRole.Standby:
                 {
                     var cfg = _kernel.State.Twin;
@@ -326,9 +329,10 @@ public sealed class TwinService : IDisposable, ILinkReport
         // The standby process this desk runs: wanted by a main that asked for one, ended otherwise — unless it has the show.
         _launcher.Want(cfg.Role == TwinRole.Main && cfg.LocalStandby ? TwinHandover.StandbyHome(_kernel.Store.BaseDirectory) : null, cfg.Port, cfg.Key, _holder.Length > 0);
         _hosting = false;
-        // A caller node: whatever its file's twin role says, it follows the desk LINK named — with
-        // the desk's key — and never holds, takes or opens anything. No desk named: it plans alone.
-        if (_kernel.Profile == NodeKind.Caller)
+        // A follower node — a caller, a stage timer: whatever its file's twin role says, it follows
+        // the desk LINK named — with the desk's key — and never holds, takes or opens anything. No
+        // desk named: a caller plans alone, a timer keeps its own clock.
+        if (IsFollowerNode)
         {
             if (cfg.MainHost.Length == 0) return;
             _role = TwinRole.Standby;                                                // a follower, on the standby's own paths
@@ -494,7 +498,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                     }
                     // By itself only where it is safe: a main on this machine (the hung one is ended first) or,
                     // from another machine, with the wall-switch cue that makes this desk the one the room shows.
-                    var blocked = _kernel.Profile == NodeKind.Caller ? null                        // a caller never takes anything over: the desk is silent, and the cues stay here
+                    var blocked = IsFollowerNode ? null                                           // a follower never takes anything over: the desk is silent, and the cues stay here
                         : cfg.AutoTakeOver && _phase == TwinPhase.MainSilent ? TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0) : null;
                     if (blocked is not null && _note.Length == 0)
                     {
@@ -502,7 +506,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                         Log.Warn($"Twin: the main {_mainName} is silent; {blocked}.");
                         _services.Notify($"Twin: the main {_mainName} is silent — {blocked}.");
                     }
-                    if (_kernel.Profile != NodeKind.Caller && blocked is null && now >= _nextAutoTakeOverUtc && TwinWatch.ShouldTakeOver(cfg.AutoTakeOver, _phase, _lastHeardUtc, now))
+                    if (!IsFollowerNode && blocked is null && now >= _nextAutoTakeOverUtc && TwinWatch.ShouldTakeOver(cfg.AutoTakeOver, _phase, _lastHeardUtc, now))
                     {
                         if (!TakeOver(ActionOrigin.Recovery).Ok) _nextAutoTakeOverUtc = now + TwinWatch.RetryAfterRefusal;
                         break;
@@ -532,9 +536,9 @@ public sealed class TwinService : IDisposable, ILinkReport
     private void OnBuilt(ShowState state, HashSet<string>? dirty)
     {
         if (!ReferenceEquals(state, _kernel.State)) return;
-        if (_kernel.Profile == NodeKind.Caller)
+        if (IsFollowerNode)
         {
-            SendMyEdits(dirty);
+            if (_kernel.Profile == NodeKind.Caller) SendMyEdits(dirty);                  // a timer owns nothing of the show
             return;
         }
         if (_role != TwinRole.Main && !_hosting) return;
@@ -623,7 +627,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         List<Standby> callers;
         lock (_gate)
         {
-            callers = _standbys.Where(s => s.IsCaller).ToList();
+            callers = _standbys.Where(s => s.IsFollower).ToList();
         }
         if (callers.Count == 0) return;
         string line;
@@ -649,9 +653,9 @@ public sealed class TwinService : IDisposable, ILinkReport
         {
             case TwinWord.Section:
             {
-                if (!TwinSync.IsCallerSection(msg.Name))
+                if (!caller.IsCaller || !TwinSync.IsCallerSection(msg.Name))
                 {
-                    Log.Warn($"Twin: the caller {caller.Name} sent '{msg.Name}', which a caller does not own — ignored.");
+                    Log.Warn($"Twin: the {(caller.IsCaller ? "caller" : "timer")} {caller.Name} sent '{msg.Name}', which it does not own — ignored.");
                     return;
                 }
                 _echoSkip[msg.Name] = caller.Instance;                                // its own edit is not sent back to it
@@ -678,6 +682,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             }
             case TwinWord.Plan:
             {
+                if (!caller.IsCaller) return;                                          // a plan is a caller's to offer
                 var plan = CuePlan.Parse(msg.Payload);
                 if (plan is null)
                 {
@@ -722,7 +727,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         if (live is null) return;
         _live = live;
         var stack = CueStacks.Caller(_kernel.State);
-        var rt = _services.Cues.For(stack);
+        var rt = _kernel.Cues.For(stack);
         _services.DeskEdit(() =>
         {
             rt.StandbyCueId = live.Standby.Length > 0 ? live.Standby : null;
@@ -849,8 +854,8 @@ public sealed class TwinService : IDisposable, ILinkReport
                 : key.Length == 0 ? "this main has no key yet"
                 : !string.Equals(join.Key, key, StringComparison.Ordinal) ? "wrong key"
                 : join.Instance == Instance ? "that is this very desk"
-                : !join.IsCaller && _role != TwinRole.Main ? "this desk is not a twin main — it links callers only"
-                : join.IsCaller && !_kernel.IsDesk ? "a node does not host callers"
+                : !join.IsFollower && _role != TwinRole.Main ? "this desk is not a twin main — it links callers and stage timers only"
+                : join.IsFollower && !_kernel.IsDesk ? "a node does not host callers or stage timers"
                 : null;
             if (refused is not null)
             {
@@ -859,7 +864,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 client.Dispose();
                 return;
             }
-            standby = new Standby(client, stream, join!.Name.Length > 0 ? join.Name : join.Machine, Clock()) { HoldsShow = join.TookOver && !join.IsCaller, IsCaller = join.IsCaller, Instance = join.Instance };
+            standby = new Standby(client, stream, join!.Name.Length > 0 ? join.Name : join.Machine, Clock()) { HoldsShow = join.TookOver && !join.IsFollower, IsCaller = join.IsCaller, IsFollower = join.IsFollower, Instance = join.Instance };
             // The welcome and the whole show, read on the UI thread — the show is its own. A standby
             // that ran the show while this desk was away gets the welcome and nothing to mirror: its
             // show is the newer one, and this desk holds its outputs until TAKE BACK.
@@ -883,15 +888,18 @@ public sealed class TwinService : IDisposable, ILinkReport
                 _standbys.Add(standby);
             }
             Log.Info(standby.IsCaller ? $"Twin: the caller {standby.Name} linked and has the show."
+                : standby.IsFollower ? $"Twin: the stage timer {standby.Name} linked and follows the clock."
                 : standby.HoldsShow
                 ? $"Twin: the standby {standby.Name} joined and HAS THE SHOW — this desk's outputs are held until TAKE BACK."
                 : $"Twin: the standby {standby.Name} joined and has the show.");
-            if (standby.IsCaller)
+            if (standby.IsFollower)
             {
                 // Off the accept thread: the desk's words and the live word are the UI thread's.
                 UiThread.Post(() =>
                 {
-                    _services.Notify($"Nodes: the caller {standby.Name} linked — its GO, STANDBY and HOLD run here as its own.");
+                    _services.Notify(standby.IsCaller
+                        ? $"Nodes: the caller {standby.Name} linked — its GO, STANDBY and HOLD run here as its own."
+                        : $"Nodes: the stage timer {standby.Name} linked — it shows this desk's clock and messages, and its ACKs land here.");
                     SendLive();
                 });
             }
@@ -902,7 +910,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 var msg = TwinMessage.Parse(line);
                 if (msg.Word == TwinWord.Beat) standby.LastBeatUtc = Clock();
                 else if (msg.Word == TwinWord.Bye) break;
-                else if (standby.IsCaller) await UiThread.InvokeAsync(() => OnCallerLine(standby, msg));
+                else if (standby.IsFollower) await UiThread.InvokeAsync(() => OnCallerLine(standby, msg));
                 else if (standby.HoldsShow && msg.Word is TwinWord.Show or TwinWord.Air)
                 {
                     // What the standby has: kept for TAKE BACK, never applied on its own.
@@ -1148,7 +1156,7 @@ public sealed class TwinService : IDisposable, ILinkReport
     /// <summary>LINK on a caller node's Nodes page: follow that desk — its address and link port onto the twin settings; the link dials on the publish.</summary>
     public string LinkTo(NodeCard card)
     {
-        if (_kernel.Profile != NodeKind.Caller) return "Only a caller node links to a desk this way — the desk's own twin is set on the Machine page.";
+        if (!IsFollowerNode) return "Only a caller or a stage timer node links to a desk this way — the desk's own twin is set on the Machine page.";
         if (card.Kind != NodeKind.Desk) return $"{card.KindLabel} {card.Name} is not a desk to follow.";
         if (card.Address is null || card.LinkPort <= 0) return $"{card.Name} is not linking callers (its Nodes page: Accept caller nodes).";
         var cfg = _kernel.State.Twin;
@@ -1163,9 +1171,9 @@ public sealed class TwinService : IDisposable, ILinkReport
     /// <summary>UNLINK on a caller node: leave the desk and plan on with the show as it stands here.</summary>
     public string Unlink()
     {
-        if (_kernel.Profile != NodeKind.Caller) return "Not a caller node.";
+        if (!IsFollowerNode) return "Not a caller or a stage timer node.";
         _services.BulkEdit(() => _kernel.State.Twin.MainHost = "");
-        return "Unlinked — planning on with the show as it stands here.";
+        return _kernel.Profile == NodeKind.Timer ? "Unlinked — the clock is this node's own again." : "Unlinked — planning on with the show as it stands here.";
     }
 
     private static long ProcessStartTicks()
@@ -1200,7 +1208,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         var cts = _cts;
         if (cts is null) return;
         _dialling = true;
-        var join = new TwinJoin(Name, Environment.MachineName, Instance, _kernel.State.Twin.Key, TookOver: _phase == TwinPhase.TookOver, Kind: _kernel.Profile == NodeKind.Caller ? "caller" : "standby").ToJson();
+        var join = new TwinJoin(Name, Environment.MachineName, Instance, _kernel.State.Twin.Key, TookOver: _phase == TwinPhase.TookOver, Kind: IsFollowerNode ? NodeKinds.Wire(_kernel.Profile) : "standby").ToJson();
         _ = Task.Run(async () =>
         {
             TcpClient? client = null;
@@ -1287,7 +1295,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 break;
             case TwinWord.Live:
                 _lastHeardUtc = now;
-                if (_kernel.Profile == NodeKind.Caller) AdoptLive(msg.Payload);
+                if (IsFollowerNode) AdoptLive(msg.Payload);
                 break;
             case TwinWord.Refused:
                 _phase = TwinPhase.Refused;
@@ -1317,11 +1325,13 @@ public sealed class TwinService : IDisposable, ILinkReport
                     _services.NotifyShowMirrored(null);
                     if (first)
                     {
-                        if (_kernel.Profile == NodeKind.Caller)
+                        if (IsFollowerNode)
                         {
-                            Log.Info($"Twin: this caller is in step with {_mainName}.");
-                            _services.Notify($"Nodes: in step with {_mainName} — its show is here, and GO from here runs there.");
-                            if (_myPlanJson is { } plan)
+                            Log.Info($"Twin: this {NodeKinds.Wire(_kernel.Profile)} node is in step with {_mainName}.");
+                            _services.Notify(_kernel.Profile == NodeKind.Timer
+                                ? $"Nodes: in step with {_mainName} — its clock and its messages show here."
+                                : $"Nodes: in step with {_mainName} — its show is here, and GO from here runs there.");
+                            if (_kernel.Profile == NodeKind.Caller && _myPlanJson is { } plan)
                             {
                                 _myPlanJson = null;
                                 _planOffered = true;
@@ -1477,7 +1487,7 @@ public sealed class TwinService : IDisposable, ILinkReport
     /// </summary>
     public ActionResult TakeOver(ActionOrigin origin, bool force = false)
     {
-        if (_kernel.Profile == NodeKind.Caller) return ActionResult.Refused("A caller node never takes the show over — it has no outputs to take it onto.");
+        if (IsFollowerNode) return ActionResult.Refused($"A {NodeKinds.Label(_kernel.Profile).ToLowerInvariant()} node never takes the show over — it has no outputs to take it onto.");
         if (_role != TwinRole.Standby) return ActionResult.Refused("This desk is not a standby twin — Machine page, TWIN.");
         if (_phase == TwinPhase.TookOver) return ActionResult.Done("This desk already took the show over.");
         if (_welcome is null) return ActionResult.Refused("Nothing to take over: no main has been joined yet.");
@@ -1641,6 +1651,9 @@ public sealed class TwinService : IDisposable, ILinkReport
 
         /// <summary>A caller node: follows the show and calls it, sends its cues back, never holds an output.</summary>
         public bool IsCaller { get; init; }
+
+        /// <summary>A follower — a caller or a stage timer: mirrored to and sent the live word, never a standby that could take the show.</summary>
+        public bool IsFollower { get; init; }
 
         /// <summary>The peer's own instance id, so its own edits are not echoed back to it.</summary>
         public string Instance { get; init; } = "";

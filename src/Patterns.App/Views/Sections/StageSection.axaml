@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:m="using:Patterns.Core.Model"
+             x:Class="Patterns.App.Views.Sections.StageSection"
+             x:DataType="vm:IStagePage">
+  <!-- The stage: the timer's transport, the thresholds, what each display shows, a message to the speaker or the
+       crew with its receipt. The desk's Countdown page carries it under the countdown's own settings; a caller
+       or a stage timer node carries it on its Stage tab. -->
+  <StackPanel Classes="form">
+    <TextBlock Classes="h2" Text="STAGE — THE TIMER IN FRONT OF THE SPEAKER, AND MESSAGES TO STAGE" />
+    <TextBlock Classes="label" Text="{Binding StageStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="hint" Text="{Binding StageUrls}" TextWrapping="Wrap" />
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <Button Classes="chip" Content="Pause" Command="{Binding StagePauseCommand}" ToolTip.Tip="The timer stops with what is left kept — TIMER PAUSE" />
+      <Button Classes="chip" Content="Resume" Command="{Binding StageResumeCommand}" ToolTip.Tip="What was left runs again from now — TIMER RESUME" />
+      <Button Classes="chip" Content="−1 min" Command="{Binding StageAddCommand}" CommandParameter="-60" />
+      <Button Classes="chip" Content="−10 s" Command="{Binding StageAddCommand}" CommandParameter="-10" />
+      <Button Classes="chip" Content="+10 s" Command="{Binding StageAddCommand}" CommandParameter="+10" />
+      <Button Classes="chip" Content="+1 min" Command="{Binding StageAddCommand}" CommandParameter="+60" />
+      <Button Classes="chip" Content="Flash" Command="{Binding StageFlashCommand}" ToolTip.Tip="The displays flash for a moment — look up" />
+    </StackPanel>
+    <Grid ColumnDefinitions="130,*,8,*" Margin="0,4,0,0">
+      <TextBlock Classes="label" Text="Amber at (s)" VerticalAlignment="Center" ToolTip.Tip="The timer turns amber with this many seconds left" />
+      <NumericUpDown Grid.Column="1" Minimum="0" Maximum="3600" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding State.Stage.AmberSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <NumericUpDown Grid.Column="3" Minimum="0" Maximum="3600" Increment="10" FormatString="0" ShowButtonSpinner="False" Value="{Binding State.Stage.RedSeconds, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="Red at this many seconds left, and past zero" />
+    </Grid>
+    <WrapPanel>
+      <CheckBox Content="Speaker sees the clock" IsChecked="{Binding State.Stage.SpeakerSeesClock}" Margin="0,0,12,0" />
+      <CheckBox Content="Speaker sees the segment" IsChecked="{Binding State.Stage.SpeakerSeesSegment}" Margin="0,0,12,0" />
+      <CheckBox Content="Crew sees the segment and the next cue" IsChecked="{Binding State.Stage.CrewSeesSegment}" />
+    </WrapPanel>
+    <ItemsControl ItemsSource="{Binding State.Stage.Presets}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="x:String">
+          <Button Classes="chip" Margin="0,2,6,2" Content="{Binding}"
+                  Command="{Binding $parent[UserControl].((vm:IStagePage)DataContext).StagePresetCommand}"
+                  CommandParameter="{Binding}" ToolTip.Tip="One press: these words to the speaker's display, with a receipt when seen" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,4,0,0">
+      <TextBox Text="{Binding StageDraft, Mode=TwoWay}" Watermark="a message to the speaker's display…" />
+      <Button Grid.Column="1" Classes="chip" Content="Send" Margin="6,0,0,0" Command="{Binding StageSendCommand}" />
+      <Button Grid.Column="2" Classes="chip" Content="To crew" Margin="6,0,0,0" Command="{Binding StageSendCrewCommand}" />
+      <Button Grid.Column="3" Classes="chip" Content="Clear" Margin="6,0,0,0" Command="{Binding StageClearCommand}" ToolTip.Tip="The messages off the displays — STAGE CLEAR" />
+    </Grid>
+    <ItemsControl ItemsSource="{Binding State.Stage.Messages}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="m:StageMessage">
+          <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,1">
+            <TextBlock Classes="label" Text="{Binding Channel}" Width="64" />
+            <TextBlock Grid.Column="1" Text="{Binding Text}" TextWrapping="Wrap" />
+            <TextBlock Grid.Column="2" Classes="label" Text="{Binding AckUtc, StringFormat='seen {0:HH:mm:ss}', TargetNullValue='waiting…'}" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint tip"
+               Text="One clock: the stage timer is this countdown — on the wall, on the confidence screen, on the stage page and on a caller node. Open the stage page in any browser (a tablet on a stand, a phone taped to the lectern, a spare laptop) for a confidence monitor with no output card: the time in the colour of what is left, the message in large type with an ACK, a flash when you say so; the crew's view adds the running order's segment, the next cue and the drift. The timer page is the controller for a phone or a Stream Deck's browser; on the wire: TIMER START 10, TIMER TO 14:30, TIMER PAUSE, TIMER RESUME, TIMER +60, TIMER -30, TIMER FLASH, TIMER STOP, STAGE MESSAGE Wrap up, STAGE CREW Mic 2 live, STAGE CLEAR, STAGE STATUS — and a cue can carry any of them." />
+  </StackPanel>
+</UserControl>

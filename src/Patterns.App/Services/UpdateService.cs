@@ -9,22 +9,28 @@ namespace Patterns.App.Services;
 /// with — is read and shown; UPDATE APPLY (the passcode), the page's button or the update window
 /// asks the watchdog to swap the files between two starts of the app and to roll them back if the
 /// new build does not stay up. This service never touches the app's own files: that is the
-/// supervisor's job, done while the app is not running.
+/// supervisor's job, done while the app is not running. Built on the kernel and the machine's
+/// host: every role has an updates folder — a node on a hub PC is kept current the way a desk is.
 /// </summary>
 public sealed class UpdateService
 {
-    private readonly AppServices _s;
+    private readonly ServiceKernel _kernel;
+    private readonly IMachineHost _host;
     private string _scannedKey = "";
     private DateTime? _windowFiredOn;
 
-    public UpdateService(AppServices services) => _s = services;
+    public UpdateService(ServiceKernel kernel, IMachineHost host)
+    {
+        _kernel = kernel;
+        _host = host;
+    }
 
     /// <summary>Tests: stand in for "running under the watchdog".</summary>
     public Func<bool>? SupervisedOverride { get; set; }
 
     public bool Supervised => SupervisedOverride?.Invoke() ?? LaunchOptions.IsChild;
 
-    public string Folder => UpdatePackage.Folder(_s.Store.BaseDirectory);
+    public string Folder => UpdatePackage.Folder(_kernel.Store.BaseDirectory);
 
     /// <summary>The newest package in the folder, read; null with none.</summary>
     public UpdateInfo? Staged { get; private set; }
@@ -43,7 +49,7 @@ public sealed class UpdateService
     {
         try
         {
-            var path = UpdatePackage.Staged(_s.Store.BaseDirectory);
+            var path = UpdatePackage.Staged(_kernel.Store.BaseDirectory);
             var key = path is null ? "" : path + "|" + new FileInfo(path).LastWriteTimeUtc.Ticks + "|" + new FileInfo(path).Length;
             if (key != _scannedKey)
             {
@@ -71,17 +77,17 @@ public sealed class UpdateService
     /// <summary>UPDATE APPLY: the passcode (unless the policy — the window, the management server — asks), a usable package, the watchdog, then the exit that hands over.</summary>
     public ActionResult Apply(string passcode, ActionOrigin origin, bool byPolicy = false)
     {
-        var cfg = _s.State.Install;
-        if (!byPolicy && !_s.Gate.Check(cfg.AdminPasscode, passcode, DateTime.UtcNow)) return ActionResult.Refused($"Update refused — {_s.Gate.Reason}.");
+        var cfg = _kernel.State.Install;
+        if (!byPolicy && !_kernel.Gate.Check(cfg.AdminPasscode, passcode, DateTime.UtcNow)) return ActionResult.Refused($"Update refused — {_kernel.Gate.Reason}.");
         Scan();
         if (Staged is null) return ActionResult.Refused($"Nothing to apply — no package in {Folder}.");
         if (!Staged.Ok) return ActionResult.Refused($"The staged package cannot be used — {string.Join("; ", Staged.Problems)}.");
         if (!Supervised) return ActionResult.Refused("An update in place needs the watchdog — start Patterns normally (not --no-watchdog, with the watchdog on under Machine → Stability), or copy the files by hand.");
-        if (_s.ExitRequest is null) return ActionResult.Refused("No way to restart in this session.");
+        if (_host.ExitRequest is null) return ActionResult.Refused("No way to restart in this session.");
         UpdateApply.WriteRequest(Folder, new UpdateRequest(Staged.Path, Staged.Version, DateTime.UtcNow));
-        var code = _s.PrepareRestart(forUpdate: true);
+        var code = _host.PrepareRestart(forUpdate: true);
         Log.Info($"Update to {Staged.Version} requested from {origin.Label}: the watchdog applies {Staged.FileName}.");
-        return _s.ExitRequest(code)
+        return _host.ExitRequest(code)
             ? ActionResult.Requested($"Updating to {Staged.Version} — the watchdog swaps the files and brings the show back in a moment.")
             : ActionResult.Failed("The app did not accept the exit request.");
     }
@@ -89,7 +95,7 @@ public sealed class UpdateService
     /// <summary>The update window: a usable package staged, AutoUpdate on, the window's minute reached — once a day.</summary>
     public void TickWindow(DateTime now)
     {
-        var cfg = _s.State.Install;
+        var cfg = _kernel.State.Install;
         if (!cfg.AutoUpdate || Staged is not { Ok: true } || !Supervised) return;
         if (!Schedule.TryParseTime(cfg.UpdateWindow, out var at) || now.Hour != at.Hours || now.Minute != at.Minutes) return;
         if (_windowFiredOn == now.Date) return;

@@ -23,6 +23,9 @@ public sealed partial class ShowActions
                 return _s.Stage.Message(a.Target.Length > 0 ? a.Target : "speaker", a.Value, CueInHand.Length > 0 ? $"cue {CueInHand}" : origin.Label);
             case ShowActionKind.StageClear:
                 return _s.Stage.Clear();
+            case ShowActionKind.StageAck:
+                // A display's receipt: the stage page's ACK here, or a timer node's forwarded on the link.
+                return _s.Stage.Ack(a.Value.Trim()) is { } seen ? ActionResult.Done(seen) : ActionResult.Refused("no such message, or seen already");
             default:
                 return null;
         }

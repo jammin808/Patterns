@@ -106,7 +106,7 @@ public class NodeHostTests
             Assert.Contains("\"show\":\"Foyer games\"", greeting);
             Assert.Equal("OK PONG", pong);
             Assert.StartsWith("OK", Wire(wire, "ARCADE START pong 1").Reply);
-            PumpUntil(() => host.Kernel.Arcade.Snapshot().GameId == "pong");
+            PumpUntil(() => host.Arcade.Snapshot().GameId == "pong");
             Assert.StartsWith("OK {", Wire(wire, "ARCADE STATUS").Reply);
             Assert.StartsWith("OK", Wire(wire, "PLAY ADD choice Which hall? | A | B").Reply);
             Assert.StartsWith("OK {", Wire(wire, "PLAY STATUS").Reply);
@@ -131,7 +131,12 @@ public class NodeHostTests
             Assert.Contains("/pad", front);
             Assert.DoesNotContain("BLACKOUT", front);
             Assert.StartsWith("<!doctype", TestApp.Pump(browser.GetStringAsync("/pad")), StringComparison.OrdinalIgnoreCase);
-            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(browser.GetAsync("/api/stage")).StatusCode);      // the stage timer is the desk's
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(browser.GetAsync("/api/stage")).StatusCode);      // the stage pages are a caller's or a timer's, never the arcade's
+
+            // The machine's own services run on a node as on a desk: the updates folder is read, the site checks in when a URL is typed.
+            host.Updates.Scan();
+            Assert.Contains("Nothing staged", host.Updates.Status);
+            Assert.StartsWith("No management URL", host.Management.Status);
 
             // The beacon says what it is, with nothing on air; the view model reads the same words the desk's page would.
             var packet = host.Kernel.Beacon.Build();
@@ -179,7 +184,7 @@ public class NodeHostTests
     {
         // The boundary as a test: nothing of the desk is reachable from the node host's type, and
         // its pieces take the kernel, the host or the room — never AppServices.
-        var deskOnly = new[] { typeof(AppServices), typeof(OutputWindowManager), typeof(SandboxService), typeof(VideoEngine), typeof(CueStackService), typeof(ShowActions), typeof(CommandRouter) };
+        var deskOnly = new[] { typeof(AppServices), typeof(OutputWindowManager), typeof(SandboxService), typeof(VideoEngine), typeof(ShowActions), typeof(CommandRouter), typeof(StingerService), typeof(StreamService) };
         foreach (var p in typeof(NodeHost).GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             Assert.DoesNotContain(p.PropertyType, deskOnly);
@@ -193,6 +198,11 @@ public class NodeHostTests
         }
         Assert.True(typeof(IWireHost).IsAssignableFrom(typeof(NodeHost)));
         Assert.True(typeof(IPlayHost).IsAssignableFrom(typeof(NodeHost)));
+        Assert.True(typeof(ITwinHost).IsAssignableFrom(typeof(NodeHost)));
+        Assert.True(typeof(IStageHost).IsAssignableFrom(typeof(NodeHost)));
+        Assert.True(typeof(ICueHost).IsAssignableFrom(typeof(NodeHost)));
+        Assert.True(typeof(IRunHost).IsAssignableFrom(typeof(NodeHost)));
+        Assert.True(typeof(IMachineHost).IsAssignableFrom(typeof(NodeHost)));
         Assert.True(typeof(IActionLayer).IsAssignableFrom(typeof(NodeActions)));
         Assert.True(typeof(IRouter).IsAssignableFrom(typeof(NodeRouter)));
         // And the pages bind to the interfaces both view models implement.
@@ -200,5 +210,19 @@ public class NodeHostTests
         Assert.True(typeof(INodesPage).IsAssignableFrom(typeof(MainViewModel)));
         Assert.True(typeof(IArcadePage).IsAssignableFrom(typeof(NodeViewModel)));
         Assert.True(typeof(INodesPage).IsAssignableFrom(typeof(NodeViewModel)));
+        foreach (var page in new[] { typeof(IRunPage), typeof(ICuesPage), typeof(IStagePage) })
+        {
+            Assert.True(page.IsAssignableFrom(typeof(MainViewModel)), $"the desk shows {page.Name}");
+            Assert.True(page.IsAssignableFrom(typeof(NodeViewModel)), $"a node shows {page.Name}");
+        }
+        // The Run surface and the cue editor take the host contract, never the desk.
+        foreach (var t in new[] { typeof(RunViewModel), typeof(CueEditor) })
+        {
+            foreach (var ctor in t.GetConstructors())
+            {
+                Assert.DoesNotContain(ctor.GetParameters(), q => q.ParameterType == typeof(AppServices));
+                Assert.Contains(ctor.GetParameters(), q => q.ParameterType == typeof(IRunHost));
+            }
+        }
     }
 }

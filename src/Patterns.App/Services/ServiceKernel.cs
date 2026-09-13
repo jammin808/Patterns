@@ -7,11 +7,13 @@ namespace Patterns.App.Services;
 /// The kernel: what every role of this build stands on — the desk, a standby, a caller, a
 /// timer, an arcade. Built first, from the launch and the settings, before a single desk
 /// service exists: the store and the show, the log, the journal, the last run's notes, the
-/// snapshot bus, the assistant client, the beacon, the nodes registry, the arcade engine. A
-/// service written against the kernel cannot reach an output, an engine or the sandbox — those
-/// are the desk's — and a service that needs something of the desk says so in its constructor,
-/// as a capability the desk provides (<see cref="ITwinHost"/>, <see cref="IWireHost"/>…) or a
-/// slot the desk fills (<see cref="Air"/>, <see cref="Link"/>, <see cref="Notifier"/>).
+/// snapshot bus, the runtime of the cue lists, the assistant client, the beacon, the nodes
+/// registry. Not the arcade: an engine is a role's to build (the arcade node's, the desk's for a
+/// rig day), never every role's. A service written against the kernel cannot reach an output, an
+/// engine or the sandbox — those are the desk's — and a service that needs something of the desk
+/// says so in its constructor, as a capability the desk provides (<see cref="ITwinHost"/>,
+/// <see cref="IWireHost"/>, <see cref="ICueHost"/>…) or a slot the desk fills (<see cref="Air"/>,
+/// <see cref="Link"/>, <see cref="Notifier"/>).
 /// </summary>
 public sealed class ServiceKernel : IDisposable
 {
@@ -52,7 +54,8 @@ public sealed class ServiceKernel : IDisposable
 
     public NodesService Nodes { get; }
 
-    public ArcadeService Arcade { get; }
+    /// <summary>Where every list is right now — never in the show, reset when one loads. Every role that shows a stack reads it: the desk's Run surface, a caller's, a timer's segment.</summary>
+    public CueRuntime Cues { get; } = new();
 
     /// <summary>What is on air, for the beacon packet and the nodes page — nothing until the desk fills it.</summary>
     public IAirReport Air { get; set; } = NothingOnAir.Instance;
@@ -102,12 +105,10 @@ public sealed class ServiceKernel : IDisposable
         Assistant = new AssistantService(this, AssistantKeys);
         Beacon = new BeaconService(this);
         Nodes = new NodesService(this);
-        Arcade = new ArcadeService(this);
     }
 
     public void Dispose()
     {
-        Arcade.Dispose();
         Beacon.Dispose();
     }
 }

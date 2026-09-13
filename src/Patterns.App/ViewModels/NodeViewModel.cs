@@ -1,4 +1,7 @@
 using System.Collections.ObjectModel;
+using Avalonia.Controls;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Patterns.App.Services;
 using Patterns.Core.Arcade;
 using Patterns.Core.Model;
@@ -8,26 +11,49 @@ using Patterns.Core.Services;
 namespace Patterns.App.ViewModels;
 
 /// <summary>
-/// A node's window, as a view model: the Arcade page and the Nodes page over a
-/// <see cref="NodeHost"/>, with a status line — nothing of the desk. The pages' XAML binds to
-/// the interfaces this implements, exactly as it binds to the desk's view model on a desk.
+/// A node's window, as a view model: the pages its kind shows over a <see cref="NodeHost"/>,
+/// with a status line — nothing of the desk. The pages' XAML binds to the interfaces this
+/// implements, exactly as it binds to the desk's view model on a desk: the Run surface and the
+/// Cues page of a caller, the stage's display and controls of a caller and a stage timer, the
+/// Arcade page of the arcade, the Nodes page of every node.
 /// </summary>
-public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
+public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPage, ICuesPage, IStagePage, IStageDisplay, IRunPageOwner
 {
+    /// <summary>The tabs of the node window, in its order; a kind hides the ones it does not show.</summary>
+    public const int RunTab = 0, CuesTab = 1, StageTab = 2, ArcadeTab = 3, NodesTab = 4;
+
     private readonly NodeHost _host;
     private string _statusMessage = "";
     private string _playQuestionLine = "";
+    private string _stageDraft = "";
     private string _seen = "";
+    private string _stageSeen = "";
+    private string _displaySeen = "";
     private int _selectedTab;
+    private bool _stageControlsOpen;
 
     public NodeViewModel(NodeHost host)
     {
         _host = host;
         host.Kernel.Notifier = m => StatusMessage = m;
-        StatusMessage = $"{NodeKinds.Label(host.Kind)} node — {host.Kernel.Beacon.MachineName}. The desk finds this node on the beacon.";
+        Cues = new CueEditor(host, m => StatusMessage = m);
+        Run = new RunViewModel(host, this);
+        host.ShowMirrored += _ =>
+        {
+            Cues.Refresh();
+            Run.Refresh();
+            Poll();
+        };
+        _selectedTab = host.Kind switch { NodeKind.Timer => StageTab, NodeKind.Arcade => ArcadeTab, _ => RunTab };
+        _stageControlsOpen = host.Kind != NodeKind.Timer;                 // a timer's window is the display; its controls fold away
+        StatusMessage = $"{NodeKinds.Label(host.Kind)} node — {host.Kernel.Beacon.MachineName}. "
+                        + (host.IsFollower ? "LINK on the Nodes page follows a desk; alone, " + (host.Kind == NodeKind.Caller ? "the stack is rehearsed on paper." : "the clock is this node's own.") : "The desk finds this node on the beacon.");
     }
 
     public NodeHost Host => _host;
+
+    /// <summary>The window this view model is shown in — the file pickers are its; null headless.</summary>
+    public Window? Window { get; set; }
 
     public string WindowTitle => $"Patterns — {NodeKinds.Label(_host.Kind)} node";
 
@@ -35,10 +61,21 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
 
     public int SelectedTab { get => _selectedTab; set => Set(ref _selectedTab, value); }
 
+    public bool HasRun => _host.Kind == NodeKind.Caller;
+
+    public bool HasCues => _host.Kind == NodeKind.Caller;
+
+    public bool HasStage => _host.IsFollower;
+
+    public bool HasArcade => _host.Kind == NodeKind.Arcade;
+
+    /// <summary>The timer's controls under the display, open or folded; a timer's window starts folded, a caller's open.</summary>
+    public bool StageControlsOpen { get => _stageControlsOpen; set => Set(ref _stageControlsOpen, value); }
+
     /// <summary>On the tick: the words as they move.</summary>
     public void Poll()
     {
-        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}";
+        var now = $"{ArcadeWords}|{ArcadeStatus}|{ArcadeBoard}|{PlayCode}|{PlayWords}|{PlayJoinUrl}|{NodesLine}|{NodesIdentity}|{NodesLinkWords}|{PlanWords}";
         if (now != _seen)
         {
             _seen = now;
@@ -50,6 +87,8 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
             Raise(nameof(PlayJoinUrl));
             Raise(nameof(NodesLine));
             Raise(nameof(NodesIdentity));
+            Raise(nameof(NodesLinkWords));
+            Raise(nameof(PlanWords));
         }
         var waiting = _host.Play.Room.Waiting();
         if (waiting.Count != PlayQueue.Count || !waiting.Select(m => m.Id).SequenceEqual(PlayQueue.Select(m => m.Id)))
@@ -57,13 +96,28 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
             PlayQueue.Clear();
             foreach (var item in waiting) PlayQueue.Add(item);
         }
+        if (HasRun)
+        {
+            Run.Tick();
+            Raise(nameof(HeaderClock));
+        }
+        if (HasStage)
+        {
+            PollStage();
+            PollDisplay();
+        }
     }
 
-    private ActionResult Run(ShowAction action) => _host.Actions.Execute(action, ActionOrigin.Desk);
+    private ActionResult Run_(ShowAction action) => _host.Actions.Execute(action, ActionOrigin.Desk);
+
+    private void Report(ActionResult result)
+    {
+        if (result.Message.Length > 0) StatusMessage = result.Message;
+    }
 
     // ---- the Arcade page ----
 
-    public ArcadeService Arcade => _host.Kernel.Arcade;
+    public ArcadeService Arcade => _host.Arcade;
 
     public string ArcadeWords => Arcade.Words;
 
@@ -77,7 +131,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
         set
         {
             if (value == Arcade.NdiOn) return;
-            StatusMessage = Run(new ShowAction(ShowActionKind.ArcadeNdi, "", value ? "on" : "off")).Message;
+            StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeNdi, "", value ? "on" : "off")).Message;
             Raise(nameof(ArcadeNdi));
         }
     }
@@ -90,7 +144,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
         set
         {
             if (string.IsNullOrEmpty(value) || value == ArcadeSize) return;
-            StatusMessage = Run(new ShowAction(ShowActionKind.ArcadeSize, "", value)).Message;
+            StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeSize, "", value)).Message;
             Raise(nameof(ArcadeSize));
         }
     }
@@ -98,7 +152,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
     private RelayCommand<string>? _arcadeGame;
 
     public RelayCommand<string> ArcadeGameCommand => _arcadeGame ??= new RelayCommand<string>(id =>
-        StatusMessage = Run(new ShowAction(ShowActionKind.ArcadeAttract, "", id ?? "")).Message);
+        StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeAttract, "", id ?? "")).Message);
 
     private RelayCommand<string>? _arcadeStart;
 
@@ -106,7 +160,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
     {
         var game = Arcade.Snapshot().GameId;
         if (game.Length == 0) game = ArcadeEngine.Catalogue[0].Id;
-        StatusMessage = Run(new ShowAction(ShowActionKind.ArcadeStart, "", $"{game} {players ?? "1"}")).Message;
+        StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeStart, "", $"{game} {players ?? "1"}")).Message;
     });
 
     private RelayCommand? _arcadePause;
@@ -114,12 +168,12 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
     public RelayCommand ArcadePauseCommand => _arcadePause ??= new RelayCommand(() =>
     {
         var kind = Arcade.Phase == ArcadePhase.Paused ? ShowActionKind.ArcadeResume : ShowActionKind.ArcadePause;
-        StatusMessage = Run(new ShowAction(kind)).Message;
+        StatusMessage = Run_(new ShowAction(kind)).Message;
     });
 
     private RelayCommand? _arcadeStop;
 
-    public RelayCommand ArcadeStopCommand => _arcadeStop ??= new RelayCommand(() => StatusMessage = Run(new ShowAction(ShowActionKind.ArcadeStop)).Message);
+    public RelayCommand ArcadeStopCommand => _arcadeStop ??= new RelayCommand(() => StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeStop)).Message);
 
     // ---- the audience block ----
 
@@ -138,7 +192,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
     public RelayCommand<string> PlayVerbCommand => _playVerb ??= new RelayCommand<string>(line =>
     {
         var cmd = ControlProtocol.Parse(line ?? "");
-        StatusMessage = cmd.IsAction ? Run(cmd.Action).Message : "Not a verb.";
+        StatusMessage = cmd.IsAction ? Run_(cmd.Action).Message : "Not a verb.";
         Poll();
     });
 
@@ -147,7 +201,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
     public RelayCommand PlayAddCommand => _playAdd ??= new RelayCommand(() =>
     {
         if (PlayQuestionLine.Trim().Length == 0) return;
-        var result = Run(new ShowAction(ShowActionKind.PlayAdd, "", PlayQuestionLine.Trim()));
+        var result = Run_(new ShowAction(ShowActionKind.PlayAdd, "", PlayQuestionLine.Trim()));
         StatusMessage = result.Message;
         if (result.Ok) PlayQuestionLine = "";
         Poll();
@@ -158,7 +212,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
     public RelayCommand<ModerationItem> PlayApproveCommand => _playApprove ??= new RelayCommand<ModerationItem>(item =>
     {
         if (item is null) return;
-        StatusMessage = Run(new ShowAction(ShowActionKind.PlayApprove, "", item.Id)).Message;
+        StatusMessage = Run_(new ShowAction(ShowActionKind.PlayApprove, "", item.Id)).Message;
         Poll();
     });
 
@@ -167,7 +221,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
     public RelayCommand<ModerationItem> PlayRejectCommand => _playReject ??= new RelayCommand<ModerationItem>(item =>
     {
         if (item is null) return;
-        StatusMessage = Run(new ShowAction(ShowActionKind.PlayReject, "", item.Id)).Message;
+        StatusMessage = Run_(new ShowAction(ShowActionKind.PlayReject, "", item.Id)).Message;
         Poll();
     });
 
@@ -177,31 +231,38 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
 
     public bool IsDesk => false;
 
-    public bool IsCallerNode => false;
+    public bool IsCallerNode => _host.Kind == NodeKind.Caller;
 
     public string NodesIdentity => _host.Kernel.Nodes.Identity;
 
     public string NodesLine => _host.Kernel.Nodes.RailLine;
 
-    public string NodesLinkWords => "This node has no link of its own: the desk finds it on the beacon and speaks to it on its wire.";
+    /// <summary>The link's words on a follower; the arcade, which holds no link, says how it is found.</summary>
+    public string NodesLinkWords => _host.Twin?.Status ?? "This node has no link of its own: the desk finds it on the beacon and speaks to it on its wire.";
 
-    public string PlanWords => "";
+    public string PlanWords => _host.Kind == NodeKind.Caller ? CuePlan.Count(State.Stacks) : "";
 
     public ObservableCollection<NodeCard> Nodes => _host.Kernel.Nodes.Nodes;
 
+    /// <summary>Plans are offered to a desk; a node holds none.</summary>
     public ObservableCollection<TwinService.PlanOffer> Plans { get; } = new();
 
     private RelayCommand? _offerPlan;
 
-    public RelayCommand OfferPlanCommand => _offerPlan ??= new RelayCommand(() => StatusMessage = "A plan is a caller's to offer; this node has no cues.");
+    public RelayCommand OfferPlanCommand => _offerPlan ??= new RelayCommand(() =>
+        StatusMessage = _host.Twin is { } twin ? twin.OfferPlan().Message : "A plan is a caller's to offer; this node has no cues.");
 
     private RelayCommand? _unlinkNode;
 
-    public RelayCommand UnlinkNodeCommand => _unlinkNode ??= new RelayCommand(() => StatusMessage = "This node holds no link.");
+    public RelayCommand UnlinkNodeCommand => _unlinkNode ??= new RelayCommand(() =>
+    {
+        StatusMessage = _host.Twin?.Unlink() ?? "This node holds no link.";
+        Poll();
+    });
 
     private RelayCommand<TwinService.PlanOffer>? _applyPlan;
 
-    public RelayCommand<TwinService.PlanOffer> ApplyPlanCommand => _applyPlan ??= new RelayCommand<TwinService.PlanOffer>(_ => { });
+    public RelayCommand<TwinService.PlanOffer> ApplyPlanCommand => _applyPlan ??= new RelayCommand<TwinService.PlanOffer>(_ => StatusMessage = "APPLY is the desk's press.");
 
     private RelayCommand<TwinService.PlanOffer>? _dismissPlan;
 
@@ -209,7 +270,13 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
 
     private RelayCommand<NodeCard>? _linkNode;
 
-    public RelayCommand<NodeCard> LinkNodeCommand => _linkNode ??= new RelayCommand<NodeCard>(_ => StatusMessage = "A caller links to a desk; an arcade node is found by it.");
+    /// <summary>LINK: a caller or a stage timer follows that desk — its address and link port onto the twin settings, and the link dials.</summary>
+    public RelayCommand<NodeCard> LinkNodeCommand => _linkNode ??= new RelayCommand<NodeCard>(card =>
+    {
+        if (card is null) return;
+        StatusMessage = _host.Twin is { } twin ? twin.LinkTo(card) : "A caller or a stage timer links to a desk; an arcade node is found by it.";
+        Poll();
+    });
 
     private RelayCommand<NodeCard>? _openNodePages;
 
@@ -225,4 +292,338 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage
             StatusMessage = $"The browser could not be opened: {ex.Message}";
         }
     });
+
+    // ---- the Run surface: the caller's, over the stack as it stands here ----
+
+    public RunViewModel Run { get; }
+
+    public string HeaderClock => DateTime.Now.ToString("HH:mm:ss");
+
+    /// <summary>A node's outputs are always held — the chip would say nothing a caller does not know.</summary>
+    public bool IsPrepMode => false;
+
+    public bool HasRunWall => false;
+
+    public bool IsRunWallCollapsed
+    {
+        get => State.Desk.RunWallCollapsed;
+        set
+        {
+            if (State.Desk.RunWallCollapsed == value) return;
+            State.Desk.RunWallCollapsed = value;
+            Raise(nameof(IsRunWallCollapsed));
+            Raise(nameof(RunWallToggleText));
+        }
+    }
+
+    public string RunWallToggleText => IsRunWallCollapsed ? "◂ EXPAND TILES" : "▸ COLLAPSE TILES";
+
+    private RelayCommand? _popOutRun;
+
+    public RelayCommand PopOutRunCommand => _popOutRun ??= new RelayCommand(() => StatusMessage = "This window is the Run surface — the desk's pops out; a caller node's is the whole window.");
+
+    public string StreakWords => "";
+
+    public bool HasStreak => false;
+
+    /// <summary>BLACKOUT on the Run surface: the desk's, called from here while linked; refused alone, since a node has no outputs to black.</summary>
+    public bool IsBlackout
+    {
+        get => State.Blackout;
+        set
+        {
+            if (value == State.Blackout) return;
+            Report(Run_(new ShowAction(value ? ShowActionKind.BlackoutOn : ShowActionKind.BlackoutOff)));
+            Raise(nameof(IsBlackout));
+        }
+    }
+
+    public void OpenCueInEditor(RunCueConfig cue)
+    {
+        Cues.SelectedCue = cue;
+        SelectedTab = CuesTab;
+    }
+
+    // ---- the Cues page ----
+
+    public CueEditor Cues { get; }
+
+    public bool ClickerArmed
+    {
+        get => _host.Kernel.Cues.For(CueStacks.Clicker(State)).Armed;
+        set
+        {
+            var rt = _host.Kernel.Cues.For(CueStacks.Clicker(State));
+            if (rt.Armed == value) return;
+            Report(Run_(new ShowAction(value ? ShowActionKind.ListArm : ShowActionKind.ListDisarm, CueStacks.Clicker(State).Id)));
+            Raise(nameof(ClickerArmed));
+        }
+    }
+
+    private static readonly FilePickerFileType CueSheetTypes = new("Cue sheet (CSV or Excel)") { Patterns = new[] { "*.csv", "*.xlsx" } };
+    private static readonly FilePickerFileType CsvTypes = new("CSV") { Patterns = new[] { "*.csv" } };
+
+    private RelayCommand? _importSheet;
+
+    public RelayCommand ImportCueSheetCommand => _importSheet ??= new RelayCommand(() => _ = ImportCueSheetAsync(append: false));
+
+    private RelayCommand? _importSheetAppend;
+
+    public RelayCommand ImportCueSheetAppendCommand => _importSheetAppend ??= new RelayCommand(() => _ = ImportCueSheetAsync(append: true));
+
+    private RelayCommand? _exportSheet;
+
+    public RelayCommand ExportCueSheetCommand => _exportSheet ??= new RelayCommand(() => _ = SaveTextAsync("Export the cue list", (Cues.SelectedStack?.Name ?? "cues") + ".csv", Cues.ExportCsv(), "Cue list exported"));
+
+    private RelayCommand? _saveTemplate;
+
+    public RelayCommand SaveCueTemplateCommand => _saveTemplate ??= new RelayCommand(() => _ = SaveTextAsync("Save the cue sheet template", "cue-sheet-template.csv", CueSheet.Template(), "Template saved"));
+
+    private RelayCommand? _presenterReset;
+
+    public RelayCommand PresenterResetCommand => _presenterReset ??= new RelayCommand(() =>
+    {
+        Report(Run_(new ShowAction(ShowActionKind.ListReset, CueStacks.Clicker(State).Id)));
+        Raise(nameof(PresenterStepText));
+    });
+
+    /// <summary>The clicker's place: a caller sees the list, and where it stands, as the desk's page shows it.</summary>
+    public string PresenterStepText
+    {
+        get
+        {
+            var clicker = CueStacks.Clicker(State);
+            var rt = _host.Kernel.Cues.For(clicker);
+            if (clicker.Cues.Count == 0) return "No clicker list.";
+            return rt.CurrentIndex < 0 ? $"Clicker: {clicker.Cues.Count} cues, at the start." : $"Clicker: {rt.CurrentIndex + 1} of {clicker.Cues.Count}.";
+        }
+    }
+
+    private RelayCommand? _openPopOut;
+
+    /// <summary>The settings column beside the list is always there on a node with a cue selected.</summary>
+    public RelayCommand OpenPopOutCommand => _openPopOut ??= new RelayCommand(() => StatusMessage = Cues.HasSelection ? "The cue's settings are in the column beside the list." : "Select a cue: its settings open beside the list.");
+
+    public PopOutState PopOut { get; } = new();
+
+    public string PopOutHint => "A cue's settings open in the column beside the list when it is selected.";
+
+    /// <summary>Reads a CSV or the first sheet of an .xlsx into the selected list; returns the words for the status line.</summary>
+    public string ImportCueSheetFrom(string path, bool append)
+    {
+        TableData table;
+        try
+        {
+            table = path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+                ? XlsxTable.Read(File.ReadAllBytes(path))
+                : CsvTable.Parse(File.ReadAllText(path));
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Cue sheet read failed.", ex);
+            return $"Could not read {Path.GetFileName(path)}: {ex.Message}";
+        }
+        var report = Cues.ImportRows(table, append);
+        return $"{report.Split('\n')[0]} ({Path.GetFileName(path)})";
+    }
+
+    private async Task ImportCueSheetAsync(bool append)
+    {
+        if (Window is not { } window) return;
+        try
+        {
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = append ? "Append a cue sheet" : "Import a cue sheet",
+                AllowMultiple = false,
+                FileTypeFilter = new[] { CueSheetTypes },
+            });
+            var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            if (path is null) return;
+            StatusMessage = ImportCueSheetFrom(path, append);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"The file could not be chosen: {ex.Message}";
+        }
+    }
+
+    private async Task SaveTextAsync(string title, string suggestedName, string text, string doneWord)
+    {
+        if (Window is not { } window) return;
+        try
+        {
+            var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = title,
+                SuggestedFileName = suggestedName,
+                FileTypeChoices = new[] { CsvTypes },
+            });
+            var path = file?.TryGetLocalPath();
+            if (path is null) return;
+            await File.WriteAllTextAsync(path, text);
+            StatusMessage = $"{doneWord}: {path}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"The file could not be saved: {ex.Message}";
+        }
+    }
+
+    // ---- the Stage block: the timer's controls, a message, the receipts ----
+
+    public string StageDraft { get => _stageDraft; set => Set(ref _stageDraft, value ?? ""); }
+
+    public string StageStatus => _host.Stage.StatusLine;
+
+    /// <summary>Where this node's own stage pages are — a display on a tablet, the controller on a phone.</summary>
+    public string StageUrls
+    {
+        get
+        {
+            var control = State.Control;
+            if (!control.Enabled) return "This node's remote control is off — the stage pages need its HTTP port (Control → Enabled in its settings).";
+            var urls = _host.Control.RemoteUrls();
+            var root = urls.Count > 0 ? urls[0].TrimEnd('/') : $"http://{Environment.MachineName}:{control.HttpPort}";
+            return $"{root}/stage — the speaker's display · {root}/stage?view=crew — the crew's · {root}/timer — the controller"
+                   + (_host.Twin is { IsLinkedToDesk: true } ? " · every verb and every ACK from here goes to the desk this node follows" : "");
+        }
+    }
+
+    private void PollStage()
+    {
+        var now = StageStatus + "|" + StageUrls;
+        if (now == _stageSeen) return;
+        _stageSeen = now;
+        Raise(nameof(StageStatus));
+        Raise(nameof(StageUrls));
+    }
+
+    private RelayCommand? _stageSend;
+    public RelayCommand StageSendCommand => _stageSend ??= new RelayCommand(() =>
+    {
+        Report(Run_(new ShowAction(ShowActionKind.StageMessage, "speaker", StageDraft)));
+        StageDraft = "";
+        PollStage();
+    });
+
+    private RelayCommand? _stageSendCrew;
+    public RelayCommand StageSendCrewCommand => _stageSendCrew ??= new RelayCommand(() =>
+    {
+        Report(Run_(new ShowAction(ShowActionKind.StageMessage, "crew", StageDraft)));
+        StageDraft = "";
+        PollStage();
+    });
+
+    private RelayCommand<string>? _stagePreset;
+    public RelayCommand<string> StagePresetCommand => _stagePreset ??= new RelayCommand<string>(words =>
+    {
+        if (string.IsNullOrWhiteSpace(words)) return;
+        Report(Run_(new ShowAction(ShowActionKind.StageMessage, "speaker", words)));
+        PollStage();
+    });
+
+    private RelayCommand? _stageClear;
+    public RelayCommand StageClearCommand => _stageClear ??= new RelayCommand(() => { Report(Run_(new ShowAction(ShowActionKind.StageClear))); PollStage(); });
+
+    private RelayCommand? _stageFlash;
+    public RelayCommand StageFlashCommand => _stageFlash ??= new RelayCommand(() => Report(Run_(new ShowAction(ShowActionKind.TimerFlash))));
+
+    private RelayCommand? _stagePause;
+    public RelayCommand StagePauseCommand => _stagePause ??= new RelayCommand(() => { Report(Run_(new ShowAction(ShowActionKind.TimerPause))); PollStage(); });
+
+    private RelayCommand? _stageResume;
+    public RelayCommand StageResumeCommand => _stageResume ??= new RelayCommand(() => { Report(Run_(new ShowAction(ShowActionKind.TimerResume))); PollStage(); });
+
+    private RelayCommand<string>? _stageAdd;
+    public RelayCommand<string> StageAddCommand => _stageAdd ??= new RelayCommand<string>(seconds =>
+    {
+        if (string.IsNullOrWhiteSpace(seconds)) return;
+        Report(Run_(new ShowAction(ShowActionKind.TimerAdd, "", seconds)));
+        PollStage();
+    });
+
+    private RelayCommand? _armCountdown;
+
+    /// <summary>"Start now": the countdown's duration from this moment — the desk's clock while linked, this node's own alone.</summary>
+    public RelayCommand ArmCountdownCommand => _armCountdown ??= new RelayCommand(() => Report(Run_(new ShowAction(ShowActionKind.CountdownStart))));
+
+    // ---- the stage display: what the speaker sees ----
+
+    private static readonly IBrush IdleBrush = Brush.Parse("#4A505E");
+    private static readonly IBrush GreenBrush = Brush.Parse("#2EE68A");
+    private static readonly IBrush AmberBrush = Brush.Parse("#FFC24D");
+    private static readonly IBrush RedBrush = Brush.Parse("#FF5C7A");
+
+    private StageTime Time => _host.Stage.Time();
+
+    public string DisplayTime
+    {
+        get
+        {
+            var t = Time;
+            return t.Phase switch
+            {
+                StageTimerPhase.Idle => State.Stage.SpeakerSeesClock ? DateTime.Now.ToString("HH:mm:ss") : "--:--",
+                StageTimerPhase.Over => "-" + StageTimer.Format(-t.RemainingSeconds),
+                _ => t.Text,
+            };
+        }
+    }
+
+    public string DisplayLabel => Time.Phase == StageTimerPhase.Idle ? (State.Stage.SpeakerSeesClock ? "" : "No timer running") : State.Countdown.Label;
+
+    public IBrush DisplayBrush => Time.Phase switch
+    {
+        StageTimerPhase.Idle => IdleBrush,
+        StageTimerPhase.Over => RedBrush,
+        _ => Time.Colour switch { "red" => RedBrush, "amber" => AmberBrush, _ => GreenBrush },
+    };
+
+    public string DisplayMessage => _host.Stage.Pending("speaker")?.Text ?? "";
+
+    public bool DisplayHasMessage => DisplayMessage.Length > 0;
+
+    public bool DisplayFlashing => State.Stage.FlashUntilUtc is { } until && until > DateTime.UtcNow;
+
+    /// <summary>The running order's segment for the speaker, when the desk lets the speaker see it: what is on, what is next.</summary>
+    public string DisplaySegment
+    {
+        get
+        {
+            if (!State.Stage.SpeakerSeesSegment) return "";
+            var stack = _host.CueStack;
+            var parts = new List<string>();
+            if (stack.LastCue is { } on) parts.Add($"NOW  {on.Number} {on.Name}");
+            if (stack.StandbyCue is { } next) parts.Add($"NEXT  {next.Number} {next.Name}");
+            return string.Join("     ", parts);
+        }
+    }
+
+    public string DisplayLinkWords => _host.Twin?.Status ?? "";
+
+    private RelayCommand? _displayAck;
+
+    /// <summary>ACK on the display: the receipt goes to the desk this node follows, or lands here alone.</summary>
+    public RelayCommand DisplayAckCommand => _displayAck ??= new RelayCommand(() =>
+    {
+        if (_host.Stage.Pending("speaker") is not { } pending) return;
+        Report(Run_(new ShowAction(ShowActionKind.StageAck, "", pending.Id)));
+        PollDisplay();
+    });
+
+    private void PollDisplay()
+    {
+        var now = $"{DisplayTime}|{DisplayLabel}|{DisplayMessage}|{DisplayFlashing}|{DisplaySegment}|{DisplayLinkWords}|{Time.Phase}|{Time.Colour}";
+        if (now == _displaySeen) return;
+        _displaySeen = now;
+        Raise(nameof(DisplayTime));
+        Raise(nameof(DisplayLabel));
+        Raise(nameof(DisplayBrush));
+        Raise(nameof(DisplayMessage));
+        Raise(nameof(DisplayHasMessage));
+        Raise(nameof(DisplayFlashing));
+        Raise(nameof(DisplaySegment));
+        Raise(nameof(DisplayLinkWords));
+    }
 }

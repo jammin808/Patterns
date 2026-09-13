@@ -136,6 +136,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `STAGE <words>` / `STAGE MESSAGE <words>` | A message to the speaker's stage page, kept until the page's ACK; the receipt reaches the desk's status line |
 | `STAGE CREW <words>` | The same to the crew's page |
 | `STAGE CLEAR` | Every pending message marked seen |
+| `STAGE ACK <id>` | A stage display's receipt of one message, by the id the payload carries — what the page's ACK sends; a timer node forwards it to the desk it follows |
 | `STAGE FLASH` | As `TIMER FLASH` |
 | `STAGE STATUS` | `OK <json>` — `rev`, `timer` (`phase` idle/running/paused/over, `remaining`, `text`, `colour`, `progress`, `label`, `paused`, `amber`, `red`, `flashUntilUtc`), `segment` (the running order's current cue and the next), `messages` (each `id`, `text`, `channel`, `sentUtc`, `ackUtc`, `flash`, `from`, `seen`) |
 | `ARCADE START <game> [players]` | A match on the arcade — `pong`, `snake` or `breakout` (or its number), for that many people (P1 first; the rest is the house); `ARCADE pong 2` is the same. On a desk the verb goes to the arcade nodes the beacon hears, and with none heard runs the game on the desk's own Arcade page |

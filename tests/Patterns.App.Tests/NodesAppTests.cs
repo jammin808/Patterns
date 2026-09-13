@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -10,7 +11,11 @@ using Xunit;
 
 namespace Patterns.App.Tests;
 
-/// <summary>The nodes on the desk: a caller node's own shape, the beacon onto the Nodes page and the rail, and a caller linked to a desk end to end in one process.</summary>
+/// <summary>
+/// The nodes and the desk, end to end in one process: the beacon onto the Nodes page and the rail; a
+/// caller node built from the kernel alone, rehearsing on paper and then calling the desk it follows;
+/// a stage timer node showing the desk's clock and sending its receipts home.
+/// </summary>
 public class NodesAppTests
 {
     private static int FreePort()
@@ -39,42 +44,27 @@ public class NodesAppTests
         File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(state));
     }
 
-    [AvaloniaFact]
-    public void ACallerNodeOpensOnItsRunPageHoldsItsOutputsAndShowsOnlyItsPages()
+    /// <summary>A node from the kernel alone, in a fresh folder with its own ports: the settings the test wants, built, started.</summary>
+    private static (NodeHost Host, string Dir) BootNode(NodeKind kind, Action<ShowState> edit)
     {
-        var b = TestApp.Boot(profile: NodeKind.Caller, prepare: dir => Settings(dir, s => { s.Control.Enabled = false; s.Watchdog.BeaconListenPort = FreePort(); s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort; }));
-        try
+        var dir = Path.Combine(Path.GetTempPath(), $"patterns-tests-{NodeKinds.Wire(kind)}-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        Settings(dir, s =>
         {
-            var (services, vm, _) = b;
-            Assert.Equal(NodeKind.Caller, services.Profile);
-            Assert.False(services.IsDesk);
-            Assert.Contains("caller node", services.OutputsHeldBy);
-            Assert.False(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
-            Assert.Equal("Patterns — Caller node", vm.WindowTitle);
-            Assert.True(vm.IsCallerNode);
-
-            // The rail: the groups with a page for a caller, and only those pages.
-            Assert.Equal(new[] { "SHOW", "PLAN", "BUILD", "SETUP", "ADMIN" }, vm.GroupStrip.Select(g => g.Label));
-            vm.SelectPage(Shell.HomePage(NodeKind.Caller));
-            Assert.Equal("Run", vm.PageStrip.Single(p => p.IsCurrent).Header);
-            Assert.Equal(new[] { "Run" }, vm.PageStrip.Select(p => p.Header));
-            vm.SelectGroup(ShellGroup.Setup);
-            Assert.Equal(new[] { "Nodes" }, vm.PageStrip.Select(p => p.Header));
-            Assert.False(Shell.IsVisible(NodeKind.Caller, "Pattern"));
-            Assert.True(Shell.IsVisible(NodeKind.Desk, "Pattern"));
-
-            // The beacon says what it is; alone it plans.
-            Assert.Equal("caller", services.Beacon.Build().Kind);
-            Assert.Equal(0, services.Beacon.Build().Link);
-            Assert.StartsWith("CALLER — planning alone", services.Twin.Status);
-            Assert.Contains("Caller", services.Nodes.Identity);
-            Assert.False(services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk).Ok);
-        }
-        finally
-        {
-            b.Dispose();
-        }
+            s.Control.Enabled = true;
+            s.Control.HttpPort = FreePort();
+            s.Control.TcpPort = FreePort();
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+            edit(s);
+        });
+        var host = NodeHost.Build(kind, new SettingsStore(dir));
+        host.Start();
+        return (host, dir);
     }
+
+    private static string Post(HttpClient http, string path, string body)
+        => TestApp.Pump(http.PostAsync(path, new StringContent(body)).ContinueWith(t => t.Result.Content.ReadAsStringAsync().Result));
 
     [AvaloniaFact]
     public void TheDeskHearsANodeOnTheBeaconListsItOnThePageAndCountsItOnTheRail()
@@ -122,7 +112,7 @@ public class NodesAppTests
     }
 
     [AvaloniaFact]
-    public void ACallerLinksToADeskFollowsItsShowOffersItsPlanCallsItAndItsNotesLandThere()
+    public void ACallerNodeRehearsesOnPaperAloneThenFollowsADeskOffersItsPlanCallsItAndItsNotesLandThere()
     {
         var twinPort = FreePort();
         var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
@@ -137,35 +127,73 @@ public class NodesAppTests
             var stack = CueStacks.Caller(s);
             stack.Cues.Add(new RunCueConfig { Number = "01", Name = "Walk-in" });
         }));
-        TestApp.Booted? caller = null;
+        NodeHost? node = null;
+        var dir = "";
         try
         {
             PumpUntil(() => desk.Services.Twin.LinkPort == twinPort);
 
-            // The caller planned at home: two cues of its own.
-            caller = TestApp.Boot("patterns-tests-caller-", dir => Settings(dir, s =>
+            // The caller planned at home: two cues of its own, a pad — and no desk at all.
+            (node, dir) = BootNode(NodeKind.Caller, s =>
             {
                 s.Name = "Planned at home";
                 s.Twin.Key = "hunter2";
-                s.Control.Enabled = false;
-                s.Watchdog.BeaconListenPort = FreePort();
-                s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
                 var stack = CueStacks.Caller(s);
                 stack.Scratchpad = "Doors 18:30";
                 stack.Cues.Add(new RunCueConfig { Number = "01", Name = "Walk-in" });
-                stack.Cues.Add(new RunCueConfig { Number = "02", Name = "Welcome" });
-            }), NodeKind.Caller);
-            var c = caller.Services;
+                stack.Cues.Add(new RunCueConfig { Number = "02", Name = "Welcome", Actions = { new CueActionConfig { Kind = ShowActionKind.BlackoutOn } } });
+            });
+            var c = node;
             var d = desk.Services;
-            Assert.Equal("Planned at home", caller.Vm.State.Name);
+            Assert.Equal(NodeKind.Caller, c.Kind);
+            Assert.True(c.IsFollower);
+            Assert.NotNull(c.Twin);
+            Assert.Contains("caller node", c.OutputsHeldBy);
+            Assert.StartsWith("CALLER — planning alone", c.Twin!.Status);
+            Assert.Equal("caller", c.Kernel.Beacon.Build().Kind);
+
+            // Alone: the stack is rehearsed on paper — ARM, GO moves the stack and runs nothing; the desk's verbs say where they would run.
+            var stackId = CueStacks.Caller(c.State).Id;
+            Assert.True(c.Actions.Execute(ShowActionKind.ListArm, ActionOrigin.Desk, stackId).Ok);
+            Assert.True(c.CueStack.Armed);
+            Assert.Equal("Walk-in", c.CueStack.StandbyCue?.Name);
+            var go = c.Actions.Execute(ShowActionKind.CueGo, ActionOrigin.Desk);
+            Assert.True(go.Ok, go.Message);
+            Assert.Contains("rehearsed on paper", go.Message);
+            Assert.Equal("Walk-in", c.CueStack.LastCue?.Name);
+            Assert.Equal("Welcome", c.CueStack.StandbyCue?.Name);
+            Assert.Equal("01 Walk-in", c.AirLabel);
+            Assert.Single(c.CueStack.History);
+            var fired = c.Actions.Execute(ShowActionKind.CueFire, ActionOrigin.Desk, "02");   // a cue with a step: read, not run
+            Assert.True(fired.Ok, fired.Message);
+            Assert.Contains("1 step read, none run", fired.Message);
+            Assert.False(desk.Vm.State.Blackout);                                       // the paper GO ran no step anywhere
+            Assert.False(c.State.Blackout);
+            var blackout = c.Actions.Execute(ShowActionKind.BlackoutOn, ActionOrigin.Desk);
+            Assert.False(blackout.Ok);
+            Assert.Contains("LINK to a desk", blackout.Message);
+            Assert.Contains(c.Kernel.Journal.Tail(8), e => e.Kind == "CueGo");
+            Assert.Contains(c.Kernel.Journal.Tail(8), e => e.Kind == "BlackoutOn" && e.Outcome == "Refused");
+
+            // The wire on the node: the caller's list, the stage, the link.
+            var router = c.NewRouter();
+            var list = TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("CUE LIST")));
+            Assert.StartsWith("OK {", list);
+            Assert.Contains("\"name\":\"Welcome\"", list);
+            Assert.StartsWith("OK {\"rev\"", TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("STAGE STATUS"))));
+            Assert.StartsWith("OK {", TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse("TWIN STATUS"))));
+            var state = router.StateJson();
+            Assert.Contains("\"kind\":\"caller\"", state);
+            Assert.Contains("\"linked\":false", state);
+            Assert.Contains("\"airLabel\":\"01 Walk-in\"", state);
 
             // LINK on the desk's card: the caller dials with the key, the desk's show lands, the plan is offered.
             var card = new NodeCard("d1", NodeKind.Desk, "FOH-PC", IPAddress.Loopback, "Gala", "", twinPort, 0, TimeSpan.Zero, false);
             var words = c.Twin.LinkTo(card);
             Assert.StartsWith("Linking to FOH-PC", words);
             PumpUntil(() => c.Twin.Phase == TwinPhase.InStep);
-            Assert.Equal("Gala", caller.Vm.State.Name);
-            Assert.Equal(new[] { "Walk-in" }, CueStacks.Caller(caller.Vm.State).Cues.Select(x => x.Name));   // the desk's cues are here now
+            Assert.Equal("Gala", c.State.Name);
+            Assert.Equal(new[] { "Walk-in" }, CueStacks.Caller(c.State).Cues.Select(x => x.Name));   // the desk's cues are here now
             Assert.StartsWith("CALLER for", c.Twin.Status);
             Assert.True(c.Twin.IsLinkedToDesk);
             PumpUntil(() => d.Twin.CallerCount == 1);
@@ -183,7 +211,7 @@ public class NodesAppTests
             Assert.Equal("Doors 18:30", CueStacks.Caller(desk.Vm.State).Scratchpad);
             Assert.Empty(d.Twin.Plans);
             Assert.NotEmpty(d.Store.ListBackups());
-            PumpUntil(() => CueStacks.Caller(caller.Vm.State).Cues.Count == 2 && CueStacks.Caller(caller.Vm.State).Scratchpad == "Doors 18:30");
+            PumpUntil(() => CueStacks.Caller(c.State).Cues.Count == 2 && CueStacks.Caller(c.State).Scratchpad == "Doors 18:30");
 
             // The caller calls: a verb pressed there runs on the desk as the caller's own; the desk's runtime reads back.
             var sent = c.Actions.Execute(new ShowAction(ShowActionKind.MessageOn, "", "From the caller"), ActionOrigin.Desk);
@@ -193,30 +221,146 @@ public class NodesAppTests
             d.CueStack.SetArmed(true, ActionOrigin.Desk);
             d.CueStack.Standby(CueStacks.Caller(desk.Vm.State).Cues[1].Id);
             PumpUntil(() => c.Twin.Live?.Standby == CueStacks.Caller(desk.Vm.State).Cues[1].Id && c.Twin.Live.Armed);
-            Assert.Equal(CueStacks.Caller(desk.Vm.State).Cues[1].Id, c.Cues.For(CueStacks.Caller(caller.Vm.State)).StandbyCueId);
-            Assert.True(c.Cues.For(CueStacks.Caller(caller.Vm.State)).Armed);
+            Assert.Equal(CueStacks.Caller(desk.Vm.State).Cues[1].Id, c.CueStack.Runtime.StandbyCueId);
+            Assert.True(c.CueStack.Armed);
+            Assert.Contains("\"linked\":true", router.StateJson());
+
+            // The view model over it: the Run surface's rows, the pages a caller shows, the link's words.
+            var vm = new NodeViewModel(c);
+            vm.Poll();
+            Assert.True(vm.HasRun && vm.HasCues && vm.HasStage && !vm.HasArcade);
+            Assert.Equal(NodeViewModel.RunTab, vm.SelectedTab);
+            Assert.Equal(new[] { "Walk-in", "Welcome" }, vm.Run.Rows.Select(r => r.Name));
+            Assert.True(vm.Run.IsArmed);
+            Assert.Equal("Patterns — Caller node", vm.WindowTitle);
+            Assert.StartsWith("CALLER for", vm.NodesLinkWords);
+            Assert.True(vm.IsCallerNode);
+            Assert.Equal(2, vm.Cues.Rows.Count);
 
             // A note typed on the caller lands on the desk's cue, and nothing ping-pongs.
-            CueStacks.Caller(caller.Vm.State).Cues[0].Notes = "Lights to half";
+            CueStacks.Caller(c.State).Cues[0].Notes = "Lights to half";
             PumpUntil(() => CueStacks.Caller(desk.Vm.State).Cues[0].Notes == "Lights to half");
-            var sentBefore = d.Twin.StatusJson();
             Thread.Sleep(600);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(new[] { "Walk-in", "Welcome" }, CueStacks.Caller(desk.Vm.State).Cues.Select(x => x.Name));
-            Assert.Equal(new[] { "Walk-in", "Welcome" }, CueStacks.Caller(caller.Vm.State).Cues.Select(x => x.Name));
+            Assert.Equal(new[] { "Walk-in", "Welcome" }, CueStacks.Caller(c.State).Cues.Select(x => x.Name));
             Assert.Equal(TwinPhase.InStep, c.Twin.Phase);
-            _ = sentBefore;
 
             // UNLINK: the caller plans on with the show as it stands; the desk counts none.
             Assert.StartsWith("Unlinked", c.Twin.Unlink());
             PumpUntil(() => d.Twin.CallerCount == 0 && c.Twin.Phase == TwinPhase.Off);
-            Assert.Equal(new[] { "Walk-in", "Welcome" }, CueStacks.Caller(caller.Vm.State).Cues.Select(x => x.Name));
+            Assert.Equal(new[] { "Walk-in", "Welcome" }, CueStacks.Caller(c.State).Cues.Select(x => x.Name));
             Assert.False(c.Twin.IsLinkedToDesk);
         }
         finally
         {
-            caller?.Dispose();
+            node?.Dispose();
             desk.Dispose();
+            if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStageTimerNodeKeepsItsOwnClockAloneThenShowsTheDesksAndSendsItsReceiptsHome()
+    {
+        var twinPort = FreePort();
+        var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
+        {
+            s.Name = "Gala";
+            s.Twin.Port = twinPort;
+            s.Twin.Key = "hunter2";
+            s.Control.HttpPort = FreePort();
+            s.Control.TcpPort = FreePort();
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+        }));
+        NodeHost? node = null;
+        var dir = "";
+        try
+        {
+            PumpUntil(() => desk.Services.Twin.LinkPort == twinPort);
+            var d = desk.Services;
+            desk.Vm.IsSandboxActive = false;
+
+            (node, dir) = BootNode(NodeKind.Timer, s => s.Twin.Key = "hunter2");
+            var t = node;
+            Assert.Equal(NodeKind.Timer, t.Kind);
+            Assert.StartsWith("STAGE TIMER — its own clock", t.Twin!.Status);
+            Assert.Equal("timer", t.Kernel.Beacon.Build().Kind);
+
+            // Alone: a stage timer of its own — started, read on the display, paused; the caller's verbs are not its.
+            var started = t.Actions.Execute(new ShowAction(ShowActionKind.CountdownStart, "", "5"), ActionOrigin.Desk);
+            Assert.True(started.Ok, started.Message);
+            Assert.Equal(StageTimerPhase.Running, t.Stage.Time().Phase);
+            Assert.True(t.Stage.Time().RemainingSeconds > 290);
+            var vm = new NodeViewModel(t);
+            vm.Poll();
+            Assert.True(vm.HasStage && !vm.HasRun && !vm.HasCues && !vm.HasArcade);
+            Assert.Equal(NodeViewModel.StageTab, vm.SelectedTab);
+            Assert.False(vm.StageControlsOpen);
+            Assert.Matches("^[45]:", vm.DisplayTime);
+            Assert.False(vm.DisplayHasMessage);
+            Assert.True(t.Actions.Execute(ShowActionKind.TimerPause, ActionOrigin.Desk).Ok);
+            Assert.True(t.State.Stage.Paused);
+            var go = t.Actions.Execute(ShowActionKind.CueGo, ActionOrigin.Desk);
+            Assert.False(go.Ok);
+            Assert.Contains("is the caller's", go.Message);
+            using var browser = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{t.State.Control.HttpPort}/"), Timeout = TimeSpan.FromSeconds(8) };
+            Assert.Contains("Patterns Stage", TestApp.Pump(browser.GetStringAsync("stage")));
+            Assert.Contains("/timer", TestApp.Pump(browser.GetStringAsync("/")));
+            Assert.Contains("\"paused\":true", TestApp.Pump(browser.GetStringAsync("api/stage")));
+
+            // LINK: the desk's show lands, its clock and its messages show here; the desk counts the timer as linked.
+            var card = new NodeCard("d1", NodeKind.Desk, "FOH-PC", IPAddress.Loopback, "Gala", "", twinPort, 0, TimeSpan.Zero, false);
+            Assert.StartsWith("Linking to FOH-PC", t.Twin.LinkTo(card));
+            PumpUntil(() => t.Twin.Phase == TwinPhase.InStep);
+            Assert.Equal("Gala", t.State.Name);
+            Assert.StartsWith("STAGE TIMER for", t.Twin.Status);
+            Assert.Contains("the desk's clock and its messages show here", t.Twin.Status);
+            PumpUntil(() => d.Twin.CallerCount == 1);
+            d.Nodes.Poll();
+            Assert.Equal("1 LINKED", desk.Vm.NodesWord);
+            Assert.True(d.Actions.Execute(new ShowAction(ShowActionKind.CountdownStart, "", "10"), ActionOrigin.Desk).Ok);
+            PumpUntil(() => t.State.Countdown.Enabled && t.State.Countdown.DurationMinutes == 10 && !t.State.Stage.Paused);
+            Assert.Equal(StageTimerPhase.Running, t.Stage.Time().Phase);
+            Assert.True(t.Stage.Time().RemainingSeconds > 590);
+            var said = d.Actions.Execute(new ShowAction(ShowActionKind.StageMessage, "speaker", "Wrap up"), ActionOrigin.Desk);
+            Assert.True(said.Ok, said.Message);
+            PumpUntil(() => t.Stage.Pending("speaker")?.Text == "Wrap up");
+            vm.Poll();
+            Assert.True(vm.DisplayHasMessage);
+            Assert.Equal("Wrap up", vm.DisplayMessage);
+
+            // The display's ACK goes home: the desk marks the message seen, and the receipt mirrors back.
+            vm.DisplayAckCommand.Execute(null);
+            PumpUntil(() => d.Stage.Pending("speaker") is null);
+            Assert.Contains("seen at", desk.Vm.StatusMessage);
+            PumpUntil(() => t.Stage.Pending("speaker") is null);
+            vm.Poll();
+            Assert.False(vm.DisplayHasMessage);
+
+            // The node's own stage page acks the same way; a timer verb from here runs on the desk.
+            Assert.True(d.Actions.Execute(new ShowAction(ShowActionKind.StageMessage, "crew", "Mic 2 live"), ActionOrigin.Desk).Ok);
+            PumpUntil(() => t.Stage.Pending("crew") is not null);
+            var crew = t.Stage.Pending("crew")!;
+            Assert.Equal("{\"ok\":true}", Post(browser, "api/stage/ack", crew.Id));
+            PumpUntil(() => d.Stage.Pending("crew") is null);
+            var paused = t.Actions.Execute(ShowActionKind.TimerPause, ActionOrigin.Desk);
+            Assert.True(paused.Ok, paused.Message);
+            Assert.Contains("sent to", paused.Message);
+            PumpUntil(() => d.AirState.Stage.Paused);
+            PumpUntil(() => t.State.Stage.Paused);
+            Assert.Contains("\"phase\":\"paused\"", t.Stage.StatusJson());
+
+            // UNLINK: the clock is this node's own again; the desk counts none.
+            Assert.StartsWith("Unlinked — the clock", t.Twin.Unlink());
+            PumpUntil(() => d.Twin.CallerCount == 0 && t.Twin.Phase == TwinPhase.Off);
+        }
+        finally
+        {
+            node?.Dispose();
+            desk.Dispose();
+            if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
         }
     }
 }

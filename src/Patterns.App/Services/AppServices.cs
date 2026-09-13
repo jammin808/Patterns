@@ -15,7 +15,7 @@ namespace Patterns.App.Services;
 /// services see of the desk, through the capabilities it implements (<see cref="IAirReport"/>,
 /// <see cref="ITwinHost"/>, <see cref="IWireHost"/>, <see cref="IStageHost"/>, <see cref="IPlayHost"/>).
 /// </summary>
-public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, IPlayHost
+public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, IPlayHost, IRunHost, IMachineHost
 {
     public static AppServices Instance { get; set; } = null!;
 
@@ -91,7 +91,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public NodesService Nodes => Kernel.Nodes;
 
     /// <summary>The arcade: the engine's loop, the pads, the picture to NDI, the board — run here on an arcade node; a desk sends the verbs to the nodes it hears.</summary>
-    public ArcadeService Arcade => Kernel.Arcade;
+    /// <summary>The games: the desk's own engine for a rig day's toy on the show machine, idle until a verb asks for a picture.</summary>
+    public ArcadeService Arcade { get; }
 
     /// <summary>Audience play: the room on the hub — polls, quizzes, the cloud, messages back, the queue, draughts and the path; the wall on the arcade's lane.</summary>
     public PlayService Play { get; }
@@ -168,7 +169,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public Func<IReadOnlyList<string>>? TickedTargets { get; set; }
 
     /// <summary>Where each cue list is (armed, current cue). Runtime only; reset when a show loads.</summary>
-    public CueRuntime Cues { get; } = new();
+    /// <summary>Where every list is right now — the kernel's, read by the desk and by a node alike.</summary>
+    public CueRuntime Cues => Kernel.Cues;
 
     /// <summary>The caller's stack at show time: standby, GO, HOLD, history, the sidecar's place.</summary>
     public CueStackService CueStack { get; }
@@ -443,14 +445,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Osc = new OscService(this);
         Devices = new DeviceService(this);
         Install = new InstallService(this);
-        Updates = new UpdateService(this);
-        Management = new ManagementService(this);
+        Updates = new UpdateService(Kernel, this);
+        Management = new ManagementService(Kernel, this, Updates);
         Twin = new TwinService(Kernel, this);
         Kernel.Link = Twin;
         ShowLock = new ShowLockService(this);
         Calibration = new CalibrationService(this);
         Play = new PlayService(Kernel, this);
         RigDay = new RigDayService(this);
+        Arcade = new ArcadeService(Kernel);
         Arcade.Board = Play.DrawWall;
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
@@ -484,7 +487,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 $"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
             Notify($"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
         };
-        CueStack = new CueStackService(this);
+        CueStack = new CueStackService(Kernel, this);
         // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
         CueStack.Changed += ReconcileInputs;
         Stage = new StageService(this);
@@ -1287,6 +1290,32 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     // The contracts' view of the desk's own members: the same objects, typed as the capability.
     IActionLayer ITwinHost.Actions => Actions;
     IActionLayer IWireHost.Actions => Actions;
+    IActionLayer IRunHost.Actions => Actions;
+    IReadOnlyList<ScreenInfo> IRunHost.Screens => Screens.All;
+
+    // The cue stack's host: a cue's steps run for real here, through the action layer; the sidecar
+    // services it watches for a late failure; rig day's streak while the games are on.
+    ActionResult ICueHost.RunCue(CueStackConfig stack, RunCueConfig cue, ActionOrigin origin) => Actions.RunCue(stack, cue, origin);
+
+    IEnumerable<string> ICueHost.WatchedStatuses() => new[] { Stream.Status, AudioPlayer.Status, Stingers.Status, Spotify.CommandFailure };
+
+    void ICueHost.RecordGo(TimeSpan? offset)
+    {
+        if (RigDay.Enabled) RigDay.RecordGo(offset);
+    }
+
+    IReadOnlyList<PreRoll.State> IRunHost.PreRollStates(IReadOnlyList<MediaLocator.WantedInput> wants) => Video.PreRollStates(wants);
+
+    string IRunHost.BreakMusicWords => Spotify.NowPlaying.Length > 0
+        ? Spotify.NowPlaying + (Spotify.DeviceLabel.Length > 0 ? " — " + Spotify.DeviceLabel : "")
+        : "";
+
+    (bool Holding, string Name) IRunHost.StingHold => (Stingers.Holding, Stingers.HoldName);
+
+    void IPlayHost.StartWall() => Arcade.Start();
+
+    IRouter IMachineHost.NewRouter() => NewRouter();
+    IActionLayer IMachineHost.Actions => Actions;
     CueStackService? IWireHost.CueStack => CueStack;
     InstallService? IWireHost.Install => Install;
     ManagementService? IWireHost.Management => Management;

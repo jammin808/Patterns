@@ -93,6 +93,12 @@ public sealed record TwinJoin(string Name, string Machine, string Instance, stri
     /// <summary>A caller node joining: it follows the show and calls it, never holds an output, and may send its cues back.</summary>
     public bool IsCaller => string.Equals(Kind, "caller", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>A stage timer node joining: it follows the show for the clock and the messages, sends a verb or a receipt, and owns nothing.</summary>
+    public bool IsTimer => string.Equals(Kind, "timer", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A node that follows the desk's show without ever holding an output — a caller or a stage timer; a standby is not one.</summary>
+    public bool IsFollower => IsCaller || IsTimer;
+
     public string ToJson() => JsonUtil.SerializeCompact(this);
 
     public static TwinJoin? Parse(string json)
@@ -419,23 +425,26 @@ public static class TwinWatch
     }
 
     /// <summary>A caller node's line: alone with its plan, connecting, in step and calling, the desk silent, refused.</summary>
-    public static string DescribeCaller(TwinPhase phase, string deskName, DateTime? lastHeardUtc, long sectionsApplied, DateTime utcNow, string note = "", bool linked = false, string airLabel = "")
+    /// <summary>A follower node's line — a caller's by default; a stage timer's with <paramref name="timer"/>, whose link shows the desk's clock rather than calling its show.</summary>
+    public static string DescribeCaller(TwinPhase phase, string deskName, DateTime? lastHeardUtc, long sectionsApplied, DateTime utcNow, string note = "", bool linked = false, string airLabel = "", bool timer = false)
     {
         var desk = deskName.Length > 0 ? deskName : "the desk";
+        var role = timer ? "STAGE TIMER" : "CALLER";
         switch (phase)
         {
             case TwinPhase.Off:
-                return "CALLER — planning alone; LINK on the Nodes page joins a desk.";
+                return timer ? "STAGE TIMER — its own clock, alone; LINK on the Nodes page follows a desk's." : "CALLER — planning alone; LINK on the Nodes page joins a desk.";
             case TwinPhase.Connecting:
-                return deskName.Length > 0 ? $"CALLER — connecting to {deskName}…" : "CALLER — waiting for a desk: its beacon names it on the Nodes page.";
+                return deskName.Length > 0 ? $"{role} — connecting to {deskName}…" : $"{role} — waiting for a desk: its beacon names it on the Nodes page.";
             case TwinPhase.Refused:
-                return $"CALLER — {desk} refused the link{(note.Length > 0 ? ": " + note : "")}. Enter the desk's twin key (Machine page, TWIN).";
+                return $"{role} — {desk} refused the link{(note.Length > 0 ? ": " + note : "")}. Enter the desk's twin key (Machine page, TWIN).";
             case TwinPhase.InStep:
-                return $"CALLER for {desk} — in step, heard {Age(lastHeardUtc, utcNow)}, {sectionsApplied} section{(sectionsApplied == 1 ? "" : "s")} mirrored"
-                       + (airLabel.Length > 0 ? $" · on air there: {airLabel}" : "") + " · GO, STANDBY and HOLD from here run there.";
+                return $"{role} for {desk} — in step, heard {Age(lastHeardUtc, utcNow)}, {sectionsApplied} section{(sectionsApplied == 1 ? "" : "s")} mirrored"
+                       + (airLabel.Length > 0 ? $" · on air there: {airLabel}" : "")
+                       + (timer ? " · the desk's clock and its messages show here." : " · GO, STANDBY and HOLD from here run there.");
             case TwinPhase.MainSilent:
                 var silent = lastHeardUtc is { } heard ? $"{(utcNow - heard).TotalSeconds:0} s" : "a while";
-                return $"DESK {desk} SILENT for {silent} — calling waits; the cues stay here.";
+                return timer ? $"DESK {desk} SILENT for {silent} — the clock runs on as last heard." : $"DESK {desk} SILENT for {silent} — calling waits; the cues stay here.";
             default:
                 return phase.ToString();
         }

@@ -25,16 +25,6 @@ public sealed partial class ShowActions : IActionLayer
 
     public ActionResult Execute(ShowAction action, ActionOrigin origin)
     {
-        // A caller node in step with a desk calls the desk: every verb pressed here — GO, STANDBY,
-        // HOLD, a message to stage — runs there, journaled there as the caller's. Alone, it runs here,
-        // so a stack can be rehearsed at home.
-        if (_s.Profile == NodeKind.Caller && _s.Twin.IsLinkedToDesk && action.Kind != ShowActionKind.Note)
-        {
-            var forwarded = _s.Twin.Forward(action, origin);
-            _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), forwarded.Status.ToString(), forwarded.Message);
-            Performed?.Invoke(action, origin, forwarded);
-            return forwarded;
-        }
         ActionResult result;
         // Every verb the show has comes through here — the desk's keys, the wire, OSC, Companion,
         // a cue, the schedule, a device. That makes this the one place that can say "what happens
@@ -52,7 +42,7 @@ public sealed partial class ShowActions : IActionLayer
             result = ActionResult.Failed(ex.Message);
         }
 
-        if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify or ShowActionKind.CueStandby)
+        if (action.Kind is not (ShowActionKind.Note or ShowActionKind.Identify or ShowActionKind.CueStandby or ShowActionKind.StageAck)
             && !SweptPast(action, origin))
         {
             _s.Journal.Record(origin.Label, action.Kind.ToString(), JournalTarget(action), result.Status.ToString(), result.Message);
