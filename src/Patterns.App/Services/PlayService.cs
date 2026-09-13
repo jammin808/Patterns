@@ -24,6 +24,10 @@ public sealed class PlayService : IDisposable
     private long _wallRev;
     private DateTime _lastAskUtc = DateTime.MinValue;
     private bool _asking;
+    private readonly RateLimiter _limits = new();
+    private TaskCompletionSource<bool> _changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _longPolls;
+    private int _longPollsPeak;
 
     public PlayService(AppServices s)
     {
@@ -40,6 +44,51 @@ public sealed class PlayService : IDisposable
     public bool AskAssistant { get; set; } = true;
     public string Code { get { lock (_gate) return Room.Code; } }
     public long Rev { get { lock (_gate) return Room.Rev + _wallRev; } }
+    /// <summary>The budgets the room and its socket keep — hard numbers; the player cap follows the Remote page's setting.</summary>
+    public AudienceBudget Budget { get; set; } = new();
+    public int LongPolls => Volatile.Read(ref _longPolls);
+    public int LongPollsPeak => Volatile.Read(ref _longPollsPeak);
+
+    /// <summary>The room woke every waiting phone: called under the gate after anything that moved the revision.</summary>
+    private void Signal()
+    {
+        var tcs = _changed;
+        _changed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        tcs.TrySetResult(true);
+    }
+
+    private long RevUnlocked => Room.Rev + _wallRev;
+
+    /// <summary>
+    /// True when the room moved past <paramref name="seenRev"/> — at once, or when it does within the
+    /// timeout; false on the timeout, or at once past the long-poll budget (the phone asks again).
+    /// </summary>
+    public async Task<bool> WaitForChangeAsync(long seenRev, TimeSpan timeout, CancellationToken ct)
+    {
+        Task<bool> waiter;
+        lock (_gate)
+        {
+            if (RevUnlocked != seenRev) return true;
+            waiter = _changed.Task;
+        }
+        var open = Interlocked.Increment(ref _longPolls);
+        try
+        {
+            if (open > Budget.MaxLongPolls) return false;
+            var peak = Volatile.Read(ref _longPollsPeak);
+            while (open > peak && Interlocked.CompareExchange(ref _longPollsPeak, open, peak) != peak) peak = Volatile.Read(ref _longPollsPeak);
+            using var timer = new CancellationTokenSource(timeout);
+            using var both = CancellationTokenSource.CreateLinkedTokenSource(timer.Token, ct);
+            var delay = Task.Delay(Timeout.InfiniteTimeSpan, both.Token);
+            var done = await Task.WhenAny(waiter, delay);
+            both.Cancel();
+            return done == waiter;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _longPolls);
+        }
+    }
 
     public static bool IsPlayKind(ShowActionKind kind) => kind is ShowActionKind.PlayAdd or ShowActionKind.PlayOpen or ShowActionKind.PlayClose or ShowActionKind.PlayReveal
         or ShowActionKind.PlayShow or ShowActionKind.PlayMessage or ShowActionKind.PlayApprove or ShowActionKind.PlayReject or ShowActionKind.PlayAuto
@@ -64,15 +113,42 @@ public sealed class PlayService : IDisposable
         _ => "",
     };
 
-    /// <summary>The door: this machine's address on the network with the room's code.</summary>
+    /// <summary>The audience listener's address — the door's own port; empty while the listener is off.</summary>
+    public string AudienceUrl
+    {
+        get
+        {
+            var urls = _s.Control.AudienceUrls();
+            return urls.FirstOrDefault(u => !u.Contains("localhost", StringComparison.OrdinalIgnoreCase)) ?? urls.FirstOrDefault() ?? "";
+        }
+    }
+
+    /// <summary>The door: the audience address with the room's code; empty while the audience port is off (the wall says so).</summary>
     public string JoinUrl
     {
         get
         {
-            var urls = _s.Control.RemoteUrls();
-            var best = urls.FirstOrDefault(u => !u.Contains("localhost", StringComparison.OrdinalIgnoreCase)) ?? urls.FirstOrDefault() ?? $"http://localhost:{_s.State.Control.HttpPort}/";
-            return $"{best.TrimEnd('/')}/play?room={Code}";
+            var url = AudienceUrl;
+            return url.Length == 0 ? "" : $"{url.TrimEnd('/')}/play?room={Code}";
         }
+    }
+
+    /// <summary>AUDIENCE ON [port] / OFF — the listener is a control setting; the control service opens or closes the socket on the publish.</summary>
+    public ActionResult RunAudience(ShowAction a)
+    {
+        var value = (a.Value ?? "").Trim();
+        if (a.Kind == ShowActionKind.AudienceOff)
+        {
+            _s.BulkEdit(() => _s.State.Control.AudienceEnabled = false);
+            return ActionResult.Done("The audience port is closed — the phones find nothing.");
+        }
+        _s.BulkEdit(() =>
+        {
+            if (int.TryParse(value, out var port)) _s.State.Control.AudiencePort = port;
+            _s.State.Control.AudienceEnabled = true;
+            if (!_s.State.Control.Enabled) _s.State.Control.Enabled = true;
+        });
+        return ActionResult.Done($"The audience port is open on {_s.State.Control.AudiencePort} — the play pages and nothing else; put that port, not the control port, on the audience network.");
     }
 
     private void LoadStory()
@@ -101,6 +177,7 @@ public sealed class PlayService : IDisposable
         Wall = mode;
         WallMessage = message;
         _wallRev++;
+        Signal();
         if (mode != PlayBoardMode.Off) _s.Arcade.Start();
     }
 
@@ -122,7 +199,10 @@ public sealed class PlayService : IDisposable
         ModerationItem? next = null;
         lock (_gate)
         {
+            Room.MaxPlayers = _s.State.Control.AudienceMaxPlayers;
+            Room.IdleForget = TimeSpan.FromMinutes(Math.Max(1, Budget.IdleForgetMinutes));
             changed = Room.Tick();
+            if (changed) Signal();
             if (AskAssistant && !_asking && (DateTime.UtcNow - _lastAskUtc).TotalSeconds >= 1)
             {
                 next = Room.Waiting().FirstOrDefault(m => !m.AskedAssistant);
@@ -167,7 +247,7 @@ public sealed class PlayService : IDisposable
                 lock (_gate)
                 {
                     if (verdict is null) { var found = Room.Queue.FirstOrDefault(m => m.Id == item.Id); if (found is not null) found.AskedAssistant = true; }
-                    else Room.Mark(item.Id, verdict.Value, "the assistant");
+                    else if (Room.Mark(item.Id, verdict.Value, "the assistant")) Signal();
                 }
             });
         }
@@ -200,8 +280,23 @@ public sealed class PlayService : IDisposable
 
     public ActionResult Run(ShowAction a)
     {
-        var value = (a.Value ?? "").Trim();
         lock (_gate)
+        {
+            var before = RevUnlocked;
+            try
+            {
+                return RunUnlocked(a);
+            }
+            finally
+            {
+                if (RevUnlocked != before) Signal();
+            }
+        }
+    }
+
+    private ActionResult RunUnlocked(ShowAction a)
+    {
+        var value = (a.Value ?? "").Trim();
         {
             switch (a.Kind)
             {
@@ -368,9 +463,13 @@ public sealed class PlayService : IDisposable
         catch (JsonException) { return JsonDocument.Parse("{}").RootElement.Clone(); }
     }
 
-    public string JoinJson(string body)
+    public string JoinJson(string body, string address = "?")
     {
         var e = Body(body);
+        if (!_limits.Allow("join:" + address, Budget.JoinsPerAddressPerMinute, TimeSpan.FromMinutes(1), DateTime.UtcNow))
+        {
+            return JsonUtil.SerializeCompact(new { ok = false, msg = "Too many joins from this address — a minute, then again." });
+        }
         lock (_gate)
         {
             var room = Str(e, "room");
@@ -378,10 +477,18 @@ public sealed class PlayService : IDisposable
             {
                 return JsonUtil.SerializeCompact(new { ok = false, msg = $"That is not this room — the room here is {Room.Code}.", room = Room.Code });
             }
-            var (p, fresh) = Room.Join(Str(e, "nick"), Str(e, "token"), Str(e, "group"));
+            Room.MaxPlayers = _s.State.Control.AudienceMaxPlayers;
+            var (p, fresh, reason) = Room.TryJoin(Str(e, "nick"), Str(e, "token"), Str(e, "group"));
+            if (p is null) return JsonUtil.SerializeCompact(new { ok = false, msg = $"No seat — {reason}.", room = Room.Code });
+            Signal();
             return JsonUtil.SerializeCompact(new { ok = true, fresh, token = p.Token, nick = p.Nick, group = p.Group, room = Room.Code, show = Room.Show });
         }
     }
+
+    private bool Within(string kind, string? token, int perMinute)
+        => _limits.Allow($"{kind}:{token}", perMinute, TimeSpan.FromMinutes(1), DateTime.UtcNow);
+
+    private static string SlowDown(string what) => JsonUtil.SerializeCompact(new { ok = false, msg = $"Slow down — too many {what} this minute." });
 
     public string AnswerJson(string body)
     {
@@ -391,9 +498,11 @@ public sealed class PlayService : IDisposable
         {
             foreach (var item in c.EnumerateArray()) if (item.ValueKind == JsonValueKind.Number && item.TryGetInt32(out var i)) choices.Add(i);
         }
+        if (!Within("answer", Str(e, "token"), Budget.AnswersPerTokenPerMinute)) return SlowDown("answers");
         lock (_gate)
         {
             var msg = Room.Answer(Str(e, "token"), Str(e, "question"), choices, Int(e, "scale", int.MinValue), Str(e, "words"));
+            if (msg is "ok" or "queued") Signal();
             return JsonUtil.SerializeCompact(new { ok = msg is "ok" or "queued", msg });
         }
     }
@@ -401,10 +510,12 @@ public sealed class PlayService : IDisposable
     public string SayJson(string body)
     {
         var e = Body(body);
+        if (!Within("say", Str(e, "token"), Budget.SaysPerTokenPerMinute)) return SlowDown("messages");
         lock (_gate)
         {
             var item = Room.Say(Str(e, "token"), Str(e, "text"));
             if (item is null) return JsonUtil.SerializeCompact(new { ok = false, msg = "a word or two, from a phone that joined" });
+            Signal();
             return JsonUtil.SerializeCompact(new { ok = item.State != ModerationState.Out, msg = item.State == ModerationState.Out ? "not for the wall" : "with the host" });
         }
     }
@@ -412,11 +523,13 @@ public sealed class PlayService : IDisposable
     public string VoteJson(string body)
     {
         var e = Body(body);
+        if (!Within("vote", Str(e, "token"), Budget.AnswersPerTokenPerMinute)) return SlowDown("votes");
         lock (_gate)
         {
             var msg = Room.Path.Vote(Str(e, "token"), Int(e, "option", -1));
             if (Room.Find(Str(e, "token")) is { } p) p.LastSeenUtc = DateTime.UtcNow;
             _wallRev++;
+            Signal();
             return JsonUtil.SerializeCompact(new { ok = msg == "ok", msg });
         }
     }
@@ -424,6 +537,7 @@ public sealed class PlayService : IDisposable
     public string DraughtsJson(string body)
     {
         var e = Body(body);
+        if (!Within("move", Str(e, "token"), Budget.MovesPerTokenPerMinute)) return SlowDown("moves");
         lock (_gate)
         {
             var token = Str(e, "token");
@@ -449,6 +563,7 @@ public sealed class PlayService : IDisposable
                     break;
             }
             _wallRev++;
+            Signal();
             return JsonUtil.SerializeCompact(new { ok = msg.StartsWith("ok"), msg });
         }
     }
@@ -513,6 +628,26 @@ public sealed class PlayService : IDisposable
         var w = (what ?? "").Trim();
         lock (_gate)
         {
+            if (w.StartsWith("audience", StringComparison.OrdinalIgnoreCase))
+            {
+                var cfg = _s.State.Control;
+                return JsonUtil.SerializeCompact(new
+                {
+                    enabled = cfg.Enabled && cfg.AudienceEnabled,
+                    listening = _s.Control.AudienceListening,
+                    port = cfg.AudiencePort,
+                    bind = cfg.AudienceBind,
+                    urls = _s.Control.AudienceUrls(),
+                    joinUrl = JoinUrl,
+                    players = Room.PlayerCount,
+                    maxPlayers = cfg.AudienceMaxPlayers,
+                    connections = _s.Control.AudienceConnections,
+                    longPolls = LongPolls,
+                    longPollsPeak = LongPollsPeak,
+                    budget = new { Budget.JoinsPerAddressPerMinute, Budget.AnswersPerTokenPerMinute, Budget.SaysPerTokenPerMinute, Budget.MovesPerTokenPerMinute, Budget.MaxLongPolls, Budget.MaxConnectionsPerAddress, Budget.MaxConnections, Budget.IdleForgetMinutes },
+                    assistantOnWire = cfg.AssistantOnWire,
+                });
+            }
             if (w.StartsWith("results", StringComparison.OrdinalIgnoreCase))
             {
                 var id = w.Length > 7 ? w[7..].Trim() : "";
@@ -536,6 +671,7 @@ public sealed class PlayService : IDisposable
                 room = Room.Code,
                 show = Room.Show,
                 joinUrl = JoinUrl,
+                audience = _s.State.Control.AudienceEnabled ? $"port {_s.State.Control.AudiencePort}" : "off",
                 players = Room.PlayerCount,
                 here = Room.ActiveCount(DateTime.UtcNow),
                 wall = Wall.ToString().ToLowerInvariant(),

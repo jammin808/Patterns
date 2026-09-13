@@ -197,6 +197,9 @@ public sealed class PlayRoom
     public Func<DateTime> UtcNow { get; set; } = () => DateTime.UtcNow;
     /// <summary>Words straight to the wall without a press — for a quiz night, not a conference.</summary>
     public bool AutoApprove { get; set; }
+    /// <summary>The most phones the room seats; a full room forgets its long-gone before it turns one away.</summary>
+    public int MaxPlayers { get; set; } = int.MaxValue;
+    public TimeSpan IdleForget { get; set; } = TimeSpan.FromHours(3);
     public IReadOnlyList<string> BlockedWords { get; set; } = DefaultBlocked;
     public long Rev { get; private set; }
     public IReadOnlyList<PlayQuestion> Questions => _questions;
@@ -251,6 +254,27 @@ public sealed class PlayRoom
         _players[fresh.Token] = fresh;
         Bump();
         return (fresh, true);
+    }
+
+    /// <summary>A join with the room's cap: a phone the room knows always comes back; a new one is turned away when the room is full even after its long-gone are forgotten.</summary>
+    public (PlayPlayer? Player, bool Fresh, string Reason) TryJoin(string? nick, string? token, string? group = null)
+    {
+        if (!(token is { Length: > 0 } && _players.ContainsKey(token)) && _players.Count >= MaxPlayers)
+        {
+            Prune(UtcNow());
+            if (_players.Count >= MaxPlayers) return (null, false, $"the room is full ({MaxPlayers})");
+        }
+        var (p, fresh) = Join(nick, token, group);
+        return (p, fresh, "ok");
+    }
+
+    /// <summary>Phones not seen for <see cref="IdleForget"/> leave the room (their scores with them); how many went.</summary>
+    public int Prune(DateTime utcNow)
+    {
+        var gone = _players.Values.Where(p => utcNow - p.LastSeenUtc > IdleForget).Select(p => p.Token).ToList();
+        foreach (var token in gone) _players.Remove(token);
+        if (gone.Count > 0) Bump();
+        return gone.Count;
     }
 
     public PlayPlayer? Find(string? token) => token is { Length: > 0 } && _players.TryGetValue(token, out var p) ? p : null;

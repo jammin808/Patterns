@@ -174,6 +174,9 @@ public class WireVocabularyTests
         ("ALIGN PREV", new(ShowActionKind.AlignPrev)),
         ("ALIGN NUDGE 2 -1", new(ShowActionKind.AlignNudge, "", "2 -1")),
         ("ALIGN SNAP", new(ShowActionKind.AlignSnap)),
+        ("AUDIENCE ON 9701", new(ShowActionKind.AudienceOn, "", "9701")),
+        ("AUDIENCE ON", new(ShowActionKind.AudienceOn, "", "")),
+        ("AUDIENCE OFF", new(ShowActionKind.AudienceOff)),
         ("REVIEW OFF", new(ShowActionKind.ReviewOff)),
         ("REVIEW", new(ShowActionKind.ReviewToggle)),
         ("FREEZE ON", new(ShowActionKind.FreezeOn)),
@@ -236,6 +239,8 @@ public class WireVocabularyTests
         Assert.False(ControlProtocol.Parse("ASSISTANT").IsAction);
         Assert.Equal(RemoteCommandKind.Unknown, ControlProtocol.Parse("ASSISTANT ASK").Kind);
         Assert.Equal(RemoteCommandKind.RigDayStatus, ControlProtocol.Parse("RIGDAY").Kind);
+        Assert.Equal("audience", ControlProtocol.Parse("AUDIENCE STATUS").Text);
+        Assert.Equal(RemoteCommandKind.PlayStatus, ControlProtocol.Parse("AUDIENCE").Kind);
         Assert.Equal("align", ControlProtocol.Parse("ALIGN STATUS").Text);
         Assert.False(ControlProtocol.Parse("ALIGN NUDGE").IsAction);
         var hello = ControlProtocol.Parse("HELLO FOH deck");

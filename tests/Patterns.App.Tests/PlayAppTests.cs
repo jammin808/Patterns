@@ -48,12 +48,15 @@ public class PlayAppTests
     public void TheHubRunsARoomForThePhonesTheHostAndTheWall()
     {
         var httpPort = FreePort();
+        var audiencePort = FreePort();
         var b = TestApp.Boot("patterns-tests-hub-", dir => Settings(dir, s =>
         {
             s.Name = "Gala";
             s.Control.Enabled = true;
             s.Control.HttpPort = httpPort;
             s.Control.TcpPort = FreePort();
+            s.Control.AudienceEnabled = true;
+            s.Control.AudiencePort = audiencePort;
             s.Install.AdminPasscode = "1234";
             s.Twin.AcceptCallers = false;
             s.Watchdog.BeaconListenPort = FreePort();
@@ -64,21 +67,35 @@ public class PlayAppTests
             var (services, vm, _) = b;
             var play = services.Play;
             Assert.Matches("^[A-Z]{4}$", play.Code);
-            Assert.Contains($"/play?room={play.Code}", play.JoinUrl);
+            Assert.Contains($":{audiencePort}/play?room={play.Code}", play.JoinUrl);         // the door is on the audience port
             Assert.True(File.Exists(Path.Combine(services.Store.BaseDirectory, "play-story.json")));   // the sample, there to be edited
             var router = new CommandRouter(services);
             string Wire(string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
             using var http = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{httpPort}/") };
+            using var phone = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{audiencePort}/") };
+            PumpUntil(() => services.Control.AudienceListening);
 
-            // The pages, and two phones at the door — one with the wrong code.
-            Assert.Contains("Patterns Play", Get(http, "play?room=" + play.Code));
+            // The boundary: the audience port answers the play pages and nothing else; the control port never the room.
+            Assert.Contains("Patterns Play", Get(phone, "play?room=" + play.Code));
+            Assert.Contains("Patterns Play", Get(phone, "/"));
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(phone.PostAsync("api/cmd", new StringContent("BLACKOUT"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(phone.GetAsync("api/state")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(phone.GetAsync("pgm.jpg")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(phone.GetAsync("host")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(phone.PostAsync("api/play/host", new StringContent("1234"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(phone.GetAsync("api/play/feed.csv")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(http.GetAsync("play")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, TestApp.Pump(http.PostAsync("api/play/join", new StringContent("{}"))).StatusCode);
             Assert.Contains("Patterns Play — host", Get(http, "host"));
-            Assert.Contains("/play", Get(http, "/"));
-            Assert.Contains("not this room", Post(http, "api/play/join", "{\"nick\":\"Sam\",\"room\":\"ZZZZ\"}"));
-            var sam = JsonDocument.Parse(Post(http, "api/play/join", $"{{\"nick\":\"Sam\",\"group\":\"Table 4\",\"room\":\"{play.Code}\"}}")).RootElement;
+            Assert.Contains("/host", Get(http, "/"));
+            Assert.Contains("\"listening\":true", Wire("AUDIENCE STATUS"));
+
+            // Two phones at the door — one with the wrong code.
+            Assert.Contains("not this room", Post(phone, "api/play/join", "{\"nick\":\"Sam\",\"room\":\"ZZZZ\"}"));
+            var sam = JsonDocument.Parse(Post(phone, "api/play/join", $"{{\"nick\":\"Sam\",\"group\":\"Table 4\",\"room\":\"{play.Code}\"}}")).RootElement;
             Assert.True(sam.GetProperty("ok").GetBoolean());
             var samToken = sam.GetProperty("token").GetString()!;
-            var kim = JsonDocument.Parse(Post(http, "api/play/join", "{\"nick\":\"Kim\"}")).RootElement;
+            var kim = JsonDocument.Parse(Post(phone, "api/play/join", "{\"nick\":\"Kim\"}")).RootElement;
             var kimToken = kim.GetProperty("token").GetString()!;
             Assert.Equal(2, play.Room.PlayerCount);
             Assert.Contains("2 joined", vm.PlayWords);
@@ -93,10 +110,10 @@ public class PlayAppTests
             var frames = services.Arcade.Frames;
             PumpUntil(() => services.Arcade.Frames > frames + 3);
             var q = play.Room.Current!;
-            Assert.Contains("\"ok\":true", Post(http, "api/play/answer", $"{{\"token\":\"{samToken}\",\"question\":\"{q.Id}\",\"choices\":[1]}}"));
-            Assert.Contains("\"ok\":true", Post(http, "api/play/answer", $"{{\"token\":\"{kimToken}\",\"question\":\"{q.Id}\",\"choices\":[0]}}"));
-            Assert.Contains("already answered", Post(http, "api/play/answer", $"{{\"token\":\"{samToken}\",\"question\":\"{q.Id}\",\"choices\":[1]}}"));
-            var state = JsonDocument.Parse(Get(http, $"api/play/state?token={samToken}&since=0")).RootElement;
+            Assert.Contains("\"ok\":true", Post(phone, "api/play/answer", $"{{\"token\":\"{samToken}\",\"question\":\"{q.Id}\",\"choices\":[1]}}"));
+            Assert.Contains("\"ok\":true", Post(phone, "api/play/answer", $"{{\"token\":\"{kimToken}\",\"question\":\"{q.Id}\",\"choices\":[0]}}"));
+            Assert.Contains("already answered", Post(phone, "api/play/answer", $"{{\"token\":\"{samToken}\",\"question\":\"{q.Id}\",\"choices\":[1]}}"));
+            var state = JsonDocument.Parse(Get(phone, $"api/play/state?token={samToken}&since=0")).RootElement;
             Assert.Equal("Sam", state.GetProperty("nick").GetString());
             Assert.True(state.GetProperty("question").GetProperty("mine").GetProperty("correct").GetBoolean());
             Assert.True(state.GetProperty("score").GetInt32() >= 500);
@@ -105,7 +122,7 @@ public class PlayAppTests
             Assert.StartsWith("OK", Wire("PLAY CLOSE"));
             Assert.StartsWith("ERR", Wire("PLAY CLOSE"));
             Assert.StartsWith("OK", Wire("PLAY REVEAL"));
-            state = JsonDocument.Parse(Get(http, $"api/play/state?token={kimToken}&since=0")).RootElement;
+            state = JsonDocument.Parse(Get(phone, $"api/play/state?token={kimToken}&since=0")).RootElement;
             Assert.Equal(1, state.GetProperty("question").GetProperty("correct").GetInt32());
             Assert.Equal("revealed", state.GetProperty("question").GetProperty("state").GetString());
             Assert.Equal("Sam", state.GetProperty("leaderboard")[0].GetProperty("nick").GetString());
@@ -115,10 +132,10 @@ public class PlayAppTests
             Assert.StartsWith("OK", Wire("PLAY MESSAGE group:Table 4 you won the round"));
             Assert.StartsWith("OK", Wire("PLAY MESSAGE phone:Sam your answer was right"));
             Assert.StartsWith("ERR", Wire("PLAY MESSAGE phone:Nobody hello"));
-            var samState = Get(http, $"api/play/state?token={samToken}&since=0");
+            var samState = Get(phone, $"api/play/state?token={samToken}&since=0");
             Assert.Contains("you won the round", samState);
             Assert.Contains("your answer was right", samState);
-            var kimState = Get(http, $"api/play/state?token={kimToken}&since=0");
+            var kimState = Get(phone, $"api/play/state?token={kimToken}&since=0");
             Assert.Contains("The next round starts soon", kimState);
             Assert.DoesNotContain("you won the round", kimState);
             var feed = Get(http, "api/play/feed.csv");
@@ -128,14 +145,14 @@ public class PlayAppTests
             // Words go through the queue; the host's page behind the passcode; the wall's modes.
             Assert.StartsWith("OK", Wire("PLAY ADD words One word for today"));
             Assert.StartsWith("OK", Wire("PLAY NEXT"));
-            Assert.Contains("queued", Post(http, "api/play/answer", $"{{\"token\":\"{samToken}\",\"words\":\"Bright\"}}"));
+            Assert.Contains("queued", Post(phone, "api/play/answer", $"{{\"token\":\"{samToken}\",\"words\":\"Bright\"}}"));
             Assert.Contains("\"state\":\"waiting\"", Wire("PLAY QUEUE"));
             services.Play.Tick();                                                     // no desk heard: the assistant is not asked, the item waits for the host
             Assert.Single(play.Room.Waiting());
             Assert.Contains("1 waiting for you", vm.PlayWords);
             Assert.StartsWith("OK", Wire("PLAY APPROVE all"));
             Assert.Contains("\"word\":\"Bright\"", Wire("PLAY RESULTS"));
-            Assert.Contains("with the host", Post(http, "api/play/say", $"{{\"token\":\"{kimToken}\",\"text\":\"Great talk!\"}}"));
+            Assert.Contains("with the host", Post(phone, "api/play/say", $"{{\"token\":\"{kimToken}\",\"text\":\"Great talk!\"}}"));
             var host = TestApp.Pump(http.PostAsync("api/play/host", new StringContent("1234")));
             Assert.Equal(HttpStatusCode.OK, host.StatusCode);
             Assert.Contains("\"room\":\"" + play.Code + "\"", TestApp.Pump(host.Content.ReadAsStringAsync()));
@@ -149,15 +166,15 @@ public class PlayAppTests
 
             // The path and the board from the phones.
             Assert.StartsWith("OK", Wire("PLAY PATH OPEN"));
-            Assert.Contains("\"ok\":true", Post(http, "api/play/vote", $"{{\"token\":\"{samToken}\",\"option\":1}}"));
+            Assert.Contains("\"ok\":true", Post(phone, "api/play/vote", $"{{\"token\":\"{samToken}\",\"option\":1}}"));
             Assert.StartsWith("OK", Wire("PLAY PATH CLOSE"));
             Assert.Equal("Up to the gallery", play.Room.Path.LastChoice);
             Assert.Equal("gallery", play.Room.Path.CurrentId);
             Assert.StartsWith("OK", Wire("PLAY DRAUGHTS"));
-            Assert.Contains("\"ok\":true", Post(http, "api/play/draughts", $"{{\"token\":\"{samToken}\",\"action\":\"seat\",\"side\":\"black\"}}"));
-            Assert.Contains("that side is taken", Post(http, "api/play/draughts", $"{{\"token\":\"{kimToken}\",\"action\":\"seat\",\"side\":\"black\"}}"));
-            Assert.Contains("\"ok\":true", Post(http, "api/play/draughts", $"{{\"token\":\"{samToken}\",\"action\":\"move\",\"from\":17,\"to\":26}}"));
-            state = JsonDocument.Parse(Get(http, $"api/play/state?token={samToken}&since=0")).RootElement;
+            Assert.Contains("\"ok\":true", Post(phone, "api/play/draughts", $"{{\"token\":\"{samToken}\",\"action\":\"seat\",\"side\":\"black\"}}"));
+            Assert.Contains("that side is taken", Post(phone, "api/play/draughts", $"{{\"token\":\"{kimToken}\",\"action\":\"seat\",\"side\":\"black\"}}"));
+            Assert.Contains("\"ok\":true", Post(phone, "api/play/draughts", $"{{\"token\":\"{samToken}\",\"action\":\"move\",\"from\":17,\"to\":26}}"));
+            state = JsonDocument.Parse(Get(phone, $"api/play/state?token={samToken}&since=0")).RootElement;
             Assert.Equal("black", state.GetProperty("draughts").GetProperty("mine").GetString());
             Assert.Equal("white", state.GetProperty("draughts").GetProperty("turn").GetString());
 
@@ -168,7 +185,17 @@ public class PlayAppTests
             Assert.StartsWith("OK", Wire("PLAY NEW"));
             Assert.NotEqual(oldCode, play.Code);
             Assert.Equal(0, play.Room.PlayerCount);
-            Assert.Contains("\"known\":false", Get(http, $"api/play/state?token={samToken}&since=0"));
+            Assert.Contains("\"known\":false", Get(phone, $"api/play/state?token={samToken}&since=0"));
+
+            // AUDIENCE OFF closes the socket; ON opens it again on a port of the wire's choosing.
+            Assert.StartsWith("OK", Wire("AUDIENCE OFF"));
+            PumpUntil(() => !services.Control.AudienceListening);
+            Assert.Equal("", play.JoinUrl);
+            var again = FreePort();
+            Assert.StartsWith("OK", Wire($"AUDIENCE ON {again}"));
+            PumpUntil(() => services.Control.AudienceListening);
+            Assert.Equal(again, vm.State.Control.AudiencePort);
+            Assert.Contains($":{again}/", play.JoinUrl);
         }
         finally
         {

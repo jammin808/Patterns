@@ -27,7 +27,25 @@
       <TextBlock Classes="hint tip"
                  Text="The web remote drives presenter next/back, looks, transport, blackout, screens, the audio track, lower thirds and the web page on air — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens, canvas groups and page actions map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
 
-      <TextBlock Classes="h2" Text="OSC" />
+      <TextBlock Classes="h2" Text="AUDIENCE (A PORT OF ITS OWN)" />
+    <TextBlock Classes="hint tip"
+               Text="The room of phones reaches one socket, and that socket answers the play pages and nothing else — never a command, the state or a picture. Off by default. Put this port on the audience Wi-Fi (a VLAN apart from the show LAN, the venue's captive portal off) and never the control port; on a hub with two networks, bind it to the audience network's address." />
+    <CheckBox Content="Audience listener on (the play pages for phones, on the port below)" IsChecked="{Binding State.Control.AudienceEnabled}" IsEnabled="{Binding State.Control.Enabled}" />
+    <Grid ColumnDefinitions="130,*,16,Auto,8,*,16,Auto,8,90" IsEnabled="{Binding State.Control.AudienceEnabled}">
+      <TextBlock Classes="label" Text="Audience port" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="1024" Maximum="65535" Increment="1" FormatString="0"
+                     Value="{Binding State.Control.AudiencePort, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Bind to" VerticalAlignment="Center" />
+      <TextBox Grid.Column="5" Text="{Binding State.Control.AudienceBind}" Watermark="every interface, or the audience network's address" />
+      <TextBlock Grid.Column="7" Classes="label" Text="Seats" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="9" Minimum="1" Maximum="5000" Increment="50" FormatString="0"
+                     Value="{Binding State.Control.AudienceMaxPlayers, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <TextBox Text="{Binding AudienceUrlsText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas,monospace" IsVisible="{Binding State.Control.AudienceEnabled}" />
+    <CheckBox Content="Nodes may ask the assistant over the wire (a hub's moderation queue; the key stays here)" IsChecked="{Binding State.Control.AssistantOnWire}"
+              ToolTip.Tip="Off, ASSISTANT ASK on the wire is refused and a hub's queue waits for the host; on, a node on the show LAN may spend this desk's key one question at a time" />
+
+    <TextBlock Classes="h2" Text="OSC" />
       <CheckBox Content="OSC in (UDP) — QLab, TouchOSC, a lighting desk, Companion's OSC" IsChecked="{Binding State.Control.OscEnabled}"
                 ToolTip.Tip="Off by default: another open port is a deliberate act. Every address starts /patterns/ and means exactly the TCP line it maps to" />
       <Grid ColumnDefinitions="130,90,16,Auto,8,*,8,90" IsEnabled="{Binding State.Control.OscEnabled}">

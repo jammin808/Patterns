@@ -1,4 +1,5 @@
 using Patterns.Core.Model;
+using Patterns.Core.Play;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -23,6 +24,9 @@ public sealed partial class ControlService : IDisposable
     private readonly List<TcpClient> _tcpClients = new();
     private TcpListener? _tcp;
     private TcpListener? _http;
+    private TcpListener? _audience;
+    private int _audienceConnections;
+    private readonly Dictionary<string, int> _audienceByAddress = new();
     private CancellationTokenSource? _cts;
     private string _activeKey = "";
     private volatile string _status = "Remote control off.";
@@ -153,12 +157,21 @@ public sealed partial class ControlService : IDisposable
     /// <summary>Drops the kept addresses so the next read asks the machine again (the listeners rebound, a test).</summary>
     public void ForgetRemoteUrls() => _urls = null;
 
+    /// <summary>The audience listener's addresses — the same machine, the audience port (the bound address alone when one is set); empty while it is off.</summary>
+    public IReadOnlyList<string> AudienceUrls()
+    {
+        var cfg = _services.State.Control;
+        if (!cfg.Enabled || !cfg.AudienceEnabled) return Array.Empty<string>();
+        if (IPAddress.TryParse(cfg.AudienceBind, out var bound)) return new[] { $"http://{bound}:{cfg.AudiencePort}/" };
+        return RemoteUrls().Select(u => u.Replace($":{cfg.HttpPort}/", $":{cfg.AudiencePort}/")).ToList();
+    }
+
     /// <summary>Starts/stops/rebinds the listeners to match the config (UI thread).</summary>
     public void Reconcile()
     {
         HookStack();
         var cfg = _services.State.Control;
-        var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}" : "";
+        var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}|{(cfg.AudienceEnabled ? $"{cfg.AudiencePort}@{cfg.AudienceBind}" : "")}" : "";
         if (key == _activeKey) return;
         _activeKey = key;
         ForgetRemoteUrls();
@@ -182,6 +195,15 @@ public sealed partial class ControlService : IDisposable
             _ = AcceptLoop(_http, _cts.Token, HandleHttpClient);
 
             _status = $"Web remote on port {cfg.HttpPort} · Companion (TCP) on port {cfg.TcpPort}.";
+            if (cfg.AudienceEnabled)
+            {
+                // The room's own socket: the play pages and nothing else, on the audience network's address when the hub has one.
+                var bind = IPAddress.TryParse(cfg.AudienceBind, out var address) ? address : IPAddress.Any;
+                _audience = new TcpListener(bind, cfg.AudiencePort);
+                _audience.Start();
+                _ = AcceptLoop(_audience, _cts.Token, HandleAudienceClient);
+                _status += $" Audience on port {cfg.AudiencePort}{(bind.Equals(IPAddress.Any) ? "" : $" at {bind}")} — the play pages only.";
+            }
             Log.Info(_status);
         }
         catch (Exception ex)
@@ -298,7 +320,71 @@ public sealed partial class ControlService : IDisposable
 
     // ---- minimal HTTP (web remote) ------------------------------------------
 
-    private async Task HandleHttpClient(TcpClient client, CancellationToken ct)
+    private Task HandleHttpClient(TcpClient client, CancellationToken ct) => HandleHttp(client, ct, audience: false);
+
+    /// <summary>Whether the audience listener is up — the room's door is open.</summary>
+    public bool AudienceListening => _audience is not null;
+
+    /// <summary>How many audience connections are open right now.</summary>
+    public int AudienceConnections => Volatile.Read(ref _audienceConnections);
+
+    /// <summary>
+    /// The audience's socket: counted against the budgets (so many at once, so many from one
+    /// address), then the same handler with the audience's own route table — nothing else answers.
+    /// </summary>
+    private async Task HandleAudienceClient(TcpClient client, CancellationToken ct)
+    {
+        var budget = _services.Play.Budget;
+        var address = client.Client.RemoteEndPoint is IPEndPoint ep ? ep.Address.ToString() : "?";
+        var admitted = false;
+        lock (_audienceByAddress)
+        {
+            _audienceByAddress.TryGetValue(address, out var mine);
+            if (_audienceConnections < budget.MaxConnections && mine < budget.MaxConnectionsPerAddress)
+            {
+                _audienceByAddress[address] = mine + 1;
+                _audienceConnections++;
+                admitted = true;
+            }
+        }
+        if (!admitted)
+        {
+            try
+            {
+                using var stream = client.GetStream();
+                var words = Encoding.UTF8.GetBytes("busy");
+                var head = $"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nContent-Length: {words.Length}\r\nRetry-After: 2\r\nConnection: close\r\n\r\n";
+                await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
+                await stream.WriteAsync(words, ct);
+            }
+            catch (Exception)
+            {
+                // A phone that left; nothing to say.
+            }
+            finally
+            {
+                client.Dispose();
+            }
+            return;
+        }
+        try
+        {
+            await HandleHttp(client, ct, audience: true);
+        }
+        finally
+        {
+            lock (_audienceByAddress)
+            {
+                _audienceConnections--;
+                if (_audienceByAddress.TryGetValue(address, out var mine))
+                {
+                    if (mine <= 1) _audienceByAddress.Remove(address); else _audienceByAddress[address] = mine - 1;
+                }
+            }
+        }
+    }
+
+    private async Task HandleHttp(TcpClient client, CancellationToken ct, bool audience)
     {
         try
         {
@@ -341,7 +427,25 @@ public sealed partial class ControlService : IDisposable
             string status = "200 OK", contentType = "text/html; charset=utf-8";
             string payload;
             byte[]? binary = null;
-            if (method == "GET" && (path == "/" || path == "/index.html"))
+            if (audience && !AudienceRoutes.Allows(method, path))
+            {
+                // The trust boundary: the audience port answers the play pages and their calls, nothing else — not a command, not the state, not a picture.
+                status = "404 Not Found";
+                contentType = "text/plain";
+                payload = "Not here — the audience port answers the play pages only.";
+            }
+            else if (!audience && AudienceRoutes.AudienceOnly(path))
+            {
+                // And the other way: the control port never carries the room, so a phone that finds it finds nothing.
+                status = "404 Not Found";
+                contentType = "text/plain";
+                payload = "The audience pages answer on the audience port — Remote page, AUDIENCE.";
+            }
+            else if (audience && method == "GET" && (path == "/" || path == "/index.html"))
+            {
+                payload = PlayPage;
+            }
+            else if (method == "GET" && (path == "/" || path == "/index.html"))
             {
                 payload = RemotePage;
             }
@@ -452,7 +556,8 @@ public sealed partial class ControlService : IDisposable
             else if (method == "POST" && path == "/api/play/join")
             {
                 contentType = "application/json";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.JoinJson(body));
+                var from = client.Client.RemoteEndPoint is IPEndPoint joinEp ? joinEp.Address.ToString() : "?";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.JoinJson(body, from));
             }
             else if (method == "GET" && (path == "/api/play/state" || path.StartsWith("/api/play/state?")))
             {
@@ -460,14 +565,8 @@ public sealed partial class ControlService : IDisposable
                 // ?rev=<rev> long-polls the room: a question opened, an answer counted, a message sent, the wall changed.
                 var token = QueryValue(path, "token");
                 long.TryParse(QueryValue(path, "since"), out var sinceSeq);
-                if (long.TryParse(QueryValue(path, "rev"), out var seenRev))
-                {
-                    var deadline = DateTime.UtcNow.AddSeconds(20);
-                    while (_services.Play.Rev == seenRev && DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
-                    {
-                        await Task.Delay(200, ct);
-                    }
-                }
+                // The wait is a signal, not a poll: the room wakes every waiting phone at once when it moves; past the budget a phone is answered now.
+                if (long.TryParse(QueryValue(path, "rev"), out var seenRev)) await _services.Play.WaitForChangeAsync(seenRev, TimeSpan.FromSeconds(20), ct);
                 payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.StateJson(token, sinceSeq));
             }
             else if (method == "POST" && path == "/api/play/answer")
@@ -712,8 +811,10 @@ public sealed partial class ControlService : IDisposable
         _cts = null;
         try { _tcp?.Stop(); } catch { /* already down */ }
         try { _http?.Stop(); } catch { /* already down */ }
+        try { _audience?.Stop(); } catch { /* already down */ }
         _tcp = null;
         _http = null;
+        _audience = null;
         lock (_gate)
         {
             foreach (var client in _tcpClients)

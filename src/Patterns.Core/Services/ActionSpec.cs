@@ -99,6 +99,7 @@ public static class ActionSpec
         ShowActionKind.ArcadeStart or ShowActionKind.ArcadeAttract or ShowActionKind.ArcadeKey or ShowActionKind.ArcadeSize or ShowActionKind.ArcadeNdi or ShowActionKind.ArcadeName => (TargetKind.None, ValueKind.Text),
         ShowActionKind.PlayAdd or ShowActionKind.PlayOpen or ShowActionKind.PlayShow or ShowActionKind.PlayMessage or ShowActionKind.PlayApprove or ShowActionKind.PlayReject or ShowActionKind.PlayAuto or ShowActionKind.PlayPath or ShowActionKind.PlayDraughts or ShowActionKind.PlayRoom => (TargetKind.None, ValueKind.Text),
         ShowActionKind.AlignStart or ShowActionKind.AlignNudge => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.AudienceOn => (TargetKind.None, ValueKind.Text),
         ShowActionKind.CountdownTo => (TargetKind.None, ValueKind.ClockTime),
         ShowActionKind.CountdownLabel => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MessageOn => (TargetKind.None, ValueKind.Text),
@@ -217,6 +218,8 @@ public static class ActionSpec
         ShowActionKind.AlignPrev => "Alignment game — previous node",
         ShowActionKind.AlignNudge => "Alignment game — nudge the node (dx dy)",
         ShowActionKind.AlignSnap => "Alignment game — snap the node to its target",
+        ShowActionKind.AudienceOn => "Audience listener — on (a port, or the one set)",
+        ShowActionKind.AudienceOff => "Audience listener — off",
         ShowActionKind.MessageOn => "Message on",
         ShowActionKind.MessageOff => "Message off",
         ShowActionKind.MessageToggle => "Message toggle",
@@ -378,6 +381,8 @@ public static class ActionSpec
             => "the rig's own measuring at set-up — the outputs show structured light for a minute and the placements move; a running order never re-aims the projectors",
         ShowActionKind.RigDayOn or ShowActionKind.RigDayOff or ShowActionKind.AlignStart or ShowActionKind.AlignStop or ShowActionKind.AlignNext or ShowActionKind.AlignPrev or ShowActionKind.AlignNudge or ShowActionKind.AlignSnap
             => "rig day's games are the desk's own — the keys, the Screens page and the wire, never a cue",
+        ShowActionKind.AudienceOn or ShowActionKind.AudienceOff
+            => "the audience listener is a control setting — the Remote page and the wire, never a cue",
         _ => null,
     };
 

@@ -793,7 +793,6 @@ public static class ControlProtocol
             // messages back; the queue; the path and the draughts board; the room itself.
             case "PLAY":
             case "ROOM":
-            case "AUDIENCE":
             {
                 var sp = arg.IndexOf(' ');
                 var sub = (sp < 0 ? arg : arg[..sp]).ToUpperInvariant();
@@ -820,6 +819,21 @@ public static class ControlProtocol
                     case "EXPORT": case "SAVE": return Act(ShowActionKind.PlayExport);
                     default: return Unknown(s);
                 }
+            }
+
+            // The audience listener: on (with a port), off, or its status.
+            case "AUDIENCE":
+            {
+                var sp = arg.IndexOf(' ');
+                var sub = (sp < 0 ? arg : arg[..sp]).ToUpperInvariant();
+                var tail = sp < 0 ? "" : arg[(sp + 1)..].Trim();
+                return sub switch
+                {
+                    "" or "STATUS" => Query(RemoteCommandKind.PlayStatus, "audience"),
+                    "ON" or "OPEN" => Act(ShowActionKind.AudienceOn, "", tail),
+                    "OFF" or "CLOSE" => Act(ShowActionKind.AudienceOff),
+                    _ => Unknown(s),
+                };
             }
 
             // Rig day, gamified: the games' switch and the show-ready bar; the alignment game's verbs.

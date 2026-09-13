@@ -5509,3 +5509,46 @@ locks and walks on, the keys, PREV and NEXT, STOP clearing the lattice, OFF clea
 A chime when the bar fills (a notification says it). The 2×2's black-level readback as a level
 of its own. Blend Quest "immersive" — the residual as heat over the wall as the camera sees it
 — needs a camera in the loop past the calibration. The streak on the caller's page (`/run`).
+
+## 57. Round 39 — the hardening round
+
+A re-review of rounds 35–38 (the nodes, the arcade, audience play, rig day) found the feature
+architecture sound and the boundaries around it overdue: an audience of untrusted phones was
+being served from the same socket as the production control API; the room had no budgets; the
+twin's two fencing gaps from round 34 were still open; the published snapshot's collections were
+still mutable; and the node kernel from `docs/NODES.md` had never been built — every role still
+constructs the whole desk. Feature rounds stop here until these are closed. This section grows
+as each lands.
+
+### 57.1 The audience listener of its own, and its budgets
+
+**The boundary.** `ControlConfig.AudienceEnabled/AudiencePort/AudienceBind/AudienceMaxPlayers`:
+a third listener, off by default, on its own port (9701), bindable to one address (the audience
+network's, on a hub with two). `AudienceRoutes` (Core, pure) is the whole route table of that
+socket — `GET /`, `/play`, `/api/play/state`; `POST /api/play/join|answer|say|vote|draughts` —
+and the same handler refuses everything else there with a 404: not `/api/cmd`, not the state,
+not a picture, not `/host`, not `/api/admin`. The other way too: the control port answers 404 for
+the phones' paths, so a phone that finds the control port finds nothing. Every audience call
+lands on `PlayService`'s typed methods; no route on that socket can reach `CommandRouter` or a
+`ShowAction`. The join URL and the wall's door carry the audience port; while the listener is off
+the door says so. `AUDIENCE ON [port]` / `OFF` / `STATUS` on the wire; the Remote page has the
+block. The desk may still be the room, but only through this listener — never through its
+control port.
+
+**The budgets** (`AudienceBudget`, hard numbers; the seats from the Remote page): seats (500;
+a full room forgets phones not seen for three hours before it turns one away), joins per address
+per minute (20), answers and votes per phone per minute (30), messages (6), draughts moves (60),
+phones waiting at once (1,000; past it a phone is answered now and asks again), connections in
+all (2,000) and per address (64; a 503 with a Retry-After past either). `RateLimiter` (Core) is a
+sliding window per key. The state long-poll is a signal now, not a poll: the room wakes every
+waiting phone at once when it moves (`PlayService.WaitForChangeAsync`), so a thousand phones
+cost nothing between moves. The assistant on the wire (`ASSISTANT ASK` / `MODERATE`) is behind
+the desk's own switch (`Control.AssistantOnWire`, off) — the key stays the desk's unless it says.
+
+**Proof.** `AudienceTests` (the route table both ways, the limiter's window, the full room);
+`PlayAppTests` on the audience port with the boundary asserted (a BLACKOUT, the state, a picture,
+the host and the feed all 404 on the audience port; the play calls 404 on the control port);
+`AudienceLoadTests`: two hundred phones join at once, wait on the room together, wake together
+when a question opens (under a second), answer together and every answer counts — in about four
+seconds on the build machine — then the budgets bite: a phone past its answers is told to slow
+down, an address past its joins is refused, a full room turns a phone away.

@@ -145,9 +145,10 @@ fault containment, and settings that can never brick startup.
   ARCADE (…)` at any size. From the desk `ARCADE START pong 2`, `STOP`, `ATTRACT`, `NDI ON`,
   `NAME ABC` go to the arcade nodes it hears — on the wire, in cues, from the assistant.
   `docs/PLAN.md` §54.
-- **Audience play on the hub** — the same node out front, its remote port on the audience
-  Wi-Fi: a room code and a QR on the wall (`PLAY SHOW join`), phones join at `/play` with a
-  nickname and a table, and the host runs polls (one choice, several, a scale), word clouds, and
+- **Audience play on the hub** — the same node out front, through a port of its own: the
+  audience listener (off by default) answers the play pages and nothing else, never a command or
+  the show, and it alone goes on the audience Wi-Fi. A room code and a QR on the wall (`PLAY SHOW
+  join`), phones join at `/play` with a nickname and a table, and the host runs polls (one choice, several, a scale), word clouds, and
   quizzes against the clock where the first right answers score most — `PLAY ADD quiz Which hall
   is the keynote in? | A | B | C | correct=2 time=15`, `PLAY OPEN`, `PLAY CLOSE`, `PLAY REVEAL`,
   results on the wall as bars that grow and a cloud that blooms, the leaderboard, and as a feed

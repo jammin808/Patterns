@@ -54,9 +54,17 @@ public static class PlayBoard
         ArcadeText.Draw(c, p, room.Show.Length > 0 ? room.Show.ToUpperInvariant() : "JOIN IN", W / 2, 130, 56, Faint);
         ArcadeText.Draw(c, p, "ROOM CODE", W / 2 - 420, 300, 34, Faint);
         ArcadeText.Draw(c, p, room.Code, W / 2 - 420, 520, 230, Neon);
-        ArcadeText.Draw(c, p, joinUrl, W / 2 - 420, 640, 34, Ink, bold: false);
-        ArcadeText.Draw(c, p, "on the room's Wi-Fi — scan, or type the code", W / 2 - 420, 700, 28, Faint, bold: false);
-        var qr = QrCode.Encode(joinUrl);
+        if (joinUrl.Length == 0)
+        {
+            ArcadeText.Draw(c, p, "the audience port is off", W / 2 - 420, 640, 34, new SKColor(0xFF, 0x9E, 0x58));
+            ArcadeText.Draw(c, p, "Remote page → AUDIENCE, or AUDIENCE ON on the wire", W / 2 - 420, 700, 28, Faint, bold: false);
+        }
+        else
+        {
+            ArcadeText.Draw(c, p, joinUrl, W / 2 - 420, 640, 34, Ink, bold: false);
+            ArcadeText.Draw(c, p, "on the room's Wi-Fi — scan, or type the code", W / 2 - 420, 700, 28, Faint, bold: false);
+        }
+        var qr = joinUrl.Length == 0 ? null : QrCode.Encode(joinUrl);
         if (qr is not null)
         {
             var box = 560f;

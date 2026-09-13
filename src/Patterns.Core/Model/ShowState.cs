@@ -1981,6 +1981,24 @@ public sealed class ControlConfig : Observable
     /// <summary>A remote may ARM / disarm the caller's cue stack (CUE ARM ON / OFF). Off by default: arming is a deliberate act at the desk.</summary>
     public bool RemotesMayArm { get => _remotesMayArm; set => Set(ref _remotesMayArm, value); }
 
+    private bool _audienceEnabled;
+    private int _audiencePort = 9701;
+    private string _audienceBind = "";
+    private int _audienceMaxPlayers = 500;
+    private bool _assistantOnWire;
+
+    /// <summary>
+    /// The audience listener: a socket of its own, off by default, that answers the play pages and
+    /// nothing else — never the control API. The one port a room of phones may reach.
+    /// </summary>
+    public bool AudienceEnabled { get => _audienceEnabled; set => Set(ref _audienceEnabled, value); }
+    public int AudiencePort { get => _audiencePort; set => Set(ref _audiencePort, Math.Clamp(value, 1024, 65535)); }
+    /// <summary>The address the audience listener binds ("" = every interface): the audience network's own, when the hub has two.</summary>
+    public string AudienceBind { get => _audienceBind; set => Set(ref _audienceBind, (value ?? "").Trim()); }
+    public int AudienceMaxPlayers { get => _audienceMaxPlayers; set => Set(ref _audienceMaxPlayers, Math.Clamp(value, 1, 5000)); }
+    /// <summary>Whether a node on the wire may put a question to this desk's assistant (a hub's queue) — off, the key is the desk's alone.</summary>
+    public bool AssistantOnWire { get => _assistantOnWire; set => Set(ref _assistantOnWire, value); }
+
     private bool _oscEnabled;
     private int _oscPort = 9698;
     private string _oscFeedbackHost = "";

@@ -353,6 +353,9 @@ public enum ShowActionKind
     AlignPrev,
     AlignNudge,
     AlignSnap,
+    /// <summary>The audience listener on (Value: a port, or empty for the one set) or off — a control setting, the desk's own.</summary>
+    AudienceOn,
+    AudienceOff,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

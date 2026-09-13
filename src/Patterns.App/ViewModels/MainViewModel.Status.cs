@@ -225,6 +225,9 @@ public sealed partial class MainViewModel
 
     public string RemoteUrlsText => string.Join("\n", _services.Control.RemoteUrls());
 
+    /// <summary>The audience listener's addresses with the room's door, for the Remote page.</summary>
+    public string AudienceUrlsText => _services.Control.AudienceUrls().Count == 0 ? "the audience port is off" : string.Join("\n", _services.Control.AudienceUrls().Select(u => $"{u}play?room={_services.Play.Code}"));
+
     // ---- fractal, canvas, LED tile and video-wall pickers --------------------------------
 
     public EnumItem[] FractalKinds => Lists.FractalKinds;

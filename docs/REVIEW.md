@@ -602,3 +602,21 @@ back, moderation, draughts and the path.*
 - **The chime** — the bar says it fills; a sound waits for a sound path that is not the show's.
 - **The streak's judgement** — within the running order's thirty-second drift; a caller who
   wants a tighter measure has the timing line itself.
+
+## Round 39 review — the hardening round
+
+*A re-review of rounds 35–38 asked for five things before another feature: the audience off the
+control socket, budgets and a load test, the twin's fences closed, the snapshot's collections
+frozen, the node kernel built. This review grows as each lands.*
+
+### H1 — the audience listener of its own
+
+- **Done.** The listener, the route table both ways, the budgets, the signalled long-poll, the
+  assistant's wire switch, the pages, the verbs, the tests, the load test. `docs/PLAN.md` §57.1.
+- **Found on the way:** the load test itself — the first version woke the phones on the
+  question's *add* rather than its *open*, because an add moves the room's revision too; the
+  test writes the question first. A real page does the same (it renders whatever the room has).
+- **Measured, and left:** two hundred phones from one address in four seconds on the build
+  machine; a thousand over a venue's Wi-Fi is the venue's to measure. The per-address budgets
+  assume phones on distinct addresses — a room behind one NAT needs them raised on the Remote
+  page (`AudienceBudget` is a record; the seats are the one setting persisted).

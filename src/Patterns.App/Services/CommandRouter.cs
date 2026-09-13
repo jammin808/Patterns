@@ -35,6 +35,8 @@ public sealed class CommandRouter
             }
             if (cmd.Kind == RemoteCommandKind.AssistantAsk)
             {
+                // The key is the desk's alone unless the desk said a node may ask — Remote page, or the setting.
+                if (!_services.State.Control.AssistantOnWire) return ControlProtocol.Err("the assistant is not on the wire — Remote page, 'Nodes may ask the assistant'");
                 // The desk's assistant for a node (a hub's queue, a caller's brief): one ask, the reply as JSON, the network off the UI thread.
                 var question = cmd.Text.StartsWith("moderate ", StringComparison.OrdinalIgnoreCase) ? PlayService.ModerationQuestion(cmd.Text[9..].Trim()) : cmd.Text;
                 var answer = await Dispatcher.UIThread.InvokeAsync(() => _services.Assistant.AskAsync(question));
