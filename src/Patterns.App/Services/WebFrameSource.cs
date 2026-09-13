@@ -617,8 +617,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
     private static void OnUi(Action action)
     {
-        if (Dispatcher.UIThread.CheckAccess()) action();
-        else Dispatcher.UIThread.Post(action);
+        if (UiThread.CheckAccess()) action();
+        else UiThread.Post(action);
     }
 
     private (int X, int Y) ToPixels(float nx, float ny) => (

@@ -432,7 +432,7 @@ public sealed class OutputOwnershipService
             : $"Another Patterns (pid {request.Pid}) started and has the screens.";
         Log.Info(words);
         // The windows are the UI thread's to close, and so is the line that says so.
-        Dispatcher.UIThread.Post(() =>
+        UiThread.Post(() =>
         {
             if (live) _services.Outputs.CloseAll();
             StoodDown?.Invoke(words);

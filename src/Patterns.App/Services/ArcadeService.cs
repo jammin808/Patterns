@@ -447,7 +447,7 @@ public sealed class ArcadeService : IDisposable
             var rank = _board.Add(game.Id, score, $"P{seat + 1}", DateTime.UtcNow, _s.State.Name);
             _boardDirty = true;
             var words = $"Arcade: {game.Title} — P{seat + 1} {score}{(rank > 0 ? $", #{rank} on the board" : "")}.";
-            Dispatcher.UIThread.Post(() => _s.Notify(words));
+            UiThread.Post(() => _s.Notify(words));
         }
         Interlocked.Increment(ref _rev);
     }

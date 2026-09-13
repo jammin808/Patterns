@@ -123,7 +123,7 @@ public sealed class WeatherService : IDisposable
                 status = $"Weather error ({name}): {ex.Message} — the last forecast stays.";
             }
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await UiThread.InvokeAsync(() =>
             {
                 _fetching = false;
                 _status = status;

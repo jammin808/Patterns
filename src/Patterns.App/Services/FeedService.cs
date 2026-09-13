@@ -87,7 +87,7 @@ public sealed class FeedService : IDisposable
                 status = $"Feed error: {ex.Message}";
             }
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await UiThread.InvokeAsync(() =>
             {
                 _fetching = false;
                 _status = status;

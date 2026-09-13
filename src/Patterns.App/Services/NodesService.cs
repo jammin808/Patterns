@@ -90,7 +90,7 @@ public sealed class NodesService
                 var reply = await AskAsync(target, line);
                 if (!reply.StartsWith("OK", StringComparison.Ordinal))
                 {
-                    Dispatcher.UIThread.Post(() => _s.Notify($"Arcade {target.Name}: {reply}"));
+                    UiThread.Post(() => _s.Notify($"Arcade {target.Name}: {reply}"));
                 }
             });
         }
@@ -100,7 +100,7 @@ public sealed class NodesService
     /// <summary>ARCADE STATUS / GAMES / SCORES through this desk: each arcade node's answer, as one JSON list.</summary>
     public async Task<string> AskArcadesAsync(string line)
     {
-        var arcades = await Dispatcher.UIThread.InvokeAsync(Arcades);
+        var arcades = await UiThread.InvokeAsync(Arcades);
         var replies = await Task.WhenAll(arcades.Select(a => AskAsync(a, line)));
         var rows = new List<object>();
         for (var i = 0; i < arcades.Count; i++)

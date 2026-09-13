@@ -673,3 +673,16 @@ frozen, the node kernel built. This review grows as each lands.*
 - **Left:** `CommandRouter` on the desk (the dispatcher is the desk's by nature); `MainViewModel`
   and the pages assume the whole desk; the kernel's beacon owns a `DispatcherTimer` (the
   kernel is UI-free in what it needs, not yet in what it holds).
+
+### H5 — no worker mints the UI dispatcher
+
+- **Done.** `UiThread`, the captured dispatcher every service posts through; the audience
+  handler throwing on cancellation after its wait. `docs/PLAN.md` §57.5.
+- **Found by the build machine:** the H1 push failed there on an unrelated test — the between-
+  tests dispatcher mint from round 30, back through the audience port's long-polls. A rule
+  written in a review and kept by nobody is not a rule; it is one class now, and the grep for
+  `Dispatcher.UIThread` in the services is the audit (two files keep it on purpose: the fault
+  handler installed at start, and the thumbnail queue that already captures its own).
+- **Left:** the view models and the lazy page still post through the static from the UI thread,
+  where it is the right thing; a worker added there would have the same problem, and the same
+  answer.

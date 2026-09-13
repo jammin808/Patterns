@@ -28,7 +28,7 @@ public sealed class CommandRouter
         {
             // The arcade's status from a desk is the arcade nodes' — asked on their wires, off the UI thread.
             if (cmd.Kind is RemoteCommandKind.ArcadeStatus or RemoteCommandKind.PlayStatus && _services.Profile != NodeKind.Arcade
-                && await Dispatcher.UIThread.InvokeAsync(() => _services.Nodes.Arcades().Count) > 0)
+                && await UiThread.InvokeAsync(() => _services.Nodes.Arcades().Count) > 0)
             {
                 var head = cmd.Kind == RemoteCommandKind.ArcadeStatus ? "ARCADE " : "PLAY ";
                 return ControlProtocol.Ok(await _services.Nodes.AskArcadesAsync(head + (cmd.Text.Length == 0 ? "STATUS" : cmd.Text)));
@@ -39,10 +39,10 @@ public sealed class CommandRouter
                 if (!_services.State.Control.AssistantOnWire) return ControlProtocol.Err("the assistant is not on the wire — Remote page, 'Nodes may ask the assistant'");
                 // The desk's assistant for a node (a hub's queue, a caller's brief): one ask, the reply as JSON, the network off the UI thread.
                 var question = cmd.Text.StartsWith("moderate ", StringComparison.OrdinalIgnoreCase) ? PlayService.ModerationQuestion(cmd.Text[9..].Trim()) : cmd.Text;
-                var answer = await Dispatcher.UIThread.InvokeAsync(() => _services.Assistant.AskAsync(question));
+                var answer = await UiThread.InvokeAsync(() => _services.Assistant.AskAsync(question));
                 return ControlProtocol.Ok(JsonUtil.SerializeCompact(new { sent = answer.Sent, status = answer.Status, inScope = answer.Reply?.InScope ?? false, reply = answer.Reply?.Reply ?? "" }));
             }
-            return await Dispatcher.UIThread.InvokeAsync(() => Execute(cmd, origin ?? new ActionOrigin(OriginKind.Tcp)));
+            return await UiThread.InvokeAsync(() => Execute(cmd, origin ?? new ActionOrigin(OriginKind.Tcp)));
         }
         catch (Exception ex)
         {
@@ -466,7 +466,7 @@ public sealed class CommandRouter
     }
 
     /// <summary>Builds StateJson from any thread.</summary>
-    public Task<string> StateJsonAsync() => Dispatcher.UIThread.InvokeAsync(StateJson).GetTask();
+    public Task<string> StateJsonAsync() => UiThread.InvokeAsync(StateJson).GetTask();
 
     /// <summary>The caller's whole list with notes — GET /api/cues and CUE LIST, refetched when listRev changes.</summary>
     public string CueListJson()
@@ -520,7 +520,7 @@ public sealed class CommandRouter
         text = m.Text,
     };
 
-    public Task<string> CueListJsonAsync() => Dispatcher.UIThread.InvokeAsync(CueListJson).GetTask();
+    public Task<string> CueListJsonAsync() => UiThread.InvokeAsync(CueListJson).GetTask();
 
     /// <summary>The compact block every STATE push carries; the full list rides /api/cues.</summary>
     private object CueStackJson()

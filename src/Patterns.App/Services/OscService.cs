@@ -142,7 +142,7 @@ public sealed class OscService : IDisposable
             {
                 var addresses = Dns.GetHostAddresses(host);
                 var pick = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork) ?? addresses.FirstOrDefault();
-                Dispatcher.UIThread.Post(() =>
+                UiThread.Post(() =>
                 {
                     if (_udp is null || !ReferenceEquals(_udp, socket)) return; // stopped, or reconfigured, meanwhile
                     if (pick is null)
@@ -157,7 +157,7 @@ public sealed class OscService : IDisposable
             }
             catch (Exception ex)
             {
-                Dispatcher.UIThread.Post(() => { if (_udp is not null && ReferenceEquals(_udp, socket)) _status = $"OSC in on port {inPort} · feedback host '{host}' not found ({ex.Message})."; });
+                UiThread.Post(() => { if (_udp is not null && ReferenceEquals(_udp, socket)) _status = $"OSC in on port {inPort} · feedback host '{host}' not found ({ex.Message})."; });
             }
         });
         return $"looking up feedback host '{host}'";

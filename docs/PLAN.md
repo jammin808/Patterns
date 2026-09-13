@@ -5671,3 +5671,33 @@ desk type reachable from the kernel's properties, the kernel services' construct
 kernel and never the desk, the desk-facing services take their contracts and the desk provides
 each; and the desk built on the kernel filling every slot (its air, its twin's link, its strip,
 its brief).
+
+### 57.5 No worker mints the UI dispatcher
+
+**The gap.** The build machine failed the H1 push on a test that had nothing to do with the
+audience: `PlatformNotSupportedException` from `PushFrame`, in `DirectOutputAppTests`, once; the
+same exception took a switcher test once on the build here. Round 30 had met it and named it
+(§47.1): a worker that asks for `Dispatcher.UIThread` itself, between two headless tests — after
+the session has reset the dispatcher and before it has built the platform again — mints one with
+no run loop, and the *next* test's frame trips over it. Round 30 fixed the thumbnail worker and
+wrote "any service that posts from a worker should do the same"; five rounds of new workers did
+not: the twin's reader loops, the nodes' asks, the arcade's match end, the beacon's hearing, and
+now two hundred audience long-polls waking together on shutdown — `WaitForChangeAsync` returned
+false on the port's cancellation rather than throwing, and every handler went on to ask the UI
+thread for a state no phone would read.
+
+**The rule, kept by one class.** `UiThread` (App) holds the dispatcher taken once where the UI
+thread is known — the kernel's build, the first thing every role does there — and every worker's
+line to the UI thread goes through it (`Post`, `InvokeAsync` in the dispatcher's own overloads,
+`CheckAccess`). Sixteen services, no call site left on the static. A captured dispatcher that the
+session has reset takes the post and runs nothing, which is what a worker of a desk that is gone
+deserves; in the running app it is the one dispatcher there is. The audience handler throws on
+the port's cancellation after the wait, as the older long-polls always did.
+
+**Proof.** The suites, twice each on the build here and on the build machine; there is no unit
+for a race between two tests, and the earlier fix's note is the test's stand-in — a
+`PlatformNotSupportedException` from `PushFrame` in any headless test names a worker on the
+static dispatcher, and the grep is the audit.
+
+Counts at the end of the round: Core 1,088, App 560 — both suites green here and on the build
+machine.

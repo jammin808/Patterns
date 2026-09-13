@@ -348,7 +348,7 @@ public sealed class DeviceService : IDisposable
     {
         _inbound.Enqueue((id, line));
         if (Interlocked.Exchange(ref _draining, 1) != 0) return;
-        Dispatcher.UIThread.Post(Drain);
+        UiThread.Post(Drain);
     }
 
     private void Drain()
@@ -362,7 +362,7 @@ public sealed class DeviceService : IDisposable
             Interlocked.Exchange(ref _draining, 0);
             // A line that arrived while the flag was still set would otherwise wait for the next
             // one to wake the drain, so the queue is looked at once more after it is cleared.
-            if (!_inbound.IsEmpty && Interlocked.Exchange(ref _draining, 1) == 0) Dispatcher.UIThread.Post(Drain);
+            if (!_inbound.IsEmpty && Interlocked.Exchange(ref _draining, 1) == 0) UiThread.Post(Drain);
         }
     }
 

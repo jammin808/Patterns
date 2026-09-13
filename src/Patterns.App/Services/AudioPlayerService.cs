@@ -619,7 +619,7 @@ public sealed class AudioPlayerService : IDisposable
     private void OnPlaybackStopped()
     {
         // Natural end: every output stopped — the next track, or the list's end.
-        Dispatcher.UIThread.Post(() =>
+        UiThread.Post(() =>
         {
             var cfg = _services.State.AudioPlayer;
             if (!cfg.Playing || _players.Count == 0) return;

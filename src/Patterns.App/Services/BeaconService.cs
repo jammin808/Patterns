@@ -137,7 +137,7 @@ public sealed class BeaconService : IDisposable
             {
                 // Not found: the status below says so.
             }
-            Dispatcher.UIThread.Post(() =>
+            UiThread.Post(() =>
             {
                 if (_sender is null || !ReferenceEquals(_sender, sender)) return;
                 if (pick is null)

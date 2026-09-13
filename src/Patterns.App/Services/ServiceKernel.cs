@@ -77,6 +77,7 @@ public sealed class ServiceKernel : IDisposable
     {
         Profile = profile;
         Store = store;
+        UiThread.Capture();                     // this is the UI thread: every worker's line to it goes through the dispatcher taken here
         Log.Init(Store.BaseDirectory);
 
         // The start-up budget: from Main when this process went through it (the runtime before

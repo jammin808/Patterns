@@ -516,13 +516,13 @@ public sealed partial class ControlService : IDisposable
                         await Task.Delay(150, ct);
                     }
                 }
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Stage.StatusJson());
+                payload = await UiThread.InvokeAsync(() => _services.Stage.StatusJson());
             }
             else if (method == "POST" && path == "/api/stage/ack")
             {
                 contentType = "application/json";
                 var id = body.Trim().Trim('"');
-                var acked = await Dispatcher.UIThread.InvokeAsync(() => _services.Stage.Ack(id));
+                var acked = await UiThread.InvokeAsync(() => _services.Stage.Ack(id));
                 payload = acked ? "{\"ok\":true}" : "{\"ok\":false,\"msg\":\"no such message, or seen already\"}";
             }
             else if (method == "GET" && (path == "/pad" || path.StartsWith("/pad?")))
@@ -533,10 +533,10 @@ public sealed partial class ControlService : IDisposable
             {
                 contentType = "application/json";
                 // On the arcade node its own state; on a desk the arcade nodes' — asked on their wires.
-                var forward = _kernel.Profile != NodeKind.Arcade && await Dispatcher.UIThread.InvokeAsync(() => _kernel.Nodes.Arcades().Count) > 0;
+                var forward = _kernel.Profile != NodeKind.Arcade && await UiThread.InvokeAsync(() => _kernel.Nodes.Arcades().Count) > 0;
                 payload = forward
                     ? await _kernel.Nodes.AskArcadesAsync("ARCADE STATUS")
-                    : await Dispatcher.UIThread.InvokeAsync(() => _kernel.Arcade.StatusJson(QueryValue(path, "what")));
+                    : await UiThread.InvokeAsync(() => _kernel.Arcade.StatusJson(QueryValue(path, "what")));
             }
             else if (method == "POST" && path == "/api/arcade/key")
             {
@@ -544,7 +544,7 @@ public sealed partial class ControlService : IDisposable
                 contentType = "application/json";
                 var words = body.Trim();
                 var padOrigin = new ActionOrigin(OriginKind.Http, "pad", client.Client.RemoteEndPoint?.ToString() ?? "");
-                var result = await Dispatcher.UIThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.ArcadeKey, "", words), padOrigin));
+                var result = await UiThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.ArcadeKey, "", words), padOrigin));
                 payload = JsonUtil.SerializeCompact(new { ok = result.Ok, msg = result.Message });
             }
             else if (method == "GET" && (path == "/play" || path.StartsWith("/play?")))
@@ -559,7 +559,7 @@ public sealed partial class ControlService : IDisposable
             {
                 contentType = "application/json";
                 var from = client.Client.RemoteEndPoint is IPEndPoint joinEp ? joinEp.Address.ToString() : "?";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.JoinJson(body, from));
+                payload = await UiThread.InvokeAsync(() => _services.Play.JoinJson(body, from));
             }
             else if (method == "GET" && (path == "/api/play/state" || path.StartsWith("/api/play/state?")))
             {
@@ -569,52 +569,53 @@ public sealed partial class ControlService : IDisposable
                 long.TryParse(QueryValue(path, "since"), out var sinceSeq);
                 // The wait is a signal, not a poll: the room wakes every waiting phone at once when it moves; past the budget a phone is answered now.
                 if (long.TryParse(QueryValue(path, "rev"), out var seenRev)) await _services.Play.WaitForChangeAsync(seenRev, TimeSpan.FromSeconds(20), ct);
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.StateJson(token, sinceSeq));
+                ct.ThrowIfCancellationRequested();     // the port closed while the phone waited: nothing of the desk is asked for a phone that is gone
+                payload = await UiThread.InvokeAsync(() => _services.Play.StateJson(token, sinceSeq));
             }
             else if (method == "POST" && path == "/api/play/answer")
             {
                 contentType = "application/json";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.AnswerJson(body));
+                payload = await UiThread.InvokeAsync(() => _services.Play.AnswerJson(body));
             }
             else if (method == "POST" && path == "/api/play/say")
             {
                 contentType = "application/json";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.SayJson(body));
+                payload = await UiThread.InvokeAsync(() => _services.Play.SayJson(body));
             }
             else if (method == "POST" && path == "/api/play/vote")
             {
                 contentType = "application/json";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.VoteJson(body));
+                payload = await UiThread.InvokeAsync(() => _services.Play.VoteJson(body));
             }
             else if (method == "POST" && path == "/api/play/draughts")
             {
                 contentType = "application/json";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.DraughtsJson(body));
+                payload = await UiThread.InvokeAsync(() => _services.Play.DraughtsJson(body));
             }
             else if (method == "POST" && path == "/api/play/host")
             {
                 // The host's data behind the admin passcode: the room's phones share this server.
                 contentType = "application/json";
                 var passcode = body.Trim();
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
+                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     payload = "{\"ok\":false}";
                 }
                 else
                 {
-                    payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.HostJson());
+                    payload = await UiThread.InvokeAsync(() => _services.Play.HostJson());
                 }
             }
             else if (method == "GET" && (path == "/api/play" || path.StartsWith("/api/play?")))
             {
                 contentType = "application/json";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.StatusJson(QueryValue(path, "what")));
+                payload = await UiThread.InvokeAsync(() => _services.Play.StatusJson(QueryValue(path, "what")));
             }
             else if (method == "GET" && path == "/api/play/feed.csv")
             {
                 contentType = "text/csv; charset=utf-8";
-                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.FeedCsv());
+                payload = await UiThread.InvokeAsync(() => _services.Play.FeedCsv());
             }
             else if (method == "GET" && path == "/admin")
             {
@@ -629,7 +630,7 @@ public sealed partial class ControlService : IDisposable
                 var line = cut < 0 ? "" : body[(cut + 1)..].Trim();
                 var adminOrigin = new ActionOrigin(OriginKind.Http, "admin", client.Client.RemoteEndPoint?.ToString() ?? "");
                 string response;
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
+                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     response = ControlProtocol.Err(_kernel.Gate.Reason);
@@ -648,7 +649,7 @@ public sealed partial class ControlService : IDisposable
             else if (method == "GET" && path.StartsWith("/api/admin/log"))
             {
                 contentType = "text/plain; charset=utf-8";
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     payload = _kernel.Gate.Reason;
@@ -660,7 +661,7 @@ public sealed partial class ControlService : IDisposable
             }
             else if (method == "GET" && path.StartsWith("/support-bundle.zip"))
             {
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     contentType = "text/plain";
@@ -671,7 +672,7 @@ public sealed partial class ControlService : IDisposable
                     contentType = "application/zip";
                     payload = "";
                     // The words come off the UI thread with the show they describe; the zip is built off it.
-                    var info = await Dispatcher.UIThread.InvokeAsync(SupportBundleInfo);
+                    var info = await UiThread.InvokeAsync(SupportBundleInfo);
                     binary = await Task.Run(() => BuildSupportBundle(info));
                 }
             }

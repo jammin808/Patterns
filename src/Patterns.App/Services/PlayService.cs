@@ -228,7 +228,7 @@ public sealed class PlayService : IDisposable
             }
             else
             {
-                var desk = await Dispatcher.UIThread.InvokeAsync(() => _k.Nodes.Desks().FirstOrDefault());
+                var desk = await UiThread.InvokeAsync(() => _k.Nodes.Desks().FirstOrDefault());
                 if (desk is not null)
                 {
                     var line = await NodesService.AskNodeAsync(desk, "ASSISTANT MODERATE " + item.Text.Replace('\n', ' '));
@@ -244,7 +244,7 @@ public sealed class PlayService : IDisposable
                 }
             }
             var verdict = Verdict(reply);
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            await UiThread.InvokeAsync(() =>
             {
                 lock (_gate)
                 {

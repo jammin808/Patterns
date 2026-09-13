@@ -88,7 +88,7 @@ public sealed class ManagementService : IDisposable
     private async Task RunCheckInAsync()
     {
         // Everything read from the show is read on the UI thread, where the show lives.
-        var (url, token, site, health, state) = await Dispatcher.UIThread.InvokeAsync(() =>
+        var (url, token, site, health, state) = await UiThread.InvokeAsync(() =>
         {
             var cfg = _s.State.Install;
             return (cfg.ManagementUrl, cfg.ManagementToken,
@@ -128,12 +128,12 @@ public sealed class ManagementService : IDisposable
         }
         if (reply.ApplyUpdate)
         {
-            var result = await Dispatcher.UIThread.InvokeAsync(() => _s.Updates.Apply("", origin, byPolicy: true));
+            var result = await UiThread.InvokeAsync(() => _s.Updates.Apply("", origin, byPolicy: true));
             notes.Add($"apply: {result.Message}");
         }
         else if (reply.Restart)
         {
-            var result = await Dispatcher.UIThread.InvokeAsync(() => _s.Actions.Execute(new ShowAction(ShowActionKind.Restart, _s.State.Install.AdminPasscode), origin));
+            var result = await UiThread.InvokeAsync(() => _s.Actions.Execute(new ShowAction(ShowActionKind.Restart, _s.State.Install.AdminPasscode), origin));
             notes.Add($"restart: {result.Message}");
         }
         var summary = reply.Commands.Count == 0 ? "nothing to do" : $"{reply.Commands.Count} command{(reply.Commands.Count == 1 ? "" : "s")}";
@@ -166,7 +166,7 @@ public sealed class ManagementService : IDisposable
                 return $"update {update.Version} refused — its SHA-256 is not the one promised";
             }
             File.Move(tmp, target, overwrite: true);
-            await Dispatcher.UIThread.InvokeAsync(_s.Updates.Scan);
+            await UiThread.InvokeAsync(_s.Updates.Scan);
             Log.Info($"Update {update.Version} staged from the management server: {target}");
             return $"update {update.Version} staged";
         }

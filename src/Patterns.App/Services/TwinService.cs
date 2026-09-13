@@ -144,7 +144,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 while (!ct.IsCancellationRequested)
                 {
                     await Task.Delay(TwinWatch.BeatEvery, ct);
-                    await Dispatcher.UIThread.InvokeAsync(Tick);
+                    await UiThread.InvokeAsync(Tick);
                 }
             }
             catch (OperationCanceledException)
@@ -167,7 +167,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             await Task.Delay(200);
             try
             {
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                await UiThread.InvokeAsync(() =>
                 {
                     _flushScheduled = false;
                     Flush();
@@ -298,7 +298,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             {
                 _keyBeingMade = true;
                 var made = TwinKeys.New();
-                Dispatcher.UIThread.Post(() =>
+                UiThread.Post(() =>
                 {
                     _keyBeingMade = false;
                     var twin = _kernel.State.Twin;
@@ -857,7 +857,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             // The welcome and the whole show, read on the UI thread — the show is its own. A standby
             // that ran the show while this desk was away gets the welcome and nothing to mirror: its
             // show is the newer one, and this desk holds its outputs until TAKE BACK.
-            var (welcome, show, air) = await Dispatcher.UIThread.InvokeAsync(() =>
+            var (welcome, show, air) = await UiThread.InvokeAsync(() =>
             {
                 var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _kernel.State.Name);
                 if (standby.HoldsShow) Hold(standby.Name, null, linked: true);
@@ -882,7 +882,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             if (standby.IsCaller)
             {
                 // Off the accept thread: the desk's words and the live word are the UI thread's.
-                Dispatcher.UIThread.Post(() =>
+                UiThread.Post(() =>
                 {
                     _services.Notify($"Nodes: the caller {standby.Name} linked — its GO, STANDBY and HOLD run here as its own.");
                     SendLive();
@@ -895,11 +895,11 @@ public sealed class TwinService : IDisposable, ILinkReport
                 var msg = TwinMessage.Parse(line);
                 if (msg.Word == TwinWord.Beat) standby.LastBeatUtc = Clock();
                 else if (msg.Word == TwinWord.Bye) break;
-                else if (standby.IsCaller) await Dispatcher.UIThread.InvokeAsync(() => OnCallerLine(standby, msg));
+                else if (standby.IsCaller) await UiThread.InvokeAsync(() => OnCallerLine(standby, msg));
                 else if (standby.HoldsShow && msg.Word is TwinWord.Show or TwinWord.Air)
                 {
                     // What the standby has: kept for TAKE BACK, never applied on its own.
-                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    await UiThread.InvokeAsync(() =>
                     {
                         if (msg.Word == TwinWord.Show) _heldShowJson = msg.Payload;
                         else _heldAir = msg.Payload == "null" ? null : ReadAir(msg.Payload);
@@ -929,7 +929,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 standby.Dispose();
                 if (standby.HoldsShow)
                 {
-                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    await UiThread.InvokeAsync(() =>
                     {
                         if (!_holderLinked) return;
                         _holderLinked = false;
@@ -1205,7 +1205,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 await client.ConnectAsync(host, port, connectWait.Token);
                 var stream = client.GetStream();
                 await WriteLineAsync(stream, TwinMessage.Format(TwinWord.Join, join), cts.Token);
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                await UiThread.InvokeAsync(() =>
                 {
                     _client = client;
                     _stream = stream;
@@ -1220,7 +1220,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 var failures = Interlocked.Increment(ref _dialFailures);
                 if (!cts.IsCancellationRequested && (failures == 1 || failures % 30 == 0)) Log.Info($"Twin: could not reach the main at {host}:{port} — {ex.Message}");
                 client?.Dispose();
-                Dispatcher.UIThread.Post(() =>
+                UiThread.Post(() =>
                 {
                     _dialling = false;
                     if (ReferenceEquals(_client, client)) CloseLink();
@@ -1240,7 +1240,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 if (line is null) break;
                 var msg = TwinMessage.Parse(line);
                 if (msg.Word == TwinWord.Unknown) continue;
-                await Dispatcher.UIThread.InvokeAsync(() => OnLine(client, msg));
+                await UiThread.InvokeAsync(() => OnLine(client, msg));
                 if (msg.Word is TwinWord.Refused or TwinWord.Bye) break;
             }
         }
@@ -1248,7 +1248,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         {
             // The main went away: the silence is counted below.
         }
-        Dispatcher.UIThread.Post(() =>
+        UiThread.Post(() =>
         {
             if (!ReferenceEquals(_client, client)) return; // an older link; a newer one is up
             CloseLink();

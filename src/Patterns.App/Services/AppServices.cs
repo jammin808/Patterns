@@ -423,7 +423,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         DeckIn = new DeckEngine(Store.BaseDirectory);
         DeckIn.Converter.ConfiguredPath = () => State.Admin.LibreOfficePath;
         // A conversion lands on a background thread; the swap to the PDF happens with the inputs, on the UI thread.
-        DeckIn.Changed = () => Dispatcher.UIThread.Post(() =>
+        DeckIn.Changed = () => UiThread.Post(() =>
         {
             if (DeckIn.IsDisposed) return;
             ReconcileInputs();
@@ -575,7 +575,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
                 _recoverVm = null;
                 // The screens are known and the side effects applied: the show goes back on as
                 // soon as the desk has drawn, not after a timer's guess at how long that takes.
-                Dispatcher.UIThread.Post(() => TryRecover(vm), DispatcherPriority.Background);
+                UiThread.Post(() => TryRecover(vm), DispatcherPriority.Background);
             }
         };
     }
@@ -588,7 +588,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         if (_windowOpened)
         {
-            Dispatcher.UIThread.Post(() => TryRecover(vm), DispatcherPriority.Background);
+            UiThread.Post(() => TryRecover(vm), DispatcherPriority.Background);
             return;
         }
         _recoverVm = vm;
