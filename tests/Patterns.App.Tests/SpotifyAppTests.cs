@@ -55,6 +55,7 @@ public class SpotifyAppTests
             B = TestApp.Boot();
             B.Services.Spotify.Transport = Fake.Send;
             B.Services.Spotify.NowUtc = () => Now;
+            B.Services.CueStack.NowUtc = () => Now;    // the desk's own poll reads this clock too: a row GOne at Now is never settled by the wall's
             if (connected)
             {
                 B.Services.SpotifyCredentials.Write(new SpotifyCredentials("cid", "refresh", "ben", Now));

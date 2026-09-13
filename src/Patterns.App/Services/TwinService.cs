@@ -80,6 +80,12 @@ public sealed class TwinService : IDisposable, ILinkReport
     /// <summary>How a process is seen from outside; the tests answer without a process tree.</summary>
     public IProcessProbe Probe { get; set; } = new SystemProcessProbe();
 
+    /// <summary>The most bytes the first line of a link may run to — a JOIN or a WELCOME — before the peer has proved itself.</summary>
+    private const int JoinLineBytes = 64 * 1024;
+
+    /// <summary>The most bytes a line may run to once it has: a whole show as JSON, with room.</summary>
+    private const int LinkLineBytes = 64 * 1024 * 1024;
+
     public TwinService(ServiceKernel kernel, ITwinHost host)
     {
         _kernel = kernel;
@@ -832,7 +838,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         try
         {
             var stream = client.GetStream();
-            var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
+            var reader = new BoundedLineReader(stream, JoinLineBytes);     // a JOIN is a few hundred bytes; the ceiling rises once the key is right
             using var joinWait = CancellationTokenSource.CreateLinkedTokenSource(ct);
             joinWait.CancelAfter(TimeSpan.FromSeconds(5));
             var first = TwinMessage.Parse(await reader.ReadLineAsync(joinWait.Token));
@@ -871,6 +877,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 standby.Dispose();
                 return;
             }
+            reader.MaxLineBytes = LinkLineBytes;                            // proved: a show's worth of JSON may travel on one line
             lock (_gate)
             {
                 _standbys.Add(standby);
@@ -1231,13 +1238,14 @@ public sealed class TwinService : IDisposable, ILinkReport
 
     private async Task ReadLoop(TcpClient client, NetworkStream stream, CancellationToken ct)
     {
-        var reader = new StreamReader(stream, Encoding.UTF8, false, 65536, leaveOpen: true);
+        var reader = new BoundedLineReader(stream, JoinLineBytes);         // the main's first word is short; the show that follows is not
         try
         {
             while (!ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync(ct);
                 if (line is null) break;
+                reader.MaxLineBytes = LinkLineBytes;
                 var msg = TwinMessage.Parse(line);
                 if (msg.Word == TwinWord.Unknown) continue;
                 await UiThread.InvokeAsync(() => OnLine(client, msg));

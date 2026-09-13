@@ -686,3 +686,28 @@ frozen, the node kernel built. This review grows as each lands.*
 - **Left:** the view models and the lazy page still post through the static from the UI thread,
   where it is the right thing; a worker added there would have the same problem, and the same
   answer.
+
+### H6 — the audience port's parser bounded, timed and fuzzed
+
+- **Done.** `HttpLimits`, `HttpHead`, the byte-level bounded read with a clock on the head and
+  on the body, the tests. `docs/PLAN.md` §57.6.
+- **Found by the fuzz, before the fuzz:** the body read as characters against a length in
+  bytes — a join with an accent in the name hung until the browser gave up. Not a fuzz finding
+  strictly; the first thing writing the fuzz made obvious. The load test's two hundred phones
+  were all called "Phone N".
+- **Answered, not swallowed:** the parser used to cap a body silently at 4 KB and read on; now
+  a body past the limit is a 413 with the number, and a head past its bytes a 431. A phone's
+  page never sends either; a thing that does is not a phone.
+- **Then the lines:** the TCP wire, the twin link's first line and the nodes' replies were the
+  same shape of gap, and `BoundedLineReader` closes all three — the twin's ceiling rises from
+  a JOIN's size to a show's once the key is right, which is the right order for a fence.
+- **Left:** a slow client on the control port holds a slot for ten seconds rather than five;
+  the twin link's lines after the key are bounded at sixty-four megabytes, which is a bound
+  against a broken peer, not a hostile one — a hostile one with the key is the operator's
+  problem. The Spotify loopback (one localhost request in a five-second window) keeps its
+  reader.
+- **A flake taken while here:** the H5 suite on the build here failed one Spotify cue test once
+  — a cue GOne at the test's clock (a day in 2026) settled to Done by the desk's own one-second
+  poll reading the wall's clock, whenever that poll happened to land inside the test's
+  `RunJobs`. `CueStackService.NowUtc` is a clock now, as the Spotify service's already was, and
+  the rig sets both.

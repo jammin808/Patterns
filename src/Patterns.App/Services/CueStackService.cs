@@ -15,6 +15,9 @@ public sealed class CueStackService
     public const int HistoryRows = 50;
     private static readonly TimeSpan SettleWindow = TimeSpan.FromSeconds(12);
 
+    /// <summary>The clock every poll and GO without a time of its own reads — the desk's, or a test's, so a row stamped by a test's clock is never settled by the desk's own poll reading the wall's.</summary>
+    public Func<DateTime> NowUtc { get; set; } = () => DateTime.UtcNow;
+
     private readonly AppServices _s;
 
     public CueStackService(AppServices services)
@@ -122,7 +125,7 @@ public sealed class CueStackService
     public string FollowText(DateTime? nowUtc = null)
     {
         if (FollowCue is not { } cue || Runtime.FollowDueUtc is not { } due) return "";
-        var left = due - (nowUtc ?? DateTime.UtcNow);
+        var left = due - (nowUtc ?? NowUtc());
         if (left < TimeSpan.Zero) left = TimeSpan.Zero;
         return $"AUTO {cue.Number} in {(int)left.TotalMinutes}:{left.Seconds:00}";
     }
@@ -167,7 +170,7 @@ public sealed class CueStackService
     /// </summary>
     public ActionResult Go(ActionOrigin origin, string? seenStandbyId = null, DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? NowUtc();
         var rt = Runtime;
         var standby = StandbyCue;
         // The double-press lockout is for fingers; a follow is the cue's own doing and may land on the same tick.
@@ -314,7 +317,7 @@ public sealed class CueStackService
     /// </summary>
     public void Poll(DateTime? nowUtc = null)
     {
-        var now = nowUtc ?? DateTime.UtcNow;
+        var now = nowUtc ?? NowUtc();
         var rt = Runtime;
         if (rt.ConfirmPendingCueId is not null && rt.ConfirmDeadlineUtc is { } deadline && now > deadline)
         {

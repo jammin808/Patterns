@@ -126,7 +126,7 @@ public sealed class NodesService
             await client.ConnectAsync(card.Address!, card.WirePort, cts.Token);
             var stream = client.GetStream();
             await stream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"), cts.Token);
-            using var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
+            var reader = new BoundedLineReader(stream, 1 << 20);     // a status is a few hundred bytes; a node that sends a megabyte is not answering
             for (var i = 0; i < 6; i++)
             {
                 var reply = await reader.ReadLineAsync(cts.Token);

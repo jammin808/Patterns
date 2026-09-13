@@ -5699,5 +5699,56 @@ for a race between two tests, and the earlier fix's note is the test's stand-in 
 `PlatformNotSupportedException` from `PushFrame` in any headless test names a worker on the
 static dispatcher, and the grep is the audit.
 
-Counts at the end of the round: Core 1,088, App 560 — both suites green here and on the build
+### 57.6 The audience port's parser bounded, timed and fuzzed
+
+**The gap.** The critique's fifth ask was "load *and fuzz* audience play". The load test came
+with H1; the parser it ran against read a request the way the desk's own tablet page had always
+been read: `StreamReader.ReadLineAsync` for the request line and every header (no bound on a
+line, none on their number, no clock on a client that stops mid-head), and the body as
+*characters* up to the content length. That last one was a bug for anyone whose name has an
+accent: a body's content length is bytes, "Zoë" is one byte more than it is characters, and the
+handler waited for a character that was never coming — the phone's join hung until the browser
+gave up. On the audience port, where nobody vouches for the other end, the unbounded head was
+also the one thing a phone could do to the desk: a head that never ends holds a connection slot
+and buffers without limit.
+
+**The parser.** `HttpLimits` (Core): the head's bytes and lines, the body's bytes, the seconds
+for each — `Control` for the desk's port, `Audience` tighter (8 KB head, 48 lines, 16 KB body,
+five seconds each), settable on the service for the tests. `HttpHead` (Core, pure): the blank
+line found in bytes in either line ending, the request line checked (a method of capitals, a
+path from `/`), the headers counted, the content length read as a number or refused, and every
+fault answered with its status — 400 for a shape that is not a request, 413 for a body past the
+limit with the number in the words, 431 for too many headers or a head past its bytes. The
+service reads the head as bytes up to the blank line and never past the limit, within the head's
+seconds; the body as the bytes its content length says, within the body's seconds, and as many
+as came when the client stopped short; and only then routes. Nothing after the head's read
+changed.
+
+**Proof.** `HttpHeadTests` (Core): the blank line in either ending; a well-formed head in
+either; every shape that is not a request answered with a status; the limits tighter on the
+audience port. `AudienceFuzzTests` (App), on the port with the seconds set to one: a name with
+an accent and an emoji seated whole; garbage bytes, a request line of one word, a header with
+no colon, a content length that is not a number, a negative one and one of a billion — a status
+each; a request line the size of a novel and a head of a thousand headers refused at the limit;
+three phones that send half a head holding three seats for one second and none after; a body
+that stops short of its length answered with what came; JSON that is not, to every route, a
+plain answer each; three hundred random requests from a seeded die — methods, paths, headers,
+bodies — every one answered or the door closed; and after all of it a phone joins and is
+seated, the state read, and a POST to the state 404 as it should.
+
+**The lines, too.** The same review of every reader found `StreamReader.ReadLineAsync` on the
+control wire (Companion's TCP lines), on the twin link's first line (a JOIN or a WELCOME, read
+before the key is checked) and on the nodes' replies — a line that never ends held a slot and
+the desk's memory for as long as the peer liked. `BoundedLineReader` (App) reads lines off a
+stream as bytes with a ceiling and throws the moment a line runs past it; the wire answers
+`ERR … closed` once and closes (64 KB — a command is a few dozen bytes, a plan a few thousand),
+the twin holds the first line to 64 KB and raises the ceiling to a show's worth once the key is
+right (the standby does the same after the main's first word), a node's reply is a megabyte at
+most. Tested on a stream that hands out three bytes at a time (every line boundary mid-read, an
+accent and an emoji across reads, the last line without its newline, the ceiling exact, one past
+it, one that never ends, the ceiling raised); on the wire (a line of two hundred thousand bytes
+answered `ERR` and closed, STATUS on the next connection answered); and on the twin's door (a
+join of seventy thousand bytes closed on with no welcome, the main listening on).
+
+Counts at the end of the round: Core 1,092, App 563 — both suites green here and on the build
 machine.

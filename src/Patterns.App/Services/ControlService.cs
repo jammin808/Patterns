@@ -252,7 +252,7 @@ public sealed partial class ControlService : IDisposable
         try
         {
             using var stream = client.GetStream();
-            using var reader = new StreamReader(stream, Encoding.UTF8, false, 1024, leaveOpen: true);
+            var reader = new BoundedLineReader(stream, WireLineBytes);
 
             // Greet with current state so feedback initialises immediately.
             var hello = await _router.StateJsonAsync();
@@ -262,7 +262,17 @@ public sealed partial class ControlService : IDisposable
             var origin = new ActionOrigin(OriginKind.Tcp, "", endpoint);
             while (!ct.IsCancellationRequested)
             {
-                var line = await reader.ReadLineAsync(ct);
+                string? line;
+                try
+                {
+                    line = await reader.ReadLineAsync(ct);
+                }
+                catch (InvalidDataException ex)
+                {
+                    // A line that never ends is not a command: said once, and the door closed.
+                    await WriteLine(stream, ControlProtocol.Err($"{ex.Message} — the wire's lines are commands, and this one was not; closed"), ct);
+                    break;
+                }
                 if (line is null) break;
                 if (line.Trim().Length == 0) continue;
                 var cmd = ControlProtocol.Parse(line);
@@ -288,6 +298,9 @@ public sealed partial class ControlService : IDisposable
             client.Dispose();
         }
     }
+
+    /// <summary>The most bytes a line on the wire may run to: a command is a few dozen, a plan or a show file a few thousand.</summary>
+    public const int WireLineBytes = 64 * 1024;
 
     private static async Task WriteLine(NetworkStream stream, string line, CancellationToken ct)
     {
@@ -386,45 +399,108 @@ public sealed partial class ControlService : IDisposable
         }
     }
 
+    /// <summary>The control port's limits on a request: how much head and body it reads and how long it waits. Settable for the tests.</summary>
+    public HttpLimits ControlLimits { get; set; } = HttpLimits.Control;
+
+    /// <summary>The audience port's — tighter, because nobody vouches for what is on the other end.</summary>
+    public HttpLimits AudienceLimits { get; set; } = HttpLimits.Audience;
+
+    /// <summary>
+    /// A request's head, read as bytes up to the blank line and never past the limit, within the
+    /// head's seconds, with whatever of the body came along with it. Null when the client sent
+    /// nothing, or went quiet; a fault when it sent more head than a request has.
+    /// </summary>
+    private static async Task<(byte[] Head, byte[] Extra, string Fault)?> ReadHeadAsync(NetworkStream stream, HttpLimits limits, CancellationToken ct)
+    {
+        using var timed = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timed.CancelAfter(TimeSpan.FromSeconds(limits.HeadSeconds));
+        var chunk = new byte[2048];
+        using var head = new MemoryStream();
+        while (true)
+        {
+            int n;
+            try
+            {
+                n = await stream.ReadAsync(chunk, timed.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;                                    // quiet past the head's seconds, or the port closing: nothing to answer
+            }
+            if (n <= 0) return null;
+            head.Write(chunk, 0, n);
+            var bytes = head.ToArray();
+            var (at, length) = HttpHead.EndOfHead(bytes);
+            if (at >= 0) return (bytes[..at], bytes[(at + length)..], "");
+            if (bytes.Length > limits.MaxHeadBytes) return (Array.Empty<byte>(), Array.Empty<byte>(), $"a head past {limits.MaxHeadBytes} bytes");
+        }
+    }
+
+    /// <summary>The body: the bytes the head's read brought along, then the rest up to the content length, within the body's seconds; as many as came when the client stopped short.</summary>
+    private static async Task<string> ReadBodyAsync(NetworkStream stream, byte[] rest, int contentLength, HttpLimits limits, CancellationToken ct)
+    {
+        if (contentLength <= 0) return "";
+        var body = new byte[contentLength];
+        var read = Math.Min(rest.Length, contentLength);
+        Array.Copy(rest, body, read);
+        if (read < contentLength)
+        {
+            using var timed = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timed.CancelAfter(TimeSpan.FromSeconds(limits.BodySeconds));
+            try
+            {
+                while (read < contentLength)
+                {
+                    var n = await stream.ReadAsync(body.AsMemory(read, contentLength - read), timed.Token);
+                    if (n <= 0) break;
+                    read += n;
+                }
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // the client stopped short of its own content length: what came is the body
+            }
+        }
+        return Encoding.UTF8.GetString(body, 0, read);
+    }
+
+    /// <summary>A short answer with a status and a line of plain text — the faults, before any route.</summary>
+    private static async Task WriteShortAsync(NetworkStream stream, string status, string words, CancellationToken ct)
+    {
+        var bytes = Encoding.UTF8.GetBytes(words);
+        var head = $"HTTP/1.1 {status}\r\nContent-Type: text/plain\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n";
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
+        await stream.WriteAsync(bytes, ct);
+    }
+
     private async Task HandleHttp(TcpClient client, CancellationToken ct, bool audience)
     {
         try
         {
             using var stream = client.GetStream();
-            using var reader = new StreamReader(stream, Encoding.UTF8, false, 4096, leaveOpen: true);
+            var limits = audience ? AudienceLimits : ControlLimits;
 
-            var requestLine = await reader.ReadLineAsync(ct);
-            if (string.IsNullOrEmpty(requestLine)) return;
-            var parts = requestLine.Split(' ');
-            if (parts.Length < 2) return;
-            var method = parts[0];
-            var path = parts[1];
-
-            var contentLength = 0;
-            var clientHeader = false;
-            while (await reader.ReadLineAsync(ct) is { } header && header.Length > 0)
+            // The head as bytes, bounded and timed; the body as the bytes its content length says,
+            // never as characters — a name with an accent is more bytes than characters, and a
+            // reader counting characters waited for bytes that never came.
+            var read = await ReadHeadAsync(stream, limits, ct);
+            if (read is null) return;
+            var (headBytes, rest, headFault) = read.Value;
+            if (headFault.Length > 0)
             {
-                if (header.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase) &&
-                    int.TryParse(header[15..].Trim(), out var len))
-                {
-                    contentLength = Math.Min(len, 4096);
-                }
-                if (header.StartsWith("X-Patterns-Client:", StringComparison.OrdinalIgnoreCase)) clientHeader = true;
+                await WriteShortAsync(stream, "431 Request Header Fields Too Large", headFault, ct);
+                return;
             }
-
-            var body = "";
-            if (contentLength > 0)
+            var request = HttpHead.Parse(headBytes, limits);
+            if (!request.Ok)
             {
-                var buffer = new char[contentLength];
-                var read = 0;
-                while (read < contentLength)
-                {
-                    var n = await reader.ReadAsync(buffer.AsMemory(read, contentLength - read), ct);
-                    if (n <= 0) break;
-                    read += n;
-                }
-                body = new string(buffer, 0, read);
+                await WriteShortAsync(stream, request.Status, request.Fault, ct);
+                return;
             }
+            var method = request.Method;
+            var path = request.Path;
+            var clientHeader = request.ClientHeader;
+            var body = await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
 
             string status = "200 OK", contentType = "text/html; charset=utf-8";
             string payload;
