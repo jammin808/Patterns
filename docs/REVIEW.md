@@ -714,3 +714,20 @@ frozen, the node kernel built. This review grows as each lands.*
   the desk's live sampler read this machine over the numbers the test feeds in, between the
   poll and the page's render; `SystemMetricsService.Live` existed for exactly that and the
   test now switches it off.
+
+### Considered and left, this round
+
+- **`PreviewSource` on the program snapshot** (the critique's medium). The program snapshot
+  carries a window onto the live preview so a multiview's PVW tile can draw what the operator
+  is editing; the tile is the one reader. It is an intentional seam and it stays one: the clean
+  alternative is a sink that composes two snapshots — the program's and the preview's — which
+  is a render-pipeline change (every tile that can show the preview takes a second input), not
+  a hardening one. Noted for a render round; nothing in this round made it worse.
+- **`ShowState` as one broad document, `ShowActions` as partials** (the critique's low). Agreed,
+  and agreed low: the schema version already protects migration, the one action vocabulary is a
+  strength the wire, the cues, Companion and the assistant all lean on, and a split by domain is
+  a rewrite's worth of churn for no behaviour. The kernel (H4) is the cut that mattered — the
+  services' reach — and the next one, when a section grows past its page, is a sub-document
+  root under the same JSON.
+- **The Companion wire's slow client** holds a slot for ten seconds (the control port's
+  head seconds); the audience port's is five. The control port is the production network's.
