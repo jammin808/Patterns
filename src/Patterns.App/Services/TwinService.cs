@@ -18,9 +18,10 @@ namespace Patterns.App.Services;
 /// press TAKE OVER. Sockets on workers, the show on the UI thread, like every wire the desk has;
 /// the timing and the words are <see cref="TwinWatch"/>'s, tested without a socket.
 /// </summary>
-public sealed class TwinService : IDisposable
+public sealed class TwinService : IDisposable, ILinkReport
 {
-    private readonly AppServices _services;
+    private readonly ServiceKernel _kernel;
+    private readonly ITwinHost _services;
     private readonly object _gate = new();
     private bool _flushScheduled;
     private string _activeKey = "";
@@ -79,11 +80,12 @@ public sealed class TwinService : IDisposable
     /// <summary>How a process is seen from outside; the tests answer without a process tree.</summary>
     public IProcessProbe Probe { get; set; } = new SystemProcessProbe();
 
-    public TwinService(AppServices services)
+    public TwinService(ServiceKernel kernel, ITwinHost host)
     {
-        _services = services;
+        _kernel = kernel;
+        _services = host;
         _launcher = new TwinLauncher(() => Clock());
-        _services.Bus.SectionsPublished += OnBuilt;
+        _kernel.Bus.SectionsPublished += OnBuilt;
         _services.RecoveryMoved += OnRecoveryMoved;
         // Before a window opens: a standby on this machine that took the show while this desk was
         // away still has the screens — this desk's outputs wait on TAKE BACK.
@@ -94,13 +96,13 @@ public sealed class TwinService : IDisposable
     public TwinLauncher Launcher => _launcher;
 
     /// <summary>The port a caller node may link on: the twin's, while this desk listens; 0 when it does not.</summary>
-    public int LinkPort => _listener is null ? 0 : _services.State.Twin.Port;
+    public int LinkPort => _listener is null ? 0 : _kernel.State.Twin.Port;
 
     /// <summary>The plans callers brought, for the desk's Nodes page: APPLY lands one, DISMISS forgets it.</summary>
     public System.Collections.ObjectModel.ObservableCollection<PlanOffer> Plans { get; } = new();
 
     /// <summary>This caller node is on the link and in step: its verbs go to the desk.</summary>
-    public bool IsLinkedToDesk => _services.Profile == NodeKind.Caller && _phase == TwinPhase.InStep && _stream is not null;
+    public bool IsLinkedToDesk => _kernel.Profile == NodeKind.Caller && _phase == TwinPhase.InStep && _stream is not null;
 
     /// <summary>The desk's stack as it runs there, as a caller last heard it.</summary>
     public TwinLive? Live => _live;
@@ -183,7 +185,7 @@ public sealed class TwinService : IDisposable
     public string Instance { get; } = Guid.NewGuid().ToString("N")[..8];
 
     /// <summary>How this desk names itself on the link: the beacon's name, else the computer's.</summary>
-    public string Name => _services.Beacon.MachineName;
+    public string Name => _kernel.Beacon.MachineName;
 
     public TwinRole Role => _role;
 
@@ -225,7 +227,7 @@ public sealed class TwinService : IDisposable
                     {
                         beats = _standbys.Select(s => (s.IsCaller ? "caller " + s.Name : s.Name, s.LastBeatUtc)).ToList();
                     }
-                    return TwinWatch.DescribeMain(_services.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words);
+                    return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words);
                 case TwinRole.Off when _hosting:
                 {
                     List<string> callers;
@@ -233,19 +235,19 @@ public sealed class TwinService : IDisposable
                     {
                         callers = _standbys.Where(s => s.IsCaller).Select(s => s.Name).ToList();
                     }
-                    if (_services.Profile == NodeKind.Caller) return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now);
+                    if (_kernel.Profile == NodeKind.Caller) return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now);
                     var held = _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK. " : "Twin off — ";
                     return callers.Count == 0
-                        ? $"{held}callers may link on port {_services.State.Twin.Port}; none linked."
+                        ? $"{held}callers may link on port {_kernel.State.Twin.Port}; none linked."
                         : $"{held}caller{(callers.Count == 1 ? "" : "s")} {string.Join(", ", callers)} linked; GO, STANDBY and HOLD from there run here.";
                 }
-                case TwinRole.Off when _services.Profile == NodeKind.Caller:
+                case TwinRole.Off when _kernel.Profile == NodeKind.Caller:
                     return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now);
-                case TwinRole.Standby when _services.Profile == NodeKind.Caller:
+                case TwinRole.Standby when _kernel.Profile == NodeKind.Caller:
                     return TwinWatch.DescribeCaller(_phase, _mainName, _lastHeardUtc, _sectionsApplied, now, _note, linked: _stream is not null, airLabel: _live?.AirLabel ?? "");
                 case TwinRole.Standby:
                 {
-                    var cfg = _services.State.Twin;
+                    var cfg = _kernel.State.Twin;
                     var auto = cfg.AutoTakeOver && TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0) is null && !_note.StartsWith("not taken over", StringComparison.Ordinal);
                     return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, auto, now, _note, linked: _stream is not null);
                 }
@@ -274,8 +276,8 @@ public sealed class TwinService : IDisposable
             standbys = StandbyNames,
             holder = _holder,
             launcher = _launcher.Words,
-            takeOverCue = _services.State.Twin.TakeOverCue,
-            takeBackCue = _services.State.Twin.TakeBackCue,
+            takeOverCue = _kernel.State.Twin.TakeOverCue,
+            takeBackCue = _kernel.State.Twin.TakeBackCue,
             sectionsSent = _sectionsSent,
             sectionsMirrored = _sectionsApplied,
         });
@@ -286,8 +288,8 @@ public sealed class TwinService : IDisposable
     /// <summary>Opens or closes the listener or the link to match the settings (UI thread, on every publish).</summary>
     public void Reconcile()
     {
-        var cfg = _services.State.Twin;
-        var hostsCallers = _services.IsDesk && cfg.Role != TwinRole.Standby && cfg.AcceptCallers;
+        var cfg = _kernel.State.Twin;
+        var hostsCallers = _kernel.IsDesk && cfg.Role != TwinRole.Standby && cfg.AcceptCallers;
         if ((cfg.Role == TwinRole.Main || hostsCallers) && cfg.Key.Length == 0)
         {
             // A desk with no key would let any machine on the network join, hold its outputs closed
@@ -299,7 +301,7 @@ public sealed class TwinService : IDisposable
                 Dispatcher.UIThread.Post(() =>
                 {
                     _keyBeingMade = false;
-                    var twin = _services.State.Twin;
+                    var twin = _kernel.State.Twin;
                     if (twin.Key.Length == 0 && (twin.Role == TwinRole.Main || (twin.Role != TwinRole.Standby && twin.AcceptCallers))) _services.BulkEdit(() => twin.Key = made);
                 });
                 Log.Info("Twin: this desk had no key; one was made for it — the port opens once it is saved.");
@@ -309,18 +311,18 @@ public sealed class TwinService : IDisposable
             }
             return;
         }
-        var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}|{cfg.LocalStandby}|{hostsCallers}|{_services.Profile}";
+        var key = $"{cfg.Role}|{cfg.Port}|{cfg.MainHost}|{cfg.Key}|{cfg.LocalStandby}|{hostsCallers}|{_kernel.Profile}";
         if (key == _activeKey) return;
         _activeKey = key;
         Stop(sayGoodbye: true);
         _role = cfg.Role;
         _note = "";
         // The standby process this desk runs: wanted by a main that asked for one, ended otherwise — unless it has the show.
-        _launcher.Want(cfg.Role == TwinRole.Main && cfg.LocalStandby ? TwinHandover.StandbyHome(_services.Store.BaseDirectory) : null, cfg.Port, cfg.Key, _holder.Length > 0);
+        _launcher.Want(cfg.Role == TwinRole.Main && cfg.LocalStandby ? TwinHandover.StandbyHome(_kernel.Store.BaseDirectory) : null, cfg.Port, cfg.Key, _holder.Length > 0);
         _hosting = false;
         // A caller node: whatever its file's twin role says, it follows the desk LINK named — with
         // the desk's key — and never holds, takes or opens anything. No desk named: it plans alone.
-        if (_services.Profile == NodeKind.Caller)
+        if (_kernel.Profile == NodeKind.Caller)
         {
             if (cfg.MainHost.Length == 0) return;
             _role = TwinRole.Standby;                                                // a follower, on the standby's own paths
@@ -382,9 +384,9 @@ public sealed class TwinService : IDisposable
                 _phase = TwinPhase.Connecting;
                 _mainName = cfg.MainHost;
                 _services.OutputsHeldBy = "this desk is the standby twin";
-                if (_services.Outputs.IsLive)
+                if (_services.OutputsLive)
                 {
-                    _services.Outputs.CloseAll();
+                    _services.CloseOutputs();
                     _services.Notify("Twin: this desk is the standby now — its outputs are held closed until it takes over.");
                 }
                 StartBeating(_cts);
@@ -426,7 +428,7 @@ public sealed class TwinService : IDisposable
         {
             if (sayGoodbye) TryWriteToMain(TwinMessage.Format(TwinWord.Bye));
             CloseLink();
-            if (_services.IsDesk) _services.OutputsHeldBy = "";                       // a node's own hold is not the twin's to lift
+            if (_kernel.IsDesk) _services.OutputsHeldBy = "";                       // a node's own hold is not the twin's to lift
         }
         _hosting = false;
         _live = null;
@@ -478,7 +480,7 @@ public sealed class TwinService : IDisposable
                 }
                 case TwinRole.Standby:
                 {
-                    var cfg = _services.State.Twin;
+                    var cfg = _kernel.State.Twin;
                     if (_phase == TwinPhase.InStep && TwinWatch.IsSilent(_lastHeardUtc, now))
                     {
                         _phase = TwinPhase.MainSilent;
@@ -486,7 +488,7 @@ public sealed class TwinService : IDisposable
                     }
                     // By itself only where it is safe: a main on this machine (the hung one is ended first) or,
                     // from another machine, with the wall-switch cue that makes this desk the one the room shows.
-                    var blocked = _services.Profile == NodeKind.Caller ? null                        // a caller never takes anything over: the desk is silent, and the cues stay here
+                    var blocked = _kernel.Profile == NodeKind.Caller ? null                        // a caller never takes anything over: the desk is silent, and the cues stay here
                         : cfg.AutoTakeOver && _phase == TwinPhase.MainSilent ? TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0) : null;
                     if (blocked is not null && _note.Length == 0)
                     {
@@ -494,7 +496,7 @@ public sealed class TwinService : IDisposable
                         Log.Warn($"Twin: the main {_mainName} is silent; {blocked}.");
                         _services.Notify($"Twin: the main {_mainName} is silent — {blocked}.");
                     }
-                    if (_services.Profile != NodeKind.Caller && blocked is null && now >= _nextAutoTakeOverUtc && TwinWatch.ShouldTakeOver(cfg.AutoTakeOver, _phase, _lastHeardUtc, now))
+                    if (_kernel.Profile != NodeKind.Caller && blocked is null && now >= _nextAutoTakeOverUtc && TwinWatch.ShouldTakeOver(cfg.AutoTakeOver, _phase, _lastHeardUtc, now))
                     {
                         if (!TakeOver(ActionOrigin.Recovery).Ok) _nextAutoTakeOverUtc = now + TwinWatch.RetryAfterRefusal;
                         break;
@@ -523,8 +525,8 @@ public sealed class TwinService : IDisposable
     /// <summary>A publish named its sections (UI thread): they go on the next flush; unnamed means the whole show.</summary>
     private void OnBuilt(ShowState state, HashSet<string>? dirty)
     {
-        if (!ReferenceEquals(state, _services.State)) return;
-        if (_services.Profile == NodeKind.Caller)
+        if (!ReferenceEquals(state, _kernel.State)) return;
+        if (_kernel.Profile == NodeKind.Caller)
         {
             SendMyEdits(dirty);
             return;
@@ -549,7 +551,7 @@ public sealed class TwinService : IDisposable
             string json;
             try
             {
-                json = TwinSync.SectionJson(_services.State, section);
+                json = TwinSync.SectionJson(_kernel.State, section);
             }
             catch (Exception ex)
             {
@@ -577,18 +579,18 @@ public sealed class TwinService : IDisposable
     /// <summary>OFFER PLAN on a caller: the cues as they stand here, to the desk's Nodes page, for APPLY there.</summary>
     public ActionResult OfferPlan()
     {
-        if (_services.Profile != NodeKind.Caller) return ActionResult.Refused("Only a caller node offers a plan.");
+        if (_kernel.Profile != NodeKind.Caller) return ActionResult.Refused("Only a caller node offers a plan.");
         if (_stream is null) return ActionResult.Refused("Not linked to a desk.");
-        var json = CuePlan.Json(_services.State);
+        var json = CuePlan.Json(_kernel.State);
         var ok = TryWriteToMain(TwinMessage.Format(TwinWord.Plan, json));
         _planOffered = true;
-        return ok ? ActionResult.Done($"Plan offered to {_mainName}: {CuePlan.Count(_services.State.Stacks)} — APPLY is the desk's press.") : ActionResult.Failed("The plan could not be sent.");
+        return ok ? ActionResult.Done($"Plan offered to {_mainName}: {CuePlan.Count(_kernel.State.Stacks)} — APPLY is the desk's press.") : ActionResult.Failed("The plan could not be sent.");
     }
 
     /// <summary>The whole show landed here: the caller's sections as the desk sent them, so the publish that follows is not sent back as an edit.</summary>
     private void RememberLanded(string showJson)
     {
-        if (_services.Profile != NodeKind.Caller) return;
+        if (_kernel.Profile != NodeKind.Caller) return;
         try
         {
             var incoming = JsonUtil.Deserialize<ShowState>(showJson);
@@ -623,7 +625,7 @@ public sealed class TwinService : IDisposable
         {
             var stack = _services.CueStack;
             var rt = stack.Runtime;
-            var live = new TwinLive(rt.StandbyCueId ?? "", rt.LastCueId ?? "", rt.Armed, rt.Hold, rt.Executing, _services.AirLabel, _services.Outputs.IsLive, _services.State.Blackout, stack.Timing().OffsetText, Interlocked.Increment(ref _liveSeq));
+            var live = new TwinLive(rt.StandbyCueId ?? "", rt.LastCueId ?? "", rt.Armed, rt.Hold, rt.Executing, _services.AirLabel, _services.OutputsLive, _kernel.State.Blackout, stack.Timing().OffsetText, Interlocked.Increment(ref _liveSeq));
             line = TwinMessage.Format(TwinWord.Live, live.ToJson());
         }
         catch (Exception ex)
@@ -648,7 +650,7 @@ public sealed class TwinService : IDisposable
                 }
                 _echoSkip[msg.Name] = caller.Instance;                                // its own edit is not sent back to it
                 var ok = false;
-                _services.BulkEdit(() => ok = TwinSync.ApplySection(_services.State, msg.Name, msg.Payload));
+                _services.BulkEdit(() => ok = TwinSync.ApplySection(_kernel.State, msg.Name, msg.Payload));
                 if (!ok) Log.Warn($"Twin: the caller {caller.Name}'s {msg.Name} could not land.");
                 break;
             }
@@ -676,7 +678,7 @@ public sealed class TwinService : IDisposable
                     Log.Warn($"Twin: the caller {caller.Name} sent a plan this build could not read.");
                     return;
                 }
-                var diff = CuePlan.Diff(_services.State.Stacks, plan);
+                var diff = CuePlan.Diff(_kernel.State.Stacks, plan);
                 var existing = Plans.FirstOrDefault(p => p.Instance == caller.Instance);
                 if (existing is not null) Plans.Remove(existing);
                 Plans.Add(new PlanOffer(caller.Instance, caller.Name, msg.Payload, diff.Words, CuePlan.Count(plan), diff.IsEmpty));
@@ -697,10 +699,10 @@ public sealed class TwinService : IDisposable
         if (plan is null) return ActionResult.Refused("That plan could not be read.");
         _services.SaveNow();                                                         // the show as it was, kept as a version
         var stacks = 0;
-        _services.BulkEdit(() => stacks = CuePlan.Merge(_services.State, plan));
+        _services.BulkEdit(() => stacks = CuePlan.Merge(_kernel.State, plan));
         Plans.Remove(offer);
         var words = $"The caller {offer.Caller}'s plan landed: {offer.Count}, {stacks} stack{(stacks == 1 ? "" : "s")} — the show as it was is under EARLIER VERSIONS.";
-        _services.Journal.Record($"caller {offer.Caller}", "PlanApply", "", "Done", words);
+        _kernel.Journal.Record($"caller {offer.Caller}", "PlanApply", "", "Done", words);
         _services.Notify(words);
         return ActionResult.Done(words);
     }
@@ -713,7 +715,7 @@ public sealed class TwinService : IDisposable
         var live = TwinLive.Parse(json);
         if (live is null) return;
         _live = live;
-        var stack = CueStacks.Caller(_services.State);
+        var stack = CueStacks.Caller(_kernel.State);
         var rt = _services.Cues.For(stack);
         _services.DeskEdit(() =>
         {
@@ -749,7 +751,7 @@ public sealed class TwinService : IDisposable
         {
             if (_pendingWhole)
             {
-                lines.Add(TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(_services.State)));
+                lines.Add(TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(_kernel.State)));
                 origins.Add(null);
                 _sectionsSent += TwinSync.MirroredSections.Count;
             }
@@ -757,7 +759,7 @@ public sealed class TwinService : IDisposable
             {
                 foreach (var section in TwinSync.Mirrored(_pendingSections))
                 {
-                    lines.Add(TwinMessage.Format(TwinWord.Section, TwinSync.SectionJson(_services.State, section), section));
+                    lines.Add(TwinMessage.Format(TwinWord.Section, TwinSync.SectionJson(_kernel.State, section), section));
                     origins.Add(_echoSkip.TryGetValue(section, out var from) ? from : null);
                     _sectionsSent++;
                 }
@@ -835,14 +837,14 @@ public sealed class TwinService : IDisposable
             joinWait.CancelAfter(TimeSpan.FromSeconds(5));
             var first = TwinMessage.Parse(await reader.ReadLineAsync(joinWait.Token));
             var join = first.Word == TwinWord.Join ? TwinJoin.Parse(first.Payload) : null;
-            var key = _services.State.Twin.Key;
+            var key = _kernel.State.Twin.Key;
             string? refused = join is null ? "the first line was not a JOIN"
                 : join.Proto != TwinMessage.Proto ? $"another version of the link (yours {join.Proto}, mine {TwinMessage.Proto})"
                 : key.Length == 0 ? "this main has no key yet"
                 : !string.Equals(join.Key, key, StringComparison.Ordinal) ? "wrong key"
                 : join.Instance == Instance ? "that is this very desk"
                 : !join.IsCaller && _role != TwinRole.Main ? "this desk is not a twin main — it links callers only"
-                : join.IsCaller && !_services.IsDesk ? "a node does not host callers"
+                : join.IsCaller && !_kernel.IsDesk ? "a node does not host callers"
                 : null;
             if (refused is not null)
             {
@@ -857,9 +859,9 @@ public sealed class TwinService : IDisposable
             // show is the newer one, and this desk holds its outputs until TAKE BACK.
             var (welcome, show, air) = await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _services.State.Name);
+                var w = new TwinWelcome(Name, Environment.MachineName, Instance, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", _kernel.State.Name);
                 if (standby.HoldsShow) Hold(standby.Name, null, linked: true);
-                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.ShowJson(_services.State), AirLine());
+                return (w.ToJson(), standby.HoldsShow ? "" : TwinSync.ShowJson(_kernel.State), AirLine());
             });
             var welcomed = standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome))
                            && (standby.HoldsShow || (standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) && standby.TryWrite(air)))
@@ -964,7 +966,7 @@ public sealed class TwinService : IDisposable
         TwinTookOverMarker? marker;
         try
         {
-            marker = TwinHandover.Read(TwinHandover.StandbyHome(_services.Store.BaseDirectory));
+            marker = TwinHandover.Read(TwinHandover.StandbyHome(_kernel.Store.BaseDirectory));
         }
         catch (Exception)
         {
@@ -999,7 +1001,7 @@ public sealed class TwinService : IDisposable
         if (_heldShowJson is { } json)
         {
             var ok = false;
-            _services.BulkEdit(() => ok = TwinSync.ApplyShow(_services.State, json));
+            _services.BulkEdit(() => ok = TwinSync.ApplyShow(_kernel.State, json));
             notes.Add(ok ? "its show landed here" : "its show could not be read — this desk's show stands");
             if (!ok) Log.Warn("Twin: the standby's show could not be read after it died.");
         }
@@ -1011,7 +1013,7 @@ public sealed class TwinService : IDisposable
         _heldAir = null;
         try
         {
-            TwinHandover.Clear(TwinHandover.StandbyHome(_services.Store.BaseDirectory));
+            TwinHandover.Clear(TwinHandover.StandbyHome(_kernel.Store.BaseDirectory));
         }
         catch (Exception)
         {
@@ -1036,9 +1038,9 @@ public sealed class TwinService : IDisposable
         if (linked) _holderLinked = true;
         if (_role == TwinRole.Standby) return; // a standby's own hold has its own words
         _services.OutputsHeldBy = TwinHandover.HoldWords(_holder, _holderSinceUtc);
-        if (_services.Outputs.IsLive)
+        if (_services.OutputsLive)
         {
-            _services.Outputs.CloseAll();
+            _services.CloseOutputs();
             Log.Warn($"Twin: the standby {_holder} has the show — this desk's outputs are closed.");
         }
         if (fresh) _services.Notify($"Twin: the standby {_holder} has the show — this desk's outputs are held closed. TAKE BACK (Machine page, TWIN) puts the show back here.");
@@ -1081,7 +1083,7 @@ public sealed class TwinService : IDisposable
         if (_heldShowJson is { } json)
         {
             var ok = false;
-            _services.BulkEdit(() => ok = TwinSync.ApplyShow(_services.State, json));
+            _services.BulkEdit(() => ok = TwinSync.ApplyShow(_kernel.State, json));
             notes.Add(ok ? "its show landed here" : "its show could not be read — this desk's show stands");
             if (!ok) Log.Warn("Twin: the standby's show could not be read on TAKE BACK.");
         }
@@ -1095,7 +1097,7 @@ public sealed class TwinService : IDisposable
         _heldAir = null;
         try
         {
-            TwinHandover.Clear(TwinHandover.StandbyHome(_services.Store.BaseDirectory));
+            TwinHandover.Clear(TwinHandover.StandbyHome(_kernel.Store.BaseDirectory));
         }
         catch (Exception)
         {
@@ -1112,7 +1114,7 @@ public sealed class TwinService : IDisposable
         ScheduleFlush();
         // The take-back cue fires once the show is on here: the standby's picture stays up until the
         // switch has moved, and the HANDBACK word above is what closes its outputs — no fence needed.
-        var wall = FireWallSwitch(_services.State.Twin.TakeBackCue);
+        var wall = FireWallSwitch(_kernel.State.Twin.TakeBackCue);
         return ActionResult.Done(wall.Words.Length > 0 ? words + " " + wall.Words : words);
     }
 
@@ -1139,10 +1141,10 @@ public sealed class TwinService : IDisposable
     /// <summary>LINK on a caller node's Nodes page: follow that desk — its address and link port onto the twin settings; the link dials on the publish.</summary>
     public string LinkTo(NodeCard card)
     {
-        if (_services.Profile != NodeKind.Caller) return "Only a caller node links to a desk this way — the desk's own twin is set on the Machine page.";
+        if (_kernel.Profile != NodeKind.Caller) return "Only a caller node links to a desk this way — the desk's own twin is set on the Machine page.";
         if (card.Kind != NodeKind.Desk) return $"{card.KindLabel} {card.Name} is not a desk to follow.";
         if (card.Address is null || card.LinkPort <= 0) return $"{card.Name} is not linking callers (its Nodes page: Accept caller nodes).";
-        var cfg = _services.State.Twin;
+        var cfg = _kernel.State.Twin;
         _services.BulkEdit(() =>
         {
             cfg.MainHost = card.Address.ToString();
@@ -1154,8 +1156,8 @@ public sealed class TwinService : IDisposable
     /// <summary>UNLINK on a caller node: leave the desk and plan on with the show as it stands here.</summary>
     public string Unlink()
     {
-        if (_services.Profile != NodeKind.Caller) return "Not a caller node.";
-        _services.BulkEdit(() => _services.State.Twin.MainHost = "");
+        if (_kernel.Profile != NodeKind.Caller) return "Not a caller node.";
+        _services.BulkEdit(() => _kernel.State.Twin.MainHost = "");
         return "Unlinked — planning on with the show as it stands here.";
     }
 
@@ -1170,11 +1172,11 @@ public sealed class TwinService : IDisposable
     /// <summary>Where the main is: the address the operator gave, else the one whose beacon says it is a twin main.</summary>
     private (string Host, int Port)? MainAddress()
     {
-        var cfg = _services.State.Twin;
+        var cfg = _kernel.State.Twin;
         if (cfg.MainHost.Length > 0) return (cfg.MainHost, cfg.Port);
-        var beacon = _services.Beacon.LastBeacon;
-        var from = _services.Beacon.LastFrom;
-        if (beacon is { Twin: > 0 } && from is not null && beacon.Instance != _services.Beacon.Instance) return (from.Address.ToString(), beacon.Twin);
+        var beacon = _kernel.Beacon.LastBeacon;
+        var from = _kernel.Beacon.LastFrom;
+        if (beacon is { Twin: > 0 } && from is not null && beacon.Instance != _kernel.Beacon.Instance) return (from.Address.ToString(), beacon.Twin);
         return null;
     }
 
@@ -1191,7 +1193,7 @@ public sealed class TwinService : IDisposable
         var cts = _cts;
         if (cts is null) return;
         _dialling = true;
-        var join = new TwinJoin(Name, Environment.MachineName, Instance, _services.State.Twin.Key, TookOver: _phase == TwinPhase.TookOver, Kind: _services.Profile == NodeKind.Caller ? "caller" : "standby").ToJson();
+        var join = new TwinJoin(Name, Environment.MachineName, Instance, _kernel.State.Twin.Key, TookOver: _phase == TwinPhase.TookOver, Kind: _kernel.Profile == NodeKind.Caller ? "caller" : "standby").ToJson();
         _ = Task.Run(async () =>
         {
             TcpClient? client = null;
@@ -1273,11 +1275,11 @@ public sealed class TwinService : IDisposable
                 if (_phase == TwinPhase.TookOver) SendWhatIHave();
                 // A caller's own cues, planned before the desk's show lands over them: kept, and
                 // offered once the show is here — the desk decides.
-                if (_services.Profile == NodeKind.Caller && !_planOffered && _services.State.Stacks.Any(s => s.Cues.Count > 0)) _myPlanJson = CuePlan.Json(_services.State);
+                if (_kernel.Profile == NodeKind.Caller && !_planOffered && _kernel.State.Stacks.Any(s => s.Cues.Count > 0)) _myPlanJson = CuePlan.Json(_kernel.State);
                 break;
             case TwinWord.Live:
                 _lastHeardUtc = now;
-                if (_services.Profile == NodeKind.Caller) AdoptLive(msg.Payload);
+                if (_kernel.Profile == NodeKind.Caller) AdoptLive(msg.Payload);
                 break;
             case TwinWord.Refused:
                 _phase = TwinPhase.Refused;
@@ -1297,7 +1299,7 @@ public sealed class TwinService : IDisposable
             {
                 var ok = false;
                 RememberLanded(msg.Payload);
-                _services.BulkEdit(() => ok = TwinSync.ApplyShow(_services.State, msg.Payload));
+                _services.BulkEdit(() => ok = TwinSync.ApplyShow(_kernel.State, msg.Payload));
                 if (ok)
                 {
                     _sectionsApplied += TwinSync.MirroredSections.Count;
@@ -1307,7 +1309,7 @@ public sealed class TwinService : IDisposable
                     _services.NotifyShowMirrored(null);
                     if (first)
                     {
-                        if (_services.Profile == NodeKind.Caller)
+                        if (_kernel.Profile == NodeKind.Caller)
                         {
                             Log.Info($"Twin: this caller is in step with {_mainName}.");
                             _services.Notify($"Nodes: in step with {_mainName} — its show is here, and GO from here runs there.");
@@ -1336,7 +1338,7 @@ public sealed class TwinService : IDisposable
             {
                 var ok = false;
                 if (TwinSync.IsCallerSection(msg.Name)) _lastLanded[msg.Name] = msg.Payload;   // the desk's own: not an edit of this caller's to send back
-                _services.BulkEdit(() => ok = TwinSync.ApplySection(_services.State, msg.Name, msg.Payload));
+                _services.BulkEdit(() => ok = TwinSync.ApplySection(_kernel.State, msg.Name, msg.Payload));
                 if (ok)
                 {
                     _sectionsApplied++;
@@ -1379,7 +1381,7 @@ public sealed class TwinService : IDisposable
         string air;
         try
         {
-            show = TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(_services.State));
+            show = TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(_kernel.State));
             air = AirLine();
         }
         catch (Exception ex)
@@ -1400,10 +1402,10 @@ public sealed class TwinService : IDisposable
         if (_phase != TwinPhase.TookOver) return;
         var main = _mainName.Length > 0 ? _mainName : "the main";
         _services.OutputsHeldBy = "this desk is the standby twin";
-        if (_services.Outputs.IsLive) _services.Outputs.CloseAll();
+        if (_services.OutputsLive) _services.CloseOutputs();
         try
         {
-            TwinHandover.Clear(_services.Store.BaseDirectory);
+            TwinHandover.Clear(_kernel.Store.BaseDirectory);
         }
         catch (Exception)
         {
@@ -1467,7 +1469,7 @@ public sealed class TwinService : IDisposable
     /// </summary>
     public ActionResult TakeOver(ActionOrigin origin, bool force = false)
     {
-        if (_services.Profile == NodeKind.Caller) return ActionResult.Refused("A caller node never takes the show over — it has no outputs to take it onto.");
+        if (_kernel.Profile == NodeKind.Caller) return ActionResult.Refused("A caller node never takes the show over — it has no outputs to take it onto.");
         if (_role != TwinRole.Standby) return ActionResult.Refused("This desk is not a standby twin — Machine page, TWIN.");
         if (_phase == TwinPhase.TookOver) return ActionResult.Done("This desk already took the show over.");
         if (_welcome is null) return ActionResult.Refused("Nothing to take over: no main has been joined yet.");
@@ -1484,7 +1486,7 @@ public sealed class TwinService : IDisposable
         var marked = false;
         try
         {
-            TwinHandover.Write(_services.Store.BaseDirectory, new TwinTookOverMarker(Name, Environment.MachineName, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", now, main));
+            TwinHandover.Write(_kernel.Store.BaseDirectory, new TwinTookOverMarker(Name, Environment.MachineName, Environment.ProcessId, ProcessStartTicks(), Environment.ProcessPath ?? "", now, main));
             marked = true;
         }
         catch (Exception ex)
@@ -1532,10 +1534,10 @@ public sealed class TwinService : IDisposable
         // takeover: the room could not be told which desk to show, so no desk is changed; the
         // next try comes after the usual pause. A press goes ahead and carries the failure in its
         // words — the operator can switch the wall by hand.
-        var wall = FireWallSwitch(_services.State.Twin.TakeOverCue);
+        var wall = FireWallSwitch(_kernel.State.Twin.TakeOverCue);
         if (!wall.Ok && !localMain && origin.Kind == OriginKind.Recovery && !force)
         {
-            return RefuseTakeOver($"the wall switch cue '{_services.State.Twin.TakeOverCue}' could not fire ({wall.Reason}), so the room could not be told to show this desk", marked, origin);
+            return RefuseTakeOver($"the wall switch cue '{_kernel.State.Twin.TakeOverCue}' could not fire ({wall.Reason}), so the room could not be told to show this desk", marked, origin);
         }
 
         _cts?.Cancel();
@@ -1556,7 +1558,7 @@ public sealed class TwinService : IDisposable
     /// <summary>A takeover a fence stopped: the marker taken back (one that says this desk has the show would be a lie), the reason on the line, said once, and refused.</summary>
     private ActionResult RefuseTakeOver(string fence, bool marked, ActionOrigin origin)
     {
-        if (marked) TwinHandover.Clear(_services.Store.BaseDirectory);
+        if (marked) TwinHandover.Clear(_kernel.Store.BaseDirectory);
         var refusal = $"Not taken over: {fence}. The outputs stay held closed — TAKE OVER ANYWAY (Machine page, TWIN) or TWIN TAKEOVER FORCE overrides, by hand only.";
         var first = _note != "not taken over: " + fence;
         _note = "not taken over: " + fence;
@@ -1571,10 +1573,10 @@ public sealed class TwinService : IDisposable
         if (_role != TwinRole.Standby) return ActionResult.Refused("This desk is not a standby twin — Machine page, TWIN.");
         if (_phase != TwinPhase.TookOver) return ActionResult.Done("This desk is standing by already.");
         _services.OutputsHeldBy = "this desk is the standby twin";
-        if (_services.Outputs.IsLive) _services.Outputs.CloseAll();
+        if (_services.OutputsLive) _services.CloseOutputs();
         try
         {
-            TwinHandover.Clear(_services.Store.BaseDirectory);
+            TwinHandover.Clear(_kernel.Store.BaseDirectory);
         }
         catch (Exception)
         {
@@ -1604,7 +1606,7 @@ public sealed class TwinService : IDisposable
         Stop(sayGoodbye: true);
         // A clean exit ends the standby process it started — unless that process has the show, or this is a restart and the next desk adopts it.
         _launcher.End(standbyHoldsShow: _holder.Length > 0 || _holderMarked || KeepStandbyOnExit);
-        _services.Bus.SectionsPublished -= OnBuilt;
+        _kernel.Bus.SectionsPublished -= OnBuilt;
         _services.RecoveryMoved -= OnRecoveryMoved;
     }
 

@@ -18,7 +18,8 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed partial class ControlService : IDisposable
 {
-    private readonly AppServices _services;
+    private readonly ServiceKernel _kernel;
+    private readonly IWireHost _services;
     private readonly CommandRouter _router;
     private readonly object _gate = new();
     private readonly List<TcpClient> _tcpClients = new();
@@ -33,10 +34,11 @@ public sealed partial class ControlService : IDisposable
     private readonly DispatcherTimer _pushTimer;
     private bool _pushPending;
 
-    public ControlService(AppServices services)
+    public ControlService(ServiceKernel kernel, IWireHost host)
     {
-        _services = services;
-        _router = new CommandRouter(services);
+        _kernel = kernel;
+        _services = host;
+        _router = host.NewRouter();
 
         // State pushes to Companion are throttled to a trailing 200 ms.
         _pushTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
@@ -129,7 +131,7 @@ public sealed partial class ControlService : IDisposable
     /// </summary>
     public IReadOnlyList<string> RemoteUrls()
     {
-        var port = _services.State.Control.HttpPort;
+        var port = _kernel.State.Control.HttpPort;
         var now = DateTime.UtcNow;
         if (_urls is not null && _urlsPort == port && now - _urlsAtUtc < RemoteUrlsKeptFor) return _urls;
         var urls = new List<string> { $"http://localhost:{port}/" };
@@ -160,7 +162,7 @@ public sealed partial class ControlService : IDisposable
     /// <summary>The audience listener's addresses — the same machine, the audience port (the bound address alone when one is set); empty while it is off.</summary>
     public IReadOnlyList<string> AudienceUrls()
     {
-        var cfg = _services.State.Control;
+        var cfg = _kernel.State.Control;
         if (!cfg.Enabled || !cfg.AudienceEnabled) return Array.Empty<string>();
         if (IPAddress.TryParse(cfg.AudienceBind, out var bound)) return new[] { $"http://{bound}:{cfg.AudiencePort}/" };
         return RemoteUrls().Select(u => u.Replace($":{cfg.HttpPort}/", $":{cfg.AudiencePort}/")).ToList();
@@ -170,7 +172,7 @@ public sealed partial class ControlService : IDisposable
     public void Reconcile()
     {
         HookStack();
-        var cfg = _services.State.Control;
+        var cfg = _kernel.State.Control;
         var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}|{(cfg.AudienceEnabled ? $"{cfg.AudiencePort}@{cfg.AudienceBind}" : "")}" : "";
         if (key == _activeKey) return;
         _activeKey = key;
@@ -531,10 +533,10 @@ public sealed partial class ControlService : IDisposable
             {
                 contentType = "application/json";
                 // On the arcade node its own state; on a desk the arcade nodes' — asked on their wires.
-                var forward = _services.Profile != NodeKind.Arcade && await Dispatcher.UIThread.InvokeAsync(() => _services.Nodes.Arcades().Count) > 0;
+                var forward = _kernel.Profile != NodeKind.Arcade && await Dispatcher.UIThread.InvokeAsync(() => _kernel.Nodes.Arcades().Count) > 0;
                 payload = forward
-                    ? await _services.Nodes.AskArcadesAsync("ARCADE STATUS")
-                    : await Dispatcher.UIThread.InvokeAsync(() => _services.Arcade.StatusJson(QueryValue(path, "what")));
+                    ? await _kernel.Nodes.AskArcadesAsync("ARCADE STATUS")
+                    : await Dispatcher.UIThread.InvokeAsync(() => _kernel.Arcade.StatusJson(QueryValue(path, "what")));
             }
             else if (method == "POST" && path == "/api/arcade/key")
             {
@@ -594,7 +596,7 @@ public sealed partial class ControlService : IDisposable
                 // The host's data behind the admin passcode: the room's phones share this server.
                 contentType = "application/json";
                 var passcode = body.Trim();
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     payload = "{\"ok\":false}";
@@ -627,10 +629,10 @@ public sealed partial class ControlService : IDisposable
                 var line = cut < 0 ? "" : body[(cut + 1)..].Trim();
                 var adminOrigin = new ActionOrigin(OriginKind.Http, "admin", client.Client.RemoteEndPoint?.ToString() ?? "");
                 string response;
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
-                    response = ControlProtocol.Err(_services.Gate.Reason);
+                    response = ControlProtocol.Err(_kernel.Gate.Reason);
                 }
                 else if (line.Length == 0)
                 {
@@ -646,10 +648,10 @@ public sealed partial class ControlService : IDisposable
             else if (method == "GET" && path.StartsWith("/api/admin/log"))
             {
                 contentType = "text/plain; charset=utf-8";
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
-                    payload = _services.Gate.Reason;
+                    payload = _kernel.Gate.Reason;
                 }
                 else
                 {
@@ -658,11 +660,11 @@ public sealed partial class ControlService : IDisposable
             }
             else if (method == "GET" && path.StartsWith("/support-bundle.zip"))
             {
-                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     contentType = "text/plain";
-                    payload = _services.Gate.Reason;
+                    payload = _kernel.Gate.Reason;
                 }
                 else
                 {
@@ -729,7 +731,7 @@ public sealed partial class ControlService : IDisposable
     {
         try
         {
-            var path = Path.Combine(_services.Store.BaseDirectory, "patterns.log");
+            var path = Path.Combine(_kernel.Store.BaseDirectory, "patterns.log");
             if (!File.Exists(path)) return "(no log yet)";
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(stream);
@@ -746,7 +748,7 @@ public sealed partial class ControlService : IDisposable
     private string SupportBundleInfo()
         => string.Join(Environment.NewLine,
             $"Patterns support bundle — {DateTime.Now:yyyy-MM-dd HH:mm} (from the ADMIN page)",
-            $"Site: {(_services.State.Install.SiteName.Length > 0 ? _services.State.Install.SiteName : "(unnamed)")} · machine {Environment.MachineName}",
+            $"Site: {(_kernel.State.Install.SiteName.Length > 0 ? _kernel.State.Install.SiteName : "(unnamed)")} · machine {Environment.MachineName}",
             $"Build: {UpdateService.RunningVersion} · .NET {Environment.Version} · {Environment.OSVersion}",
             $"Health: {HealthMonitor.Summary(DateTime.UtcNow)}",
             $"Install: {_services.Install.Status}",
@@ -756,7 +758,7 @@ public sealed partial class ControlService : IDisposable
     /// <summary>The support bundle as bytes for the ADMIN page's download: written beside the settings, then read back.</summary>
     private byte[] BuildSupportBundle(string info)
     {
-        var dir = _services.Store.BaseDirectory;
+        var dir = _kernel.Store.BaseDirectory;
         var path = Path.Combine(dir, SupportBundle.FileNameFor(DateTime.Now));
         SupportBundle.Build(dir, path, info);
         Log.Info($"Support bundle written for the ADMIN page: {path}");
@@ -781,7 +783,7 @@ public sealed partial class ControlService : IDisposable
     {
         lock (_mvGate)
         {
-            var snap = _services.Bus.Current;
+            var snap = _kernel.Bus.Current;
             const int w = 640;
             const int h = 360;
             var info = new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -850,7 +852,7 @@ public sealed partial class ControlService : IDisposable
     {
         lock (_mvGate)
         {
-            var snap = _services.Bus.Current;
+            var snap = _kernel.Bus.Current;
             // The page frame stays 16:9 — the tiles inside it are what carry their targets' shapes.
             var w = width;
             var h = w * 9 / 16;

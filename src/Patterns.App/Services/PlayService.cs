@@ -17,7 +17,8 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class PlayService : IDisposable
 {
-    private readonly AppServices _s;
+    private readonly ServiceKernel _k;
+    private readonly IPlayHost _s;
     private readonly object _gate = new();
     private readonly Random _rng = new();
     private readonly string _storyPath;
@@ -29,11 +30,12 @@ public sealed class PlayService : IDisposable
     private int _longPolls;
     private int _longPollsPeak;
 
-    public PlayService(AppServices s)
+    public PlayService(ServiceKernel kernel, IPlayHost host)
     {
-        _s = s;
-        _storyPath = Path.Combine(s.Store.BaseDirectory, "play-story.json");
-        Room = new PlayRoom(PlayRoom.NewCode(_rng), s.State.Name, DateTime.UtcNow);
+        _k = kernel;
+        _s = host;
+        _storyPath = Path.Combine(kernel.Store.BaseDirectory, "play-story.json");
+        Room = new PlayRoom(PlayRoom.NewCode(_rng), kernel.State.Name, DateTime.UtcNow);
         LoadStory();
     }
 
@@ -118,7 +120,7 @@ public sealed class PlayService : IDisposable
     {
         get
         {
-            var urls = _s.Control.AudienceUrls();
+            var urls = _s.AudienceUrls();
             return urls.FirstOrDefault(u => !u.Contains("localhost", StringComparison.OrdinalIgnoreCase)) ?? urls.FirstOrDefault() ?? "";
         }
     }
@@ -139,16 +141,16 @@ public sealed class PlayService : IDisposable
         var value = (a.Value ?? "").Trim();
         if (a.Kind == ShowActionKind.AudienceOff)
         {
-            _s.BulkEdit(() => _s.State.Control.AudienceEnabled = false);
+            _s.BulkEdit(() => _k.State.Control.AudienceEnabled = false);
             return ActionResult.Done("The audience port is closed — the phones find nothing.");
         }
         _s.BulkEdit(() =>
         {
-            if (int.TryParse(value, out var port)) _s.State.Control.AudiencePort = port;
-            _s.State.Control.AudienceEnabled = true;
-            if (!_s.State.Control.Enabled) _s.State.Control.Enabled = true;
+            if (int.TryParse(value, out var port)) _k.State.Control.AudiencePort = port;
+            _k.State.Control.AudienceEnabled = true;
+            if (!_k.State.Control.Enabled) _k.State.Control.Enabled = true;
         });
-        return ActionResult.Done($"The audience port is open on {_s.State.Control.AudiencePort} — the play pages and nothing else; put that port, not the control port, on the audience network.");
+        return ActionResult.Done($"The audience port is open on {_k.State.Control.AudiencePort} — the play pages and nothing else; put that port, not the control port, on the audience network.");
     }
 
     private void LoadStory()
@@ -178,7 +180,7 @@ public sealed class PlayService : IDisposable
         WallMessage = message;
         _wallRev++;
         Signal();
-        if (mode != PlayBoardMode.Off) _s.Arcade.Start();
+        if (mode != PlayBoardMode.Off) _k.Arcade.Start();
     }
 
     /// <summary>The wall's picture, on the arcade's lane: true and drawn while the wall is on.</summary>
@@ -199,7 +201,7 @@ public sealed class PlayService : IDisposable
         ModerationItem? next = null;
         lock (_gate)
         {
-            Room.MaxPlayers = _s.State.Control.AudienceMaxPlayers;
+            Room.MaxPlayers = _k.State.Control.AudienceMaxPlayers;
             Room.IdleForget = TimeSpan.FromMinutes(Math.Max(1, Budget.IdleForgetMinutes));
             changed = Room.Tick();
             if (changed) Signal();
@@ -208,7 +210,7 @@ public sealed class PlayService : IDisposable
                 next = Room.Waiting().FirstOrDefault(m => !m.AskedAssistant);
             }
         }
-        if (changed) _s.Notify("Audience: the quiz closed — time was up.");
+        if (changed) _k.Notify("Audience: the quiz closed — time was up.");
         if (next is not null) _ = AskAssistantAsync(next);
     }
 
@@ -219,14 +221,14 @@ public sealed class PlayService : IDisposable
         try
         {
             string? reply = null;
-            if (_s.IsDesk)
+            if (_k.IsDesk)
             {
-                var answer = await _s.Assistant.AskAsync(ModerationQuestion(item.Text));
+                var answer = await _k.Assistant.AskAsync(ModerationQuestion(item.Text));
                 reply = answer.Sent ? answer.Reply?.Reply : null;
             }
             else
             {
-                var desk = await Dispatcher.UIThread.InvokeAsync(() => _s.Nodes.Desks().FirstOrDefault());
+                var desk = await Dispatcher.UIThread.InvokeAsync(() => _k.Nodes.Desks().FirstOrDefault());
                 if (desk is not null)
                 {
                     var line = await NodesService.AskNodeAsync(desk, "ASSISTANT MODERATE " + item.Text.Replace('\n', ' '));
@@ -411,7 +413,7 @@ public sealed class PlayService : IDisposable
                 {
                     try
                     {
-                        var path = Path.Combine(_s.Store.BaseDirectory, $"play-export-{DateTime.Now:yyyyMMdd-HHmmss}.json");
+                        var path = Path.Combine(_k.Store.BaseDirectory, $"play-export-{DateTime.Now:yyyyMMdd-HHmmss}.json");
                         File.WriteAllText(path, Room.ExportJson());
                         return ActionResult.Done($"Exported to {path}.");
                     }
@@ -477,7 +479,7 @@ public sealed class PlayService : IDisposable
             {
                 return JsonUtil.SerializeCompact(new { ok = false, msg = $"That is not this room — the room here is {Room.Code}.", room = Room.Code });
             }
-            Room.MaxPlayers = _s.State.Control.AudienceMaxPlayers;
+            Room.MaxPlayers = _k.State.Control.AudienceMaxPlayers;
             var (p, fresh, reason) = Room.TryJoin(Str(e, "nick"), Str(e, "token"), Str(e, "group"));
             if (p is null) return JsonUtil.SerializeCompact(new { ok = false, msg = $"No seat — {reason}.", room = Room.Code });
             Signal();
@@ -630,18 +632,18 @@ public sealed class PlayService : IDisposable
         {
             if (w.StartsWith("audience", StringComparison.OrdinalIgnoreCase))
             {
-                var cfg = _s.State.Control;
+                var cfg = _k.State.Control;
                 return JsonUtil.SerializeCompact(new
                 {
                     enabled = cfg.Enabled && cfg.AudienceEnabled,
-                    listening = _s.Control.AudienceListening,
+                    listening = _s.AudienceListening,
                     port = cfg.AudiencePort,
                     bind = cfg.AudienceBind,
-                    urls = _s.Control.AudienceUrls(),
+                    urls = _s.AudienceUrls(),
                     joinUrl = JoinUrl,
                     players = Room.PlayerCount,
                     maxPlayers = cfg.AudienceMaxPlayers,
-                    connections = _s.Control.AudienceConnections,
+                    connections = _s.AudienceConnections,
                     longPolls = LongPolls,
                     longPollsPeak = LongPollsPeak,
                     budget = new { Budget.JoinsPerAddressPerMinute, Budget.AnswersPerTokenPerMinute, Budget.SaysPerTokenPerMinute, Budget.MovesPerTokenPerMinute, Budget.MaxLongPolls, Budget.MaxConnectionsPerAddress, Budget.MaxConnections, Budget.IdleForgetMinutes },
@@ -671,7 +673,7 @@ public sealed class PlayService : IDisposable
                 room = Room.Code,
                 show = Room.Show,
                 joinUrl = JoinUrl,
-                audience = _s.State.Control.AudienceEnabled ? $"port {_s.State.Control.AudiencePort}" : "off",
+                audience = _k.State.Control.AudienceEnabled ? $"port {_k.State.Control.AudiencePort}" : "off",
                 players = Room.PlayerCount,
                 here = Room.ActiveCount(DateTime.UtcNow),
                 wall = Wall.ToString().ToLowerInvariant(),

@@ -653,3 +653,23 @@ frozen, the node kernel built. This review grows as each lands.*
 - **A cost, measured at nothing:** the guard is one boolean read per write on a list that is
   never frozen; the live show's lists pay it on every edit and no publish, thumbnail or sink
   writes a list at all.
+
+### H4 — the kernel, and the capabilities the desk provides
+
+- **Done.** `ServiceKernel` as the composition root's first stage; the assistant client, the
+  beacon, the nodes registry and the arcade written against it; the slots (`Air`, `Link`,
+  `Notifier`, `Facts`) with null objects; the contracts (`ITwinHost`, `IWireHost`,
+  `IStageHost`, `IPlayHost`) the desk-facing services take instead of the desk; the tests.
+  `docs/PLAN.md` §57.4.
+- **Found on the way:** the assistant client was reading eleven desk services to write its
+  brief (`Gather`). That is the desk's knowledge, not the client's — it moved to the desk
+  (`GatherFacts`) and the client reads it through the kernel's slot; a node's assistant, when
+  one asks, now says truthfully that nothing is on air.
+- **Honest about the size of the step:** this is the type boundary and the composition order,
+  not a node built from the kernel alone. Every role still constructs the desk; what changed is
+  that a kernel service *cannot* reach past the kernel, and a desk-facing service's reach is a
+  contract the compiler reads. The critique's "growing god" is now a façade over a kernel and a
+  set of contracts, and the next kernel-only service costs one constructor.
+- **Left:** `CommandRouter` on the desk (the dispatcher is the desk's by nature); `MainViewModel`
+  and the pages assume the whole desk; the kernel's beacon owns a `DispatcherTimer` (the
+  kernel is UI-free in what it needs, not yet in what it holds).

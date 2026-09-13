@@ -1498,6 +1498,13 @@ the show). Export the show to a file of your own for a version you want to keep 
 
 ## Architecture (short version)
 
+A kernel first: `ServiceKernel` is what every role stands on — the store and the show, the log,
+the journal, the last run's notes, the snapshot bus, the assistant client, the beacon, the nodes
+registry, the arcade — built before a single desk service, with slots the desk fills (what is
+on air, the link, the status strip, the brief) and null objects a node answers with. The desk
+(`AppServices`) stands on it and provides, as contracts, what its twin, its wire, its stage timer
+and its audience room ask of it. `docs/PLAN.md` §57.4.
+
 One UI-independent render engine (`Patterns.Core`, SkiaSharp) draws every sink — the preview,
 each fullscreen output, preset thumbnails and NDI frames — from immutable show-state snapshots
 published on change. Immutable by construction: every object and every list in a published

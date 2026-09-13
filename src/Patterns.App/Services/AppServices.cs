@@ -8,16 +8,23 @@ using Patterns.Core.Services;
 namespace Patterns.App.Services;
 
 /// <summary>
-/// Composition root: owns the show state, snapshot bus, persistence, screens, outputs,
-/// NDI and video, and turns state changes into side effects.
+/// The desk's composition root: the kernel first (<see cref="ServiceKernel"/> — the store and
+/// the show, the log, the journal, the bus, the beacon, the nodes, the assistant, the arcade),
+/// then the desk's own services on top of it — screens, outputs, NDI and video, the sandbox,
+/// the cue stack — and it turns state changes into side effects. It is also what the kernel's
+/// services see of the desk, through the capabilities it implements (<see cref="IAirReport"/>,
+/// <see cref="ITwinHost"/>, <see cref="IWireHost"/>, <see cref="IStageHost"/>, <see cref="IPlayHost"/>).
 /// </summary>
-public sealed class AppServices
+public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, IPlayHost
 {
     public static AppServices Instance { get; set; } = null!;
 
-    public ShowState State { get; }
-    public SnapshotBus Bus { get; }
-    public SettingsStore Store { get; }
+    /// <summary>What every role stands on, built before anything of the desk.</summary>
+    public ServiceKernel Kernel { get; }
+
+    public ShowState State => Kernel.State;
+    public SnapshotBus Bus => Kernel.Bus;
+    public SettingsStore Store => Kernel.Store;
     public NdiService Ndi { get; }
     public ScreenService Screens { get; }
     public OutputWindowManager Outputs { get; }
@@ -44,10 +51,10 @@ public sealed class AppServices
     public SpotifyService Spotify { get; }
 
     /// <summary>The assistant's key for this machine, beside the settings file — never in a show.</summary>
-    public AssistantKeyStore AssistantKeys { get; }
+    public AssistantKeyStore AssistantKeys => Kernel.AssistantKeys;
 
     /// <summary>The assistant: a fenced model that drafts looks, cues, designs and a show plan as proposals the desk applies.</summary>
-    public AssistantService Assistant { get; }
+    public AssistantService Assistant => Kernel.Assistant;
 
     public ControlService Control { get; }
     public OscService Osc { get; }
@@ -65,11 +72,11 @@ public sealed class AppServices
     public ManagementService Management { get; }
 
     /// <summary>The passcode gate in front of remote administration (the web remote's ADMIN page, RESTART, UPDATE APPLY).</summary>
-    public AdminGate Gate { get; } = new();
+    public AdminGate Gate => Kernel.Gate;
 
     /// <summary>How the app leaves with an exit code the watchdog reads — set by the desktop lifetime; null in a headless test.</summary>
     public Func<int, bool>? ExitRequest { get; set; }
-    public BeaconService Beacon { get; }
+    public BeaconService Beacon => Kernel.Beacon;
 
     /// <summary>The twin link: a second Patterns kept in step, on this machine or another, that can take the show.</summary>
     public TwinService Twin { get; }
@@ -81,10 +88,10 @@ public sealed class AppServices
     public CalibrationService Calibration { get; }
 
     /// <summary>Every other Patterns heard on the beacon — desks, callers, arcades, timers — and what is linked to this one.</summary>
-    public NodesService Nodes { get; }
+    public NodesService Nodes => Kernel.Nodes;
 
     /// <summary>The arcade: the engine's loop, the pads, the picture to NDI, the board — run here on an arcade node; a desk sends the verbs to the nodes it hears.</summary>
-    public ArcadeService Arcade { get; }
+    public ArcadeService Arcade => Kernel.Arcade;
 
     /// <summary>Audience play: the room on the hub — polls, quizzes, the cloud, messages back, the queue, draughts and the path; the wall on the arcade's lane.</summary>
     public PlayService Play { get; }
@@ -125,7 +132,7 @@ public sealed class AppServices
     public TakeoverResult Takeover { get; }
 
     /// <summary>The show journal: every air change with its origin, on disk beside the settings.</summary>
-    public ShowLog Journal { get; }
+    public ShowLog Journal => Kernel.Journal;
 
     /// <summary>The desk's tick budget: what the once-a-second poll costs on the UI thread, its worst minute, the areas that failed.</summary>
     public TickBudget DeskTick { get; } = new();
@@ -134,7 +141,7 @@ public sealed class AppServices
     public ThumbnailQueue Thumbnails { get; } = new();
 
     /// <summary>How long this start took to become a desk, phase by phase (the Machine page, the super-check).</summary>
-    public StartupBudget Startup { get; } = new();
+    public StartupBudget Startup => Kernel.Startup;
 
     /// <summary>The effects' quality ladder: the Machine page's mode in, the frame budgets' worst second in, a level out for every renderer.</summary>
     public QualityService Quality { get; }
@@ -278,10 +285,10 @@ public sealed class AppServices
     public RecoverySnapshot? PendingRecovery { get; }
 
     /// <summary>The supervisor's note of how the last run ended (a crash or a hang), consumed at this start; null after a clean run.</summary>
-    public CrashNote? LastCrash { get; }
+    public CrashNote? LastCrash => Kernel.LastCrash;
 
     /// <summary>The run right after a native fault: clips decode in software unless the Machine page says Hardware.</summary>
-    public bool SafeRun { get; }
+    public bool SafeRun => Kernel.SafeRun;
 
     /// <summary>Whether the next decoder opened uses the graphics card — the operator's choice against this run's fate.</summary>
     public bool HardwareDecoding => VideoDecodingChoice.UseHardware(State.Admin.VideoDecoding, SafeRun);
@@ -325,25 +332,19 @@ public sealed class AppServices
             preloaded ??= pre.State;
             Preloaded = null;
         }
-        Store = store ?? new SettingsStore();
-        Log.Init(Store.BaseDirectory);
+        store ??= new SettingsStore();
+        Log.Init(store.BaseDirectory);
         // What Main found on the screens before Avalonia started, taken once so a second desk in
         // the same process never inherits the first one's story.
         Takeover = OutputTakeover.Consume();
         // A fault on the UI thread is contained from here on: logged, counted, the desk kept up.
         UiFaults.Install();
 
-        // The start-up budget: from Main when this process went through it (the runtime before
-        // Main, the settings read and the graphics choices come in as Main marked them, and
-        // Avalonia's own start ends here), else from here.
-        Startup.Begin(StartupBudget.ProcessStartedAt);
-        if (StartupBudget.ProcessStartedAt != 0) Startup.Mark(StartupBudget.Avalonia);
-
         // Second instance on the same folder: run, but leave saving to the first one.
         // (string.GetHashCode is randomized per process — a stable hash is required here.)
         try
         {
-            _instanceMutex = new Mutex(true, "PatternsApp-" + StableFolderKey(Store.BaseDirectory), out var first);
+            _instanceMutex = new Mutex(true, "PatternsApp-" + StableFolderKey(store.BaseDirectory), out var first);
             if (!first)
             {
                 _autosave = false;
@@ -356,24 +357,25 @@ public sealed class AppServices
             // Mutex trouble must never stop startup.
         }
 
-        State = preloaded ?? Store.Load();
-        Startup.Mark(StartupBudget.Settings);   // already marked by Main when it read them: kept as Main's
-        State.Blackout = false;
-        State.Tone.Enabled = false; // a tone must never auto-start with the app
-        if (Store.LastLoadMigrated)
+        // The kernel: the show, the log, the journal, the last run's notes, the bus and the
+        // services every role has — built before a single desk service, and the only thing those
+        // services are written against.
+        Kernel = ServiceKernel.Build(Profile, store, preloaded);
+        Kernel.Notifier = Notify;
+        Kernel.Facts = GatherFacts;
+        if (Kernel.Migrated)
         {
             // An upgraded file is written back once so the ids minted for its looks and
             // stingers are the same ids next time (cues and the journal refer to them).
             SaveNow();
         }
 
-        Journal = new ShowLog(Store.BaseDirectory);
         // This start found the last run's render windows still playing and took them back (or was
         // told not to): the health line carries it, so "the screens are this desk's" is a fact the
         // operator can read rather than infer.
         if (Takeover.Words.Length > 0) HealthMonitor.WatchdogNote = Takeover.Words;
         // A supervisor that stood down last time left a note: it goes on the health line, once.
-        var standDown = WatchdogMarker.ReadAndClear(Store.BaseDirectory);
+        var standDown = Kernel.StandDownNote;
         if (standDown.Length > 0)
         {
             HealthMonitor.WatchdogNote = HealthMonitor.WatchdogNote.Length > 0
@@ -384,10 +386,8 @@ public sealed class AppServices
         // A crash restart left a note: what the last run ended in, once, on the health line and in the
         // log — and after a native fault this is a safe run: the clips decode in software, the decoder
         // being the first suspect on a laptop, unless the Machine page says Hardware regardless.
-        LastCrash = CrashMarker.ReadAndClear(Store.BaseDirectory);
         if (LastCrash is { } crash)
         {
-            SafeRun = crash.NativeFault;
             var note = crash.Sentence;
             if (SafeRun)
             {
@@ -399,7 +399,6 @@ public sealed class AppServices
             HealthMonitor.WatchdogNote = HealthMonitor.WatchdogNote.Length > 0 ? HealthMonitor.WatchdogNote + " · " + note : note;
             Log.Warn(note);
         }
-        Bus = new SnapshotBus(State);
         Ndi = new NdiService(Bus);
         Video = new VideoEngine
         {
@@ -440,21 +439,17 @@ public sealed class AppServices
         MusicDuckSource = () => AudioPlayer.VogSoundPlaying;
         SpotifyCredentials = new SpotifyCredentialStore(Store.BaseDirectory);
         Spotify = new SpotifyService(this, SpotifyCredentials);
-        AssistantKeys = new AssistantKeyStore(Store.BaseDirectory);
-        Assistant = new AssistantService(this, AssistantKeys);
-        Control = new ControlService(this);
+        Control = new ControlService(Kernel, this);
         Osc = new OscService(this);
         Devices = new DeviceService(this);
         Install = new InstallService(this);
         Updates = new UpdateService(this);
         Management = new ManagementService(this);
-        Beacon = new BeaconService(this);
-        Twin = new TwinService(this);
+        Twin = new TwinService(Kernel, this);
+        Kernel.Link = Twin;
         ShowLock = new ShowLockService(this);
         Calibration = new CalibrationService(this);
-        Nodes = new NodesService(this);
-        Arcade = new ArcadeService(this);
-        Play = new PlayService(this);
+        Play = new PlayService(Kernel, this);
         RigDay = new RigDayService(this);
         Arcade.Board = Play.DrawWall;
         Stingers = new StingerService(this);
@@ -493,6 +488,7 @@ public sealed class AppServices
         // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
         CueStack.Changed += ReconcileInputs;
         Stage = new StageService(this);
+        Kernel.Air = this;                                       // the beacon packet and the nodes page read the desk's air from here on
         GpuService.RecordAppliedPath(State);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
@@ -889,7 +885,7 @@ public sealed class AppServices
     /// only when it moved. The twin link sends it to a standby: what is on air, whether the desk is
     /// split, the caller's place — everything a takeover puts back.
     /// </summary>
-    internal event Action<RecoverySnapshot?>? RecoveryMoved;
+    public event Action<RecoverySnapshot?>? RecoveryMoved;
 
     /// <summary>
     /// The twin mirrored the show, or the sections named, onto this desk's state in place (UI
@@ -897,7 +893,7 @@ public sealed class AppServices
     /// </summary>
     public event Action<IReadOnlyCollection<string>?>? ShowMirrored;
 
-    internal void NotifyShowMirrored(IReadOnlyCollection<string>? sections)
+    public void NotifyShowMirrored(IReadOnlyCollection<string>? sections)
         => RaiseSafely(() => ShowMirrored?.Invoke(sections), "the mirror's listener");
 
     /// <summary>The caller's place goes to the sidecar on every GO, atomically, live or not.</summary>
@@ -1142,6 +1138,151 @@ public sealed class AppServices
 
     /// <summary>Raised on the UI thread after each publish (preview + status displays hook this).</summary>
     public event Action? SnapshotPublished;
+
+    // ---- the capabilities the kernel's services see of the desk -------------------------------
+
+    /// <summary>
+    /// The desk's states for the brief, read from the services at the moment of the ask: EDIT
+    /// SAFE and the two states, the outputs, the canvases and what every screen shows, the cue
+    /// on standby, the inputs mounted (by nickname and kind, never a path), the library's names,
+    /// the sound, the lower third on air, the sends and the stream. Never throws: a service that
+    /// cannot answer leaves its line at the default, and the ask goes out with the rest.
+    /// </summary>
+    public ShowFacts GatherFacts()
+    {
+        var s = this;
+        var state = s.State;
+        var air = s.AirState;
+        var canvases = new List<CanvasFact>();
+        var shows = new Dictionary<string, string>(StringComparer.Ordinal);
+        try
+        {
+            var geo = Rig.Geometry(state, s.Screens.All);
+            var infos = new Dictionary<string, ScreenInfo>(StringComparer.Ordinal);
+            foreach (var info in s.Screens.All) infos[info.Id] = info;
+            string LabelOf(string id)
+            {
+                var placement = state.Output.Placements.FirstOrDefault(p => p.ScreenId == id);
+                return placement is null ? id : Rig.LabelFor(placement, infos.GetValueOrDefault(id));
+            }
+            foreach (var target in geo.Targets)
+            {
+                if (!ContentTargets.IsCanvasKey(target)) continue;
+                var members = geo.MembersOf(target);
+                var size = geo.SizeOf(target);
+                var name = state.Output.CanvasNames.FirstOrDefault(c => c.MemberKey == target)?.Name ?? "";
+                canvases.Add(new CanvasFact(geo.LetterOf(target), name, size.Width, size.Height, members.ToList(), members.Select(LabelOf).ToList()));
+            }
+            foreach (var p in state.Output.Placements)
+            {
+                string words;
+                if (p.MirrorOf.Length > 0) words = "a repeater of " + (ContentTargets.IsCanvasKey(p.MirrorOf) ? "canvas " + geo.LetterOf(p.MirrorOf) : LabelOf(p.MirrorOf));
+                else if (!p.Enabled) words = "nothing (off)";
+                else
+                {
+                    var target = geo.TargetOf(p.ScreenId);
+                    var own = ContentTargets.UsesOwnPattern(air, target) ? air.Independent.FirstOrDefault(a => a.ScreenId == target)?.Pattern : null;
+                    var picture = own is null ? "the program" : "its own picture: " + ShowBrief.PatternWords(own);
+                    words = ContentTargets.IsCanvasKey(target) ? $"canvas {geo.LetterOf(target)} with {picture}" : picture;
+                }
+                shows[p.ScreenId] = words;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the rig.", ex);
+        }
+
+        var inputs = new List<string>();
+        try
+        {
+            foreach (var key in InputBus.Keys)
+            {
+                var kind = key.StartsWith("cap:", StringComparison.Ordinal) ? "a capture input"
+                    : key.StartsWith("ndi:", StringComparison.Ordinal) ? "an NDI feed"
+                    : key.StartsWith("web:", StringComparison.Ordinal) ? "a web page"
+                    : key.StartsWith("deck:", StringComparison.Ordinal) ? "a deck"
+                    : key.StartsWith("vid:", StringComparison.Ordinal) ? "a clip"
+                    : "a source";
+                var label = state.InputLabel(key, "");
+                inputs.Add(label.Length > 0 ? $"{label} ({kind[2..]})" : kind);   // the nickname and the kind, never the key's path or address
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the inputs.", ex);
+        }
+
+        var standby = s.CueStack.StandbyCue;
+        var last = s.CueStack.LastCue;
+        var audioNow = "";
+        try
+        {
+            audioNow = s.AudioPlayer.NowPath.Length > 0 ? $"playing '{s.AudioPlayer.CurrentName}'" : state.AudioPlayer.Items.Count + state.AudioPlayer.Folders.Count > 0 ? "stopped" : "";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the audio player.", ex);
+        }
+        var lowerThird = air.LowerThirds.IsShowing ? air.LowerThirds.Active?.Name ?? "" : "";
+        return new ShowFacts
+        {
+            EditSafeOpen = s.Sandbox.Active,
+            Air = s.Sandbox.Active ? air : null,
+            AirLabel = s.AirLabel == "—" ? "" : s.AirLabel,   // the strip's dash is "no look named", not a name
+            PreviewLook = s.PreviewLookId.Length > 0 ? LookService.Find(state, s.PreviewLookId)?.Name ?? "" : "",
+            EditingTarget = Assistant.EditingTarget,
+            OutputsLive = s.Outputs.IsLive,
+            OutputWindows = s.Outputs.Windows.Count,
+            ShowLock = s.ShowLock.Status,
+            Canvases = canvases,
+            ScreenShows = shows,
+            StackArmed = s.CueStack.Armed,
+            StandbyCue = standby is null ? "" : $"{standby.Number} {standby.Name}".Trim(),
+            LastCue = last is null ? "" : $"{last.Number} {last.Name}".Trim(),
+            InputsMounted = inputs,
+            MediaFiles = state.MediaLibrary.Count,
+            MediaNames = state.MediaLibrary.Where(m => m.Name.Trim().Length > 0).Select(m => m.Name.Trim()).ToList(),
+            AudioNow = audioNow,
+            VogOnAir = s.Stingers.VogOnAir,
+            StingOnAir = s.Stingers.StingOnAir,
+            LowerThirdOnAir = lowerThird,
+            NdiSendsRunning = s.Ndi.ActiveCount,
+            StreamStatus = s.Stream.Status,
+        };
+    }
+
+
+    /// <summary>The outputs are open: the beacon's LIVE, the twin's hold.</summary>
+    public bool OutputsLive => Outputs.IsLive;
+
+    /// <summary>The twin's hold: every output window closed, whatever they were showing.</summary>
+    public void CloseOutputs() => Outputs.CloseAll();
+
+    /// <summary>The stack is armed — for the beacon packet.</summary>
+    public bool Armed => CueStack?.Runtime.Armed ?? false;
+
+    /// <summary>"03.020 Five-minute call": the standby cue, for the beacon packet; "" with none.</summary>
+    public string StandbyWords => CueStack?.StandbyCue is { } standby ? $"{standby.Number} {standby.Name}".Trim() : "";
+
+    /// <summary>The last cue's number, for the beacon packet; "" with none.</summary>
+    public string LastCueNumber => CueStack?.LastCue?.Number ?? "";
+
+    /// <summary>The picture's rate: the outputs' when they are open, else the preview's — for the beacon packet.</summary>
+    public double Fps => Metrics.Current is { } m ? Math.Round(m.OutputWindows > 0 ? m.OutputFps : m.PreviewFps, 1) : 0;
+
+    /// <summary>How many output windows are open — for the beacon packet.</summary>
+    public int Windows => Metrics.Current?.OutputWindows ?? 0;
+
+    /// <summary>The audience port's addresses, from the wire.</summary>
+    public IReadOnlyList<string> AudienceUrls() => Control.AudienceUrls();
+
+    public bool AudienceListening => Control.AudienceListening;
+
+    public int AudienceConnections => Control.AudienceConnections;
+
+    /// <summary>A router over this desk's action layer: every wire (TCP, HTTP, OSC, a device, the management server) dispatches through one.</summary>
+    public CommandRouter NewRouter() => new(this);
 
     /// <summary>A line for the desk's status strip — the place confirmations belong, never the audience surface.</summary>
     public void Notify(string message)

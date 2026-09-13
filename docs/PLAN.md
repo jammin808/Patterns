@@ -5622,3 +5622,52 @@ lists open and its shared lists frozen; a frozen list copied by JSON open again 
 the freeze in the file; and a walk of `ShowState` by type asserting every list a show file can
 carry is a `ShowCollection<T>` — the test that found the lower-third model's five lists, which
 the first pass had missed.
+
+### 57.4 The kernel: the composition root, and the capabilities the desk provides
+
+**The gap.** `AppServices` was one constructor that built everything, and every service took
+it whole: a beacon that wanted one string of what was on air had the outputs, the sandbox and
+the stream in its hand, and a node — a caller, a timer, an arcade — was the whole desk with its
+outputs held. `docs/NODES.md` asked for a kernel in round 35 and every round since built on the
+god object instead.
+
+**The kernel.** `ServiceKernel` (App) is the composition root's first stage: what every role
+stands on, built before a single desk service — the store and the show (loaded, blackout and
+tone off, the migration noted), the log, the journal, the last run's notes (stand-down, crash,
+the safe run), the start-up budget, the admin gate, the snapshot bus, the assistant's key store
+— and the services written against it: the assistant client, the beacon, the nodes registry,
+the arcade engine. `ServiceKernel.Build(profile, store, preloaded)` is the whole of it; it needs
+no desk, no window, no engine, and a test builds one in a temp folder. `AppServices` builds the
+kernel first and stands on it: `State`, `Bus`, `Store`, `Journal`, `Startup`, `Gate`,
+`Assistant`, `Beacon`, `Nodes`, `Arcade`, `LastCrash`, `SafeRun` are the kernel's, exposed by
+delegation so nothing that reads `services.X` changed.
+
+**The capabilities.** A kernel service that needs something of the desk takes it as a slot the
+desk fills: `Air` (`IAirReport` — the label on air, the outputs open, the stack's arm, standby
+and last cue, the picture's rate and the windows: the beacon packet's whole reach into the
+desk), `Link` (`ILinkReport` — the twin's port and its callers, for the beacon and the nodes
+rail), `Notifier` (the status strip), `Facts` (the desk's brief for the assistant, gathered by
+the desk — `AppServices.GatherFacts` — and read by the client). Each has a null object a bare
+kernel or a node answers with: nothing on air, no link, the log, an empty brief. The
+desk-facing services take the kernel and a contract of what they need of the desk, and only
+that: `TwinService(kernel, ITwinHost)` — the action layer, the edit scopes, the cue runtime, the
+outputs to hold closed and the show to put back; `ControlService(kernel, IWireHost)` — the
+action layer, the router, the air its pages read, the services whose status it serves;
+`StageService(IStageHost)`; `PlayService(kernel, IPlayHost)`. `AppServices` implements every
+contract; the compiler now holds each service to its declared reach, and a test can host any of
+them on a fake.
+
+**What did not change, on purpose.** The desk still builds every service for every role; the
+holds and the page filter keep a node from using what it does not have. The wire's router
+(`CommandRouter`) still takes the desk: it is the desk's dispatcher, and a verb for a desk
+feature on a node answers "not on this node" from the one action table. The next step, when a
+role needs it, is a node built from the kernel alone — the type is there; the desk's own
+window and the pages a node shows are what still assume the whole desk.
+
+**Proof.** `KernelTests`: a kernel built alone in a temp folder answers with nothing on air, no
+link and a bare brief, and takes a fake air, link, strip and brief with no desk at all (the
+beacon packet, the nodes rail and the assistant's brief follow); the boundary as a test — no
+desk type reachable from the kernel's properties, the kernel services' constructors take the
+kernel and never the desk, the desk-facing services take their contracts and the desk provides
+each; and the desk built on the kernel filling every slot (its air, its twin's link, its strip,
+its brief).

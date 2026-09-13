@@ -15,7 +15,7 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class BeaconService : IDisposable
 {
-    private readonly AppServices _services;
+    private readonly ServiceKernel _services;
     private readonly DispatcherTimer _timer;
     private UdpClient? _sender;
     private UdpClient? _listener;
@@ -30,9 +30,9 @@ public sealed class BeaconService : IDisposable
     private DateTime? _lastSeenUtc;
     private volatile IPEndPoint? _lastFrom;
 
-    public BeaconService(AppServices services)
+    public BeaconService(ServiceKernel kernel)
     {
-        _services = services;
+        _services = kernel;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += (_, _) => Tick();
     }
@@ -178,9 +178,7 @@ public sealed class BeaconService : IDisposable
     public Beacon Build()
     {
         var s = _services.State;
-        var stack = _services.CueStack;
-        var standby = stack?.StandbyCue;
-        var metrics = _services.Metrics.Current;
+        var air = _services.Air;                       // the desk's outputs, stack and metrics; nothing on a node
         return new Beacon
         {
             Machine = MachineName,
@@ -188,24 +186,24 @@ public sealed class BeaconService : IDisposable
             Seq = Interlocked.Increment(ref _seq),
             Utc = DateTime.UtcNow,
             Up = Math.Round((DateTime.UtcNow - HealthMonitor.StartedUtc).TotalSeconds),
-            Live = _services.Outputs.IsLive,
+            Live = air.OutputsLive,
             Blackout = s.Blackout,
-            Program = _services.AirLabel,
-            Armed = stack?.Runtime.Armed ?? false,
-            Standby = standby is null ? "" : $"{standby.Number} {standby.Name}".Trim(),
-            Last = stack?.LastCue?.Number ?? "",
+            Program = air.AirLabel,
+            Armed = air.Armed,
+            Standby = air.StandbyWords,
+            Last = air.LastCueNumber,
             Health = HealthMonitor.Summary(DateTime.UtcNow),
             Faults = HealthMonitor.Faults,
             Restarts = HealthMonitor.Restarts,
-            Fps = metrics is null ? 0 : Math.Round(metrics.OutputWindows > 0 ? metrics.OutputFps : metrics.PreviewFps, 1),
-            Windows = metrics?.OutputWindows ?? 0,
+            Fps = air.Fps,
+            Windows = air.Windows,
             Stream = s.Stream.Active,
             Show = s.Name,
             Twin = s.Twin.Role == TwinRole.Main ? s.Twin.Port : 0,
             Kind = NodeKinds.Wire(_services.Profile),
             Wire = s.Control.Enabled ? s.Control.TcpPort : 0,
             Http = s.Control.Enabled ? s.Control.HttpPort : 0,
-            Link = _services.Twin.LinkPort,
+            Link = _services.Link.LinkPort,
         };
     }
 

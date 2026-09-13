@@ -15,13 +15,13 @@ public sealed class StageService
 {
     public const int MessagesKept = 50;
 
-    private readonly AppServices _s;
+    private readonly IStageHost _s;
     private long _rev;
     private bool _hooked;
 
-    public StageService(AppServices services)
+    public StageService(IStageHost host)
     {
-        _s = services;
+        _s = host;
         _s.SnapshotPublished += Bump;           // the countdown or the stage section moved: the pages read again
     }
 

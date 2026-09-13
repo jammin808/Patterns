@@ -15,10 +15,10 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class NodesService
 {
-    private readonly AppServices _s;
+    private readonly ServiceKernel _s;
     private string _seen = "";
 
-    public NodesService(AppServices services) => _s = services;
+    public NodesService(ServiceKernel kernel) => _s = kernel;
 
     /// <summary>The cards, in rail order, refreshed in place.</summary>
     public ObservableCollection<NodeCard> Nodes { get; } = new();
@@ -27,7 +27,7 @@ public sealed class NodesService
     public int Fresh { get; private set; }
 
     /// <summary>Caller nodes linked to this desk right now.</summary>
-    public int Linked => _s.Twin.CallerCount;
+    public int Linked => _s.Link.CallerCount;
 
     public string RailWord => NodeRegistry.RailWord(Fresh, Linked);
 
@@ -43,7 +43,7 @@ public sealed class NodesService
         {
             var s = _s.State;
             var kind = NodeKinds.Label(_s.Profile);
-            var link = _s.Twin.LinkPort;
+            var link = _s.Link.LinkPort;
             return $"{kind} {_s.Beacon.MachineName} — instance {_s.Beacon.Instance}"
                    + (link > 0 ? $" · callers may link on port {link}" : " · not linking callers")
                    + (s.Control.Enabled ? $" · pages on port {s.Control.HttpPort}" : "");
@@ -144,7 +144,7 @@ public sealed class NodesService
     public string StatusJson()
         => System.Text.Json.JsonSerializer.Serialize(new
         {
-            me = new { kind = NodeKinds.Wire(_s.Profile), machine = _s.Beacon.MachineName, instance = _s.Beacon.Instance, link = _s.Twin.LinkPort },
+            me = new { kind = NodeKinds.Wire(_s.Profile), machine = _s.Beacon.MachineName, instance = _s.Beacon.Instance, link = _s.Link.LinkPort },
             linked = Linked,
             nodes = Nodes.Select(c => new { instance = c.Instance, kind = NodeKinds.Wire(c.Kind), name = c.Name, address = c.Address?.ToString() ?? "", show = c.Show, live = c.Live, fresh = c.Fresh, link = c.LinkPort, http = c.HttpPort, heardSecondsAgo = Math.Round(c.Age.TotalSeconds) }).ToArray(),
         });

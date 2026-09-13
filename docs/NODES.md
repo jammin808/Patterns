@@ -63,7 +63,10 @@ What a node has, and does not have:
   real refactor: `AppServices` is a single constructor that builds everything; a node needs a
   composition root that builds a subset. The clean move is a `NodeServices` that owns the kernel
   and an `AppServices` that adds the desk's services to it — the desk keeps its shape, the node
-  gets a kernel, and the shared pieces stop knowing which they are in.
+  gets a kernel, and the shared pieces stop knowing which they are in. *Built in round 39 as
+  `ServiceKernel` (`docs/PLAN.md` §57.4): the kernel is the type the shared services are written
+  against, the desk fills its slots and provides the contracts; a node built from the kernel
+  alone is the step after.*
 - **A vocabulary on the wire** of its own kind, in the one `ShowActionKind` table the wire, the
   cues, Companion and the assistant all read (`ArcadeStart`, `PollOpen`…), so a cue in the desk's
   stack can start a game in the interval exactly as it starts a stinger.

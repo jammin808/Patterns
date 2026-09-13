@@ -26,7 +26,7 @@ public sealed class ArcadeService : IDisposable
     private const int Buffers = 3;
     private const int TapSteps = ArcadeEngine.StepHz / 10;
 
-    private readonly AppServices _s;
+    private readonly ServiceKernel _s;
     private readonly ArcadeEngine _engine = new();
     private readonly object _gate = new();
     private readonly object _pick = new();
@@ -52,7 +52,7 @@ public sealed class ArcadeService : IDisposable
     private long _frames;
     private bool _boardDirty;
 
-    public ArcadeService(AppServices s)
+    public ArcadeService(ServiceKernel s)
     {
         _s = s;
         _boardPath = Path.Combine(s.Store.BaseDirectory, "arcade-scores.json");
