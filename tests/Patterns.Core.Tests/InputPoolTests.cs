@@ -152,6 +152,38 @@ public class WantedInputsTests
     }
 
     [Fact]
+    public void ThisMachinesArcadeIsOneMountHoweverManyPicturesShowIt()
+    {
+        var s = new ShowState();
+        s.Pattern.Kind = PatternKind.Media;
+        s.Pattern.Media.Source = MediaSource.Arcade;                 // the pattern
+        s.Pattern.Layer1.Enabled = true;
+        s.Pattern.Layer1.Source = LayerSource.Arcade;                // a layer
+        s.Overlays.Pip.Enabled = true;
+        s.Overlays.Pip.Source = PipSource.Arcade;                    // the inset
+        AddScreen(s, "s2", p =>
+        {
+            p.Kind = PatternKind.Multiview;
+            p.Multiview.Tiles.Add(new MultiviewTileConfig { Source = MultiviewSource.Arcade });   // a wall tile
+        });
+
+        var wanted = MediaLocator.FindWantedInputs(RenderTestHarness.Snap(s));
+        var game = Assert.Single(wanted);
+        Assert.Equal(InputKeys.ArcadeKey, game.Key);
+        Assert.Equal("arcade:local", game.Key);
+        Assert.Equal(MediaLocator.WantedKind.Arcade, game.Kind);
+        Assert.True(game.Mute);                                      // the game has no sound on the bus
+        Assert.Contains(MediaBus.Program, game.Buses);
+        Assert.Contains(MediaBus.Output("s2"), game.Buses);
+
+        s.Pattern.Media.Source = MediaSource.Image;
+        s.Pattern.Layer1.Enabled = false;
+        s.Overlays.Pip.Enabled = false;
+        s.Output.Placements.First(x => x.ScreenId == "s2").Enabled = false;
+        Assert.DoesNotContain(MediaLocator.FindWantedInputs(RenderTestHarness.Snap(s)), w => w.Kind == MediaLocator.WantedKind.Arcade);
+    }
+
+    [Fact]
     public void OnlyTheActivePlaylistsNowItemMounts()
     {
         var s = State();

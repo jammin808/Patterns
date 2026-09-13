@@ -23,6 +23,8 @@ public interface IArcadePage
     RelayCommand<string> ArcadeStartCommand { get; }
     RelayCommand ArcadePauseCommand { get; }
     RelayCommand ArcadeStopCommand { get; }
+    /// <summary>The game's own window: "on" opens it, "full" fills the display, "off" closes it.</summary>
+    RelayCommand<string> ArcadeWindowCommand { get; }
     string PlayCode { get; }
     string PlayJoinUrl { get; }
     string PlayWords { get; }

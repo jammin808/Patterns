@@ -2,12 +2,15 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.Core.Arcade;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
+using SkiaSharp;
 using Xunit;
 
 namespace Patterns.App.Tests;
@@ -144,6 +147,130 @@ public class ArcadeAppTests
             services.Arcade.PickGame(2);
             Assert.Equal("snake", services.Arcade.Snapshot().GameId);
             Assert.Equal(ArcadePhase.Attract, services.Arcade.Phase);
+
+            // The game's own window: opened, filled, brought back and closed by the verb, the keys the pads there too, the status saying which.
+            Assert.Equal("off", services.Arcade.WindowMode);
+            Assert.StartsWith("OK", Wire("ARCADE WINDOW"));
+            Assert.Equal("on", services.Arcade.WindowMode);
+            var window = vm.ArcadeWindows.Window;
+            Assert.NotNull(window);
+            Assert.False(window!.IsFull);
+            Assert.StartsWith("OK", Wire("ARCADE WINDOW FULL 1"));
+            Assert.Equal("full", services.Arcade.WindowMode);
+            Assert.True(window.IsFull);
+            Assert.Contains("\"window\":\"full\"", Wire("ARCADE STATUS"));
+            Assert.Contains("window full", services.Arcade.Status);
+            window.PressKey(Key.Escape);                                              // Esc brings the window back…
+            Assert.False(window.IsFull);
+            Assert.Equal("on", services.Arcade.WindowMode);
+            window.PressKey(Key.W);                                                   // …and the keys are the pads there
+            Assert.True(services.Arcade.Pressed(1).HasFlag(PadButtons.Up));
+            window.ReleaseKey(Key.W);
+            Assert.Equal(PadButtons.None, services.Arcade.Pressed(1));
+            window.PressKey(Key.F11);                                                 // F11 fills the display it is on
+            Assert.True(window.IsFull);
+            Assert.StartsWith("ERR", Wire("ARCADE WINDOW sideways"));
+            Assert.StartsWith("OK", Wire("ARCADE WINDOW OFF"));
+            Assert.Equal("off", services.Arcade.WindowMode);
+            Assert.Null(vm.ArcadeWindows.Window);
+            Assert.StartsWith("OK", Wire("ARCADE WINDOW OFF"));                       // closing a closed window is not a fault
+            Assert.StartsWith("OK", Wire("ARCADE FULLSCREEN"));
+            Assert.Equal("full", services.Arcade.WindowMode);
+            vm.ArcadeWindows.Window!.PressKey(Key.Escape);
+            vm.ArcadeWindows.Window!.PressKey(Key.Escape);                            // the second Esc closes it
+            Assert.Null(vm.ArcadeWindows.Window);
+            Assert.Equal("off", services.Arcade.WindowMode);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ADeskPutsItsOwnGameOnAPatternTheInsetAndALayerStraightFromTheLoop()
+    {
+        var b = TestApp.Boot("patterns-tests-arcade-src-", dir => Settings(dir, s =>
+        {
+            s.Name = "Rig day";
+            s.Control.Enabled = false;
+            s.Twin.AcceptCallers = false;
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+        }));
+        try
+        {
+            var (services, vm, _) = b;
+            Assert.False(services.Arcade.IsRunning);                                  // a desk's game waits to be wanted
+            Assert.False(services.ArcadeIn.IsMounted);
+            Assert.Null(InputBus.For(InputKeys.ArcadeKey));
+
+            // The pattern picks the arcade: the mount, the loop, the lane's first copies, a frame drawn — no NDI anywhere.
+            services.BulkEdit(() =>
+            {
+                vm.State.Pattern.Kind = PatternKind.Media;
+                vm.State.Pattern.Media.Source = MediaSource.Arcade;
+            });
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.ArcadeIn.IsMounted);
+            Assert.True(services.Arcade.IsRunning);
+            Assert.True(services.Arcade.PictureWanted);
+            Assert.False(services.Arcade.NdiOn);
+            Assert.Same(services.Arcade.Source, InputBus.For(InputKeys.ArcadeKey));
+            Assert.Single(services.ArcadeIn.MountStatuses);
+            PumpUntil(() => services.Arcade.Copies > 2, () => services.Arcade.Status);
+            Assert.Equal(new SKSizeI(ArcadeService.DefaultWidth, ArcadeService.DefaultHeight), services.Arcade.Source.FrameSize);
+            using (var bitmap = new SKBitmap(new SKImageInfo(64, 36, SKColorType.Bgra8888, SKAlphaType.Premul)))
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                Assert.True(services.Arcade.Source.DrawFrame(canvas, SKRect.Create(0, 0, 64, 36), null));
+            }
+            Assert.True(services.Arcade.Source.IsPlaying);
+            Assert.Equal("arcade", services.Arcade.Source.StatusText);
+            Assert.Contains("on the show", services.Arcade.Status);
+            Assert.Equal(0, services.Arcade.SkippedFrames);                           // the loop never waited for the lane or the page
+            Assert.Contains("\"wanted\":true", services.Arcade.StatusJson(""));
+
+            // The inset and a layer want the same picture: one mount, still — and the wanted set says so.
+            services.BulkEdit(() =>
+            {
+                vm.State.Overlays.Pip.Enabled = true;
+                vm.State.Overlays.Pip.Source = PipSource.Arcade;
+                vm.State.Pattern.Layer1.Enabled = true;
+                vm.State.Pattern.Layer1.Source = LayerSource.Arcade;
+            });
+            Dispatcher.UIThread.RunJobs();
+            Assert.Single(MediaLocator.FindWantedInputs(services.Bus.Current), w => w.Kind == MediaLocator.WantedKind.Arcade);
+            Assert.True(services.ArcadeIn.IsMounted);
+            Assert.Same(services.Arcade.Source, InputBus.For(InputKeys.ArcadeKey));
+
+            // A look carries it like any picture.
+            vm.Show.NewLookName = "Games";
+            vm.Show.SaveLookCommand.Execute(null);
+            services.BulkEdit(() =>
+            {
+                vm.State.Pattern.Kind = PatternKind.TestCard;
+                vm.State.Pattern.Layer1.Enabled = false;
+                vm.State.Overlays.Pip.Enabled = false;
+            });
+            Dispatcher.UIThread.RunJobs();
+            // Nothing wants it: unmounted, the frames kept on the fade-out side for the crossfade, then let go by the sweep.
+            Assert.False(services.ArcadeIn.IsMounted);
+            Assert.Null(InputBus.For(InputKeys.ArcadeKey));
+            Assert.Same(services.Arcade.Source, InputBus.PreviousFor(InputKeys.ArcadeKey));
+            Assert.True(services.Arcade.PictureWanted);
+            services.ArcadeIn.SweepRetired(DateTime.UtcNow + ArcadeInputEngine.Hold + TimeSpan.FromSeconds(1));
+            Assert.Null(InputBus.PreviousFor(InputKeys.ArcadeKey));
+            Assert.False(services.Arcade.PictureWanted);
+            PumpUntil(() => !services.Arcade.Source.IsPlaying, () => services.Arcade.Source.StatusText);   // the lane let the last frame go
+            Assert.True(services.Arcade.IsRunning);                                    // the loop stays warm for the next want
+
+            Assert.True(services.Actions.Execute(new ShowAction(ShowActionKind.ApplyLook, "Games"), ActionOrigin.Desk).Ok);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(MediaSource.Arcade, vm.State.Pattern.Media.Source);
+            Assert.Equal(PipSource.Arcade, vm.State.Overlays.Pip.Source);
+            Assert.True(services.ArcadeIn.IsMounted);
+            Assert.True(services.Arcade.PictureWanted);
         }
         finally
         {

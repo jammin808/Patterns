@@ -103,6 +103,7 @@ public static class LayerRenderer
         LayerSource.Web => l.WebUrl.Length == 0
             ? "enter a page address"
             : WebInput.AvailabilityNote.Length > 0 ? WebInput.AvailabilityNote : "opening the page…",
+        LayerSource.Arcade => "the arcade — first frame…",
         _ => l.TargetId.Length == 0 ? "choose a screen" : "not in this rig",
     };
 
@@ -145,6 +146,7 @@ public static class LayerRenderer
                     LayerSource.Video => InputKeys.Video(l.VideoPath),
                     LayerSource.NdiFeed => InputKeys.Ndi(l.NdiSourceName),
                     LayerSource.Web => InputKeys.Web(l.WebUrl),
+                    LayerSource.Arcade => InputKeys.Arcade(),
                     _ => InputKeys.Capture(l.CaptureDevice),
                 };
                 var source = InputBus.Resolve(key, f.Ctx.IsFadeSource);

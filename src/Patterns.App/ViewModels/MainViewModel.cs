@@ -48,6 +48,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         // Every verb goes through the action layer: one code path for the desk, the keyboard,
         // the remotes and the schedule, one journal, one place to resync the editors from.
         _services.Actions.Performed += OnActionPerformed;
+        HookArcadeWindow();
         GoCommand = new RelayCommand(GoLive);
         StopCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.OutputsOff, ActionOrigin.Desk));
         IdentifyCommand = new RelayCommand(() => _services.Actions.Execute(ShowActionKind.Identify, ActionOrigin.Desk));

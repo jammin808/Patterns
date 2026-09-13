@@ -263,6 +263,7 @@ public sealed partial class MainViewModel
         _services.Video.SweepRetired();
         _services.NdiIn.SweepRetired();
         _services.WebIn.SweepRetired();
+        _services.ArcadeIn.SweepRetired();
     }
 
     private void PollPlaylist()

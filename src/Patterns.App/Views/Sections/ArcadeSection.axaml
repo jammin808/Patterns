@@ -10,7 +10,7 @@
     <StackPanel DockPanel.Dock="Top" Classes="form">
       <TextBlock Classes="h1 neon-arcade" Text="Arcade" />
       <TextBlock Classes="hint tip"
-                 Text="Old-school games for a games hub out front, or a rig day on this machine: the picture below is the game, the keyboard and any XInput pad are the players, phones join at /pad, and ARCADE verbs drive it — from a cue, a Stream Deck key or the assistant. On an arcade node (Patterns.exe --node arcade) this page is the node; on a desk the verbs go to the arcade nodes it hears, and with none heard the game runs here. The house plays between matches; START on a pad takes a seat." />
+                 Text="Old-school games for a games hub out front, or a rig day on this machine: the picture below is the game, the keyboard and any XInput pad are the players, phones join at /pad, and ARCADE verbs drive it — from a cue, a Stream Deck key or the assistant. On an arcade node (Patterns.exe --node arcade) this page is the node; on a desk the verbs go to the arcade nodes it hears, and with none heard the game runs here. The house plays between matches; START on a pad takes a seat. POP OUT gives the game a window of its own, FULLSCREEN a whole display." />
 
       <TextBlock Classes="h2" Text="GAME" />
       <WrapPanel>
@@ -29,8 +29,14 @@
         <CheckBox Content="NDI out" Margin="0,0,12,0" IsChecked="{Binding ArcadeNdi}" VerticalAlignment="Center"
                   ToolTip.Tip="The game on the network as 'PATTERNS ARCADE (this machine)': the desk puts it on a screen or a canvas like any NDI source" />
         <ComboBox ItemsSource="{Binding ArcadeSizes}" SelectedItem="{Binding ArcadeSize}" Margin="0,0,12,0" VerticalAlignment="Center" ToolTip.Tip="The picture's size — 3840x1080 for a joined canvas of two projectors" />
+        <Button Classes="mini" Content="POP OUT" Margin="0,0,8,0" VerticalAlignment="Center" Command="{Binding ArcadeWindowCommand}" CommandParameter="on"
+                ToolTip.Tip="The game in a window of its own — F11 fills the display, Esc brings it back, then closes it; the keys are the pads there too" />
+        <Button Classes="mini" Content="FULLSCREEN" Margin="0,0,12,0" VerticalAlignment="Center" Command="{Binding ArcadeWindowCommand}" CommandParameter="full"
+                ToolTip.Tip="The game filling this display — drag the window to another first, or ARCADE WINDOW FULL 2 on the wire names a display" />
         <TextBlock Classes="label" Text="{Binding ArcadeStatus}" VerticalAlignment="Center" />
       </WrapPanel>
+      <TextBlock Classes="hint" TextWrapping="Wrap"
+                 Text="On the show without NDI: pick Arcade as a pattern's media, a layer's picture, the PiP's source or a wall tile — this machine's game straight from the loop's own buffers, a press on the screen the next frame; a look or a cue takes it like any picture. NDI stays for a game on another machine." />
 
       <TextBlock Classes="h2" Text="AUDIENCE" />
       <TextBlock Classes="hint" TextWrapping="Wrap"

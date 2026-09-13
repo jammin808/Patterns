@@ -671,6 +671,7 @@ public static class Lists
         new(MultiviewSource.Pip, "PiP input"),
         new(MultiviewSource.Clock, "Clock"),
         new(MultiviewSource.Preview, "Preview (what the desk is building)"),
+        new(MultiviewSource.Arcade, "Arcade (this machine's game)"),
     };
 
     public static readonly EnumItem[] GpuPreferences =
@@ -969,6 +970,7 @@ public static class Lists
         new(MediaSource.Capture, "Capture device (HDMI / SDI / webcam)"),
         new(MediaSource.Web, "Web page (inside the engine)"),
         new(MediaSource.Deck, "Deck — a PDF presentation, a page at a time"),
+        new(MediaSource.Arcade, "Arcade — this machine's game, straight from its loop"),
     };
     public static readonly EnumItem[] ParticleShapes = Of<ParticleShape>();
     public static readonly EnumItem[] ParticleEmitters =
@@ -1003,6 +1005,7 @@ public static class Lists
         new(LayerSource.Capture, "Capture device (HDMI / SDI / webcam)"),
         new(LayerSource.Screen, "Another screen or canvas"),
         new(LayerSource.Web, "Web page"),
+        new(LayerSource.Arcade, "Arcade — this machine's game"),
     };
 
     public static readonly EnumItem[] ScreenRoles =
@@ -1051,6 +1054,7 @@ public static class Lists
     {
         new(PipSource.NdiFeed, "NDI feed (network)"),
         new(PipSource.Capture, "Capture device (HDMI / SDI / webcam)"),
+        new(PipSource.Arcade, "Arcade — this machine's game"),
     };
 
     public static readonly EnumItem[] FeedKinds =

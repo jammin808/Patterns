@@ -98,6 +98,8 @@ public enum MultiviewSource
     Capture,
     /// <summary>The sandboxed preview — what the desk is building, before a CUT or TAKE (a slate while EDIT SAFE is off).</summary>
     Preview,
+    /// <summary>This machine's own arcade — the game its loop draws, straight from the loop's buffers.</summary>
+    Arcade,
 }
 
 /// <summary>How a pattern canvas maps onto a differently sized sink.</summary>
@@ -184,6 +186,8 @@ public enum MediaSource
     Web,
     /// <summary>A PDF deck — a presentation — shown a page at a time, full frame at its own shape; the click-through turns its pages.</summary>
     Deck,
+    /// <summary>This machine's own arcade — the game its loop draws — straight from the loop's buffers, with no NDI between the game and the wall.</summary>
+    Arcade,
 }
 
 /// <summary>What a picture-in-picture inset shows.</summary>
@@ -191,6 +195,8 @@ public enum PipSource
 {
     NdiFeed,
     Capture,
+    /// <summary>This machine's own arcade, as an inset over the show.</summary>
+    Arcade,
 }
 
 /// <summary>

@@ -131,6 +131,8 @@ public static class MultiviewTally
                 return "PIP";
             case MultiviewSource.Preview:
                 return "PREVIEW";
+            case MultiviewSource.Arcade:
+                return "ARCADE";
             default:
                 return "CLOCK";
         }
@@ -178,6 +180,8 @@ public static class MultiviewTally
                 return "CAPTURE";
             case MultiviewSource.Pip:
                 return "PIP INPUT";
+            case MultiviewSource.Arcade:
+                return "THIS MACHINE'S GAME";
             default:
                 return "";
         }

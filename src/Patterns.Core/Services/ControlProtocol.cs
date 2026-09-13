@@ -784,6 +784,9 @@ public static class ControlProtocol
                     case "SIZE": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.ArcadeSize, "", tail);
                     case "NDI": return Act(ShowActionKind.ArcadeNdi, "", tail.Length == 0 ? "on" : tail);
                     case "NAME": case "INITIALS": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.ArcadeName, "", tail);
+                    // "ARCADE WINDOW" opens the game's own window; "ARCADE WINDOW FULL 2" fills display 2; "ARCADE FULLSCREEN" is the same; "ARCADE WINDOW OFF" closes it.
+                    case "WINDOW": case "POPOUT": case "POP": return Act(ShowActionKind.ArcadeWindow, "", tail.Length == 0 ? "on" : tail);
+                    case "FULLSCREEN": case "FULL": return Act(ShowActionKind.ArcadeWindow, "", ("full " + tail).Trim());
                     default:
                         // "ARCADE pong 2": the game's own name starts it.
                         return ArcadeGameWord(sub) ? Act(ShowActionKind.ArcadeStart, "", arg.Trim()) : Unknown(s);

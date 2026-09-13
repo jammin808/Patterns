@@ -211,7 +211,8 @@ public sealed class FrameSlot : IDisposable
         return true;
     }
 
-    public void Dispose()
+    /// <summary>Lets the newest frame go — a source nobody draws holds no picture; the next publish fills it again.</summary>
+    public void Clear()
     {
         lock (_gate)
         {
@@ -219,6 +220,8 @@ public sealed class FrameSlot : IDisposable
             _latest = null;
         }
     }
+
+    public void Dispose() => Clear();
 
     private static void Retire(SKImage? image) => RetiredFrames.Retire(image);
 }
@@ -239,6 +242,15 @@ public static class InputKeys
 
     /// <summary>A deck's key is its file: the same deck on two screens is one deck, on one page.</summary>
     public static string Deck(string path) => string.IsNullOrWhiteSpace(path) ? "" : "deck:" + path.Trim();
+
+    /// <summary>
+    /// This machine's own arcade — the game its loop draws — as an input: one picture whatever
+    /// asks for it, so a pattern, a layer, the PiP and a wall tile share the frames the loop
+    /// already drew, with no NDI, no network and no decode between the game and the wall.
+    /// </summary>
+    public const string ArcadeKey = "arcade:local";
+
+    public static string Arcade() => ArcadeKey;
 }
 
 /// <summary>

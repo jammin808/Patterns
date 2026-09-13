@@ -267,6 +267,9 @@
                   PlaceholderText="Capture devices…" />
         <Button Grid.Column="3" Classes="mini" Content="Refresh" Command="{Binding Media.RefreshCaptureDevicesCommand}" />
       </Grid>
+      <TextBlock Classes="hint" TextWrapping="Wrap"
+                 IsVisible="{Binding State.Overlays.Pip.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PipSource.Arcade}}"
+                 Text="This machine's game as the inset, straight from the game loop — the Arcade page runs it; a games break in the corner of the show." />
       <Grid ColumnDefinitions="130,*"
             IsVisible="{Binding State.Overlays.Pip.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:PipSource.Capture}}">
         <TextBlock Classes="label" Text="Format" />

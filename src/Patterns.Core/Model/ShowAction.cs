@@ -321,6 +321,8 @@ public enum ShowActionKind
     ArcadeSize,
     ArcadeNdi,
     ArcadeName,
+    /// <summary>The game's own window on this machine: on, off, or filling a display (FULL [display]).</summary>
+    ArcadeWindow,
     /// <summary>
     /// The audience room on the hub — run on the arcade node, sent there from a desk that hears
     /// one, run on the desk itself with none heard. Value carries the words: a question line

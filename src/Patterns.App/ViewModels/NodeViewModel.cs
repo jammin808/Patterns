@@ -23,6 +23,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     public const int RunTab = 0, CuesTab = 1, StageTab = 2, ArcadeTab = 3, NodesTab = 4;
 
     private readonly NodeHost _host;
+    private readonly Views.ArcadeWindowHost _arcadeWindows;
     private string _statusMessage = "";
     private string _playQuestionLine = "";
     private string _stageDraft = "";
@@ -45,6 +46,8 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             Poll();
         };
         _selectedTab = host.Kind switch { NodeKind.Timer => StageTab, NodeKind.Arcade => ArcadeTab, _ => RunTab };
+        _arcadeWindows = new Views.ArcadeWindowHost(this, n => host.Screens.FirstOrDefault(s => s.Index == n && !s.IsVirtual && !s.IsPlanned && !s.IsMissing));
+        host.Arcade.WindowHost = (mode, display) => _arcadeWindows.Handle(mode, display);
         _stageControlsOpen = host.Kind != NodeKind.Timer;                 // a timer's window is the display; its controls fold away
         StatusMessage = $"{NodeKinds.Label(host.Kind)} node — {host.Kernel.Beacon.MachineName}. "
                         + (host.IsFollower ? "LINK on the Nodes page follows a desk; alone, " + (host.Kind == NodeKind.Caller ? "the stack is rehearsed on paper." : "the clock is this node's own.") : "The desk finds this node on the beacon.");
@@ -174,6 +177,15 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     private RelayCommand? _arcadeStop;
 
     public RelayCommand ArcadeStopCommand => _arcadeStop ??= new RelayCommand(() => StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeStop)).Message);
+
+    private RelayCommand<string>? _arcadeWindow;
+
+    /// <summary>POP OUT / FULLSCREEN / CLOSE: the node's own window for the game.</summary>
+    public RelayCommand<string> ArcadeWindowCommand => _arcadeWindow ??= new RelayCommand<string>(mode =>
+        StatusMessage = Arcade.Run(new ShowAction(ShowActionKind.ArcadeWindow, "", mode ?? "on")).Message);
+
+    /// <summary>The game's own window while it is open.</summary>
+    public Views.ArcadeWindowHost ArcadeWindows => _arcadeWindows;
 
     // ---- the audience block ----
 

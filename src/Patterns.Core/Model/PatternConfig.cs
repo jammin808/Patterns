@@ -637,6 +637,8 @@ public enum LayerSource
     Screen,
     /// <summary>A web page rendered inside the engine (WebView2), driven from the desk's PREVIEW pane.</summary>
     Web,
+    /// <summary>This machine's own arcade — the game its loop draws — in the layer's box.</summary>
+    Arcade,
 }
 
 /// <summary>

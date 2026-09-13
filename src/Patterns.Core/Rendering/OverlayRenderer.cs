@@ -560,15 +560,21 @@ public static class OverlayRenderer
         }
     }
 
+    /// <summary>The inset's mount key: the feed, the device or this machine's arcade.</summary>
+    public static string PipKey(PipOverlay pip) => pip.Source switch
+    {
+        PipSource.NdiFeed => Media.InputKeys.Ndi(pip.NdiSourceName),
+        PipSource.Arcade => Media.InputKeys.Arcade(),
+        _ => Media.InputKeys.Capture(pip.CaptureDevice),
+    };
+
     /// <summary>Picture-in-picture live inset — drawn per viewport so every screen carries it.</summary>
     private static void DrawPip(SKCanvas c, ShowSnapshot snap, in RenderContext ctx, SinkState sink, Palette palette)
     {
         var pip = snap.State.Overlays.Pip;
         if (!pip.Enabled || ctx.Sink == SinkKind.Thumbnail) return;
 
-        var source = Media.InputBus.For(pip.Source == PipSource.NdiFeed
-            ? Media.InputKeys.Ndi(pip.NdiSourceName)
-            : Media.InputKeys.Capture(pip.CaptureDevice));
+        var source = Media.InputBus.For(PipKey(pip));
         var pc = sink.Paints;
         int vw = ctx.ViewportSize.Width, vh = ctx.ViewportSize.Height;
 
@@ -598,7 +604,12 @@ public static class OverlayRenderer
             c.DrawRoundRect(rect, 6, 6, pc.FillAA(new SKColor(0x10, 0x12, 0x18, alpha)));
             var f = pc.FontRegular;
             f.Size = Math.Clamp(h * 0.12f, 10, 26);
-            var label = source?.StatusText ?? (pip.Source == PipSource.NdiFeed ? "PiP: choose an NDI source" : "PiP: choose a capture device");
+            var label = source?.StatusText ?? pip.Source switch
+            {
+                PipSource.NdiFeed => "PiP: choose an NDI source",
+                PipSource.Arcade => "PiP: the arcade — first frame…",
+                _ => "PiP: choose a capture device",
+            };
             DrawUtil.TextCentered(c, label, rect.MidX, rect.MidY, f, pc.Text(new SKColor(0x8A, 0x93, 0xA3, alpha)));
         }
 

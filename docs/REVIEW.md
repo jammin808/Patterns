@@ -834,3 +834,41 @@ contracts; the kernel narrowed by one engine and widened by the machine's own se
 - **Left, and said:** the show lock and the metrics stay the desk's for now, with the reasons in
   the plan.
 
+
+## Round 42 review — the game on the wall with nothing between
+
+*An input the desk already knew how to show, fed from the loop's own buffers; the NDI send off
+the game's thread; a window of the game's own.*
+
+### 42.1 — the frame ring
+
+- **Done.** `FrameRing` in Core: one writer, any readers, pinned buffers, a skip instead of a
+  wait, a sequence for lanes to wait on, a drain before the buffers go. `docs/PLAN.md` §60.1.
+- **What it bought:** the loop's three buffers and two indices served one reader; the ring
+  serves the page, the pop-out, the copy and the send, and the loop's `Frame` never takes a
+  lock but its own.
+- **The test that matters:** a writer and two readers flat out for a third of a second, and no
+  buffer ever read while written.
+
+### 42.2 — the lane
+
+- **Done.** The NDI send and the bus copy on `arcade-lane`, the sender unclocked, the copy only
+  while wanted. `docs/PLAN.md` §60.2.
+- **The seam that showed:** the sender's clock was the loop's clock — a network library pacing a
+  game. Unclocked and on its own thread, a slow send drops a frame on the network and none in
+  the world.
+
+### 42.3 — the ARCADE source
+
+- **Done.** `arcade:local` on the bus; `Arcade` in the four source enums; the locator, the
+  renderers, the pickers, the engine with the fade-out hold. `docs/PLAN.md` §60.3.
+- **What it bought:** the operator's question — "is there a faster way than NDI to get the game
+  on screen?" — answered with the fastest way there is: none between.
+- **Left, and said:** the source is this machine's game; a node's picture still comes over NDI.
+
+### 42.4 — the window
+
+- **Done.** `ArcadeWindow`, `ArcadeWindowHost`, POP OUT and FULLSCREEN on the page, `ARCADE
+  WINDOW` and `ARCADE FULLSCREEN` on the wire and in cues. `docs/PLAN.md` §60.4.
+- **The rule kept:** the service knows a host function, not a window — a headless run refuses
+  the verb in words.

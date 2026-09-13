@@ -57,6 +57,13 @@
                  Text="Receives a live NDI® video feed and composites it like any pattern — it reaches spans, trims and NDI outputs. The list refreshes itself while this panel is active; senders appear a few seconds after they start. Needs the NDI runtime (see the NDI page). Video only — feed audio is not passed through." />
     </StackPanel>
 
+    <!-- This machine's arcade -->
+    <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Arcade}}">
+      <TextBlock Classes="h2" Text="ARCADE" />
+      <TextBlock Classes="hint tip"
+                 Text="The game running on this machine — the Arcade page's picture — as the pattern, straight from the game loop's own buffers: no NDI, no network and no decode between the game and the wall, so a press is on the screen the next frame. The loop starts when this is picked and the picture is copied only while something shows it. Take it with a look or a cue like any pattern; ARCADE SIZE sets its shape (3840x1080 for a joined canvas). A game out front on an arcade node is that node's — put its NDI source on instead." />
+    </StackPanel>
+
     <!-- Capture device -->
     <StackPanel IsVisible="{Binding ActivePattern.Media.Source, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:MediaSource.Capture}}">
       <TextBlock Classes="h2" Text="CAPTURE DEVICE" />

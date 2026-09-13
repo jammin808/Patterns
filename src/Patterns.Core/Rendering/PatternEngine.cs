@@ -785,12 +785,22 @@ public sealed class PatternEngine
                 DrawPreview(canvas, in f, sink, rect);
                 break;
 
+            case MultiviewSource.Arcade:
+                if (InputBus.For(InputKeys.Arcade()) is { } game)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    if (!game.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "Arcade — first frame…");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, "Arcade — the game's picture is on its way");
+                }
+                break;
+
             case MultiviewSource.Pip:
             {
                 var pipCfg = f.Snapshot.State.Overlays.Pip;
-                var key = pipCfg.Source == PipSource.NdiFeed
-                    ? InputKeys.Ndi(pipCfg.NdiSourceName)
-                    : InputKeys.Capture(pipCfg.CaptureDevice);
+                var key = OverlayRenderer.PipKey(pipCfg);
                 if (pipCfg.Enabled && InputBus.For(key) is { } pip)
                 {
                     canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
@@ -935,7 +945,7 @@ public sealed class PatternEngine
         var p = snap.PatternFor(screenId);
         var continuous = p.Kind is PatternKind.Motion or PatternKind.ColorCycle or PatternKind.Particles or PatternKind.Multiview or PatternKind.Fractal or PatternKind.Reactive
             || (p.Kind == PatternKind.Checkerboard && p.Checker.Animate)
-            || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture or MediaSource.Web or MediaSource.Deck)
+            || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture or MediaSource.Web or MediaSource.Deck or MediaSource.Arcade)
             || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)
             || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll)
             || LowerThirds.LowerThirdClock.IsLive(s.LowerThirds, utcNow)
@@ -957,7 +967,7 @@ public sealed class PatternEngine
     private static bool LayerIsLive(ShowSnapshot snap, LayerConfig l, string? screenId, DateTime utcNow, int depth)
     {
         if (!l.Enabled) return false;
-        if (l.Source is LayerSource.Video or LayerSource.NdiFeed or LayerSource.Capture or LayerSource.Web) return true;
+        if (l.Source is LayerSource.Video or LayerSource.NdiFeed or LayerSource.Capture or LayerSource.Web or LayerSource.Arcade) return true;
         if (l.Source != LayerSource.Screen || l.TargetId.Length == 0 || l.TargetId == screenId || depth >= 2) return false;
         return CadenceOf(snap, l.TargetId, utcNow, depth + 1) == RedrawCadence.Continuous;
     }

@@ -69,7 +69,12 @@ public static class MediaLocator
         Web,
         /// <summary>A PDF deck rendered a page at a time by the app's PDF renderer.</summary>
         Deck,
+        /// <summary>This machine's own arcade — the game its loop draws — copied from the loop's buffers while a picture wants it.</summary>
+        Arcade,
     }
+
+    /// <summary>The arcade's target word: there is one arcade on a machine, so its mount has one name.</summary>
+    public const string ArcadeTarget = "local";
 
     /// <summary>
     /// One input the show wants mounted right now, in priority order. <paramref name="Format"/> is a
@@ -115,6 +120,7 @@ public static class MediaLocator
                 WantedKind.Capture => Media.InputKeys.Capture(target),
                 WantedKind.Web => Media.InputKeys.Web(target),
                 WantedKind.Deck => Media.InputKeys.Deck(target),
+                WantedKind.Arcade => Media.InputKeys.Arcade(),
                 _ => Media.InputKeys.Ndi(target),
             };
             if (at.TryGetValue(key, out var already))
@@ -153,6 +159,9 @@ public static class MediaLocator
                         Add(WantedKind.Web, l.WebUrl, false, l.Mute, 0, $"{l.WebWidth}x{l.WebHeight}", l.WebZoomPct,
                             WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean));
                         break;
+                    case LayerSource.Arcade:
+                        Add(WantedKind.Arcade, ArcadeTarget, false, true, 0);
+                        break;
                 }
             }
         }
@@ -181,6 +190,9 @@ public static class MediaLocator
                     case MediaSource.Deck:
                         Add(WantedKind.Deck, m.DeckPath, false, true, 0, m.DeckStartPage.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         break;
+                    case MediaSource.Arcade:
+                        Add(WantedKind.Arcade, ArcadeTarget, false, true, 0);
+                        break;
                     case MediaSource.Playlist:
                         // Only the active playlist has a "now playing" item; videos never
                         // self-loop — their natural end advances the playlist.
@@ -206,6 +218,9 @@ public static class MediaLocator
                         case MultiviewSource.Capture:
                             Add(WantedKind.Capture, tile.Input, false, true, 0);
                             break;
+                        case MultiviewSource.Arcade:
+                            Add(WantedKind.Arcade, ArcadeTarget, false, true, 0);
+                            break;
                     }
                 }
             }
@@ -226,8 +241,12 @@ public static class MediaLocator
         var pip = state.Overlays.Pip;
         if (pip.Enabled)
         {
-            if (pip.Source == PipSource.NdiFeed) Add(WantedKind.Ndi, pip.NdiSourceName, false, true, 0);
-            else Add(WantedKind.Capture, pip.CaptureDevice, false, true, 0);
+            switch (pip.Source)
+            {
+                case PipSource.NdiFeed: Add(WantedKind.Ndi, pip.NdiSourceName, false, true, 0); break;
+                case PipSource.Arcade: Add(WantedKind.Arcade, ArcadeTarget, false, true, 0); break;
+                default: Add(WantedKind.Capture, pip.CaptureDevice, false, true, 0); break;
+            }
         }
 
         // The lower third on air: a media element's clip mounts too (silent b-roll unless told otherwise).

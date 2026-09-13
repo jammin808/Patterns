@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Avalonia.Threading;
 using Patterns.Core.Arcade;
+using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Ndi;
 using Patterns.Core.Rendering;
@@ -11,50 +12,70 @@ using SkiaSharp;
 
 namespace Patterns.App.Services;
 
+/// <summary>What ARCADE WINDOW asks of the game's own window.</summary>
+public enum ArcadeWindowMode
+{
+    Off,
+    On,
+    Full,
+}
+
 /// <summary>
 /// The arcade node's loop: the engine advanced by wall time and rendered on a thread of its own at
-/// the picture's rate, triple-buffered so the page draws the newest whole frame while the next is
-/// drawn; the pads (keyboard, the wire, the phone pad, XInput) merged at the step; the picture to
-/// NDI when asked; the board in the node's folder. On a desk the verbs go to the arcade nodes it
-/// hears (<see cref="NodesService.SendToArcades"/>); this runs them when this process is the arcade.
+/// the picture's rate into a ring of four buffers (<see cref="FrameRing"/>), so the loop never
+/// waits for anyone who reads a frame and every reader gets the newest whole one; the pads
+/// (keyboard, the wire, the phone pad, XInput) merged at the step; the board in the node's folder.
+/// The readers: the page's surface and the pop-out window draw the newest buffer straight; a
+/// picture lane of its own copies it to the input bus while the show wants it (this machine's
+/// ARCADE source — a pattern, a layer, the inset, a wall tile) and sends it to NDI when asked,
+/// off the loop's thread and unclocked, so neither a slow display, a copy nor a network send costs
+/// the game a frame. On a desk the verbs go to the arcade nodes it hears
+/// (<see cref="NodesService.SendToArcades"/>); this runs them when this process is the arcade.
 /// </summary>
 public sealed class ArcadeService : IDisposable
 {
     public const int DefaultWidth = 1280;
     public const int DefaultHeight = 720;
     public const int DefaultFps = 60;
-    private const int Buffers = 3;
+    /// <summary>One writer, the surface, the lane, and one spare.</summary>
+    public const int Buffers = 4;
     private const int TapSteps = ArcadeEngine.StepHz / 10;
 
     private readonly ServiceKernel _s;
     private readonly ArcadeEngine _engine = new();
     private readonly object _gate = new();
-    private readonly object _pick = new();
     private readonly PaintCache _paints = new();
     private readonly PadButtons[] _pressed = new PadButtons[ArcadeEngine.MaxPads];
     private readonly PadButtons[] _pads = new PadButtons[ArcadeEngine.MaxPads];
     private readonly List<(int Player, PadButtons Button, long ReleaseAt)> _taps = new();
     private readonly SKBitmap?[] _bitmaps = new SKBitmap?[Buffers];
     private readonly SKSurface?[] _surfaces = new SKSurface?[Buffers];
+    private readonly FrameRing _ring = new(Buffers);
+    private readonly FrameSlot _slot = new();
+    private readonly PictureSource _source;
     private readonly FpsMeter _fpsMeter = new();
     private readonly Leaderboard _board;
     private readonly string _boardPath;
     private Thread? _thread;
+    private Thread? _lane;
     private volatile bool _run;
     private volatile int _width = DefaultWidth;
     private volatile int _height = DefaultHeight;
     private volatile int _fps = DefaultFps;
-    private int _latest = -1;
-    private int _drawing = -1;
-    private NdiFrameSender? _ndi;
+    private NdiFrameSender? _ndi;          // the lane's alone, from its creation to its close
     private volatile bool _ndiOn;
+    private volatile bool _pictureWanted;
+    private volatile string _windowMode = "off";
     private long _rev;
     private long _frames;
+    private long _laneFrames;
+    private long _copies;
     private bool _boardDirty;
 
     public ArcadeService(ServiceKernel s)
     {
         _s = s;
+        _source = new PictureSource(this);
         _boardPath = Path.Combine(s.Store.BaseDirectory, "arcade-scores.json");
         _board = Leaderboard.Parse(TryRead(_boardPath));
         _engine.TopScores = game => _board.Top(game, 5);
@@ -63,7 +84,8 @@ public sealed class ArcadeService : IDisposable
     }
 
     public static bool IsArcadeKind(ShowActionKind kind) => kind is ShowActionKind.ArcadeStart or ShowActionKind.ArcadeStop or ShowActionKind.ArcadePause
-        or ShowActionKind.ArcadeResume or ShowActionKind.ArcadeAttract or ShowActionKind.ArcadeKey or ShowActionKind.ArcadeSize or ShowActionKind.ArcadeNdi or ShowActionKind.ArcadeName;
+        or ShowActionKind.ArcadeResume or ShowActionKind.ArcadeAttract or ShowActionKind.ArcadeKey or ShowActionKind.ArcadeSize or ShowActionKind.ArcadeNdi
+        or ShowActionKind.ArcadeName or ShowActionKind.ArcadeWindow;
 
     /// <summary>The wire's line for an arcade action — what the desk sends its arcade nodes.</summary>
     public static string Line(ShowAction a) => a.Kind switch
@@ -77,6 +99,7 @@ public sealed class ArcadeService : IDisposable
         ShowActionKind.ArcadeSize => $"ARCADE SIZE {a.Value}",
         ShowActionKind.ArcadeNdi => $"ARCADE NDI {a.Value}",
         ShowActionKind.ArcadeName => $"ARCADE NAME {a.Value}",
+        ShowActionKind.ArcadeWindow => $"ARCADE WINDOW {a.Value}".TrimEnd(),
         _ => "",
     };
 
@@ -87,11 +110,41 @@ public sealed class ArcadeService : IDisposable
     public bool NdiOn => _ndiOn;
     public long Rev => Interlocked.Read(ref _rev);
     public long Frames => Interlocked.Read(ref _frames);
+
+    /// <summary>Frames the lane handled — copied to the bus, sent to NDI, or both.</summary>
+    public long LaneFrames => Interlocked.Read(ref _laneFrames);
+
+    /// <summary>Frames copied to the input bus for the show's pictures.</summary>
+    public long Copies => Interlocked.Read(ref _copies);
+
+    /// <summary>Frames the loop drew nowhere for want of a free buffer — a reader holding on too long.</summary>
+    public long SkippedFrames => _ring.Skipped;
+
     public string NdiName => $"PATTERNS ARCADE ({Environment.MachineName})";
 
     /// <summary>Another picture on this lane — the audience wall — drawn instead of the game while it says so (true).</summary>
     public Func<SKCanvas, int, int, PaintCache, bool>? Board { get; set; }
     public double MeasuredFps => _fpsMeter.Fps;
+
+    /// <summary>
+    /// This machine's game as an input for the show: the newest frame, copied out of the loop's
+    /// buffers by the lane while <see cref="WantPicture"/> stands. The desk mounts it under
+    /// <see cref="InputKeys.ArcadeKey"/> when a picture asks for it.
+    /// </summary>
+    public IVideoFrameSource Source => _source;
+
+    /// <summary>Whether a picture on the show wants the frames — the lane copies only then.</summary>
+    public bool PictureWanted => _pictureWanted;
+
+    /// <summary>
+    /// Who opens, fills and closes the game's own window on this machine: the words for the
+    /// verb's answer, or null when it could not. Null with no window at all (headless, or a
+    /// process with no pages), and ARCADE WINDOW says so.
+    /// </summary>
+    public Func<ArcadeWindowMode, int, string?>? WindowHost { get; set; }
+
+    /// <summary>The game's own window as the host last reported it: off, on or full.</summary>
+    public string WindowMode => _windowMode;
 
     public string Words
     {
@@ -108,9 +161,20 @@ public sealed class ArcadeService : IDisposable
         lock (_gate) return _engine.Snapshot();
     }
 
-    /// <summary>"60 fps · 1280×720 · NDI off" — the page's line under the picture.</summary>
+    /// <summary>"60 fps · 1280×720 · NDI off" — the page's line under the picture, with where else the picture goes.</summary>
     public string Status
-        => $"{(_run ? $"{_fpsMeter.Fps:0} fps" : "not running")} · {_width}×{_height} · NDI {(_ndiOn ? (_ndi?.Status ?? "starting") : "off")}";
+    {
+        get
+        {
+            var sb = new StringBuilder();
+            sb.Append(_run ? $"{_fpsMeter.Fps:0} fps" : "not running");
+            sb.Append(" · ").Append(_width).Append('×').Append(_height);
+            sb.Append(" · NDI ").Append(_ndiOn ? (_ndi?.Status ?? "starting") : "off");
+            if (_pictureWanted) sb.Append(" · on the show");
+            if (_windowMode != "off") sb.Append(" · window ").Append(_windowMode);
+            return sb.ToString();
+        }
+    }
 
     /// <summary>The board's best five for the game in hand: "PONG — 1 ABC 7 · 2 P1 5".</summary>
     public string BoardWords
@@ -128,21 +192,42 @@ public sealed class ArcadeService : IDisposable
         }
     }
 
-    /// <summary>The loop: from boot on an arcade node, from the first verb that needs a picture elsewhere.</summary>
+    /// <summary>The loop and its lane: from boot on an arcade node, from the first verb or want that needs a picture elsewhere.</summary>
     public void Start()
     {
         if (_run) return;
         _run = true;
         _thread = new Thread(Loop) { IsBackground = true, Name = "arcade", Priority = ThreadPriority.AboveNormal };
+        _lane = new Thread(Lane) { IsBackground = true, Name = "arcade-lane" };
         _thread.Start();
+        _lane.Start();
     }
 
     public void Stop()
     {
         _run = false;
+        _ring.Wake();
         var t = _thread;
+        var l = _lane;
         _thread = null;
+        _lane = null;
         if (t is not null && t.IsAlive && !t.Join(2000)) Log.Warn("The arcade loop did not stop in time.");
+        if (l is not null && l.IsAlive && !l.Join(2000)) Log.Warn("The arcade's picture lane did not stop in time.");
+    }
+
+    /// <summary>A picture on the show wants the frames (or no longer does): the lane copies while it does, and the loop runs from the first want.</summary>
+    public void WantPicture(bool on)
+    {
+        _pictureWanted = on;
+        if (on) Start();
+        Interlocked.Increment(ref _rev);
+    }
+
+    /// <summary>The window's host says what the window is now: "off", "on" or "full".</summary>
+    public void ReportWindow(string mode)
+    {
+        _windowMode = mode;
+        Interlocked.Increment(ref _rev);
     }
 
     /// <summary>A key from the keyboard, the wire or the phone pad — held until released.</summary>
@@ -256,6 +341,7 @@ public sealed class ArcadeService : IDisposable
                 var on = value.Length == 0 || value.Equals("on", StringComparison.OrdinalIgnoreCase) || value.Equals("true", StringComparison.OrdinalIgnoreCase) || value == "1";
                 _ndiOn = on;
                 if (on) Start();
+                _ring.Wake();   // the lane looks again: a sender to close, or one to open on the next frame
                 Interlocked.Increment(ref _rev);
                 return ActionResult.Done(on ? $"NDI on — '{NdiName}' on the network once a receiver asks." : "NDI off.");
             }
@@ -264,6 +350,29 @@ public sealed class ArcadeService : IDisposable
                 bool ok;
                 lock (_gate) { ok = _board.Name(null, value); if (ok) _boardDirty = true; }
                 return ok ? ActionResult.Done($"The last score is {value.ToUpperInvariant()}'s.") : ActionResult.Refused("No score to name yet — a match with someone on a pad first.");
+            }
+            case ShowActionKind.ArcadeWindow:
+            {
+                // "", ON, OFF, FULL, FULL 2, or a bare display number: the game's own window on this machine.
+                var words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var word = words.Length > 0 ? words[0].ToUpperInvariant() : "ON";
+                var display = words.Length > 1 && int.TryParse(words[1], out var d) ? d : 0;
+                ArcadeWindowMode mode;
+                if (int.TryParse(word, out var bare) && bare > 0) { mode = ArcadeWindowMode.Full; display = bare; }
+                else
+                {
+                    mode = word switch
+                    {
+                        "ON" or "OPEN" or "SHOW" or "POP" or "POPOUT" or "WINDOWED" => ArcadeWindowMode.On,
+                        "OFF" or "CLOSE" or "HIDE" or "NONE" => ArcadeWindowMode.Off,
+                        "FULL" or "FULLSCREEN" or "FILL" or "BIG" => ArcadeWindowMode.Full,
+                        _ => (ArcadeWindowMode)(-1),
+                    };
+                    if ((int)mode < 0) return ActionResult.Refused("ARCADE WINDOW [ON|OFF|FULL [display]] — the game's own window on this machine, or filling a display by its number.");
+                }
+                if (WindowHost is null) return ActionResult.Refused("No window for the arcade here — ARCADE WINDOW opens the game's own window on a desk or an arcade node.");
+                var said = WindowHost(mode, display);
+                return said is null ? ActionResult.Refused("The arcade window could not be opened here.") : ActionResult.Done(said);
             }
             default:
                 return ActionResult.Refused("Not an arcade verb.");
@@ -305,6 +414,9 @@ public sealed class ArcadeService : IDisposable
                 fps = Math.Round(_fpsMeter.Fps),
                 size = new { width = _width, height = _height },
                 ndi = new { on = _ndiOn, name = NdiName, status = _ndi?.Status ?? "Off", receivers = _ndi?.Connections ?? 0 },
+                source = new { wanted = _pictureWanted, key = InputKeys.ArcadeKey, copies = Copies },
+                window = _windowMode,
+                skipped = _ring.Skipped,
                 board = _board.Top(current, 5).Select(e => new { e.Name, e.Score }).ToArray(),
                 games = ArcadeEngine.Catalogue.Select(g => g.Id).ToArray(),
                 rev = Rev,
@@ -338,39 +450,98 @@ public sealed class ArcadeService : IDisposable
         {
             Log.Error("The arcade loop ended on a fault.", ex);
             _run = false;
+            _ring.Wake();
         }
     }
 
     private void Frame(double elapsed, double now)
     {
-        int w, h, index;
-        SKBitmap bitmap;
         lock (_gate)
         {
             PollPads();
             ReleaseTaps();
             for (var i = 0; i < ArcadeEngine.MaxPads; i++) _engine.SetPad(i, _pressed[i] | _pads[i]);
             _engine.Advance(elapsed);
-            w = _width;
-            h = _height;
-            index = NextBuffer();
-            bitmap = EnsureBuffer(index, w, h);
-            var canvas = _surfaces[index]!.Canvas;
-            if (Board is null || !Board(canvas, w, h, _paints)) _engine.Render(canvas, w, h, _paints);
-            canvas.Flush();
-            lock (_pick) _latest = index;
-            Interlocked.Increment(ref _frames);
+            var w = _width;
+            var h = _height;
+            // A buffer nobody reads; none free means every reader is holding on, and the world
+            // has still moved — the next frame draws it, and the skip is counted.
+            var index = _ring.Acquire();
+            if (index >= 0)
+            {
+                try
+                {
+                    EnsureBuffer(index, w, h);
+                    var canvas = _surfaces[index]!.Canvas;
+                    if (Board is null || !Board(canvas, w, h, _paints)) _engine.Render(canvas, w, h, _paints);
+                    canvas.Flush();
+                }
+                catch
+                {
+                    _ring.Abandon(index);
+                    throw;
+                }
+                _ring.Publish(index);
+                Interlocked.Increment(ref _frames);
+            }
             _fpsMeter.Tick(now);
             if (_boardDirty) SaveBoard();
         }
-        if (_ndiOn)
+    }
+
+    /// <summary>
+    /// The picture lane: woken by each published frame, it pins the newest, copies it to the input
+    /// bus while a picture on the show wants it and sends it to NDI while that is on, then lets go.
+    /// A send that takes long makes the lane skip to the newest frame after it, never the loop
+    /// wait; with nothing wanted it sleeps on the ring, and a sender no longer wanted is closed here.
+    /// </summary>
+    private void Lane()
+    {
+        long seen = 0;
+        try
         {
-            _ndi ??= new NdiFrameSender(NdiName);
-            _ndi.Send(bitmap.GetPixels(), w, h, bitmap.RowBytes, _fps, 1);
+            while (_run)
+            {
+                var newer = _ring.WaitNewer(seen, 250, out var sequence);
+                if (!_run) break;
+                var wantCopy = _pictureWanted;
+                var wantNdi = _ndiOn;
+                if (!wantNdi && _ndi is { IsOpen: true }) _ndi.Close();
+                if (!wantCopy && _slot.HasFrame) _slot.Clear();
+                if (!newer) continue;
+                seen = sequence;
+                if (!wantCopy && !wantNdi) continue;
+                var index = _ring.Pin();
+                if (index < 0) continue;
+                try
+                {
+                    var bitmap = _bitmaps[index];
+                    if (bitmap is null) continue;
+                    if (wantCopy)
+                    {
+                        _slot.Publish(SKImage.FromPixelCopy(bitmap.Info, bitmap.GetPixels(), bitmap.RowBytes));
+                        Interlocked.Increment(ref _copies);
+                    }
+                    if (wantNdi)
+                    {
+                        _ndi ??= new NdiFrameSender(NdiName, clockVideo: false);
+                        _ndi.Send(bitmap.GetPixels(), bitmap.Width, bitmap.Height, bitmap.RowBytes, _fps, 1);
+                    }
+                }
+                finally
+                {
+                    _ring.Unpin(index);
+                }
+                Interlocked.Increment(ref _laneFrames);
+            }
         }
-        else if (_ndi is not null && _ndi.IsOpen)
+        catch (Exception ex)
         {
-            _ndi.Close();
+            Log.Error("The arcade's picture lane ended on a fault.", ex);
+        }
+        finally
+        {
+            _ndi?.Close();
         }
     }
 
@@ -390,15 +561,6 @@ public sealed class ArcadeService : IDisposable
         }
     }
 
-    private int NextBuffer()
-    {
-        lock (_pick)
-        {
-            for (var i = 0; i < Buffers; i++) if (i != _latest && i != _drawing) return i;
-            return 0;
-        }
-    }
-
     private SKBitmap EnsureBuffer(int index, int w, int h)
     {
         var b = _bitmaps[index];
@@ -413,16 +575,11 @@ public sealed class ArcadeService : IDisposable
         return b;
     }
 
-    /// <summary>The newest whole frame onto a canvas, fitted to <paramref name="dest"/>; false when there is none yet.</summary>
+    /// <summary>The newest whole frame onto a canvas, fitted to <paramref name="dest"/>; false when there is none yet. Any thread.</summary>
     public bool DrawLatest(SKCanvas canvas, SKRect dest)
     {
-        int index;
-        lock (_pick)
-        {
-            index = _latest;
-            if (index < 0) return false;
-            _drawing = index;
-        }
+        var index = _ring.Pin();
+        if (index < 0) return false;
         try
         {
             var bitmap = _bitmaps[index];
@@ -433,7 +590,7 @@ public sealed class ArcadeService : IDisposable
         }
         finally
         {
-            lock (_pick) _drawing = -1;
+            _ring.Unpin(index);
         }
     }
 
@@ -474,7 +631,13 @@ public sealed class ArcadeService : IDisposable
         }
         _ndi?.Dispose();
         _ndi = null;
-        lock (_pick) { _latest = -1; _drawing = -1; }
+        _slot.Dispose();
+        // No new reader gets a buffer; one still drawing (a window's render thread) gets a moment to finish first.
+        if (!_ring.Drain(500))
+        {
+            Log.Warn("The arcade's buffers were still being read at dispose; kept for the process's life.");
+            return;
+        }
         for (var i = 0; i < Buffers; i++)
         {
             _surfaces[i]?.Dispose();
@@ -483,5 +646,27 @@ public sealed class ArcadeService : IDisposable
             _bitmaps[i] = null;
         }
         _paints.Dispose();
+    }
+
+    /// <summary>The game's picture as the engine's input: the slot the lane fills, and the loop's state as words.</summary>
+    private sealed class PictureSource : IVideoFrameSource
+    {
+        private readonly ArcadeService _s;
+
+        public PictureSource(ArcadeService s) => _s = s;
+
+        public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint) => _s._slot.Draw(canvas, dest, paint, FrameCrop.None);
+
+        public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop) => _s._slot.Draw(canvas, dest, paint, in crop);
+
+        public SKSizeI? FrameSize => _s._slot.Size ?? new SKSizeI(_s._width, _s._height);
+
+        public bool IsPlaying => _s._run && _s._slot.HasFrame;
+
+        public bool IsEnded => false;
+
+        public double DurationSeconds => 0;
+
+        public string StatusText => !_s._run ? "the arcade — starting…" : _s._slot.HasFrame ? "arcade" : "the arcade — first frame…";
     }
 }

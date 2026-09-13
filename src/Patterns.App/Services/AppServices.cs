@@ -36,6 +36,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     /// <summary>PDF decks inside the engine — one per deck the show references, a page at a time.</summary>
     public DeckEngine DeckIn { get; }
+
+    /// <summary>This machine's arcade on the input bus while a picture shows it.</summary>
+    public ArcadeInputEngine ArcadeIn { get; }
     public PlaylistService Playlist { get; }
     public FeedService Feeds { get; }
 
@@ -455,6 +458,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         RigDay = new RigDayService(this);
         Arcade = new ArcadeService(Kernel);
         Arcade.Board = Play.DrawWall;
+        ArcadeIn = new ArcadeInputEngine(Arcade);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -1416,6 +1420,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         NdiIn.Reconcile(Bus.Current, Bus.Sandbox);
         WebIn.Reconcile(Bus.Current, Bus.Sandbox);
         DeckIn.Reconcile(Bus.Current, Bus.Sandbox);
+        ArcadeIn.Reconcile(Bus.Current, Bus.Sandbox);
     }
 
     /// <summary>The deck the program shows — the click-through's pages — or null when none is on air (or still opening).</summary>
@@ -1594,6 +1599,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
             Twin.Dispose();
             Play.Dispose();
+            ArcadeIn.Dispose();
             Arcade.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();

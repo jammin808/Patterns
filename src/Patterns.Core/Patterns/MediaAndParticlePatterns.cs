@@ -117,6 +117,24 @@ public sealed class MediaPattern : IPatternRenderer
             return;
         }
 
+        if (o.Source == MediaSource.Arcade)
+        {
+            // This machine's own game, straight from the loop's buffers: mounted while a picture
+            // wants it, so the placeholder is the moment before the first frame lands.
+            var key = InputKeys.Arcade();
+            var game = InputBus.Resolve(key, f.Ctx.IsFadeSource);
+            if (game is null)
+            {
+                PlaceholderCard(c, in f, "Arcade", "The game's picture is on its way — this machine's arcade, with no NDI between the game and the wall.");
+                return;
+            }
+            if (!DrawInput(c, in f, o, game, bounds, o.Fit == FitMode.Tile ? FitMode.Fit : o.Fit, pc.FillAA(SKColors.White), key, out _))
+            {
+                PlaceholderCard(c, in f, "Arcade", game.StatusText);
+            }
+            return;
+        }
+
         if (o.Source == MediaSource.Web)
         {
             var key = InputKeys.Web(o.WebUrl);

@@ -5982,3 +5982,89 @@ and read right there. A node's window still has no Machine or Help page.
 
 Counts at the end of the round: Core 1,095, App 567 — both suites green here.
 
+
+## 60. Round 42 — the game on the wall with nothing between
+
+*The question the round before left on the table: the arcade's picture reached the show only as
+NDI — the game encoded, put on the network, found, received and decoded on the same machine,
+two or three frames and a network stack between a press and the wall — and the game had no
+window of its own. This round gives the desk the game as an input it already knows how to show,
+takes the NDI send off the game loop, and gives the game a window that fills a display.*
+
+### 60.1 The frame ring
+
+The loop drew into three buffers picked under a lock with two indices, "latest" and "drawing",
+which served one reader. Two more readers were coming — a copy for the input bus and the NDI
+send — and the shape that serves any number of readers without ever making the writer wait is a
+ring with pinned readers: `FrameRing` (Core, `Media/`). The writer `Acquire`s a buffer that is
+neither the newest (a reader may pin it next) nor held by a reader, draws, `Publish`es it as
+the newest; a reader `Pin`s the newest, reads, `Unpin`s. A writer that finds no free buffer
+skips the frame and counts it (`Skipped`), rather than waiting: the game loop never blocks on a
+slow reader — a window's draw, a copy, a network send — and a slow reader always sees the
+newest whole frame, never a queue of old ones. Four buffers serve one writer and two readers
+with one spare. The sequence counts publishes so a lane can wait for a frame newer than the one
+it last handled (`WaitNewer`), `Wake` ends a lane's wait when the loop stops, and `Drain`
+forgets the newest and waits for readers to let go before the owner frees the buffers (a
+window's render thread may still be drawing at dispose). The ring is pure — no Skia, no
+threads of its own — and is tested alone, including a writer and two readers flat out for a
+third of a second, which never share a buffer.
+
+### 60.2 The picture lane, and the NDI send off the loop
+
+The loop's `Frame` did the NDI send itself: `NDIlib_send_send_video_v2` on a clocked sender,
+which waits until the frame's time has come — a game loop paced by a network library, and a
+send that stalls (a receiver joining, a switch hiccup) stalling the world. Now the loop
+publishes into the ring and goes back to its clock. A lane thread of its own (`arcade-lane`)
+wakes on each published frame, pins the newest, copies it to the input bus while a picture on
+the show wants it, sends it to NDI while that is on, and lets go. The sender is created
+unclocked (`NdiFrameSender(name, clockVideo: false)` — a lane paced by the frames it is handed
+needs no second clock), so a send that takes long makes the lane skip to the newest frame after
+it and costs the loop nothing; a sender no longer wanted is closed on the lane, never under the
+game's gate. The copy is an `SKImage` per frame into a `FrameSlot` (the same holder every live
+input uses, with the retired-frame hold that keeps a draw in flight safe), made only while
+`WantPicture` stands, so a desk with the arcade on no picture copies nothing and a desk with it
+on three pictures copies once. `Status` says where the picture goes ("· on the show", "· window
+full"), `ARCADE STATUS` carries `source`, `window` and `skipped`.
+
+### 60.3 The ARCADE source
+
+`InputKeys.Arcade()` is `arcade:local` — one arcade per machine, one mount. `MediaSource`,
+`LayerSource`, `PipSource` and `MultiviewSource` each gain `Arcade`; the locator wants it from a
+pattern's media, an enabled layer, the inset and a wall tile, deduplicated to one mount with
+every bus that shows it recorded; the media pattern, the layer renderer, the PiP and the wall
+tile resolve the key like any input, with their placeholders the moment before the first frame;
+the redraw cadence counts it as live. The desk's `ArcadeInputEngine` follows the same reconcile
+contract as the video, NDI, web and deck engines: mount on the first want (which starts the
+loop), keep the source on the fade-out side for four seconds after the last want so a crossfade
+out of the game fades the game, then clear it and stop the copies. The pickers on the Media,
+Layers and Overlays pages and the wall's tile list say "Arcade — this machine's game", with the
+note that a game out front on an arcade node is that node's — its NDI source is the way in.
+Looks and cues carry the choice as they carry any source. What this buys: a press on a pad is on
+the wall the next frame the sink draws, with no encode, no network, no decode and no receiver
+buffer between — the fastest path there is, and the cheapest.
+
+### 60.4 The window
+
+`ArcadeWindow` is the game's picture and nothing else — an `ArcadeSurface` drawing the ring's
+newest buffer at the display's rate — windowed or filling a display, with the keys as the pads
+(1–3 pick a game for the house), F11 to fill the display or bring the window back, Esc to bring
+it back and then close it. `ArcadeWindowHost` opens, fills and closes the one window a desk or a
+node has, for the page's POP OUT and FULLSCREEN buttons and for the verb; a display is named by
+its number on the Screens page, and no number fills the display the window is on.
+`ShowActionKind.ArcadeWindow` is a cue kind (`ARCADE WINDOW [ON|OFF|FULL [display]]`, `ARCADE
+FULLSCREEN`) so a running order can put the hub's game up at doors; on a desk that hears arcade
+nodes the verb goes to them like every ARCADE verb, and the page's buttons are the desk's own
+window. The service knows only `WindowHost` — a function that answers with words — so a
+headless process, or one with no pages, refuses the verb with a sentence rather than a fault.
+
+### 60.5 Considered and left
+
+A GPU path for the copy (a texture shared between the loop's surface and the sinks) would save
+the memcpy — about 0.3 ms a frame at 720p, under 2 ms at 4K — and would tie the arcade to the
+sinks' graphics device; the copy is cheap and the ring is device-free, so it stays. The arcade's
+own sound is still none. A second arcade on one machine (two games on two walls) is one loop
+and one mount by design; two hubs are two nodes. The window has no pointer hit-testing for the
+audience play wall (the wall rides the same lane and shows in the window as it shows on the
+page).
+
+Counts at the end of the round: Core 1,102, App 568 — both suites green here.

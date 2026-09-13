@@ -8,8 +8,15 @@ namespace Patterns.App.ViewModels;
 public sealed partial class MainViewModel
 {
     private string _arcadeSeen = "";
+    private Views.ArcadeWindowHost? _arcadeWindows;
 
     public bool IsArcadeNode => _services.Profile == NodeKind.Arcade;
+
+    /// <summary>The game's own window on this machine, for the page's buttons and ARCADE WINDOW; a display by its number on the Screens page.</summary>
+    public Views.ArcadeWindowHost ArcadeWindows => _arcadeWindows ??= new Views.ArcadeWindowHost(this, n => _services.Screens.All.FirstOrDefault(s => s.Index == n && !s.IsVirtual && !s.IsPlanned && !s.IsMissing));
+
+    /// <summary>Hooked at start: the service asks the host for its window.</summary>
+    private void HookArcadeWindow() => _services.Arcade.WindowHost = (mode, display) => ArcadeWindows.Handle(mode, display);
 
     /// <summary>The arcade the page draws and the keys drive — the desk's.</summary>
     public ArcadeService Arcade => _services.Arcade;
@@ -87,4 +94,10 @@ public sealed partial class MainViewModel
 
     public RelayCommand ArcadeStopCommand => _arcadeStop ??= new RelayCommand(() =>
         StatusMessage = _services.Actions.Execute(new ShowAction(ShowActionKind.ArcadeStop), ActionOrigin.Desk).Message);
+
+    private RelayCommand<string>? _arcadeWindow;
+
+    /// <summary>POP OUT / FULLSCREEN / CLOSE: this desk's own window for the game (never a node's — the wire's verb reaches those).</summary>
+    public RelayCommand<string> ArcadeWindowCommand => _arcadeWindow ??= new RelayCommand<string>(mode =>
+        StatusMessage = _services.Arcade.Run(new ShowAction(ShowActionKind.ArcadeWindow, "", mode ?? "on")).Message);
 }

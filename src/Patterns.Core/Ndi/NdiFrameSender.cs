@@ -15,12 +15,22 @@ public sealed class NdiFrameSender : IDisposable
     private IntPtr _namePtr;
     private long _frames;
 
-    public NdiFrameSender(string name)
+    /// <param name="clockVideo">
+    /// True (the default) lets the NDI runtime pace the caller — a send waits until the frame's
+    /// time has come, so a loop with nothing else to time itself by runs at the picture's rate.
+    /// False sends at once: for a lane that is paced by the frames it is handed, so a send never
+    /// holds the thread that draws.
+    /// </param>
+    public NdiFrameSender(string name, bool clockVideo = true)
     {
         Name = name;
+        ClockVideo = clockVideo;
     }
 
     public string Name { get; }
+
+    /// <summary>Whether the runtime paces the sends (see the constructor).</summary>
+    public bool ClockVideo { get; }
     public string Status { get; private set; } = "Off";
     public int Connections { get; private set; }
     public bool IsOpen => _sender != IntPtr.Zero;
@@ -39,7 +49,7 @@ public sealed class NdiFrameSender : IDisposable
         try
         {
             _namePtr = NdiInterop.Utf8(Name);
-            var create = new NdiInterop.SendCreate { NdiName = _namePtr, Groups = IntPtr.Zero, ClockVideo = true, ClockAudio = false };
+            var create = new NdiInterop.SendCreate { NdiName = _namePtr, Groups = IntPtr.Zero, ClockVideo = ClockVideo, ClockAudio = false };
             _sender = NdiInterop.NDIlib_send_create(ref create);
             if (_sender == IntPtr.Zero)
             {
@@ -60,7 +70,7 @@ public sealed class NdiFrameSender : IDisposable
         }
     }
 
-    /// <summary>One BGRA frame — the pixels stay the caller's until this returns (the send is clocked and copies).</summary>
+    /// <summary>One BGRA frame — the pixels stay the caller's until this returns (the runtime copies them before it does).</summary>
     public bool Send(IntPtr bgra, int width, int height, int strideBytes, int rateN, int rateD)
     {
         if (!IsOpen && !Open()) return false;
