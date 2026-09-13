@@ -38,6 +38,8 @@ public enum TwinWord
     Challenge,
     /// <summary>A joiner → main: its proof of the key over the main's nonce, hex. Wrong, the main refuses; right, the welcome follows.</summary>
     Proof,
+    /// <summary>A standby → main: it closed its outputs and cleared its marker for the hand-back named — the handover id as the payload. The main's "old owner released" is this line, never the HANDBACK having been written.</summary>
+    Released,
 }
 
 /// <summary>
@@ -70,6 +72,7 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "PLAN" => TwinWord.Plan,
             "CHALLENGE" => TwinWord.Challenge,
             "PROOF" => TwinWord.Proof,
+            "RELEASED" => TwinWord.Released,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";
@@ -97,7 +100,8 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
 /// </summary>
 /// <param name="Key">Empty since link version 2: the key is proved over the main's nonce, never written on the wire.</param>
 /// <param name="Nonce">The joiner's nonce, which the main proves the key over first — so a stranger listening on the port cannot hand a standby a show.</param>
-public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto, bool TookOver = false, string Kind = "standby", string Nonce = "")
+/// <param name="Handover">With <paramref name="TookOver"/>: the id of the takeover it holds the show under — so a main that took that very show back, and whose hand-back never arrived, answers the claim with the hand-back again rather than a hold.</param>
+public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto, bool TookOver = false, string Kind = "standby", string Nonce = "", string Handover = "")
 {
     /// <summary>A caller node joining: it follows the show and calls it, never holds an output, and may send its cues back.</summary>
     public bool IsCaller => string.Equals(Kind, "caller", StringComparison.OrdinalIgnoreCase);
@@ -202,7 +206,8 @@ public sealed record TwinWelcome(string Name, string Machine, string Instance, i
 /// is gone (the standby crashed with the show) holds nothing, and the main runs the show as a
 /// restart would.
 /// </summary>
-public sealed record TwinTookOverMarker(string Standby, string Machine, int Pid, long StartedAtUtcTicks, string ExePath, DateTime AtUtc, string MainName)
+/// <param name="Handover">The takeover's id — the same one the standby's join carries, so a hand-back names the takeover it ends.</param>
+public sealed record TwinTookOverMarker(string Standby, string Machine, int Pid, long StartedAtUtcTicks, string ExePath, DateTime AtUtc, string MainName, string Handover = "")
 {
     public string ToJson() => JsonUtil.SerializeCompact(this);
 }
@@ -576,12 +581,12 @@ public static class TwinWatch
     public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "")
     {
         var tail = launcher.Length > 0 ? " " + launcher : "";
+        // A hand-back that stopped short — at the wall switch, at the operator's own switch, at a
+        // standby that did not say it let go — is said first, because it is the one thing to do next.
+        if (handover.Length > 0) return $"MAIN — {handover}" + tail;
         if (holder.Length > 0)
         {
             var linked = standbys.Any(s => s.Name == holder);
-            // A take-back that stopped at the wall switch: the picture is up here and the room
-            // still shows the standby — said first, because it is the one thing to do next.
-            if (handover.Length > 0) return $"MAIN — {handover}" + tail;
             return $"MAIN — the standby {holder} HAS THE SHOW; this desk's outputs are held closed. "
                    + (linked ? "TAKE BACK puts the show back here." : $"It is not on the link yet — TAKE BACK once it is, or OUTPUTS ON if it is gone.") + tail;
         }

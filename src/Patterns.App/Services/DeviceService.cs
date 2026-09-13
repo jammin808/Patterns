@@ -115,6 +115,8 @@ public sealed class DeviceService : IDisposable
     private readonly CommandRouter _router;
     private readonly Dictionary<string, Open> _open = new(StringComparer.Ordinal);
     private readonly List<Pending> _pendings = new();
+    private readonly List<(long Seq, DeviceReceipt Receipt)> _settled = new();   // the last receipts landed, by their line's sequence: a waiter that marked before a line went sees its receipt even when it landed at once
+    private const int SettledKept = 64;
     private readonly DispatcherTimer _pushTimer;
     private long _seq;
     private bool _pushPending;
@@ -151,12 +153,23 @@ public sealed class DeviceService : IDisposable
         lock (_pendings) return _pendings.Count(p => p.Seq > mark);
     }
 
-    /// <summary>The receipts of every line sent since the mark, once each has landed — by an answer, or by its timeout.</summary>
+    /// <summary>How many lines were sent since the mark, their receipts landed or still to come — a line whose receipt landed at once (Delivered: the socket took it) counts.</summary>
+    public int SentSince(long mark)
+    {
+        lock (_pendings) return _pendings.Count(p => p.Seq > mark) + _settled.Count(r => r.Seq > mark);
+    }
+
+    /// <summary>The receipts of every line sent since the mark, once each has landed — by an answer, or by its timeout — the ones already landed included, in the order the lines went.</summary>
     public Task<IReadOnlyList<DeviceReceipt>> ConfirmSince(long mark)
     {
         List<Task<DeviceReceipt>> waits;
-        lock (_pendings) waits = _pendings.Where(p => p.Seq > mark).Select(p => p.Done.Task).ToList();
-        return Task.WhenAll(waits).ContinueWith(t => (IReadOnlyList<DeviceReceipt>)t.Result, TaskContinuationOptions.ExecuteSynchronously);
+        List<(long Seq, DeviceReceipt Receipt)> landed;
+        lock (_pendings)
+        {
+            waits = _pendings.Where(p => p.Seq > mark).Select(p => p.Done.Task).ToList();
+            landed = _settled.Where(r => r.Seq > mark).ToList();
+        }
+        return Task.WhenAll(waits).ContinueWith(t => (IReadOnlyList<DeviceReceipt>)landed.Select(r => r.Receipt).Concat(t.Result).ToList(), TaskContinuationOptions.ExecuteSynchronously);
     }
 
     /// <summary>The links open now, by device id.</summary>
@@ -214,6 +227,14 @@ public sealed class DeviceService : IDisposable
         foreach (var (id, open) in _open.ToList())
         {
             if (!wanted.TryGetValue(id, out var d) || KeyOf(d) != open.Key) Close(id);
+            else if (!ReferenceEquals(open.Config, d))
+            {
+                // The same box, a new object for it — a show landed from the twin, a file reloaded:
+                // what is read at send time (the level asked, the timeout, the query, the password)
+                // must be the page's current words, not the object that was there when the link opened.
+                d.Status = open.Config.Status;
+                open.Config = d;
+            }
         }
         foreach (var (id, d) in wanted)
         {
@@ -503,11 +524,13 @@ public sealed class DeviceService : IDisposable
     /// <summary>The receipt, once: off the list, to the event on the UI thread, onto the card.</summary>
     private void Complete(Pending pending, ConfirmLevel reached, bool ok, string answer)
     {
+        var receipt = new DeviceReceipt(pending.Open.Config.Name, pending.Words, pending.Wanted, reached, ok, answer, DateTime.UtcNow);
         lock (_pendings)
         {
             if (!_pendings.Remove(pending)) return;
+            _settled.Add((pending.Seq, receipt));
+            if (_settled.Count > SettledKept) _settled.RemoveAt(0);
         }
-        var receipt = new DeviceReceipt(pending.Open.Config.Name, pending.Words, pending.Wanted, reached, ok, answer, DateTime.UtcNow);
         pending.Done.TrySetResult(receipt);
         UiThread.Post(() =>
         {

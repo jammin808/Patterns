@@ -100,20 +100,31 @@ public class DeviceConfirmationTests
         var state = new ShowState();
         state.Interactive.Devices.Add(new DeviceConfig { Name = "Switcher", Link = DeviceLink.Http, Port = "http://10.0.0.9" });
         state.Interactive.Devices.Add(new DeviceConfig { Name = "Lights", Link = DeviceLink.Udp, Profile = DeviceProfile.Osc, Port = "10.0.0.8" });
+        state.Interactive.Devices.Add(new DeviceConfig { Name = "Heard", Link = DeviceLink.Http, Port = "http://10.0.0.10", Confirm = ConfirmLevel.Delivered });
         Cue(state, "Wall to main", "Switcher", "POST /route/main");
         Cue(state, "Wall by OSC", "Lights", "/wall/main 1");
         Cue(state, "Wall by words", "", "");
         Cue(state, "Wall via ghost", "Nobody", "x");
+        Cue(state, "Wall heard only", "Heard", "POST /route/main");
+        Cue(state, "Wall and lights", "Switcher", "POST /route/main");
+        CueStacks.Caller(state).Cues[^1].Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "Lights", Value = "/tally/main 1" });
+        Cue(state, "Wall and ghost", "Switcher", "POST /route/main");
+        CueStacks.Caller(state).Cues[^1].Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "Nobody", Value = "x" });
 
         Assert.Null(DeviceConfirmation.FenceProblem(state, "Wall to main"));
         var problem = DeviceConfirmation.FenceProblem(state, "Wall by OSC");
         Assert.NotNull(problem);
         Assert.Contains("'Lights'", problem);
         Assert.Contains("sent only", problem);
-        Assert.Null(DeviceConfirmation.FenceProblem(state, "Wall by words"));                   // no box: the operator's own switch
-        Assert.Null(DeviceConfirmation.FenceProblem(state, "Wall via ghost"));                  // fire time refuses a device that is not there
-        Assert.Null(DeviceConfirmation.FenceProblem(state, "No such cue"));
+        // A fence is a box that answers: words on the overlay are not evidence the room moved, nor is a box that is not on the page, a cue that is not in the show, or one that is merely heard.
+        Assert.Equal("the wall-switch cue 'Wall by words' sends nothing to a box that answers — a look or a pattern is not evidence the room moved", DeviceConfirmation.FenceProblem(state, "Wall by words"));
+        Assert.Equal("the wall-switch cue's step sends to 'Nobody', which is not on the Interactive page", DeviceConfirmation.FenceProblem(state, "Wall via ghost"));
+        Assert.Equal("the wall-switch cue 'No such cue' is not in the show", DeviceConfirmation.FenceProblem(state, "No such cue"));
+        Assert.Equal("the wall-switch cue's device 'Heard' is set to confirm at delivered — set it to accepted or observed (Interactive page) so its answer is a fact", DeviceConfirmation.FenceProblem(state, "Wall heard only"));
         Assert.Null(DeviceConfirmation.FenceProblem(state, ""));
+        // One box that answers beside one that cannot, or one that is not there: the route is confirmed by the one that answers.
+        Assert.Null(DeviceConfirmation.FenceProblem(state, "Wall and lights"));
+        Assert.Null(DeviceConfirmation.FenceProblem(state, "Wall and ghost"));
 
         Assert.Null(TwinWatch.AutoTakeOverBlocked(mainOnThisMachine: true, wallSwitchSet: true, problem));   // on one machine the kill is the fence
         Assert.Null(TwinWatch.AutoTakeOverBlocked(false, true, null));

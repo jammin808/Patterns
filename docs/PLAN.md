@@ -6201,3 +6201,107 @@ docs rather than pretended. The credentials that travel by default are the ones 
 cannot run the show without; the switch is there for the network that is not the show's own.
 
 Counts at the end of the round: Core 1,124, App 585 — both suites green here.
+
+## 63. Round 45 — the hand-back answered, and a fence that answers
+
+*Two reviews of the branch at `95c0fc7`, checked against the code. What they found in the
+twin's authority was real: the take-back counted the standby released because HANDBACK had been
+written, a cue that recalled a look passed as the room's fence, and a take-back across machines
+with no cue released the standby before anyone had switched the room. A fourth consequence they
+did not name made the first one worse: a standby whose hand-back never arrived came back claiming
+the show, and the main closed its live outputs for the claim — the room routed to the main, and
+the main dark. This round is those four, as one transaction's semantics.*
+
+### 63.1 The hand-back is a message with an id, and an answer
+
+The pattern is the one a game's netcode uses for anything that must not be lost: every message
+carries an id, the receiver answers by that id, a lost answer is met by resending the same
+message, and the receiver treats a repeat as the same message, not a new one. A handover is such
+a message.
+
+Every `TwinTransaction` has an `Id` (twelve hex characters). HANDBACK carries it; the standby,
+after it has closed its outputs and cleared its marker, answers `RELEASED <id>` — and answers
+again for a hand-back told twice, because "already released" is still released. The main's
+`OldOwnerReleased` is that answer and nothing else: never the line having been written, since a
+line written is not a line read. On one machine the standby's word is also on disk — the marker it
+was seen by, gone, is its outputs closed (it clears the marker after closing them), and the
+marker's process gone is a standby that died after the ask — so the release is known by whichever
+arrives first: the line, the marker, or a fresh join from the same instance that claims nothing,
+which is a standby that stands by again.
+
+Until then nothing opens. On one machine the main's outputs stay held — the standby's windows are
+these very displays — and the picture goes up the moment the answer comes; across machines the
+room already shows the main. Past five seconds the wait is overdue: said on the line and the
+health line, the hold kept on one machine, and the transaction stopped with the reason. TAKE BACK
+again tells the standby again by the same id; a standby that dials back is told at the welcome;
+the marker and the process are watched meanwhile. A handover that stopped and then heard the fact
+it waited for resumes — `Resume` — and the trail keeps both: `authority committed (stopped: the
+standby did not say it let go → resumed: told again; Backup desk said it let go) → old owner
+released → target ready → complete`.
+
+The stale claim. A standby's takeover has the same kind of id; the marker carries it and so does
+the join (`TwinJoin.Handover`). The main remembers, per standby instance, the takeover it took
+back and the hand-back that ended it. A join that claims the show under that very takeover is a
+standby whose hand-back never arrived, or whose answer never did: it is answered with the hand-back
+again — WELCOME, HANDBACK by the old id, then the show, as any standby is mirrored — and no hold
+is taken, because the room may well be looking at this desk by now. A claim under a takeover this
+desk never took back — a later one — is a claim, and holds as before. A main that restarted knows
+no takeover and holds on any claim, which is the safe side.
+
+### 63.2 A fence is a box that answers
+
+`DeviceConfirmation.FenceProblem` says why a cue cannot be the twin's wall-switch fence for a
+takeover by itself. It must be in the show; it must send to at least one device on the page whose
+effective level — what it is set to, capped at what its link and profile can reach — is Accepted
+or better. Delivered is "the socket took the bytes", which is not the room having moved; a cue
+that only recalls a look or changes a pattern is not evidence of anything outside this machine;
+a box that is not on the page is not a box. A device that cannot answer beside one that can is
+allowed — a tally note over UDP next to the matrix route — and the route is confirmed by the ones
+that answer: `ReadReceipts` counts a receipt at Accepted or Observed, and a cue whose receipts all
+stopped at Delivered was heard, not obeyed, and says so ("delivered is not switched"). A box's
+open link now reads the page's current words — a show landed from the twin replaces the objects
+on the page, and the level asked, the timeout, the query and the password are read at send time
+from the current one, not the object the link opened with. A press is never gated by the fence:
+the operator switches the wall by hand, and the words and the trail say so — `route confirmed
+(no box answered — the operator's press)`.
+
+### 63.3 A route nobody's box vouches for is the operator's, and says so
+
+Across machines, TAKE BACK with no take-back cue, or with one that fired and sent nothing a box
+confirms, no longer infers that a human has thrown the switch. The first press lands the standby's
+show, puts the picture up here on displays the room is not yet looking at, and stops with the words:
+switch the room to this desk by hand, then TAKE BACK again releases the standby, whose picture stays
+up until then. The second press is the operator's word that the room was switched; the transaction
+resumes, commits, and tells the standby to let go — released once it says it has. The standby
+leaving and re-joining between the presses keeps its place. A takeover by a press with no cue says
+the same in its words: switch the room to this desk by hand.
+
+TWIN STATUS carries the handover's `id` and what it is `awaiting` — the standby's answer, overdue
+or not, or the operator's switch — so a remote, a Companion button or the assistant can say what
+the next press does.
+
+### 63.4 Tests and docs
+
+Core: the id, resume and notes on the transaction; the fence rule on a cue that is not there, one
+that only recalls a look, a box not on the page, a box merely heard, and a box that answers beside
+one that cannot; the words. App: the same-machine take-back opening nothing until the answer; the
+overdue hand-back said, the outputs held, the next press telling it again by the same id; the stale
+claim answered with the hand-back and never a hold, and a later claim holding; a standby that stands
+by again on a fresh link as the answer; the route-less take-back as two presses; a box that was only
+heard not confirming the route; the automatic takeover refused on a words-only cue and the press
+going ahead with the words; the switcher take-back and the same-machine take-back on the new
+contract; the standby answering RELEASED by name, twice for a hand-back told twice, and its marker
+and join naming the takeover. Docs: this section, `REVIEW.md` round 45 (with a correction: the view
+models no longer post through the static dispatcher — the services do), `REMOTE.md`, the twin help,
+`DRILL.md` scenarios 19–22, README.
+
+### 63.5 Considered and left
+
+Splitting `TwinService` into transport, mirror, authority and follower link: after the semantics
+above have been drilled in a room, not before. A verb of its own for the second press (CONFIRM
+ROUTE): the second TAKE BACK is the same press in the same place, and its words say what it does.
+A TAKE OVER ANYWAY for the main against a standby that will not let go on one machine: ending the
+standby's process is the operator's act, and the marker's process gone is the release; a verb that
+opens two sets of windows on one display is not offered.
+
+Counts at the end of the round: Core 1,127, App 590 — both suites green here.

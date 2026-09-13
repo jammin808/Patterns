@@ -601,7 +601,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     // A node sends to no box: a wall switch fired here has nothing to wait for.
     long ITwinHost.DeviceMark() => 0;
 
-    int ITwinHost.DevicePendingSince(long mark) => 0;
+    int ITwinHost.DeviceSentSince(long mark) => 0;
 
     Task<IReadOnlyList<DeviceReceipt>> ITwinHost.DeviceConfirmSince(long mark) => Task.FromResult((IReadOnlyList<DeviceReceipt>)Array.Empty<DeviceReceipt>());
 

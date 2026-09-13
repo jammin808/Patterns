@@ -685,7 +685,9 @@ frozen, the node kernel built. This review grows as each lands.*
   handler installed at start, and the thumbnail queue that already captures its own).
 - **Left:** the view models and the lazy page still post through the static from the UI thread,
   where it is the right thing; a worker added there would have the same problem, and the same
-  answer.
+  answer. *(Corrected in round 45: the view models no longer use the static at all — zero uses
+  in `ViewModels/`; the services carry it, `ControlService` and `TwinService` most, and the
+  arcade window once.)*
 
 ### H6 — the audience port's parser bounded, timed and fuzzed
 
@@ -932,3 +934,54 @@ credentials sent by choice; the drill written down.*
 
 - **Written.** `docs/DRILL.md`, eighteen scenarios, to be run in a real room and filmed. `docs/PLAN.md` §62.3.
 - **Not done here:** it cannot be. It is the gate the next release in a real room passes or does not.
+
+## Round 45 review — the hand-back answered, and a fence that answers
+
+*Two outside reviews of `95c0fc7`, checked line by line against the code before anything was
+changed. Their authority findings were real; one consequence they missed was worse than the
+findings. Their P1 list is kept for the rounds after this one.*
+
+### 45.1 — the hand-back
+
+- **Done.** HANDBACK carries the handover's id; RELEASED answers by it after the outputs closed
+  and the marker went; the main's "old owner released" is that answer, the marker gone, the
+  process gone, or a fresh join that claims nothing — never the line having been written. Overdue
+  is said and the hold kept on one machine; the next press and the re-dial tell it again; a
+  stopped handover resumes and the trail keeps both. `docs/PLAN.md` §63.1.
+- **The one they missed, closed:** a join claiming the show under a takeover this desk took back
+  is answered with the hand-back, not a hold. Before, one lost line could route the room to the
+  main and close the main's outputs.
+- **What it bought:** the same discipline a game's netcode has for a message that must not be
+  lost — id, ack, resend, idempotent receive — on the one message the twin cannot afford to lose.
+
+### 45.2 — the fence
+
+- **Done.** A fence is a box that answers at Accepted or better; a cue that is not there, one that
+  only recalls a look, a box not on the page or one merely heard is not a fence, and says why. A
+  receipt at Delivered does not confirm a route. An open link reads the page's current device
+  words after a show has landed. `docs/PLAN.md` §63.2.
+- **The honest limit:** Accepted is the box saying yes to the command, not the room having moved;
+  Observed with a query is the stronger fence where the profile has one, and the drill's
+  scenarios 7 and 14 are where a switcher's Confirm level is found out.
+
+### 45.3 — the operator's route
+
+- **Done.** A take-back across machines with no cue, or a cue nobody's box vouches for, is two
+  presses with the room switched by hand between them; nothing infers the switch. A takeover by a
+  press with no cue says so. TWIN STATUS says what the next press does. `docs/PLAN.md` §63.3.
+- **What was not done:** a verb of its own for the second press, and a TAKE OVER ANYWAY for a
+  standby that will not let go on one machine — both considered and left, §63.5.
+
+### 45.4 — the reviews themselves
+
+- **Where they were stale:** the first list's P0 asked for the confirmation levels Round 43 built
+  and the confidentiality decision §62.4 had made; the second review caught both.
+- **Where they were wrong:** "move lunch does not exist" (it does: −1 MIN, +1 MIN, RESUME NOW,
+  CATCH UP on the Run surface; what is missing is a wire verb and the countdown following the
+  plan); the control port's limits are the audience port's, looser, not absent (what is absent is
+  a read timeout and a cap on the wire); a NodeHost guard test exists; UiThread is out of the view
+  models. Each is recorded so the next reviewer starts from the code.
+- **Kept for the rounds after:** caller PLAN and SECTION queued while armed; a live policy that
+  refuses calibration and other non-show work while armed and live; the glance line with true
+  presentation drops; PLAN SHIFT on the wire and the countdown following the plan; the node
+  Machine strip; a venue NAT profile; the wire's timeout and caps; the compact soak beside the drill.

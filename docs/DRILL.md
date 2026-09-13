@@ -90,6 +90,24 @@ Each names the failure, what the room should see, and the lines that should be i
     the main at that moment; the timer node's clock never runs on its own while linked.
 18. **Run the caller and the timer through the transition.** Expected: the caller's GO lands on
     the desk that has the show; the timer follows the same desk; both say which.
+19. **Lose the hand-back** (TAKE BACK on MAIN with the twin link cut the instant HANDBACK is
+    written — a firewall rule, or the cable). Expected: MAIN says the standby was told to let go
+    and its answer is awaited, then, past five seconds, that it did not say it let go; on one
+    machine MAIN's outputs stay held. When the link is back STANDBY dials in claiming the show
+    under the takeover MAIN took back: MAIN's log says it was told the hand-back again, MAIN's
+    outputs are never closed for the claim, STANDBY closes its outputs and answers RELEASED, and
+    MAIN's trail ends `old owner released → complete`.
+20. **Kill STANDBY between HANDBACK and its answer** (a same-machine standby). Expected: MAIN's
+    trail says `its process is gone`, the marker is cleared, and MAIN's picture goes up; the wall
+    is dark for the instant and no longer.
+21. **TAKE BACK with no take-back cue** (across machines). Expected: MAIN's picture goes up on
+    the inputs the room is not watching, the line says to switch the room by hand and press again,
+    STANDBY stays up and the holder; after the switch, the second press releases it. Nothing
+    releases STANDBY between the presses.
+22. **Set the switcher's Confirm to Delivered and TAKE BACK.** Expected: the switch is asked, the
+    receipt says delivered, MAIN says `no box said yes — delivered is not switched` and stops with
+    STANDBY up; at Accepted the same press releases it. A takeover by itself on that cue is
+    refused before the cue fires, with the reason on the line.
 
 ## What decides
 
@@ -97,7 +115,10 @@ Each names the failure, what the room should see, and the lines that should be i
 - No scenario may leave the wall dark for longer than the switcher's own switching time plus the
   first frame, except 7 and 14, whose finding is the Confirm level the switcher needs.
 - Every refusal must be on the health line of the desk that refused, with the reason.
-- The log of each machine must carry the handover trail for every takeover and take-back.
+- The log of each machine must carry the handover trail for every takeover and take-back, with
+  its id, and every RELEASED must name the hand-back it answers.
+- No scenario may count a standby released on a line written: only on its answer, its marker
+  gone, its process gone, or its fresh join that claims nothing.
 
-Until this has been done, the redundancy claims in `docs/PLAN.md` §48–§61 are claims about the
+Until this has been done, the redundancy claims in `docs/PLAN.md` §48–§63 are claims about the
 simulated room the tests build, not about a real one.

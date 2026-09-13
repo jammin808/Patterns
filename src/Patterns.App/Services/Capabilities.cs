@@ -94,8 +94,8 @@ public interface ITwinHost
     /// <summary>A mark before the wall-switch cue fires, so the lines it sends to boxes can be waited for; a node, which sends to no box, marks nothing.</summary>
     long DeviceMark();
 
-    /// <summary>How many lines sent since the mark still wait for their receipt.</summary>
-    int DevicePendingSince(long mark);
+    /// <summary>How many lines went to boxes since the mark — their receipts landed or still to come; none means the cue asked nothing outside this machine.</summary>
+    int DeviceSentSince(long mark);
 
     /// <summary>The receipts of every line sent since the mark, once each has landed or timed out.</summary>
     Task<IReadOnlyList<DeviceReceipt>> DeviceConfirmSince(long mark);

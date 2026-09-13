@@ -521,18 +521,33 @@ public class TwinAppTests
             PumpUntil(() => twin.HeldLines >= 2);
             Assert.Equal("Gala", vm.State.Name);
 
-            // TAKE BACK: its show lands here, its air goes on here, the hold lifts, and it is told to follow again — then the whole show goes back over the link.
+            // TAKE BACK: its show lands here, its air goes on here, the hold lifts, the cue fires — and the
+            // cue sends nothing a box confirms, so nothing says the room moved: the standby stays up on
+            // its own input until the operator has switched the room and pressed again.
             var back = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
-            Assert.True(back.Ok, back.Message);
-            Assert.StartsWith("TOOK BACK from Backup desk at", back.Message);
-            Assert.Contains("its show landed here", back.Message);
-            Assert.Contains("Wall switch: cue 'Wall to main' fired.", back.Message);   // the wall back to this machine
-            Assert.Equal("Wall: main", vm.State.Overlays.Message.Text);
-            Assert.Equal("Edited at the standby", vm.State.Name);
-            Assert.Equal("", services.OutputsHeldBy);
-            Assert.Equal("", twin.Holder);
+            Assert.Equal(ActionStatus.Requested, back.Status);
+            Assert.StartsWith("TAKE BACK: the show is on here, on displays the room is not yet looking at. The take-back cue 'Wall to main' fired, but it sends nothing a box confirms — switch the room to this desk by hand, then TAKE BACK again releases the standby Backup desk", back.Message);
+            Assert.Equal("Wall: main", vm.State.Overlays.Message.Text);            // the cue did fire
+            Assert.Equal("Edited at the standby", vm.State.Name);                  // its show landed here
+            Assert.Equal("", services.OutputsHeldBy);                             // the picture is up here
             Assert.Equal("Standby look", services.AirLabel);
-            Assert.Equal(TwinWord.HandBack, ReadWord(reader, TwinWord.HandBack).Word);
+            Assert.Equal("Backup desk", twin.Holder);                             // and it is still the holder
+            Assert.False(Arrives(client, reader, TwinWord.HandBack, 800));        // not told to let go
+            Assert.StartsWith("MAIN — TAKE BACK: the show is on here", twin.Status);
+            Assert.Contains("\"awaiting\":\"the operator", twin.StatusJson());
+            Assert.True(twin.LastHandover!.Stopped);
+
+            // The room switched by hand, the second press: told to let go, and released once it says it has — then the whole show goes back over the link.
+            var again = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, again.Status);
+            Assert.Contains("the standby Backup desk was told to let go and its answer is awaited", again.Message);
+            Assert.Equal("", twin.Holder);
+            var id = AnswerHandBack(stream, reader);
+            PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Equal(id, twin.LastHandover!.Id);
+            Assert.Contains("TOOK BACK from Backup desk at", vm.StatusMessage);
+            Assert.Contains("Switched by hand.", vm.StatusMessage);
+            Assert.Equal("take back across machines: target ready → route requested (stopped: the route is the operator's own → resumed: switched by hand — the operator's word) → route confirmed → authority committed (Backup desk said it let go) → old owner released → complete", twin.LastHandover.Trail);
             var show = JsonUtil.Deserialize<ShowState>(ReadWord(reader, TwinWord.Show).Payload);
             Assert.Equal("Edited at the standby", show!.Name);
             Assert.Equal(TwinWord.Air, ReadWord(reader, TwinWord.Air).Word);   // the air as it stands here (nothing is live headless: "null")
@@ -551,7 +566,16 @@ public class TwinAppTests
     }
 
     /// <summary>A standby that ran the show joins the main from a machine and says so; the main holds its outputs for it.</summary>
-    private static (TcpClient Client, StreamReader Reader) JoinAsHolder(TestApp.Booted b, string machine, bool withAir, Action<ShowState>? also = null)
+    /// <summary>The fake standby reads HANDBACK — which names the hand-back — and answers RELEASED for it, as a real one does after closing its outputs and clearing its marker.</summary>
+    private static string AnswerHandBack(NetworkStream stream, StreamReader reader, int timeoutMs = 10000)
+    {
+        var handBack = ReadWord(reader, TwinWord.HandBack, timeoutMs);
+        Assert.Equal(12, handBack.Payload.Length);
+        Write(stream, TwinMessage.Format(TwinWord.Released, handBack.Payload));
+        return handBack.Payload;
+    }
+
+    private static (TcpClient Client, StreamReader Reader) JoinAsHolder(TestApp.Booted b, string machine, bool withAir, Action<ShowState>? also = null, string handover = "")
     {
         var vm = b.Vm;
         var services = b.Services;
@@ -560,7 +584,7 @@ public class TwinAppTests
         TestApp.Pump(client.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
         var stream = client.GetStream();
         var reader = new StreamReader(stream, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
-        Join(stream, reader, new TwinJoin("Backup desk", machine, "abcd1234", "hunter2", TookOver: true), "hunter2");
+        Join(stream, reader, new TwinJoin("Backup desk", machine, "abcd1234", "hunter2", TookOver: true, Handover: handover), "hunter2");
         Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
         PumpUntil(() => services.OutputsHeldBy.Length > 0);
         Assert.Equal("Backup desk", twin.Holder);
@@ -620,21 +644,26 @@ public class TwinAppTests
             Assert.Contains("TAKE BACK stopped", vm.StatusMessage);
 
             // The cue exists now (the operator built it, or the switcher is back): TAKE BACK again
-            // fires it, confirms it, commits, and only then releases the standby — HANDBACK, then the show.
+            // fires it — and it sends nothing a box confirms, so the room is the operator's to switch:
+            // said, and the press after that commits and releases the standby — HANDBACK, its answer, then the show.
             CallerCue(vm.State, "Wall to main", ShowActionKind.MessageOn, "Wall: main");
             Dispatcher.UIThread.RunJobs();
-            var done = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
-            Assert.True(done.Ok, done.Message);
-            Assert.StartsWith("TOOK BACK from Backup desk at", done.Message);
-            Assert.Contains("Wall switch: cue 'Wall to main' fired.", done.Message);
-            Assert.DoesNotContain("its show landed here", done.Message);  // landed on the first press, not twice
+            var fired = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, fired.Status);
+            Assert.Contains("The take-back cue 'Wall to main' fired, but it sends nothing a box confirms", fired.Message);
             Assert.Equal("Wall: main", vm.State.Overlays.Message.Text);
+            Assert.Equal("Backup desk", twin.Holder);
+            Assert.False(Arrives(client, reader, TwinWord.HandBack, 800));
+            var done = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, done.Status);
             Assert.Equal("", twin.Holder);
-            Assert.Equal(TwinWord.HandBack, ReadWord(reader, TwinWord.HandBack).Word);
+            AnswerHandBack(stream: client.GetStream(), reader);
+            PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Contains("TOOK BACK from Backup desk at", vm.StatusMessage);
+            Assert.DoesNotContain("its show landed here", vm.StatusMessage);   // landed on the first press, not twice
             Assert.Equal(TwinWord.Show, ReadWord(reader, TwinWord.Show).Word);
             Assert.False(twin.Status.Contains("stopped", StringComparison.Ordinal));
-            Assert.True(twin.LastHandover!.IsComplete);
-            Assert.Equal("take back across machines: target ready → route requested → route confirmed → authority committed → old owner released → complete", twin.LastHandover.Trail);
+            Assert.Equal("take back across machines: target ready → route requested (stopped: the route is the operator's own → resumed: switched by hand — the operator's word) → route confirmed → authority committed (Backup desk said it let go) → old owner released → complete", twin.LastHandover!.Trail);
             Assert.Contains("\"complete\":true", twin.StatusJson());
         }
         finally
@@ -692,14 +721,15 @@ public class TwinAppTests
             Assert.Contains("was not confirmed — Proj: INPUT HDMI 1 — rejected: INPT: unavailable now", twin.Status);
             Assert.Contains("TAKE BACK again", twin.Status);
 
-            // Again: the projector says yes, and only then does the standby let go.
+            // Again: the projector says yes, and only then is the standby told to let go — and released once it says it has.
             var again = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
             Assert.Equal(ActionStatus.Requested, again.Status);
             fake.Say("%1INPT=OK");
-            Assert.Equal(TwinWord.HandBack, ReadWord(reader, TwinWord.HandBack).Word);
+            var id = AnswerHandBack(client.GetStream(), reader);
             PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Equal(id, twin.LastHandover!.Id);
             Assert.Equal("", twin.Holder);
-            Assert.Equal("take back across machines: target ready → route requested → route confirmed → authority committed → old owner released → complete", twin.LastHandover!.Trail);
+            Assert.Equal("take back across machines: target ready → route requested → route confirmed → authority committed (Backup desk said it let go) → old owner released → complete", twin.LastHandover.Trail);
             Assert.Contains("Wall switch confirmed: Proj: INPUT HDMI 1 — accepted (INPT: OK)", vm.StatusMessage);
 
         }
@@ -939,14 +969,20 @@ public class TwinAppTests
             using var _reader = reader;
 
             var done = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
-            Assert.True(done.Ok, done.Message);
-            Assert.Contains("could not fire", done.Message);           // said, in the words — and the hand-back went ahead
-            Assert.Equal(TwinWord.HandBack, ReadWord(reader, TwinWord.HandBack).Word);
+            Assert.Equal(ActionStatus.Requested, done.Status);
+            Assert.Contains("the picture goes up here the moment it says it has", done.Message);
             Assert.Equal("", twin.Holder);
+            Assert.Contains("was told to let go", services.OutputsHeldBy);          // held until it says so: its windows are these displays
             var tx = twin.LastHandover!;
             Assert.Equal(HandoverShape.SameMachine, tx.Shape);
-            Assert.True(tx.IsComplete);
-            Assert.Equal("take back on this machine: authority committed → old owner released → target ready → complete", tx.Trail);
+            Assert.Equal(HandoverStage.AuthorityCommitted, tx.Stage);
+            Assert.Contains("\"awaiting\":\"the standby", twin.StatusJson());
+            var id = AnswerHandBack(client.GetStream(), reader);
+            PumpUntil(() => tx.IsComplete);
+            Assert.Equal(id, tx.Id);
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Contains("could not fire", vm.StatusMessage);           // the cue, fired after — said, in the words
+            Assert.Equal("take back on this machine: authority committed (Backup desk said it let go) → old owner released → target ready → complete", tx.Trail);
         }
         finally
         {
@@ -997,6 +1033,7 @@ public class TwinAppTests
             Assert.Equal(Environment.ProcessId, marker!.Pid);
             Assert.Equal("MAIN-DESK", marker.MainName);
             Assert.Equal(Environment.MachineName, marker.Machine);
+            Assert.Equal(twin.LastHandover!.Id, marker.Handover);                  // the marker names the takeover
 
             // It keeps dialling; the join says it has the show; the main gets the show it has — edited while it ran — and its air.
             vm.State.Name = "Edited while it ran";
@@ -1005,6 +1042,7 @@ public class TwinAppTests
             using var _peer2 = peer2;
             using var _reader2 = reader2;
             Assert.True(join2.TookOver);
+            Assert.Equal(marker.Handover, join2.Handover);                          // and so does the join
             var stream2 = peer2.GetStream();
             Write(stream2, TwinMessage.Format(TwinWord.Welcome, new TwinWelcome("MAIN-DESK", "SOME-OTHER-PC", "ef02", 1, 0, "", "From the main").ToJson()));
             var show = JsonUtil.Deserialize<ShowState>(ReadWord(reader2, TwinWord.Show).Payload);
@@ -1020,12 +1058,16 @@ public class TwinAppTests
             Assert.Equal(TwinWord.Beat, ReadWord(reader2, TwinWord.Beat, 4000).Word);
             Assert.Equal("Edited while it ran", vm.State.Name);
 
-            // HANDBACK: the outputs close and are held again, the marker goes, and the show that follows puts this desk in step.
-            Write(stream2, TwinMessage.Format(TwinWord.HandBack));
+            // HANDBACK, by name: the outputs close and are held again, the marker goes, RELEASED answers for that
+            // name — and again for a hand-back told twice — and the show that follows puts this desk in step.
+            Write(stream2, TwinMessage.Format(TwinWord.HandBack, "0123456789ab"));
             PumpUntil(() => twin.Phase == TwinPhase.Connecting);
             Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
             Assert.Null(TwinHandover.Read(services.Store.BaseDirectory));
             Assert.Contains("took the show back", vm.StatusMessage);
+            Assert.Equal("0123456789ab", ReadWord(reader2, TwinWord.Released).Payload);
+            Write(stream2, TwinMessage.Format(TwinWord.HandBack, "0123456789ab"));
+            Assert.Equal("0123456789ab", ReadWord(reader2, TwinWord.Released).Payload);
             Write(stream2, TwinMessage.Format(TwinWord.Show, TwinSync.ShowJson(new ShowState { Name = "Back at the main" })));
             PumpUntil(() => twin.Phase == TwinPhase.InStep);
             Assert.Equal("Back at the main", vm.State.Name);
@@ -1431,18 +1473,29 @@ public class TwinAppTests
             Assert.Contains("TAKE OVER? · no wall-switch cue for a main on another machine, so not by itself: TAKE OVER is yours", twin.Status);
             Assert.Contains("no wall-switch cue", vm.StatusMessage);
 
-            // A wall switch cue — here, words on the message overlay stand in for the switcher's verb — and it takes over by itself, firing it.
+            // A wall switch cue that is words on the message overlay: not a fence — nothing outside this
+            // machine answers it — so by itself the standby still does not take over, and says why.
             CallerCue(vm.State, "Wall to standby", ShowActionKind.MessageOn, "Wall: standby");
             vm.State.Twin.TakeOverCue = "Wall to standby";
             Dispatcher.UIThread.RunJobs();
             clockOffset = TimeSpan.FromSeconds(9);
             twin.Tick();
+            Assert.Equal(TwinPhase.MainSilent, twin.Phase);
+            Assert.Contains("the wall-switch cue 'Wall to standby' sends nothing to a box that answers", twin.Status);
+            Assert.Contains("TAKE OVER is yours", twin.Status);
+            Assert.False(vm.State.Overlays.Message.Enabled);
+            Assert.Contains("\"takeOverCue\":\"Wall to standby\"", twin.StatusJson());
+
+            // The operator's press goes ahead: the cue fires, the words say no box confirmed it, and the trail says by whose word the route stands.
+            var pressed = services.Actions.Execute(ShowActionKind.TwinTakeOver, ActionOrigin.Desk);
+            Assert.True(pressed.Ok, pressed.Message);
             Assert.Equal(TwinPhase.TookOver, twin.Phase);
             Assert.Equal("", services.OutputsHeldBy);
             Assert.Equal("Walk-in", services.AirLabel);
             Assert.Equal("Wall: standby", vm.State.Overlays.Message.Text);
             Assert.True(vm.State.Overlays.Message.Enabled);
-            Assert.Contains("\"takeOverCue\":\"Wall to standby\"", twin.StatusJson());
+            Assert.Contains("sent nothing a box confirms — switch the room to this desk by hand if it did not", pressed.Message);
+            Assert.Equal("take over across machines: route requested → route confirmed (no box answered — the operator's press) → authority committed → target ready → complete", twin.LastHandover!.Trail);
         }
         finally
         {
@@ -1529,6 +1582,8 @@ public class TwinAppTests
             vm.State.Twin.Key = "hunter2";
             vm.State.Twin.AutoTakeOver = true;
             vm.State.Twin.TakeOverCue = "Wall to standby";    // named, but no such cue yet: the switcher cannot be told
+            var fake = new FakeDeviceLink();
+            services.Devices.LinkFactory = _ => fake;
             vm.State.Twin.Role = TwinRole.Standby;
             Dispatcher.UIThread.RunJobs();
             var (peer, reader, _) = AcceptJoin(main);
@@ -1536,11 +1591,11 @@ public class TwinAppTests
             using var _reader = reader;
             HandOverTheShow(peer.GetStream(), WelcomeFrom("SOME-OTHER-PC"));
             PumpUntil(() => twin.Phase == TwinPhase.InStep);
-            Assert.EndsWith("· takes over on silence.", twin.Status);
+            Assert.EndsWith("· TAKE OVER is yours.", twin.Status);
 
             // The main goes silent. The wall switch is the fence between two machines, and it fires
-            // before a single output opens here: a cue that cannot fire refuses the takeover, the
-            // outputs stay held, no marker is left, and the line says why.
+            // before a single output opens here: a cue that is not there is no fence, so nothing is
+            // asked and nothing is taken — the outputs stay held, no marker is left, and the line says why.
             peer.Close();
             PumpUntil(() => twin.Phase == TwinPhase.MainSilent);
             clockOffset = TimeSpan.FromSeconds(8);
@@ -1548,25 +1603,29 @@ public class TwinAppTests
             Assert.Equal(TwinPhase.MainSilent, twin.Phase);
             Assert.Equal("this desk is the standby twin", services.OutputsHeldBy);
             Assert.Null(TwinHandover.Read(services.Store.BaseDirectory));
-            Assert.Contains("not taken over: the wall switch cue 'Wall to standby' could not fire (No cue 'Wall to standby'.), so the room could not be told to show this desk", twin.Status);
-            Assert.Contains("could not fire", vm.StatusMessage);
+            Assert.Contains("the wall-switch cue 'Wall to standby' is not in the show, so not by itself: TAKE OVER is yours", twin.Status);
             Assert.False(vm.State.Overlays.Message.Enabled);
 
-            // Not every second: the next try comes after the pause — and once the cue exists, it
-            // fires and the takeover goes ahead.
+            // The cue exists now, and sends to a box that answers: the switch is asked, and the takeover
+            // goes ahead once the box says yes — the room is looking at this desk by then.
+            var proj = new DeviceConfig { Name = "Proj", Link = DeviceLink.Tcp, Profile = DeviceProfile.PjLink, Port = "10.0.0.7", Confirm = ConfirmLevel.Accepted, ConfirmTimeoutMs = 600, HearsShow = false };
+            vm.State.Interactive.Devices.Add(proj);
+            vm.State.Interactive.Enabled = true;
+            var cue = new RunCueConfig { Name = "Wall to standby" };
+            cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "Proj", Value = "INPUT HDMI 2" });
+            CueStacks.Caller(vm.State).Cues.Add(cue);
+            services.Devices.Reconcile();
+            Dispatcher.UIThread.RunJobs();
             clockOffset = TimeSpan.FromSeconds(9);
             twin.Tick();
-            Assert.Equal(TwinPhase.MainSilent, twin.Phase);
-            CallerCue(vm.State, "Wall to standby", ShowActionKind.MessageOn, "Wall: standby");
-            Dispatcher.UIThread.RunJobs();
-            clockOffset = TimeSpan.FromSeconds(19);
-            twin.Tick();
-            Assert.Equal(TwinPhase.TookOver, twin.Phase);
+            PumpUntil(() => fake.Written.Any(w => w.StartsWith("%1INPT", StringComparison.Ordinal)));
+            Assert.Equal(TwinPhase.MainSilent, twin.Phase);                     // asked, not yet taken
+            fake.Say("%1INPT=OK");
+            PumpUntil(() => twin.Phase == TwinPhase.TookOver);
             Assert.Equal("", services.OutputsHeldBy);
             Assert.Equal("Walk-in", services.AirLabel);
-            Assert.Equal("Wall: standby", vm.State.Overlays.Message.Text);
-            Assert.True(vm.State.Overlays.Message.Enabled);
             Assert.NotNull(TwinHandover.Read(services.Store.BaseDirectory));
+            Assert.Equal("take over across machines: route requested → route confirmed → authority committed → target ready → complete", twin.LastHandover!.Trail);
         }
         finally
         {
@@ -1608,10 +1667,286 @@ public class TwinAppTests
             Assert.Equal(TwinPhase.TookOver, twin.Phase);
             Assert.Equal("", services.OutputsHeldBy);
             Assert.Equal("Walk-in", services.AirLabel);
+            Assert.Equal("take over across machines: route requested → route confirmed (the cue could not fire — the operator's press) → authority committed → target ready → complete", twin.LastHandover!.Trail);
         }
         finally
         {
             main.Stop();
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AHandBackNobodyAnsweredIsSaidTheOutputsStayHeldAndTheNextPressTellsItAgain()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            var clockOffset = TimeSpan.Zero;
+            twin.Clock = () => DateTime.UtcNow + clockOffset;
+            vm.IsSandboxActive = false;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            var (client, reader) = JoinAsHolder(b, Environment.MachineName, withAir: true);
+            using var _client = client;
+            using var _reader = reader;
+
+            // Told to let go — and it says nothing. Its windows may still be up on these displays, so
+            // nothing opens here: past the limit the wait is overdue, said, and the outputs stay held.
+            var asked = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, asked.Status);
+            var first = ReadWord(reader, TwinWord.HandBack);
+            Assert.Equal(12, first.Payload.Length);
+            Assert.False(services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk).Ok);   // awaited: one at a time
+            clockOffset = TimeSpan.FromSeconds(3);
+            twin.Poll();
+            Assert.False(twin.LastHandover!.Stopped);
+            Assert.Contains("was told to let go", services.OutputsHeldBy);
+            clockOffset = TimeSpan.FromSeconds(6);
+            twin.Poll();
+            Assert.True(twin.LastHandover.Stopped);
+            Assert.Equal("the standby did not say it let go", twin.LastHandover.Reason);
+            Assert.Contains("has not said it has — TAKE BACK again tells it again", services.OutputsHeldBy);
+            Assert.Contains("TAKE BACK stopped: the standby Backup desk did not say it let go", twin.Status);
+            Assert.Contains("overdue; TAKE BACK again tells it again", twin.StatusJson());
+            Assert.Contains("did not say it let go", vm.StatusMessage);
+            Assert.NotEqual("Standby look", services.AirLabel);                 // nothing went on air here
+            Assert.False(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+
+            // TAKE BACK again: told again, by the same name — and this time it answers, so the picture goes up here.
+            var again = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, again.Status);
+            var second = ReadWord(reader, TwinWord.HandBack);
+            Assert.Equal(first.Payload, second.Payload);
+            Write(client.GetStream(), TwinMessage.Format(TwinWord.Released, second.Payload));
+            PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("Standby look", services.AirLabel);
+            Assert.Equal("take back on this machine: authority committed (stopped: the standby did not say it let go → resumed: told again; Backup desk said it let go) → old owner released → target ready → complete", twin.LastHandover!.Trail);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AClaimMadeUnderATakeoverAlreadyTakenBackIsAnsweredWithTheHandBackNotAHold()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.IsSandboxActive = false;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            var (client, reader) = JoinAsHolder(b, Environment.MachineName, withAir: true, handover: "aaaaaaaaaaaa");
+            var asked = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, asked.Status);
+            var handBack = ReadWord(reader, TwinWord.HandBack);
+
+            // The line is lost: the standby never read the hand-back, and comes back claiming the show
+            // under the takeover this desk just took back. Before, that claim closed this desk's live
+            // outputs; now it is answered with the hand-back again, and a hold is never taken.
+            reader.Dispose();
+            client.Dispose();
+            PumpUntil(() => twin.StandbyNames.Count == 0);
+            Assert.Contains("was told to let go", services.OutputsHeldBy);
+            using var back = new TcpClient();
+            TestApp.Pump(back.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+            using var stream2 = back.GetStream();
+            using var reader2 = new StreamReader(stream2, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
+            Join(stream2, reader2, new TwinJoin("Backup desk", Environment.MachineName, "abcd1234", "hunter2", TookOver: true, Handover: "aaaaaaaaaaaa"), "hunter2");
+            Assert.NotNull(TwinWelcome.Parse(ReadWord(reader2, TwinWord.Welcome).Payload));
+            var told = ReadWord(reader2, TwinWord.HandBack);                        // before the show: the claim answered
+            Assert.Equal(handBack.Payload, told.Payload);
+            Assert.Equal(TwinWord.Show, ReadWord(reader2, TwinWord.Show).Word);     // then mirrored, as a standby is
+            Assert.Equal("", twin.Holder);
+            Assert.DoesNotContain("has the show", services.OutputsHeldBy);
+            Write(stream2, TwinMessage.Format(TwinWord.Released, told.Payload));
+            PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("Standby look", services.AirLabel);
+            Assert.Contains("Backup desk said it let go", twin.LastHandover!.Trail);
+
+            // A claim under a takeover this desk never took back — a later one — is a claim, and holds as before.
+            Write(stream2, TwinMessage.Format(TwinWord.Bye));
+            PumpUntil(() => twin.StandbyNames.Count == 0);
+            using var later = new TcpClient();
+            TestApp.Pump(later.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+            using var stream3 = later.GetStream();
+            using var reader3 = new StreamReader(stream3, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
+            Join(stream3, reader3, new TwinJoin("Backup desk", Environment.MachineName, "abcd1234", "hunter2", TookOver: true, Handover: "bbbbbbbbbbbb"), "hunter2");
+            Assert.NotNull(TwinWelcome.Parse(ReadWord(reader3, TwinWord.Welcome).Payload));
+            PumpUntil(() => twin.Holder == "Backup desk");
+            Assert.StartsWith("the standby twin Backup desk has the show", services.OutputsHeldBy);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AStandbyThatStandsByAgainOnAFreshLinkIsTheAnswerToTheHandBack()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.IsSandboxActive = false;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            var (client, reader) = JoinAsHolder(b, Environment.MachineName, withAir: true, handover: "cccccccccccc");
+            Assert.Equal(ActionStatus.Requested, services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk).Status);
+            Assert.Equal(12, ReadWord(reader, TwinWord.HandBack).Payload.Length);
+
+            // It let go — closed its outputs, cleared its marker — and its RELEASED never reached this desk
+            // (the link went as it wrote). It dials again as a standby, claiming nothing: that is the answer.
+            reader.Dispose();
+            client.Dispose();
+            PumpUntil(() => twin.StandbyNames.Count == 0);
+            Assert.Contains("was told to let go", services.OutputsHeldBy);
+            using var back = new TcpClient();
+            TestApp.Pump(back.ConnectAsync(IPAddress.Loopback, vm.State.Twin.Port).ContinueWith(_ => true));
+            using var stream2 = back.GetStream();
+            using var reader2 = new StreamReader(stream2, Encoding.UTF8, false, 1 << 16, leaveOpen: true);
+            Join(stream2, reader2, new TwinJoin("Backup desk", Environment.MachineName, "abcd1234", "hunter2"), "hunter2");
+            Assert.NotNull(TwinWelcome.Parse(ReadWord(reader2, TwinWord.Welcome).Payload));
+            Assert.Equal(TwinWord.Show, ReadWord(reader2, TwinWord.Show).Word);
+            PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("Standby look", services.AirLabel);
+            Assert.Equal("take back on this machine: authority committed (it stands by again) → old owner released → target ready → complete", twin.LastHandover!.Trail);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ARouteLessTakeBackAcrossMachinesIsTwoPressesWithTheRoomSwitchedBetweenThem()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.IsSandboxActive = false;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.TakeBackCue = "";                                          // the room's switcher is nobody's box: the operator's hands
+            vm.State.Twin.Role = TwinRole.Main;
+            Dispatcher.UIThread.RunJobs();
+            var (client, reader) = JoinAsHolder(b, "BACKUP-PC", withAir: true);
+            using var _client = client;
+            using var _reader = reader;
+
+            // The first press: the show lands and goes up here, on displays the room is not looking at
+            // — and nothing infers the switch was thrown. The standby stays up and the holder.
+            var first = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, first.Status);
+            Assert.StartsWith("TAKE BACK: the show is on here, on displays the room is not yet looking at. No take-back cue is set — switch the room to this desk by hand, then TAKE BACK again releases the standby Backup desk", first.Message);
+            Assert.Equal("Edited at the standby", vm.State.Name);
+            Assert.Equal("Standby look", services.AirLabel);
+            Assert.Equal("", services.OutputsHeldBy);
+            Assert.Equal("Backup desk", twin.Holder);
+            Assert.False(Arrives(client, reader, TwinWord.HandBack, 800));
+            Assert.True(twin.LastHandover!.Stopped);
+            Assert.Equal(HandoverStage.TargetReady, twin.LastHandover.Stage);
+            Assert.Contains("\"awaiting\":\"the operator", twin.StatusJson());
+            Assert.StartsWith("MAIN — TAKE BACK: the show is on here", twin.Status);
+
+            // The room switched by hand, the second press: the standby is told to let go and released once it says it has.
+            var second = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, second.Status);
+            Assert.Contains("the room shows this desk; the standby Backup desk was told to let go", second.Message);
+            Assert.Equal("", twin.Holder);
+            AnswerHandBack(client.GetStream(), reader);
+            PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Equal(TwinWord.Show, ReadWord(reader, TwinWord.Show).Word);
+            Assert.Contains("Switched by hand.", vm.StatusMessage);
+            Assert.Equal("take back across machines (no wall-switch cue): target ready (stopped: the route is the operator's own → resumed: switched by hand — the operator's word) → authority committed (Backup desk said it let go) → old owner released → complete", twin.LastHandover!.Trail);
+            Assert.False(twin.Status.Contains("TAKE BACK", StringComparison.Ordinal));
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ABoxThatWasOnlyHeardDoesNotConfirmTheRoute()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var services = b.Services;
+            var twin = services.Twin;
+            vm.IsSandboxActive = false;
+            vm.State.Twin.Port = FreePort();
+            vm.State.Twin.Key = "hunter2";
+            vm.State.Twin.TakeBackCue = "Wall to main";
+            vm.State.Twin.Role = TwinRole.Main;
+            var fake = new FakeDeviceLink();
+            services.Devices.LinkFactory = _ => fake;
+            // The projector is set to confirm at Delivered: the socket taking the bytes is all it asks — heard, not obeyed.
+            static void Rig(ShowState s)
+            {
+                s.Interactive.Enabled = true;
+                s.Interactive.Devices.Add(new DeviceConfig { Id = "proj", Name = "Proj", Link = DeviceLink.Tcp, Profile = DeviceProfile.PjLink, Port = "10.0.0.7", Confirm = ConfirmLevel.Delivered, ConfirmTimeoutMs = 600, HearsShow = false });
+                var cue = new RunCueConfig { Name = "Wall to main" };
+                cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.DeviceSend, Target = "Proj", Value = "INPUT HDMI 1" });
+                CueStacks.Caller(s).Cues.Add(cue);
+            }
+            Rig(vm.State);
+            services.Devices.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            var (client, reader) = JoinAsHolder(b, "BACKUP-PC", withAir: false, also: Rig);
+            using var _client = client;
+            using var _reader = reader;
+
+            var asked = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, asked.Status);
+            PumpUntil(() => twin.LastHandover is { Stopped: true });
+            Assert.Contains("was not confirmed — no box said yes", twin.Status);
+            Assert.Contains("delivered is not switched", twin.Status);
+            Assert.Equal("Backup desk", twin.Holder);
+            Assert.False(Arrives(client, reader, TwinWord.HandBack, 800));
+
+            // Set to Accepted, the projector's OK is a fact, and the standby is told to let go. (The
+            // standby's show landed on the first press: the box on the page is a new object, and the
+            // open link reads the page's current words, not the object it opened with.)
+            vm.State.Interactive.Devices[0].Confirm = ConfirmLevel.Accepted;
+            services.Devices.Reconcile();
+            Dispatcher.UIThread.RunJobs();
+            var again = services.Actions.Execute(ShowActionKind.TwinTakeBack, ActionOrigin.Desk);
+            Assert.Equal(ActionStatus.Requested, again.Status);
+            PumpUntil(() => fake.Written.Count(w => w.StartsWith("%1INPT 31", StringComparison.Ordinal)) >= 2);
+            fake.Say("%1INPT=OK");
+            AnswerHandBack(client.GetStream(), reader);
+            PumpUntil(() => twin.LastHandover is { IsComplete: true });
+            Assert.Equal("", twin.Holder);
+            Assert.Contains("Wall switch confirmed: Proj: INPUT HDMI 1 — accepted (INPT: OK)", vm.StatusMessage);
+        }
+        finally
+        {
             b.Dispose();
         }
     }

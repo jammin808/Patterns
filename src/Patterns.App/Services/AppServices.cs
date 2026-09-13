@@ -1321,7 +1321,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     long ITwinHost.DeviceMark() => Devices.Mark();
 
-    int ITwinHost.DevicePendingSince(long mark) => Devices.PendingSince(mark);
+    int ITwinHost.DeviceSentSince(long mark) => Devices.SentSince(mark);
 
     Task<IReadOnlyList<DeviceReceipt>> ITwinHost.DeviceConfirmSince(long mark) => Devices.ConfirmSince(mark);
     IActionLayer IWireHost.Actions => Actions;

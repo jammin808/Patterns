@@ -101,4 +101,68 @@ public class TwinTransactionTests
         Assert.Contains("The room still shows the standby Backup desk, whose picture stays up", words);
         Assert.Contains("switch the wall to this desk by hand, then TAKE BACK again", words);
     }
+
+    [Fact]
+    public void EveryHandoverHasAnIdOfItsOwnAndOneGivenIsKept()
+    {
+        var a = new TwinTransaction(HandoverKind.TakeBack, HandoverShape.SameMachine, hasRoute: false, At);
+        var b = new TwinTransaction(HandoverKind.TakeBack, HandoverShape.SameMachine, hasRoute: false, At);
+        Assert.Equal(12, a.Id.Length);
+        Assert.Matches("^[0-9a-f]{12}$", a.Id);
+        Assert.NotEqual(a.Id, b.Id);
+        Assert.Equal("abc123def456", new TwinTransaction(HandoverKind.TakeOver, HandoverShape.AcrossMachines, hasRoute: true, At, "abc123def456").Id);
+        Assert.Equal(12, TwinTransaction.NewId().Length);
+    }
+
+    [Fact]
+    public void AStoppedHandoverResumesWhenTheFactArrivesAndTheTrailKeepsBoth()
+    {
+        // A take-back across machines with no cue: the show is up here, the room is switched by hand, the second press releases.
+        var tx = new TwinTransaction(HandoverKind.TakeBack, HandoverShape.AcrossMachines, hasRoute: false, At);
+        tx.Reached(HandoverStage.TargetReady);
+        tx.Stop("the route is the operator's own");
+        Assert.Throws<InvalidOperationException>(() => tx.Reached(HandoverStage.AuthorityCommitted));
+        tx.Resume("switched by hand — the operator's word");
+        Assert.False(tx.Stopped);
+        Assert.Equal("", tx.Reason);
+        tx.Reached(HandoverStage.AuthorityCommitted);
+        tx.Note("Backup desk said it let go");
+        tx.Reached(HandoverStage.OldOwnerReleased);
+        tx.Reached(HandoverStage.Complete);
+        Assert.Equal("take back across machines (no wall-switch cue): target ready (stopped: the route is the operator's own → resumed: switched by hand — the operator's word) → authority committed (Backup desk said it let go) → old owner released → complete", tx.Trail);
+        Assert.Throws<InvalidOperationException>(() => tx.Resume("again"));      // only a stopped handover resumes
+
+        // Stopped twice — the standby never answered, told again, still nothing: every stop and every resumption stays in the trail.
+        var twice = new TwinTransaction(HandoverKind.TakeBack, HandoverShape.SameMachine, hasRoute: false, At);
+        twice.Reached(HandoverStage.AuthorityCommitted);
+        twice.Stop("the standby did not say it let go");
+        twice.Resume("told again");
+        twice.Stop("the standby did not say it let go");
+        Assert.Equal("take back on this machine: authority committed (stopped: the standby did not say it let go → resumed: told again) → stopped: the standby did not say it let go", twice.Trail);
+        twice.Resume("");
+        Assert.Contains("resumed: the fact arrived", twice.Trail);
+
+        // A note at the first stage, before anything was reached, is in the trail too.
+        var early = new TwinTransaction(HandoverKind.TakeOver, HandoverShape.SameMachine, hasRoute: false, At);
+        early.Note("the marker written");
+        Assert.Equal("take over on this machine: preparing (the marker written)", early.Trail);
+        early.Note("");
+        Assert.Equal("take over on this machine: preparing (the marker written)", early.Trail);
+    }
+
+    [Fact]
+    public void TheWordsForTheHandBackSayWhatIsAwaitedWhatStoppedAndWhatTheRoomShows()
+    {
+        Assert.Contains("switch the room to this desk by hand, then TAKE BACK again releases the standby Backup desk", TwinTransaction.SwitchByHandWords("Backup desk", "No take-back cue is set"));
+        Assert.StartsWith("TAKE BACK: the show is on here, on displays the room is not yet looking at. No take-back cue is set —", TwinTransaction.SwitchByHandWords("Backup desk", "No take-back cue is set"));
+        Assert.Contains("the picture goes up here the moment it says it has", TwinTransaction.ReleaseAwaitedWords("Backup desk", sameMachine: true));
+        Assert.Contains("the room shows this desk; the standby Backup desk was told to let go and its answer is awaited", TwinTransaction.ReleaseAwaitedWords("Backup desk", sameMachine: false));
+        var same = TwinTransaction.ReleaseStoppedWords("Backup desk", sameMachine: true);
+        Assert.Contains("did not say it let go", same);
+        Assert.Contains("this desk's outputs stay held", same);
+        Assert.Contains("TAKE BACK again", same);
+        var across = TwinTransaction.ReleaseStoppedWords("Backup desk", sameMachine: false);
+        Assert.Contains("the room shows this desk", across);
+        Assert.Contains("its picture may still be up on its own input", across);
+    }
 }

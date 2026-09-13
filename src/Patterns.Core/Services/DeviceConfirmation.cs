@@ -72,27 +72,44 @@ public static class DeviceConfirmation
         };
     }
 
-    /// <summary>
-    /// Why a cue cannot be the twin's wall-switch fence, or null: every device it sends to must be
-    /// able to answer — at least Delivered — because a fence that cannot answer is a hope. A cue
-    /// that is not there yet, or a step whose device is not on the page, is left to fire time,
-    /// which refuses it with its own words.
+        /// <summary>
+    /// Why a cue cannot be the twin's wall-switch fence, or null. A fence is a box that answers:
+    /// the cue must be in the show and send to at least one device whose effective level — what it
+    /// is set to, capped at what its link and profile can reach — is Accepted or better, because
+    /// "the socket took the bytes" (Delivered) is not the room having moved, and a cue that only
+    /// recalls a look or changes a pattern is not evidence of anything outside this machine. A
+    /// device that cannot answer beside one that can is allowed — a tally note over UDP next to
+    /// the matrix route — and the route is confirmed by the ones that answer. A press is never
+    /// gated by this: the operator switches the wall by hand and the words say so.
     /// </summary>
     public static string? FenceProblem(ShowState state, string cueWord)
     {
         if (string.IsNullOrWhiteSpace(cueWord)) return null;
         var found = CueStacks.FindCueByWord(state, cueWord);
-        if (found is null) return null;
+        if (found is null) return $"the wall-switch cue '{cueWord}' is not in the show";
+        var answering = 0;
+        string? weakest = null;
         foreach (var step in found.Value.Cue.Actions)
         {
             if (step.Kind != ShowActionKind.DeviceSend) continue;
             var d = Interactive.Find(state.Interactive, step.Target);
-            if (d is null) continue;
-            if (Attainable(d.Link, d.Profile) < ConfirmLevel.Delivered)
+            if (d is null)
             {
-                return $"the wall-switch cue's device '{d.Name}' is {Limit(d.Link, d.Profile)} — nothing comes back to say the room moved";
+                weakest ??= $"the wall-switch cue's step sends to '{step.Target}', which is not on the Interactive page";
+                continue;
             }
+            var effective = Effective(d);
+            if (effective >= ConfirmLevel.Accepted)
+            {
+                answering++;
+                continue;
+            }
+            var cap = Attainable(d.Link, d.Profile);
+            weakest ??= cap < ConfirmLevel.Accepted
+                ? $"the wall-switch cue's device '{d.Name}' is {Limit(d.Link, d.Profile)} — nothing comes back to say the room moved"
+                : $"the wall-switch cue's device '{d.Name}' is set to confirm at {Label(effective)} — set it to accepted or observed (Interactive page) so its answer is a fact";
         }
-        return null;
+        if (answering > 0) return null;
+        return weakest ?? $"the wall-switch cue '{cueWord}' sends nothing to a box that answers — a look or a pattern is not evidence the room moved";
     }
 }
