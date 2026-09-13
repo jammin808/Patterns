@@ -594,7 +594,7 @@ public class TwinAppTests
             Assert.False(services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
             Assert.Contains("the standby Backup desk has the show", twin.Status);
             Assert.Contains("has the show", twin.HealthWords);
-            Assert.Contains("TAKE BACK", vm.StatusMessage);
+            Assert.True(vm.StatusMessage.Contains("TAKE BACK"), vm.StatusMessage);
 
             // As the main: the same hold, and TAKE BACK waits for the standby to be on the link.
             vm.State.Twin.Port = FreePort();

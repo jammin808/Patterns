@@ -9,6 +9,10 @@ back to each phone; discoverable so a PC out front can be the games hub; a profe
 timer and messages-to-stage; and a show caller's own install — cues planned at home, imported or
 discovered at the venue, kept in step during the show as an external control node.*
 
+*Status — Round A is built: round 35 (`docs/PLAN.md` §53) landed the node launch and profile,
+`--node caller` over the twin's link with the plan offer, the stage timer and messages with their
+pages, and the NODES rail. Rounds B, C and D below are still the plan.*
+
 ## 0. The verdict, first
 
 **Viable, and the preferred shape is the right one — with one correction.** Not a separate exe:

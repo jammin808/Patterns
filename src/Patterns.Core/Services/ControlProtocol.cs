@@ -27,6 +27,10 @@ public enum RemoteCommandKind
     ShowLockStatus,
     /// <summary>CALIBRATE STATUS — the camera calibration: running, progress, solved, applied, the solution, as JSON.</summary>
     CalibrationStatus,
+    /// <summary>NODES — every other Patterns heard on the beacon and what is linked, as JSON.</summary>
+    NodesStatus,
+    /// <summary>STAGE STATUS — the stage timer and the messages with their receipts, as JSON.</summary>
+    StageStatus,
 }
 
 /// <summary>
@@ -636,6 +640,12 @@ public static class ControlProtocol
                     // one key on a phone or a Stream Deck turns it on and off again.
                     case "": case "TOGGLE": return Act(ShowActionKind.CountdownToggle);
                     case "STOP": case "OFF": case "HIDE": case "CLEAR": return Act(ShowActionKind.CountdownStop);
+                    // The stage timer's own: a pause that keeps what is left, the resume, seconds either way, a flash.
+                    case "PAUSE": case "HOLD": return Act(ShowActionKind.TimerPause);
+                    case "RESUME": case "CONTINUE": case "UNPAUSE": return Act(ShowActionKind.TimerResume);
+                    case "ADD": case "PLUS": return StageTimer.ParseSeconds(rest) is { } plus ? Act(ShowActionKind.TimerAdd, "", plus >= 0 ? $"+{plus:0}" : $"{plus:0}") : Unknown(s);
+                    case "MINUS": case "SUB": case "LESS": return StageTimer.ParseSeconds(rest) is { } minus ? Act(ShowActionKind.TimerAdd, "", $"-{Math.Abs(minus):0}") : Unknown(s);
+                    case "FLASH": case "BLINK": return Act(ShowActionKind.TimerFlash);
                     case "START": case "ON": case "GO":
                         return rest.Length == 0 ? Act(ShowActionKind.CountdownStart)
                              : TryParseMinutes(rest, out var started) ? Act(ShowActionKind.CountdownStart, "", Minutes(started))
@@ -645,6 +655,8 @@ public static class ControlProtocol
                     case "LABEL": case "TEXT": case "TITLE":
                         return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.CountdownLabel, "", rest);
                     default:
+                        // TIMER +60 / TIMER -30: seconds onto what is left; else a bare number of minutes starts it.
+                        if (what.Length > 0 && (what[0] == '+' || what[0] == '-') && StageTimer.ParseSeconds(what) is { } nudge) return Act(ShowActionKind.TimerAdd, "", nudge >= 0 ? $"+{nudge:0}" : $"{nudge:0}");
                         return TryParseMinutes(arg, out var bare) ? Act(ShowActionKind.CountdownStart, "", Minutes(bare)) : Unknown(s);
                 }
             }
@@ -717,6 +729,32 @@ public static class ControlProtocol
                     "ON" or "LOCK" => Act(ShowActionKind.ShowLockOn),
                     "OFF" or "UNLOCK" or "RELEASE" => Act(ShowActionKind.ShowLockOff),
                     "STATUS" or "" => Query(RemoteCommandKind.ShowLockStatus),
+                    _ => Unknown(s),
+                };
+
+            // The stage: a message to the speaker's display (or the crew's), cleared, a flash, or the state.
+            case "STAGE":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                var what = sub.Length > 0 ? sub[0].ToUpperInvariant() : "";
+                var rest = sub.Length > 1 ? sub[1] : "";
+                switch (what)
+                {
+                    case "": case "STATUS": return Query(RemoteCommandKind.StageStatus);
+                    case "MESSAGE": case "MSG": case "SAY": case "SPEAKER": return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.StageMessage, "speaker", rest);
+                    case "CREW": return rest.Length == 0 ? Unknown(s) : Act(ShowActionKind.StageMessage, "crew", rest);
+                    case "CLEAR": case "OFF": return Act(ShowActionKind.StageClear);
+                    case "FLASH": case "BLINK": return Act(ShowActionKind.TimerFlash);
+                    default: return Act(ShowActionKind.StageMessage, "speaker", arg);      // "STAGE Wrap up": the words, to the speaker
+                }
+            }
+
+            // The nodes: every other Patterns on the network, as the Nodes page lists them.
+            case "NODES":
+            case "NODE":
+                return arg.ToUpperInvariant() switch
+                {
+                    "" or "STATUS" or "LIST" => Query(RemoteCommandKind.NodesStatus),
                     _ => Unknown(s),
                 };
 

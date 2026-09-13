@@ -27,6 +27,12 @@ public enum TwinWord
     Bye,
     /// <summary>Main → a standby that took over: the main has the show again — close the outputs, follow again; the show and the air follow the word.</summary>
     HandBack,
+    /// <summary>Main → a caller: the caller's stack as it runs on the main — the standby cue, the last, armed, hold — as <see cref="TwinLive"/> JSON, once a second and on every change.</summary>
+    Live,
+    /// <summary>A caller → main: a verb of the show to run there — a <see cref="Patterns.Core.Model.ShowAction"/> as JSON: GO, STANDBY, HOLD, the timer's, a message to stage.</summary>
+    Act,
+    /// <summary>A caller → main: the cues it planned at home — the Stacks section as JSON — offered for the desk to apply, never applied by itself.</summary>
+    Plan,
 }
 
 /// <summary>
@@ -54,6 +60,9 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
             "BEAT" => TwinWord.Beat,
             "BYE" => TwinWord.Bye,
             "HANDBACK" => TwinWord.HandBack,
+            "LIVE" => TwinWord.Live,
+            "ACT" => TwinWord.Act,
+            "PLAN" => TwinWord.Plan,
             _ => TwinWord.Unknown,
         };
         var rest = parts.Length > 1 ? parts[1] : "";
@@ -79,13 +88,32 @@ public readonly record struct TwinMessage(TwinWord Word, string Name, string Pay
 /// show while the main was away, that it has the show: the main then holds its own outputs, takes
 /// nothing for granted, and TAKE BACK is the operator's press.
 /// </summary>
-public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto, bool TookOver = false)
+public sealed record TwinJoin(string Name, string Machine, string Instance, string Key, int Proto = TwinMessage.Proto, bool TookOver = false, string Kind = "standby")
 {
+    /// <summary>A caller node joining: it follows the show and calls it, never holds an output, and may send its cues back.</summary>
+    public bool IsCaller => string.Equals(Kind, "caller", StringComparison.OrdinalIgnoreCase);
+
     public string ToJson() => JsonUtil.SerializeCompact(this);
 
     public static TwinJoin? Parse(string json)
     {
         try { return JsonUtil.Deserialize<TwinJoin>(json); }
+        catch (JsonException) { return null; }
+    }
+}
+
+/// <summary>
+/// The caller's stack as it runs on the main, sent to every caller once a second and on every
+/// change, so a caller's Run surface shows the desk's standby cue, its last GO, ARM and HOLD
+/// rather than its own — the runtime is deliberately not in the show, so it travels as its own word.
+/// </summary>
+public sealed record TwinLive(string Standby, string Last, bool Armed, bool Hold, bool Executing, string AirLabel, bool Live, bool Blackout, string Timing, long Seq)
+{
+    public string ToJson() => JsonUtil.SerializeCompact(this);
+
+    public static TwinLive? Parse(string json)
+    {
+        try { return JsonUtil.Deserialize<TwinLive>(json); }
         catch (JsonException) { return null; }
     }
 }
@@ -220,6 +248,11 @@ public static class TwinSync
 
     /// <summary>Every section of the show file, in the file's order — the names the publish reports dirty.</summary>
     public static IReadOnlyList<string> SectionNames { get; } = Roots.Select(p => p.Name).ToList();
+
+    /// <summary>The sections a caller node owns and sends back to the desk: the cue stacks — the cues, their notes, the caller's pad. Nothing else a caller edits travels.</summary>
+    public static readonly IReadOnlyList<string> CallerSections = new[] { nameof(ShowState.Stacks) };
+
+    public static bool IsCallerSection(string section) => CallerSections.Contains(section);
 
     /// <summary>The sections that travel: every section of the file but the machine's own.</summary>
     public static IReadOnlyList<string> MirroredSections { get; } = Roots.Select(p => p.Name).Where(n => !LocalSections.Contains(n)).ToList();
@@ -370,6 +403,29 @@ public static class TwinWatch
                 return linked
                     ? $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show; {main} is back on the link and its TAKE BACK puts the show there again, or STAND BY AGAIN here."
                     : $"TOOK OVER from {main}{(note.Length > 0 ? " " + note : "")} — this desk runs the show now. STAND BY AGAIN once {main} is back.";
+            default:
+                return phase.ToString();
+        }
+    }
+
+    /// <summary>A caller node's line: alone with its plan, connecting, in step and calling, the desk silent, refused.</summary>
+    public static string DescribeCaller(TwinPhase phase, string deskName, DateTime? lastHeardUtc, long sectionsApplied, DateTime utcNow, string note = "", bool linked = false, string airLabel = "")
+    {
+        var desk = deskName.Length > 0 ? deskName : "the desk";
+        switch (phase)
+        {
+            case TwinPhase.Off:
+                return "CALLER — planning alone; LINK on the Nodes page joins a desk.";
+            case TwinPhase.Connecting:
+                return deskName.Length > 0 ? $"CALLER — connecting to {deskName}…" : "CALLER — waiting for a desk: its beacon names it on the Nodes page.";
+            case TwinPhase.Refused:
+                return $"CALLER — {desk} refused the link{(note.Length > 0 ? ": " + note : "")}. Enter the desk's twin key (Machine page, TWIN).";
+            case TwinPhase.InStep:
+                return $"CALLER for {desk} — in step, heard {Age(lastHeardUtc, utcNow)}, {sectionsApplied} section{(sectionsApplied == 1 ? "" : "s")} mirrored"
+                       + (airLabel.Length > 0 ? $" · on air there: {airLabel}" : "") + " · GO, STANDBY and HOLD from here run there.";
+            case TwinPhase.MainSilent:
+                var silent = lastHeardUtc is { } heard ? $"{(utcNow - heard).TotalSeconds:0} s" : "a while";
+                return $"DESK {desk} SILENT for {silent} — calling waits; the cues stay here.";
             default:
                 return phase.ToString();
         }

@@ -31,12 +31,12 @@ public static class TestApp
 
     /// <param name="prefix">The temp folder's name prefix.</param>
     /// <param name="prepare">Runs on the empty folder before the services read it — a marker the watchdog would have left, a settings file.</param>
-    public static Booted Boot(string prefix = "patterns-tests-", Action<string>? prepare = null)
+    public static Booted Boot(string prefix = "patterns-tests-", Action<string>? prepare = null, Patterns.Core.Model.NodeKind profile = Patterns.Core.Model.NodeKind.Desk)
     {
         var dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         prepare?.Invoke(dir);
-        var services = new AppServices(new SettingsStore(dir));
+        var services = new AppServices(new SettingsStore(dir), profile: profile);
         AppServices.Instance = services;
         var vm = new MainViewModel(services);
         var window = new MainWindow { DataContext = vm };

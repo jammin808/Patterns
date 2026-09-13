@@ -293,6 +293,18 @@ public enum ShowActionKind
     CalibrateApply,
     /// <summary>CALIBRATE UNDO: the placements as they were before APPLY.</summary>
     CalibrateUndo,
+    /// <summary>TIMER PAUSE: the stage timer stops with what is left kept.</summary>
+    TimerPause,
+    /// <summary>TIMER RESUME: what was left runs again from now.</summary>
+    TimerResume,
+    /// <summary>TIMER ADD +60 / -30: seconds onto what is left.</summary>
+    TimerAdd,
+    /// <summary>TIMER FLASH: the stage displays flash for a moment — "look up".</summary>
+    TimerFlash,
+    /// <summary>STAGE MESSAGE &lt;text&gt;: words to the speaker's display (or the crew's, with a channel), with a receipt when seen.</summary>
+    StageMessage,
+    /// <summary>STAGE CLEAR: the message off the displays.</summary>
+    StageClear,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>
@@ -327,6 +339,8 @@ public enum OriginKind
     Device,
     /// <summary>The management server an install checks in with: a command it sent back.</summary>
     Management,
+    /// <summary>A caller node on the link: the show caller's own desk, calling from there.</summary>
+    Caller,
 }
 
 public sealed record ActionOrigin(OriginKind Kind, string Name = "", string Endpoint = "")

@@ -5084,10 +5084,156 @@ without the desk; everything else is the nodes.
 
 | Round | What lands | Status |
 | --- | --- | --- |
-| A | The node kernel; `--node caller` (the Show pages alone, cues planned at home, offered as a diff at the venue, in step during the show over the twin's link with a third role, never holding outputs); the stage timer and messages as pages the desk serves (`/stage`, the timer's verbs and segments from the running order, messages with a receipt); the NODES rail item and page. | assessed |
+| A | The node kernel; `--node caller` (the Show pages alone, cues planned at home, offered as a diff at the venue, in step during the show over the twin's link with a third role, never holding outputs); the stage timer and messages as pages the desk serves (`/stage`, the timer's verbs and segments from the running order, messages with a receipt); the NODES rail item and page. | **built — §53** |
 | B | `--node arcade`: a fixed-step, interpolated, deterministic Skia engine; keyboard, XInput pads, Companion keys and a phone pad; Pong, Snake, Breakout; attract mode and a leaderboard; NDI or the ring to the wall; `ARCADE …` verbs and cue actions. | assessed |
 | C | Audience play on the hub PC: `/play` with a room code and QR, polls, quizzes with speed points, word clouds, results on the wall and in the desk's overlays, a message back to each phone, moderation with the assistant, Draughts on the wall, the path the room votes. | assessed |
 | D | Rig day gamified, opt-in: the alignment game on the mesh against the calibration's targets, the show-ready score on the health line, Blend Quest across a rig's joins. | assessed |
 
 What not to do is §11 of the doc: another engine runtime, a browser as the game surface, a plugin
 system, a timer in its own process, audience phones on the show LAN, gamification on by default.
+
+## 53. Round 35 — Round A of the nodes: the node launch, the caller node, the stage
+
+*"Implement in the order you recommend."* §52's table put the node kernel and the caller first,
+with the stage timer and messages-to-stage beside them, because that is the workflow win — a
+caller plans at home and walks in ready — and because every other node stands on the same
+kernel. This round is that row. The reference installs named for the stage work (a stage
+countdown timer and a messaging platform kept as local projects) were not reachable from the
+build machine, so the timer and the messages are built from what they are known to do: a
+speaker's clock that is green, then amber, then red, then over; a message to stage that is seen
+to be seen.
+
+### 53.1 The node launch and profile
+
+`Patterns.exe --node caller` (or `timer`, or `arcade` — the word is parsed, the arcade is
+round B) is the fifth way the one build runs itself. `LaunchOptions.Node` carries it through
+the watchdog to the child, `Program` sets `AppServices.LaunchProfile` before the services boot,
+and `AppServices.Profile` (a `NodeKind`) is what the rest of the desk reads:
+
+- **Outputs never open.** `OutputsHeldBy` is the node's own sentence ("a caller node — it never
+  puts anything on a screen"), the same hold the standby twin uses, so every path that opens a
+  window — a hot-plug, a remote's OUTPUTS ON, a cue — closes it again and says why.
+- **The heavy engines stay idle.** No NDI finder, no input pool, no OSC listener, no devices, no
+  default sandbox: the reconcile passes that start them are skipped for a node. What runs is the
+  kernel — the store, the log, the beacon, the wire and its pages, the journal, the assistant.
+- **The rail is the node's.** `Shell.PagesFor(profile)` and `GroupsFor` filter the pages: a
+  caller has Run, Cues, Countdown, Nodes, Machine and Help; a timer node Countdown, Nodes,
+  Machine and Help; the lazy pages warm only what is visible; the window's title says "Patterns
+  — Caller node"; the home page is the node's first.
+- **The beacon says what it is.** `Beacon.Kind` ("caller", "timer", "arcade"; empty is a desk),
+  `Wire`, `Http` and `Link` (the twin port callers join on) travel in the same datagram the
+  watchdog and the multiview already read.
+
+### 53.2 The beacon's peers, the registry, the NODES rail
+
+`BeaconService` keeps every peer it hears — not only the main it watches — and `Hear()` is the
+test's way in. `NodeRegistry` (Core, pure) turns those beacons into `NodeCard`s: kind, name,
+address, the show it has, the words its status line said, its ports, how long since it was
+heard; fresh under six seconds, forgotten after two minutes. `RailWord` is the rail's badge —
+NONE, `2 NEAR`, `1 LINKED` — and `RailLine` its tooltip ("1 caller, 1 arcade near"). On the
+desk `NodesService` polls it once a tick and the NODES item sits in the rail above STREAM, its
+hue the registry's (grey for none, blue for near, green for linked). The Nodes page (Setup
+group) lists the cards — LINK on a desk's card from a caller, OPEN for a node's pages — the
+plan offers a linked caller brought (APPLY, DISMISS), and this instance's own identity line.
+`NODES` on the wire is the same registry as JSON.
+
+### 53.3 The caller link over the twin's protocol
+
+A caller joins the desk the way a standby does — `JOIN` with the desk's key — with one word
+more: `TwinJoin.Kind = "caller"`. From there the two roles part:
+
+- **The desk hosts callers whenever it allows linking.** `Twin.AcceptCallers` (on by default)
+  opens the twin listener on the twin's port even with the twin role off; a desk with no key is
+  given one first, as a main is (§51), and its beacon names the port. A standby joining a desk
+  that is not a main is still refused ("this desk is not a twin main — it links callers only");
+  a caller joining a node is refused ("a node does not host callers"). The status line with the
+  twin off reads "Twin off — callers may link on port 9699; none linked."
+- **The show lands, and the caller's own sections travel back.** The desk sends the whole show
+  on the join and every section as it changes, as it does to a standby. A caller owns
+  `TwinSync.CallerSections` — the cue stacks — and sends those back as it edits them: the
+  scratchpad, a cue's notes, a cue moved. Echo is cut both ways: the desk skips the sender when
+  it mirrors a caller's section on (`_echoSkip`), the caller compares what it would send with
+  what last landed (`_lastLanded`) and stays quiet when they match.
+- **The LIVE word.** The desk's caller stack as it runs — the standby cue, the last GO, ARM,
+  HOLD, executing, the air label, live, blackout, the day's timing — goes to every caller once a
+  second and on every change (`TwinLive`). The caller adopts it into its own runtime, so its
+  Run surface shows the desk's standby cue, not its own.
+- **The ACT word.** GO, STANDBY, HOLD, the timer's verbs and a message to stage pressed on the
+  caller are not run there: `ShowActions.Execute` forwards every verb from a linked caller to
+  the desk as a `ShowAction` in JSON, and the desk runs it with `OriginKind.Caller` — a named
+  hand, not a remote, so the arming gate that refuses a remote's GO does not refuse the caller.
+- **The PLAN word.** The caller's own cues, planned at home, are kept as JSON when the desk's
+  welcome arrives — before the show lands over them — and offered once the caller is in step.
+  The desk parses the plan, diffs it against its own stacks (`CuePlan.Diff`: by cue id — added,
+  changed by fingerprint, removed, unchanged) and puts the offer on its Nodes page with the
+  words ("2 cues to add, 1 the desk has that the plan does not — in Caller"). APPLY keeps a
+  version of the show first, merges (`CuePlan.Merge`: the plan's stack replaces the desk's
+  match — the same id, else the same name and role, else the desk's list of that role when the
+  plan carries exactly one of it — cues and pad; a stack with no match is added beside the
+  desk's own), and mirrors the result to everyone on the link. DISMISS drops it. Nothing is
+  applied without the desk's press.
+- **UNLINK** on the caller clears the host and it plans on with the show as it stands there.
+
+### 53.4 The stage: the timer and the messages
+
+`StageConfig` is a mirrored root section of the show: the amber and red thresholds (120 s and
+60 s), what the speaker sees (the clock, and the segment if wanted) and what the crew sees, the
+presets, the messages, and the timer's pause. `StageTimer` (Core, pure) is the arithmetic on the
+countdown overlay's own clock — the countdown is the timer; a second clock would drift from the
+one on the wall — giving a phase (idle, running, paused, over), the seconds left (negative when
+over), a colour and a progress. PAUSE moves the countdown's armed time so the remaining seconds
+hold; RESUME puts it back; ADD and MINUS nudge it (`TIMER +60`, `TIMER -30`, `TIMER ADD 1:30`);
+FLASH sets a three-second moment the pages blink through. `StageService` keeps its own revision
+for the pages' long-poll and the messages:
+
+- `STAGE <words>` (or `STAGE MESSAGE`) to the speaker, `STAGE CREW <words>` to the crew, `STAGE
+  CLEAR` marks the pending ones seen, `STAGE STATUS` is the payload; the same as cue actions
+  (`StageMessage` with the channel as its target, `StageClear`, `TimerPause`, `TimerResume`,
+  `TimerAdd`, `TimerFlash`), so a running order carries "Mic 2 is live" to the crew on its GO.
+- A message says who sent it: the cue when a cue did ("cue 01 Mic check" — `ShowActions.
+  CueInHand`, set for the cue's steps and its waiting steps alike), else the hand — "desk",
+  "companion FOH deck", "caller CALLER-PC".
+- `/stage?view=speaker` is the clock, the message, ACK; `/stage?view=crew` the same for the
+  crew with the segment; `/timer` is the controller — start, pause, +/−, the presets, a message
+  box for each channel, and the receipts. `GET /api/stage?since=<rev>` waits on the revision;
+  `POST /api/stage/ack` with the message id marks it seen (`{"ok":true}`, and `false` with the
+  reason when it is already seen or unknown). The desk's status line says "seen at 19:02:14".
+- A timer node (`--node timer`) is the Countdown page and these pages with nothing else; a caller
+  node shows the stage block on its Countdown page.
+
+### 53.5 Found on the way (fixed)
+
+1. **Three words the wire could not read.** `TwinMessage.Parse` knew the standby's words and not
+   the caller's — LIVE, ACT and PLAN parsed as unknown and were dropped by both peers, so a
+   caller in step never saw the desk's runtime, its GO never ran and its plan never arrived. The
+   words are in the table and a Core test round-trips every `TwinWord` through Format and Parse.
+2. **A caller dropped the moment it linked.** The desk's words for a caller that linked were
+   set from the accept thread — "Call from invalid thread" — which the reader loop swallowed as a
+   routine disconnect, so every caller was welcomed, given the show and cut within a millisecond,
+   forever redialling. The words and the first LIVE go through the UI thread, and the reader
+   loop now logs any fault on a peer's line that is not a socket closing.
+3. **The plan carried empty lists.** A caller with a clicker list it never filled offered "2
+   cues in 2 stacks"; the plan is the stacks that have cues.
+4. **The role match folded a second list.** A plan with two lists of one role would land both on
+   the desk's one list, the second over the first; the role alone matches only when the plan
+   carries exactly one list of that role — the other is added beside.
+5. **Two help topics filed out of order** in the catalogue, which reads in show order.
+
+### 53.6 Tests
+
+Core: `NodesTests` (the launch word, the registry's cards and words, the caller's status
+sentences, the plan's diff and merge, the wire words, the stage timer's arithmetic). App:
+`NodesAppTests` — a caller node boots with its pages and no outputs; a desk hears two node
+beacons and its rail says `2 NEAR`; two desks in one process, one a caller node, link over a real
+socket: the show lands, the plan is offered with its words, APPLY merges and mirrors it back, a
+STANDBY on the desk reaches the caller's runtime through LIVE, a note edited on the caller lands
+on the desk, GO from the caller runs on the desk, the desk's status counts `1 LINKED`, and
+UNLINK parts them. `StageAppTests` — the timer through the countdown's clock (start, pause,
+resume, nudge, over), a message with a receipt through `/api/stage/ack`, the pages served, a cue
+that carries a message and names itself. Counts at the end of the round: Core 1,055, App 547 —
+both suites green.
+
+### 53.7 Next
+
+Round B, the arcade node — §52's second row: the engine, three games, the pad, attract mode, the
+leaderboard, the picture to the wall, `ARCADE` verbs and cue actions.

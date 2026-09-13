@@ -382,6 +382,23 @@ public enum ShowMode
 }
 
 /// <summary>What this Patterns is to a twin — a second Patterns, on this machine or another, kept in step.</summary>
+/// <summary>
+/// What a process of this build is: the desk, or a node — a separate process of the same exe
+/// (<c>Patterns.exe --node caller</c>) with its own folder, window and crash domain, booting a
+/// fraction of the desk's services, announcing itself on the beacon, driven by the wire.
+/// </summary>
+public enum NodeKind
+{
+    /// <summary>The desk: outputs, engines, the whole rail.</summary>
+    Desk,
+    /// <summary>The show caller's own desk: the Show pages alone, no outputs, cues planned at home and kept in step at the venue.</summary>
+    Caller,
+    /// <summary>The arcade: games and audience play, its picture a source on the wall.</summary>
+    Arcade,
+    /// <summary>A stage display: the timer and the messages, on a machine with nothing else on it.</summary>
+    Timer,
+}
+
 public enum TwinRole
 {
     Off,

@@ -55,6 +55,7 @@ public sealed class LazyPage : ContentControl
         ["Stream"] = () => Scroll(new StreamSection()),
         ["Remote"] = () => Scroll(new WebSection()),
         ["Interactive"] = () => Scroll(new InteractiveSection()),
+        ["Nodes"] = () => Scroll(new NodesSection()),
         ["Machine"] = () => Scroll(new AdminSection()),
         ["Help"] = () => Scroll(new HelpSection()),
     };
@@ -98,7 +99,8 @@ public sealed class LazyPage : ContentControl
     /// </summary>
     public static void WarmUp(Window window)
     {
-        var pending = new Queue<LazyPage>(In(window).Where(p => !p.IsBuilt));
+        var profile = AppServices.Instance?.Profile ?? Patterns.Core.Model.NodeKind.Desk;
+        var pending = new Queue<LazyPage>(In(window).Where(p => !p.IsBuilt && ViewModels.Shell.IsVisible(profile, p.Page)));   // a node never builds the pages it does not show
         void Next()
         {
             while (pending.Count > 0)

@@ -60,12 +60,17 @@ public sealed class BeaconService : IDisposable
     public void Reconcile()
     {
         var cfg = _services.State.Watchdog;
-        var key = $"{cfg.BeaconEnabled}|{cfg.BeaconHost}|{cfg.BeaconPort}|{cfg.BeaconListen}|{cfg.BeaconListenPort}";
+        // Nodes find each other on the beacon: a node always sends and hears, and so does a desk
+        // that accepts callers — the Machine page's own switches add to that, never take from it.
+        var nodes = !_services.IsDesk || _services.State.Twin.AcceptCallers;
+        var send = cfg.BeaconEnabled || nodes;
+        var listen = cfg.BeaconListen || nodes;
+        var key = $"{send}|{cfg.BeaconHost}|{cfg.BeaconPort}|{listen}|{cfg.BeaconListenPort}";
         if (key == _activeKey) return;
         _activeKey = key;
         Stop();
         var notes = new List<string>();
-        if (cfg.BeaconEnabled)
+        if (send)
         {
             try
             {
@@ -78,7 +83,7 @@ public sealed class BeaconService : IDisposable
                 Log.Warn("Beacon sender failed.", ex);
             }
         }
-        if (cfg.BeaconListen)
+        if (listen)
         {
             try
             {
@@ -197,7 +202,33 @@ public sealed class BeaconService : IDisposable
             Stream = s.Stream.Active,
             Show = s.Name,
             Twin = s.Twin.Role == TwinRole.Main ? s.Twin.Port : 0,
+            Kind = NodeKinds.Wire(_services.Profile),
+            Wire = s.Control.Enabled ? s.Control.TcpPort : 0,
+            Http = s.Control.Enabled ? s.Control.HttpPort : 0,
+            Link = _services.Twin.LinkPort,
         };
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (Beacon Beacon, IPEndPoint From, DateTime HeardUtc)> _peers = new(StringComparer.Ordinal);
+
+    /// <summary>Every other process heard, by instance, with where and when — the Nodes page's raw material.</summary>
+    public IReadOnlyList<(Beacon Beacon, IPEndPoint From, DateTime HeardUtc)> Peers()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var stale in _peers.Where(p => now - p.Value.HeardUtc > NodeRegistry.ForgottenAfter).Select(p => p.Key).ToList()) _peers.TryRemove(stale, out _);
+        return _peers.Values.ToList();
+    }
+
+    /// <summary>A beacon heard — from the socket, or handed in by a test.</summary>
+    public void Hear(Beacon beacon, IPEndPoint from)
+    {
+        if (beacon.Instance == Instance) return;
+        var now = DateTime.UtcNow;
+        _last = beacon;
+        _lastFrom = from;
+        _lastSeenUtc = now;
+        _peers[beacon.Instance] = (beacon, from, now);
+        Interlocked.Increment(ref _heard);
     }
 
     private async Task ReceiveLoop(UdpClient listener, CancellationToken ct)
@@ -218,10 +249,7 @@ public sealed class BeaconService : IDisposable
                 }
                 var beacon = Beacon.Parse(r.Buffer);
                 if (beacon is null || beacon.Instance == Instance) continue; // not a beacon, or our own broadcast coming back
-                _last = beacon;
-                _lastFrom = r.RemoteEndPoint;
-                _lastSeenUtc = DateTime.UtcNow;
-                Interlocked.Increment(ref _heard);
+                Hear(beacon, r.RemoteEndPoint);
             }
         }
         catch (OperationCanceledException)

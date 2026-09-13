@@ -80,6 +80,12 @@ public sealed class AppServices
     /// <summary>The camera calibration: patterns on the projectors, a camera watching, the rig solved from what it saw.</summary>
     public CalibrationService Calibration { get; }
 
+    /// <summary>Every other Patterns heard on the beacon — desks, callers, arcades, timers — and what is linked to this one.</summary>
+    public NodesService Nodes { get; }
+
+    /// <summary>The stage timer and the messages to stage, on the countdown's clock; the stage and timer pages read it.</summary>
+    public StageService Stage { get; }
+
     /// <summary>Output hot-plug: a display unplugged, back, or new, and what the rig does about it.</summary>
     public HotPlugService HotPlug { get; }
 
@@ -293,8 +299,17 @@ public sealed class AppServices
     /// </summary>
     public static (SettingsStore Store, ShowState State)? Preloaded { get; set; }
 
-    public AppServices(SettingsStore? store = null, ShowState? preloaded = null)
+    /// <summary>What this process is, as the launch said (<c>--node caller</c>); the desk unless told otherwise. Read by the constructor.</summary>
+    public static NodeKind LaunchProfile { get; set; } = NodeKind.Desk;
+
+    /// <summary>What this process is: the desk, or a node that boots a fraction of it and never opens an output.</summary>
+    public NodeKind Profile { get; }
+
+    public bool IsDesk => Profile == NodeKind.Desk;
+
+    public AppServices(SettingsStore? store = null, ShowState? preloaded = null, NodeKind? profile = null)
     {
+        Profile = profile ?? LaunchProfile;
         if (store is null && Preloaded is { } pre)
         {
             store = pre.Store;
@@ -428,6 +443,7 @@ public sealed class AppServices
         Twin = new TwinService(this);
         ShowLock = new ShowLockService(this);
         Calibration = new CalibrationService(this);
+        Nodes = new NodesService(this);
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -452,7 +468,10 @@ public sealed class AppServices
             var mapped = step.Action.ToAction();
             // Follow: the origin a cue's own later step already has — it was not pressed, the cue
             // said it would happen, and the gate that refuses a remote's GO must not refuse this.
-            var result = Actions.Execute(mapped, ActionOrigin.Follow);
+            Actions.CueInHand = step.Label;
+            ActionResult result;
+            try { result = Actions.Execute(mapped, ActionOrigin.Follow); }
+            finally { Actions.CueInHand = ""; }
             Journal.Record(ActionOrigin.Follow.Label, mapped.Kind.ToString(), mapped.Target, result.Status.ToString(),
                 $"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
             Notify($"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
@@ -460,6 +479,7 @@ public sealed class AppServices
         CueStack = new CueStackService(this);
         // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
         CueStack.Changed += ReconcileInputs;
+        Stage = new StageService(this);
         GpuService.RecordAppliedPath(State);
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
@@ -510,6 +530,8 @@ public sealed class AppServices
             Bus.UnarmedTargets = Arming.Unarmed.ToHashSet(StringComparer.Ordinal);
             PublishRuntime();
         };
+        // A node never opens an output: the hold the window manager and OUTPUTS ON both honour is on from the first second.
+        if (!IsDesk) OutputsHeldBy = NodeKinds.HoldWords(Profile);
         Screens.Refresh(); // planned screens exist before any display is attached
         Startup.Mark(StartupBudget.Services);
         // The desk's first frame is the budget's last mark; a pipeline tells it once.
@@ -667,6 +689,7 @@ public sealed class AppServices
     /// <summary>App startup: arm EDIT SAFE when the show is configured to start sandboxed.</summary>
     public void StartDefaultSandbox()
     {
+        if (!IsDesk) return;                                   // a node has no preview to keep safe
         if (State.Switcher.EditSafeByDefault && !Sandbox.Active)
         {
             Sandbox.Enter();
@@ -1167,16 +1190,21 @@ public sealed class AppServices
     {
         SyncPlannedScreens();
 
-        // NDI sender set follows the config.
-        Ndi.Reconcile(Bus.Current);
+        if (IsDesk)
+        {
+            // NDI sender set follows the config.
+            Ndi.Reconcile(Bus.Current);
 
-        // The live-input pool follows everything the program (and sandbox) references.
-        ReconcileInputs();
-
-        // Remote control server follows its config; OSC and the beacon beside it.
+            // The live-input pool follows everything the program (and sandbox) references.
+            ReconcileInputs();
+            // The room's boxes and OSC are the desk's to drive.
+            Osc.Reconcile();
+            Devices.Reconcile();
+        }
+        // A node keeps the wire (its own pages and verbs), the beacon (so it is found) and the
+        // twin (its link to the desk); never a sender, a decoder or a device — a mirrored show's
+        // clips are the desk's to open, not a caller's.
         Control.Reconcile();
-        Osc.Reconcile();
-        Devices.Reconcile();
         Beacon.Reconcile();
         Twin.Reconcile();
     }

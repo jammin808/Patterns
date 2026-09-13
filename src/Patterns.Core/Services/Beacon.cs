@@ -64,6 +64,18 @@ public sealed record Beacon
     /// <summary>The port a standby twin may join this machine on; 0 when it is not a twin main.</summary>
     public int Twin { get; init; }
 
+    /// <summary>What this process is: "desk", "caller", "arcade", "timer" — "" from a build before nodes reads as a desk.</summary>
+    public string Kind { get; init; } = "";
+
+    /// <summary>The wire's TCP port (Companion, remotes); 0 when the remote control is off.</summary>
+    public int Wire { get; init; }
+
+    /// <summary>The wire's HTTP port (the phone remote, the pages, /api); 0 when off.</summary>
+    public int Http { get; init; }
+
+    /// <summary>The port a caller node may link on — the twin's port whenever this desk listens for callers; 0 when it does not.</summary>
+    public int Link { get; init; }
+
     public string ToJson() => JsonSerializer.Serialize(this, Options);
 
     public byte[] ToBytes() => Encoding.UTF8.GetBytes(ToJson());

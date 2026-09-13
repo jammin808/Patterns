@@ -390,6 +390,35 @@ public sealed partial class ControlService : IDisposable
             {
                 payload = RunPage;
             }
+            else if (method == "GET" && (path == "/stage" || path.StartsWith("/stage?")))
+            {
+                payload = StagePage;
+            }
+            else if (method == "GET" && path == "/timer")
+            {
+                payload = TimerPage;
+            }
+            else if (method == "GET" && (path == "/api/stage" || path.StartsWith("/api/stage?")))
+            {
+                contentType = "application/json";
+                // ?since=<rev> long-polls the stage's own revision: a message, a receipt, the timer moved.
+                if (long.TryParse(QueryValue(path, "since"), out var seenStage))
+                {
+                    var deadline = DateTime.UtcNow.AddSeconds(25);
+                    while (_services.Stage.Rev == seenStage && DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                    {
+                        await Task.Delay(150, ct);
+                    }
+                }
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Stage.StatusJson());
+            }
+            else if (method == "POST" && path == "/api/stage/ack")
+            {
+                contentType = "application/json";
+                var id = body.Trim().Trim('"');
+                var acked = await Dispatcher.UIThread.InvokeAsync(() => _services.Stage.Ack(id));
+                payload = acked ? "{\"ok\":true}" : "{\"ok\":false,\"msg\":\"no such message, or seen already\"}";
+            }
             else if (method == "GET" && path == "/admin")
             {
                 payload = AdminPage;

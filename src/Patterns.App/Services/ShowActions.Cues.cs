@@ -189,6 +189,12 @@ public sealed partial class ShowActions
     /// stopping at the first failure ("failed at action k of n"; earlier actions stand). Blackout
     /// is transport: it is put back afterwards unless the cue says otherwise.
     /// </summary>
+    /// <summary>
+    /// The cue whose steps are running right now ("01 Mic check"), else "": a step that names its
+    /// sender — a message to stage — says the cue, not the hand that pressed GO on it.
+    /// </summary>
+    internal string CueInHand { get; set; } = "";
+
     internal ActionResult RunCue(CueStackConfig stack, RunCueConfig cue, ActionOrigin origin)
     {
         var label = $"{cue.Number} {cue.Name}";
@@ -222,6 +228,10 @@ public sealed partial class ShowActions
         // The next GO on a list takes the list over: whatever the last cue on it left waiting goes
         // before this one starts, so a step from two cues ago can never land on the audience.
         _s.Tail.Schedule(stack.Id, cue, label, waiting, now);
+        var cueBefore = CueInHand;
+        CueInHand = label;
+        try
+        {
         _s.BulkEdit(() =>
         {
             foreach (var step in immediate)
@@ -257,6 +267,11 @@ public sealed partial class ShowActions
             // audience sees it, and it puts the previous state back itself when it ends.
             if (!explicitBlackout && !_s.Stingers.OwnsScreens) _s.State.Blackout = blackoutBefore;
         });
+        }
+        finally
+        {
+            CueInHand = cueBefore;
+        }
 
         rt.LastCueId = cue.Id;
         if (failure is not null)

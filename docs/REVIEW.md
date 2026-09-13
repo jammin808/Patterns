@@ -450,3 +450,54 @@ authority. `docs/PLAN.md` §51 says how. The suite ran against every change: 1,0
 - **A restart of the main mid-takeover** — the marker path covers a main that comes back after;
   one that comes back during (between the marker and the kill) reads the marker and holds, which
   is right; not tested as a race.
+
+## Round 35 review — Round A of the nodes: the launch, the caller, the stage
+
+*The brief: "Implement in the order you recommend" over `docs/NODES.md`. The order was A — the
+node kernel, the caller node, the stage timer and messages, the NODES rail — then B, C, D.*
+
+### Done
+
+- `--node caller|timer|arcade`: `AppServices.Profile`, outputs held by the node's own sentence,
+  the heavy engines and the default sandbox skipped, the rail and lazy pages filtered, the beacon
+  carrying the kind and the ports. `docs/PLAN.md` §53.1.
+- The beacon's peers kept, `NodeRegistry` and `NodeCard` (Core, pure), the NODES rail item above
+  STREAM with its word and hue, the Nodes page with LINK / OPEN and the plan offers, `NODES` on
+  the wire. §53.2.
+- The caller over the twin's link: a third join kind, the desk hosting callers with the twin off
+  (its own key, its listener, its beacon's port), the show mirrored, the caller's stacks back
+  with echo cut both ways, LIVE once a second, ACT forwarded with `OriginKind.Caller`, PLAN
+  offered once and diffed, APPLY with a version kept first, DISMISS, UNLINK. §53.3.
+- The stage: `StageConfig`, `StageTimer` on the countdown's clock, PAUSE / RESUME / ADD / MINUS /
+  FLASH, messages to the speaker and the crew with receipts, `/stage` and `/timer`, `/api/stage`
+  long-poll and ACK, the cue actions, the sender named. §53.4.
+- Help topics "nodes" and "stage"; REMOTE.md rows; README bullets; `docs/NODES.md` marked.
+
+### Found on the way (fixed)
+
+1. **LIVE, ACT and PLAN unparsed** — the wire's word table stopped at the standby's words; both
+   peers dropped the caller's. A round-trip test over every `TwinWord` now guards the table.
+2. **Every caller cut within a millisecond of linking** — a status notification from the accept
+   thread threw "Call from invalid thread", swallowed by the reader loop's catch as a peer going
+   away. Posted to the UI thread; the loop logs any fault on a line that is not a socket closing,
+   so a dropped peer is never dropped silently again.
+3. **Empty stacks in a plan**, **a second list of one role folded onto the first**, **two help
+   topics out of show order** — §53.5.
+
+### Measured, and left
+
+- **The caller's key by hand** — the desk's key is typed on the caller's Machine page; a beacon
+  cannot carry it. A pairing code shown on the desk's Nodes page (the key behind a six-digit
+  code, once, for a minute) is the next step for the venue.
+- **One section, whole** — a caller's edit sends the whole Stacks section, as every mirrored
+  section travels; two callers editing at once resolve last-writer-wins per section on the desk.
+  Cue-level deltas would be the change if a show ever has two callers typing at once.
+- **The pause is the countdown's armed time moved** — a paused timer survives a desk restart as
+  its remaining seconds and its paused flag, which the countdown's recovery puts back; it has not
+  been tested across a restart this round.
+- **The LIVE word once a second** — for a caller on a phone hotspot that is one small datagram;
+  it was not throttled further.
+- **The stage pages against the named references** — the stage timer and the messaging platform
+  this was to be measured against sit as local projects the build machine could not reach; what
+  is built is the professional shape as described. When they are reachable, the comparison is
+  the first thing to do.

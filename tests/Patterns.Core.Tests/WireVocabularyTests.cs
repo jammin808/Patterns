@@ -130,6 +130,17 @@ public class WireVocabularyTests
         ("CALIBRATE DEMO", new(ShowActionKind.CalibrateDemo)),
         ("CALIBRATE APPLY", new(ShowActionKind.CalibrateApply)),
         ("CAL UNDO", new(ShowActionKind.CalibrateUndo)),
+        ("TIMER PAUSE", new(ShowActionKind.TimerPause)),
+        ("TIMER RESUME", new(ShowActionKind.TimerResume)),
+        ("TIMER ADD 60", new(ShowActionKind.TimerAdd, "", "+60")),
+        ("TIMER MINUS 30", new(ShowActionKind.TimerAdd, "", "-30")),
+        ("TIMER +1m", new(ShowActionKind.TimerAdd, "", "+60")),
+        ("TIMER -30", new(ShowActionKind.TimerAdd, "", "-30")),
+        ("TIMER FLASH", new(ShowActionKind.TimerFlash)),
+        ("STAGE MESSAGE Wrap up", new(ShowActionKind.StageMessage, "speaker", "Wrap up")),
+        ("STAGE CREW Mic 2 is live", new(ShowActionKind.StageMessage, "crew", "Mic 2 is live")),
+        ("STAGE Five minutes", new(ShowActionKind.StageMessage, "speaker", "Five minutes")),
+        ("STAGE CLEAR", new(ShowActionKind.StageClear)),
         ("REVIEW OFF", new(ShowActionKind.ReviewOff)),
         ("REVIEW", new(ShowActionKind.ReviewToggle)),
         ("FREEZE ON", new(ShowActionKind.FreezeOn)),
@@ -152,7 +163,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)
@@ -175,6 +186,9 @@ public class WireVocabularyTests
         Assert.Equal(RemoteCommandKind.TwinStatus, ControlProtocol.Parse("TWIN STATUS").Kind);
         Assert.Equal(RemoteCommandKind.CalibrationStatus, ControlProtocol.Parse("CALIBRATE STATUS").Kind);
         Assert.Equal(RemoteCommandKind.CalibrationStatus, ControlProtocol.Parse("CALIBRATE").Kind);
+        Assert.Equal(RemoteCommandKind.NodesStatus, ControlProtocol.Parse("NODES").Kind);
+        Assert.Equal(RemoteCommandKind.StageStatus, ControlProtocol.Parse("STAGE STATUS").Kind);
+        Assert.Equal(RemoteCommandKind.StageStatus, ControlProtocol.Parse("STAGE").Kind);
         var hello = ControlProtocol.Parse("HELLO FOH deck");
         Assert.Equal(RemoteCommandKind.Hello, hello.Kind);
         Assert.Equal("FOH deck", hello.Text);

@@ -26,6 +26,8 @@ public sealed class App : Application
             var window = new MainWindow { DataContext = vm };
             services.AttachMainWindow(window);
             desktop.MainWindow = window;
+            // A node opens on the first page of the few it shows — the caller on its Run surface.
+            if (!services.IsDesk) vm.SelectPage(Shell.HomePage(services.Profile));
             // After a watchdog relaunch the show goes back on as soon as the window has opened —
             // and so it does after this start took the screens back from a run that was still
             // playing on them, whether or not a watchdog was in the story (a hand relaunch of a

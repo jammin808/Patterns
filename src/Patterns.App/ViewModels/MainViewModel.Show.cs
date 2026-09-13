@@ -90,10 +90,10 @@ public sealed partial class MainViewModel
     public ShellGroup SelectedGroup => _group;
 
     /// <summary>The group buttons on the rail.</summary>
-    public IReadOnlyList<GroupChip> GroupStrip => Shell.Groups.Select(g => new GroupChip(g.Group, g.Label, g.Hue, g.Hint, g.Group == _group)).ToList();
+    public IReadOnlyList<GroupChip> GroupStrip => Shell.GroupsFor(_services.Profile).Select(g => new GroupChip(g.Group, g.Label, g.Hue, g.Hint, g.Group == _group)).ToList();
 
     /// <summary>The pages of the current group, as the strip shows them.</summary>
-    public IReadOnlyList<PageChip> PageStrip => Shell.Pages.Where(p => p.Group == _group).Select(p => new PageChip(p.Index, p.Header, p.Hue, p.Index == _page)).ToList();
+    public IReadOnlyList<PageChip> PageStrip => Shell.PagesFor(_services.Profile).Where(p => p.Group == _group).Select(p => new PageChip(p.Index, p.Header, p.Hue, p.Index == _page)).ToList();
 
     public string GroupHint => Shell.Info(_group).Hint;
 

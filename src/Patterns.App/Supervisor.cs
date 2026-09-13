@@ -30,6 +30,8 @@ internal static class LaunchOptions
 
     /// <summary>The twin key the launch carries for a standby.</summary>
     public static string? Key { get; private set; }
+    /// <summary>This process is a node — "caller", "arcade", "timer": a separate process of this build that boots a fraction of the desk (<see cref="Patterns.Core.Model.NodeKind"/>); null is the desk.</summary>
+    public static string? Node { get; private set; }
 
     /// <summary>Anything not ours — forwarded to Avalonia (and to restarted children).</summary>
     public static string[] Passthrough { get; private set; } = Array.Empty<string>();
@@ -40,6 +42,7 @@ internal static class LaunchOptions
         if (Home is { } home) { yield return "--home"; yield return home; }
         if (StandbyOf is { } of) { yield return "--standby-of"; yield return of; }
         if (Key is { } key) { yield return "--key"; yield return key; }
+        if (Node is { } node) { yield return "--node"; yield return node; }
     }
 
     public static void Parse(string[] args)
@@ -56,6 +59,7 @@ internal static class LaunchOptions
                 case "--home" when i + 1 < args.Length: Home = args[++i]; break;
                 case "--standby-of" when i + 1 < args.Length: StandbyOf = args[++i]; break;
                 case "--key" when i + 1 < args.Length: Key = args[++i]; break;
+                case "--node" when i + 1 < args.Length: Node = args[++i]; break;
                 case "--restarts" when i + 1 < args.Length && int.TryParse(args[i + 1], out var n):
                     Restarts = n; i++; break;
                 default: rest.Add(args[i]); break;

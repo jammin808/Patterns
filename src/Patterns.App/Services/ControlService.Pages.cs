@@ -185,6 +185,7 @@ public sealed partial class ControlService
   <div class="grid row2" style="margin-top:10px">
     <button id="arm" onclick="arm()">ARM</button>
     <a class="link" href="/run">The caller's page ⟩</a>
+    <a class="link" href="/timer">Stage timer ⟩</a>
   </div>
   <div class="sec">NEXT</div>
   <div class="card rows" id="next"></div>
@@ -308,6 +309,8 @@ public sealed partial class ControlService
     <div class="grid row2">
       <a class="link" href="/run">Caller's page ⟩</a>
       <a class="link" href="/multiview">Multiview ⟩</a>
+      <a class="link" href="/timer">Stage timer ⟩</a>
+      <a class="link" href="/stage">Stage display ⟩</a>
       <a class="link" href="/admin">Admin (passcode) ⟩</a>
     </div>
   </div>

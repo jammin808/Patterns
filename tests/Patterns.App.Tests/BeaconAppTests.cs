@@ -101,7 +101,8 @@ public class BeaconAppTests
             Assert.Contains("MAIN MACHINE MAIN-PC: its watchdog gave up", services.Beacon.WatchText);
             Assert.EndsWith("Take over?", services.Beacon.WatchText);
 
-            // Off: nothing goes out, nothing is heard.
+            // Off: nothing goes out, nothing is heard — once callers are not accepted either (a desk that accepts them keeps the beacon on).
+            services.State.Twin.AcceptCallers = false;
             cfg.BeaconEnabled = false;
             cfg.BeaconListen = false;
             Dispatcher.UIThread.RunJobs();

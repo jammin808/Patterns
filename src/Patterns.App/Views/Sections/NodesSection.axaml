@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             xmlns:svc="using:Patterns.Core.Services"
+             xmlns:app="using:Patterns.App.Services"
+             x:Class="Patterns.App.Views.Sections.NodesSection"
+             Classes="hue-nodes"
+             x:DataType="vm:MainViewModel">
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-nodes" Text="Nodes" />
+    <TextBlock Classes="hint tip"
+               Text="Every other Patterns on this network, as the beacon tells it: a desk, a caller node (a show caller's own Patterns — the Show pages alone, cues planned at home, in step with the desk at the venue), an arcade, a stage timer. A node is the same build run as a separate process — Patterns.exe --node caller — with its own folder, window and crash domain; it never opens an output." />
+
+    <TextBlock Classes="h2" Text="THIS PROCESS" />
+    <TextBlock Classes="label" Text="{Binding NodesIdentity}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding NodesLinkWords}" TextWrapping="Wrap" />
+    <CheckBox Content="Accept caller nodes (sends and hears the beacon, listens for callers on the twin's port with this desk's key)"
+              IsChecked="{Binding State.Twin.AcceptCallers}" IsVisible="{Binding IsDesk}"
+              ToolTip.Tip="A caller joins with this desk's twin key (Machine page, TWIN — a desk with no key is given one), follows the show and calls it, sends its cues back, and never holds an output. Off: no caller can link, and the beacon stays as the Machine page sets it" />
+    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsCallerNode}">
+      <Button Classes="mini" Content="OFFER PLAN" Command="{Binding OfferPlanCommand}" ToolTip.Tip="The cues as they stand here, to the desk's Nodes page — APPLY there lands them" />
+      <Button Classes="mini" Content="UNLINK" Command="{Binding UnlinkNodeCommand}" ToolTip.Tip="Leave the desk: plan on, with the show as it stands here" />
+      <TextBlock Classes="label" Text="{Binding PlanWords}" VerticalAlignment="Center" />
+    </StackPanel>
+
+    <ItemsControl ItemsSource="{Binding Services.Twin.Plans}" IsVisible="{Binding IsDesk}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="app:TwinService+PlanOffer">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" BorderBrush="#35E0D0" BorderThickness="1">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+              <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="{Binding Caller, StringFormat='A plan from the caller {0}'}" />
+                <TextBlock Classes="label" Text="{Binding Count}" />
+                <TextBlock Classes="label" Text="{Binding Words}" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="chip" Content="Apply" Margin="8,0,0,0" VerticalAlignment="Center"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ApplyPlanCommand}" CommandParameter="{Binding}"
+                      ToolTip.Tip="The plan's stacks onto this show — the show as it was is kept under EARLIER VERSIONS first" />
+              <Button Grid.Column="2" Classes="mini" Content="✕" Margin="8,0,0,0" VerticalAlignment="Center"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).DismissPlanCommand}" CommandParameter="{Binding}" ToolTip.Tip="Set the plan aside" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Classes="h2" Text="ON THE NETWORK" />
+    <TextBlock Classes="hint" Text="{Binding NodesLine}" TextWrapping="Wrap" />
+    <ItemsControl ItemsSource="{Binding Services.Nodes.Nodes}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate><StackPanel Spacing="6" /></ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="svc:NodeCard">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+              <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="{Binding KindLabel}" />
+                <TextBlock Classes="label" Text="{Binding Line}" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="chip" Content="Link" Margin="8,0,0,0" VerticalAlignment="Center"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).LinkNodeCommand}" CommandParameter="{Binding}"
+                      IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).IsCallerNode}"
+                      ToolTip.Tip="This caller follows that desk: its show lands here, every edit as it lands, and GO from here goes there" />
+              <Button Grid.Column="2" Classes="chip" Content="Open pages" Margin="8,0,0,0" VerticalAlignment="Center"
+                      Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).OpenNodePagesCommand}" CommandParameter="{Binding}"
+                      IsVisible="{Binding PagesUrl, Converter={StaticResource NotEmpty}}"
+                      ToolTip.Tip="Its phone remote, caller's page, stage timer — in the browser" />
+            </Grid>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Classes="hint tip"
+               Text="How the pieces find each other: every Patterns sends a beacon once a second (UDP, port 9700 by default) and hears the others'; a node always does, a desk does while it accepts callers. A caller node presses LINK on the desk it follows and joins with that desk's twin key; the desk's Nodes page counts it under LINKED and its Machine page's TWIN line names it. NODES on the wire lists every card as JSON." />
+  </StackPanel>
+</UserControl>

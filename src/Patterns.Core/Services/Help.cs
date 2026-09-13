@@ -454,6 +454,22 @@ public static class HelpTopics
             new[] { "multiview", "monitor wall", "layout", "two multiviews", "second multiview", "where is multiview", "confidence monitor", "gallery", "tiles", "arrange", "large" }),
 
         // ---- CONTENT ----------------------------------------------------------------------
+        new HelpTopic("stage", HelpGroup.RunningTheShow,
+            "The stage timer and messages to stage",
+            "Countdown page → STAGE, and the /stage and /timer pages: a professional stage timer on the countdown's own clock, and messages to the speaker or the crew with a receipt when seen.",
+            HelpBodies.Stage,
+            new[]
+            {
+                "Open http://<this machine>:9696/stage in any browser for the speaker's display — a tablet on a stand, a phone at the lectern, a spare laptop; ?view=crew for the stage manager's, with the segment, the next cue and the drift.",
+                "/timer is the controller: START 5/10/15/20 or your own, TO a time of day, PAUSE (what is left is kept) and RESUME, ±10 s and ±1 min, STOP, FLASH; the presets and a free message to the speaker or the crew; the receipts.",
+                "Amber and red at the seconds you set (Countdown page → STAGE); red past zero, counting how far over.",
+                "A message flashes the display until ACK is pressed; the desk's status line and the receipts list say when it was seen.",
+                "On the wire and in a cue: TIMER START 10, TIMER TO 14:30, TIMER PAUSE, TIMER RESUME, TIMER +60, TIMER -30, TIMER FLASH, TIMER STOP, STAGE MESSAGE Wrap up, STAGE CREW Mic 2 live, STAGE CLEAR, STAGE STATUS.",
+            },
+            "TIMER START <min> · TIMER TO <HH:mm> · TIMER PAUSE · TIMER RESUME · TIMER +60 · TIMER -30 · TIMER FLASH · TIMER STOP · STAGE MESSAGE <words> · STAGE CREW <words> · STAGE CLEAR · STAGE STATUS",
+            new[] { "Countdown" },
+            new[] { "stage timer", "stage", "timer", "speaker timer", "presenter timer", "confidence monitor", "message to stage", "messages to stage", "wrap up", "ack", "acknowledge", "receipt", "seen", "crew", "stage manager", "segment", "pause timer", "resume timer", "add a minute", "flash", "stagetimer", "countdown clock", "lectern", "tablet on a stand" }),
+
         new HelpTopic("inputs", HelpGroup.Content,
             "Many inputs at once: every source mounted, a pool to distribute",
             "BUILD → Media: the sources the show draws on — files, NDI, capture cards, web pages, decks — each mounted once and sent anywhere.",
@@ -888,6 +904,22 @@ public static class HelpTopics
             new[] { "install", "permanent", "digital signage", "schedule", "rota", "programme", "advert", "announcement", "clock", "timed", "dated", "admin", "passcode", "update", "restart", "support bundle", "management", "check-in", "hotel", "retail", "shop" }),
 
         // ---- THE MACHINE ------------------------------------------------------------------
+        new HelpTopic("nodes", HelpGroup.Control,
+            "Nodes: a caller's own Patterns, and the others on the network",
+            "NODES at the foot of the rail, and its page: every other Patterns the beacon hears — a desk, a caller node, an arcade, a stage timer — and what is linked to this one.",
+            HelpBodies.Nodes,
+            new[]
+            {
+                "A caller node is Patterns.exe --node caller: the same build as a separate process — the Run surface, the cues, the countdown, Nodes, Machine and Help — with no outputs, ever.",
+                "At home: plan the cues in it (or import a cue sheet), save the show file. At the venue: NODES → the desk's card → LINK, with the desk's twin key (Machine page, TWIN); its show lands on the caller, and the caller's plan is offered to the desk's Nodes page — APPLY there lands it, a version of the show kept first.",
+                "During the show: GO, STANDBY and HOLD pressed on the caller run on the desk, journaled as the caller's; the desk's standby, ARM and HOLD read on the caller within a second; a cue's note or the pad edited on either side lands on the other.",
+                "The desk accepts callers by default (Nodes page: the switch) and gets a key made for it if it had none; a caller with the wrong key is refused, in words.",
+                "NODES on the wire lists every card as JSON.",
+            },
+            "NODES",
+            new[] { "Nodes", "Machine" },
+            new[] { "node", "nodes", "caller node", "show caller", "caller", "plan at home", "cue planning", "external control", "control node", "beacon", "discover", "discovery", "network", "another machine", "second process", "link", "linked", "offer plan", "apply plan", "--node" }),
+
         new HelpTopic("machine", HelpGroup.TheMachine,
             "The Machine page: health at a glance, the GPU, the super-check",
             "ADMIN → Machine before doors and whenever something feels slow: one headline over twelve lit tiles says what needs attention, the cards under it say what to do, the lines show the last three minutes and the day.",

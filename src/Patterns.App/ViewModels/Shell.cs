@@ -72,6 +72,7 @@ public static class Shell
         ("Stream", ShellGroup.Setup, "#FF5C7A"),
         ("Remote", ShellGroup.Setup, "#35E0D0"),
         ("Interactive", ShellGroup.Setup, "#7CF5C8"),
+        ("Nodes", ShellGroup.Setup, "#5FD0FF"),
         ("Machine", ShellGroup.Admin, "#B8E356"),
         ("Help", ShellGroup.Admin, "#C0CBDB"));
 
@@ -82,6 +83,19 @@ public static class Shell
     public const int RunPage = 1;
 
     public static int FirstPage(ShellGroup group) => Pages.First(p => p.Group == group).Index;
+
+    /// <summary>Whether a kind of process shows a page on its rail: the desk shows every page, a node the few it is for.</summary>
+    public static bool IsVisible(Patterns.Core.Model.NodeKind kind, string header)
+        => Patterns.Core.Services.NodeKinds.Pages(kind) is not { } pages || pages.Contains(header);
+
+    /// <summary>The pages a kind shows, in the table's order.</summary>
+    public static IReadOnlyList<ShellPage> PagesFor(Patterns.Core.Model.NodeKind kind) => Pages.Where(p => IsVisible(kind, p.Header)).ToList();
+
+    /// <summary>The groups with at least one page for the kind, in rail order.</summary>
+    public static IReadOnlyList<ShellGroupInfo> GroupsFor(Patterns.Core.Model.NodeKind kind) => Groups.Where(g => PagesFor(kind).Any(p => p.Group == g.Group)).ToList();
+
+    /// <summary>The page a kind opens on: the desk's panel; a node's first page.</summary>
+    public static int HomePage(Patterns.Core.Model.NodeKind kind) => kind == Patterns.Core.Model.NodeKind.Desk ? PanelPage : PagesFor(kind).First().Index;
 
     public static int IndexOf(string header) => Pages.First(p => p.Header == header).Index;
 

@@ -736,6 +736,82 @@ public sealed class CountdownConfig : Observable, IAnchored
     public double SizePct { get => _sizePct; set => Set(ref _sizePct, Math.Clamp(value, 4, 45)); }
 }
 
+/// <summary>A message to the stage — the speaker's display, or the crew's — and whether it was seen.</summary>
+public sealed class StageMessage : Observable
+{
+    private string _id = Guid.NewGuid().ToString("N")[..8];
+    private string _text = "";
+    private string _channel = "speaker";
+    private DateTime _sentUtc = DateTime.UtcNow;
+    private DateTime? _ackUtc;
+    private string _from = "";
+    private bool _flash;
+
+    public string Id { get => _id; set => Set(ref _id, value ?? ""); }
+    public string Text { get => _text; set => Set(ref _text, value ?? ""); }
+    /// <summary>"speaker" — the presenter's display; "crew" — the stage manager's and the technicians'.</summary>
+    public string Channel { get => _channel; set => Set(ref _channel, (value ?? "speaker").Trim().ToLowerInvariant() is { Length: > 0 } c ? c : "speaker"); }
+    public DateTime SentUtc { get => _sentUtc; set => Set(ref _sentUtc, value); }
+    /// <summary>When the display's ACK was pressed; null while unseen.</summary>
+    public DateTime? AckUtc { get => _ackUtc; set => Set(ref _ackUtc, value); }
+    /// <summary>Who sent it — the desk, a caller, a cue.</summary>
+    public string From { get => _from; set => Set(ref _from, value ?? ""); }
+    /// <summary>Flash the display until it is acknowledged.</summary>
+    public bool Flash { get => _flash; set => Set(ref _flash, value); }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool Seen => _ackUtc is not null;
+}
+
+/// <summary>
+/// The stage: a professional stage timer and messages to stage, on the countdown's own clock. The
+/// timer is the countdown overlay's — one clock for the wall, the confidence screen, the stage page
+/// and the caller — with the thresholds that colour it, a pause that keeps what is left, and the
+/// segments the running order gives it. The messages go to the speaker's display or the crew's and
+/// come back with a receipt when the display's ACK is pressed.
+/// </summary>
+public sealed class StageConfig : Observable
+{
+    private int _amberSeconds = 120;
+    private int _redSeconds = 60;
+    private bool _speakerSeesSegment;
+    private bool _crewSeesSegment = true;
+    private bool _speakerSeesClock = true;
+    private bool _paused;
+    private double _pausedRemainingSeconds;
+    private DateTime? _flashUntilUtc;
+
+    /// <summary>The timer turns amber with this many seconds left.</summary>
+    public int AmberSeconds { get => _amberSeconds; set => Set(ref _amberSeconds, Math.Clamp(value, 0, 3600)); }
+
+    /// <summary>The timer turns red with this many seconds left, and stays red past zero.</summary>
+    public int RedSeconds { get => _redSeconds; set => Set(ref _redSeconds, Math.Clamp(value, 0, 3600)); }
+
+    /// <summary>The speaker's display shows the running order's segment under the time.</summary>
+    public bool SpeakerSeesSegment { get => _speakerSeesSegment; set => Set(ref _speakerSeesSegment, value); }
+
+    /// <summary>The crew's display shows the segment, the next cue and the drift.</summary>
+    public bool CrewSeesSegment { get => _crewSeesSegment; set => Set(ref _crewSeesSegment, value); }
+
+    /// <summary>The speaker's display shows the time of day beside the timer.</summary>
+    public bool SpeakerSeesClock { get => _speakerSeesClock; set => Set(ref _speakerSeesClock, value); }
+
+    /// <summary>The timer is paused: what was left is kept in <see cref="PausedRemainingSeconds"/> and shown still.</summary>
+    public bool Paused { get => _paused; set => Set(ref _paused, value); }
+
+    public double PausedRemainingSeconds { get => _pausedRemainingSeconds; set => Set(ref _pausedRemainingSeconds, Math.Max(0, value)); }
+
+    /// <summary>The words one press sends to the speaker.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<string> Presets { get; init; } = new() { "Wrap up", "5 minutes", "1 minute", "Q&A next", "Louder please", "Slower please", "Look at camera 1" };
+
+    /// <summary>The messages sent this show, newest last, capped by the service.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<StageMessage> Messages { get; init; } = new();
+
+    /// <summary>Runtime: the displays flash until this moment — a FLASH without a message.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DateTime? FlashUntilUtc { get => _flashUntilUtc; set => Set(ref _flashUntilUtc, value); }
+}
+
 /// <summary>Corporate branding used across patterns, particles and overlays.</summary>
 public sealed class BrandKit : Observable
 {
@@ -1763,6 +1839,7 @@ public sealed class TwinConfig : Observable
     private bool _localStandby;
     private string _takeOverCue = "";
     private string _takeBackCue = "";
+    private bool _acceptCallers = true;
 
     /// <summary>Off, the main that lets a standby join, or the standby that follows one.</summary>
     public TwinRole Role { get => _role; set => Set(ref _role, value); }
@@ -1789,6 +1866,14 @@ public sealed class TwinConfig : Observable
 
     /// <summary>The cue the main fires on TAKE BACK: the wall switched back to this machine's input. Empty = none.</summary>
     public string TakeBackCue { get => _takeBackCue; set => Set(ref _takeBackCue, (value ?? "").Trim()); }
+
+    /// <summary>
+    /// A caller node may link to this desk: the desk sends and hears the beacon so the two find each
+    /// other, and listens on the twin's port for callers whatever its twin role — a caller joins
+    /// with this desk's key, follows the show and calls it, and never holds an output. Off, the
+    /// beacon stays as the Machine page sets it and no caller can link.
+    /// </summary>
+    public bool AcceptCallers { get => _acceptCallers; set => Set(ref _acceptCallers, value); }
 
     /// <summary>
     /// A main runs its own standby as a second process on this machine: the same build, its own
@@ -2299,6 +2384,9 @@ public sealed class ShowState : Observable
     public ObservableCollection<MultiviewOptions> Multiviews { get; init; } = new();
     public OverlaySet Overlays { get; init; } = new();
     public CountdownConfig Countdown { get; init; } = new();
+
+    /// <summary>The stage: the timer's thresholds and pauses, the messages to the speaker and the crew with their receipts, the presets.</summary>
+    public StageConfig Stage { get; init; } = new();
     public BrandKit Brand { get; init; } = new();
 
     /// <summary>The venue and the forecast's source for the weather overlay — the show's, never a look's.</summary>

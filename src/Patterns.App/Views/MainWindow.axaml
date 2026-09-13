@@ -6,7 +6,7 @@
         xmlns:ctl="using:Patterns.App.Views.Controls"
         x:Class="Patterns.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="Patterns — show test pattern suite"
+        Title="{Binding WindowTitle}"
         Icon="/Assets/patterns-256.png"
         Width="1420" Height="900" MinWidth="1180" MinHeight="720"
         WindowStartupLocation="CenterScreen"
@@ -94,7 +94,7 @@
       <Border Grid.Column="0" Classes="rail">
         <!-- The five groups, and at the foot the one thing the desk cannot see from its own
              windows: whether what is going out to the internet is keeping up. -->
-        <Grid RowDefinitions="*,Auto">
+        <Grid RowDefinitions="*,Auto,Auto">
           <ItemsControl Grid.Row="0" ItemsSource="{Binding GroupStrip}" VerticalAlignment="Top">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
@@ -114,9 +114,22 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
 
+          <!-- NODES above the stream: every other Patterns on the network — a caller node, the desk
+               a caller follows, an arcade — counted here, listed on its page. Click opens it. -->
+          <Button Grid.Row="1" Name="RailNodes" Classes="navGroup railFoot" Focusable="False" Margin="0,10,0,0"
+                  Command="{Binding SelectPageByNameCommand}" CommandParameter="Nodes"
+                  ToolTip.Tip="{Binding NodesLine}">
+            <StackPanel Spacing="5" HorizontalAlignment="Center">
+              <Border Classes="railRule" Background="{Binding NodesHue}" Height="2" CornerRadius="1" Margin="10,0,10,2" />
+              <Ellipse Classes="dot" Fill="{Binding NodesHue}" Width="10" Height="10" HorizontalAlignment="Center" />
+              <TextBlock Classes="navlabel" Text="NODES" HorizontalAlignment="Center" />
+              <TextBlock Classes="navlabel railFootWord" Text="{Binding NodesWord}" Foreground="{Binding NodesHue}" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Button>
+
           <!-- STREAM at the foot of the rail: dark while nothing is going out, lit while it is,
                and the one place a slow encoder shows up without opening a page. Click opens it. -->
-          <Button Grid.Row="1" Name="RailStream" Classes="navGroup railFoot" Focusable="False" Margin="0,10,0,2"
+          <Button Grid.Row="2" Name="RailStream" Classes="navGroup railFoot" Focusable="False" Margin="0,10,0,2"
                   Command="{Binding SelectPageByNameCommand}" CommandParameter="Stream"
                   ToolTip.Tip="{Binding StreamLine}">
             <StackPanel Spacing="5" HorizontalAlignment="Center">
@@ -227,6 +240,7 @@
               <TabItem Header="Stream"><ctl:LazyPage Page="Stream" /></TabItem>
               <TabItem Header="Remote"><ctl:LazyPage Page="Remote" /></TabItem>
               <TabItem Header="Interactive"><ctl:LazyPage Page="Interactive" /></TabItem>
+              <TabItem Header="Nodes"><ctl:LazyPage Page="Nodes" /></TabItem>
               <TabItem Header="Machine"><ctl:LazyPage Page="Machine" /></TabItem>
               <TabItem Header="Help"><ctl:LazyPage Page="Help" /></TabItem>
             </TabControl>

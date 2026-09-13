@@ -16,6 +16,13 @@ internal static class Program
 
         StartupBudget.MarkProcessStart();
         LaunchOptions.Parse(args);
+        // A node: the same build as a separate process — the caller's desk, the arcade, a stage
+        // timer — booting a fraction of the desk's services and never opening an output.
+        if (LaunchOptions.Node is { } nodeWord)
+        {
+            if (NodeKinds.ParseLaunch(nodeWord) is { } kind) Services.AppServices.LaunchProfile = kind;
+            else Log.Warn($"--node '{nodeWord}' is not a node kind (caller, arcade, timer) — this process starts as the desk.");
+        }
         // A launch that named its folder (the standby twin a main runs on this machine lives in
         // its own, beside the main's): every store made from here on is that folder's.
         if (LaunchOptions.Home is { } home) SettingsStore.HomeOverride = home;

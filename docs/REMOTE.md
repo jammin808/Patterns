@@ -8,7 +8,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   the last), LOOKS, SCREENS (a switch and a padlock per screen, show parts), AUDIO (the audio
   track, break music, VOGs, stingers, tone), LOWER THIRDS (designs and people) and SETUP (the
   health line, the machine, the stream, the main machine's beacon, links to `/run` and
-  `/multiview`); a sticky header names what is on air with its chips and a connection dot, the
+  `/multiview`, `/timer` and `/stage`); a sticky header names what is on air with its chips and a connection dot, the
   tab you were on is remembered, and the page waits on `GET /api/state?since=<rev>` so it
   changes the moment the show does. Works in any browser on the same network.
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
@@ -129,6 +129,15 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `CALIBRATE DEMO` | A solve against a room that is not there — the report's words without a projector or a camera |
 | `CALIBRATE APPLY` / `UNDO` | Each projector into its solved place with its mesh and its blend mask, its blend zones off; and back as it was before APPLY |
 | `CALIBRATE STATUS` | `OK <json>` — `running`, `progress` (0–1), `status`, `solved`, `applied`, `canvas` (`width`, `height`), `projectors` (each `id`, `name`, `x`, `y`, `mesh`, `coverage`, `residualPx`, `words`) and the `report`. `CALIBRATION` and `CAL` are aliases of the verb |
+| `NODES` | `OK <json>` — the nodes the beacon hears: `me` (this instance's `kind`, `machine`, `instance`, `link`), `linked` (callers on this desk's link), `nodes` (each `instance`, `kind` — desk, caller, timer, arcade — `name`, `address`, `show`, `live`, `fresh`, `link`, `http`, `heardSecondsAgo`) |
+| `TIMER PAUSE` / `RESUME` | The stage timer (the countdown overlay's clock) holds its remaining seconds, and runs on again from them |
+| `TIMER ADD <seconds>` / `TIMER MINUS <seconds>` | The clock nudged — `TIMER ADD 90`, `TIMER ADD 1:30`, `TIMER MINUS 30`; `TIMER +60` and `TIMER -30` are the same |
+| `TIMER FLASH` | The stage pages blink for three seconds — the speaker's eye to the clock |
+| `STAGE <words>` / `STAGE MESSAGE <words>` | A message to the speaker's stage page, kept until the page's ACK; the receipt reaches the desk's status line |
+| `STAGE CREW <words>` | The same to the crew's page |
+| `STAGE CLEAR` | Every pending message marked seen |
+| `STAGE FLASH` | As `TIMER FLASH` |
+| `STAGE STATUS` | `OK <json>` — `rev`, `timer` (`phase` idle/running/paused/over, `remaining`, `text`, `colour`, `progress`, `label`, `paused`, `amber`, `red`, `flashUntilUtc`), `segment` (the running order's current cue and the next), `messages` (each `id`, `text`, `channel`, `sentUtc`, `ackUtc`, `flash`, `from`, `seen`) |
 
 One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in
 Audio-page order — there is deliberately no per-kind numbering, because two numbering schemes on a
@@ -319,6 +328,8 @@ key or two; the Patterns module (TCP) for the full feedback.
 
 - `GET /api/state` → the state JSON; `GET /api/state?since=<rev>` waits (up to 25 s) for the next change.
 - `GET /api/cues` → the caller's cue list with notes, summaries, broken reasons and each cue's plan (planned start and length, follow delay, mark).
+- `GET /api/stage?since=<rev>` → the stage payload (`STAGE STATUS`), waiting up to the long-poll's limit for a change past `rev`; the `/stage` and `/timer` pages live on it.
+- `POST /api/stage/ack` with the message id as the body → `{"ok":true}` once; `{"ok":false,"reason":…}` for a message already seen or unknown.
 - `GET /pgm.jpg` → the program as a JPEG thumbnail.
 - `POST /api/cmd` with a command line as the body → `{"ok":true|false,"msg":"…"}`. Cue commands
   (`CUE …`, `STOPALL`) need an `X-Patterns-Client: <anything>` header, so a page from another
