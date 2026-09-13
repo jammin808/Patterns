@@ -5858,4 +5858,31 @@ folder, the ports closed on shutdown; and the boundary as a test — nothing of 
 from the node host's type, its pieces never taking the desk, both view models implementing both
 pages.
 
-Counts at the end of the round: Core 1,095, App 565 — both suites green here.
+### 58.4 The wire's line, asked twice when it never left
+
+The build machine failed the round's last commit on a test that had passed on the seven before
+it and on every run here: a desk sending `ARCADE START` to the arcade node it heard, and the
+node never starting. Nothing in the commit touched that path; the two-core Release run of the
+whole suite here passed. What the path had was a hard number: a node was asked with one
+connection, one budget of 1.5 s for the connect, the line and the reply together, and one
+attempt — and the desk's send is fire-and-forget, so a line that never left was lost with only
+a status line to say so, and the test could not say why.
+
+A moment's stall on a show network — a switch relearning, a machine paused by its own
+housekeeping, a build machine's neighbour — is not a node gone. `NodesService.AskAsync` now
+keeps three budgets apart: `ConnectBudget` (1.5 s — a node on the network takes a connection
+in milliseconds, and a node that is gone should not hold a cue), `ReplyBudget` (5 s — the
+node's desk thread may be mid-frame, and the desk is not waiting), and `RetryAfter` (250 ms).
+A line that never left this desk — the connect refused or not taken in time — is sent again,
+once, and only then is the node called unreachable, "(asked twice)". A line that did leave is
+never sent twice: a KEY tap sent twice is two taps. Its reply is waited for, and its absence is
+said as that — "took the line but did not answer within 5 s" — never as unreachable.
+
+The test learned to explain itself: the arcade test's waits on the node's phase now carry the
+desk's status line into the timeout, so the next failure on a build machine names what the
+desk saw. Two tests pin the rule with a fake node on a raw socket: a port with nothing on it
+is asked twice and then called unreachable, after a real pause; a node that takes the line and
+says nothing sees it exactly once and is reported as silent; a node that greets with its STATE
+and then answers is read past the greeting to the reply.
+
+Counts at the end of the round: Core 1,095, App 567 — both suites green here.

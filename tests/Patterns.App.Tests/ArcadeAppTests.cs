@@ -35,14 +35,21 @@ public class ArcadeAppTests
         }
     }
 
-    private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000)
+    private static void PumpUntil(Func<bool> condition, int timeoutMs = 15000) => PumpUntil(condition, () => "", timeoutMs);
+
+    /// <param name="why">What the desk had to say when the wait ran out — the line a failure on the build machine needs and a pass never shows.</param>
+    private static void PumpUntil(Func<bool> condition, Func<string> why, int timeoutMs = 15000)
     {
         var deadline = Environment.TickCount64 + timeoutMs;
         while (!condition())
         {
             Dispatcher.UIThread.RunJobs();
             Thread.Sleep(5);
-            if (Environment.TickCount64 > deadline) throw new TimeoutException("the condition never held");
+            if (Environment.TickCount64 > deadline)
+            {
+                var words = why();
+                throw new TimeoutException(words.Length == 0 ? "the condition never held" : $"the condition never held — the desk said: {words}");
+            }
         }
     }
 
@@ -193,7 +200,7 @@ public class ArcadeAppTests
             var sent = d.Actions.Execute(new ShowAction(ShowActionKind.ArcadeStart, "", "snake 1"), ActionOrigin.Desk);
             Assert.True(sent.Ok, sent.Message);
             Assert.Contains("1 arcade node: HUB-PC", sent.Message);
-            PumpUntil(() => n.Arcade.Phase == ArcadePhase.Playing);
+            PumpUntil(() => n.Arcade.Phase == ArcadePhase.Playing, () => desk.Vm.StatusMessage);
             Assert.Equal("snake", n.Arcade.Snapshot().GameId);
             Assert.Equal(ArcadePhase.Idle, d.Arcade.Phase);                            // the desk's own stayed idle: the node has it
 
@@ -208,7 +215,7 @@ public class ArcadeAppTests
             cue.Actions.Add(new CueActionConfig { Kind = ShowActionKind.ArcadeStop });
             stack.Cues.Add(cue);
             Assert.True(d.Actions.FireCue(cue, ActionOrigin.Desk).Ok);
-            PumpUntil(() => n.Arcade.Phase == ArcadePhase.Idle);
+            PumpUntil(() => n.Arcade.Phase == ArcadePhase.Idle, () => desk.Vm.StatusMessage);
         }
         finally
         {

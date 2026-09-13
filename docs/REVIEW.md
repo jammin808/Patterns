@@ -772,3 +772,22 @@ frozen, the node kernel built. This review grows as each lands.*
   twin link, the cue stack and the countdown's display onto the kernel — a round of its own.
 - **Found on the way:** the wire served the desk's remote page as any process's front door; a
   node's is its own now.
+
+### 40.4 — found by the build machine: a verb lost to a moment's stall
+
+- **What failed:** the arcade test's desk sent `ARCADE START` to the node it heard and the node
+  never started — once, on the build machine, on a commit that touched nothing on that path,
+  after seven green runs of the same test. `docs/PLAN.md` §58.4.
+- **What it was:** a fire-and-forget line with one attempt and one 1.5 s budget for the
+  connect, the line and the reply together. A stall of that length between the connect and the
+  write — a build machine's neighbour, on a show network a switch relearning — and the line
+  never leaves, the node never hears it, and the desk has only a status line to show for it.
+- **Done:** connect, reply and retry budgets kept apart; a line that never left sent again
+  once; a line that did leave never sent twice, its silence said as silence. The test carries
+  the desk's status line into its timeout, so the next failure explains itself. Two tests on a
+  raw-socket node pin the rule.
+- **Not done, and why:** a re-run was not the fix — a failing test is never an infra flake
+  until the path it walks has been read. The node-side handler still greets before it reads,
+  which is what Companion expects; a line that reached the node's socket before the desk gave
+  up is read past the desk's close and run, so the desk's second ask covers the one case that
+  loses a verb — the line that never left.

@@ -117,28 +117,64 @@ public sealed class NodesService
         return JsonUtil.SerializeCompact(rows);
     }
 
+    /// <summary>How long a node gets to take a connection: one on the show network takes it in a few milliseconds, and one that is gone should not hold a cue.</summary>
+    public static TimeSpan ConnectBudget { get; set; } = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>How long a node gets to answer a line it has taken: a status is a few hundred bytes, but the node's desk thread may be mid-frame, and the desk is not waiting on it.</summary>
+    public static TimeSpan ReplyBudget { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>The pause before a line that never left this desk is sent again.</summary>
+    public static TimeSpan RetryAfter { get; set; } = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// One line to one node, its reply back. A moment's stall on a show network — a switch
+    /// relearning, a machine paused by its own housekeeping — is not a node gone: a line that
+    /// never left this desk is sent again, once, before the node is called unreachable. A line
+    /// that did leave is never sent twice (a KEY tap sent twice is two taps): its reply is waited
+    /// for, and its absence said as that.
+    /// </summary>
     private static async Task<string> AskAsync(NodeCard card, string line)
     {
-        try
+        var fault = "";
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            using var client = new TcpClient { NoDelay = true };
-            using var cts = new CancellationTokenSource(1500);
-            await client.ConnectAsync(card.Address!, card.WirePort, cts.Token);
-            var stream = client.GetStream();
-            await stream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"), cts.Token);
-            var reader = new BoundedLineReader(stream, 1 << 20);     // a status is a few hundred bytes; a node that sends a megabyte is not answering
-            for (var i = 0; i < 6; i++)
+            if (attempt > 0) await Task.Delay(RetryAfter);
+            var sent = false;
+            try
             {
-                var reply = await reader.ReadLineAsync(cts.Token);
-                if (reply is null) break;
-                if (reply.StartsWith("OK", StringComparison.Ordinal) || reply.StartsWith("ERR", StringComparison.Ordinal)) return reply;
+                using var client = new TcpClient { NoDelay = true };
+                using (var connect = new CancellationTokenSource(ConnectBudget))
+                {
+                    await client.ConnectAsync(card.Address!, card.WirePort, connect.Token);
+                }
+                var stream = client.GetStream();
+                using var reply = new CancellationTokenSource(ReplyBudget);
+                await stream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"), reply.Token);
+                sent = true;
+                var reader = new BoundedLineReader(stream, 1 << 20);     // a status is a few hundred bytes; a node that sends a megabyte is not answering
+                for (var i = 0; i < 6; i++)
+                {
+                    var answer = await reader.ReadLineAsync(reply.Token);
+                    if (answer is null) break;
+                    if (answer.StartsWith("OK", StringComparison.Ordinal) || answer.StartsWith("ERR", StringComparison.Ordinal)) return answer;
+                }
+                return ControlProtocol.Err($"{card.Name} took the line but gave no reply");
             }
-            return ControlProtocol.Err("no reply");
+            catch (OperationCanceledException) when (sent)
+            {
+                return ControlProtocol.Err($"{card.Name} took the line but did not answer within {ReplyBudget.TotalSeconds:0.#} s");
+            }
+            catch (OperationCanceledException)
+            {
+                fault = $"{card.Name} did not take a connection within {ConnectBudget.TotalSeconds:0.#} s";
+            }
+            catch (Exception ex)
+            {
+                if (sent) return ControlProtocol.Err($"{card.Name} took the line but the reply was lost — {ex.Message}");
+                fault = $"{card.Name} unreachable — {ex.Message}";
+            }
         }
-        catch (Exception ex)
-        {
-            return ControlProtocol.Err($"{card.Name} unreachable — {ex.Message}");
-        }
+        return ControlProtocol.Err($"{fault} (asked twice)");
     }
 
     public string StatusJson()
