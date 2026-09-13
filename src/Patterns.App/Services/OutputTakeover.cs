@@ -118,6 +118,12 @@ public sealed record TakeoverResult(
     string Words)
 {
     public static readonly TakeoverResult None = new(OutputClaim.Free, null, false, false, "");
+
+    /// <summary>The record could not be read: a fence. Nothing opens the screens by itself this run; the operator can.</summary>
+    public bool Uncertain => Claim == OutputClaim.Unknown;
+
+    /// <summary>What a start that could not read the record comes to — said, and never acted on as if the screens were free.</summary>
+    public static TakeoverResult Unknown(string problem) => new(OutputClaim.Unknown, null, false, false, OutputOwnership.UnknownWords(problem));
 }
 
 /// <summary>
@@ -167,9 +173,10 @@ public static class OutputTakeover
         bool enabled,
         IProcessProbe? probe = null,
         Func<DateTime>? clock = null,
-        Action<TimeSpan>? wait = null)
+        Action<TimeSpan>? wait = null,
+        ISidecarFiles? files = null)
     {
-        var result = Claim(baseDirectory, enabled, probe, clock, wait);
+        var result = Claim(baseDirectory, enabled, probe, clock, wait, files);
         Last = result;
         if (result.Words.Length > 0) Log.Info(result.Words);
         return result;
@@ -180,15 +187,21 @@ public static class OutputTakeover
         bool enabled,
         IProcessProbe? probe,
         Func<DateTime>? clock,
-        Action<TimeSpan>? wait)
+        Action<TimeSpan>? wait,
+        ISidecarFiles? files)
     {
         try
         {
             probe ??= new SystemProcessProbe();
             clock ??= () => DateTime.UtcNow;
             wait ??= Thread.Sleep;
-            var store = new OutputOwnerStore(baseDirectory);
-            var owner = store.Read();
+            var store = new OutputOwnerStore(baseDirectory, files);
+            var read = store.Read();
+            // A record that cannot be read is a fence, not an absence: it may name a desk that is
+            // playing to the room right now. Nothing is asked, ended or opened; the words say how
+            // the operator opens the screens once sure.
+            if (read.IsUnreadable) return TakeoverResult.Unknown(read.Problem);
+            var owner = read.Value;
             var claim = OutputOwnership.Read(owner, Environment.ProcessId, Environment.MachineName, clock(), probe.Look);
 
             switch (claim)
@@ -199,7 +212,8 @@ public static class OutputTakeover
 
                 case OutputClaim.Stale:
                     // The owner died and took its windows with it: the record is litter, not a rival.
-                    store.Clear();
+                    // A clear that fails leaves litter the next start reads as stale again — said, harmless.
+                    if (!store.Clear().Committed) Log.Warn("The last run's ownership record could not be cleared; the next start will read it as stale again.");
                     store.ClearRequest();
                     return new TakeoverResult(claim, owner, false, false, "");
 
@@ -216,15 +230,30 @@ public static class OutputTakeover
             }
 
             // Ask first: a desk whose UI still answers closes its own windows within a second, which
-            // is the tidy way — nothing is ended, and its operator is told what happened.
-            store.Ask(new HandoverRequest(Environment.ProcessId, clock()));
+            // is the tidy way — nothing is ended, and its operator is told what happened. An ask
+            // that never reached the disk was never asked: a silence after it says nothing about
+            // the owner, so nothing is ended on the strength of it.
+            var asked = store.Ask(new HandoverRequest(Environment.ProcessId, clock()));
+            if (!asked.Committed)
+            {
+                return new TakeoverResult(claim, owner, false, false,
+                    $"The last run still has {OutputOwnership.TargetWords(owner.Targets)} (pid {owner.Pid}) and could not be asked for them ({asked.Problem}) — " +
+                    "close it by hand, then OUTPUTS ON here.");
+            }
             var askedAt = clock();
             var handed = false;
+            var unsure = "";
             while (!OutputOwnership.GraceExpired(askedAt, clock()))
             {
                 wait(PollEvery);
                 var now = store.Read();
-                if (now is null || now.Pid != owner.Pid)
+                if (now.IsUnreadable)
+                {
+                    unsure = now.Problem;                   // a look that could not read is not a look that saw it let go
+                    continue;
+                }
+                unsure = "";
+                if (now.IsMissing || now.Value!.Pid != owner.Pid)
                 {
                     handed = true;
                     break;
@@ -233,7 +262,13 @@ public static class OutputTakeover
 
             var ended = false;
             var why = "would not let go";
-            if (!handed)
+            if (!handed && unsure.Length > 0)
+            {
+                // The last looks could not read the record: whether it let go is not known, and a
+                // desk that may have let go is not ended.
+                why = $"its record could not be read while waiting ({unsure}), so it is not ended";
+            }
+            else if (!handed)
             {
                 // It never answered — the hung case. End it, but only once it is provably the same
                 // process and provably Patterns: a pid is never enough to end something by. A
@@ -256,10 +291,13 @@ public static class OutputTakeover
                 {
                     ended = probe.Kill(owner.Pid);
                 }
-                if (handed || ended) store.Clear();
+            }
+            if (handed || ended)
+            {
+                if (!store.Clear().Committed) Log.Warn("The last run's ownership record could not be cleared after the screens were taken; the next start will read it as stale.");
             }
 
-            store.ClearRequest();
+            if (!store.ClearRequest().Committed) Log.Warn("This desk's ask for the screens could not be cleared; it goes stale by itself.");
             var took = handed || ended;
             return new TakeoverResult(claim, owner, took, ended,
                 took
@@ -269,8 +307,9 @@ public static class OutputTakeover
         }
         catch (Exception ex)
         {
-            Log.Warn("Reading who has the screens failed — this start carries on as if they were free.", ex);
-            return TakeoverResult.None;
+            // Not "free": a start that could not find out who has the screens does not open them by itself.
+            Log.Warn("Reading who has the screens failed — nothing is opened by itself this run.", ex);
+            return TakeoverResult.Unknown(ex.Message);
         }
     }
 
@@ -299,18 +338,26 @@ public static class OutputTakeover
 /// </summary>
 public sealed class OutputOwnershipService
 {
+    /// <summary>The files under the store — the tests' seam for a folder that will not take a write.</summary>
+    public static Func<ISidecarFiles>? SidecarFiles { get; set; }
+
     private readonly AppServices _services;
     private readonly OutputOwnerStore _store;
     private readonly Func<DateTime> _clock;
     private readonly long _startedTicks;
     private DateTime _lastWrite = DateTime.MinValue;
+    private DateTime? _troubleSinceUtc;
+    private string _troubleProblem = "";
+    private HandoverRequest? _answered;
+    private string _unreadableAsk = "";
+    private volatile string _trouble = "";
     private volatile bool _held;
     private volatile bool _closed;
 
-    public OutputOwnershipService(AppServices services, Func<DateTime>? clock = null)
+    public OutputOwnershipService(AppServices services, Func<DateTime>? clock = null, ISidecarFiles? files = null)
     {
         _services = services;
-        _store = new OutputOwnerStore(services.Store.BaseDirectory);
+        _store = new OutputOwnerStore(services.Store.BaseDirectory, files ?? SidecarFiles?.Invoke());
         _clock = clock ?? (() => DateTime.UtcNow);
         _startedTicks = OwnStartTicks();
     }
@@ -318,8 +365,18 @@ public sealed class OutputOwnershipService
     /// <summary>Raised when another desk asked for the screens and this one let them go.</summary>
     public event Action<string>? StoodDown;
 
-    /// <summary>This desk holds the ownership record.</summary>
+    /// <summary>Raised when the record could not be kept, and again with "" once it could.</summary>
+    public event Action<string>? TroubleChanged;
+
+    /// <summary>
+    /// This desk holds the ownership record — on disk, committed. False while the outputs are
+    /// live but the record could not be written: the windows are this desk's, the folder does not
+    /// say so, and <see cref="Trouble"/> says why.
+    /// </summary>
     public bool Held => _held;
+
+    /// <summary>What is wrong with the record on disk, or "" — the Machine page's screens line and the status line carry it.</summary>
+    public string Trouble => _trouble;
 
     /// <summary>
     /// One tick from the desk's poll: claim or release the record as the outputs come and go, beat
@@ -372,7 +429,7 @@ public sealed class OutputOwnershipService
         _closed = true;
         _held = false;
         _claimedUtc = DateTime.MinValue;
-        _store.Clear();
+        if (!_store.Clear().Committed) Log.Warn("The screens' ownership record could not be cleared at exit; the next start reads it as stale.");
         _store.ClearRequest();
     }
 
@@ -383,7 +440,7 @@ public sealed class OutputOwnershipService
         if (!force && _held && now - _lastWrite < OutputOwnership.HeartbeatEvery) return;
         if (!_held) _claimedUtc = now;
         _lastWrite = now;
-        _store.Write(new OutputOwner(
+        var wrote = _store.Write(new OutputOwner(
             Environment.ProcessId,
             _startedTicks,
             now,
@@ -391,7 +448,45 @@ public sealed class OutputOwnershipService
             targets,
             Environment.MachineName,
             Environment.ProcessPath ?? ""));
-        _held = true;
+        // Held means committed: a record the disk did not take is a record another start will not
+        // read, so this desk does not believe it holds what the folder does not say it holds.
+        if (wrote.Committed)
+        {
+            _held = true;
+            SetTrouble("", now);
+        }
+        else
+        {
+            SetTrouble(wrote.Problem, now);
+        }
+    }
+
+    /// <summary>The words for a record that cannot be kept, said once when it starts and once more when it clears; the seconds count up meanwhile.</summary>
+    private void SetTrouble(string problem, DateTime now)
+    {
+        if (problem.Length == 0)
+        {
+            if (_troubleSinceUtc is null) return;
+            _troubleSinceUtc = null;
+            _troubleProblem = "";
+            _trouble = "";
+            Log.Info("The screens' ownership record is being kept again.");
+            var handler = TroubleChanged;
+            if (handler is not null) UiThread.Post(() => handler(""));
+            return;
+        }
+        var first = _troubleSinceUtc is null;
+        _troubleSinceUtc ??= now;
+        var seconds = (int)(now - _troubleSinceUtc.Value).TotalSeconds;
+        _trouble = $"The screens' ownership record could not be written for {seconds} s ({problem}) — another Patterns starting on this folder would not see this desk playing, and the watchdog's restart would not know these screens are taken.";
+        if (first || problem != _troubleProblem)
+        {
+            _troubleProblem = problem;
+            Log.Warn(_trouble);
+            var handler = TroubleChanged;
+            var words = _trouble;
+            if (handler is not null) UiThread.Post(() => handler(words));
+        }
     }
 
     private DateTime _claimedUtc = DateTime.MinValue;
@@ -401,7 +496,10 @@ public sealed class OutputOwnershipService
         if (!_held) return;
         _held = false;
         _claimedUtc = DateTime.MinValue;
-        _store.Clear();
+        var cleared = _store.Clear();
+        // The windows are gone whatever the disk says; a record that would not clear is said, because
+        // the next start reads it — as stale once this process is gone, as this desk's while it lives.
+        if (!cleared.Committed) Log.Warn($"The screens' ownership record could not be cleared ({cleared.Problem}); it goes stale with this process.");
     }
 
     /// <summary>
@@ -411,7 +509,20 @@ public sealed class OutputOwnershipService
     /// </summary>
     private bool AnswerAsk(bool live)
     {
-        var request = _store.ReadRequest();
+        var read = _store.ReadRequest();
+        if (read.IsUnreadable)
+        {
+            // Junk where an ask would be is not an ask: nobody stands down on a file they cannot
+            // read. Said once per problem, because it is read every second.
+            if (_unreadableAsk != read.Problem)
+            {
+                _unreadableAsk = read.Problem;
+                Log.Warn($"The handover request beside the settings could not be read ({read.Problem}) — not an ask, so the screens stay this desk's.");
+            }
+            return false;
+        }
+        _unreadableAsk = "";
+        var request = read.Value;
         if (request is null) return false;
         var now = _clock();
         if (!OutputOwnership.ShouldStandDown(request, Environment.ProcessId, now)
@@ -419,13 +530,17 @@ public sealed class OutputOwnershipService
         {
             return false;
         }
+        // Answered once: an ask whose clear failed is still on disk next second, and standing
+        // down twice would tell the operator twice about one desk.
+        if (_answered is { } done && done.Pid == request.Pid && done.AskedUtc == request.AskedUtc) return false;
+        _answered = request;
 
         // Before we let go of anything: the recovery record on disk is the incoming desk's way
         // back to the room's picture, and closing our outputs below would clear it. Freeze it
         // here, on this thread, because the incoming desk starts reading the moment the
         // ownership record goes.
         if (live) _services.HandOverRecovery();
-        _store.ClearRequest();
+        if (!_store.ClearRequest().Committed) Log.Warn("The ask for the screens could not be cleared after it was answered; it goes stale by itself.");
         Release();
         var words = live
             ? $"Another Patterns (pid {request.Pid}) started and took the screens over — this desk's outputs are closed."

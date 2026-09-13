@@ -90,6 +90,15 @@ public interface ITwinHost
     void RecoverFromTwin(RecoverySnapshot? was, string head, string peer = "the main");
     event Action<RecoverySnapshot?>? RecoveryMoved;
     void SaveNow();
+
+    /// <summary>A mark before the wall-switch cue fires, so the lines it sends to boxes can be waited for; a node, which sends to no box, marks nothing.</summary>
+    long DeviceMark();
+
+    /// <summary>How many lines sent since the mark still wait for their receipt.</summary>
+    int DevicePendingSince(long mark);
+
+    /// <summary>The receipts of every line sent since the mark, once each has landed or timed out.</summary>
+    Task<IReadOnlyList<DeviceReceipt>> DeviceConfirmSince(long mark);
 }
 
 /// <summary>

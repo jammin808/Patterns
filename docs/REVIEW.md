@@ -872,3 +872,38 @@ the game's thread; a window of the game's own.*
   WINDOW` and `ARCADE FULLSCREEN` on the wire and in cues. `docs/PLAN.md` §60.4.
 - **The rule kept:** the service knows a host function, not a window — a headless run refuses
   the verb in words.
+
+## Round 43 review — attempts are not facts
+
+*The triage's three P0s, taken in its order: the authority sidecar fails closed, the hand-back
+releases the standby last, a box's answer confirms a switch.*
+
+### 43.1 — the record fails closed
+
+- **Done.** `SidecarRead` and `SidecarWrite`, `OutputClaim.Unknown`, a start and a restart that
+  open nothing on an unreadable record, a beat that holds only what committed, an ask that ends
+  nothing unless it reached the disk, the files as a seam. `docs/PLAN.md` §61.1.
+- **What it bought:** the rule the process probe already kept — unreadable is a fence — under
+  the file that decides who may put a picture on the wall. Eight fault cases on CI.
+- **The one the triage did not have:** a folder that is not there reads as free through
+  `File.Exists`; now it is unreadable.
+
+### 43.2 — the hand-back as a transaction
+
+- **Done.** `TwinTransaction`; TAKE BACK across machines opens here, routes, confirms, commits,
+  releases, in that order; one machine releases first; the trail in the log and TWIN STATUS.
+  `docs/PLAN.md` §61.2.
+- **The seam that showed:** the comment above the old cue call described the order the code
+  did not have. The transaction makes the order a contract a stage cannot skip.
+- **Kept on purpose:** a takeover routes before it opens — the main is silent and a refusal
+  must leave the standby untouched.
+
+### 43.3 — sent, delivered, accepted, observed
+
+- **Done.** `ConfirmLevel` on the device, `DeviceConfirmation`, receipts on the card, in the
+  journal and to the twin's fence; the HTTP link awaitable; profiles that say which reply
+  answers which command; an unanswerable box not a fence. `docs/PLAN.md` §61.3.
+- **What it bought:** a hand-back through a projector input that waits for `%1INPT=OK` and
+  stops on `ERR3`; a takeover by itself that refuses on silence and goes ahead on a yes.
+- **Left, and said:** one expected answer per device; the cue stack's late-failure watch does
+  not read receipts yet.

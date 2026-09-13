@@ -384,8 +384,13 @@ public static class TwinWatch
     /// whichever desk the switcher shows is the one running the show — and without one, taking
     /// over stays the operator's press.
     /// </summary>
-    public static string? AutoTakeOverBlocked(bool mainOnThisMachine, bool wallSwitchSet)
-        => mainOnThisMachine || wallSwitchSet ? null : "no wall-switch cue for a main on another machine, so not by itself: TAKE OVER is yours";
+    public static string? AutoTakeOverBlocked(bool mainOnThisMachine, bool wallSwitchSet, string? fenceProblem = null)
+    {
+        if (mainOnThisMachine) return null;
+        if (!wallSwitchSet) return "no wall-switch cue for a main on another machine, so not by itself: TAKE OVER is yours";
+        // A cue whose box cannot answer is a hope, not a fence: the room may or may not have moved.
+        return fenceProblem is null ? null : fenceProblem + ", so not by itself: TAKE OVER is yours";
+    }
 
     /// <summary>"just now", "3 s ago".</summary>
     public static string Age(DateTime? utc, DateTime utcNow)
@@ -451,12 +456,15 @@ public static class TwinWatch
     }
 
     /// <summary>The main's line: the port, and each standby with when it was last heard — and, when a standby has the show, that this desk's outputs wait on TAKE BACK.</summary>
-    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "")
+    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "")
     {
         var tail = launcher.Length > 0 ? " " + launcher : "";
         if (holder.Length > 0)
         {
             var linked = standbys.Any(s => s.Name == holder);
+            // A take-back that stopped at the wall switch: the picture is up here and the room
+            // still shows the standby — said first, because it is the one thing to do next.
+            if (handover.Length > 0) return $"MAIN — {handover}" + tail;
             return $"MAIN — the standby {holder} HAS THE SHOW; this desk's outputs are held closed. "
                    + (linked ? "TAKE BACK puts the show back here." : $"It is not on the link yet — TAKE BACK once it is, or OUTPUTS ON if it is gone.") + tail;
         }

@@ -10,9 +10,17 @@ namespace Patterns.Core.Services;
 /// What a device's line meant, in words for the status line and the journal, whether it reads
 /// as a fault, and the frames to send next — a Pixera handle found is the play that wanted it.
 /// </summary>
-public sealed record ProfileReply(string Words, bool IsError, IReadOnlyList<byte[]> SendNext)
+/// <param name="Ack">The reply answers a command this desk sent — the box said yes, or gave the value asked for.</param>
+/// <param name="AckKey">Which command it answers, when the profile can tell ("POWR"); "" for the oldest one waiting.</param>
+public sealed record ProfileReply(string Words, bool IsError, IReadOnlyList<byte[]> SendNext, bool Ack = false, string AckKey = "")
 {
     public static ProfileReply Of(string words, bool isError = false) => new(words, isError, Array.Empty<byte[]>());
+
+    /// <summary>A yes, or a value, for a command.</summary>
+    public static ProfileReply Acked(string words, string key = "") => new(words, false, Array.Empty<byte[]>(), true, key);
+
+    /// <summary>A no for a command.</summary>
+    public static ProfileReply Refused(string words, string key = "") => new(words, true, Array.Empty<byte[]>(), false, key);
 }
 
 /// <summary>
@@ -52,6 +60,9 @@ public abstract class ProfileSession
 
     /// <summary>Words sent on their own every <see cref="PollEvery"/> while the link is open, so the status line reads the box; null for none.</summary>
     public virtual string? PollWords => null;
+
+    /// <summary>The key a reply to these words will carry (<see cref="ProfileReply.AckKey"/>) — "" when the profile cannot tell one command's answer from another's.</summary>
+    public virtual string SentKey(string words) => "";
 
     public virtual TimeSpan PollEvery => TimeSpan.FromSeconds(10);
 
@@ -148,6 +159,15 @@ public sealed class LinesSession : ProfileSession
         var line = (words ?? "").Trim();
         return line.Length == 0 ? None("Nothing to send — the line the device expects, e.g. RELAY 1.", out problem) : One(DeviceLines.Frame(line, _ending));
     }
+
+    /// <summary>A board that answers OK or ERR answers the oldest line waiting; anything else is its own line, a trigger's to read.</summary>
+    public override ProfileReply OnReceived(string text)
+    {
+        var t = (text ?? "").Trim();
+        if (t.Equals("OK", StringComparison.OrdinalIgnoreCase) || t.StartsWith("OK ", StringComparison.OrdinalIgnoreCase)) return ProfileReply.Acked(t);
+        if (t.Equals("ERR", StringComparison.OrdinalIgnoreCase) || t.StartsWith("ERR ", StringComparison.OrdinalIgnoreCase) || t.StartsWith("ERROR", StringComparison.OrdinalIgnoreCase)) return ProfileReply.Refused(t);
+        return ProfileReply.Of(t);
+    }
 }
 
 /// <summary>
@@ -233,6 +253,13 @@ public sealed class PjLinkSession : ProfileSession
         }
     }
 
+    /// <summary>The four-letter command a reply names: POWR, INPT, AVMT.</summary>
+    public override string SentKey(string words)
+    {
+        var body = Body(words);
+        return body is { Length: >= 4 } ? body[..4].ToUpperInvariant() : "";
+    }
+
     public override IReadOnlyList<byte[]> Encode(string words, out string problem)
     {
         problem = "";
@@ -293,10 +320,10 @@ public sealed class PjLinkSession : ProfileSession
                     "ERRA" => "authentication failed — check the Password box",
                     _ => value,
                 };
-                return ProfileReply.Of($"{cmd}: {why}", true);
+                return ProfileReply.Refused($"{cmd}: {why}", cmd);
             }
-            if (value.Equals("OK", StringComparison.OrdinalIgnoreCase)) return ProfileReply.Of($"{cmd}: OK");
-            return ProfileReply.Of(cmd switch
+            if (value.Equals("OK", StringComparison.OrdinalIgnoreCase)) return ProfileReply.Acked($"{cmd}: OK", cmd);
+            return ProfileReply.Acked(cmd switch
             {
                 "POWR" => value switch { "0" => "power standby", "1" => "power on", "2" => "cooling down", "3" => "warming up", _ => "power " + value },
                 "AVMT" => value switch { "30" => "shutter open, sound on", "31" => "shutter closed, sound muted", "11" => "shutter closed", "10" => "shutter open", "21" => "sound muted", "20" => "sound on", _ => "mute " + value },
@@ -307,7 +334,7 @@ public sealed class PjLinkSession : ProfileSession
                 "INFO" => "info " + value,
                 "CLSS" => "class " + value,
                 _ => $"{cmd} {value}",
-            });
+            }, cmd);
         }
         return ProfileReply.Of(t);
     }
@@ -624,13 +651,15 @@ public sealed class PixeraSession : ProfileSession
             {
                 _pending.Remove(id);
                 var message = error.ValueKind == JsonValueKind.Object && error.TryGetProperty("message", out var msg) ? msg.ToString() : error.ToString();
-                return ProfileReply.Of($"Pixera error: {message}", true);
+                return ProfileReply.Refused($"Pixera error: {message}");
             }
             if (root.TryGetProperty("result", out var result))
             {
-                var next = _pending.Remove(id, out var then) ? then(result) : Array.Empty<byte[]>();
+                var lookedUp = _pending.Remove(id, out var then);
+                var next = lookedUp ? then!(result) : Array.Empty<byte[]>();
                 var words = result.ValueKind == JsonValueKind.Number && next.Count > 0 ? "found — sending on" : $"result {result}";
-                return new ProfileReply(words, false, next);
+                // A look-up's handle is on the way to the command; the command's own result is the yes.
+                return new ProfileReply(words, false, next, Ack: !lookedUp);
             }
             return ProfileReply.Of(text);
         }

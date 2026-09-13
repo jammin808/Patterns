@@ -930,6 +930,14 @@ public static class Lists
         new(DeviceLink.Http, "HTTP — a box with a web API: each line is a request (GET /api/play)"),
     };
 
+    public static readonly EnumItem[] ConfirmLevels =
+    {
+        new(ConfirmLevel.Sent, "Sent — the bytes left this desk (all UDP or MIDI can say)"),
+        new(ConfirmLevel.Delivered, "Delivered — the connection took them, or the box answered at all"),
+        new(ConfirmLevel.Accepted, "Accepted — the box said yes (PJLink OK, Pixera result, an OK line, a 2xx)"),
+        new(ConfirmLevel.Observed, "Observed — asked afterwards, its state is what was asked for"),
+    };
+
     public static readonly EnumItem[] DeviceProfiles =
     {
         new(DeviceProfile.Lines, "Plain lines — a board, a script, a web API: the words go as they are"),

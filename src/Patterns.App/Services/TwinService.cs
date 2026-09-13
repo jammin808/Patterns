@@ -62,6 +62,9 @@ public sealed class TwinService : IDisposable, ILinkReport
     private int _dialFailures;
     private long _beat;
     private DateTime _nextAutoTakeOverUtc;      // after a takeover by itself was refused: the next try
+    private TwinTransaction? _handover;         // the last handover run here, its stages and where it stopped
+    private string _handoverNote = "";          // a take-back stopped at the wall switch: the words until it finishes
+    private bool _handoverBusy;                 // a wall switch was asked and its answer is awaited: no second handover meanwhile
     private bool _keyBeingMade;
 
     // ---- callers ----
@@ -236,7 +239,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                     {
                         beats = _standbys.Select(s => (s.IsCaller ? "caller " + s.Name : s.IsFollower ? "timer " + s.Name : s.Name, s.LastBeatUtc)).ToList();
                     }
-                    return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words);
+                    return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words, _handoverNote);
                 case TwinRole.Off when _hosting:
                 {
                     List<string> callers;
@@ -257,7 +260,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 case TwinRole.Standby:
                 {
                     var cfg = _kernel.State.Twin;
-                    var auto = cfg.AutoTakeOver && TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0) is null && !_note.StartsWith("not taken over", StringComparison.Ordinal);
+                    var auto = cfg.AutoTakeOver && TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0, DeviceConfirmation.FenceProblem(_kernel.State, cfg.TakeOverCue)) is null && !_note.StartsWith("not taken over", StringComparison.Ordinal);
                     return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, auto, now, _note, linked: _stream is not null);
                 }
                 default:
@@ -265,6 +268,9 @@ public sealed class TwinService : IDisposable, ILinkReport
             }
         }
     }
+
+    /// <summary>The last handover run on this desk — its stages, and where it stopped when it did.</summary>
+    public TwinTransaction? LastHandover => _handover;
 
     /// <summary>The words for the health line: the twin's line while it is not simply in step, "" otherwise.</summary>
     public string HealthWords => _holder.Length > 0 ? Status : _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? "" : Status;
@@ -289,6 +295,15 @@ public sealed class TwinService : IDisposable, ILinkReport
             takeBackCue = _kernel.State.Twin.TakeBackCue,
             sectionsSent = _sectionsSent,
             sectionsMirrored = _sectionsApplied,
+            handover = _handover is null ? null : new
+            {
+                kind = _handover.Kind == HandoverKind.TakeBack ? "takeBack" : "takeOver",
+                shape = _handover.Shape == HandoverShape.AcrossMachines ? "acrossMachines" : "sameMachine",
+                stage = TwinTransaction.Label(_handover.Stage),
+                complete = _handover.IsComplete,
+                stopped = _handover.Reason,
+                trail = _handover.Trail,
+            },
         });
     }
 
@@ -499,7 +514,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                     // By itself only where it is safe: a main on this machine (the hung one is ended first) or,
                     // from another machine, with the wall-switch cue that makes this desk the one the room shows.
                     var blocked = IsFollowerNode ? null                                           // a follower never takes anything over: the desk is silent, and the cues stay here
-                        : cfg.AutoTakeOver && _phase == TwinPhase.MainSilent ? TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0) : null;
+                        : cfg.AutoTakeOver && _phase == TwinPhase.MainSilent ? TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0, DeviceConfirmation.FenceProblem(_kernel.State, cfg.TakeOverCue)) : null;
                     if (blocked is not null && _note.Length == 0)
                     {
                         _note = blocked;
@@ -864,7 +879,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 client.Dispose();
                 return;
             }
-            standby = new Standby(client, stream, join!.Name.Length > 0 ? join.Name : join.Machine, Clock()) { HoldsShow = join.TookOver && !join.IsFollower, IsCaller = join.IsCaller, IsFollower = join.IsFollower, Instance = join.Instance };
+            standby = new Standby(client, stream, join!.Name.Length > 0 ? join.Name : join.Machine, Clock()) { HoldsShow = join.TookOver && !join.IsFollower, IsCaller = join.IsCaller, IsFollower = join.IsFollower, Instance = join.Instance, Machine = join.Machine };
             // The welcome and the whole show, read on the UI thread — the show is its own. A standby
             // that ran the show while this desk was away gets the welcome and nothing to mirror: its
             // show is the newer one, and this desk holds its outputs until TAKE BACK.
@@ -1085,6 +1100,7 @@ public sealed class TwinService : IDisposable, ILinkReport
     public ActionResult TakeBack(ActionOrigin origin)
     {
         if (_role != TwinRole.Main) return ActionResult.Refused("This desk is not the main twin — Machine page, TWIN.");
+        if (_handoverBusy) return ActionResult.Refused("A hand-back is in progress — the wall switch was asked and its answer is awaited.");
         if (_holder.Length == 0) return ActionResult.Refused("No standby has the show — nothing to take back.");
         Standby? holder;
         lock (_gate)
@@ -1093,23 +1109,119 @@ public sealed class TwinService : IDisposable, ILinkReport
         }
         if (holder is null) return ActionResult.Refused($"The standby {_holder} has the show but is not on the link — TAKE BACK once it is, or OUTPUTS ON if it is gone.");
         var now = Clock();
+        var cue = _kernel.State.Twin.TakeBackCue;
+        var sameMachine = holder.Machine.Length > 0 && string.Equals(holder.Machine, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
+        var tx = new TwinTransaction(HandoverKind.TakeBack, sameMachine ? HandoverShape.SameMachine : HandoverShape.AcrossMachines, cue.Length > 0, now);
+        _handover = tx;
         var head = $"TOOK BACK from {holder.Name} at {now.ToLocalTime():HH:mm:ss}.";
         var notes = new List<string>();
+        // The standby's show — the edits made while it ran — lands here first, once: a second
+        // press after a stopped route finds it landed already.
         if (_heldShowJson is { } json)
         {
             var ok = false;
             _services.BulkEdit(() => ok = TwinSync.ApplyShow(_kernel.State, json));
             notes.Add(ok ? "its show landed here" : "its show could not be read — this desk's show stands");
             if (!ok) Log.Warn("Twin: the standby's show could not be read on TAKE BACK.");
+            _heldShowJson = null;
         }
         var air = _heldAir;
+        var words = head + (notes.Count > 0 ? " " + string.Join(", ", notes) + "." : "");
+
+        if (tx.Shape == HandoverShape.AcrossMachines)
+        {
+            // The room looks at one of two machines through its switcher. This desk's picture goes
+            // up first, on displays the room is not yet looking at; the room is pointed at it and
+            // the switch answers; only then is the standby, whose picture the room was watching,
+            // told to let go. A switch that fails leaves the standby up and the room on it.
+            _services.OutputsHeldBy = "";
+            _services.RecoverFromTwin(air, head, peer: holder.Name);
+            tx.Reached(HandoverStage.TargetReady);
+            if (tx.HasRoute)
+            {
+                var wall = FireWallSwitch(cue);
+                tx.Reached(HandoverStage.RouteRequested);
+                if (!wall.Ok) return StopTakeBack(tx, holder, cue, $"could not fire ({wall.Reason})", origin);
+                words += " " + wall.Words;
+                if (wall.Receipts is { } receipts)
+                {
+                    // The boxes answer on their own time: the standby is released when they have,
+                    // and not at all when one of them says no or says nothing.
+                    _handoverBusy = true;
+                    var pendingWords = words;
+                    receipts.ContinueWith(t => UiThread.Post(() =>
+                    {
+                        _handoverBusy = false;
+                        if (tx.Stopped || tx.IsComplete) return;
+                        var (ok, said) = ReadReceipts(t);
+                        if (!ok)
+                        {
+                            StopTakeBack(tx, holder, cue, $"was not confirmed — {said}", origin);
+                            return;
+                        }
+                        tx.Reached(HandoverStage.RouteConfirmed);
+                        var done = FinishTakeBack(holder, tx, pendingWords + " " + said, origin);
+                        _services.Notify(done);
+                    }), TaskScheduler.Default);
+                    return ActionResult.Requested($"TAKE BACK: the show is on here and the room was asked to look at this desk — the standby {holder.Name} is released once the switch answers.");
+                }
+                tx.Reached(HandoverStage.RouteConfirmed);
+            }
+            return ActionResult.Done(FinishTakeBack(holder, tx, words, origin));
+        }
+        // One machine: the standby's windows are these displays. It lets go first — HANDBACK
+        // closes them — and this desk's picture goes up after: a dark instant, never two sets.
+        CommitTakeBack(holder, tx);
+        if (!holder.TryWrite(TwinMessage.Format(TwinWord.HandBack))) Drop(holder);
+        tx.Reached(HandoverStage.OldOwnerReleased);
+        _services.OutputsHeldBy = "";
+        _services.RecoverFromTwin(air, head, peer: holder.Name);
+        tx.Reached(HandoverStage.TargetReady);
+        if (cue.Length > 0) words += " " + FireWallSwitch(cue).Words;   // a switch on one machine is the operator's own to have set; fired, never a fence
+        _heldAir = null;
+        _handoverNote = "";
+        _pendingWhole = true;
+        _pendingAir = true;
+        ScheduleFlush();
+        tx.Reached(HandoverStage.Complete);
+        Log.Warn($"Twin: {words} ({origin.Label}) — {tx.Trail}");
+        return ActionResult.Done(words);
+    }
+
+    /// <summary>Across machines, the route confirmed: this desk is the main again, the standby is released, the whole show goes back over the link.</summary>
+    private string FinishTakeBack(Standby holder, TwinTransaction tx, string words, ActionOrigin origin)
+    {
+        CommitTakeBack(holder, tx);
+        if (!holder.TryWrite(TwinMessage.Format(TwinWord.HandBack))) Drop(holder);
+        tx.Reached(HandoverStage.OldOwnerReleased);
+        _heldAir = null;
+        _handoverNote = "";
+        _pendingWhole = true;
+        _pendingAir = true;
+        ScheduleFlush();
+        tx.Reached(HandoverStage.Complete);
+        Log.Warn($"Twin: {words} ({origin.Label}) — {tx.Trail}");
+        return words;
+    }
+
+    /// <summary>The route did not move the room: the standby stays up and the holder, the words say what finishes it.</summary>
+    private ActionResult StopTakeBack(TwinTransaction tx, Standby holder, string cue, string reason, ActionOrigin origin)
+    {
+        tx.Stop(reason);
+        _handoverNote = TwinTransaction.RouteStoppedWords(holder.Name, cue, reason);
+        Log.Warn($"Twin: {_handoverNote} ({origin.Label}) — {tx.Trail}");
+        _services.Notify(_handoverNote);
+        return ActionResult.Failed(_handoverNote);
+    }
+
+    /// <summary>This desk is the main again: the holder's state cleared, the marker gone. The word to the standby follows, on the caller's thread, so it reads them in that order.</summary>
+    private void CommitTakeBack(Standby holder, TwinTransaction tx)
+    {
         holder.HoldsShow = false;
         _holderLinked = false;
         _holderMarked = false;
         _holder = "";
         _holderSinceUtc = null;
-        _heldShowJson = null;
-        _heldAir = null;
         try
         {
             TwinHandover.Clear(TwinHandover.StandbyHome(_kernel.Store.BaseDirectory));
@@ -1118,23 +1230,15 @@ public sealed class TwinService : IDisposable, ILinkReport
         {
             // the standby clears its own; the marker holds nothing once the process stands by again
         }
-        _services.OutputsHeldBy = "";
-        // The word goes before the show that follows it, on this thread, so the standby reads them in that order.
-        if (!holder.TryWrite(TwinMessage.Format(TwinWord.HandBack))) Drop(holder);
-        var words = head + (notes.Count > 0 ? " " + string.Join(", ", notes) + "." : "");
-        Log.Warn($"Twin: {words} ({origin.Label})");
-        _services.RecoverFromTwin(air, head, peer: holder.Name);
-        _pendingWhole = true;
-        _pendingAir = true;
-        ScheduleFlush();
-        // The take-back cue fires once the show is on here: the standby's picture stays up until the
-        // switch has moved, and the HANDBACK word above is what closes its outputs — no fence needed.
-        var wall = FireWallSwitch(_kernel.State.Twin.TakeBackCue);
-        return ActionResult.Done(wall.Words.Length > 0 ? words + " " + wall.Words : words);
+        tx.Reached(HandoverStage.AuthorityCommitted);
     }
 
-    /// <summary>What firing the wall-switch cue came to: no cue set, fired, or not — with the reason, and the words for the line.</summary>
-    private readonly record struct WallSwitch(bool Ok, string Reason, string Words);
+    /// <summary>
+    /// What firing the wall-switch cue came to: no cue set, fired, or not — with the reason and the
+    /// words for the line — and, when the cue sent lines to boxes that answer, the receipts still
+    /// to come: the route is confirmed by them, never by the cue having fired.
+    /// </summary>
+    private readonly record struct WallSwitch(bool Ok, string Reason, string Words, Task<IReadOnlyList<DeviceReceipt>>? Receipts = null);
 
     /// <summary>
     /// The wall-switch cue — the room's own fence. A cue that puts this machine's input on the wall
@@ -1144,11 +1248,27 @@ public sealed class TwinService : IDisposable, ILinkReport
     private WallSwitch FireWallSwitch(string cue)
     {
         if (cue.Length == 0) return new WallSwitch(true, "", "");
+        var mark = _services.DeviceMark();
         var result = _services.Actions.Execute(new ShowAction(ShowActionKind.CueFire, cue), ActionOrigin.Recovery);
         var words = result.Ok ? $"Wall switch: cue '{cue}' fired." : $"Wall switch: cue '{cue}' could not fire — {result.Message}";
         if (result.Ok) Log.Info($"Twin: {words}");
         else Log.Warn($"Twin: {words}");
-        return new WallSwitch(result.Ok, result.Ok ? "" : result.Message, words);
+        if (!result.Ok) return new WallSwitch(false, result.Message, words);
+        // Fired is dispatched. A cue that sent lines to boxes is confirmed by their receipts, up
+        // to each device's own timeout; a cue with no box to answer is the operator's own switch.
+        var receipts = _services.DevicePendingSince(mark) > 0 ? _services.DeviceConfirmSince(mark) : null;
+        return new WallSwitch(true, "", words, receipts);
+    }
+
+    /// <summary>"Wall switch confirmed: Switcher: POST /route — accepted (200 OK)" or the first receipt that failed, for the words.</summary>
+    private static (bool Ok, string Words) ReadReceipts(Task<IReadOnlyList<DeviceReceipt>> task)
+    {
+        if (!task.IsCompletedSuccessfully) return (false, "the receipts could not be read");
+        var receipts = task.Result;
+        var bad = receipts.FirstOrDefault(r => !r.Ok);
+        return bad is not null
+            ? (false, bad.Line)
+            : (true, "Wall switch confirmed: " + string.Join("; ", receipts.Select(r => r.Line)) + ".");
     }
 
     private bool MainIsOnThisMachine() => _welcome is { } w && string.Equals(w.Machine, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
@@ -1490,12 +1610,15 @@ public sealed class TwinService : IDisposable, ILinkReport
         if (IsFollowerNode) return ActionResult.Refused($"A {NodeKinds.Label(_kernel.Profile).ToLowerInvariant()} node never takes the show over — it has no outputs to take it onto.");
         if (_role != TwinRole.Standby) return ActionResult.Refused("This desk is not a standby twin — Machine page, TWIN.");
         if (_phase == TwinPhase.TookOver) return ActionResult.Done("This desk already took the show over.");
+        if (_handoverBusy) return ActionResult.Refused("A takeover is in progress — the wall switch was asked and its answer is awaited.");
         if (_welcome is null) return ActionResult.Refused("Nothing to take over: no main has been joined yet.");
         var now = Clock();
         var main = _mainName.Length > 0 ? _mainName : "the main";
         var notes = new List<string>();
         var w = _welcome;
         var localMain = MainIsOnThisMachine();
+        var tx = new TwinTransaction(HandoverKind.TakeOver, localMain ? HandoverShape.SameMachine : HandoverShape.AcrossMachines, _kernel.State.Twin.TakeOverCue.Length > 0, now);
+        _handover = tx;
 
         // The marker: said on disk, in this desk's own folder, so a main on this machine that comes
         // back reads it before its first window opens and holds its outputs while this process
@@ -1543,7 +1666,11 @@ public sealed class TwinService : IDisposable, ILinkReport
             }
         }
 
-        if (fence is not null && !force) return RefuseTakeOver(fence, marked, origin);
+        if (fence is not null && !force)
+        {
+            tx.Stop(fence);
+            return RefuseTakeOver(fence, marked, origin);
+        }
         if (fence is not null) notes.Add(fence + " — taken over anyway");
 
         // The wall switch — the room's own fence, between two machines — fires before a single
@@ -1553,24 +1680,62 @@ public sealed class TwinService : IDisposable, ILinkReport
         // next try comes after the usual pause. A press goes ahead and carries the failure in its
         // words — the operator can switch the wall by hand.
         var wall = FireWallSwitch(_kernel.State.Twin.TakeOverCue);
+        if (tx.HasRoute && !localMain) tx.Reached(HandoverStage.RouteRequested);
         if (!wall.Ok && !localMain && origin.Kind == OriginKind.Recovery && !force)
         {
-            return RefuseTakeOver($"the wall switch cue '{_kernel.State.Twin.TakeOverCue}' could not fire ({wall.Reason}), so the room could not be told to show this desk", marked, origin);
+            var why = $"the wall switch cue '{_kernel.State.Twin.TakeOverCue}' could not fire ({wall.Reason}), so the room could not be told to show this desk";
+            tx.Stop(why);
+            return RefuseTakeOver(why, marked, origin);
         }
+        if (wall.Ok && wall.Receipts is { } receipts && !localMain)
+        {
+            // The switcher answers on its own time: the outputs open here once it has said yes. By
+            // itself, a switch that said no or nothing refuses the takeover and the hold stays; a
+            // press goes on and carries the answer in its words.
+            _handoverBusy = true;
+            var wallWords = wall.Words;
+            receipts.ContinueWith(t => UiThread.Post(() =>
+            {
+                _handoverBusy = false;
+                if (_phase == TwinPhase.TookOver || _role != TwinRole.Standby) return;
+                var (ok, said) = ReadReceipts(t);
+                if (!ok && origin.Kind == OriginKind.Recovery && !force)
+                {
+                    var why = $"the wall switch cue '{_kernel.State.Twin.TakeOverCue}' was not confirmed ({said}), so the room may not be showing this desk";
+                    tx.Stop(why);
+                    _nextAutoTakeOverUtc = Clock() + TwinWatch.RetryAfterRefusal;
+                    RefuseTakeOver(why, marked, origin);
+                    return;
+                }
+                if (!ok) notes.Add($"the wall switch was not confirmed ({said}) — taken over anyway; switch the wall by hand");
+                tx.Reached(HandoverStage.RouteConfirmed);
+                _services.Notify(CompleteTakeOver(tx, main, notes, ok ? wallWords + " " + said : wallWords, origin, now));
+            }), TaskScheduler.Default);
+            return ActionResult.Requested($"Taking over from {main}: the wall switch was asked — the outputs open here once it answers.");
+        }
+        if (tx.HasRoute && !localMain) tx.Reached(HandoverStage.RouteConfirmed);   // a press carries a failed switch in its words and goes on: the operator switches by hand
+        return ActionResult.Done(CompleteTakeOver(tx, main, notes, wall.Words, origin, now));
+    }
 
+    /// <summary>The show is this desk's: the link closed, the phase moved, the hold lifted, the air record put back — and said.</summary>
+    private string CompleteTakeOver(TwinTransaction tx, string main, List<string> notes, string wallWords, ActionOrigin origin, DateTime now)
+    {
         _cts?.Cancel();
         _cts = new CancellationTokenSource(); // the redial never restarts on its own
         CloseLink();
         _phase = TwinPhase.TookOver;
         _note = $"at {now.ToLocalTime():HH:mm:ss}";
         _services.OutputsHeldBy = "";
+        tx.Reached(HandoverStage.AuthorityCommitted);
         // The beat goes on: this desk keeps dialling, so the main, once it is back, can take the show back over the link.
         StartBeating(_cts);
         _lastDialUtc = DateTime.MinValue;
         var head = $"TOOK OVER from {main} {_note}" + (notes.Count > 0 ? " — " + string.Join(", ", notes) : "") + ".";
-        Log.Warn($"Twin: {head} ({origin.Label})");
         _services.RecoverFromTwin(_mirroredAir, head);
-        return ActionResult.Done(wall.Words.Length > 0 ? head + " " + wall.Words : head);
+        tx.Reached(HandoverStage.TargetReady);
+        tx.Reached(HandoverStage.Complete);
+        Log.Warn($"Twin: {head} ({origin.Label}) — {tx.Trail}");
+        return wallWords.Length > 0 ? head + " " + wallWords : head;
     }
 
     /// <summary>A takeover a fence stopped: the marker taken back (one that says this desk has the show would be a lie), the reason on the line, said once, and refused.</summary>
@@ -1657,6 +1822,9 @@ public sealed class TwinService : IDisposable, ILinkReport
 
         /// <summary>The peer's own instance id, so its own edits are not echoed back to it.</summary>
         public string Instance { get; init; } = "";
+
+        /// <summary>The computer it runs on — the same as this one means its windows are these displays.</summary>
+        public string Machine { get; init; } = "";
 
         public DateTime LastBeatUtc
         {

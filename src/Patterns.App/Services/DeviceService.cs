@@ -26,8 +26,48 @@ public interface IDeviceLink : IDisposable
     /// <summary>Writes one frame as bytes — an OSC message, a digest and a command; a link that only knows text writes the bytes as UTF-8.</summary>
     void WriteBytes(byte[] frame) => Write(Encoding.UTF8.GetString(frame));
 
+    /// <summary>
+    /// Writes one frame and says how far it got: a connection that took the bytes is Delivered,
+    /// an HTTP answer is Delivered and a 2xx Accepted, a datagram or a note is Sent and no more.
+    /// The default is the write, then the link's own word on whether it is still open.
+    /// </summary>
+    Task<LinkDelivery> DeliverAsync(byte[] frame)
+    {
+        WriteBytes(frame);
+        return Task.FromResult(IsOpen ? LinkDelivery.Delivered() : LinkDelivery.Failed(Status));
+    }
+
     /// <summary>Raised with every whole line the device sends, on the link's own thread.</summary>
     event Action<string>? LineReceived;
+}
+
+/// <summary>How far one frame got on its link.</summary>
+public readonly record struct LinkDelivery(ConfirmLevel Reached, bool Ok, string Words)
+{
+    public static readonly LinkDelivery SentOnly = new(ConfirmLevel.Sent, true, "sent");
+
+    public static LinkDelivery Delivered(string words = "delivered") => new(ConfirmLevel.Delivered, true, words);
+
+    public static LinkDelivery Accepted(string words) => new(ConfirmLevel.Accepted, true, words);
+
+    /// <summary>The box answered and said no — an HTTP 4xx or 5xx.</summary>
+    public static LinkDelivery Rejected(string words) => new(ConfirmLevel.Delivered, false, words);
+
+    /// <summary>The bytes never got out: a link that is down, a request that failed.</summary>
+    public static LinkDelivery Failed(string words) => new(ConfirmLevel.Sent, false, words);
+}
+
+/// <summary>
+/// What became of one line sent to a box: the level the show wanted, the level reached, and the
+/// box's own words. Journaled when it lands, shown on the device's card, and waited for by the
+/// twin's wall switch.
+/// </summary>
+public sealed record DeviceReceipt(string Device, string Words, ConfirmLevel Wanted, ConfirmLevel Reached, bool Ok, string Answer, DateTime AtUtc)
+{
+    /// <summary>"Projector: POWER ON — accepted (POWR: OK)"; "Projector: INPUT HDMI 1 — rejected: INPT: out of parameter"; "Switcher: POST /route — no answer in 2 s (delivered, not accepted)".</summary>
+    public string Line => Ok
+        ? $"{Device}: {Words} — {DeviceConfirmation.Label(Reached)}{(Answer.Length > 0 ? $" ({Answer})" : "")}"
+        : $"{Device}: {Words} — {Answer}";
 }
 
 /// <summary>
@@ -57,10 +97,26 @@ public sealed class DeviceService : IDisposable
         public long Out;
     }
 
+    /// <summary>One line waiting for its receipt.</summary>
+    private sealed class Pending
+    {
+        public required Open Open;
+        public required string Words;
+        public required string Key;
+        public required ConfirmLevel Wanted;
+        public required long Seq;
+        public ConfirmLevel Reached;
+        public bool Observing;
+        public string Expect = "";
+        public readonly TaskCompletionSource<DeviceReceipt> Done = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
     private readonly AppServices _services;
     private readonly CommandRouter _router;
     private readonly Dictionary<string, Open> _open = new(StringComparer.Ordinal);
+    private readonly List<Pending> _pendings = new();
     private readonly DispatcherTimer _pushTimer;
+    private long _seq;
     private bool _pushPending;
     private bool _disposed;
 
@@ -82,6 +138,26 @@ public sealed class DeviceService : IDisposable
 
     /// <summary>Tests stand in for the wires: a device → a link, or null to leave it unopened.</summary>
     public Func<DeviceConfig, IDeviceLink?>? LinkFactory { get; set; }
+
+    /// <summary>Every receipt as it lands, on the UI thread — the journal's and the page's.</summary>
+    public event Action<DeviceReceipt>? Receipt;
+
+    /// <summary>A mark before a cue fires, so what it sent can be waited for.</summary>
+    public long Mark() => Interlocked.Read(ref _seq);
+
+    /// <summary>How many lines sent since the mark are still waiting for their receipt.</summary>
+    public int PendingSince(long mark)
+    {
+        lock (_pendings) return _pendings.Count(p => p.Seq > mark);
+    }
+
+    /// <summary>The receipts of every line sent since the mark, once each has landed — by an answer, or by its timeout.</summary>
+    public Task<IReadOnlyList<DeviceReceipt>> ConfirmSince(long mark)
+    {
+        List<Task<DeviceReceipt>> waits;
+        lock (_pendings) waits = _pendings.Where(p => p.Seq > mark).Select(p => p.Done.Task).ToList();
+        return Task.WhenAll(waits).ContinueWith(t => (IReadOnlyList<DeviceReceipt>)t.Result, TaskContinuationOptions.ExecuteSynchronously);
+    }
 
     /// <summary>The links open now, by device id.</summary>
     public int OpenCount => _open.Count;
@@ -199,8 +275,12 @@ public sealed class DeviceService : IDisposable
             Reconcile();
             if (!_open.TryGetValue(device.Id, out open)) return ActionResult.Failed($"Device '{device.Name}' is not open: {device.Status}");
         }
-        if (!WriteTo(open, line, out var problem)) return ActionResult.Refused(problem);
-        return ActionResult.Done($"Device {device.Name}: {line}");
+        if (!WriteTo(open, line, out var problem, track: true)) return ActionResult.Refused(problem);
+        // Dispatched, not done: the receipt says what the box made of it, when it answers.
+        var wanted = DeviceConfirmation.Effective(device);
+        return ActionResult.Done(wanted == ConfirmLevel.Sent
+            ? $"Device {device.Name}: {line} — sent ({DeviceConfirmation.Limit(device.Link, device.Profile)})"
+            : $"Device {device.Name}: {line} — sent; awaiting {DeviceConfirmation.Label(wanted)}");
     }
 
     /// <summary>What the devices are doing, for STATE and the page.</summary>
@@ -276,7 +356,7 @@ public sealed class DeviceService : IDisposable
     /// a media server's OSC or JSON-RPC. False, with the reason, when the words are not the
     /// profile's; a quiet write (the poll) leaves the counters alone.
     /// </summary>
-    private bool WriteTo(Open open, string line, out string problem, bool quiet = false)
+    private bool WriteTo(Open open, string line, out string problem, bool quiet = false, bool track = false)
     {
         problem = "";
         // A surface that cannot read words can still light. A fact the show sends is turned into
@@ -304,7 +384,25 @@ public sealed class DeviceService : IDisposable
             Log.Warn($"Device '{open.Config.Name}': {problem}");
             return false;
         }
-        foreach (var frame in frames) open.Link.WriteBytes(frame);
+        if (track)
+        {
+            // The DEVICE verb, a cue's step, the page's SEND: followed to its receipt. The show's
+            // facts and the poll are not — a board hearing BLACKOUT 1 owes nobody an answer.
+            var pending = new Pending
+            {
+                Open = open,
+                Words = line,
+                Key = open.Session.SentKey(line),
+                Wanted = DeviceConfirmation.Effective(open.Config),
+                Seq = Interlocked.Increment(ref _seq),
+            };
+            lock (_pendings) _pendings.Add(pending);
+            _ = DeliverAsync(pending, frames);
+        }
+        else
+        {
+            foreach (var frame in frames) open.Link.WriteBytes(frame);
+        }
         if (!quiet)
         {
             open.Out++;
@@ -312,6 +410,112 @@ public sealed class DeviceService : IDisposable
         }
         open.Config.Status = StatusLine(open);
         return true;
+    }
+
+    // ---- receipts ---------------------------------------------------------------------------------
+
+    /// <summary>The frames onto the link, then as far up the levels as the link and the box take them, within the device's timeout.</summary>
+    private async Task DeliverAsync(Pending pending, IReadOnlyList<byte[]> frames)
+    {
+        var timeout = DeviceConfirmation.Timeout(pending.Open.Config);
+        try
+        {
+            var last = LinkDelivery.SentOnly;
+            foreach (var frame in frames)
+            {
+                last = await pending.Open.Link.DeliverAsync(frame);
+                if (!last.Ok)
+                {
+                    Complete(pending, last.Reached, false, last.Reached == ConfirmLevel.Sent ? $"not delivered: {last.Words}" : $"rejected: {last.Words}");
+                    return;
+                }
+            }
+            pending.Reached = last.Reached;
+            if (last.Reached == ConfirmLevel.Sent)
+            {
+                // A datagram, a note: nothing comes back, and the device's level says so already.
+                Complete(pending, ConfirmLevel.Sent, pending.Wanted <= ConfirmLevel.Sent, last.Words);
+                return;
+            }
+            if (pending.Reached >= pending.Wanted)
+            {
+                Complete(pending, pending.Reached, true, last.Words);
+                return;
+            }
+            if (pending.Wanted == ConfirmLevel.Observed && pending.Reached == ConfirmLevel.Accepted)
+            {
+                Observe(pending);
+            }
+            // Else the box answers on its own time: the session reads the reply in Handle, and the timeout is the fence.
+            await Task.Delay(timeout);
+            Complete(pending, pending.Reached, false, $"no answer in {timeout.TotalSeconds:0.#} s ({DeviceConfirmation.Label(pending.Reached)}, not {DeviceConfirmation.Label(pending.Wanted)})");
+        }
+        catch (Exception ex)
+        {
+            Complete(pending, pending.Reached, false, "send failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>Accepted, and Observed wanted: the query goes, and the next answer that carries the expected words closes the receipt.</summary>
+    private void Observe(Pending pending)
+    {
+        var cfg = pending.Open.Config;
+        pending.Observing = true;
+        pending.Expect = cfg.ObserveExpect.Trim();
+        var frames = pending.Open.Session.Encode(cfg.ObserveQuery, out var problem);
+        if (frames.Count == 0)
+        {
+            Complete(pending, ConfirmLevel.Accepted, false, $"accepted, not observed — the query could not be sent ({problem})");
+            return;
+        }
+        foreach (var frame in frames) pending.Open.Link.WriteBytes(frame);
+    }
+
+    /// <summary>A reply, on the UI thread: the oldest line waiting on this device takes it as its yes, its no, or its observation.</summary>
+    private void Acknowledge(Open open, ProfileReply reply, string line)
+    {
+        Pending? pending;
+        lock (_pendings) pending = _pendings.FirstOrDefault(p => ReferenceEquals(p.Open, open) && (p.Key.Length == 0 || reply.AckKey.Length == 0 || p.Key == reply.AckKey));
+        if (pending is null) return;
+        if (pending.Observing)
+        {
+            if (pending.Expect.Length == 0 || line.Contains(pending.Expect, StringComparison.OrdinalIgnoreCase) || reply.Words.Contains(pending.Expect, StringComparison.OrdinalIgnoreCase))
+            {
+                Complete(pending, ConfirmLevel.Observed, true, reply.Words);
+            }
+            else if (reply.IsError)
+            {
+                Complete(pending, ConfirmLevel.Accepted, false, $"accepted, not observed — {reply.Words}");
+            }
+            return;   // another answer: the observation waits for its own
+        }
+        if (reply.IsError)
+        {
+            Complete(pending, pending.Reached, false, $"rejected: {reply.Words}");
+            return;
+        }
+        if (!reply.Ack) return;
+        pending.Reached = ConfirmLevel.Accepted;
+        if (pending.Wanted == ConfirmLevel.Observed) Observe(pending);
+        else Complete(pending, ConfirmLevel.Accepted, true, reply.Words);
+    }
+
+    /// <summary>The receipt, once: off the list, to the event on the UI thread, onto the card.</summary>
+    private void Complete(Pending pending, ConfirmLevel reached, bool ok, string answer)
+    {
+        lock (_pendings)
+        {
+            if (!_pendings.Remove(pending)) return;
+        }
+        var receipt = new DeviceReceipt(pending.Open.Config.Name, pending.Words, pending.Wanted, reached, ok, answer, DateTime.UtcNow);
+        pending.Done.TrySetResult(receipt);
+        UiThread.Post(() =>
+        {
+            if (_disposed) return;
+            if (!ok) Log.Warn($"Device '{receipt.Device}': {receipt.Line}");
+            if (_open.TryGetValue(pending.Open.Config.Id, out var open)) open.Config.Status = StatusLine(open) + " · " + (ok ? DeviceConfirmation.Label(reached) : receipt.Answer);
+            Receipt?.Invoke(receipt);
+        });
     }
 
     private readonly Dictionary<string, Action<string>> _learning = new(StringComparer.OrdinalIgnoreCase);
@@ -382,6 +586,7 @@ public sealed class DeviceService : IDisposable
             }
             if (reply.IsError) Log.Warn($"Device '{open.Config.Name}' answered: {reply.Words}");
             open.Config.Status = StatusLine(open);
+            Acknowledge(open, reply, line);
 
             // A row waiting to be learned takes this line and nothing else happens: the operator is
             // pressing the pad to say which one it is, not asking the show to do anything.
@@ -483,6 +688,9 @@ public sealed class DeviceService : IDisposable
         _services.SnapshotPublished -= MarkChanged;
         _services.RuntimeChanged -= MarkChanged;
         foreach (var id in _open.Keys.ToList()) Close(id);
+        List<Pending> waiting;
+        lock (_pendings) waiting = _pendings.ToList();
+        foreach (var p in waiting) Complete(p, p.Reached, false, "the Interactive area closed before the box answered");
     }
 }
 
@@ -760,6 +968,14 @@ public sealed class UdpDeviceLink : IDeviceLink
         {
             _status = "send failed: " + ex.Message;
         }
+    }
+
+    /// <summary>A datagram is sent and no more: nothing on this link says it arrived.</summary>
+    public Task<LinkDelivery> DeliverAsync(byte[] frame)
+    {
+        var before = _status;
+        WriteBytes(frame);
+        return Task.FromResult(ReferenceEquals(before, _status) || !_status.StartsWith("send failed", StringComparison.Ordinal) ? LinkDelivery.SentOnly : LinkDelivery.Failed(_status));
     }
 
     private async Task ReceiveAsync()

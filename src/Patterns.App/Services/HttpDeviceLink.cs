@@ -55,31 +55,48 @@ public sealed class HttpDeviceLink : IDeviceLink
     public void Write(string framedLine)
     {
         if (_disposed) return;
+        _ = RequestAsync(framedLine);
+    }
+
+    /// <summary>
+    /// The request, awaited: the answer is Delivered, a 2xx Accepted, a 4xx or 5xx Rejected with
+    /// its status, and a request that never got an answer Failed — so a caller that needs to know
+    /// (the twin's wall switch) waits on the response itself, not on the request having been made.
+    /// </summary>
+    public async Task<LinkDelivery> DeliverAsync(byte[] frame)
+    {
+        if (_disposed) return LinkDelivery.Failed("closed");
+        return await RequestAsync(Encoding.UTF8.GetString(frame));
+    }
+
+    private async Task<LinkDelivery> RequestAsync(string framedLine)
+    {
         var (method, url, body) = Read(framedLine, _base);
-        if (url.Length == 0) return;
-        _ = Task.Run(async () =>
+        if (url.Length == 0) return LinkDelivery.Failed("no address");
+        try
         {
-            try
+            using var request = new HttpRequestMessage(new HttpMethod(method), url);
+            if (body.Length > 0)
             {
-                using var request = new HttpRequestMessage(new HttpMethod(method), url);
-                if (body.Length > 0)
-                {
-                    var json = body.StartsWith("{", StringComparison.Ordinal) || body.StartsWith("[", StringComparison.Ordinal);
-                    request.Content = new StringContent(body, Encoding.UTF8, json ? "application/json" : "text/plain");
-                }
-                using var response = await Client.SendAsync(request);
-                var text = await response.Content.ReadAsStringAsync();
-                var first = text.Split('\n')[0].Trim();
-                if (first.Length > 200) first = first[..200];
-                _status = $"{(int)response.StatusCode} {response.ReasonPhrase} ({_base})";
-                LineReceived?.Invoke($"{(int)response.StatusCode} {first}".Trim());
+                var json = body.StartsWith("{", StringComparison.Ordinal) || body.StartsWith("[", StringComparison.Ordinal);
+                request.Content = new StringContent(body, Encoding.UTF8, json ? "application/json" : "text/plain");
             }
-            catch (Exception ex)
-            {
-                _status = $"request failed: {ex.Message} ({_base})";
-                LineReceived?.Invoke("ERR " + ex.Message);
-            }
-        });
+            using var response = await Client.SendAsync(request);
+            var text = await response.Content.ReadAsStringAsync();
+            var first = text.Split('\n')[0].Trim();
+            if (first.Length > 200) first = first[..200];
+            var status = (int)response.StatusCode;
+            _status = $"{status} {response.ReasonPhrase} ({_base})";
+            LineReceived?.Invoke($"{status} {first}".Trim());
+            var words = $"{status} {response.ReasonPhrase}".Trim() + (first.Length > 0 ? $" — {first}" : "");
+            return response.IsSuccessStatusCode ? LinkDelivery.Accepted(words) : LinkDelivery.Rejected(words);
+        }
+        catch (Exception ex)
+        {
+            _status = $"request failed: {ex.Message} ({_base})";
+            LineReceived?.Invoke("ERR " + ex.Message);
+            return LinkDelivery.Failed("request failed: " + ex.Message);
+        }
     }
 
     public void Dispose() => _disposed = true;

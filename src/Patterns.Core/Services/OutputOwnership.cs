@@ -48,6 +48,13 @@ public enum OutputClaim
 
     /// <summary>Another computer's record (a show folder on a share) — never this desk's to take.</summary>
     AnotherMachine,
+
+    /// <summary>
+    /// The record could not be read — a locked file, a torn write, a folder that is not there: a
+    /// fence, not an absence. Nothing is opened by itself; OUTPUTS ON by hand still opens the
+    /// screens, with the words said first.
+    /// </summary>
+    Unknown,
 }
 
 /// <summary>
@@ -113,6 +120,19 @@ public static class OutputOwnership
             : OutputClaim.HeldByLiveDesk;
     }
 
+    /// <summary>
+    /// What a sidecar read means: no file is nothing to take, a record is read as above, and a
+    /// file that could not be read is <see cref="OutputClaim.Unknown"/> — the fence the rule
+    /// "unreadable is a fence, not an absence" puts under the process probe, here under the file.
+    /// </summary>
+    public static OutputClaim Read(
+        SidecarRead<OutputOwner> read,
+        int myPid,
+        string myMachine,
+        DateTime utcNow,
+        Func<int, ProcessSight> look)
+        => read.IsUnreadable ? OutputClaim.Unknown : Read(read.Value, myPid, myMachine, utcNow, look);
+
     /// <summary>True when this desk should go and take the screens rather than open a second set beside them.</summary>
     public static bool ShouldTakeOver(OutputClaim claim)
         => claim is OutputClaim.HeldByLiveDesk or OutputClaim.HeldByHungDesk;
@@ -151,8 +171,17 @@ public static class OutputOwnership
             $"The last run is still playing on {TargetWords(owner?.Targets)} but stopped answering — taking the screens back.",
         OutputClaim.AnotherMachine =>
             $"{owner?.Machine} has these screens — this desk leaves them alone.",
+        OutputClaim.Unknown => UnknownWords(""),
         _ => "",
     };
+
+    /// <summary>
+    /// The sentence for a record that could not be read: nothing is opened by itself, and the
+    /// operator is told how to open the screens once sure. The problem rides along when known.
+    /// </summary>
+    public static string UnknownWords(string problem)
+        => $"The record of who has the screens could not be read{(problem.Length > 0 ? $" ({problem})" : "")} — this desk does not open them by itself. "
+           + "OUTPUTS ON here once you are sure nothing else is playing on them.";
 
     /// <summary>What the desk says once it has the screens back.</summary>
     public static string TakenWords(OutputOwner owner, bool ended)
@@ -161,72 +190,164 @@ public static class OutputOwnership
             : $"Took {TargetWords(owner.Targets)} back from the last run (pid {owner.Pid}, which stood down); the show is back on them.";
 }
 
+/// <summary>What a read of a sidecar came to. Three answers, because the third means the opposite of the first to a fence: no file is nothing to take; a file that cannot be read may be a desk still playing.</summary>
+public enum SidecarState
+{
+    Missing,
+    Valid,
+    Unreadable,
+}
+
+/// <summary>A sidecar read: the state, the record when there is one, and the problem when there is one.</summary>
+public readonly record struct SidecarRead<T>(SidecarState State, T? Value, string Problem) where T : class
+{
+    public static readonly SidecarRead<T> Missing = new(SidecarState.Missing, null, "");
+
+    public static SidecarRead<T> Valid(T value) => new(SidecarState.Valid, value, "");
+
+    public static SidecarRead<T> Unreadable(string problem) => new(SidecarState.Unreadable, null, problem);
+
+    public bool IsUnreadable => State == SidecarState.Unreadable;
+
+    public bool IsMissing => State == SidecarState.Missing;
+
+    public bool IsValid => State == SidecarState.Valid;
+}
+
+/// <summary>A sidecar write or clear: committed to disk, or not, with the reason. A caller that acts on a write acts on this, never on the call having returned.</summary>
+public readonly record struct SidecarWrite(bool Committed, string Problem)
+{
+    public static readonly SidecarWrite Done = new(true, "");
+
+    public static SidecarWrite Failed(string problem) => new(false, problem);
+}
+
+/// <summary>
+/// The files under the sidecar store — a seam, so a folder that is read-only, a file that is
+/// locked, a rename that fails and a share that has gone are each a test rather than a night.
+/// </summary>
+public interface ISidecarFiles
+{
+    bool DirectoryExists(string path);
+
+    bool Exists(string path);
+
+    string ReadAllText(string path);
+
+    void WriteAllText(string path, string text);
+
+    /// <summary>Moves a file over another — the atomic step every write ends with.</summary>
+    void Move(string from, string to);
+
+    void Delete(string path);
+}
+
+/// <summary>The real files.</summary>
+public sealed class RealSidecarFiles : ISidecarFiles
+{
+    public static readonly RealSidecarFiles Instance = new();
+
+    public bool DirectoryExists(string path) => Directory.Exists(path);
+
+    public bool Exists(string path) => File.Exists(path);
+
+    public string ReadAllText(string path) => File.ReadAllText(path);
+
+    public void WriteAllText(string path, string text) => File.WriteAllText(path, text);
+
+    public void Move(string from, string to) => File.Move(from, to, overwrite: true);
+
+    public void Delete(string path) => File.Delete(path);
+}
+
 /// <summary>
 /// The two tiny sidecars beside the settings that carry ownership between processes:
 /// <c>patterns.outputs.json</c>, written by whoever has the screens, and
 /// <c>patterns.handover.json</c>, written by a new desk asking for them. Atomic like the settings
-/// store — a torn write must never make a live desk look like an orphan.
+/// store — a torn write must never make a live desk look like an orphan. Every read says whether
+/// it could read, every write whether it committed: the record on disk decides who may put a
+/// picture on the wall, so a call that returned is never taken for a fact it did not establish.
 /// </summary>
 public sealed class OutputOwnerStore
 {
+    private readonly string _directory;
     private readonly string _owner;
     private readonly string _handover;
+    private readonly ISidecarFiles _files;
 
-    public OutputOwnerStore(string directory)
+    public OutputOwnerStore(string directory, ISidecarFiles? files = null)
     {
+        _directory = directory;
         _owner = Path.Combine(directory, "patterns.outputs.json");
         _handover = Path.Combine(directory, "patterns.handover.json");
+        _files = files ?? RealSidecarFiles.Instance;
     }
 
-    public OutputOwner? Read() => ReadFile<OutputOwner>(_owner);
+    public string OwnerPath => _owner;
 
-    public void Write(OutputOwner owner) => WriteFile(_owner, owner);
+    public string RequestPath => _handover;
 
-    public void Clear() => Delete(_owner);
+    public SidecarRead<OutputOwner> Read() => ReadFile<OutputOwner>(_owner);
 
-    public HandoverRequest? ReadRequest() => ReadFile<HandoverRequest>(_handover);
+    public SidecarWrite Write(OutputOwner owner) => WriteFile(_owner, owner);
 
-    public void Ask(HandoverRequest request) => WriteFile(_handover, request);
+    public SidecarWrite Clear() => Delete(_owner);
 
-    public void ClearRequest() => Delete(_handover);
+    public SidecarRead<HandoverRequest> ReadRequest() => ReadFile<HandoverRequest>(_handover);
 
-    private static T? ReadFile<T>(string path) where T : class
+    public SidecarWrite Ask(HandoverRequest request) => WriteFile(_handover, request);
+
+    public SidecarWrite ClearRequest() => Delete(_handover);
+
+    private SidecarRead<T> ReadFile<T>(string path) where T : class
     {
         try
         {
-            if (!File.Exists(path)) return null;
-            return JsonUtil.Deserialize<T>(File.ReadAllText(path));
+            // A folder that is not there is not a folder with no record in it: a share that has
+            // gone, or a stick that was pulled, reads as unreadable, never as free.
+            if (!_files.DirectoryExists(_directory)) return SidecarRead<T>.Unreadable("the show folder is not there");
+            if (!_files.Exists(path)) return SidecarRead<T>.Missing;
+            var value = JsonUtil.Deserialize<T>(_files.ReadAllText(path));
+            return value is null ? SidecarRead<T>.Unreadable("the file holds no record") : SidecarRead<T>.Valid(value);
         }
         catch (Exception ex)
         {
             Log.Warn($"{Path.GetFileName(path)} unreadable.", ex);
-            return null;
+            return SidecarRead<T>.Unreadable(ex.Message);
         }
     }
 
-    private static void WriteFile<T>(string path, T value)
+    private SidecarWrite WriteFile<T>(string path, T value)
     {
+        var tmp = path + ".tmp";
         try
         {
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonUtil.Serialize(value));
-            File.Move(tmp, path, overwrite: true);
+            _files.WriteAllText(tmp, JsonUtil.Serialize(value));
+            _files.Move(tmp, path);
+            return SidecarWrite.Done;
         }
         catch (Exception ex)
         {
             Log.Warn($"{Path.GetFileName(path)} write failed.", ex);
+            try { _files.Delete(tmp); } catch { /* the half-written file waits for the next write */ }
+            return SidecarWrite.Failed(ex.Message);
         }
     }
 
-    private static void Delete(string path)
+    private SidecarWrite Delete(string path)
     {
         try
         {
-            File.Delete(path);
+            if (!_files.Exists(path)) return SidecarWrite.Done;
+            _files.Delete(path);
+            return SidecarWrite.Done;
         }
-        catch
+        catch (Exception ex)
         {
-            // Nothing to clear (or locked) — harmless either way.
+            // Locked, or a folder that will not let go: said, because a record that would not
+            // clear is a record the next start reads.
+            Log.Warn($"{Path.GetFileName(path)} could not be cleared.", ex);
+            return SidecarWrite.Failed(ex.Message);
         }
     }
 }

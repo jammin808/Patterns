@@ -6068,3 +6068,86 @@ audience play wall (the wall rides the same lane and shows in the window as it s
 page).
 
 Counts at the end of the round: Core 1,102, App 568 — both suites green here.
+
+## 61. Round 43 — attempts are not facts
+
+*A triage of the branch put the show-night risk where it is: not in the arcade, but in the small
+authority layer under the twin, where a file write and a device send were treated as facts when
+they were only attempts. Three fixes, in the order the room needs them: the record of who has
+the screens fails closed; the hand-back releases the standby only after the room has moved; a
+box's answer, not the cue having fired, is what confirms a switch.*
+
+### 61.1 The record fails closed
+
+`OutputOwnerStore` read a locked or torn sidecar as null and the claim read null as free; a
+failed write was swallowed and the beat set "held" regardless; a handover ask that never
+reached the disk was followed by a wait, a silence and a kill. Now every read is a
+`SidecarRead` — Missing, Valid or Unreadable, with the problem — and every write and clear a
+`SidecarWrite` that says whether it committed. Unreadable is `OutputClaim.Unknown`: a fence.
+A start that cannot read the record asks nothing, ends nothing and opens nothing by itself, and
+its words say how the operator opens the screens once sure; a watchdog restart on such a record
+puts nothing back by itself for the same reason. A folder that is not there — a share that
+dropped — is unreadable, never free, because `File.Exists` answers false there, the one answer
+that must not become "nobody has the screens". The beat holds the record only when the write
+committed; a record that cannot be written is said on the Machine page's screens line, the
+status line and the health line as it starts and again as it clears. An ask that did not commit
+ends nothing: the owner was never asked, so its silence means nothing. A record that cannot be
+read while waiting on an ask is not taken for a let-go. A corrupt ask is not an ask, and an ask
+whose clear failed is answered once. The catch-all at the top of the claim, which carried on "as
+if they were free", carries on as Unknown. The files under the store are a seam
+(`ISidecarFiles`), so a read-only folder, a locked file, a failed rename, a missing share and a
+failed clear are each a test, on CI, with real files or faulted ones.
+
+### 61.2 The hand-back as a transaction
+
+`TakeBack` sent HANDBACK first, restored the show here second, and fired the wall-switch cue
+last — while its own comment promised the standby's picture would stay up until the switch had
+moved. A switch that failed left the room routed to a standby that had just closed its outputs.
+`TwinTransaction` (Core) is the handover as a transaction: a kind, a shape, the stages its shape
+runs in order, the stage reached, and why it stopped. Across machines a take-back runs target
+ready (the show landed and the outputs open here, on displays the room is not yet looking at)
+→ route requested → route confirmed → authority committed → old owner released: the standby is
+told to let go last, and a route that fails leaves it up and the holder, with words that say
+what the room shows and that TAKE BACK again finishes the hand-back — the show having landed
+once, the second press lands nothing twice. On one machine the standby's windows are these
+displays, so it lets go first and the picture goes up after: a dark instant, never two sets.
+A takeover routes before its outputs open and releases nobody — the main is silent, the room is
+looking at a desk that has stopped, and a route refused leaves this desk exactly as it was. A
+stage cannot be skipped and a stop keeps the trail; TWIN STATUS carries the last handover's kind,
+shape, stage and trail, the main's line carries a stopped take-back, and the log carries the
+trail of every handover.
+
+### 61.3 Sent, delivered, accepted, observed
+
+A cue "fired" meant the action layer accepted it; a device send reported done once frames were
+handed to the link; the HTTP link's write returned before the request was made. `ConfirmLevel`
+keeps the four things a send can establish apart — sent, delivered, accepted, observed — and
+`DeviceConfirmation` says what a link and a profile can reach: a datagram or a MIDI note is
+sent and no more; a stream is delivered when the socket took the bytes; a profile that reads
+replies (PJLink, Pixera, plain OK/ERR lines, HTTP's status) reaches accepted; a query afterwards
+(`ObserveQuery`, `ObserveExpect` on the device) reaches observed. Each device carries the level
+the show wants of it (`Confirm`, capped at what it can give) and its timeout. The DEVICE verb, a
+cue's step and the page's SEND are dispatched at once — "sent; awaiting accepted" — and followed
+to a `DeviceReceipt`: the box's yes, its no with its own reason, or its silence with how far the
+line got; the receipt lands on the card, in the journal as its own entry, and to whoever waits
+for it. The profiles say which replies answer a command (`ProfileReply.Ack`, `AckKey`): a
+projector's `%1POWR=OK` answers POWR and nothing else; Pixera's look-up handle is on the way and
+its command's result is the yes; an OK line answers the oldest line waiting. The HTTP link is
+awaitable (`DeliverAsync`): the response is delivered, a 2xx accepted, a 4xx or 5xx rejected
+with its status, no response failed. The twin's wall switch waits for the receipts of what its
+cue sent: a take-back across machines releases the standby when the boxes have said yes and not
+at all when one said no or nothing; a takeover by itself opens the outputs when they have said
+yes and refuses, hold kept, when they have not — and a cue whose box cannot answer (a datagram)
+is not a fence for taking over by itself at all, said on the line. A cue with no box behind it
+is the operator's own switch and confirms itself, as before.
+
+### 61.4 Left, and said
+
+The observation's expected answer is the device's, not the line's: one route, one expectation —
+right for the wall switch it was built for, and a limit for a projector asked for two inputs in
+one cue. The cue stack does not yet read a failed receipt back into the cue's late-failure
+watch; the journal and the card carry it. The stopped take-back keeps this desk's outputs open
+on displays the room is not looking at, by design: the operator's next press, or a hand switch,
+finishes it.
+
+Counts at the end of the round: Core 1,120, App 582 — both suites green here.

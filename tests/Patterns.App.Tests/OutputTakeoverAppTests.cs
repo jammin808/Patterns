@@ -96,7 +96,7 @@ public class OutputTakeoverAppTests
             var result = OutputTakeover.ClaimAtStart(dir, enabled: true, new FakeProbe()); // nothing alive
             Assert.Equal(OutputClaim.Stale, result.Claim);
             Assert.False(result.TookOver);
-            Assert.Null(new OutputOwnerStore(dir).Read());   // the litter is gone
+            Assert.True(new OutputOwnerStore(dir).Read().IsMissing);   // the litter is gone
         }
         finally
         {
@@ -127,8 +127,8 @@ public class OutputTakeoverAppTests
             Assert.Equal(new[] { 4242 }, probe.Killed);
             Assert.Contains("2 screens (Main wall, Foyer)", result.Words);
             // Both sidecars are cleared: this desk owns nothing until its own outputs open.
-            Assert.Null(store.Read());
-            Assert.Null(store.ReadRequest());
+            Assert.True(store.Read().IsMissing);
+            Assert.True(store.ReadRequest().IsMissing);
         }
         finally
         {
@@ -160,8 +160,8 @@ public class OutputTakeoverAppTests
             Assert.Contains("(pid 4242) and cannot be read from here", result.Words);
             Assert.Contains("close it by hand, then OUTPUTS ON here", result.Words);
             // The record stays for the next start to read; the ask, which was ours, is cleared.
-            Assert.NotNull(store.Read());
-            Assert.Null(store.ReadRequest());
+            Assert.True(store.Read().IsValid);
+            Assert.True(store.ReadRequest().IsMissing);
         }
         finally
         {
@@ -194,7 +194,7 @@ public class OutputTakeoverAppTests
             Assert.False(result.EndedOwner);
             Assert.Empty(probe.Killed);
             Assert.Contains("stood down", result.Words);
-            Assert.Null(store.ReadRequest());
+            Assert.True(store.ReadRequest().IsMissing);
         }
         finally
         {
@@ -247,8 +247,8 @@ public class OutputTakeoverAppTests
             Assert.False(result.TookOver);
             Assert.Empty(probe.Killed);
             Assert.Contains("Machine → Watchdog", result.Words);
-            Assert.NotNull(store.Read());        // left exactly as it was
-            Assert.Null(store.ReadRequest());    // and never asked for
+            Assert.True(store.Read().IsValid);        // left exactly as it was
+            Assert.True(store.ReadRequest().IsMissing);    // and never asked for
         }
         finally
         {
@@ -266,14 +266,14 @@ public class OutputTakeoverAppTests
         {
             var services = b.Services;
             var store = new OutputOwnerStore(b.Dir);
-            Assert.Null(store.Read());   // nothing open: nobody's screens
+            Assert.True(store.Read().IsMissing);   // nothing open: nobody's screens
 
             services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
             Dispatcher.UIThread.RunJobs();
             Assert.True(services.Outputs.IsLive);
 
-            Assert.True(WaitFor(() => store.Read() is not null), "the record is written when the outputs open");
-            var owner = store.Read();
+            Assert.True(WaitFor(() => store.Read().IsValid), "the record is written when the outputs open");
+            var owner = store.Read().Value;
             Assert.NotNull(owner);
             Assert.Equal(Environment.ProcessId, owner!.Pid);
             Assert.Equal(Environment.MachineName, owner.Machine);
@@ -281,15 +281,15 @@ public class OutputTakeoverAppTests
             Assert.True(services.Ownership.Held);
 
             // The beat moves on with the desk's own poll — the silence of a hung one is the signal.
-            var first = store.Read()!.HeartbeatUtc;
+            var first = store.Read().Value!.HeartbeatUtc;
             Thread.Sleep(OutputOwnership.HeartbeatEvery + TimeSpan.FromMilliseconds(50));
             b.Vm.PollNow();
-            Assert.True(WaitFor(() => store.Read() is { } beat && beat.HeartbeatUtc > first), "the poll beats the record");
+            Assert.True(WaitFor(() => store.Read().Value is { } beat && beat.HeartbeatUtc > first), "the poll beats the record");
 
             services.Actions.Execute(ShowActionKind.OutputsOff, ActionOrigin.Desk);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.True(WaitFor(() => store.Read() is null && !services.Ownership.Held), "the record goes with the windows");
+            Assert.True(WaitFor(() => store.Read().IsMissing && !services.Ownership.Held), "the record goes with the windows");
         }
         finally
         {
@@ -317,8 +317,8 @@ public class OutputTakeoverAppTests
 
             Assert.Contains("999", told);
             Assert.False(services.Outputs.IsLive);
-            Assert.Null(store.Read());
-            Assert.Null(store.ReadRequest());   // answered once, never again
+            Assert.True(store.Read().IsMissing);
+            Assert.True(store.ReadRequest().IsMissing);   // answered once, never again
             Assert.Contains("999", HealthMonitor.WatchdogNote);
         }
         finally
@@ -343,7 +343,7 @@ public class OutputTakeoverAppTests
             store.Ask(new HandoverRequest(Environment.ProcessId, DateTime.UtcNow));
             b.Vm.PollNow();
             Assert.False(WaitFor(() => told > 0, 600));
-            Assert.NotNull(store.ReadRequest());   // its own ask is left for it to clear at the end
+            Assert.True(store.ReadRequest().IsValid);   // its own ask is left for it to clear at the end
 
             store.Ask(new HandoverRequest(999, DateTime.UtcNow - OutputTakeover.RequestFresh - TimeSpan.FromSeconds(5)));
             b.Vm.PollNow();
@@ -384,6 +384,260 @@ public class OutputTakeoverAppTests
 
             Assert.True(b.Services.Outputs.IsLive, "the screens we took come straight back on");
             Assert.Contains("Main wall", b.Vm.StatusMessage);
+        }
+        finally
+        {
+            HealthMonitor.WatchdogNote = "";
+            b.Dispose();
+            OutputTakeover.Reset();
+        }
+    }
+
+    /// <summary>Real files on a temp folder with faults thrown in: the night's file system, chosen per test.</summary>
+    private sealed class FaultyFiles : ISidecarFiles
+    {
+        public bool WriteThrows;
+        public bool ReadThrows;
+        public string? DeleteThrowsFor;
+        public int Writes;
+
+        public bool DirectoryExists(string path) => Directory.Exists(path);
+
+        public bool Exists(string path) => File.Exists(path);
+
+        public string ReadAllText(string path)
+        {
+            if (ReadThrows) throw new IOException("The process cannot access the file because it is being used by another process.");
+            return File.ReadAllText(path);
+        }
+
+        public void WriteAllText(string path, string text)
+        {
+            Writes++;
+            if (WriteThrows) throw new UnauthorizedAccessException("Access to the path is denied.");
+            File.WriteAllText(path, text);
+        }
+
+        public void Move(string from, string to) => File.Move(from, to, overwrite: true);
+
+        public void Delete(string path)
+        {
+            if (DeleteThrowsFor == path) throw new IOException("The file is locked.");
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void AnUnreadableRecordIsAFenceNothingIsAskedEndedOrOpenedAndTheWordsSayOutputsOn()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = new OutputOwnerStore(dir);
+            var silent = DateTime.UtcNow - OutputOwnership.HeartbeatSilent - TimeSpan.FromSeconds(5);
+            store.Write(Record(4242, 1000, silent, "Main wall"));
+            var probe = new FakeProbe();
+            probe.Alive[4242] = 1000;
+            probe.Paths[4242] = Environment.ProcessPath ?? "Patterns";
+            var files = new FaultyFiles { ReadThrows = true };     // the record is locked by something else
+
+            var result = OutputTakeover.ClaimAtStart(dir, enabled: true, probe, wait: _ => { }, files: files);
+
+            Assert.Equal(OutputClaim.Unknown, result.Claim);
+            Assert.True(result.Uncertain);
+            Assert.False(result.TookOver);
+            Assert.False(result.EndedOwner);
+            Assert.Empty(probe.Killed);                                  // a desk that may be playing is not ended
+            Assert.Equal(0, files.Writes);                               // and not even asked
+            Assert.Contains("could not be read", result.Words);
+            Assert.Contains("another process", result.Words);
+            Assert.Contains("OUTPUTS ON", result.Words);
+            Assert.False(File.Exists(Path.Combine(dir, "patterns.handover.json")));
+
+            // Junk on disk reads the same way, with real files.
+            File.WriteAllText(store.OwnerPath, "{ torn");
+            var junk = OutputTakeover.ClaimAtStart(dir, enabled: true, probe, wait: _ => { });
+            Assert.Equal(OutputClaim.Unknown, junk.Claim);
+            Assert.Empty(probe.Killed);
+        }
+        finally
+        {
+            OutputTakeover.Reset();
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AHungRunWhoseAskNeverReachedTheDiskIsNeverEnded()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = new OutputOwnerStore(dir);
+            var silent = DateTime.UtcNow - OutputOwnership.HeartbeatSilent - TimeSpan.FromSeconds(5);
+            store.Write(Record(4242, 1000, silent, "Main wall"));
+            var probe = new FakeProbe();
+            probe.Alive[4242] = 1000;
+            probe.Paths[4242] = Environment.ProcessPath ?? "Patterns";
+            var files = new FaultyFiles { WriteThrows = true };    // the folder will not take the ask
+
+            var result = OutputTakeover.ClaimAtStart(dir, enabled: true, probe, wait: _ => { }, files: files);
+
+            // Asked, it might have stood down; unasked, its silence means nothing — so it is not ended.
+            Assert.Equal(OutputClaim.HeldByHungDesk, result.Claim);
+            Assert.False(result.TookOver);
+            Assert.False(result.EndedOwner);
+            Assert.Empty(probe.Killed);
+            Assert.Contains("could not be asked for them", result.Words);
+            Assert.Contains("denied", result.Words);
+            Assert.Contains("close it by hand, then OUTPUTS ON here", result.Words);
+            Assert.True(store.Read().IsValid);                           // the record stays for the next start
+        }
+        finally
+        {
+            OutputTakeover.Reset();
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ARecordThatCannotBeReadWhileWaitingIsNotTakenForALetGo()
+    {
+        var dir = TempDir();
+        try
+        {
+            var store = new OutputOwnerStore(dir);
+            var silent = DateTime.UtcNow - OutputOwnership.HeartbeatSilent - TimeSpan.FromSeconds(5);
+            store.Write(Record(4242, 1000, silent, "Main wall"));
+            var probe = new FakeProbe();
+            probe.Alive[4242] = 1000;
+            probe.Paths[4242] = Environment.ProcessPath ?? "Patterns";
+            var files = new FaultyFiles();
+            var looks = 0;
+            var result = OutputTakeover.ClaimAtStart(dir, enabled: true, probe, wait: _ =>
+            {
+                // The first look reads; every look after it finds the file locked.
+                if (++looks == 1) files.ReadThrows = true;
+            }, files: files);
+
+            Assert.False(result.TookOver);
+            Assert.Empty(probe.Killed);
+            Assert.Contains("could not be read while waiting", result.Words);
+        }
+        finally
+        {
+            OutputTakeover.Reset();
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [AvaloniaFact]
+    public void ADeskWhoseRecordCannotBeKeptSaysSoHoldsNothingAndRecoversWhenTheFolderTakesWritesAgain()
+    {
+        OutputTakeover.Reset();
+        var files = new FaultyFiles { WriteThrows = true };
+        OutputOwnershipService.SidecarFiles = () => files;
+        var b = TestApp.Boot();
+        try
+        {
+            var services = b.Services;
+            var trouble = new List<string>();
+            services.Ownership.TroubleChanged += words => trouble.Add(words);
+            services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(services.Outputs.IsLive);
+
+            Assert.True(WaitFor(() => services.Ownership.Trouble.Length > 0), "the failed write is said");
+            Assert.False(services.Ownership.Held);                       // the windows are ours; the folder does not say so
+            Assert.Contains("could not be written", services.Ownership.Trouble);
+            Assert.Contains("denied", services.Ownership.Trouble);
+            Assert.True(WaitFor(() => trouble.Count == 1), "said once");
+            b.Vm.PollNow();
+            Assert.Contains("could not be written", b.Vm.ScreensOwnedText);
+            Assert.Contains("could not be written", HealthMonitor.WatchdogNote);
+
+            // The folder takes writes again: the next beat commits, the trouble clears, said once more.
+            files.WriteThrows = false;
+            Thread.Sleep(OutputOwnership.HeartbeatEvery + TimeSpan.FromMilliseconds(50));
+            b.Vm.PollNow();
+            Assert.True(WaitFor(() => services.Ownership.Held), "the record lands once the folder takes it");
+            Assert.Equal("", services.Ownership.Trouble);
+            Assert.True(WaitFor(() => trouble.Count == 2 && trouble[1] == ""), "the clearing is said");
+            Assert.True(new OutputOwnerStore(b.Dir).Read().IsValid);
+        }
+        finally
+        {
+            OutputOwnershipService.SidecarFiles = null;
+            HealthMonitor.WatchdogNote = "";
+            b.Dispose();
+            OutputTakeover.Reset();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ACorruptAskIsNotObeyedAndAnAskWhoseClearFailsIsAnsweredOnce()
+    {
+        OutputTakeover.Reset();
+        var files = new FaultyFiles();
+        OutputOwnershipService.SidecarFiles = () => files;
+        var b = TestApp.Boot();
+        try
+        {
+            var services = b.Services;
+            var store = new OutputOwnerStore(b.Dir);
+            var told = 0;
+            services.Ownership.StoodDown += _ => told++;
+
+            File.WriteAllText(store.RequestPath, "{ torn");           // junk where an ask would be
+            b.Vm.PollNow();
+            Assert.False(WaitFor(() => told > 0, 600));
+            Assert.True(File.Exists(store.RequestPath));               // not an ask: left alone, not cleared, not obeyed
+
+            // A real ask whose clear then fails: answered once, and not again next second.
+            files.DeleteThrowsFor = store.RequestPath;
+            store.Ask(new HandoverRequest(999, DateTime.UtcNow));
+            b.Vm.PollNow();
+            Assert.True(WaitFor(() => told == 1), "the ask is answered");
+            Assert.True(File.Exists(store.RequestPath));               // the clear failed, so it is still there
+            b.Vm.PollNow();
+            b.Vm.PollNow();
+            Assert.False(WaitFor(() => told > 1, 600));                // and not answered twice
+        }
+        finally
+        {
+            OutputOwnershipService.SidecarFiles = null;
+            HealthMonitor.WatchdogNote = "";
+            b.Dispose();
+            OutputTakeover.Reset();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ARestartThatCannotReadTheRecordPutsNothingBackByItselfAndOutputsOnStillWorks()
+    {
+        OutputTakeover.Reset();
+        var b = TestApp.Boot("patterns-takeover-", dir =>
+        {
+            var air = new ShowState();
+            air.Pattern.Kind = PatternKind.LedWall;
+            new RecoveryStore(dir).Write(new RecoverySnapshot(true, false, DateTime.UtcNow, Air: air, Sandboxed: true));
+            File.WriteAllText(Path.Combine(dir, "patterns.outputs.json"), "{ torn");
+            OutputTakeover.ClaimAtStart(dir, enabled: true, new FakeProbe(), wait: _ => { });
+        });
+        try
+        {
+            Assert.True(b.Services.Takeover.Uncertain);
+            Assert.Contains("could not be read", HealthMonitor.WatchdogNote);
+
+            b.Services.TryRecover(b.Vm);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(b.Services.Outputs.IsLive, "nothing opens by itself on an unreadable record");
+            Assert.Contains("OUTPUTS ON", b.Vm.StatusMessage);
+
+            // The operator, sure, opens them by hand.
+            Assert.True(b.Services.Actions.Execute(ShowActionKind.OutputsOn, ActionOrigin.Desk).Ok);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(b.Services.Outputs.IsLive);
         }
         finally
         {

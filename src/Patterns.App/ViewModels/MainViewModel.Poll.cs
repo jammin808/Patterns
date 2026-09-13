@@ -208,8 +208,10 @@ public sealed partial class MainViewModel
         _services.Ownership.Tick();
         var live = _services.Outputs.IsLive;
         var took = _services.Takeover;
+        var trouble = _services.Ownership.Trouble;
         ScreensOwnedText = live
             ? $"The screens are this desk's: {OutputOwnership.TargetWords(_services.Outputs.LiveTargetNames())} live under pid {Environment.ProcessId}."
+              + (trouble.Length > 0 ? " " + trouble : "")
             : took.Words.Length > 0
                 ? took.Words
                 : "The outputs are closed — no screen is this desk's.";

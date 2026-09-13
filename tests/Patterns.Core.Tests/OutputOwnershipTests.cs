@@ -173,33 +173,197 @@ public class OutputOwnershipTests
         try
         {
             var store = new OutputOwnerStore(dir);
-            Assert.Null(store.Read());
-            Assert.Null(store.ReadRequest());
+            Assert.True(store.Read().IsMissing);
+            Assert.True(store.ReadRequest().IsMissing);
 
             var owner = Owner();
-            store.Write(owner);
-            var back = store.Read();
-            Assert.NotNull(back);
-            Assert.Equal(owner.Pid, back!.Pid);
+            Assert.True(store.Write(owner).Committed);
+            var read = store.Read();
+            Assert.True(read.IsValid);
+            var back = read.Value!;
+            Assert.Equal(owner.Pid, back.Pid);
             Assert.Equal(owner.StartedAtUtcTicks, back.StartedAtUtcTicks);
             Assert.Equal(owner.Machine, back.Machine);
             Assert.Equal(owner.Targets, back.Targets);
 
-            store.Ask(new HandoverRequest(9, Now));
-            Assert.Equal(9, store.ReadRequest()!.Pid);
-            store.ClearRequest();
-            Assert.Null(store.ReadRequest());
+            Assert.True(store.Ask(new HandoverRequest(9, Now)).Committed);
+            Assert.Equal(9, store.ReadRequest().Value!.Pid);
+            Assert.True(store.ClearRequest().Committed);
+            Assert.True(store.ReadRequest().IsMissing);
+            Assert.True(store.ClearRequest().Committed);           // clearing nothing is not a failure
 
-            store.Clear();
-            Assert.Null(store.Read());
+            Assert.True(store.Clear().Committed);
+            Assert.True(store.Read().IsMissing);
 
-            // Junk on disk is not a crash — a torn write must never make a live desk look like an orphan.
+            // Junk on disk is not a crash, and it is not "free" either: a torn write must never make
+            // a live desk look like an orphan, nor a locked record look like nobody's screens.
             File.WriteAllText(Path.Combine(dir, "patterns.outputs.json"), "{ not json");
-            Assert.Null(store.Read());
+            var junk = store.Read();
+            Assert.True(junk.IsUnreadable);
+            Assert.Null(junk.Value);
+            Assert.NotEqual("", junk.Problem);
+            Assert.Equal(OutputClaim.Unknown, OutputOwnership.Read(junk, 1, Me, Now, ProcessSight.From(NothingRunning)));
+            File.WriteAllText(Path.Combine(dir, "patterns.outputs.json"), "null");
+            Assert.True(store.Read().IsUnreadable);
         }
         finally
         {
             try { Directory.Delete(dir, recursive: true); } catch { /* the temp folder can wait */ }
         }
+    }
+
+    /// <summary>The files as a night can find them: a folder that will not take a write, a file that is locked, a rename that fails, a share that is gone, junk.</summary>
+    private sealed class FaultyFiles : ISidecarFiles
+    {
+        public readonly Dictionary<string, string> Disk = new(StringComparer.Ordinal);
+        public bool FolderGone;
+        public bool WriteThrows;
+        public bool MoveThrows;
+        public string? ReadThrowsFor;     // one path only
+        public string? DeleteThrowsFor;
+
+        public bool DirectoryExists(string path) => !FolderGone;
+
+        public bool Exists(string path) => Disk.ContainsKey(path);
+
+        public string ReadAllText(string path)
+        {
+            if (ReadThrowsFor == path) throw new IOException("The process cannot access the file because it is being used by another process.");
+            return Disk[path];
+        }
+
+        public void WriteAllText(string path, string text)
+        {
+            if (WriteThrows) throw new UnauthorizedAccessException("Access to the path is denied.");
+            Disk[path] = text;
+        }
+
+        public void Move(string from, string to)
+        {
+            if (MoveThrows) throw new IOException("The file cannot be moved: it is in use.");
+            Disk[to] = Disk[from];
+            Disk.Remove(from);
+        }
+
+        public void Delete(string path)
+        {
+            if (DeleteThrowsFor == path) throw new IOException("The file is locked.");
+            Disk.Remove(path);
+        }
+    }
+
+    private static readonly Func<int, ProcessSight> Nobody = ProcessSight.From(NothingRunning);
+
+    [Fact]
+    public void AReadOnlyFolderCommitsNoWriteAndTheReadStaysHonest()
+    {
+        var files = new FaultyFiles { WriteThrows = true };
+        var store = new OutputOwnerStore("/show", files);
+        var wrote = store.Write(Owner());
+        Assert.False(wrote.Committed);
+        Assert.Contains("denied", wrote.Problem);
+        Assert.True(store.Read().IsMissing);                    // nothing landed, and nothing pretends it did
+        var asked = store.Ask(new HandoverRequest(9, Now));
+        Assert.False(asked.Committed);
+        Assert.True(store.ReadRequest().IsMissing);
+        Assert.Empty(files.Disk);                               // the half-written .tmp was not left behind either
+    }
+
+    [Fact]
+    public void ALockedRecordOrAskIsUnreadableAndReadsAsAFence()
+    {
+        var files = new FaultyFiles();
+        var store = new OutputOwnerStore("/show", files);
+        Assert.True(store.Write(Owner()).Committed);
+        Assert.True(store.Ask(new HandoverRequest(9, Now)).Committed);
+
+        files.ReadThrowsFor = store.OwnerPath;
+        var read = store.Read();
+        Assert.True(read.IsUnreadable);
+        Assert.Contains("another process", read.Problem);
+        Assert.Equal(OutputClaim.Unknown, OutputOwnership.Read(read, 1, Me, Now, Nobody));
+        Assert.True(store.ReadRequest().IsValid);              // the other file is its own question
+
+        files.ReadThrowsFor = store.RequestPath;
+        Assert.True(store.Read().IsValid);
+        Assert.True(store.ReadRequest().IsUnreadable);
+    }
+
+    [Fact]
+    public void JunkInEitherSidecarIsUnreadableNotAbsent()
+    {
+        var files = new FaultyFiles();
+        var store = new OutputOwnerStore("/show", files);
+        files.Disk[store.OwnerPath] = "{ \"Pid\": ";
+        files.Disk[store.RequestPath] = "<html>";
+        Assert.True(store.Read().IsUnreadable);
+        Assert.True(store.ReadRequest().IsUnreadable);
+        Assert.Equal(OutputClaim.Unknown, OutputOwnership.Read(store.Read(), 1, Me, Now, Nobody));
+    }
+
+    [Fact]
+    public void AFailedRenameIsAFailedWriteAndLeavesNoHalfRecord()
+    {
+        var files = new FaultyFiles { MoveThrows = true };
+        var store = new OutputOwnerStore("/show", files);
+        var wrote = store.Write(Owner());
+        Assert.False(wrote.Committed);
+        Assert.Contains("in use", wrote.Problem);
+        Assert.True(store.Read().IsMissing);
+        Assert.DoesNotContain(files.Disk.Keys, k => k.EndsWith(".tmp", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AFolderThatIsGoneIsUnreadableNeverFree()
+    {
+        // A show on a share that dropped, or on a stick that was pulled: File.Exists answers false
+        // there, which is the one answer that must not become "nobody has the screens".
+        var files = new FaultyFiles { FolderGone = true };
+        var store = new OutputOwnerStore("/show", files);
+        var read = store.Read();
+        Assert.True(read.IsUnreadable);
+        Assert.Contains("not there", read.Problem);
+        Assert.Equal(OutputClaim.Unknown, OutputOwnership.Read(read, 1, Me, Now, Nobody));
+        Assert.False(store.Write(Owner()).Committed == false && files.Disk.Count > 0);   // and a write there is not believed either way
+    }
+
+    [Fact]
+    public void AClearThatFailsSaysSoAndOneOfNothingIsFine()
+    {
+        var files = new FaultyFiles();
+        var store = new OutputOwnerStore("/show", files);
+        Assert.True(store.Clear().Committed);                   // nothing to clear
+        Assert.True(store.Write(Owner()).Committed);
+        files.DeleteThrowsFor = store.OwnerPath;
+        var cleared = store.Clear();
+        Assert.False(cleared.Committed);
+        Assert.Contains("locked", cleared.Problem);
+        Assert.True(store.Read().IsValid);                      // still there, and said so
+        files.DeleteThrowsFor = null;
+        Assert.True(store.Clear().Committed);
+        Assert.True(store.Read().IsMissing);
+    }
+
+    [Fact]
+    public void TheStoreRecoversWhenTheFolderTakesWritesAgain()
+    {
+        var files = new FaultyFiles { WriteThrows = true };
+        var store = new OutputOwnerStore("/show", files);
+        Assert.False(store.Write(Owner()).Committed);
+        Assert.False(store.Write(Owner()).Committed);
+        files.WriteThrows = false;
+        Assert.True(store.Write(Owner()).Committed);
+        Assert.True(store.Read().IsValid);
+        Assert.Equal(4242, store.Read().Value!.Pid);
+    }
+
+    [Fact]
+    public void TheWordsForAnUnreadableRecordTellTheOperatorHowToOpenTheScreens()
+    {
+        var words = OutputOwnership.Words(OutputClaim.Unknown, null);
+        Assert.Contains("could not be read", words);
+        Assert.Contains("does not open them by itself", words);
+        Assert.Contains("OUTPUTS ON", words);
+        Assert.Contains("(locked)", OutputOwnership.UnknownWords("locked"));
     }
 }

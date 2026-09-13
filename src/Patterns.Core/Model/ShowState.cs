@@ -2070,9 +2070,34 @@ public sealed class DeviceTriggerConfig : Observable
 /// One device of the Interactive area: where it is, how its lines are framed, what its words
 /// mean, and whether it hears the show back. The status is runtime, read from the service.
 /// </summary>
+/// <summary>
+/// How sure the show wants to be that a box did what it was told — the four things a send can
+/// establish, in order. A cue's step is journaled as dispatched the moment it goes; the receipt
+/// that follows says which of these the box reached, and a fence (the twin's wall switch) waits
+/// for the level the device is set to.
+/// </summary>
+public enum ConfirmLevel
+{
+    /// <summary>The bytes left this desk. All a UDP datagram or a MIDI note can say.</summary>
+    Sent,
+
+    /// <summary>The connection took them (TCP, serial), or the box answered at all (HTTP).</summary>
+    Delivered,
+
+    /// <summary>The box said yes: PJLink's OK, Pixera's result, an OK line, a 2xx.</summary>
+    Accepted,
+
+    /// <summary>Asked afterwards, the box's state is what was asked for.</summary>
+    Observed,
+}
+
 public sealed class DeviceConfig : Observable
 {
     private string _id = Guid.NewGuid().ToString("N");
+    private ConfirmLevel _confirm = ConfirmLevel.Accepted;
+    private string _observeQuery = "";
+    private string _observeExpect = "";
+    private int _confirmTimeoutMs = 2000;
     private string _name = "Arduino";
     private DeviceLink _link = DeviceLink.Serial;
     private string _port = "";
@@ -2145,6 +2170,22 @@ public sealed class DeviceConfig : Observable
 
     /// <summary>The line the page's SEND button writes — a handshake to try the wiring.</summary>
     public string TestText { get => _testText; set => Set(ref _testText, value ?? ""); }
+
+    /// <summary>
+    /// The confirmation the show wants of this box, capped at what its link and profile can give
+    /// (<see cref="Services.DeviceConfirmation.Effective"/>): a receipt below it is a failure in the
+    /// journal and on the card, and the twin's wall switch waits for it.
+    /// </summary>
+    public ConfirmLevel Confirm { get => _confirm; set => Set(ref _confirm, value); }
+
+    /// <summary>For Observed: the words sent after the box accepted, asking what it did — INPUT ? on a projector, GET /api/route on a switcher.</summary>
+    public string ObserveQuery { get => _observeQuery; set => Set(ref _observeQuery, value ?? ""); }
+
+    /// <summary>For Observed: what the answer to the query must contain — 31, or "input":"hdmi1".</summary>
+    public string ObserveExpect { get => _observeExpect; set => Set(ref _observeExpect, value ?? ""); }
+
+    /// <summary>How long a receipt is waited for before it is a failure (200 ms to 30 s).</summary>
+    public int ConfirmTimeoutMs { get => _confirmTimeoutMs; set => Set(ref _confirmTimeoutMs, Math.Clamp(value, 200, 30000)); }
 
     public ShowCollection<DeviceTriggerConfig> Triggers { get; init; } = new();
 

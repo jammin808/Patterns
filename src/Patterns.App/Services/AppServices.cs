@@ -447,6 +447,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Control = new ControlService(Kernel, this);
         Osc = new OscService(this);
         Devices = new DeviceService(this);
+        // A line to a box is journaled as dispatched when it goes; its receipt — what the box made
+        // of it, or its silence — is journaled when it lands, so the log says what happened, not what was asked.
+        Devices.Receipt += r => Kernel.Journal.Record($"device {r.Device}", "DeviceReceipt", r.Device, r.Ok ? "Done" : "Failed", r.Line);
         Install = new InstallService(this);
         Updates = new UpdateService(Kernel, this);
         Management = new ManagementService(Kernel, this, Updates);
@@ -531,6 +534,19 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // The screens change hands the moment they open or close, not at the next poll: a start a
         // second later must never read a record for windows that are already gone.
         Outputs.LiveChanged += Ownership.OnLiveChanged;
+        // A record that cannot be kept is said on the status line and the health line as it starts and as it clears.
+        Ownership.TroubleChanged += words =>
+        {
+            if (words.Length > 0)
+            {
+                Notify(words);
+                HealthMonitor.WatchdogNote = HealthMonitor.WatchdogNote.Length > 0 ? HealthMonitor.WatchdogNote + " · " + words : words;
+            }
+            else
+            {
+                Notify("The screens' ownership record is being kept again.");
+            }
+        };
         Ownership.StoodDown += words =>
         {
             HealthMonitor.WatchdogNote = words;
@@ -956,6 +972,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     {
         try
         {
+            // The record of who has the screens could not be read: a fence. A restart that put the
+            // show back by itself could open a second set of windows behind a desk still playing,
+            // so nothing opens here; the operator has the words and OUTPUTS ON.
+            if (Takeover.Uncertain)
+            {
+                vm.StatusMessage = Takeover.Words;
+                Log.Warn($"Recovery held: {Takeover.Words}");
+                return;
+            }
             var took = Takeover.TookOver;
             // Taking the screens back ended the picture the room was watching. Putting it straight
             // back is then a duty, not a preference: the AutoRestore choice is about a watchdog's
@@ -1293,6 +1318,12 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     // The contracts' view of the desk's own members: the same objects, typed as the capability.
     IActionLayer ITwinHost.Actions => Actions;
+
+    long ITwinHost.DeviceMark() => Devices.Mark();
+
+    int ITwinHost.DevicePendingSince(long mark) => Devices.PendingSince(mark);
+
+    Task<IReadOnlyList<DeviceReceipt>> ITwinHost.DeviceConfirmSince(long mark) => Devices.ConfirmSince(mark);
     IActionLayer IWireHost.Actions => Actions;
     IActionLayer IRunHost.Actions => Actions;
     IReadOnlyList<ScreenInfo> IRunHost.Screens => Screens.All;

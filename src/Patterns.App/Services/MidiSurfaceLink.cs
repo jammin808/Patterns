@@ -1,3 +1,4 @@
+using System.Text;
 using System.Runtime.Versioning;
 using NAudio.Midi;
 using Patterns.Core.Services;
@@ -80,6 +81,13 @@ public sealed class MidiSurfaceLink : IDeviceLink
     /// plain-text feedback, which a MIDI surface has no way to hear, so it is dropped rather than
     /// sprayed down the wire as note-ons nobody could diagnose.
     /// </summary>
+    /// <summary>A note is sent and no more: a surface has no answer to a lamp.</summary>
+    public Task<LinkDelivery> DeliverAsync(byte[] frame)
+    {
+        Write(Encoding.UTF8.GetString(frame));
+        return Task.FromResult(LinkDelivery.SentOnly);
+    }
+
     public void Write(string framedLine)
     {
         if (!MidiLines.TryLamp(framedLine, out var status, out var d1, out var d2)) return;

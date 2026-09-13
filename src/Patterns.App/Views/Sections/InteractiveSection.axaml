@@ -72,6 +72,19 @@
               </Grid>
               <TextBlock Classes="hint tip" Text="{Binding Words}" TextWrapping="Wrap"
                          IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}" />
+              <Grid ColumnDefinitions="130,*,8,Auto,8,*,8,Auto,8,*" Margin="0,2,0,0"
+                    IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
+                <TextBlock Classes="label" Text="Confirm" VerticalAlignment="Center" />
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:Lists.ConfirmLevels}"
+                          SelectedValue="{Binding Confirm, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                          ToolTip.Tip="How sure the show wants to be that this box did what it was told. A cue's step goes at once; the receipt follows in the journal and on this card. Capped at what the link can give: UDP and MIDI are sent only. The twin's wall switch waits for this level." />
+                <TextBlock Grid.Column="3" Classes="label" Text="Ask after" VerticalAlignment="Center" />
+                <TextBox Grid.Column="5" Text="{Binding ObserveQuery, Mode=TwoWay}" Watermark="INPUT ? · GET /api/route"
+                         ToolTip.Tip="For Observed: the words sent once the box accepted, asking what it did" />
+                <TextBlock Grid.Column="7" Classes="label" Text="Expect" VerticalAlignment="Center" />
+                <TextBox Grid.Column="9" Text="{Binding ObserveExpect, Mode=TwoWay}" Watermark="31 · &quot;input&quot;:&quot;hdmi1&quot;"
+                         ToolTip.Tip="For Observed: what the answer must contain" />
+              </Grid>
               <!-- A control surface: its port from the machine's own list, and which starter rows the button puts in. -->
               <Grid ColumnDefinitions="130,*,8,Auto,8,*" Margin="0,2,0,0"
                     IsVisible="{Binding Link, Converter={StaticResource EnumEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
