@@ -5087,7 +5087,7 @@ without the desk; everything else is the nodes.
 | A | The node kernel; `--node caller` (the Show pages alone, cues planned at home, offered as a diff at the venue, in step during the show over the twin's link with a third role, never holding outputs); the stage timer and messages as pages the desk serves (`/stage`, the timer's verbs and segments from the running order, messages with a receipt); the NODES rail item and page. | **built — §53** |
 | B | `--node arcade`: a fixed-step, interpolated, deterministic Skia engine; keyboard, XInput pads, Companion keys and a phone pad; Pong, Snake, Breakout; attract mode and a leaderboard; NDI or the ring to the wall; `ARCADE …` verbs and cue actions. | **built — §54** |
 | C | Audience play on the hub PC: `/play` with a room code and QR, polls, quizzes with speed points, word clouds, results on the wall and in the desk's overlays, a message back to each phone, moderation with the assistant, Draughts on the wall, the path the room votes. | **built — §55** |
-| D | Rig day gamified, opt-in: the alignment game on the mesh against the calibration's targets, the show-ready score on the health line, Blend Quest across a rig's joins. | assessed |
+| D | Rig day gamified, opt-in: the alignment game on the mesh against the calibration's targets, the show-ready score on the health line, Blend Quest across a rig's joins. | **built — §56** |
 
 What not to do is §11 of the doc: another engine runtime, a browser as the game surface, a plugin
 system, a timer in its own process, audience phones on the show LAN, gamification on by default.
@@ -5446,3 +5446,66 @@ The assistant proposing ten questions from the show's brief (a `poll` proposal t
 — the verb is there, the proposal kind is not. The lower third of the winner as a proposal.
 Commentary lines for the wall. A WebSocket for the vote (the long-poll is two seconds). Draughts
 with a clock. The audience VLAN is the venue's to make; the page and the doc say so.
+
+## 56. Round 38 — Round D of the nodes: rig day, gamified
+
+§52's last row, half a round on top of the calibration, with §10's limits kept as rules: opt-in,
+per operator, quiet during a live show unless asked, no streaks that nag, no confetti over a cue,
+a reward only for a real measure of quality, and every one of them off in one switch
+(`Install.RigDayGames`, the Machine page's RIG DAY GAMES, `RIGDAY ON` / `OFF`). Off, nothing of
+it runs or shows.
+
+### 56.1 The show-ready bar (`ShowReady`, pure)
+
+Five steps from the facts the super-check already reads — outputs on, every join's audit green,
+the calibration's residual under a pixel, the show lock held, the super-check all clear — as a
+bar that fills (`show-ready 3/5 ▰▰▰▱▱`) with the first open step in its own words ("calibration
+residual 2.5 px — the alignment game, or a steadier run"). A step that does not apply to this
+rig (no joins, no projectors) counts as done and says so. `RigDayService.Poll` gathers the facts
+every two seconds while the switch is on (the joins from `BlendQuest`, the residual from the
+calibration's solution, the lock, the last check's light), the health line carries the words,
+and a notification says once when the bar fills.
+
+### 56.2 The alignment game (`AlignmentGame`, pure)
+
+After a camera calibration (or its demo), `ALIGN START <screen>` takes the solver's mesh for
+that projector as the targets (resampled to the placement's density when they differ) and the
+placement's mesh as the start. The projector shows the solver's target ring at every lattice
+node — amber with a line to walk while the node is off, green within a pixel, the picked node's
+ring larger — through the lattice the Screens page already puts on an output
+(`PipelineViewport.LatticeTargets`, `RigEditor.ShowLattice(screen, point, targets)`). The arrows
+drive the picked node a pixel (Shift for five), Tab and Backspace walk to the next and the
+previous open node, S snaps it onto its target, Esc stops — on the Screens page, never from a
+text box; `ALIGN NUDGE dx dy`, `NEXT`, `PREV`, `SNAP`, `STOP` are the same from the wire. Each
+nudge is a relative move on the placement's mesh (`RigEditor.NudgeMeshPoint`, `WarpGrid.Nudged`),
+so the show file carries what the hand did. The residual in pixels is the score, a node locks
+within one, the lattice fills in as nodes lock, and the game walks on to the next open node by
+itself; the words say where it stands ("Left: node 5/25 · 3.2 px · 12 of 25 locked · worst
+7.1 px"). A real tool — assisted manual alignment where a hand beats a homography at the edges.
+
+### 56.3 Blend Quest and the streak
+
+`BlendQuest.Levels` makes a level of every join (two screens sharing an edge — a pair that
+touches only at a corner is the boss's, not a level) and the boss of the 2×2's middle (four
+screens over one patch); a level is clear when its members' audits carry no warning; the grey
+check stays the operator's eye and the words say so. The Screens page and the Machine page
+carry "Blend Quest: 2 of 4 joins clear · the boss waits". `OnTimeStreak` counts a person's GOs
+within the running order's drift (`CueTiming.Tolerance`) in a row, per session — a follow is
+not a press and does not count — as a chip on the Run surface for callers who want it, and
+nowhere near the stack for those who do not. `RIGDAY STATUS` is all of it as JSON.
+
+### 56.4 Tests
+
+Core `RigDayTests`: the bar step by step and what does not apply; the game's residuals, the lock
+within a pixel, a nudge and a snap through the grid's own maths, Next and Prev over the open
+nodes, a target mesh of another density; the quest's levels from a row and a 2×2 (the four
+edges, not the diagonals; the boss), cleared and warned; the streak. App `RigDayAppTests`: off
+by default and refusing; on, the bar from the facts and the streak; the demo calibration, the
+game on a projector with its targets on the lattice, a nudge in the placement's mesh, a snap that
+locks and walks on, the keys, PREV and NEXT, STOP clearing the lattice, OFF clearing everything. Counts at the end of the round: Core 1,081, App 552 — both suites green.
+
+### 56.5 Left for later
+
+A chime when the bar fills (a notification says it). The 2×2's black-level readback as a level
+of its own. Blend Quest "immersive" — the residual as heat over the wall as the camera sees it
+— needs a camera in the loop past the calibration. The streak on the caller's page (`/run`).

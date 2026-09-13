@@ -160,6 +160,9 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `PLAY EXPORT` | Everything to a file in the hub's folder — nicknames, never tokens |
 | `PLAY STATUS` / `PLAY RESULTS [id]` / `PLAY QUEUE` | `OK <json>` — the room; a question's results; the queue. Through a desk that hears a hub: a list, one entry per hub |
 | `ASSISTANT ASK <words>` / `ASSISTANT MODERATE <text>` | The desk's assistant from a node: one ask, `OK <json>` with `sent`, `status`, `inScope`, `reply` — a hub's queue asks MODERATE and reads one word: FINE, DOUBTFUL or OUT |
+| `RIGDAY ON` / `OFF` | Rig day's games, opt-in: the show-ready bar on the health line, the alignment game and Blend Quest on the Screens page, the on-time streak on the Run surface — off, nothing of them shows |
+| `RIGDAY STATUS` | `OK <json>` — `enabled`, `ready` (`done`, `total`, `bar`, `words`, `next`, `steps`), `align` (the game, or null), `quest` (`words`, `levels`), `streak` |
+| `ALIGN START <screen>` | The alignment game on a projector with a calibration (the solver's mesh as the targets, ringed on the projector's lattice); `ALIGN NEXT` / `PREV` walk the open nodes, `ALIGN NUDGE <dx> <dy>` moves the lit node in the output's pixels, `ALIGN SNAP` lands it on its target, `ALIGN STOP` ends it; `ALIGN STATUS` is the game as JSON. The desk's own — never a cue |
 
 One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in
 Audio-page order — there is deliberately no per-kind numbering, because two numbering schemes on a

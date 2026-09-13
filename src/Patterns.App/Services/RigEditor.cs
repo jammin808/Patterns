@@ -136,12 +136,16 @@ public sealed class RigEditor
 
     public int LatticePoint { get; private set; } = -1;
 
-    /// <summary>The lattice shown on an output (or on none), with the picked point: the output re-applies at once, no model edit.</summary>
-    public void ShowLattice(string screenId, int point)
+    /// <summary>The alignment game's targets on that lattice (the solver's node positions), or null.</summary>
+    public IReadOnlyList<SKPoint>? LatticeTargets { get; private set; }
+
+    /// <summary>The lattice shown on an output (or on none), with the picked point (and the game's targets): the output re-applies at once, no model edit.</summary>
+    public void ShowLattice(string screenId, int point, IReadOnlyList<SKPoint>? targets = null)
     {
-        if (LatticeOn == screenId && LatticePoint == point) return;
+        if (LatticeOn == screenId && LatticePoint == point && ReferenceEquals(LatticeTargets, targets)) return;
         LatticeOn = screenId;
         LatticePoint = point;
+        LatticeTargets = targets;
         _s.Outputs.OnScreensChanged();   // a live window takes its viewport again
         _s.RepublishNow();
     }
@@ -150,6 +154,13 @@ public sealed class RigEditor
     public void PullMeshPoint(ScreenPlacement placement, int index, float dx, float dy)
     {
         var line = WarpGrid.Moved(placement.WarpMesh, placement.WarpMeshColumns, placement.WarpMeshRows, index, dx, dy);
+        if (line != placement.WarpMesh) _s.BulkEdit(() => placement.WarpMesh = line);
+    }
+
+    /// <summary>One point of a placement's mesh nudged by a step; the show file carries it.</summary>
+    public void NudgeMeshPoint(ScreenPlacement placement, int index, float dx, float dy)
+    {
+        var line = WarpGrid.Nudged(placement.WarpMesh, placement.WarpMeshColumns, placement.WarpMeshRows, index, dx, dy);
         if (line != placement.WarpMesh) _s.BulkEdit(() => placement.WarpMesh = line);
     }
 

@@ -98,6 +98,7 @@ public static class ActionSpec
         ShowActionKind.StageMessage => (TargetKind.None, ValueKind.Text),
         ShowActionKind.ArcadeStart or ShowActionKind.ArcadeAttract or ShowActionKind.ArcadeKey or ShowActionKind.ArcadeSize or ShowActionKind.ArcadeNdi or ShowActionKind.ArcadeName => (TargetKind.None, ValueKind.Text),
         ShowActionKind.PlayAdd or ShowActionKind.PlayOpen or ShowActionKind.PlayShow or ShowActionKind.PlayMessage or ShowActionKind.PlayApprove or ShowActionKind.PlayReject or ShowActionKind.PlayAuto or ShowActionKind.PlayPath or ShowActionKind.PlayDraughts or ShowActionKind.PlayRoom => (TargetKind.None, ValueKind.Text),
+        ShowActionKind.AlignStart or ShowActionKind.AlignNudge => (TargetKind.None, ValueKind.Text),
         ShowActionKind.CountdownTo => (TargetKind.None, ValueKind.ClockTime),
         ShowActionKind.CountdownLabel => (TargetKind.None, ValueKind.Text),
         ShowActionKind.MessageOn => (TargetKind.None, ValueKind.Text),
@@ -208,6 +209,14 @@ public static class ActionSpec
         ShowActionKind.PlayDraughts => "Audience — draughts (reset)",
         ShowActionKind.PlayRoom => "Audience — the room (new code, or reset)",
         ShowActionKind.PlayExport => "Audience — export the room's results",
+        ShowActionKind.RigDayOn => "Rig day games — on",
+        ShowActionKind.RigDayOff => "Rig day games — off",
+        ShowActionKind.AlignStart => "Alignment game — start on a projector",
+        ShowActionKind.AlignStop => "Alignment game — stop",
+        ShowActionKind.AlignNext => "Alignment game — next node",
+        ShowActionKind.AlignPrev => "Alignment game — previous node",
+        ShowActionKind.AlignNudge => "Alignment game — nudge the node (dx dy)",
+        ShowActionKind.AlignSnap => "Alignment game — snap the node to its target",
         ShowActionKind.MessageOn => "Message on",
         ShowActionKind.MessageOff => "Message off",
         ShowActionKind.MessageToggle => "Message toggle",
@@ -367,6 +376,8 @@ public static class ActionSpec
         ShowActionKind.ShowLockOn or ShowActionKind.ShowLockOff => "this machine's own hold on Windows — it goes on with the outputs and off with them, or from the Machine page and the wire; a cue never changes the machine's settings",
         ShowActionKind.CalibrateRun or ShowActionKind.CalibrateCancel or ShowActionKind.CalibrateDemo or ShowActionKind.CalibrateApply or ShowActionKind.CalibrateUndo
             => "the rig's own measuring at set-up — the outputs show structured light for a minute and the placements move; a running order never re-aims the projectors",
+        ShowActionKind.RigDayOn or ShowActionKind.RigDayOff or ShowActionKind.AlignStart or ShowActionKind.AlignStop or ShowActionKind.AlignNext or ShowActionKind.AlignPrev or ShowActionKind.AlignNudge or ShowActionKind.AlignSnap
+            => "rig day's games are the desk's own — the keys, the Screens page and the wire, never a cue",
         _ => null,
     };
 

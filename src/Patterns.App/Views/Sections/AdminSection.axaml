@@ -325,6 +325,14 @@
     <TextBlock Classes="hint tip"
                Text="What needs an administrator once, before the tour — Windows Update's restart and its pause, toasts for every account, the error-reporting dialog — is tools/show-machine.ps1; docs/SHOW-MACHINE.md says what it sets. A pending Windows Update restart is read here, on the health line, in the super-check and in the assistant's brief. Quit Teams and Outlook before doors, or set Teams to Do not disturb: the lock mutes their audio, but a call still pops a window on the desk's screen — the log says when the foreground went elsewhere." />
 
+    <TextBlock Classes="h2" Text="RIG DAY GAMES (OPT-IN)" />
+    <CheckBox Content="Rig day, gamified — the show-ready bar on the health line, the alignment game and Blend Quest on the Screens page, the on-time streak on the Run surface"
+              IsChecked="{Binding IsRigDayOn}"
+              ToolTip.Tip="Off, none of it shows. On: every step a real measure — outputs on, every join's audit green, the calibration under a pixel, the show lock held, the super-check clear — quiet during a show unless asked; RIGDAY ON / OFF on the wire" />
+    <TextBlock Classes="label" Text="{Binding RigDayWords}" TextWrapping="Wrap" IsVisible="{Binding IsRigDayOn}" />
+    <TextBlock Classes="label" Text="{Binding QuestWords}" TextWrapping="Wrap" IsVisible="{Binding IsRigDayOn}" />
+    <TextBlock Classes="label" Text="{Binding StreakWords}" TextWrapping="Wrap" IsVisible="{Binding HasStreak}" />
+
     <TextBlock Classes="h2" Text="STABILITY (WATCHDOG)" />
     <CheckBox Content="Watchdog: auto-restart after a crash or hang"
               IsChecked="{Binding State.Watchdog.Enabled}"

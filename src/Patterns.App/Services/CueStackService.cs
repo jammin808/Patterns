@@ -226,6 +226,8 @@ public sealed class CueStackService
             if (result.Ok) ArmFollow(standby, now);
         }
         Record(standby, outcome, origin, done, standby!.Actions.Count, result.Message, now);
+        // Rig day's streak: this GO against the running order — only when the games are on, only a person's GO.
+        if (outcome is not CueOutcome.Refused && origin.Kind != OriginKind.Follow && _s.RigDay.Enabled) _s.RigDay.RecordGo(Timing(now.ToLocalTime()).Offset);
         Bump();
         // A zero-second follow fires the next cue now, through the same gate, as its own GO.
         if (rt.FollowDueUtc is { } due && due <= now) FireDueFollow(now);

@@ -739,6 +739,21 @@ public static class HelpTopics
             new[] { "Screens" },
             new[] { "calibration", "calibrate", "camera", "camera calibration", "auto align", "auto-align", "autoalign", "automatic alignment", "structured light", "gray code", "grey code", "stripes", "ndi camera", "phone camera", "blend mask", "mask", "solve", "solver", "residual", "coverage", "photos", "photographs", "plan", "cal-plan", "demo", "room that is not there", "projector alignment", "align projectors", "line up projectors" }),
 
+        new HelpTopic("rig-day", HelpGroup.TheRig,
+            "Rig day, gamified: the show-ready bar, the alignment game, Blend Quest, the on-time streak",
+            "Opt-in on the Machine page (RIG DAY GAMES): the health line's bar, the Screens page's game and quest after a calibration, the Run surface's streak.",
+            HelpBodies.RigDay,
+            new[]
+            {
+                "Turn it on: Machine page → RIG DAY GAMES, or RIGDAY ON on the wire. The health line grows the show-ready bar and names the first open step.",
+                "After a camera calibration (or CALIBRATE DEMO): Screens page → the projector → ALIGNMENT GAME, or ALIGN START <screen>. Arrows nudge the lit node, Tab the next, SNAP lands it, Esc stops.",
+                "Blend Quest reads the joins' audits: a level per join, the 2×2's middle the boss.",
+                "The Run surface shows the streak of GOs on the plan; RIGDAY STATUS is everything as JSON; RIGDAY OFF hides all of it.",
+            },
+            "RIGDAY ON",
+            new[] { "Screens", "Machine", "Run" },
+            new[] { "rig day", "gamified", "gamification", "show-ready", "show ready", "score", "alignment game", "align", "lattice", "target rings", "blend quest", "boss", "2x2", "streak", "on time", "opt-in", "games off" }),
+
         new HelpTopic("display-unplugged", HelpGroup.TheRig,
             "A display unplugged, back, or new: what the rig does",
             "Any time: a cable out mid-show, the same display back, a different one in its place — the Screens page says what happened and asks only what it must.",

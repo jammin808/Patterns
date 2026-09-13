@@ -58,7 +58,7 @@ public sealed class OutputWindowManager
         }
         var targets = BuildViewports(_services.State.Output.Placements, _services.Screens.All,
             masterFps: _services.State.Output.MasterFps, canvases: _services.State.Output.CanvasNames,
-            latticeOn: _services.RigEditor.LatticeOn, latticePoint: _services.RigEditor.LatticePoint);
+            latticeOn: _services.RigEditor.LatticeOn, latticePoint: _services.RigEditor.LatticePoint, latticeTargets: _services.RigEditor.LatticeTargets);
         if (targets.Count == 0)
         {
             Log.Warn("No enabled screens to output to.");
@@ -105,7 +105,7 @@ public sealed class OutputWindowManager
     /// </summary>
     public static List<(ScreenInfo Screen, PipelineViewport Viewport)> BuildViewports(
         IEnumerable<ScreenPlacement> placements, IReadOnlyList<ScreenInfo> screens, bool includePlanned = false, int masterFps = 0,
-        IEnumerable<CanvasNameConfig>? canvases = null, string latticeOn = "", int latticePoint = -1)
+        IEnumerable<CanvasNameConfig>? canvases = null, string latticeOn = "", int latticePoint = -1, IReadOnlyList<SKPoint>? latticeTargets = null)
     {
         var byId = screens.ToDictionary(s => s.Id);
         var live = new List<(ScreenPlacement Placement, ScreenInfo Info)>();
@@ -194,6 +194,7 @@ public sealed class OutputWindowManager
                     OutputId = placement.ScreenId,
                     ShowLattice = latticeOn.Length > 0 && latticeOn == placement.ScreenId,
                     LatticePoint = latticeOn.Length > 0 && latticeOn == placement.ScreenId ? latticePoint : -1,
+                    LatticeTargets = latticeOn.Length > 0 && latticeOn == placement.ScreenId ? latticeTargets : null,
                     BlendLeftPx = blend.Left, BlendTopPx = blend.Top,
                     BlendRightPx = blend.Right, BlendBottomPx = blend.Bottom,
                     BlendCurve = placement.BlendCurve,

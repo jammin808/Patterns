@@ -14,7 +14,9 @@ and profile, `--node caller` over the twin's link with the plan offer, the stage
 messages with their pages, and the NODES rail; round 36 (§54) the arcade — the engine, Pong,
 Snake and Breakout, the pads, NDI out, the ARCADE verbs; round 37 (§55) audience play — the room,
 five kinds of question, the wall, messages back, the queue with the assistant's second look,
-draughts and the path. Round D below is still the plan.*
+draughts and the path; round 38 (§56) rig day gamified — the show-ready bar, the alignment
+game, Blend Quest, the on-time streak, all behind one opt-in switch. The four rounds are built;
+what is left of the plan is in each round's "left for later".*
 
 ## 0. The verdict, first
 

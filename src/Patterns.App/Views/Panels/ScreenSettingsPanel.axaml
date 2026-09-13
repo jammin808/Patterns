@@ -169,6 +169,13 @@
         </Grid>
         <c:WarpMeshControl Height="230" />
         <TextBlock Classes="hint" Text="{Binding Screens.MeshDescription}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsRigDayOn}">
+          <Button Classes="mini" Content="ALIGNMENT GAME" Command="{Binding AlignStartCommand}"
+                  ToolTip.Tip="After a camera calibration (or its demo): the solver's target ring at every node on this projector, the lit node driven by the arrows (Shift for five), Tab the next, S snaps it, Esc stops; a node locks within a pixel" />
+          <Button Classes="mini" Content="STOP" Command="{Binding AlignStopCommand}" IsVisible="{Binding IsAligning}" />
+          <TextBlock Classes="label" Text="{Binding AlignWords}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </StackPanel>
+        <TextBlock Classes="hint" Text="{Binding QuestWords}" TextWrapping="Wrap" IsVisible="{Binding IsRigDayOn}" />
         <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Classes="chip" Content="Reset warp" Command="{Binding Screens.ResetWarpCommand}" ToolTip.Tip="The corners, the bends and the mesh back to rest" />
         </StackPanel>

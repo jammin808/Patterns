@@ -37,6 +37,8 @@ public enum RemoteCommandKind
     PlayStatus,
     /// <summary>ASSISTANT ASK &lt;words&gt;: the desk's assistant, one question, the reply as JSON — a node's way to the one key on the desk.</summary>
     AssistantAsk,
+    /// <summary>RIGDAY STATUS / ALIGN STATUS: the show-ready bar, the alignment game, Blend Quest, the streak — as JSON.</summary>
+    RigDayStatus,
 }
 
 /// <summary>
@@ -818,6 +820,36 @@ public static class ControlProtocol
                     case "EXPORT": case "SAVE": return Act(ShowActionKind.PlayExport);
                     default: return Unknown(s);
                 }
+            }
+
+            // Rig day, gamified: the games' switch and the show-ready bar; the alignment game's verbs.
+            case "RIGDAY":
+            case "RIG-DAY":
+            case "GAMES":
+                return arg.ToUpperInvariant() switch
+                {
+                    "" or "STATUS" => Query(RemoteCommandKind.RigDayStatus),
+                    "ON" => Act(ShowActionKind.RigDayOn),
+                    "OFF" => Act(ShowActionKind.RigDayOff),
+                    _ => Unknown(s),
+                };
+            case "ALIGN":
+            case "ALIGNMENT":
+            {
+                var sp = arg.IndexOf(' ');
+                var sub = (sp < 0 ? arg : arg[..sp]).ToUpperInvariant();
+                var tail = sp < 0 ? "" : arg[(sp + 1)..].Trim();
+                return sub switch
+                {
+                    "" or "STATUS" => Query(RemoteCommandKind.RigDayStatus, "align"),
+                    "START" or "PLAY" => Act(ShowActionKind.AlignStart, "", tail),
+                    "STOP" or "END" => Act(ShowActionKind.AlignStop),
+                    "NEXT" => Act(ShowActionKind.AlignNext),
+                    "PREV" or "BACK" => Act(ShowActionKind.AlignPrev),
+                    "NUDGE" or "MOVE" => tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.AlignNudge, "", tail),
+                    "SNAP" => Act(ShowActionKind.AlignSnap),
+                    _ => Unknown(s),
+                };
             }
 
             // The desk's assistant from a node: one ask, the reply as JSON.

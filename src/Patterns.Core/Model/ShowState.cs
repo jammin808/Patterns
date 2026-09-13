@@ -2304,6 +2304,11 @@ public sealed class InstallConfig : Observable
     /// <summary>A staged package (updates/*.zip) is applied by itself at the update window's minute.</summary>
     public bool AutoUpdate { get => _autoUpdate; set => Set(ref _autoUpdate, value); }
 
+    private bool _rigDayGames;
+
+    /// <summary>Rig day, gamified — opt-in, per operator: the show-ready bar on the health line, the alignment game, Blend Quest, the caller's on-time streak. Off, none of it shows.</summary>
+    public bool RigDayGames { get => _rigDayGames; set => Set(ref _rigDayGames, value); }
+
     /// <summary>"HH:mm" — the quiet hour an automatic update lands in.</summary>
     public string UpdateWindow { get => _updateWindow; set => Set(ref _updateWindow, (value ?? "").Trim()); }
 }

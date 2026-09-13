@@ -790,6 +790,13 @@ public partial class MainWindow : Window
 
         // An arcade node's window is the game, and a desk's Arcade page is while it shows: the pads'
         // keys go to the engine and nowhere else; a number picks a game for the house to show.
+        // The alignment game on the Screens page: the arrows drive the lit node, Tab and Backspace walk the nodes, S snaps, Esc stops.
+        if (vm.IsScreensPage && !typing && vm.IsAligning && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift && vm.AlignKey(e.Key, e.KeyModifiers == KeyModifiers.Shift))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if ((vm.IsArcadeNode || vm.IsArcadePage) && !typing && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift)
         {
             if (ArcadeKeys.Map(e.Key) is { } pad)

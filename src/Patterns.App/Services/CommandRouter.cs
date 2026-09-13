@@ -85,6 +85,8 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok(_services.Arcade.StatusJson(cmd.Text));
             case RemoteCommandKind.PlayStatus:
                 return ControlProtocol.Ok(_services.Play.StatusJson(cmd.Text));
+            case RemoteCommandKind.RigDayStatus:
+                return ControlProtocol.Ok(_services.RigDay.StatusJson(cmd.Text));
         }
 
         var action = cmd.Action;

@@ -572,3 +572,33 @@ back, moderation, draughts and the path.*
   state a long-poll; not load-tested this round beyond two phones in a test.
 - **The audience network** — a VLAN apart from the show LAN and no captive portal are the
   venue's to make; the page and the help say so.
+
+## Round 38 review — Round D of the nodes: rig day, gamified
+
+*The brief's last row: gamification where it earns its place, with limits.*
+
+### Done
+
+- `Patterns.Core.RigDay`: the show-ready score, the alignment game, Blend Quest, the on-time
+  streak — pure. `docs/PLAN.md` §56.1–56.3.
+- `RigDayService` behind one switch (`Install.RigDayGames`; the Machine page; `RIGDAY ON` /
+  `OFF`): the facts every two seconds, the bar on the health line, the game with the solver's
+  targets ringed on the projector's lattice and the keys on the Screens page, the quest's words,
+  the streak's chip on the Run surface. `RIGDAY STATUS`, `ALIGN …` on the wire; the kinds are the
+  desk's alone, never a cue's.
+- Help topic "rig-day"; REMOTE.md rows; README bullet; `docs/NODES.md` marked.
+
+### Found on the way (fixed)
+
+1. **A nudge that set the point instead of moving it** — `WarpGrid.Moved` sets an offset; the
+   game's nudges are relative (`Nudged`), and `RigEditor.NudgeMeshPoint` is the relative edit.
+2. **A 2×2's diagonals as joins** — two projectors that touch only at a corner are the boss's;
+   a join shares an edge.
+
+### Measured, and left
+
+- **Quiet in a show** — the games read facts every two seconds while on; nothing of them runs
+  while off, which is the default and one switch away.
+- **The chime** — the bar says it fills; a sound waits for a sound path that is not the show's.
+- **The streak's judgement** — within the running order's thirty-second drift; a caller who
+  wants a tighter measure has the timing line itself.

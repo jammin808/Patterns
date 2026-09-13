@@ -31,6 +31,7 @@
           <Border Classes="runChip vtChip" Classes.out="{Binding Run.VideoOut}" IsVisible="{Binding Run.HasVideo}" ToolTip.Tip="{Binding Run.VideoTip}"><TextBlock Text="{Binding Run.VideoChip}" /></Border>
           <Border Classes="runChip holdChip" IsVisible="{Binding Run.IsLate}" ToolTip.Tip="Behind the running order — the last GO against its planned start (or the standby cue's expected start against its plan)"><TextBlock Text="{Binding Run.OffsetText}" /></Border>
           <Border Classes="runChip armedChip" IsVisible="{Binding Run.IsOnPlan}" ToolTip.Tip="On or ahead of the running order"><TextBlock Text="{Binding Run.OffsetText}" /></Border>
+          <Border Classes="runChip armedChip" IsVisible="{Binding HasStreak}" ToolTip.Tip="Rig day's on-time streak: GOs within the running order's drift, in a row — Machine page, RIG DAY GAMES turns it off"><TextBlock Text="{Binding StreakWords}" /></Border>
           <TextBlock Classes="runNotes" Text="{Binding Run.NextAutoText}" VerticalAlignment="Center" Foreground="{StaticResource TextDimBrush}" />
         </StackPanel>
         <StackPanel Grid.Column="10" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">

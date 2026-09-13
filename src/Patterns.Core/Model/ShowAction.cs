@@ -340,6 +340,19 @@ public enum ShowActionKind
     PlayDraughts,
     PlayRoom,
     PlayExport,
+    /// <summary>
+    /// Rig day, gamified and opt-in: the games' switch, and the alignment game — a projector's
+    /// lattice driven node by node onto the solver's targets. Value: a screen for START, "dx dy"
+    /// for NUDGE. The desk's alone; never in a cue.
+    /// </summary>
+    RigDayOn,
+    RigDayOff,
+    AlignStart,
+    AlignStop,
+    AlignNext,
+    AlignPrev,
+    AlignNudge,
+    AlignSnap,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

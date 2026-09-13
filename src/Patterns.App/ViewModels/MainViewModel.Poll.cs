@@ -181,7 +181,10 @@ public sealed partial class MainViewModel
         if (missing.Length > 0) watch = watch.Length > 0 ? missing + " · " + watch : missing;
         var held = _services.ShowLock.HealthWords;
         if (held.Length > 0) watch = watch.Length > 0 ? held + " · " + watch : held;
+        PollRigDay();          // the show-ready facts every two seconds, the quest, the game's words — when the games are on
+        var ready = _services.RigDay.ReadyWords;
         HealthText = watch.Length > 0 ? $"{HealthMonitor.Summary(DateTime.UtcNow)} · {watch}" : HealthMonitor.Summary(DateTime.UtcNow);
+        if (ready.Length > 0) HealthText += " · " + ready;
         TwinStatus = _services.Twin.Status;
         _services.ShowLock.Tick();   // new audio sessions muted, the foreground watched, the pending restart read
         ShowLockStatus = _services.ShowLock.Status;

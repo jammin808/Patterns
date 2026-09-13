@@ -131,6 +131,7 @@ public sealed partial class ShowActions
             ?? RunStage(a, origin)
             ?? RunArcade(a, origin)
             ?? RunPlay(a, origin)
+            ?? RunRigDay(a, origin)
             ?? ActionResult.Refused($"Unknown action '{a.Kind}'.");
     }
 

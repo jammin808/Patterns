@@ -89,6 +89,9 @@ public sealed class AppServices
     /// <summary>Audience play: the room on the hub — polls, quizzes, the cloud, messages back, the queue, draughts and the path; the wall on the arcade's lane.</summary>
     public PlayService Play { get; }
 
+    /// <summary>Rig day, gamified and opt-in: the show-ready bar, the alignment game, Blend Quest, the streak.</summary>
+    public RigDayService RigDay { get; }
+
     /// <summary>The stage timer and the messages to stage, on the countdown's clock; the stage and timer pages read it.</summary>
     public StageService Stage { get; }
 
@@ -452,6 +455,7 @@ public sealed class AppServices
         Nodes = new NodesService(this);
         Arcade = new ArcadeService(this);
         Play = new PlayService(this);
+        RigDay = new RigDayService(this);
         Arcade.Board = Play.DrawWall;
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);

@@ -74,6 +74,9 @@ public sealed record PipelineViewport(
     public bool ShowLattice { get; init; }
     public int LatticePoint { get; init; } = -1;
 
+    /// <summary>The alignment game's targets — the solver's node positions in the output's pixels — ringed on the lattice; null when no game runs.</summary>
+    public IReadOnlyList<SKPoint>? LatticeTargets { get; init; }
+
     /// <summary>Per-output colour trims (100/1.0/100/100/100 = neutral).</summary>
     public double BrightnessPct { get; init; } = 100;
     public double Gamma { get; init; } = 1.0;
@@ -666,6 +669,8 @@ public sealed class RenderPipeline : IDisposable
     private readonly SKPaint _latticeDot = new() { IsAntialias = true, Style = SKPaintStyle.Fill, Color = new SKColor(0x3E, 0xC1, 0xF3) };
     private readonly SKPaint _latticePick = new() { IsAntialias = true, Style = SKPaintStyle.Fill, Color = new SKColor(0xFF, 0xB0, 0x2E) };
     private readonly SKPaint _latticeRing = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 3, Color = SKColors.White };
+    private readonly SKPaint _latticeTarget = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 3, Color = new SKColor(0xFF, 0xB0, 0x2E) };
+    private readonly SKPaint _latticeLocked = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 3, Color = new SKColor(0x7C, 0xF5, 0xC8) };
 
     /// <summary>The lattice over the projector's picture while the Screens page pulls it: lines, dots, and the picked point ringed — what the walk-up sees.</summary>
     private void DrawLattice(SKCanvas canvas, SKPoint[] nodes, PipelineViewport vp)
@@ -673,6 +678,17 @@ public sealed class RenderPipeline : IDisposable
         foreach (var (a, b) in WarpGrid.Lines(nodes, vp.WarpMeshColumns, vp.WarpMeshRows))
         {
             canvas.DrawLine(a, b, _latticeLine);
+        }
+        // The alignment game: the solver's target at each node as a ring — green once the node is within a pixel, amber with a line to walk while it is not.
+        if (vp.LatticeTargets is { } targets)
+        {
+            for (var k = 0; k < nodes.Length && k < targets.Count; k++)
+            {
+                var d = SKPoint.Distance(nodes[k], targets[k]);
+                var locked = d <= 1f;
+                canvas.DrawCircle(targets[k], k == vp.LatticePoint ? 22 : 12, locked ? _latticeLocked : _latticeTarget);
+                if (!locked) canvas.DrawLine(nodes[k], targets[k], _latticeTarget);
+            }
         }
         for (var k = 0; k < nodes.Length; k++)
         {
