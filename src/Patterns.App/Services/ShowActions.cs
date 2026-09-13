@@ -34,7 +34,12 @@ public sealed partial class ShowActions : IActionLayer
         using var take = _s.Bus.Take();
         try
         {
-            result = Run(action, origin);
+            // The live desk's policy, before any area answers: work that is not the show does not
+            // start while the stack is armed and the outputs are live, whoever asks — the desk, the
+            // wire, a cue, the schedule — and the refusal says what lifts it.
+            result = LivePolicy.Refusal(action.Kind, _s.CueStack?.Armed ?? false, _s.OutputsLive) is { } notNow
+                ? ActionResult.Refused(notNow)
+                : Run(action, origin);
         }
         catch (Exception ex)
         {

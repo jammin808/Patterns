@@ -18,6 +18,7 @@ public sealed class UpdateService
     private readonly IMachineHost _host;
     private string _scannedKey = "";
     private DateTime? _windowFiredOn;
+    private DateTime? _windowSaidOn;                   // the day the window was refused by the live desk, said once
 
     public UpdateService(ServiceKernel kernel, IMachineHost host)
     {
@@ -75,10 +76,14 @@ public sealed class UpdateService
     }
 
     /// <summary>UPDATE APPLY: the passcode (unless the policy — the window, the management server — asks), a usable package, the watchdog, then the exit that hands over.</summary>
+    /// <summary>The live desk's word on an update now — the same table the verbs go through — so the window keeps it as the verb does; null on a host that has no outputs to be live.</summary>
+    public Func<string?>? NotNow { get; set; }
+
     public ActionResult Apply(string passcode, ActionOrigin origin, bool byPolicy = false)
     {
         var cfg = _kernel.State.Install;
         if (!byPolicy && !_kernel.Gate.Check(cfg.AdminPasscode, passcode, DateTime.UtcNow)) return ActionResult.Refused($"Update refused — {_kernel.Gate.Reason}.");
+        if (NotNow?.Invoke() is { } notNow) return ActionResult.Refused(notNow);
         Scan();
         if (Staged is null) return ActionResult.Refused($"Nothing to apply — no package in {Folder}.");
         if (!Staged.Ok) return ActionResult.Refused($"The staged package cannot be used — {string.Join("; ", Staged.Problems)}.");
@@ -99,6 +104,13 @@ public sealed class UpdateService
         if (!cfg.AutoUpdate || Staged is not { Ok: true } || !Supervised) return;
         if (!Schedule.TryParseTime(cfg.UpdateWindow, out var at) || now.Hour != at.Hours || now.Minute != at.Minutes) return;
         if (_windowFiredOn == now.Date) return;
+        if (NotNow?.Invoke() is { } notNow)
+        {
+            // The window came round mid-show: not spent, not taken — the minute passes and the package waits for the next window.
+            if (_windowSaidOn != now.Date) Log.Info($"Update window at {cfg.UpdateWindow}: {notNow}");
+            _windowSaidOn = now.Date;
+            return;
+        }
         _windowFiredOn = now.Date;
         if (UpdatePackage.IsSameVersion(Staged.Version, RunningVersion))
         {

@@ -261,6 +261,105 @@ public class NodesAppTests
     }
 
     [AvaloniaFact]
+    public void ACallersPlanAndShapeChangingEditsWaitWhileTheDesksStackIsArmedAndItsNotesLandAtOnce()
+    {
+        var twinPort = FreePort();
+        var desk = TestApp.Boot("patterns-tests-desk-", dir => Settings(dir, s =>
+        {
+            s.Name = "Gala";
+            s.Twin.Port = twinPort;
+            s.Twin.Key = "hunter2";
+            s.Control.HttpPort = FreePort();
+            s.Control.TcpPort = FreePort();
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+            var stack = CueStacks.Caller(s);
+            stack.Cues.Add(new RunCueConfig { Number = "01", Name = "Walk-in" });
+        }));
+        NodeHost? node = null;
+        var dir = "";
+        try
+        {
+            PumpUntil(() => desk.Services.Twin.LinkPort == twinPort);
+            (node, dir) = BootNode(NodeKind.Caller, s =>
+            {
+                s.Name = "Planned at home";
+                s.Twin.Key = "hunter2";
+                var stack = CueStacks.Caller(s);
+                stack.Scratchpad = "Doors 18:30";
+                stack.Cues.Add(new RunCueConfig { Number = "01", Name = "Walk-in" });
+                stack.Cues.Add(new RunCueConfig { Number = "02", Name = "Welcome" });
+            });
+            var c = node;
+            var d = desk.Services;
+            desk.Vm.IsSandboxActive = false;                                         // the desk's edits are the program's: they mirror as they land
+            var card = new NodeCard("d1", NodeKind.Desk, "FOH-PC", IPAddress.Loopback, "Gala", "", twinPort, 0, TimeSpan.Zero, false);
+            c.Twin!.LinkTo(card);
+            PumpUntil(() => c.Twin!.Phase == TwinPhase.InStep);
+            PumpUntil(() => d.Twin.CallerCount == 1 && d.Twin.Plans.Count == 1);
+
+            // The desk's stack is armed: the show is running. APPLY does not replace the stack under the
+            // operator's hands — the plan waits on the page, said so. The caller's pad and notes are the
+            // show and land as ever; a cue added waits.
+            d.CueStack.SetArmed(true, ActionOrigin.Desk);
+            Assert.Equal("Walk-in", d.CueStack.StandbyCue?.Name);
+            var offer = d.Twin.Plans[0];
+            var waits = d.Twin.ApplyPlan(offer);
+            Assert.Equal(ActionStatus.Requested, waits.Status);
+            Assert.Contains("waits: the stack is armed — it lands on DISARM", waits.Message);
+            Assert.Single(d.Twin.Plans);
+            Assert.True(d.Twin.Plans[0].Queued);
+            Assert.Equal(new[] { "Walk-in" }, CueStacks.Caller(desk.Vm.State).Cues.Select(x => x.Name));
+            Assert.Contains(d.Kernel.Journal.Tail(6), e => e.Kind == "PlanQueued");
+            CueStacks.Caller(c.State).Scratchpad = "Doors 19:00";
+            CueStacks.Caller(c.State).Cues[0].Notes = "Lights to half";
+            PumpUntil(() => CueStacks.Caller(desk.Vm.State).Scratchpad == "Doors 19:00" && CueStacks.Caller(desk.Vm.State).Cues[0].Notes == "Lights to half");
+            Assert.Equal(0, d.Twin.QueuedEdits);
+            CueStacks.Caller(c.State).Cues.Add(new RunCueConfig { Number = "03", Name = "Encore" });
+            PumpUntil(() => d.Twin.QueuedEdits == 1);
+            Thread.Sleep(400);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(new[] { "Walk-in" }, CueStacks.Caller(desk.Vm.State).Cues.Select(x => x.Name));
+            Assert.Equal("Walk-in", d.CueStack.StandbyCue?.Name);
+            Assert.Contains("waits: the stack is armed", desk.Vm.StatusMessage);
+            Assert.Contains(d.Kernel.Journal.Tail(6), e => e.Kind == "SectionQueued" && e.Outcome == "Requested");
+
+            // DISARM: the caller's edit lands, then the plan — the operator's press wins; the page is clear.
+            d.CueStack.SetArmed(false, ActionOrigin.Desk);
+            Dispatcher.UIThread.RunJobs();
+            PumpUntil(() => CueStacks.Caller(desk.Vm.State).Cues.Count == 2 && d.Twin.Plans.Count == 0);
+            Assert.Equal(new[] { "Walk-in", "Welcome" }, CueStacks.Caller(desk.Vm.State).Cues.Select(x => x.Name));
+            Assert.Equal(0, d.Twin.QueuedEdits);
+            Assert.Contains(d.Kernel.Journal.Tail(8), e => e.Kind == "PlanApply");
+            Assert.Contains(d.Kernel.Journal.Tail(8), e => e.Kind == "SectionQueued" && e.Outcome == "Done");
+            PumpUntil(() => CueStacks.Caller(c.State).Cues.Count == 2);
+
+            // Armed again, the caller adds a cue, and the desk edits the same cues meanwhile: the desk's is
+            // the newer, the waiting one is set aside and said; added again, it lands on the next DISARM.
+            d.CueStack.SetArmed(true, ActionOrigin.Desk);
+            CueStacks.Caller(c.State).Cues.Add(new RunCueConfig { Number = "03", Name = "Encore" });
+            PumpUntil(() => d.Twin.QueuedEdits == 1);
+            d.BulkEdit(() => CueStacks.Caller(desk.Vm.State).Cues[1].Notes = "From the desk");   // the desk's edit, as the cue editor makes it
+            PumpUntil(() => d.Twin.QueuedEdits == 0);
+            Assert.Contains("was set aside", desk.Vm.StatusMessage);
+            PumpUntil(() => CueStacks.Caller(c.State).Cues.Count == 2 && CueStacks.Caller(c.State).Cues[1].Notes == "From the desk");   // the desk's edit reached the caller, and its own cue went with it
+            CueStacks.Caller(c.State).Cues.Add(new RunCueConfig { Number = "03", Name = "Encore" });
+            PumpUntil(() => d.Twin.QueuedEdits == 1);
+            d.CueStack.SetArmed(false, ActionOrigin.Desk);
+            Dispatcher.UIThread.RunJobs();
+            PumpUntil(() => CueStacks.Caller(desk.Vm.State).Cues.Count == 3);
+            Assert.Equal("Encore", CueStacks.Caller(desk.Vm.State).Cues[2].Name);
+            Assert.Equal("From the desk", CueStacks.Caller(desk.Vm.State).Cues[1].Notes);
+        }
+        finally
+        {
+            node?.Dispose();
+            desk.Dispose();
+            if (dir.Length > 0) { try { Directory.Delete(dir, recursive: true); } catch { /* best effort */ } }
+        }
+    }
+
+    [AvaloniaFact]
     public void AStageTimerNodeKeepsItsOwnClockAloneThenShowsTheDesksAndSendsItsReceiptsHome()
     {
         var twinPort = FreePort();

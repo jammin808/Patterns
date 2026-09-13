@@ -204,4 +204,35 @@ public class NodesTests
         Assert.Null(StageTimer.ParseSeconds("soon"));
         Assert.Equal("1:02:03", StageTimer.Format(3723));
     }
+
+    [Fact]
+    public void AStacksSectionKeepsTheDesksShapeWhenNoCueIsAddedRemovedOrMoved()
+    {
+        var desk = new ShowState();
+        var stack = CueStacks.Caller(desk);
+        stack.Cues.Add(new RunCueConfig { Number = "01", Name = "Walk-in" });
+        stack.Cues.Add(new RunCueConfig { Number = "02", Name = "Welcome" });
+
+        // A note, the pad, a cue's own words: the same shape — they land under an armed stack.
+        var theirs = JsonUtil.Deserialize<ShowState>(JsonUtil.Serialize(desk))!;
+        CueStacks.Caller(theirs).Scratchpad = "Doors 19:00";
+        CueStacks.Caller(theirs).Cues[0].Notes = "Lights to half";
+        CueStacks.Caller(theirs).Cues[1].Name = "Welcome (CEO)";
+        Assert.True(CuePlan.SameShape(desk.Stacks, TwinSync.SectionJson(theirs, nameof(ShowState.Stacks))));
+
+        // A cue added, removed, or moved: not the same shape — it waits for DISARM.
+        var added = JsonUtil.Deserialize<ShowState>(JsonUtil.Serialize(desk))!;
+        CueStacks.Caller(added).Cues.Add(new RunCueConfig { Number = "03", Name = "Encore" });
+        Assert.False(CuePlan.SameShape(desk.Stacks, TwinSync.SectionJson(added, nameof(ShowState.Stacks))));
+        var removed = JsonUtil.Deserialize<ShowState>(JsonUtil.Serialize(desk))!;
+        CueStacks.Caller(removed).Cues.RemoveAt(0);
+        Assert.False(CuePlan.SameShape(desk.Stacks, TwinSync.SectionJson(removed, nameof(ShowState.Stacks))));
+        var moved = JsonUtil.Deserialize<ShowState>(JsonUtil.Serialize(desk))!;
+        var first = CueStacks.Caller(moved).Cues[0];
+        CueStacks.Caller(moved).Cues.RemoveAt(0);
+        CueStacks.Caller(moved).Cues.Add(first);
+        Assert.False(CuePlan.SameShape(desk.Stacks, TwinSync.SectionJson(moved, nameof(ShowState.Stacks))));
+        Assert.False(CuePlan.SameShape(desk.Stacks, "not json"));
+        Assert.False(CuePlan.SameShape(desk.Stacks, "null"));
+    }
 }

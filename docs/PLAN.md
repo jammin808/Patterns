@@ -6305,3 +6305,72 @@ standby's process is the operator's act, and the marker's process gone is the re
 opens two sets of windows on one display is not offered.
 
 Counts at the end of the round: Core 1,127, App 590 — both suites green here.
+
+## 64. Round 46 — the armed desk
+
+*Two items the reviews kept for after the authority work: a caller's plan replacing the running
+stack under the operator's hands, and work that is not the show starting while the room is
+watching. Both are one question — what does an armed desk with its outputs live refuse? — and
+the answer is a table, not a mode.*
+
+### 64.1 What arm and live mean, together
+
+Arm is the operator's policy: the stack is the show, GO is a press, the automation waits (§53).
+Outputs live is the machine's: the windows are up, the show lock holds Windows still (§50). Neither
+is a show mode by itself, and there is no fourth thing called Show Mode. The two at once are a
+show running in front of an audience, and that is the state `LivePolicy` (Core) answers for: a
+pure table of the verbs that do not start then, each with the words that say what lifts the
+refusal — DISARM, or OUTPUTS OFF. It is applied at the one door every verb comes through,
+`ShowActions.Execute`, whoever asks: the desk, the wire, OSC, Companion, a cue, the schedule. The
+update window keeps the same word through `UpdateService.NotNow`: a window that comes round
+mid-show is not spent and not taken; the package waits for the next.
+
+The table: CALIBRATE RUN and DEMO (structured-light patterns on the room's screens), CALIBRATE
+APPLY and UNDO (every projector's picture moves), UPDATE APPLY and RESTART (the desk goes down and
+comes back). Nothing else. Content is never refused — the arcade on a tile, the join wall, a look,
+a cue, a message, a device verb, the wall switch, OUTPUTS OFF, BLACKOUT, VIDEO RESTART (a repair an
+operator may need mid-show), CALIBRATE CANCEL — because the game and the audience are show sources
+when the rundown puts them there, and refusing them would be refusing the show. Armed on a dark rig
+refuses nothing: calibrate away. Live and not armed refuses nothing: the operator's afternoon.
+
+### 64.2 A caller's plan waits for DISARM; its notes do not
+
+APPLY on the desk's Nodes page replaces the matched stack — cues and pad — and the runtime is not
+reconciled: a plan applied mid-show could take the standby cue with it, and the next GO would
+refuse "no cue on standby" with no warning at APPLY. So while the desk's stack is armed, APPLY
+keeps the plan on the page, marked WAITS, and lands it on DISARM, or ✕ sets it aside; the words
+say so and the journal has PlanQueued, then PlanApply. A caller's live edit — the Stacks section
+it owns — is judged by its shape: `CuePlan.SameShape` says whether it keeps the desk's stacks and
+cues in the same order. A note, the pad, a cue's own words keep the shape and land at once even
+while armed, because the caller's live notes are the show; a cue added, removed or moved does not,
+and waits — the last such edit from that caller — landing on DISARM before any waiting plan, since
+an APPLY is the operator's press and wins over an edit that arrived on its own. A desk that edits
+the cues meanwhile is the newer: the waiting edit is set aside and said, so nothing older ever
+lands over something newer.
+
+Found on the way and fixed: the echo origin of a mirrored section was decided at the flush, from
+the last peer whose edit landed, so a desk edit made within the 200 ms flush window after a
+caller's edit landed was taken for the caller's own and never sent back to it. It is decided at
+the publish now, from the landing itself, and a desk edit to the same section clears it. And the
+hook that lands the queue on DISARM is wired wherever the stack is first there or something is
+first queued — the desk builds its cue stack after its twin — and is idempotent: not armed and
+something waiting is the whole condition.
+
+### 64.3 Tests and docs
+
+Core: the table, the words, content never refused; the shape of a Stacks section. App: armed and
+live refusing calibration, an update and a restart at the door and through the window, content
+flowing, DISARM lifting it; a caller's plan waiting and landing on DISARM, its notes and pad
+landing at once, a cue added waiting, the desk's own edit setting the waiting one aside and
+reaching the caller, the edit landing on the next DISARM. Docs: this section, REVIEW round 46,
+REMOTE.md, the nodes and run help, the Nodes page's offer card, README.
+
+### 64.4 Considered and left
+
+Loading another show while armed and live: a file action of the desk, not a verb, with the twin
+hold and the sandbox already between it and the room — left as it is, noted. The assistant's APPLY
+while armed: it builds looks, designs and cues and never runs them, and its cues land at the end of
+the caller's stack; left as it is. A verb to land a waiting plan now: DISARM is one press, and it
+is the honest one.
+
+Counts at the end of the round: Core 1,130, App 592 — both suites green here.

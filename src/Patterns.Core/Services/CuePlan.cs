@@ -94,6 +94,35 @@ public static class CuePlan
         return new PlanDiff(added, changed, removed, same, names);
     }
 
+    /// <summary>
+    /// Whether a Stacks section as it arrives keeps the desk's shape — the same stacks in the same
+    /// order, each with the same cues in the same order — so that landing it moves no cue under an
+    /// armed stack's runtime. Notes, the pad and a cue's own words keep the shape; a cue added,
+    /// removed or moved does not, and neither does a section this build cannot read.
+    /// </summary>
+    public static bool SameShape(IReadOnlyList<CueStackConfig> mine, string sectionJson)
+    {
+        List<CueStackConfig>? theirs;
+        try
+        {
+            theirs = JsonSerializer.Deserialize<List<CueStackConfig>>(sectionJson, JsonUtil.CloneOptions);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        if (theirs is null || theirs.Count != mine.Count) return false;
+        for (var i = 0; i < mine.Count; i++)
+        {
+            if (mine[i].Id != theirs[i].Id || mine[i].Cues.Count != theirs[i].Cues.Count) return false;
+            for (var j = 0; j < mine[i].Cues.Count; j++)
+            {
+                if (mine[i].Cues[j].Id != theirs[i].Cues[j].Id) return false;
+            }
+        }
+        return true;
+    }
+
     /// <summary>The plan onto the show: each of its stacks replaces the desk's match, cues and pad; a stack with no match is added; the rest are kept.</summary>
     public static int Merge(ShowState target, IReadOnlyList<CueStackConfig> plan)
     {

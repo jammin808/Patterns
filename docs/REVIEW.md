@@ -985,3 +985,29 @@ findings. Their P1 list is kept for the rounds after this one.*
   refuses calibration and other non-show work while armed and live; the glance line with true
   presentation drops; PLAN SHIFT on the wire and the countdown following the plan; the node
   Machine strip; a venue NAT profile; the wire's timeout and caps; the compact soak beside the drill.
+
+## Round 46 review — the armed desk
+
+*Arm and live together, as a table; a caller's plan that waits; its notes that do not.*
+
+### 46.1 — the live policy
+
+- **Done.** `LivePolicy` names six verbs and refuses them only while the stack is armed and the
+  outputs are live, at the one door every verb comes through, and through the update window.
+  Content is never on the table. `docs/PLAN.md` §64.1.
+- **What it is not:** a Show Mode. Two states that already existed, read together; nothing new for
+  the operator to switch on, and the refusal says what lifts it.
+- **The honest limit:** the table is short on purpose; a verb missing from it runs. Loading a
+  show and the assistant's APPLY are named as considered and left.
+
+### 46.2 — the caller while armed
+
+- **Done.** APPLY waits on the page while the desk is armed and lands on DISARM; a cue added,
+  removed or moved by a caller waits too; a note, the pad and a cue's own words land at once; a
+  desk edit meanwhile sets the waiting one aside and says so. `docs/PLAN.md` §64.2.
+- **Found on the way:** a desk edit within the flush window after a caller's edit landed was never
+  mirrored back to that caller — the echo origin was decided at the flush. Decided at the publish
+  now, with a test that would have failed before.
+- **Also found:** the desk builds its cue stack after its twin, so a hook wired in the twin's
+  constructor sees no stack; the earlier hook on the hosting tick worked by timing. The landing is
+  idempotent and hooked wherever the stack first is or something is first queued.

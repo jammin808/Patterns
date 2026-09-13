@@ -74,8 +74,12 @@ public sealed class TwinService : IDisposable, ILinkReport
     // ---- callers ----
     private bool _hosting;                                                          // the listener is open for callers (a main, or a desk that accepts them)
     private readonly Dictionary<string, string> _echoSkip = new(StringComparer.Ordinal);   // section → the peer whose edit it was: not sent back to it
+    private string? _landing;                                                       // the peer whose edit is landing on the show right now: the publish it raises is its own
     private readonly Dictionary<string, string> _lastLanded = new(StringComparer.Ordinal); // section → the JSON that landed here last: not sent back as an edit
     private string? _myPlanJson;                                                    // a caller's own cues, kept before the desk's show lands, offered once
+    private bool _stackHooked;                                                      // the stack's Changed is watched: a disarm lands what waited
+    private bool _landingQueued;                                                    // the queue is landing now: a publish it raises must not land it again
+    private readonly Dictionary<(string Instance, string Section), (string Caller, string Json)> _queuedSections = new();   // a caller's live edit that arrived while the stack was armed: the last one, landed on DISARM
     private bool _planOffered;
     private TwinLive? _live;                                                        // a caller: the desk's stack as it runs there
     private long _liveSeq;
@@ -100,6 +104,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         _launcher = new TwinLauncher(() => Clock());
         _kernel.Bus.SectionsPublished += OnBuilt;
         _services.RecoveryMoved += OnRecoveryMoved;
+        EnsureStackHook();
         // Before a window opens: a standby on this machine that took the show while this desk was
         // away still has the screens — this desk's outputs wait on TAKE BACK.
         CheckMarker(force: true);
@@ -280,7 +285,8 @@ public sealed class TwinService : IDisposable, ILinkReport
     public string HealthWords => _holder.Length > 0 ? Status : _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? "" : Status;
 
     /// <summary>A plan a caller brought, waiting on the desk's APPLY.</summary>
-    public sealed record PlanOffer(string Instance, string Caller, string Json, string Words, string Count, bool Same);
+    /// <param name="Queued">APPLY pressed while the desk's stack was armed: kept, and landed on DISARM.</param>
+    public sealed record PlanOffer(string Instance, string Caller, string Json, string Words, string Count, bool Same, bool Queued = false);
 
     /// <summary>TWIN STATUS's payload.</summary>
     public string StatusJson()
@@ -451,6 +457,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         _releaseWait = null;                        // a hand-back awaited goes with the role: the standby is told again if it claims the show of a main
         _switchByHand = null;
         _handoverBusy = false;
+        _queuedSections.Clear();
         if (_holderLinked)
         {
             // The link to the standby that has the show went with the role; the marker, if any, still holds.
@@ -568,8 +575,28 @@ public sealed class TwinService : IDisposable, ILinkReport
             return;
         }
         if (_role != TwinRole.Main && !_hosting) return;
-        if (dirty is null) _pendingWhole = true;
-        else foreach (var s in TwinSync.Mirrored(dirty)) _pendingSections.Add(s);
+        if (dirty is null)
+        {
+            _pendingWhole = true;
+            if (_landing is null) SetAsideQueued(null);                               // the whole show, the desk's own: newer than anything that waits
+        }
+        else
+        {
+            foreach (var s in TwinSync.Mirrored(dirty))
+            {
+                _pendingSections.Add(s);
+                // Whose edit this is decides who is not sent it back: the peer whose edit is landing,
+                // or nobody — the desk's own edit to a section is the newer, goes to every peer, and
+                // sets aside a caller's edit still waiting for it. Decided here, at the publish: a
+                // desk edit within the same flush window as a landing must not be mistaken for it.
+                if (_landing is { } from) _echoSkip[s] = from;
+                else
+                {
+                    _echoSkip.Remove(s);
+                    SetAsideQueued(s);
+                }
+            }
+        }
         ScheduleFlush();
     }
 
@@ -644,6 +671,95 @@ public sealed class TwinService : IDisposable, ILinkReport
         if (_liveHooked || _services.CueStack is null) return;
         _liveHooked = true;
         _services.CueStack.Changed += SendLive;
+        EnsureStackHook();
+    }
+
+    /// <summary>The desk's stack is the operator's while it is armed: a caller's plan or edit waits, and lands on DISARM.</summary>
+    private bool StackArmed => _services.CueStack?.Armed ?? false;
+
+    /// <summary>How many of the callers' edits wait for DISARM — the Nodes page's and the test's.</summary>
+    public int QueuedEdits => _queuedSections.Count;
+
+    /// <summary>
+    /// The stack's Changed watched for the DISARM that lands what waited — hooked when the stack is
+    /// there (the desk builds its cue stack after its twin) and again wherever something is queued,
+    /// so nothing waits on a hook that is not there. The check is idempotent: not armed and
+    /// something waiting is the whole condition, whatever fired the change.
+    /// </summary>
+    private void EnsureStackHook()
+    {
+        if (_stackHooked || _services.CueStack is not { } stack) return;
+        _stackHooked = true;
+        stack.Changed += OnStackChanged;
+    }
+
+    private void OnStackChanged()
+    {
+        if (_landingQueued || StackArmed) return;
+        if (_queuedSections.Count == 0 && !Plans.Any(p => p.Queued)) return;
+        LandQueued();
+    }
+
+    /// <summary>The desk edited a section a caller's edit waits on: the desk's is the newer, so the waiting one is set aside, and said.</summary>
+    private void SetAsideQueued(string? section)
+    {
+        var stale = _queuedSections.Keys.Where(k => section is null || k.Section == section).ToList();
+        if (stale.Count == 0) return;
+        foreach (var key in stale)
+        {
+            var (caller, _) = _queuedSections[key];
+            _queuedSections.Remove(key);
+            var words = $"The caller {caller}'s waiting edit to the cues was set aside: this desk edited them since.";
+            _kernel.Journal.Record($"caller {caller}", "SectionQueued", key.Section, "Refused", words);
+            _services.Notify(words);
+        }
+    }
+
+    /// <summary>DISARM: the callers' edits that waited land first, then the plans that waited — an APPLY is the operator's press, and wins over an edit that arrived on its own.</summary>
+    private void LandQueued()
+    {
+        _landingQueued = true;
+        try
+        {
+            LandQueuedNow();
+        }
+        finally
+        {
+            _landingQueued = false;
+        }
+    }
+
+    private void LandQueuedNow()
+    {
+        var callers = new List<string>();
+        var waited = _queuedSections.ToList();
+        _queuedSections.Clear();
+        foreach (var ((instance, section), (caller, json)) in waited)
+        {
+            var ok = false;
+            _landing = instance;
+            try
+            {
+                _services.BulkEdit(() => ok = TwinSync.ApplySection(_kernel.State, section, json));
+            }
+            finally
+            {
+                _landing = null;
+            }
+            if (ok) callers.Add(caller);
+            else Log.Warn($"Twin: the caller {caller}'s {section}, kept while the stack was armed, could not land.");
+        }
+        if (callers.Count > 0)
+        {
+            var words = $"DISARM: the edits that waited from {string.Join(", ", callers.Distinct())} landed.";
+            _kernel.Journal.Record("twin", "SectionQueued", "", "Done", words);
+            _services.Notify(words);
+        }
+        foreach (var offer in Plans.Where(p => p.Queued).ToList())
+        {
+            var landed = ApplyPlan(offer with { Queued = false });
+            Log.Info($"Twin: on DISARM — {landed.Message}");
+        }
     }
 
     /// <summary>The caller's stack as it runs here, to every caller on the link — once a second from the tick, at once on a change.</summary>
@@ -684,9 +800,34 @@ public sealed class TwinService : IDisposable, ILinkReport
                     Log.Warn($"Twin: the {(caller.IsCaller ? "caller" : "timer")} {caller.Name} sent '{msg.Name}', which it does not own — ignored.");
                     return;
                 }
-                _echoSkip[msg.Name] = caller.Instance;                                // its own edit is not sent back to it
+                if (StackArmed && !CuePlan.SameShape(_kernel.State.Stacks, msg.Payload))
+                {
+                    // The stack is the operator's while it is armed: a note, the pad, a cue's own words
+                    // land as ever — the caller's live notes are the show — but a cue added, removed or
+                    // moved waits, the last such edit from this caller, and lands on DISARM. A desk that
+                    // edits the stack meanwhile wins: its edit goes out as its own, and the waiting one
+                    // is set aside, said.
+                    EnsureStackHook();
+                    var first = !_queuedSections.ContainsKey((caller.Instance, msg.Name));
+                    _queuedSections[(caller.Instance, msg.Name)] = (caller.Name, msg.Payload);
+                    if (first)
+                    {
+                        var words = $"The caller {caller.Name}'s edit to the cues waits: the stack is armed — it lands on DISARM.";
+                        _kernel.Journal.Record($"caller {caller.Name}", "SectionQueued", msg.Name, "Requested", words);
+                        _services.Notify(words);
+                    }
+                    return;
+                }
                 var ok = false;
-                _services.BulkEdit(() => ok = TwinSync.ApplySection(_kernel.State, msg.Name, msg.Payload));
+                _landing = caller.Instance;                                           // its own edit is not sent back to it
+                try
+                {
+                    _services.BulkEdit(() => ok = TwinSync.ApplySection(_kernel.State, msg.Name, msg.Payload));
+                }
+                finally
+                {
+                    _landing = null;
+                }
                 if (!ok) Log.Warn($"Twin: the caller {caller.Name}'s {msg.Name} could not land.");
                 break;
             }
@@ -729,22 +870,43 @@ public sealed class TwinService : IDisposable, ILinkReport
         }
     }
 
-    /// <summary>APPLY on the desk's Nodes page: a version of the show kept first, then the caller's stacks onto this desk's — mirrored on to everyone on the link.</summary>
+    /// <summary>
+    /// APPLY on the desk's Nodes page: a version of the show kept first, then the caller's stacks onto
+    /// this desk's — mirrored on to everyone on the link. While the desk's stack is armed the plan
+    /// waits instead: a stack replaced under the operator's hands can take the standby cue with it,
+    /// and GO would then refuse mid-show. Kept on the page, landed on DISARM, or set aside.
+    /// </summary>
     public ActionResult ApplyPlan(PlanOffer offer)
     {
         var plan = CuePlan.Parse(offer.Json);
         if (plan is null) return ActionResult.Refused("That plan could not be read.");
+        var stored = Plans.FirstOrDefault(p => p.Instance == offer.Instance);
+        if (StackArmed)
+        {
+            EnsureStackHook();
+            var queued = offer with { Queued = true };
+            if (stored is not null) Plans[Plans.IndexOf(stored)] = queued;
+            else Plans.Add(queued);
+            var waits = $"The caller {offer.Caller}'s plan waits: the stack is armed — it lands on DISARM, or ✕ sets it aside.";
+            _kernel.Journal.Record($"caller {offer.Caller}", "PlanQueued", "", "Requested", waits);
+            _services.Notify(waits);
+            return ActionResult.Requested(waits);
+        }
         _services.SaveNow();                                                         // the show as it was, kept as a version
         var stacks = 0;
         _services.BulkEdit(() => stacks = CuePlan.Merge(_kernel.State, plan));
-        Plans.Remove(offer);
+        if (stored is not null) Plans.Remove(stored);
         var words = $"The caller {offer.Caller}'s plan landed: {offer.Count}, {stacks} stack{(stacks == 1 ? "" : "s")} — the show as it was is under EARLIER VERSIONS.";
         _kernel.Journal.Record($"caller {offer.Caller}", "PlanApply", "", "Done", words);
         _services.Notify(words);
         return ActionResult.Done(words);
     }
 
-    public void DismissPlan(PlanOffer offer) => Plans.Remove(offer);
+    public void DismissPlan(PlanOffer offer)
+    {
+        var stored = Plans.FirstOrDefault(p => p.Instance == offer.Instance);
+        if (stored is not null) Plans.Remove(stored);
+    }
 
     /// <summary>A caller: the desk's stack as it runs there onto this desk's runtime, so the Run surface here reads the desk's standby, ARM and HOLD.</summary>
     private void AdoptLive(string json)
@@ -2081,6 +2243,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         _launcher.End(standbyHoldsShow: _holder.Length > 0 || _holderMarked || KeepStandbyOnExit);
         _kernel.Bus.SectionsPublished -= OnBuilt;
         _services.RecoveryMoved -= OnRecoveryMoved;
+        if (_stackHooked && _services.CueStack is { } stack) stack.Changed -= OnStackChanged;
     }
 
     /// <summary>One joined standby on the main's side: its socket, its name, when it last beat. Writes are serialised per standby.</summary>

@@ -451,7 +451,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // of it, or its silence — is journaled when it lands, so the log says what happened, not what was asked.
         Devices.Receipt += r => Kernel.Journal.Record($"device {r.Device}", "DeviceReceipt", r.Device, r.Ok ? "Done" : "Failed", r.Line);
         Install = new InstallService(this);
-        Updates = new UpdateService(Kernel, this);
+        Updates = new UpdateService(Kernel, this) { NotNow = () => LivePolicy.Refusal(ShowActionKind.UpdateApply, CueStack?.Armed ?? false, OutputsLive) };
         Management = new ManagementService(Kernel, this, Updates);
         Twin = new TwinService(Kernel, this);
         Kernel.Link = Twin;
