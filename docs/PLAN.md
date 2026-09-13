@@ -5086,7 +5086,7 @@ without the desk; everything else is the nodes.
 | --- | --- | --- |
 | A | The node kernel; `--node caller` (the Show pages alone, cues planned at home, offered as a diff at the venue, in step during the show over the twin's link with a third role, never holding outputs); the stage timer and messages as pages the desk serves (`/stage`, the timer's verbs and segments from the running order, messages with a receipt); the NODES rail item and page. | **built — §53** |
 | B | `--node arcade`: a fixed-step, interpolated, deterministic Skia engine; keyboard, XInput pads, Companion keys and a phone pad; Pong, Snake, Breakout; attract mode and a leaderboard; NDI or the ring to the wall; `ARCADE …` verbs and cue actions. | **built — §54** |
-| C | Audience play on the hub PC: `/play` with a room code and QR, polls, quizzes with speed points, word clouds, results on the wall and in the desk's overlays, a message back to each phone, moderation with the assistant, Draughts on the wall, the path the room votes. | assessed |
+| C | Audience play on the hub PC: `/play` with a room code and QR, polls, quizzes with speed points, word clouds, results on the wall and in the desk's overlays, a message back to each phone, moderation with the assistant, Draughts on the wall, the path the room votes. | **built — §55** |
 | D | Rig day gamified, opt-in: the alignment game on the mesh against the calibration's targets, the show-ready score on the health line, Blend Quest across a rig's joins. | assessed |
 
 What not to do is §11 of the doc: another engine runtime, a browser as the game surface, a plugin
@@ -5347,3 +5347,102 @@ silent this round. The frame ring lane on the same machine (the desk reading `ri
 source) — NDI covers the same-machine case with the runtime present. The racer, the duck shoot,
 Draughts and Space Invaders. Companion presets for the pad. The WebSocket pad (the POST per press
 is 5–20 ms on a LAN, fine for Pong at a party).
+
+## 55. Round 37 — Round C of the nodes: audience play on the hub
+
+§52's third row, on top of the arcade's server and its picture lane: the room out front —
+joining, questions of five kinds, results on the wall and as a feed, messages back, a queue
+with the assistant's second look, draughts and the path.
+
+### 55.1 The room (`Patterns.Core.Play`, pure)
+
+`PlayRoom` is the whole room under one lock in the service, with a clock of its own in the
+tests: phones join by nickname (cleaned, made unique — "Sam 2"), keep a sixteen-character token
+in the browser and may name a group (their table); questions are added as drafts and opened one
+at a time (the open one closes when another opens; `PLAY NEXT` takes the next draft); answers
+are one per phone (a change of mind replaces, except in a quiz, which takes the first); results
+are counts and percents per option, a scale's spread and average, a cloud's words counted
+case-insensitively; a quiz scores the first right answers most — 500 points for right, plus up
+to 500 for speed against its time limit — and closes itself when time is up (`Tick`); the
+leaderboard is the phones' points. `PlayQuestion.Parse` reads the host's line: `quiz Which
+hall? | Hall A | Hall B | correct=2 time=15`, `scale How was the morning? | scale=1-10`, `words
+One word for today`, `multi Which sessions? | A | B | C`, `choice Lunch? | Pizza | Salad`.
+
+**The queue.** Anything the room writes — a word for the cloud, a shout — is a `ModerationItem`:
+the word list first (a blocked word is out at once, the phone told "not for the wall"), then
+the assistant's word (`Mark`: fine lands it, out drops it, doubtful waits), then the host's
+press (`Approve`, `Reject`, `ApproveAll`). A cloud counts only what landed; `AutoApprove` lets
+words straight through for a quiz night. **Messages back** go to the room, a group or one phone
+by its nickname, each with a sequence number the phone polls past. `Reset` clears a night
+(questions kept as drafts); a new code sends every phone back to the door; `ExportJson` is
+everything with nicknames and never tokens.
+
+**Draughts** (`Draughts`): English rules on the dark squares — men forward, a jump takes, a
+jump is taken when one is there and goes on while it can, the far row crowns, a side with
+nothing to move has lost; two phones take the sides. **The path** (`PathStory`): scenes with
+options and the scene each leads to, a vote per fork (a change of mind replaces), the winning
+option (the first on a tie) takes the story on, a JSON file the host writes for the event
+(`play-story.json` in the node's folder, the sample written there on first boot to be edited).
+
+**The QR** (`QrCode`): byte mode, level M, versions 1 to 10, no library — Reed–Solomon over
+GF(256), the eight masks and their four penalty rules, the format and version bits; a test reads
+the codewords back off the modules and checks the syndromes.
+
+### 55.2 The wall (`PlayBoard`)
+
+The wall's picture rides the arcade's lane: `ArcadeService.Board` is a delegate the play service
+sets, drawn instead of the game while the wall is on — so the same window, the same NDI sender
+and the same size serve both. Modes: the door (the code in 230-unit letters, the QR with a quiet
+zone, the URL, who joined and who is here), the results (bars that grow, the right option lit
+after a reveal, a scale's spread with its average, a cloud whose words size by count), the
+leaderboard, a message, the draughts board, and the path's scene with its options as bars while
+the vote is open.
+
+### 55.3 The phones, the host, the desk
+
+The hub serves `/play`: a nickname and a table, then the live card — options as buttons (one
+tap for a choice or a quiz, a set and SEND for several, a row of numbers for a scale, a box for a
+word), the answer's points, messages as toasts, the leaderboard, the path's vote when it is
+open, and the draughts board when the phone holds a side or the wall shows it. The page
+long-polls `/api/play/state` on the room's revision, 20 s at a time; the token lives in the
+browser's storage; a phone that arrives with another room's code is told the room. `/host` is
+the host's page behind the admin passcode (`/api/play/host`; every action through `/api/admin`
+with a PLAY line): the code and the URL, a line to add a question, OPEN NEXT / CLOSE / REVEAL,
+the questions with their results, the queue with APPROVE / REJECT and the AUTO switch, a message
+box, the path's and the board's verbs, RESET / NEW CODE / EXPORT. `/api/play/feed.csv` is the
+room as lines for the message overlay's feed. The desk's Arcade page has an AUDIENCE block —
+the code, the URL, the words, a question's line and ADD, the verbs, the queue with APPROVE and
+REJECT — and every PLAY verb from the desk goes to the hub it hears (`ShowActions.RunPlay`,
+the same rule as the arcade's), or runs on the desk itself with none heard.
+
+### 55.4 The assistant's second look
+
+A node has no key: `ASSISTANT ASK <words>` and `ASSISTANT MODERATE <text>` on the desk's wire
+put a question to the desk's assistant and return its reply as JSON (`sent`, `status`,
+`inScope`, `reply`). The hub's `Tick` sends one waiting item a second to the first desk it
+hears (`NodesService.Desks()`), with the one moderation question ("answer with exactly one word
+— FINE, DOUBTFUL or OUT"), and marks the item by the word it gets; a desk that is the room asks
+its own assistant. No desk, no key, or no usable word: the item waits for the host, as it
+always did. The fence stays the desk's.
+
+### 55.5 Tests
+
+Core `PlayTests` (joining, the host's line, a choice poll with a change of mind, multi and
+scale, a quiz's speed points and its clock, words through the list, the assistant and the host,
+messages to the room, a group and a phone, a reset and a new code, draughts steps, jumps taken
+and refused, the path's votes and branches and its file, the wall in every mode at three sizes)
+and `QrCodeTests`. App `PlayAppTests`: the hub serves the pages, two phones join (one told the
+room), a quiz from the wire is answered from the phones and scored, closed and revealed, the wall
+shows on the arcade's lane, messages reach the right phones, the feed, words wait in the queue
+and land on APPROVE, the host's page behind the passcode, the wall's modes, the path voted and
+closed, the draughts board seated and moved, the export written, a new code; a desk with no hub
+heard is the room, and hearing one sends it the verbs, asks it for status, and a cue's
+`PlayAdd` reaches it. Counts at the end of the round: Core 1,077, App 551 — both suites green
+(a restart test failed once with the Core suite running alongside, and passed alone).
+
+### 55.6 Left for later
+
+The assistant proposing ten questions from the show's brief (a `poll` proposal the host applies)
+— the verb is there, the proposal kind is not. The lower third of the winner as a proposal.
+Commentary lines for the wall. A WebSocket for the vote (the long-poll is two seconds). Draughts
+with a clock. The audience VLAN is the venue's to make; the page and the doc say so.

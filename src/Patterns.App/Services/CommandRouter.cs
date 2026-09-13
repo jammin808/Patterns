@@ -27,10 +27,18 @@ public sealed class CommandRouter
         try
         {
             // The arcade's status from a desk is the arcade nodes' — asked on their wires, off the UI thread.
-            if (cmd.Kind == RemoteCommandKind.ArcadeStatus && _services.Profile != NodeKind.Arcade
+            if (cmd.Kind is RemoteCommandKind.ArcadeStatus or RemoteCommandKind.PlayStatus && _services.Profile != NodeKind.Arcade
                 && await Dispatcher.UIThread.InvokeAsync(() => _services.Nodes.Arcades().Count) > 0)
             {
-                return ControlProtocol.Ok(await _services.Nodes.AskArcadesAsync("ARCADE " + (cmd.Text.Length == 0 ? "STATUS" : cmd.Text)));
+                var head = cmd.Kind == RemoteCommandKind.ArcadeStatus ? "ARCADE " : "PLAY ";
+                return ControlProtocol.Ok(await _services.Nodes.AskArcadesAsync(head + (cmd.Text.Length == 0 ? "STATUS" : cmd.Text)));
+            }
+            if (cmd.Kind == RemoteCommandKind.AssistantAsk)
+            {
+                // The desk's assistant for a node (a hub's queue, a caller's brief): one ask, the reply as JSON, the network off the UI thread.
+                var question = cmd.Text.StartsWith("moderate ", StringComparison.OrdinalIgnoreCase) ? PlayService.ModerationQuestion(cmd.Text[9..].Trim()) : cmd.Text;
+                var answer = await Dispatcher.UIThread.InvokeAsync(() => _services.Assistant.AskAsync(question));
+                return ControlProtocol.Ok(JsonUtil.SerializeCompact(new { sent = answer.Sent, status = answer.Status, inScope = answer.Reply?.InScope ?? false, reply = answer.Reply?.Reply ?? "" }));
             }
             return await Dispatcher.UIThread.InvokeAsync(() => Execute(cmd, origin ?? new ActionOrigin(OriginKind.Tcp)));
         }
@@ -75,6 +83,8 @@ public sealed class CommandRouter
                 return ControlProtocol.Ok(_services.Stage.StatusJson());
             case RemoteCommandKind.ArcadeStatus:
                 return ControlProtocol.Ok(_services.Arcade.StatusJson(cmd.Text));
+            case RemoteCommandKind.PlayStatus:
+                return ControlProtocol.Ok(_services.Play.StatusJson(cmd.Text));
         }
 
         var action = cmd.Action;

@@ -88,6 +88,9 @@ public sealed class ArcadeService : IDisposable
     public long Rev => Interlocked.Read(ref _rev);
     public long Frames => Interlocked.Read(ref _frames);
     public string NdiName => $"PATTERNS ARCADE ({Environment.MachineName})";
+
+    /// <summary>Another picture on this lane — the audience wall — drawn instead of the game while it says so (true).</summary>
+    public Func<SKCanvas, int, int, PaintCache, bool>? Board { get; set; }
     public double MeasuredFps => _fpsMeter.Fps;
 
     public string Words
@@ -353,7 +356,7 @@ public sealed class ArcadeService : IDisposable
             index = NextBuffer();
             bitmap = EnsureBuffer(index, w, h);
             var canvas = _surfaces[index]!.Canvas;
-            _engine.Render(canvas, w, h, _paints);
+            if (Board is null || !Board(canvas, w, h, _paints)) _engine.Render(canvas, w, h, _paints);
             canvas.Flush();
             lock (_pick) _latest = index;
             Interlocked.Increment(ref _frames);

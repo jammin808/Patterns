@@ -936,6 +936,22 @@ public static class HelpTopics
             new[] { "Arcade", "Nodes" },
             new[] { "arcade", "game", "games", "pong", "snake", "breakout", "mini game", "mini games", "attract mode", "leaderboard", "high score", "initials", "pad", "gamepad", "xinput", "controller", "phone pad", "hub", "games hub", "node", "arcade node", "start game", "fixed step", "engine" }),
 
+        new HelpTopic("audience", HelpGroup.Control,
+            "Audience play: polls, quizzes, word clouds, messages back, draughts and the path on the hub",
+            "The room on the hub out front (the arcade node's /play, /host and its wall), driven by PLAY verbs from the desk, a cue or a Stream Deck.",
+            HelpBodies.Audience,
+            new[]
+            {
+                "On the hub PC: Patterns.exe --node arcade, its remote port on the audience Wi-Fi. PLAY SHOW join puts the room code and the QR on the wall.",
+                "Write the questions: PLAY ADD quiz Which hall is the keynote in? | A | B | C | correct=2 time=15 (or from a cue). PLAY OPEN, PLAY CLOSE, PLAY REVEAL run them; PLAY SHOW results / leaderboard put them up.",
+                "Messages back: PLAY MESSAGE room …, group:Table 4 …, phone:Sam …. The queue: /host on the hub, or PLAY APPROVE / REJECT.",
+                "Draughts: two phones take the sides on /play; PLAY SHOW draughts. The path: PLAY PATH OPEN, the room votes, PLAY PATH CLOSE; PLAY SHOW path.",
+                "After the show: PLAY EXPORT — the results as a file in the hub's folder.",
+            },
+            "PLAY ADD quiz Which hall? | A | B | correct=2 time=15",
+            new[] { "Arcade", "Nodes" },
+            new[] { "audience", "poll", "polls", "quiz", "quizzes", "word cloud", "vote", "voting", "room code", "qr", "slido", "mentimeter", "messages back", "moderation", "queue", "leaderboard", "speed points", "draughts", "checkers", "the path", "adventure", "story", "hub", "play", "phones" }),
+
         new HelpTopic("machine", HelpGroup.TheMachine,
             "The Machine page: health at a glance, the GPU, the super-check",
             "ADMIN → Machine before doors and whenever something feels slow: one headline over twelve lit tiles says what needs attention, the cards under it say what to do, the lines show the last three minutes and the day.",

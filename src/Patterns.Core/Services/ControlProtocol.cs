@@ -33,6 +33,10 @@ public enum RemoteCommandKind
     StageStatus,
     /// <summary>ARCADE STATUS / GAMES / SCORES: the arcade node's state, its catalogue, its board — from the node itself, or through the desk from the nodes it hears.</summary>
     ArcadeStatus,
+    /// <summary>PLAY STATUS / RESULTS / QUEUE: the audience room — from the hub itself, or through the desk from the hub it hears.</summary>
+    PlayStatus,
+    /// <summary>ASSISTANT ASK &lt;words&gt;: the desk's assistant, one question, the reply as JSON — a node's way to the one key on the desk.</summary>
+    AssistantAsk,
 }
 
 /// <summary>
@@ -781,6 +785,49 @@ public static class ControlProtocol
                         // "ARCADE pong 2": the game's own name starts it.
                         return ArcadeGameWord(sub) ? Act(ShowActionKind.ArcadeStart, "", arg.Trim()) : Unknown(s);
                 }
+            }
+
+            // The audience room: questions added, opened, closed and revealed; the wall's picture;
+            // messages back; the queue; the path and the draughts board; the room itself.
+            case "PLAY":
+            case "ROOM":
+            case "AUDIENCE":
+            {
+                var sp = arg.IndexOf(' ');
+                var sub = (sp < 0 ? arg : arg[..sp]).ToUpperInvariant();
+                var tail = sp < 0 ? "" : arg[(sp + 1)..].Trim();
+                switch (sub)
+                {
+                    case "": case "STATUS": return Query(RemoteCommandKind.PlayStatus);
+                    case "RESULTS": return Query(RemoteCommandKind.PlayStatus, "results " + tail);
+                    case "QUEUE": return Query(RemoteCommandKind.PlayStatus, "queue");
+                    case "ADD": case "ASK": case "QUESTION": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.PlayAdd, "", tail);
+                    case "OPEN": case "START": return Act(ShowActionKind.PlayOpen, "", tail);
+                    case "NEXT": return Act(ShowActionKind.PlayOpen, "", "next");
+                    case "CLOSE": case "STOP": return Act(ShowActionKind.PlayClose);
+                    case "REVEAL": case "ANSWER": return Act(ShowActionKind.PlayReveal);
+                    case "SHOW": case "WALL": return Act(ShowActionKind.PlayShow, "", tail.Length == 0 ? "results" : tail);
+                    case "HIDE": return Act(ShowActionKind.PlayShow, "", "off");
+                    case "MESSAGE": case "SAY": case "TELL": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.PlayMessage, "", tail);
+                    case "APPROVE": case "OK": case "YES": return Act(ShowActionKind.PlayApprove, "", tail.Length == 0 ? "all" : tail);
+                    case "REJECT": case "NO": return tail.Length == 0 ? Unknown(s) : Act(ShowActionKind.PlayReject, "", tail);
+                    case "AUTO": return Act(ShowActionKind.PlayAuto, "", tail.Length == 0 ? "on" : tail);
+                    case "PATH": case "STORY": return Act(ShowActionKind.PlayPath, "", tail.Length == 0 ? "open" : tail);
+                    case "DRAUGHTS": case "CHECKERS": return Act(ShowActionKind.PlayDraughts, "", tail.Length == 0 ? "reset" : tail);
+                    case "NEW": case "RESET": case "CLEAR": return Act(ShowActionKind.PlayRoom, "", sub == "NEW" ? "new" : "reset");
+                    case "EXPORT": case "SAVE": return Act(ShowActionKind.PlayExport);
+                    default: return Unknown(s);
+                }
+            }
+
+            // The desk's assistant from a node: one ask, the reply as JSON.
+            case "ASSISTANT":
+            case "AI":
+            {
+                var sp = arg.IndexOf(' ');
+                var sub = (sp < 0 ? arg : arg[..sp]).ToUpperInvariant();
+                var tail = sp < 0 ? "" : arg[(sp + 1)..].Trim();
+                return sub is "ASK" or "MODERATE" && tail.Length > 0 ? Query(RemoteCommandKind.AssistantAsk, (sub == "MODERATE" ? "moderate " : "") + tail) : Unknown(s);
             }
 
             case "NODES":

@@ -8,7 +8,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   the last), LOOKS, SCREENS (a switch and a padlock per screen, show parts), AUDIO (the audio
   track, break music, VOGs, stingers, tone), LOWER THIRDS (designs and people) and SETUP (the
   health line, the machine, the stream, the main machine's beacon, links to `/run` and
-  `/multiview`, `/timer`, `/stage` and `/pad`); a sticky header names what is on air with its chips and a connection dot, the
+  `/multiview`, `/timer`, `/stage`, `/pad`, `/play` and `/host`); a sticky header names what is on air with its chips and a connection dot, the
   tab you were on is remembered, and the page waits on `GET /api/state?since=<rev>` so it
   changes the moment the show does. Works in any browser on the same network.
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
@@ -147,6 +147,19 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `ARCADE NAME <initials>` | Signs the last score on the board |
 | `ARCADE STATUS` | `OK <json>` — `phase` (idle, attract, joining, playing, paused, over), `game`, `title`, `seats`, `scores`, `humans`, `winner`, `step`, `seed`, `difficulty`, `words`, `running`, `fps`, `size`, `ndi` (`on`, `name`, `status`, `receivers`), `board` (the best five), `games`. Through a desk that hears arcade nodes: a list, one entry per node with its `status` |
 | `ARCADE GAMES` / `ARCADE SCORES [game]` | The catalogue; the board's best ten for a game |
+| `PLAY ADD <kind> <text> \| option \| option [\| correct=N time=S scale=A-B]` | A question for the room: `choice`, `multi`, `scale`, `words` or `quiz` — `PLAY ADD quiz Which hall is the keynote in? \| A \| B \| C \| correct=2 time=15`. Added as a draft |
+| `PLAY OPEN [id]` / `PLAY NEXT` | Opens a question (the next draft when none is named); the one that was open closes; the wall shows the results |
+| `PLAY CLOSE` / `PLAY REVEAL` | Closes the open question; shows the answer and the results (a quiz's right option lit) |
+| `PLAY SHOW join \| results \| leaderboard \| message [words] \| draughts \| path \| off` | The wall's picture, on the arcade's lane (the window and NDI); `PLAY HIDE` is `off` |
+| `PLAY MESSAGE [room \| group:<name> \| phone:<nick>] <words>` | A message back — to every phone, one table, or one phone by its nickname |
+| `PLAY APPROVE <id> \| all` / `PLAY REJECT <id>` | The queue: a word for the cloud or a shout lands on the wall, or does not |
+| `PLAY AUTO ON` / `OFF` | Words straight to the wall without a press (a quiz night), or waiting for the host |
+| `PLAY PATH OPEN` / `CLOSE` / `RESET` / `RELOAD` | The story's vote opened; closed (the winning option takes it on); back to the start; the file read again |
+| `PLAY DRAUGHTS` | A new board; two phones take the sides on `/play` |
+| `PLAY RESET` / `PLAY NEW` | The night cleared (questions kept as drafts); a new room code — every phone joins again |
+| `PLAY EXPORT` | Everything to a file in the hub's folder — nicknames, never tokens |
+| `PLAY STATUS` / `PLAY RESULTS [id]` / `PLAY QUEUE` | `OK <json>` — the room; a question's results; the queue. Through a desk that hears a hub: a list, one entry per hub |
+| `ASSISTANT ASK <words>` / `ASSISTANT MODERATE <text>` | The desk's assistant from a node: one ask, `OK <json>` with `sent`, `status`, `inScope`, `reply` — a hub's queue asks MODERATE and reads one word: FINE, DOUBTFUL or OUT |
 
 One library, one numbering: `STINGER 3`, `VOG 3` and `STING 3` all mean library item 3 in
 Audio-page order — there is deliberately no per-kind numbering, because two numbering schemes on a
@@ -340,6 +353,7 @@ key or two; the Patterns module (TCP) for the full feedback.
 - `GET /api/stage?since=<rev>` → the stage payload (`STAGE STATUS`), waiting up to the long-poll's limit for a change past `rev`; the `/stage` and `/timer` pages live on it.
 - `POST /api/stage/ack` with the message id as the body → `{"ok":true}` once; `{"ok":false,"reason":…}` for a message already seen or unknown.
 - `GET /api/arcade` → the arcade's status (`ARCADE STATUS`) — on a desk that hears arcade nodes, their list; `POST /api/arcade/key` with `<pad> <button> DOWN|UP|TAP` as the body → `{"ok":…,"msg":…}`; the phone pad at `/pad` is built on both.
+- `POST /api/play/join` `{"nick","group","token","room"}` → `{"ok","token","nick","group","room","show"}`; `GET /api/play/state?token=&since=<seq>&rev=<rev>` → what one phone sees (the question and its own answer, its messages past `since`, the leaderboard, the path, the draughts board), waiting on the room's revision; `POST /api/play/answer` `{"token","question","choices":[],"scale","words"}`; `POST /api/play/say` `{"token","text"}`; `POST /api/play/vote` `{"token","option"}`; `POST /api/play/draughts` `{"token","action":"seat|move|leave","side","from","to"}`; `POST /api/play/host` with the admin passcode as the body → the host's JSON; `GET /api/play` → `PLAY STATUS`; `GET /api/play/feed.csv` → the room as lines for the message overlay's feed.
 - `GET /pgm.jpg` → the program as a JPEG thumbnail.
 - `POST /api/cmd` with a command line as the body → `{"ok":true|false,"msg":"…"}`. Cue commands
   (`CUE …`, `STOPALL`) need an `X-Patterns-Client: <anything>` header, so a page from another

@@ -535,3 +535,40 @@ node kernel, the caller node, the stage timer and messages, the NODES rail — t
   it and was not needed for Pong at a party.
 - **Determinism across machines** — the replay test holds on one build and one machine (float
   maths, one platform); across CPUs it is expected and not proven this round.
+
+## Round 37 review — Round C of the nodes: audience play
+
+*The brief's third row: the room out front — joining, questions, results on the wall, messages
+back, moderation, draughts and the path.*
+
+### Done
+
+- `Patterns.Core.Play`: the room (join, five kinds of question, answers and results, a quiz's
+  speed points and clock, the queue through the list, the assistant and the host, messages to
+  the room, a group or a phone, reset, export), draughts, the path with its file, the QR encoder,
+  the wall's renderer. `docs/PLAN.md` §55.1–55.2.
+- `PlayService`: the room under a lock, the phones' API, the host's verbs, the wall on the
+  arcade's lane, the story file and the export in the node's folder, the queue's second look
+  through the desk's assistant over the wire. `/play`, `/host`, `/api/play/*`, the feed. The
+  Arcade page's AUDIENCE block. PLAY verbs on the wire, in cues, from the desk to the hub.
+  `ASSISTANT ASK` / `MODERATE` on the desk's wire. §55.3–55.4.
+- Help topic "audience"; REMOTE.md rows; README bullet; `docs/NODES.md` marked.
+
+### Found on the way (fixed)
+
+1. **A settings part of a question line was read as an option** — "correct=2 time=15" is one
+   part between the bars; it holds only key=value words now, and a quiz without a right answer
+   is refused with the line's shape.
+2. **The story's file did not read back** — its JSON was written with lower-case names and read
+   with upper; the reader is a plain shape now and the names match.
+
+### Measured, and left
+
+- **The vote over a long-poll** — two seconds at most between a press and the wall; a WebSocket
+  would make it live and was not needed for a fork every few minutes.
+- **Determinism of the queue's assistant** — the word it gives is the model's; a doubtful or an
+  unusable answer waits for the host, which is the fence the doc asked for.
+- **A few hundred phones** — the server is the desk's accept loop, one task per request, the
+  state a long-poll; not load-tested this round beyond two phones in a test.
+- **The audience network** — a VLAN apart from the show LAN and no captive portal are the
+  venue's to make; the page and the help say so.

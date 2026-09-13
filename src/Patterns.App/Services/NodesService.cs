@@ -64,6 +64,12 @@ public sealed class NodesService
     }
 
     /// <summary>NODES on the wire: every card as JSON.</summary>
+    /// <summary>The desks heard lately with a wire — where a node finds the assistant's one key.</summary>
+    public IReadOnlyList<NodeCard> Desks() => Nodes.Where(c => c.Kind == NodeKind.Desk && c.Fresh && c.WirePort > 0 && c.Address is not null).ToList();
+
+    /// <summary>One line to one node's wire, its reply back — a desk's assistant asked, a hub told.</summary>
+    public static Task<string> AskNodeAsync(NodeCard card, string line) => AskAsync(card, line);
+
     /// <summary>The arcade nodes heard lately, with a wire to speak to.</summary>
     public IReadOnlyList<NodeCard> Arcades() => Nodes.Where(c => c.Kind == NodeKind.Arcade && c.Fresh && c.WirePort > 0 && c.Address is not null).ToList();
 

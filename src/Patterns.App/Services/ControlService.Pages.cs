@@ -312,6 +312,8 @@ public sealed partial class ControlService
       <a class="link" href="/timer">Stage timer ⟩</a>
       <a class="link" href="/stage">Stage display ⟩</a>
       <a class="link" href="/pad">Arcade pad ⟩</a>
+      <a class="link" href="/play">Audience play ⟩</a>
+      <a class="link" href="/host">Play host (passcode) ⟩</a>
       <a class="link" href="/admin">Admin (passcode) ⟩</a>
     </div>
   </div>

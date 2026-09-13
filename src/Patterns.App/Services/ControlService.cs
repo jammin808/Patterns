@@ -441,6 +441,80 @@ public sealed partial class ControlService : IDisposable
                 var result = await Dispatcher.UIThread.InvokeAsync(() => _services.Actions.Execute(new ShowAction(ShowActionKind.ArcadeKey, "", words), padOrigin));
                 payload = JsonUtil.SerializeCompact(new { ok = result.Ok, msg = result.Message });
             }
+            else if (method == "GET" && (path == "/play" || path.StartsWith("/play?")))
+            {
+                payload = PlayPage;
+            }
+            else if (method == "GET" && (path == "/host" || path.StartsWith("/host?")))
+            {
+                payload = HostPage;
+            }
+            else if (method == "POST" && path == "/api/play/join")
+            {
+                contentType = "application/json";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.JoinJson(body));
+            }
+            else if (method == "GET" && (path == "/api/play/state" || path.StartsWith("/api/play/state?")))
+            {
+                contentType = "application/json";
+                // ?rev=<rev> long-polls the room: a question opened, an answer counted, a message sent, the wall changed.
+                var token = QueryValue(path, "token");
+                long.TryParse(QueryValue(path, "since"), out var sinceSeq);
+                if (long.TryParse(QueryValue(path, "rev"), out var seenRev))
+                {
+                    var deadline = DateTime.UtcNow.AddSeconds(20);
+                    while (_services.Play.Rev == seenRev && DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                    {
+                        await Task.Delay(200, ct);
+                    }
+                }
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.StateJson(token, sinceSeq));
+            }
+            else if (method == "POST" && path == "/api/play/answer")
+            {
+                contentType = "application/json";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.AnswerJson(body));
+            }
+            else if (method == "POST" && path == "/api/play/say")
+            {
+                contentType = "application/json";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.SayJson(body));
+            }
+            else if (method == "POST" && path == "/api/play/vote")
+            {
+                contentType = "application/json";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.VoteJson(body));
+            }
+            else if (method == "POST" && path == "/api/play/draughts")
+            {
+                contentType = "application/json";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.DraughtsJson(body));
+            }
+            else if (method == "POST" && path == "/api/play/host")
+            {
+                // The host's data behind the admin passcode: the room's phones share this server.
+                contentType = "application/json";
+                var passcode = body.Trim();
+                if (!await Dispatcher.UIThread.InvokeAsync(() => _services.Gate.Check(_services.State.Install.AdminPasscode, passcode, DateTime.UtcNow)))
+                {
+                    status = "403 Forbidden";
+                    payload = "{\"ok\":false}";
+                }
+                else
+                {
+                    payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.HostJson());
+                }
+            }
+            else if (method == "GET" && (path == "/api/play" || path.StartsWith("/api/play?")))
+            {
+                contentType = "application/json";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.StatusJson(QueryValue(path, "what")));
+            }
+            else if (method == "GET" && path == "/api/play/feed.csv")
+            {
+                contentType = "text/csv; charset=utf-8";
+                payload = await Dispatcher.UIThread.InvokeAsync(() => _services.Play.FeedCsv());
+            }
             else if (method == "GET" && path == "/admin")
             {
                 payload = AdminPage;

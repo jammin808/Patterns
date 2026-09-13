@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:ctl="using:Patterns.App.Views.Controls"
+             xmlns:play="using:Patterns.Core.Play"
              x:Class="Patterns.App.Views.Sections.ArcadeSection"
              Classes="hue-arcade"
              x:DataType="vm:MainViewModel">
@@ -30,6 +31,46 @@
         <ComboBox ItemsSource="{Binding ArcadeSizes}" SelectedItem="{Binding ArcadeSize}" Margin="0,0,12,0" VerticalAlignment="Center" ToolTip.Tip="The picture's size — 3840x1080 for a joined canvas of two projectors" />
         <TextBlock Classes="label" Text="{Binding ArcadeStatus}" VerticalAlignment="Center" />
       </WrapPanel>
+
+      <TextBlock Classes="h2" Text="AUDIENCE" />
+      <TextBlock Classes="hint" TextWrapping="Wrap"
+                 Text="The room on this machine's remote port: phones join at /play with the code (PLAY SHOW join puts the code and its QR on the wall), the host's page is /host behind the admin passcode, and every PLAY verb works from here, a cue, a Stream Deck or the desk." />
+      <WrapPanel>
+        <TextBlock Classes="label" FontWeight="SemiBold" Text="{Binding PlayCode}" Margin="0,0,10,0" VerticalAlignment="Center" />
+        <TextBlock Classes="label" Text="{Binding PlayJoinUrl}" Margin="0,0,10,0" VerticalAlignment="Center" />
+      </WrapPanel>
+      <TextBlock Classes="label" Text="{Binding PlayWords}" TextWrapping="Wrap" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBox Text="{Binding PlayQuestionLine}" Watermark="quiz Which hall is the keynote in? | Hall A | Hall B | Hall C | correct=2 time=15" />
+        <Button Grid.Column="1" Classes="mini" Content="ADD" Margin="8,0,0,0" Command="{Binding PlayAddCommand}" ToolTip.Tip="choice · multi · scale (scale=1-10) · words · quiz (correct=N time=S)" />
+      </Grid>
+      <WrapPanel>
+        <Button Classes="mini" Content="OPEN NEXT" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY NEXT" />
+        <Button Classes="mini" Content="CLOSE" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY CLOSE" />
+        <Button Classes="mini" Content="REVEAL" Margin="0,0,16,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY REVEAL" />
+        <Button Classes="chip" Content="WALL: JOIN" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY SHOW join" />
+        <Button Classes="chip" Content="RESULTS" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY SHOW results" />
+        <Button Classes="chip" Content="LEADERBOARD" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY SHOW leaderboard" />
+        <Button Classes="chip" Content="PATH" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY SHOW path" />
+        <Button Classes="chip" Content="DRAUGHTS" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY SHOW draughts" />
+        <Button Classes="chip" Content="WALL OFF" Margin="0,0,8,6" Command="{Binding PlayVerbCommand}" CommandParameter="PLAY HIDE" ToolTip.Tip="The arcade's picture again" />
+      </WrapPanel>
+      <ItemsControl ItemsSource="{Binding PlayQueue}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><StackPanel Spacing="4" /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="play:ModerationItem">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+              <TextBlock Classes="label" TextWrapping="Wrap" VerticalAlignment="Center">
+                <Run Text="{Binding Nick}" FontWeight="SemiBold" /><Run Text=": " /><Run Text="{Binding Text}" /><Run Text="  " /><Run Text="{Binding Note}" Foreground="#9AA4B5" />
+              </TextBlock>
+              <Button Grid.Column="1" Classes="mini" Content="APPROVE" Margin="8,0,0,0" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlayApproveCommand}" CommandParameter="{Binding}" />
+              <Button Grid.Column="2" Classes="mini" Content="REJECT" Margin="8,0,0,0" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).PlayRejectCommand}" CommandParameter="{Binding}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
 
       <TextBlock Classes="h2" Text="BEST" />
       <TextBlock Classes="label" Text="{Binding ArcadeBoard}" TextWrapping="Wrap" />

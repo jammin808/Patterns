@@ -130,6 +130,7 @@ public sealed partial class ShowActions
             ?? RunCalibration(a, origin)
             ?? RunStage(a, origin)
             ?? RunArcade(a, origin)
+            ?? RunPlay(a, origin)
             ?? ActionResult.Refused($"Unknown action '{a.Kind}'.");
     }
 

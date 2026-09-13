@@ -319,6 +319,27 @@ public enum ShowActionKind
     ArcadeSize,
     ArcadeNdi,
     ArcadeName,
+    /// <summary>
+    /// The audience room on the hub — run on the arcade node, sent there from a desk that hears
+    /// one, run on the desk itself with none heard. Value carries the words: a question line
+    /// ("quiz Which hall? | A | B | correct=2 time=15"), a question id or "next", what to show
+    /// ("join", "results", "leaderboard", "message", "draughts", "path", "off"), a message ("room
+    /// The poll closes in 30 s", "group:Table 4 you won", "phone:Sam your answer was right"), a
+    /// queue item's id or "all", "on"/"off", "open"/"close"/"reset", "new".
+    /// </summary>
+    PlayAdd,
+    PlayOpen,
+    PlayClose,
+    PlayReveal,
+    PlayShow,
+    PlayMessage,
+    PlayApprove,
+    PlayReject,
+    PlayAuto,
+    PlayPath,
+    PlayDraughts,
+    PlayRoom,
+    PlayExport,
 }
 
 /// <summary>One thing to do to the show: a kind plus the target it acts on and an optional value.</summary>

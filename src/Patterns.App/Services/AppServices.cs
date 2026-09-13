@@ -86,6 +86,9 @@ public sealed class AppServices
     /// <summary>The arcade: the engine's loop, the pads, the picture to NDI, the board — run here on an arcade node; a desk sends the verbs to the nodes it hears.</summary>
     public ArcadeService Arcade { get; }
 
+    /// <summary>Audience play: the room on the hub — polls, quizzes, the cloud, messages back, the queue, draughts and the path; the wall on the arcade's lane.</summary>
+    public PlayService Play { get; }
+
     /// <summary>The stage timer and the messages to stage, on the countdown's clock; the stage and timer pages read it.</summary>
     public StageService Stage { get; }
 
@@ -448,6 +451,8 @@ public sealed class AppServices
         Calibration = new CalibrationService(this);
         Nodes = new NodesService(this);
         Arcade = new ArcadeService(this);
+        Play = new PlayService(this);
+        Arcade.Board = Play.DrawWall;
         Stingers = new StingerService(this);
         Sandbox = new SandboxService(this);
         Stream = new StreamService(this);
@@ -1404,6 +1409,7 @@ public sealed class AppServices
             ShowLock.Dispose();   // everything the lock changed goes back before the desk is gone
             Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
             Twin.Dispose();
+            Play.Dispose();
             Arcade.Dispose();
             Ndi.StopAll();
             NdiIn.Dispose();
