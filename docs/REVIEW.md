@@ -710,4 +710,7 @@ frozen, the node kernel built. This review grows as each lands.*
   — a cue GOne at the test's clock (a day in 2026) settled to Done by the desk's own one-second
   poll reading the wall's clock, whenever that poll happened to land inside the test's
   `RunJobs`. `CueStackService.NowUtc` is a clock now, as the Spotify service's already was, and
-  the rig sets both.
+  the rig sets both. The final run of the round failed the dashboard test once the same way —
+  the desk's live sampler read this machine over the numbers the test feeds in, between the
+  poll and the page's render; `SystemMetricsService.Live` existed for exactly that and the
+  test now switches it off.

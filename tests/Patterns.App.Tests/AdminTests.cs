@@ -249,6 +249,9 @@ public class AdminTests
         var (services, vm, window, _) = Boot();
         try
         {
+            // The desk's own sampler, once a second, would read this machine over the numbers this
+            // test feeds in — and did, once, between the poll and the page's render on a slow build.
+            services.Metrics.Live = false;
             for (var i = 0; i < 70; i++) services.Metrics.Ingest(Healthy(i));
             // The RENDER tile also reads the machine this test runs on — the preview pipeline's real
             // frame times and the desk's own tick — and a slow build agent turned it amber once
