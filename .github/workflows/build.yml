@@ -41,10 +41,12 @@ jobs:
           cache-dependency-path: integrations/companion-module-patterns/package-lock.json
       - name: Install
         run: npm ci
-      - name: Test
+      - name: Test (builds and checks the package the way Companion imports it)
         run: npm test
       - name: Lines are current
         run: node test/emit-lines.mjs | diff - test/lines.txt
+      - name: Module check
+        run: npm run check
       - name: Package for Companion
         run: npm run package
       - name: Upload module package

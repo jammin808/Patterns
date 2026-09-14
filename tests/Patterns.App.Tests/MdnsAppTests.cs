@@ -170,13 +170,13 @@ public class MdnsAppTests
             }
             Assert.StartsWith("STATE ", TestApp.Pump(reader.ReadLineAsync()));
             void Send(string line) { var b = Encoding.UTF8.GetBytes(line + "\n"); stream.Write(b, 0, b.Length); stream.Flush(); }
-            Send("HELLO FOH deck module=3.0.0");
+            Send($"HELLO FOH deck module={CompanionModule.Version}");
             Assert.Equal("OK", Reply());
             PumpUntil(() => host.Control.Decks.Count == 1);
             var deck = Assert.Single(host.Control.Decks);
             Assert.Equal("FOH deck", deck.Name);
-            Assert.Equal("3.0.0", deck.Module);
-            Assert.Equal("FOH deck (module 3.0.0, 127.0.0.1)", deck.Line);
+            Assert.Equal(CompanionModule.Version, deck.Module);
+            Assert.Equal($"FOH deck (module {CompanionModule.Version}, 127.0.0.1)", deck.Line);
 
             // History reads the deck's name, never the token.
             Send("ARCADE START pong 1");
@@ -192,16 +192,16 @@ public class MdnsAppTests
             Assert.Equal(AppVersion.Current, json.GetProperty("version").GetString());
             var decks = json.GetProperty("decks").EnumerateArray().ToList();
             Assert.Equal("FOH deck", Assert.Single(decks).GetProperty("name").GetString());
-            Assert.Equal("3.0.0", decks[0].GetProperty("module").GetString());
+            Assert.Equal(CompanionModule.Version, decks[0].GetProperty("module").GetString());
 
             // The Remote page's strip reads the deck.
-            Assert.Contains("Connected: FOH deck (module 3.0.0, 127.0.0.1).", CompanionWords.DecksLine(host.Control.Decks));
+            Assert.Contains($"Connected: FOH deck (module {CompanionModule.Version}, 127.0.0.1).", CompanionWords.DecksLine(host.Control.Decks));
 
             // A deck of the older module is said to be behind, and a bare HELLO is a name alone.
             Send("HELLO Old deck module=2.8.0");
             Assert.Equal("OK", Reply());
             PumpUntil(() => host.Control.Decks.Single().Module == "2.8.0");
-            Assert.Contains("3.0.0 is current", host.Control.Decks.Single().Line);
+            Assert.Contains($"{CompanionModule.Version} is current", host.Control.Decks.Single().Line);
             Send("HELLO script");
             Assert.Equal("OK", Reply());
             PumpUntil(() => host.Control.Decks.Single().Module == "");

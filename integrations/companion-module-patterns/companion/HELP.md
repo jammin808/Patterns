@@ -46,3 +46,8 @@ cannot confirm is refused and the key says so through the twin's state.
 
 No module? The same protocol works with Companion's built-in **Generic TCP** connection — one command per line,
 as `docs/REMOTE.md` in the Patterns repository lists them — without feedback.
+
+## Installing a build
+
+Modules → *Import module package* → the `.tgz` (unzip the CI artifact first). Companion keeps one
+copy per version: a rebuilt module needs a new version number, or the installed one removed first.

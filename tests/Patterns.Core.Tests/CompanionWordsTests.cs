@@ -21,7 +21,7 @@ public class CompanionWordsTests
     public void ADeckSaysWhenItsModuleIsBehind()
     {
         var since = DateTime.UtcNow;
-        Assert.Equal("FOH deck (module 3.0.0, 10.0.0.5)", new WireDeck("FOH deck", "3.0.0", "10.0.0.5", since).Line);
+        Assert.Equal($"FOH deck (module {CompanionModule.Version}, 10.0.0.5)", new WireDeck("FOH deck", CompanionModule.Version, "10.0.0.5", since).Line);   // the current module: no word
         Assert.Equal($"Stage deck (module 2.8.0 — {CompanionModule.Version} is current, in the app's integrations folder, 10.0.0.6)", new WireDeck("Stage deck", "2.8.0", "10.0.0.6", since).Line);
         Assert.Equal("script (no module — Generic TCP or a script, 10.0.0.7)", new WireDeck("script", "", "10.0.0.7", since).Line);
         Assert.True(CompanionWords.IsOlder("2.8.0", "3.0.0"));
@@ -39,7 +39,7 @@ public class CompanionWordsTests
         Assert.Equal("Announced on the network as \"Patterns desk FOH-PC\" — pick it under Desk on the network in Companion's connection settings.", CompanionWords.AnnounceLine(true, true, "", "Patterns desk FOH-PC"));
         Assert.Equal("port 5353 busy", CompanionWords.AnnounceLine(true, true, "port 5353 busy", "x"));
         Assert.StartsWith("No deck connected.", CompanionWords.DecksLine(Array.Empty<WireDeck>()));
-        Assert.Equal("Connected: FOH deck (module 3.0.0, 10.0.0.5).", CompanionWords.DecksLine(new[] { new WireDeck("FOH deck", "3.0.0", "10.0.0.5", DateTime.UtcNow) }));
+        Assert.Equal($"Connected: FOH deck (module {CompanionModule.Version}, 10.0.0.5).", CompanionWords.DecksLine(new[] { new WireDeck("FOH deck", CompanionModule.Version, "10.0.0.5", DateTime.UtcNow) }));
         Assert.StartsWith("No Companion heard on the network yet", CompanionWords.HeardLine(Array.Empty<MdnsPeer>()));
         var peer = new MdnsPeer("Companion (FOH-PC)", "foh-pc.local", IPAddress.Parse("10.0.0.7"), 16622, new Dictionary<string, string> { ["version"] = "5.0.3" }, DateTime.UtcNow, 4500);
         Assert.Equal("Companion on the network: Companion (FOH-PC) at 10.0.0.7:16622 · v5.0.3 — the desk drives it through a Companion device on the Interactive page (port 16759).", CompanionWords.HeardLine(new[] { peer }));
