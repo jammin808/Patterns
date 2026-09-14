@@ -42,6 +42,68 @@ public class DeviceConfirmAppTests
     }
 
     [AvaloniaFact]
+    public void TheCardKeepsWhatTheBoxDidLatelyAndStateAndTheDeckReadIt()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var (services, vm, _) = b;
+            vm.IsSandboxActive = false;
+            var (device, fake) = Projector(b, ConfirmLevel.Accepted);
+            Assert.Same(DeviceRuntime.None, device.Runtime);
+            services.Devices.Poll();
+            Assert.Equal("No line sent yet.", device.HistoryText);
+
+            // A line sent and answered: the last line, the reply and the level it reached, on the card with their ages.
+            Assert.True(services.Devices.Send("Proj", "POWER ON").Ok);
+            Assert.Equal("POWER ON", device.Runtime.LastCommand);
+            Assert.NotNull(device.Runtime.LastCommandUtc);
+            fake.Say("%1POWR=OK");
+            Assert.True(WaitFor(() => device.Runtime.LastConfirmed == ConfirmLevel.Accepted), "the yes is kept");
+            Assert.Equal("POWR: OK", device.Runtime.LastReply);
+            Assert.False(device.Runtime.Failing);
+            services.Devices.Poll();
+            Assert.StartsWith("Last sent POWER ON (just now) · reply POWR: OK — accepted (just now)", device.HistoryText);
+
+            // A silence: the failure is the box's last word, on the card as FAILED, and in STATE for the deck.
+            Assert.True(services.Devices.Send("Proj", "INPUT HDMI 1").Ok);
+            Assert.True(WaitFor(() => device.Runtime.LastFailureUtc is not null), "the silence is kept");
+            Assert.True(device.Runtime.Failing);
+            Assert.Equal("INPUT HDMI 1 — no answer in 0.4 s (delivered, not accepted)", device.Runtime.LastFailure);
+            Assert.Equal("INPUT HDMI 1", device.Runtime.LastCommand);
+            services.Devices.Poll();
+            Assert.Contains("· FAILED INPUT HDMI 1 — no answer in 0.4 s", device.HistoryText);
+            var row = System.Text.Json.JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("devices")[0];
+            Assert.Equal("Proj", row.GetProperty("name").GetString());
+            Assert.Equal("INPUT HDMI 1", row.GetProperty("lastCommand").GetString());
+            Assert.Equal("POWR: OK", row.GetProperty("lastReply").GetString());
+            Assert.Equal("accepted", row.GetProperty("confirmed").GetString());
+            Assert.True(row.GetProperty("failing").GetBoolean());
+            Assert.StartsWith("INPUT HDMI 1 — no answer", row.GetProperty("lastFailure").GetString());
+            Assert.NotEqual(System.Text.Json.JsonValueKind.Null, row.GetProperty("lastFailureUtc").ValueKind);
+            Assert.StartsWith("Last sent INPUT HDMI 1", row.GetProperty("history").GetString());
+
+            // The box answers again: no longer failing, the failure kept for the record.
+            Assert.True(services.Devices.Send("Proj", "POWER ON").Ok);
+            fake.Say("%1POWR=OK");
+            Assert.True(WaitFor(() => !device.Runtime.Failing), "the box answered again");
+            services.Devices.Poll();
+            Assert.Contains("· failed INPUT HDMI 1", device.HistoryText);
+            Assert.False(System.Text.Json.JsonDocument.Parse(new CommandRouter(services).StateJson()).RootElement.GetProperty("devices")[0].GetProperty("failing").GetBoolean());
+
+            // Nothing of it is in the show file.
+            var json = JsonUtil.Serialize(vm.State.Interactive);
+            Assert.DoesNotContain("lastCommand", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("HistoryText", json);
+            Assert.DoesNotContain("Runtime", json);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void ALineIsDispatchedAtOnceAndItsReceiptFollowsTheBoxsYesItsNoOrItsSilence()
     {
         var b = TestApp.Boot();

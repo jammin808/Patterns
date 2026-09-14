@@ -132,6 +132,11 @@ export function buildFeedbacks(ctx) {
 			if (!fb.options.name) return rows.some((d) => d.open)
 			return rows.some((d) => d.open && d.name === fb.options.name)
 		}),
+		device_failing: bool("An Interactive device's last word was a failure — a no, a silence, a port that would not open (any, or a named one)", style('device', 'fault'), [named('name', 'Device name (blank = any)')], (fb) => {
+			const rows = s().devices ?? []
+			if (!fb.options.name) return rows.some((d) => d.failing)
+			return rows.some((d) => d.failing && d.name === fb.options.name)
+		}),
 		cue_armed: bool('Cue stack is armed', style('cue', 'armed'), [], () => s().cuestack?.armed === true),
 		cue_hold: bool('Cue stack is on HOLD', style('cue', 'hold'), [], () => s().cuestack?.hold === true),
 		cue_standby_is: bool('A given cue is on standby', style('cue', 'standby'), [named('cue', 'Cue number', '01.010')], (fb) => (s().cuestack?.standby?.number ?? '') === fb.options.cue),

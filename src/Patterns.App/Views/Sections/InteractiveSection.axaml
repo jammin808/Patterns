@@ -78,6 +78,9 @@
               </Grid>
               <TextBlock Classes="hint tip" Text="{Binding Words}" TextWrapping="Wrap"
                          IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}" />
+              <TextBlock Classes="hint" Text="{Binding HistoryText}" TextWrapping="Wrap"
+                         IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}"
+                         ToolTip.Tip="What this box did lately: the last line sent to it and when, its last reply and the confirmation it reached, the last state it was observed in, and the last failure — FAILED while that failure is its last word. The ages move with the desk's tick; nothing here is saved with the show" />
               <Grid ColumnDefinitions="130,*,8,Auto,8,*,8,Auto,8,*" Margin="0,2,0,0"
                     IsVisible="{Binding Link, Converter={StaticResource NotEq}, ConverterParameter={x:Static m:DeviceLink.Midi}}">
                 <TextBlock Classes="label" Text="Confirm" VerticalAlignment="Center" />

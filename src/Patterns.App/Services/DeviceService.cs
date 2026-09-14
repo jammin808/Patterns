@@ -265,6 +265,7 @@ public sealed class DeviceService : IDisposable
             catch (Exception ex)
             {
                 d.Status = "could not open: " + ex.Message;
+                d.Runtime = d.Runtime.Failed("could not open: " + ex.Message, DateTime.UtcNow);
                 Log.Warn($"Device '{d.Name}' could not open.", ex);
             }
         }
@@ -286,6 +287,12 @@ public sealed class DeviceService : IDisposable
             if (open.Session.PollWords is not { } poll || !open.Link.IsOpen || now < open.NextPollUtc) continue;
             open.NextPollUtc = now + open.Session.PollEvery;
             WriteTo(open, poll, out _, quiet: true);
+        }
+        // The cards' history lines, their ages moved on: a string a second per box, raised only when it changed.
+        foreach (var d in _services.State.Interactive.Devices)
+        {
+            var words = d.Runtime.Words(now);
+            if (d.HistoryText != words) d.HistoryText = words;
         }
     }
 
@@ -332,6 +339,19 @@ public sealed class DeviceService : IDisposable
             status = d.Status,
             lastIn = _open.TryGetValue(d.Id, out var oi) ? oi.LastIn : "",
             lastOut = _open.TryGetValue(d.Id, out var oo) ? oo.LastOut : "",
+            // What the box did lately, with its times: the last line, its reply and the level reached, the observed state, the last failure — and whether that failure is its last word.
+            lastCommand = d.Runtime.LastCommand,
+            lastCommandUtc = d.Runtime.LastCommandUtc,
+            lastReply = d.Runtime.LastReply,
+            lastReplyUtc = d.Runtime.LastReplyUtc,
+            confirmed = d.Runtime.LastConfirmed is { } level ? DeviceConfirmation.Label(level) : "",
+            confirmedUtc = d.Runtime.LastConfirmedUtc,
+            observed = d.Runtime.LastObserved,
+            observedUtc = d.Runtime.LastObservedUtc,
+            lastFailure = d.Runtime.LastFailure,
+            lastFailureUtc = d.Runtime.LastFailureUtc,
+            failing = d.Runtime.Failing,
+            history = d.Runtime.Words(DateTime.UtcNow),
         }).ToList();
     }
 
@@ -419,8 +439,10 @@ public sealed class DeviceService : IDisposable
         }
         if (track)
         {
-            // The DEVICE verb, a cue's step, the page's SEND: followed to its receipt. The show's
-            // facts and the poll are not — a board hearing BLACKOUT 1 owes nobody an answer.
+            // The DEVICE verb, a cue's step, the page's SEND: followed to its receipt, and the
+            // card's last line. The show's facts and the poll are not — a board hearing
+            // BLACKOUT 1 owes nobody an answer.
+            open.Config.Runtime = open.Config.Runtime.Sent(line, DateTime.UtcNow);
             var pending = new Pending
             {
                 Open = open,
@@ -552,6 +574,10 @@ public sealed class DeviceService : IDisposable
             if (!ok) LastFailed = receipt;
             else if (LastFailed is { } failed && failed.Device == receipt.Device) LastFailed = null;   // the box that said no answers again
             if (_open.TryGetValue(pending.Open.Config.Id, out var open)) open.Config.Status = StatusLine(open) + " · " + (ok ? DeviceConfirmation.Label(reached) : receipt.Answer);
+            var config = open?.Config ?? pending.Open.Config;
+            config.Runtime = ok
+                ? config.Runtime.Confirmed(reached, receipt.Answer, receipt.AtUtc)
+                : config.Runtime.Failed($"{receipt.Words} — {receipt.Answer}", receipt.AtUtc);
             Receipt?.Invoke(receipt);
         });
     }
@@ -617,6 +643,7 @@ public sealed class DeviceService : IDisposable
             // server's handle found is the play that wanted it).
             var reply = open.Session.OnReceived(line);
             open.LastIn = reply.Words;
+            open.Config.Runtime = open.Config.Runtime.Replied(reply.Words.Length > 0 ? reply.Words : line, DateTime.UtcNow);
             foreach (var frame in reply.SendNext)
             {
                 open.Link.WriteBytes(frame);

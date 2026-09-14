@@ -2324,6 +2324,17 @@ public sealed class DeviceConfig : Observable
     /// <summary>Runtime: open, reconnecting, the last line in and out — set by the service, never saved.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string Status { get => _status; set => Set(ref _status, value ?? ""); }
+
+    private Services.DeviceRuntime _runtime = Services.DeviceRuntime.None;
+    private string _historyText = "";
+
+    /// <summary>What the box did lately — runtime alone, never in the file: the last line, reply, confirmation, observed state and failure with their times. The service writes it; the card, STATE and the assistant read it.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Services.DeviceRuntime Runtime { get => _runtime; set => Set(ref _runtime, value ?? Services.DeviceRuntime.None); }
+
+    /// <summary>The card's history line with the ages — refreshed by the desk's tick, never saved.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string HistoryText { get => _historyText; set => Set(ref _historyText, value ?? ""); }
 }
 
 /// <summary>The Interactive area: devices over serial and IP that fire commands and hear the show. Off by default — opening ports is a deliberate act.</summary>

@@ -9,6 +9,16 @@ export const norm = (v) => String(v ?? '').replace(/[\s_-]/g, '').toLowerCase()
 /** The state before the desk has said anything, and after the link drops: no key stays lit. */
 export const emptyState = () => ({ blackout: false, looks: [], screens: [], presenter: { index: -1, count: 0 } })
 
+/** The device row whose stamp (a field holding an ISO time) is newest, or undefined when none has one. */
+export function newestDevice(rows, stamp) {
+	let best
+	for (const d of rows ?? []) {
+		if (!d?.[stamp]) continue
+		if (!best || String(d[stamp]) > String(best[stamp])) best = d
+	}
+	return best
+}
+
 /** The name at a place in one of the show's lists, or '' when nothing is there. */
 export function bankName(s, kind, n) {
 	switch (kind) {
@@ -189,6 +199,15 @@ export function variableValues(s) {
 		machine_advice: String(s.machine?.advice ?? 0),
 		machine_render_faults: String(s.machine?.renderFaults ?? 0),
 		machine_faulting: s.machine?.faulting ? 'FAULT' : 'ok',
+		devices_failing: String((s.devices ?? []).filter((d) => d.failing).length),
+		device_last_reply: (() => {
+			const d = newestDevice(s.devices, 'lastReplyUtc')
+			return d ? `${d.name}: ${d.lastReply}${d.confirmed ? ' — ' + d.confirmed : ''}` : ''
+		})(),
+		device_last_failure: (() => {
+			const d = newestDevice(s.devices, 'lastFailureUtc')
+			return d ? `${d.name}: ${d.lastFailure}` : ''
+		})(),
 		air_look: s.airLook ?? '',
 		preview_look: s.previewLook ?? '',
 		pattern: s.pattern ?? '',

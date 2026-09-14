@@ -78,7 +78,7 @@ export const STATES = {
 	presenter: { on: 'steel', ended: 'amber', out: 'red' },
 	install: { schedule: 'green', announcement: 'amber', advert: 'steel' },
 	stream: { active: 'red', trouble: 'amber' },
-	device: { open: 'green' },
+	device: { open: 'green', fault: 'red' },
 	tone: { on: 'amber' },
 	duck: { on: 'amber' },
 	weather: { on: 'sky' },

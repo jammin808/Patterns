@@ -59,7 +59,7 @@ public static class CompanionPalette
         ["presenter"] = Row(("on", "steel"), ("ended", "amber"), ("out", "red")),
         ["install"] = Row(("schedule", "green"), ("announcement", "amber"), ("advert", "steel")),
         ["stream"] = Row(("active", "red"), ("trouble", "amber")),
-        ["device"] = Row(("open", "green")),
+        ["device"] = Row(("open", "green"), ("fault", "red")),
         ["tone"] = Row(("on", "amber")),
         ["duck"] = Row(("on", "amber")),
         ["weather"] = Row(("on", "sky")),

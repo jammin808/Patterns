@@ -34,6 +34,73 @@ public class AudienceLoadTests
     }
 
     [AvaloniaFact]
+    public void TwoHundredPhonesBehindOneAddressAreSeatedUnderTheVenueNatProfileAndTurnedAwayOnAFlatNetwork()
+    {
+        const int Phones = 200;
+        var audiencePort = FreePort();
+        var b = TestApp.Boot("patterns-tests-nat-", dir =>
+        {
+            var s = SettingsStore.Fresh();
+            s.Name = "Gala";
+            s.Control.Enabled = true;
+            s.Control.HttpPort = FreePort();
+            s.Control.TcpPort = FreePort();
+            s.Control.AudienceEnabled = true;
+            s.Control.AudiencePort = audiencePort;
+            s.Control.AudienceMaxPlayers = Phones + 50;
+            s.Control.AudienceNetwork = AudienceNetwork.VenueNat;                        // the profile as the Remote page sets it, the budgets as shipped
+            s.Twin.AcceptCallers = false;
+            s.Watchdog.BeaconListenPort = FreePort();
+            s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+            File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
+        }, NodeKind.Arcade);
+        try
+        {
+            var (services, _, _) = b;
+            var play = services.Play;
+            Assert.Equal(new AudienceBudget(), play.Budget);                                          // nothing widened by hand
+            Assert.Equal(2 * (Phones + 50) + 20, play.Effective.JoinsPerAddressPerMinute);
+            Assert.Equal(play.Effective.MaxConnections, play.Effective.MaxConnectionsPerAddress);
+            PumpUntil(() => services.Control.AudienceListening);
+            var router = new CommandRouter(services);
+            string Wire(string line) => TestApp.Pump(router.ExecuteAsync(ControlProtocol.Parse(line)));
+            using var phone = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{audiencePort}/"), Timeout = TimeSpan.FromSeconds(60) };
+            string Join(string nick) => TestApp.Pump(phone.PostAsync("api/play/join", new StringContent($"{{\"nick\":\"{nick}\",\"room\":\"{play.Code}\"}}")).ContinueWith(t => t.Result.Content.ReadAsStringAsync().Result));
+
+            // Every phone through the real socket from one address, at once: all seated.
+            var joins = TestApp.Pump(Task.WhenAll(Enumerable.Range(0, Phones).Select(async i =>
+            {
+                var r = await phone.PostAsync("api/play/join", new StringContent($"{{\"nick\":\"Phone {i}\",\"room\":\"{play.Code}\"}}"));
+                return await r.Content.ReadAsStringAsync();
+            })));
+            Assert.All(joins, j => Assert.Contains("\"ok\":true", j));
+            Assert.Equal(Phones, play.Room.PlayerCount);
+            Assert.Contains("\"network\":\"venue-nat\"", Wire("AUDIENCE STATUS"));
+            Assert.DoesNotContain("refused", play.Words);
+
+            // The same room on a flat network: the two hundred joins from one address this minute are far past its twenty, and the next is turned away with the profile named on the line.
+            b.Vm.State.Control.AudienceNetwork = AudienceNetwork.Flat;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(20, play.Effective.JoinsPerAddressPerMinute);
+            Assert.Contains("Too many joins", Join("One more"));
+            Assert.Equal(Phones, play.Room.PlayerCount);
+            Assert.Contains("phones behind one address? Remote page, AUDIENCE: Network → venue NAT", play.Words);
+            Assert.Contains("\"network\":\"flat\"", Wire("AUDIENCE STATUS"));
+
+            // Back on the profile the next phone is seated, the minute's refusal still on the line in the profile's words.
+            b.Vm.State.Control.AudienceNetwork = AudienceNetwork.VenueNat;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("\"ok\":true", Join("Late"));
+            Assert.Equal(Phones + 1, play.Room.PlayerCount);
+            Assert.Contains("the room's own joins-per-minute reached", play.Words);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void TwoHundredPhonesJoinWaitOnTheRoomAndAnswerTogetherWithinTheBudgets()
     {
         const int Phones = 200;
