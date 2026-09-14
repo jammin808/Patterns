@@ -59,9 +59,30 @@ public sealed class NodesService
         var key = string.Join("|", cards.Select(c => $"{c.Instance}:{c.Kind}:{c.Name}:{c.Show}:{c.Live}:{c.Fresh}:{c.LinkPort}:{c.HttpPort}:{(int)(c.Age.TotalSeconds / 5)}"));
         if (key == _seen) return;
         _seen = key;
+        Rev++;
         Nodes.Clear();
         foreach (var c in cards) Nodes.Add(c);
     }
+
+    /// <summary>Moves when the cards change — a deck's node keys are pushed on it.</summary>
+    public long Rev { get; private set; }
+
+    /// <summary>The cards as a deck's bank keys read them: by place, with the kind, the machine, whether it is heard now, and its own words.</summary>
+    public object[] Rows() => Nodes.Select((c, i) => (object)new
+    {
+        n = i + 1,
+        instance = c.Instance,
+        kind = NodeKinds.Wire(c.Kind),
+        name = c.Name,
+        show = c.Show,
+        live = c.Live,
+        fresh = c.Fresh,
+        words = c.Words,
+        address = c.Address?.ToString() ?? "",
+        http = c.HttpPort,
+        link = c.LinkPort,
+        heardSecondsAgo = Math.Round(c.Age.TotalSeconds),
+    }).ToArray();
 
     /// <summary>NODES on the wire: every card as JSON.</summary>
     /// <summary>The desks heard lately with a wire — where a node finds the assistant's one key.</summary>

@@ -144,6 +144,42 @@ public sealed class StageService
     }
 
     /// <summary>STAGE STATUS, and the pages' payload: the timer, the segment, the clock, the messages with their receipts.</summary>
+    /// <summary>The stage as a deck's key reads it: the timer in its own colour, the segment and the next, the messages waiting for their ACK, the flash — the block STATE carries.</summary>
+    public object Block()
+    {
+        Hook();
+        var air = _s.AirState;
+        var time = Time();
+        var stack = _s.CueStack;
+        var running = stack?.LastCue;
+        var next = stack?.StandbyCue;
+        return new
+        {
+            timer = new
+            {
+                phase = time.Phase.ToString().ToLowerInvariant(),
+                remaining = Math.Round(time.RemainingSeconds, 1),
+                text = time.Text,
+                colour = time.Colour,
+                progress = Math.Round(time.Progress01, 4),
+                label = air.Countdown.Label,
+                paused = air.Stage.Paused,
+            },
+            segment = running is null ? "" : $"{running.Number} {running.Name}".Trim(),
+            next = next is null ? "" : $"{next.Number} {next.Name}".Trim(),
+            pendingSpeaker = Pending("speaker")?.Text ?? "",
+            pendingCrew = Pending("crew")?.Text ?? "",
+            flash = air.Stage.FlashUntilUtc is { } until && until > UtcNow(),
+        };
+    }
+
+    /// <summary>What a deck watches for: the timer's phase and colour, the messages waiting — a change is a push.</summary>
+    public string DeckSignature()
+    {
+        var time = Time();
+        return $"{time.Phase}|{time.Colour}|{Pending("speaker")?.Id}|{Pending("crew")?.Id}";
+    }
+
     public string StatusJson()
     {
         Hook();

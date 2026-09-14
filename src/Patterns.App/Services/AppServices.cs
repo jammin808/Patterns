@@ -1552,6 +1552,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// it will end — or null when nothing on air is a file whose decoder is open. Read every second
     /// by the desk, the Run strip, the remotes and OSC, so every surface counts the same seconds.
     /// </summary>
+    /// <summary>What a deck's keys read that no publish carries: the nodes heard, the twin's phase and holder, the stage's waiting messages, the decks connected.</summary>
+    public string DeckSignature() => $"{Nodes.Rev}|{Twin.Phase}|{Twin.Holder}|{Stage.DeckSignature()}|{Control.Decks.Count}";
+
     public VideoReading? VideoOnAir()
         => VideoClock.Read(Bus.Current, InputBus.For, Stingers is { ClipActive: true });
 

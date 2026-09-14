@@ -360,6 +360,23 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     public sealed record PlanOffer(string Instance, string Caller, string Json, string Words, string Count, bool Same, bool Queued = false);
 
     /// <summary>TWIN STATUS's payload.</summary>
+    /// <summary>The twin as a deck's key reads it: role, phase, the words, the names, who holds the show, the clocks — the block STATE carries.</summary>
+    public object DeckBlock()
+    {
+        var phase = Phase.ToString();
+        return new
+        {
+            role = _role.ToString().ToLowerInvariant(),
+            phase = char.ToLowerInvariant(phase[0]) + phase[1..],
+            words = Status,
+            main = _mainName,
+            standbys = StandbyNames,
+            holder = _holder,
+            clocks = PeerClockWords().Trim(),
+            apart = ClockApartWords.Length > 0,
+        };
+    }
+
     public string StatusJson()
     {
         var phase = Phase.ToString();

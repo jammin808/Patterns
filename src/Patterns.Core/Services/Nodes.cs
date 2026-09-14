@@ -78,6 +78,9 @@ public sealed record NodeCard(string Instance, NodeKind Kind, string Name, IPAdd
 
     public string KindLabel => NodeKinds.Label(Kind);
 
+    /// <summary>The kind's colour — the one its key wears on a Stream Deck — and the gone colour once it stops being heard.</summary>
+    public string Hue => CompanionPalette.NodeHue(Kind, Fresh);
+
     /// <summary>"http://10.0.0.12:9696/" — its pages, or "" when it serves none.</summary>
     public string PagesUrl => Address is null || HttpPort <= 0 ? "" : $"http://{Address}:{HttpPort}/";
 

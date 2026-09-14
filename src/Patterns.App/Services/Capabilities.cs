@@ -123,6 +123,8 @@ public interface IWireHost
     /// <summary>The stage timer — null on a node that has none.</summary>
     StageService? Stage { get; }
     VideoReading? VideoOnAir();
+    /// <summary>What a deck's keys read that no publish carries — the nodes heard, the twin's phase, the stage's waiting messages: a change is a STATE push.</summary>
+    string DeckSignature();
     event Action? RuntimeChanged;
     event Action? SnapshotPublished;
     IRouter NewRouter();

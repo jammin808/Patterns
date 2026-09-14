@@ -354,6 +354,9 @@ public sealed class NodeRouter : IRouter
             rev = Rev?.Invoke() ?? 0,
             version = AppVersion.Current,
             decks = _host.Control.Decks.Select(d => new { name = d.Name, module = d.Module, address = d.Address }).ToArray(),
+            nodes = _host.Kernel.Nodes.Rows(),
+            twin = _host.Twin?.DeckBlock(),
+            stage = _host.Stage?.Block(),
             arcade = _host.Arcade.Words,
             play = _host.Play.Code,
             audience = s.Control.AudienceEnabled ? s.Control.AudiencePort : 0,
@@ -366,7 +369,7 @@ public sealed class NodeRouter : IRouter
             hold = rt.Hold,
             standby = stack.StandbyCue is { } sb ? new { id = sb.Id, number = sb.Number, name = sb.Name } : null,
             last = stack.LastCue is { } last ? new { id = last.Id, number = last.Number, name = last.Name } : null,
-            stage = _host.Stage.Rev,
+            stageRev = _host.Stage?.Rev ?? 0,
         });
     }
 
@@ -713,6 +716,8 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     public event Action? AirLabelChanged;
 
     public VideoReading? VideoOnAir() => null;
+
+    public string DeckSignature() => $"{Kernel.Nodes.Rev}|{Twin?.Phase}|{Stage?.DeckSignature()}|{Control.Decks.Count}";
 
     public IReadOnlyList<PreRoll.State> PreRollStates(IReadOnlyList<MediaLocator.WantedInput> wants) => Array.Empty<PreRoll.State>();
 

@@ -56,10 +56,11 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="svc:NodeCard">
-          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10">
+          <Border Background="{StaticResource PanelBg2Brush}" CornerRadius="8" Padding="10" BorderBrush="{Binding Hue}" BorderThickness="1"
+                  ToolTip.Tip="The card wears its kind's colour — the same one its key wears on a Stream Deck — and goes dark red once the node stops being heard">
             <Grid ColumnDefinitions="*,Auto,Auto">
               <StackPanel>
-                <TextBlock FontWeight="SemiBold" Text="{Binding KindLabel}" />
+                <TextBlock FontWeight="SemiBold" Text="{Binding KindLabel}" Foreground="{Binding Hue}" />
                 <TextBlock Classes="label" Text="{Binding Line}" TextWrapping="Wrap" />
               </StackPanel>
               <Button Grid.Column="1" Classes="chip" Content="Link" Margin="8,0,0,0" VerticalAlignment="Center"

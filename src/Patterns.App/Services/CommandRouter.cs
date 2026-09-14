@@ -377,6 +377,11 @@ public sealed class CommandRouter : IRouter
             },
             machine = MachineRow(),
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
+            // The room around the desk, for a deck's keys: every node heard, the callers linked, the twin, the stage.
+            linked = _services.Nodes.Linked,
+            nodes = _services.Nodes.Rows(),
+            twin = _services.Twin.DeckBlock(),
+            stage = _services.Stage.Block(),
         };
         return JsonSerializer.Serialize(payload);
     }

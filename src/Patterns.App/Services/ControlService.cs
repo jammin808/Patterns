@@ -76,11 +76,17 @@ public sealed partial class ControlService : IDisposable
     private readonly DispatcherTimer _clockTimer;
     private int _longPollers;
 
+    private string _deckSignature = "";
+
     private void ClockTick()
     {
         try
         {
-            if (_services.VideoOnAir() is null && !OverlayControl.CountsEverySecond(_services.AirState.Countdown, DateTime.Now, DateTime.UtcNow)) return;
+            // A node appearing, the twin's phase moving, a message to the stage waiting: nothing publishes for it, and a deck's keys read it.
+            var deck = _services.DeckSignature();
+            var deckMoved = deck != _deckSignature;
+            _deckSignature = deck;
+            if (!deckMoved && _services.VideoOnAir() is null && !OverlayControl.CountsEverySecond(_services.AirState.Countdown, DateTime.Now, DateTime.UtcNow)) return;
             bool listening;
             lock (_gate)
             {
@@ -335,6 +341,9 @@ public sealed partial class ControlService : IDisposable
 
     /// <summary>How many Companion connections are open right now.</summary>
     public int WireConnections => _wireLedger.Open;
+
+    /// <summary>The wire's revision: moves on every push — a publish, a runtime change, a deck signature change, a clock tick that counts.</summary>
+    public long Rev => Interlocked.Read(ref _rev);
 
     private readonly Dictionary<TcpClient, WireDeck> _decks = new();
 
