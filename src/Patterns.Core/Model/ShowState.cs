@@ -1184,6 +1184,95 @@ public sealed class MonitorConfig : Observable
     public double VolumePct { get => _volumePct; set => Set(ref _volumePct, Math.Clamp(value, 0, 125)); }
 }
 
+/// <summary>What a VOG does to everything else on a destination while it plays.</summary>
+public enum AudioVogMode
+{
+    /// <summary>Everything else steps down to the duck level underneath the announcement and comes back after it.</summary>
+    Duck,
+    /// <summary>The announcement alone: everything else goes to silence under it and comes back after it.</summary>
+    Replace,
+    /// <summary>The announcement never reaches this destination — a stream that stays clean, a screen with its own soundtrack.</summary>
+    Leave,
+}
+
+/// <summary>
+/// One place sound goes: a Windows output by name ("dev:Speakers (Realtek…)", "dev:(computer output)"),
+/// or an NDI send by its id ("ndi:…"). Its trim, its lip-sync delay, its mute, and what a VOG does on it.
+/// </summary>
+public sealed class AudioDestinationConfig : Observable
+{
+    private string _key = "";
+    private string _label = "";
+    private double _trimDb;
+    private int _delayMs;
+    private bool _mute;
+    private AudioVogMode _vogMode = AudioVogMode.Duck;
+    private double? _vogDuckDb;
+    private int _attackMs = 40;
+    private int _releaseMs = 600;
+
+    public string Key { get => _key; set => Set(ref _key, value ?? ""); }
+
+    /// <summary>The operator's name for it ("Room desk", "Info screen"); empty = the device's own.</summary>
+    public string Label { get => _label; set => Set(ref _label, value ?? ""); }
+
+    /// <summary>A trim on everything that reaches it, −60…+12 dB.</summary>
+    public double TrimDb { get => _trimDb; set => Set(ref _trimDb, Services.Db.ClampLevel(value)); }
+
+    /// <summary>Its lip-sync offset: its sound leaves this much later, 0–2000 ms.</summary>
+    public int DelayMs { get => _delayMs; set => Set(ref _delayMs, Math.Clamp(value, 0, 2000)); }
+
+    public bool Mute { get => _mute; set => Set(ref _mute, value); }
+
+    public AudioVogMode VogMode { get => _vogMode; set => Set(ref _vogMode, value); }
+
+    /// <summary>The level everything else drops to under a VOG here, in dB (−60…0); null = the show's own duck level.</summary>
+    public double? VogDuckDb { get => _vogDuckDb; set => Set(ref _vogDuckDb, value is { } v ? Math.Clamp(v, -60, 0) : null); }
+
+    /// <summary>How fast the duck engages, 5–2000 ms.</summary>
+    public int AttackMs { get => _attackMs; set => Set(ref _attackMs, Math.Clamp(value, 5, 2000)); }
+
+    /// <summary>How fast the others come back after the VOG, 20–10000 ms.</summary>
+    public int ReleaseMs { get => _releaseMs; set => Set(ref _releaseMs, Math.Clamp(value, 20, 10000)); }
+}
+
+/// <summary>One crosspoint: a source on a destination at a level.</summary>
+public sealed class AudioRouteConfig : Observable
+{
+    private string _source = "";
+    private string _destination = "";
+    private double _levelDb;
+    private bool _enabled = true;
+
+    /// <summary>A source id: programme, screen:&lt;target&gt;, preview, music, vog, sting, tone.</summary>
+    public string Source { get => _source; set => Set(ref _source, value ?? ""); }
+
+    /// <summary>A destination key: dev:&lt;name&gt; or ndi:&lt;id&gt;.</summary>
+    public string Destination { get => _destination; set => Set(ref _destination, value ?? ""); }
+
+    /// <summary>−60…+12 dB; 0 is unity.</summary>
+    public double LevelDb { get => _levelDb; set => Set(ref _levelDb, Services.Db.ClampLevel(value)); }
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+}
+
+/// <summary>
+/// Which soundtrack goes where. Off — the default, and every show made before it — the desk keeps
+/// round 26's two wires: the programme's sound on the programme's outputs, the operator's own on
+/// the monitor. On, the matrix is in charge: each destination lists the sources it carries and at
+/// what level, and a VOG ducks, replaces or leaves each one as it says.
+/// </summary>
+public sealed class AudioRoutingConfig : Observable
+{
+    private bool _enabled;
+
+    public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    public ShowCollection<AudioDestinationConfig> Destinations { get; init; } = new();
+
+    public ShowCollection<AudioRouteConfig> Routes { get; init; } = new();
+}
+
 public sealed class AudioPlayerConfig : Observable
 {
     private string _path = "";
@@ -2533,6 +2622,9 @@ public sealed class ShowState : Observable
 
     /// <summary>What the desk's own speakers are listening to; the programme unless the operator says otherwise.</summary>
     public MonitorConfig Monitor { get; init; } = new();
+
+    /// <summary>Which soundtrack goes where: sources × destinations, off until the show asks for it (<see cref="Services.AudioRouting"/>).</summary>
+    public AudioRoutingConfig AudioRouting { get; init; } = new();
     public DeskLayoutConfig Desk { get; init; } = new();
 
     /// <summary>The lower thirds: the designs, and the one on air since when.</summary>

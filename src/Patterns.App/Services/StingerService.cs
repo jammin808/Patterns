@@ -173,6 +173,17 @@ public sealed class StingerService : IDisposable
     /// <summary>The music bus — the file track and break music both read it.</summary>
     public double MusicGainAt(DateTime nowUtc) => GainAt(AudioBus.Music, nowUtc);
 
+    /// <summary>
+    /// The same, with the VOG's duck left out: with the routing matrix in charge each destination
+    /// ducks, replaces or leaves a VOG as it says, so the players take the sting ramp, the live
+    /// duck and the fade to black from here and the VOG's part from the matrix's plan.
+    /// </summary>
+    public double GainWithoutVogAt(AudioBus bus, DateTime nowUtc)
+    {
+        var ramp = MusicLevel.Gain(_gainFrom, _gainTo, MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs));
+        return GainRules.For(bus, new GainInputs(false, _services.State.Stingers.DuckPct, ramp, DuckFactorAt(nowUtc), BlackFactorAt(nowUtc)));
+    }
+
     /// <summary>The fade is moving: the music player polls faster while this is true.</summary>
     public bool MusicRamping(DateTime nowUtc)
         => (_gainMs > 0 && Math.Abs(_gainFrom - _gainTo) > 0.0001 && MusicLevel.Progress(_gainStartUtc, nowUtc, _gainMs) < 1)

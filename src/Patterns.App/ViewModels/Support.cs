@@ -498,6 +498,119 @@ public sealed record SendChoice(string Name, string Group, bool IsPreset, string
     public override string ToString() => Name;
 }
 
+/// <summary>One destination of the routing matrix on the Audio page: its row's settings, and a cell per source.</summary>
+public sealed class RoutingRowVm : Patterns.Core.Model.Observable
+{
+    private string _liveWords = "";
+    private string _meter = "";
+    private string _error = "";
+
+    public RoutingRowVm(AudioDestinationConfig row, string label, bool present)
+    {
+        Row = row;
+        Label = label;
+        Present = present;
+    }
+
+    public AudioDestinationConfig Row { get; }
+
+    /// <summary>The device's or send's name, or the operator's label.</summary>
+    public string Label { get; }
+
+    public bool IsNdi => AudioRouting.IsNdi(Row.Key);
+
+    public string KindWord => IsNdi ? "NDI" : "OUTPUT";
+
+    /// <summary>The machine has this output (or the show runs this send) right now.</summary>
+    public bool Present { get; }
+
+    public System.Collections.ObjectModel.ObservableCollection<RoutingCellVm> Cells { get; } = new();
+
+    /// <summary>The row's line: its trim, delay, VOG mode and what it carries.</summary>
+    public string LiveWords { get => _liveWords; set => Set(ref _liveWords, value); }
+
+    /// <summary>The lane's meter, "−18 dB"; "" for a destination whose sound the desk does not meter.</summary>
+    public string Meter { get => _meter; set => Set(ref _meter, value); }
+
+    /// <summary>What the lane could not do — a device that would not open — or "".</summary>
+    public string Error { get => _error; set => Set(ref _error, value); }
+}
+
+/// <summary>One crosspoint: a source on a destination — on or off, at a level, with the gain it runs at now.</summary>
+public sealed class RoutingCellVm : Patterns.Core.Model.Observable
+{
+    private readonly AudioPage _page;
+    private bool _isOn;
+    private string _levelText = "";
+    private string _liveText = "";
+
+    public RoutingCellVm(AudioPage page, string destination, AudioSourceInfo source, AudioRouteConfig? route)
+    {
+        _page = page;
+        Destination = destination;
+        Source = source;
+        _isOn = route is { Enabled: true };
+        _levelText = route is null ? "" : Db.Text(route.LevelDb);
+    }
+
+    public string Destination { get; }
+    public AudioSourceInfo Source { get; }
+    public string Label => Source.Label;
+
+    /// <summary>The colour the source wears — the palette's word for its kind.</summary>
+    public string Hue => Source.Kind switch
+    {
+        RoutedSourceKind.Programme => "pgm",
+        RoutedSourceKind.Screen => "screen",
+        RoutedSourceKind.Preview => "pvw",
+        RoutedSourceKind.Music => "music",
+        RoutedSourceKind.Vog => "vog",
+        RoutedSourceKind.Sting => "sting",
+        _ => "tone",
+    };
+
+    /// <summary>The crosspoint, two-way: ticked puts the source on the destination at its last level (0 dB when new).</summary>
+    public bool IsOn
+    {
+        get => _isOn;
+        set
+        {
+            if (!Set(ref _isOn, value)) return;
+            _page.SetCell(this, value);
+        }
+    }
+
+    /// <summary>The level as text ("−6", "+3"); typing writes the crosspoint.</summary>
+    public string LevelText
+    {
+        get => _levelText;
+        set
+        {
+            if (!Set(ref _levelText, value ?? "")) return;
+            _page.SetCellLevel(this, value ?? "");
+        }
+    }
+
+    /// <summary>The gain the lane runs at now, in dB — "−12 dB" under a VOG; "" while nothing plays there.</summary>
+    public string LiveText { get => _liveText; set => Set(ref _liveText, value); }
+
+    internal void Sync(AudioRouteConfig? route)
+    {
+        var on = route is { Enabled: true };
+        if (on != _isOn)
+        {
+            _isOn = on;
+            Raise(nameof(IsOn));
+        }
+        var text = route is null ? "" : Db.Text(route.LevelDb);
+        if (text != _levelText)
+        {
+            _levelText = text;
+            Raise(nameof(LevelText));
+        }
+    }
+}
+
 public sealed record EnumItem(object Value, string Label)
 {
     public override string ToString() => Label;
@@ -1050,6 +1163,13 @@ public static class Lists
     {
         new(AudienceNetwork.Flat, "Flat — each phone on its own address"),
         new(AudienceNetwork.VenueNat, "Venue NAT — the phones share one address"),
+    };
+
+    public static readonly EnumItem[] VogModes =
+    {
+        new(AudioVogMode.Duck, "VOG ducks the rest"),
+        new(AudioVogMode.Replace, "VOG replaces the rest"),
+        new(AudioVogMode.Leave, "VOG stays off it"),
     };
 
     public static readonly EnumItem[] ToneModes =

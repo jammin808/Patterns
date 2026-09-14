@@ -210,6 +210,10 @@ public sealed class MediaPage : Observable
             _desk.StatusMessage = $"{WebPresets.For(full, pick).Name} full frame: {full}";
         });
         WebActionCommand = new RelayCommand<string>(id => RunWebAction(id ?? ""));
+        // The armed web VT: ARM at the time typed (else the mark set, else where the player is), MARK, DISARM.
+        WebArmCommand = new RelayCommand(() => RunWebVt(ShowActionKind.WebArm, WebArmText));
+        WebMarkCommand = new RelayCommand(() => RunWebVt(ShowActionKind.WebMark, WebArmText));
+        WebDisarmCommand = new RelayCommand(() => RunWebVt(ShowActionKind.WebArm, "off"));
 
         // The area of interest
         ClearCropCommand = new RelayCommand(ClearCrop);
@@ -246,6 +250,9 @@ public sealed class MediaPage : Observable
     public RelayCommand PutWebPageOnPatternCommand { get; }
     public RelayCommand WebFullFrameCommand { get; }
     public RelayCommand<string> WebActionCommand { get; }
+    public RelayCommand WebArmCommand { get; }
+    public RelayCommand WebMarkCommand { get; }
+    public RelayCommand WebDisarmCommand { get; }
     public RelayCommand ClearCropCommand { get; }
     public RelayCommand<string> CropPresetCommand { get; }
 
@@ -356,6 +363,69 @@ public sealed class MediaPage : Observable
 
     private string _webPageStatus = "";
     public string WebPageStatus { get => _webPageStatus; private set => Set(ref _webPageStatus, value); }
+
+    // ---- the armed web VT ----------------------------------------------------------------------
+
+    private string _webArmText = "";
+    /// <summary>The time ARM and MARK take: "1:23", "83"; empty for the mark set, else where the player is now.</summary>
+    public string WebArmText { get => _webArmText; set => Set(ref _webArmText, value ?? ""); }
+
+    private string _webVtWords = "";
+    /// <summary>The page's VT in one line: armed and where from, played and when, the player's clock, an advert over it.</summary>
+    public string WebVtWords { get => _webVtWords; private set => Set(ref _webVtWords, value); }
+
+    private bool _webArmed;
+    /// <summary>A page's video is armed — the row's chip lights.</summary>
+    public bool WebArmed { get => _webArmed; private set => Set(ref _webArmed, value); }
+
+    private bool _webHasPlayer;
+    /// <summary>The page has a video player answering — the row shows at all.</summary>
+    public bool WebHasPlayer { get => _webHasPlayer; private set => Set(ref _webHasPlayer, value); }
+
+    /// <summary>The pattern's own start point as text ("1:23"), written back as seconds; "" for the top.</summary>
+    public string WebStartText
+    {
+        get => ActivePattern.Media.WebStartSeconds > 0 ? WebVt.TimeText(ActivePattern.Media.WebStartSeconds) : "";
+        set
+        {
+            var text = (value ?? "").Trim();
+            if (text.Length == 0) ActivePattern.Media.WebStartSeconds = 0;
+            else if (WebVt.TryParseTime(text, out var seconds)) ActivePattern.Media.WebStartSeconds = seconds;
+            Raise(nameof(WebStartText));
+        }
+    }
+
+    private void RunWebVt(ShowActionKind kind, string value)
+    {
+        var key = CurrentWebKey();
+        if (key.Length == 0 || CurrentWebSource() is null)
+        {
+            _desk.StatusMessage = "No web page to arm — put one on the pattern or a layer first.";
+            return;
+        }
+        // The page the controls drive, named by its key so a page in the preview is armed rather than the one on air.
+        _desk.Report(_services.Actions.Execute(new ShowAction(kind, key, value), ActionOrigin.Desk));
+        RefreshWebVt();
+    }
+
+    /// <summary>The VT line, read on every poll — the player's clock moves, an arm is put on or spent.</summary>
+    public void RefreshWebVt()
+    {
+        var key = CurrentWebKey();
+        if (key.Length == 0)
+        {
+            if (WebVtWords.Length > 0) WebVtWords = "";
+            WebArmed = false;
+            WebHasPlayer = false;
+            return;
+        }
+        var arm = _services.WebIn.ArmOf(key);
+        var reading = _services.WebIn.ReadingOf(key);
+        var words = WebVt.Words(arm, reading, ShowClock.UtcNow);
+        if (words != WebVtWords) WebVtWords = words;
+        WebArmed = arm.Armed;
+        WebHasPlayer = reading.Ok || arm.Armed || arm.PlayedUtc is not null;
+    }
 
     private string _lastWebKey = "";
 
@@ -491,6 +561,7 @@ public sealed class MediaPage : Observable
         WebCanFullFrame = address.Length > 0 && WebPresets.CanFullFrame(address, pick);
         WebCleanNote = address.Length > 0 ? WebPresets.CleanNote(address, pick) : "";
         Raise(nameof(HasWebPage));
+        Raise(nameof(WebStartText));
         if (key.Length == 0)
         {
             WebControlsTarget = "";
@@ -836,6 +907,7 @@ public sealed class MediaPage : Observable
         PlaylistStatus = _services.Playlist.Status;
         RefreshCropSummary();
         RefreshDeck();
+        RefreshWebVt();
     }
 
     /// <summary>The pick lists, kept warm while their panels are in use: NDI discovery is push-based and cheap to read; capture enumeration is COM, so on first need only.</summary>

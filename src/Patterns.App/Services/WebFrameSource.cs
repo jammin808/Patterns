@@ -49,7 +49,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     /// </summary>
     public const string BrowserArguments =
         "--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling --disable-renderer-backgrounding " +
-        "--disable-background-timer-throttling --autoplay-policy=no-user-gesture-required";
+        "--disable-backgrounding-occluded-windows --disable-background-timer-throttling --autoplay-policy=no-user-gesture-required";
 
     private readonly FrameSlot _slot = new();
     private readonly string _userDataFolder;
@@ -76,7 +76,9 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     // The screencast: the browser pushes frames, each acked on arrival; the newest waits for the
     // decoder and an older one still waiting is dropped — a slow decode costs frames, never latency.
     private CoreWebView2DevToolsProtocolEventReceiver? _screencastEvents;
+    private CoreWebView2DevToolsProtocolEventReceiver? _visibilityEvents;
     private volatile bool _screencastOn;
+    private volatile bool _browserSaysHidden;
     private long _screencastStartTicks;
     private long _screencastFrames;
     private string? _pendingFrame;
@@ -197,6 +199,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _status = e.IsSuccess ? "Showing" : $"The page failed: {e.WebErrorStatus}";
                 // A new document is a new compositor: asked again so a page that arrived by a link keeps its rate.
                 _ = StartScreencastAsync();
+                if (_audioDevice.Length > 0) ApplyAudioDevice();
             };
             _core.DocumentTitleChanged += (_, _) => _title = _core.DocumentTitle ?? "";
             _core.NewWindowRequested += (_, e) =>
@@ -272,6 +275,18 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 if (_disposed || _core is null) return;
                 _screencastEvents = _core.GetDevToolsProtocolEventReceiver(ScreencastFrame.EventName);
                 _screencastEvents.DevToolsProtocolEventReceived += OnScreencastFrame;
+                // The browser saying its window is hidden is the one thing that stops every capture path:
+                // the flags above keep it from happening, and the status says so if it does.
+                _visibilityEvents = _core.GetDevToolsProtocolEventReceiver("Page.screencastVisibilityChanged");
+                _visibilityEvents.DevToolsProtocolEventReceived += (_, e) =>
+                {
+                    var hidden = (e.ParameterObjectAsJson ?? "").Contains("false", StringComparison.Ordinal);
+                    if (hidden != _browserSaysHidden)
+                    {
+                        _browserSaysHidden = hidden;
+                        if (hidden) Log.Warn("The browser reports the page's window as hidden — its picture stops until it is visible again (occlusion tracking should be off).");
+                    }
+                };
             }
             Interlocked.Exchange(ref _screencastStartTicks, DateTime.UtcNow.Ticks);
             await _core.CallDevToolsProtocolMethodAsync("Page.startScreencast", ScreencastFrame.StartParameters(_width, _height));
@@ -421,7 +436,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         {
             if (!_slot.HasFrame) return _status + " (no picture yet)";
             var fps = FrameRate;
-            return fps > 0 ? $"{_status} · {fps:0} fps" : _status;
+            var text = fps > 0 ? $"{_status} · {fps:0} fps" : _status;
+            return _browserSaysHidden ? text + " · the browser thinks its window is hidden" : text;
         }
     }
 
@@ -474,6 +490,114 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
     private string _cleanCss = "";
     private string? _cleanScriptId;
+    private string _audioDevice = "";
+    private string? _sinkScriptId;
+    private volatile string _audioRouteNote = "";
+
+    /// <summary>
+    /// The output the page's sound leaves by. Chromium lets a page pick an output for its media
+    /// elements (setSinkId) once it may see the machine's outputs, which it may once the
+    /// microphone permission is granted for its origin — granted here silently, on the page's
+    /// profile, for the page's own origin only. The script finds the output by the name Windows
+    /// gives it and applies it to every media element, now and as the page makes new ones; what
+    /// it managed is read back into <see cref="AudioRouteNote"/>. A page that will not (no
+    /// media element, a cross-origin player in a frame, an output the browser cannot see) keeps
+    /// the machine's default and the note says so — routed or not is never assumed.
+    /// </summary>
+    public string AudioDevice
+    {
+        get => _audioDevice;
+        set
+        {
+            var name = (value ?? "").Trim();
+            if (name == _audioDevice) return;
+            _audioDevice = name;
+            OnUi(ApplyAudioDevice);
+        }
+    }
+
+    public string AudioRouteNote => _audioRouteNote;
+
+    private async void ApplyAudioDevice()
+    {
+        if (_core is null || _disposed) return;
+        try
+        {
+            if (_sinkScriptId is { } old)
+            {
+                _sinkScriptId = null;
+                _core.RemoveScriptToExecuteOnDocumentCreated(old);
+            }
+            if (_audioDevice.Length > 0)
+            {
+                try
+                {
+                    var origin = new Uri(_core.Source).GetLeftPart(UriPartial.Authority);
+                    await _core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Microphone, origin, CoreWebView2PermissionState.Allow);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("The page's microphone permission (what lets it see the outputs) could not be granted.", ex);
+                }
+                if (_disposed || _core is null) return;
+                _sinkScriptId = await _core.AddScriptToExecuteOnDocumentCreatedAsync(SinkScript(_audioDevice));
+            }
+            if (_disposed || _core is null) return;
+            await _core.ExecuteScriptAsync(SinkScript(_audioDevice));
+            await Task.Delay(1500);
+            if (_disposed || _core is null) return;
+            var result = await _core.ExecuteScriptAsync("JSON.stringify(window.__patternsSink||null)");
+            _audioRouteNote = ReadSinkNote(result, _audioDevice);
+        }
+        catch (Exception ex)
+        {
+            _audioRouteNote = "the page could not be asked: " + ex.Message;
+            Log.Warn("Steering the page's sound failed.", ex);
+        }
+    }
+
+    /// <summary>The page's own output picker driven by name; pure text, so the words can be tested.</summary>
+    public static string SinkScript(string deviceName)
+    {
+        var want = System.Text.Json.JsonSerializer.Serialize(deviceName ?? "");
+        return "(function(){var want=" + want + ";window.__patternsSinkWant=want;" +
+               "async function apply(){try{if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices){window.__patternsSink={want:want,error:'this page cannot pick outputs'};return;}" +
+               "var els=document.querySelectorAll('audio,video');" +
+               "if(!want){for(const e of els){if(e.setSinkId){try{await e.setSinkId('');}catch(x){}}}window.__patternsSink={want:'',applied:'default',elements:els.length};return;}" +
+               "var devs=await navigator.mediaDevices.enumerateDevices();var outs=devs.filter(function(d){return d.kind==='audiooutput'&&d.label;});" +
+               "var m=outs.find(function(d){return d.label===want;})||outs.find(function(d){return d.label.indexOf(want)>=0||want.indexOf(d.label)>=0;});" +
+               "if(!m){window.__patternsSink={want:want,error:outs.length===0?'the page cannot see any output (no permission)':'no output called '+want+' among '+outs.length};return;}" +
+               "var n=0;for(const e of els){if(e.setSinkId){try{await e.setSinkId(m.deviceId);n++;}catch(err){window.__patternsSink={want:want,error:String(err&&err.message||err)};return;}}}" +
+               "window.__patternsSink={want:want,applied:m.label,elements:n};}catch(err){window.__patternsSink={want:want,error:String(err&&err.message||err)};}}" +
+               "apply();if(!window.__patternsSinkObs){window.__patternsSinkObs=new MutationObserver(function(){clearTimeout(window.__patternsSinkT);window.__patternsSinkT=setTimeout(apply,300);});" +
+               "window.__patternsSinkObs.observe(document.documentElement,{childList:true,subtree:true});}})()";
+    }
+
+    /// <summary>The page's answer as a line: "routed to HDMI 3 (1 player)", "not routed: …", or "nothing answered yet".</summary>
+    public static string ReadSinkNote(string? result, string wanted)
+    {
+        if (string.IsNullOrWhiteSpace(result) || result == "null") return wanted.Length == 0 ? "" : "nothing answered yet";
+        try
+        {
+            using var outer = System.Text.Json.JsonDocument.Parse(result);
+            var root = outer.RootElement;
+            string? inner = root.ValueKind == System.Text.Json.JsonValueKind.String ? root.GetString() : root.GetRawText();
+            if (string.IsNullOrEmpty(inner) || inner == "null") return wanted.Length == 0 ? "" : "nothing answered yet";
+            using var doc = System.Text.Json.JsonDocument.Parse(inner);
+            var e = doc.RootElement;
+            if (e.TryGetProperty("error", out var error) && error.ValueKind == System.Text.Json.JsonValueKind.String) return "not routed: " + error.GetString();
+            if (e.TryGetProperty("applied", out var applied) && applied.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                var n = e.TryGetProperty("elements", out var els) && els.ValueKind == System.Text.Json.JsonValueKind.Number ? els.GetInt32() : 0;
+                var label = applied.GetString() ?? "";
+                return label == "default" ? "the machine's default output" : $"routed to {label} ({n} player{(n == 1 ? "" : "s")})";
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+        }
+        return "the page's answer was not understood";
+    }
 
     public string CleanCss
     {
@@ -626,6 +750,37 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 Log.Warn("Web page script failed.", ex);
             }
         });
+    }
+
+    /// <summary>The script's result as the browser's JSON text — how the page's player is read for the armed VT. "" when nothing came back.</summary>
+    public async Task<string> RunScriptAsync(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script) || _core is null || _disposed) return "";
+        if (!UiThread.CheckAccess())
+        {
+            var tcs = new TaskCompletionSource<string>();
+            UiThread.Post(async () =>
+            {
+                try
+                {
+                    tcs.TrySetResult(await RunScriptAsync(script));
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                }
+            });
+            return await tcs.Task;
+        }
+        try
+        {
+            return await _core.ExecuteScriptAsync(script) ?? "";
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Web page script (with a result) failed.", ex);
+            return "";
+        }
     }
 
     public void Navigate(string url) => OnUi(() => NavigateCore(WebAddress.Normalize(url)));
@@ -791,6 +946,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _screencastEvents.DevToolsProtocolEventReceived -= OnScreencastFrame;
                 _screencastEvents = null;
             }
+            _visibilityEvents = null;
             _controller?.Close();
             _controller = null;
             _core = null;

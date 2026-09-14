@@ -77,6 +77,20 @@ public interface IWebSource : IVideoFrameSource
     /// <summary>Frames the page delivered in the last second — a video's rate while it plays, 0 for a still page; what the status line reads.</summary>
     double FrameRate => 0;
 
+    /// <summary>
+    /// The Windows output the page's sound should leave by (its friendly name), "" for the
+    /// machine's default. Steered through the page's own output picker where the browser allows;
+    /// <see cref="AudioRouteNote"/> says what happened.
+    /// </summary>
+    string AudioDevice
+    {
+        get => "";
+        set { }
+    }
+
+    /// <summary>"routed to HDMI 3", or why the page could not be — the Audio page's line; "" when nothing was asked.</summary>
+    string AudioRouteNote => "";
+
     void PointerMove(float nx, float ny);
     void PointerDown(float nx, float ny);
     void PointerUp(float nx, float ny);
@@ -93,6 +107,13 @@ public interface IWebSource : IVideoFrameSource
 
     /// <summary>A line of script run in the page — a service's own player driven directly (YouTube's play, seek, mute).</summary>
     void RunScript(string script);
+
+    /// <summary>The same, with the script's result as the browser's JSON text ("" when nothing came back) — how the page's player is read.</summary>
+    Task<string> RunScriptAsync(string script)
+    {
+        RunScript(script);
+        return Task.FromResult("");
+    }
 
     /// <summary>
     /// The style the page wears: the service's furniture taken off (CLEAN), or "" for the page as

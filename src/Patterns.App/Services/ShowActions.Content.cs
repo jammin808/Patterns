@@ -29,6 +29,8 @@ public sealed partial class ShowActions
             case ShowActionKind.WebType:
             case ShowActionKind.WebReload:
             case ShowActionKind.WebOpen:
+            case ShowActionKind.WebArm:
+            case ShowActionKind.WebMark:
                 return WebActions.Execute(_s, a);
             case ShowActionKind.DeckNext:
                 return DeckTurn("next");

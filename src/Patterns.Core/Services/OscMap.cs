@@ -30,6 +30,10 @@ public static class OscMap
         ("/patterns/audio/play [n|name]", "AUDIO PLAY — the audio playlist plays: a track by its place or its name, or the list resumes (also /patterns/audio/play/<n>)"),
         ("/patterns/audio/stop, /patterns/audio/next, /patterns/audio/prev", "AUDIO STOP / NEXT / PREV"),
         ("/patterns/audio/volume <level>", "AUDIO VOL: an integer is percent (0–125), a float from 0.0 to 1.0 is a fader"),
+        ("/patterns/audio/routing on|off|toggle", "AUDIO ROUTING — the routing matrix in charge, or the two wires as before"),
+        ("/patterns/audio/route \"source\" \"destination\" [dB]", "AUDIO ROUTE — a source (programme, screen 2, preview, music, vog, sting, tone) on a destination (an output's name, NDI <send>) at a level"),
+        ("/patterns/audio/unroute \"source\" \"destination\"", "AUDIO UNROUTE"),
+        ("/patterns/audio/vog \"destination\" duck|replace|leave", "AUDIO VOG — what a VOG does to the rest on that destination"),
         ("/patterns/music/play [n|name]", "MUSIC PLAY — break music (Spotify), an entry by number or name"),
         ("/patterns/music/pause, /patterns/music/next", "MUSIC PAUSE / NEXT"),
         ("/patterns/music/volume <level>", "MUSIC VOL: an integer is percent, a float from 0.0 to 1.0 is a fader"),
@@ -50,6 +54,9 @@ public static class OscMap
         ("/patterns/web/type <text>", "WEB TYPE — text into the field that has the page's focus"),
         ("/patterns/web/reload [page]", "WEB RELOAD"),
         ("/patterns/web/open <address> [page]", "WEB OPEN — the page's browser sent to another address"),
+        ("/patterns/web/arm [time] [page]", "WEB ARM — the page's video armed to play from a point (1:23, 83) when it goes to air; no time = the mark set, else where the player is (also /patterns/web/arm/1:23)"),
+        ("/patterns/web/disarm [page]", "WEB DISARM — the arm cleared"),
+        ("/patterns/web/mark [time] [page]", "WEB MARK — the start point set without arming; no time = where the player is now"),
         ("/patterns/deck/next, /patterns/deck/prev", "DECK NEXT / PREV — the deck (PDF) on air turns a page"),
         ("/patterns/deck/first, /patterns/deck/last", "DECK FIRST / LAST"),
         ("/patterns/deck/page <n>", "DECK PAGE n — the deck on air turns to page n (also /patterns/deck/page/<n>, /patterns/deck <n>)"),
@@ -149,6 +156,29 @@ public static class OscMap
                         var level = Level(m, seg2);
                         return level is null ? null : "AUDIO VOL " + level.Value.ToString(CultureInfo.InvariantCulture);
                     }
+                    // /patterns/audio/routing on · /patterns/audio/route "music" "Info HDMI" [-6] · /patterns/audio/unroute "music" "Info HDMI" · /patterns/audio/vog "Info HDMI" replace
+                    case "routing": case "matrix":
+                        return "AUDIO ROUTING " + Switch(m, seg2, "ON", toggles: true);
+                    case "route":
+                    {
+                        var source = m.Text() ?? "";
+                        var destination = m.Text(1) ?? "";
+                        if (source.Length == 0 || destination.Length == 0) return null;
+                        var db = m.Number(2);
+                        return db is null ? $"AUDIO ROUTE {source} TO {destination}" : $"AUDIO ROUTE {source} TO {destination} AT {db.Value.ToString("0.#", CultureInfo.InvariantCulture)}";
+                    }
+                    case "unroute":
+                    {
+                        var source = m.Text() ?? "";
+                        var destination = m.Text(1) ?? "";
+                        return source.Length == 0 || destination.Length == 0 ? null : $"AUDIO UNROUTE {source} FROM {destination}";
+                    }
+                    case "vog":
+                    {
+                        var destination = m.Text() ?? "";
+                        var mode = m.Text(1) ?? "";
+                        return destination.Length == 0 || !AudioRouting.TryParseVogMode(mode, out _) ? null : $"AUDIO VOG {destination} {mode.ToUpperInvariant()}";
+                    }
                     default: return null;
                 }
             }
@@ -242,6 +272,22 @@ public static class OscMap
                     {
                         var page = seg2.Length > 0 ? seg2 : m.Text() ?? "";
                         return page.Length == 0 ? "WEB RELOAD" : "WEB RELOAD " + page;
+                    }
+                    case "arm":
+                    case "mark":
+                    {
+                        // /patterns/web/arm · /patterns/web/arm 83 · /patterns/web/arm/1:23 youtube · /patterns/web/mark
+                        var time = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                        var page = seg3.Length > 0 ? seg3 : seg2.Length > 0 ? m.Text() ?? "" : m.Text(1) ?? "";
+                        if (time.Length > 0 && !WebVt.IsValidValue(time)) return null;
+                        var armVerb = what == "arm" ? "WEB ARM" : "WEB MARK";
+                        var line = time.Length == 0 ? armVerb : armVerb + " " + time;
+                        return page.Length == 0 ? line : line + " ON " + page;
+                    }
+                    case "disarm":
+                    {
+                        var page = seg2.Length > 0 ? seg2 : m.Text() ?? "";
+                        return page.Length == 0 ? "WEB DISARM" : "WEB DISARM ON " + page;
                     }
                     case "open":
                     case "go":

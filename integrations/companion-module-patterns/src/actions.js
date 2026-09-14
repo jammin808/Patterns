@@ -286,6 +286,70 @@ export function buildActions(ctx) {
 			options: [text('address', 'Address'), text('page', 'Page (blank = the page on air)')],
 			callback: (a) => { const addr = clean(a.options.address); if (addr) send(`WEB OPEN ${addr}${clean(a.options.page) ? ` ON ${clean(a.options.page)}` : ''}`) },
 		},
+		// The routing matrix: which soundtrack goes where — on or off, a source on a destination at a level, and what a VOG does there.
+		audio_routing: {
+			name: 'Audio routing — the matrix on, off or toggled',
+			options: [{ type: 'dropdown', id: 'mode', label: 'Routing', default: 'toggle', choices: [{ id: 'on', label: 'On (seeds audio-follows-video when empty)' }, { id: 'off', label: 'Off — the two wires as before' }, { id: 'toggle', label: 'Toggle' }] }],
+			callback: (a) => send(`AUDIO ROUTING ${String(a.options.mode).toUpperCase()}`),
+		},
+		audio_route: {
+			name: 'Audio routing — put a source on a destination (or take it off)',
+			options: [
+				{
+					type: 'dropdown', id: 'source', label: 'Source', default: 'programme',
+					choices: [
+						{ id: 'programme', label: 'Programme (the picture on air)' }, { id: 'preview', label: 'Preview' }, { id: 'music', label: 'Music (playlist)' },
+						{ id: 'vog', label: 'VOG' }, { id: 'sting', label: 'Stingers' }, { id: 'tone', label: 'Tone' }, { id: 'screen', label: "A screen's own picture (name below)" },
+					],
+				},
+				text('screen', 'Screen, when the source is a screen: its name or id'),
+				text('destination', "Destination: an output's name (or its label on the Audio page), NDI <send>, computer"),
+				{ type: 'number', id: 'db', label: 'Level dB (0 = unity, −60 = off)', default: 0, min: -60, max: 12 },
+				{ type: 'checkbox', id: 'off', label: 'Take it off instead', default: false },
+			],
+			callback: (a) => {
+				const source = a.options.source === 'screen' ? `screen ${clean(a.options.screen)}` : a.options.source
+				const to = clean(a.options.destination)
+				if (!to || (a.options.source === 'screen' && !clean(a.options.screen))) return
+				if (a.options.off) return send(`AUDIO UNROUTE ${source} FROM ${to}`)
+				const db = Number(a.options.db) || 0
+				send(db === 0 ? `AUDIO ROUTE ${source} TO ${to}` : `AUDIO ROUTE ${source} TO ${to} AT ${db}`)
+			},
+		},
+		audio_vog: {
+			name: 'Audio routing — what a VOG does on a destination',
+			options: [
+				text('destination', "Destination: an output's name, NDI <send>, computer"),
+				{ type: 'dropdown', id: 'mode', label: 'A VOG', default: 'duck', choices: [{ id: 'duck', label: 'Ducks the rest' }, { id: 'replace', label: 'Replaces the rest' }, { id: 'leave', label: 'Stays off it' }] },
+			],
+			callback: (a) => { const to = clean(a.options.destination); if (to) send(`AUDIO VOG ${to} ${String(a.options.mode).toUpperCase()}`) },
+		},
+		// The armed web VT: the page's video held at a point and played from it the moment the page goes to air.
+		web_vt: {
+			name: 'Web page — the armed VT (arm, mark, disarm)',
+			options: [
+				{
+					type: 'dropdown', id: 'mode', label: 'Do', default: 'arm',
+					choices: [
+						{ id: 'arm', label: 'ARM at the mark (else where the player is now)' }, { id: 'arm_at', label: 'ARM at a time (below)' },
+						{ id: 'mark', label: 'MARK where the player is now' }, { id: 'mark_at', label: 'MARK at a time (below)' }, { id: 'disarm', label: 'DISARM' },
+					],
+				},
+				text('time', 'Time, for "at a time": 1:23, 83, 1m23s'),
+				text('page', 'Page (blank = the page on air, else the page in the preview)'),
+			],
+			callback: (a) => {
+				const on = clean(a.options.page) ? ` ON ${clean(a.options.page)}` : ''
+				const time = clean(a.options.time)
+				switch (a.options.mode) {
+					case 'arm_at': return time ? send(`WEB ARM ${time}${on}`) : undefined
+					case 'mark': return send(`WEB MARK${on}`)
+					case 'mark_at': return time ? send(`WEB MARK ${time}${on}`) : undefined
+					case 'disarm': return send(`WEB DISARM${on}`)
+					default: return send(`WEB ARM${on}`)
+				}
+			},
+		},
 		// The deck (a PDF presentation) on air: its pages from a key. Presenter NEXT / BACK turn it too, and past the last page the caller's stack resumes.
 		deck_page: {
 			name: 'Deck — turn the PDF on air',

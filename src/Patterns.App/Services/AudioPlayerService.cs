@@ -42,21 +42,33 @@ public sealed class AudioPlayerService : IDisposable
         public required AudioFileReader Reader { get; init; }
         public required MMDevice Device { get; init; }
         public required AsrcSampleProvider Asrc { get; init; }
+        public required GainSampleProvider Gain { get; init; }
         public required string Key { get; init; }
         public int DelayMs { get; init; }
         public DriftEstimator Drift { get; } = new(48000);
         public SyncController Lock { get; } = new();
+        /// <summary>The matrix's gain for the music on this device, approached with the destination's attack and release.</summary>
+        public DuckEnvelope Env { get; } = new();
         public double AnchorMaster = double.NaN;
         public double AnchorSource;
         public double LastMaster;
         public double LagMs;
     }
 
+    /// <summary>The playlist's sound as the NDI lanes read it (the first output's, post-gain); null while nothing plays.</summary>
+    public AudioRing? MusicTap => _players.Count > 0 ? _musicTap : null;
+
+    private readonly AudioRing _musicTap = new(AudioGraphService.Channels, AudioGraphService.Rate);
+    private StingerKind _openingKind = StingerKind.Vog;
+    private DateTime _lastGainUtc;
+
     public AudioPlayerService(AppServices services)
     {
         _services = services;
+        // The voice opens on the destinations routed for its kind (the programme's outputs while
+        // the matrix is off), at the crosspoint's gain and the destination's delay.
         VoiceFactory = (path, volumePct) => OperatingSystem.IsWindows()
-            ? WasapiStingerVoice.Open(path, volumePct, _services.State.AudioPlayer.Devices, _services.State.AudioPlayer.DelayFor)
+            ? WasapiStingerVoice.Open(path, volumePct, AudioRouting.OutputsFor(_services.State, _openingKind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting), _services.AudioGraph)
             : null;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _timer.Tick += (_, _) => Tick();
@@ -375,22 +387,36 @@ public sealed class AudioPlayerService : IDisposable
             }
 
             var loopSingle = cfg.Loop && _order.Count == 1; // one track on a loop is seamless, as the track always was
-            var delays = string.Join(";", cfg.OutputDelays.Select(d => $"{d.Device}={d.DelayMs}"));
-            var key = $"{path}|{loopSingle}|{string.Join(";", cfg.Devices)}|{delays}";
+            // Where the music opens: the destinations the matrix routes it to (with their delays), or the programme's outputs as before.
+            var picks = AudioRouting.OutputsFor(_services.State, AudioRouting.Music);
+            var key = $"{path}|{loopSingle}|{string.Join(";", picks.Select(p => $"{p.Device}={p.DelayMs}"))}";
             if (key != _activeKey)
             {
                 StopAll();
                 _activeKey = key;
-                StartAll(path, loopSingle, cfg.Devices, cfg.DelayFor);
+                StartAll(path, loopSingle, picks);
             }
 
             // Volume applies live (AudioFileReader.Volume is a linear gain; 1.25 ≈ +2 dB). A VOG's
             // sound ducks the track underneath it and a stinger fades it — one rule, shared with
-            // break music, so the two music sources move together.
-            var volume = (float)(cfg.VolumePct / 100.0 * _services.Stingers.MusicGainAt(now));
+            // break music, so the two music sources move together. With the matrix in charge the
+            // VOG's part comes per destination from the plan, through each output's own envelope.
+            var matrix = _services.State.AudioRouting.Enabled;
+            var volume = (float)(cfg.VolumePct / 100.0 * (matrix ? _services.Stingers.GainWithoutVogAt(AudioBus.Music, now) : _services.Stingers.MusicGainAt(now)));
+            var dt = _lastGainUtc == default ? 0 : Math.Clamp((now - _lastGainUtc).TotalSeconds, 0, 0.5);
+            _lastGainUtc = now;
             foreach (var p in _players)
             {
                 p.Reader.Volume = volume;
+                if (matrix && _services.AudioGraph is { } graph)
+                {
+                    var (attack, release) = graph.EnvelopeFor(p.Key);
+                    p.Gain.SetTarget((float)p.Env.Advance(graph.PlanGain(p.Key, AudioRouting.Music), dt, attack, release));
+                }
+                else
+                {
+                    p.Gain.SetTarget(1f);
+                }
             }
             ObserveSync(cfg.SyncLock);
 
@@ -416,9 +442,11 @@ public sealed class AudioPlayerService : IDisposable
         }
     }
 
-    private void StartAll(string path, bool loop, IReadOnlyList<string> deviceNames, Func<string, int> delayFor)
+    private void StartAll(string path, bool loop, IReadOnlyList<AudioOutputPick> picks)
     {
         using var enumerator = new MMDeviceEnumerator();
+        var deviceNames = picks.Select(p => p.Device).ToList();
+        var first = true;
         foreach (var device in ResolveDevices(enumerator, deviceNames))
         {
             AudioFileReader? reader = null;
@@ -428,16 +456,21 @@ public sealed class AudioPlayerService : IDisposable
                 reader = new AudioFileReader(path);
                 IWaveProvider source = loop ? new LoopingWaveStream(reader) : reader;
                 // The chain: the file → the sample-rate converter that locks this device to the
-                // master clock → its lip-sync delay → the device.
+                // master clock → the matrix's gain for this destination (unity while it is off)
+                // → the tap the NDI lanes read (the first output only) → its lip-sync delay → the device.
                 var asrc = new AsrcSampleProvider(source.ToSampleProvider());
                 var key = DelayKeyFor(device, deviceNames);
-                var delayMs = delayFor(key);
-                ISampleProvider tail = delayMs > 0 ? new DelaySampleProvider(asrc, delayMs) : asrc;
+                var pick = picks.FirstOrDefault(p => string.Equals(p.Device, key, StringComparison.OrdinalIgnoreCase));
+                var delayMs = pick.Device is null ? 0 : pick.DelayMs;
+                var gain = new GainSampleProvider(asrc, 1f);
+                ISampleProvider tail = first ? new TeeSampleProvider(gain, _musicTap) : gain;
+                first = false;
+                if (delayMs > 0) tail = new DelaySampleProvider(tail, delayMs);
                 output = new WasapiOut(device, AudioClientShareMode.Shared, true, 200);
                 output.Init(new SampleToWaveProvider(tail));
                 output.PlaybackStopped += (_, _) => OnPlaybackStopped();
                 output.Play();
-                _players.Add(new Player { Output = output, Reader = reader, Device = device, Asrc = asrc, Key = key, DelayMs = delayMs }); // device stays alive until StopAll
+                _players.Add(new Player { Output = output, Reader = reader, Device = device, Asrc = asrc, Gain = gain, Key = key, DelayMs = delayMs }); // device stays alive until StopAll
             }
             catch (Exception ex)
             {
@@ -659,6 +692,7 @@ public sealed class AudioPlayerService : IDisposable
         IStingerVoice? voice = null;
         try
         {
+            _openingKind = kind;
             voice = VoiceFactory(path, volumePct);
         }
         catch (Exception ex)
@@ -695,6 +729,22 @@ public sealed class AudioPlayerService : IDisposable
     public void ApplyGains(DateTime nowUtc)
     {
         if (_services.Stingers is not { } stingers) return; // constructed after this service
+        if (_services.State.AudioRouting.Enabled && _services.AudioGraph is { } graph)
+        {
+            // The matrix in charge: each voice's outputs take the plan's gain for their kind on
+            // their destination (the VOG's part folded in per destination), the sting ramp and the
+            // live duck from the rules; a clip's soundtrack is the lanes' to duck, so the decoder
+            // keeps the rules without the VOG's part.
+            var stingBase = stingers.GainWithoutVogAt(AudioBus.StingSound, nowUtc);
+            foreach (var (voice, kind) in _voices)
+            {
+                var source = kind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting;
+                var baseGain = kind == StingerKind.Vog ? 1.0 : stingBase;
+                voice.SetGainPer(device => baseGain * graph.PlanGain(device, source));
+            }
+            _services.Video.ApplyClipGain(stingers.GainWithoutVogAt(AudioBus.ClipAudio, nowUtc));
+            return;
+        }
         var sting = stingers.GainAt(AudioBus.StingSound, nowUtc);
         var vog = stingers.GainAt(AudioBus.VogSound, nowUtc);
         foreach (var (voice, kind) in _voices)
@@ -702,6 +752,17 @@ public sealed class AudioPlayerService : IDisposable
             voice.SetGain(kind == StingerKind.Vog ? vog : sting);
         }
         _services.Video.ApplyClipGain(stingers.GainAt(AudioBus.ClipAudio, nowUtc));
+    }
+
+    /// <summary>The playing voices' taps, by kind — what an NDI lane mixes for a VOG or a stinger.</summary>
+    public IEnumerable<(string Tag, StingerKind Kind, AudioRing Ring)> VoiceTaps()
+    {
+        var n = 0;
+        foreach (var (voice, kind) in _voices)
+        {
+            n++;
+            if (voice.Tap is { } ring && voice.IsPlaying) yield return ($"voice:{n}", kind, ring);
+        }
     }
 
     /// <summary>A hard stop — for shutdown, where nothing is listening for a fade.</summary>

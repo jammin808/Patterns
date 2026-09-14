@@ -173,6 +173,15 @@
       </Grid>
       <CheckBox Content="Show the pointer and clicks on the page (every output)" IsChecked="{Binding ActivePattern.Media.WebShowPointer, Mode=TwoWay}"
                 ToolTip.Tip="Off for a page nobody drives — a kiosk schedule, a dashboard" />
+      <!-- The armed web VT carried by the look: the video plays from the point when the page goes to air, and a cue
+           ahead that carries it has the page opened early, prepared at the mark. -->
+      <Grid ColumnDefinitions="Auto,8,72,8,*" Margin="0,4,0,0">
+        <CheckBox Content="Play the video from" IsChecked="{Binding ActivePattern.Media.WebAutoPlay, Mode=TwoWay}" VerticalAlignment="Center"
+                  ToolTip.Tip="When this page goes to air — a TAKE, a cue, the clicker's NEXT — its video plays from the point beside (0:00 = the top). The caller's standby cue and the clicker's next step open the page early and hold it there, so the take lands on the right frame. Arm by hand instead under PAGE CONTROLS" />
+        <TextBox Grid.Column="2" Watermark="0:00" Text="{Binding Media.WebStartText, Mode=TwoWay}" VerticalAlignment="Center"
+                 IsEnabled="{Binding ActivePattern.Media.WebAutoPlay}" ToolTip.Tip="1:23, 83 or 1m23s; empty for the top" />
+        <TextBlock Grid.Column="4" Classes="label" Text="when it goes to air — the armed VT, carried by the look" VerticalAlignment="Center" TextWrapping="Wrap" />
+      </Grid>
       <Grid ColumnDefinitions="130,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Schedule (shown in the multiview and status)"

@@ -136,6 +136,86 @@
     <TextBlock Classes="hint tip"
                Text="Honest limits: there is no mix bus anywhere in the build — every sound opens its own stream and Windows sums them — so there is no programme fader, no meters and nothing above stereo. One clip is one decoder and one decoder plays to one device, so the same clip cannot be on the PA and in the cans at once (the room's claim wins). A web page's sound cannot be routed from here at all — WebView2 offers a mute and nothing else — and a capture card's embedded audio is not opened by this build." />
 
+    <!-- ROUTING — which soundtrack goes where: sources × destinations, a VOG mode, a trim and a delay per destination. -->
+    <Expander Margin="0,8,0,0" IsExpanded="{Binding Audio.RoutingOn}">
+      <Expander.Header>
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Classes="h2" Text="ROUTING — WHICH SOUNDTRACK GOES WHERE" Margin="0" />
+          <Border Classes="tallyChip air" IsVisible="{Binding Audio.RoutingOn}" VerticalAlignment="Center"><TextBlock Text="ON" /></Border>
+        </StackPanel>
+      </Expander.Header>
+      <StackPanel Spacing="4">
+        <TextBlock Classes="hint tip"
+                   Text="A video or a page on an info screen with its own soundtrack over that screen's HDMI while the room hears the desk through the sound card; the same programme embedded on an NDI send; a VOG that ducks the room but leaves the stream clean. Off — as every show before it — the programme's outputs carry the show's sound and the monitor the operator's. On, this matrix is in charge: each row is a destination (an output as Windows names it, or an NDI send) and the ticks are the sources it carries, at a level in dB; a VOG ducks the rest on that destination, replaces them, or never reaches it. Switched on empty it seeds audio-follows-video. Switching it reopens the clips on air — do it in setup. AUDIO ROUTE music TO Info HDMI AT -6, AUDIO VOG NDI Stream LEAVE and the rest on the wire, in cues and over OSC." />
+        <WrapPanel>
+          <Button Classes="chip" Content="{Binding Audio.RoutingOnLabel}" Command="{Binding Audio.RoutingOnCommand}" Margin="0,0,8,6" />
+          <Button Classes="mini" Content="SEED — audio follows video" Command="{Binding Audio.RoutingSeedCommand}" Margin="0,0,8,6"
+                  ToolTip.Tip="Only when the matrix is empty: the programme, the music, VOGs, stingers and the tone on every programme output, the programme with the music and VOGs on every NDI send" />
+          <Button Classes="mini" Content="CLEAR" Command="{Binding Audio.RoutingClearCommand}" Margin="0,0,8,6" ToolTip.Tip="Every destination and route gone — nothing plays anywhere while the matrix is on until something is routed" />
+        </WrapPanel>
+        <Grid ColumnDefinitions="130,*,8,Auto">
+          <TextBlock Classes="label" Text="Add a destination" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding Audio.RoutingDestinationChoices}" SelectedItem="{Binding Audio.RoutingDestinationPick, Mode=TwoWay}"
+                    PlaceholderText="An output this machine has, or an NDI send of the show…" HorizontalAlignment="Stretch" />
+          <Button Grid.Column="3" Classes="chip" Content="ADD" Command="{Binding Audio.RoutingAddDestinationCommand}" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding Audio.RoutingWords}" TextWrapping="Wrap" />
+        <TextBlock Classes="hint" Text="{Binding Audio.RoutingPagesWords}" TextWrapping="Wrap" IsVisible="{Binding Audio.RoutingPagesWords, Converter={StaticResource NotEmpty}}" />
+        <ItemsControl ItemsSource="{Binding Audio.RoutingRows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:RoutingRowVm">
+              <Border Classes="stingerRow" CornerRadius="8" Padding="8,6" Margin="0,3">
+                <StackPanel Spacing="4">
+                  <Grid ColumnDefinitions="Auto,8,*,8,Auto,8,Auto,8,Auto">
+                    <TextBlock Classes="label" Text="{Binding KindWord}" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="2" Text="{Binding Row.Label, Mode=TwoWay}" Watermark="{Binding Label}" MinWidth="120"
+                             ToolTip.Tip="{Binding Row.Key}" />
+                    <TextBlock Grid.Column="4" Classes="label" Text="{Binding Meter}" MinWidth="52" VerticalAlignment="Center" HorizontalAlignment="Right"
+                               Foreground="{StaticResource TallyPgmBrush}" ToolTip.Tip="The lane's meter — the clips mixed here; the show's own players are not metered" />
+                    <TextBlock Grid.Column="6" Classes="label" Text="not plugged in" Foreground="{StaticResource TallyHoldBrush}" VerticalAlignment="Center" IsVisible="{Binding !Present}" />
+                    <Button Grid.Column="8" Classes="mini" Content="✕" Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Audio.RoutingRemoveDestinationCommand}" CommandParameter="{Binding}" />
+                  </Grid>
+                  <!-- The cells: one chip per source; ticked = on this destination, with its level beside it and the live gain under a VOG. -->
+                  <ItemsControl ItemsSource="{Binding Cells}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:RoutingCellVm">
+                        <Border Classes="routeCell" Classes.on="{Binding IsOn}" CornerRadius="6" Padding="6,3" Margin="0,0,6,4">
+                          <StackPanel Orientation="Horizontal" Spacing="4">
+                            <CheckBox Content="{Binding Label}" IsChecked="{Binding IsOn, Mode=TwoWay}" VerticalAlignment="Center" Padding="4,0,0,0" />
+                            <TextBox Width="54" Text="{Binding LevelText, Mode=TwoWay}" Watermark="0 dB" IsVisible="{Binding IsOn}" VerticalAlignment="Center"
+                                     ToolTip.Tip="The level in dB: 0 is unity, −60 is off, +12 the ceiling" />
+                            <TextBlock Classes="label" Text="{Binding LiveText}" VerticalAlignment="Center" IsVisible="{Binding LiveText, Converter={StaticResource NotEmpty}}"
+                                       ToolTip.Tip="The gain the lane runs at now — ducked under a VOG" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Grid ColumnDefinitions="Auto,8,180,8,Auto,8,110,8,Auto,8,110,8,Auto">
+                    <TextBlock Classes="label" Text="VOG" VerticalAlignment="Center" />
+                    <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).Audio.VogModes}" HorizontalAlignment="Stretch"
+                              SelectedValue="{Binding Row.VogMode, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+                    <TextBlock Grid.Column="4" Classes="label" Text="Trim dB" VerticalAlignment="Center" />
+                    <NumericUpDown Grid.Column="6" Minimum="-60" Maximum="12" Increment="1" FormatString="0.#" Value="{Binding Row.TrimDb, Mode=TwoWay, Converter={StaticResource Num}}" />
+                    <TextBlock Grid.Column="8" Classes="label" Text="Delay ms" VerticalAlignment="Center" />
+                    <NumericUpDown Grid.Column="10" Minimum="0" Maximum="2000" Increment="10" FormatString="0" Value="{Binding Row.DelayMs, Mode=TwoWay, Converter={StaticResource Num}}" />
+                    <CheckBox Grid.Column="12" Content="Mute" IsChecked="{Binding Row.Mute, Mode=TwoWay}" VerticalAlignment="Center" />
+                  </Grid>
+                  <TextBlock Classes="label" Text="{Binding LiveWords}" TextWrapping="Wrap" />
+                  <TextBlock Classes="label" Text="{Binding Error}" Foreground="{StaticResource TallyHoldBrush}" TextWrapping="Wrap" IsVisible="{Binding Error, Converter={StaticResource NotEmpty}}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Classes="hint tip"
+                   Text="What the matrix can and cannot do on this build. The playlist, VOGs, stingers and the tone open on the destinations routed for them, at the level and behind the delay each row says, and follow a VOG per destination. A clip's soundtrack (a file on the pattern, a layer or a screen's own picture) comes to the desk's mixer while the matrix is on and reaches every destination it is routed to — a sound card, an HDMI screen, an NDI send with the sound embedded — through a lane per destination, the metered number above. A web page's sound is steered through the page's own output picker: it can go to one output, and only where the browser lets the page see the outputs — the line above says what the page did. A capture card's embedded audio is not opened by this build. Levels add along the path (the crosspoint, then the row's trim); the floor is −60 dB (off), the ceiling +12." />
+      </StackPanel>
+    </Expander>
+
     <TextBlock Classes="h2" Text="MASTER CLOCK &amp; SYNC" />
     <TextBlock Classes="hint tip" TextWrapping="Wrap"
                Text="Every audio device runs on a clock of its own, and none of them is the show's: over two hours a sound card fifty parts per million off is a third of a second out. With the lock on, every output's sound is resampled by the drift its clock shows against the master clock — the same clock the pictures, the fades and the ducks run on — so a two-hour track ends when the pictures do. The offsets above hold a picture and its sound together; the sync check lets you measure them." />

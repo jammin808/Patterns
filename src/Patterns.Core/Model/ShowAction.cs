@@ -85,6 +85,14 @@ public enum ShowActionKind
     CueGo,
     /// <summary>The audio track's volume in percent (0–125), live — the drawer's SEND and a cue.</summary>
     AudioVolume,
+    /// <summary>The routing matrix on, off or toggled (Value = on / off / toggle); switching it on with nothing in it seeds audio-follows-video.</summary>
+    AudioRouting,
+    /// <summary>A source put on a destination: Target = the source (programme, screen 2, music, vog…), Value = the destination, with " AT &lt;dB&gt;" for a level other than 0.</summary>
+    AudioRoute,
+    /// <summary>A source taken off a destination: Target = the source, Value = the destination.</summary>
+    AudioUnroute,
+    /// <summary>What a VOG does on a destination: Target = the destination, Value = duck / replace / leave.</summary>
+    AudioVogMode,
     /// <summary>Break music (Spotify): Target = library entry number (1-based, Audio-page order),
     /// name or id; empty resumes, or plays the first saved entry.</summary>
     SpotifyPlay,
@@ -169,6 +177,14 @@ public enum ShowActionKind
     WebReload,
     /// <summary>The page's browser sent to another address (Value); the pattern keeps its own address.</summary>
     WebOpen,
+    /// <summary>
+    /// The armed web VT: the page's video put at a point and held there, to play from it the moment
+    /// the page goes to air. Value = the point ("1:23", "83", empty for the mark set or the player's
+    /// own place, "off" to disarm).
+    /// </summary>
+    WebArm,
+    /// <summary>The mark moved without arming: Value = the point, or empty for where the player is now.</summary>
+    WebMark,
     /// <summary>The deck on air turns to its next page (the click-through's NEXT does this first while a deck is on).</summary>
     DeckNext,
     /// <summary>The deck on air turns back a page.</summary>

@@ -624,6 +624,16 @@
     <Setter Property="Background" Value="#2A1316" />
     <Setter Property="BorderBrush" Value="{StaticResource TallyPgmBrush}" />
   </Style>
+  <!-- The routing matrix's cells: a source on a destination lights when it is on. -->
+  <Style Selector="Border.routeCell">
+    <Setter Property="Background" Value="{StaticResource PanelBg2Brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Border.routeCell.on">
+    <Setter Property="Background" Value="#12281E" />
+    <Setter Property="BorderBrush" Value="{StaticResource TallyPvwBrush}" />
+  </Style>
   <Style Selector="Border.tallyChip">
     <Setter Property="Padding" Value="7,2" />
     <Setter Property="CornerRadius" Value="6" />

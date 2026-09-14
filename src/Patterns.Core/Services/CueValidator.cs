@@ -289,6 +289,8 @@ public static class CueValidator
                 case ShowActionKind.WebClick:
                 case ShowActionKind.WebType:
                 case ShowActionKind.WebReload:
+                case ShowActionKind.WebArm:
+                case ShowActionKind.WebMark:
                 {
                     // The page is looked for in what the preceding cues leave on air (the look a cue recalls is simulated first).
                     var pages = WebPresets.PagesIn(sim);
@@ -313,6 +315,10 @@ public static class CueValidator
                         Hard($"{where}: a web page click needs 'x y' in percent of the page, e.g. 50 50.");
                     }
                     if (a.Kind == ShowActionKind.WebType && a.Value.Length == 0) Soft($"{where}: nothing to type.");
+                    if (a.Kind is ShowActionKind.WebArm or ShowActionKind.WebMark && !WebVt.IsValidValue(a.Value))
+                    {
+                        Hard($"{where}: '{a.Value}' is not a point in a video — 1:23, 83 or 1m23s (empty for the mark, off to disarm).");
+                    }
                     break;
                 }
                 case ShowActionKind.DeckNext:
@@ -407,6 +413,19 @@ public static class CueValidator
                     {
                         Hard($"{where}: audio volume '{a.Value}' is not a number from 0 to 125.");
                     }
+                    break;
+                case ShowActionKind.AudioRoute:
+                case ShowActionKind.AudioUnroute:
+                {
+                    if (AudioRouting.FindSource(state, a.Target) is null) Hard($"{where}: '{a.Target}' is not a sound the show has — programme, a screen with its own picture, preview, music, vog, sting or tone.");
+                    var (to, db) = AudioRouting.ParseRouteValue(a.Value);
+                    if (to.Length == 0) Hard($"{where}: the route needs a destination — an output's name or an NDI send.");
+                    else if (a.Kind == ShowActionKind.AudioRoute && double.IsNaN(db)) Hard($"{where}: the level after AT is not a number in dB.");
+                    else if (AudioRouting.FindDestination(state, Array.Empty<string>(), to) is null) Soft($"{where}: '{to}' is not a destination the show names yet — it is looked up among this machine's outputs when the cue fires.");
+                    break;
+                }
+                case ShowActionKind.AudioVogMode:
+                    if (!AudioRouting.TryParseVogMode(a.Value, out _)) Hard($"{where}: '{a.Value}' is not what a VOG does — duck, replace or leave.");
                     break;
                 case ShowActionKind.SpotifyPlay:
                 case ShowActionKind.SpotifyPause:

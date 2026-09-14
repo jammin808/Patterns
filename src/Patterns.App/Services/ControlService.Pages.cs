@@ -166,6 +166,13 @@ public sealed partial class ControlService
   <div class="sec" id="websec" hidden>PAGE ON AIR</div>
   <div id="webname" class="line"></div>
   <div id="webacts" class="grid row3"></div>
+  <div class="sec" id="webvtsec" hidden>ARMED VT</div>
+  <div id="webvt" class="line"></div>
+  <div id="webvtrow" class="grid row3" hidden>
+    <button class="go" onclick="cmd('WEB ARM')" title="Hold the video at the mark (else where it is now) and play from there when the page goes to air">▶ ARM</button>
+    <button onclick="cmd('WEB MARK')" title="Set the start point where the player is now">MARK</button>
+    <button class="stop" onclick="cmd('WEB DISARM')">DISARM</button>
+  </div>
 </section>
 
 <section id="tab-cues">
@@ -388,8 +395,9 @@ function render(s) {
   // SHOW
   var p = s.presenter || { count: 0, index: -1, steps: [] };
   document.getElementById('step').textContent =
-    p.count === 0 ? 'No presenter steps' :
-    (p.index < 0 ? p.count + ' steps ready' : 'Step ' + (p.index + 1) + ' / ' + p.count + (p.steps[p.index] ? ' — ' + p.steps[p.index] : ''));
+    (p.count === 0 ? 'No presenter steps' :
+    (p.index < 0 ? p.count + ' steps ready' : 'Step ' + (p.index + 1) + ' / ' + p.count + (p.steps[p.index] ? ' — ' + p.steps[p.index] : '')))
+    + (s.webArmed && s.webArmed.short ? ' · ' + s.webArmed.short + ' (' + s.webArmed.page + ')' : '');
   var bo = document.getElementById('bo');
   bo.classList.toggle('on', !!s.blackout); bo.textContent = s.blackout ? 'BLACKOUT — ON' : 'BLACKOUT';
   var duck = document.getElementById('duck');
@@ -429,6 +437,15 @@ function render(s) {
   document.getElementById('webname').textContent = w ? ((w.service ? w.service + ' · ' : '') + (w.title || w.page)) : '';
   var wa = document.getElementById('webacts'); wa.innerHTML = '';
   if (w) (w.actions || []).forEach(function(a){ wa.appendChild(btn(esc(a.label), '', function(){ cmd('WEB KEY ' + a.id); })); });
+  // THE ARMED VT — a page's video held at a mark to play when the page goes to air: the one armed anywhere on the desk,
+  // else the page on air's own player (its clock, an advert over it). ARM / MARK / DISARM reach the page in the preview first.
+  var wv = s.webArmed || null, wp = w && (w.arm || w.player) ? w : null;
+  var vsec = document.getElementById('webvtsec'), vline = document.getElementById('webvt'), vrow = document.getElementById('webvtrow');
+  var show = !!(wv || wp);
+  vsec.hidden = !show; vrow.hidden = !show;
+  vline.textContent = wv ? (wv.page + ' — ' + wv.words + (wv.preRolled ? ' · opened early' : ''))
+    : wp ? ((wp.arm && wp.arm.words) || (wp.player && (wp.player.text + (wp.player.paused ? ' · paused' : ' · playing') + (wp.player.ad ? ' · ADVERT' : ''))) || '') : '';
+  vline.classList.toggle('out', !!(wp && wp.player && wp.player.ad));
 
   // CUES
   var sb = c.standby; standbyId = sb ? sb.id : '';

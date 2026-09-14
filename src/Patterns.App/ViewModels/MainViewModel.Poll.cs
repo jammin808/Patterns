@@ -295,6 +295,8 @@ public sealed partial class MainViewModel
         _services.Video.SweepRetired();
         _services.NdiIn.SweepRetired();
         _services.WebIn.SweepRetired();
+        _services.WebIn.Poll();
+        _services.AudioGraph?.Poll();   // a show that loads with the matrix on gets its lanes without waiting for a press
         _services.ArcadeIn.SweepRetired();
     }
 

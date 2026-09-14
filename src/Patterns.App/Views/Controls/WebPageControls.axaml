@@ -50,7 +50,24 @@
       <Button Classes="mini" Content="Reload" Command="{Binding Media.WebReloadCommand}" Margin="0,0,4,4" />
     </WrapPanel>
     <TextBlock Classes="label" Text="{Binding Media.WebPageStatus}" TextWrapping="Wrap" />
+    <!-- The armed web VT: set the video up here (the advert skipped, the sound checked), mark the start point, ARM —
+         it plays from the mark the moment the page goes to air. Shown once the page has a player, or an arm on it. -->
+    <Border Classes="stingerRow" Classes.air="{Binding Media.WebArmed}" CornerRadius="8" Padding="8,6" Margin="0,6,0,0" IsVisible="{Binding Media.WebHasPlayer}">
+      <StackPanel Spacing="4">
+        <WrapPanel>
+          <TextBlock Classes="label" Text="ARMED VT" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <Button Classes="go" Content="▶ ARM" Padding="10,4" Margin="0,0,6,0" Command="{Binding Media.WebArmCommand}"
+                  ToolTip.Tip="Hold the video at the start point (the time beside, else the mark set, else where it is now) — it plays from there the moment the page goes to air: a TAKE, a cue, the clicker's NEXT. Arm it from the preview; a page on air is refused" />
+          <TextBox Width="72" Watermark="1:23" Text="{Binding Media.WebArmText, Mode=TwoWay}" Margin="0,0,6,0"
+                   ToolTip.Tip="The start point: 1:23, 83 or 1m23s. Empty = the mark set, else where the player is now" />
+          <Button Classes="mini" Content="MARK" Margin="0,0,6,0" Command="{Binding Media.WebMarkCommand}"
+                  ToolTip.Tip="Set the start point without arming — the time beside, else where the player is now" />
+          <Button Classes="mini" Content="DISARM" Command="{Binding Media.WebDisarmCommand}" ToolTip.Tip="Clear the arm — the video plays as the page does" />
+        </WrapPanel>
+        <TextBlock Classes="label" Text="{Binding Media.WebVtWords}" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
     <TextBlock Classes="hint tip"
-               Text="The controls drive the page you last clicked on the PREVIEW pane (else the pattern's page, else its first web layer). Typing goes to the field that has the page's focus — click it first. The action chips are the page's own: on YouTube they drive the player itself, on Google Slides and PowerPoint for the web they are the slide keys, on any other page the arrows and page keys. KEYS → PAGE hands the page the whole keyboard until you press it again or Ctrl+Alt+K. Hold Alt while pressing on a web layer to drag its box instead of clicking into the page. The same actions run from a cue (Web page — key or action), the wire (WEB NEXT, WEB KEY …), OSC, the phone's SHOW tab and Companion." />
+               Text="The controls drive the page you last clicked on the PREVIEW pane (else the pattern's page, else its first web layer). Typing goes to the field that has the page's focus — click it first. The action chips are the page's own: on YouTube they drive the player itself, on Google Slides and PowerPoint for the web they are the slide keys, on any other page the arrows and page keys. KEYS → PAGE hands the page the whole keyboard until you press it again or Ctrl+Alt+K. Hold Alt while pressing on a web layer to drag its box instead of clicking into the page. The same actions run from a cue (Web page — key or action), the wire (WEB NEXT, WEB KEY …), OSC, the phone's SHOW tab and Companion. ARMED VT: set a YouTube, Vimeo or video page up in the preview — skip the advert (Patterns presses SKIP when the site shows it), check the sound, find the moment — then ARM: the video holds at the mark and plays from it the moment the page goes to air. WEB ARM 1:23 / WEB MARK / WEB DISARM on the wire, Web page — arm the video in a cue, the phone's SHOW tab and Companion; the look's own 'Play from' (above) arms a page by itself every time, and opens the next cue's page early." />
   </StackPanel>
 </UserControl>

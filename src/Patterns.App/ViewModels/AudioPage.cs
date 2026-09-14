@@ -34,6 +34,44 @@ public sealed class AudioPage : Observable
             if (double.TryParse(f, out var hz)) State.Tone.FrequencyHz = hz;
         });
 
+        // The routing matrix: which soundtrack goes where.
+        RoutingOnCommand = new RelayCommand(() => Report(_services.Actions.Execute(new ShowAction(ShowActionKind.AudioRouting, "", State.AudioRouting.Enabled ? "off" : "on"), ActionOrigin.Desk)));
+        RoutingSeedCommand = new RelayCommand(() =>
+        {
+            var made = AudioRouting.SeedDefaults(State);
+            _desk.StatusMessage = made > 0 ? $"Audio follows video: {made} routes seeded — the programme, the music, VOGs, stingers and the tone on the programme's outputs, the programme with the music and VOGs on each NDI send." : "The matrix already has routes — clear it first to seed again.";
+            RefreshRouting(force: true);
+        });
+        RoutingAddDestinationCommand = new RelayCommand(() =>
+        {
+            var pick = RoutingDestinationPick;
+            if (string.IsNullOrWhiteSpace(pick)) return;
+            var key = AudioRouting.FindDestination(State, AvailableOutputs(), pick);
+            if (key is null)
+            {
+                _desk.StatusMessage = $"'{pick}' is not an output this machine has or an NDI send the show runs.";
+                return;
+            }
+            AudioRouting.EnsureRow(State, key);
+            RoutingDestinationPick = "";
+            RefreshRouting(force: true);
+            _desk.StatusMessage = $"{AudioRouting.DestinationLabel(State, key)} is a destination — tick the sources it carries.";
+        });
+        RoutingRemoveDestinationCommand = new RelayCommand<RoutingRowVm>(row =>
+        {
+            if (row is null) return;
+            foreach (var route in State.AudioRouting.Routes.Where(r => string.Equals(r.Destination, row.Row.Key, StringComparison.OrdinalIgnoreCase)).ToList()) State.AudioRouting.Routes.Remove(route);
+            State.AudioRouting.Destinations.Remove(row.Row);
+            RefreshRouting(force: true);
+        });
+        RoutingClearCommand = new RelayCommand(() =>
+        {
+            State.AudioRouting.Routes.Clear();
+            State.AudioRouting.Destinations.Clear();
+            RefreshRouting(force: true);
+            _desk.StatusMessage = "The matrix is empty — nothing is routed until a destination is added, or SEED puts audio-follows-video back.";
+        });
+
         // The audio playlist
         AddFilesCommand = new RelayCommand(() => _ = AddFilesAsync());
         AddFolderCommand = new RelayCommand(() => _ = AddFolderAsync());
@@ -126,6 +164,156 @@ public sealed class AudioPage : Observable
 
     private string _toneStatus = "Off";
     public string ToneStatus { get => _toneStatus; private set => Set(ref _toneStatus, value); }
+
+    // ---- the routing matrix -----------------------------------------------------------------
+
+    public RelayCommand RoutingOnCommand { get; }
+    public RelayCommand RoutingSeedCommand { get; }
+    public RelayCommand RoutingAddDestinationCommand { get; }
+    public RelayCommand<RoutingRowVm> RoutingRemoveDestinationCommand { get; }
+    public RelayCommand RoutingClearCommand { get; }
+
+    public EnumItem[] VogModes => Lists.VogModes;
+
+    /// <summary>The rows of the matrix: one per destination the show names, each with a cell per source.</summary>
+    public ObservableCollection<RoutingRowVm> RoutingRows { get; } = new();
+
+    /// <summary>What could become a destination: this machine's outputs and the show's NDI sends that have no row yet.</summary>
+    public ObservableCollection<string> RoutingDestinationChoices { get; } = new();
+
+    private string _routingDestinationPick = "";
+    public string RoutingDestinationPick { get => _routingDestinationPick; set => Set(ref _routingDestinationPick, value ?? ""); }
+
+    private string _routingWords = "";
+    /// <summary>The matrix in a line — off, or what is routed where and how a VOG behaves — with the graph's own status.</summary>
+    public string RoutingWords { get => _routingWords; private set => Set(ref _routingWords, value); }
+
+    private string _routingPagesWords = "";
+    /// <summary>The web pages' sound: where each was steered and what the page said.</summary>
+    public string RoutingPagesWords { get => _routingPagesWords; private set => Set(ref _routingPagesWords, value); }
+
+    public bool RoutingOn => State.AudioRouting.Enabled;
+
+    public string RoutingOnLabel => State.AudioRouting.Enabled ? "ROUTING ON — switch off" : "ROUTING OFF — switch on";
+
+    private string _routingStamp = "";
+
+    /// <summary>The outputs this machine has now (Windows), for the pickers and the lookups.</summary>
+    private IReadOnlyList<string> AvailableOutputs() => OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+
+    /// <summary>A cell ticked or unticked: the crosspoint made at its last level (0 dB when new), or removed.</summary>
+    internal void SetCell(RoutingCellVm cell, bool on)
+    {
+        if (on)
+        {
+            var level = Db.ClampLevel(ParseDb(cell.LevelText, 0));
+            AudioRouting.SetRoute(State, cell.Source.Id, cell.Destination, level);
+        }
+        else
+        {
+            AudioRouting.ClearRoute(State, cell.Source.Id, cell.Destination);
+        }
+        _services.AudioGraph?.Reconcile();
+        RefreshRouting(force: true);
+    }
+
+    /// <summary>A cell's level typed: the crosspoint takes it (and is made if the tick was off).</summary>
+    internal void SetCellLevel(RoutingCellVm cell, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var db = ParseDb(text, double.NaN);
+        if (double.IsNaN(db)) return;
+        AudioRouting.SetRoute(State, cell.Source.Id, cell.Destination, db);
+        _services.AudioGraph?.Reconcile();
+        RefreshRouting(force: true);
+    }
+
+    private static double ParseDb(string text, double fallback)
+    {
+        var t = (text ?? "").Trim().Replace("−", "-").Replace("dB", "", StringComparison.OrdinalIgnoreCase).Trim();
+        if (t.Length == 0) return fallback;
+        if (t.Equals("off", StringComparison.OrdinalIgnoreCase)) return Db.Floor;
+        return double.TryParse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v) ? Db.ClampLevel(v) : fallback;
+    }
+
+    /// <summary>
+    /// The matrix's rows rebuilt when the show's destinations, sources or routes changed (a stamp
+    /// of them all), and their live words refreshed on every poll: the rows are reconciled in
+    /// place so a tick mid-edit never loses its row.
+    /// </summary>
+    public void RefreshRouting(bool force = false)
+    {
+        var cfg = State.AudioRouting;
+        var sources = AudioRouting.Sources(State);
+        var stamp = cfg.Enabled + "|" + string.Join(";", cfg.Destinations.Select(d => d.Key + "=" + d.Label)) + "|" + string.Join(";", sources.Select(s => s.Id)) + "|"
+                    + string.Join(";", cfg.Routes.Select(r => $"{r.Source}>{r.Destination}@{r.LevelDb:0.#}/{r.Enabled}"));
+        var rebuild = force || stamp != _routingStamp;
+        _routingStamp = stamp;
+        Raise(nameof(RoutingOn));
+        Raise(nameof(RoutingOnLabel));
+        var graph = _services.AudioGraph;
+        RoutingWords = AudioRouting.Words(State) + (cfg.Enabled && graph is not null ? " " + graph.Status : "");
+        var pages = _services.WebIn.AudioRouteNotes().Select(n => $"{State.InputLabel(n.Key, WebAddress.ShortName(n.Key[4..]))}: {(n.Device.Length == 0 ? "the machine's default output" : n.Device)}{(n.Note.Length > 0 ? " — " + n.Note : "")}").ToList();
+        RoutingPagesWords = pages.Count == 0 ? "" : "Web pages: " + string.Join(" · ", pages);
+        if (rebuild)
+        {
+            var devices = AvailableOutputs();
+            var all = AudioRouting.Destinations(State, devices);
+            // The rows: the show's configured destinations, in the show's order.
+            var wanted = cfg.Destinations.Where(d => d.Key.Length > 0).ToList();
+            for (var i = RoutingRows.Count - 1; i >= 0; i--)
+            {
+                if (!wanted.Any(d => ReferenceEquals(d, RoutingRows[i].Row))) RoutingRows.RemoveAt(i);
+            }
+            for (var i = 0; i < wanted.Count; i++)
+            {
+                var d = wanted[i];
+                var existing = RoutingRows.FirstOrDefault(r => ReferenceEquals(r.Row, d));
+                if (existing is null)
+                {
+                    var info = all.FirstOrDefault(a => string.Equals(a.Key, d.Key, StringComparison.OrdinalIgnoreCase));
+                    existing = new RoutingRowVm(d, AudioRouting.DestinationLabel(State, d.Key), info?.Present ?? false);
+                    RoutingRows.Insert(Math.Min(i, RoutingRows.Count), existing);
+                }
+                // The cells: one per source, in the sources' order, reconciled in place.
+                for (var c = existing.Cells.Count - 1; c >= 0; c--)
+                {
+                    if (!sources.Any(s => s.Id == existing.Cells[c].Source.Id)) existing.Cells.RemoveAt(c);
+                }
+                for (var c = 0; c < sources.Count; c++)
+                {
+                    var src = sources[c];
+                    var route = AudioRouting.Route(State, src.Id, d.Key);
+                    var cell = existing.Cells.FirstOrDefault(x => x.Source.Id == src.Id);
+                    if (cell is null) existing.Cells.Insert(Math.Min(c, existing.Cells.Count), new RoutingCellVm(this, d.Key, src, route));
+                    else cell.Sync(route);
+                }
+            }
+            // What could still be added.
+            var choices = all.Where(a => !a.Configured).Select(a => a.Label).ToList();
+            for (var i = RoutingDestinationChoices.Count - 1; i >= 0; i--)
+            {
+                if (!choices.Contains(RoutingDestinationChoices[i])) RoutingDestinationChoices.RemoveAt(i);
+            }
+            foreach (var choice in choices)
+            {
+                if (!RoutingDestinationChoices.Contains(choice)) RoutingDestinationChoices.Add(choice);
+            }
+        }
+        // The live words: every poll.
+        foreach (var row in RoutingRows)
+        {
+            row.LiveWords = AudioRouting.DestinationWords(State, row.Row);
+            var peak = graph?.PeakDb(row.Row.Key) ?? Db.Floor;
+            row.Meter = cfg.Enabled && graph is not null && peak > Db.Floor ? Db.Text(peak) : "";
+            row.Error = cfg.Enabled ? graph?.LaneError(row.Row.Key) ?? "" : "";
+            foreach (var cell in row.Cells)
+            {
+                var live = graph?.LiveDb(row.Row.Key, cell.Source.Id) ?? Db.Floor;
+                cell.LiveText = cell.IsOn && cfg.Enabled && live > Db.Floor ? Db.Text(live) : "";
+            }
+        }
+    }
 
     public EnumItem[] ToneModes => Lists.ToneModes;
     public EnumItem[] ToneChannelsList => Lists.ToneChannelsList;
@@ -430,6 +618,7 @@ public sealed class AudioPage : Observable
     /// <summary>Once a second from the desk tick: every status line, the chips and pickers when their lists moved, the inputs while a reactive pattern is edited.</summary>
     public void Poll()
     {
+        RefreshRouting();
         ToneStatus = _services.Audio.Status;
         PlayerStatus = _services.AudioPlayer.Status;
         SyncStatus = SyncLine(State.AudioPlayer.SyncLock, _services.AudioPlayer.SyncReport());

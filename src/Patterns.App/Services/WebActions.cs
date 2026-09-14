@@ -15,7 +15,7 @@ public static class WebActions
     /// <summary>Runs one web action: the page named (or the page on air), then the deed.</summary>
     public static ActionResult Execute(AppServices s, ShowAction action)
     {
-        var page = Resolve(s, action.Target, out var name, out var why);
+        var page = Resolve(s, action.Target, out var name, out var why, out var key);
         if (page is null) return ActionResult.Refused(why);
         switch (action.Kind)
         {
@@ -48,6 +48,10 @@ public static class WebActions
                 page.Navigate(address);
                 return ActionResult.Done($"{name} → {WebAddress.ShortName(address)} (the pattern keeps its own address; a look recall brings it back).");
             }
+            case ShowActionKind.WebArm:
+                return s.WebIn.Arm(key, page, name, action.Value);
+            case ShowActionKind.WebMark:
+                return s.WebIn.Mark(key, page, name, action.Value);
             default:
                 return ActionResult.Refused($"Not a web action: {action.Kind}.");
         }
@@ -87,29 +91,44 @@ public static class WebActions
     /// address or a word of it among the pages on the desk — with its name for the status line.
     /// </summary>
     public static IWebSource? Resolve(AppServices s, string target, out string name, out string why)
+        => Resolve(s, target, out name, out why, out _);
+
+    /// <summary>The same, with the page's mount key — what the armed VT is kept by.</summary>
+    public static IWebSource? Resolve(AppServices s, string target, out string name, out string why, out string key)
     {
         name = "";
         why = "";
+        key = "";
         var t = (target ?? "").Trim();
         if (t.Length == 0)
         {
             var wanted = MediaLocator.FindWantedInputs(s.Bus.Current).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.Web);
             if (wanted is null)
             {
+                // Nothing on air: the page in the preview, then a page opened for a cue ahead, is what an ARM means.
+                foreach (var k in InputBus.Keys)
+                {
+                    if (!k.StartsWith("web:", StringComparison.Ordinal) || InputBus.For(k) is not IWebSource waiting) continue;
+                    key = k;
+                    name = s.State.InputLabel(k, WebAddress.ShortName(k[4..]));
+                    return waiting;
+                }
                 why = "No web page is on air — the action needs one on the pattern or a layer of the look on air (or name a page: … ON <page>).";
                 return null;
             }
+            key = wanted.Key;
             name = s.State.InputLabel(wanted.Key, WebAddress.ShortName(wanted.Target));
             if (InputBus.For(wanted.Key) is IWebSource onAir) return onAir;
             why = $"The page on air ({name}) is still opening — {(WebInput.AvailabilityNote.Length > 0 ? WebInput.AvailabilityNote : "try again in a moment")}.";
             return null;
         }
-        foreach (var key in InputBus.Keys)
+        foreach (var k in InputBus.Keys)
         {
-            if (!key.StartsWith("web:", StringComparison.Ordinal) || InputBus.For(key) is not IWebSource page) continue;
-            var url = key[4..];
-            var nickname = s.State.InputLabel(key, "");
-            if (!WebPresets.Matches(key, url, nickname, t) && !WebPresets.Matches(key, page.CurrentUrl, nickname, t)) continue;
+            if (!k.StartsWith("web:", StringComparison.Ordinal) || InputBus.For(k) is not IWebSource page) continue;
+            var url = k[4..];
+            var nickname = s.State.InputLabel(k, "");
+            if (!WebPresets.Matches(k, url, nickname, t) && !WebPresets.Matches(k, page.CurrentUrl, nickname, t)) continue;
+            key = k;
             name = nickname.Length > 0 ? nickname : WebAddress.ShortName(url);
             return page;
         }

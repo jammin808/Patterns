@@ -26,6 +26,10 @@ public enum TargetKind
     Track,
     /// <summary>Where a fade lands: blank = every screen; FOCUSED, TICKED, GROUPS, SCREEN n, GROUP A, or ID &lt;screen id&gt; (see <see cref="FadeScope"/>).</summary>
     Place,
+    /// <summary>A sound of the routing matrix: programme, a screen's own picture, the preview, music, vog, sting, tone.</summary>
+    AudioSource,
+    /// <summary>A destination of the routing matrix: a Windows output by name or an NDI send.</summary>
+    AudioDestination,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -46,6 +50,12 @@ public enum ValueKind
     WebKey,
     /// <summary>"x y" in percent of a page.</summary>
     Point,
+    /// <summary>A point in a page's video: "1:23", "83", "1m23s"; empty for the mark or the player's own place; "off" to disarm.</summary>
+    VideoTime,
+    /// <summary>A destination of the routing matrix, with " AT &lt;dB&gt;" for a level other than 0 ("Info HDMI AT -6").</summary>
+    AudioRouteTo,
+    /// <summary>What a VOG does on a destination: duck, replace or leave.</summary>
+    VogMode,
     /// <summary>A deck page: a number (1-based), first or last.</summary>
     DeckPage,
     /// <summary>A look of the show (id or name) — a picker, not a text box.</summary>
@@ -109,6 +119,10 @@ public static class ActionSpec
         ShowActionKind.ClockSeconds or ShowActionKind.ClockDate => (TargetKind.None, ValueKind.Switch),
         ShowActionKind.PatternKind => (TargetKind.None, ValueKind.PatternKind),
         ShowActionKind.AudioVolume => (TargetKind.None, ValueKind.Percent),
+        ShowActionKind.AudioRouting => (TargetKind.None, ValueKind.Switch),
+        ShowActionKind.AudioRoute => (TargetKind.AudioSource, ValueKind.AudioRouteTo),
+        ShowActionKind.AudioUnroute => (TargetKind.AudioSource, ValueKind.Text),
+        ShowActionKind.AudioVogMode => (TargetKind.AudioDestination, ValueKind.VogMode),
         ShowActionKind.SpotifyPlay => (TargetKind.Music, ValueKind.None),
         ShowActionKind.SpotifyVolume => (TargetKind.None, ValueKind.Level),
         ShowActionKind.LowerThirdShow => (TargetKind.LowerThird, ValueKind.Person),
@@ -120,6 +134,8 @@ public static class ActionSpec
         ShowActionKind.WebType => (TargetKind.Page, ValueKind.Text),
         ShowActionKind.WebReload => (TargetKind.Page, ValueKind.None),
         ShowActionKind.WebOpen => (TargetKind.Page, ValueKind.Address),
+        ShowActionKind.WebArm => (TargetKind.Page, ValueKind.VideoTime),
+        ShowActionKind.WebMark => (TargetKind.Page, ValueKind.VideoTime),
         ShowActionKind.DeckPage => (TargetKind.None, ValueKind.DeckPage),
         ShowActionKind.DeviceSend => (TargetKind.Device, ValueKind.Text),
         ShowActionKind.Announce => (TargetKind.Slot, ValueKind.Text),
@@ -146,6 +162,10 @@ public static class ActionSpec
         ShowActionKind.AudioPlay => "Play audio (the list, or a track)",
         ShowActionKind.AudioStop => "Stop audio",
         ShowActionKind.AudioVolume => "Audio volume",
+        ShowActionKind.AudioRouting => "Audio routing — on / off",
+        ShowActionKind.AudioRoute => "Audio routing — put a source on a destination",
+        ShowActionKind.AudioUnroute => "Audio routing — take a source off a destination",
+        ShowActionKind.AudioVogMode => "Audio routing — what a VOG does on a destination",
         ShowActionKind.AudioNext => "Audio — next track",
         ShowActionKind.AudioPrev => "Audio — previous track",
         ShowActionKind.SpotifyPlay => "Break music — play",
@@ -266,6 +286,8 @@ public static class ActionSpec
         ShowActionKind.WebType => "Web page — type text",
         ShowActionKind.WebReload => "Web page — reload",
         ShowActionKind.WebOpen => "Web page — open an address",
+        ShowActionKind.WebArm => "Web page — arm the video (play from a point when it goes to air)",
+        ShowActionKind.WebMark => "Web page — mark the start point",
         ShowActionKind.DeckNext => "Deck — next page",
         ShowActionKind.DeckPrev => "Deck — previous page",
         ShowActionKind.DeckPage => "Deck — go to page",
@@ -326,6 +348,7 @@ public static class ActionSpec
     {
         ShowActionKind.ApplyLook, ShowActionKind.Note, ShowActionKind.ApplyLookToPreview, ShowActionKind.LookBack,
         ShowActionKind.AudioPlay, ShowActionKind.AudioStop, ShowActionKind.AudioNext, ShowActionKind.AudioPrev, ShowActionKind.AudioVolume,
+        ShowActionKind.AudioRouting, ShowActionKind.AudioRoute, ShowActionKind.AudioUnroute, ShowActionKind.AudioVogMode,
         ShowActionKind.SpotifyPlay, ShowActionKind.SpotifyPause, ShowActionKind.SpotifyNext, ShowActionKind.SpotifyVolume,
         ShowActionKind.StingerFire, ShowActionKind.StingerStop,
         ShowActionKind.PlaylistPart,
@@ -353,6 +376,7 @@ public static class ActionSpec
         ShowActionKind.LowerThirdShow, ShowActionKind.LowerThirdHide, ShowActionKind.LowerThirdPreview, ShowActionKind.LowerThirdPreviewOff,
         ShowActionKind.LowerThirdTake, ShowActionKind.LowerThirdUpdate,
         ShowActionKind.WebKey, ShowActionKind.WebClick, ShowActionKind.WebType, ShowActionKind.WebReload, ShowActionKind.WebOpen,
+        ShowActionKind.WebArm, ShowActionKind.WebMark,
         ShowActionKind.DeckNext, ShowActionKind.DeckPrev, ShowActionKind.DeckPage,
         ShowActionKind.VideoRestart, ShowActionKind.VideoToEnd,
         ShowActionKind.DeviceSend,

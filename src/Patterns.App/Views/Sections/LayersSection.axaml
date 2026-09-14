@@ -77,6 +77,13 @@
             <CheckBox Content="Show the pointer" IsChecked="{Binding WebShowPointer, Mode=TwoWay}" ToolTip.Tip="Draw the desk's pointer and its clicks on the page wherever this layer is shown" />
             <CheckBox Content="Mute" IsChecked="{Binding Mute, Mode=TwoWay}" />
           </StackPanel>
+          <Grid ColumnDefinitions="Auto,8,90,8,Auto">
+            <CheckBox Content="Play the video from" IsChecked="{Binding WebAutoPlay, Mode=TwoWay}" VerticalAlignment="Center"
+                      ToolTip.Tip="The armed web VT carried by the look: when this layer goes to air its video plays from the point beside (seconds; 0 = the top), and a cue ahead opens the page early, held there" />
+            <NumericUpDown Grid.Column="2" Minimum="0" Maximum="86400" Increment="1" FormatString="0" IsEnabled="{Binding WebAutoPlay}"
+                           Value="{Binding WebStartSeconds, Mode=TwoWay, Converter={StaticResource Num}}" />
+            <TextBlock Grid.Column="4" Classes="label" Text="s when it goes to air" VerticalAlignment="Center" />
+          </Grid>
         </StackPanel>
 
         <TextBlock Classes="label" Text="Box (% of the canvas — or drag it on the PREVIEW pane)" Margin="0,6,0,0" />

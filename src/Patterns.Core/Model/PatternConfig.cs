@@ -419,6 +419,8 @@ public sealed class MediaOptions : Observable
     private bool _webShowPointer = true;
     private Services.PageServicePick _webService;
     private bool _webClean;
+    private bool _webAutoPlay;
+    private double _webStartSeconds;
     private double _cropLeftPct;
     private double _cropTopPct;
     private double _cropRightPct;
@@ -474,6 +476,14 @@ public sealed class MediaOptions : Observable
     /// the site's own class names, so it is a tick the operator turns on and reads on the wall.
     /// </summary>
     [TransitionNeutral] public bool WebClean { get => _webClean; set => Set(ref _webClean, value); }
+    /// <summary>
+    /// The armed web VT, carried by the look: when this page goes to air its video plays from
+    /// <see cref="WebStartSeconds"/> — and a cue ahead that carries it has the page opened early,
+    /// prepared at the mark. Off for a page that is not a video, or one the operator arms by hand.
+    /// </summary>
+    [TransitionNeutral] public bool WebAutoPlay { get => _webAutoPlay; set => Set(ref _webAutoPlay, value); }
+    /// <summary>Where the video starts from when it goes to air, in seconds from its top (0 = the beginning).</summary>
+    [TransitionNeutral] public double WebStartSeconds { get => _webStartSeconds; set => Set(ref _webStartSeconds, double.IsFinite(value) ? Math.Clamp(value, 0, 86400) : 0); }
 
     /// <summary>
     /// The area of interest: what to cut away on each side of the input's picture (0–90 % each;
@@ -664,6 +674,8 @@ public sealed class LayerConfig : Observable
     private bool _webShowPointer = true;
     private Services.PageServicePick _webService;
     private bool _webClean;
+    private bool _webAutoPlay;
+    private double _webStartSeconds;
     private double _xPct = 5;
     private double _yPct = 5;
     private double _wPct = 40;
@@ -699,6 +711,10 @@ public sealed class LayerConfig : Observable
     [TransitionNeutral] public Services.PageServicePick WebService { get => _webService; set => Set(ref _webService, value); }
     /// <summary>Take the service's furniture off the picture. See <see cref="MediaConfig.WebClean"/>.</summary>
     [TransitionNeutral] public bool WebClean { get => _webClean; set => Set(ref _webClean, value); }
+    /// <summary>The armed web VT carried by the look. See <see cref="MediaConfig.WebAutoPlay"/>.</summary>
+    [TransitionNeutral] public bool WebAutoPlay { get => _webAutoPlay; set => Set(ref _webAutoPlay, value); }
+    /// <summary>Where the video starts from when the layer goes to air, in seconds (0 = the beginning).</summary>
+    [TransitionNeutral] public double WebStartSeconds { get => _webStartSeconds; set => Set(ref _webStartSeconds, double.IsFinite(value) ? Math.Clamp(value, 0, 86400) : 0); }
 
     /// <summary>The box, as a share of the canvas: its top-left (may sit partly off the canvas) and its size.</summary>
     [TransitionNeutral] public double XPct { get => _xPct; set => Set(ref _xPct, Math.Clamp(value, -100, 100)); }

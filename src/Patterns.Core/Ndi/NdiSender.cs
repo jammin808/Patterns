@@ -25,6 +25,14 @@ public sealed class NdiSender : IDisposable
     private volatile string _status = "Off";
     private volatile int _connections;
 
+    // The runtime's sender handle, shared with the audio side: video goes from the send loop,
+    // audio from the graph's lane on a thread of its own, and the runtime takes both at once.
+    private readonly object _handleGate = new();
+    private IntPtr _handle;
+    private IntPtr _audioBuffer;
+    private int _audioCapacity;
+    private long _audioFrames;
+
     public NdiSender(SnapshotBus bus, string senderId)
     {
         _bus = bus;
@@ -139,6 +147,7 @@ public sealed class NdiSender : IDisposable
                             Thread.Sleep(2000);
                             continue;
                         }
+                        lock (_handleGate) _handle = sender;
                         currentName = name;
                         Log.Info($"NDI sender '{name}' created.");
                     }
@@ -274,12 +283,80 @@ public sealed class NdiSender : IDisposable
         }
     }
 
-    private static void DestroySender(ref IntPtr sender, ref IntPtr namePtr)
+    /// <summary>Audio frames sent on this sender so far — the Audio page's sign that the embedded sound is moving.</summary>
+    public long AudioFrames => Interlocked.Read(ref _audioFrames);
+
+    /// <summary>
+    /// Embedded audio: interleaved 32-bit float frames at a rate, turned planar for the runtime
+    /// and sent at once (the runtime copies them). Safe from any thread; nothing happens while
+    /// the sender is not up, and false says so.
+    /// </summary>
+    public bool SendAudio(ReadOnlySpan<float> interleaved, int channels, int sampleRate)
+    {
+        if (channels <= 0 || sampleRate <= 0) return false;
+        var frames = interleaved.Length / channels;
+        if (frames <= 0) return false;
+        lock (_handleGate)
+        {
+            if (_handle == IntPtr.Zero) return false;
+            var needed = frames * channels * sizeof(float);
+            if (_audioBuffer == IntPtr.Zero || _audioCapacity < needed)
+            {
+                if (_audioBuffer != IntPtr.Zero) Marshal.FreeHGlobal(_audioBuffer);
+                _audioBuffer = Marshal.AllocHGlobal(needed);
+                _audioCapacity = needed;
+            }
+            unsafe
+            {
+                var dst = (float*)_audioBuffer;
+                for (var ch = 0; ch < channels; ch++)
+                {
+                    var plane = dst + ch * frames;
+                    for (var i = 0; i < frames; i++) plane[i] = interleaved[i * channels + ch];
+                }
+            }
+            var frame = new NdiInterop.AudioFrameV3
+            {
+                SampleRate = sampleRate,
+                NoChannels = channels,
+                NoSamples = frames,
+                Timecode = NdiInterop.SendTimecodeSynthesize,
+                FourCc = NdiInterop.FourCcFltp,
+                Data = _audioBuffer,
+                ChannelStrideInBytes = frames * sizeof(float),
+                Metadata = IntPtr.Zero,
+                Timestamp = 0,
+            };
+            try
+            {
+                NdiInterop.NDIlib_send_send_audio_v3(_handle, ref frame);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"NDI audio send failed on '{_senderId}'.", ex);
+                return false;
+            }
+            Interlocked.Increment(ref _audioFrames);
+            return true;
+        }
+    }
+
+    private void DestroySender(ref IntPtr sender, ref IntPtr namePtr)
     {
         if (sender != IntPtr.Zero)
         {
-            try { NdiInterop.NDIlib_send_destroy(sender); }
-            catch (Exception ex) { Log.Warn("NDI sender destroy failed.", ex); }
+            lock (_handleGate)
+            {
+                _handle = IntPtr.Zero;
+                try { NdiInterop.NDIlib_send_destroy(sender); }
+                catch (Exception ex) { Log.Warn("NDI sender destroy failed.", ex); }
+                if (_audioBuffer != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(_audioBuffer);
+                    _audioBuffer = IntPtr.Zero;
+                    _audioCapacity = 0;
+                }
+            }
             sender = IntPtr.Zero;
         }
         if (namePtr != IntPtr.Zero)
@@ -331,6 +408,9 @@ public sealed class NdiService : IDisposable
 
     public string StatusFor(string id)
         => _active.TryGetValue(id, out var s) ? s.Status : NdiSender.RuntimeAvailable ? "Off" : NdiSender.RuntimeHelp;
+
+    /// <summary>The running sender for a config id, or null — the audio graph's lane hands it the embedded sound.</summary>
+    public NdiSender? SenderFor(string id) => _active.TryGetValue(id, out var s) ? s : null;
 
     /// <summary>Stops every sender side by side: all are told at once, then waited for together, so the exit costs one sender's stop, not the sum.</summary>
     public void StopAll()

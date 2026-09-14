@@ -145,6 +145,24 @@ public static class NdiInterop
         public long Timestamp;
     }
 
+    /// <summary>NDIlib_audio_frame_v3_t: planar float ("FLTP"), one channel after another, <see cref="ChannelStrideInBytes"/> apart.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct AudioFrameV3
+    {
+        public int SampleRate;
+        public int NoChannels;
+        public int NoSamples;
+        public long Timecode;
+        public int FourCc;
+        public IntPtr Data;
+        public int ChannelStrideInBytes;
+        public IntPtr Metadata;
+        public long Timestamp;
+    }
+
+    /// <summary>NDIlib_FourCC_audio_type_FLTP: 32-bit float, planar.</summary>
+    public const int FourCcFltp = 'F' | ('L' << 8) | ('T' << 16) | ('P' << 24);
+
     [StructLayout(LayoutKind.Sequential)]
     public struct FindCreate
     {
@@ -195,6 +213,10 @@ public static class NdiInterop
 
     [DllImport(LibName, ExactSpelling = true)]
     public static extern int NDIlib_send_get_no_connections(IntPtr instance, uint timeoutMs);
+
+    /// <summary>Embedded audio on a sender; asynchronous — the runtime copies the samples before it returns — and safe beside the video send.</summary>
+    [DllImport(LibName, ExactSpelling = true)]
+    public static extern void NDIlib_send_send_audio_v3(IntPtr instance, ref AudioFrameV3 frame);
 
     [DllImport(LibName, ExactSpelling = true)]
     public static extern IntPtr NDIlib_find_create_v2(ref FindCreate createSettings);

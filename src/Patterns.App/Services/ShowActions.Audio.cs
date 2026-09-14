@@ -53,6 +53,51 @@ public sealed partial class ShowActions
                 State.AudioPlayer.Playing = false;
                 return ActionResult.Done("Audio track stopped.");
 
+            // ---- the routing matrix: not in the snapshot — every player reads the live model on its poll, so this is the audio's air seam ----
+            case ShowActionKind.AudioRouting:
+            {
+                if (!ActionSpec.IsSwitchWord(a.Value)) return ActionResult.Refused("AUDIO ROUTING takes on, off or toggle.");
+                var on = OverlayControl.SwitchTo(a.Value, State.AudioRouting.Enabled);
+                var seeded = 0;
+                if (on && !State.AudioRouting.Enabled) seeded = AudioRouting.SeedDefaults(State);
+                State.AudioRouting.Enabled = on;
+                _s.AudioGraph?.Reconcile();
+                return ActionResult.Done(on
+                    ? seeded > 0 ? $"Audio routing on — audio follows video to begin with ({seeded} routes seeded)." : "Audio routing on."
+                    : "Audio routing off — the programme's outputs and the monitor, as before.");
+            }
+            case ShowActionKind.AudioRoute:
+            case ShowActionKind.AudioUnroute:
+            {
+                var source = AudioRouting.FindSource(State, a.Target);
+                if (source is null) return ActionResult.Refused($"'{a.Target}' is not a sound the show has — programme, a screen with its own picture, preview, music, vog, sting or tone.");
+                var (toWord, db) = AudioRouting.ParseRouteValue(a.Value);
+                if (double.IsNaN(db)) return ActionResult.Refused("The level after AT is not a number in dB.");
+                var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+                var destination = AudioRouting.FindDestination(State, devices, toWord);
+                if (destination is null) return ActionResult.Refused($"'{toWord}' is not a destination — an output this machine has (by its name), NDI <send>, or computer.");
+                var label = AudioRouting.DestinationLabel(State, destination);
+                if (a.Kind == ShowActionKind.AudioRoute)
+                {
+                    AudioRouting.SetRoute(State, source, destination, db);
+                    _s.AudioGraph?.Reconcile();
+                    return ActionResult.Done($"{AudioRouting.SourceLabel(State, source)} → {label} at {Db.Text(db)}{(State.AudioRouting.Enabled ? "" : " (routing is off — AUDIO ROUTING ON puts the matrix in charge)")}.");
+                }
+                var cleared = AudioRouting.ClearRoute(State, source, destination);
+                _s.AudioGraph?.Reconcile();
+                return cleared ? ActionResult.Done($"{AudioRouting.SourceLabel(State, source)} off {label}.") : ActionResult.Done($"{AudioRouting.SourceLabel(State, source)} was not on {label}.");
+            }
+            case ShowActionKind.AudioVogMode:
+            {
+                if (!AudioRouting.TryParseVogMode(a.Value, out var mode)) return ActionResult.Refused("AUDIO VOG takes duck, replace or leave.");
+                var devices = OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>();
+                var destination = AudioRouting.FindDestination(State, devices, a.Target);
+                if (destination is null) return ActionResult.Refused($"'{a.Target}' is not a destination — an output this machine has, NDI <send>, or computer.");
+                AudioRouting.EnsureRow(State, destination).VogMode = mode;
+                _s.AudioGraph?.Reconcile();
+                return ActionResult.Done($"A VOG on {AudioRouting.DestinationLabel(State, destination)}: {mode.ToString().ToLowerInvariant()}.");
+            }
+
             case ShowActionKind.SpotifyPlay:
             {
                 // Break music is not in the snapshot: the service reads the live model every poll,

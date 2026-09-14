@@ -92,6 +92,9 @@ export function buildFeedbacks(ctx) {
 			const word = String(fb.options.word || '').trim().toLowerCase()
 			return !word || String(w.url || '').toLowerCase().includes(word) || String(w.page || '').toLowerCase().includes(word)
 		}),
+		audio_routing_on: bool('The routing matrix is in charge of which soundtrack goes where', style('audio', 'playing'), [], () => !!(s().audioRouting && s().audioRouting.on)),
+		web_armed: bool("A web page's video is armed — held at its mark, to play when the page goes to air", style('presenter', 'on'), [], () => !!s().webArmed),
+		web_advert: bool('An advert is showing over the web page on air (Patterns skips it when the site allows)', style('presenter', 'out'), [], () => !!(s().web && s().web.player && s().web.player.ad)),
 		deck_on_air: bool('A deck (PDF) is on air — or on its last page', style('presenter', 'on'), [{ type: 'checkbox', id: 'ended', label: 'Only on its last page (the next click GOes the standby cue)', default: false }], (fb) => {
 			const d = s().deck
 			if (!d || !d.count) return false

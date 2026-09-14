@@ -162,6 +162,10 @@ export function buildPresets() {
 	add('video_end', key('Presenter', "VT — jump to the clip's last ten seconds (rehearsal)", 'VT\n⏭ LAST 10 s', '14', press('video_end', { seconds: 10 }), [vtOn, vtOut]))
 	add('video_restart', key('Presenter', 'VT — the clip on air from the top', 'VT\n⟲ TOP', '14', press('video_restart'), [vtOn]))
 	const webOn = litAs('web_on_air', { word: '' }, 'presenter', 'on')
+	const webArmed = litAs('web_armed', {}, 'presenter', 'on')
+	add('web_vt_arm', key('Web page', 'Armed VT — ARM (at the mark, else where the player is): $(patterns:web_armed)', 'ARM\nVT', '14', press('web_vt', { mode: 'arm', time: '', page: '' }), [webArmed]))
+	add('web_vt_mark', key('Web page', 'Armed VT — MARK where the player is now', 'MARK\nVT', '14', press('web_vt', { mode: 'mark', time: '', page: '' }), [webArmed]))
+	add('web_vt_disarm', key('Web page', 'Armed VT — DISARM', 'DISARM\nVT', '14', press('web_vt', { mode: 'disarm', time: '', page: '' }), [webArmed]))
 	for (const [id, text, action] of [
 		['next', 'PAGE\nNEXT ▶', 'next'], ['prev', 'PAGE\n◀ PREV', 'prev'], ['first', 'PAGE\nFIRST', 'first'], ['last', 'PAGE\nLAST', 'last'],
 		['present', 'PAGE\nPRESENT', 'present'], ['exit', 'PAGE\nEXIT', 'exit'], ['play', 'PAGE\nPLAY ❚❚', 'play'], ['mute', 'PAGE\nMUTE', 'mute'],
@@ -209,6 +213,7 @@ export function buildPresets() {
 	const audioOn = litAs('audio_playing', {}, 'audio', 'playing')
 	add('audio_play', key('Audio', 'Audio play', '♪ PLAY', '14', press('audio', { mode: 'PLAY' }), [audioOn]))
 	add('audio_stop', key('Audio', 'Audio stop', '♪ STOP', '14', press('audio', { mode: 'STOP' })))
+	add('audio_routing', key('Audio', 'Audio routing — the matrix (which soundtrack goes where) on or off', 'ROUTING\n$(patterns:audio_routing)', '14', press('audio_routing', { mode: 'toggle' }), [litAs('audio_routing_on', {}, 'audio', 'playing')]))
 	add('audio_next', key('Audio', 'Audio playlist — next track', '♪ ⏭\n$(patterns:audio_next)', 'auto', press('audio', { mode: 'NEXT' }), [audioOn]))
 	add('audio_prev', key('Audio', 'Audio playlist — previous track', '♪ ⏮', '14', press('audio', { mode: 'PREV' }), [audioOn]))
 	add('audio_now', key('Audio', 'Audio playlist — what is on (press: play / resume)', '♪ $(patterns:audio_n)/$(patterns:audio_count)\n$(patterns:audio_track)\n$(patterns:audio_remaining)', 'auto', press('audio', { mode: 'PLAY' }), [audioOn]))

@@ -261,6 +261,8 @@ public sealed class ActionRow : Observable
         TargetKind.Slot => Action.Kind == ShowActionKind.Announce ? "Which announcement… (blank = the words below)" : "Which advert…",
         TargetKind.Track => "Which track… (blank = play or resume the list)",
         TargetKind.Place => "Where… (blank = every screen)",
+        TargetKind.AudioSource => "Which sound…",
+        TargetKind.AudioDestination => "Which destination…",
         _ => "",
     };
 
@@ -280,6 +282,9 @@ public sealed class ActionRow : Observable
         ValueKind.Person => "who: a library entry (blank = as designed)",
         ValueKind.Look => "which look's picture lands on that screen alone",
         ValueKind.WebKey => "an action — next · prev · first · last · present · exit · play · pause · mute · restart · black · white — or a key: ArrowRight · Space · k · Ctrl+Shift+F5",
+        ValueKind.VideoTime => "a point in the video — 1:23 · 83 · 1m23s · 0 for the top — empty for the mark set (or where the player is now); off disarms",
+        ValueKind.AudioRouteTo => "the destination — an output's name or its label, NDI <send>, computer — with AT <dB> for a level: Info HDMI AT -6",
+        ValueKind.VogMode => "duck · replace · leave",
         ValueKind.Point => "x y in percent of the page, e.g. 50 50",
         ValueKind.Seconds => Action.Kind is ShowActionKind.FadeToBlack or ShowActionKind.FadeUp
             ? "seconds for the fade, e.g. 2 or 1.5 (blank = the show's transition time)"
@@ -886,6 +891,12 @@ public sealed class CueEditor : Observable
                 }
                 return items;
             }
+            case TargetKind.AudioSource:
+                return AudioRouting.Sources(state).Select(src => new PickItem(src.Id, src.Label));
+            case TargetKind.AudioDestination:
+                // The show's own rows first, then what this machine has: a cue names a destination by its key, its label reads the same on the wire.
+                return AudioRouting.Destinations(state, OperatingSystem.IsWindows() ? AudioPlayerService.OutputDevices() : Array.Empty<string>())
+                    .Select(d => new PickItem(d.Key, d.Configured ? d.Label : $"{d.Label} (not routed yet)"));
             case TargetKind.Page:
             {
                 // The pages the show has now, then the remembered ones: a cue names a page by its address (its nickname or a word of it reads the same).

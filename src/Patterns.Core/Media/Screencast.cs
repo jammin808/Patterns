@@ -23,8 +23,13 @@ namespace Patterns.Core.Media;
 /// </summary>
 public static class ScreencastFrame
 {
-    /// <summary>The JPEG quality asked for: near 200 KB a 1080p frame, and a video's grain rather than blocks.</summary>
-    public const int Quality = 80;
+    /// <summary>
+    /// The JPEG quality asked for. A video site's picture is already compressed harder than this,
+    /// so 70 keeps its grain rather than blocks while the encode in the browser, the text across
+    /// the process boundary and the decode here all cost less than at 80 — and at 1080p those
+    /// three are what set the rate.
+    /// </summary>
+    public const int Quality = 70;
 
     /// <summary>The DevTools event the frames arrive on.</summary>
     public const string EventName = "Page.screencastFrame";

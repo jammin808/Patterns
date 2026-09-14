@@ -70,6 +70,12 @@ public sealed class ToneSampleProvider : ISampleProvider
         }
     }
 
+    /// <summary>The tone as the NDI lanes read it, when a graph asked for it.</summary>
+    public Patterns.Core.Audio.AudioRing? Tap { get; set; }
+
+    /// <summary>The matrix's gain on the tone's destination (unity while the matrix is off), landed with the same ramp as the amplitude.</summary>
+    public volatile float RouteGain = 1f;
+
     public int Read(float[] buffer, int offset, int count)
     {
         var step = 2 * Math.PI * _frequency / WaveFormat.SampleRate;
@@ -106,11 +112,12 @@ public sealed class ToneSampleProvider : ISampleProvider
                     }
                 }
             }
-            buffer[offset + i] = left;
-            buffer[offset + i + 1] = right;
+            buffer[offset + i] = left * RouteGain;
+            buffer[offset + i + 1] = right * RouteGain;
             frame++;
         }
         Interlocked.Exchange(ref _framesRendered, frame);
+        Tap?.Write(buffer.AsSpan(offset, count));
         return count;
     }
 }
@@ -210,14 +217,15 @@ public sealed class AudioService : IDisposable
                 return;
             }
 
-            // Follow the programme. Changing the show's first output while the tone is up moves
-            // the tone with it rather than leaving it on the card nobody is listening to.
-            var wantedDevice = ProgrammeOutputName(_services.State);
+            // Follow the programme — or, with the matrix in charge, the first destination the tone
+            // is routed to, at its gain. Changing that while the tone is up moves the tone with it
+            // rather than leaving it on the card nobody is listening to.
+            var (wantedDevice, routeGain) = ToneOutput(_services.State);
             if (_device is not null && !string.Equals(_openedOn, wantedDevice, StringComparison.Ordinal)) StopDevice();
 
             if (_device is null)
             {
-                _provider = new ToneSampleProvider();
+                _provider = new ToneSampleProvider { Tap = _services.AudioGraph is null ? null : _toneTap };
                 _device = OpenOn(wantedDevice);
                 _device.Init(_provider);
                 _device.Play();
@@ -228,6 +236,7 @@ public sealed class AudioService : IDisposable
             }
 
             if (syncCheck) ScheduleSyncClicks(ShowClock.Seconds);
+            _provider!.RouteGain = (float)Math.Clamp(routeGain, 0, 4);
 
             if (!cfg.Enabled)
             {
@@ -284,6 +293,26 @@ public sealed class AudioService : IDisposable
         _indicator = value;
         _services.Bus.ToneIndicator = value;
         _services.PublishRuntime();
+    }
+
+    private readonly Patterns.Core.Audio.AudioRing _toneTap = new(AudioGraphService.Channels, AudioGraphService.Rate);
+
+    /// <summary>The tone as the NDI lanes read it; null while the tone is off.</summary>
+    public Patterns.Core.Audio.AudioRing? ToneTap => _device is null ? null : _toneTap;
+
+    /// <summary>
+    /// Where the tone goes and at what gain: the first destination the matrix routes it to
+    /// ("" for the computer's own), or the programme's first output at unity while the matrix
+    /// is off. Nothing routed with the matrix on is the computer's own output at silence — the
+    /// tone is a check, and a check that plays nowhere says so on the Audio page.
+    /// </summary>
+    public static (string Device, double Gain) ToneOutput(ShowState state)
+    {
+        if (!state.AudioRouting.Enabled) return (ProgrammeOutputName(state), 1.0);
+        var picks = AudioRouting.OutputsFor(state, AudioRouting.Tone);
+        if (picks.Count == 0) return ("", 0.0);
+        var pick = picks[0];
+        return (pick.Device == AudioRouting.ComputerOutput ? "" : pick.Device, pick.Gain);
     }
 
     /// <summary>

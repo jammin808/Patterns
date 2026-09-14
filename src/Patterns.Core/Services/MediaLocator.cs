@@ -93,6 +93,15 @@ public static class MediaLocator
 
         /// <summary>Which output this mount's sound belongs on; see <see cref="AudioMonitorRule"/>.</summary>
         public AudioDestination Destination { get; init; } = AudioDestination.Program;
+
+        /// <summary>A web page's armed VT, carried by the look: play from <see cref="StartSeconds"/> when it goes to air.</summary>
+        public bool AutoPlay { get; init; }
+
+        /// <summary>Where the page's video starts from when it goes to air (seconds from the top).</summary>
+        public double StartSeconds { get; init; }
+
+        /// <summary>What the page is treated as — the look's choice, or the address read.</summary>
+        public PageService Service { get; init; } = PageService.Page;
     }
 
     /// <summary>
@@ -110,7 +119,8 @@ public static class MediaLocator
         var state = snap.State;
         var bus = MediaBus.Program;
 
-        void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100, string clean = "")
+        void Add(WantedKind kind, string target, bool loop, bool mute, double volumePct, string format = "", double zoom = 100, string clean = "",
+            bool autoPlay = false, double start = 0, PageServicePick pick = PageServicePick.Auto)
         {
             if (string.IsNullOrWhiteSpace(target)) return;
             if (kind == WantedKind.Web) target = WebAddress.Normalize(target);
@@ -133,7 +143,9 @@ public static class MediaLocator
             if (kind == WantedKind.Capture) format = state.CaptureFormatFor(target);
             at[key] = list.Count;
             buses.Add(new List<MediaBus> { bus });
-            list.Add(new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean));
+            list.Add(kind == WantedKind.Web
+                ? new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { AutoPlay = autoPlay, StartSeconds = start, Service = WebPresets.Resolve(target, pick) }
+                : new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean));
         }
 
         void FromPattern(PatternConfig p)
@@ -157,7 +169,7 @@ public static class MediaLocator
                         break;
                     case LayerSource.Web:
                         Add(WantedKind.Web, l.WebUrl, false, l.Mute, 0, $"{l.WebWidth}x{l.WebHeight}", l.WebZoomPct,
-                            WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean));
+                            WebPresets.CleanCss(l.WebUrl, l.WebService, l.WebClean), l.WebAutoPlay, l.WebStartSeconds, l.WebService);
                         break;
                     case LayerSource.Arcade:
                         Add(WantedKind.Arcade, ArcadeTarget, false, true, 0);
@@ -185,7 +197,7 @@ public static class MediaLocator
                         break;
                     case MediaSource.Web:
                         Add(WantedKind.Web, m.WebUrl, false, m.Mute, 0, $"{m.WebWidth}x{m.WebHeight}", m.WebZoomPct,
-                            WebPresets.CleanCss(m.WebUrl, m.WebService, m.WebClean));
+                            WebPresets.CleanCss(m.WebUrl, m.WebService, m.WebClean), m.WebAutoPlay, m.WebStartSeconds, m.WebService);
                         break;
                     case MediaSource.Deck:
                         Add(WantedKind.Deck, m.DeckPath, false, true, 0, m.DeckStartPage.ToString(System.Globalization.CultureInfo.InvariantCulture));

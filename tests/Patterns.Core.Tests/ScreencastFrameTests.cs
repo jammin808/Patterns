@@ -31,7 +31,7 @@ public class ScreencastFrameTests
         Assert.Equal("{\"sessionId\":42}", ScreencastFrame.AckParameters(42));
         var start = ScreencastFrame.StartParameters(1280, 720);
         Assert.Contains("\"format\":\"jpeg\"", start);
-        Assert.Contains("\"quality\":80", start);
+        Assert.Contains("\"quality\":70", start);
         Assert.Contains("\"maxWidth\":1280", start);
         Assert.Contains("\"maxHeight\":720", start);
         Assert.Contains("\"everyNthFrame\":1", start);

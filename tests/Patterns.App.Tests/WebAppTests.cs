@@ -83,7 +83,32 @@ public sealed class FakeWebSource : IWebSource, IDisposable
     public void PressKey(string key) => Keys.Add(key);
     public string CleanCss { get; set; } = "";
 
+    /// <summary>The output the page's sound was steered to ("" = the machine's default).</summary>
+    public string AudioDevice { get; set; } = "";
+
+    public string AudioRouteNote => AudioDevice.Length == 0 ? "" : $"routed to {AudioDevice} (1 player)";
+
     public void RunScript(string script) => Scripts.Add(script);
+
+    /// <summary>What the page's player answers when asked: the JSON the browser would hand back, doubly encoded as it does; "" for a page with no player.</summary>
+    public string PlayerAnswer { get; set; } = "";
+
+    /// <summary>The player readings asked for — kept apart from <see cref="Scripts"/>, which is what the desk did to the page.</summary>
+    public int Readings { get; private set; }
+
+    public Task<string> RunScriptAsync(string script)
+    {
+        Readings++;
+        return Task.FromResult(PlayerAnswer);
+    }
+
+    /// <summary>The page answers as a YouTube player at a time would.</summary>
+    public void AnswerAsPlayer(double position, double duration = 300, bool paused = false, bool ad = false)
+    {
+        var inner = $"{{\"ok\":true,\"t\":{position.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"d\":{duration.ToString(System.Globalization.CultureInfo.InvariantCulture)},\"paused\":{(paused ? "true" : "false")},\"ad\":{(ad ? "true" : "false")},\"muted\":false}}";
+        PlayerAnswer = System.Text.Json.JsonSerializer.Serialize(inner);
+    }
+
     public void Navigate(string url) => CurrentUrl = url;
     public void GoBack() => Backs++;
     public void GoForward() => Forwards++;

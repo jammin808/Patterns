@@ -67,6 +67,28 @@ public static class PreRoll
         return list;
     }
 
+    /// <summary>A web page a cue's look would open with a start point: opened ahead of the cue and prepared at its mark.</summary>
+    public sealed record WebWant(string Key, string Url, PageService Service, double StartSeconds, bool Mute, string Format, double Zoom, string Clean);
+
+    /// <summary>
+    /// The pages the cues ahead ask to play from a point — the caller's standby cue and the
+    /// clicker's next step — deduplicated by key. Opened early by the web engine so the take lands
+    /// on the right frame with the advert already behind it.
+    /// </summary>
+    public static IReadOnlyList<WebWant> WebPagesFor(ShowState state, params RunCueConfig?[] cuesAhead)
+    {
+        var list = new List<WebWant>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var cue in cuesAhead)
+        {
+            foreach (var want in WebVt.AutoPlayPagesIn(LookOf(state, cue)?.Json))
+            {
+                if (seen.Add(want.Key)) list.Add(want);
+            }
+        }
+        return list;
+    }
+
     /// <summary>Where one wanted clip stands in the pool.</summary>
     public enum State
     {

@@ -389,6 +389,37 @@ public static class ControlProtocol
                         return int.TryParse(rest, out var level) && level is >= 0 and <= 125
                             ? Act(ShowActionKind.AudioVolume, "", rest)
                             : Unknown(s);
+                    // The routing matrix: "AUDIO ROUTING ON|OFF|TOGGLE", "AUDIO ROUTE music TO Info HDMI [AT -6]",
+                    // "AUDIO UNROUTE music FROM Info HDMI", "AUDIO VOG Info HDMI REPLACE|DUCK|LEAVE".
+                    case "ROUTING":
+                    case "MATRIX":
+                        return rest.ToUpperInvariant() is "ON" or "OFF" or "TOGGLE" ? Act(ShowActionKind.AudioRouting, "", rest.ToLowerInvariant()) : Unknown(s);
+                    case "ROUTE":
+                    {
+                        var to = rest.IndexOf(" TO ", StringComparison.OrdinalIgnoreCase);
+                        if (to <= 0) return Unknown(s);
+                        var source = rest[..to].Trim();
+                        var value = rest[(to + 4)..].Trim();
+                        if (source.Length == 0 || value.Length == 0) return Unknown(s);
+                        var (_, db) = AudioRouting.ParseRouteValue(value);
+                        return double.IsNaN(db) ? Unknown(s) : Act(ShowActionKind.AudioRoute, source, value);
+                    }
+                    case "UNROUTE":
+                    {
+                        var from = rest.IndexOf(" FROM ", StringComparison.OrdinalIgnoreCase);
+                        if (from <= 0) return Unknown(s);
+                        var source = rest[..from].Trim();
+                        var destination = rest[(from + 6)..].Trim();
+                        return source.Length == 0 || destination.Length == 0 ? Unknown(s) : Act(ShowActionKind.AudioUnroute, source, destination);
+                    }
+                    case "VOG":
+                    {
+                        var cut = rest.LastIndexOf(' ');
+                        if (cut <= 0) return Unknown(s);
+                        var destination = rest[..cut].Trim();
+                        var mode = rest[(cut + 1)..].Trim();
+                        return AudioRouting.TryParseVogMode(mode, out _) ? Act(ShowActionKind.AudioVogMode, destination, mode.ToLowerInvariant()) : Unknown(s);
+                    }
                     default:
                         return Unknown(s);
                 }
@@ -502,6 +533,20 @@ public static class ControlProtocol
                     {
                         var (value, page) = SplitOn(rest);
                         return value.Length == 0 ? Unknown(s) : Act(ShowActionKind.WebOpen, page, value);
+                    }
+                    // The armed web VT: "WEB ARM" (at the mark, else where the player is), "WEB ARM 1:23", "WEB ARM OFF",
+                    // "WEB DISARM", "WEB MARK" (where the player is), "WEB MARK 1:23" — each "ON <page>" or the page on air.
+                    case "ARM":
+                    case "MARK":
+                    {
+                        var (value, page) = SplitOn(rest);
+                        if (!WebVt.IsValidValue(value)) return Unknown(s);
+                        return Act(what == "ARM" ? ShowActionKind.WebArm : ShowActionKind.WebMark, page, value);
+                    }
+                    case "DISARM":
+                    {
+                        var page = rest.StartsWith("ON ", StringComparison.OrdinalIgnoreCase) ? rest[3..].Trim() : rest;
+                        return Act(ShowActionKind.WebArm, page, "off");
                     }
                     default:
                     {

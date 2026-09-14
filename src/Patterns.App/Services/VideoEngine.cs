@@ -24,7 +24,11 @@ public sealed class VideoEngine : IDisposable
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
 
-    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct, string Format = "", bool PreRoll = false);
+    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct, string Format = "", bool PreRoll = false, bool Tap = false)
+    {
+        /// <summary>Every picture this mount plays on — what the routing matrix reads its source from.</summary>
+        public IReadOnlyList<MediaBus> Buses { get; init; } = Array.Empty<MediaBus>();
+    }
 
     private readonly Dictionary<string, Mount> _mounts = new();
     private readonly List<(string Key, IMountedSource Source, DateTime RetiredUtc, int HoldMs)> _retired = new();
@@ -139,6 +143,11 @@ public sealed class VideoEngine : IDisposable
             RetireMount(key, now, holdMs, fadeMs);
         }
 
+        // With the routing matrix in charge every clip's soundtrack comes to the desk's mixer
+        // instead of an output of the decoder's own; switching the matrix reopens the clips on
+        // air (a decoder's audio path is chosen when it opens), so it is a setup-time switch.
+        var tap = snap.State.AudioRouting.Enabled && SourceFactory is null;
+
         var over = 0;
         foreach (var w in wanted)
         {
@@ -151,12 +160,12 @@ public sealed class VideoEngine : IDisposable
                     _mounts[w.Key] = existing;
                     existing.Source.Release();
                 }
-                if (existing.Loop == w.Loop && existing.Format == w.Format)
+                if (existing.Loop == w.Loop && existing.Format == w.Format && existing.Tap == tap)
                 {
                     // Mute/volume/route apply live to the running player — never restart the media.
                     existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
-                    Route(existing.Source, w);
-                    _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct };
+                    if (!tap) Route(existing.Source, w);
+                    _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct, Buses = w.Buses };
                     continue;
                 }
                 RetireMount(w.Key, now, holdMs, fadeMs); // a loop or capture-mode change needs a reopen
@@ -168,7 +177,7 @@ public sealed class VideoEngine : IDisposable
                 continue;
             }
             if (SourceFactory is null && !EnsureVlc()) return;
-            TryOpen(w, preRoll: false);
+            TryOpen(w, preRoll: false, tap);
         }
 
         var waiting = 0;
@@ -192,7 +201,7 @@ public sealed class VideoEngine : IDisposable
                 continue;
             }
             if (SourceFactory is null && !EnsureVlc()) break;
-            TryOpen(p, preRoll: true);
+            TryOpen(p, preRoll: true, tap);
         }
         PreRollWaiting = waiting;
 
@@ -202,19 +211,19 @@ public sealed class VideoEngine : IDisposable
     }
 
     /// <summary>Opens one wanted input and mounts it on the bus; a pre-roll opens held on its first frame.</summary>
-    private void TryOpen(MediaLocator.WantedInput w, bool preRoll)
+    private void TryOpen(MediaLocator.WantedInput w, bool preRoll, bool tap = false)
     {
         try
         {
             var source = SourceFactory is { } open
                 ? open(w)
                 : new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll);
+                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll, audioTap: tap);
             if (source is null) return;
             if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
-            Route(source, w);
+            if (!tap) Route(source, w);
             if (preRoll) source.HoldAtStart();
-            _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format, preRoll);
+            _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format, preRoll, tap) { Buses = w.Buses };
             InputBus.Mount(w.Key, source);
         }
         catch (Exception ex)
@@ -243,6 +252,15 @@ public sealed class VideoEngine : IDisposable
         {
             Log.Warn("Restarting a mounted clip failed.", ex);
             return false;
+        }
+    }
+
+    /// <summary>The mounted clips whose soundtracks are tapped for the mixer, with the pictures each plays on; a held pre-roll is silent already.</summary>
+    public IEnumerable<(string Key, IReadOnlyList<MediaBus> Buses, Patterns.Core.Audio.AudioRing Tap, bool PreRoll)> Taps()
+    {
+        foreach (var (key, mount) in _mounts)
+        {
+            if (mount.Source.AudioTap is { } tap) yield return (key, mount.Buses, tap, mount.PreRoll);
         }
     }
 
@@ -466,6 +484,12 @@ public interface IMountedSource : IVideoFrameSource, IDisposable
 
     /// <summary>Held on the first frame with that frame decoded — pre-rolled and ready.</summary>
     bool IsHeld => false;
+
+    /// <summary>
+    /// The decoded soundtrack as the mixer reads it (48 kHz, stereo, float, interleaved) when the
+    /// source was opened with its audio tapped; null when the decoder plays its own sound.
+    /// </summary>
+    Patterns.Core.Audio.AudioRing? AudioTap => null;
 }
 
 /// <summary>One playing video: libVLC decodes into our BGRA buffer; renderers draw the newest frame.</summary>
@@ -484,6 +508,18 @@ public sealed class VlcFrameSource : IMountedSource
     private readonly MediaPlayer.LibVLCVideoCleanupCb _cleanupCb;
     private readonly MediaPlayer.LibVLCVideoLockCb _lockCb;
     private readonly MediaPlayer.LibVLCVideoDisplayCb _displayCb;
+
+    // The audio tap: with the routing matrix on, libVLC hands the decoded soundtrack to the desk
+    // instead of an output of its own, and the mixer's lanes carry it wherever the matrix says.
+    private readonly MediaPlayer.LibVLCAudioPlayCb? _audioPlayCb;
+    private readonly MediaPlayer.LibVLCAudioFlushCb? _audioFlushCb;
+    private readonly Patterns.Core.Audio.AudioRing? _tap;
+    private volatile float _tapGain = 1f;
+    private float[] _tapScratch = Array.Empty<float>();
+
+    /// <summary>The tap's rate and channels: the mixer's own, so no lane resamples a clip.</summary>
+    public const int TapRate = 48000;
+    public const int TapChannels = 2;
 
     private IntPtr _native;
     private int _nativePitch;
@@ -528,7 +564,7 @@ public sealed class VlcFrameSource : IMountedSource
         return options.ToArray();
     }
 
-    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true, bool startHeld = false)
+    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true, bool startHeld = false, bool audioTap = false)
     {
         _isCapture = isCapture;
         if (isCapture)
@@ -568,11 +604,62 @@ public sealed class VlcFrameSource : IMountedSource
         _player.SetVideoFormatCallbacks(_formatCb, _cleanupCb);
         _player.SetVideoCallbacks(_lockCb, null, _displayCb);
 
+        if (audioTap)
+        {
+            // The decoded sound comes to the desk in the mixer's own format; the mute, the volume,
+            // the hold and the fade are applied here, in the tap, so nothing depends on a write
+            // libVLC might drop before its output exists — there is no output of its own now.
+            _tap = new Patterns.Core.Audio.AudioRing(TapChannels, TapRate);
+            _audioPlayCb = OnAudioPlay;
+            _audioFlushCb = OnAudioFlush;
+            _player.SetAudioFormat("FL32", TapRate, TapChannels);
+            _player.SetAudioCallbacks(_audioPlayCb, null, null, _audioFlushCb, null);
+        }
+
         // Audio state set before the audio output exists can be lost — (re)apply once
         // playback has actually started, and again on every later change.
         _player.Playing += (_, _) => ApplyAudio();
         _player.Play();
         ApplyAudio();
+    }
+
+    public Patterns.Core.Audio.AudioRing? AudioTap => _tap;
+
+    /// <summary>libVLC's decoded samples (its audio thread): scaled by the tap's gain and written to the ring; the decoder never waits.</summary>
+    private void OnAudioPlay(IntPtr data, IntPtr samples, uint count, long pts)
+    {
+        if (_tap is null || _disposed || count == 0) return;
+        var n = (int)Math.Min(count, 1 << 20) * TapChannels;
+        try
+        {
+            if (_tapScratch.Length < n) _tapScratch = new float[n];
+            Marshal.Copy(samples, _tapScratch, 0, n);
+            var gain = _tapGain;
+            if (gain != 1f)
+            {
+                var span = _tapScratch.AsSpan(0, n);
+                for (var i = 0; i < span.Length; i++) span[i] *= gain;
+            }
+            _tap.Write(_tapScratch.AsSpan(0, n));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The clip's audio tap dropped a block.", ex);
+        }
+    }
+
+    private void OnAudioFlush(IntPtr data, long pts)
+    {
+        // A seek or a stop: nothing to do in the ring — the readers simply hear what comes next.
+    }
+
+    /// <summary>The tap's gain: the mute, the hold, the volume and a fade in one number, applied in the decoder's own thread.</summary>
+    private void RefreshTapGain()
+    {
+        if (_tap is null) return;
+        var gain = _silenced || _mute || _held ? 0f : Math.Clamp(_volumePct / 100f, 0f, 1.25f);
+        if (_fadeMs >= 0 && !_silenced) gain = 0f;   // the fade sets its own value in Pump
+        _tapGain = gain;
     }
 
     /// <summary>Live mute/volume — never restarts the media. Ignored once the source is leaving: it only gets quieter.</summary>
@@ -663,6 +750,11 @@ public sealed class VlcFrameSource : IMountedSource
             return;
         }
         var volume = _fadeFrom * (float)AudioFade.GainAt(_fadeStartUtc, nowUtc, _fadeMs);
+        if (_tap is not null)
+        {
+            _tapGain = Math.Clamp(volume / 100f, 0f, 1.25f);
+            return;
+        }
         try
         {
             _player.Volume = (int)Math.Clamp(volume, 0, 125);
@@ -679,7 +771,9 @@ public sealed class VlcFrameSource : IMountedSource
         _silenced = true;
         _mute = true;
         _volumePct = 0;
+        _tapGain = 0f;
         if (_disposed) return;
+        if (_tap is not null) return;   // the tap is silent already; nothing of libVLC's to touch
         try
         {
             _player.Mute = true;
@@ -717,6 +811,16 @@ public sealed class VlcFrameSource : IMountedSource
         if (_disposed) return;
         try
         {
+            if (_tap is not null)
+            {
+                // Tapped: the desk owns the level; libVLC's own stays at unity and its delay still applies.
+                RefreshTapGain();
+                _player.Mute = false;
+                _player.Volume = 100;
+                _player.SetAudioDelay(_audioDelayMs * 1000L);
+                _routedTo = "mixer";
+                return;
+            }
             _player.Mute = _mute || _held;   // a held clip is silent whatever the look wants, until GO
             _player.Volume = (int)Math.Clamp(_volumePct, 0, 125);
             _player.SetAudioDelay(_audioDelayMs * 1000L); // microseconds

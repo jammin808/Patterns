@@ -205,7 +205,110 @@ public sealed class CommandRouter : IRouter
             service = preset.Service == PageService.Page ? "" : preset.Name,
             fps = (int)Math.Round(page?.FrameRate ?? 0),                    // frames the page delivered in the last second: a video's rate, 0 for a still page
             actions = preset.Actions.Select(a => new { id = a.Id, label = a.Label }).ToArray(),
+            player = PlayerRow(wanted.Key),                                   // the page's video: where it is, paused, an advert; null with no player
+            arm = ArmRow(wanted.Key),                                         // the armed VT on this page; null with none
         };
+    }
+
+    /// <summary>
+    /// The routing matrix as the remotes read it: whether it is in charge, the sources the show has,
+    /// and each destination with its rows — the sources on it at their levels, the live gain the
+    /// lane runs at (the VOG's duck folded in), its delay, its mute, its VOG mode and its meter.
+    /// </summary>
+    private object AudioRoutingRow()
+    {
+        var s = _services.State;
+        var graph = _services.AudioGraph;
+        var vog = _services.AudioPlayer.VogSoundPlaying;
+        var plan = AudioRouting.Resolve(s, vog);
+        return new
+        {
+            on = s.AudioRouting.Enabled,
+            words = AudioRouting.Words(s),
+            status = graph?.Status ?? "",
+            vog,
+            sources = AudioRouting.Sources(s).Select(src => new { id = src.Id, label = src.Label, kind = src.Kind.ToString().ToLowerInvariant() }).ToArray(),
+            destinations = s.AudioRouting.Destinations.Where(d => d.Key.Length > 0).Select(d =>
+            {
+                var p = plan.FirstOrDefault(x => string.Equals(x.Key, d.Key, StringComparison.OrdinalIgnoreCase));
+                return new
+                {
+                    key = d.Key,
+                    label = AudioRouting.DestinationLabel(s, d.Key),
+                    kind = AudioRouting.IsNdi(d.Key) ? "ndi" : "device",
+                    delayMs = d.DelayMs,
+                    trimDb = d.TrimDb,
+                    mute = d.Mute,
+                    vogMode = d.VogMode.ToString().ToLowerInvariant(),
+                    peakDb = Math.Round(graph?.PeakDb(d.Key) ?? Db.Floor, 1),
+                    error = graph?.LaneError(d.Key) ?? "",
+                    lanes = s.AudioRouting.Routes.Where(r => r.Enabled && string.Equals(r.Destination, d.Key, StringComparison.OrdinalIgnoreCase)).Select(r => new
+                    {
+                        source = r.Source,
+                        db = r.LevelDb,
+                        gain = Math.Round(p?.GainFor(r.Source) ?? 0, 4),   // the plan's gain now: the level, the trim, the mute and the VOG mode
+                        liveDb = Math.Round(graph?.LiveDb(d.Key, r.Source) ?? Db.Floor, 1),
+                    }).ToArray(),
+                };
+            }).ToArray(),
+            pages = _services.WebIn.AudioRouteNotes().Select(n => new { page = _services.State.InputLabel(n.Key, WebAddress.ShortName(n.Key[4..])), device = n.Device, note = n.Note }).ToArray(),
+        };
+    }
+
+    /// <summary>What a page's player last said — its clock, paused, an advert over it — or null with no player answering.</summary>
+    private object? PlayerRow(string key)
+    {
+        var r = _services.WebIn.ReadingOf(key);
+        if (!r.Ok) return null;
+        return new
+        {
+            pos = Math.Round(r.Position, 1),
+            dur = Math.Round(r.Duration, 1),
+            text = r.ClockText,
+            paused = r.Paused,
+            ad = r.AdShowing,
+            muted = r.Muted,
+        };
+    }
+
+    /// <summary>The arm on a page: where it plays from and whether the look put it there; null with nothing armed and nothing played.</summary>
+    private object? ArmRow(string key)
+    {
+        var arm = _services.WebIn.ArmOf(key);
+        if (!arm.Armed && arm.PlayedUtc is null) return null;
+        return new
+        {
+            armed = arm.Armed,
+            at = Math.Round(arm.StartSeconds, 1),
+            atText = WebVt.TimeText(arm.StartSeconds),
+            byLook = arm.ByLook,
+            played = arm.PlayedUtc is not null,
+            words = WebVt.Words(arm, _services.WebIn.ReadingOf(key), ShowClock.UtcNow),
+        };
+    }
+
+    /// <summary>
+    /// The armed web VT anywhere on the desk — a page in the preview, one opened for a cue ahead,
+    /// the page on air — as the phone, the deck and the Show page read it: its name, its mark,
+    /// its words. Null with nothing armed.
+    /// </summary>
+    private object? WebArmedRow()
+    {
+        foreach (var (key, arm, reading) in _services.WebIn.Armed())
+        {
+            return new
+            {
+                page = _services.State.InputLabel(key, WebAddress.ShortName(key[4..])),
+                key,
+                at = Math.Round(arm.StartSeconds, 1),
+                atText = WebVt.TimeText(arm.StartSeconds),
+                byLook = arm.ByLook,
+                preRolled = _services.WebIn.IsPreRolled(key),
+                words = WebVt.Words(arm, reading, ShowClock.UtcNow),
+                @short = WebVt.ShortWords(arm, reading),
+            };
+        }
+        return null;
     }
 
     /// <summary>The lower third on screen (arriving, holding or leaving), by name; "" when none.</summary>
@@ -323,6 +426,8 @@ public sealed class CommandRouter : IRouter
             lowerThirdDefault = s.LowerThirds.DefaultDesign?.Name ?? "",   // the show's ★ design — where a person goes with none on air
             lowerThirdEdited = _services.LowerThirdAirEdited(),            // the design on air differs from the edited one: LT UPDATE
             web = WebRow(),                                                // the web page on air and its service's actions, or null
+            webArmed = WebArmedRow(),                                      // the armed web VT anywhere on the desk (its page, its mark, its words), or null
+            audioRouting = AudioRoutingRow(),                              // the routing matrix: on/off, the sources, each destination with its lanes and live gains
             deck = DeckRow(),                                              // the deck on air: file, page, count, ended — or null
             video = VideoRow(),                                            // the clip on air: file, where it is, what is left, the ten-second word — or null
             weather = WeatherRow(),                                        // the weather chip: on air, its view, the place, the line and the figure

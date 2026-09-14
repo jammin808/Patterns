@@ -114,6 +114,14 @@ public static class CueSummary
             case ShowActionKind.CountdownToggle: return "Countdown on / off";
             case ShowActionKind.CountdownLabel: return a.Value.Trim().Length > 0 ? $"Countdown label '{Shorten(a.Value.Trim())}'" : "Countdown label cleared";
             case ShowActionKind.AudioVolume: return $"Audio volume {a.Value}%";
+            case ShowActionKind.AudioRouting: return $"Audio routing {a.Value.ToLowerInvariant()}";
+            case ShowActionKind.AudioRoute:
+            {
+                var (to, db) = AudioRouting.ParseRouteValue(a.Value);
+                return $"Route {AudioRouting.SourceLabel(state, AudioRouting.FindSource(state, a.Target) ?? a.Target)} → {to}{(double.IsNaN(db) || Math.Abs(db) < 0.05 ? "" : " at " + Db.Text(db))}";
+            }
+            case ShowActionKind.AudioUnroute: return $"Unroute {AudioRouting.SourceLabel(state, AudioRouting.FindSource(state, a.Target) ?? a.Target)} from {a.Value}";
+            case ShowActionKind.AudioVogMode: return $"VOG on {a.Target}: {a.Value.ToLowerInvariant()}";
             case ShowActionKind.SpotifyPlay:
             {
                 if (a.Target.Length == 0) return "Break music play";
@@ -160,6 +168,8 @@ public static class CueSummary
             case ShowActionKind.WebClick: return $"Page: click at {a.Value}{PageSuffix(a)}";
             case ShowActionKind.WebType: return $"Page: type '{Shorten(a.Value)}'{PageSuffix(a)}";
             case ShowActionKind.WebReload: return $"Page: reload{PageSuffix(a)}";
+            case ShowActionKind.WebArm: return WebVt.IsOff(a.Value) ? $"Page: disarm the video{PageSuffix(a)}" : $"Page: arm the video{(WebVt.TryParseTime(a.Value, out var at) && a.Value.Trim().Length > 0 ? " at " + WebVt.TimeText(at) : " at the mark")}{PageSuffix(a)}";
+            case ShowActionKind.WebMark: return $"Page: mark{(WebVt.TryParseTime(a.Value, out var mark) && a.Value.Trim().Length > 0 ? " at " + WebVt.TimeText(mark) : " where the player is")}{PageSuffix(a)}";
             case ShowActionKind.WebOpen: return $"Page: open {(a.Value.Contains("://") ? WebAddress.ShortName(a.Value) : Shorten(a.Value))}{PageSuffix(a)}";
             case ShowActionKind.DeckNext: return "Deck: the next page";
             case ShowActionKind.DeckPrev: return "Deck: the previous page";

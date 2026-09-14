@@ -60,9 +60,11 @@ public sealed partial class MainViewModel
     {
         get
         {
-            var parts = new List<string>(3) { PresenterStepText };
+            var parts = new List<string>(4) { PresenterStepText };
             var follow = _services.CueStack.FollowText();
             if (follow.Length > 0) parts.Add(follow);
+            var armed = _services.WebIn.ArmedWords(key => State.InputLabel(key, WebAddress.ShortName(key[4..])));
+            if (armed.Length > 0) parts.Add(armed);                                          // a page's video armed: where from, and which page
             var playlist = Media.PlaylistStatus;
             if (playlist.Length > 0 && !playlist.StartsWith("Playlist idle", StringComparison.OrdinalIgnoreCase))
             {

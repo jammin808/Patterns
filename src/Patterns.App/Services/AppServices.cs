@@ -37,6 +37,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Web pages inside the engine — one browser per page the show references. Nothing opens outside Patterns.</summary>
     public WebEngine WebIn { get; }
 
+    /// <summary>The audio graph: the routing matrix applied to the players, the mixer lanes and the NDI sends (Windows; a no-op elsewhere).</summary>
+    public AudioGraphService? AudioGraph { get; private set; }
+
     /// <summary>PDF decks inside the engine — one per deck the show references, a page at a time.</summary>
     public DeckEngine DeckIn { get; }
 
@@ -431,6 +434,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         _videoDecoder = new Lazy<bool>(() => video.EnsureAvailable());
         NdiIn = new NdiInputEngine();
         WebIn = new WebEngine(Store.BaseDirectory);
+        AudioGraph = new AudioGraphService(this);
         DeckIn = new DeckEngine(Store.BaseDirectory);
         DeckIn.Converter.ConfiguredPath = () => State.Admin.LibreOfficePath;
         // A conversion lands on a background thread; the swap to the PDF happens with the inputs, on the UI thread.
@@ -1535,9 +1539,23 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var preRoll = CueStack is null ? null : PreRoll.WantedFor(State, CueStack.StandbyCue);
         Video.Reconcile(Bus.Current, Bus.Sandbox, preRoll: preRoll);
         NdiIn.Reconcile(Bus.Current, Bus.Sandbox);
-        WebIn.Reconcile(Bus.Current, Bus.Sandbox);
+        // The web pages the cues ahead ask to play from a point — the caller's standby cue and the
+        // clicker's next step — open early, prepared at their mark, so the take lands on the frame.
+        WebIn.Reconcile(Bus.Current, Bus.Sandbox, CueStack is null ? null : PreRoll.WebPagesFor(State, CueStack.StandbyCue, ClickerNextCue()));
         DeckIn.Reconcile(Bus.Current, Bus.Sandbox);
         ArcadeIn.Reconcile(Bus.Current, Bus.Sandbox);
+    }
+
+    /// <summary>The clicker list's next step — the cue NEXT would run — or null at the end (or with no list).</summary>
+    public RunCueConfig? ClickerNextCue()
+    {
+        // Found, never made: this runs on every publish, and making the list here would edit the
+        // show inside its own change event — and on a standby, edit a section the main owns.
+        var clicker = State.Stacks.FirstOrDefault(s => s.IsClicker);
+        if (clicker is null || clicker.Cues.Count == 0) return null;
+        var rt = Cues.For(clicker);
+        var next = PresenterLogic.Advance(rt.CurrentIndex, clicker.Cues.Count, +1, clicker.LoopAtEnd);
+        return next is { } idx && idx >= 0 && idx < clicker.Cues.Count ? clicker.Cues[idx] : null;
     }
 
     /// <summary>The deck the program shows — the click-through's pages — or null when none is on air (or still opening).</summary>
@@ -1725,6 +1743,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Ndi.StopAll();
             NdiIn.Dispose();
             WebIn.Dispose();
+            AudioGraph?.Dispose();
             DeckIn.Dispose();
             Audio.Dispose();
             AudioPlayer.Dispose();
