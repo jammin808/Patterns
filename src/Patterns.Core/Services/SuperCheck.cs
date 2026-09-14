@@ -154,6 +154,13 @@ public sealed class CheckFacts
     public int FenceLiveSinks { get; init; } = -1;
     public int PoolStarved { get; init; }
     public long ForcedFrees { get; init; }
+
+    /// <summary>The media memory against its budget (bytes; -1 unknown), the rung it stands at, live pools past their per-source target and decoders retiring.</summary>
+    public long MediaBytes { get; init; } = -1;
+    public long MediaBudgetBytes { get; init; } = -1;
+    public MemoryPressure Pressure { get; init; }
+    public int PoolsOverTarget { get; init; }
+    public int RetiringDecoders { get; init; }
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
 
@@ -725,8 +732,25 @@ public static class SuperCheck
         var ceilings = MemoryBudget.For(f.RamTotalMB, Media.ImageCache.Capacity, f.DecoderCap);
         rows.Add(new CheckRow(section, "Memory ceiling", MemoryBudget.Light(f.RamAppMB, ceilings),
             MemoryBudget.Describe(f.RamAppMB, ceilings, f.ImagesCached, f.Decoders, f.HeldFrames, f.PictureBytes, f.FramePoolBytes, f.FramePools,
-                Math.Max(0, f.RetiringPoolBytes), f.RetiringFrameBytes), MemoryBudget.Advice(f.RamAppMB, ceilings)));
+                Math.Max(0, f.RetiringPoolBytes), f.RetiringFrameBytes, f.PoolsOverTarget, f.RetiringDecoders), MemoryBudget.Advice(f.RamAppMB, ceilings)));
+        MediaMemoryRow(f, rows, section);
         FrameFence(f, rows, section);
+    }
+
+    /// <summary>The media memory against its budget: green with no pressure, amber elevated or high (the ladder's steps in the note), red critical.</summary>
+    private static void MediaMemoryRow(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.MediaBytes < 0 || f.MediaBudgetBytes <= 0) return;
+        var level = f.Pressure;
+        var value = $"{MemoryBudget.Mb(f.MediaBytes / (1024.0 * 1024.0))} of {MemoryBudget.Mb(f.MediaBudgetBytes / (1024.0 * 1024.0))} ({f.MediaBytes * 100.0 / f.MediaBudgetBytes:0} %)"
+                    + (f.PoolsOverTarget > 0 ? $" · {f.PoolsOverTarget} pool{(f.PoolsOverTarget == 1 ? "" : "s")} over target" : "");
+        var note = level switch
+        {
+            MemoryPressure.None => "pictures, frame pools, retiring frames and the decks' pages together, against a share of the app's ceiling",
+            MemoryPressure.Critical => "at the budget: " + MediaMemory.Steps(level) + " — close a source the show does not need, or a smaller capture mode",
+            _ => MediaMemory.LevelWords(level),
+        };
+        rows.Add(new CheckRow(section, "Media memory", MediaMemory.Light(level), value, note));
     }
 
     /// <summary>

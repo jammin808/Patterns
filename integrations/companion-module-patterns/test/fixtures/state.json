@@ -39,7 +39,7 @@
   "sections": [ { "n": 1, "name": "Part one", "active": true }, { "n": 2, "name": "Part two", "active": false } ],
   "playlist": "", "nextCue": "",
   "stream": { "active": true, "status": "Live", "word": "good", "health": "good", "light": "Green", "up": "0:42:10", "fps": 30, "trouble": false, "destinations": 1 },
-  "health": "OK", "quality": { "mode": "Auto", "level": 0, "factor": 1, "text": "" }, "memory": { "appMB": 900, "ceilingMB": 2000, "text": "" },
+  "health": "OK", "quality": { "mode": "Auto", "level": 0, "factor": 1, "text": "" }, "memory": { "appMB": 900, "ceilingMB": 2000, "text": "", "pressure": "elevated" },
   "machine": { "cpu": 31, "ram": 48, "fps": 60, "battery": false, "advice": 0, "renderFaults": 0, "faulting": false, "liveAgeMs": 33 },
   "beacon": { "sending": true, "listening": false, "main": "" },
   "nodes": [

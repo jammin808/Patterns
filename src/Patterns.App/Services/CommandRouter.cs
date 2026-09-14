@@ -489,6 +489,10 @@ public sealed class CommandRouter : IRouter
                 fenceOldestMs = Math.Round(Math.Max(Patterns.Core.Media.FramePools.OldestRetiredMs, Patterns.Core.Media.RetiredFrames.OldestMs)),
                 liveSinks = Patterns.Core.Media.RenderFence.LiveSinks,
                 forcedFrees = Patterns.Core.Media.RenderFence.ForcedFrees,
+                mediaMB = Math.Round((_services.Metrics.Pressure.Reading?.Total ?? MediaMemory.Read(MemoryBudget.MachineMB).Total) / (1024.0 * 1024.0)),
+                mediaBudgetMB = Math.Round(MediaMemory.BudgetBytes(MemoryBudget.MachineMB) / (1024.0 * 1024.0)),
+                pressure = MediaMemory.Word(_services.Metrics.Pressure.Level),                            // none / elevated / high / critical: the ladder's rung
+                pressureSteps = MediaMemory.Steps(_services.Metrics.Pressure.Level),
                 placed = MemoryLedger.Describe(),
                 text = _services.Metrics.MemoryCeilingLine(),
             },

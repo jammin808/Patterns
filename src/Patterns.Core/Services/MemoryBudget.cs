@@ -41,7 +41,12 @@ public static class MemoryBudget
     /// <summary>The decoded pictures' budget: 128 MB on a small machine, 256 standard, 512 big — a 4K picture is thirty-odd megabytes.</summary>
     public static long PictureCacheBytes(double totalMB) => ClassOf(totalMB) switch { MachineClass.Small => 128 * MB, MachineClass.Big => 512 * MB, _ => 256 * MB };
 
-    /// <summary>A live source's frame pool: 48 MB small, 64 standard, 96 big — eight 1080p frames on a standard machine, four at 4K (the floor).</summary>
+    /// <summary>
+    /// A live source's frame pool's target: 48 MB small, 64 standard, 96 big — eight 1080p frames on
+    /// a standard machine. A target, not a cap: a pool needs four buffers to work, and four 4K frames
+    /// pass 64 MB; <see cref="Media.FramePool.EffectiveBytes"/> says what a pool really costs and the
+    /// words say when one passed its target.
+    /// </summary>
     public static long FramePoolBytesPerSource(double totalMB) => ClassOf(totalMB) switch { MachineClass.Small => 48 * MB, MachineClass.Big => 96 * MB, _ => 64 * MB };
 
     /// <summary>Skia's GPU resource cache (textures, the compositor's surfaces): 64 MB small, 128 standard, 256 big.</summary>
@@ -69,7 +74,7 @@ public static class MemoryBudget
     /// </summary>
     public static string Describe(double appMB, MemoryCeilings c, int imagesCached, int decoders, int heldFrames,
                                   long pictureBytes = -1, long framePoolBytes = -1, int framePools = 0,
-                                  long retiringPoolBytes = 0, long retiringFrameBytes = -1)
+                                  long retiringPoolBytes = 0, long retiringFrameBytes = -1, int poolsOverTarget = 0, int retiringDecoders = 0)
     {
         var machine = c.TotalMB > 0 ? $" ({c.TotalMB / 1024:0.#} GB machine)" : "";
         var app = appMB >= 0 ? $"This app {Mb(appMB)} of a {Mb(c.AppCeilingMB)} ceiling{machine}" : $"This app: no reading yet · ceiling {Mb(c.AppCeilingMB)}{machine}";
@@ -79,10 +84,11 @@ public static class MemoryBudget
             var bytes = pictureBytes >= 0 && c.PictureCacheBytes > 0 ? $" ({Mb(pictureBytes / (1024.0 * 1024.0))} of {Mb(c.PictureCacheBytes / (1024.0 * 1024.0))})" : "";
             parts.Add($"pictures {imagesCached} of {c.ImageCachePictures} cached{bytes}");
         }
-        if (decoders >= 0) parts.Add($"decoders {decoders} of {c.DecoderCap}");
+        if (decoders >= 0) parts.Add($"decoders {decoders} of {c.DecoderCap}{(retiringDecoders > 0 ? $" (+{retiringDecoders} retiring)" : "")}");
         if (framePoolBytes >= 0 && (framePools > 0 || retiringPoolBytes > 0))
         {
-            parts.Add($"frame pools {Mb(framePoolBytes / (1024.0 * 1024.0))} ({framePools} source{(framePools == 1 ? "" : "s")})"
+            parts.Add($"frame pools {Mb(framePoolBytes / (1024.0 * 1024.0))} ({framePools} source{(framePools == 1 ? "" : "s")}"
+                      + (poolsOverTarget > 0 ? $"; {poolsOverTarget} over its {Mb(c.FramePoolBytesPerSource / (1024.0 * 1024.0))} target" : "") + ")"
                       + (retiringPoolBytes > 0 ? $" + {Mb(retiringPoolBytes / (1024.0 * 1024.0))} retiring" : ""));
         }
         parts.Add(retiringFrameBytes >= 0

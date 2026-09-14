@@ -17,7 +17,10 @@ namespace Patterns.App.Services;
 public sealed class PdfDeckSource : IDeckSource, IDisposable
 {
     /// <summary>Pages kept rendered around the page on show — the next two and the last two, so a turn either way is instant.</summary>
-    public const int Window = 2;
+    /// <summary>Pages decoded each side of the one on show: two, or one while the memory pressure ladder narrows the decks.</summary>
+    public const int DefaultWindow = 2;
+    public const int NarrowWindow = 1;
+    public static int Window { get; set; } = DefaultWindow;
 
     private static readonly object Gate = new();
 

@@ -197,6 +197,46 @@ public static class ImageCache
         }
     }
 
+    /// <summary>
+    /// The pressure ladder's step: lets pictures go, least recently drawn first, until the resident
+    /// bytes are within <paramref name="bytes"/> — never the last one drawn, so a picture on air stays.
+    /// Returns how many went.
+    /// </summary>
+    public static int TrimTo(long bytes)
+    {
+        var gone = 0;
+        lock (Gate)
+        {
+            while (Entries.Count > 1 && _bytes > bytes)
+            {
+                string? lruKey = null;
+                long lru = long.MaxValue;
+                string? newestKey = null;
+                long newest = long.MinValue;
+                foreach (var (k, v) in Entries)
+                {
+                    if (v.LastUse < lru)
+                    {
+                        lru = v.LastUse;
+                        lruKey = k;
+                    }
+                    if (v.LastUse > newest)
+                    {
+                        newest = v.LastUse;
+                        newestKey = k;
+                    }
+                }
+                if (lruKey is null || lruKey == newestKey) break;
+                var entry = Entries[lruKey];
+                Retire(entry);
+                _bytes -= entry.Bytes;
+                Entries.Remove(lruKey);
+                gone++;
+            }
+        }
+        return gone;
+    }
+
     /// <summary>Tests: every picture gone, at once — the retired ones too.</summary>
     public static void ClearForTests()
     {

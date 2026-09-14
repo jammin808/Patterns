@@ -35,10 +35,15 @@ public sealed class SystemMetricsService : IDisposable
     {
         _services = services;
         RegisterLedger();
+        Pressure = new MemoryPressureLadder(services);
+        MediaMemory.Extra = () => _services.DeckIn.PageBytes;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
     }
+
+    /// <summary>The memory pressure ladder: read and applied with every poll.</summary>
+    public MemoryPressureLadder Pressure { get; }
 
     /// <summary>The owners the memory ledger reads: the pictures, the frame pools, the frames held, the decks' pages, the managed heap and what the runtime committed for it.</summary>
     private void RegisterLedger()
@@ -79,6 +84,14 @@ public sealed class SystemMetricsService : IDisposable
         catch (Exception ex)
         {
             Log.Warn("Metrics sample failed.", ex);
+        }
+        try
+        {
+            Pressure.Apply(MediaMemory.Read(MemoryBudget.MachineMB));                                   // the ladder: the rung from the bytes, its steps taken, every second
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Memory pressure ladder failed.", ex);
         }
     }
 
@@ -334,8 +347,10 @@ public sealed class SystemMetricsService : IDisposable
         var ceilings = MemoryBudget.For(sample?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts);
         var line = MemoryBudget.Describe(sample?.RamAppMB ?? -1, ceilings, Patterns.Core.Media.ImageCache.Count, _services.Video.MountCount, VlcFrameSource.RetiredImageCount,
             Patterns.Core.Media.ImageCache.Bytes, Patterns.Core.Media.FramePools.Bytes, Patterns.Core.Media.FramePools.Count,
-            Patterns.Core.Media.FramePools.RetiringBytes, Patterns.Core.Media.RetiredFrames.Bytes);
-        return line + " · placed: " + MemoryLedger.Describe();
+            Patterns.Core.Media.FramePools.RetiringBytes, Patterns.Core.Media.RetiredFrames.Bytes,
+            Patterns.Core.Media.FramePools.OverTarget(ceilings.FramePoolBytesPerSource), _services.Video.RetiredCount);
+        var media = Pressure.Reading ?? MediaMemory.Read(MemoryBudget.MachineMB);
+        return line + " · " + media.Words + " · placed: " + MemoryLedger.Describe();
     }
 
     public CheckFacts GatherFacts()
@@ -537,6 +552,11 @@ public sealed class SystemMetricsService : IDisposable
             FenceLiveSinks = Patterns.Core.Media.RenderFence.LiveSinks,
             PoolStarved = Patterns.Core.Media.FramePools.Starved,
             ForcedFrees = Patterns.Core.Media.RenderFence.ForcedFrees,
+            MediaBytes = (Pressure.Reading ?? MediaMemory.Read(MemoryBudget.MachineMB)).Total,
+            MediaBudgetBytes = MediaMemory.BudgetBytes(MemoryBudget.MachineMB),
+            Pressure = Pressure.Level,
+            PoolsOverTarget = Patterns.Core.Media.FramePools.OverTarget(MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB)),
+            RetiringDecoders = _services.Video.RetiredCount,
             PrivateMB = s?.PrivateMB ?? -1,
             ManagedMB = s?.ManagedMB ?? -1,
             WatchdogEnabled = state.Watchdog.Enabled,

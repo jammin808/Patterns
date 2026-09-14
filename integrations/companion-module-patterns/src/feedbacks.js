@@ -146,6 +146,12 @@ export function buildFeedbacks(ctx) {
 		live_age_over: bool('The live picture on the outputs (a camera, a feed) is older than a limit, decoder to frame — IMAG the room sees late', style('screen', 'fault'), [
 			{ type: 'number', id: 'ms', label: 'Older than (ms)', default: 80, min: 1, max: 5000 },
 		], (fb) => (s().machine?.liveAgeMs ?? -1) > fb.options.ms),
+		memory_pressure_at_least: bool('The media memory is under pressure at a rung or past it (elevated, high, critical)', style('screen', 'fault'), [
+			{ type: 'dropdown', id: 'level', label: 'At least', default: 'high', choices: [{ id: 'elevated', label: 'Elevated' }, { id: 'high', label: 'High' }, { id: 'critical', label: 'Critical' }] },
+		], (fb) => {
+			const rungs = ['none', 'elevated', 'high', 'critical']
+			return rungs.indexOf(s().memory?.pressure ?? 'none') >= rungs.indexOf(fb.options.level)
+		}),
 		// ---- the nodes, the twin, the stage --------------------------------------------------------------------
 		node_is: bool('The node at a place on the Nodes page is of a kind and heard now (bank key n)', style('node', 'desk'), [
 			{ type: 'number', id: 'n', label: 'Place (1–8)', default: 1, min: 1, max: 8 },

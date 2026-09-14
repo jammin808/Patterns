@@ -21,6 +21,9 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Simultaneous decoders — capture cards and files are real CPU/GPU cost.</summary>
     public const int MaxMounts = 4;
 
+    /// <summary>Sources retired and fading at once, at most: past it the oldest is let go at once — rapid switching cannot grow the retired decoders without bound.</summary>
+    public const int MaxRetired = 2;
+
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
 
@@ -93,6 +96,32 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Pre-roll clips that could not be mounted because the decoder limit was reached by live sources.</summary>
     public int PreRollWaiting { get; private set; }
 
+    /// <summary>The memory pressure ladder's step at high: the standby cue's clips are not opened ahead; what would have been is counted.</summary>
+    public bool PreRollSuppressed { get; set; }
+
+    /// <summary>Pre-rolls the ladder held back on the last reconcile.</summary>
+    public int PreRollHeldBack { get; private set; }
+
+    /// <summary>The ladder's step at critical: a source the preview alone wants is not opened; the source on air always is.</summary>
+    public bool RefuseNonCriticalOpens { get; set; }
+
+    /// <summary>Preview-only sources the ladder refused on the last reconcile.</summary>
+    public int PressureRefused { get; private set; }
+
+    /// <summary>Retired sources let go before their fade was over because more than <see cref="MaxRetired"/> were fading at once, this session.</summary>
+    public int RetiredCutShort { get; private set; }
+
+    /// <summary>Bytes the retired, still-fading sources hold (their frame pools).</summary>
+    public long RetiredBytes
+    {
+        get
+        {
+            long b = 0;
+            foreach (var (_, source, _, _) in _retired) b += source.MemoryBytes;
+            return b;
+        }
+    }
+
     /// <summary>Decoders open right now — live and pre-rolled — against <see cref="MaxMounts"/>: the memory ceilings' number.</summary>
     public int MountCount => _mounts.Count;
 
@@ -123,11 +152,18 @@ public sealed class VideoEngine : IDisposable
         // The standby cue's clips ride behind the live wants: opened and held on their first frame,
         // silent, never at a live source's expense, retired like any other when standby moves on.
         var held = new List<MediaLocator.WantedInput>();
+        PreRollHeldBack = 0;
         if (preRoll is not null)
         {
             foreach (var p in preRoll)
             {
-                if (p.Kind != MediaLocator.WantedKind.VideoFile || !wantedKeys.Add(p.Key)) continue;
+                if (p.Kind != MediaLocator.WantedKind.VideoFile || wantedKeys.Contains(p.Key)) continue;
+                if (PreRollSuppressed)
+                {
+                    PreRollHeldBack++;                                                                  // the ladder's step: not opened ahead, and said so
+                    continue;
+                }
+                wantedKeys.Add(p.Key);
                 held.Add(p);
             }
         }
@@ -149,8 +185,14 @@ public sealed class VideoEngine : IDisposable
         var tap = snap.State.AudioRouting.Enabled && SourceFactory is null;
 
         var over = 0;
+        var refused = 0;
         foreach (var w in wanted)
         {
+            if (RefuseNonCriticalOpens && !_mounts.ContainsKey(w.Key) && !AudioMonitorRule.OnProgram(w.Buses))
+            {
+                refused++;                                                                              // critical pressure: the preview alone wants it, and it is not opened
+                continue;
+            }
             if (_mounts.TryGetValue(w.Key, out var existing))
             {
                 if (existing.PreRoll)
@@ -204,10 +246,13 @@ public sealed class VideoEngine : IDisposable
             TryOpen(p, preRoll: true, tap);
         }
         PreRollWaiting = waiting;
+        PressureRefused = refused;
 
         LimitNote = over > 0
             ? $"Input limit: {MaxMounts} simultaneous decoders — {over} source{(over == 1 ? "" : "s")} waiting."
-            : "";
+            : refused > 0
+                ? $"Memory pressure: {refused} preview-only source{(refused == 1 ? "" : "s")} not opened until it eases."
+                : "";
     }
 
     /// <summary>Opens one wanted input and mounts it on the bus; a pre-roll opens held on its first frame.</summary>
@@ -339,6 +384,15 @@ public sealed class VideoEngine : IDisposable
         mount.Source.BeginFadeOut(now, fadeMs);
         InputBus.SetPrevious(key, mount.Source);
         _retired.Add((key, mount.Source, now, holdMs));
+        while (_retired.Count > MaxRetired)
+        {
+            // Rapid switching: the oldest fade is cut short rather than a third decoder kept — the retired memory has a bound.
+            var oldest = _retired[0];
+            InputBus.ClearPreviousIf(oldest.Key, oldest.Source);
+            oldest.Source.Dispose();
+            _retired.RemoveAt(0);
+            RetiredCutShort++;
+        }
         StartPump();
     }
 
@@ -472,6 +526,9 @@ public interface IMountedSource : IVideoFrameSource, IDisposable
     /// <summary>The output the source is actually on, read back from the decoder; empty when it could not be moved or was never asked.</summary>
     string RoutedTo => "";
 
+    /// <summary>Bytes the source holds for its frames (its pool); 0 for one that holds none of its own.</summary>
+    long MemoryBytes => 0;
+
     /// <summary>The standby cue's clip: wound back and held on its first frame, silent, so GO lands on a picture.</summary>
     void HoldAtStart()
     {
@@ -549,6 +606,9 @@ public sealed class VlcFrameSource : IMountedSource
 
     /// <summary>This source's frame pool, for the words and the tests; null before the format is known.</summary>
     public FramePool? Pool => _pool;
+
+    /// <summary>The pool's bytes: what this decoder holds for its frames.</summary>
+    public long MemoryBytes => _pool?.Bytes ?? 0;
 
     private static void RetireImage(SKImage? image) => RetiredFrames.Retire(image);
 

@@ -80,6 +80,13 @@ public sealed class FramePool : IDisposable
     /// <summary>How many buffers a source gets for a budget: at least four (one being written, one on show, two under a fence), at most eight.</summary>
     public static int BuffersFor(long frameBytes, long budgetBytes) => (int)Math.Clamp(budgetBytes / Math.Max(1, frameBytes), MinBuffers, MaxBuffers);
 
+    /// <summary>
+    /// What a pool for these frames really costs against a target: the floor of four buffers can
+    /// pass it — a 4K frame is thirty-odd megabytes and four of them a hundred and twenty-six, on a
+    /// 64 MB target — and the words say so rather than claim the target was kept.
+    /// </summary>
+    public static long EffectiveBytes(long frameBytes, long targetBytes) => BuffersFor(frameBytes, targetBytes) * Math.Max(0, frameBytes);
+
     public int Count { get; }
     public SKImageInfo Info { get; }
     public int RowBytes { get; }
@@ -371,6 +378,17 @@ public static class FramePools
                 foreach (var p in Live) b += p.Bytes;
                 return b;
             }
+        }
+    }
+
+    /// <summary>Live pools whose real bytes pass the per-source target: the floor of four buffers on a large frame.</summary>
+    public static int OverTarget(long targetBytes)
+    {
+        lock (Gate)
+        {
+            var n = 0;
+            foreach (var p in Live) if (p.Bytes > targetBytes) n++;
+            return n;
         }
     }
 
