@@ -12,10 +12,14 @@ namespace Patterns.Core.Services;
 /// <param name="Missed">The presentation slots the last minute missed — frames the room did not get — as the pacer counted them.</param>
 /// <param name="Faults">Frames of the last minute whose draw threw; the last good picture was drawn in each one's place.</param>
 /// <param name="ConsecutiveFaults">Faults in a row up to now on this sink — 0 once a frame draws whole again.</param>
+/// <param name="TargetFps">The rate this sink presents at; 0 for an unpaced sink (the preview, a monitor), which the ladder judges at 60.</param>
+/// <param name="LastSecondP95Ms">The frame time 95% of the last complete second's frames came in under — what the quality ladder judges against the sink's own budget; -1 with no frame.</param>
+/// <param name="LastSecondMissed">The presentation slots the last complete second missed.</param>
 public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Label, long Frames, long SlowFrames,
                                         int FramesInWindow, double AverageMs, double WorstMs, string WorstStage, double Fps,
                                         double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0, double LagMs = -1, double LagAverageMs = -1,
-                                        int Faults = 0, int ConsecutiveFaults = 0, string LastFault = "")
+                                        int Faults = 0, int ConsecutiveFaults = 0, string LastFault = "",
+                                        int TargetFps = 0, double LastSecondP95Ms = -1, int LastSecondMissed = 0)
 {
     /// <summary>"Preview", "Output 1 (Main)", "Monitor PGM".</summary>
     public string Name => Kind switch
@@ -120,6 +124,9 @@ public sealed class FrameBudget
 
     /// <summary>Whose publishes this sink draws — the bus — so a GO on one bus never waits for a sink drawing another's (one bus per desk; the tests run several in a process).</summary>
     public object? Scope { get; set; }
+
+    /// <summary>The rate this sink presents at, for the quality ladder's budget; 0 for an unpaced sink, judged at 60.</summary>
+    public int TargetFps { get; set; }
 
     /// <summary>The slowest frame this session, ms, and the stage that took it.</summary>
     public double WorstEverMs { get; private set; } = -1;
@@ -316,6 +323,8 @@ public sealed class FrameBudget
             var complete = 0;
             var completeFrames = 0;
             var lastSecondWorst = -1.0;
+            var lastSecondP95 = -1.0;
+            var lastSecondMissed = 0;
             var missed = 0;
             var faults = 0;
             var lagWorst = -1.0;
@@ -348,30 +357,34 @@ public sealed class FrameBudget
                     complete++;
                     completeFrames += b.Frames;
                 }
-                if (b.Second == now - 1) lastSecondWorst = b.WorstMs;   // the last complete second: what the quality ladder judges
-            }
-            var fps = complete > 0 ? completeFrames / (double)complete : -1;
-            var p95 = -1.0;
-            if (frames > 0)
-            {
-                // The bin the 95th frame falls in, its upper edge: past the last bin it is "over 64 ms".
-                var want = (long)Math.Ceiling(frames * 0.95);
-                long seen = 0;
-                for (var k = 0; k < Bins; k++)
+                if (b.Second == now - 1)
                 {
-                    seen += hist[k];
-                    if (seen >= want)
-                    {
-                        p95 = (k + 1) * BinMs;
-                        break;
-                    }
+                    // The last complete second: what the quality ladder judges — its worst frame, its own p95 and the slots it missed.
+                    lastSecondWorst = b.WorstMs;
+                    lastSecondP95 = b.Hist is { } own ? P95Of(own, b.Frames) : -1;
+                    lastSecondMissed = b.Missed;
                 }
             }
+            var fps = complete > 0 ? completeFrames / (double)complete : -1;
+            var p95 = frames > 0 ? P95Of(hist, frames) : -1;
             return new FrameBudgetReading(Kind, SinkIndex, Label, Frames, SlowFrames, frames,
                 frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst, p95, missed,
                 lagCount > 0 ? lagWorst : -1, lagCount > 0 ? lagSum / lagCount : -1,
-                faults, ConsecutiveFaults, LastFault);
+                faults, ConsecutiveFaults, LastFault, TargetFps, lastSecondP95, lastSecondMissed);
         }
+    }
+
+    /// <summary>The bin the 95th-percentile frame falls in, its upper edge: past the last bin it is "over 64 ms".</summary>
+    private static double P95Of(ReadOnlySpan<int> hist, long frames)
+    {
+        var want = (long)Math.Ceiling(frames * 0.95);
+        long seen = 0;
+        for (var k = 0; k < hist.Length; k++)
+        {
+            seen += hist[k];
+            if (seen >= want) return (k + 1) * BinMs;
+        }
+        return Bins * BinMs;
     }
 
     public void Reset()

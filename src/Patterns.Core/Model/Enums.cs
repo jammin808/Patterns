@@ -228,10 +228,11 @@ public enum VideoDecodingKind
 }
 
 /// <summary>
-/// The effects' quality ladder: Auto steps particles and fractal iterations down when the output
-/// frames run past the hitch line and back up when they are clean; the rest lock a level (Full
-/// never steps, Balanced is level 1, Economy level 2 — for a small laptop from the first minute).
-/// First member is the fallback.
+/// The effects' quality ladder: Auto steps particles and fractal iterations down when an output's
+/// seconds press past its own rate's budget (85 % of the frame slot on the second's p95, three
+/// slots missed, or a stutter) and back up when they are clean, and starts a session where the
+/// last one on this machine settled; the rest lock a level (Full never steps, Balanced is level 1,
+/// Economy level 2 — for a small laptop from the first minute). First member is the fallback.
 /// </summary>
 public enum QualityMode
 {

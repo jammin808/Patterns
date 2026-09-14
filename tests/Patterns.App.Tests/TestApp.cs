@@ -37,6 +37,7 @@ public static class TestApp
         // container or a slow headless tick must not change what a test sees built.
         Views.Controls.LazyPage.MachineGB = 32;
         Views.Controls.LazyPage.PauseOverride ??= static () => false;
+        QualityService.MachineGB = 32;                                          // the ladder starts at full: a small container is not a small desk
 
         var dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);

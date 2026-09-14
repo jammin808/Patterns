@@ -797,7 +797,7 @@ public static class Lists
 
     public static readonly EnumItem[] QualityModes =
     {
-        new(QualityMode.Auto, "Auto — steps the effects down on slow frames, back up when clean"),
+        new(QualityMode.Auto, "Auto — steps the effects down when a second's frames press past the display's budget, back up after thirty clean seconds"),
         new(QualityMode.Full, "Full — never steps down"),
         new(QualityMode.Balanced, "Balanced — locked one level down (70 %)"),
         new(QualityMode.Economy, "Economy — locked two levels down (50 %)"),

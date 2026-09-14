@@ -1782,7 +1782,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// newer one and a clear never races a write. A step that throws is logged and the lane
     /// carries on.
     /// </summary>
-    private void QueueFileWork(string what, Action work)
+    internal void QueueFileWork(string what, Action work)
     {
         lock (_saveGate)
         {
@@ -1906,6 +1906,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Metrics.Dispose();
             Analyser.Dispose();
             Tail.Dispose();
+            Quality.SaveProfileNow();   // where the ladder settled on this machine: next start begins there
             SaveNow();
             if (!_restartRequested)
             {

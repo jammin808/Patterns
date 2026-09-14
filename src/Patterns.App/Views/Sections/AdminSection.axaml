@@ -274,11 +274,11 @@
                 ItemsSource="{x:Static vm:Lists.QualityModes}"
                 SelectedValue="{Binding State.Admin.Quality, Mode=TwoWay}"
                 SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
-                ToolTip.Tip="How the particles and fractals answer slow frames. Auto steps them down when an output's frames run past 25 ms for three seconds and back up after thirty clean seconds; Full never steps; Balanced and Economy lock a level" />
+                ToolTip.Tip="How the particles and fractals answer slow frames. Auto steps them down when an output's seconds press past its own rate's budget for three seconds — 85 % of the frame slot on a second's p95 (14 ms at 60 fps, 28 at 30), three slots missed, or a stutter — and back up after thirty clean seconds, and starts where the last session on this machine settled; Full never steps; Balanced and Economy lock a level" />
     </Grid>
     <TextBlock Classes="label" Text="{Binding QualityText}" TextWrapping="Wrap" />
     <TextBlock Classes="hint tip"
-               Text="Auto is a game engine's dynamic quality, for the effects: when an output's frames run past 25 ms for three seconds, particles and fractal iterations step down a level (70 %, then 50 %, then 35 %) on every sink at once — the outputs, the NDI feed and the preview keep the same picture — and step back up after thirty clean seconds. Full never steps down (a slow frame stays slow and the frame budget says so); Balanced and Economy lock a level for a small laptop from the first minute." />
+               Text="Auto is a game engine's dynamic quality, for the effects: when an output's seconds press past its own rate's budget for three seconds — 85 % of the frame slot on the second's p95 (14 ms at 60 fps, 28 at 30), three presentation slots missed, or a frame past 50 ms — particles and fractal iterations step down a level (70 %, then 50 %, then 35 %) on every sink at once — the outputs, the NDI feed and the preview keep the same picture — and step back up after thirty clean seconds. Auto starts where the last session on this machine settled (a machine under 8 GB starts a level down until thirty clean seconds prove it); a test card, text and a lower third's words are never scaled. Full never steps down (a slow frame stays slow and the frame budget says so); Balanced and Economy lock a level for a small laptop from the first minute." />
 
     <TextBlock Classes="h2" Text="MEMORY CEILINGS" />
     <TextBlock Classes="label" Text="{Binding MemoryBudgetText}" TextWrapping="Wrap" />

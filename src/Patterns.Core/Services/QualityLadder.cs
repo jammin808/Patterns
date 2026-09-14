@@ -3,22 +3,117 @@ using Patterns.Core.Model;
 namespace Patterns.Core.Services;
 
 /// <summary>
+/// One sink's last complete second, as the ladder judges it: the frame time 95 % of its frames
+/// came in under, its worst frame, the presentation slots it missed, and the rate it presents at
+/// (0 for an unpaced sink, judged at 60).
+/// </summary>
+public readonly record struct FrameSecond(double P95Ms, double WorstMs, int Missed, int TargetFps)
+{
+    /// <summary>A second known by its worst frame alone — a sink without a histogram, the tests.</summary>
+    public static FrameSecond OfWorst(double worstMs, int targetFps = 0) => new(worstMs, worstMs, 0, targetFps);
+
+    /// <summary>The frame slot at this second's rate, ms.</summary>
+    public double SlotMs => QualityLadder.SlotMs(TargetFps);
+
+    /// <summary>The budget this second's frames are judged against, ms.</summary>
+    public double BudgetMs => QualityLadder.BudgetMs(TargetFps);
+
+    /// <summary>The rate the second was judged at.</summary>
+    public int JudgedFps => TargetFps > 0 ? TargetFps : QualityLadder.DefaultFps;
+}
+
+/// <summary>
+/// What the last session on this machine settled at: the ladder's level when it ended, the steps
+/// it took, and the machine it was — so Auto starts there next time rather than at full and three
+/// slow seconds later.
+/// </summary>
+public sealed record QualityProfile(string Machine, int Level, int StepsDown, DateTime SavedUtc);
+
+/// <summary>The profile's file beside the settings: read at the start, written when the ladder settles and at the end.</summary>
+public sealed class QualityProfileStore
+{
+    public QualityProfileStore(string directory) => FilePath = Path.Combine(directory, "patterns.quality.json");
+
+    public string FilePath { get; }
+
+    public QualityProfile? Read()
+    {
+        try
+        {
+            if (!File.Exists(FilePath)) return null;
+            return JsonUtil.Deserialize<QualityProfile>(File.ReadAllText(FilePath));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Quality profile unreadable.", ex);
+            return null;
+        }
+    }
+
+    /// <summary>A temp file moved over the old one: a reader never sees half a profile.</summary>
+    public void Write(QualityProfile profile)
+    {
+        try
+        {
+            var tmp = FilePath + ".tmp";
+            File.WriteAllText(tmp, JsonUtil.Serialize(profile));
+            File.Move(tmp, FilePath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Quality profile could not be written.", ex);
+        }
+    }
+}
+
+/// <summary>
 /// The adaptive quality ladder — a game engine's dynamic resolution, for the effects. The frame
-/// budget measures and names a slow frame; this acts on it: when the worst output frame stays
-/// past the hitch line for three seconds running, the effects step down a level (particles and
-/// fractal iterations to 70 %, then 50 %, then 35 %; the CPU fractal raster shrinks with them),
-/// and after thirty clean seconds they step back up. The same level applies to every sink at
-/// once, so two outputs of one canvas and the NDI feed keep the same picture. The Machine page
-/// can lock a level (Full for a machine that must never step down; Balanced or Economy for a
-/// small laptop from the first minute). Pure; the App feeds it one second at a time.
+/// budget measures a sink's second; this acts on it: when an output's frames press against its
+/// own rate's budget for three seconds running — the second's p95 past 85 % of the frame slot
+/// (14 ms at 60 fps, 28 at 30), three presentation slots missed, or a frame past the stutter line
+/// — the effects step down a level (particles and fractal iterations to 70 %, then 50 %, then
+/// 35 %; the CPU fractal raster shrinks with them), and after thirty clean seconds they step back
+/// up. The same level applies to every sink at once, so two outputs of one canvas and the NDI
+/// feed keep the same picture. The Machine page can lock a level (Full for a machine that must
+/// never step down; Balanced or Economy for a small laptop from the first minute). Auto starts a
+/// session where the last one on this machine settled, or a level down on a small machine. The
+/// ladder scales the effects alone: particles, fractal iterations and the CPU raster, the
+/// reactive pattern's detail, the lower third's particles — never a test card, text, a lower
+/// third's words, the authority, the cue timing. Pure; the App feeds it one second at a time.
 /// </summary>
 public sealed class QualityLadder
 {
     /// <summary>The lowest level; 0 is full quality.</summary>
     public const int Lowest = 3;
 
-    /// <summary>A second whose worst frame is past this counts against the level: the frame budget's hitch line.</summary>
-    public const double StepDownMs = FrameBudget.SlowMs;
+    /// <summary>The rate an unpaced sink — the preview, a monitor — is judged at: a display's usual 60 Hz.</summary>
+    public const int DefaultFps = 60;
+
+    /// <summary>The share of a frame slot a second's frames should come in under: the budget is 85 % of the slot, so a 60 fps output is judged against 14 ms and a 30 fps one against 28.</summary>
+    public const double Safety = 0.85;
+
+    /// <summary>Presentation slots missed in one second that count against the level on their own: the room saw judder.</summary>
+    public const int MissedSlotsToCount = 3;
+
+    /// <summary>The frame slot at a rate, ms (an unpaced sink's at <see cref="DefaultFps"/>).</summary>
+    public static double SlotMs(int targetFps) => 1000.0 / (targetFps > 0 ? targetFps : DefaultFps);
+
+    /// <summary>The budget a second's frames are judged against at a rate, ms: the slot less the safety margin.</summary>
+    public static double BudgetMs(int targetFps) => SlotMs(targetFps) * Safety;
+
+    /// <summary>Whether a second counts against the level: its p95 past its budget, slots missed, or a stutter.</summary>
+    public static bool UnderPressure(in FrameSecond s)
+        => s.P95Ms > BudgetMs(s.TargetFps) || s.Missed >= MissedSlotsToCount || s.WorstMs > FrameBudget.StutterMs;
+
+    /// <summary>Why a second counts, or how it was clean: "p95 20 ms against a 14.2 ms budget at 60 fps", "3 slots missed in a second at 60 fps", "a 51 ms frame".</summary>
+    public static string PressureWords(in FrameSecond s)
+    {
+        var budget = BudgetMs(s.TargetFps);
+        if (s.P95Ms > budget) return $"p95 {s.P95Ms:0.#} ms against a {budget:0.#} ms budget at {s.JudgedFps} fps";
+        if (s.Missed >= MissedSlotsToCount) return $"{s.Missed} slots missed in a second at {s.JudgedFps} fps";
+        if (s.WorstMs > FrameBudget.StutterMs) return $"a {s.WorstMs:0} ms frame";
+        return $"p95 {Math.Max(0, s.P95Ms):0.#} ms under the {budget:0.#} ms budget at {s.JudgedFps} fps";
+    }
 
     /// <summary>Slow seconds in a row before a step down — a single hitch (a look change, a clip open) never steps.</summary>
     public const int SlowSecondsToStepDown = 3;
@@ -79,11 +174,42 @@ public sealed class QualityLadder
         return true;
     }
 
-    /// <summary>One second of the worst sink's worst frame. True when the level changed.</summary>
-    public bool Observe(double worstMs, string sink, DateTime nowUtc)
+    /// <summary>
+    /// Where Auto begins a session: the level the last session on this machine settled at, or
+    /// one down on a small machine — a start, not a step: nothing counted, no time stamped.
+    /// Ignored under a lock. True when the session starts below full.
+    /// </summary>
+    public bool Start(int level, string cause)
     {
         if (Mode != QualityMode.Auto) return false;
-        if (worstMs > StepDownMs)
+        level = Math.Clamp(level, 0, Lowest);
+        Volatile.Write(ref _level, level);
+        _slowRun = 0;
+        _cleanRun = 0;
+        Cause = level > 0 ? cause : "";
+        ChangedUtc = null;
+        return level > 0;
+    }
+
+    /// <summary>
+    /// The level Auto starts a session at: what the profile says when it is this machine's, else
+    /// one down on a small machine (under <see cref="WarmUpPlan.SmallMachineGB"/>, the same small
+    /// machine the warm-up knows) until thirty clean seconds prove it, else full.
+    /// </summary>
+    public static int StartingLevel(QualityProfile? profile, string machine, double machineGB)
+    {
+        if (profile is not null && profile.Machine == machine) return Math.Clamp(profile.Level, 0, Lowest);
+        return machineGB < WarmUpPlan.SmallMachineGB ? 1 : 0;
+    }
+
+    /// <summary>One second of the worst sink, known by its worst frame alone. True when the level changed.</summary>
+    public bool Observe(double worstMs, string sink, DateTime nowUtc) => Observe(FrameSecond.OfWorst(worstMs), sink, nowUtc);
+
+    /// <summary>One second of the sink that pressed hardest against its own budget. True when the level changed.</summary>
+    public bool Observe(in FrameSecond second, string sink, DateTime nowUtc)
+    {
+        if (Mode != QualityMode.Auto) return false;
+        if (UnderPressure(second))
         {
             _slowRun++;
             _cleanRun = 0;
@@ -92,7 +218,7 @@ public sealed class QualityLadder
                 Volatile.Write(ref _level, Level + 1);
                 _slowRun = 0;
                 StepsDown++;
-                Cause = $"{sink}: frames past {StepDownMs:0} ms for {SlowSecondsToStepDown} s";
+                Cause = $"{sink}: {PressureWords(second)} for {SlowSecondsToStepDown} s";
                 ChangedUtc = nowUtc;
                 return true;
             }

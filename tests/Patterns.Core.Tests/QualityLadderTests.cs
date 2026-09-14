@@ -60,6 +60,116 @@ public class QualityLadderTests
     }
 
     [Fact]
+    public void TheBudgetFollowsTheRateAndASecondIsJudgedOnItsP95ItsMissedSlotsAndItsWorst()
+    {
+        Assert.Equal(16.667, QualityLadder.SlotMs(60), 2);
+        Assert.Equal(14.167, QualityLadder.BudgetMs(60), 2);
+        Assert.Equal(28.333, QualityLadder.BudgetMs(30), 2);
+        Assert.Equal(QualityLadder.BudgetMs(60), QualityLadder.BudgetMs(0));                               // an unpaced sink is judged at 60
+        Assert.Equal(0.85, QualityLadder.Safety);
+
+        Assert.False(QualityLadder.UnderPressure(new FrameSecond(12, 20, 0, 60)));                       // p95 under the budget; one hitch under the stutter line
+        Assert.True(QualityLadder.UnderPressure(new FrameSecond(15, 20, 0, 60)));                        // p95 past the 60 fps budget
+        Assert.False(QualityLadder.UnderPressure(new FrameSecond(20, 30, 0, 30)));                       // the same frames at 30 fps: room to spare
+        Assert.True(QualityLadder.UnderPressure(new FrameSecond(5, 8, 3, 60)));                          // three slots missed: the room saw judder
+        Assert.False(QualityLadder.UnderPressure(new FrameSecond(5, 8, 2, 60)));
+        Assert.True(QualityLadder.UnderPressure(new FrameSecond(5, 51, 0, 60)));                         // a stutter by itself
+        Assert.Equal("p95 15 ms against a 14.2 ms budget at 60 fps", QualityLadder.PressureWords(new FrameSecond(15, 20, 0, 60)));
+        Assert.Equal("3 slots missed in a second at 60 fps", QualityLadder.PressureWords(new FrameSecond(5, 8, 3, 60)));
+        Assert.Equal("a 51 ms frame", QualityLadder.PressureWords(new FrameSecond(5, 51, 0, 60)));
+        Assert.Equal("p95 12 ms under the 14.2 ms budget at 60 fps", QualityLadder.PressureWords(new FrameSecond(12, 20, 0, 60)));
+        var known = FrameSecond.OfWorst(30);
+        Assert.Equal(30, known.P95Ms);
+        Assert.Equal(60, known.JudgedFps);
+        Assert.Equal(33.333, new FrameSecond(20, 24, 0, 30).SlotMs, 2);
+
+        // Three seconds pressing on a 60 fps output step the ladder down and say why.
+        var ladder = new QualityLadder();
+        Assert.False(ladder.Observe(new FrameSecond(20, 24, 0, 60), "Output 1 (Main)", T0));
+        Assert.False(ladder.Observe(new FrameSecond(20, 24, 0, 60), "Output 1 (Main)", T0.AddSeconds(1)));
+        Assert.True(ladder.Observe(new FrameSecond(20, 24, 0, 60), "Output 1 (Main)", T0.AddSeconds(2)));
+        Assert.Equal(1, ladder.Level);
+        Assert.Equal("Output 1 (Main): p95 20 ms against a 14.2 ms budget at 60 fps for 3 s", ladder.Cause);
+
+        // The same frames on a 30 fps output are within its budget: no step, ever.
+        var thirty = new QualityLadder();
+        for (var i = 0; i < 10; i++) Assert.False(thirty.Observe(new FrameSecond(20, 24, 0, 30), "Output 2", T0.AddSeconds(i)));
+        Assert.Equal(0, thirty.Level);
+    }
+
+    [Fact]
+    public void AutoStartsWhereTheLastSessionOnThisMachineSettledOrALevelDownOnASmallMachine()
+    {
+        var box = new QualityProfile("box", 2, 4, T0);
+        Assert.Equal(0, QualityLadder.StartingLevel(null, "box", 32));
+        Assert.Equal(1, QualityLadder.StartingLevel(null, "box", 4));                                    // a small machine starts a level down
+        Assert.Equal(2, QualityLadder.StartingLevel(box, "box", 4));                                     // what this machine settled at, small or not
+        Assert.Equal(0, QualityLadder.StartingLevel(box, "another box", 32));                            // another machine's profile says nothing
+        Assert.Equal(QualityLadder.Lowest, QualityLadder.StartingLevel(new QualityProfile("box", 9, 0, T0), "box", 32));
+        Assert.Equal(0, QualityLadder.StartingLevel(new QualityProfile("box", 0, 0, T0), "box", 4));    // the last session ran at full on this small machine: full it is
+
+        var ladder = new QualityLadder();
+        Assert.True(ladder.Start(2, "where the last session on this machine settled"));
+        Assert.Equal(2, ladder.Level);
+        Assert.Equal("where the last session on this machine settled", ladder.Cause);
+        Assert.Null(ladder.ChangedUtc);                                                                   // a start, not a step
+        Assert.Equal(0, ladder.StepsDown);
+        Assert.Contains("(where the last session on this machine settled)", ladder.Describe());
+        for (var i = 0; i < 30; i++) ladder.Observe(2, "Output 1", T0.AddSeconds(i));
+        Assert.Equal(1, ladder.Level);                                                                    // thirty clean seconds climb from there
+        Assert.False(ladder.Start(0, "nothing"));
+        Assert.Equal(0, ladder.Level);
+        Assert.Equal("", ladder.Cause);
+        ladder.SetMode(QualityMode.Full);
+        Assert.False(ladder.Start(3, "ignored under a lock"));
+        Assert.Equal(0, ladder.Level);
+
+        var dir = Path.Combine(Path.GetTempPath(), "patterns-quality-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var store = new QualityProfileStore(dir);
+            Assert.Null(store.Read());
+            store.Write(box);
+            Assert.Equal(box, store.Read());
+            Assert.False(File.Exists(store.FilePath + ".tmp"));
+            File.WriteAllText(store.FilePath, "{ not json");
+            Assert.Null(store.Read());                                                                    // a broken file is no profile, and no fault
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TheLadderNeverTouchesTheTestCardOrThePlainPatterns()
+    {
+        var shared = QualityLadder.Shared;
+        var state = RenderTestHarness.State();
+        try
+        {
+            shared.Reset();
+            state.Pattern.Kind = PatternKind.TestCard;
+            using var cardFull = RenderTestHarness.Render(state, 320, 180);
+            Assert.True(shared.SetMode(QualityMode.Economy));
+            Assert.Equal(0.5, shared.Factor);
+            using var cardEconomy = RenderTestHarness.Render(state, 320, 180);
+            Assert.Equal(cardFull.Bytes, cardEconomy.Bytes);                                              // the card, its text and its marks: pixel for pixel
+
+            state.Pattern.Kind = PatternKind.Focus;
+            using var focusEconomy = RenderTestHarness.Render(state, 320, 180);
+            shared.Reset();
+            using var focusFull = RenderTestHarness.Render(state, 320, 180);
+            Assert.Equal(focusFull.Bytes, focusEconomy.Bytes);
+        }
+        finally
+        {
+            shared.Reset();
+        }
+    }
+
+    [Fact]
     public void AModeLocksALevelAndAutoTakesOverFromWhereItIs()
     {
         var ladder = new QualityLadder();
@@ -168,7 +278,7 @@ public class QualityLadderTests
         var down = ladder.Describe();
         Assert.StartsWith("Auto, level 1 of 3:", down);
         Assert.Contains("70%", down);
-        Assert.Contains("Output 1 (Main): frames past 25 ms for 3 s", down);
+        Assert.Contains("Output 1 (Main): p95 40 ms against a 14.2 ms budget at 60 fps for 3 s", down);
         Assert.Contains("back up a level after 30 clean seconds", down);
         for (var i = 0; i < 30; i++) ladder.Observe(4, "Output 1 (Main)", T0);
         Assert.Contains("Stepped down 1 time this session and came back", ladder.Describe());

@@ -179,7 +179,7 @@ public sealed class RenderPipeline : IDisposable
     {
         _bus = bus;
         _viewport = viewport;
-        _budget = new FrameBudget(viewport.Kind, viewport.SinkIndex, viewport.Label) { Scope = bus };
+        _budget = new FrameBudget(viewport.Kind, viewport.SinkIndex, viewport.Label) { Scope = bus, TargetFps = viewport.TargetFps };
         FrameBudgets.Attach(_budget);
     }
 
