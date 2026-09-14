@@ -1119,3 +1119,19 @@ verb every clock follows.*
   §68.3.
 - **What it is not:** a rewrite of the pages. Two things were on the switch's path; the budget
   will name the next.
+
+## Round 51 review — the twin service in parts
+
+*Five files, one class, nothing moved across a seam.*
+
+### 51.1 — the split
+
+- **Done.** Cut along the regions the file already had, by line ranges with the seams asserted;
+  the suites ran the same before and after. `docs/PLAN.md` §69.1.
+- **The honest limit:** a partial class is a table of contents, not an architecture. The link,
+  the mirror, the handover and the followers still share one object's fields; the cut names
+  where a later extraction would go and does not pretend to be it.
+
+### 51.2 — the guard
+
+- **Done.** Each part on a page, no sixth part unnoticed. `docs/PLAN.md` §69.3.

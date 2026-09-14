@@ -6678,3 +6678,43 @@ sixty is a night's worth on one line. Warming the pages before the first frame: 
 is the start-up's budget, and a page built in idle time a second later costs the operator nothing.
 
 Counts at the end of the round: Core 1,161, App 603 — both suites green here.
+
+## 69. Round 51 — the twin service in parts
+
+*The reviews said to split the twin service once the handover semantics were finished, and every
+round since 43 has finished a piece of them in the same two-and-a-half-thousand-line file. The
+semantics are done; the file is in parts.*
+
+### 69.1 The parts
+
+`TwinService` is one class in five files, cut along the seams it already drew for itself and with
+nothing moved across them: `TwinService.cs` — the fields, the construction, the settings
+(`Reconcile`, `Stop`, `Tick`), the lines (`Status`, `GlanceWords`, `HealthWords`, `StatusJson`) and
+the lifetime; `TwinService.Main.cs` — a publish onto the wire as the sections that moved, the
+flush, the listener, a standby joining with the key proved over nonces, and the peer record the
+main keeps; `TwinService.Handover.cs` — the marker, the hold and the release, TAKE BACK as a
+transaction with its wall switch, the hand-back answered by RELEASED, and on the standby's side
+TAKE OVER with its fences and STAND BY AGAIN; `TwinService.Standby.cs` — the dial with its nonce,
+the read loop, every line from the main landed on the UI thread, the beats with their clocks, the
+link closed; `TwinService.Followers.cs` — a caller's own edits sent as the sections they landed
+in, the plan offered and applied, the queue that waits for DISARM, the live word, a caller's line
+on the main, LINK and UNLINK. Behaviour is identical: the cut was made by line ranges with the
+seams asserted, and both suites ran the same.
+
+### 69.2 What the cut shows
+
+The handover is the largest part, at seven hundred lines: the transaction, the fences, the
+hand-back, the takeover and the standing by again are one story and stay together. The lines and
+the settings are the next largest, because every role's words are in one place on purpose. The
+seams the split found are the seams a later extraction would use: the link as a transport with a
+reader and a writer, the mirror as what goes out and what lands, the handover as the transaction
+it already is in `TwinTransaction`, the followers as a service of their own. None of that is
+started here — a part on one page each is the honest step, and the guard test keeps them there.
+
+### 69.3 Tests and docs
+
+App: the five parts exist, each is a partial of the one class, none is past nine hundred lines,
+and no sixth part or leftover file grew unnoticed; the twin, link-clock, nodes and live-policy
+suites unchanged. Docs: this section, REVIEW round 51, README.
+
+Counts at the end of the round: Core 1,161, App 604 — both suites green here.
