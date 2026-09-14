@@ -6817,3 +6817,92 @@ that is what it says. A history of the measurements in the brief: the CSV is the
 brief is now.
 
 Counts at the end of the round: Core 1,166, App 606 — both suites green here.
+
+## 72. Round 54 — Companion, second generation
+
+*The brief: Patterns and Companion need unprecedented and novel interaction to aid speed of setup,
+total control (even of external connected nodes), and interactive live feedback; useful colours for
+types and state; the latest Companion development documents researched. The research is in
+`docs/COMPANION.md`; what it found first was that the module could no longer be loaded at all.*
+
+### 72.1 The module on Companion 5 (54.1)
+
+Companion 5 (the current release) loads modules on module base 2.x, node22 or node26, and nothing
+else; the module was written for base 1.x on node18. Ported, in parts: the palette, the pure state
+mapping (STATE to the variables a key reads, the banks by place, the show's signature), the
+variable definitions as an object, the actions, the feedbacks on the palette, the presets in
+Companion 5 sections, the connection config. The entrypoint is the default export with
+`UpgradeScripts` beside it; every id of 1.x and 2.x is kept, so saved pages keep working. New keys
+on verbs the wire already had: the stage timer as the speaker sees it, in the timer's own colour,
+with a progress ring on layered keys (an *alternatives* preset with the plain key as the fallback);
+pause / resume, ±1 min, FLASH, WRAP UP and a crew message that stay amber until the stage page
+ACKs; the nodes on eight bank keys in their kinds' colours; the twin's role and phase with
+two-press TAKE OVER / TAKE BACK; the plan's slip, resume and catch-up; COUNTDOWN FOLLOW; SHOW
+LOCK; the arcade and the audience's play; a line of your own.
+
+Tested both ways: a node suite boots the module against the real module base with a fake host
+context and a fake wire, and every preset goes through Companion's own preset sanitiser; an
+emitter writes every line the module can send to `test/lines.txt` and a Core test parses each with
+the desk's parser. A CI job installs, tests, checks the lines are current, packages the module with
+the Companion tools and uploads the `.tgz` a Companion 5 imports.
+
+### 72.2 Found on the network, both ways (54.2)
+
+DNS-SD over multicast DNS in Core (`Mdns.cs`, pure: packets, the advert, the responder, a
+browser) and the App's `MdnsService` on one socket beside the system's own responder: every
+Patterns process announces itself under `_patterns._tcp` — "Patterns desk FOH-PC" — with its kind,
+machine, show, ports, instance and version in the TXT record, answers a browser's query, says
+goodbye when the wire closes; the module's *Desk on the network* field lists them. The same service
+browses for the satellite port Companion 5 announces, so the Remote page names the Companion in the
+room and where it is. `HELLO <name> module=<version>` from the module is taken apart: history reads
+the name, the Remote page's COMPANION strip lists every deck with its module and says when one is
+behind the version this build ships. STATE carries `version` and `decks`. ANNOUNCE is a switch on
+the Remote page, on by default.
+
+### 72.3 The desk drives the deck (54.3)
+
+Companion's own TCP API (port 16759) as a device profile — the box a projector or a media server
+is: `PAGE 3` turns the Stream Deck to a page (the surface id typed once in the device's Surface
+box, or given after the page), `PRESS 2/0/1` fires a button, `VAR speaker Jane Doe` fills a custom
+variable, `TEXT`, `COLOR`, `STEP`, `ROTATE`, `RESCAN`, `RAW`; Companion answers `+OK` or `-ERR`,
+so the receipt reads Accepted or the refusal by name and the health line says which. From a cue,
+`DEVICE Companion PAGE 3` on the wire, OSC and the assistant, so the deck follows the show. The
+Interactive page's **+ COMPANION** chip fills in the address of the Companion heard on the network.
+
+### 72.4 One colour language, and the room on the deck (54.4)
+
+`CompanionPalette` in Core is the module's `src/palette.js` as C# — a hue per kind of thing, a
+treatment per state — and a test reads the file against the table both ways. The Nodes page's
+cards wear the kind's hue the deck does, and the gone colour once a node stops being heard. STATE
+carries the room around the desk in the shape the module's fixture has: `nodes[]` by place with the
+kind and whether it is heard now, `linked`, `twin{}` with the role and phase, `stage{}` with the
+timer in its own colour, the segment, the messages waiting; a node appearing, the twin's phase
+moving or a message to the stage waiting is a push of its own (the wire's clock tick watches a
+deck signature). A node's STATE carries the same blocks, its `stage` revision renamed `stageRev`.
+
+### 72.5 Tests and docs
+
+Module: thirteen node tests (the manifest, the boot and HELLO, every preset accepted by the host,
+the variables both ways, every `$(patterns:…)` declared, a STATE into variables, the feedbacks,
+every action's line, the lines file current, a dropped link, the bonjour pick, the groups, the
+palette). Core: the lines parsed, the module loadable, DNS-SD round trips and compression, the
+advert and the answers, the browser, the words, the module version held equal, the Companion
+profile's lines, refusals and replies, the palette both ways. App: a node announcing and answering
+on the loopback, hearing a Companion, saying goodbye; the HELLO token; a Companion device from a
+cue, the wire and the page with the address filled in; STATE's nodes, twin and stage in the
+fixture's shape and the deck signature moving. Docs: this section, REVIEW round 54, REMOTE.md,
+ENDPOINTS.md, COMPANION.md, the help, the module's README and HELP.md, README.
+
+### 72.6 Considered and left
+
+Patterns as a Companion surface (the Satellite API — the desk or a phone showing Companion's own
+buttons): the protocol is documented in `docs/COMPANION.md`; it would give a phone a Stream Deck,
+but Companion's own emulator page already does, and the desk's own pages are the desk's. Companion
+custom variables pushed on every STATE change for Generic TCP users: the module is the way to read
+the desk; the `VAR` word is there for a cue to fill one. A Companion page per running-order
+section, followed automatically: a cue's `DEVICE Companion PAGE n` step does it explicitly and
+visibly, which a caller prefers to a rule. IPv6 on mDNS: the advert carries IPv4 addresses;
+Companion's browser asks for IPv4 by default.
+
+Counts at the end of the round: Core 1,184, App 610 — both suites green here, the module's
+thirteen beside them.

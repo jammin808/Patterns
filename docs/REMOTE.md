@@ -212,7 +212,14 @@ Remote commands always drive **what the audience sees**: looks, cues, playlist p
 and transport apply to the program even while the operator is building the next look in the
 sandboxed preview.
 
-State JSON also carries `stream{active,status}`, `health`, `quality{mode,level,factor,text}` (the effects' quality ladder: Auto / Full / Balanced / Economy, the level 0–3, its factor, the Machine page's line), `memory{appMB,ceilingMB,text}` (the app's working set against its ceiling and the MEMORY CEILINGS line), `machine{cpu,ram,fps,battery,advice}` — machine load
+State JSON also carries `version` (this build), `decks[{name,module,address}]` (every deck that said
+HELLO on the wire and what module it runs), `linked` (the caller nodes linked to this desk), `nodes[{n,instance,kind,name,show,live,fresh,words,address,http,link,heardSecondsAgo}]`
+(every other Patterns heard on the beacon, in the Nodes page's order — `fresh` false once one stops being heard),
+`twin{role,phase,words,main,standbys,holder,clocks,apart}` (the twin as the Machine page reads it) and
+`stage{timer{phase,remaining,text,colour,progress,label,paused},segment,next,pendingSpeaker,pendingCrew,flash}`
+(the speaker's timer in its own colour word — green, amber, red — the running order's cue and the next, the
+messages waiting for their ACK, the flash); a node appearing, the twin's phase moving or a message to the stage
+waiting is a push of its own. And `stream{active,status}`, `health`, `quality{mode,level,factor,text}` (the effects' quality ladder: Auto / Full / Balanced / Economy, the level 0–3, its factor, the Machine page's line), `memory{appMB,ceilingMB,text}` (the app's working set against its ceiling and the MEMORY CEILINGS line), `machine{cpu,ram,fps,battery,advice}` — machine load
 (percent, -1 = unknown), output frame rate, whether the computer is on battery, and how
 many Machine-page suggestions currently need attention — and `beacon{sending,listening,main}`:
 whether this machine sends its heartbeat beacon, whether it listens for a main machine's, and
@@ -239,17 +246,48 @@ for up to 25 seconds, so it updates within the push throttle instead of polling.
 
 ## Bitfocus Companion
 
-Use the **Patterns module** in `integrations/companion-module-patterns/` (2.0.0: **banks** —
-keys that label themselves from the show through variables Patterns keeps fresh, so a row of
-sixteen look keys, seven cue keys, eight lower-third / people / stinger / screen keys and six
-music / part keys fills itself as the show is built, each key firing the item at its place
-(`LOOK #n`, `LT n`, `PERSON n`, `STINGER n`, `MUSIC PLAY n`, `SECTION n`, `SCREEN n`, the cue
-bank's standby or GO), lit while its item is on air and dim while empty; a preset per item
-under *… — this show* categories rebuilt when the lists change; the cue stack GO / standby /
-HOLD / ARM / STOP ALL with feedbacks and variables; Break music, VOG, kind-checked stingers,
-lower thirds with the sign-off flow, web pages, decks, review, freeze, the timed fade, the
-previous look, screen locks and arming — see its README for install), or the built-in
-**Generic TCP** connection sending the raw commands above (no feedback).
+Use the **Patterns module** in `integrations/companion-module-patterns/` — **3.0.0, a Companion 5
+module** (module base 2.x, node22; Companion 3 and 4 cannot load it, and the last 2.x module is in
+the repository's history for them). Import the package this repository's CI builds (the
+`companion-module-patterns` artifact, a `.tgz`) under *Modules*, or `npm ci && npm run package` in
+the folder; then *Connections → Add → Patterns* and pick the desk under **Desk on the network** —
+every Patterns process announces itself over mDNS as `_patterns._tcp` ("Patterns desk FOH-PC",
+"Patterns stage timer STAGE-PI"), so nobody types an address; the typed host and port are there
+for a network that blocks multicast. The connection says `HELLO <label> module=3.0.0`, and the
+desk's Remote page lists every deck connected with the module it runs (and says when one is behind).
+
+What the keys are: the cue stack (GO, standby, HOLD, ARM, STOP ALL, the day's timing, PLAN ±1 MIN,
+RESUME NOW, CATCH UP) and a **cue bank** that reads the standby cue and the six after it; the
+**look bank** (sixteen keys by place, three states: up, changed since, not up), F1–F12, one key per
+look of the show; screens (toggle, lock, back to the program, the picture it is showing, fades) and
+canvases; the presenter's keys, decks and web pages, the VT clock; lower thirds with the sign-off
+flow, people; VOGs and kind-checked stingers; the audio playlist, break music, parts; the clock,
+countdown, message and overlays; **the stage** — the speaker's timer in the timer's own colour with
+a progress ring on Companion 5's layered keys, pause / resume, ±1 min, FLASH, WRAP UP and a crew
+message that stay amber until the stage page ACKs; **the nodes** — eight bank keys, each in its
+kind's colour (desk, caller, arcade, stage timer), dark once a node stops being heard; **the
+twin** — its role and phase, two-press TAKE OVER / TAKE BACK, STAND BY; the install; and `raw`, a
+line of your own from the table above. Tick the **preset groups** a desk uses and the list holds
+only those; the actions, feedbacks and variables are always all there.
+
+One colour language: green on air, armed or running; amber a preview, a hold, *changed since*, a
+message waiting; orange late or a screen gone its own way; red a lower third on screen, the stream
+live, a failed cue, black on its own; sky blue the overlays; steel blue the presenter's things; a
+colour per node kind; dim for a bank key with nothing behind it. The module's `src/palette.js` and
+the desk's `CompanionPalette` are held equal by a test on each side, and the Nodes page's cards
+wear the same hues.
+
+Tested both ways: the module's own suite boots it against the real module base with a fake host
+(every preset through Companion's own preset sanitiser); every line it can send is written to
+`test/lines.txt` and parsed by the desk's suite. The built-in **Generic TCP** connection still
+works with the raw commands above (no feedback).
+
+**The desk drives the deck too.** Companion's own TCP API (port 16759) is a device profile on the
+Interactive page — **+ COMPANION**, the address filled in from the Companion heard announcing
+itself on the network — so a cue, `DEVICE Companion PAGE 3` on the wire, OSC or the assistant
+turns the Stream Deck to a page, `PRESS 2/0/1` fires one of its buttons, `VAR speaker Jane Doe`
+fills a custom variable; Companion answers `+OK` or `-ERR`, so the receipt reads Accepted or the
+refusal by name. `docs/ENDPOINTS.md` has the words; `docs/PLAN.md` §72 the round.
 
 The wire keeps ceilings: 64 connections open in all and 16 from one address — the next reads
 `ERR busy — 16 connections already open from this address; close one first` and the door closes
@@ -257,14 +295,6 @@ The wire keeps ceilings: 64 connections open in all and 16 from one address — 
 the wire's lines are commands, and this one was not; closed`); a connection that sits idle between
 presses is never cut. The web remote's port keeps 256 and 64 the same way, answering `503 busy`
 with a Retry-After. Each refusal is logged once a minute per address. `docs/PLAN.md` §66.3.
-
-Module 2.5.0 adds **preset groups** to the connection's settings — a checkbox per group
-(Transport, Cue stack, All looks, All patterns, Clock, Countdown, Message, Overlays, All VOGs,
-All stingers, All lower thirds, All people, Screens, Audio, Presenter, Install), so the preset
-list holds only what this desk uses while the actions, feedbacks and variables stay complete —
-and keys for the clock, the countdown, the message, the logo, the PiP, every overlay off and the
-kind of picture on air (the `clock`, `message`, `countdown`, `logo`, `pip`, `overlays_off` and
-`pattern` actions with their feedbacks and variables; the module's README has them all).
 
 ## OSC
 

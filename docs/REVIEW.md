@@ -1167,3 +1167,44 @@ verb every clock follows.*
   on the Machine page and the glance line, where they were.
 - **Kept deliberate:** nothing that names the machine, a path or an address goes in the brief,
   as before; the measurements are numbers and page names.
+
+## Round 54 review — Companion, second generation
+
+*The module could not be loaded by the Companion a venue installs today. Now it can, it finds the
+desk by itself, the desk drives it back, and both sides speak one colour.*
+
+### 54.1 — the module on Companion 5
+
+- **Done.** Base 2.x, node22, sections, the default export; every id kept; the stage, nodes, twin,
+  plan and arcade keys; a node test suite on the real base with Companion's own preset sanitiser;
+  the lines file the desk parses; a CI job that packages the `.tgz`. `docs/PLAN.md` §72.1.
+- **The honest limit:** no Companion ran here. The module boots against the real module base and
+  its presets pass Companion's own sanitiser, but a layered key drawn on a Stream Deck, a bonjour
+  pick in the connection dialog and an import of the `.tgz` are unverified until a Companion 5 is
+  in the room. The lines it sends are parsed by the desk's suite, so a key that is wrong is wrong
+  in its rendering, not its verb.
+- **Kept deliberate:** Companion 3 and 4 are not served; the last 2.x module stays in history.
+
+### 54.2 — found on the network, both ways
+
+- **Done.** DNS-SD in Core, the responder and the browser in the App, the HELLO token, the
+  Remote page's strip, `version` and `decks` in STATE. §72.2.
+- **The honest limit:** a real one-shot query is answered on the loopback in the test; a multicast
+  browse across a venue's switches is the network's to allow, and the words say when port 5353
+  would not open. IPv4 only.
+- **Kept deliberate:** the advert's host label is the machine's with `-patterns`, so the system's
+  own mDNS record for the machine is never argued with.
+
+### 54.3 — the desk drives the deck
+
+- **Done.** The Companion profile with its words, `+OK` / `-ERR` as receipts, the chip with the
+  heard address, the assistant's words. §72.3.
+- **The honest limit:** Companion's TCP API lines are the documented ones; a Companion that
+  changed them answers `-ERR`, which the card shows word for word.
+
+### 54.4 — the colour language and the room on the deck
+
+- **Done.** The palette both ways with its test, the Nodes cards in the deck's hues, `nodes`,
+  `twin` and `stage` in STATE with the deck signature push. §72.4.
+- **Kept deliberate:** the desk's own pages were not repainted in the palette beyond the Nodes
+  cards; the palette is the deck's language and the desk borrows it where the same fact is shown.
