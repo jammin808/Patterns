@@ -760,7 +760,8 @@ public sealed class PatternEngine
                 if (InputBus.For(InputKeys.Ndi(name)) is { } ndi)
                 {
                     canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
-                    if (ndi.DrawFrame(canvas, rect, null)) sink.Stages.NoteLive(ndi);
+                    var drawn = ndi.Draw(canvas, rect, null, FrameCrop.None);
+                    if (drawn.Drew) sink.Stages.NoteLive(in drawn);
                     else DrawTileSlate(canvas, f, rect, "NDI — waiting for frames");
                 }
                 else
@@ -774,7 +775,8 @@ public sealed class PatternEngine
                 if (InputBus.For(InputKeys.Capture(tile.Input)) is { } cap)
                 {
                     canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
-                    if (cap.DrawFrame(canvas, rect, null)) sink.Stages.NoteLive(cap);
+                    var drawn = cap.Draw(canvas, rect, null, FrameCrop.None);
+                    if (drawn.Drew) sink.Stages.NoteLive(in drawn);
                     else DrawTileSlate(canvas, f, rect, "Capture — waiting for frames");
                 }
                 else
@@ -807,7 +809,8 @@ public sealed class PatternEngine
                 {
                     canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
                     var crop = FrameCrop.From(pipCfg); // the tile shows the inset as the room sees it
-                    if (pip.DrawFrame(canvas, rect, null, in crop)) sink.Stages.NoteLive(pip);
+                    var drawn = pip.Draw(canvas, rect, null, in crop);
+                    if (drawn.Drew) sink.Stages.NoteLive(in drawn);
                     else DrawTileSlate(canvas, f, rect, "PiP — waiting for frames");
                 }
                 else

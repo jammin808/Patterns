@@ -74,6 +74,9 @@ public sealed class FrameStages
     /// <summary>The show clock of the oldest live picture this frame drew — a camera's, a feed's — or -1 when it drew none. The frame's live input age is read from it at the end.</summary>
     public double LiveFrameClock { get; private set; } = -1;
 
+    /// <summary>The generation of that picture in its pool (0 when its source does not count): the diagnostics name the frame.</summary>
+    public long LiveFrameGeneration { get; private set; }
+
     /// <summary>The start of a top-level frame: nested draws (a layer's screen, a fade source) keep noting into it.</summary>
     public void Begin()
     {
@@ -81,19 +84,24 @@ public sealed class FrameStages
         SlowestMs = -1;
         Noted = 0;
         LiveFrameClock = -1;
+        LiveFrameGeneration = 0;
     }
 
     /// <summary>A live picture was drawn: the oldest one drawn this frame is the one that counts.</summary>
-    public void NoteLive(double frameClock)
+    public void NoteLive(double frameClock, long generation = 0)
     {
         if (frameClock < 0) return;
-        if (LiveFrameClock < 0 || frameClock < LiveFrameClock) LiveFrameClock = frameClock;
+        if (LiveFrameClock < 0 || frameClock < LiveFrameClock)
+        {
+            LiveFrameClock = frameClock;
+            LiveFrameGeneration = generation;
+        }
     }
 
-    /// <summary>The same for a source that was just drawn: only a live one with a timed frame counts.</summary>
-    public void NoteLive(Media.IVideoFrameSource source)
+    /// <summary>The same for what a draw just drew: only a live, timed frame counts — the drawn frame's own clock, never the source's newest.</summary>
+    public void NoteLive(in Media.DrawnFrame drawn)
     {
-        if (source.IsLive) NoteLive(source.FrameClock);
+        if (drawn.Drew && drawn.IsLive) NoteLive(drawn.FrameClock, drawn.Generation);
     }
 
     public static long Now() => Stopwatch.GetTimestamp();

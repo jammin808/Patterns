@@ -74,6 +74,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     private volatile bool _stop;
     private IntPtr _recv;
     private SKImage? _latest;
+    private double _latestClock = -1;
     private Media.FramePool? _pool;
     private volatile int _framesReceived;
     private long _lastFrameUtcTicks;
@@ -153,16 +154,18 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         var alpha = frame.FourCc == FourCcBgra ? SKAlphaType.Unpremul : SKAlphaType.Opaque;
         var info = new SKImageInfo(frame.Xres, frame.Yres, SKColorType.Bgra8888, alpha);
         var rowBytes = frame.Xres * 4;
-        var image = PublishInto(ref _pool, info, rowBytes, frame.Data, frame.LineStrideInBytes, out var pooled);
+        var arrival = ShowClock.Seconds;                                                              // the frame's arrival: stamped on the frame, never read back later
+        var image = PublishInto(ref _pool, info, rowBytes, frame.Data, frame.LineStrideInBytes, out var pooled, arrival);
         if (image is null) return;
         lock (_gate)
         {
             if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);   // a pooled frame is the pool's to reuse
             _latest = image;
+            _latestClock = arrival;
         }
         _framesReceived++;
         Interlocked.Exchange(ref _lastFrameUtcTicks, DateTime.UtcNow.Ticks);
-        Interlocked.Exchange(ref _frameClockBits, BitConverter.DoubleToInt64Bits(ShowClock.Seconds));
+        Interlocked.Exchange(ref _frameClockBits, BitConverter.DoubleToInt64Bits(arrival));
     }
 
     /// <summary>The show clock the newest frame arrived at: a sink says how old the picture it drew is.</summary>
@@ -177,7 +180,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     /// frame and again when the picture changes size; <paramref name="pooled"/> says which path
     /// the frame took. Shared with the tests, which hand in pixels of their own.
     /// </summary>
-    public static unsafe SKImage? PublishInto(ref Media.FramePool? pool, SKImageInfo info, int rowBytes, IntPtr data, int sourceStride, out bool pooled)
+    public static unsafe SKImage? PublishInto(ref Media.FramePool? pool, SKImageInfo info, int rowBytes, IntPtr data, int sourceStride, out bool pooled, double arrivalClock = -1)
     {
         pooled = false;
         if (data == IntPtr.Zero || info.Width <= 0 || info.Height <= 0) return null;
@@ -195,7 +198,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
             {
                 Buffer.MemoryCopy(src + (long)y * sourceStride, dst + (long)y * rowBytes, rowBytes, rowBytes);
             }
-            var published = pool.Publish(slot);
+            var published = pool.Publish(slot, arrivalClock);
             if (published is not null)
             {
                 pooled = true;
@@ -220,14 +223,35 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         => DrawFrame(canvas, dest, paint, FrameCrop.None);
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
+        => Draw(canvas, dest, paint, in crop).Drew;
+
+    /// <summary>
+    /// The newest frame through a lease — the pool records this sink as drawing it under the
+    /// pool's own lock, so the buffer stays until this frame's next — or, for a frame that went
+    /// the old way, the image and the clock taken together under the receiver's lock. What
+    /// comes back is the drawn frame's own clock.
+    /// </summary>
+    public DrawnFrame Draw(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
     {
+        if (_pool is { } pool && pool.TryLease(out var lease))
+        {
+            DrawImage(canvas, lease.Image, dest, paint, in crop);
+            return new DrawnFrame(true, lease.ArrivalClock, true, lease.Generation);
+        }
         SKImage? image;
+        double clock;
         lock (_gate)
         {
             image = _latest;
+            clock = _latestClock;
         }
-        if (image is null) return false;
-        if (_pool is { } pool && pool.Owns(image)) pool.Touch();   // this sink's frame holds the buffer until its next
+        if (image is null || (_pool is { } p && p.Owns(image))) return DrawnFrame.Nothing;   // a pooled image with no lease: the pool is gone under it
+        DrawImage(canvas, image, dest, paint, in crop);
+        return new DrawnFrame(true, clock, true);
+    }
+
+    private static void DrawImage(SKCanvas canvas, SKImage image, SKRect dest, SKPaint? paint, in FrameCrop crop)
+    {
         if (crop.Any)
         {
             canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Rendering.DrawUtil.Smooth, paint);
@@ -236,7 +260,6 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         {
             canvas.DrawImage(image, dest, Rendering.DrawUtil.Smooth, paint);
         }
-        return true;
     }
 
     public SKSizeI? FrameSize
@@ -282,6 +305,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         {
             if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
             _latest = null;
+            _latestClock = -1;
         }
         _pool?.Dispose();   // its buffers go once every sink has drawn past them
         _pool = null;

@@ -265,11 +265,11 @@ public sealed class MediaPattern : IPatternRenderer
         placed = Place(o, size, bounds, fit);
         var crop = o.Crop;
         var save = BeginTransform(c, in placed, o);
-        var drew = source.DrawFrame(c, placed.Transformed ? placed.Local : placed.Dest, paint, in crop);
+        var drawn = source.Draw(c, placed.Transformed ? placed.Local : placed.Dest, paint, in crop);
         if (save >= 0) c.RestoreToCount(save);
-        if (drew) f.Sink.Stages.NoteLive(source);                    // a camera or a feed: the frame's live input age reads from it
+        f.Sink.Stages.NoteLive(in drawn);                            // a camera or a feed: the frame's live input age reads from the frame drawn
         NoteInput(in f, in placed, key, in crop, bounds);
-        return drew;
+        return drawn.Drew;
     }
 
     /// <summary>A still through the area of interest, flips and turn.</summary>

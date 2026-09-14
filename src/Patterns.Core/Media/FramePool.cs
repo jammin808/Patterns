@@ -12,11 +12,14 @@ namespace Patterns.Core.Media;
 /// a decoder takes a free buffer, writes the frame into it (libVLC decodes straight into it,
 /// an NDI frame is copied once), and publishes it; the buffer it replaced is retired with a
 /// <see cref="RenderFence"/> mark and is free again once every sink that drew from the pool
-/// has drawn past it (a draw says so with <see cref="Touch"/>; the other sinks hold nothing). When
-/// every buffer is spoken for, <see cref="Acquire"/> says so rather than waits — the caller
-/// keeps a scratch buffer and the old path for that frame, and the count says how often. A
-/// source's memory is then a fixed number of frames, whatever it plays, and a steady second of
-/// video allocates nothing.
+/// has drawn past it. A sink draws through a lease (<see cref="TryLease"/>): under the pool's own
+/// lock it takes the newest frame's image, the show clock the frame arrived at and the slot's
+/// generation, and records itself as drawing from the pool — one step, so a publish landing
+/// between the fetch and the note cannot retire the leased buffer unnoticed: the frame's pixels,
+/// its timestamp and its ownership are one thing. When every buffer is spoken for,
+/// <see cref="Acquire"/> says so rather than waits — the caller keeps a scratch buffer and the old
+/// path for that frame, and the count says how often. A source's memory is then a fixed number
+/// of frames, whatever it plays, and a steady second of video allocates nothing.
 /// </summary>
 public sealed class FramePool : IDisposable
 {
@@ -30,11 +33,21 @@ public sealed class FramePool : IDisposable
     private readonly SKImage[] _images;
     private readonly Slot[] _slot;
     private readonly RenderFence.Mark[] _marks;
+    private readonly long[] _generation;
+    private readonly double[] _arrival;
     private readonly long[] _drewAt = new long[RenderFence.MaxSinks];
     private volatile SKImage? _latestImage;
     private int _latest = -1;
+    private long _published;
     private bool _disposed;
     private bool _freed;
+
+    /// <summary>
+    /// One frame as a sink holds it: the image, the slot it sits in, the generation of that slot
+    /// when it was leased (a later frame decoded into the same slot has a later one — a stale
+    /// lease never mistakes newer pixels for its own) and the show clock the frame arrived at.
+    /// </summary>
+    public readonly record struct FrameLease(SKImage Image, int Slot, long Generation, double ArrivalClock);
 
     public FramePool(SKImageInfo info, int rowBytes, int buffers)
     {
@@ -47,6 +60,9 @@ public sealed class FramePool : IDisposable
         _images = new SKImage[Count];
         _slot = new Slot[Count];
         _marks = new RenderFence.Mark[Count];
+        _generation = new long[Count];
+        _arrival = new double[Count];
+        Array.Fill(_arrival, -1);
         var bytes = (nuint)((long)rowBytes * info.Height);
         for (var i = 0; i < Count; i++)
         {
@@ -82,8 +98,55 @@ public sealed class FramePool : IDisposable
     /// <summary>Whether the frame is the pool's own (an image the pool made).</summary>
     public bool Owns(SKImage image) => Array.IndexOf(_images, image) >= 0;
 
-    /// <summary>A sink drew one of the pool's frames on its running frame: it is waited for until its next.</summary>
-    public void Touch() => RenderFence.Touch(_drewAt);
+    /// <summary>Frames published into the pool so far: the generation the next publish gets.</summary>
+    public long Published
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _published;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The newest frame for a draw, in one step under the pool's lock: the sink whose frame is
+    /// running is recorded as drawing from the pool, and the frame's image, slot, generation and
+    /// arrival clock come back together. False with nothing published, or a disposed pool.
+    /// </summary>
+    public bool TryLease(out FrameLease lease)
+    {
+        lock (_gate)
+        {
+            if (_disposed || _latest < 0)
+            {
+                lease = default;
+                return false;
+            }
+            RenderFence.Touch(_drewAt);
+            lease = new FrameLease(_images[_latest], _latest, _generation[_latest], _arrival[_latest]);
+            return true;
+        }
+    }
+
+    /// <summary>Whether a lease still names the pixels in its slot — false once the slot was handed to the writer again or a newer frame was published into it (the tests and the diagnostics ask).</summary>
+    public bool IsCurrent(in FrameLease lease)
+    {
+        lock (_gate)
+        {
+            return lease.Slot >= 0 && lease.Slot < Count && _generation[lease.Slot] == lease.Generation && _slot[lease.Slot] is Slot.Latest or Slot.Retired or Slot.Free;
+        }
+    }
+
+    /// <summary>The generation of the frame in a slot: 0 before its first publish.</summary>
+    public long GenerationOf(int slot)
+    {
+        lock (_gate)
+        {
+            return _generation[slot];
+        }
+    }
 
     /// <summary>A buffer nobody reads, marked locked for the writer; -1 when every one is spoken for.</summary>
     public int Acquire()
@@ -128,11 +191,12 @@ public sealed class FramePool : IDisposable
     }
 
     /// <summary>
-    /// The frame in the buffer goes on show: the previous frame retires behind a fence mark, and a
-    /// frame decoded but never shown is dropped — a decoder shows in order, so an older one it
-    /// skipped will not be shown later.
+    /// The frame in the buffer goes on show, stamped with the show clock it arrived at (the clock
+    /// now when the caller does not say): the previous frame retires behind a fence mark, the
+    /// slot's generation moves on, and a frame decoded but never shown is dropped — a decoder
+    /// shows in order, so an older one it skipped will not be shown later.
     /// </summary>
-    public SKImage? Publish(int slot)
+    public SKImage? Publish(int slot, double arrivalClock = -1)
     {
         lock (_gate)
         {
@@ -147,6 +211,8 @@ public sealed class FramePool : IDisposable
                 _marks[_latest] = RenderFence.Take();
             }
             _slot[slot] = Slot.Latest;
+            _generation[slot] = ++_published;
+            _arrival[slot] = arrivalClock >= 0 ? arrivalClock : Services.ShowClock.Seconds;
             _latest = slot;
             _latestImage = _images[slot];
             return _images[slot];

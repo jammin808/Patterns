@@ -7,10 +7,29 @@ namespace Patterns.Core.Media;
 /// rendering); the engine just composites frames. Implementations must make
 /// <see cref="DrawFrame"/> safe to call from any render thread.
 /// </summary>
+/// <summary>
+/// What a draw drew: whether it did, the show clock the drawn frame arrived at (-1 when the
+/// source does not time its frames), whether that frame is a live picture, and its generation
+/// (0 for a source that does not count). The clock is the drawn pixels' own — taken with them,
+/// never read from the source afterwards, when a newer frame may have arrived.
+/// </summary>
+public readonly record struct DrawnFrame(bool Drew, double FrameClock = -1, bool IsLive = false, long Generation = 0)
+{
+    public static readonly DrawnFrame Nothing = new(false);
+}
+
 public interface IVideoFrameSource
 {
     /// <summary>Draws the newest decoded frame into dest. Returns false when no frame is available yet.</summary>
     bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint);
+
+    /// <summary>
+    /// Draws the newest frame and says which frame it was — the clock and the liveness of the
+    /// pixels drawn. The default draws through <see cref="DrawFrame"/> and reports the source's
+    /// words; a source with timed frames overrides it to report the frame it actually drew.
+    /// </summary>
+    DrawnFrame Draw(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
+        => new(DrawFrame(canvas, dest, paint, in crop), FrameClock, IsLive);
 
     /// <summary>
     /// Draws the part of the newest frame that survives <paramref name="crop"/>, stretched into
@@ -188,19 +207,22 @@ public sealed class FrameSlot : IDisposable
 {
     private readonly object _gate = new();
     private SKImage? _latest;
+    private double _latestClock = -1;
     private long _publishedUtcTicks;
     private long _publishedClockBits = BitConverter.DoubleToInt64Bits(-1);
 
-    /// <summary>Takes ownership of <paramref name="image"/>; the previous frame retires.</summary>
+    /// <summary>Takes ownership of <paramref name="image"/>, stamped with the show clock now; the previous frame retires.</summary>
     public void Publish(SKImage image)
     {
+        var clock = Services.ShowClock.Seconds;
         lock (_gate)
         {
             Retire(_latest);
             _latest = image;
+            _latestClock = clock;
         }
         Interlocked.Exchange(ref _publishedUtcTicks, DateTime.UtcNow.Ticks);
-        Interlocked.Exchange(ref _publishedClockBits, BitConverter.DoubleToInt64Bits(Services.ShowClock.Seconds));
+        Interlocked.Exchange(ref _publishedClockBits, BitConverter.DoubleToInt64Bits(clock));
     }
 
     /// <summary>The show clock the newest frame arrived at (seconds; -1 before one): a source's <see cref="IVideoFrameSource.FrameClock"/>.</summary>
@@ -231,14 +253,19 @@ public sealed class FrameSlot : IDisposable
     /// <summary>When the newest frame arrived (UTC ticks; 0 = never).</summary>
     public long PublishedUtcTicks => Interlocked.Read(ref _publishedUtcTicks);
 
-    public bool Draw(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
+    public bool Draw(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop) => DrawTimed(canvas, dest, paint, in crop).Drew;
+
+    /// <summary>Draws the newest frame and reports the clock it arrived at — the drawn frame's own, taken with it.</summary>
+    public DrawnFrame DrawTimed(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
     {
         SKImage? image;
+        double clock;
         lock (_gate)
         {
             image = _latest;
+            clock = _latestClock;
         }
-        if (image is null) return false;
+        if (image is null) return DrawnFrame.Nothing;
         if (crop.Any)
         {
             canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Rendering.DrawUtil.Smooth, paint);
@@ -247,7 +274,7 @@ public sealed class FrameSlot : IDisposable
         {
             canvas.DrawImage(image, dest, Rendering.DrawUtil.Smooth, paint);
         }
-        return true;
+        return new DrawnFrame(true, clock);
     }
 
     /// <summary>Lets the newest frame go — a source nobody draws holds no picture; the next publish fills it again.</summary>
@@ -257,6 +284,7 @@ public sealed class FrameSlot : IDisposable
         {
             Retire(_latest);
             _latest = null;
+            _latestClock = -1;
         }
     }
 

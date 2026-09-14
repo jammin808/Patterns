@@ -529,6 +529,7 @@ public sealed class VlcFrameSource : IMountedSource
     private IntPtr _native;
     private int _nativePitch;
     private SKImage? _latest;
+    private double _latestClock = -1;
     private int _width;
     private int _height;
     private bool _disposed;
@@ -1030,16 +1031,36 @@ public sealed class VlcFrameSource : IMountedSource
         => DrawFrame(canvas, dest, paint, FrameCrop.None);
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
+        => Draw(canvas, dest, paint, in crop).Drew;
+
+    /// <summary>
+    /// The newest frame through a lease — the pool records this sink as drawing it under the
+    /// pool's own lock, so the buffer stays until this frame's next — or, for a frame that went
+    /// the old way, the image and its clock taken together under the source's lock. What comes
+    /// back is the drawn frame's own clock: the image is immutable and outlives any deferred
+    /// flush, a pooled one behind the render fence, any other via the retire hold.
+    /// </summary>
+    public DrawnFrame Draw(SKCanvas canvas, SKRect dest, SKPaint? paint, in FrameCrop crop)
     {
+        if (_pool is { } pool && pool.TryLease(out var lease))
+        {
+            DrawImage(canvas, lease.Image, dest, paint, in crop);
+            return new DrawnFrame(true, lease.ArrivalClock, _isCapture, lease.Generation);
+        }
         SKImage? image;
+        double clock;
         lock (_gate)
         {
             image = _latest;
+            clock = _latestClock;
         }
-        if (image is null) return false;
-        // The image is immutable and outlives any deferred flush: a pooled frame behind the render
-        // fence (this sink's frame holds it until its next), any other via the retire hold.
-        if (_pool is { } pool && pool.Owns(image)) pool.Touch();
+        if (image is null || (_pool is { } p && p.Owns(image))) return DrawnFrame.Nothing;   // a pooled image with no lease: the pool has gone under it
+        DrawImage(canvas, image, dest, paint, in crop);
+        return new DrawnFrame(true, clock, _isCapture);
+    }
+
+    private static void DrawImage(SKCanvas canvas, SKImage image, SKRect dest, SKPaint? paint, in FrameCrop crop)
+    {
         if (crop.Any)
         {
             canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
@@ -1048,7 +1069,6 @@ public sealed class VlcFrameSource : IMountedSource
         {
             canvas.DrawImage(image, dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
         }
-        return true;
     }
 
     private uint OnFormat(ref IntPtr opaque, IntPtr chroma, ref uint width, ref uint height, ref uint pitches, ref uint lines)
@@ -1121,17 +1141,19 @@ public sealed class VlcFrameSource : IMountedSource
     private unsafe void OnDisplay(IntPtr opaque, IntPtr picture)
     {
         var slot = (int)picture - 1;
-        Interlocked.Exchange(ref _frameClockBits, BitConverter.DoubleToInt64Bits(ShowClock.Seconds));   // the frame's arrival, on the show clock
+        var arrival = ShowClock.Seconds;                                                              // the frame's arrival, on the show clock: stamped on the frame
+        Interlocked.Exchange(ref _frameClockBits, BitConverter.DoubleToInt64Bits(arrival));
         lock (_gate)
         {
             if (slot >= 0 && _pool is { } pool)
             {
                 // The pooled picture goes on show as it is: no copy, nothing allocated; the frame it
                 // replaced waits on the render fence and is decoded into again.
-                var published = pool.Publish(slot);
+                var published = pool.Publish(slot, arrival);
                 if (published is null) return;
                 if (_latest is not null && !pool.Owns(_latest)) RetireImage(_latest);
                 _latest = published;
+                _latestClock = arrival;
                 return;
             }
             if (_native == IntPtr.Zero || _width <= 0) return;
@@ -1153,6 +1175,7 @@ public sealed class VlcFrameSource : IMountedSource
 
             if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
             _latest = image;
+            _latestClock = arrival;
         }
     }
 
@@ -1165,6 +1188,7 @@ public sealed class VlcFrameSource : IMountedSource
         }
         if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
         _latest = null;
+        _latestClock = -1;
         _pool?.Dispose();   // its buffers go once every sink has drawn past them
         _pool = null;
     }

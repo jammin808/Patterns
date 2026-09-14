@@ -20,7 +20,7 @@ public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Lab
                                         double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0, double LagMs = -1, double LagAverageMs = -1,
                                         int Faults = 0, int ConsecutiveFaults = 0, string LastFault = "",
                                         int TargetFps = 0, double LastSecondP95Ms = -1, int LastSecondMissed = 0,
-                                        double LiveAgeMs = -1)
+                                        double LiveAgeMs = -1, string LiveLast = "")
 {
     /// <summary>"Preview", "Output 1 (Main)", "Monitor PGM".</summary>
     public string Name => Kind switch
@@ -41,7 +41,7 @@ public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Lab
             var p95 = P95Ms >= 0 ? $" · p95 {P95Ms:0.0} ms" : "";
             var missed = Missed > 0 ? $" · {Missed} slots missed" : "";
             var lag = LagMs >= 0 ? $" · publish to first drawn frame worst {LagMs:0} ms" : "";
-            var live = LiveAgeMs >= 0 ? $" · live input age worst {LiveAgeMs:0} ms" : "";
+            var live = LiveAgeMs >= 0 ? $" · live input age worst {LiveAgeMs:0} ms{(LiveLast.Length > 0 ? $" ({LiveLast})" : "")}" : "";
             var faults = Faults > 0 ? $" · {Faults} fault{(Faults == 1 ? "" : "s")}" : "";
             return $"{Name} {AverageMs:0.0} ms avg{fps}{p95} · worst {WorstMs:0.0} ms{stage}{missed}{lag}{live}{faults}";
         }
@@ -154,6 +154,16 @@ public sealed class FrameBudget
     /// <summary>The worst live input age this session, ms; -1 before a live picture was drawn.</summary>
     public double WorstLiveAgeMs { get; private set; } = -1;
 
+    /// <summary>The last live picture drawn: its generation in its pool (0 uncounted), the show clock it arrived at, the clock of the frame that drew it and its age then — the diagnostics name the frame.</summary>
+    public readonly record struct LiveFrame(long Generation, double ArrivalClock, double DrawnClock, double AgeMs)
+    {
+        /// <summary>"last frame 184 arrived 621.338 s, drawn 621.371 s: 33 ms".</summary>
+        public string Words => $"last{(Generation > 0 ? $" frame {Generation}" : "")} arrived {ArrivalClock:0.000} s, drawn {DrawnClock:0.000} s: {AgeMs:0} ms";
+    }
+
+    /// <summary>The last live picture drawn; null before one.</summary>
+    public LiveFrame? LastLive { get; private set; }
+
     /// <summary>Render faults this session: frames whose draw threw. Each is counted as a frame, noted here, and the last good world is drawn in its place.</summary>
     public long Faults { get; private set; }
 
@@ -226,13 +236,14 @@ public sealed class FrameBudget
     /// the decoder (the source's <see cref="Media.IVideoFrameSource.FrameClock"/>) to now — on the
     /// second, the worst kept. The number IMAG is judged by, measured where the engine can see it.
     /// </summary>
-    public void RecordLiveAge(double ageMs, double clockSeconds)
+    public void RecordLiveAge(double ageMs, double clockSeconds, long generation = 0, double arrivalClock = -1)
     {
         if (ageMs < 0) ageMs = 0;
         var second = (long)Math.Floor(clockSeconds);
         lock (_gate)
         {
             if (ageMs > WorstLiveAgeMs) WorstLiveAgeMs = ageMs;
+            LastLive = new LiveFrame(generation, arrivalClock >= 0 ? arrivalClock : clockSeconds - ageMs / 1000.0, clockSeconds, ageMs);
             ref var b = ref _buckets[(int)(((second % Window) + Window) % Window)];
             if (b.Second != second)
             {
@@ -413,7 +424,8 @@ public sealed class FrameBudget
             return new FrameBudgetReading(Kind, SinkIndex, Label, Frames, SlowFrames, frames,
                 frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst, p95, missed,
                 lagCount > 0 ? lagWorst : -1, lagCount > 0 ? lagSum / lagCount : -1,
-                faults, ConsecutiveFaults, LastFault, TargetFps, lastSecondP95, lastSecondMissed, liveWorst);
+                faults, ConsecutiveFaults, LastFault, TargetFps, lastSecondP95, lastSecondMissed, liveWorst,
+                liveWorst >= 0 && LastLive is { } last ? last.Words : "");
         }
     }
 
@@ -444,6 +456,7 @@ public sealed class FrameBudget
             WorstEverStage = "";
             WorstLagMs = -1;
             WorstLiveAgeMs = -1;
+            LastLive = null;
             Faults = 0;
             ConsecutiveFaults = 0;
             LastFault = "";

@@ -100,10 +100,8 @@ public class MemoryAppTests
 
         public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
         {
-            var image = Pool.Latest;
-            if (image is null) return false;
-            if (Pool.Owns(image)) Pool.Touch();
-            canvas.DrawImage(image, dest, paint);
+            if (!Pool.TryLease(out var lease)) return false;                                            // the lease notes this sink under the pool's lock
+            canvas.DrawImage(lease.Image, dest, paint);
             Drawn++;
             return true;
         }

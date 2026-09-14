@@ -154,8 +154,9 @@ public static class LayerRenderer
                 var cropped = crop.SourceRect(size);
                 var dest = DrawUtil.Fit(new SKSizeI(Math.Max(1, (int)cropped.Width), Math.Max(1, (int)cropped.Height)), rect, l.Fit);
                 using var paint = new SKPaint { Color = new SKColor(255, 255, 255, alpha), IsAntialias = true };
-                if (!source.DrawFrame(c, dest, paint, in crop)) return false;
-                f.Sink.Stages.NoteLive(source);
+                var drawn = source.Draw(c, dest, paint, in crop);
+                if (!drawn.Drew) return false;
+                f.Sink.Stages.NoteLive(in drawn);
                 picture = dest;
                 if (l.Source == LayerSource.Web && l.WebShowPointer && source is IWebSource web)
                 {

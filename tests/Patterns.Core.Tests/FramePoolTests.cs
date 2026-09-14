@@ -94,11 +94,16 @@ public class FramePoolTests : IDisposable
         Assert.Equal(0, slot);
         var px = (uint*)pool.Pointer(slot);
         px[0] = 0xFFFF0000;                                                                              // BGRA in memory: 00 00 FF FF — red
-        var image = pool.Publish(slot)!;
+        var image = pool.Publish(slot, 10.0)!;
         Assert.Same(image, pool.Latest);
         Assert.True(pool.Owns(image));
         Assert.Equal(sink, RenderFence.CurrentSink);
-        pool.Touch();                                                                                    // the sink draws it on its running frame
+        Assert.True(pool.TryLease(out var lease));                                                       // the sink draws it on its running frame
+        Assert.Same(image, lease.Image);
+        Assert.Equal(0, lease.Slot);
+        Assert.Equal(1, lease.Generation);
+        Assert.Equal(10.0, lease.ArrivalClock);
+        Assert.True(pool.IsCurrent(in lease));
         using (var pixmap = image.PeekPixels())
         {
             Assert.Equal(new SKColor(0xFF, 0x00, 0x00), pixmap.GetPixelColor(0, 0));                    // the image reads the buffer
@@ -120,7 +125,10 @@ public class FramePoolTests : IDisposable
         RenderFence.Advance(sink);                                                                       // the sink drew a new frame: 0 is free again
         Assert.Equal(0, pool.Acquire());
         Assert.Equal(0, pool.Retired);
-        pool.Touch();                                                                                    // and that frame draws the one on show (1)
+        Assert.True(pool.TryLease(out var onShow));                                                      // and that frame draws the one on show (1)
+        Assert.Equal(1, onShow.Slot);
+        Assert.Equal(2, onShow.Generation);
+        Assert.False(pool.IsCurrent(in lease));                                                          // the first lease's slot is being decoded into again: stale, and it knows
 
         // A frame decoded but never shown is dropped when a later one is shown; a released frame is free at once.
         pool.Decoded(2);
@@ -142,7 +150,7 @@ public class FramePoolTests : IDisposable
         RenderFence.Advance(b);                                                                          // b drew a static page and stopped
         RenderFence.Advance(a);
         pool.Publish(pool.Acquire());
-        pool.Touch();                                                                                    // a drew the frame
+        Assert.True(pool.TryLease(out _));                                                               // a drew the frame
         pool.Publish(pool.Acquire());                                                                    // frame 0 retires
         pool.Acquire(); pool.Acquire();
         Assert.Equal(-1, pool.Acquire());                                                                // a is still on the frame that drew it
@@ -155,11 +163,63 @@ public class FramePoolTests : IDisposable
         var d = RenderFence.Register();
         using var other = new FramePool(info, 8, 4);
         other.Publish(other.Acquire());
-        other.Touch();                                                                                   // no frame running here
+        Assert.True(other.TryLease(out _));                                                              // no frame running here: a lease notes nothing
         RenderFence.Advance(d);                                                                          // d starts a frame after: it did not draw the old picture
         other.Publish(other.Acquire());                                                                  // 0 retires
         Assert.Equal(0, other.Acquire());                                                                // and is free at once: nothing held it
         RenderFence.Unregister(d);
+    }
+
+    [Fact]
+    public void ALeaseIsOneStepSoAPublishBetweenTheLeaseAndTheDrawCannotFreeTheLeasedBuffer()
+    {
+        // The race the lease closes: a sink fetched frame A, the decoder published B (A's slot
+        // retired) and acquired a slot for C before the sink had noted itself — A's slot came
+        // back to the decoder under the sink's draw. With the lease the note and the fetch are
+        // one step under the pool's lock: whichever side goes first, the leased slot waits.
+        var sink = RenderFence.Register();
+        RenderFence.Advance(sink);
+        var info = new SKImageInfo(2, 2, SKColorType.Bgra8888, SKAlphaType.Opaque);
+        using var pool = new FramePool(info, 8, 4);
+        var a = pool.Acquire();
+        pool.Publish(a, 100.000);
+        Assert.True(pool.TryLease(out var leaseA));                                                      // the sink's draw begins: A, arrived at 100.000
+        Assert.Equal(100.000, leaseA.ArrivalClock);
+        Assert.Equal(1, leaseA.Generation);
+
+        var b = pool.Acquire();
+        pool.Publish(b, 100.017);                                                                        // the decoder moves on: A retires behind the sink's frame
+        var c = pool.Acquire();
+        var d = pool.Acquire();
+        Assert.NotEqual(a, c);
+        Assert.NotEqual(a, d);
+        Assert.Equal(-1, pool.Acquire());                                                                // A's slot is not handed out: the sink that leased it has not started another frame
+        Assert.True(pool.IsCurrent(in leaseA));                                                          // its pixels are still A's
+        Assert.Equal(100.000, leaseA.ArrivalClock);                                                      // and its clock is A's, whatever arrived since
+
+        RenderFence.Advance(sink);                                                                       // the sink's next frame: the draw of A is over
+        Assert.Equal(a, pool.Acquire());                                                                 // now, and only now, A's slot goes round again
+        pool.Publish(a, 100.050);
+        Assert.False(pool.IsCurrent(in leaseA));                                                         // the stale lease knows the slot moved on
+        Assert.Equal(3, pool.GenerationOf(a));                                                           // the third frame published (C and D were taken, never shown)
+        RenderFence.Unregister(sink);
+    }
+
+    [Fact]
+    public void ALeaseOffAFrameNotesNothingAndTheSlotGoesRoundAtOnce()
+    {
+        // A thumbnail on a worker, a test: no sink's frame is running, the draw completes before it
+        // returns, and nothing waits for it.
+        var info = new SKImageInfo(2, 2, SKColorType.Bgra8888, SKAlphaType.Opaque);
+        using var pool = new FramePool(info, 8, 4);
+        pool.Publish(pool.Acquire(), 1.0);
+        Assert.True(pool.TryLease(out var lease));
+        Assert.Equal(1.0, lease.ArrivalClock);
+        pool.Publish(pool.Acquire(), 1.1);
+        Assert.Equal(0, pool.Acquire());                                                                 // the old frame's slot: free at once, nothing held it
+        Assert.False(pool.TryLease(out _) && false);
+        using var none = new FramePool(info, 8, 4);
+        Assert.False(none.TryLease(out _));                                                              // nothing published yet: no frame to lease
     }
 
     [Fact]
@@ -170,7 +230,7 @@ public class FramePoolTests : IDisposable
         var info = new SKImageInfo(2, 2, SKColorType.Bgra8888, SKAlphaType.Opaque);
         var pool = new FramePool(info, 8, 4);
         pool.Publish(pool.Acquire());
-        pool.Touch();                                                                                    // the sink is drawing the pool's frame
+        Assert.True(pool.TryLease(out _));                                                               // the sink is drawing the pool's frame
         pool.Publish(pool.Acquire());
         var before = FramePools.Count;
         pool.Dispose();
@@ -203,11 +263,14 @@ public class FramePoolTests : IDisposable
             MemoryBudget.MachineMB = 16384;
             try
             {
-                var first = NdiReceiver.PublishInto(ref pool, info, 32, frame, stride, out var pooled)!;
+                var first = NdiReceiver.PublishInto(ref pool, info, 32, frame, stride, out var pooled, 42.5)!;
                 Assert.True(pooled);
                 Assert.NotNull(pool);
+                Assert.True(pool!.TryLease(out var firstLease));
+                Assert.Equal(42.5, firstLease.ArrivalClock);                                             // the frame carries the clock it was published with
+                Assert.Equal(1, firstLease.Generation);
                 Assert.Equal(8, pool!.Count);                                                            // a tiny frame: the cap
-                pool.Touch();                                                                            // the sink draws from the pool on its running frame
+                Assert.True(pool.TryLease(out _));                                                       // the sink draws from the pool on its running frame
                 using (var pixmap = first.PeekPixels())
                 {
                     Assert.Equal(new SKColor(0x70, 0x00, 0xC0), pixmap.GetPixelColor(7, 3));            // x 7 → red 0x70, y 3 → blue 0xC0

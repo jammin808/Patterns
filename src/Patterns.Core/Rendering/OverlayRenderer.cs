@@ -585,9 +585,9 @@ public static class OverlayRenderer
         var alpha = (byte)Math.Clamp(pip.Opacity * 255, 0, 255);
         using var paint = new SKPaint { Color = new SKColor(255, 255, 255, alpha), IsAntialias = true };
 
-        var drewPip = source is not null && source.DrawFrame(c, rect, paint, in crop);
-        if (drewPip) sink.Stages.NoteLive(source!);
-        if (!drewPip)
+        var drawnPip = source is null ? DrawnFrame.Nothing : source.Draw(c, rect, paint, in crop);
+        sink.Stages.NoteLive(in drawnPip);
+        if (!drawnPip.Drew)
         {
             // No frames yet — a quiet slate so the operator sees where the inset will be.
             c.DrawRoundRect(rect, 6, 6, pc.FillAA(new SKColor(0x10, 0x12, 0x18, alpha)));
