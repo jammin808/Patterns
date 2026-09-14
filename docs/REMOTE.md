@@ -227,12 +227,12 @@ HELLO on the wire and what module it runs), `linked` (the caller nodes linked to
 `stage{timer{phase,remaining,text,colour,progress,label,paused},segment,next,pendingSpeaker,pendingCrew,flash}`
 (the speaker's timer in its own colour word — green, amber, red — the running order's cue and the next, the
 messages waiting for their ACK, the flash); a node appearing, the twin's phase moving or a message to the stage
-waiting is a push of its own. And `stream{active,status}`, `health`, `quality{mode,level,factor,text}` (the effects' quality ladder: Auto / Full / Balanced / Economy, the level 0–3, its factor, the Machine page's line — why the level is what it is, where Auto started, and the last second judged against its sink's own budget at its rate), `memory{appMB,ceilingMB,text}` (the app's working set against its ceiling and the MEMORY CEILINGS line), `machine{cpu,ram,fps,battery,advice,renderFaults,faulting}` — machine load
+waiting is a push of its own. And `stream{active,status}`, `health`, `quality{mode,level,factor,text}` (the effects' quality ladder: Auto / Full / Balanced / Economy, the level 0–3, its factor, the Machine page's line — why the level is what it is, where Auto started, and the last second judged against its sink's own budget at its rate), `memory{appMB,ceilingMB,text,privateMB,managedMB,pictureMB,framePoolMB,placed}` (the app's working set against its ceiling and the MEMORY CEILINGS line; round 57 adds the private bytes, the managed heap, the picture cache and the frame pools in MB, and `placed` — the ledger's line, the app's memory by owner, largest first), `machine{cpu,ram,fps,battery,advice,renderFaults,faulting,liveAgeMs}` — machine load
 (percent, -1 = unknown), output frame rate, whether the computer is on battery, and how
 many Machine-page suggestions currently need attention, the render faults of the last minute across the outputs (frames whose draw threw; the last good picture was drawn in their place) and whether an output is faulting right now — and `beacon{sending,listening,main}`:
 whether this machine sends its heartbeat beacon, whether it listens for a main machine's, and
 what it makes of it ("Main machine MAIN seen 1 s ago: live · Walk-in", "MAIN MACHINE MAIN SILENT
-for 6 s — … Take over?", or empty when not listening).
+for 6 s — … Take over?", or empty when not listening). `liveAgeMs` (round 57) is the oldest camera or feed picture an output drew in the last minute, from its arrival in the decoder to the end of the frame that drew it, in ms — the IMAG number; -1 with no live picture drawn; the card's own delay and the screen's are not in it.
 
 ## Remote multiview
 

@@ -106,8 +106,29 @@ boxes themselves: `devices_failing` (how many Interactive devices' last word was
 `device_last_reply` (*Projector: POWR: OK — accepted*) and `device_last_failure` (*Projector:
 INPUT HDMI 2 — no answer in 2 s*), with a `device_failing` feedback (any device, or a named one)
 in the device colour `fault` (red) beside `device_open` (green). The palette rows are held equal
-on both sides by the desk's test as before. The module's version stays 3.0.0: the ids added are
-new, none changed.
+on both sides by the desk's test as before. The module's version stayed 3.0.0: the ids added were
+new, none changed — and that is the rule round 57 learnt the hard way (§7).
+
+## 7. Round 57 additions
+
+**The version rule.** Companion 5 refuses a module whose id and version it already has (*Module
+patterns v3.0.0 already exists*), and its file import wants the tgz, not the zip GitHub wraps
+round a CI artifact. Every build that changes anything now moves the version — 3.1.0 this round —
+in every file that carries it (the package, the manifest, `MODULE_VERSION`, the desk's
+`CompanionModule.Version`, the HELLO), and a packaging test builds the module the way
+`companion-module-build` does and checks what Companion's installer, scanner and process manager
+check: the root directory, the manifest, a runtime Companion 5 bundles, the api version, the
+entrypoint, the version everywhere. Installing a build: unzip the artifact, remove the old version
+in Companion, import the tgz; the module's README says it in full.
+
+**One variable, one feedback.** `machine_live_age`: the oldest camera or feed picture an output
+drew in the last minute, from its arrival in the decoder to the end of the frame that drew it —
+*33 ms*, or *n/a* with no live picture drawn. The IMAG number, for a button that shows the room's
+delay is where it should be; the card's own delay and the screen's are not in it, and the desk's
+super-check says the same. `live_age_over` lights a button when that age passes a limit (80 ms by
+default — the super-check's red line) in the screen colour `fault`, so the IMAG operator's deck
+goes red before the room notices. The palette rows are unchanged: the feedback wears a colour the
+desk already holds.
 
 ## Sources
 

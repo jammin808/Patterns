@@ -7210,3 +7210,115 @@ single machine first; they are next. The P2 queue beyond the three built here (2
 and P3. A pipes-and-filters render graph (the frame input and the geometry cache are its first
 two nodes). Per-lane budgets for the steady lane (it runs whole; only the housekeeping lane is
 budgeted). A ladder step for the lower third's text or the test card: never — they are the show.
+
+## 75. Round 57 — Companion 5 imports the module; memory placed and bounded; the live picture's age
+
+*Three asks in one brief: the Companion module refusing to import into Companion 5.0.5; memory
+handled more efficiently, with research and something built for Patterns; capture-to-screen
+latency for IMAG, direct output per screen, and whether a player of Patterns' own is worth it.
+The twin's items still wait, at the brief's direction.*
+
+### 75.1 The Companion module imports into Companion 5 (57.1)
+
+The cause, found by reading Companion 5.0.5's installer rather than the module: the tgz's schema,
+runtime and entrypoint were right, and Companion's `validateManifest` passes it in the strict mode
+its scanner uses; but the module had been released three times under one version (3.0.0), and
+Companion refuses a module whose id and version it already has — *Module patterns v3.0.0 already
+exists* — while the CI artifact is a zip wrapped round the tgz, which the file import unpacks as
+neither. The fix is discipline and a proof: the version moves to 3.1.0 in every file that reads
+it (`package.json`, the manifest, `MODULE_VERSION`, the desk's `CompanionModule.Version`, the
+HELLO), a `LICENSE` the package includes, README and HELP sections on installing a build (unzip
+the artifact, remove the old version in Companion, import the tgz), and a packaging test that
+builds the module the way `companion-module-build` does and asserts what Companion's installer,
+scanner and process manager check: the root directory, the manifest, a runtime among the ones
+Companion 5 bundles (`node18`, `node22`, `node26`), the api version the host's base accepts, the
+entrypoint importable, the version equal everywhere. CI runs it and `companion-module-check`.
+
+### 75.2 Memory placed, bounded in bytes, and a steady second that allocates nothing (57.2)
+
+The research is `docs/MEMORY-RESEARCH.md`: what the runtime, Skia, Avalonia, libVLC and the NDI
+SDK each hold, what a game engine does with the same problem, and what maps. Built from it:
+
+- **The render fence** (`RenderFence`). Every sink advances at the start of each frame; a buffer
+  retired at a mark is free once every live sink that drew from its pool has started a frame
+  after the mark (the start of a frame is the proof the last one flushed), or after 500 ms; a
+  sink idle two seconds is asleep, not mid-frame, and a sink that never started a frame holds
+  nothing. *That drew from its pool* matters: a source's draw notes the pool on the sink whose
+  frame is running (`FramePool.Touch`, a thread-static sink id set by the frame's start), so a
+  preview that drew a static page once and stopped does not hold every pool for half a second —
+  without it every desk click that redrew a preview would have starved the pools for two
+  seconds. Two hundred and fifty-six seats, the longest-idle reused.
+- **The frame pool** (`FramePool`). A live source's frames in four to eight buffers sized once,
+  each wrapped once as a raster image over its own memory (`SKImage.FromPixels`: no copy, the
+  image reads the buffer). libVLC decodes straight into a pooled buffer (lock hands the slot,
+  unlock marks it decoded, display publishes it); an NDI frame is copied once (`PublishInto`);
+  the buffer a publish replaces retires behind the fence and is decoded into again. Every
+  buffer spoken for: that frame goes the old way and is counted (`Starved`). A source's memory
+  is a fixed number of frames whatever it plays, and a steady second of video allocates nothing.
+- **Byte budgets by machine class** (`MemoryBudget.MachineClass`: Small under 8 GB, Standard
+  under 32, Big past it): the picture cache (128 / 256 / 512 MB, LRU, thirty-two pictures at
+  most, its graveyard bounded by time and by half the budget), the frame pool per source (48 /
+  64 / 96 MB — eight 1080p frames, four at 4K), Skia's GPU resource cache (64 / 128 / 256 MB
+  through `SkiaOptions.MaxGpuResourceSizeBytes`).
+- **The ledger** (`MemoryLedger`). Owners register a reader; the Machine page's line places the
+  app's memory — pictures, frame pools, frames held, deck pages, the managed heap — largest
+  first, beside the private bytes and the managed heap the metrics now sample (CSV `privateMB`,
+  `managedMB`; STATE's memory block; the super-check's row; the assistant's brief). A line that
+  only climbs is a leak, and the ledger says where.
+- **Kept**: the GC's concurrent, RetainVM and sustained-low-latency settings on air; no hard heap
+  limit, no server GC, no ConserveMemory — the research says why each.
+
+### 75.3 The live picture's age; a low-latency profile; direct output per screen; the player (57.3)
+
+The research is `docs/PLAYER-RESEARCH.md`: the chain from the card to the glass with a number on
+each link, what libVLC gives and what it costs, what a Patterns engine would be, and the verdict.
+
+- **The live input age, measured.** Nothing stamped an input frame before: the GO clock and the
+  budgets start at a publish, the desk to the glass, never a camera to the glass. A live source
+  stamps the show clock when a frame is handed over (`IVideoFrameSource.FrameClock`; `IsLive` for
+  a capture device and an NDI feed — a clip is not live), every draw of a live frame notes the
+  oldest one on the frame's stages (`FrameStages.NoteLive`, at the pattern, a layer, the PiP and
+  the multiview's tiles), and the sink's budget records the age from that arrival to the end of
+  the frame that drew it (`FrameBudget.RecordLiveAge`). It reads on the glance line (*live 33
+  ms*), the render line, the super-check's *Live input* row (green to 40 ms, amber to 80, red
+  past), the CSV (`liveAgeWorstMs`), STATE's machine row (`liveAgeMs`) and Companion
+  (`machine_live_age`, and a `live_age_over` feedback that lights a button past a limit — 80 ms
+  by default — in a colour the palette already holds). The words claim the app's share — decoder
+  to frame — not the card and not the display; SYNC CHECK still measures the whole.
+- **Low latency (IMAG) per capture device** (`CaptureFormatConfig.LowLatency`, stored beside the
+  mode; on the Media page and the PiP's): libVLC opens the device with `live-caching=0`,
+  `clock-jitter=0` and `clock-synchro=0` instead of the 80 ms confidence buffer; a change reopens
+  the decoder like a mode change; the trade — a hitch drops a frame rather than shows it late — is
+  on the checkbox.
+- **Direct output per screen** is what the tick already is: per window, the composition flags
+  and Windows' exclusive flip when a window covers its display. The process-wide part is the swap
+  chain kind Avalonia picks at start, harmless to a window that composes. A swap chain of our own
+  per direct output is the player's second phase.
+- **The player.** The verdict: a Patterns engine beside libVLC, not instead of it — Media
+  Foundation capture and FFmpeg decode with D3D11VA into GPU frames on the show clock as the
+  master, behind the seam that already exists (`IMountedSource`, `IVideoFrameSource`, the input
+  bus, the engine's reconcile), phased and measured; the node player is a profile of the same
+  engine. Not built this round; the measurement it is judged by is.
+
+### 75.4 Tests, docs (57.4)
+
+Core: the fence's rules and the per-pool rule; the pool's images over its buffers, a replaced
+buffer waiting on the fence; a disposed pool freed behind it; an NDI frame into the pool with one
+copy and the old way when every buffer is fenced; the ledger; the picture cache in bytes; the
+metrics ring; the frame's oldest live picture and the slot's clock; the budget's live age and
+its words; the sample, the CSV and the check's row; the profile stored beside the mode and on the
+wanted input; the module's version one number. App: the Machine page, STATE and the brief
+placing the memory; a sink's frame freeing a pooled frame it drew, through a real source on the
+bus; a camera's frame aged from the decoder to the frame and said everywhere, a file's not; the
+desk's picker storing the profile; the capture options for the profile, the decoder reopened for
+it. Module: the package built the way Companion imports it (seventeen, in all). Docs: this
+section, REVIEW round 57, README, REMOTE.md, COMPANION.md, the module's README and HELP, the two
+research notes.
+
+### 75.5 Considered and left
+
+A hard managed-heap limit (the pictures are native; it would fire on the wrong number). Server
+GC (a desk is one process on one machine; the pauses are the point). Per-window swap chains now
+(the player's second phase, once the live age says the app's share is where the time goes). A
+frame-end signal on the fence (Avalonia flushes after the draw op returns; the next frame's start
+is the proof, and the fallback bounds it). The twin's items, still.

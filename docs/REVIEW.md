@@ -1353,3 +1353,56 @@ unit a commit, each proven by both suites before the next.*
 
 Counts at the end of the round: Core 1,257, App 647 — both suites green here, the module's
 thirteen beside them.
+
+## Round 57 review — Companion 5, memory, the live picture's age
+
+*Three asks in one brief, each a unit and a commit, each proven by both suites before the next;
+the twin's items left for later at the brief's direction.*
+
+### 57.1 — the Companion module imports into Companion 5.0.5
+
+- **Found.** Not a schema or runtime fault: Companion 5 refuses a module whose id and version it
+  already has, and the module had shipped three times as 3.0.0; the CI artifact is a zip round
+  the tgz, which the file import does not unpack. §75.1.
+- **Done.** 3.1.0 everywhere, a real `LICENSE`, install words in the README and the HELP, a
+  packaging test that builds the package and asserts what Companion's installer, scanner and
+  process manager check, and CI running it and `companion-module-check`.
+- **The honest limit:** Companion itself was not run here; the test mirrors its checks from its
+  source at v5.0.5, read on GitHub.
+
+### 57.2 — memory placed, bounded in bytes, and a steady second of video that allocates nothing
+
+- **Done.** The render fence, the frame pool under libVLC and NDI, byte budgets by machine
+  class, the picture cache in bytes, the ledger and the new samples. §75.2 and
+  `docs/MEMORY-RESEARCH.md`.
+- **Fixed in the round:** the first fence held every pool for any sink that had drawn once in
+  the last two seconds — a headless boot's previews, and on a desk every click that redrew a
+  preview; the pool's table of who drew it (`Touch`) is the fix, and the App test now draws a
+  pooled frame through a real source on the bus rather than assuming the boot's sinks are quiet.
+- **The honest limit:** proven headless on the raster backend; libVLC's lock/unlock/display
+  into the pool is written to libVLC's contract and not run here; the fallback is time; the
+  ledger sees what registers.
+
+### 57.3 — the live picture's age, the low-latency profile, the player question
+
+- **Done.** A live source stamps its frames; the frame keeps the oldest live picture it drew;
+  the budget ages it at the frame's end; the glance, the render line, the super-check's *Live
+  input* row, the CSV, STATE and Companion carry it. The low-latency profile per capture device
+  beside the mode, on the Media page and the PiP's, reopening the decoder. §75.3 and
+  `docs/PLAYER-RESEARCH.md` — the chain, the verdict, the phased plan.
+- **Kept deliberate:** a web page and the arcade time their frames but are not live — their age
+  is not IMAG; the words say *decoder to frame*, never the card or the screen.
+- **The honest limit:** no capture card, no NDI runtime, no GPU and no Windows here; the age is
+  proven with a timed fake source on an output; the profile's options are asserted, not opened;
+  the chain's other links carry the research's numbers, not measurements from this machine.
+
+### Seen, and noted
+
+- The App suite's `MemoryAppTests` fence test failed once in a full run and passed alone: the
+  boot's own sinks had drawn within two seconds. A real flaw in the fence's rule, fixed above,
+  not a test wobble.
+- CI's Windows job, the portable exe and Companion's own import were not run here; the branch is
+  pushed for them.
+
+Counts at the end of the round: Core 1,270, App 652 — both suites green here, the module's
+seventeen beside them.
