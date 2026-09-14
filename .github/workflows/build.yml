@@ -27,6 +27,32 @@ jobs:
           path: "**/TestResults/*.trx"
           if-no-files-found: ignore
 
+  companion-module:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/companion-module-patterns
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: integrations/companion-module-patterns/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Lines are current
+        run: node test/emit-lines.mjs | diff - test/lines.txt
+      - name: Package for Companion
+        run: npm run package
+      - name: Upload module package
+        uses: actions/upload-artifact@v5
+        with:
+          name: companion-module-patterns
+          path: integrations/companion-module-patterns/*.tgz
+
   portable-exe:
     runs-on: windows-latest
     needs: test

@@ -1,21 +1,26 @@
 {
-  "id": "jammin808-patterns",
-  "name": "jammin808-patterns",
-  "shortname": "patterns",
-  "description": "Control the Patterns show display suite (cue stack GO / standby / hold, looks, lower thirds, presenter steps, transport, screens, audio, break music)",
-  "version": "2.8.0",
-  "license": "MIT",
-  "repository": "https://github.com/jammin808/Patterns",
-  "bugs": "https://github.com/jammin808/Patterns/issues",
-  "maintainers": [{ "name": "jammin808" }],
-  "legacyIds": [],
-  "runtime": {
-    "type": "node18",
-    "api": "nodejs-ipc",
-    "apiVersion": "0.0.0",
-    "entrypoint": "../main.js"
-  },
-  "manufacturer": "jammin808",
-  "products": ["Patterns"],
-  "keywords": ["patterns", "display", "led", "test pattern", "show"]
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
+	"type": "connection",
+	"id": "jammin808-patterns",
+	"name": "jammin808-patterns",
+	"shortname": "patterns",
+	"description": "Control the Patterns show display suite — the cue stack, looks, screens, lower thirds, stingers, overlays, the stage timer, the nodes and the twin — with live feedback; finds the desk on the network by itself",
+	"version": "3.0.0",
+	"license": "MIT",
+	"repository": "https://github.com/jammin808/Patterns",
+	"bugs": "https://github.com/jammin808/Patterns/issues",
+	"maintainers": [{ "name": "jammin808" }],
+	"legacyIds": [],
+	"runtime": {
+		"type": "node22",
+		"api": "nodejs-ipc",
+		"apiVersion": "2.1.3",
+		"entrypoint": "../src/main.js"
+	},
+	"manufacturer": "jammin808",
+	"products": ["Patterns"],
+	"keywords": ["patterns", "display", "led", "test pattern", "show", "stage timer", "cue stack"],
+	"bonjourQueries": {
+		"desk": { "type": "patterns", "protocol": "tcp" }
+	}
 }
