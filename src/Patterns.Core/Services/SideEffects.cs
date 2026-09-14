@@ -25,15 +25,16 @@ public static class SideEffectDomains
     /// sink may draw, which the media locator walks (the pattern, the independent screens, the
     /// multiviews' tiles, the overlays' inset, the lower thirds' elements, the web config), the
     /// cues ahead the pre-roll opens for, the stingers that own screens, the audio routing the
-    /// taps follow, the capture formats, the switcher's staged tiles, the mode and blackout.
+    /// taps follow, the monitor rule that decides which bus each mount's sound belongs on, the
+    /// capture formats, the switcher's staged tiles, the mode and blackout.
     /// </summary>
     public static readonly IReadOnlyList<string> Inputs = new[]
     {
         nameof(ShowState.Pattern), nameof(ShowState.Independent), nameof(ShowState.Multiviews), nameof(ShowState.Overlays),
         nameof(ShowState.LowerThirds), nameof(ShowState.Web), nameof(ShowState.Ndi), nameof(ShowState.Output),
         nameof(ShowState.LooksAndCues), nameof(ShowState.Stacks), nameof(ShowState.Stingers), nameof(ShowState.AudioRouting),
-        nameof(ShowState.Presenter), nameof(ShowState.Switcher), nameof(ShowState.CaptureFormats), nameof(ShowState.MediaLibrary),
-        nameof(ShowState.Mode), nameof(ShowState.Blackout),
+        nameof(ShowState.Monitor), nameof(ShowState.Presenter), nameof(ShowState.Switcher), nameof(ShowState.CaptureFormats),
+        nameof(ShowState.MediaLibrary), nameof(ShowState.Mode), nameof(ShowState.Blackout),
     };
 
     /// <summary>OSC in and out: the remote's config.</summary>

@@ -81,7 +81,7 @@
                   SelectedItem="{Binding CaptureFormat.Selected, Mode=TwoWay}" HorizontalAlignment="Stretch" />
       </Grid>
       <CheckBox Margin="0,4,0,0" Content="Low latency (IMAG)" IsChecked="{Binding CaptureFormat.LowLatency, Mode=TwoWay}"
-                ToolTip.Tip="For a camera the room sees beside the speaker (IMAG): the decoder opens the device with no input buffer (the default keeps 80 ms) and no clock smoothing, so a frame reaches the screen as soon as it is decoded. The price: a hitch drops a frame rather than shows it late. Leave it off for a confidence monitor or a feed that must never skip. The Machine page's super-check and the glance line say how old the live picture on the screens is, decoder to frame." />
+                ToolTip.Tip="For a camera the room sees beside the speaker (IMAG): the decoder opens the device with no input buffer (the default keeps 80 ms) and no clock smoothing, so a frame reaches the screen as soon as it is decoded. The price: a hitch drops a frame rather than shows it late. Leave it off for a confidence monitor or a feed that must never skip. The Machine page's super-check and the glance line say how old the live picture on the screens is, decoder to frame. Changing it, or the Format, while this device is on air does not restart the picture: the change is staged and applies when the device leaves the air or the outputs go off — the live inputs line below says so." />
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Podium cam (shown in the multiview and status)"

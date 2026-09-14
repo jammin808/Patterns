@@ -146,6 +146,7 @@ export function buildFeedbacks(ctx) {
 		live_age_over: bool('The live picture on the outputs (a camera, a feed) is older than a limit, decoder to frame — IMAG the room sees late', style('screen', 'fault'), [
 			{ type: 'number', id: 'ms', label: 'Older than (ms)', default: 80, min: 1, max: 5000 },
 		], (fb) => (s().machine?.liveAgeMs ?? -1) > fb.options.ms),
+		inputs_change_pending: bool('A capture mode, low-latency profile, loop or routing change is staged under a source on air — it applies when the source leaves the air', style('screen', 'offLook'), [], () => (s().inputs?.pendingNote ?? '') !== ''),
 		memory_pressure_at_least: bool('The media memory is under pressure at a rung or past it (elevated, high, critical)', style('screen', 'fault'), [
 			{ type: 'dropdown', id: 'level', label: 'At least', default: 'high', choices: [{ id: 'elevated', label: 'Elevated' }, { id: 'high', label: 'High' }, { id: 'critical', label: 'Critical' }] },
 		], (fb) => {

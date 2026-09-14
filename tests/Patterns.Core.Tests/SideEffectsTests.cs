@@ -22,6 +22,8 @@ public class SideEffectsTests
 
         var picture = new HashSet<string> { nameof(ShowState.Pattern) };
         Assert.True(SideEffectDomains.Touches(picture, SideEffectDomains.Inputs));
+        var monitor = new HashSet<string> { nameof(ShowState.Monitor) };
+        Assert.True(SideEffectDomains.Touches(monitor, SideEffectDomains.Inputs));                       // the monitor rule decides each mount's bus: the inputs read it
         Assert.False(SideEffectDomains.Touches(picture, SideEffectDomains.Devices));
         Assert.False(SideEffectDomains.Touches(picture, SideEffectDomains.Beacon));
 

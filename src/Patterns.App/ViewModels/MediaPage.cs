@@ -786,7 +786,7 @@ public sealed class MediaPage : Observable
             rows.Add($"{label} — {status}");
         }
         var notes = string.Join("  ",
-            new[] { _services.Video.LimitNote, _services.NdiIn.LimitNote, _services.WebIn.LimitNote }.Where(s => s.Length > 0));
+            new[] { _services.Video.LimitNote, _services.Video.PendingNote, _services.NdiIn.LimitNote, _services.WebIn.LimitNote }.Where(s => s.Length > 0));
         var text = rows.Count == 0
             ? "No live inputs mounted."
             : $"Live inputs ({rows.Count}): {string.Join("  ·  ", rows)}";

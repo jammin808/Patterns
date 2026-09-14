@@ -496,6 +496,14 @@ public sealed class CommandRouter : IRouter
                 placed = MemoryLedger.Describe(),
                 text = _services.Metrics.MemoryCeilingLine(),
             },
+            inputs = new                                                     // the decoders: mounted, fading, the limit, and the reopens staged under a source on air
+            {
+                mounted = _services.Video.MountCount,
+                retiring = _services.Video.RetiredCount,
+                limitNote = _services.Video.LimitNote,
+                pendingNote = _services.Video.PendingNote,
+                pending = _services.Video.PendingChanges.Select(p => new { key = p.Key, target = p.Target, what = TopologyPolicy.Name(p.Edit), words = p.Words }).ToArray(),
+            },
             machine = MachineRow(),
             beacon = new { sending = _services.Beacon.Sending, listening = _services.Beacon.Listening, main = _services.Beacon.WatchText },
             // The room around the desk, for a deck's keys: every node heard, the callers linked, the twin, the stage.

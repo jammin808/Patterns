@@ -103,6 +103,7 @@ export function variableDefinitions() {
 		machine_faulting: 'An output is faulting right now (FAULT / ok)',
 		machine_live_age: 'Live input age: the oldest camera or feed picture an output drew in the last minute, decoder to frame (ms, or n/a with none drawn) — the IMAG number',
 		machine_memory_pressure: 'Media memory pressure: none / elevated / high / critical — the rung the desk\'s memory ladder stands on (pictures, frame pools, retiring frames and decks against their budget)',
+		inputs_pending: "A reopen staged under a source on air ('Low latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go off air.'), or empty",
 		devices_failing: 'Interactive devices whose last word was a failure (count)',
 		device_last_reply: "The newest reply from any Interactive device ('Projector: POWR: OK — accepted', or empty)",
 		device_last_failure: "The newest failure from any Interactive device ('Projector: INPUT HDMI 2 — no answer in 2 s', or empty)",

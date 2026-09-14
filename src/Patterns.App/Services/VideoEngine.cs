@@ -111,6 +111,17 @@ public sealed class VideoEngine : IDisposable
     /// <summary>Retired sources let go before their fade was over because more than <see cref="MaxRetired"/> were fading at once, this session.</summary>
     public int RetiredCutShort { get; private set; }
 
+    /// <summary>A reopen staged because its source is on air: the key, the source's name, the edit and the words.</summary>
+    public sealed record PendingChange(string Key, string Target, TopologyEdit Edit, string Words);
+
+    private readonly List<PendingChange> _pending = new();
+
+    /// <summary>The reopens staged on the last reconcile — a mode, a profile, a loop or the routing mode changed under a source on air; applied when it leaves the air or the outputs go off.</summary>
+    public IReadOnlyList<PendingChange> PendingChanges => _pending;
+
+    /// <summary>The staged reopens as one line for the Media page, STATE and Companion; "" with none.</summary>
+    public string PendingNote => string.Join("  ", _pending.Select(p => p.Words));
+
     /// <summary>Bytes the retired, still-fading sources hold (their frame pools).</summary>
     public long RetiredBytes
     {
@@ -186,6 +197,7 @@ public sealed class VideoEngine : IDisposable
 
         var over = 0;
         var refused = 0;
+        _pending.Clear();
         foreach (var w in wanted)
         {
             if (RefuseNonCriticalOpens && !_mounts.ContainsKey(w.Key) && !AudioMonitorRule.OnProgram(w.Buses))
@@ -202,15 +214,28 @@ public sealed class VideoEngine : IDisposable
                     _mounts[w.Key] = existing;
                     existing.Source.Release();
                 }
-                if (existing.Loop == w.Loop && existing.Format == w.Format && existing.Tap == tap && existing.LowLatency == w.LowLatency)
+                var edit = existing.LowLatency != w.LowLatency ? TopologyEdit.CaptureLowLatency
+                    : existing.Format != w.Format ? TopologyEdit.CaptureFormat
+                    : existing.Tap != tap ? TopologyEdit.AudioRoutingMode
+                    : existing.Loop != w.Loop ? TopologyEdit.ClipLoop
+                    : (TopologyEdit?)null;
+                if (edit is null || TopologyPolicy.OnAir(snap.OutputsLive, AudioMonitorRule.OnProgram(w.Buses)))
                 {
-                    // Mute/volume/route apply live to the running player — never restart the media.
+                    // Mute/volume/route apply live to the running player — never restart the media. A
+                    // reopen (the mode, the profile, the loop, the routing mode) landing under a source
+                    // on air is staged: the room keeps its picture, the words say so, and the reopen
+                    // happens when the source leaves the air or the outputs go off (TopologyPolicy).
                     existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
                     if (!tap) Route(existing.Source, w);
                     _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct, Buses = w.Buses };
+                    if (edit is { } staged)
+                    {
+                        var target = w.Kind == MediaLocator.WantedKind.VideoFile ? Path.GetFileName(w.Target) : w.Target;
+                        _pending.Add(new PendingChange(w.Key, target, staged, TopologyPolicy.PendingWords(staged, target)));
+                    }
                     continue;
                 }
-                RetireMount(w.Key, now, holdMs, fadeMs); // a loop, capture-mode or latency-profile change needs a reopen
+                RetireMount(w.Key, now, holdMs, fadeMs); // a loop, capture-mode, latency-profile or routing-mode change needs a reopen: the source is not on air
             }
 
             if (_mounts.Count >= MaxMounts)
