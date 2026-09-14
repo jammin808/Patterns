@@ -1135,3 +1135,22 @@ verb every clock follows.*
 ### 51.2 — the guard
 
 - **Done.** Each part on a page, no sixth part unnoticed. `docs/PLAN.md` §69.3.
+
+## Round 52 review — the GO on the clock
+
+*The press to the frame, cue by cue; the lag of every sink behind the publish.*
+
+### 52.1 — the measurement
+
+- **Done.** The publish's clock was already on the snapshot; the pipeline now says which one each
+  frame drew, so the lag costs nothing per frame but a comparison, and the GO's clock reads the
+  sinks' rings on the poll. `docs/PLAN.md` §70.1–70.2.
+- **The honest limit:** the frame drawn, not the frame presented — a vsync short of the glass, and
+  the same short on every desk. And the stack's Go is the press as far as this code can see.
+
+### 52.2 — the words
+
+- **Done.** GO→frame on the glance line, the line on the Machine page, the row on the super-check
+  with the publish told from the frame, the CSV's two columns. `docs/PLAN.md` §70.3.
+- **Kept deliberate:** the sinks that count are the outputs when any is open, the preview
+  otherwise — a monitor pane never holds a GO open.

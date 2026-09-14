@@ -86,6 +86,12 @@ public sealed class CheckFacts
     public double SwitchAverageMs { get; init; } = -1;
     public int SlowSwitches { get; init; } = -1;
 
+    /// <summary>The GO from the press to the first frame every output drew with it, over the last sixty GOs (ms; -1 unknown): the worst with its words, the average, and the GOs past fifty milliseconds this session (-1 unknown).</summary>
+    public double GoWorstMs { get; init; } = -1;
+    public string GoWorstWords { get; init; } = "";
+    public double GoAverageMs { get; init; } = -1;
+    public int SlowGos { get; init; } = -1;
+
     /// <summary>
     /// The engine's frame budget over the last minute (ms; -1 unknown): the worst frame, the stage
     /// that took it and the sink it was on, the average across the sinks, the frames past the slow
@@ -451,6 +457,7 @@ public static class SuperCheck
         DeskTick(f, rows, s);
         PageSwitch(f, rows, s);
         RenderFrame(f, rows, s);
+        GoToFrame(f, rows, s);
         Quality(f, rows, s);
         MemoryCeiling(f, rows, s);
         Startup(f, rows, s);
@@ -558,6 +565,23 @@ public static class SuperCheck
             ? (f.RenderSinks > 1 ? $"{f.RenderSinks} sinks in the last minute" : "")
             : FrameAdvice(f.RenderWorstStage, light);
         rows.Add(new CheckRow(section, "Render frame", light, value, note));
+    }
+
+    /// <summary>The GO to the frame: green under fifty milliseconds, amber past it (a caller feels it), red past a tenth of a second (the room saw the cue land late).</summary>
+    private static void GoToFrame(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.GoWorstMs < 0) return;
+        var worst = f.GoWorstMs;
+        var light = worst > GoLatency.StutterMs ? CheckLight.Red : worst > GoLatency.SlowMs ? CheckLight.Amber : CheckLight.Green;
+        var value = $"{(f.GoAverageMs >= 0 ? $"{f.GoAverageMs:0.0} ms" : "—")} · worst {(f.GoWorstWords.Length > 0 ? f.GoWorstWords : $"{worst:0.0} ms")}"
+                    + (f.SlowGos > 0 ? $" · {f.SlowGos} past {GoLatency.SlowMs:0} ms" : "");
+        var note = light switch
+        {
+            CheckLight.Red => "a cue landed a tenth of a second or more after its press — the words say whether the publish or the frame took it; a slow publish is the cue's steps, a slow frame is the sink's rate or a hitch the Render frame row names",
+            CheckLight.Amber => "a GO took past fifty milliseconds to reach the screens in the last sixty — one frame at 60 fps is sixteen",
+            _ => "",
+        };
+        rows.Add(new CheckRow(section, "GO to frame", light, value, note));
     }
 
     /// <summary>What to lower, by the stage that took the frame.</summary>

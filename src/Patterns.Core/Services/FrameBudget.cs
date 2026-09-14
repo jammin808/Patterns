@@ -12,7 +12,7 @@ namespace Patterns.Core.Services;
 /// <param name="Missed">The presentation slots the last minute missed — frames the room did not get — as the pacer counted them.</param>
 public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Label, long Frames, long SlowFrames,
                                         int FramesInWindow, double AverageMs, double WorstMs, string WorstStage, double Fps,
-                                        double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0)
+                                        double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0, double LagMs = -1, double LagAverageMs = -1)
 {
     /// <summary>"Preview", "Output 1 (Main)", "Monitor PGM".</summary>
     public string Name => Kind switch
@@ -32,7 +32,8 @@ public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Lab
             var fps = Fps >= 0 ? $" at {Fps:0} fps" : "";
             var p95 = P95Ms >= 0 ? $" · p95 {P95Ms:0.0} ms" : "";
             var missed = Missed > 0 ? $" · {Missed} dropped" : "";
-            return $"{Name} {AverageMs:0.0} ms avg{fps}{p95} · worst {WorstMs:0.0} ms{stage}{missed}";
+            var lag = LagMs >= 0 ? $" · publish to frame worst {LagMs:0} ms" : "";
+            return $"{Name} {AverageMs:0.0} ms avg{fps}{p95} · worst {WorstMs:0.0} ms{stage}{missed}{lag}";
         }
     }
 }
@@ -70,7 +71,18 @@ public sealed class FrameBudget
         public int Slow;
         public int Missed;
         public int[]? Hist;
+        public double LagWorstMs;
+        public double LagSum;
+        public int LagCount;
     }
+
+    /// <summary>Publishes remembered with the clock of the first frame that showed each: what the GO's clock reads.</summary>
+    public const int ShownKept = 32;
+
+    private long _lastShownVersion = -1;
+    private readonly (long Version, double Clock)[] _shown = new (long, double)[ShownKept];
+    private int _shownNext;
+    private int _shownCount;
 
     private readonly Bucket[] _buckets = new Bucket[Window];
     private readonly object _gate = new();
@@ -95,6 +107,12 @@ public sealed class FrameBudget
     /// <summary>The last frame, ms; -1 before the first.</summary>
     public double LastMs { get; private set; } = -1;
 
+    /// <summary>The show clock of the last frame drawn; -1 before the first. A sink that stopped drawing is not one a GO waits for.</summary>
+    public double LastFrameClock { get; private set; } = -1;
+
+    /// <summary>Whose publishes this sink draws — the bus — so a GO on one bus never waits for a sink drawing another's (one bus per desk; the tests run several in a process).</summary>
+    public object? Scope { get; set; }
+
     /// <summary>The slowest frame this session, ms, and the stage that took it.</summary>
     public double WorstEverMs { get; private set; } = -1;
 
@@ -102,6 +120,62 @@ public sealed class FrameBudget
 
     /// <summary>Presentation slots missed this session — frames the room did not get.</summary>
     public long Missed { get; private set; }
+
+    /// <summary>The worst lag from a publish to the frame that first showed it this session, ms; -1 before one reached this sink.</summary>
+    public double WorstLagMs { get; private set; } = -1;
+
+    /// <summary>
+    /// The frame drawn carried a snapshot: when its version is new to this sink a publish has
+    /// reached the glass, and the lag from the publish to this frame — the frame's show clock less
+    /// the snapshot's — goes on the second, and the version with its clock onto the ring the GO's
+    /// clock reads. Called every frame; only a new version costs anything.
+    /// </summary>
+    public void RecordShown(long version, double publishedClock, double clockSeconds)
+    {
+        lock (_gate)
+        {
+            if (version == _lastShownVersion) return;
+            _lastShownVersion = version;
+            var lag = Math.Max(0, (clockSeconds - publishedClock) * 1000.0);
+            if (lag > WorstLagMs) WorstLagMs = lag;
+            var second = (long)Math.Floor(clockSeconds);
+            ref var b = ref _buckets[(int)(((second % Window) + Window) % Window)];
+            if (b.Second != second)
+            {
+                var hist = b.Hist;
+                b = default;
+                b.Second = second;
+                b.Hist = hist;
+                if (hist is not null) Array.Clear(hist);
+            }
+            if (lag > b.LagWorstMs) b.LagWorstMs = lag;
+            b.LagSum += lag;
+            b.LagCount++;
+            _shown[_shownNext] = (version, clockSeconds);
+            _shownNext = (_shownNext + 1) % ShownKept;
+            if (_shownCount < ShownKept) _shownCount++;
+        }
+    }
+
+    /// <summary>The show clock of the first frame that showed the version, or the nearest one past it; null while none has, or once it slid off the ring.</summary>
+    public double? FirstShown(long version)
+    {
+        lock (_gate)
+        {
+            double? best = null;
+            var bestVersion = long.MaxValue;
+            for (var i = 0; i < _shownCount; i++)
+            {
+                var (v, clock) = _shown[i];
+                if (v >= version && v < bestVersion)
+                {
+                    bestVersion = v;
+                    best = clock;
+                }
+            }
+            return best;
+        }
+    }
 
     /// <summary>The pacer found slots gone by unpresented: counted on the second of the show clock they were found at.</summary>
     public void RecordMissed(int missed, double clockSeconds)
@@ -144,6 +218,7 @@ public sealed class FrameBudget
         {
             Frames++;
             LastMs = ms;
+            LastFrameClock = clockSeconds;
             if (ms > SlowMs) SlowFrames++;
             if (ms > WorstEverMs)
             {
@@ -187,12 +262,21 @@ public sealed class FrameBudget
             var completeFrames = 0;
             var lastSecondWorst = -1.0;
             var missed = 0;
+            var lagWorst = -1.0;
+            var lagSum = 0.0;
+            var lagCount = 0;
             Span<int> hist = stackalloc int[Bins];
             for (var i = 0; i < Window; i++)
             {
                 ref var b = ref _buckets[i];
                 if (b.Second < oldest || b.Second > now) continue;
                 missed += b.Missed;
+                if (b.LagCount > 0)
+                {
+                    if (b.LagWorstMs > lagWorst) lagWorst = b.LagWorstMs;
+                    lagSum += b.LagSum;
+                    lagCount += b.LagCount;
+                }
                 if (b.Frames == 0) continue;
                 if (b.Hist is { } h) for (var k = 0; k < Bins; k++) hist[k] += h[k];
                 frames += b.Frames;
@@ -227,7 +311,8 @@ public sealed class FrameBudget
                 }
             }
             return new FrameBudgetReading(Kind, SinkIndex, Label, Frames, SlowFrames, frames,
-                frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst, p95, missed);
+                frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst, p95, missed,
+                lagCount > 0 ? lagWorst : -1, lagCount > 0 ? lagSum / lagCount : -1);
         }
     }
 
@@ -240,8 +325,13 @@ public sealed class FrameBudget
             SlowFrames = 0;
             Missed = 0;
             LastMs = -1;
+            LastFrameClock = -1;
             WorstEverMs = -1;
             WorstEverStage = "";
+            WorstLagMs = -1;
+            _lastShownVersion = -1;
+            _shownNext = 0;
+            _shownCount = 0;
         }
     }
 }
@@ -286,6 +376,25 @@ public static class FrameBudgets
             if (r.FramesInWindow > 0) readings.Add(r);
         }
         return readings;
+    }
+
+    /// <summary>For the GO's clock: every sink that drew in the last minute, with the show clock of the first frame it showed the version (or one past it) at — null while it has not.</summary>
+    public static IReadOnlyList<(SinkKind Kind, int SinkIndex, double? Clock)> FirstFrames(long version, double clockSeconds, object? scope = null)
+    {
+        FrameBudget[] budgets;
+        lock (Gate)
+        {
+            budgets = All.ToArray();
+        }
+        var list = new List<(SinkKind, int, double?)>(budgets.Length);
+        foreach (var b in budgets)
+        {
+            // Drawing now, not merely in the last minute: a window closed or a sink gone idle is not one the GO waits for; nor is a sink drawing another bus.
+            if (b.LastFrameClock < 0 || clockSeconds - b.LastFrameClock > GoLatency.GiveUpSeconds) continue;
+            if (scope is not null && b.Scope is not null && !ReferenceEquals(b.Scope, scope)) continue;
+            list.Add((b.Kind, b.SinkIndex, b.FirstShown(version)));
+        }
+        return list;
     }
 
     /// <summary>The sink with the worst frame in the last minute; null with none drawn.</summary>

@@ -43,7 +43,7 @@ public class SwitchBudgetAppTests
             var row = Assert.Single(report.Rows, r => r.Item == "Page switch");
             Assert.Contains("worst", row.Value);
             Assert.Contains("switchWorstMs", MetricsCsv.Header);
-            Assert.EndsWith(",slowSwitches", MetricsCsv.Header);
+            Assert.Contains(",switchWorstMs,slowSwitches", MetricsCsv.Header);
         }
         finally
         {

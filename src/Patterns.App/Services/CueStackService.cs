@@ -34,6 +34,9 @@ public sealed class CueStackService
     /// <summary>Raised on the UI thread after anything a caller can see changes.</summary>
     public event Action? Changed;
 
+    /// <summary>The GO on the clock: from the press, through the publish the cue's steps made, to the first frame every output drew with it. A desk's; a node's stack runs on paper and stamps nothing.</summary>
+    public GoLatency GoClock { get; } = new();
+
     public CueStackConfig Stack => CueStacks.Caller(_kernel.State);
 
     public StackRuntime Runtime => _kernel.Cues.For(Stack);
@@ -205,6 +208,9 @@ public sealed class CueStackService
         rt.ConfirmDeadlineUtc = null;
         rt.LastGoUtc = now;
         rt.Executing = true;
+        var versionBefore = _kernel.Bus.Current.Version;
+        var pressClock = ShowClock.Seconds;
+        var pressStamp = System.Diagnostics.Stopwatch.GetTimestamp();
         ActionResult result;
         try
         {
@@ -214,6 +220,8 @@ public sealed class CueStackService
         {
             rt.Executing = false;
         }
+        // The press on the clock: the publish it made (the bus's version after the steps ran) and how long the steps took; the sinks say the rest on the poll.
+        if (_kernel.IsDesk && result.Ok) GoClock.Pressed(standby!.Number, versionBefore, _kernel.Bus.Current.Version, pressClock, System.Diagnostics.Stopwatch.GetElapsedTime(pressStamp).TotalMilliseconds);
 
         var outcome = result.Status switch
         {
@@ -322,6 +330,7 @@ public sealed class CueStackService
     /// </summary>
     public void Poll(DateTime? nowUtc = null)
     {
+        if (GoClock.IsOpen) GoClock.Resolve(FrameBudgets.FirstFrames(GoClock.PendingVersion, ShowClock.Seconds, _kernel.Bus), ShowClock.Seconds);
         var now = nowUtc ?? NowUtc();
         var rt = Runtime;
         if (rt.ConfirmPendingCueId is not null && rt.ConfirmDeadlineUtc is { } deadline && now > deadline)

@@ -289,7 +289,7 @@ public sealed class RunViewModel : Observable
     /// rate, p95 and drops, the twin, the screens the room is short, the last box that said no, where
     /// the day stands, the lock. A node's line is the link and the plan alone.
     /// </summary>
-    public string GlanceText => Glance.Line(FrameBudgets.Readings(ShowClock.Seconds), _s.GlanceWords, "", "", Glance.PlanWords(_timing.OffsetText, _timing.IsLate), "");
+    public string GlanceText => Glance.Line(FrameBudgets.Readings(ShowClock.Seconds), _s.GlanceWords, "", "", Glance.PlanWords(_timing.OffsetText, _timing.IsLate), "", _s.CueStack.GoClock.GlanceWords);
 
     public bool HasGlance => GlanceText.Length > 0;
 

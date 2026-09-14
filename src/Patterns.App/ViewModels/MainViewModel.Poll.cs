@@ -39,6 +39,11 @@ public sealed partial class MainViewModel
     /// <summary>The STABILITY block's render line: the worst frame of the last minute, the stage that took it and the sink, every sink's average and rate.</summary>
     public string RenderBudgetText { get => _renderBudgetText; private set => Set(ref _renderBudgetText, value); }
 
+    private string _goText = "";
+
+    /// <summary>The STABILITY block's GO line: the press to the first frame every output drew with it, the worst of the last sixty and where its time went.</summary>
+    public string GoText { get => _goText; private set => Set(ref _goText, value); }
+
     /// <summary>The STABILITY block's start-up line: how long this start took to become a desk, phase by phase.</summary>
     public string StartupText { get => _startupText; private set => Set(ref _startupText, value); }
 
@@ -103,6 +108,7 @@ public sealed partial class MainViewModel
         DeskTickText = _services.DeskTick.Describe();
         SwitchText = _services.Switches.Describe();
         RenderBudgetText = FrameBudgets.Describe(ShowClock.Seconds);
+        GoText = _services.CueStack.GoClock.Describe();
         StartupText = _services.Startup.Describe();
         RuntimeText = $"Runtime {RuntimeName} · garbage collector {ShowGc.Describe()}.";
     }

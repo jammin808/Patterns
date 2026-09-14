@@ -166,7 +166,7 @@ public sealed class RenderPipeline : IDisposable
     {
         _bus = bus;
         _viewport = viewport;
-        _budget = new FrameBudget(viewport.Kind, viewport.SinkIndex, viewport.Label);
+        _budget = new FrameBudget(viewport.Kind, viewport.SinkIndex, viewport.Label) { Scope = bus };
         FrameBudgets.Attach(_budget);
     }
 
@@ -179,7 +179,10 @@ public sealed class RenderPipeline : IDisposable
         var ms = System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds;
         RenderStats.Record(vp.Kind, vp.SinkIndex, ms);
         if (_budget.Kind != vp.Kind || _budget.SinkIndex != vp.SinkIndex || _budget.Label != vp.Label) _budget.Relabel(vp.Kind, vp.SinkIndex, vp.Label);
-        _budget.Record(ms, _sink.Stages.SlowestStage, ShowClock.Seconds);
+        var clock = ShowClock.Seconds;
+        _budget.Record(ms, _sink.Stages.SlowestStage, clock);
+        var shown = SnapshotFor(vp);
+        _budget.RecordShown(shown.Version, shown.PublishedClock, clock);   // a publish reached this sink: its lag, and the version for the GO's clock
         if (!_firstFrameTold && vp.Kind == SinkKind.Preview)
         {
             _firstFrameTold = true;

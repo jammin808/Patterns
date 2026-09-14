@@ -6718,3 +6718,60 @@ and no sixth part or leftover file grew unnoticed; the twin, link-clock, nodes a
 suites unchanged. Docs: this section, REVIEW round 51, README.
 
 Counts at the end of the round: Core 1,161, App 604 — both suites green here.
+
+## 70. Round 52 — the GO on the clock
+
+*Round 50 put the page switch on the clock; the GO is the press that matters more. Nothing said
+how long a cue took from the caller's finger to the room's eyes. Now every GO is timed from the
+press, through the publish its steps made, to the first frame every output drew with it — the
+show's own press-to-glass — and every sink says how far behind a publish its frames run.*
+
+### 70.1 The sinks' lag
+
+A snapshot carries its version and the show clock it was published at. The pipeline tells its
+budget which snapshot each frame drew (`FrameBudget.RecordShown`); the first frame that carries a
+new version is a publish reaching the glass, and the lag — the frame's clock less the snapshot's —
+goes on the second, with the version and its clock onto a ring of thirty-two. The reading carries
+the worst and the average lag of the last minute; the glance line's word per sink carries the
+worst ("OUT 1 60 fps · p95 8 ms · lag 21 ms"); the budget's words carry it; the CSV carries the
+worst across the outputs (`lagWorstMs`).
+
+### 70.2 The GO
+
+`GoLatency` (Core, pure): the stack stamps the press — the bus's version before and after the
+cue's steps ran, the show clock at the press, the milliseconds the steps took to become the
+publish — and the sinks' budgets say, on the stack's poll, when each first drew that publish
+(`FrameBudgets.FirstFrames`, scoped to the bus and to sinks drawing now). The GO closes on the
+slowest output's first frame; with no output open, on the preview's; after two seconds with what
+was seen, and a note naming the sinks that never showed it; a cue whose steps changed nothing on
+the screens closes at once as "nothing to draw". The words say where the time went: "GO 07 34 ms
+(6 ms to the publish, 28 ms to OUT 2's frame)". The last sixty are kept with the worst and the
+average; GOs past fifty milliseconds are counted for the session.
+
+### 70.3 Where it reads
+
+The glance line under the LIVE strip reads the last GO as "GO→frame 34 ms", beside the plan's
+word; the Machine page's STABILITY block has a GO line under the render line; the super-check
+has a GO to frame row — green under fifty milliseconds, amber past it (a caller feels it), red
+past a tenth of a second (the room saw the cue land late) — whose note says whether the publish or
+the frame took the time; the CSV carries `goWorstMs`.
+
+### 70.4 Tests and docs
+
+Core: one GO as the press, the publish and the slowest sink's first frame, the preview when no
+output drew, a GO that drew nothing, one nobody showed closed by the give-up or by the next press,
+the window of sixty and the worst the session keeps; a publish reaching a sink timed from its
+clock and remembered by version; the lag on the glance's sink words and the GO's word on the
+line; the CSV's columns. App: a cue that blacks the screens pressed on a desk, the preview
+drawing its publish, the GO closed on that frame with the preview named, the Machine page's line,
+the super-check's row and the facts. Docs: this section, REVIEW round 52, the help, README.
+
+### 70.5 Considered and left
+
+The press before the stack (a Companion key's wire, a keyboard's dispatch): the stack's Go is the
+first line of code that knows a GO happened, and the wire's own words carry its round trip.
+Presentation rather than the frame drawn: the sink's frame is the last point this code sees; the
+swap chain's present is a vsync away and the same on every desk. A budget per cue: the worst names
+its cue, and sixty is a show's worth on one line.
+
+Counts at the end of the round: Core 1,165, App 605 — both suites green here.

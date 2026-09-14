@@ -61,9 +61,14 @@ public class GlanceTests
         Assert.Equal("OUT 2 60 fps · p95 7.6 ms · 2 dropped", Glance.SinkWords(out2));
         Assert.Equal("PVW 30 fps · p95 2.5 ms", Glance.SinkWords(pvw));
         Assert.Equal("OUT 3 idle", Glance.SinkWords(idle));
+        var lagged = new FrameBudgetReading(SinkKind.Output, 1, "Main", 100, 0, 100, 4, 8, "", 59.9, 5, 8.1, 0, 21.4, 12);
+        Assert.Equal("OUT 1 60 fps · p95 8.1 ms · lag 21 ms", Glance.SinkWords(lagged));
+        Assert.Equal("OUT 1", Glance.SinkName(SinkKind.Output, 1));
+        Assert.Equal("PVW", Glance.SinkName(SinkKind.Preview, 0));
         var line = Glance.Line(new[] { pvw, out2, out1 }, "TWIN main · 1 standby in step", "", "DEVICE: Proj: INPUT HDMI 1 — rejected: INPT: out of parameter", "LATE +2:14", "LOCK ON");
         Assert.Equal("OUT 1 60 fps · p95 8.1 ms · OUT 2 60 fps · p95 7.6 ms · 2 dropped · PVW 30 fps · p95 2.5 ms · TWIN main · 1 standby in step · DEVICE: Proj: INPUT HDMI 1 — rejected: INPT: out of parameter · LATE +2:14 · LOCK ON", line);
         Assert.Equal("", Glance.Line(Array.Empty<FrameBudgetReading>(), "", "", "", "", ""));
+        Assert.Equal("OUT 1 60 fps · p95 8.1 ms · LATE +2:14 · GO→frame 34 ms · LOCK ON", Glance.Line(new[] { out1 }, "", "", "", "LATE +2:14", "LOCK ON", "GO→frame 34 ms"));
         Assert.Equal("LATE +2 min", Glance.PlanWords("+2 min", isLate: true));
         Assert.Equal("ON PLAN ON TIME", Glance.PlanWords("ON TIME", isLate: false));
         Assert.Equal("", Glance.PlanWords("", false));
@@ -108,12 +113,13 @@ public class GlanceTests
         Assert.Equal(new ShowAction(ShowActionKind.CountdownFollow, "", "off"), ControlProtocol.Parse("COUNTDOWN FOLLOW OFF").Action);
         Assert.Contains("p95FrameMs", MetricsCsv.Header);
         Assert.Contains("droppedFrames", MetricsCsv.Header);
-        Assert.EndsWith(",switchWorstMs,slowSwitches", MetricsCsv.Header);
-        Assert.EndsWith(",42.4,3", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, SwitchWorstMs = 42.4, SlowSwitches = 3 }));
+        Assert.EndsWith(",switchWorstMs,slowSwitches,goWorstMs,lagWorstMs", MetricsCsv.Header);
+        Assert.EndsWith(",42.4,3,,", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, SwitchWorstMs = 42.4, SlowSwitches = 3 }));
+        Assert.EndsWith(",34.5,21.4", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, GoWorstMs = 34.5, LagWorstMs = 21.4 }));
         Assert.Equal(MetricsCsv.Header.Split(',').Length, MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, DroppedFrames = 2 }).Split(',').Length);
         Assert.Equal("+2:00", CueTiming.FormatDeltaExact(TimeSpan.FromMinutes(2)));
         Assert.Equal("-0:30", CueTiming.FormatDeltaExact(TimeSpan.FromSeconds(-30)));
         Assert.Equal("+1:02:03", CueTiming.FormatDeltaExact(TimeSpan.FromSeconds(3723)));
-        Assert.EndsWith(",8.1,2,,0", MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, DroppedFrames = 2 }));
+        Assert.EndsWith(",8.1,2,,0,,", MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, DroppedFrames = 2 }));
     }
 }

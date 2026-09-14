@@ -171,6 +171,9 @@ public sealed record MetricSample
     /// <summary>The worst page switch of the last sixty, press to frame (ms; -1 unknown), and the switches past a desk frame this session.</summary>
     public double SwitchWorstMs { get; init; } = -1;
     public int SlowSwitches { get; init; }
+    /// <summary>The worst GO of the last sixty, press to frame (ms; -1 unknown), and the worst lag from a publish to the frame that showed it across the outputs in the last minute (ms; -1 unknown).</summary>
+    public double GoWorstMs { get; init; } = -1;
+    public double LagWorstMs { get; init; } = -1;
     public int Threads { get; init; }
     public int Handles { get; init; }
     public double GcPausePct { get; init; } = -1;
@@ -232,6 +235,8 @@ public sealed class MetricsHistory
             DroppedFrames = window.Max(s => s.DroppedFrames),   // each sample already reads the last minute: the window's worst minute, not a sum
             SwitchWorstMs = window.Max(s => s.SwitchWorstMs),
             SlowSwitches = window.Max(s => s.SlowSwitches),
+            GoWorstMs = window.Max(s => s.GoWorstMs),
+            LagWorstMs = window.Max(s => s.LagWorstMs),
         };
     }
 
@@ -536,7 +541,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,droppedFrames,switchWorstMs,slowSwitches";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,droppedFrames,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -550,7 +555,9 @@ public static class MetricsCsv
         R(s.P95FrameMs),
         s.DroppedFrames.ToString(System.Globalization.CultureInfo.InvariantCulture),
         R(s.SwitchWorstMs),
-        s.SlowSwitches.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        s.SlowSwitches.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        R(s.GoWorstMs),
+        R(s.LagWorstMs));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);

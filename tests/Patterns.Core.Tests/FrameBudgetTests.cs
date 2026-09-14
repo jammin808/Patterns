@@ -309,4 +309,28 @@ public class FrameStageEngineTests
         Assert.Equal(4, sink.Stages.Noted);
         Assert.Contains(sink.Stages.SlowestStage, known);
     }
+
+    [Fact]
+    public void APublishReachingTheSinkIsTimedFromItsClockToTheFrameAndRememberedByVersion()
+    {
+        var b = new FrameBudget(SinkKind.Output, 1, "Main");
+        b.Record(4, "", 10.0);
+        b.RecordShown(5, 9.980, 10.0);                                   // version 5 first shown 20 ms after its publish
+        b.RecordShown(5, 9.980, 10.016);                                 // the same version again: nothing new
+        b.Record(4, "", 10.016);
+        b.RecordShown(6, 10.010, 10.050);                                // version 6: 40 ms
+        var r = b.Read(10.5);
+        Assert.Equal(40, r.LagMs, 3);
+        Assert.Equal(30, r.LagAverageMs, 3);
+        Assert.EndsWith("· publish to frame worst 40 ms", r.Words);
+        Assert.Equal(10.0, b.FirstShown(5));
+        Assert.Equal(10.0, b.FirstShown(3));                             // the nearest version past it
+        Assert.Equal(10.050, b.FirstShown(6));
+        Assert.Null(b.FirstShown(7));
+        Assert.Equal(40, b.WorstLagMs, 3);
+        b.Reset();
+        Assert.Null(b.FirstShown(5));
+        Assert.Equal(-1, b.Read(10.5).LagMs);
+        Assert.Equal(-1, b.WorstLagMs);
+    }
 }
