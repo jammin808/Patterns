@@ -523,7 +523,7 @@ public static class TwinWatch
     }
 
     /// <summary>The standby's line on the Machine page and the health line.</summary>
-    public static string DescribeStandby(TwinPhase phase, string mainName, DateTime? lastHeardUtc, long sectionsApplied, bool autoTakeOver, DateTime utcNow, string note = "", bool linked = false)
+    public static string DescribeStandby(TwinPhase phase, string mainName, DateTime? lastHeardUtc, long sectionsApplied, bool autoTakeOver, DateTime utcNow, string note = "", bool linked = false, string clock = "")
     {
         var main = mainName.Length > 0 ? mainName : "the main";
         switch (phase)
@@ -538,7 +538,8 @@ public static class TwinWatch
                 return $"STANDBY — {main} refused the link{(note.Length > 0 ? ": " + note : "")}. Check the key on both machines.";
             case TwinPhase.InStep:
                 return $"STANDBY for {main} — in step, heard {Age(lastHeardUtc, utcNow)}, {sectionsApplied} section{(sectionsApplied == 1 ? "" : "s")} mirrored · outputs held closed"
-                       + (autoTakeOver ? " · takes over on silence." : " · TAKE OVER is yours.");
+                       + (autoTakeOver ? " · takes over on silence." : " · TAKE OVER is yours.")
+                       + (clock.Length > 0 ? $" · {clock}" : "");
             case TwinPhase.MainSilent:
                 var silent = lastHeardUtc is { } heard ? $"{(utcNow - heard).TotalSeconds:0} s" : "a while";
                 return $"MAIN {main} SILENT for {silent} — {(autoTakeOver ? "taking over…" : "TAKE OVER?")}" + (note.Length > 0 ? $" · {note}" : "");
@@ -553,7 +554,7 @@ public static class TwinWatch
 
     /// <summary>A caller node's line: alone with its plan, connecting, in step and calling, the desk silent, refused.</summary>
     /// <summary>A follower node's line — a caller's by default; a stage timer's with <paramref name="timer"/>, whose link shows the desk's clock rather than calling its show.</summary>
-    public static string DescribeCaller(TwinPhase phase, string deskName, DateTime? lastHeardUtc, long sectionsApplied, DateTime utcNow, string note = "", bool linked = false, string airLabel = "", bool timer = false)
+    public static string DescribeCaller(TwinPhase phase, string deskName, DateTime? lastHeardUtc, long sectionsApplied, DateTime utcNow, string note = "", bool linked = false, string airLabel = "", bool timer = false, string clock = "")
     {
         var desk = deskName.Length > 0 ? deskName : "the desk";
         var role = timer ? "STAGE TIMER" : "CALLER";
@@ -568,7 +569,8 @@ public static class TwinWatch
             case TwinPhase.InStep:
                 return $"{role} for {desk} — in step, heard {Age(lastHeardUtc, utcNow)}, {sectionsApplied} section{(sectionsApplied == 1 ? "" : "s")} mirrored"
                        + (airLabel.Length > 0 ? $" · on air there: {airLabel}" : "")
-                       + (timer ? " · the desk's clock and its messages show here." : " · GO, STANDBY and HOLD from here run there.");
+                       + (timer ? " · the desk's clock and its messages show here." : " · GO, STANDBY and HOLD from here run there.")
+                       + (clock.Length > 0 ? $" · {clock}" : "");
             case TwinPhase.MainSilent:
                 var silent = lastHeardUtc is { } heard ? $"{(utcNow - heard).TotalSeconds:0} s" : "a while";
                 return timer ? $"DESK {desk} SILENT for {silent} — the clock runs on as last heard." : $"DESK {desk} SILENT for {silent} — calling waits; the cues stay here.";
@@ -577,8 +579,8 @@ public static class TwinWatch
         }
     }
 
-    /// <summary>The main's line: the port, and each standby with when it was last heard — and, when a standby has the show, that this desk's outputs wait on TAKE BACK.</summary>
-    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "")
+    /// <summary>The main's line: the port, and each standby with when it was last heard and, when the beats have measured it, its clock against this desk's — and, when a standby has the show, that this desk's outputs wait on TAKE BACK. Clocks two seconds apart are said at the end, with the fix.</summary>
+    public static string DescribeMain(int port, IReadOnlyList<(string Name, DateTime LastBeatUtc)> standbys, long sectionsSent, DateTime utcNow, string holder = "", string launcher = "", string handover = "", IReadOnlyList<(string Name, TimeSpan Offset)>? clocks = null)
     {
         var tail = launcher.Length > 0 ? " " + launcher : "";
         // A hand-back that stopped short — at the wall switch, at the operator's own switch, at a
@@ -591,9 +593,14 @@ public static class TwinWatch
                    + (linked ? "TAKE BACK puts the show back here." : $"It is not on the link yet — TAKE BACK once it is, or OUTPUTS ON if it is gone.") + tail;
         }
         if (standbys.Count == 0) return $"MAIN — listening for a standby on port {port}; none connected." + tail;
-        var parts = standbys.Select(s => IsSilent(s.LastBeatUtc, utcNow)
-            ? $"standby {s.Name} SILENT for {(utcNow - s.LastBeatUtc).TotalSeconds:0} s"
-            : $"standby {s.Name} in step (heard {Age(s.LastBeatUtc, utcNow)})");
-        return $"MAIN — {string.Join(" · ", parts)} · {sectionsSent} section{(sectionsSent == 1 ? "" : "s")} sent." + tail;
+        var parts = standbys.Select(s =>
+        {
+            var note = clocks is not null && clocks.Any(c => c.Name == s.Name) ? LinkClock.Note(clocks.First(c => c.Name == s.Name).Offset, "its") : "";
+            return IsSilent(s.LastBeatUtc, utcNow)
+                ? $"standby {s.Name} SILENT for {(utcNow - s.LastBeatUtc).TotalSeconds:0} s"
+                : $"standby {s.Name} in step (heard {Age(s.LastBeatUtc, utcNow)}{(note.Length > 0 ? ", " + note : "")})";
+        });
+        var apart = clocks is null ? "" : string.Join(" ", clocks.Where(c => LinkClock.Apart(c.Offset)).Select(c => LinkClock.ApartWords(c.Name, c.Offset)));
+        return $"MAIN — {string.Join(" · ", parts)} · {sectionsSent} section{(sectionsSent == 1 ? "" : "s")} sent." + (apart.Length > 0 ? " " + apart : "") + tail;
     }
 }

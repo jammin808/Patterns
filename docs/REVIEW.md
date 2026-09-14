@@ -1073,3 +1073,30 @@ verb every clock follows.*
 - **Done.** Seven steps, four hours, the faults at the hours, what decides. `docs/SOAK.md`.
 - **The honest limit:** it is a script to run, not a result. Nothing is claimed until a row is
   filled in on the real rig.
+
+## Round 49 review — one clock across the machines
+
+*The beats measure the clocks; the followers read the desk's; the lines say when they are apart.*
+
+### 49.1 — the measurement
+
+- **Done.** NTP's arithmetic over the beats both sides already send, the shortest round trip
+  believed, the arrival stamped at the read. Nothing new on the wire but four numbers, and an old
+  beat still reads. `docs/PLAN.md` §67.1.
+- **The honest limit:** an offset is only as symmetric as the path; a Wi-Fi hop that is slow one
+  way skews it by half the difference. On a show LAN that is milliseconds, and a stage timer
+  reads seconds.
+
+### 49.2 — the room clock
+
+- **Done.** One clock on the kernel, two host contracts, every absolute read on a follower on the
+  desk's frame; a deadband, a kept frame on a drop, a reset when alone by choice.
+  `docs/PLAN.md` §67.2.
+- **Kept deliberate:** a standby twin does not follow. After a takeover it is a desk of its own,
+  and one frame per machine — outputs included — beats a stage timer that disagrees with the wall.
+
+### 49.3 — the words
+
+- **Done.** Each peer's clock on the main's line, the desk's on the follower's, the warning on
+  the health line on both sides past two seconds, with the fix named. `docs/PLAN.md` §67.3.
+- **What it is not:** a time server. The venue's is the venue's; the link measures and says.

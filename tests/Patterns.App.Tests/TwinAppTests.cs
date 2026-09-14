@@ -216,8 +216,10 @@ public class TwinAppTests
             // A beat: one rode the welcome, and every tick sends another; the standby's own beat is counted.
             services.Twin.Tick();
             var beat = ReadWord(reader, TwinWord.Beat, 4000);
-            Assert.True(long.Parse(beat.Payload) >= 1);
-            Write(stream, TwinMessage.Format(TwinWord.Beat, "1"));
+            var stamped = TwinBeat.Parse(beat.Payload);                                   // "seq sent [peerSent peerReceived]": the beat carries the main's clock
+            Assert.True(stamped.Seq >= 1, beat.Payload);
+            Assert.True(stamped.HasStamps, beat.Payload);
+            Write(stream, TwinMessage.Format(TwinWord.Beat, "1"));                        // a beat with no stamps, as a build before the clocks sent it, still counts
             Assert.Contains("\"role\":\"main\"", services.Twin.StatusJson());
             Assert.Contains("\"standbys\":[\"Backup desk\"]", services.Twin.StatusJson());
 

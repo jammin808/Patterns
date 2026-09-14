@@ -210,7 +210,7 @@ public sealed class RunViewModel : Observable
     public string MusicTip => _s.BreakMusicWords.Length > 0
         ? $"Break music: {_s.BreakMusicWords} — STOP ALL pauses it"
         : "Break music playing — STOP ALL pauses it";
-    public string NextAutoText => _s.CueStack.NextAutoText(DateTime.Now);
+    public string NextAutoText => _s.CueStack.NextAutoText(_s.Clock.Now);
 
     /// <summary>"Restored after restart — last GO 03.020 at 19:41:58 — press ARM to continue".</summary>
     public string Banner
@@ -260,7 +260,7 @@ public sealed class RunViewModel : Observable
         {
             var cue = _s.CueStack.LastCue;
             if (cue is null) return "";
-            var since = _s.CueStack.Runtime.LastGoUtc is { } at ? DateTime.UtcNow - at : TimeSpan.Zero;
+            var since = _s.CueStack.Runtime.LastGoUtc is { } at ? _s.Clock.UtcNow - at : TimeSpan.Zero;
             var elapsed = $"{(int)since.TotalMinutes}:{since.Seconds:00}";
             var planned = cue.PlannedSeconds is { } p ? $" / {p / 60}:{p % 60:00}" : "";
             return $"{cue.Number}  {cue.Name}  ·  {elapsed}{planned}";
@@ -268,7 +268,7 @@ public sealed class RunViewModel : Observable
     }
 
     public bool RunningOverPlanned
-        => _s.CueStack.LastCue is { PlannedSeconds: { } p } && _s.CueStack.Runtime.LastGoUtc is { } at && (DateTime.UtcNow - at).TotalSeconds > p;
+        => _s.CueStack.LastCue is { PlannedSeconds: { } p } && _s.CueStack.Runtime.LastGoUtc is { } at && (_s.Clock.UtcNow - at).TotalSeconds > p;
 
     // ---- the day's clock -------------------------------------------------------------
 
@@ -495,7 +495,7 @@ public sealed class RunViewModel : Observable
     /// <summary>Esc on the Run surface: cancels a pending confirm; a second Esc within a second is STOP ALL.</summary>
     public void EscapePressed()
     {
-        var now = DateTime.UtcNow;
+        var now = _s.Clock.UtcNow;
         if (_s.CueStack.Runtime.ConfirmPendingCueId is not null)
         {
             _s.CueStack.CancelConfirm();

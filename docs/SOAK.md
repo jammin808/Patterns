@@ -11,7 +11,9 @@ STANDBY following with "take over by itself" off — the soak is not the drill),
 stage timer node linked to MAIN, the arcade node as the hub with its audience port on the audience
 Wi-Fi, Companion on MAIN's wire with feedback on, twenty real phones on the audience Wi-Fi (or the
 load test's two hundred from one laptop, with the venue NAT profile on). The metrics CSV on
-(Machine page, STABILITY). The clocks in step.
+(Machine page, STABILITY). The clocks measured on the link: `TWIN STATUS` on MAIN reads each
+peer's `clocks` entry, and the health line says CLOCKS APART past two seconds — set both machines
+to one time server before the soak starts, and note the offsets in the record.
 
 ## The record
 

@@ -22,6 +22,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>What every role stands on, built before anything of the desk.</summary>
     public ServiceKernel Kernel { get; }
 
+    /// <summary>The rig's clock as this desk reads it — its own machine's: a desk is the frame.</summary>
+    public RoomClock Clock => Kernel.Clock;
+
     public ShowState State => Kernel.State;
     public SnapshotBus Bus => Kernel.Bus;
     public SettingsStore Store => Kernel.Store;

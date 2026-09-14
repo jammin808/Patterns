@@ -605,7 +605,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     {
         get
         {
-            var s = CountdownService.Evaluate(State.Countdown, DateTime.Now, DateTime.UtcNow);
+            var s = CountdownService.Evaluate(State.Countdown, _services.Clock.Now, _services.Clock.UtcNow);
             return s.Phase switch
             {
                 CountdownPhase.Running => $"Live: {CountdownService.Format(s.Remaining)} remaining",

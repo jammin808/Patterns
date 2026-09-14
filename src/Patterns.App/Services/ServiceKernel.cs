@@ -57,6 +57,9 @@ public sealed class ServiceKernel : IDisposable
     /// <summary>Where every list is right now — never in the show, reset when one loads. Every role that shows a stack reads it: the desk's Run surface, a caller's, a timer's segment.</summary>
     public CueRuntime Cues { get; } = new();
 
+    /// <summary>The rig's one clock as this process reads it: the machine's, moved by the offset a follower's link measured to the desk's; the desk's own offset is zero.</summary>
+    public RoomClock Clock { get; } = new();
+
     /// <summary>What is on air, for the beacon packet and the nodes page — nothing until the desk fills it.</summary>
     public IAirReport Air { get; set; } = NothingOnAir.Instance;
 

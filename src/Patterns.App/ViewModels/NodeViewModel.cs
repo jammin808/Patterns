@@ -420,7 +420,8 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public RunViewModel Run { get; }
 
-    public string HeaderClock => DateTime.Now.ToString("HH:mm:ss");
+    /// <summary>The desk's clock while linked — the room's one clock — and this machine's alone.</summary>
+    public string HeaderClock => _host.Kernel.Clock.Now.ToString("HH:mm:ss");
 
     /// <summary>A node's outputs are always held — the chip would say nothing a caller does not know.</summary>
     public bool IsPrepMode => false;
@@ -687,7 +688,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             var t = Time;
             return t.Phase switch
             {
-                StageTimerPhase.Idle => State.Stage.SpeakerSeesClock ? DateTime.Now.ToString("HH:mm:ss") : "--:--",
+                StageTimerPhase.Idle => State.Stage.SpeakerSeesClock ? _host.Kernel.Clock.Now.ToString("HH:mm:ss") : "--:--",
                 StageTimerPhase.Over => "-" + StageTimer.Format(-t.RemainingSeconds),
                 _ => t.Text,
             };
@@ -707,7 +708,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public bool DisplayHasMessage => DisplayMessage.Length > 0;
 
-    public bool DisplayFlashing => State.Stage.FlashUntilUtc is { } until && until > DateTime.UtcNow;
+    public bool DisplayFlashing => State.Stage.FlashUntilUtc is { } until && until > _host.Kernel.Clock.UtcNow;
 
     /// <summary>The running order's segment for the speaker, when the desk lets the speaker see it: what is on, what is next.</summary>
     public string DisplaySegment

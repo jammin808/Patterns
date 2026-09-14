@@ -6551,3 +6551,76 @@ that widens itself is a budget an attacker widens; the sign is on the line and t
 operator's.
 
 Counts at the end of the round: Core 1,152, App 601 — both suites green here.
+
+## 67. Round 49 — one clock across the machines
+
+*Round 47 gave the day one clock: the plan's planned starts, the countdown that follows them, the
+stage timer that reads it. But a stage timer node read that clock on its own machine's wall clock,
+and a machine whose clock is thirty seconds out showed the speaker a timer thirty seconds out.
+The soak's rig line said "the clocks in step" as an assumption. Now the link measures it.*
+
+### 67.1 The beats carry the clocks
+
+`BEAT seq` became `BEAT seq sent peerSent peerReceived` (`TwinBeat`, Core): the sender's own wall
+clock as it wrote the line, and the echo of the last beat it heard from the peer — that beat's
+stamp and the sender's clock when it arrived. Both sides already beat once a second, so every
+beat that echoes one of ours closes an exchange, and NTP's arithmetic gives the offset, peer minus
+us, as ((t2 − t1) + (t3 − t4)) / 2 and the round trip as (t4 − t1) − (t3 − t2): the second the peer
+held the beat for is measured on its own clock and taken out, so a beat once a second serves as
+well as a request answered at once. `LinkClock` (Core, pure) keeps the last eight exchanges and
+believes the one with the shortest round trip — a beat that sat in a switch's queue on the way out
+implies an offset it never had, and its long round trip says so. The arrival is stamped at the
+read, before the hop to the UI thread, so a busy desk does not read as a slow path. A beat from a
+build before this round has no stamps and still reads.
+
+### 67.2 The room clock
+
+`RoomClock` on the kernel: this machine's wall clock moved by the offset the link measured to the
+desk's. `IRunHost.Clock` and `IStageHost.Clock` are the one member the two hosts implement, and
+the stage timer (`StageService.UtcNow`), the cue stack's plan (`CueStackService.NowUtc`), the Run
+surface's slip and last-GO reads and the node window's header clock, idle clock and flash read it
+— so a caller or a stage timer node reads every absolute time the desk mirrors to it on the desk's
+clock, not its own, and the speaker's timer and the desk's agree to the second whatever the two
+machines' clocks say. The desk's own offset is zero: it is the frame. The offset moves only past a
+deadband of fifty milliseconds, so a jitter never flickers a second on a display; it is kept when
+the link drops — the last known frame is better than a jump — and reset when the node is alone by
+choice (UNLINK, the role off).
+
+A standby twin measures the same and does not follow: a standby that takes over is a desk of its
+own, and its clock is its own frame — its outputs' countdown, its stage timer and its plan agree
+with each other on that machine. The offset is on its line instead, with the warning.
+
+### 67.3 The words
+
+The main's line names each peer's clock once an exchange has closed and the offset is worth a
+word — "standby Backup in step (heard just now, its clock 0.8 s behind)" — and past two seconds
+says the one thing to do: "CLOCKS 3.2 s APART — timer STAGE-PC's clock is ahead; set both machines
+to one time server". The follower's and the standby's lines carry "the desk's clock 0.8 s ahead";
+the glance line carries the same on a follower and "CLOCKS APART" on the main; the health line
+carries the warning on either side, whatever the phase. `TWIN STATUS` gains `clock` (the offset,
+the round trip, the samples, whether apart, whether the room clock follows it and by how much) and
+`clocks` (each peer's, on a main).
+
+### 67.4 Tests and docs
+
+Core: one exchange's offset and round trip as NTP has them; the shortest round trip believed and
+the old ones sliding out; the words and the warning; the beat's stamps, an old beat, a bad stamp;
+the room clock following past the deadband, reading the machine moved by the offset, its words,
+its reset; the main's line with each peer's clock and the warning, and the followers' lines. App:
+a stage timer node linked to a desk whose clock runs thirty seconds ahead — the offset known on
+both sides within a few beats, the room clock, the stage timer and the plan reading the desk's
+frame, the lines, the health words and TWIN STATUS on both sides, the desk's own frame unmoved,
+the words clearing when the clocks are brought back, and UNLINK giving the node its own clock
+again. Docs: this section, REVIEW round 49, REMOTE.md, the help, README, SOAK.md's rig line.
+
+### 67.5 Considered and left
+
+Following the desk's frame on a standby twin, outputs included: the render pipeline's frame
+context reads the machine's clock, and a standby that follows the main's frame on its stage timer
+but not on its wall would show the room two countdowns after a takeover; one frame per machine is
+the honest rule, and the warning names the fix. Disciplining the machine clock itself (an NTP
+client in Patterns): the venue's time server is the venue's; the link measures, says, and follows
+where following is safe. Drift correction between exchanges: a beat a second is a sample a second,
+and the deadband absorbs what drift a show's length brings.
+
+Counts at the end of the round: Core 1,158, App 602 — both suites green here.

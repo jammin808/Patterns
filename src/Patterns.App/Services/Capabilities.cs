@@ -133,6 +133,8 @@ public interface IStageHost
 {
     ShowState AirState { get; }
     CueStackService CueStack { get; }
+    /// <summary>The clock the timer, the countdown and the messages' flashes are read against — the desk's frame, on a follower as the link measured it.</summary>
+    RoomClock Clock { get; }
     void EditAir(Action<ShowState> edit);
     void Notify(string message);
     event Action? SnapshotPublished;
@@ -221,6 +223,8 @@ public interface IRunHost : ICueHost
     (bool Holding, string Name) StingHold { get; }
     /// <summary>The glance line's facts from the host's own services, joined with a dot: the twin, the screens the room is short, the last box that said no, the lock — "" when there is nothing to say.</summary>
     string GlanceWords { get; }
+    /// <summary>The clock every absolute time on the surface is read against: the desk's own, or on a follower the desk's as the link measured it.</summary>
+    RoomClock Clock { get; }
 }
 
 /// <summary>The one-line verbs on any action layer — a kind with its target and value, one cue fired — as the desk's own layer always offered them.</summary>

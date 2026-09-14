@@ -22,6 +22,7 @@ public sealed class StageService
     public StageService(IStageHost host)
     {
         _s = host;
+        UtcNow = () => host.Clock.UtcNow;      // the desk's frame: on a follower the link's measured offset is in it
         _s.SnapshotPublished += Bump;           // the countdown or the stage section moved: the pages read again
     }
 

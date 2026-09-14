@@ -422,6 +422,9 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
 
     public ServiceKernel Kernel { get; }
 
+    /// <summary>The rig's clock as this node reads it: the machine's moved to the desk's frame while the link measures it, its own alone.</summary>
+    public RoomClock Clock => Kernel.Clock;
+
     public ShowState State => Kernel.State;
 
     public NodeKind Kind => Kernel.Profile;

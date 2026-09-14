@@ -61,6 +61,9 @@ public sealed class TwinService : IDisposable, ILinkReport
     private DateTime _lastDialUtc;
     private int _dialFailures;
     private long _beat;
+    private LinkClock _linkClock = new();        // the main's clock against this machine's, from the beats' stamps; new with every link
+    private long _lastMainSentTicks;             // the main's last beat: its stamp, and when it was heard here — echoed in this desk's next beat
+    private long _lastMainReceivedTicks;
     private DateTime _nextAutoTakeOverUtc;      // after a takeover by itself was refused: the next try
     private string _dialNonce = "";             // this dial's nonce: the main proves the key over it before this desk answers
     private TwinTransaction? _handover;         // the last handover run here, its stages and where it stopped
@@ -244,14 +247,15 @@ public sealed class TwinService : IDisposable, ILinkReport
                     }
                     if (standbys.Count == 0) return "TWIN main · no standby";
                     var silent = standbys.Where(s => TwinWatch.IsSilent(s.Beat, now)).Select(s => s.Name).ToList();
-                    return silent.Count > 0 ? $"TWIN main · {string.Join(", ", silent)} SILENT" : $"TWIN main · {standbys.Count} standby in step";
+                    var apart = ClockApartWords.Length > 0 ? " · CLOCKS APART" : "";
+                    return (silent.Count > 0 ? $"TWIN main · {string.Join(", ", silent)} SILENT" : $"TWIN main · {standbys.Count} standby in step") + apart;
                 }
-                case TwinRole.Standby:
+                case TwinRole.Standby when !IsFollowerNode:                    // a follower links as a standby does, and its words below are its own
                     return _phase switch
                     {
                         TwinPhase.TookOver => "TWIN standby · TOOK OVER",
                         TwinPhase.MainSilent => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} SILENT",
-                        TwinPhase.InStep => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} heard {TwinWatch.Age(_lastHeardUtc, now)}",
+                        TwinPhase.InStep => $"TWIN standby · {(_mainName.Length > 0 ? _mainName : "the main")} heard {TwinWatch.Age(_lastHeardUtc, now)}" + GlanceClock("the main's"),
                         TwinPhase.Refused => "TWIN standby · REFUSED",
                         _ => "TWIN standby · dialling",
                     };
@@ -260,13 +264,13 @@ public sealed class TwinService : IDisposable, ILinkReport
                     {
                         return _phase switch
                         {
-                            TwinPhase.InStep when _stream is not null => $"LINKED {(_mainName.Length > 0 ? _mainName : "the desk")} · heard {TwinWatch.Age(_lastHeardUtc, now)}",
+                            TwinPhase.InStep when _stream is not null => $"LINKED {(_mainName.Length > 0 ? _mainName : "the desk")} · heard {TwinWatch.Age(_lastHeardUtc, now)}" + GlanceClock("the desk's"),
                             TwinPhase.MainSilent => $"{(_mainName.Length > 0 ? _mainName : "the desk")} SILENT",
                             TwinPhase.Connecting => "LINKING",
                             _ => "ALONE",
                         };
                     }
-                    return "";
+                    return ClockApartWords.Length > 0 ? "NODES · CLOCKS APART" : "";      // a desk hosting callers with the twin off: only the one thing worth the line
             }
         }
     }
@@ -294,11 +298,13 @@ public sealed class TwinService : IDisposable, ILinkReport
                 case TwinRole.Main:
                     if (_listener is null) return _note.Length > 0 ? _note : "Twin off.";
                     List<(string, DateTime)> beats;
+                    List<(string, TimeSpan)> clocks;
                     lock (_gate)
                     {
-                        beats = _standbys.Select(s => (s.IsCaller ? "caller " + s.Name : s.IsFollower ? "timer " + s.Name : s.Name, s.LastBeatUtc)).ToList();
+                        beats = _standbys.Select(s => (PeerLabel(s), s.LastBeatUtc)).ToList();
+                        clocks = _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset)).ToList();
                     }
-                    return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words, _handoverNote);
+                    return TwinWatch.DescribeMain(_kernel.State.Twin.Port, beats, _sectionsSent, now, _holder, _launcher.Words, _handoverNote, clocks);
                 case TwinRole.Off when _hosting:
                 {
                     List<string> callers;
@@ -310,17 +316,17 @@ public sealed class TwinService : IDisposable, ILinkReport
                     var held = _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK. " : "Twin off — ";
                     return callers.Count == 0
                         ? $"{held}callers may link on port {_kernel.State.Twin.Port}; none linked."
-                        : $"{held}caller{(callers.Count == 1 ? "" : "s")} {string.Join(", ", callers)} linked; GO, STANDBY and HOLD from there run here.";
+                        : $"{held}caller{(callers.Count == 1 ? "" : "s")} {string.Join(", ", callers)} linked; GO, STANDBY and HOLD from there run here." + PeerClockWords();
                 }
                 case TwinRole.Off when IsFollowerNode:
                     return TwinWatch.DescribeCaller(TwinPhase.Off, "", null, 0, now, timer: _kernel.Profile == NodeKind.Timer);
                 case TwinRole.Standby when IsFollowerNode:
-                    return TwinWatch.DescribeCaller(_phase, _mainName, _lastHeardUtc, _sectionsApplied, now, _note, linked: _stream is not null, airLabel: _live?.AirLabel ?? "", timer: _kernel.Profile == NodeKind.Timer);
+                    return TwinWatch.DescribeCaller(_phase, _mainName, _lastHeardUtc, _sectionsApplied, now, _note, linked: _stream is not null, airLabel: _live?.AirLabel ?? "", timer: _kernel.Profile == NodeKind.Timer, clock: LinkNote("the desk's"));
                 case TwinRole.Standby:
                 {
                     var cfg = _kernel.State.Twin;
                     var auto = cfg.AutoTakeOver && TwinWatch.AutoTakeOverBlocked(MainIsOnThisMachine(), cfg.TakeOverCue.Length > 0, DeviceConfirmation.FenceProblem(_kernel.State, cfg.TakeOverCue)) is null && !_note.StartsWith("not taken over", StringComparison.Ordinal);
-                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, auto, now, _note, linked: _stream is not null);
+                    return TwinWatch.DescribeStandby(_phase, _mainName, _lastHeardUtc, _sectionsApplied, auto, now, _note, linked: _stream is not null, clock: LinkNote("the main's"));
                 }
                 default:
                     return _holder.Length > 0 ? $"Twin off — but the standby {_holder} has the show; this desk's outputs are held closed until it ends, or Main and TAKE BACK." : "Twin off.";
@@ -331,8 +337,23 @@ public sealed class TwinService : IDisposable, ILinkReport
     /// <summary>The last handover run on this desk — its stages, and where it stopped when it did.</summary>
     public TwinTransaction? LastHandover => _handover;
 
-    /// <summary>The words for the health line: the twin's line while it is not simply in step, "" otherwise.</summary>
-    public string HealthWords => _holder.Length > 0 ? Status : _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? "" : Status;
+    /// <summary>The words for the health line: the twin's line while it is not simply in step, "" otherwise — and the clocks apart, on either side, whatever the phase.</summary>
+    public string HealthWords
+    {
+        get
+        {
+            var words = _holder.Length > 0 ? Status : _role == TwinRole.Off || Phase is TwinPhase.InStep or TwinPhase.Listening ? "" : Status;
+            var apart = ClockApartWords;
+            return apart.Length == 0 ? words : words.Length == 0 ? apart : apart + " · " + words;
+        }
+    }
+
+    /// <summary>The glance line's word on the clock: " · the desk's clock 0.8 s ahead", or "" within half a second.</summary>
+    private string GlanceClock(string whose)
+    {
+        var note = LinkNote(whose);
+        return note.Length > 0 ? " · " + note : "";
+    }
 
     /// <summary>A plan a caller brought, waiting on the desk's APPLY.</summary>
     /// <param name="Queued">APPLY pressed while the desk's stack was armed: kept, and landed on DISARM.</param>
@@ -355,6 +376,16 @@ public sealed class TwinService : IDisposable, ILinkReport
             takeBackCue = _kernel.State.Twin.TakeBackCue,
             sectionsSent = _sectionsSent,
             sectionsMirrored = _sectionsApplied,
+            clock = _linkClock.Known ? new
+            {
+                offsetMs = Math.Round(_linkClock.Offset.TotalMilliseconds, 1),
+                roundTripMs = Math.Round(_linkClock.Delay.TotalMilliseconds, 1),
+                samples = _linkClock.Samples,
+                apart = LinkClock.Apart(_linkClock.Offset),
+                followed = IsFollowerNode,
+                roomOffsetMs = Math.Round(_kernel.Clock.Offset.TotalMilliseconds, 1),
+            } : null,
+            clocks = PeerClocks.Select(c => new { name = c.Name, offsetMs = Math.Round(c.Offset.TotalMilliseconds, 1), apart = LinkClock.Apart(c.Offset) }).ToArray(),
             handover = _handover is null ? null : new
             {
                 id = _handover.Id,
@@ -525,6 +556,7 @@ public sealed class TwinService : IDisposable, ILinkReport
         _hosting = false;
         _live = null;
         _phase = TwinPhase.Off;
+        _kernel.Clock.Reset();                                                   // alone by choice: the clock is this machine's own again
         _welcome = null;
         _mainName = "";
         _lastHeardUtc = null;
@@ -543,13 +575,13 @@ public sealed class TwinService : IDisposable, ILinkReport
             {
                 // Hosting callers with the twin off: the beats and the live word go out; nothing else of a main's.
                 HookLive();
-                var beat = TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString());
+                var seq = Interlocked.Increment(ref _beat);
                 List<Standby> callers;
                 lock (_gate)
                 {
                     callers = _standbys.ToList();
                 }
-                if (callers.Count > 0) _ = Task.Run(() => { foreach (var s in callers) if (!s.TryWrite(beat)) Drop(s); });
+                if (callers.Count > 0) _ = Task.Run(() => { foreach (var s in callers) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); });
                 SendLive();
                 return;
             }
@@ -558,13 +590,13 @@ public sealed class TwinService : IDisposable, ILinkReport
                 case TwinRole.Main:
                 {
                     HookLive();
-                    var line = TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString());
+                    var seq = Interlocked.Increment(ref _beat);
                     List<Standby> standbys;
                     lock (_gate)
                     {
                         standbys = _standbys.ToList();
                     }
-                    if (standbys.Count > 0) _ = Task.Run(() => { foreach (var s in standbys) if (!s.TryWrite(line)) Drop(s); });
+                    if (standbys.Count > 0) _ = Task.Run(() => { foreach (var s in standbys) if (!s.TryWrite(s.BeatLine(seq, Clock().Ticks))) Drop(s); });
                     SendLive();
                     _launcher.Tick(standbyHoldsShow: _holder.Length > 0);
                     CheckMarker(force: false);
@@ -596,8 +628,8 @@ public sealed class TwinService : IDisposable, ILinkReport
                     }
                     if (_stream is not null)
                     {
-                        var line = TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString());
-                        _ = Task.Run(() => TryWriteToMain(line));
+                        var seq = Interlocked.Increment(ref _beat);
+                        _ = Task.Run(() => TryWriteToMain(TwinMessage.Format(TwinWord.Beat, new TwinBeat(seq, Clock().Ticks, Interlocked.Read(ref _lastMainSentTicks), Interlocked.Read(ref _lastMainReceivedTicks)).Format())));
                     }
                     else if (_phase is TwinPhase.Connecting or TwinPhase.MainSilent or TwinPhase.TookOver)
                     {
@@ -1138,7 +1170,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             var welcomed = standby.TryWrite(TwinMessage.Format(TwinWord.Welcome, welcome))
                            && (takenBack is null || standby.TryWrite(TwinMessage.Format(TwinWord.HandBack, takenBack.Value.TakeBack)))
                            && (standby.HoldsShow || (standby.TryWrite(TwinMessage.Format(TwinWord.Show, show)) && standby.TryWrite(air)))
-                           && standby.TryWrite(TwinMessage.Format(TwinWord.Beat, Interlocked.Increment(ref _beat).ToString()));
+                           && standby.TryWrite(standby.BeatLine(Interlocked.Increment(ref _beat), Clock().Ticks));
             if (!welcomed)
             {
                 standby.Dispose();
@@ -1170,7 +1202,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 var line = await reader.ReadLineAsync(ct);
                 if (line is null) break;
                 var msg = TwinMessage.Parse(line);
-                if (msg.Word == TwinWord.Beat) standby.LastBeatUtc = Clock();
+                if (msg.Word == TwinWord.Beat) standby.HeardBeat(msg.Payload, Clock());
                 else if (msg.Word == TwinWord.Bye) break;
                 else if (msg.Word == TwinWord.Released) await UiThread.InvokeAsync(() => OnReleased(standby, msg.Payload));
                 else if (standby.IsFollower) await UiThread.InvokeAsync(() => OnCallerLine(standby, msg));
@@ -1742,6 +1774,7 @@ public sealed class TwinService : IDisposable, ILinkReport
     {
         if (!IsFollowerNode) return "Not a caller or a stage timer node.";
         _services.BulkEdit(() => _kernel.State.Twin.MainHost = "");
+        _kernel.Clock.Reset();
         return _kernel.Profile == NodeKind.Timer ? "Unlinked — the clock is this node's own again." : "Unlinked — planning on with the show as it stands here.";
     }
 
@@ -1827,7 +1860,8 @@ public sealed class TwinService : IDisposable, ILinkReport
                 reader.MaxLineBytes = LinkLineBytes;
                 var msg = TwinMessage.Parse(line);
                 if (msg.Word == TwinWord.Unknown) continue;
-                await UiThread.InvokeAsync(() => OnLine(client, msg));
+                var heard = Clock();                                            // stamped at the read, before the hop to the UI thread: the exchange's fourth time is the arrival, not the dispatch
+                await UiThread.InvokeAsync(() => OnLine(client, msg, heard));
                 if (msg.Word is TwinWord.Refused or TwinWord.Bye) break;
             }
         }
@@ -1848,7 +1882,7 @@ public sealed class TwinService : IDisposable, ILinkReport
     }
 
     /// <summary>One line from the main, on the UI thread: the show and its sections land here, the beats are counted here.</summary>
-    private void OnLine(TcpClient client, TwinMessage msg)
+    private void OnLine(TcpClient client, TwinMessage msg, DateTime? heardUtc = null)
     {
         if (!ReferenceEquals(_client, client)) return;
         var now = Clock();
@@ -1978,6 +2012,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             case TwinWord.Beat:
                 _lastHeardUtc = now;
                 if (_phase == TwinPhase.MainSilent) { _phase = TwinPhase.InStep; _note = ""; }
+                HeardMainBeat(msg.Payload, heardUtc ?? now);
                 break;
             case TwinWord.Bye:
                 // A main leaving on purpose (its role changed, a clean exit) is not a main that died: nothing is taken over.
@@ -2054,7 +2089,74 @@ public sealed class TwinService : IDisposable, ILinkReport
         _client = null;
         _stream = null;
         try { client?.Dispose(); } catch { /* already down */ }
+        // The next link measures the clocks afresh; the room clock keeps the last frame it knew — a jump would be worse than a stale offset.
+        _linkClock = new LinkClock();
+        Interlocked.Exchange(ref _lastMainSentTicks, 0);
+        Interlocked.Exchange(ref _lastMainReceivedTicks, 0);
     }
+
+    /// <summary>
+    /// The main's beat with its stamps: its stamp kept for the echo, and — when it echoes this
+    /// desk's own last beat — one exchange closed on the link clock. A follower's room clock then
+    /// follows the desk's, past the deadband; a standby twin's does not: a standby that takes over
+    /// is a desk of its own, and its clock is its own frame — the offset is on its line instead.
+    /// </summary>
+    private void HeardMainBeat(string payload, DateTime heardUtc)
+    {
+        var beat = TwinBeat.Parse(payload);
+        if (!beat.HasStamps) return;
+        if (beat.HasEcho)
+        {
+            _linkClock.Sample(beat.PeerSentTicks, beat.PeerReceivedTicks, beat.SentTicks, heardUtc.Ticks);
+            if (IsFollowerNode && _kernel.Clock.Follow(_linkClock.Offset)) Log.Info($"Twin: {_kernel.Clock.Words} (measured on the link, round trip {_linkClock.Delay.TotalMilliseconds:0} ms).");
+        }
+        Interlocked.Exchange(ref _lastMainSentTicks, beat.SentTicks);
+        Interlocked.Exchange(ref _lastMainReceivedTicks, heardUtc.Ticks);
+    }
+
+    /// <summary>The peer's clock against this desk's, from the link's beats — null before an exchange closed.</summary>
+    public TimeSpan? ClockOffset => _linkClock.Known ? _linkClock.Offset : null;
+
+    /// <summary>On a main or a desk hosting callers: each peer's clock against this desk's, by its label on the line.</summary>
+    public IReadOnlyList<(string Name, TimeSpan Offset)> PeerClocks
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _standbys.Where(s => s.Clock.Known).Select(s => (PeerLabel(s), s.Clock.Offset)).ToList();
+            }
+        }
+    }
+
+    /// <summary>The clocks apart on either side — "CLOCKS 3.2 s APART — …" — or "" while within two seconds.</summary>
+    public string ClockApartWords
+    {
+        get
+        {
+            if (_role == TwinRole.Main || _hosting)
+            {
+                return string.Join(" · ", PeerClocks.Where(c => LinkClock.Apart(c.Offset)).Select(c => LinkClock.ApartWords(c.Name, c.Offset)));
+            }
+            return _linkClock.Known && LinkClock.Apart(_linkClock.Offset)
+                ? LinkClock.ApartWords(_mainName.Length > 0 ? _mainName : IsFollowerNode ? "the desk" : "the main", _linkClock.Offset)
+                : "";
+        }
+    }
+
+    private string LinkNote(string whose) => _linkClock.Known ? LinkClock.Note(_linkClock.Offset, whose) : "";
+
+    /// <summary>The peers' clocks for a desk hosting callers with the twin off: " · timer STAGE-PC's clock 0.8 s behind", and the warning past two seconds.</summary>
+    private string PeerClockWords()
+    {
+        var notes = PeerClocks.Select(c => LinkClock.Note(c.Offset, c.Name + "'s")).Where(n => n.Length > 0).ToList();
+        var apart = ClockApartWords;
+        var words = string.Join(" · ", notes);
+        if (apart.Length > 0) words = words.Length > 0 ? words + " · " + apart : apart;
+        return words.Length > 0 ? " · " + words : "";
+    }
+
+    private static string PeerLabel(Standby s) => s.IsCaller ? "caller " + s.Name : s.IsFollower ? "timer " + s.Name : s.Name;
 
     private bool TryWriteToMain(string line)
     {
@@ -2337,6 +2439,27 @@ public sealed class TwinService : IDisposable, ILinkReport
             get => new(Interlocked.Read(ref _lastBeatTicks), DateTimeKind.Utc);
             set => Interlocked.Exchange(ref _lastBeatTicks, value.Ticks);
         }
+
+        private long _lastPeerSentTicks;
+        private long _lastPeerReceivedTicks;
+
+        /// <summary>This peer's clock against ours, from the beats' stamps.</summary>
+        public LinkClock Clock { get; } = new();
+
+        /// <summary>A beat from the peer: heard now, its stamp kept for the echo, and — when it echoes our own last beat — one exchange closed on the clock.</summary>
+        public void HeardBeat(string payload, DateTime nowUtc)
+        {
+            LastBeatUtc = nowUtc;
+            var beat = TwinBeat.Parse(payload);
+            if (!beat.HasStamps) return;
+            if (beat.HasEcho) Clock.Sample(beat.PeerSentTicks, beat.PeerReceivedTicks, beat.SentTicks, nowUtc.Ticks);
+            Interlocked.Exchange(ref _lastPeerSentTicks, beat.SentTicks);
+            Interlocked.Exchange(ref _lastPeerReceivedTicks, nowUtc.Ticks);
+        }
+
+        /// <summary>Our beat to this peer: our stamp, and the echo of its last — so its next beat closes an exchange for it, and its echo closes one for us.</summary>
+        public string BeatLine(long seq, long nowTicks)
+            => TwinMessage.Format(TwinWord.Beat, new TwinBeat(seq, nowTicks, Interlocked.Read(ref _lastPeerSentTicks), Interlocked.Read(ref _lastPeerReceivedTicks)).Format());
 
         public bool TryWrite(string line)
         {

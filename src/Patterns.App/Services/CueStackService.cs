@@ -27,6 +27,7 @@ public sealed class CueStackService
     {
         _kernel = kernel;
         _host = host;
+        NowUtc = () => kernel.Clock.UtcNow;    // the desk's frame: a caller's plan is read on the desk's clock, not its own
         _kernel.Cues.Changed += () => Changed?.Invoke();
     }
 
