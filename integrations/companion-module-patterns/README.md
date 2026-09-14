@@ -33,10 +33,10 @@ and a fake wire; every preset goes through Companion's own preset sanitiser), `n
 | Transport, Stream | Outputs on / off, blackout, FREEZE, REVIEW, EDIT SAFE, fades (the rig, the focused or ticked tiles, a screen, a canvas), SHOW LOCK, the stream's health |
 | Looks, Look bank | Sixteen bank keys by place, F1–F12, the look on air in three states (up, changed since, not up), PREVIOUS LOOK, one key per look of the show |
 | Screens | Per screen: toggle, lock, back to the program (amber when it has gone its own way), the picture it is showing, fade down / up; canvases A–D |
-| Presenter, Web page | NEXT / BACK, the deck's pages, the VT clock (red for the last ten seconds), the web page's actions |
+| Presenter, Web page | NEXT / BACK, the deck's pages, the VT clock (red for the last ten seconds), the web page's actions; the armed web VT — ARM VT, MARK VT, DISARM VT (lit while a page's video is held at its mark to play when the page goes to air) |
 | Lower thirds, People | Designs and people by number and by name, the sign-off flow (preview, TAKE, UPDATE) |
 | Stingers, VOG | Kind-checked keys, the held stinger put back |
-| Audio, Break music, Playlist parts | The playlist's transport and a bank of tracks, break music, the show's parts |
+| Audio, Break music, Playlist parts | The playlist's transport and a bank of tracks, break music, the show's parts; ROUTING — the matrix of which soundtrack goes where, on or off (the `audio_route` and `audio_vog` actions put a source on a destination at a level and set what a VOG does there) |
 | Clock, Countdown, Message, Overlays | Every overlay from a key that reads what is on; COUNTDOWN FOLLOW the plan |
 | **Stage** | **STAGE TIMER** — what the speaker sees, in the timer's own colour (green, then amber and red at the desk's thresholds), with a ring for how far through on Companion 5's layered keys; pause / resume, ±1 min, FLASH, WRAP UP and a crew message (amber until the stage page ACKs), the pending message, the running order |
 | **Nodes, Twin** | Eight node keys by place, each in its kind's colour (desk, caller, arcade, stage timer) and dark when a node stops being heard; the twin's role and state; TAKE OVER / STAND BY / TAKE BACK |

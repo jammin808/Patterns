@@ -83,6 +83,18 @@ parses on the desk, the desk answers a real mDNS query on the loopback, and the 
 lines are the documented ones. What a Companion 5 in the room will confirm: the `.tgz` importing,
 the bonjour pick listing the desk, a layered key drawn, the TCP API answering `+OK`.
 
+## 5. Round 55 additions
+
+Two field fixes reached the deck. The armed web VT: a `web_vt` action (ARM at the mark or at a
+time, MARK, DISARM, on the page on air or a named page), `web_armed` and `web_advert` feedbacks,
+`web_vt` / `web_armed` / `web_armed_page` variables and three keys in the Web page category
+(ARM VT, MARK VT, DISARM VT, lit steel blue while a page is armed), plus `web_fps` — the frames
+the page delivered in the last second. The routing matrix: `audio_routing` (on, off, toggle),
+`audio_route` (a source on a destination at a level, or off it) and `audio_vog` (duck, replace,
+leave) actions, an `audio_routing_on` feedback, `audio_routing` / `audio_routing_words` variables
+and a ROUTING key in the Audio category. Every line they send is in `test/lines.txt` and parsed by
+the desk's own test. The module's version stays 3.0.0: the ids added are new, none changed.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

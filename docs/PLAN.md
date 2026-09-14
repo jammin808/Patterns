@@ -6906,3 +6906,153 @@ Companion's browser asks for IPv4 by default.
 
 Counts at the end of the round: Core 1,184, App 610 — both suites green here, the module's
 thirteen beside them.
+
+## 73. Round 55 — two fixes from field testing: the page's rate and the armed VT, and which soundtrack goes where
+
+*The brief: "YouTube/web page video playback runs at a really low frame rate. Make it smoother.
+While using a YouTube or web video, an operator should be able to set it up at the start (bypass
+adverts, check audio, etc), then arm it for automatically start playing from the beginning or a
+set point when it is sent to play out. This should be part of the speaker/clicker journey." And:
+"Audio can be tunneled per output via HDMI/NDI/etc … a video or web page playing on an info
+screen, while main outputs are showing a presentation. The main room is hearing the audio desk
+which has a physical link via a sound card, while the info screens could be playing their own
+soundtrack over that individual HDMI or NDI output. An operator should be able to choose which
+soundtrack goes where. VOG's should have the option to override any channel of audio. Research
+how vMix, Qlab, Ableton or Aquilon handle audio." The research is `docs/AUDIO-RESEARCH.md`.*
+
+### 73.1 The page's picture at the browser's rate (55.1)
+
+The page's picture was a screenshot taken twenty times a second — `CapturePreviewAsync`, which
+stops the browser's compositor, reads the whole page back and encodes it while the desk's UI
+thread waits: on a 1080p page a good part of a frame's time each time, which is the slideshow the
+field saw. The browser's own screencast carries the picture now: `Page.startScreencast` makes
+Chromium hand over every frame its compositor draws — a video at the video's own rate, a still
+page not at all — as a `Page.screencastFrame` event, acked on arrival so the next is already on
+its way (Chromium keeps at most three in flight), and decoded off the UI thread with the newest
+frame replacing one still waiting: a slow decode costs frames, never latency. The frame is sliced
+out of the event's text without a second copy (`ScreencastFrame` in Core, tested), the JPEG bytes
+go through the shared array pool, JPEG 70 is asked for (a video site's picture is already
+compressed harder), and the screenshot poll stays as the fallback when a browser will not
+screencast. `--disable-backgrounding-occluded-windows` joins the flags that keep an off-screen
+window painting, and the browser saying its window is hidden — the one thing that stops every
+capture path — is logged and read on the status line. Every page says its rate ("Showing ·
+30 fps", `web.fps`, Companion's `web_fps`) — the room's rate as measured.
+
+*What the research says is next.* WebView2's `CompositionController` with a Windows.Graphics
+.Capture item made from the composition visual would hand over GPU textures at the compositor's
+rate with no encode and no dependence on a window at all (what flutter-webview-windows ships); it
+needs the Windows SDK target framework in the App and a Windows machine to prove, so it is
+recorded here rather than built blind.
+
+### 73.2 The armed web VT (55.2)
+
+A YouTube link on a pattern played when the browser opened, not when the room saw it: by the time
+the look was taken the advert had run and the video was somewhere else. `WebVt` (Core) is the pure
+part — the time words (1:23, 83, 1m23s), the scripts per service (YouTube through its own player,
+any other page through its video element), the reading back, the rule, the words, the pages a look
+asks for — and the web engine keeps the arm per page.
+
+The operator's journey: the page in the preview; the advert skipped (the engine presses SKIP the
+moment the site shows the button and the line reads ADVERT until it has gone); the sound checked
+on the monitor; the moment found; then ARM under PAGE CONTROLS (a time, else the mark, else where
+the player is): the video is put at the mark and paused, still and silent, and plays from it the
+moment the page reaches an output — a TAKE, a cue, the clicker's NEXT. MARK sets the point
+without arming, DISARM clears it, and a page on air refuses an ARM.
+
+The speaker's journey: the look carries the same instruction (Media page or Layers page → *Play
+the video from*), and a cue ahead that carries it — the caller's standby cue, the clicker's next
+step — has its page opened early, muted and off air, prepared at the mark, so NEXT lands on the
+right frame at once in the same browser (`PreRoll.WebPagesFor`). A page opened straight onto the
+air takes its start in the address where YouTube and Vimeo allow it and is moved by script once
+its player answers. A pre-rolled page is given a grace between the cue running and its look
+landing, so it is never closed and reopened in that gap — the fault the first cut of the test
+found. The engine reads the player once a second, four times a second while something is pending.
+
+Everywhere else: WEB ARM / MARK / DISARM on the wire and over OSC, *Web page — arm the video* and
+*mark* in a cue with the checks reading the time, STATE `web.player`, `web.arm` and `webArmed`,
+the Show page's PROGRESSION line, the phone's SHOW tab (ARM / MARK / DISARM with the words),
+Companion's `web_vt` action, `web_armed` and `web_advert` feedbacks and `web_vt` / `web_armed`
+variables.
+
+### 73.3 The routing matrix in Core (55.3)
+
+`AudioRouting`: sources — the programme's own sound, each screen's own picture, the preview, the
+music, VOGs, stingers, the tone — × destinations — every Windows output by name (a sound card
+feeding the room's desk, each HDMI screen's audio, the computer's own) and every NDI send. A
+crosspoint puts a source on a destination at a level in dB (0 unity, −60 off, +12 the ceiling;
+levels add along the path — QLab's discipline); a destination has a trim, a lip-sync delay, a
+mute, and its own answer to a VOG: *duck* the rest to the duck level (the show's, or its own),
+*replace* them (the announcement alone), or *leave* (the VOG never reaches it — a stream that stays
+clean). Resolved to a plan of linear gains; the duck's attack and release are a first-order
+approach (`DuckEnvelope` — a capacitor, not a ramp; three time constants to land) the App's
+envelopes run. Off — the default and every show before it — the desk keeps round 26's two wires
+exactly. Switched on empty it seeds audio-follows-video: the programme, the music, VOGs, stingers
+and the tone on every programme output, the programme with the music and VOGs on every NDI send;
+screens with their own pictures and the preview start unrouted, which is what the matrix is for.
+
+The verbs: `AUDIO ROUTING ON|OFF|TOGGLE`, `AUDIO ROUTE <source> TO <destination> [AT <dB>]`,
+`AUDIO UNROUTE <source> FROM <destination>`, `AUDIO VOG <destination> DUCK|REPLACE|LEAVE`; the
+same over OSC and as cue actions with the checks reading them; sources and destinations found by
+their words ("music", "screen INFO", "Info screen", "hdmi 3", "NDI Stream", "computer").
+
+### 73.4 The routing matrix in the App (55.4)
+
+What the plan reaches. The playlist, VOGs, stingers and the tone open on the destinations routed
+for them, at the crosspoint's gain and behind the destination's delay (`AudioRouting.OutputsFor`
+replaces the programme's device list in each player when the matrix is on), and follow a VOG per
+destination through envelopes of their own — the rules' sting ramp, live duck and fade to black
+kept, the VOG's part taken from the plan (`GainWithoutVogAt`). A clip's soundtrack comes to the
+desk with the matrix on: the decoder's audio callbacks hand over 48 kHz float (the mute, the
+volume, the hold and the fade applied in the tap, so nothing depends on a write libVLC might drop),
+into a fan-out ring (`AudioRing` — one writer, a reader per lane with its own place; silence on
+an underrun, a snap forward when a reader falls out of the ring, both counted), and the graph's
+lanes carry it: one per destination, a device lane through WASAPI, an NDI lane handing 10 ms
+blocks to its sender on a thread of its own (`NDIlib_send_send_audio_v3`, planar float, with the
+struct's layout pinned by a test). An NDI lane also mixes the show's own sound tapped from its
+players (the playlist's first output, each voice's, the tone), since a send has no players of its
+own. A web page's sound is steered through the page's own output picker (setSinkId, after the
+microphone permission is granted on the page's profile for its origin so the page may see the
+outputs) to the first device its picture is routed to, muted when it is routed nowhere, and what
+the page managed is read back — routed or not is never assumed. Switching the matrix reopens the
+clips on air (a decoder's audio path is chosen when it opens): a setup-time switch, said on the
+page.
+
+The Audio page's ROUTING area — an expander, on when the matrix is — has the switch, SEED, CLEAR,
+ADD a destination from what the machine has, one row per destination (its label, its meter from
+the lane, "not plugged in", a cell per source with its level and the live gain under a VOG, the
+VOG mode, trim, delay, mute, the row's line, the lane's error) and the web pages' lines. STATE
+carries `audioRouting` (on, the words, the graph's status, the sources, each destination with its
+lanes' plan and live gains, the pages); Companion has `audio_routing` / `audio_route` /
+`audio_vog` actions, an `audio_routing_on` feedback and `audio_routing` variables.
+
+*Honest limits.* The device lanes, the decoder's tap, the NDI audio send and the page's picker
+are exercised on Windows with a runtime, none of which this environment has: the pure parts are
+tested (the plan, the ring, the interop layout, the verbs, the page's words), the App parts with
+fakes (the wire, STATE, the tone's pick, the page steered and muted, the Audio page's rows), and
+the field decides the rest. The clip taps drift against a device's clock without the playlist's
+sample-rate lock — a snap of a hundred milliseconds after tens of minutes at a hundred parts per
+million, counted on the ring; the lock belongs to a later round. A capture card's embedded audio
+is still not opened. The page can be steered to one output, not several, and not to an NDI send.
+
+### 73.5 Tests, docs (55.5)
+
+Core: the screencast frame parsed, acked and metered; the times, scripts, readings, rule, words,
+looks and verbs of the armed VT; decibels, sources and destinations, the seed, the plan under
+each VOG mode, the players' lists, a clip's path, the envelope, the words and the verbs of the
+matrix; the fan-out ring and the NDI audio frame's layout. App: a page armed by the wire and fired
+by the take, the look's own arm with the advert skipped, the clicker's next step opened early and
+landed on the mark; the matrix driven by the wire and carried by STATE, a page's sound steered and
+muted, the Audio page's rows and cells. Docs: this section, REVIEW round 55, AUDIO-RESEARCH.md,
+REMOTE.md, COMPANION.md, the help, README.
+
+### 73.6 Considered and left
+
+Windows.Graphics.Capture from the browser's composition visual (73.1) — the next step for the
+picture, on a Windows machine. Per-process audio routing of the browser (the undocumented policy
+interface EarTrumpet uses): it follows every WebView2 app on the machine and lapses on a runtime
+update, so the page's own picker was preferred. WASAPI process loopback of the browser into the
+mixer (Windows 11): it needs NAudio 3 and a page that is not muted, and it would make the page a
+lane like a clip — a later round. Multi-channel envelopes (vMix's MA / MAB channel sets): the
+matrix is stereo. A separate Audio page (the brief's "separate area or an expandable column"): an
+expandable area on the Audio page, so the outputs, the monitor and the matrix stay one story.
+

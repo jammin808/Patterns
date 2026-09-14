@@ -30,6 +30,14 @@ with nothing behind it dims.
 thresholds set on the desk's Stage page — with a ring for how far through the segment is on a Companion that
 draws layered keys, and the plain key everywhere else. Press it to pause, press again to resume.
 
+### The armed web VT and the routing matrix
+
+*ARM VT* holds the web page's video at its mark (or where the player is now) so it plays from there the moment
+the page goes to air — a take, a cue, the clicker's NEXT; *MARK VT* sets the point, *DISARM VT* clears it, and the
+`web_vt` action takes a time of its own. *ROUTING* switches the desk's audio matrix — which soundtrack goes to which
+output, HDMI screen or NDI send — on or off; `audio_route` puts a source (the programme, a screen's own picture,
+the music, a VOG…) on a destination at a level in dB, `audio_vog` says whether a VOG ducks, replaces or stays off it.
+
 ### Two presses for the twin
 
 *TAKE OVER* and *TAKE BACK* arm on the first press (the key reads SURE?) and send on the second; *STAND BY*

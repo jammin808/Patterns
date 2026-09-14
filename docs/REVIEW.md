@@ -1208,3 +1208,48 @@ desk by itself, the desk drives it back, and both sides speak one colour.*
   `twin` and `stage` in STATE with the deck signature push. §72.4.
 - **Kept deliberate:** the desk's own pages were not repainted in the palette beyond the Nodes
   cards; the palette is the deck's language and the desk borrows it where the same fact is shown.
+
+## Round 55 review — two fixes from field testing
+
+### 55.1 — the page's picture at the browser's rate
+
+- **Done.** `Page.startScreencast` with immediate acks and a latest-wins decode off the UI thread,
+  the frame sliced from the event without a second copy, JPEG 70, the screenshot poll as the
+  fallback, the rate on the status line, in STATE and in Companion. §73.1.
+- **The honest limit:** no browser ran here; the rate the room gets is the field's to read off
+  the line. The research's next step (capture from the composition visual) is recorded, not built.
+- **Kept deliberate:** the page's `IsPlaying` means "up with a picture", not "a frame arrived
+  lately" — the screencast sends nothing for a still page.
+
+### 55.2 — the armed web VT
+
+- **Done.** `WebVt` in Core; the arm per page in the engine with the fire on the way to air, the
+  look's own arm, the pre-roll of the cues ahead with a grace, the advert skipped; the verbs, the
+  cue actions, STATE, the phone, Companion, the desk's PAGE CONTROLS row. §73.2.
+- **Found and fixed on the way:** the clicker's next cue was looked up with a call that *makes*
+  the clicker list when a show has none — inside the show's own change event and, on a standby, in
+  a section the main owns; five twin and load tests said so. It is found, never made, now.
+- **Kept deliberate:** a page on air refuses an ARM; the look's start point is what arms a page
+  by itself.
+
+### 55.3 — the routing matrix in Core
+
+- **Done.** The model, the plan with each VOG mode, the seed, the players' lists, a clip's path,
+  the envelope, the words, the verbs on the wire, OSC and in cues with the checks. §73.3.
+- **Kept deliberate:** the matrix is off by default and every show before it behaves as it did;
+  the monitor stays outside the matrix (its rule from round 26 stands).
+
+### 55.4 — the routing matrix in the App
+
+- **Done.** The players following the matrix, the decoder's tap, the ring, the graph's lanes,
+  NDI embedded audio, the page's picker, the Audio page's ROUTING area, STATE, Companion. §73.4.
+- **The honest limit:** the lanes, the tap, the NDI send and the page's picker need Windows, a
+  decoder and a runtime — none here. The App tests use fakes; the field decides the rest. The
+  clip taps have no sample-rate lock yet (a counted snap, not a growing delay).
+- **Seen, not this round's:** `TwinAppTests.TheWireCarriesNoMachineSectionsAndTheShowsCredentialsOnlyWhenTold`
+  looks for the digits `9876` in the wire's payload to prove a port never travels, and a generated
+  id can carry them by chance — one run here did. A more distinctive secret would make it honest.
+
+Counts at the end of the round: Core 1,233, App 616 — both suites green here, the module's
+thirteen beside them.
+

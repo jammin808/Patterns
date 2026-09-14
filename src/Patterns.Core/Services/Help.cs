@@ -420,6 +420,20 @@ public static class HelpTopics
             new[] { "Multiview", "Screens", "NDI" },
             new[] { "multiview", "tally", "badge", "program", "preview", "tile", "monitor wall", "which screen", "outputs" }),
 
+        new HelpTopic("audio-routing", HelpGroup.RunningTheShow,
+            "Audio routing: which soundtrack goes where — HDMI, NDI, the sound card, and what a VOG does on each",
+            "A matrix of sources × destinations on the Audio page, off until the show asks for it: an info screen with its own soundtrack over its HDMI while the room hears the desk, the programme embedded on an NDI send, a VOG that ducks the room and leaves the stream clean.",
+            HelpBodies.AudioRouting,
+            new[]
+            {
+                "Audio page → ROUTING: switch it on (empty, it seeds audio-follows-video), ADD a destination, tick the sources it carries and set a level.",
+                "Per destination: the VOG mode (ducks, replaces, stays off), a trim, a delay, a mute; the meter and the live gain read from the lane.",
+                "AUDIO ROUTE music TO Info HDMI AT -6 · AUDIO VOG NDI Stream LEAVE · AUDIO ROUTING OFF on the wire, in cues, over OSC, on Companion.",
+            },
+            "AUDIO ROUTING ON|OFF|TOGGLE · AUDIO ROUTE <source> TO <destination> [AT <dB>] · AUDIO UNROUTE <source> FROM <destination> · AUDIO VOG <destination> DUCK|REPLACE|LEAVE",
+            new[] { "Audio", "Cues" },
+            new[] { "routing", "route", "matrix", "hdmi", "ndi audio", "embedded audio", "info screen", "soundtrack", "which output", "per output", "sound card", "desk", "vog override", "duck", "replace", "leave", "crosspoint", "db", "level", "trim", "delay", "lip sync", "mixer", "lane", "audio follows video", "afv", "web page audio", "setsinkid", "tone output" }),
+
         new HelpTopic("audio-monitor", HelpGroup.RunningTheShow,
             "What the desk is listening to: one picture's sound, not all of them",
             "Audio page: a clip on the programme, one on a confidence screen and one in the preview are three soundtracks — the desk plays one of them, and by default it is the programme.",
@@ -508,10 +522,11 @@ public static class HelpTopics
                 "Click and type on the PREVIEW pane to drive it; show or hide the cursor on the outputs.",
                 "A cue's Web — key or action (next, present, play…), the WEB verbs on the wire, Companion's keys.",
                 "The clicker's NEXT / PREV drive the page on air when it is a deck.",
+                "The armed VT: set a YouTube or video page up in the preview (advert skipped, sound checked), MARK the moment, ARM — it plays from there when it goes to air; or tick 'Play the video from' on the look.",
             },
-            "WEB KEY <key|action> [ON <page>] · WEB NEXT / PREV / PRESENT / PLAY / PAUSE… · WEB CLICK <x> <y> · WEB TYPE <text> · WEB RELOAD · WEB OPEN <address>",
+            "WEB KEY <key|action> [ON <page>] · WEB NEXT / PREV / PRESENT / PLAY / PAUSE… · WEB CLICK <x> <y> · WEB TYPE <text> · WEB RELOAD · WEB OPEN <address> · WEB ARM [<time>] · WEB MARK [<time>] · WEB DISARM",
             new[] { "Media", "Cues", "Panel" },
-            new[] { "web", "page", "browser", "youtube", "google slides", "office", "powerpoint online", "key", "click", "type", "cursor", "url", "address", "present", "webview" }),
+            new[] { "web", "page", "browser", "youtube", "vimeo", "google slides", "office", "powerpoint online", "key", "click", "type", "cursor", "url", "address", "present", "webview", "arm", "armed", "vt", "video", "start point", "mark", "advert", "adverts", "ads", "skip", "play from", "frame rate", "fps", "smooth", "jerky", "screencast", "pre-roll", "clicker" }),
 
         new HelpTopic("pdf-decks", HelpGroup.Content,
             "PDF decks: full frame, the click-through, the cue stack resumes",
