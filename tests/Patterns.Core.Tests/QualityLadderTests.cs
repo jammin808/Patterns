@@ -301,16 +301,15 @@ public class QualityLadderTests
         Assert.Equal(3072, MemoryBudget.For(-1, 10, 4).AppCeilingMB);         // no reading: the cap
         Assert.Equal(10, big.ImageCachePictures);
         Assert.Equal(4, big.DecoderCap);
-        Assert.Equal(400, big.HeldFrameMs);
 
         Assert.Equal(CheckLight.Green, MemoryBudget.Light(412, big));
         Assert.Equal(CheckLight.Amber, MemoryBudget.Light(3200, big));
         Assert.Equal(CheckLight.Red, MemoryBudget.Light(4000, big));
         Assert.Equal(CheckLight.Grey, MemoryBudget.Light(-1, big));
 
-        Assert.Equal("This app 412 MB of a 3.0 GB ceiling (16 GB machine) · pictures 3 of 10 cached · decoders 2 of 4 · 0 frames held for fades",
+        Assert.Equal("This app 412 MB of a 3.0 GB ceiling (16 GB machine) · pictures 3 of 10 cached · decoders 2 of 4 · 0 frames retiring",
             MemoryBudget.Describe(412, big, 3, 2, 0));
-        Assert.Equal("This app: no reading yet · ceiling 3.0 GB · 1 frame held for fades",
+        Assert.Equal("This app: no reading yet · ceiling 3.0 GB · 1 frame retiring",
             MemoryBudget.Describe(-1, MemoryBudget.For(-1, 10, 4), -1, -1, 1));
         Assert.Equal("", MemoryBudget.Advice(412, big));
         Assert.Contains("over its ceiling", MemoryBudget.Advice(3200, big));
@@ -340,7 +339,7 @@ public class QualityLadderTests
         Assert.Equal(MachineClass.Standard, c.Class);
         Assert.Equal(256 * MB, c.PictureCacheBytes);
         Assert.Equal(64 * MB, c.FramePoolBytesPerSource);
-        Assert.Equal("This app 412 MB of a 3.0 GB ceiling (16 GB machine) · pictures 3 of 32 cached (84 MB of 256 MB) · decoders 2 of 4 · frame pools 116 MB (2 sources) · 0 frames held for fades",
+        Assert.Equal("This app 412 MB of a 3.0 GB ceiling (16 GB machine) · pictures 3 of 32 cached (84 MB of 256 MB) · decoders 2 of 4 · frame pools 116 MB (2 sources) · 0 frames retiring",
             MemoryBudget.Describe(412, c, 3, 2, 0, 84 * MB, 116 * MB, 2));
         Assert.DoesNotContain("frame pools", MemoryBudget.Describe(412, c, 3, 2, 0, 84 * MB, 0, 0));    // no source with a pool: no words
         Assert.True(MemoryBudget.MachineMB > 0);

@@ -16,8 +16,11 @@ namespace Patterns.Core.Tests;
 /// </summary>
 public class FramePoolTests : IDisposable
 {
-    private static readonly DateTime T0 = new(2026, 9, 14, 20, 0, 0, DateTimeKind.Utc);
-    private DateTime _now = T0;
+    private const long T0 = 1_000_000_000L;                                                            // a monotonic tick count one second in: the fence never reads the wall clock, and a young clock must not make a sink that never drew look recent
+    private long _now = T0;
+    private static readonly DateTime Epoch = new(2026, 9, 14, 20, 0, 0, DateTimeKind.Utc);              // the samples' wall clock, for the ring test alone
+
+    private static long Sec(double seconds) => (long)(seconds * System.Diagnostics.Stopwatch.Frequency);
 
     public FramePoolTests()
     {
@@ -32,7 +35,7 @@ public class FramePoolTests : IDisposable
     }
 
     [Fact]
-    public void TheFenceClearsWhenEverySinkStartedAFrameAfterTheMarkOrTheFallbackPassed()
+    public void TheFenceClearsOnEvidenceOrADeadSinkAndNeverOnTimeAlone()
     {
         var a = RenderFence.Register();
         var b = RenderFence.Register();
@@ -50,20 +53,42 @@ public class FramePoolTests : IDisposable
         RenderFence.Advance(b);
         Assert.True(RenderFence.Cleared(in mark));
 
-        // A sink that has not started a frame in two seconds is not waited for.
+        // A sink that has not started a frame in two seconds is dead: not waited for.
         var mark2 = RenderFence.Take();
-        _now = T0.AddSeconds(2.5);
-        Assert.True(RenderFence.Cleared(in mark2));                                                     // both asleep: nothing mid-frame
+        _now = T0 + Sec(2.5);
+        Assert.True(RenderFence.Cleared(in mark2));                                                     // both dead: nothing mid-frame
         Assert.Equal(0, RenderFence.LiveSinks);
 
-        // The fallback: half a second clears a mark whatever the sinks did.
+        // No time clears a mark for a live sink that drew and has not started another frame: half a
+        // second, a second and a half — the old fallback would have handed the buffer out; now the
+        // pool starves rather than reuses, and only the sink's next frame or its death releases it.
         RenderFence.Advance(a);
         var mark3 = RenderFence.Take();
         Assert.False(RenderFence.Cleared(in mark3));
-        _now = _now.AddMilliseconds(499);
+        _now += Sec(0.5);
         Assert.False(RenderFence.Cleared(in mark3));
-        _now = _now.AddMilliseconds(2);
+        _now += Sec(1.4);                                                                               // 1.9 s without a frame: still held
+        Assert.False(RenderFence.Cleared(in mark3));
+        Assert.False(RenderFence.Abandoned(in mark3));
+        _now += Sec(0.2);                                                                               // 2.1 s: dead, and that alone releases it
         Assert.True(RenderFence.Cleared(in mark3));
+        Assert.Equal(0, RenderFence.ForcedFrees);
+
+        // Abandonment is time alone, ten seconds, for the disposal paths' backstop — a mark a dead sink
+        // already released, so the count it feeds should stay at nought; a soak reads it to prove so.
+        RenderFence.Advance(a);
+        var mark4 = RenderFence.Take();
+        _now += Sec(9.9);
+        Assert.False(RenderFence.Abandoned(in mark4));
+        _now += Sec(0.2);
+        Assert.True(RenderFence.Abandoned(in mark4));
+        Assert.True(RenderFence.AgeMs(in mark4) >= 10_000);
+        RenderFence.NoteForced();
+        Assert.Equal(1, RenderFence.ForcedFrees);
+        RenderFence.ResetForTests();
+        Assert.Equal(0, RenderFence.ForcedFrees);
+        a = RenderFence.Register();
+        b = RenderFence.Register();
 
         RenderFence.Unregister(a);
         RenderFence.Unregister(b);
@@ -239,10 +264,18 @@ public class FramePoolTests : IDisposable
         Assert.Null(pool.Publish(0));                                                                    // nothing goes on show from a disposed pool
         Assert.False(pool.IsFreed);                                                                      // a sink may still draw the last frame
         Assert.Equal(1, FramePools.PendingFree);
+        Assert.Equal(pool.Bytes, FramePools.RetiringBytes);                                              // its memory is still the app's, and the ledger says so
+        Assert.True(FramePools.OldestRetiredMs >= 0);
+        _now += Sec(1.5);
+        FramePools.Sweep();
+        Assert.False(pool.IsFreed);                                                                      // a second and a half is not evidence
+        Assert.True(FramePools.OldestRetiredMs >= 1500);
         RenderFence.Advance(sink);
         FramePools.Sweep();
         Assert.True(pool.IsFreed);
         Assert.Equal(0, FramePools.PendingFree);
+        Assert.Equal(0, FramePools.RetiringBytes);
+        Assert.Equal(0, RenderFence.ForcedFrees);
         RenderFence.Unregister(sink);
     }
 
@@ -368,7 +401,7 @@ public class FramePoolTests : IDisposable
             Assert.Equal(3, ImageCache.Count);
             Assert.True(ImageCache.Bytes <= ImageCache.BudgetBytes);
             Assert.Equal(3 * one, ImageCache.Bytes);
-            Assert.True(ImageCache.GraveyardBytes <= Math.Max(one, ImageCache.BudgetBytes / 2));        // the evicted wait a moment, bounded
+            Assert.Equal(0, ImageCache.GraveyardBytes);                                                  // the evicted went behind the fence, and off a frame nothing held them
             // The last three asked for are the ones kept; asking for the first again evicts the least recently drawn (the second).
             Assert.NotNull(ImageCache.Get(paths[0]));
             Assert.Equal(3, ImageCache.Count);
@@ -393,10 +426,10 @@ public class FramePoolTests : IDisposable
     public void TheMetricsHistoryIsARingThatForgetsByOverwriting()
     {
         var h = new MetricsHistory();
-        for (var i = 0; i < 700; i++) h.Add(new MetricSample { Utc = T0.AddSeconds(i), PrivateMB = i, ManagedMB = 10 });
+        for (var i = 0; i < 700; i++) h.Add(new MetricSample { Utc = Epoch.AddSeconds(i), PrivateMB = i, ManagedMB = 10 });
         Assert.Equal(MetricsHistory.RecentCapacity, h.Recent.Count);
-        Assert.Equal(T0.AddSeconds(100), h.Recent[0].Utc);                                              // the oldest kept is the 101st
-        Assert.Equal(T0.AddSeconds(699), h.Recent[^1].Utc);
+        Assert.Equal(Epoch.AddSeconds(100), h.Recent[0].Utc);                                              // the oldest kept is the 101st
+        Assert.Equal(Epoch.AddSeconds(699), h.Recent[^1].Utc);
         Assert.Equal(700 / MetricsHistory.AggregateEvery, h.LongTerm.Count);
         Assert.Equal(Enumerable.Range(697, 3).Select(i => (double)i), h.Tail(3, s => s.PrivateMB));
         Assert.Equal(14.5, h.LongTerm[0].PrivateMB);                                                    // the first thirty averaged

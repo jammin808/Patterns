@@ -253,18 +253,41 @@ public sealed class FramePool : IDisposable
         FramePools.Retire(this);
     }
 
-    /// <summary>Frees the memory once no buffer is under a fence; true when it did.</summary>
+    /// <summary>How long the oldest retired buffer has waited on the fence, ms; -1 with none waiting.</summary>
+    public double OldestRetiredMs
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var oldest = -1.0;
+                for (var i = 0; i < Count; i++)
+                {
+                    if (_slot[i] != Slot.Retired) continue;
+                    var age = RenderFence.AgeMs(in _marks[i]);
+                    if (age > oldest) oldest = age;
+                }
+                return oldest;
+            }
+        }
+    }
+
+    /// <summary>Frees the memory once no buffer is under a fence — or once every buffer's mark is abandoned, counted as forced; true when it did.</summary>
     internal bool TryFree()
     {
         lock (_gate)
         {
             if (_freed) return true;
             if (!_disposed) return false;
+            var forced = false;
             for (var i = 0; i < Count; i++)
             {
-                if (_slot[i] == Slot.Retired && !RenderFence.Cleared(in _marks[i], _drewAt)) return false;
                 if (_slot[i] is Slot.Locked or Slot.Decoded or Slot.Latest) return false;
+                if (_slot[i] != Slot.Retired || RenderFence.Cleared(in _marks[i], _drewAt)) continue;
+                if (!RenderFence.Abandoned(in _marks[i])) return false;
+                forced = true;
             }
+            if (forced) RenderFence.NoteForced();
             _freed = true;
             for (var i = 0; i < Count; i++)
             {
@@ -373,6 +396,35 @@ public static class FramePools
             lock (Gate)
             {
                 return Retiring.Count;
+            }
+        }
+    }
+
+    /// <summary>Bytes the disposed pools still hold while they wait.</summary>
+    public static long RetiringBytes
+    {
+        get
+        {
+            lock (Gate)
+            {
+                long b = 0;
+                foreach (var p in Retiring) b += p.Bytes;
+                return b;
+            }
+        }
+    }
+
+    /// <summary>The longest any retired buffer — in a live pool or a disposed one — has waited on the fence, ms; -1 with none waiting.</summary>
+    public static double OldestRetiredMs
+    {
+        get
+        {
+            lock (Gate)
+            {
+                var oldest = -1.0;
+                foreach (var p in Live) oldest = Math.Max(oldest, p.OldestRetiredMs);
+                foreach (var p in Retiring) oldest = Math.Max(oldest, p.OldestRetiredMs);
+                return oldest;
             }
         }
     }

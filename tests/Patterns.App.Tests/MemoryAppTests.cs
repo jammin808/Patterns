@@ -44,6 +44,14 @@ public class MemoryAppTests
             Assert.True(state.GetProperty("managedMB").GetDouble() > 0);
             Assert.Contains("managed heap", state.GetProperty("placed").GetString());
             Assert.Equal(0, state.GetProperty("framePoolMB").GetDouble());
+            Assert.Equal(0, state.GetProperty("starved").GetInt32());                                   // the fence's health, in STATE
+            Assert.Equal(0, state.GetProperty("forcedFrees").GetInt64());
+            Assert.True(state.GetProperty("liveSinks").GetInt32() >= 0);
+            Assert.True(state.GetProperty("retiringMB").GetDouble() >= 0);
+            Assert.True(state.GetProperty("fenceOldestMs").GetDouble() >= -1);
+            var fence = SuperCheck.Run(facts).Rows.Single(r => r.Item == "Frame fence");
+            Assert.Equal(CheckLight.Green, fence.Light);
+            Assert.Contains("on the sinks' evidence alone", fence.Note);
 
             var (health, _) = services.DeskHealthWords();
             Assert.Contains(health, line => line.StartsWith("Memory: This app", StringComparison.Ordinal));

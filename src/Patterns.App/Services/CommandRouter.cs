@@ -483,6 +483,12 @@ public sealed class CommandRouter : IRouter
                 managedMB = Math.Round(_services.Metrics.Current?.ManagedMB ?? -1),
                 pictureMB = Math.Round(Patterns.Core.Media.ImageCache.Bytes / (1024.0 * 1024.0)),
                 framePoolMB = Math.Round(Patterns.Core.Media.FramePools.Bytes / (1024.0 * 1024.0)),
+                retiringMB = Math.Round((Patterns.Core.Media.RetiredFrames.Bytes + Patterns.Core.Media.FramePools.RetiringBytes) / (1024.0 * 1024.0)),   // behind the render fence: frames, pictures and pools let go, waiting for the sinks that drew them
+                starved = Patterns.Core.Media.FramePools.Starved,
+                pendingFree = Patterns.Core.Media.FramePools.PendingFree,
+                fenceOldestMs = Math.Round(Math.Max(Patterns.Core.Media.FramePools.OldestRetiredMs, Patterns.Core.Media.RetiredFrames.OldestMs)),
+                liveSinks = Patterns.Core.Media.RenderFence.LiveSinks,
+                forcedFrees = Patterns.Core.Media.RenderFence.ForcedFrees,
                 placed = MemoryLedger.Describe(),
                 text = _services.Metrics.MemoryCeilingLine(),
             },

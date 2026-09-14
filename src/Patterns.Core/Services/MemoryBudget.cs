@@ -8,8 +8,8 @@ public enum MachineClass
     Big,
 }
 
-/// <summary>The ceilings a machine of this size gets: the app's working set, the picture cache (count and bytes), the decoder pool, the fade hold, a frame pool's bytes per source, the GPU resource cache.</summary>
-public sealed record MemoryCeilings(double TotalMB, double AppCeilingMB, int ImageCachePictures, int DecoderCap, int HeldFrameMs,
+/// <summary>The ceilings a machine of this size gets: the app's working set, the picture cache (count and bytes), the decoder pool, a frame pool's bytes per source, the GPU resource cache.</summary>
+public sealed record MemoryCeilings(double TotalMB, double AppCeilingMB, int ImageCachePictures, int DecoderCap,
                                     long PictureCacheBytes = 0, long FramePoolBytesPerSource = 0, long GpuCacheBytes = 0, MachineClass Class = MachineClass.Standard);
 
 /// <summary>
@@ -25,9 +25,6 @@ public static class MemoryBudget
     public const double AppShareOfRam = 0.25;
     public const double AppFloorMB = 512;
     public const double AppCapMB = 3072;
-
-    /// <summary>How long a retired decoded frame is held for a crossfade before it is freed.</summary>
-    public const int HeldFrameMs = 400;
 
     private const long MB = 1024L * 1024;
 
@@ -53,7 +50,7 @@ public static class MemoryBudget
     public static MemoryCeilings For(double totalMB, int imageCachePictures, int decoderCap)
     {
         var app = totalMB > 0 ? Math.Clamp(totalMB * AppShareOfRam, AppFloorMB, AppCapMB) : AppCapMB;
-        return new MemoryCeilings(totalMB, app, imageCachePictures, decoderCap, HeldFrameMs,
+        return new MemoryCeilings(totalMB, app, imageCachePictures, decoderCap,
             PictureCacheBytes(totalMB), FramePoolBytesPerSource(totalMB), GpuCacheBytes(totalMB), ClassOf(totalMB));
     }
 
@@ -66,11 +63,13 @@ public static class MemoryBudget
     }
 
     /// <summary>
-    /// "This app 412 MB of a 1.5 GB ceiling (16 GB machine) · pictures 3 of 10 cached · decoders 2 of 4 · 0 frames held for fades"
-    /// — and with the bytes known, "pictures 3 of 32 cached (84 MB of 256 MB)" and "frame pools 116 MB (2 sources)".
+    /// "This app 412 MB of a 1.5 GB ceiling (16 GB machine) · pictures 3 of 10 cached · decoders 2 of 4 · 0 frames retiring"
+    /// — and with the bytes known, "pictures 3 of 32 cached (84 MB of 256 MB)", "frame pools 116 MB (2 sources) + 64 MB
+    /// retiring" and "8 MB retiring behind the fence (3 frames)".
     /// </summary>
     public static string Describe(double appMB, MemoryCeilings c, int imagesCached, int decoders, int heldFrames,
-                                  long pictureBytes = -1, long framePoolBytes = -1, int framePools = 0)
+                                  long pictureBytes = -1, long framePoolBytes = -1, int framePools = 0,
+                                  long retiringPoolBytes = 0, long retiringFrameBytes = -1)
     {
         var machine = c.TotalMB > 0 ? $" ({c.TotalMB / 1024:0.#} GB machine)" : "";
         var app = appMB >= 0 ? $"This app {Mb(appMB)} of a {Mb(c.AppCeilingMB)} ceiling{machine}" : $"This app: no reading yet · ceiling {Mb(c.AppCeilingMB)}{machine}";
@@ -81,8 +80,14 @@ public static class MemoryBudget
             parts.Add($"pictures {imagesCached} of {c.ImageCachePictures} cached{bytes}");
         }
         if (decoders >= 0) parts.Add($"decoders {decoders} of {c.DecoderCap}");
-        if (framePoolBytes >= 0 && framePools > 0) parts.Add($"frame pools {Mb(framePoolBytes / (1024.0 * 1024.0))} ({framePools} source{(framePools == 1 ? "" : "s")})");
-        parts.Add($"{heldFrames} frame{(heldFrames == 1 ? "" : "s")} held for fades");
+        if (framePoolBytes >= 0 && (framePools > 0 || retiringPoolBytes > 0))
+        {
+            parts.Add($"frame pools {Mb(framePoolBytes / (1024.0 * 1024.0))} ({framePools} source{(framePools == 1 ? "" : "s")})"
+                      + (retiringPoolBytes > 0 ? $" + {Mb(retiringPoolBytes / (1024.0 * 1024.0))} retiring" : ""));
+        }
+        parts.Add(retiringFrameBytes >= 0
+            ? $"{Mb(retiringFrameBytes / (1024.0 * 1024.0))} retiring behind the fence ({heldFrames} frame{(heldFrames == 1 ? "" : "s")})"
+            : $"{heldFrames} frame{(heldFrames == 1 ? "" : "s")} retiring");
         return string.Join(" · ", parts);
     }
 

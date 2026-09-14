@@ -143,7 +143,7 @@ public class PlanAndGlanceAppTests
             for (var i = 0; i < MetricsHistory.AggregateEvery; i++) services.Metrics.Ingest(new MetricSample { Utc = DateTime.UtcNow, P95FrameMs = 8.1, MissedSlots = 1 });
             var lines = File.ReadAllLines(path);
             Assert.Equal(MetricsCsv.Header, lines[0]);
-            Assert.EndsWith(",8.1,1,,0,,,0,,,", lines[1]);                                // …p95, missed, then the switch, GO, lag, faults, memory and live-age columns: none measured yet
+            Assert.EndsWith(",8.1,1,,0,,,0,,,,,0", lines[1]);                             // …p95, missed, then the switch, GO, lag, faults, memory, live-age and retiring columns unmeasured (a fed sample); no frame starved
             Assert.True(File.Exists(path + ".old"));
             Assert.StartsWith("utc,cpuAppPct,oldColumn", File.ReadAllText(path + ".old"));
         }

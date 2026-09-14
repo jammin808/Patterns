@@ -140,6 +140,20 @@ public sealed class CheckFacts
     public int FramePools { get; init; }
     public double PrivateMB { get; init; } = -1;
     public double ManagedMB { get; init; } = -1;
+
+    /// <summary>
+    /// The render fence's health: the pools disposed and waiting (and their bytes), the frames and
+    /// pictures retiring behind the fence (bytes), the longest any of them has waited (ms; -1 none
+    /// waiting), the sinks drawing now (-1 unknown), the frames that found every pooled buffer under
+    /// a draw this session, and the resources freed on time alone (a count that should stay at nought).
+    /// </summary>
+    public int PoolsPendingFree { get; init; }
+    public long RetiringPoolBytes { get; init; } = -1;
+    public long RetiringFrameBytes { get; init; } = -1;
+    public double FenceOldestMs { get; init; } = -1;
+    public int FenceLiveSinks { get; init; } = -1;
+    public int PoolStarved { get; init; }
+    public long ForcedFrees { get; init; }
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
 
@@ -710,7 +724,41 @@ public static class SuperCheck
         if (f.RamAppMB < 0 && f.ImagesCached < 0 && f.Decoders < 0) return;
         var ceilings = MemoryBudget.For(f.RamTotalMB, Media.ImageCache.Capacity, f.DecoderCap);
         rows.Add(new CheckRow(section, "Memory ceiling", MemoryBudget.Light(f.RamAppMB, ceilings),
-            MemoryBudget.Describe(f.RamAppMB, ceilings, f.ImagesCached, f.Decoders, f.HeldFrames, f.PictureBytes, f.FramePoolBytes, f.FramePools), MemoryBudget.Advice(f.RamAppMB, ceilings)));
+            MemoryBudget.Describe(f.RamAppMB, ceilings, f.ImagesCached, f.Decoders, f.HeldFrames, f.PictureBytes, f.FramePoolBytes, f.FramePools,
+                Math.Max(0, f.RetiringPoolBytes), f.RetiringFrameBytes), MemoryBudget.Advice(f.RamAppMB, ceilings)));
+        FrameFence(f, rows, section);
+    }
+
+    /// <summary>
+    /// The render fence: green while nothing retired waits past a few frames, no frame starved and
+    /// nothing was freed on time alone; amber for a wait past 100 ms (a sink slower than ten frames
+    /// a second holding a buffer, or one gone quiet within its two seconds) or a starved frame (the
+    /// pool's degraded path: an allocation, never a wrong picture); red past two seconds — a mark a
+    /// dead sink should have released — or any resource freed on time alone.
+    /// </summary>
+    private static void FrameFence(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.FenceLiveSinks < 0) return;
+        var light = f.ForcedFrees > 0 || f.FenceOldestMs > 2000 ? CheckLight.Red
+            : f.FenceOldestMs > 100 || f.PoolStarved > 0 ? CheckLight.Amber
+            : CheckLight.Green;
+        var retiring = Math.Max(0, f.RetiringPoolBytes) + Math.Max(0, f.RetiringFrameBytes);
+        var value = $"{f.FenceLiveSinks} sink{(f.FenceLiveSinks == 1 ? "" : "s")} drawing"
+                    + (f.FenceOldestMs >= 0 ? $" · oldest wait {f.FenceOldestMs:0} ms" : " · nothing waiting")
+                    + (retiring > 0 ? $" · {MemoryBudget.Mb(retiring / (1024.0 * 1024.0))} retiring{(f.PoolsPendingFree > 0 ? $" ({f.PoolsPendingFree} pool{(f.PoolsPendingFree == 1 ? "" : "s")})" : "")}" : "")
+                    + (f.PoolStarved > 0 ? $" · {f.PoolStarved} frame{(f.PoolStarved == 1 ? "" : "s")} starved" : "")
+                    + (f.ForcedFrees > 0 ? $" · {f.ForcedFrees} freed on time alone" : "");
+        var note = light switch
+        {
+            CheckLight.Red => f.ForcedFrees > 0
+                ? "a retired buffer was freed because nobody released it in ten seconds — a sink hung mid-frame; the pixels it held may have been drawn once more after they changed: the log and the render faults row say which sink"
+                : "a retired buffer has waited past two seconds — a sink that drew it stopped starting frames without going quiet; the outputs' frame rates say which",
+            CheckLight.Amber => f.PoolStarved > 0
+                ? "a frame found every pooled buffer under a draw and was decoded the old way — an allocation, never a wrong picture; often, a sink drawing slower than the source publishes"
+                : "a retired buffer is waiting on a slow or quiet sink; it is released at that sink's next frame, or two seconds after its last",
+            _ => "buffers go round on the sinks' evidence alone — never on time",
+        };
+        rows.Add(new CheckRow(section, "Frame fence", light, value, note));
     }
 
     /// <summary>Start-up: green under eight seconds, amber past it, red past twenty — the phases say where the time went.</summary>

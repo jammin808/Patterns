@@ -45,7 +45,8 @@ public sealed class SystemMetricsService : IDisposable
     {
         MemoryLedger.Register("pictures", () => (Patterns.Core.Media.ImageCache.Bytes, $"{Patterns.Core.Media.ImageCache.Count} cached"));
         MemoryLedger.Register("frame pools", () => (Patterns.Core.Media.FramePools.Bytes, $"{Patterns.Core.Media.FramePools.Count} source{(Patterns.Core.Media.FramePools.Count == 1 ? "" : "s")}"));
-        MemoryLedger.Register("frames held", () => (Patterns.Core.Media.RetiredFrames.Bytes, $"{Patterns.Core.Media.RetiredFrames.Count} for fades"));
+        MemoryLedger.Register("retiring", () => (Patterns.Core.Media.RetiredFrames.Bytes + Patterns.Core.Media.FramePools.RetiringBytes,
+            $"{Patterns.Core.Media.RetiredFrames.CountOf(Patterns.Core.Media.RetiredFrames.Kind.Frame)} frames, {Patterns.Core.Media.RetiredFrames.CountOf(Patterns.Core.Media.RetiredFrames.Kind.Picture)} pictures, {Patterns.Core.Media.FramePools.PendingFree} pools behind the fence"));
         MemoryLedger.Register("deck pages", () => (_services.DeckIn.PageBytes, $"{_services.DeckIn.DeckCount} deck{(_services.DeckIn.DeckCount == 1 ? "" : "s")}"));
         MemoryLedger.Register("managed heap", () => (GC.GetTotalMemory(false), $"{GC.GetGCMemoryInfo().TotalCommittedBytes / (1024 * 1024)} MB committed"));
     }
@@ -229,6 +230,8 @@ public sealed class SystemMetricsService : IDisposable
             GoWorstMs = _services.CueStack.GoClock.Worst?.TotalMs ?? -1,
             LagWorstMs = outputs.Count > 0 ? outputs.Max(r => r.LagMs) : -1,
             LiveAgeWorstMs = outputs.Count > 0 ? outputs.Max(r => r.LiveAgeMs) : -1,
+            RetiringMB = (Patterns.Core.Media.RetiredFrames.Bytes + Patterns.Core.Media.FramePools.RetiringBytes) / (1024.0 * 1024.0),
+            PoolStarved = Patterns.Core.Media.FramePools.Starved,
             Threads = threads,
             Handles = handles,
             GcPausePct = gcPause,
@@ -330,7 +333,8 @@ public sealed class SystemMetricsService : IDisposable
         var sample = Current;
         var ceilings = MemoryBudget.For(sample?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts);
         var line = MemoryBudget.Describe(sample?.RamAppMB ?? -1, ceilings, Patterns.Core.Media.ImageCache.Count, _services.Video.MountCount, VlcFrameSource.RetiredImageCount,
-            Patterns.Core.Media.ImageCache.Bytes, Patterns.Core.Media.FramePools.Bytes, Patterns.Core.Media.FramePools.Count);
+            Patterns.Core.Media.ImageCache.Bytes, Patterns.Core.Media.FramePools.Bytes, Patterns.Core.Media.FramePools.Count,
+            Patterns.Core.Media.FramePools.RetiringBytes, Patterns.Core.Media.RetiredFrames.Bytes);
         return line + " · placed: " + MemoryLedger.Describe();
     }
 
@@ -526,6 +530,13 @@ public sealed class SystemMetricsService : IDisposable
             PictureBytes = Patterns.Core.Media.ImageCache.Bytes,
             FramePoolBytes = Patterns.Core.Media.FramePools.Bytes,
             FramePools = Patterns.Core.Media.FramePools.Count,
+            PoolsPendingFree = Patterns.Core.Media.FramePools.PendingFree,
+            RetiringPoolBytes = Patterns.Core.Media.FramePools.RetiringBytes,
+            RetiringFrameBytes = Patterns.Core.Media.RetiredFrames.Bytes,
+            FenceOldestMs = Math.Max(Patterns.Core.Media.FramePools.OldestRetiredMs, Patterns.Core.Media.RetiredFrames.OldestMs),
+            FenceLiveSinks = Patterns.Core.Media.RenderFence.LiveSinks,
+            PoolStarved = Patterns.Core.Media.FramePools.Starved,
+            ForcedFrees = Patterns.Core.Media.RenderFence.ForcedFrees,
             PrivateMB = s?.PrivateMB ?? -1,
             ManagedMB = s?.ManagedMB ?? -1,
             WatchdogEnabled = state.Watchdog.Enabled,

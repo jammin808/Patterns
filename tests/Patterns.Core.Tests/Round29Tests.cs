@@ -107,23 +107,24 @@ public class Round29Tests
     }
 
     [Fact]
-    public void RetiredFramesAreBoundedByCountAndByTime()
+    public void RetiredFramesAreFreedBehindTheFenceNotByTimeOrCount()
     {
+        RenderFence.ResetForTests();
+        RetiredFrames.ClearForTests();
+        for (var i = 0; i < 40; i++) RetiredFrames.Retire(SKImage.Create(new SKImageInfo(4, 4)));   // off any frame: freed as they come
+        Assert.Equal(0, RetiredFrames.Count);
+        var sink = RenderFence.Register();
+        RenderFence.Advance(sink);
+        for (var i = 0; i < 40; i++) RetiredFrames.Retire(SKImage.Create(new SKImageInfo(4, 4)));   // under a frame: every one waits — none is disposed for being many
+        Assert.Equal(40, RetiredFrames.Count);
+        Assert.Equal(40 * 4 * 4 * 4, RetiredFrames.Bytes);
         RetiredFrames.Sweep();
-        Thread.Sleep(RetiredFrames.Hold + TimeSpan.FromMilliseconds(50));
+        Assert.Equal(40, RetiredFrames.Count);
+        RenderFence.Advance(sink);                                                                       // the frame that could have drawn them is over
         RetiredFrames.Sweep();
-        var before = RetiredFrames.Count;
-        for (var i = 0; i < RetiredFrames.MaxHeld * 3; i++)
-        {
-            RetiredFrames.Retire(SKImage.Create(new SKImageInfo(4, 4)));
-        }
-        Assert.True(RetiredFrames.Count <= RetiredFrames.MaxHeld, $"{RetiredFrames.Count} frames held");
-        Assert.True(RetiredFrames.Count >= Math.Min(RetiredFrames.MaxHeld, 1));
-
-        Thread.Sleep(RetiredFrames.Hold + TimeSpan.FromMilliseconds(50));
-        RetiredFrames.Sweep();
-        Assert.Equal(before, RetiredFrames.Count);
-        Assert.Equal(MemoryBudget.HeldFrameMs, (int)RetiredFrames.Hold.TotalMilliseconds); // the number the Machine page prints
+        Assert.Equal(0, RetiredFrames.Count);
+        Assert.Equal(0, RenderFence.ForcedFrees);
+        RenderFence.Unregister(sink);
     }
 
     [Fact]

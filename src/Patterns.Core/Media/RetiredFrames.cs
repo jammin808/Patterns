@@ -1,31 +1,34 @@
-using Patterns.Core.Services;
 using SkiaSharp;
 
 namespace Patterns.Core.Media;
 
 /// <summary>
-/// Where a live source's replaced frames go before they are freed. A frame a renderer fetched a
-/// moment ago may still be inside a draw — the canvas flushes at the end of the frame — so a
-/// superseded image is held a little and then disposed, never freed under a draw. One pool for
-/// every source: a decoded clip, an NDI feed, a web page, a deck.
-///
-/// Held for <see cref="MemoryBudget.HeldFrameMs"/> — the number the Machine page prints — and
-/// never more than <see cref="MaxHeld"/> frames at once, whatever the rate. Three copies of this
-/// list used to disagree: the clip decoder held 400 ms, the NDI receiver and the frame slot two
-/// seconds, and two seconds of 1080p60 is a hundred and twenty frames, a gigabyte per source,
-/// with nothing but time to bound it. A draw is over within a frame or two; the cap is generous.
+/// Where a replaced picture goes before it is freed: a live source's frame that went the old way
+/// (every pooled buffer under a draw), a web page's or a deck's frame, a decoded picture the cache
+/// evicted or replaced. A renderer that fetched one a moment ago may still be inside a draw — the
+/// canvas flushes at the end of the frame — so nothing here is disposed on time: each image is
+/// retired at a <see cref="RenderFence"/> mark with the table of the sinks that drew it (a cached
+/// picture's) or none (a frame any sink may have drawn), and freed once those sinks have started a
+/// frame after the mark or are dead. One list for every kind, so the ledger and the health row
+/// read one number. A mark nobody clears in <see cref="RenderFence.AbandonAfter"/> is freed anyway
+/// and counted as forced: a hung sink, never a draw.
 /// </summary>
 public static class RetiredFrames
 {
-    /// <summary>The most frames the pool holds, whatever their age: a 4K frame is thirty-odd megabytes.</summary>
-    public const int MaxHeld = 12;
+    public enum Kind
+    {
+        /// <summary>A live source's or a slot's frame.</summary>
+        Frame,
+        /// <summary>A decoded picture the cache let go.</summary>
+        Picture,
+    }
 
-    public static readonly TimeSpan Hold = TimeSpan.FromMilliseconds(MemoryBudget.HeldFrameMs);
+    private readonly record struct Entry(SKImage Image, long[]? DrewAt, RenderFence.Mark Mark, Kind Kind, long Bytes);
 
     private static readonly object Gate = new();
-    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Held = new();
+    private static readonly List<Entry> Held = new();
 
-    /// <summary>Frames held right now, across every source: the memory ceilings' number.</summary>
+    /// <summary>Images retired and waiting, across every source: the memory ceilings' number.</summary>
     public static int Count
     {
         get
@@ -37,7 +40,18 @@ public static class RetiredFrames
         }
     }
 
-    /// <summary>Bytes the held frames hold right now.</summary>
+    /// <summary>Images of one kind waiting.</summary>
+    public static int CountOf(Kind kind)
+    {
+        lock (Gate)
+        {
+            var n = 0;
+            foreach (var h in Held) if (h.Kind == kind) n++;
+            return n;
+        }
+    }
+
+    /// <summary>Bytes the waiting images hold right now.</summary>
     public static long Bytes
     {
         get
@@ -45,48 +59,90 @@ public static class RetiredFrames
             lock (Gate)
             {
                 long b = 0;
-                foreach (var h in Held) b += h.Image.Info.BytesSize;
+                foreach (var h in Held) b += h.Bytes;
                 return b;
             }
         }
     }
 
-    /// <summary>Takes a replaced frame (null is nothing) and frees whatever is past its hold or beyond the cap.</summary>
-    public static void Retire(SKImage? image)
+    /// <summary>Bytes of one kind waiting.</summary>
+    public static long BytesOf(Kind kind)
     {
         lock (Gate)
         {
-            if (image is not null) Held.Add((image, DateTime.UtcNow));
-            SweepLocked(DateTime.UtcNow);
+            long b = 0;
+            foreach (var h in Held) if (h.Kind == kind) b += h.Bytes;
+            return b;
         }
     }
 
-    /// <summary>Frees what is past its hold — for a source that stopped publishing, so its last frames do not wait for the next.</summary>
+    /// <summary>How long the oldest waiting image has waited, ms; -1 with none.</summary>
+    public static double OldestMs
+    {
+        get
+        {
+            lock (Gate)
+            {
+                var oldest = -1.0;
+                foreach (var h in Held)
+                {
+                    var age = RenderFence.AgeMs(h.Mark);
+                    if (age > oldest) oldest = age;
+                }
+                return oldest;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Takes a replaced image (null is nothing) with the table of the sinks that drew it — null for
+    /// a frame any sink may have drawn — and frees whatever has cleared its fence.
+    /// </summary>
+    public static void Retire(SKImage? image, long[]? drewAt = null, Kind kind = Kind.Frame)
+    {
+        lock (Gate)
+        {
+            if (image is not null) Held.Add(new Entry(image, drewAt, RenderFence.Take(), kind, image.Info.BytesSize));
+            SweepLocked();
+        }
+    }
+
+    /// <summary>Frees what has cleared its fence — for a source that stopped publishing, so its last frames do not wait for the next; the pools retired with their sources go the same way.</summary>
     public static void Sweep()
     {
         lock (Gate)
         {
-            SweepLocked(DateTime.UtcNow);
+            SweepLocked();
         }
-        FramePools.Sweep();   // the pools retired with their sources go the same way, on the same beat
+        FramePools.Sweep();
     }
 
-    private static void SweepLocked(DateTime nowUtc)
+    private static void SweepLocked()
     {
-        var cutoff = nowUtc - Hold;
-        // Oldest first: past the hold, or past the cap counting from the newest.
-        for (var i = 0; i < Held.Count;)
+        for (var i = Held.Count - 1; i >= 0; i--)
         {
-            var overCap = Held.Count - i > MaxHeld;
-            if (overCap || Held[i].RetiredUtc < cutoff)
+            var h = Held[i];
+            if (RenderFence.Cleared(h.Mark, h.DrewAt))
             {
-                Held[i].Image.Dispose();
+                h.Image.Dispose();
                 Held.RemoveAt(i);
             }
-            else
+            else if (RenderFence.Abandoned(h.Mark))
             {
-                i++;
+                RenderFence.NoteForced();
+                h.Image.Dispose();
+                Held.RemoveAt(i);
             }
+        }
+    }
+
+    /// <summary>Tests: everything freed at once.</summary>
+    public static void ClearForTests()
+    {
+        lock (Gate)
+        {
+            foreach (var h in Held) h.Image.Dispose();
+            Held.Clear();
         }
     }
 }

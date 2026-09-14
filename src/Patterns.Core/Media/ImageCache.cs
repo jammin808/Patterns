@@ -8,7 +8,11 @@ namespace Patterns.Core.Media;
 /// from multiple threads). Keyed by path + write time so an updated file is picked up; failed
 /// decodes are remembered so a broken path never re-decodes per frame. Bounded in bytes — the
 /// budget a machine of this size gets (<see cref="MemoryBudget.PictureCacheBytes"/>) — and in
-/// count: ten pictures used to be the whole rule, and ten 8K photographs are not ten icons.
+/// count: ten pictures used to be the whole rule, and ten 8K photographs are not ten icons. A
+/// picture let go is not disposed: every fetch notes the sink whose frame is running on the
+/// picture's own table, and the picture retires behind the <see cref="RenderFence"/> with that
+/// table (<see cref="RetiredFrames"/>) — freed once the sinks that drew it have started another
+/// frame, never because the byte cap was passed while a draw could still read it.
 /// </summary>
 public static class ImageCache
 {
@@ -63,6 +67,8 @@ public static class ImageCache
         public long LastUse;
         /// <summary>When the file was last looked at on disk — its write time is trusted for <see cref="StatHold"/> after this.</summary>
         public long StatAt;
+        /// <summary>Which frame of each sink last drew this picture: the fence's table, retired with the picture.</summary>
+        public readonly long[] DrewAt = new long[RenderFence.MaxSinks];
     }
 
     /// <summary>What a decoded picture costs: its pixels.</summary>
@@ -79,53 +85,13 @@ public static class ImageCache
 
     private static long _useCounter;
 
-    // Replaced/evicted images are retired, not disposed: another render thread may still be
-    // mid-draw with the reference it fetched a moment ago. Retired images are disposed once
-    // they are comfortably older than any in-flight frame — or, past half the budget of them,
-    // oldest first: a picture replaced within the last few frames is the only one a draw can
-    // still hold, and half a budget of pictures cannot be replaced that fast.
-    private static readonly List<(SKImage Image, DateTime RetiredUtc)> Graveyard = new();
-    private static readonly TimeSpan GraveyardHold = TimeSpan.FromSeconds(5);
+    /// <summary>Bytes of pictures let go and waiting on the fence (they are <see cref="RetiredFrames"/>' now, of the picture kind).</summary>
+    public static long GraveyardBytes => RetiredFrames.BytesOf(RetiredFrames.Kind.Picture);
 
-    /// <summary>Bytes waiting in the graveyard.</summary>
-    public static long GraveyardBytes
+    /// <summary>A picture let go goes behind the fence with the table of the sinks that drew it.</summary>
+    private static void Retire(Entry gone)
     {
-        get
-        {
-            lock (Gate)
-            {
-                long b = 0;
-                foreach (var g in Graveyard) b += BytesOf(g.Image);
-                return b;
-            }
-        }
-    }
-
-    private static void Retire(SKImage? image)
-    {
-        if (image is not null) Graveyard.Add((image, DateTime.UtcNow));
-    }
-
-    private static void SweepGraveyard()
-    {
-        var cutoff = DateTime.UtcNow - GraveyardHold;
-        for (var i = Graveyard.Count - 1; i >= 0; i--)
-        {
-            if (Graveyard[i].RetiredUtc < cutoff)
-            {
-                Graveyard[i].Image.Dispose();
-                Graveyard.RemoveAt(i);
-            }
-        }
-        var cap = BudgetBytes / 2;
-        long held = 0;
-        foreach (var g in Graveyard) held += BytesOf(g.Image);
-        while (held > cap && Graveyard.Count > 1)
-        {
-            held -= BytesOf(Graveyard[0].Image);
-            Graveyard[0].Image.Dispose();
-            Graveyard.RemoveAt(0);
-        }
+        if (gone.Image is not null) RetiredFrames.Retire(gone.Image, gone.DrewAt, RetiredFrames.Kind.Picture);
     }
 
     public static SKImage? Get(string? path)
@@ -139,6 +105,7 @@ public static class ImageCache
             if (Entries.TryGetValue(path, out var fresh) && now - fresh.StatAt < StatHold.TotalMilliseconds)
             {
                 fresh.LastUse = ++_useCounter;
+                RenderFence.Touch(fresh.DrewAt);                                                       // this sink's running frame draws it: noted with the fetch, under the lock
                 return fresh.Image;
             }
         }
@@ -157,12 +124,11 @@ public static class ImageCache
 
         lock (Gate)
         {
-            SweepGraveyard();
-
             if (Entries.TryGetValue(path, out var e) && e.WriteTimeUtc == writeTime)
             {
                 e.LastUse = ++_useCounter;
                 e.StatAt = now;
+                RenderFence.Touch(e.DrewAt);
                 return e.Image;
             }
 
@@ -194,12 +160,13 @@ public static class ImageCache
             Entries.TryGetValue(path, out var old);
             if (old is not null)
             {
-                Retire(old.Image);
+                Retire(old);
                 _bytes -= old.Bytes;
             }
             var entry = new Entry { Image = image, Bytes = BytesOf(image), WriteTimeUtc = writeTime, LastUse = ++_useCounter, StatAt = now };
             Entries[path] = entry;
             _bytes += entry.Bytes;
+            RenderFence.Touch(entry.DrewAt);
             EvictIfNeeded(keep: path);
             return image;
         }
@@ -224,14 +191,13 @@ public static class ImageCache
             }
             if (lruKey is null) return;
             var gone = Entries[lruKey];
-            Retire(gone.Image);
+            Retire(gone);
             _bytes -= gone.Bytes;
             Entries.Remove(lruKey);
         }
-        SweepGraveyard();   // what was just evicted is bounded at once, not at the next ask
     }
 
-    /// <summary>Tests: every picture gone, at once.</summary>
+    /// <summary>Tests: every picture gone, at once — the retired ones too.</summary>
     public static void ClearForTests()
     {
         lock (Gate)
@@ -239,8 +205,7 @@ public static class ImageCache
             foreach (var e in Entries.Values) e.Image?.Dispose();
             Entries.Clear();
             _bytes = 0;
-            foreach (var g in Graveyard) g.Image.Dispose();
-            Graveyard.Clear();
         }
+        RetiredFrames.ClearForTests();
     }
 }

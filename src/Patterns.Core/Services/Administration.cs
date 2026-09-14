@@ -178,6 +178,10 @@ public sealed record MetricSample
     public double LagWorstMs { get; init; } = -1;
     /// <summary>The oldest live picture (a camera, a feed) an output drew in the last minute, decoder to frame (ms; -1 none drawn): the IMAG number.</summary>
     public double LiveAgeWorstMs { get; init; } = -1;
+    /// <summary>Memory retiring behind the render fence — frames, pictures and pools let go and waiting for the sinks that drew them (MB; -1 unknown).</summary>
+    public double RetiringMB { get; init; } = -1;
+    /// <summary>Frames that found every pooled buffer under a draw this session and went the old way: the pools' degraded path, visible.</summary>
+    public int PoolStarved { get; init; }
     public int Threads { get; init; }
     public int Handles { get; init; }
     public double GcPausePct { get; init; } = -1;
@@ -295,6 +299,8 @@ public sealed class MetricsHistory
             GoWorstMs = window.Max(s => s.GoWorstMs),
             LagWorstMs = window.Max(s => s.LagWorstMs),
             LiveAgeWorstMs = window.Max(s => s.LiveAgeWorstMs),
+            RetiringMB = window.Max(s => s.RetiringMB),
+            PoolStarved = window.Max(s => s.PoolStarved),
         };
     }
 
@@ -599,7 +605,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB,liveAgeWorstMs";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB,liveAgeWorstMs,retiringMB,poolStarved";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -619,7 +625,9 @@ public static class MetricsCsv
         s.RenderFaults.ToString(System.Globalization.CultureInfo.InvariantCulture),
         s.PrivateMB < 0 ? "" : s.PrivateMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
         s.ManagedMB < 0 ? "" : s.ManagedMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
-        R(s.LiveAgeWorstMs));
+        R(s.LiveAgeWorstMs),
+        R(s.RetiringMB),
+        s.PoolStarved.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
