@@ -37,6 +37,20 @@ public static class RetiredFrames
         }
     }
 
+    /// <summary>Bytes the held frames hold right now.</summary>
+    public static long Bytes
+    {
+        get
+        {
+            lock (Gate)
+            {
+                long b = 0;
+                foreach (var h in Held) b += h.Image.Info.BytesSize;
+                return b;
+            }
+        }
+    }
+
     /// <summary>Takes a replaced frame (null is nothing) and frees whatever is past its hold or beyond the cap.</summary>
     public static void Retire(SKImage? image)
     {
@@ -54,6 +68,7 @@ public static class RetiredFrames
         {
             SweepLocked(DateTime.UtcNow);
         }
+        FramePools.Sweep();   // the pools retired with their sources go the same way, on the same beat
     }
 
     private static void SweepLocked(DateTime nowUtc)

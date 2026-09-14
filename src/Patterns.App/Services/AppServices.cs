@@ -1413,6 +1413,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             health.Add(DeskTick.Describe());
             health.Add(Reconciles.Describe());
             health.Add(Files.Describe());
+            health.Add("Memory: " + Metrics.MemoryCeilingLine());
             health.Add(Switches.Describe());
             health.Add(CueStack.GoClock.Describe());
             health.Add(FrameBudgets.Describe(ShowClock.Seconds));

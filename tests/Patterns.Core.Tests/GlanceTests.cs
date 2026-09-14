@@ -114,13 +114,13 @@ public class GlanceTests
         Assert.Contains("p95FrameMs", MetricsCsv.Header);
         Assert.Contains("missedSlots", MetricsCsv.Header);
         Assert.Contains("renderFaults", MetricsCsv.Header);
-        Assert.EndsWith(",switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults", MetricsCsv.Header);
-        Assert.EndsWith(",42.4,3,,,0", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, SwitchWorstMs = 42.4, SlowSwitches = 3 }));
-        Assert.EndsWith(",34.5,21.4,0", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, GoWorstMs = 34.5, LagWorstMs = 21.4 }));
+        Assert.EndsWith(",switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB", MetricsCsv.Header);
+        Assert.EndsWith(",42.4,3,,,0,,", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, SwitchWorstMs = 42.4, SlowSwitches = 3 }));
+        Assert.EndsWith(",34.5,21.4,0,,", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, GoWorstMs = 34.5, LagWorstMs = 21.4 }));
         Assert.Equal(MetricsCsv.Header.Split(',').Length, MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, MissedSlots = 2 }).Split(',').Length);
         Assert.Equal("+2:00", CueTiming.FormatDeltaExact(TimeSpan.FromMinutes(2)));
         Assert.Equal("-0:30", CueTiming.FormatDeltaExact(TimeSpan.FromSeconds(-30)));
         Assert.Equal("+1:02:03", CueTiming.FormatDeltaExact(TimeSpan.FromSeconds(3723)));
-        Assert.EndsWith(",8.1,2,,0,,,0", MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, MissedSlots = 2 }));
+        Assert.EndsWith(",8.1,2,,0,,,0,,", MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, MissedSlots = 2 }));
     }
 }

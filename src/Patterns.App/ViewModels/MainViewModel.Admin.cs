@@ -618,7 +618,9 @@ public sealed partial class MainViewModel
         if (metrics.Current is not { } s) return;
 
         AdminCpuText = $"this app {Pct(s.CpuAppPct)} · whole computer {Pct(s.CpuSystemPct)}";
-        AdminMemText = $"this app {Mb(s.RamAppMB)} · computer {Pct(s.RamSystemPct)}" +
+        AdminMemText = $"this app {Mb(s.RamAppMB)}" +
+                       (s.PrivateMB >= 0 ? $" (private {Mb(s.PrivateMB)}, managed heap {Mb(s.ManagedMB)})" : "") +
+                       $" · computer {Pct(s.RamSystemPct)}" +
                        (s.RamTotalMB > 0 ? $" of {s.RamTotalMB / 1024.0:0.0} GB" : "");
         AdminGpuText = s.GpuBusyPct >= 0 ? $"busy {Pct(s.GpuBusyPct)} — the card's share of its time" : "busy n/a — no reading from this card";
         AdminVramText = s.VramTotalMB > 0

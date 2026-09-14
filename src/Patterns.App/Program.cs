@@ -117,6 +117,13 @@ internal static class Program
                 // last save (and the card and the fuse allow it); the defaults are the fallbacks.
                 CompositionMode = Services.DirectOutputService.CompositionModes(),
             })
+            .With(new SkiaOptions
+            {
+                // Skia's GPU resource cache — textures, the compositor's surfaces — sized to the
+                // machine: 64 MB small, 128 standard, 256 big, where Avalonia's default is one
+                // number for every machine.
+                MaxGpuResourceSizeBytes = Patterns.Core.Services.MemoryBudget.GpuCacheBytes(Patterns.Core.Services.MemoryBudget.MachineMB),
+            })
             .WithInterFont()
             .LogToTrace();
 }

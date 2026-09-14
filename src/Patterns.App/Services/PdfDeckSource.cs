@@ -91,6 +91,20 @@ public sealed class PdfDeckSource : IDeckSource, IDisposable
 
     public int PageCount { get; }
 
+    /// <summary>Bytes the decoded pages hold right now, for the memory ledger.</summary>
+    public long PageBytes
+    {
+        get
+        {
+            lock (_cache)
+            {
+                long b = 0;
+                foreach (var page in _pages.Values) b += page.Info.BytesSize;
+                return b;
+            }
+        }
+    }
+
     public int Page => _page;
 
     public SKSize PageShape { get; }

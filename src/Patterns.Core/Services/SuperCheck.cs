@@ -131,6 +131,12 @@ public sealed class CheckFacts
     public int Decoders { get; init; } = -1;
     public int DecoderCap { get; init; } = 4;
     public int HeldFrames { get; init; }
+    /// <summary>The ledger's numbers: the pictures' bytes, the frame pools' bytes and count (-1 / 0 unknown), the private bytes and the managed heap (MB; -1 unknown).</summary>
+    public long PictureBytes { get; init; } = -1;
+    public long FramePoolBytes { get; init; } = -1;
+    public int FramePools { get; init; }
+    public double PrivateMB { get; init; } = -1;
+    public double ManagedMB { get; init; } = -1;
     public bool WatchdogEnabled { get; init; } = true;
     public int WatchdogRestarts { get; init; }
 
@@ -680,7 +686,7 @@ public static class SuperCheck
         if (f.RamAppMB < 0 && f.ImagesCached < 0 && f.Decoders < 0) return;
         var ceilings = MemoryBudget.For(f.RamTotalMB, Media.ImageCache.Capacity, f.DecoderCap);
         rows.Add(new CheckRow(section, "Memory ceiling", MemoryBudget.Light(f.RamAppMB, ceilings),
-            MemoryBudget.Describe(f.RamAppMB, ceilings, f.ImagesCached, f.Decoders, f.HeldFrames), MemoryBudget.Advice(f.RamAppMB, ceilings)));
+            MemoryBudget.Describe(f.RamAppMB, ceilings, f.ImagesCached, f.Decoders, f.HeldFrames, f.PictureBytes, f.FramePoolBytes, f.FramePools), MemoryBudget.Advice(f.RamAppMB, ceilings)));
     }
 
     /// <summary>Start-up: green under eight seconds, amber past it, red past twenty — the phases say where the time went.</summary>

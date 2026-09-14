@@ -320,6 +320,33 @@ public class QualityLadderTests
     }
 
     [Fact]
+    public void TheMachinesClassSizesEveryBudgetThatScales()
+    {
+        Assert.Equal(MachineClass.Small, MemoryBudget.ClassOf(4096));
+        Assert.Equal(MachineClass.Standard, MemoryBudget.ClassOf(16384));
+        Assert.Equal(MachineClass.Big, MemoryBudget.ClassOf(65536));
+        Assert.Equal(MachineClass.Standard, MemoryBudget.ClassOf(-1));                                  // no reading: the middle
+        const long MB = 1024L * 1024;
+        Assert.Equal(128 * MB, MemoryBudget.PictureCacheBytes(4096));
+        Assert.Equal(256 * MB, MemoryBudget.PictureCacheBytes(16384));
+        Assert.Equal(512 * MB, MemoryBudget.PictureCacheBytes(65536));
+        Assert.Equal(48 * MB, MemoryBudget.FramePoolBytesPerSource(4096));
+        Assert.Equal(64 * MB, MemoryBudget.FramePoolBytesPerSource(16384));
+        Assert.Equal(96 * MB, MemoryBudget.FramePoolBytesPerSource(65536));
+        Assert.Equal(64 * MB, MemoryBudget.GpuCacheBytes(4096));
+        Assert.Equal(128 * MB, MemoryBudget.GpuCacheBytes(16384));
+        Assert.Equal(256 * MB, MemoryBudget.GpuCacheBytes(65536));
+        var c = MemoryBudget.For(16384, 32, 4);
+        Assert.Equal(MachineClass.Standard, c.Class);
+        Assert.Equal(256 * MB, c.PictureCacheBytes);
+        Assert.Equal(64 * MB, c.FramePoolBytesPerSource);
+        Assert.Equal("This app 412 MB of a 3.0 GB ceiling (16 GB machine) · pictures 3 of 32 cached (84 MB of 256 MB) · decoders 2 of 4 · frame pools 116 MB (2 sources) · 0 frames held for fades",
+            MemoryBudget.Describe(412, c, 3, 2, 0, 84 * MB, 116 * MB, 2));
+        Assert.DoesNotContain("frame pools", MemoryBudget.Describe(412, c, 3, 2, 0, 84 * MB, 0, 0));    // no source with a pool: no words
+        Assert.True(MemoryBudget.MachineMB > 0);
+    }
+
+    [Fact]
     public void TheSuperCheckRowsReadTheLadderAndTheCeiling()
     {
         Assert.DoesNotContain(SuperCheck.Run(new CheckFacts()).Rows, r => r.Item == "Quality ladder");

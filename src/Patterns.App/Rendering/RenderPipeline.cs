@@ -1,5 +1,6 @@
 using Patterns.Core.Model;
 using Patterns.Core.Patterns;
+using Patterns.Core.Media;
 using Patterns.Core.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -181,7 +182,11 @@ public sealed class RenderPipeline : IDisposable
         _viewport = viewport;
         _budget = new FrameBudget(viewport.Kind, viewport.SinkIndex, viewport.Label) { Scope = bus, TargetFps = viewport.TargetFps };
         FrameBudgets.Attach(_budget);
+        _fence = RenderFence.Register();
     }
+
+    /// <summary>This sink on the render fence: advanced at every frame's start, so a pooled frame it drew last frame can be written again.</summary>
+    private readonly int _fence;
 
     /// <summary>This sink's frame budget: the last minute's frames, the worst and the stage that took it.</summary>
     public FrameBudget Budget => _budget;
@@ -298,6 +303,7 @@ public sealed class RenderPipeline : IDisposable
     private void RenderLocked(SKCanvas canvas, double widthDips, double heightDips, double renderScaling)
     {
         var frameStart = System.Diagnostics.Stopwatch.GetTimestamp();
+        RenderFence.Advance(_fence);   // a new frame: the last one flushed, and the pooled frames it drew are free to overwrite
         var vp = _viewport;
         var physicalPx = new SKSizeI(
             Math.Max(1, (int)Math.Round(widthDips * renderScaling)),
@@ -831,6 +837,7 @@ public sealed class RenderPipeline : IDisposable
             if (_disposed) return;
             _disposed = true;
             FrameBudgets.Detach(_budget);
+            RenderFence.Unregister(_fence);
             _trimFilter?.Dispose();
             _trimPaint.Dispose();
             _warpPaint.Dispose();

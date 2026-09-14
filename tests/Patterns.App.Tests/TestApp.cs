@@ -38,6 +38,7 @@ public static class TestApp
         Views.Controls.LazyPage.MachineGB = 32;
         Views.Controls.LazyPage.PauseOverride ??= static () => false;
         QualityService.MachineGB = 32;                                          // the ladder starts at full: a small container is not a small desk
+        Patterns.Core.Media.RenderFence.ResetForTests();                        // the sinks of the last test's windows are gone with them
 
         var dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);

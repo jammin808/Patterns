@@ -74,6 +74,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     private volatile bool _stop;
     private IntPtr _recv;
     private SKImage? _latest;
+    private Media.FramePool? _pool;
     private volatile int _framesReceived;
     private long _lastFrameUtcTicks;
     private volatile bool _createFailed;
@@ -149,26 +150,62 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
 
         // BGRX_BGRA colour format delivers either fourCC; both are BGRA-layout bytes.
         var alpha = frame.FourCc == FourCcBgra ? SKAlphaType.Unpremul : SKAlphaType.Opaque;
-        var bmp = new SKBitmap(new SKImageInfo(frame.Xres, frame.Yres, SKColorType.Bgra8888, alpha));
-        var dst = (byte*)bmp.GetPixels();
-        var src = (byte*)frame.Data;
+        var info = new SKImageInfo(frame.Xres, frame.Yres, SKColorType.Bgra8888, alpha);
         var rowBytes = frame.Xres * 4;
-        var dstPitch = bmp.RowBytes;
-        for (var y = 0; y < frame.Yres; y++)
-        {
-            Buffer.MemoryCopy(src + (long)y * frame.LineStrideInBytes, dst + (long)y * dstPitch, rowBytes, rowBytes);
-        }
-        bmp.SetImmutable();
-        var image = SKImage.FromBitmap(bmp);
-        bmp.Dispose();
-
+        var image = PublishInto(ref _pool, info, rowBytes, frame.Data, frame.LineStrideInBytes, out var pooled);
+        if (image is null) return;
         lock (_gate)
         {
-            RetireImage(_latest);
+            if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);   // a pooled frame is the pool's to reuse
             _latest = image;
         }
         _framesReceived++;
         Interlocked.Exchange(ref _lastFrameUtcTicks, DateTime.UtcNow.Ticks);
+    }
+
+    /// <summary>
+    /// One received frame into a pooled buffer — one copy, no allocation — or, with every buffer
+    /// still under a draw, into an image of its own the old way. The pool is made on the first
+    /// frame and again when the picture changes size; <paramref name="pooled"/> says which path
+    /// the frame took. Shared with the tests, which hand in pixels of their own.
+    /// </summary>
+    public static unsafe SKImage? PublishInto(ref Media.FramePool? pool, SKImageInfo info, int rowBytes, IntPtr data, int sourceStride, out bool pooled)
+    {
+        pooled = false;
+        if (data == IntPtr.Zero || info.Width <= 0 || info.Height <= 0) return null;
+        if (pool is null || pool.Width != info.Width || pool.Height != info.Height || pool.Info.AlphaType != info.AlphaType)
+        {
+            pool?.Dispose();
+            pool = new Media.FramePool(info, rowBytes, Media.FramePool.BuffersFor((long)rowBytes * info.Height, MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB)));
+        }
+        var src = (byte*)data;
+        var slot = pool.Acquire();
+        if (slot >= 0)
+        {
+            var dst = (byte*)pool.Pointer(slot);
+            for (var y = 0; y < info.Height; y++)
+            {
+                Buffer.MemoryCopy(src + (long)y * sourceStride, dst + (long)y * rowBytes, rowBytes, rowBytes);
+            }
+            var published = pool.Publish(slot);
+            if (published is not null)
+            {
+                pooled = true;
+                return published;
+            }
+            pool.Release(slot);
+        }
+        var bmp = new SKBitmap(info);
+        var bytes = (byte*)bmp.GetPixels();
+        var pitch = bmp.RowBytes;
+        for (var y = 0; y < info.Height; y++)
+        {
+            Buffer.MemoryCopy(src + (long)y * sourceStride, bytes + (long)y * pitch, rowBytes, rowBytes);
+        }
+        bmp.SetImmutable();
+        var image = SKImage.FromBitmap(bmp);
+        bmp.Dispose();
+        return image;
     }
 
     public bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint)
@@ -182,6 +219,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
             image = _latest;
         }
         if (image is null) return false;
+        if (_pool is { } pool && pool.Owns(image)) pool.Touch();   // this sink's frame holds the buffer until its next
         if (crop.Any)
         {
             canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Rendering.DrawUtil.Smooth, paint);
@@ -234,8 +272,10 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         }
         lock (_gate)
         {
-            RetireImage(_latest);
+            if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
             _latest = null;
         }
+        _pool?.Dispose();   // its buffers go once every sink has drawn past them
+        _pool = null;
     }
 }

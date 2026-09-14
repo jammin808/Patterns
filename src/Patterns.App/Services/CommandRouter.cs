@@ -479,6 +479,11 @@ public sealed class CommandRouter : IRouter
             {
                 appMB = Math.Round(_services.Metrics.Current?.RamAppMB ?? -1),
                 ceilingMB = Math.Round(MemoryBudget.For(_services.Metrics.Current?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts).AppCeilingMB),
+                privateMB = Math.Round(_services.Metrics.Current?.PrivateMB ?? -1),
+                managedMB = Math.Round(_services.Metrics.Current?.ManagedMB ?? -1),
+                pictureMB = Math.Round(Patterns.Core.Media.ImageCache.Bytes / (1024.0 * 1024.0)),
+                framePoolMB = Math.Round(Patterns.Core.Media.FramePools.Bytes / (1024.0 * 1024.0)),
+                placed = MemoryLedger.Describe(),
                 text = _services.Metrics.MemoryCeilingLine(),
             },
             machine = MachineRow(),

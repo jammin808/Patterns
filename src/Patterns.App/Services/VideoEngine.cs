@@ -507,6 +507,7 @@ public sealed class VlcFrameSource : IMountedSource
     private readonly MediaPlayer.LibVLCVideoFormatCb _formatCb;
     private readonly MediaPlayer.LibVLCVideoCleanupCb _cleanupCb;
     private readonly MediaPlayer.LibVLCVideoLockCb _lockCb;
+    private readonly MediaPlayer.LibVLCVideoUnlockCb _unlockCb;
     private readonly MediaPlayer.LibVLCVideoDisplayCb _displayCb;
 
     // The audio tap: with the routing matrix on, libVLC hands the decoded soundtrack to the desk
@@ -521,6 +522,10 @@ public sealed class VlcFrameSource : IMountedSource
     public const int TapRate = 48000;
     public const int TapChannels = 2;
 
+    // The decoder writes each frame into a pooled buffer whose image the sinks draw (no copy, no
+    // allocation); the scratch buffer is for a frame that finds every pooled buffer still under a
+    // draw — that frame goes the old way, copied into an image of its own.
+    private FramePool? _pool;
     private IntPtr _native;
     private int _nativePitch;
     private SKImage? _latest;
@@ -539,6 +544,9 @@ public sealed class VlcFrameSource : IMountedSource
 
     /// <summary>Frames held for a fade right now, across every live source: the memory ceilings' number.</summary>
     public static int RetiredImageCount => RetiredFrames.Count;
+
+    /// <summary>This source's frame pool, for the words and the tests; null before the format is known.</summary>
+    public FramePool? Pool => _pool;
 
     private static void RetireImage(SKImage? image) => RetiredFrames.Retire(image);
 
@@ -594,6 +602,7 @@ public sealed class VlcFrameSource : IMountedSource
         _formatCb = OnFormat;
         _cleanupCb = OnCleanup;
         _lockCb = OnLock;
+        _unlockCb = OnUnlock;
         _displayCb = OnDisplay;
 
         _player = new MediaPlayer(_media)
@@ -602,7 +611,7 @@ public sealed class VlcFrameSource : IMountedSource
             EnableHardwareDecoding = hardwareDecoding,
         };
         _player.SetVideoFormatCallbacks(_formatCb, _cleanupCb);
-        _player.SetVideoCallbacks(_lockCb, null, _displayCb);
+        _player.SetVideoCallbacks(_lockCb, _unlockCb, _displayCb);
 
         if (audioTap)
         {
@@ -1015,7 +1024,9 @@ public sealed class VlcFrameSource : IMountedSource
             image = _latest;
         }
         if (image is null) return false;
-        // The image is immutable and outlives any deferred flush via the retire hold.
+        // The image is immutable and outlives any deferred flush: a pooled frame behind the render
+        // fence (this sink's frame holds it until its next), any other via the retire hold.
+        if (_pool is { } pool && pool.Owns(image)) pool.Touch();
         if (crop.Any)
         {
             canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
@@ -1042,6 +1053,16 @@ public sealed class VlcFrameSource : IMountedSource
             _height = (int)height;
             _nativePitch = (int)pitch;
             _native = Marshal.AllocHGlobal(_nativePitch * _height);
+            try
+            {
+                var info = new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Opaque);
+                _pool = new FramePool(info, _nativePitch, FramePool.BuffersFor((long)_nativePitch * _height, MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB)));
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Frame pool could not be made; frames go the old way.", ex);
+                _pool = null;
+            }
         }
         return 1;
     }
@@ -1054,20 +1075,49 @@ public sealed class VlcFrameSource : IMountedSource
         }
     }
 
+    /// <summary>
+    /// The decoder asks where to write the next picture: a pooled buffer when one is free (the
+    /// picture's id is its slot, one-based), else the scratch buffer (id nought) and the old way.
+    /// </summary>
     private IntPtr OnLock(IntPtr opaque, IntPtr planes)
     {
+        var pool = _pool;
+        var slot = pool?.Acquire() ?? -1;
+        if (slot >= 0)
+        {
+            Marshal.WriteIntPtr(planes, pool!.Pointer(slot));
+            return (IntPtr)(slot + 1);
+        }
         Marshal.WriteIntPtr(planes, _native);
         return IntPtr.Zero;
     }
 
+    /// <summary>The decoder finished writing a picture: a pooled one waits, decoded, to be shown or skipped.</summary>
+    private void OnUnlock(IntPtr opaque, IntPtr picture, IntPtr planes)
+    {
+        var slot = (int)picture - 1;
+        if (slot >= 0) _pool?.Decoded(slot);
+    }
+
     private unsafe void OnDisplay(IntPtr opaque, IntPtr picture)
     {
+        var slot = (int)picture - 1;
         lock (_gate)
         {
+            if (slot >= 0 && _pool is { } pool)
+            {
+                // The pooled picture goes on show as it is: no copy, nothing allocated; the frame it
+                // replaced waits on the render fence and is decoded into again.
+                var published = pool.Publish(slot);
+                if (published is null) return;
+                if (_latest is not null && !pool.Owns(_latest)) RetireImage(_latest);
+                _latest = published;
+                return;
+            }
             if (_native == IntPtr.Zero || _width <= 0) return;
 
-            // Every displayed frame becomes its own immutable image (native-heap copy, no GC
-            // pressure); renderers can hold/record it safely while VLC decodes the next one.
+            // The scratch buffer: every pooled buffer was still under a draw, so this frame becomes
+            // an immutable image of its own (native-heap copy, no GC pressure) and retires the old way.
             var bmp = new SKBitmap(new SKImageInfo(_width, _height, SKColorType.Bgra8888, SKAlphaType.Opaque));
             var dst = (byte*)bmp.GetPixels();
             var src = (byte*)_native;
@@ -1081,7 +1131,7 @@ public sealed class VlcFrameSource : IMountedSource
             var image = SKImage.FromBitmap(bmp);
             bmp.Dispose(); // the image keeps the (immutable) pixel ref alive
 
-            RetireImage(_latest);
+            if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
             _latest = image;
         }
     }
@@ -1093,8 +1143,10 @@ public sealed class VlcFrameSource : IMountedSource
             Marshal.FreeHGlobal(_native);
             _native = IntPtr.Zero;
         }
-        RetireImage(_latest);
+        if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
         _latest = null;
+        _pool?.Dispose();   // its buffers go once every sink has drawn past them
+        _pool = null;
     }
 
     public void Dispose()

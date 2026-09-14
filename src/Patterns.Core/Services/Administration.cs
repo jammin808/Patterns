@@ -179,6 +179,12 @@ public sealed record MetricSample
     public int Threads { get; init; }
     public int Handles { get; init; }
     public double GcPausePct { get; init; } = -1;
+    /// <summary>The process's private bytes (MB; -1 unknown): what it holds that nothing else shares — the number that climbs in a leak.</summary>
+    public double PrivateMB { get; init; } = -1;
+    /// <summary>The managed heap (MB; -1 unknown): objects, not pictures — pictures and frames are native.</summary>
+    public double ManagedMB { get; init; } = -1;
+    /// <summary>What the runtime has committed for the heap (MB; -1 unknown): the managed heap with its headroom.</summary>
+    public double GcCommittedMB { get; init; } = -1;
     public double DiskFreeGB { get; init; } = -1;
     public bool OnBattery { get; init; }
     public int BatteryPct { get; init; } = -1;
@@ -196,8 +202,10 @@ public sealed class MetricsHistory
     public const int LongTermCapacity = 2880; // 24 h at 1/30s
     public const int AggregateEvery = 30;
 
-    private readonly List<MetricSample> _recent = new();
-    private readonly List<MetricSample> _longTerm = new();
+    // Rings, not lists shifted down by one each second: a full list moved six hundred records
+    // every tick for the ten-minute window, and the day's every thirty.
+    private readonly Ring<MetricSample> _recent = new(RecentCapacity);
+    private readonly Ring<MetricSample> _longTerm = new(LongTermCapacity);
     private readonly List<MetricSample> _pending = new();
 
     public IReadOnlyList<MetricSample> Recent => _recent;
@@ -206,15 +214,56 @@ public sealed class MetricsHistory
     public void Add(MetricSample sample)
     {
         _recent.Add(sample);
-        if (_recent.Count > RecentCapacity) _recent.RemoveAt(0);
 
         _pending.Add(sample);
         if (_pending.Count >= AggregateEvery)
         {
             _longTerm.Add(Aggregate(_pending));
             _pending.Clear();
-            if (_longTerm.Count > LongTermCapacity) _longTerm.RemoveAt(0);
         }
+    }
+
+    /// <summary>A fixed window of the newest items, oldest first, that forgets by overwriting: nothing moves when it is full.</summary>
+    public sealed class Ring<T> : IReadOnlyList<T>
+    {
+        private readonly T[] _items;
+        private int _start;
+
+        public Ring(int capacity) => _items = new T[Math.Max(1, capacity)];
+
+        public int Count { get; private set; }
+
+        public int Capacity => _items.Length;
+
+        public T this[int index]
+        {
+            get
+            {
+                if ((uint)index >= (uint)Count) throw new ArgumentOutOfRangeException(nameof(index));
+                return _items[(_start + index) % _items.Length];
+            }
+        }
+
+        public void Add(T item)
+        {
+            if (Count < _items.Length)
+            {
+                _items[(_start + Count) % _items.Length] = item;
+                Count++;
+            }
+            else
+            {
+                _items[_start] = item;
+                _start = (_start + 1) % _items.Length;
+            }
+        }
+
+        public IEnumerator<T> GetEnumerator()
+        {
+            for (var i = 0; i < Count; i++) yield return this[i];
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     /// <summary>Averages the window (max for the worst frame, sum for slow-frame counts).</summary>
@@ -226,6 +275,9 @@ public sealed class MetricsHistory
             CpuAppPct = Avg(window, s => s.CpuAppPct),
             CpuSystemPct = Avg(window, s => s.CpuSystemPct),
             RamAppMB = Avg(window, s => s.RamAppMB),
+            PrivateMB = Avg(window, s => s.PrivateMB),
+            ManagedMB = Avg(window, s => s.ManagedMB),
+            GcCommittedMB = Avg(window, s => s.GcCommittedMB),
             RamSystemPct = Avg(window, s => s.RamSystemPct),
             VramUsedMB = Avg(window, s => s.VramUsedMB),
             GpuBusyPct = Avg(window, s => s.GpuBusyPct),
@@ -544,7 +596,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -561,7 +613,9 @@ public static class MetricsCsv
         s.SlowSwitches.ToString(System.Globalization.CultureInfo.InvariantCulture),
         R(s.GoWorstMs),
         R(s.LagWorstMs),
-        s.RenderFaults.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        s.RenderFaults.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        s.PrivateMB < 0 ? "" : s.PrivateMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
+        s.ManagedMB < 0 ? "" : s.ManagedMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);

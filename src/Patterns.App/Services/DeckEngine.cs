@@ -36,6 +36,17 @@ public sealed class DeckEngine : IDisposable
 
     public int DeckCount => _decks.Count;
 
+    /// <summary>Bytes the mounted decks' decoded pages hold, for the memory ledger.</summary>
+    public long PageBytes
+    {
+        get
+        {
+            long b = 0;
+            foreach (var m in _decks.Values) if (m.Source is PdfDeckSource pdf) b += pdf.PageBytes;
+            return b;
+        }
+    }
+
     public bool IsDisposed => _disposed;
 
     /// <summary>The mounted deck for a key, or null.</summary>

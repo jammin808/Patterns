@@ -34,9 +34,20 @@ public sealed class SystemMetricsService : IDisposable
     public SystemMetricsService(AppServices services)
     {
         _services = services;
+        RegisterLedger();
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
+    }
+
+    /// <summary>The owners the memory ledger reads: the pictures, the frame pools, the frames held, the decks' pages, the managed heap and what the runtime committed for it.</summary>
+    private void RegisterLedger()
+    {
+        MemoryLedger.Register("pictures", () => (Patterns.Core.Media.ImageCache.Bytes, $"{Patterns.Core.Media.ImageCache.Count} cached"));
+        MemoryLedger.Register("frame pools", () => (Patterns.Core.Media.FramePools.Bytes, $"{Patterns.Core.Media.FramePools.Count} source{(Patterns.Core.Media.FramePools.Count == 1 ? "" : "s")}"));
+        MemoryLedger.Register("frames held", () => (Patterns.Core.Media.RetiredFrames.Bytes, $"{Patterns.Core.Media.RetiredFrames.Count} for fades"));
+        MemoryLedger.Register("deck pages", () => (_services.DeckIn.PageBytes, $"{_services.DeckIn.DeckCount} deck{(_services.DeckIn.DeckCount == 1 ? "" : "s")}"));
+        MemoryLedger.Register("managed heap", () => (GC.GetTotalMemory(false), $"{GC.GetGCMemoryInfo().TotalCommittedBytes / (1024 * 1024)} MB committed"));
     }
 
     /// <summary>
@@ -132,7 +143,7 @@ public sealed class SystemMetricsService : IDisposable
             (_prevIdle, _prevKernel, _prevUser) = (idle, kernel, user);
         }
 
-        double cpuApp = -1, ramApp = -1;
+        double cpuApp = -1, ramApp = -1, privateMB = -1, managedMB = -1, committedMB = -1;
         int threads = 0, handles = 0;
         try
         {
@@ -147,6 +158,9 @@ public sealed class SystemMetricsService : IDisposable
             _prevProcessCpu = cpuNow;
             _prevProcessWallUtc = utcNow;
             ramApp = _process.WorkingSet64 / (1024.0 * 1024.0);
+            privateMB = _process.PrivateMemorySize64 / (1024.0 * 1024.0);
+            managedMB = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
+            committedMB = GC.GetGCMemoryInfo().TotalCommittedBytes / (1024.0 * 1024.0);
             threads = _process.Threads.Count;
             handles = OperatingSystem.IsWindows() ? _process.HandleCount : 0;
         }
@@ -217,6 +231,9 @@ public sealed class SystemMetricsService : IDisposable
             Threads = threads,
             Handles = handles,
             GcPausePct = gcPause,
+            PrivateMB = privateMB,
+            ManagedMB = managedMB,
+            GcCommittedMB = committedMB,
             DiskFreeGB = diskFree,
             OnBattery = onBattery,
             BatteryPct = batteryPct,
@@ -311,7 +328,9 @@ public sealed class SystemMetricsService : IDisposable
     {
         var sample = Current;
         var ceilings = MemoryBudget.For(sample?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts);
-        return MemoryBudget.Describe(sample?.RamAppMB ?? -1, ceilings, Patterns.Core.Media.ImageCache.Count, _services.Video.MountCount, VlcFrameSource.RetiredImageCount);
+        var line = MemoryBudget.Describe(sample?.RamAppMB ?? -1, ceilings, Patterns.Core.Media.ImageCache.Count, _services.Video.MountCount, VlcFrameSource.RetiredImageCount,
+            Patterns.Core.Media.ImageCache.Bytes, Patterns.Core.Media.FramePools.Bytes, Patterns.Core.Media.FramePools.Count);
+        return line + " · placed: " + MemoryLedger.Describe();
     }
 
     public CheckFacts GatherFacts()
@@ -502,6 +521,11 @@ public sealed class SystemMetricsService : IDisposable
             Decoders = _services.Video.MountCount,
             DecoderCap = VideoEngine.MaxMounts,
             HeldFrames = VlcFrameSource.RetiredImageCount,
+            PictureBytes = Patterns.Core.Media.ImageCache.Bytes,
+            FramePoolBytes = Patterns.Core.Media.FramePools.Bytes,
+            FramePools = Patterns.Core.Media.FramePools.Count,
+            PrivateMB = s?.PrivateMB ?? -1,
+            ManagedMB = s?.ManagedMB ?? -1,
             WatchdogEnabled = state.Watchdog.Enabled,
             WatchdogRestarts = HealthMonitor.Restarts,
             BeaconSending = _services.Beacon.Sending,
