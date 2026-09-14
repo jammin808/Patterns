@@ -46,6 +46,9 @@ public static class TestApp
         return new Booted(services, vm, window, dir);
     }
 
+    /// <summary>Waits for the desk's file lane — the autosaves and the recovery record's writes on their worker — so a test can read the files the desk just asked for.</summary>
+    public static void FlushFiles(AppServices services) => Pump(services.PendingSaves.ContinueWith(_ => true));
+
     /// <summary>Runs the dispatcher until a task completes (remote commands hop to the UI thread).</summary>
     public static T Pump<T>(Task<T> task)
     {

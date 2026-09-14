@@ -49,6 +49,7 @@ public class RestartAndSwitcherTests
             vm.ActivePattern.Kind = PatternKind.ColorBars;
             Dispatcher.UIThread.RunJobs();
 
+            TestApp.FlushFiles(services);
             var saved = services.Recovery.Read();
             Assert.NotNull(saved);
             Assert.True(saved!.Sandboxed);
@@ -79,6 +80,7 @@ public class RestartAndSwitcherTests
             vm.SandboxSendAllCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
             Assert.True(vm.IsSandboxActive); // EDIT SAFE re-arms
+            TestApp.FlushFiles(services);
             var afterTake = services.Recovery.Read();
             Assert.Equal(PatternKind.LedWall, afterTake!.Air!.Pattern.Kind);
 
@@ -90,6 +92,7 @@ public class RestartAndSwitcherTests
             tile.IsSendTarget = true;
             vm.SandboxSendSelectedCommand.Execute(null);
             Dispatcher.UIThread.RunJobs();
+            TestApp.FlushFiles(services);
             var afterSend = services.Recovery.Read();
             var sent = afterSend!.Air!.Independent.FirstOrDefault(a => a.ScreenId == tile.TargetId);
             Assert.NotNull(sent);
@@ -100,6 +103,7 @@ public class RestartAndSwitcherTests
             // leaving a look behind that a later crash would restore over live content.
             vm.IsSandboxActive = false;
             Dispatcher.UIThread.RunJobs();
+            TestApp.FlushFiles(services);
             var unsplit = services.Recovery.Read();
             Assert.Equal(false, unsplit!.Sandboxed);
             Assert.Null(unsplit.Air);
@@ -123,6 +127,7 @@ public class RestartAndSwitcherTests
             vm.ActivePattern.Kind = PatternKind.ColorBars;
             Dispatcher.UIThread.RunJobs();
 
+            TestApp.FlushFiles(services);
             var before = services.Recovery.Read();
             Assert.Equal(PatternKind.LedWall, before!.Air!.Pattern.Kind);
 
@@ -309,6 +314,7 @@ public class RestartAndSwitcherTests
             // failure the record exists for.
             vm.State.Pattern.Kind = PatternKind.Focus;
             Dispatcher.UIThread.RunJobs();
+            TestApp.FlushFiles(services);
             Assert.NotNull(services.Recovery.Read());
 
             services.RecoverWhenReady(vm);

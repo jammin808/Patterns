@@ -94,6 +94,7 @@ public class CueSettlementAppTests
             Assert.Equal(0, row.Pending);
             Assert.Equal("Done", row.OutcomeWords);
             Assert.Contains(services.Journal.Tail(6), e => e.Kind == "CueSettled" && e.Outcome == "Done" && e.Message.Contains("accepted (INPT: OK)"));
+            TestApp.FlushFiles(services);
             var sidecar = new RecoveryStore(b.Dir).Read();
             Assert.Equal(CueOutcome.Done, sidecar!.Run!.History[0].Outcome);
             Assert.Equal(row.ExecutionId, sidecar.Run.History[0].ExecutionId);

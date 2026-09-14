@@ -839,6 +839,7 @@ public class VogStingerAppTests
 
             Assert.True(services.Stingers.Fire(item, T0));
             Dispatcher.UIThread.RunJobs();
+            TestApp.FlushFiles(services);
             var during = services.Recovery.Read();
             Assert.NotNull(during);
             Assert.NotNull(during!.Air);
@@ -846,10 +847,12 @@ public class VogStingerAppTests
 
             End(services, clip, T0.AddSeconds(3));
             Assert.True(services.Stingers.Holding);
+            TestApp.FlushFiles(services);
             var held = services.Recovery.Read();
             Assert.Equal(PatternKind.Grid, held!.Air!.Pattern.Kind);
 
             services.Stingers.Stop(T0.AddSeconds(5));
+            TestApp.FlushFiles(services);
             Assert.Null(services.Recovery.Read()?.Air);                  // unsandboxed, the settings file is the air again
         }
         finally

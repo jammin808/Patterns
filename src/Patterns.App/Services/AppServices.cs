@@ -912,6 +912,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     public int PrepareRestart(bool forUpdate = false)
     {
         Stingers.Stop(); // a deliberate restart comes back to the show, not to a clip
+        AwaitPendingSaves();            // a record on the lane must not land over the one written here
         Recovery.Write(RecoveryRecord(PlaceForRecovery()));
         _restartRequested = true;
         SaveNow();
@@ -943,16 +944,71 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         var place = PlaceForRecovery();
         if (current.Live || current.Audio || place is not null)
         {
-            var record = RecoveryRecord(place);
-            Recovery.Write(record);
+            QueueRecoveryWrite(place);
             _recoveryPending = false; // the file is this run's now
-            RaiseSafely(() => RecoveryMoved?.Invoke(record), "the recovery record's listener");
         }
         else if (!_recoveryPending)
         {
-            Recovery.Clear();
+            var recovery = Recovery;
+            QueueFileWork("Recovery clear", recovery.Clear);          // behind the writes, in order: a clear never races a write
             RaiseSafely(() => RecoveryMoved?.Invoke(null), "the recovery record's listener");
         }
+    }
+
+    /// <summary>
+    /// The recovery record made and written on the file lane. The desk's thread takes what will
+    /// not change under a worker — the frozen program the room is seeing, the pinned look's JSON,
+    /// the flags, the lists copied here — and the worker clones the air, applies the pin,
+    /// serialises the record and writes it whole. It used to serialise a whole show three times
+    /// on the desk's thread on every GO. A record a newer one overtakes is skipped; the twin is
+    /// told the record moved once it is on the disk.
+    /// </summary>
+    private void QueueRecoveryWrite(RunPlace? place)
+    {
+        var generation = Interlocked.Increment(ref _recoveryGeneration);
+        var live = Outputs.IsLive;
+        var audio = State.AudioPlayer.Playing;
+        var sandboxed = Sandbox.Active;
+        var pinned = _pinnedAirLook;
+        var airSource = sandboxed || pinned is { Length: > 0 } ? Bus.Current.State : null;   // the program as published: what the audience is seeing, whole
+        var black = Bus.BlackTargets.Count == 0 ? null : Bus.BlackTargets.ToList();
+        var streaming = State.Stream.Active;
+        var airLabel = AirLabel;
+        var airLookId = AirLookId;
+        var previousAirLookId = PreviousAirLookId;
+        var previewLookId = PreviewLookId;
+        var recovery = Recovery;
+        var files = Files;
+        QueueFileWork("Recovery write", () =>
+        {
+            if (Volatile.Read(ref _recoveryGeneration) != generation)
+            {
+                files.CoalescedOne();
+                return;
+            }
+            var t = System.Diagnostics.Stopwatch.GetTimestamp();
+            ShowState? air = null;
+            if (airSource is not null)
+            {
+                try
+                {
+                    air = JsonUtil.Clone(airSource);
+                    if (pinned is { Length: > 0 }) LookService.Apply(pinned, air);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warn("Air capture for recovery failed.", ex);
+                }
+            }
+            var record = new RecoverySnapshot(live, audio, DateTime.UtcNow, AirLook: null, Run: place, Sandboxed: sandboxed, Air: air,
+                BlackTargets: black, Streaming: streaming, AirLabel: airLabel, AirLookId: airLookId, PreviousAirLookId: previousAirLookId, PreviewLookId: previewLookId);
+            var json = RecoveryStore.Serialize(record);
+            files.Record(FileBudget.RecoverySerialise, MsSince(t));
+            t = System.Diagnostics.Stopwatch.GetTimestamp();
+            recovery.WriteJson(json);
+            files.Record(FileBudget.RecoveryWrite, MsSince(t));
+            UiThread.Post(() => RaiseSafely(() => RecoveryMoved?.Invoke(record), "the recovery record's listener"));
+        });
     }
 
     /// <summary>
@@ -972,13 +1028,12 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         => RaiseSafely(() => ShowMirrored?.Invoke(sections), "the mirror's listener");
 
     /// <summary>The caller's place goes to the sidecar on every GO, atomically, live or not.</summary>
+    /// <summary>The caller's place onto the record, on the file lane: a GO used to clone and serialise the whole show on the desk's thread before the cue's own work was over.</summary>
     public void WriteRunPlace()
     {
         if (_restartRequested || _handedOver) return;
         _recoveryWritten = RecoveryKey();
-        var record = RecoveryRecord(CueStack.Place());
-        Recovery.Write(record);
-        RaiseSafely(() => RecoveryMoved?.Invoke(record), "the recovery record's listener");
+        QueueRecoveryWrite(CueStack.Place());
     }
 
     private string? _pinnedAirLook;
@@ -1357,6 +1412,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             if (twin.Length > 0) health.Add("Twin: " + twin);
             health.Add(DeskTick.Describe());
             health.Add(Reconciles.Describe());
+            health.Add(Files.Describe());
             health.Add(Switches.Describe());
             health.Add(CueStack.GoClock.Describe());
             health.Add(FrameBudgets.Describe(ShowClock.Seconds));
@@ -1714,13 +1770,45 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     private readonly object _saveGate = new();
     private Task _saves = Task.CompletedTask;
+    private long _saveGeneration;
+    private long _recoveryGeneration;
+
+    /// <summary>What the show's files cost, phase by phase, and the saves a newer one made unnecessary. The Machine page's line and the assistant's brief read it.</summary>
+    public FileBudget Files { get; } = new();
 
     /// <summary>
-    /// The autosave, off the frame budget: the show is serialised here, on the UI thread, where the
-    /// model is consistent, and the bytes go to a worker for the disk. A show file on a USB stick
-    /// or a network share could hold the desk — and with it the vsync callbacks every animated
-    /// output waits on — for as long as the write took, once after every edit. Writes queue in the
-    /// order they were asked for; the last one is what the file holds.
+    /// One ordered lane of file work on a worker: the autosaves, the recovery record's writes and
+    /// its clears, in the order they were asked for, so an older write can never land over a
+    /// newer one and a clear never races a write. A step that throws is logged and the lane
+    /// carries on.
+    /// </summary>
+    private void QueueFileWork(string what, Action work)
+    {
+        lock (_saveGate)
+        {
+            _saves = _saves.ContinueWith(_ =>
+            {
+                try
+                {
+                    work();
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"{what} failed.", ex);
+                }
+            }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        }
+    }
+
+    private static double MsSince(long timestamp) => System.Diagnostics.Stopwatch.GetElapsedTime(timestamp).TotalMilliseconds;
+
+    /// <summary>
+    /// The autosave, off the frame budget: nothing of it runs on the desk's thread but taking the
+    /// show the last publish froze — immutable by construction, the very object the sinks draw —
+    /// so no worker ever reads the live model. The serialising and the disk go to the file lane,
+    /// and a save a newer save overtakes before it runs is skipped: five edits in a second are
+    /// one serialisation and one write, of the latest show. A show file on a USB stick or a
+    /// network share holds nobody.
     /// </summary>
     public void SaveInBackground()
     {
@@ -1731,31 +1819,26 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             _saveTimer.Start();
             return;
         }
-        string json;
-        try
-        {
-            json = JsonUtil.Serialize(State);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Settings save failed.", ex);
-            return;
-        }
+        var at = System.Diagnostics.Stopwatch.GetTimestamp();
+        var frozen = Bus.Sandbox?.State ?? Bus.Current.State;         // the show as last published: the sandbox's edits while one is open, the program otherwise
+        var generation = Interlocked.Increment(ref _saveGeneration);
         var store = Store;
-        lock (_saveGate)
+        var files = Files;
+        Files.Record(FileBudget.SaveSnapshot, MsSince(at), onDeskThread: true);
+        QueueFileWork("Settings save", () =>
         {
-            _saves = _saves.ContinueWith(_ =>
+            if (Volatile.Read(ref _saveGeneration) != generation)
             {
-                try
-                {
-                    store.SaveJsonTo(store.SettingsPath, json);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error("Settings save failed.", ex);
-                }
-            }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
-        }
+                files.CoalescedOne();                                 // a newer save is behind this one: it writes the latest show, and this one need not
+                return;
+            }
+            var t = System.Diagnostics.Stopwatch.GetTimestamp();
+            var json = JsonUtil.Serialize(frozen);
+            files.Record(FileBudget.SaveSerialise, MsSince(t));
+            t = System.Diagnostics.Stopwatch.GetTimestamp();
+            store.SaveJsonTo(store.SettingsPath, json);
+            files.Record(FileBudget.SaveWrite, MsSince(t));
+        });
     }
 
     /// <summary>The autosaves still on their way to the disk — complete when the file holds the last of them.</summary>

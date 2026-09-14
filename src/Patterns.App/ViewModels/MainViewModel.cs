@@ -666,24 +666,45 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     {
         var path = await PickOpenPathAsync(append ? "Append a cue sheet" : "Import a cue sheet", CueSheetTypes, null);
         if (path is null) return;
-        StatusMessage = ImportCueSheetFrom(path, append);
+        StatusMessage = await ImportCueSheetFromAsync(path, append);
     }
 
-    /// <summary>Reads a CSV or the first sheet of an .xlsx into the selected list; returns the words for the status line.</summary>
+    /// <summary>The sheet read and parsed off the desk's thread — a big sheet on a share holds no click — then its rows applied once, as one edit.</summary>
+    public async Task<string> ImportCueSheetFromAsync(string path, bool append)
+    {
+        var (table, problem) = await Task.Run(() => ReadSheet(path));
+        if (table is null) return problem;
+        return ApplySheet(table, path, append);
+    }
+
+    /// <summary>Reads a CSV or the first sheet of an .xlsx into the selected list on this thread; returns the words for the status line.</summary>
     public string ImportCueSheetFrom(string path, bool append)
     {
-        TableData table;
+        var (table, problem) = ReadSheet(path);
+        return table is null ? problem : ApplySheet(table, path, append);
+    }
+
+    /// <summary>The file read and parsed — on whatever thread calls, so the command calls from a worker — with the parse timed into the files budget.</summary>
+    private (TableData? Table, string Problem) ReadSheet(string path)
+    {
+        var at = System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
-            table = path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+            var table = path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
                 ? XlsxTable.Read(File.ReadAllBytes(path))
                 : CsvTable.Parse(File.ReadAllText(path));
+            _services.Files.Record(FileBudget.CueSheetParse, System.Diagnostics.Stopwatch.GetElapsedTime(at).TotalMilliseconds, onDeskThread: Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
+            return (table, "");
         }
         catch (Exception ex)
         {
             Log.Error("Cue sheet read failed.", ex);
-            return $"Could not read {Path.GetFileName(path)}: {ex.Message}";
+            return (null, $"Could not read {Path.GetFileName(path)}: {ex.Message}");
         }
+    }
+
+    private string ApplySheet(TableData table, string path, bool append)
+    {
         var report = Cues.ImportRows(table, append);
         return $"{report.Split('\n')[0]} ({Path.GetFileName(path)})";
     }
@@ -754,8 +775,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
             var path = file?.TryGetLocalPath();
             if (path is null) return;
             if (State.Name.Length == 0) State.Name = SettingsStore.ShowNameFor(path);
-            _services.Store.SaveTo(path, State);
-            StatusMessage = $"Show saved: {Path.GetFileName(path)}";
+            StatusMessage = await SaveShowToAsync(path);
         }
         catch (Exception ex)
         {
@@ -768,13 +788,53 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     {
         var path = await PickOpenPathAsync("Load show", ShowTypes, null);
         if (path is null) return;
-        var loaded = _services.Store.LoadFrom(path);
-        if (loaded is null)
+        StatusMessage = await LoadShowFromAsync(path);
+    }
+
+    /// <summary>
+    /// A show file read and parsed on a worker — a big show on a share holds no click, no frame —
+    /// then applied once on the desk as one edit; the parse timed into the files budget. Returns
+    /// the words for the status line.
+    /// </summary>
+    public async Task<string> LoadShowFromAsync(string path)
+    {
+        var store = _services.Store;
+        var files = _services.Files;
+        var loaded = await Task.Run(() =>
         {
-            StatusMessage = "Show file could not be read.";
-            return;
-        }
+            var at = System.Diagnostics.Stopwatch.GetTimestamp();
+            var state = store.LoadFrom(path);
+            files.Record(FileBudget.ShowLoadParse, System.Diagnostics.Stopwatch.GetElapsedTime(at).TotalMilliseconds);
+            return state;
+        });
+        if (loaded is null) return "Show file could not be read.";
         ApplyLoadedShow(loaded, $"Show loaded: {Path.GetFileName(path)}");
+        return StatusMessage;
+    }
+
+    /// <summary>A show saved where the operator said: serialised on the desk's thread, where the model is consistent, and written by a worker. Returns the words for the status line.</summary>
+    public async Task<string> SaveShowToAsync(string path)
+    {
+        var store = _services.Store;
+        var files = _services.Files;
+        var at = System.Diagnostics.Stopwatch.GetTimestamp();
+        var json = JsonUtil.Serialize(State);
+        files.Record(FileBudget.ShowSaveSerialise, System.Diagnostics.Stopwatch.GetElapsedTime(at).TotalMilliseconds, onDeskThread: true);
+        try
+        {
+            await Task.Run(() =>
+            {
+                var t = System.Diagnostics.Stopwatch.GetTimestamp();
+                store.SaveJsonTo(path, json);
+                files.Record(FileBudget.ShowSaveWrite, System.Diagnostics.Stopwatch.GetElapsedTime(t).TotalMilliseconds);
+            });
+            return $"Show saved: {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Show save failed.", ex);
+            return $"Show save failed: {ex.Message}";
+        }
     }
 
     /// <summary>A show read from a file becomes the show: the model copied over, every list started over, the desk refreshed.</summary>

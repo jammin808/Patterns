@@ -163,14 +163,18 @@ public sealed class RecoveryStore
     public void Write(bool live, bool audioPlaying, string? airLook = null, RunPlace? run = null)
         => Write(new RecoverySnapshot(live, audioPlaying, DateTime.UtcNow, airLook, run));
 
-    public void Write(RecoverySnapshot snapshot)
+    public void Write(RecoverySnapshot snapshot) => WriteJson(Serialize(snapshot));
+
+    /// <summary>The record as its file holds it — compact, stamped now: the record holds a whole show state, and it is made while a show is running.</summary>
+    public static string Serialize(RecoverySnapshot snapshot) => JsonUtil.SerializeCompact(snapshot with { UpdatedUtc = DateTime.UtcNow });
+
+    /// <summary>A record already serialised, onto the disk whole: a temp file moved over the old one, so a reader never sees half a record.</summary>
+    public void WriteJson(string json)
     {
         try
         {
             var tmp = _path + ".tmp";
-            // Compact: the record holds a whole show state now, and it is written while a show is
-            // running — on every GO among other moments.
-            File.WriteAllText(tmp, JsonUtil.SerializeCompact(snapshot with { UpdatedUtc = DateTime.UtcNow }));
+            File.WriteAllText(tmp, json);
             File.Move(tmp, _path, overwrite: true);
         }
         catch (Exception ex)

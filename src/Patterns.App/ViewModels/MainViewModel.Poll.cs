@@ -67,6 +67,10 @@ public sealed partial class MainViewModel
     public string SwitchText { get => _switchText; private set => Set(ref _switchText, value); }
 
     private string _sideEffectsText = "";
+    private string _filesText = "";
+
+    /// <summary>The line under the side effects': what the show's files cost — the autosave's phases on their worker, the recovery record, a show loaded, a sheet imported — and whether anything held the desk.</summary>
+    public string FilesText { get => _filesText; private set => Set(ref _filesText, value); }
 
     /// <summary>The line under the switch's: what the side effects after an edit cost — the passes, what the change mask let skip, the systems that took the time.</summary>
     public string SideEffectsText { get => _sideEffectsText; private set => Set(ref _sideEffectsText, value); }
@@ -113,6 +117,7 @@ public sealed partial class MainViewModel
         DeskTickText = _services.DeskTick.Describe();
         SwitchText = _services.Switches.Describe();
         SideEffectsText = _services.Reconciles.Describe();
+        FilesText = _services.Files.Describe();
         RenderBudgetText = FrameBudgets.Describe(ShowClock.Seconds);
         GoText = _services.CueStack.GoClock.Describe();
         StartupText = _services.Startup.Describe();

@@ -81,7 +81,8 @@ public class RunTests
             Assert.Equal("CueGo", journal.Kind);
             Assert.Equal("Done", journal.Outcome);
 
-            // The sidecar carries the place, written on the GO itself.
+            // The sidecar carries the place, written on the GO itself — on the file lane, so the test waits for the lane.
+            TestApp.FlushFiles(b.Services);
             var sidecar = new RecoveryStore(b.Dir).Read();
             Assert.NotNull(sidecar?.Run);
             Assert.Equal(built.CueA.Id, sidecar!.Run!.LastCueId);

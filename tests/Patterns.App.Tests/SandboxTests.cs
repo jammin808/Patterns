@@ -651,6 +651,7 @@ public class SandboxTests
             vm.Show.ApplyLookCommand.Execute(onAir);          // air = LedWall
             vm.State.Pattern.Kind = PatternKind.ColorBars; // preview = the untaken edit
             Dispatcher.UIThread.RunJobs();
+            TestApp.FlushFiles(services);                  // the record is made and written on the file lane
 
             var saved = new RecoveryStore(dir).Read();
             Assert.NotNull(saved);
