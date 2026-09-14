@@ -38,8 +38,13 @@ public sealed partial class MainViewModel
     {
         if (!Enum.TryParse<DeviceProfile>(profileName ?? "", ignoreCase: true, out var profile)) return;
         var device = Core.Services.DeviceProfiles.Preset(profile, State.Interactive.Devices.Count + 1);
+        // A Companion heard announcing itself on the network is the one meant: its address goes in, and the words say so.
+        var heard = profile == DeviceProfile.Companion ? _services.Kernel.Mdns.Companions.FirstOrDefault() : null;
+        if (heard?.Address is not null) device.Port = heard.Address.ToString();
         State.Interactive.Devices.Add(device);
-        StatusMessage = $"{device.Name} added — type its address; its words: {device.Words}";
+        StatusMessage = heard is not null
+            ? $"{device.Name} added with {heard.Instance}'s address ({heard.Address}) — type the surface id from its Surfaces page for PAGE; its words: {device.Words}"
+            : $"{device.Name} added — type its address; its words: {device.Words}";
     }
 
     private void AddDevice(DeviceLink link)

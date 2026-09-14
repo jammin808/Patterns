@@ -38,6 +38,7 @@ public abstract class ProfileSession
         DeviceProfile.Disguise => new DisguiseSession(),
         DeviceProfile.Pixera => new PixeraSession(),
         DeviceProfile.Osc => new OscSession(),
+        DeviceProfile.Companion => new CompanionSession(d.Surface),
         _ => new LinesSession(d.Link == DeviceLink.Http ? LineEnding.None : d.LineEnding),
     };
 
@@ -87,6 +88,7 @@ public static class DeviceProfiles
         DeviceProfile.Disguise => "Disguise d3 (OSC)",
         DeviceProfile.Pixera => "Pixera (JSON-RPC)",
         DeviceProfile.Osc => "OSC device",
+        DeviceProfile.Companion => "Companion (its TCP API)",
         _ => "Plain lines",
     };
 
@@ -97,6 +99,7 @@ public static class DeviceProfiles
         DeviceProfile.Disguise => "PLAY · PLAY SECTION · LOOP · STOP · NEXT · PREV · START · NEXT TRACK · PREV TRACK · TRACK <name> · TRACK #<n> · CUE <tag> · FADE UP · FADE DOWN · HOLD · VOLUME <0–100> · BRIGHTNESS <0–100> · RAW /d3/showcontrol/<address> [args]",
         DeviceProfile.Pixera => "TIMELINE <name> PLAY · TIMELINE <name> PAUSE · TIMELINE <name> STOP · CUE <timeline> <cue> · API <method> [json params] · RAW {json-rpc}",
         DeviceProfile.Osc => "/address and its arguments — a whole number, a decimal, true/false, a word or \"quoted words\" — e.g. /cue/1/start · /layer/1/opacity 0.5",
+        DeviceProfile.Companion => "PAGE <n> [surface] · PAGE UP / DOWN [surface] · PRESS <page/row/column> · DOWN / UP <page/row/column> · ROTATE LEFT / RIGHT <page/row/column> · STEP <page/row/column> <n> · TEXT <page/row/column> <words> · COLOR / BGCOLOR <page/row/column> <#hex> · VAR <name> <value> · GET <name> · RESCAN · RAW <Companion's own line>",
         _ => "the line the device expects, as it is — RELAY 1 · SHOW 3 · GET /api/play (HTTP)",
     };
 
@@ -131,6 +134,13 @@ public static class DeviceProfiles
                 d.Link = DeviceLink.Udp;
                 d.NetPort = 53000;
                 d.TestText = "/ping";
+                break;
+            case DeviceProfile.Companion:
+                d.Name = "Companion" + suffix;
+                d.Link = DeviceLink.Tcp;
+                d.NetPort = CompanionModule.ApiPort;
+                d.TestText = "RESCAN";
+                d.Confirm = ConfirmLevel.Accepted;
                 break;
             default:
                 d.Name = "Endpoint" + suffix;

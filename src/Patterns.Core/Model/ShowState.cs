@@ -2079,6 +2079,8 @@ public enum DeviceProfile
     Disguise,
     Pixera,
     Osc,
+    /// <summary>Bitfocus Companion's own TCP remote-control API: PAGE, PRESS, VAR — the desk driving the Stream Deck's pages and buttons.</summary>
+    Companion,
 }
 
 /// <summary>The line break a device expects at the end of every line Patterns writes.</summary>
@@ -2165,6 +2167,10 @@ public sealed class DeviceConfig : Observable
 
     /// <summary>A password the box asks for — a projector's PJLink password. Kept with the show, as the rig's other addresses are.</summary>
     public string Secret { get => _secret; set => Set(ref _secret, value ?? ""); }
+
+    private string _surface = "";
+    /// <summary>For a Companion: the surface a bare PAGE means — Companion's id for the Stream Deck, as its Surfaces page shows it (streamdeck:…, or emulator:emulator for the browser one).</summary>
+    public string Surface { get => _surface; set => Set(ref _surface, (value ?? "").Trim()); }
 
     /// <summary>The words this device understands, for the page — the profile's list.</summary>
     [System.Text.Json.Serialization.JsonIgnore]

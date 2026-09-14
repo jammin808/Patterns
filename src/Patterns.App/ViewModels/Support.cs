@@ -945,6 +945,7 @@ public static class Lists
         new(DeviceProfile.Disguise, "Disguise d3 (OSC) — PLAY, STOP, NEXT, CUE 1.2, TRACK name"),
         new(DeviceProfile.Pixera, "Pixera (JSON-RPC) — TIMELINE name PLAY, CUE timeline cue"),
         new(DeviceProfile.Osc, "OSC device — /address and its arguments (QLab, Resolume, TouchDesigner…)"),
+        new(DeviceProfile.Companion, "Companion (its TCP API) — PAGE 3, PRESS 2/0/1, VAR name value: the desk drives the Stream Deck"),
     };
 
     /// <summary>The starter row sets, by name — what the page's picker offers.</summary>

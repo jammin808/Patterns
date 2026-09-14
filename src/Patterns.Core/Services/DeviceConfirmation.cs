@@ -25,6 +25,7 @@ public static class DeviceConfirmation
                 return profile switch
                 {
                     DeviceProfile.PjLink or DeviceProfile.Pixera or DeviceProfile.Lines => ConfirmLevel.Observed,
+                    DeviceProfile.Companion => ConfirmLevel.Accepted,    // +OK or -ERR to every line; nothing to ask after
                     _ => ConfirmLevel.Delivered,                    // OSC words over a stream: the socket took them, nobody answers
                 };
         }
