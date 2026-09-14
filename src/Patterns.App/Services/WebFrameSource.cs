@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -78,6 +79,18 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private CoreWebView2DevToolsProtocolEventReceiver? _screencastEvents;
     private CoreWebView2DevToolsProtocolEventReceiver? _visibilityEvents;
     private volatile bool _screencastOn;
+    private int _screencastGeneration;                       // one per start: a frame of an old session is not this one's
+    private long _lastFrameTicks;                            // monotonic: when the newest frame arrived
+    private int _ackFailures;                                // in a row; the liveness rule reads it
+    private int _screencastRestarts;
+    private volatile ScreencastLiveness _liveness = ScreencastLiveness.Off;
+    private long _livenessCheckedTicks;
+    private int _judging;
+    private int _routeGeneration;                            // latest wins: a route asked later beats one still being applied
+    private int _cleanGeneration;
+    private ulong _latestNavigationId;                       // a completion of an older navigation is not the page's state now
+    private string _permittedOrigin = "";                    // the origin the outputs' names were granted to, taken back when no route is wanted
+    private volatile bool _routeHeld;                        // the desk's own mute: a route asked for and not in force (fail closed)
     private volatile bool _browserSaysHidden;
     private long _screencastStartTicks;
     private long _screencastFrames;
@@ -192,14 +205,20 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             settings.IsPinchZoomEnabled = false;
             settings.IsSwipeNavigationEnabled = false;
 
-            _core.NavigationStarting += (_, e) => _status = "Loading " + WebAddress.ShortName(e.Uri) + "…";
+            _core.NavigationStarting += (_, e) =>
+            {
+                _latestNavigationId = e.NavigationId;
+                _status = "Loading " + WebAddress.ShortName(e.Uri) + "…";
+            };
             _core.NavigationCompleted += (_, e) =>
             {
+                if (e.NavigationId != _latestNavigationId) return;   // an older navigation finishing after a newer one started: not the page's state
                 _currentUrl = _core.Source;
                 _status = e.IsSuccess ? "Showing" : $"The page failed: {e.WebErrorStatus}";
                 // A new document is a new compositor: asked again so a page that arrived by a link keeps its rate.
+                _screencastRestarts = 0;
                 _ = StartScreencastAsync();
-                if (_audioDevice.Length > 0) ApplyAudioDevice();
+                if (_audioDevice.Length > 0 || _permittedOrigin.Length > 0) ApplyAudioDevice();   // a new origin: the route applied again, the old origin's grant taken back
             };
             _core.DocumentTitleChanged += (_, _) => _title = _core.DocumentTitle ?? "";
             _core.NewWindowRequested += (_, e) =>
@@ -229,7 +248,11 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             NavigateCore(_currentUrl);
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000.0 / CaptureFps) };
-            _timer.Tick += (_, _) => _ = GrabAsync();
+            _timer.Tick += (_, _) =>
+            {
+                _ = GrabAsync();
+                _ = JudgeLivenessAsync();
+            };
             _timer.Start();
             Log.Info($"Web page opened in the engine: {_currentUrl} ({_width}×{_height}, {(_screencastOn ? "screencast" : "screenshot poll")}).");
             _ = PumpAsync();   // anything the desk sent while the browser was starting
@@ -248,14 +271,68 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
     // ---- the screencast ------------------------------------------------------------------------
 
-    /// <summary>The browser is sending frames — or has just been asked to and is still within its grace.</summary>
-    private bool ScreencastDelivering
+    /// <summary>The screencast carries the picture: starting within its grace, delivering, or a still page (the liveness rule, judged every two seconds).</summary>
+    private bool ScreencastDelivering => _screencastOn && ScreencastHealth.Carries(_liveness);
+
+    /// <summary>How the screencast is doing, as judged — never "healthy forever after one frame".</summary>
+    public ScreencastLiveness Liveness => _liveness;
+
+    /// <summary>Restarts of the screencast after a stall, this document.</summary>
+    public int ScreencastRestarts => _screencastRestarts;
+
+    private static double MsSince(long ticks) => ticks == 0 ? double.MaxValue : (Stopwatch.GetTimestamp() - ticks) * 1000.0 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// Every two seconds: the page is asked whether any media plays, and the rule judges the
+    /// screencast from that, the frames and the acks. A stall is restarted, up to three times a
+    /// document; past that the screenshot poll carries the picture and the status says so.
+    /// </summary>
+    private async Task JudgeLivenessAsync()
     {
-        get
+        if (_disposed || _core is null || !_screencastOn) return;
+        if (MsSince(_livenessCheckedTicks) < 2000) return;
+        if (Interlocked.CompareExchange(ref _judging, 1, 0) != 0) return;
+        try
         {
-            if (!_screencastOn) return false;
-            if (Interlocked.Read(ref _screencastFrames) > 0) return true;
-            return DateTime.UtcNow.Ticks - Interlocked.Read(ref _screencastStartTicks) < ScreencastGrace.Ticks;
+            _livenessCheckedTicks = Stopwatch.GetTimestamp();
+            var playing = false;
+            try
+            {
+                var answer = await _core.ExecuteScriptAsync(ScreencastHealth.MediaPlayingScript);
+                playing = answer == "true";
+            }
+            catch (Exception)
+            {
+                // A page that cannot be asked is judged on its frames alone.
+            }
+            if (_disposed || _core is null) return;
+            var msSinceStart = (DateTime.UtcNow.Ticks - Interlocked.Read(ref _screencastStartTicks)) / (double)TimeSpan.TicksPerMillisecond;
+            var liveness = ScreencastHealth.Judge(_screencastOn, Interlocked.Read(ref _screencastFrames), msSinceStart, MsSince(Interlocked.Read(ref _lastFrameTicks)), playing, Volatile.Read(ref _ackFailures));
+            _liveness = liveness;
+            if (liveness != ScreencastLiveness.Stalled) return;
+            if (_screencastRestarts >= ScreencastHealth.MaxRestarts)
+            {
+                if (_screencastOn) Log.Warn($"The page's screencast stalled {_screencastRestarts} times — the screenshot poll carries the picture until the next page.");
+                _screencastOn = false;
+                _liveness = ScreencastLiveness.Off;
+                return;
+            }
+            _screencastRestarts++;
+            Log.Warn($"The page's screencast stalled (no frame while media plays, or the acks failed) — restarted ({_screencastRestarts}).");
+            try
+            {
+                await _core.CallDevToolsProtocolMethodAsync("Page.stopScreencast", "{}");
+            }
+            catch (Exception)
+            {
+                // A session that is gone cannot be stopped; the start below makes a new one.
+            }
+            if (_disposed || _core is null) return;
+            await StartScreencastAsync();
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _judging, 0);
         }
     }
 
@@ -289,8 +366,13 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 };
             }
             Interlocked.Exchange(ref _screencastStartTicks, DateTime.UtcNow.Ticks);
+            Interlocked.Increment(ref _screencastGeneration);
+            Interlocked.Exchange(ref _screencastFrames, 0);
+            Interlocked.Exchange(ref _lastFrameTicks, 0);
+            Volatile.Write(ref _ackFailures, 0);
             await _core.CallDevToolsProtocolMethodAsync("Page.startScreencast", ScreencastFrame.StartParameters(_width, _height));
             _screencastOn = true;
+            _liveness = ScreencastLiveness.Starting;
         }
         catch (Exception ex)
         {
@@ -309,17 +391,29 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         if (_disposed || _core is null) return;
         var json = e.ParameterObjectAsJson;
         if (!ScreencastFrame.TryParse(json, out var sessionId, out _)) return;
+        _ = AckAsync(sessionId);   // awaited inside: a failed ack is counted, never a task nobody looked at
+        Interlocked.Increment(ref _screencastFrames);
+        Interlocked.Exchange(ref _lastFrameTicks, Stopwatch.GetTimestamp());
+        if (_liveness is ScreencastLiveness.Starting or ScreencastLiveness.Static) _liveness = ScreencastLiveness.Delivering;
+        Interlocked.Exchange(ref _pendingFrame, json);
+        if (Interlocked.CompareExchange(ref _decoding, 1, 0) == 0) _ = Task.Run(DecodePending);
+    }
+
+    /// <summary>The ack for a frame, awaited: a failure is counted in a row (the liveness rule reads it) and logged now and then; a success clears the run.</summary>
+    private async Task AckAsync(int sessionId)
+    {
+        var core = _core;
+        if (core is null || _disposed) return;
         try
         {
-            _ = _core.CallDevToolsProtocolMethodAsync("Page.screencastFrameAck", ScreencastFrame.AckParameters(sessionId));
+            await core.CallDevToolsProtocolMethodAsync("Page.screencastFrameAck", ScreencastFrame.AckParameters(sessionId));
+            Volatile.Write(ref _ackFailures, 0);
         }
         catch (Exception ex)
         {
-            if (_screencastFailures++ % 200 == 1) Log.Warn("Web page screencast ack failed.", ex);
+            var n = Interlocked.Increment(ref _ackFailures);
+            if (n == 1 || n % 200 == 0) Log.Warn($"Web page screencast ack failed ({n} in a row).", ex);
         }
-        Interlocked.Increment(ref _screencastFrames);
-        Interlocked.Exchange(ref _pendingFrame, json);
-        if (Interlocked.CompareExchange(ref _decoding, 1, 0) == 0) _ = Task.Run(DecodePending);
     }
 
     /// <summary>Decodes whatever is newest until nothing waits (a worker thread); the pool's bytes go back when the picture is made.</summary>
@@ -437,6 +531,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             if (!_slot.HasFrame) return _status + " (no picture yet)";
             var fps = FrameRate;
             var text = fps > 0 ? $"{_status} · {fps:0} fps" : _status;
+            if (_screencastRestarts > 0) text += _screencastOn ? $" · screencast restarted ({_screencastRestarts})" : " · screenshot poll (the screencast stalled)";
+            if (_routeHeld) text += " · sound held: not routed";
             return _browserSaysHidden ? text + " · the browser thinks its window is hidden" : text;
         }
     }
@@ -512,15 +608,31 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             var name = (value ?? "").Trim();
             if (name == _audioDevice) return;
             _audioDevice = name;
+            Interlocked.Increment(ref _routeGeneration);
+            // Fail closed from the first instant: a route asked for holds the sound until the page says it is routed.
+            _routeHeld = WebAudioRoute.HoldSound(WebAudioRoute.Classify("", name));
+            OnUi(ApplyMute);
             OnUi(ApplyAudioDevice);
         }
     }
 
     public string AudioRouteNote => _audioRouteNote;
 
+    /// <summary>The desk holds the page's sound: a route was asked for and is not in force (fail closed), whatever the operator's own mute says.</summary>
+    public bool SoundHeld => _routeHeld;
+
+    /// <summary>
+    /// The route applied, latest wins: a route asked while this one is being applied makes this
+    /// one's answer moot at every await. The outputs' names need the microphone permission for the
+    /// page's own origin — granted only while a route is wanted, taken back when it is not or the
+    /// origin changed. The page's answer decides: routed lifts the hold; anything else keeps the
+    /// sound held, never on the default output.
+    /// </summary>
     private async void ApplyAudioDevice()
     {
         if (_core is null || _disposed) return;
+        var generation = Volatile.Read(ref _routeGeneration);
+        var wanted = _audioDevice;
         try
         {
             if (_sinkScriptId is { } old)
@@ -528,32 +640,65 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _sinkScriptId = null;
                 _core.RemoveScriptToExecuteOnDocumentCreated(old);
             }
-            if (_audioDevice.Length > 0)
+            var origin = WebAudioRoute.OriginOf(_core.Source);
+            if (_permittedOrigin.Length > 0 && (!WebAudioRoute.NeedsOutputNames(wanted) || _permittedOrigin != origin))
+            {
+                await RevokeOutputNamesAsync(_permittedOrigin);
+                if (_disposed || _core is null || generation != Volatile.Read(ref _routeGeneration)) return;
+            }
+            if (WebAudioRoute.NeedsOutputNames(wanted) && origin.Length > 0 && _permittedOrigin != origin)
             {
                 try
                 {
-                    var origin = new Uri(_core.Source).GetLeftPart(UriPartial.Authority);
                     await _core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Microphone, origin, CoreWebView2PermissionState.Allow);
+                    _permittedOrigin = origin;
                 }
                 catch (Exception ex)
                 {
                     Log.Warn("The page's microphone permission (what lets it see the outputs) could not be granted.", ex);
                 }
-                if (_disposed || _core is null) return;
-                _sinkScriptId = await _core.AddScriptToExecuteOnDocumentCreatedAsync(SinkScript(_audioDevice));
+                if (_disposed || _core is null || generation != Volatile.Read(ref _routeGeneration)) return;
             }
-            if (_disposed || _core is null) return;
-            await _core.ExecuteScriptAsync(SinkScript(_audioDevice));
+            if (wanted.Length > 0)
+            {
+                _sinkScriptId = await _core.AddScriptToExecuteOnDocumentCreatedAsync(SinkScript(wanted));
+                if (_disposed || _core is null || generation != Volatile.Read(ref _routeGeneration)) return;
+            }
+            await _core.ExecuteScriptAsync(SinkScript(wanted));
             await Task.Delay(1500);
-            if (_disposed || _core is null) return;
+            if (_disposed || _core is null || generation != Volatile.Read(ref _routeGeneration)) return;
             var result = await _core.ExecuteScriptAsync("JSON.stringify(window.__patternsSink||null)");
-            _audioRouteNote = ReadSinkNote(result, _audioDevice);
+            if (generation != Volatile.Read(ref _routeGeneration)) return;
+            var note = ReadSinkNote(result, wanted);
+            var outcome = WebAudioRoute.Classify(note, wanted);
+            _routeHeld = WebAudioRoute.HoldSound(outcome);
+            _audioRouteNote = _routeHeld ? WebAudioRoute.HeldWords(note) : note;
+            ApplyMute();
         }
         catch (Exception ex)
         {
-            _audioRouteNote = "the page could not be asked: " + ex.Message;
+            if (generation != Volatile.Read(ref _routeGeneration)) return;
+            _routeHeld = wanted.Length > 0;
+            _audioRouteNote = WebAudioRoute.HeldWords("the page could not be asked: " + ex.Message);
+            ApplyMute();
             Log.Warn("Steering the page's sound failed.", ex);
         }
+    }
+
+    /// <summary>The outputs' names taken back from an origin: the permission is stored in the page's profile, so it would outlive the page otherwise.</summary>
+    private async Task RevokeOutputNamesAsync(string origin)
+    {
+        var core = _core;
+        if (core is null || origin.Length == 0) return;
+        try
+        {
+            await core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Microphone, origin, CoreWebView2PermissionState.Default);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The page's microphone permission could not be taken back.", ex);
+        }
+        if (_permittedOrigin == origin) _permittedOrigin = "";
     }
 
     /// <summary>The page's own output picker driven by name; pure text, so the words can be tested.</summary>
@@ -607,6 +752,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             var css = value ?? "";
             if (css == _cleanCss) return;
             _cleanCss = css;
+            Interlocked.Increment(ref _cleanGeneration);
             OnUi(ApplyClean);
         }
     }
@@ -620,6 +766,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private async void ApplyClean()
     {
         if (_core is null || _disposed) return;
+        var generation = Volatile.Read(ref _cleanGeneration);   // latest wins: a style asked later makes this one moot at every await
+        var css = _cleanCss;
         try
         {
             if (_cleanScriptId is { } old)
@@ -627,12 +775,18 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _cleanScriptId = null;
                 _core.RemoveScriptToExecuteOnDocumentCreated(old);
             }
-            var script = CleanScript(_cleanCss);
+            var script = CleanScript(css);
             if (script.Length > 0 && !_disposed && _core is not null)
             {
-                _cleanScriptId = await _core.AddScriptToExecuteOnDocumentCreatedAsync(script);
+                var id = await _core.AddScriptToExecuteOnDocumentCreatedAsync(script);
+                if (generation != Volatile.Read(ref _cleanGeneration))
+                {
+                    if (_core is not null) _core.RemoveScriptToExecuteOnDocumentCreated(id);
+                    return;
+                }
+                _cleanScriptId = id;
             }
-            if (!_disposed && _core is not null) await _core.ExecuteScriptAsync(CleanScript(_cleanCss, forNow: true));
+            if (!_disposed && _core is not null && generation == Volatile.Read(ref _cleanGeneration)) await _core.ExecuteScriptAsync(CleanScript(css, forNow: true));
         }
         catch (Exception ex)
         {
@@ -914,7 +1068,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     {
         try
         {
-            if (_core is { } core) core.IsMuted = _muted;
+            if (_core is { } core) core.IsMuted = _muted || _routeHeld;   // the operator's mute, or the desk's hold on a sound that is not routed
         }
         catch (Exception ex)
         {
@@ -947,6 +1101,13 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 _screencastEvents = null;
             }
             _visibilityEvents = null;
+            if (_permittedOrigin.Length > 0 && _core is { } core)
+            {
+                // The grant lives in the page's profile on disk: taken back with the page, not left for the next.
+                try { _ = core.Profile.SetPermissionStateAsync(CoreWebView2PermissionKind.Microphone, _permittedOrigin, CoreWebView2PermissionState.Default); }
+                catch (Exception ex) { Log.Warn("The page's microphone permission could not be taken back at close.", ex); }
+                _permittedOrigin = "";
+            }
             _controller?.Close();
             _controller = null;
             _core = null;

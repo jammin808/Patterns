@@ -421,7 +421,7 @@ public sealed class MediaPage : Observable
         }
         var arm = _services.WebIn.ArmOf(key);
         var reading = _services.WebIn.ReadingOf(key);
-        var words = WebVt.Words(arm, reading, ShowClock.UtcNow);
+        var words = WebVt.Words(arm, reading, ShowClock.UtcNow, _services.WebIn.PhaseOf(key));   // the player's observed phase, never the request
         if (words != WebVtWords) WebVtWords = words;
         WebArmed = arm.Armed;
         WebHasPlayer = reading.Ok || arm.Armed || arm.PlayedUtc is not null;

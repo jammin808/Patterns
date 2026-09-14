@@ -1624,6 +1624,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
             // The live-input pool follows everything the program (and sandbox) references.
             Effect("inputs", SideEffectDomains.Inputs, dirty, ReconcileInputs, ref ran, ref skipped);
+            Effect("audio graph", SideEffectDomains.AudioGraph, dirty, () => AudioGraph?.Reconcile(), ref ran, ref skipped);
             // The room's boxes and OSC are the desk's to drive.
             Effect("osc", SideEffectDomains.Osc, dirty, Osc.Reconcile, ref ran, ref skipped);
             Effect("devices", SideEffectDomains.Devices, dirty, Devices.Reconcile, ref ran, ref skipped);
@@ -1669,6 +1670,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         WebIn.Reconcile(Bus.Current, Bus.Sandbox, CueStack is null ? null : PreRoll.WebPagesFor(State, CueStack.StandbyCue, ClickerNextCue()));
         DeckIn.Reconcile(Bus.Current, Bus.Sandbox);
         ArcadeIn.Reconcile(Bus.Current, Bus.Sandbox);
+        AudioGraph?.Reconcile();   // the taps may have come or gone with the mounts: the plan follows them now, not at the next second
     }
 
     /// <summary>The clicker list's next step — the cue NEXT would run — or null at the end (or with no list).</summary>

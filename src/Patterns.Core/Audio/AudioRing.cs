@@ -10,20 +10,27 @@ namespace Patterns.Core.Audio;
 /// a little fast); a reader that has fallen further behind than the ring holds is snapped forward
 /// to a set distance behind the writer (the device's clock runs slow, or the reader was away) —
 /// a skip of a few hundred milliseconds once in a long while rather than a growing delay. Both
-/// are counted, so the Audio page can say. Pure; tested.
+/// are counted, so the Audio page can say. A flush (a seek, a stop, a restart) is an epoch: what
+/// was written before it is never heard after it — every reader skips to the flush and starts
+/// again on the first new samples, so no pre-seek sound plays after the seek. Pure; tested.
 /// </summary>
 public sealed class AudioRing
 {
     private readonly float[] _ring;
     private long _written;   // samples (not frames) written in all
+    private long _epoch;
+    private long _flushedAt;   // samples written when the last flush happened: nothing before it is heard after it
 
     /// <summary>One reader's place in the ring.</summary>
     public sealed class Reader
     {
         internal long Position;
         internal bool Started;
+        internal long Epoch;
         public long Underruns { get; internal set; }
         public long Snaps { get; internal set; }
+        /// <summary>Flushes this reader followed: each skipped whatever was buffered before it.</summary>
+        public long Flushes { get; internal set; }
         internal readonly int LatencySamples;
 
         internal Reader(int latencySamples)
@@ -47,6 +54,20 @@ public sealed class AudioRing
     /// <summary>Samples written in all — a reader's distance behind the writer is its latency.</summary>
     public long Written => Interlocked.Read(ref _written);
 
+    /// <summary>Flushes so far: the epoch the readers follow.</summary>
+    public long Epoch => Interlocked.Read(ref _epoch);
+
+    /// <summary>
+    /// A discontinuity — a seek, a stop, a restart: what was written before this instant is not to
+    /// be heard after it. Every reader skips to here at its next read and starts again, with its
+    /// latency, on the first samples written after.
+    /// </summary>
+    public void Flush()
+    {
+        Interlocked.Exchange(ref _flushedAt, Interlocked.Read(ref _written));
+        Interlocked.Increment(ref _epoch);
+    }
+
     /// <summary>
     /// A reader that starts (and, after a snap, resumes) this many frames behind the writer:
     /// enough for the writer's bursts to arrive before they are due, not so much that the sound
@@ -55,7 +76,7 @@ public sealed class AudioRing
     public Reader OpenReader(int latencyFrames = 4800)
     {
         var latency = Math.Clamp(latencyFrames, 0, CapacitySamples / Channels / 2) * Channels;
-        return new Reader(latency);
+        return new Reader(latency) { Epoch = Interlocked.Read(ref _epoch) };   // born in the current epoch: a flush before it is not one it crossed
     }
 
     /// <summary>The writer's samples, interleaved; more than the ring holds keeps the newest.</summary>
@@ -80,16 +101,26 @@ public sealed class AudioRing
     public int Read(Reader reader, Span<float> destination)
     {
         var written = Interlocked.Read(ref _written);
+        var epoch = Interlocked.Read(ref _epoch);
+        if (reader.Epoch != epoch)
+        {
+            // A flush since this reader last read: whatever it had left is gone; it starts again on what comes next.
+            reader.Epoch = epoch;
+            reader.Started = false;
+            reader.Flushes++;
+        }
         if (!reader.Started)
         {
-            // Nothing to hear yet: silence, and the reader starts the moment there is something.
-            if (written <= 0)
+            // Nothing to hear yet (nothing written, or nothing since the flush): silence, and the
+            // reader starts the moment there is something — with its latency, never before the flush.
+            var flushedAt = Interlocked.Read(ref _flushedAt);
+            if (written <= flushedAt)
             {
                 destination.Clear();
                 return 0;
             }
             reader.Started = true;
-            reader.Position = Math.Max(0, written - reader.LatencySamples);
+            reader.Position = Math.Max(flushedAt, written - reader.LatencySamples);
         }
         var behind = written - reader.Position;
         if (behind > CapacitySamples)

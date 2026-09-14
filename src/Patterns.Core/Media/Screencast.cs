@@ -21,6 +21,56 @@ namespace Patterns.Core.Media;
 /// a quarter-megabyte string is the large-object heap churning for the length of a show. Pure —
 /// the parse, the ack and the rate meter are tested without a browser.
 /// </summary>
+/// <summary>How the browser's screencast is doing, judged from what arrived — never "healthy forever after one frame".</summary>
+public enum ScreencastLiveness
+{
+    /// <summary>Not asked for, or refused: the screenshot poll carries the picture.</summary>
+    Off,
+    /// <summary>Asked for, nothing yet, within its grace.</summary>
+    Starting,
+    /// <summary>A frame arrived lately.</summary>
+    Delivering,
+    /// <summary>No frame lately and the page reports no media playing: a still page sends nothing, and that is fine.</summary>
+    Static,
+    /// <summary>No frame lately while the page reports media playing, or the acks keep failing: the stream has stalled and is restarted.</summary>
+    Stalled,
+}
+
+/// <summary>The screencast's liveness rule: pure, so a stall is a table and not a feeling.</summary>
+public static class ScreencastHealth
+{
+    /// <summary>A stream that sent nothing this long after starting is not delivering.</summary>
+    public static readonly TimeSpan Grace = TimeSpan.FromSeconds(3);
+
+    /// <summary>A frame within this long is "lately".</summary>
+    public static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(2);
+
+    /// <summary>No frame for this long while the page's media plays: stalled.</summary>
+    public static readonly TimeSpan StallAfter = TimeSpan.FromSeconds(3);
+
+    /// <summary>Acks failed in a row that mean the protocol session is gone.</summary>
+    public const int AckFailuresForStall = 5;
+
+    /// <summary>Restarts tried before the screenshot poll is left in charge for good (until the next navigation).</summary>
+    public const int MaxRestarts = 3;
+
+    public static ScreencastLiveness Judge(bool on, long framesSinceStart, double msSinceStart, double msSinceLastFrame, bool pageMediaPlaying, int consecutiveAckFailures)
+    {
+        if (!on) return ScreencastLiveness.Off;
+        if (consecutiveAckFailures >= AckFailuresForStall) return ScreencastLiveness.Stalled;
+        if (framesSinceStart == 0) return msSinceStart < Grace.TotalMilliseconds ? ScreencastLiveness.Starting : pageMediaPlaying ? ScreencastLiveness.Stalled : ScreencastLiveness.Static;
+        if (msSinceLastFrame < FreshFor.TotalMilliseconds) return ScreencastLiveness.Delivering;
+        if (pageMediaPlaying && msSinceLastFrame >= StallAfter.TotalMilliseconds) return ScreencastLiveness.Stalled;
+        return ScreencastLiveness.Static;
+    }
+
+    /// <summary>Whether the screencast is the picture's carrier in this state (else the screenshot poll stands in).</summary>
+    public static bool Carries(ScreencastLiveness liveness) => liveness is ScreencastLiveness.Starting or ScreencastLiveness.Delivering or ScreencastLiveness.Static;
+
+    /// <summary>The page's own answer to "is any media playing": a script that returns true or false.</summary>
+    public const string MediaPlayingScript = "(function(){try{var m=document.querySelectorAll('video,audio');for(const e of m){if(!e.paused&&!e.ended&&e.readyState>2)return true;}return false;}catch(x){return false;}})()";
+}
+
 public static class ScreencastFrame
 {
     /// <summary>

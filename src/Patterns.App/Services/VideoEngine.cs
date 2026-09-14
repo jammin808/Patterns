@@ -758,7 +758,8 @@ public sealed class VlcFrameSource : IMountedSource
 
     private void OnAudioFlush(IntPtr data, long pts)
     {
-        // A seek or a stop: nothing to do in the ring — the readers simply hear what comes next.
+        // A seek or a stop: an epoch on the ring — what was buffered before it is never heard after it.
+        _tap?.Flush();
     }
 
     /// <summary>The tap's gain: the mute, the hold, the volume and a fade in one number, applied in the decoder's own thread.</summary>

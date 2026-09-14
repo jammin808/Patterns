@@ -37,6 +37,9 @@ public static class SideEffectDomains
         nameof(ShowState.MediaLibrary), nameof(ShowState.Mode), nameof(ShowState.Blackout),
     };
 
+    /// <summary>The audio graph's plan: the routing matrix and the monitor rule (which bus each mount's sound belongs on).</summary>
+    public static readonly IReadOnlyList<string> AudioGraph = new[] { nameof(ShowState.AudioRouting), nameof(ShowState.Monitor) };
+
     /// <summary>OSC in and out: the remote's config.</summary>
     public static readonly IReadOnlyList<string> Osc = new[] { nameof(ShowState.Control) };
 

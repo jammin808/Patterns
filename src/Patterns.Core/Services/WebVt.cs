@@ -36,6 +36,22 @@ public readonly record struct WebArm(bool Armed, double StartSeconds, bool ByLoo
 }
 
 /// <summary>
+/// Where an armed page's player stands, as observed — never as dispatched. A script sent to the
+/// page is a request; the player's own reading, polled, is the observation: the mark is prepared
+/// once the player reports paused at it, the play has landed once it reports playing from it. A
+/// request the player does not answer in time fails, and the words say so rather than "armed".
+/// </summary>
+public enum WebVtPhase
+{
+    Unprepared,
+    PrepareRequested,
+    PreparedObserved,
+    FireRequested,
+    PlayingObserved,
+    Failed,
+}
+
+/// <summary>
 /// The armed web VT: a video on a web page — YouTube, Vimeo, any page with a video element —
 /// set up before it goes to air and started by the take itself.
 ///
@@ -128,6 +144,46 @@ public static class WebVt
 
     /// <summary>The arm fires when the page reaches an output it was not on: the take, the cue, the click.</summary>
     public static bool ShouldFire(in WebArm arm, bool wasOnAir, bool isOnAir) => arm.Armed && !wasOnAir && isOnAir;
+
+    /// <summary>A prepare the player has not answered in this long has failed (the poll asks four times a second while something is pending).</summary>
+    public static readonly TimeSpan PrepareTimeout = TimeSpan.FromSeconds(8);
+
+    /// <summary>A play the player has not started in this long has failed.</summary>
+    public static readonly TimeSpan PlayTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>How far from the mark a paused player still counts as at it: a site seeks to a keyframe.</summary>
+    public const double MarkTolerance = 1.5;
+
+    /// <summary>
+    /// The phase after a reading: a prepare is observed once the player reports paused within
+    /// <see cref="MarkTolerance"/> of the mark; a play once it reports playing at or past the mark.
+    /// A request unanswered past its timeout fails. Observed phases and the idle ones stand.
+    /// </summary>
+    public static WebVtPhase Observe(WebVtPhase phase, in WebPlayerReading reading, double markSeconds, DateTime requestedUtc, DateTime nowUtc)
+    {
+        switch (phase)
+        {
+            case WebVtPhase.PrepareRequested:
+                if (reading.Ok && reading.Paused && Math.Abs(reading.Position - markSeconds) <= MarkTolerance) return WebVtPhase.PreparedObserved;
+                return nowUtc - requestedUtc > PrepareTimeout ? WebVtPhase.Failed : phase;
+            case WebVtPhase.FireRequested:
+                if (reading.Ok && !reading.Paused && reading.Position >= markSeconds - 0.5) return WebVtPhase.PlayingObserved;
+                return nowUtc - requestedUtc > PlayTimeout ? WebVtPhase.Failed : phase;
+            default:
+                return phase;
+        }
+    }
+
+    /// <summary>The phase in the desk's words: "at its mark (observed)", "play requested", "PLAYING (observed)", "FAILED — the player did not answer".</summary>
+    public static string PhaseWords(WebVtPhase phase) => phase switch
+    {
+        WebVtPhase.PrepareRequested => "prepare requested",
+        WebVtPhase.PreparedObserved => "at its mark (observed)",
+        WebVtPhase.FireRequested => "play requested",
+        WebVtPhase.PlayingObserved => "PLAYING (observed)",
+        WebVtPhase.Failed => "FAILED — the player did not answer",
+        _ => "",
+    };
 
     /// <summary>
     /// The page's address as the browser should open it when it opens straight onto the air with a
@@ -238,9 +294,9 @@ public static class WebVt
     /// One line for the desk, the phone, the deck and STATE: armed and where from, played and when,
     /// an advert showing, the clock. "" when the page has no player and nothing armed.
     /// </summary>
-    public static string Words(in WebArm arm, in WebPlayerReading reading, DateTime nowUtc)
+    public static string Words(in WebArm arm, in WebPlayerReading reading, DateTime nowUtc, WebVtPhase phase = WebVtPhase.Unprepared)
     {
-        var parts = new List<string>(3);
+        var parts = new List<string>(4);
         if (arm.Armed)
         {
             parts.Add($"ARMED at {TimeText(arm.StartSeconds)}{(arm.ByLook ? " by the look" : "")} — plays when it goes to air");
@@ -252,6 +308,7 @@ public static class WebVt
                 ? $"played from {TimeText(arm.PlayedFrom)} {(ago.TotalSeconds < 60 ? $"{(int)ago.TotalSeconds} s" : $"{(int)ago.TotalMinutes} min")} ago"
                 : $"played from {TimeText(arm.PlayedFrom)}");
         }
+        if (phase != WebVtPhase.Unprepared) parts.Add(PhaseWords(phase));   // what the player itself reported, never what was sent
         if (reading.Ok)
         {
             if (reading.AdShowing) parts.Add("ADVERT showing — skipped when the site allows");
@@ -261,9 +318,11 @@ public static class WebVt
     }
 
     /// <summary>The Show page's and the clicker's short form: "VT armed at 1:23" / "VT playing 1:30 / 4:56"; "" with nothing to say.</summary>
-    public static string ShortWords(in WebArm arm, in WebPlayerReading reading)
+    public static string ShortWords(in WebArm arm, in WebPlayerReading reading, WebVtPhase phase = WebVtPhase.Unprepared)
     {
-        if (arm.Armed) return $"VT armed at {TimeText(arm.StartSeconds)}";
+        if (arm.Armed) return $"VT armed at {TimeText(arm.StartSeconds)}" + (phase == WebVtPhase.PreparedObserved ? " (at mark)" : phase == WebVtPhase.Failed ? " (NOT at mark)" : "");
+        if (phase == WebVtPhase.FireRequested) return "VT play requested";
+        if (phase == WebVtPhase.Failed && arm.PlayedUtc is not null) return "VT did not start";
         if (reading.Ok && !reading.Paused) return $"VT playing {reading.ClockText}";
         return "";
     }

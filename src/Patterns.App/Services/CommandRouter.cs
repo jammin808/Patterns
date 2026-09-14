@@ -283,7 +283,8 @@ public sealed class CommandRouter : IRouter
             atText = WebVt.TimeText(arm.StartSeconds),
             byLook = arm.ByLook,
             played = arm.PlayedUtc is not null,
-            words = WebVt.Words(arm, _services.WebIn.ReadingOf(key), ShowClock.UtcNow),
+            phase = _services.WebIn.PhaseOf(key).ToString(),                                        // observed: PreparedObserved, PlayingObserved, Failed — never what was sent
+            words = WebVt.Words(arm, _services.WebIn.ReadingOf(key), ShowClock.UtcNow, _services.WebIn.PhaseOf(key)),
         };
     }
 
@@ -304,8 +305,9 @@ public sealed class CommandRouter : IRouter
                 atText = WebVt.TimeText(arm.StartSeconds),
                 byLook = arm.ByLook,
                 preRolled = _services.WebIn.IsPreRolled(key),
-                words = WebVt.Words(arm, reading, ShowClock.UtcNow),
-                @short = WebVt.ShortWords(arm, reading),
+                phase = _services.WebIn.PhaseOf(key).ToString(),
+                words = WebVt.Words(arm, reading, ShowClock.UtcNow, _services.WebIn.PhaseOf(key)),
+                @short = WebVt.ShortWords(arm, reading, _services.WebIn.PhaseOf(key)),
             };
         }
         return null;

@@ -133,6 +133,14 @@ public sealed class AudioGraphService : IDisposable
     private DispatcherTimer? _timer;
     private long _rev;
     private DateTime _lastTickUtc;
+    private bool _topologyDirty = true;
+    private long _lastSignature;
+
+    /// <summary>Times the plan and the lanes were rebuilt this session: once per change, never per tick — a soak reads it flat while nothing changes.</summary>
+    public long TopologyRebuilds { get; private set; }
+
+    /// <summary>Ticks that only advanced the envelopes and the meters.</summary>
+    public long QuietTicks { get; private set; }
     private volatile string _status = "Routing off.";
     private IReadOnlyList<AudioDestinationPlan> _plan = Array.Empty<AudioDestinationPlan>();
 
@@ -141,6 +149,10 @@ public sealed class AudioGraphService : IDisposable
         public required string Source;
         public required TapSampleProvider Provider;
         public DuckEnvelope Env = new();
+        /// <summary>The plan's gain for this input and the row's envelope times, cached at the rebuild so the tick advances without resolving the plan.</summary>
+        public double Target;
+        public int AttackMs = 40;
+        public int ReleaseMs = 600;
     }
 
     private sealed class Lane : IDisposable
@@ -232,15 +244,32 @@ public sealed class AudioGraphService : IDisposable
         return any ? Db.FromGain(best) : Db.Floor;
     }
 
-    /// <summary>The matrix changed: the lanes and the players are brought to it on the UI thread now.</summary>
+    /// <summary>The matrix changed — a crosspoint, a row, the monitor rule, a tap mounted or gone: the plan and the lanes are rebuilt on the UI thread now.</summary>
     public void Reconcile()
     {
         Interlocked.Increment(ref _rev);
+        _topologyDirty = true;
         if (!UiThread.CheckAccess())
         {
             UiThread.Post(Reconcile);
             return;
         }
+        Run();
+    }
+
+    /// <summary>The desk's poll: the timer is up while the matrix is on; nothing is rebuilt unless the topology's signature moved.</summary>
+    public void Poll()
+    {
+        if (!UiThread.CheckAccess())
+        {
+            UiThread.Post(Poll);
+            return;
+        }
+        Run();
+    }
+
+    private void Run()
+    {
         try
         {
             Apply(ShowClock.UtcNow);
@@ -252,8 +281,31 @@ public sealed class AudioGraphService : IDisposable
         }
     }
 
-    /// <summary>The desk's poll: the lanes follow the plan (VOG on or off, taps come and go) — cheap while nothing changes.</summary>
-    public void Poll() => Reconcile();
+    /// <summary>
+    /// What the topology depends on, as one number: the matrix on, the VOG on air, every tap's key,
+    /// pre-roll flag and buses, the show's own taps. The tick compares it to the last one and
+    /// rebuilds the plan only when it moved; a crosspoint edit reaches the graph through the side
+    /// effects (the AudioRouting section) and forces one. Nothing allocated.
+    /// </summary>
+    private long TopologySignature(bool vog)
+    {
+        var h = new HashCode();
+        h.Add(vog);
+        foreach (var (key, buses, _, preRoll) in _services.Video.Taps())
+        {
+            h.Add(key);
+            h.Add(preRoll);
+            h.Add(AudioRouting.SourceForBuses(buses));
+        }
+        h.Add(_services.AudioPlayer.MusicTap is not null);
+        foreach (var (tag, kind, _) in _services.AudioPlayer.VoiceTaps())
+        {
+            h.Add(tag);
+            h.Add((int)kind);
+        }
+        h.Add(_services.Audio?.ToneTap is not null);
+        return h.ToHashCode();
+    }
 
     private void Apply(DateTime nowUtc)
     {
@@ -283,6 +335,17 @@ public sealed class AudioGraphService : IDisposable
         _lastTickUtc = nowUtc;
 
         var vog = _services.AudioPlayer.VogSoundPlaying;
+        var signature = TopologySignature(vog);
+        if (!_topologyDirty && signature == _lastSignature && _plan.Count > 0)
+        {
+            // Nothing in the topology moved: the envelopes and the meters advance, and that is all.
+            Advance(dt);
+            QuietTicks++;
+            return;
+        }
+        _topologyDirty = false;
+        _lastSignature = signature;
+        TopologyRebuilds++;
         var plan = AudioRouting.Resolve(state, vog);
         _plan = plan;
 
@@ -323,7 +386,10 @@ public sealed class AudioGraphService : IDisposable
                     lane.Inputs[tag] = input;
                     lane.Mixer.AddMixerInput(provider);
                 }
-                input.Env.Advance(target, dt, row?.AttackMs ?? 40, row?.ReleaseMs ?? 600);
+                input.Target = target;
+                input.AttackMs = row?.AttackMs ?? 40;
+                input.ReleaseMs = row?.ReleaseMs ?? 600;
+                input.Env.Advance(target, dt, input.AttackMs, input.ReleaseMs);
                 input.Provider.Target = (float)input.Env.Value;
             }
             foreach (var tag in lane.Inputs.Keys.ToList())
@@ -345,6 +411,22 @@ public sealed class AudioGraphService : IDisposable
         var carrying = _lanes.Values.Sum(l => l.Inputs.Count);
         var errors = _lanes.Values.Count(l => l.Error.Length > 0);
         _status = $"Routing on: {_lanes.Count} lane{(_lanes.Count == 1 ? "" : "s")}, {carrying} input{(carrying == 1 ? "" : "s")} playing{(vog ? " · VOG on air" : "")}{(errors > 0 ? $" · {errors} could not open" : "")}.";
+    }
+
+    /// <summary>The quiet tick: every input's envelope towards its cached target, every meter's fall — no plan resolved, nothing allocated.</summary>
+    private void Advance(double dt)
+    {
+        foreach (var lane in _lanes.Values)
+        {
+            foreach (var input in lane.Inputs.Values)
+            {
+                input.Env.Advance(input.Target, dt, input.AttackMs, input.ReleaseMs);
+                input.Provider.Target = (float)input.Env.Value;
+            }
+            var peak = lane.Meter.TakePeak();
+            var db = peak <= 0 ? Db.Floor : Math.Max(Db.Floor, 20 * Math.Log10(peak));
+            lane.PeakDb = (float)Math.Max(db, lane.PeakDb - 60 * dt);
+        }
     }
 
     /// <summary>A lane for a destination: its mixer, its meter, its delay, and the device or the NDI thread behind it. Null when the machine cannot (and the row says so).</summary>

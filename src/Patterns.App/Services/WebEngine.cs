@@ -43,8 +43,17 @@ public sealed class WebEngine : IDisposable
         public PageService Service;
         /// <summary>Seen on an output (not the preview alone) at the last reconcile.</summary>
         public bool OnAir;
-        /// <summary>The mark has been applied to the player since the arm (seek and pause).</summary>
-        public bool Prepared;
+        /// <summary>Where the player stands, as it reported: a prepare or a play is a request until the reading shows it landed.</summary>
+        public WebVtPhase Phase;
+        /// <summary>When the last request was sent: a request unanswered past its timeout fails.</summary>
+        public DateTime RequestedUtc;
+        /// <summary>Prepares sent since the arm: a player that will not answer is asked three times, then the words say it failed.</summary>
+        public int PrepareAttempts;
+        /// <summary>The mark has been observed on the player since the arm (paused at it).</summary>
+        public bool Prepared => Phase == WebVtPhase.PreparedObserved;
+        /// <summary>A prepare is due: never asked, or failed with asks left — and never while one is pending an answer.</summary>
+        public bool PrepareDue => Phase == WebVtPhase.Unprepared || (Phase == WebVtPhase.Failed && PrepareAttempts < MaxPrepareAttempts);
+        public const int MaxPrepareAttempts = 3;
         /// <summary>The mark was applied while an advert showed — applied again once it has gone.</summary>
         public bool PreparedUnderAd;
         /// <summary>The page reached the air before its player answered: play from the mark as soon as it does.</summary>
@@ -317,7 +326,8 @@ public sealed class WebEngine : IDisposable
             // A fresh browser: nothing the operator armed survives from the last one.
             vt.Arm = WebArm.None;
             vt.Reading = WebPlayerReading.None;
-            vt.Prepared = false;
+            vt.Phase = WebVtPhase.Unprepared;
+            vt.PrepareAttempts = 0;
             vt.PendingPlay = false;
             if (w.AutoPlay)
             {
@@ -349,13 +359,15 @@ public sealed class WebEngine : IDisposable
             // Left the air with the look's ask still on it, the look's mark moved, or the ask arrived
             // on a page already open: armed by the look again, wound back by the poll.
             if (!vt.Arm.Armed || vt.Arm.ByLook) vt.Arm = vt.Arm.ArmedBy(true, w.StartSeconds, now);
-            vt.Prepared = false;
+            vt.Phase = WebVtPhase.Unprepared;
+            vt.PrepareAttempts = 0;
         }
         else if (!onAir && !w.AutoPlay && vt.Arm.Armed && vt.Arm.ByLook)
         {
             // The look's ask was taken off: its arm goes with it; the operator's own would stay.
             vt.Arm = vt.Arm.Cleared();
-            vt.Prepared = false;
+            vt.Phase = WebVtPhase.Unprepared;
+            vt.PrepareAttempts = 0;
         }
         vt.OnAir = onAir;
     }
@@ -372,7 +384,9 @@ public sealed class WebEngine : IDisposable
             Log.Warn("The armed page could not be started.", ex);
         }
         vt.Arm = vt.Arm.Fired(now);
-        vt.Prepared = false;
+        vt.Phase = WebVtPhase.FireRequested;   // a request: the reading says when the player is playing from the mark
+        vt.RequestedUtc = now;
+        vt.PrepareAttempts = 0;
         vt.PendingPlay = !vt.Reading.Ok;   // no player answered yet: played again the moment one does
         vt.PendingFrom = from;
         Log.Info($"Web VT played from {WebVt.TimeText(from)}: {key}");
@@ -392,7 +406,8 @@ public sealed class WebEngine : IDisposable
             if (!vt.Arm.Armed) return ActionResult.Done($"{name}: nothing was armed.");
             var byLook = vt.Arm.ByLook;
             vt.Arm = vt.Arm.Cleared();
-            vt.Prepared = false;
+            vt.Phase = WebVtPhase.Unprepared;
+            vt.PrepareAttempts = 0;
             vt.LookDisarmed = byLook;
             return ActionResult.Done(byLook
                 ? $"{name}: disarmed — the look's own arm stays off until the page leaves the air (untick Play the video from to drop it)."
@@ -420,8 +435,9 @@ public sealed class WebEngine : IDisposable
             return ActionResult.Refused($"{name} has no video player answering yet — give a time (WEB ARM 1:23), or wait for the page to load.");
         }
         vt.Arm = vt.Arm.ArmedBy(false, at, now);
-        vt.Prepared = false;
-        if (vt.Reading.Ok) Prepare(source, vt);
+        vt.Phase = WebVtPhase.Unprepared;
+        vt.PrepareAttempts = 0;
+        if (vt.Reading.Ok) Prepare(source, vt, now);
         ArmFast();
         return ActionResult.Done($"{name}: ARMED at {WebVt.TimeText(at)} — plays from there when it goes to air.");
     }
@@ -445,14 +461,15 @@ public sealed class WebEngine : IDisposable
             return ActionResult.Refused($"{name} has no video player answering yet — give a time (WEB MARK 1:23).");
         }
         vt.Arm = vt.Arm with { StartSeconds = Math.Max(0, at), ByLook = false };
-        vt.Prepared = false;
-        if (vt.Arm.Armed && vt.Reading.Ok && !vt.OnAir) Prepare(source, vt);
+        vt.Phase = WebVtPhase.Unprepared;
+        vt.PrepareAttempts = 0;
+        if (vt.Arm.Armed && vt.Reading.Ok && !vt.OnAir) Prepare(source, vt, nowUtc ?? DateTime.UtcNow);
         return ActionResult.Done(vt.Arm.Armed
             ? $"{name}: mark {WebVt.TimeText(at)} — armed, plays from there when it goes to air."
             : $"{name}: mark {WebVt.TimeText(at)} — ARM plays from there when it goes to air.");
     }
 
-    private void Prepare(IWebSource source, PageVt vt)
+    private void Prepare(IWebSource source, PageVt vt, DateTime now)
     {
         try
         {
@@ -462,9 +479,14 @@ public sealed class WebEngine : IDisposable
         {
             Log.Warn("The armed page could not be put at its mark.", ex);
         }
-        vt.Prepared = true;
+        vt.Phase = WebVtPhase.PrepareRequested;   // requested: the reading says when the player is paused at the mark
+        vt.RequestedUtc = now;
+        vt.PrepareAttempts++;
         vt.PreparedUnderAd = vt.Reading.AdShowing;
     }
+
+    /// <summary>Where a page's player stands as it reported: the desk's, STATE's and Companion's words read it, never the request.</summary>
+    public WebVtPhase PhaseOf(string key) => _vts.TryGetValue(key, out var vt) ? vt.Phase : WebVtPhase.Unprepared;
 
     /// <summary>
     /// The poll (UI thread, once a second from the desk; four times a second by itself while
@@ -502,6 +524,9 @@ public sealed class WebEngine : IDisposable
             var adGone = vt.Reading.AdShowing && !reading.AdShowing;
             vt.Reading = reading;
             vt.ReadingUtc = now;
+            var was = vt.Phase;
+            vt.Phase = WebVt.Observe(vt.Phase, reading, vt.Phase == WebVtPhase.FireRequested ? vt.PendingFrom : vt.Arm.StartSeconds, vt.RequestedUtc, now);
+            if (vt.Phase != was && vt.Phase == WebVtPhase.Failed) Log.Warn($"Web VT {key}: the player did not answer a {(was == WebVtPhase.FireRequested ? "play" : "prepare")} in time ({WebVt.PhaseWords(vt.Phase)}).");
             if (!reading.Ok) return;
             if (reading.AdShowing)
             {
@@ -514,9 +539,9 @@ public sealed class WebEngine : IDisposable
                 vt.PendingPlay = false;
                 return;
             }
-            if (vt.Arm.Armed && !vt.OnAir && (!vt.Prepared || (vt.PreparedUnderAd && adGone)))
+            if (vt.Arm.Armed && !vt.OnAir && (vt.PrepareDue || (vt.PreparedUnderAd && adGone)))
             {
-                Prepare(source, vt);
+                Prepare(source, vt, now);
             }
         }
         finally
@@ -532,7 +557,7 @@ public sealed class WebEngine : IDisposable
         foreach (var (key, vt) in _vts)
         {
             if (!_pages.ContainsKey(key)) continue;
-            if (vt.PendingPlay || vt.Reading.AdShowing || (vt.Arm.Armed && !vt.OnAir && !vt.Prepared)) return true;
+            if (vt.PendingPlay || vt.Reading.AdShowing || vt.Phase is WebVtPhase.PrepareRequested or WebVtPhase.FireRequested || (vt.Arm.Armed && !vt.OnAir && vt.PrepareDue)) return true;
         }
         return false;
     }
@@ -568,7 +593,7 @@ public sealed class WebEngine : IDisposable
     {
         foreach (var (key, arm, reading) in Armed())
         {
-            return $"{WebVt.ShortWords(arm, reading)} ({nameOf(key)})";
+            return $"{WebVt.ShortWords(arm, reading, PhaseOf(key))} ({nameOf(key)})";
         }
         return "";
     }

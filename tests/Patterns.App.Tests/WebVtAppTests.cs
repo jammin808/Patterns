@@ -84,7 +84,14 @@ public class WebVtAppTests
             Poll(services);
             var prepare = page.Scripts.Last(s => s.Contains("pauseVideo"));
             Assert.Contains("seekTo(83,true)", prepare);
-            Assert.True(services.WebIn.VtFor(TubeKey).Prepared);
+            Assert.Equal(WebVtPhase.PrepareRequested, services.WebIn.PhaseOf(TubeKey));                 // sent — not yet seen on the player
+            Assert.False(services.WebIn.VtFor(TubeKey).Prepared);
+            page.AnswerAsPlayer(83.3, 300, paused: true);                                                // the player reports paused at the mark
+            Poll(services);
+            Assert.True(services.WebIn.VtFor(TubeKey).Prepared);                                         // observed, and only now
+            Assert.Equal(WebVtPhase.PreparedObserved, services.WebIn.PhaseOf(TubeKey));
+            vm.Media.PollStatus();
+            Assert.Contains("at its mark (observed)", vm.Media.WebVtWords);
             var state = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement;
             Assert.Equal("1:23", state.GetProperty("webArmed").GetProperty("atText").GetString());
             Assert.Contains("VT armed at 1:23", vm.ProgressionText);
@@ -110,13 +117,18 @@ public class WebVtAppTests
             Assert.True(services.WebIn.VtFor(TubeKey).OnAir);
             Assert.Single(made);   // the same browser carried over the take
 
-            // On air now: the STATE row carries the player and the arm's story; a fresh ARM is refused.
+            // On air now: the play is a request until the player reports playing from the mark; then the
+            // STATE row carries the player and the arm's story, observed; a fresh ARM is refused.
+            Assert.Equal(WebVtPhase.FireRequested, services.WebIn.PhaseOf(TubeKey));
             page.AnswerAsPlayer(100, 300);
             Poll(services);
+            Assert.Equal(WebVtPhase.PlayingObserved, services.WebIn.PhaseOf(TubeKey));
             state = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement;
             var web = state.GetProperty("web");
             Assert.Equal("1:40 / 5:00", web.GetProperty("player").GetProperty("text").GetString());
             Assert.Contains("played from 1:35", web.GetProperty("arm").GetProperty("words").GetString());
+            Assert.Contains("PLAYING (observed)", web.GetProperty("arm").GetProperty("words").GetString());
+            Assert.Equal("PlayingObserved", web.GetProperty("arm").GetProperty("phase").GetString());
             Assert.Equal(System.Text.Json.JsonValueKind.Null, state.GetProperty("webArmed").ValueKind);
             Assert.Contains("on air", Send(router, "WEB ARM 2:00"));
             Assert.StartsWith("ERR", Send(router, "WEB ARM 2:00"));
