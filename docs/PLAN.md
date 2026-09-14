@@ -7322,3 +7322,145 @@ GC (a desk is one process on one machine; the pauses are the point). Per-window 
 (the player's second phase, once the live age says the app's share is where the time goes). A
 frame-end signal on the fence (Avalonia flushes after the draw op returns; the next frame's start
 is the proof, and the fallback bounds it). The twin's items, still.
+
+## 76. Round 58 — the critique's P0 and P1: frame truth, retirement behind the fence, memory truth, live changes staged, the browser and the audio hardened
+
+*One brief: a developer's critique of rounds 55–57 in priority order — the frame pool's
+fetch-then-touch race and a live age not bound to the frame drawn (P0); the fence's time
+fallback and three retirement paths, pool byte budgets that were not honest, no global media
+budget and no ladder under pressure, a topology change restarting a source on air, the monitor
+rule outside the inputs' dirty domain, and the round-55 browser and audio work still assuming
+what it had asked for rather than observing what it got (P1); a Media Foundation engine (P2).
+"Implement where you think it requires it. Scan for issues along the way." Every P0 and P1 is
+built except the hardware qualification (P1.25–P1.28), which needs a capture card, a Companion
+and a night and is written up as the next field work in `docs/SOAK.md`.*
+
+### 76.1 One media frame is one thing: the lease (58.1)
+
+The race, named by the critique and confirmed by reading: a draw fetched the pool's latest image
+under the pool's lock, then touched the fence outside it — between the two the pool could
+publish, retire and, with the 500 ms fallback's help, free the buffer the draw was about to
+read. The lease closes it: `FramePool.TryLease` records the sink (`RenderFence.Touch`, the
+thread-static id of the sink whose frame is running) and returns the image, its slot, the slot's
+generation and the arrival clock in one step under the pool's own gate; the generation moves at
+every publish, so a lease taken before a publish is stale (`IsCurrent`) and can be told from the
+next frame's. `IVideoFrameSource.Draw` returns a `DrawnFrame` — drew, the frame's clock, live,
+the generation — and the frame's stages note that clock (`FrameStages.NoteLive(in drawn)`),
+never the source's newest afterwards, so the live age on the glance, the render line, the
+super-check, the CSV and Companion is the age of the pixels the room saw. `FrameBudget.LastLive`
+keeps the frame's generation, its arrival and its drawn clock in words for the Machine page
+("last frame 184 arrived 621.338 s, drawn 621.371 s: 33 ms"). The libVLC and NDI sources draw
+through the lease and fall back to their own latest under their own gate.
+
+### 76.2 Retirement behind the fence: evidence, never time (58.2)
+
+- **A monotonic fence.** `RenderFence` reads Stopwatch ticks (`Clock`, injectable for the
+  tests), never the wall clock; a mark is a generation and the ticks it was taken at.
+- **No time fallback for reuse.** A retired buffer is free when every live sink that drew from
+  it has started a frame after the mark (positive evidence), or when such a sink is dead (no
+  frame started in two seconds; a sink that never started one holds nothing — `Never`). The
+  500 ms fallback is gone from reuse: `AbandonAfter` (ten seconds) is a disposal-only backstop
+  that frees a buffer no evidence ever cleared and counts it (`ForcedFrees`), a number that
+  should read zero in any soak and is on the desk so that it can be seen to.
+- **One retirement list.** `RetiredFrames` holds every image that leaves a draw path — a pool's
+  replaced buffer, a scratch frame, a picture the cache evicted (`ImageCache` keeps a table per
+  picture of who drew it and retires through the same list; its graveyard is gone) — behind the
+  same fence, by kind, in bytes, with the oldest's age; nothing is disposed on a count or a
+  clock.
+- **Fence health on the desk.** The super-check's *Frame fence* row (pending frees, the oldest
+  retired, the live sinks, the forced frees, the starved frames), the memory ceilings line,
+  STATE's memory block (`retiringMB`, `starved`, `pendingFree`, `fenceOldestMs`, `liveSinks`,
+  `forcedFrees`) and the CSV (`retiringMB`, `poolStarved`).
+
+### 76.3 Memory truth: one view, one budget, one ladder (58.3)
+
+- **Honest pool bytes.** A pool reports what it holds against its target (`EffectiveBytes`;
+  `FramePools.OverTarget`): a 4K source that needs more than four frames says so on the memory
+  line ("frame pools 253 MB (2 sources; 1 over its 64 MB target) + 12 MB retiring") rather than
+  hiding under the class budget.
+- **One media view** (`MediaMemory`): pictures and their retiring, the pools and theirs, the
+  frames retiring, the decks and the rest (the deck pages), against one budget — six tenths of
+  the app's ceiling for the machine's class — with a share and a rung.
+- **A deterministic ladder** (`MemoryPressureLadder`, applied every metrics poll): *elevated* at
+  70 % sweeps the retired and trims the picture cache to half the budget (LRU, never the
+  newest); *high* at 85 % also holds the pre-roll back and narrows the decks' page window to one;
+  *critical* at 100 % also refuses to open a source the preview alone would show. What it never
+  touches is the source on air. Each transition is logged with the reading; the rung is on the
+  Machine page's memory line, in the super-check's *Media memory* row, STATE (`mediaMB`,
+  `mediaBudgetMB`, `pressure`, `pressureSteps`) and Companion (`machine_memory_pressure`, the
+  `memory_pressure_at_least` feedback).
+- **The retired sources bounded** (`VideoEngine.MaxRetired`, two): a fading source past the two
+  newest is cut short; their bytes are in the ledger under *retiring*, with the decoders' count
+  ("decoders 2 of 4 (+1 retiring)").
+
+### 76.4 Live-change safety (58.4)
+
+- **One topology policy** (`TopologyPolicy`): the edits that change how a source is opened rather
+  than what it shows — a capture device's mode and its low-latency profile, a clip's loop, the
+  routing matrix's mode — *require a reopen*; the direct-output kind *requires a restart*;
+  everything else (a clip's sound, a nickname, a crop) is *live-safe*.
+- **Reopens staged under a source on air.** When such an edit lands while the source is on the
+  programme's picture with the outputs live, the live-safe part applies in place, the reopen is
+  staged and named (`PendingChanges`, `PendingNote`: "Low latency change pending — Cam Link 4K is
+  on air; applies when it leaves the air or the outputs go off air."), and it happens when the
+  source leaves the air or the outputs go off. A source the preview alone shows reopens at once.
+  The Media page's live inputs line, STATE's `inputs` block, Companion (`inputs_pending`, the
+  `inputs_change_pending` feedback) and the checkbox's tip carry it.
+- **The monitor in the inputs' domain.** `ShowState.Monitor` decides which bus each mount's sound
+  belongs on; the inputs' dirty domain reads it again. The domains are audited by behaviour (a
+  monitor edit runs the inputs and skips OSC; a countdown edit skips everything; the remote's
+  port runs OSC and not the inputs), not by their lists alone.
+
+### 76.5 The browser and the audio hardened (58.5)
+
+The round-55 work asked the page for things and assumed the answer. Now it observes:
+
+- **Web VT phases** (`WebVtPhase`): unprepared, prepare requested, prepared observed, fire
+  requested, playing observed, failed. A prepare is confirmed by the page's own reading at the
+  mark (within 1.5 s of it, inside eight seconds), a fire by the page playing (inside five); a
+  phase that never confirms names itself *FAILED — the player did not answer* in the log, on the
+  Media page, in STATE's web rows (`phase`) and on the deck, instead of standing as "armed".
+- **AudioRing epochs.** A flush moves the ring's epoch; a reader born before it restarts at the
+  flush mark instead of playing a seek's stale tail; a reader born after it counts nothing. The
+  VLC audio flush reaches the tap's ring.
+- **Screencast liveness** (`ScreencastHealth`): starting, delivering, static, stalled — judged
+  from frames, ack failures and whether the page's media is playing, not from the last frame's
+  age alone (a still page is static, not stalled). A stall restarts the screencast up to three
+  times and then leaves the screenshot poll to carry the picture; every ack is awaited and a
+  failure counted.
+- **Web audio routes fail closed** (`WebAudioRoute`): a route asked for and not yet proven holds
+  the page's sound (routed, default or failed decide; the words say so — "not routed: no output
+  called HDMI 3 — sound held, not on the default output"); the microphone permission Chromium
+  needs before it names the outputs is granted only for the page's own origin while a route is
+  wanted, and revoked otherwise, on an origin change and at close. The route, the clean CSS and
+  the navigation carry generations so that the latest request wins at every await.
+- **The audio graph's topology on a signature**: rebuilt only when the taps, keys, buses, music,
+  voice or tone move, otherwise the envelopes alone tick; its own side-effect domain
+  (`AudioRouting`, `Monitor`) runs it from the publish.
+
+### 76.6 Tests, docs, the module (58.6)
+
+Core: the lease under the pool's gate and a lease made stale by a publish; the fence on ticks,
+reuse on evidence or a dead sink and never on time, the forced free counted; one retirement list
+by kind and the picture cache retiring through it; the honest pool bytes, the media view's rungs
+and the ladder's words; the topology table and the pending words; the VT phases and their
+timeouts; the ring's flush epochs; the screencast judge; the route's fail-closed rule; the audio
+graph's domain; the sample, the CSV and the check's rows. App: the memory block, the super-check
+and the Machine page carrying the fence and the media view; the ladder driven rung by rung with
+the pre-roll held, the decks narrowed and a preview-only open refused, the source on air kept; a
+reopen staged under a source on air and applied when the outputs go off, the earliest edit's
+words kept, a preview-only source reopened at once, the desk's words through its own publish; the
+domains by behaviour; the VT's observed phases through the engine; the audio graph rebuilt on a
+signature and quiet otherwise. Module: the two variables and the two feedbacks, the version 3.2.0
+in every file (seventeen). Docs: this section, REVIEW round 58, README, REMOTE.md, COMPANION.md
+§8, the module's README, `docs/SOAK.md`'s qualification list.
+
+### 76.7 Considered and left
+
+The Media Foundation engine (P2: the seam and the measurement exist; the engine is a round of its
+own once the live age says the app's share is where the time goes). A GPU frame path for the
+pool (the raster backend here cannot prove it). The node player. Projection expansion. A
+thread-sanitiser for the lease (none for .NET here; the race is closed by construction and a
+test). The hardware qualification — a real Companion 5 import, a capture card's IMAG with the
+profile off and on, the thirty-minute, sixty-minute and four-hour soaks — needs the rig and is the
+next field work.

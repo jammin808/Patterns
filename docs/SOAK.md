@@ -83,3 +83,32 @@ unexpected
 
 Until this has been run, the numbers in `docs/PLAN.md` §65 and §66 are the tests' numbers, not
 the room's.
+
+## The hardware qualification (round 58)
+
+The critique's last items (P1.25–P1.28) need a rig, not a test host. Each is a row in the record
+above; the numbers named here are read from the Machine page, `patterns.metrics.csv` and STATE.
+
+1. **Companion 5 imports the module.** Companion 5.0.5 or later on a machine on the desk's
+   network: unzip the CI artifact, remove any `jammin808-patterns` already installed, import the
+   tgz (`jammin808-patterns-3.2.0.tgz`), connect to the desk and read the Remote page's decks
+   line — *FOH deck (module 3.2.0, …)*. Then every new word: `machine_memory_pressure` reads
+   *none* on an idle desk; `inputs_pending` fills when a capture device on air has its Low
+   latency box ticked and empties when the outputs go off; the two feedbacks follow; `web_vt`
+   ends with *PLAYING (observed)* after a take.
+2. **IMAG on a capture card, the profile off and on.** A camera into a capture card (a Cam Link
+   4K or an HDMI card) on a screen the room sees beside the speaker, a clap at the lens. Record
+   the glance line's *live* number and SYNC CHECK's whole-chain figure with Low latency off, then
+   on. Expect the whole chain to fall by about the decoder's 80 ms confidence buffer while the
+   *live* number — the app's share, decoder to frame — barely moves; the difference between the
+   two is the card's and the screen's. Note the frames dropped on a hitch with the profile on,
+   and that ticking the box while the camera is on air stages the reopen rather than blanking the
+   room. The super-check's *Live input* row stays green (to 40 ms) or amber (to 80).
+3. **The thirty-minute and sixty-minute soaks** with a capture card on air and a clip in the
+   preview, looks recalled every minute: the CSV's `retiringMB` returns to its floor between
+   edits; `poolStarved` stays 0; STATE's `forcedFrees` reads 0 throughout (a number there is a
+   finding — a sink the fence never saw advance); `fenceOldestMs` stays under a second; the
+   pressure rung never leaves *none* on a Standard machine with one source.
+4. **The four-hour soak** (the seven steps above, unchanged) with the new columns read at the
+   end: `retiringMB` flat, `poolStarved` 0, `forcedFrees` 0, the memory line's *media* figure
+   flat, and every ladder transition, if any, in `patterns.log` with the reading that caused it.

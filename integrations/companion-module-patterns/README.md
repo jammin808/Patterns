@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.1.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.2.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -63,7 +63,7 @@ show a deck is on; `$(patterns:last_error)` carries the last refusal. `$(pattern
 `$(patterns:devices_failing)` and `$(patterns:device_last_failure)` say when an output or a box is in
 trouble, and the `render_faulting` and `device_failing` feedbacks light a key red for it;
 `$(patterns:cue_last_pending)` counts the device receipts the last cue still waits for. The connection says `HELLO
-<label> module=3.1.0` on connect, so the desk's Remote page can list every deck and its module.
+<label> module=3.2.0` on connect, so the desk's Remote page can list every deck and its module.
 
 ## Installing a build into Companion 5
 
@@ -77,7 +77,7 @@ The manifest declares the `node22` runtime, which Companion 5.0.x bundles beside
 
 **Companion refuses a package whose id and version it already has** — *Module jammin808-patterns
 v3.0.0 already exists* — so a rebuilt module with the same version never lands: every change here
-moves the version (3.0.0 → 3.1.0 for the round-56 variables and feedbacks), and an older version
+moves the version (3.0.0 → 3.1.0 for the round-56 variables and feedbacks, 3.2.0 for round 58's), and an older version
 already installed can stay beside the new one or be removed from the Modules page first. The
 package test (`test/package.test.mjs`) builds the `.tgz` and checks it the way Companion does on
 import and start: one root folder, `companion/manifest.json` valid under the module base's own
@@ -87,9 +87,13 @@ the version equal in the manifest, the package and the `HELLO` the desk reads.
 
 ## Versions
 
+- **3.2.0** — the round-58 deck words: `machine_memory_pressure` (the rung the desk's media
+  memory ladder stands on) and `inputs_pending` (a reopen staged under a source on air); the
+  `memory_pressure_at_least` and `inputs_change_pending` feedbacks.
 - **3.1.0** — the round-56 deck words: `machine_render_faults`, `machine_faulting`,
   `cue_last_pending`, `devices_failing`, `device_last_reply`, `device_last_failure`; the
-  `render_faulting` and `device_failing` feedbacks; the `fault` colours; the package test.
+  `render_faulting` and `device_failing` feedbacks; the `fault` colours; the package test; and,
+  under the same number, round 57's `machine_live_age` with the `live_age_over` feedback.
 - **3.0.0** — the Companion 5 port (module base 2.x): discovery, the colour language, the stage,
   the nodes, the twin, the plan, the arcade, the audience, the armed web VT, the routing matrix.
 

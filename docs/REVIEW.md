@@ -1406,3 +1406,67 @@ the twin's items left for later at the brief's direction.*
 
 Counts at the end of the round: Core 1,270, App 652 — both suites green here, the module's
 seventeen beside them.
+
+## Round 58 review — the critique's P0 and P1
+
+*One brief, a developer's critique in priority order; five units, each a commit, each proven by
+both suites before the next; the hardware qualification recorded as the next field work.*
+
+### 58.1 — the lease
+
+- **Found.** The race the critique named was real: a draw fetched the latest image under the
+  pool's lock and touched the fence outside it; and the live age noted the source's newest
+  clock, not the drawn frame's. §76.1.
+- **Done.** `TryLease` under the pool's own gate; `DrawnFrame` from every draw; the stages note
+  the drawn clock; the budget keeps the frame's generation and clocks in words.
+- **The honest limit:** the race is closed by construction and by a test that publishes after a
+  lease and finds it stale; there is no thread-sanitiser for .NET here.
+
+### 58.2 — retirement
+
+- **Done.** Monotonic ticks; reuse on evidence or a dead sink only; one list for frames,
+  scratch and pictures; the fence's health on the desk. §76.2.
+- **Kept deliberate:** the ten-second abandon is a disposal-only backstop, counted as a forced
+  free and shown; it should read zero in a soak, and a number there is a finding, not a feature.
+- **The honest limit:** the dead-sink rule (two seconds without a frame started) is the one
+  timing assumption left, chosen because a sink asleep holds no frame mid-draw; a sink stalled
+  mid-draw for two seconds is a fault the render faults row already shows.
+
+### 58.3 — memory truth
+
+- **Done.** Honest pool bytes, one media view against six tenths of the app's ceiling, the
+  ladder with three rungs and named steps, the retired sources bounded to two. §76.3.
+- **Kept deliberate:** the ladder never touches the source on air, and its steps are the cheap
+  ones first; the critical rung refuses only a preview-only open.
+- **The honest limit:** the rungs are proven by driving the reading, not by filling a machine;
+  the budget's share is a judgement for the soak to move.
+
+### 58.4 — live-change safety
+
+- **Done.** The policy table; reopens staged while on air and applied when the source leaves it
+  or the outputs go off; the monitor rule in the inputs' domain; the domains audited by
+  behaviour. §76.4.
+- **Found on the way:** a monitor-rule edit did not reach the decoders — the inputs' domain
+  listed the routing matrix but not the rule that decides which bus a mount's sound belongs on.
+
+### 58.5 — the browser and the audio
+
+- **Done.** Observed VT phases with timeouts; ring epochs from the VLC flush; the screencast judge
+  with bounded restarts and awaited acks; routes that fail closed with the permission gated to
+  the page's origin; latest-wins generations; the audio graph on a signature and its own domain.
+  §76.5.
+- **The honest limit:** the browser side (`WebFrameSource`) compiles here and runs on Windows
+  only — WebView2, the permission request, the screencast and the output-device routing are
+  written to the CDP and WebView2 contracts and were not run; the judge, the phases, the ring
+  and the route rule are pure and tested.
+
+### Seen, and noted
+
+- `DeckConversionAppTests.APowerPointIsConvertedOnceAndBecomesTheDeckOnAir` failed once in a full
+  App run (two sources expected, one seen) and passed alone and in every full run since — a
+  reload-gate timing race in the test's own wait, not the deck; watched, not fixed this round.
+- No WebView2, Windows, libVLC, NDI runtime, GPU, capture card or Companion here; the branch is
+  pushed for CI's Windows job, and the field list is in `docs/SOAK.md`.
+
+Counts at the end of the round: Core 1,288, App 660 — both suites green here, the module's
+seventeen beside them.

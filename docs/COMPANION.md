@@ -130,6 +130,30 @@ default — the super-check's red line) in the screen colour `fault`, so the IMA
 goes red before the room notices. The palette rows are unchanged: the feedback wears a colour the
 desk already holds.
 
+## 8. Round 58 additions
+
+**Two variables, two feedbacks, version 3.2.0.** `machine_memory_pressure`: the rung the desk's
+media memory ladder stands on — *none*, *elevated*, *high* or *critical* — pictures, frame pools,
+retiring frames and decks against their budget (six tenths of the app's ceiling for the machine's
+class). The steps at each rung are the desk's own (the retired swept and the pictures trimmed,
+then the pre-roll held back and the decks narrowed, then no preview-only source opened) and the
+source on air is never touched, so a key that shows the rung tells the operator what the desk is
+already doing about it. `memory_pressure_at_least` lights a button at a rung or past it (a
+dropdown — elevated, high, critical; high by default) in the screen colour `fault`.
+`inputs_pending`: a reopen staged under a source on air — a capture mode, a low-latency profile,
+a clip's loop or the routing matrix's mode changed while the source is on the programme with the
+outputs live waits until it leaves the air or the outputs go off — as the desk's words (*Low
+latency change pending — Cam Link 4K is on air; applies when it leaves the air or the outputs go
+off air.*) or empty; `inputs_change_pending` lights a button while one waits, in the screen
+colour `offLook`: amber, a change since, not a fault. The palette rows are unchanged. By the rule
+of §7 the version moves to 3.2.0 in every file that carries it; a deck with 3.1.0 installed
+removes it first or keeps it beside the new one.
+
+**The web VT's phase on the deck.** The `web_vt` words now end with what the page itself reported
+— *at its mark (observed)*, *PLAYING (observed)*, *FAILED — the player did not answer* — never
+what the desk sent; STATE's `web.arm` and `webArmed` rows carry `phase` for a page that wants the
+word alone.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the
