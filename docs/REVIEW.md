@@ -1154,3 +1154,16 @@ verb every clock follows.*
   with the publish told from the frame, the CSV's two columns. `docs/PLAN.md` §70.3.
 - **Kept deliberate:** the sinks that count are the outputs when any is open, the preview
   otherwise — a monitor pane never holds a GO open.
+
+## Round 53 review — the desk tells the assistant how it is doing
+
+*Six rounds of self-measurement, put where the operator's questions go.*
+
+### 53.1 — the brief
+
+- **Done.** The desk's own lines and the check's warnings in the brief, gathered on every ask;
+  the fence says to answer from them and never to guess. `docs/PLAN.md` §71.
+- **The honest limit:** the assistant is optional and needs a key; without it the same words are
+  on the Machine page and the glance line, where they were.
+- **Kept deliberate:** nothing that names the machine, a path or an address goes in the brief,
+  as before; the measurements are numbers and page names.

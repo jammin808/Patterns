@@ -6775,3 +6775,45 @@ swap chain's present is a vsync away and the same on every desk. A budget per cu
 its cue, and sixty is a show's worth on one line.
 
 Counts at the end of the round: Core 1,165, App 605 — both suites green here.
+
+## 71. Round 53 — the desk tells the assistant how it is doing
+
+*Rounds 47 to 52 taught the desk to measure itself: the glance line, the tick, the page switch,
+the GO to frame, the clocks between machines, the super-check's rows. The assistant's brief
+carried the show and the desk's state and nothing of that. Now it does, and the fence says to
+answer from it.*
+
+### 71.1 The facts
+
+`ShowFacts.Health` is the desk in its own words, one line each as the Machine page reads them:
+the health line with the glance's facts, the twin's line when it has something to say (the
+clocks apart among them), the desk tick, the page switch, the GO to frame, the render frame.
+`ShowFacts.Attention` is the super-check's amber and red rows — "item: value — note" — with the
+advice each note carries; grey is unknown, not a warning. `AppServices.DeskHealthWords` gathers
+both, guarded, on every ask; nothing in them names the machine or a path.
+
+### 71.2 The brief and the fence
+
+The brief ends with "How the desk is doing (its own measurements — answer questions about
+slowness, lateness or the clocks from these words)", the lines under it, and "Needs attention:"
+with the rows or "nothing — every row of the super-check is green". The fence gains its
+paragraph: when the operator asks why something was slow or late, whether the desk is healthy,
+or what to do about a warning, answer from those words and the advice in them, in plain terms of
+what to do on Patterns' pages; never guess at a cause the brief does not name, and never describe
+how the measuring works. The assistant's help topic says what it can now be asked.
+
+### 71.3 Tests and docs
+
+Core: the block absent without the lines, present with them, "Needs attention" green or not, the
+fence's paragraph. App: a desk's facts carrying the health line, the tick, the switch and the GO
+with nothing that names the machine or its folder, the brief reading them, the assistant's own
+gathering the same. Docs: this section, REVIEW round 53, the help, README.
+
+### 71.4 Considered and left
+
+The assistant proposing a fix that acts (a quality step, a restart): the assistant proposes and
+the operator applies, as ever; the advice in the rows is what the check would say to a person, and
+that is what it says. A history of the measurements in the brief: the CSV is the history; the
+brief is now.
+
+Counts at the end of the round: Core 1,166, App 606 — both suites green here.

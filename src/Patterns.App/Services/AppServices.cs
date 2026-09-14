@@ -1264,6 +1264,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             Log.Warn("The assistant's brief could not read the audio player.", ex);
         }
         var lowerThird = air.LowerThirds.IsShowing ? air.LowerThirds.Active?.Name ?? "" : "";
+        var (health, attention) = DeskHealthWords();
         return new ShowFacts
         {
             EditSafeOpen = s.Sandbox.Active,
@@ -1288,7 +1289,43 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             LowerThirdOnAir = lowerThird,
             NdiSendsRunning = s.Ndi.ActiveCount,
             StreamStatus = s.Stream.Status,
+            Health = health,
+            Attention = attention,
         };
+    }
+
+    /// <summary>
+    /// How this desk is doing, in the words its Machine page reads: the health line with the
+    /// glance's facts, the twin's line when it has something to say, the desk tick, the page
+    /// switch, the GO to frame, the render frame — and the super-check's rows that are not green,
+    /// with the advice each carries. For the assistant's brief; nothing that names the machine.
+    /// </summary>
+    public (IReadOnlyList<string> Health, IReadOnlyList<string> Attention) DeskHealthWords()
+    {
+        var health = new List<string>();
+        var attention = new List<string>();
+        try
+        {
+            var glance = GlanceWords;
+            health.Add("Health: " + HealthMonitor.Summary(DateTime.UtcNow) + (glance.Length > 0 ? " · " + glance : ""));
+            var twin = Twin.HealthWords;
+            if (twin.Length > 0) health.Add("Twin: " + twin);
+            health.Add(DeskTick.Describe());
+            health.Add(Switches.Describe());
+            health.Add(CueStack.GoClock.Describe());
+            health.Add(FrameBudgets.Describe(ShowClock.Seconds));
+            var report = SuperCheck.Run(Metrics.GatherFacts());
+            foreach (var row in report.Rows)
+            {
+                if (row.Light is not (CheckLight.Amber or CheckLight.Red)) continue;      // grey is unknown, not a warning
+                attention.Add($"{row.Item}: {row.Value}{(row.Note.Length > 0 ? " — " + row.Note : "")}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the desk's health.", ex);
+        }
+        return (health, attention);
     }
 
 

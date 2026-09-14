@@ -683,6 +683,7 @@ public static class HelpTopics
                 "Say what you have and what you want (\"two screens, a walk-in at nine, a keynote at ten, a break at eleven — plan it\"), or press one of the starters; answer its questions.",
                 "Read each proposal — a look, a cue, a lower third, a show plan — and press APPLY on the ones you want: planned screens land on the Screens page, looks on the Looks page, cues on the caller's stack, designs on the Lower thirds page.",
                 "Then finish by hand what only you can do: pick the media files, the logo, the web addresses, adopt the planned screens onto the real displays, and run the Cues page's checks.",
+                "Ask how the desk is doing — why the last GO landed late, whether a page switch is slow, whether the clocks between the machines are in step, what the super-check wants — and it answers from the desk's own measurements in its brief, with the advice the check carries.",
             },
             "",
             new[] { "Assistant" },
