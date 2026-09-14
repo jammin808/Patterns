@@ -66,6 +66,11 @@ public sealed partial class MainViewModel
     /// <summary>The line under the tick's: what a page switch costs from the press to the frame, the worst of the last sixty and where its time went.</summary>
     public string SwitchText { get => _switchText; private set => Set(ref _switchText, value); }
 
+    private string _sideEffectsText = "";
+
+    /// <summary>The line under the switch's: what the side effects after an edit cost — the passes, what the change mask let skip, the systems that took the time.</summary>
+    public string SideEffectsText { get => _sideEffectsText; private set => Set(ref _sideEffectsText, value); }
+
     /// <summary>The status-timer body, callable directly (tests drive it without waiting on the clock).</summary>
     public void PollNow() => PollStatus();
 
@@ -107,6 +112,7 @@ public sealed partial class MainViewModel
         _services.DeskTick.Record(_tickWatch.Elapsed.TotalMilliseconds, _tickSlowestArea, _tickSlowestMs);
         DeskTickText = _services.DeskTick.Describe();
         SwitchText = _services.Switches.Describe();
+        SideEffectsText = _services.Reconciles.Describe();
         RenderBudgetText = FrameBudgets.Describe(ShowClock.Seconds);
         GoText = _services.CueStack.GoClock.Describe();
         StartupText = _services.Startup.Describe();

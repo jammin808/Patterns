@@ -541,6 +541,13 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // the desk's own chrome — every [JsonIgnore] property: a tally, a status line, a device's
         // counters — is told apart and never publishes (see OnRuntimeOnlyChanged).
         StateWatch = new ChangeTracker(State, OnStateChanged, trackSections: true, onRuntimeOnlyChanged: OnRuntimeOnlyChanged);
+        // The sections a publish of the live show named dirty, kept for the side effects that follow it.
+        Bus.SectionsPublished += (root, dirty) =>
+        {
+            if (!ReferenceEquals(root, State)) return;
+            _dirtyPublished = dirty;
+            _dirtyCaptured = true;
+        };
 
         Screens.PlannedProvider = PlannedScreens;
         Screens.Changed += () =>
@@ -612,7 +619,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         {
             Startup.Mark(StartupBudget.Window);
             Screens.Attach(window);
-            ApplySideEffects();
+            ApplySideEffects(null);       // the boot: everything follows the show as loaded
             _windowOpened = true;
             if (_recoverVm is { } vm)
             {
@@ -681,7 +688,26 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     }
 
     /// <summary>Runs the full change pipeline now (sandbox enter/exit republish without a model edit).</summary>
-    public void RepublishNow() => OnStateChanged();
+    /// <summary>A publish asked for outright — a rig change, the sandbox opening or closing, a capture format picked: everything is published and every side effect runs, as before there was a mask.</summary>
+    public void RepublishNow()
+    {
+        _forceAllEffects = true;
+        try
+        {
+            OnStateChanged();
+        }
+        finally
+        {
+            _forceAllEffects = false;
+        }
+    }
+
+    /// <summary>What the side effects cost: passes, the systems that ran and skipped, the worst. The Machine page's line and the assistant's brief read it.</summary>
+    public ReconcileBudget Reconciles { get; } = new();
+
+    private HashSet<string>? _dirtyPublished;
+    private bool _dirtyCaptured;
+    private bool _forceAllEffects;
 
     /// <summary>False in a second Patterns window on the same folder: it must not fight over the music.</summary>
     /// <summary>Tests only: behave as a second window on the same folder.</summary>
@@ -779,6 +805,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         if (_bulkDepth > 0 || _deskDepth > 0) return;
 
         SyncDisplays();
+        _dirtyPublished = null;
+        _dirtyCaptured = false;
         if (Sandbox.Active)
         {
             Sandbox.PublishBoth(); // outputs stay on the frozen program; preview follows the edits
@@ -787,7 +815,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         {
             Bus.Publish(State, StateWatch);
         }
-        ApplySideEffects();
+        // The sections this publish named, or everything when it could not name them (the first
+        // publish, a show copied in whole, a republish asked for outright).
+        var dirty = _forceAllEffects || !_dirtyCaptured ? null : _dirtyPublished;
+        ApplySideEffects(dirty);
 
         Outputs.NotifySnapshot();
         RaiseSafely(SnapshotPublished, "a snapshot listener");
@@ -1325,6 +1356,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             var twin = Twin.HealthWords;
             if (twin.Length > 0) health.Add("Twin: " + twin);
             health.Add(DeskTick.Describe());
+            health.Add(Reconciles.Describe());
             health.Add(Switches.Describe());
             health.Add(CueStack.GoClock.Describe());
             health.Add(FrameBudgets.Describe(ShowClock.Seconds));
@@ -1514,28 +1546,54 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Screens.Refresh();
     }
 
-    private void ApplySideEffects()
+    /// <summary>
+    /// The systems that follow the show, each run only when a section it reads moved — the
+    /// change mask (<see cref="SideEffectDomains"/>): a lower third's text does not make the
+    /// room's boxes, the wire, the beacon or the twin look at themselves, and a box's address
+    /// does not make the decoders. Null is everything. Each run is timed into the budget; a
+    /// skip is counted too, so the Machine page says what the mask saved.
+    /// </summary>
+    private void ApplySideEffects(IReadOnlySet<string>? dirty)
     {
-        SyncPlannedScreens();
+        var passStart = System.Diagnostics.Stopwatch.GetTimestamp();
+        var ran = 0;
+        var skipped = 0;
+        Effect("rig", SideEffectDomains.Rig, dirty, SyncPlannedScreens, ref ran, ref skipped);
 
         if (IsDesk)
         {
             // NDI sender set follows the config.
-            Ndi.Reconcile(Bus.Current);
+            Effect("ndi out", SideEffectDomains.NdiOut, dirty, () => Ndi.Reconcile(Bus.Current), ref ran, ref skipped);
 
             // The live-input pool follows everything the program (and sandbox) references.
-            ReconcileInputs();
+            Effect("inputs", SideEffectDomains.Inputs, dirty, ReconcileInputs, ref ran, ref skipped);
             // The room's boxes and OSC are the desk's to drive.
-            Osc.Reconcile();
-            Devices.Reconcile();
+            Effect("osc", SideEffectDomains.Osc, dirty, Osc.Reconcile, ref ran, ref skipped);
+            Effect("devices", SideEffectDomains.Devices, dirty, Devices.Reconcile, ref ran, ref skipped);
         }
         // A node keeps the wire (its own pages and verbs), the beacon (so it is found) and the
         // twin (its link to the desk); never a sender, a decoder or a device — a mirrored show's
         // clips are the desk's to open, not a caller's.
-        Control.Reconcile();
-        Beacon.Reconcile();
-        Kernel.Mdns.Reconcile();
-        Twin.Reconcile();
+        Effect("wire", SideEffectDomains.Wire, dirty, Control.Reconcile, ref ran, ref skipped);
+        Effect("beacon", SideEffectDomains.Beacon, dirty, Beacon.Reconcile, ref ran, ref skipped);
+        Effect("mdns", SideEffectDomains.Mdns, dirty, Kernel.Mdns.Reconcile, ref ran, ref skipped);
+        Effect("twin", SideEffectDomains.Twin, dirty, Twin.Reconcile, ref ran, ref skipped);
+        Reconciles.Pass(System.Diagnostics.Stopwatch.GetElapsedTime(passStart).TotalMilliseconds, ran, skipped, SideEffectDomains.Words(dirty), full: dirty is null);
+    }
+
+    /// <summary>One system of the pass: run and timed when a section it reads moved, counted as skipped otherwise.</summary>
+    private void Effect(string name, IReadOnlyList<string> reads, IReadOnlySet<string>? dirty, Action run, ref int ran, ref int skipped)
+    {
+        if (!SideEffectDomains.Touches(dirty, reads))
+        {
+            Reconciles.Skipped(name);
+            skipped++;
+            return;
+        }
+        var at = System.Diagnostics.Stopwatch.GetTimestamp();
+        run();
+        Reconciles.Ran(name, System.Diagnostics.Stopwatch.GetElapsedTime(at).TotalMilliseconds);
+        ran++;
     }
 
     /// <summary>

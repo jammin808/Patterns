@@ -109,6 +109,12 @@ public sealed class CheckFacts
     public int RenderConsecutiveFaults { get; init; }
     public string RenderLastFault { get; init; } = "";
 
+    /// <summary>The side effects after an edit: passes so far, the worst pass (ms; -1 unknown) and the sections it followed, the passes past the slow line.</summary>
+    public long SideEffectPasses { get; init; }
+    public double SideEffectWorstMs { get; init; } = -1;
+    public string SideEffectWorstSections { get; init; } = "";
+    public long SlowSideEffectPasses { get; init; }
+
     /// <summary>Start-up: seconds from the process start to the last phase marked (-1 unknown), the phases in words, and whether the first frame has landed.</summary>
     public double StartupSeconds { get; init; } = -1;
     public string StartupPhases { get; init; } = "";
@@ -463,6 +469,7 @@ public static class SuperCheck
         PageSwitch(f, rows, s);
         RenderFrame(f, rows, s);
         RenderFaults(f, rows, s);
+        SideEffects(f, rows, s);
         GoToFrame(f, rows, s);
         Quality(f, rows, s);
         MemoryCeiling(f, rows, s);
@@ -589,6 +596,27 @@ public static class SuperCheck
             ? "a sink is drawing nothing whole: every frame throws and the last good picture is all the room gets — the log has the stack; a blend mask, a warp or a source on that output is the usual cause"
             : "a frame's draw threw and the last good picture was drawn in its place — the log has the stack";
         rows.Add(new CheckRow(section, "Render faults", light, value, note));
+    }
+
+    /// <summary>
+    /// The side effects after an edit, on the desk's thread: green under a desk frame, amber past
+    /// it (an edit that held the desk), red past a stutter — with the sections the worst pass
+    /// followed, so the operator knows which page's edits cost. No row before the first pass.
+    /// </summary>
+    private static void SideEffects(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.SideEffectPasses <= 0 || f.SideEffectWorstMs < 0) return;
+        var worst = f.SideEffectWorstMs;
+        var light = worst > ReconcileBudget.StutterMs ? CheckLight.Red : worst > ReconcileBudget.SlowMs ? CheckLight.Amber : CheckLight.Green;
+        var value = $"{f.SideEffectPasses} pass{(f.SideEffectPasses == 1 ? "" : "es")} · worst {worst:0.0} ms after {f.SideEffectWorstSections}"
+                    + (f.SlowSideEffectPasses > 0 ? $" · {f.SlowSideEffectPasses} past {ReconcileBudget.SlowMs:0} ms" : "");
+        var note = light switch
+        {
+            CheckLight.Red => "an edit held the desk for a stutter while its systems followed it — the Machine page's side-effects line names the system that took the time; a decoder or a page opening on an edit is the usual cause",
+            CheckLight.Amber => "an edit held the desk past a frame while its systems followed it — the Machine page's side-effects line names the system",
+            _ => "",
+        };
+        rows.Add(new CheckRow(section, "Side effects", light, value, note));
     }
 
     /// <summary>The GO to the frame: green under fifty milliseconds, amber past it (a caller feels it), red past a tenth of a second (the room saw the cue land late).</summary>
