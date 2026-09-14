@@ -201,6 +201,9 @@ public sealed partial class ShowActions
     /// </summary>
     internal string CueInHand { get; set; } = "";
 
+    /// <summary>The id of the cue execution whose steps are running — a device line sent now belongs to it, and its receipt settles that row. "" outside a cue.</summary>
+    internal string ExecutionInHand { get; set; } = "";
+
     internal ActionResult RunCue(CueStackConfig stack, RunCueConfig cue, ActionOrigin origin)
     {
         var label = $"{cue.Number} {cue.Name}";
@@ -223,6 +226,10 @@ public sealed partial class ShowActions
         var total = cue.Actions.Count;
         var done = 0;
         var requested = false;
+        // This run, named: the device lines it sends carry the id, and their receipts settle its row.
+        var executionId = CueExecution.NewId();
+        var devicePending = 0;                // device lines awaiting a receipt
+        var settlingOther = false;            // something else asynchronous still settling (a stream, a clip, break music)
         ActionResult? failure = null;
         // The steps that go with the GO, and the ones that wait. A cue with no waits plans to
         // exactly what it always did — one list, one edit, one publish — so the delayed path
@@ -233,9 +240,11 @@ public sealed partial class ShowActions
         var waiting = plan.Where(p => !p.IsImmediate).ToList();
         // The next GO on a list takes the list over: whatever the last cue on it left waiting goes
         // before this one starts, so a step from two cues ago can never land on the audience.
-        _s.Tail.Schedule(stack.Id, cue, label, waiting, now);
+        _s.Tail.Schedule(stack.Id, cue, label, waiting, now, executionId);
         var cueBefore = CueInHand;
+        var executionBefore = ExecutionInHand;
         CueInHand = label;
+        ExecutionInHand = executionId;
         try
         {
         _s.BulkEdit(() =>
@@ -265,7 +274,12 @@ public sealed partial class ShowActions
                     failure = r;
                     break;
                 }
-                if (r.Status == ActionStatus.Requested) requested = true;
+                if (r.Status == ActionStatus.Requested)
+                {
+                    requested = true;
+                    if (mapped.Kind == ShowActionKind.DeviceSend) devicePending++;
+                    else settlingOther = true;
+                }
                 done++;
             }
             // Blackout is transport, put back after the cue — unless a clip took the screens in
@@ -277,22 +291,25 @@ public sealed partial class ShowActions
         finally
         {
             CueInHand = cueBefore;
+            ExecutionInHand = executionBefore;
         }
 
         rt.LastCueId = cue.Id;
+        var execution = new CueExecution(executionId, devicePending, settlingOther);
         if (failure is not null)
         {
             // A cue that failed on its way in does not go on running behind the operator's back.
             _s.Tail.DropStack(stack.Id);
             rt.LastOutcome = "Failed";
-            return ActionResult.Failed($"{label}: failed at action {done + 1} of {total} — {failure.Message}");
+            return ActionResult.Failed($"{label}: failed at action {done + 1} of {total} — {failure.Message}") with { Execution = execution };
         }
         rt.LastOutcome = requested ? "Requested" : "Done";
         var tail = waiting.Count == 0
             ? ""
             : $" — {waiting.Count} step{(waiting.Count == 1 ? "" : "s")} to come over {CueSteps.AtWords(waiting[^1].AtSeconds).TrimStart('+')}";
+        var receipts = devicePending == 0 ? "" : $"; {devicePending} receipt{(devicePending == 1 ? "" : "s")} awaited";
         return requested
-            ? ActionResult.Requested($"{label} — {CueSummary.Describe(State, cue)}{tail} (still settling).")
-            : ActionResult.Done($"{label} — {CueSummary.Describe(State, cue)}{tail}");
+            ? ActionResult.Requested($"{label} — {CueSummary.Describe(State, cue)}{tail} (still settling{receipts}).") with { Execution = execution }
+            : ActionResult.Done($"{label} — {CueSummary.Describe(State, cue)}{tail}") with { Execution = execution };
     }
 }

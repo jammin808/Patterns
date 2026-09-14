@@ -241,7 +241,7 @@ public sealed class CueStackService
             AdvanceStandbyAfter(standby);
             if (result.Ok) ArmFollow(standby, now);
         }
-        Record(standby, outcome, origin, done, standby!.Actions.Count, result.Message, now);
+        Record(standby, outcome, origin, done, standby!.Actions.Count, result.Message, now, result.Execution);
         // Rig day's streak: this GO against the running order — only a person's GO; the host says whether the games are on.
         if (outcome is not CueOutcome.Refused && origin.Kind != OriginKind.Follow) _host.RecordGo(Timing(now.ToLocalTime()).Offset);
         Bump();
@@ -275,9 +275,10 @@ public sealed class CueStackService
         Runtime.StandbyCueId = Stack.LoopAtEnd ? cues.FirstOrDefault(c => c.Enabled)?.Id : null;
     }
 
-    private void Record(RunCueConfig? cue, CueOutcome outcome, ActionOrigin origin, int done, int total, string detail, DateTime now)
+    private void Record(RunCueConfig? cue, CueOutcome outcome, ActionOrigin origin, int done, int total, string detail, DateTime now, CueExecution? execution = null)
     {
-        var record = new CueExecutionRecord(now, cue?.Id ?? "", cue?.Number ?? "", cue?.Name ?? "", outcome, origin.Label, done, total, detail);
+        var record = new CueExecutionRecord(now, cue?.Id ?? "", cue?.Number ?? "", cue?.Name ?? "", outcome, origin.Label, done, total, detail,
+            execution?.Id ?? "", execution?.DevicePending ?? 0, execution?.Settling ?? false);
         History.Insert(0, record);
         while (History.Count > HistoryRows) History.RemoveAt(History.Count - 1);
         _kernel.Journal.Record(origin.Label, "CueGo", record.Label, outcome.ToString(), detail);
@@ -342,6 +343,7 @@ public sealed class CueStackService
         {
             var row = History[i];
             if (row.Outcome != CueOutcome.Requested) continue;
+            if (row.Pending > 0) continue;                       // a box still owes this cue an answer: its receipt — or its timeout — settles the row, never the clock
             var failure = LateFailure();
             if (failure is not null)
             {
@@ -354,6 +356,73 @@ public sealed class CueStackService
                 History[i] = row with { Outcome = CueOutcome.Done };
                 Bump();
             }
+        }
+    }
+
+    /// <summary>
+    /// A box answered — or ran out of time — for a line one cue sent: that cue's row, found by
+    /// the execution the line carried, settles on it and no other row does. A no (rejected, no
+    /// answer, an observation that disagrees) is FailedLate with the box's own words, journaled
+    /// as a settlement and never re-fired; a yes takes one receipt off the row's count, and the
+    /// last yes makes the row Done unless something else is still settling. A line that
+    /// belonged to no cue, or to a run the history has forgotten, settles nothing.
+    /// </summary>
+    public void OnDeviceReceipt(DeviceReceipt receipt)
+    {
+        if (receipt.Execution.Length == 0) return;
+        for (var i = 0; i < History.Count; i++)
+        {
+            var row = History[i];
+            if (row.ExecutionId != receipt.Execution) continue;
+            if (!receipt.Ok)
+            {
+                if (row.Outcome is CueOutcome.FailedLate or CueOutcome.Failed or CueOutcome.Refused) return;
+                History[i] = row with { Outcome = CueOutcome.FailedLate, Pending = Math.Max(0, row.Pending - 1), Detail = $"{row.Detail} — later: {receipt.Line}" };
+                _kernel.Journal.Record(row.Origin, "CueSettled", row.Label, CueOutcome.FailedLate.ToString(), receipt.Line);
+            }
+            else
+            {
+                var pending = Math.Max(0, row.Pending - 1);
+                var outcome = row.Outcome == CueOutcome.Requested && pending == 0 && !row.Settling ? CueOutcome.Done : row.Outcome;
+                History[i] = row with { Outcome = outcome, Pending = pending };
+                if (outcome != row.Outcome) _kernel.Journal.Record(row.Origin, "CueSettled", row.Label, outcome.ToString(), receipt.Line);
+            }
+            _host.WriteRunPlace();
+            Bump();
+            return;
+        }
+    }
+
+    /// <summary>
+    /// A step of a cue's tail ran, later: a device line it sent is one more receipt its row
+    /// waits for (the row goes back to Requested from Done), and a step that failed makes the
+    /// row FailedLate with the step named — the cue did not finish as written.
+    /// </summary>
+    public void TailStep(string executionId, int number, int of, ActionResult result, bool isDevice)
+    {
+        if (executionId.Length == 0) return;
+        for (var i = 0; i < History.Count; i++)
+        {
+            var row = History[i];
+            if (row.ExecutionId != executionId) continue;
+            if (!result.Ok)
+            {
+                if (row.Outcome is CueOutcome.FailedLate or CueOutcome.Failed or CueOutcome.Refused) return;
+                var words = $"step {number} of {of} failed: {result.Message}";
+                History[i] = row with { Outcome = CueOutcome.FailedLate, Detail = $"{row.Detail} — later: {words}" };
+                _kernel.Journal.Record(row.Origin, "CueSettled", row.Label, CueOutcome.FailedLate.ToString(), words);
+            }
+            else if (result.Status == ActionStatus.Requested && isDevice)
+            {
+                History[i] = row with { Outcome = row.Outcome == CueOutcome.Done ? CueOutcome.Requested : row.Outcome, Pending = row.Pending + 1 };
+            }
+            else
+            {
+                return;
+            }
+            _host.WriteRunPlace();
+            Bump();
+            return;
         }
     }
 

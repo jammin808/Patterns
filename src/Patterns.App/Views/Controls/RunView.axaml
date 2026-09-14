@@ -72,7 +72,7 @@
               <Grid ColumnDefinitions="Auto,10,*,10,Auto,10,Auto" Margin="2,1">
                 <TextBlock Grid.Column="0" Classes="runNotes" Text="{Binding TimeText}" FontFamily="Consolas,Menlo,monospace" Foreground="{StaticResource TextDimBrush}" />
                 <TextBlock Grid.Column="2" Classes="runNotes" Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="4" Classes="runNotes runOutcome" Classes.failed="{Binding IsFailure}" Text="{Binding Outcome}" />
+                <TextBlock Grid.Column="4" Classes="runNotes runOutcome" Classes.failed="{Binding IsFailure}" Text="{Binding OutcomeWords}" />
                 <TextBlock Grid.Column="6" Classes="runNotes" Text="{Binding Origin}" Foreground="{StaticResource TextDimBrush}" />
               </Grid>
             </DataTemplate>

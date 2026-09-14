@@ -496,15 +496,25 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             var mapped = step.Action.ToAction();
             // Follow: the origin a cue's own later step already has — it was not pressed, the cue
             // said it would happen, and the gate that refuses a remote's GO must not refuse this.
+            // The step runs in its cue's hand: a device line it sends carries the cue's execution.
             Actions.CueInHand = step.Label;
+            Actions.ExecutionInHand = step.ExecutionId;
             ActionResult result;
             try { result = Actions.Execute(mapped, ActionOrigin.Follow); }
-            finally { Actions.CueInHand = ""; }
+            finally
+            {
+                Actions.CueInHand = "";
+                Actions.ExecutionInHand = "";
+            }
             Journal.Record(ActionOrigin.Follow.Label, mapped.Kind.ToString(), mapped.Target, result.Status.ToString(),
                 $"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
             Notify($"{step.Label}: step {step.Number} of {step.Of} — {result.Message}");
+            // The step's outcome onto its cue's row: a receipt awaited, or a step that failed after the GO.
+            CueStack?.TailStep(step.ExecutionId, step.Number, step.Of, result, mapped.Kind == ShowActionKind.DeviceSend);
         };
         CueStack = new CueStackService(Kernel, this);
+        // A box's receipt settles the cue that sent the line — that row and no other.
+        Devices.Receipt += CueStack.OnDeviceReceipt;
         // Standby moved (or the cue's look was edited): the pool opens the new standby's clips now, not at GO.
         CueStack.Changed += ReconcileInputs;
         CueStack.Changed += FollowPlan;

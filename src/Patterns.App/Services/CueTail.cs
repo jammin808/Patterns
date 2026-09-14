@@ -5,7 +5,7 @@ using Patterns.Core.Services;
 namespace Patterns.App.Services;
 
 /// <summary>A step of a cue still to run, and the moment it is due.</summary>
-public sealed record PendingStep(string StackId, string CueId, string Label, int Number, int Of, CueActionConfig Action, double DueClock);
+public sealed record PendingStep(string StackId, string CueId, string Label, int Number, int Of, CueActionConfig Action, double DueClock, string ExecutionId = "");
 
 /// <summary>
 /// The part of a cue that has not happened yet.
@@ -90,7 +90,7 @@ public sealed class CueTail : IDisposable
     /// The waiting steps of one cue. Anything already pending for that cue's list goes first —
     /// the next GO on a list takes the list over.
     /// </summary>
-    public void Schedule(string stackId, RunCueConfig cue, string label, IReadOnlyList<CueStep> steps, double now)
+    public void Schedule(string stackId, RunCueConfig cue, string label, IReadOnlyList<CueStep> steps, double now, string executionId = "")
     {
         DropStack(stackId, quiet: true);
         if (steps.Count == 0)
@@ -103,7 +103,7 @@ public sealed class CueTail : IDisposable
         {
             foreach (var s in steps)
             {
-                _pending.Add(new PendingStep(stackId, cue.Id, label, s.Index + 1, total, s.Action, now + s.AtSeconds));
+                _pending.Add(new PendingStep(stackId, cue.Id, label, s.Index + 1, total, s.Action, now + s.AtSeconds, executionId));
             }
         }
         if (!_timer.IsEnabled) _timer.Start();

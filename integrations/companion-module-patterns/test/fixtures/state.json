@@ -5,7 +5,7 @@
     "previous": { "id": "c1", "number": "01.010", "name": "Walk-in" },
     "standby": { "id": "c2", "number": "01.020", "name": "Keynote", "requireConfirm": false, "plannedStart": "19:30" },
     "next": [ { "id": "c3", "number": "01.030", "name": "Q&A" }, { "id": "c4", "number": "01.040", "name": "Break" } ],
-    "last": { "id": "c1", "number": "01.010", "name": "Walk-in", "outcome": "Done" },
+    "last": { "id": "c1", "number": "01.010", "name": "Walk-in", "outcome": "Done", "execution": "a1b2c3d4", "pending": 0 },
     "timing": { "offsetSeconds": 420, "offset": "7 MIN LATE", "nextBreak": "01.040 Break 20:05", "end": "22:00", "follow": "" }
   },
   "blackout": false, "black": { "count": 1, "text": "Screen 2", "audio": false, "targets": ["Screen 2"] },

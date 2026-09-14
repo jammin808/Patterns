@@ -111,6 +111,7 @@ export function variableValues(s) {
 		cue_previous_number: c.previous?.number ?? '-',
 		cue_previous_name: c.previous?.name ?? '',
 		cue_last_outcome: c.last?.outcome ?? '',
+		cue_last_pending: String(c.last?.pending ?? 0),
 		cue_confirm: c.confirm ?? '',
 		blackout: s.blackout ? 'ON' : 'off',
 		presenter_step: p.index >= 0 ? String(p.index + 1) : '-',

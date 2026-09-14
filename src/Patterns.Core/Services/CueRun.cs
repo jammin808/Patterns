@@ -15,15 +15,42 @@ public enum CueOutcome
     Skipped,
 }
 
-/// <summary>One row of the caller's history — and of the sidecar, so a relaunch keeps the place.</summary>
+/// <summary>
+/// One run of a cue, named: the id a later receipt settles, how many device receipts it is
+/// waiting for, and whether something else asynchronous (a stream, a clip, break music) is
+/// still settling. Made by the runner, carried on the result, kept on the history row.
+/// </summary>
+public sealed record CueExecution(string Id, int DevicePending, bool Settling)
+{
+    /// <summary>A fresh execution id: short, unique enough for a show's history, never a cue's own id.</summary>
+    public static string NewId() => Guid.NewGuid().ToString("N")[..8];
+}
+
+/// <summary>
+/// One row of the caller's history — and of the sidecar, so a relaunch keeps the place. The row
+/// carries its execution: a device's receipt landing later settles this row and no other, so a
+/// box saying no to cue 21 never marks cue 22, and a box saying nothing marks the cue that sent
+/// to it as FailedLate when its timeout runs out.
+/// </summary>
 public sealed record CueExecutionRecord(
     DateTime AtUtc, string CueId, string Number, string Name, CueOutcome Outcome, string Origin,
-    int ActionsDone, int ActionsTotal, string Detail)
+    int ActionsDone, int ActionsTotal, string Detail,
+    string ExecutionId = "", int Pending = 0, bool Settling = false)
 {
     public string Label => $"{Number} {Name}";
     public DateTime AtLocal => AtUtc.ToLocalTime();
     public string TimeText => AtLocal.ToString("HH:mm:ss");
     public bool IsFailure => Outcome is CueOutcome.Failed or CueOutcome.FailedLate or CueOutcome.Refused;
+
+    /// <summary>The outcome as the Run page reads it: "Done", "Awaiting 2 receipts", "Settling", "Failed late".</summary>
+    public string OutcomeWords => Outcome switch
+    {
+        CueOutcome.Requested when Pending > 0 => $"Awaiting {Pending} receipt{(Pending == 1 ? "" : "s")}",
+        CueOutcome.Requested => "Settling",
+        CueOutcome.FailedLate => "Failed late",
+        CueOutcome.DoneWithWarnings => "Done, with warnings",
+        _ => Outcome.ToString(),
+    };
 }
 
 /// <summary>What the gate decided for one GO.</summary>

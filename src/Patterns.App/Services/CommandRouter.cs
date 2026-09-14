@@ -687,6 +687,8 @@ public sealed class CommandRouter : IRouter
         number = r.Number,
         name = r.Name,
         outcome = r.Outcome.ToString(),
+        execution = r.ExecutionId,            // this run of the cue: what a later receipt settled, or will
+        pending = r.Pending,                  // device receipts the row still waits for
         error = r.IsFailure ? r.Detail : "",
         at = r.AtUtc,
         origin = r.Origin,

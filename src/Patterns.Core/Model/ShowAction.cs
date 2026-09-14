@@ -464,6 +464,9 @@ public sealed record ActionResult(ActionStatus Status, string Message = "")
 {
     public bool Ok => Status is ActionStatus.Done or ActionStatus.Requested;
 
+    /// <summary>A cue's run names itself here — its execution id and what it still waits for — so the stack's history row can be settled by the receipts that come later. Null for anything that is not a cue.</summary>
+    public Services.CueExecution? Execution { get; init; }
+
     public static ActionResult Done(string message = "") => new(ActionStatus.Done, message);
     public static ActionResult Requested(string message = "") => new(ActionStatus.Requested, message);
     public static ActionResult Failed(string message) => new(ActionStatus.Failed, message);

@@ -109,6 +109,7 @@ test('a STATE becomes the variables a key reads, the new blocks included', async
 	assert.equal(v.stage_pending, 'Wrap up')
 	assert.equal(v.stage_segment, '01.020 Keynote')
 	assert.equal(v.machine_render_faults, '0')
+	assert.equal(v.cue_last_pending, '0')
 	assert.equal(v.machine_faulting, 'ok')
 	assert.equal(b.inst.standbyId, 'c2')
 	assert.ok(b.ctx.checks >= 1, 'every feedback rechecked')

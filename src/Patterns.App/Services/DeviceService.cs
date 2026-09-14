@@ -62,7 +62,7 @@ public readonly record struct LinkDelivery(ConfirmLevel Reached, bool Ok, string
 /// box's own words. Journaled when it lands, shown on the device's card, and waited for by the
 /// twin's wall switch.
 /// </summary>
-public sealed record DeviceReceipt(string Device, string Words, ConfirmLevel Wanted, ConfirmLevel Reached, bool Ok, string Answer, DateTime AtUtc)
+public sealed record DeviceReceipt(string Device, string Words, ConfirmLevel Wanted, ConfirmLevel Reached, bool Ok, string Answer, DateTime AtUtc, string Execution = "")
 {
     /// <summary>"Projector: POWER ON — accepted (POWR: OK)"; "Projector: INPUT HDMI 1 — rejected: INPT: out of parameter"; "Switcher: POST /route — no answer in 2 s (delivered, not accepted)".</summary>
     public string Line => Ok
@@ -108,6 +108,8 @@ public sealed class DeviceService : IDisposable
         public ConfirmLevel Reached;
         public bool Observing;
         public string Expect = "";
+        /// <summary>The cue execution this line belongs to, "" for a line nobody's row waits on (the wire's DEVICE verb, the page's SEND).</summary>
+        public string Execution = "";
         public readonly TaskCompletionSource<DeviceReceipt> Done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
@@ -302,12 +304,16 @@ public sealed class DeviceService : IDisposable
             Reconcile();
             if (!_open.TryGetValue(device.Id, out open)) return ActionResult.Failed($"Device '{device.Name}' is not open: {device.Status}");
         }
-        if (!WriteTo(open, line, out var problem, track: true)) return ActionResult.Refused(problem);
-        // Dispatched, not done: the receipt says what the box made of it, when it answers.
+        // The line belongs to the cue whose steps are running, if one is: its receipt settles that cue's row.
+        var execution = _services.Actions.ExecutionInHand;
+        if (!WriteTo(open, line, out var problem, track: true, execution: execution)) return ActionResult.Refused(problem);
+        // Dispatched, not done: a datagram is all a datagram can be, so it is Done; a line a box
+        // answers is Requested until the receipt says what the box made of it — the cue that sent
+        // it settles then, and never pretends before.
         var wanted = DeviceConfirmation.Effective(device);
-        return ActionResult.Done(wanted == ConfirmLevel.Sent
-            ? $"Device {device.Name}: {line} — sent ({DeviceConfirmation.Limit(device.Link, device.Profile)})"
-            : $"Device {device.Name}: {line} — sent; awaiting {DeviceConfirmation.Label(wanted)}");
+        return wanted == ConfirmLevel.Sent
+            ? ActionResult.Done($"Device {device.Name}: {line} — sent ({DeviceConfirmation.Limit(device.Link, device.Profile)})")
+            : ActionResult.Requested($"Device {device.Name}: {line} — sent; awaiting {DeviceConfirmation.Label(wanted)}");
     }
 
     /// <summary>What the devices are doing, for STATE and the page.</summary>
@@ -383,7 +389,7 @@ public sealed class DeviceService : IDisposable
     /// a media server's OSC or JSON-RPC. False, with the reason, when the words are not the
     /// profile's; a quiet write (the poll) leaves the counters alone.
     /// </summary>
-    private bool WriteTo(Open open, string line, out string problem, bool quiet = false, bool track = false)
+    private bool WriteTo(Open open, string line, out string problem, bool quiet = false, bool track = false, string execution = "")
     {
         problem = "";
         // A surface that cannot read words can still light. A fact the show sends is turned into
@@ -422,6 +428,7 @@ public sealed class DeviceService : IDisposable
                 Key = open.Session.SentKey(line),
                 Wanted = DeviceConfirmation.Effective(open.Config),
                 Seq = Interlocked.Increment(ref _seq),
+                Execution = execution,
             };
             lock (_pendings) _pendings.Add(pending);
             _ = DeliverAsync(pending, frames);
@@ -530,7 +537,7 @@ public sealed class DeviceService : IDisposable
     /// <summary>The receipt, once: off the list, to the event on the UI thread, onto the card.</summary>
     private void Complete(Pending pending, ConfirmLevel reached, bool ok, string answer)
     {
-        var receipt = new DeviceReceipt(pending.Open.Config.Name, pending.Words, pending.Wanted, reached, ok, answer, DateTime.UtcNow);
+        var receipt = new DeviceReceipt(pending.Open.Config.Name, pending.Words, pending.Wanted, reached, ok, answer, DateTime.UtcNow, pending.Execution);
         lock (_pendings)
         {
             if (!_pendings.Remove(pending)) return;
