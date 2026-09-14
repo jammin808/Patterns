@@ -109,6 +109,9 @@ public sealed class CheckFacts
     public int RenderConsecutiveFaults { get; init; }
     public string RenderLastFault { get; init; } = "";
 
+    /// <summary>The oldest live picture (a camera, a feed) any sink drew in the last minute, from its arrival in the decoder to the end of the frame that drew it (ms; -1 none drawn): the IMAG number.</summary>
+    public double LiveAgeWorstMs { get; init; } = -1;
+
     /// <summary>The side effects after an edit: passes so far, the worst pass (ms; -1 unknown) and the sections it followed, the passes past the slow line.</summary>
     public long SideEffectPasses { get; init; }
     public double SideEffectWorstMs { get; init; } = -1;
@@ -477,6 +480,7 @@ public static class SuperCheck
         RenderFaults(f, rows, s);
         SideEffects(f, rows, s);
         GoToFrame(f, rows, s);
+        LiveInput(f, rows, s);
         Quality(f, rows, s);
         MemoryCeiling(f, rows, s);
         Startup(f, rows, s);
@@ -640,6 +644,26 @@ public static class SuperCheck
             _ => "",
         };
         rows.Add(new CheckRow(section, "GO to frame", light, value, note));      // the first frame a sink drew with the cue — never the glass
+    }
+
+    /// <summary>
+    /// A live picture's age on the glass — from its arrival in the decoder to the end of the frame
+    /// that drew it: green to forty milliseconds (two frames at 50), amber past it, red past eighty
+    /// (IMAG the room sees late beside the speaker). The card's own delay and the screen's are not
+    /// in the number, and the row says so.
+    /// </summary>
+    private static void LiveInput(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.LiveAgeWorstMs < 0) return;
+        var worst = f.LiveAgeWorstMs;
+        var light = worst > FrameBudget.LiveAgeSlowMs ? CheckLight.Red : worst > FrameBudget.LiveAgeGoodMs ? CheckLight.Amber : CheckLight.Green;
+        var note = light switch
+        {
+            CheckLight.Red => "a camera's frame waited past eighty milliseconds between the decoder and the frame that drew it — an output at a low rate, a hitch the Render frame row names, or the decoder's own buffer: Low latency (IMAG) beside the device's Format takes that buffer out",
+            CheckLight.Amber => "a live frame waited past forty milliseconds from the decoder to the frame — two frames at 50 fps; Low latency (IMAG) beside the device's Format, or a higher output rate",
+            _ => "decoder to frame; the card's own delay and the screen's are not in it",
+        };
+        rows.Add(new CheckRow(section, "Live input", light, $"worst {worst:0} ms decoder to frame", note));
     }
 
     /// <summary>What to lower, by the stage that took the frame.</summary>

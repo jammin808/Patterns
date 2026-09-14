@@ -2549,6 +2549,15 @@ public sealed class CaptureFormatConfig : Observable
 
     /// <summary>"1920x1080@60" — a <c>CaptureFormat</c> key; empty means the device's default.</summary>
     public string Format { get => _format; set => Set(ref _format, value ?? ""); }
+
+    private bool _lowLatency;
+
+    /// <summary>
+    /// The decoder opens the device with no input buffer and no clock smoothing: a frame reaches
+    /// the screen as soon as it is decoded, and a hitch drops one rather than shows it late. For a
+    /// camera the room sees beside the speaker (IMAG); off for a confidence feed that must not skip.
+    /// </summary>
+    public bool LowLatency { get => _lowLatency; set => Set(ref _lowLatency, value); }
 }
 
 /// <summary>Root of everything the operator can configure. Serialized as the portable settings/show file.</summary>
@@ -2657,18 +2666,44 @@ public sealed class ShowState : Observable
         return "";
     }
 
-    /// <summary>Sets (or clears, with "") the mode a capture device opens in.</summary>
+    /// <summary>Sets (or clears, with "") the mode a capture device opens in. An entry with neither a mode nor the low-latency profile goes.</summary>
     public void SetCaptureFormat(string device, string format)
     {
         if (string.IsNullOrWhiteSpace(device)) return;
         var existing = CaptureFormats.FirstOrDefault(f => string.Equals(f.Device, device, StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrWhiteSpace(format))
         {
-            if (existing is not null) CaptureFormats.Remove(existing);
+            if (existing is null) return;
+            if (existing.LowLatency) existing.Format = "";
+            else CaptureFormats.Remove(existing);
             return;
         }
         if (existing is null) CaptureFormats.Add(new CaptureFormatConfig { Device = device, Format = format });
         else existing.Format = format;
+    }
+
+    /// <summary>Whether a capture device opens in the low-latency profile (<see cref="CaptureFormatConfig.LowLatency"/>).</summary>
+    public bool CaptureLowLatencyFor(string device)
+    {
+        foreach (var f in CaptureFormats)
+        {
+            if (string.Equals(f.Device, device, StringComparison.OrdinalIgnoreCase)) return f.LowLatency;
+        }
+        return false;
+    }
+
+    /// <summary>Sets the low-latency profile for a capture device; an entry with neither a mode nor the profile goes.</summary>
+    public void SetCaptureLowLatency(string device, bool lowLatency)
+    {
+        if (string.IsNullOrWhiteSpace(device)) return;
+        var existing = CaptureFormats.FirstOrDefault(f => string.Equals(f.Device, device, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+        {
+            if (lowLatency) CaptureFormats.Add(new CaptureFormatConfig { Device = device, LowLatency = true });
+            return;
+        }
+        if (!lowLatency && existing.Format.Length == 0) CaptureFormats.Remove(existing);
+        else existing.LowLatency = lowLatency;
     }
 
     /// <summary>The nickname for an input key, or the fallback when none is set.</summary>

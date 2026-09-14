@@ -40,7 +40,7 @@
   "playlist": "", "nextCue": "",
   "stream": { "active": true, "status": "Live", "word": "good", "health": "good", "light": "Green", "up": "0:42:10", "fps": 30, "trouble": false, "destinations": 1 },
   "health": "OK", "quality": { "mode": "Auto", "level": 0, "factor": 1, "text": "" }, "memory": { "appMB": 900, "ceilingMB": 2000, "text": "" },
-  "machine": { "cpu": 31, "ram": 48, "fps": 60, "battery": false, "advice": 0, "renderFaults": 0, "faulting": false },
+  "machine": { "cpu": 31, "ram": 48, "fps": 60, "battery": false, "advice": 0, "renderFaults": 0, "faulting": false, "liveAgeMs": 33 },
   "beacon": { "sending": true, "listening": false, "main": "" },
   "nodes": [
     { "n": 1, "instance": "a1b2", "kind": "caller", "name": "FOH-CALL", "show": "Gala", "live": false, "fresh": true, "words": "Caller FOH-CALL · linked", "address": "10.0.0.12", "http": 9696, "link": 9700, "heardSecondsAgo": 1 },

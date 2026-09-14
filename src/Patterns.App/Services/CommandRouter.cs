@@ -579,8 +579,9 @@ public sealed class CommandRouter : IRouter
         var sinks = FrameBudgets.Readings(ShowClock.Seconds);
         var renderFaults = sinks.Sum(r => r.Faults);
         var faulting = sinks.Any(r => r.ConsecutiveFaults > 0);
+        var liveAgeMs = Math.Round(sinks.Where(r => r.Kind == SinkKind.Output).Select(r => r.LiveAgeMs).DefaultIfEmpty(-1).Max(), 0);   // the oldest camera or feed picture an output drew in the last minute, decoder to frame; -1 none
         return m is null
-            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting }
+            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting, liveAgeMs }
             : new
             {
                 cpu = Math.Round(m.CpuSystemPct, 0),
@@ -590,6 +591,7 @@ public sealed class CommandRouter : IRouter
                 advice,
                 renderFaults,
                 faulting,
+                liveAgeMs,
             };
     }
 

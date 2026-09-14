@@ -21,6 +21,7 @@ public sealed class CaptureFormatPicker : Observable
     private readonly List<(string Label, string Key)> _entries = new();
     private string _selected = DefaultLabel;
     private string _forDevice = "";
+    private bool _lowLatency;
 
     /// <summary>The probe behind the list — the DirectShow query by default, a fake in tests.</summary>
     public Func<string, IReadOnlyList<CaptureFormat>> Probe { get; set; } = CaptureDevices.FormatsFor;
@@ -51,6 +52,25 @@ public sealed class CaptureFormatPicker : Observable
         }
     }
 
+    /// <summary>
+    /// Low latency (IMAG): the device opens with no input buffer and no clock smoothing, so a
+    /// frame reaches the screen as soon as it is decoded and a hitch drops one rather than shows
+    /// it late. Stored per device on the show beside the mode; setting it reopens the decoder.
+    /// </summary>
+    public bool LowLatency
+    {
+        get => _lowLatency;
+        set
+        {
+            if (!Set(ref _lowLatency, value)) return;
+            var device = _device();
+            if (device.Length == 0) return;
+            if (_state().CaptureLowLatencyFor(device) == value) return;
+            _state().SetCaptureLowLatency(device, value);
+            _changed();
+        }
+    }
+
     /// <summary>Re-lists the device's modes and re-reads the stored choice. Cheap when the device is unchanged.</summary>
     public void Refresh(bool force = false)
     {
@@ -76,5 +96,7 @@ public sealed class CaptureFormatPicker : Observable
         var current = _state().CaptureFormatFor(device);
         _selected = _entries.FirstOrDefault(e => e.Key == current).Label ?? DefaultLabel;
         Raise(nameof(Selected));
+        _lowLatency = device.Length > 0 && _state().CaptureLowLatencyFor(device);
+        Raise(nameof(LowLatency));
     }
 }

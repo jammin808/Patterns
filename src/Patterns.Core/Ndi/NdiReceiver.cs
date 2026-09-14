@@ -77,6 +77,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     private Media.FramePool? _pool;
     private volatile int _framesReceived;
     private long _lastFrameUtcTicks;
+    private long _frameClockBits = BitConverter.DoubleToInt64Bits(-1);
     private volatile bool _createFailed;
 
     private static void RetireImage(SKImage? image) => Media.RetiredFrames.Retire(image);
@@ -161,7 +162,14 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         }
         _framesReceived++;
         Interlocked.Exchange(ref _lastFrameUtcTicks, DateTime.UtcNow.Ticks);
+        Interlocked.Exchange(ref _frameClockBits, BitConverter.DoubleToInt64Bits(ShowClock.Seconds));
     }
+
+    /// <summary>The show clock the newest frame arrived at: a sink says how old the picture it drew is.</summary>
+    public double FrameClock => BitConverter.Int64BitsToDouble(Interlocked.Read(ref _frameClockBits));
+
+    /// <summary>A feed: its age on the glass is latency the room feels.</summary>
+    public bool IsLive => true;
 
     /// <summary>
     /// One received frame into a pooled buffer — one copy, no allocation — or, with every buffer

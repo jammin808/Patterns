@@ -209,6 +209,8 @@ public sealed class RenderPipeline : IDisposable
         {
             _budget.RecordShown(input.Program.Version, input.Program.PublishedClock, clock);   // a publish reached this sink: its lag, and the version for the GO's clock
             _budget.RecordGood(input.Program.Version);
+            var live = _sink.Stages.LiveFrameClock;
+            if (live >= 0) _budget.RecordLiveAge((clock - live) * 1000.0, clock);                  // the oldest camera or feed picture this frame drew: its age now, decoder to frame
         }
         if (!_firstFrameTold && vp.Kind == SinkKind.Preview)
         {

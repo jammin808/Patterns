@@ -91,6 +91,9 @@ public static class MediaLocator
         /// </summary>
         public IReadOnlyList<MediaBus> Buses { get; init; } = Array.Empty<MediaBus>();
 
+        /// <summary>A capture device in the low-latency profile: no input buffer, no clock smoothing (<see cref="Model.CaptureFormatConfig.LowLatency"/>).</summary>
+        public bool LowLatency { get; init; }
+
         /// <summary>Which output this mount's sound belongs on; see <see cref="AudioMonitorRule"/>.</summary>
         public AudioDestination Destination { get; init; } = AudioDestination.Program;
 
@@ -140,12 +143,17 @@ public static class MediaLocator
                 if (!buses[already].Contains(bus)) buses[already].Add(bus);
                 return;
             }
-            if (kind == WantedKind.Capture) format = state.CaptureFormatFor(target);
+            var lowLatency = false;
+            if (kind == WantedKind.Capture)
+            {
+                format = state.CaptureFormatFor(target);
+                lowLatency = state.CaptureLowLatencyFor(target);
+            }
             at[key] = list.Count;
             buses.Add(new List<MediaBus> { bus });
             list.Add(kind == WantedKind.Web
                 ? new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { AutoPlay = autoPlay, StartSeconds = start, Service = WebPresets.Resolve(target, pick) }
-                : new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean));
+                : new WantedInput(key, kind, target, loop, mute, volumePct, format, zoom, clean) { LowLatency = lowLatency });
         }
 
         void FromPattern(PatternConfig p)

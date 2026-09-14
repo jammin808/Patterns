@@ -44,6 +44,16 @@ public interface IVideoFrameSource
     /// has ended plays again from there. False when this source cannot be moved.
     /// </summary>
     bool Seek(double seconds) => false;
+
+    /// <summary>
+    /// The show clock the newest frame arrived at, in seconds (-1: the source does not say). A
+    /// sink that draws it can then say how old the picture on the glass is — the number IMAG is
+    /// judged by.
+    /// </summary>
+    double FrameClock => -1;
+
+    /// <summary>The frames are a camera's or a feed's now — a capture card, NDI — not a file's: the age of the frame on the glass is latency the room feels.</summary>
+    bool IsLive => false;
 }
 
 /// <summary>
@@ -179,6 +189,7 @@ public sealed class FrameSlot : IDisposable
     private readonly object _gate = new();
     private SKImage? _latest;
     private long _publishedUtcTicks;
+    private long _publishedClockBits = BitConverter.DoubleToInt64Bits(-1);
 
     /// <summary>Takes ownership of <paramref name="image"/>; the previous frame retires.</summary>
     public void Publish(SKImage image)
@@ -189,7 +200,11 @@ public sealed class FrameSlot : IDisposable
             _latest = image;
         }
         Interlocked.Exchange(ref _publishedUtcTicks, DateTime.UtcNow.Ticks);
+        Interlocked.Exchange(ref _publishedClockBits, BitConverter.DoubleToInt64Bits(Services.ShowClock.Seconds));
     }
+
+    /// <summary>The show clock the newest frame arrived at (seconds; -1 before one): a source's <see cref="IVideoFrameSource.FrameClock"/>.</summary>
+    public double PublishedClock => BitConverter.Int64BitsToDouble(Interlocked.Read(ref _publishedClockBits));
 
     public bool HasFrame
     {

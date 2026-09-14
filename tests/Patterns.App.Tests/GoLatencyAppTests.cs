@@ -71,7 +71,7 @@ public class GoLatencyAppTests
             Assert.NotEmpty(facts.GoWorstWords);
             var row = Assert.Single(SuperCheck.Run(facts).Rows, r => r.Item == "GO to frame");
             Assert.Contains("worst GO 01", row.Value);
-            Assert.EndsWith(",goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB", MetricsCsv.Header);
+            Assert.EndsWith(",goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB,liveAgeWorstMs", MetricsCsv.Header);
         }
         finally
         {

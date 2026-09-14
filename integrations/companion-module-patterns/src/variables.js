@@ -101,6 +101,7 @@ export function variableDefinitions() {
 		machine_advice: 'Machine-page suggestions needing attention',
 		machine_render_faults: 'Render faults in the last minute (frames whose draw threw; the last good picture was shown instead)',
 		machine_faulting: 'An output is faulting right now (FAULT / ok)',
+		machine_live_age: 'Live input age: the oldest camera or feed picture an output drew in the last minute, decoder to frame (ms, or n/a with none drawn) — the IMAG number',
 		devices_failing: 'Interactive devices whose last word was a failure (count)',
 		device_last_reply: "The newest reply from any Interactive device ('Projector: POWR: OK — accepted', or empty)",
 		device_last_failure: "The newest failure from any Interactive device ('Projector: INPUT HDMI 2 — no answer in 2 s', or empty)",

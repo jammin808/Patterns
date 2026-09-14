@@ -80,13 +80,15 @@
         <ComboBox Grid.Column="1" ItemsSource="{Binding CaptureFormat.Options}"
                   SelectedItem="{Binding CaptureFormat.Selected, Mode=TwoWay}" HorizontalAlignment="Stretch" />
       </Grid>
+      <CheckBox Margin="0,4,0,0" Content="Low latency (IMAG)" IsChecked="{Binding CaptureFormat.LowLatency, Mode=TwoWay}"
+                ToolTip.Tip="For a camera the room sees beside the speaker (IMAG): the decoder opens the device with no input buffer (the default keeps 80 ms) and no clock smoothing, so a frame reaches the screen as soon as it is decoded. The price: a hitch drops a frame rather than shows it late. Leave it off for a confidence monitor or a feed that must never skip. The Machine page's super-check and the glance line say how old the live picture on the screens is, decoder to frame." />
       <Grid ColumnDefinitions="86,*" Margin="0,4,0,0">
         <TextBlock Classes="label" Text="Nickname" VerticalAlignment="Center" />
         <TextBox Grid.Column="1" Watermark="e.g. Podium cam (shown in the multiview and status)"
                  Text="{Binding Media.InputNickname, Mode=TwoWay}" />
       </Grid>
       <TextBlock Classes="hint tip"
-                 Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default." />
+                 Text="HDMI/SDI capture cards (Elgato, Magewell, Blackmagic WDM, AVerMedia…) and webcams — anything with a DirectShow driver. Low-latency confidence video through libVLC; device audio is not passed through. Format lists the sizes and rates the card's driver offers (its EDID to the source decides what arrives): pick the one the source sends, or leave the device's default. Low latency (IMAG) takes the decoder's input buffer out for a camera the room sees beside the speaker." />
     </StackPanel>
 
     <!-- A deck: a PDF — or a PowerPoint through LibreOffice — a page at a time; the click-through turns it -->

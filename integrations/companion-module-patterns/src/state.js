@@ -199,6 +199,7 @@ export function variableValues(s) {
 		machine_advice: String(s.machine?.advice ?? 0),
 		machine_render_faults: String(s.machine?.renderFaults ?? 0),
 		machine_faulting: s.machine?.faulting ? 'FAULT' : 'ok',
+		machine_live_age: s.machine?.liveAgeMs >= 0 ? `${Math.round(s.machine.liveAgeMs)} ms` : 'n/a',
 		devices_failing: String((s.devices ?? []).filter((d) => d.failing).length),
 		device_last_reply: (() => {
 			const d = newestDevice(s.devices, 'lastReplyUtc')

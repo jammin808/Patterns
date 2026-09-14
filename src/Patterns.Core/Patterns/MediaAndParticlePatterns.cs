@@ -267,6 +267,7 @@ public sealed class MediaPattern : IPatternRenderer
         var save = BeginTransform(c, in placed, o);
         var drew = source.DrawFrame(c, placed.Transformed ? placed.Local : placed.Dest, paint, in crop);
         if (save >= 0) c.RestoreToCount(save);
+        if (drew) f.Sink.Stages.NoteLive(source);                    // a camera or a feed: the frame's live input age reads from it
         NoteInput(in f, in placed, key, in crop, bounds);
         return drew;
     }

@@ -176,6 +176,8 @@ public sealed record MetricSample
     /// <summary>The worst GO of the last sixty, press to frame (ms; -1 unknown), and the worst lag from a publish to the frame that showed it across the outputs in the last minute (ms; -1 unknown).</summary>
     public double GoWorstMs { get; init; } = -1;
     public double LagWorstMs { get; init; } = -1;
+    /// <summary>The oldest live picture (a camera, a feed) an output drew in the last minute, decoder to frame (ms; -1 none drawn): the IMAG number.</summary>
+    public double LiveAgeWorstMs { get; init; } = -1;
     public int Threads { get; init; }
     public int Handles { get; init; }
     public double GcPausePct { get; init; } = -1;
@@ -292,6 +294,7 @@ public sealed class MetricsHistory
             SlowSwitches = window.Max(s => s.SlowSwitches),
             GoWorstMs = window.Max(s => s.GoWorstMs),
             LagWorstMs = window.Max(s => s.LagWorstMs),
+            LiveAgeWorstMs = window.Max(s => s.LiveAgeWorstMs),
         };
     }
 
@@ -596,7 +599,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults,privateMB,managedMB,liveAgeWorstMs";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -615,7 +618,8 @@ public static class MetricsCsv
         R(s.LagWorstMs),
         s.RenderFaults.ToString(System.Globalization.CultureInfo.InvariantCulture),
         s.PrivateMB < 0 ? "" : s.PrivateMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
-        s.ManagedMB < 0 ? "" : s.ManagedMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
+        s.ManagedMB < 0 ? "" : s.ManagedMB.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
+        R(s.LiveAgeWorstMs));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);

@@ -51,6 +51,17 @@ public class FrameRateAppTests
 
         var junk = VlcFrameSource.CaptureOptions("Cam Link 4K", "wide@fast");
         Assert.Equal(plain, junk); // an unreadable mode leaves the device's default
+
+        // The low-latency profile (IMAG): no input buffer, no clock smoothing; the default keeps its short buffer.
+        var fast = VlcFrameSource.CaptureOptions("Cam Link 4K", "1920x1080@60", lowLatency: true);
+        Assert.Contains(":live-caching=0", fast);
+        Assert.Contains(":clock-jitter=0", fast);
+        Assert.Contains(":clock-synchro=0", fast);
+        Assert.Contains(":dshow-size=1920x1080", fast);
+        Assert.DoesNotContain(":live-caching=80", fast);
+        Assert.Contains(":live-caching=80", plain);
+        Assert.DoesNotContain(":clock-jitter=0", plain);
+        Assert.DoesNotContain(":clock-synchro=0", plain);
     }
 
     private static ShowSnapshot CaptureSnap(string device, string format, long version)
@@ -93,11 +104,59 @@ public class FrameRateAppTests
             Assert.True(opened[0].FadeMs >= 0, "the old decoder was retired");
             Assert.Equal("1920x1080@60", opened[1].Wanted.Format);
             Assert.Same(opened[1], InputBus.For(InputKeys.Capture("Cam Link 4K")));
+
+            // The low-latency profile: a reopen too, the profile on the wanted input — and the same profile again is not one.
+            var fast = CaptureSnap("Cam Link 4K", "1920x1080@60", 4);
+            fast.State.SetCaptureLowLatency("Cam Link 4K", true);
+            engine.Reconcile(fast, null, T0.AddSeconds(3));
+            Assert.Equal(3, opened.Count);
+            Assert.True(opened[1].FadeMs >= 0, "the buffered decoder was retired");
+            Assert.True(opened[2].Wanted.LowLatency);
+            Assert.Equal("1920x1080@60", opened[2].Wanted.Format);
+            engine.Reconcile(CaptureSnapWith(fast.State, 5), null, T0.AddSeconds(4));
+            Assert.Equal(3, opened.Count);
         }
         finally
         {
             InputBus.Clear();
         }
+    }
+
+    private static ShowSnapshot CaptureSnapWith(ShowState state, long version) => new() { State = state, Version = version };
+
+    [AvaloniaFact]
+    public void TheLowLatencyProfileSitsBesideTheFormatAndReopensTheDecoder()
+    {
+        var state = new ShowState();
+        var device = "Cam Link 4K";
+        var changes = 0;
+        var picker = new CaptureFormatPicker(() => state, () => device, () => changes++) { Probe = _ => Array.Empty<CaptureFormat>() };
+        picker.Refresh();
+        Assert.False(picker.LowLatency);
+        picker.LowLatency = true;
+        Assert.True(state.CaptureLowLatencyFor(device));
+        Assert.Equal(1, changes);                                                                        // the decoder reopens
+        picker.LowLatency = true;                                                                        // the same again is not a change
+        Assert.Equal(1, changes);
+        Assert.Equal(CaptureFormatPicker.DefaultLabel, picker.Selected);                                 // the mode is its own choice
+
+        device = "Podium cam";
+        picker.Refresh();
+        Assert.False(picker.LowLatency);                                                                 // another device: its own profile
+        state.SetCaptureLowLatency("Podium cam", true);
+        picker.Refresh(force: true);
+        Assert.True(picker.LowLatency);                                                                  // a profile set elsewhere (the file, the wire) reads back
+        picker.LowLatency = false;
+        Assert.False(state.CaptureLowLatencyFor("Podium cam"));
+        Assert.Equal(2, changes);
+
+        device = "";
+        picker.Refresh();
+        Assert.False(picker.LowLatency);
+        picker.LowLatency = true;                                                                        // no device: nothing stored, nothing reopened
+        Assert.Single(state.CaptureFormats);                                                             // the Cam Link's profile alone, from above
+        Assert.DoesNotContain(state.CaptureFormats, f => f.Device.Length == 0);
+        Assert.Equal(2, changes);
     }
 
     [AvaloniaFact]

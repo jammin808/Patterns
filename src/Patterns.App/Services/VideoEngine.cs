@@ -24,7 +24,7 @@ public sealed class VideoEngine : IDisposable
     private LibVLC? _vlc;
     private bool _vlcInitFailed;
 
-    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct, string Format = "", bool PreRoll = false, bool Tap = false)
+    private sealed record Mount(IMountedSource Source, bool Loop, bool Mute, double VolumePct, string Format = "", bool PreRoll = false, bool Tap = false, bool LowLatency = false)
     {
         /// <summary>Every picture this mount plays on — what the routing matrix reads its source from.</summary>
         public IReadOnlyList<MediaBus> Buses { get; init; } = Array.Empty<MediaBus>();
@@ -160,7 +160,7 @@ public sealed class VideoEngine : IDisposable
                     _mounts[w.Key] = existing;
                     existing.Source.Release();
                 }
-                if (existing.Loop == w.Loop && existing.Format == w.Format && existing.Tap == tap)
+                if (existing.Loop == w.Loop && existing.Format == w.Format && existing.Tap == tap && existing.LowLatency == w.LowLatency)
                 {
                     // Mute/volume/route apply live to the running player — never restart the media.
                     existing.Source.SetAudio(w.Mute, w.VolumePct * _clipGain);
@@ -168,7 +168,7 @@ public sealed class VideoEngine : IDisposable
                     _mounts[w.Key] = existing with { Mute = w.Mute, VolumePct = w.VolumePct, Buses = w.Buses };
                     continue;
                 }
-                RetireMount(w.Key, now, holdMs, fadeMs); // a loop or capture-mode change needs a reopen
+                RetireMount(w.Key, now, holdMs, fadeMs); // a loop, capture-mode or latency-profile change needs a reopen
             }
 
             if (_mounts.Count >= MaxMounts)
@@ -218,12 +218,12 @@ public sealed class VideoEngine : IDisposable
             var source = SourceFactory is { } open
                 ? open(w)
                 : new VlcFrameSource(_vlc!, w.Target, w.Loop,
-                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll, audioTap: tap);
+                    w.Kind == MediaLocator.WantedKind.Capture, w.Mute, w.VolumePct * _clipGain, w.Format, HardwareDecoding(), startHeld: preRoll, audioTap: tap, lowLatency: w.LowLatency);
             if (source is null) return;
             if (SourceFactory is not null) source.SetAudio(w.Mute, w.VolumePct * _clipGain);
             if (!tap) Route(source, w);
             if (preRoll) source.HoldAtStart();
-            _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format, preRoll, tap) { Buses = w.Buses };
+            _mounts[w.Key] = new Mount(source, w.Loop, w.Mute, w.VolumePct, w.Format, preRoll, tap, w.LowLatency) { Buses = w.Buses };
             InputBus.Mount(w.Key, source);
         }
         catch (Exception ex)
@@ -533,6 +533,7 @@ public sealed class VlcFrameSource : IMountedSource
     private int _height;
     private bool _disposed;
     private readonly bool _isCapture;
+    private long _frameClockBits = BitConverter.DoubleToInt64Bits(-1);
     private volatile bool _mute;
     private volatile float _volumePct;
     private volatile bool _held;
@@ -553,17 +554,29 @@ public sealed class VlcFrameSource : IMountedSource
     /// <summary>
     /// Media options for a DirectShow capture device. A chosen mode ("1920x1080@60") asks the
     /// driver for that size and rate; an empty or unreadable one leaves the device's default.
-    /// Pure — unit tested.
+    /// The low-latency profile (IMAG) takes the decoder's input buffer out and stops its clock
+    /// smoothing: the frame is shown as soon as it is decoded, and a hitch drops one rather than
+    /// shows it late; the default keeps an 80 ms buffer, which a confidence feed prefers to a
+    /// skip. Pure — unit tested.
     /// </summary>
-    public static string[] CaptureOptions(string deviceName, string format = "")
+    public static string[] CaptureOptions(string deviceName, string format = "", bool lowLatency = false)
     {
         var options = new List<string>
         {
             $":dshow-vdev={deviceName}",
             ":dshow-adev=none",     // programme audio routing stays with the desk, not the display PC
             ":dshow-aspect-ratio=", // native
-            ":live-caching=80",     // low-latency for confidence monitoring
         };
+        if (lowLatency)
+        {
+            options.Add(":live-caching=0");   // no input buffer: the frame goes to the sinks as it is decoded
+            options.Add(":clock-jitter=0");   // and the clock does not smooth arrivals into a delay
+            options.Add(":clock-synchro=0");
+        }
+        else
+        {
+            options.Add(":live-caching=80");  // a short buffer: low-latency for confidence monitoring, a hitch absorbed
+        }
         if (CaptureFormat.TryParse(format, out var f))
         {
             options.Add($":dshow-size={f.Width}x{f.Height}");
@@ -572,13 +585,13 @@ public sealed class VlcFrameSource : IMountedSource
         return options.ToArray();
     }
 
-    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true, bool startHeld = false, bool audioTap = false)
+    public VlcFrameSource(LibVLC vlc, string target, bool loop, bool isCapture, bool mute, double volumePct, string format = "", bool hardwareDecoding = true, bool startHeld = false, bool audioTap = false, bool lowLatency = false)
     {
         _isCapture = isCapture;
         if (isCapture)
         {
             _media = new Media(vlc, "dshow://", FromType.FromLocation);
-            foreach (var opt in CaptureOptions(target, format))
+            foreach (var opt in CaptureOptions(target, format, lowLatency))
             {
                 _media.AddOption(opt);
             }
@@ -1099,9 +1112,16 @@ public sealed class VlcFrameSource : IMountedSource
         if (slot >= 0) _pool?.Decoded(slot);
     }
 
+    /// <summary>The show clock the newest frame was handed over at (-1 before one): a sink says how old the picture it drew is.</summary>
+    public double FrameClock => BitConverter.Int64BitsToDouble(Interlocked.Read(ref _frameClockBits));
+
+    /// <summary>A capture device's frames are a camera's: their age on the glass is latency the room feels. A file's are not.</summary>
+    public bool IsLive => _isCapture;
+
     private unsafe void OnDisplay(IntPtr opaque, IntPtr picture)
     {
         var slot = (int)picture - 1;
+        Interlocked.Exchange(ref _frameClockBits, BitConverter.DoubleToInt64Bits(ShowClock.Seconds));   // the frame's arrival, on the show clock
         lock (_gate)
         {
             if (slot >= 0 && _pool is { } pool)

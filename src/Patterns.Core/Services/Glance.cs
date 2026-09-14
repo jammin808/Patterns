@@ -24,10 +24,11 @@ public static class Glance
 
     /// <summary>
     /// "OUT 1 60 fps · p95 8.1 ms" — "· 3 slots missed" when the last minute's pacer found slots
-    /// gone by unpresented, "· lag 21 ms" for the worst publish to first drawn frame, "· 2
-    /// faults" for frames whose draw threw, "· FAULT" while the sink is faulting now; the
-    /// preview reads "PVW". The words claim what was measured: slots and drawn frames, never the
-    /// glass.
+    /// gone by unpresented, "· lag 21 ms" for the worst publish to first drawn frame, "· live 33
+    /// ms" for the oldest live picture (a camera, a feed) drawn in the last minute, decoder to
+    /// frame, "· 2 faults" for frames whose draw threw, "· FAULT" while the sink is faulting now;
+    /// the preview reads "PVW". The words claim what was measured: slots and drawn frames, never
+    /// the glass.
     /// </summary>
     public static string SinkWords(FrameBudgetReading r)
     {
@@ -37,8 +38,9 @@ public static class Glance
         var p95 = r.P95Ms >= 0 ? $" · p95 {r.P95Ms:0.0} ms" : "";
         var missed = r.Missed > 0 ? $" · {r.Missed} slots missed" : "";
         var lag = r.LagMs >= 0 ? $" · lag {r.LagMs:0} ms" : "";                     // from a publish to the frame that first showed it, the worst of the last minute
+        var live = r.LiveAgeMs >= 0 ? $" · live {r.LiveAgeMs:0} ms" : "";           // the oldest live picture drawn, from the decoder to the frame, the worst of the last minute
         var faults = r.ConsecutiveFaults > 0 ? " · FAULT" : r.Faults > 0 ? $" · {r.Faults} fault{(r.Faults == 1 ? "" : "s")}" : "";
-        return $"{name} {fps}{p95}{missed}{lag}{faults}";
+        return $"{name} {fps}{p95}{missed}{lag}{live}{faults}";
     }
 
     /// <summary>The line: the sinks first (outputs before the preview), then the words each service gave, empty ones left out.</summary>

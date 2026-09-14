@@ -143,6 +143,9 @@ export function buildFeedbacks(ctx) {
 		cue_confirm_required: bool('GO is waiting for confirmation', style('cue', 'confirm'), [], () => !!s().cuestack?.confirm),
 		cue_last_failed: bool('The last cue failed or was refused', style('cue', 'failed'), [], () => /Failed|Refused/.test(s().cuestack?.last?.outcome ?? '')),
 		render_faulting: bool('An output is faulting — its frames throw and the room sees the last good picture', style('screen', 'fault'), [], () => s().machine?.faulting === true),
+		live_age_over: bool('The live picture on the outputs (a camera, a feed) is older than a limit, decoder to frame — IMAG the room sees late', style('screen', 'fault'), [
+			{ type: 'number', id: 'ms', label: 'Older than (ms)', default: 80, min: 1, max: 5000 },
+		], (fb) => (s().machine?.liveAgeMs ?? -1) > fb.options.ms),
 		// ---- the nodes, the twin, the stage --------------------------------------------------------------------
 		node_is: bool('The node at a place on the Nodes page is of a kind and heard now (bank key n)', style('node', 'desk'), [
 			{ type: 'number', id: 'n', label: 'Place (1–8)', default: 1, min: 1, max: 8 },
