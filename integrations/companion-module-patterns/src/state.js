@@ -160,6 +160,7 @@ export function variableValues(s) {
 		web_page: s.web?.page ?? '',
 		web_title: s.web?.title ?? '',
 		web_service: s.web?.service ?? '',
+		web_fps: s.web?.fps ? String(s.web.fps) : '',
 		review: s.review ? 'ON' : 'off',
 		weather: s.weather?.on ? 'ON' : 'off',
 		weather_text: s.weather?.text ?? '',

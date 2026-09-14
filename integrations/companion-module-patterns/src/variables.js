@@ -101,6 +101,7 @@ export function variableDefinitions() {
 		web_page: 'The web page on air (its nickname or host, or empty)',
 		web_title: "The web page on air — the page's title",
 		web_service: 'The web page on air — its service (YouTube, Google Slides, PowerPoint…)',
+		web_fps: "The web page on air — frames it delivered in the last second (a video's rate; empty for a still page)",
 		deck_page: 'The deck on air — the page on show (or empty)',
 		deck_count: 'The deck on air — how many pages (or empty)',
 		deck_file: 'The deck on air — its file (or empty)',

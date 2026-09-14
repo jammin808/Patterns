@@ -12,8 +12,10 @@ namespace Patterns.App.Services;
 
 /// <summary>
 /// A web page as an engine input. WebView2 — the browser engine Windows 10 and 11 ship — renders
-/// into a window of its own kept off every screen; its picture is grabbed at a steady rate and
-/// published through a <see cref="FrameSlot"/> for any sink to draw. The desk's pointer, wheel,
+/// into a window of its own kept off every screen; the browser's own screencast hands over every
+/// frame its compositor draws (<see cref="ScreencastFrame"/>), decoded off the UI thread and
+/// published through a <see cref="FrameSlot"/> for any sink to draw, with a screenshot poll as the
+/// fallback when the screencast will not start. The desk's pointer, wheel,
 /// clicks and keys go in through the browser's own input protocol (the DevTools Input domain —
 /// what every browser automation tool uses), so they are trusted events that reach links,
 /// players, sliders and frames from other sites alike, whatever window has the focus. Everything
@@ -22,8 +24,15 @@ namespace Patterns.App.Services;
 [SupportedOSPlatform("windows")]
 public sealed class WebFrameSource : IWebSource, IDisposable
 {
-    /// <summary>How often the page's picture is grabbed. A grab encodes and decodes a frame, so this is a ceiling, not a promise.</summary>
+    /// <summary>
+    /// How often the page's picture is grabbed by screenshot when the screencast is not delivering.
+    /// A grab stops the compositor, reads the page back and encodes it while the desk waits, so
+    /// this is a ceiling for the fallback and never the rate a video is meant to play at.
+    /// </summary>
     public const int CaptureFps = 20;
+
+    /// <summary>A screencast that has sent nothing this long after starting is taken as not delivering, and the screenshot poll stands in.</summary>
+    public static readonly TimeSpan ScreencastGrace = TimeSpan.FromSeconds(3);
 
     /// <summary>What one wheel notch scrolls, in page pixels — the browser's own default.</summary>
     public const float WheelPixelsPerLine = 100;
@@ -63,6 +72,17 @@ public sealed class WebFrameSource : IWebSource, IDisposable
     private long _lastClickTicks;
     private int _grabFailures;
     private int _inputFailures;
+
+    // The screencast: the browser pushes frames, each acked on arrival; the newest waits for the
+    // decoder and an older one still waiting is dropped — a slow decode costs frames, never latency.
+    private CoreWebView2DevToolsProtocolEventReceiver? _screencastEvents;
+    private volatile bool _screencastOn;
+    private long _screencastStartTicks;
+    private long _screencastFrames;
+    private string? _pendingFrame;
+    private int _decoding;
+    private int _screencastFailures;
+    private readonly FrameRateMeter _meter = new();
     private bool _pressed;
     private int _clickCount;
     private long _lastPressTicks;
@@ -175,6 +195,8 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             {
                 _currentUrl = _core.Source;
                 _status = e.IsSuccess ? "Showing" : $"The page failed: {e.WebErrorStatus}";
+                // A new document is a new compositor: asked again so a page that arrived by a link keeps its rate.
+                _ = StartScreencastAsync();
             };
             _core.DocumentTitleChanged += (_, _) => _title = _core.DocumentTitle ?? "";
             _core.NewWindowRequested += (_, e) =>
@@ -198,12 +220,15 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             }
             if (_disposed) return;
 
+            await StartScreencastAsync();
+            if (_disposed) return;
+
             NavigateCore(_currentUrl);
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000.0 / CaptureFps) };
             _timer.Tick += (_, _) => _ = GrabAsync();
             _timer.Start();
-            Log.Info($"Web page opened in the engine: {_currentUrl} ({_width}×{_height}).");
+            Log.Info($"Web page opened in the engine: {_currentUrl} ({_width}×{_height}, {(_screencastOn ? "screencast" : "screenshot poll")}).");
             _ = PumpAsync();   // anything the desk sent while the browser was starting
         }
         catch (WebView2RuntimeNotFoundException)
@@ -218,9 +243,124 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
     }
 
+    // ---- the screencast ------------------------------------------------------------------------
+
+    /// <summary>The browser is sending frames — or has just been asked to and is still within its grace.</summary>
+    private bool ScreencastDelivering
+    {
+        get
+        {
+            if (!_screencastOn) return false;
+            if (Interlocked.Read(ref _screencastFrames) > 0) return true;
+            return DateTime.UtcNow.Ticks - Interlocked.Read(ref _screencastStartTicks) < ScreencastGrace.Ticks;
+        }
+    }
+
+    /// <summary>
+    /// Asks the browser for its screencast: the Page domain on, the frame event subscribed once,
+    /// then the start call. A browser that refuses leaves the screenshot poll in charge and says
+    /// so once in the log — the page still shows, at the old rate.
+    /// </summary>
+    private async Task StartScreencastAsync()
+    {
+        if (_core is null || _disposed) return;
+        try
+        {
+            if (_screencastEvents is null)
+            {
+                await _core.CallDevToolsProtocolMethodAsync("Page.enable", "{}");
+                if (_disposed || _core is null) return;
+                _screencastEvents = _core.GetDevToolsProtocolEventReceiver(ScreencastFrame.EventName);
+                _screencastEvents.DevToolsProtocolEventReceived += OnScreencastFrame;
+            }
+            Interlocked.Exchange(ref _screencastStartTicks, DateTime.UtcNow.Ticks);
+            await _core.CallDevToolsProtocolMethodAsync("Page.startScreencast", ScreencastFrame.StartParameters(_width, _height));
+            _screencastOn = true;
+        }
+        catch (Exception ex)
+        {
+            _screencastOn = false;
+            if (_screencastFailures++ == 0) Log.Warn("The page's screencast would not start — the screenshot poll stands in.", ex);
+        }
+    }
+
+    /// <summary>
+    /// A frame from the browser (UI thread). Acked at once so the next one is already on its way,
+    /// then handed to the decoder: the newest frame replaces one still waiting, so a decode that
+    /// runs behind drops frames rather than falling behind the room.
+    /// </summary>
+    private void OnScreencastFrame(object? sender, CoreWebView2DevToolsProtocolEventReceivedEventArgs e)
+    {
+        if (_disposed || _core is null) return;
+        var json = e.ParameterObjectAsJson;
+        if (!ScreencastFrame.TryParse(json, out var sessionId, out _)) return;
+        try
+        {
+            _ = _core.CallDevToolsProtocolMethodAsync("Page.screencastFrameAck", ScreencastFrame.AckParameters(sessionId));
+        }
+        catch (Exception ex)
+        {
+            if (_screencastFailures++ % 200 == 1) Log.Warn("Web page screencast ack failed.", ex);
+        }
+        Interlocked.Increment(ref _screencastFrames);
+        Interlocked.Exchange(ref _pendingFrame, json);
+        if (Interlocked.CompareExchange(ref _decoding, 1, 0) == 0) _ = Task.Run(DecodePending);
+    }
+
+    /// <summary>Decodes whatever is newest until nothing waits (a worker thread); the pool's bytes go back when the picture is made.</summary>
+    private void DecodePending()
+    {
+        try
+        {
+            while (true)
+            {
+                var json = Interlocked.Exchange(ref _pendingFrame, null);
+                if (json is null)
+                {
+                    Interlocked.Exchange(ref _decoding, 0);
+                    // A frame that arrived between the last exchange and the release is nobody's: take it.
+                    if (_pendingFrame is null || Interlocked.CompareExchange(ref _decoding, 1, 0) != 0) return;
+                    continue;
+                }
+                if (_disposed) continue;
+                if (!ScreencastFrame.TryParse(json, out _, out var base64)) continue;
+                var bytes = ScreencastFrame.Rent(json, base64, out var length);
+                if (bytes is null) continue;
+                SKImage? image = null;
+                try
+                {
+                    image = Decode(bytes.AsSpan(0, length));
+                }
+                catch (Exception ex)
+                {
+                    if (_grabFailures++ % 200 == 0) Log.Warn("Web page screencast frame did not decode.", ex);
+                }
+                finally
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(bytes);
+                }
+                if (image is null) continue;
+                if (_disposed)
+                {
+                    image.Dispose();
+                    continue;
+                }
+                _slot.Publish(image);
+                _meter.Tick(DateTime.UtcNow.Ticks);
+            }
+        }
+        catch (Exception ex)
+        {
+            Interlocked.Exchange(ref _decoding, 0);
+            Log.Warn("Web page screencast decoder stopped on an error; the next frame restarts it.", ex);
+        }
+    }
+
+    // ---- the screenshot poll (the fallback) ----------------------------------------------------
+
     private async Task GrabAsync()
     {
-        if (_capturing || _disposed || _core is null) return;
+        if (_capturing || _disposed || _core is null || ScreencastDelivering) return;
         _capturing = true;
         try
         {
@@ -236,6 +376,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
                 return;
             }
             _slot.Publish(image);
+            _meter.Tick(DateTime.UtcNow.Ticks);
         }
         catch (Exception ex)
         {
@@ -247,7 +388,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
         }
     }
 
-    private static SKImage? Decode(byte[] bytes)
+    private static SKImage? Decode(ReadOnlySpan<byte> bytes)
     {
         using var bitmap = SKBitmap.Decode(bytes);
         if (bitmap is null) return null;
@@ -263,20 +404,31 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
     public SKSizeI? FrameSize => _slot.Size;
 
-    public bool IsPlaying
-    {
-        get
-        {
-            var last = _slot.PublishedUtcTicks;
-            return last != 0 && DateTime.UtcNow.Ticks - last < TimeSpan.TicksPerSecond * 3;
-        }
-    }
+    /// <summary>
+    /// The page is up and has a picture. Not "a frame arrived lately": the screencast sends
+    /// nothing for a still page, and a dashboard that has not changed in a minute is still showing.
+    /// </summary>
+    public bool IsPlaying => _slot.HasFrame && _status == "Showing";
 
     public bool IsEnded => false;
 
     public double DurationSeconds => 0;
 
-    public string StatusText => _slot.HasFrame ? _status : _status + " (no picture yet)";
+    /// <summary>"Showing · 30 fps" while a video plays; the rate is the room's, not the browser's promise.</summary>
+    public string StatusText
+    {
+        get
+        {
+            if (!_slot.HasFrame) return _status + " (no picture yet)";
+            var fps = FrameRate;
+            return fps > 0 ? $"{_status} · {fps:0} fps" : _status;
+        }
+    }
+
+    public double FrameRate => _meter.Rate(DateTime.UtcNow.Ticks);
+
+    /// <summary>Whether the browser's screencast carries the picture (else the screenshot poll does) — the Media page's line.</summary>
+    public bool ScreencastActive => ScreencastDelivering;
 
     // ---- the web source ------------------------------------------------------------------------
 
@@ -634,6 +786,11 @@ public sealed class WebFrameSource : IWebSource, IDisposable
             _timer?.Stop();
             _timer = null;
             _input.Clear();
+            if (_screencastEvents is not null)
+            {
+                _screencastEvents.DevToolsProtocolEventReceived -= OnScreencastFrame;
+                _screencastEvents = null;
+            }
             _controller?.Close();
             _controller = null;
             _core = null;

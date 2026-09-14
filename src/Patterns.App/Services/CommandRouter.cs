@@ -203,6 +203,7 @@ public sealed class CommandRouter : IRouter
             url,
             title = page?.Title ?? "",
             service = preset.Service == PageService.Page ? "" : preset.Name,
+            fps = (int)Math.Round(page?.FrameRate ?? 0),                    // frames the page delivered in the last second: a video's rate, 0 for a still page
             actions = preset.Actions.Select(a => new { id = a.Id, label = a.Label }).ToArray(),
         };
     }

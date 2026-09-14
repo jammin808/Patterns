@@ -74,6 +74,9 @@ public interface IWebSource : IVideoFrameSource
     /// <summary>The page's sound, off or on.</summary>
     bool IsMuted { get; set; }
 
+    /// <summary>Frames the page delivered in the last second — a video's rate while it plays, 0 for a still page; what the status line reads.</summary>
+    double FrameRate => 0;
+
     void PointerMove(float nx, float ny);
     void PointerDown(float nx, float ny);
     void PointerUp(float nx, float ny);
