@@ -98,6 +98,8 @@ export function variableDefinitions() {
 		machine_fps: 'Output frame rate',
 		machine_power: 'Power (mains / BATTERY)',
 		machine_advice: 'Machine-page suggestions needing attention',
+		machine_render_faults: 'Render faults in the last minute (frames whose draw threw; the last good picture was shown instead)',
+		machine_faulting: 'An output is faulting right now (FAULT / ok)',
 		web_page: 'The web page on air (its nickname or host, or empty)',
 		web_title: "The web page on air — the page's title",
 		web_service: 'The web page on air — its service (YouTube, Google Slides, PowerPoint…)',

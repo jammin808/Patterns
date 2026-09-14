@@ -13,7 +13,6 @@ namespace Patterns.Core.Services;
 /// </summary>
 public static class Glance
 {
-    /// <summary>"OUT 1 60 fps · p95 8.1 ms" — "· 3 dropped" when the last minute lost frames; the preview reads "PVW".</summary>
     /// <summary>"PVW", "OUT 1", "MON" — a sink's short name on the line.</summary>
     public static string SinkName(SinkKind kind, int sinkIndex) => kind switch
     {
@@ -23,15 +22,23 @@ public static class Glance
         _ => kind.ToString().ToUpperInvariant(),
     };
 
+    /// <summary>
+    /// "OUT 1 60 fps · p95 8.1 ms" — "· 3 slots missed" when the last minute's pacer found slots
+    /// gone by unpresented, "· lag 21 ms" for the worst publish to first drawn frame, "· 2
+    /// faults" for frames whose draw threw, "· FAULT" while the sink is faulting now; the
+    /// preview reads "PVW". The words claim what was measured: slots and drawn frames, never the
+    /// glass.
+    /// </summary>
     public static string SinkWords(FrameBudgetReading r)
     {
         var name = SinkName(r.Kind, r.SinkIndex);
         if (r.FramesInWindow == 0) return $"{name} idle";
         var fps = r.Fps >= 0 ? $"{r.Fps:0} fps" : "measuring";
         var p95 = r.P95Ms >= 0 ? $" · p95 {r.P95Ms:0.0} ms" : "";
-        var dropped = r.Missed > 0 ? $" · {r.Missed} dropped" : "";
+        var missed = r.Missed > 0 ? $" · {r.Missed} slots missed" : "";
         var lag = r.LagMs >= 0 ? $" · lag {r.LagMs:0} ms" : "";                     // from a publish to the frame that first showed it, the worst of the last minute
-        return $"{name} {fps}{p95}{dropped}{lag}";
+        var faults = r.ConsecutiveFaults > 0 ? " · FAULT" : r.Faults > 0 ? $" · {r.Faults} fault{(r.Faults == 1 ? "" : "s")}" : "";
+        return $"{name} {fps}{p95}{missed}{lag}{faults}";
     }
 
     /// <summary>The line: the sinks first (outputs before the preview), then the words each service gave, empty ones left out.</summary>

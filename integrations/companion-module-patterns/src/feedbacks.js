@@ -137,6 +137,7 @@ export function buildFeedbacks(ctx) {
 		cue_standby_is: bool('A given cue is on standby', style('cue', 'standby'), [named('cue', 'Cue number', '01.010')], (fb) => (s().cuestack?.standby?.number ?? '') === fb.options.cue),
 		cue_confirm_required: bool('GO is waiting for confirmation', style('cue', 'confirm'), [], () => !!s().cuestack?.confirm),
 		cue_last_failed: bool('The last cue failed or was refused', style('cue', 'failed'), [], () => /Failed|Refused/.test(s().cuestack?.last?.outcome ?? '')),
+		render_faulting: bool('An output is faulting — its frames throw and the room sees the last good picture', style('screen', 'fault'), [], () => s().machine?.faulting === true),
 		// ---- the nodes, the twin, the stage --------------------------------------------------------------------
 		node_is: bool('The node at a place on the Nodes page is of a kind and heard now (bank key n)', style('node', 'desk'), [
 			{ type: 'number', id: 'n', label: 'Place (1–8)', default: 1, min: 1, max: 8 },

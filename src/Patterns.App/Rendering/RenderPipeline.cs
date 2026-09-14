@@ -136,6 +136,19 @@ public sealed record PipelineViewport(
            && BlendRightPx == other.BlendRightPx && BlendBottomPx == other.BlendBottomPx
            && BlendCurve == other.BlendCurve && BlendGamma.Equals(other.BlendGamma) && BlendBlackPct.Equals(other.BlendBlackPct)
            && BlendMaskPath == other.BlendMaskPath;
+
+    /// <summary>
+    /// The output's geometry as numbers, for the frame's one comparison against the geometry it
+    /// built last: the lattice, the bends, the keystone, the rotation, the two sizes and the
+    /// pedestal's inputs — and not the lattice's picked point or the game's targets, which change
+    /// the overlay and never the picture.
+    /// </summary>
+    public WarpGeometrySpec GeometrySpec(SKSizeI effectivePx, SKSizeI physicalPx)
+        => new(WarpMeshColumns, WarpMeshRows, WarpMesh,
+            WarpTopBow, WarpRightBow, WarpBottomBow, WarpLeftBow,
+            WarpTlx, WarpTly, WarpTrx, WarpTry, WarpBlx, WarpBly, WarpBrx, WarpBry,
+            Rotation, effectivePx, physicalPx,
+            new BlendWidths(BlendLeftPx, BlendTopPx, BlendRightPx, BlendBottomPx), BlendBlackPct, BlendGamma);
 }
 
 /// <summary>
@@ -173,16 +186,25 @@ public sealed class RenderPipeline : IDisposable
     /// <summary>This sink's frame budget: the last minute's frames, the worst and the stage that took it.</summary>
     public FrameBudget Budget => _budget;
 
-    /// <summary>One frame done: into the per-second smoothness counters and this sink's budget, with the slowest stage the engine noted.</summary>
-    private void FrameDone(PipelineViewport vp, long frameStart)
+    /// <summary>
+    /// One frame done: into the per-second smoothness counters and this sink's budget, with the
+    /// slowest stage the engine noted — and the version this frame drew, from the frame's own
+    /// capture, never read back from the bus (a publish that landed while the frame was in
+    /// flight is the next frame's to show and to report). A calibration frame drew the
+    /// structured light, not the show: it counts as a frame and never as a version shown.
+    /// </summary>
+    private void FrameDone(PipelineViewport vp, long frameStart, in FrameInput input, bool faulted = false)
     {
         var ms = System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds;
         RenderStats.Record(vp.Kind, vp.SinkIndex, ms);
         if (_budget.Kind != vp.Kind || _budget.SinkIndex != vp.SinkIndex || _budget.Label != vp.Label) _budget.Relabel(vp.Kind, vp.SinkIndex, vp.Label);
         var clock = ShowClock.Seconds;
         _budget.Record(ms, _sink.Stages.SlowestStage, clock);
-        var shown = SnapshotFor(vp);
-        _budget.RecordShown(shown.Version, shown.PublishedClock, clock);   // a publish reached this sink: its lag, and the version for the GO's clock
+        if (!faulted && input.IsShow)
+        {
+            _budget.RecordShown(input.Program.Version, input.Program.PublishedClock, clock);   // a publish reached this sink: its lag, and the version for the GO's clock
+            _budget.RecordGood(input.Program.Version);
+        }
         if (!_firstFrameTold && vp.Kind == SinkKind.Preview)
         {
             _firstFrameTold = true;
@@ -227,6 +249,12 @@ public sealed class RenderPipeline : IDisposable
     private ShowSnapshot SnapshotFor(PipelineViewport vp)
         => vp.Kind == SinkKind.Preview || vp.UsePreviewSnapshot ? _bus.Sandbox ?? _bus.Current : _bus.Current;
 
+    /// <summary>Whether this sink draws the sandbox while one is open: the preview window and a monitor's PVW pane.</summary>
+    private static bool PreviewSide(PipelineViewport vp) => vp.Kind == SinkKind.Preview || vp.UsePreviewSnapshot;
+
+    /// <summary>The number of frames this pipeline captured from the bus (tests read it).</summary>
+    public long Frames => _frame;
+
     /// <summary>The snapshot this pipeline is showing right now (tally and pending checks).</summary>
     public ShowSnapshot CurrentSnapshot => SnapshotFor(_viewport);
 
@@ -242,6 +270,12 @@ public sealed class RenderPipeline : IDisposable
     private SKColorFilter? _trimFilter;
     private PipelineViewport? _trimFilterFor;
     private readonly SKPaint _trimPaint = new();
+
+    /// <summary>The output's geometry — nodes, patches, lines, the pedestal, the matrices — built once per change and read every frame.</summary>
+    private readonly WarpGeometryCache _geometry = new();
+
+    /// <summary>How many times this sink built its geometry: once per change of it, never per frame (the allocation test reads it).</summary>
+    public int GeometryBuilds => _geometry.Builds;
     private static readonly byte[] IdentityTable = BuildIdentity();
 
     private static byte[] BuildIdentity()
@@ -269,12 +303,87 @@ public sealed class RenderPipeline : IDisposable
             Math.Max(1, (int)Math.Round(widthDips * renderScaling)),
             Math.Max(1, (int)Math.Round(heightDips * renderScaling)));
 
-        if (vp.FitReference && vp.ReferenceSize != SKSizeI.Empty)
-        {
-            RenderFitted(canvas, vp, physicalPx, renderScaling, frameStart);
-            return;
-        }
+        // The frame's world, captured once: the program it draws, the preview its tile draws, the
+        // clock, and whether it is the show or the calibration's light. Nothing below reads the
+        // bus again — a publish landing mid-frame is drawn and reported by the next frame.
+        var kind = vp.Kind == SinkKind.Output && CalibrationOverlay.Active ? FrameKind.Calibration : FrameKind.Show;
+        var input = FrameInput.Capture(_bus, PreviewSide(vp), ShowClock.Seconds, kind);
 
+        var fitted = vp.FitReference && vp.ReferenceSize != SKSizeI.Empty;
+        var save = canvas.Save();
+        var faulted = false;
+        try
+        {
+            if (fitted) DrawFitted(canvas, vp, physicalPx, renderScaling, in input);
+            else DrawOutput(canvas, vp, physicalPx, renderScaling, in input);
+        }
+        catch (Exception ex)
+        {
+            // Never let a render fault propagate into the compositor — and never leave the room
+            // a half-drawn frame: the fault is counted on this sink, noted in the log once per
+            // while, and the last world that drew whole is drawn again in the frame's place. If
+            // that throws too the fault is systemic, and what was drawn stays.
+            faulted = true;
+            Fault(ex, vp, in input);
+            if (_lastGood is { } good && !ReferenceEquals(good.Program, input.Program))
+            {
+                canvas.RestoreToCount(save);
+                save = canvas.Save();
+                try
+                {
+                    if (fitted) DrawFitted(canvas, vp, physicalPx, renderScaling, in good);
+                    else DrawOutput(canvas, vp, physicalPx, renderScaling, in good);
+                }
+                catch (Exception again)
+                {
+                    Fault(again, vp, in good);
+                }
+            }
+        }
+        finally
+        {
+            canvas.RestoreToCount(save);
+            if (!faulted && input.IsShow) _lastGood = input;
+            FrameDone(vp, frameStart, in input, faulted);
+        }
+    }
+
+    private FrameInput? _lastGood;
+    private double _faultNotedClock = double.NegativeInfinity;
+    private int _faultsSinceNote;
+    private long _faultNotes;
+
+    /// <summary>Between notes in the log while a sink keeps faulting: the first fault is noted at once, the rest counted and noted together every so many seconds.</summary>
+    public const double FaultNoteEverySeconds = 10;
+
+    /// <summary>The notes the log got for faults so far — one per while, never one per frame (tests read it).</summary>
+    public long FaultNotesLogged => _faultNotes;
+
+    /// <summary>A frame's draw threw: onto the budget, and into the log — rate-limited, with the count since the last note.</summary>
+    private void Fault(Exception ex, PipelineViewport vp, in FrameInput input)
+    {
+        var clock = ShowClock.Seconds;
+        _faultsSinceNote++;
+        _budget.RecordFault(FaultWords(ex), DateTime.UtcNow, clock);
+        if (clock - _faultNotedClock < FaultNoteEverySeconds) return;
+        var more = _faultsSinceNote > 1 ? $" ({_faultsSinceNote} since the last note)" : "";
+        Log.Error($"{vp.Label}: a frame's draw threw{more} — the last good picture is drawn in its place (version {input.Program.Version}).", ex);
+        _faultNotedClock = clock;
+        _faultsSinceNote = 0;
+        _faultNotes++;
+    }
+
+    /// <summary>The fault's words for the budget and the lines: the exception's kind and its message on one line, kept short.</summary>
+    public static string FaultWords(Exception ex)
+    {
+        var message = ex.Message.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        var words = $"{ex.GetType().Name}: {message}";
+        return words.Length > 160 ? words[..160] + "…" : words;
+    }
+
+    /// <summary>An output's, the preview's or a thumbnail's frame: the content through this sink's geometry, trims and blend — or the calibration's light in its place.</summary>
+    private void DrawOutput(SKCanvas canvas, PipelineViewport vp, SKSizeI physicalPx, double renderScaling, in FrameInput input)
+    {
         // For 90/270 rotations the engine renders portrait content, blitted rotated below.
         var rotated = vp.Rotation is OutputRotation.Rot90 or OutputRotation.Rot270;
         var effectivePx = rotated ? new SKSizeI(physicalPx.Height, physicalPx.Width) : physicalPx;
@@ -285,7 +394,7 @@ public sealed class RenderPipeline : IDisposable
             ViewportSize = effectivePx,
             ReferenceSize = reference,
             ViewportOrigin = vp.ViewportOrigin,
-            Time = ShowClock.Seconds,
+            Time = input.Clock,
             Now = DateTime.Now,
             UtcNow = DateTime.UtcNow,
             Frame = _frame++,
@@ -294,197 +403,165 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
-            Preview = _bus.Sandbox,          // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws
+            Preview = input.Preview,         // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws — both from the frame's capture
         };
         _sink.Fps.Tick(ctx.Time);
 
-        var save = canvas.Save();
-        try
+        // Undo DPI scaling so the engine draws in device pixels — pixel-exact output.
+        canvas.Scale((float)(1.0 / renderScaling));
+        canvas.ClipRect(SKRect.Create(0, 0, physicalPx.Width, physicalPx.Height));
+
+        if (input.Kind == FrameKind.Calibration)
         {
-            // Undo DPI scaling so the engine draws in device pixels — pixel-exact output.
-            canvas.Scale((float)(1.0 / renderScaling));
-            canvas.ClipRect(SKRect.Create(0, 0, physicalPx.Width, physicalPx.Height));
-
-            if (vp.Kind == SinkKind.Output && CalibrationOverlay.Active)
-            {
-                // The structured light: this output's pattern, or black while another is read —
-                // raw white on the raw raster, before the trims, the warp and the blend, because
-                // the camera must see the pixels the code names. A member of a joined canvas is
-                // its own output here, not the canvas.
-                canvas.Clear(SKColors.Black);
-                var outputId = vp.OutputId.Length > 0 ? vp.OutputId : vp.ScreenId;
-                if (CalibrationOverlay.PatternFor(outputId) is { } pattern) CalibrationOverlay.Draw(canvas, pattern, physicalPx.Width, physicalPx.Height, _patternPaint);
-                return;
-            }
-
-            var layered = false;
-            if (vp.HasTrims)
-            {
-                if (_trimFilter is null || _trimFilterFor is not { } trimmed || !trimmed.SameTrimsAs(vp))
-                {
-                    _trimFilter?.Dispose();
-                    _trimFilter = SKColorFilter.CreateTable(
-                        IdentityTable,
-                        TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimRPct),
-                        TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimGPct),
-                        TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimBPct));
-                    _trimFilterFor = vp;
-                }
-                _trimPaint.ColorFilter = _trimFilter;
-                canvas.SaveLayer(_trimPaint);
-                layered = true;
-            }
-
-            var meshed = vp.HasMesh && vp.Kind == SinkKind.Output;
-            var bent = !meshed && vp.HasBend && vp.Kind == SinkKind.Output;
-            if (meshed)
-            {
-                // The mesh: the finished picture — content, zones, pedestal — drawn through a grid
-                // of Coons patches with Catmull-Rom tangents (the bends folded into the edge
-                // points), under the keystone's perspective and the rotation.
-                var surface = EnsureOffscreen(effectivePx);
-                DrawContent(surface.Canvas, vp, in ctx);
-                if (vp.HasBlend) DrawBlendMask(surface.Canvas, vp, effectivePx);
-                surface.Canvas.Flush();
-                using var image = surface.Snapshot();
-                canvas.Clear(SKColors.Black);
-                var patched = canvas.Save();
-                if (vp.HasWarp) canvas.Concat(KeystoneOf(vp, physicalPx));
-                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                using var shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
-                _patchPaint.Shader = shader;
-                var nodes = WarpGrid.Nodes(vp.WarpMeshColumns, vp.WarpMeshRows, effectivePx.Width, effectivePx.Height,
-                    WarpGrid.Parse(vp.WarpMesh, vp.WarpMeshColumns, vp.WarpMeshRows), vp.WarpTopBow, vp.WarpRightBow, vp.WarpBottomBow, vp.WarpLeftBow);
-                foreach (var (cubics, texture) in WarpGrid.Patches(nodes, vp.WarpMeshColumns, vp.WarpMeshRows, effectivePx.Width, effectivePx.Height))
-                {
-                    canvas.DrawPatch(cubics, null, texture, _patchPaint);
-                }
-                _patchPaint.Shader = null;
-                if (vp.ShowLattice) DrawLattice(canvas, nodes, vp);
-                canvas.RestoreToCount(patched);
-            }
-            else if (bent)
-            {
-                // The edge bends: the finished picture — content, its blend zones and its black
-                // pedestal, all in the picture's own space — drawn through one Coons patch whose
-                // edges bow as the operator set them, under the keystone (a perspective, so the
-                // inside stays straight) and the rotation.
-                var surface = EnsureOffscreen(effectivePx);
-                DrawContent(surface.Canvas, vp, in ctx);
-                if (vp.HasBlend) DrawBlendMask(surface.Canvas, vp, effectivePx);
-                surface.Canvas.Flush();
-                using var image = surface.Snapshot();
-                canvas.Clear(SKColors.Black);
-                var patched = canvas.Save();
-                if (vp.HasWarp)
-                {
-                    canvas.Concat(WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
-                        new SKPoint(vp.WarpTlx, vp.WarpTly),
-                        new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
-                        new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
-                        new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry)));
-                }
-                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                using var shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
-                _patchPaint.Shader = shader;
-                canvas.DrawPatch(
-                    WarpMesh.Cubics(effectivePx.Width, effectivePx.Height, vp.WarpTopBow, vp.WarpRightBow, vp.WarpBottomBow, vp.WarpLeftBow),
-                    null,
-                    WarpMesh.TextureCorners(effectivePx.Width, effectivePx.Height),
-                    _patchPaint);
-                _patchPaint.Shader = null;
-                canvas.RestoreToCount(patched);
-            }
-            else if (vp.HasWarp)
-            {
-                // Keystone path: content renders to an offscreen surface at the effective
-                // size, then blits through warp ∘ rotation as one perspective image draw.
-                var surface = EnsureOffscreen(effectivePx);
-                DrawContent(surface.Canvas, vp, in ctx);
-                surface.Canvas.Flush();
-                using var image = surface.Snapshot();
-
-                var warp = WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
-                    new SKPoint(vp.WarpTlx, vp.WarpTly),
-                    new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
-                    new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
-                    new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry));
-                canvas.Clear(SKColors.Black);
-                var warped = canvas.Save();
-                canvas.Concat(in warp);
-                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                canvas.DrawImage(image, 0, 0, Patterns.Core.Rendering.DrawUtil.Smooth, _warpPaint);
-                canvas.RestoreToCount(warped); // the blend mask below applies the same transform itself
-            }
-            else
-            {
-                var turned = canvas.Save();
-                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                DrawContent(canvas, vp, in ctx);
-                canvas.RestoreToCount(turned);
-            }
-
-            if (layered)
-            {
-                canvas.Restore();
-            }
-
-            if (vp.ShowLattice && !meshed)
-            {
-                // The lattice at rest (or with the bends alone), so the first pull has something to grab.
-                var latticeSave = canvas.Save();
-                if (vp.HasWarp) canvas.Concat(KeystoneOf(vp, physicalPx));
-                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                var nodes = WarpGrid.Nodes(vp.WarpMeshColumns, vp.WarpMeshRows, effectivePx.Width, effectivePx.Height,
-                    WarpGrid.Parse(vp.WarpMesh, vp.WarpMeshColumns, vp.WarpMeshRows), vp.WarpTopBow, vp.WarpRightBow, vp.WarpBottomBow, vp.WarpLeftBow);
-                DrawLattice(canvas, nodes, vp);
-                canvas.RestoreToCount(latticeSave);
-            }
-
-            if (vp.HasBlend && !bent && !meshed)
-            {
-                // Last, over the trimmed picture, through the same warp and rotation the picture
-                // took: the zones sit on the picture's own edges, so a keystoned projector's
-                // fade follows its keystone. Black with alpha, so each band multiplies the light.
-                // (A bent picture took its zones inside the patch above.)
-                canvas.Save();
-                if (vp.HasWarp)
-                {
-                    canvas.Concat(WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
-                        new SKPoint(vp.WarpTlx, vp.WarpTly),
-                        new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
-                        new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
-                        new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry)));
-                }
-                canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
-                DrawBlendMask(canvas, vp, effectivePx);
-                canvas.Restore();
-            }
+            // The structured light: this output's pattern, or black while another is read —
+            // raw white on the raw raster, before the trims, the warp and the blend, because
+            // the camera must see the pixels the code names. A member of a joined canvas is
+            // its own output here, not the canvas.
+            canvas.Clear(SKColors.Black);
+            var outputId = vp.OutputId.Length > 0 ? vp.OutputId : vp.ScreenId;
+            if (CalibrationOverlay.PatternFor(outputId) is { } pattern) CalibrationOverlay.Draw(canvas, pattern, physicalPx.Width, physicalPx.Height, _patternPaint);
+            return;
         }
-        catch (Exception ex)
+
+        var layered = false;
+        if (vp.HasTrims)
         {
-            // Never let a render fault propagate into the compositor.
-            Log.Error("Pipeline render failed.", ex);
+            if (_trimFilter is null || _trimFilterFor is not { } trimmed || !trimmed.SameTrimsAs(vp))
+            {
+                _trimFilter?.Dispose();
+                _trimFilter = SKColorFilter.CreateTable(
+                    IdentityTable,
+                    TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimRPct),
+                    TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimGPct),
+                    TrimTable.Build(vp.BrightnessPct, vp.Gamma, vp.TrimBPct));
+                _trimFilterFor = vp;
+            }
+            _trimPaint.ColorFilter = _trimFilter;
+            canvas.SaveLayer(_trimPaint);
+            layered = true;
         }
-        finally
+
+        var meshed = vp.HasMesh && vp.Kind == SinkKind.Output;
+        var bent = !meshed && vp.HasBend && vp.Kind == SinkKind.Output;
+        // The geometry the frame draws with — the lattice's nodes and patches, the bends'
+        // patch, the pedestal's cells, the keystone — built once and kept until a number
+        // changes: a frame compares, and never parses or allocates it. A plain output needs none.
+        var geo = meshed || bent || vp.HasWarp || vp.ShowLattice || vp.HasBlend
+            ? _geometry.For(vp.GeometrySpec(effectivePx, physicalPx))
+            : null;
+        if (meshed)
         {
-            canvas.RestoreToCount(save);
-            FrameDone(vp, frameStart);
+            // The mesh: the finished picture — content, zones, pedestal — drawn through a grid
+            // of Coons patches with Catmull-Rom tangents (the bends folded into the edge
+            // points), under the keystone's perspective and the rotation.
+            var surface = EnsureOffscreen(effectivePx);
+            DrawContent(surface.Canvas, vp, in input, in ctx);
+            if (vp.HasBlend) DrawBlendMask(surface.Canvas, vp, effectivePx, geo!);
+            surface.Canvas.Flush();
+            using var image = surface.Snapshot();
+            canvas.Clear(SKColors.Black);
+            var patched = canvas.Save();
+            if (vp.HasWarp) canvas.Concat(geo!.Keystone);
+            canvas.Concat(geo!.Rotation);
+            using var shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+            _patchPaint.Shader = shader;
+            var cubics = geo.PatchCubics;
+            var textures = geo.PatchTextures;
+            for (var k = 0; k < cubics.Length; k++)
+            {
+                canvas.DrawPatch(cubics[k], null, textures[k], _patchPaint);
+            }
+            _patchPaint.Shader = null;
+            if (vp.ShowLattice) DrawLattice(canvas, geo, vp);
+            canvas.RestoreToCount(patched);
+        }
+        else if (bent)
+        {
+            // The edge bends: the finished picture — content, its blend zones and its black
+            // pedestal, all in the picture's own space — drawn through one Coons patch whose
+            // edges bow as the operator set them, under the keystone (a perspective, so the
+            // inside stays straight) and the rotation.
+            var surface = EnsureOffscreen(effectivePx);
+            DrawContent(surface.Canvas, vp, in input, in ctx);
+            if (vp.HasBlend) DrawBlendMask(surface.Canvas, vp, effectivePx, geo!);
+            surface.Canvas.Flush();
+            using var image = surface.Snapshot();
+            canvas.Clear(SKColors.Black);
+            var patched = canvas.Save();
+            if (vp.HasWarp) canvas.Concat(geo!.Keystone);
+            canvas.Concat(geo!.Rotation);
+            using var shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+            _patchPaint.Shader = shader;
+            canvas.DrawPatch(geo.BendCubics, null, geo.BendTexture, _patchPaint);
+            _patchPaint.Shader = null;
+            canvas.RestoreToCount(patched);
+        }
+        else if (vp.HasWarp)
+        {
+            // Keystone path: content renders to an offscreen surface at the effective
+            // size, then blits through warp ∘ rotation as one perspective image draw.
+            var surface = EnsureOffscreen(effectivePx);
+            DrawContent(surface.Canvas, vp, in input, in ctx);
+            surface.Canvas.Flush();
+            using var image = surface.Snapshot();
+
+            var warp = geo!.Keystone;
+            canvas.Clear(SKColors.Black);
+            var warped = canvas.Save();
+            canvas.Concat(in warp);
+            canvas.Concat(geo.Rotation);
+            canvas.DrawImage(image, 0, 0, Patterns.Core.Rendering.DrawUtil.Smooth, _warpPaint);
+            canvas.RestoreToCount(warped); // the blend mask below applies the same transform itself
+        }
+        else
+        {
+            var turned = canvas.Save();
+            canvas.Concat(RotationMatrix(vp.Rotation, physicalPx));
+            DrawContent(canvas, vp, in input, in ctx);
+            canvas.RestoreToCount(turned);
+        }
+
+        if (layered)
+        {
+            canvas.Restore();
+        }
+
+        if (vp.ShowLattice && !meshed)
+        {
+            // The lattice at rest (or with the bends alone), so the first pull has something to grab.
+            var latticeSave = canvas.Save();
+            if (vp.HasWarp) canvas.Concat(geo!.Keystone);
+            canvas.Concat(geo!.Rotation);
+            DrawLattice(canvas, geo, vp);
+            canvas.RestoreToCount(latticeSave);
+        }
+
+        if (vp.HasBlend && !bent && !meshed)
+        {
+            // Last, over the trimmed picture, through the same warp and rotation the picture
+            // took: the zones sit on the picture's own edges, so a keystoned projector's
+            // fade follows its keystone. Black with alpha, so each band multiplies the light.
+            // (A bent picture took its zones inside the patch above.)
+            canvas.Save();
+            if (vp.HasWarp) canvas.Concat(geo!.Keystone);
+            canvas.Concat(geo!.Rotation);
+            DrawBlendMask(canvas, vp, effectivePx, geo);
+            canvas.Restore();
         }
     }
 
     private static readonly SKColor LetterboxColor = new(0x0A, 0x0A, 0x0F);
 
     /// <summary>The output's picture in arrangement space: straight, or with the wall's dead strips cut out.</summary>
-    private void DrawContent(SKCanvas target, PipelineViewport vp, in RenderContext ctx)
+    private void DrawContent(SKCanvas target, PipelineViewport vp, in FrameInput input, in RenderContext ctx)
     {
         if (vp.Gaps.IsEmpty)
         {
-            _engine.Render(target, SnapshotFor(vp), in ctx, _sink);
+            _engine.Render(target, input.Program, in ctx, _sink);
         }
         else
         {
-            _engine.RenderWall(target, SnapshotFor(vp), in ctx, _sink, vp.Gaps, vp.RasterRegion);
+            _engine.RenderWall(target, input.Program, in ctx, _sink, vp.Gaps, vp.RasterRegion);
         }
     }
 
@@ -493,7 +570,7 @@ public sealed class RenderPipeline : IDisposable
     /// to fit the control, so the miniature is the output's picture, not a re-layout at the
     /// control's aspect. The same approach the screen overview uses.
     /// </summary>
-    private void RenderFitted(SKCanvas canvas, PipelineViewport vp, SKSizeI physicalPx, double renderScaling, long frameStart)
+    private void DrawFitted(SKCanvas canvas, PipelineViewport vp, SKSizeI physicalPx, double renderScaling, in FrameInput input)
     {
         var target = vp.ReferenceSize;
         var scale = Math.Min(physicalPx.Width / (float)target.Width, physicalPx.Height / (float)target.Height);
@@ -505,7 +582,7 @@ public sealed class RenderPipeline : IDisposable
             ViewportSize = target,
             ReferenceSize = target,
             ViewportOrigin = default,
-            Time = ShowClock.Seconds,
+            Time = input.Clock,
             Now = DateTime.Now,
             UtcNow = DateTime.UtcNow,
             Frame = _frame++,
@@ -514,35 +591,22 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
-            Preview = _bus.Sandbox,          // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws
+            Preview = input.Preview,         // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws — both from the frame's capture
             // A miniature: the patterns widen their hairlines to this pane's own pixels.
             DeviceScale = scale,
         };
         _sink.Fps.Tick(ctx.Time);
 
-        var save = canvas.Save();
-        try
-        {
-            canvas.Scale((float)(1.0 / renderScaling));
-            canvas.ClipRect(SKRect.Create(0, 0, physicalPx.Width, physicalPx.Height));
-            canvas.Clear(LetterboxColor);
-            canvas.Translate(dx, dy);
-            canvas.Scale(scale);
-            canvas.ClipRect(SKRect.Create(0, 0, target.Width, target.Height));
-            _engine.Render(canvas, SnapshotFor(vp), in ctx, _sink);
-            // What the desk can take hold of on this pane, and how its pixels map to the picture.
-            _lastMap = new PaneMap(target, dx, dy, scale, _sink.LastCanvasOffset, _sink.LastCanvasScale, _sink.LastCanvasSize);
-            _lastHits = _sink.Hits.ToArray();
-        }
-        catch (Exception ex)
-        {
-            Log.Error("Monitor render failed.", ex);
-        }
-        finally
-        {
-            canvas.RestoreToCount(save);
-            FrameDone(vp, frameStart);
-        }
+        canvas.Scale((float)(1.0 / renderScaling));
+        canvas.ClipRect(SKRect.Create(0, 0, physicalPx.Width, physicalPx.Height));
+        canvas.Clear(LetterboxColor);
+        canvas.Translate(dx, dy);
+        canvas.Scale(scale);
+        canvas.ClipRect(SKRect.Create(0, 0, target.Width, target.Height));
+        _engine.Render(canvas, input.Program, in ctx, _sink);
+        // What the desk can take hold of on this pane, and how its pixels map to the picture.
+        _lastMap = new PaneMap(target, dx, dy, scale, _sink.LastCanvasOffset, _sink.LastCanvasScale, _sink.LastCanvasSize);
+        _lastHits = _sink.Hits.ToArray();
     }
 
     // ---- edge blend ---------------------------------------------------------
@@ -593,7 +657,7 @@ public sealed class RenderPipeline : IDisposable
     /// two zones meet multiplies both, which is exactly the product two overlapping projectors
     /// need. Cached per zone geometry and rebuilt only when the viewport's blend changes.
     /// </summary>
-    private void DrawBlendMask(SKCanvas canvas, PipelineViewport vp, SKSizeI size)
+    private void DrawBlendMask(SKCanvas canvas, PipelineViewport vp, SKSizeI size, WarpGeometry geo)
     {
         if (_blendShadersFor is not { } blended || !blended.SameBlendAs(vp) || _blendShadersSize != size)
         {
@@ -642,15 +706,14 @@ public sealed class RenderPipeline : IDisposable
             // Black-level matching: the regions the zones do not cover, and the bands where only
             // two projectors meet, are lifted to the floor of the deepest overlap — added light,
             // so a dark scene shows one black across the canvas instead of bright seams and a
-            // brighter square where four projectors share a corner.
-            var widths = new BlendWidths(vp.BlendLeftPx, vp.BlendTopPx, vp.BlendRightPx, vp.BlendBottomPx);
-            var deepest = BlackLevel.MaxCoverage(widths);
-            foreach (var (rect, coverage) in BlackLevel.Cells(w, h, widths))
+            // brighter square where four projectors share a corner. The cells and their levels
+            // are the geometry's, found once.
+            var cells = geo.Pedestal;
+            for (var k = 0; k < cells.Length; k++)
             {
-                var level = BlackLevel.Level(vp.BlendBlackPct, coverage, deepest, vp.BlendGamma);
-                if (level == 0) continue;
+                var level = cells[k].Level;
                 _pedestalPaint.Color = new SKColor(level, level, level);
-                canvas.DrawRect(rect, _pedestalPaint);
+                canvas.DrawRect(cells[k].Rect, _pedestalPaint);
             }
         }
     }
@@ -666,13 +729,6 @@ public sealed class RenderPipeline : IDisposable
         canvas.DrawRect(rect, _blendPaint);
     }
 
-    private static SKMatrix KeystoneOf(PipelineViewport vp, SKSizeI physicalPx)
-        => WarpMath.QuadWarp(physicalPx.Width, physicalPx.Height,
-            new SKPoint(vp.WarpTlx, vp.WarpTly),
-            new SKPoint(physicalPx.Width + vp.WarpTrx, vp.WarpTry),
-            new SKPoint(vp.WarpBlx, physicalPx.Height + vp.WarpBly),
-            new SKPoint(physicalPx.Width + vp.WarpBrx, physicalPx.Height + vp.WarpBry));
-
     private readonly SKPaint _latticeLine = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2, Color = new SKColor(0x3E, 0xC1, 0xF3) };
     private readonly SKPaint _latticeDot = new() { IsAntialias = true, Style = SKPaintStyle.Fill, Color = new SKColor(0x3E, 0xC1, 0xF3) };
     private readonly SKPaint _latticePick = new() { IsAntialias = true, Style = SKPaintStyle.Fill, Color = new SKColor(0xFF, 0xB0, 0x2E) };
@@ -681,11 +737,13 @@ public sealed class RenderPipeline : IDisposable
     private readonly SKPaint _latticeLocked = new() { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 3, Color = new SKColor(0x7C, 0xF5, 0xC8) };
 
     /// <summary>The lattice over the projector's picture while the Screens page pulls it: lines, dots, and the picked point ringed — what the walk-up sees.</summary>
-    private void DrawLattice(SKCanvas canvas, SKPoint[] nodes, PipelineViewport vp)
+    private void DrawLattice(SKCanvas canvas, WarpGeometry geo, PipelineViewport vp)
     {
-        foreach (var (a, b) in WarpGrid.Lines(nodes, vp.WarpMeshColumns, vp.WarpMeshRows))
+        var nodes = geo.Nodes;
+        var lines = geo.Lines;
+        for (var k = 0; k < lines.Length; k++)
         {
-            canvas.DrawLine(a, b, _latticeLine);
+            canvas.DrawLine(lines[k].A, lines[k].B, _latticeLine);
         }
         // The alignment game: the solver's target at each node as a ring — green once the node is within a pixel, amber with a line to walk while it is not.
         if (vp.LatticeTargets is { } targets)
@@ -764,13 +822,7 @@ public sealed class RenderPipeline : IDisposable
         return _offscreen!;
     }
 
-    private static SKMatrix RotationMatrix(OutputRotation rotation, SKSizeI physicalPx) => rotation switch
-    {
-        OutputRotation.Rot90 => SKMatrix.CreateRotationDegrees(90).PostConcat(SKMatrix.CreateTranslation(physicalPx.Width, 0)),
-        OutputRotation.Rot180 => SKMatrix.CreateRotationDegrees(180).PostConcat(SKMatrix.CreateTranslation(physicalPx.Width, physicalPx.Height)),
-        OutputRotation.Rot270 => SKMatrix.CreateRotationDegrees(270).PostConcat(SKMatrix.CreateTranslation(0, physicalPx.Height)),
-        _ => SKMatrix.Identity,
-    };
+    private static SKMatrix RotationMatrix(OutputRotation rotation, SKSizeI physicalPx) => WarpGeometry.RotationOf(rotation, physicalPx);
 
     public void Dispose()
     {

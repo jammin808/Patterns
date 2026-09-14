@@ -196,7 +196,11 @@ public sealed class ShowSnapshot
     /// </summary>
     public int TransitionKeyFor(string? screenId)
     {
-        return _transitionKeys.GetOrAdd(screenId ?? "", _ =>
+        // The steady frame finds its key without a closure: GetOrAdd alone allocated the lambda
+        // and its capture on every frame of every sink, hit or miss.
+        var target = screenId ?? "";
+        if (_transitionKeys.TryGetValue(target, out var known)) return known;
+        return _transitionKeys.GetOrAdd(target, _ =>
         {
             var cfg = PatternFor(screenId);
             var json = JsonUtil.SerializeIdentity(cfg); // a layer's box is not identity: a drag never fades

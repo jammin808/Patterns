@@ -91,6 +91,91 @@ public sealed class PaintCache : IDisposable
         return _text;
     }
 
+    private SKRoundRect? _roundRect;
+
+    /// <summary>One round rect to clip or draw with, set to the rect and radius asked for — never a new object per frame.</summary>
+    public SKRoundRect RoundRect(SKRect rect, float radius)
+    {
+        _roundRect ??= new SKRoundRect();
+        _roundRect.SetRect(rect, radius, radius);
+        return _roundRect;
+    }
+
+    /// <summary>How many shaped texts a sink keeps before it starts again: the overlays' still words at their sizes, not a clock's every second.</summary>
+    public const int BlobsKept = 64;
+
+    private readonly Dictionary<(string Text, SKFont Font, float Size), SKTextBlob> _blobs = new();
+    private readonly Dictionary<(string[] Letters, SKFont Font, float Size, float Spacing), (SKTextBlob Blob, float Width)> _spaced = new();
+
+    /// <summary>
+    /// A text shaped once at a font's size and drawn every frame after as one blob: Skia's string
+    /// draw shapes a new blob per call, and a badge or a chip that never changes was paying that
+    /// every frame of every sink. Bounded — a text that changes every second cycles the table,
+    /// which is cheaper than what it replaces.
+    /// </summary>
+    public SKTextBlob TextBlob(string text, SKFont font)
+    {
+        var key = (text, font, font.Size);
+        if (_blobs.TryGetValue(key, out var hit)) return hit;
+        if (_blobs.Count >= BlobsKept) ForgetBlobs();
+        var blob = SKTextBlob.Create(text, font) ?? SKTextBlob.Create(" ", font)!;
+        _blobs[key] = blob;
+        return blob;
+    }
+
+    /// <summary>A word drawn letter by letter with a set spacing — the badge's name — as one positioned blob, with its width; built when the size or the spacing changes.</summary>
+    public (SKTextBlob Blob, float Width) SpacedWord(string[] letters, SKFont font, float spacing)
+    {
+        var key = (letters, font, font.Size, spacing);
+        if (_spaced.TryGetValue(key, out var hit)) return hit;
+        if (_spaced.Count >= BlobsKept) ForgetBlobs();
+        using var builder = new SKTextBlobBuilder();
+        var glyphs = new List<ushort>(letters.Length);
+        var positions = new List<SKPoint>(letters.Length);
+        float x = 0;
+        foreach (var letter in letters)
+        {
+            var advance = font.MeasureText(letter);
+            var letterGlyphs = font.GetGlyphs(letter);
+            if (letterGlyphs.Length == 1)
+            {
+                glyphs.Add(letterGlyphs[0]);
+                positions.Add(new SKPoint(x, 0));
+            }
+            else if (letterGlyphs.Length > 1)
+            {
+                // A letter of several glyphs (a ligature's parts): each at its own advance inside the letter.
+                var widths = font.GetGlyphWidths(letterGlyphs);
+                var gx = x;
+                for (var i = 0; i < letterGlyphs.Length; i++)
+                {
+                    glyphs.Add(letterGlyphs[i]);
+                    positions.Add(new SKPoint(gx, 0));
+                    gx += widths[i];
+                }
+            }
+            x += advance + spacing;
+        }
+        var run = builder.AllocatePositionedRun(font, glyphs.Count);
+        run.SetGlyphs(glyphs.ToArray());
+        run.SetPositions(positions.ToArray());
+        var blob = builder.Build() ?? SKTextBlob.Create(" ", font)!;
+        var result = (blob, Math.Max(0, x - spacing));
+        _spaced[key] = result;
+        return result;
+    }
+
+    /// <summary>The shaped texts kept so far (tests read it).</summary>
+    public int BlobCount => _blobs.Count + _spaced.Count;
+
+    private void ForgetBlobs()
+    {
+        foreach (var b in _blobs.Values) b.Dispose();
+        _blobs.Clear();
+        foreach (var s in _spaced.Values) s.Blob.Dispose();
+        _spaced.Clear();
+    }
+
     public void Dispose()
     {
         _fill.Dispose();
@@ -106,6 +191,9 @@ public sealed class PaintCache : IDisposable
         }
         _familyFonts.Clear();
         ScratchPath.Dispose();
+        ForgetBlobs();
+        _roundRect?.Dispose();
+        _roundRect = null;
     }
 }
 

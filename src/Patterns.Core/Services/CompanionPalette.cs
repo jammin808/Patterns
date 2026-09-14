@@ -48,7 +48,7 @@ public static class CompanionPalette
         ["look"] = Row(("air", "green"), ("preview", "amber"), ("edited", "amber"), ("screensOff", "orange")),
         ["cue"] = Row(("armed", "green"), ("hold", "amber"), ("confirm", "amber"), ("failed", "red"), ("standby", "brightGreen"), ("late", "orange")),
         ["transport"] = Row(("blackout", "blackout"), ("outputsOn", "outputsOn"), ("off", "off"), ("frozen", "cyan"), ("review", "brightGreen"), ("editSafe", "steel"), ("black", "red")),
-        ["screen"] = Row(("enabled", "screenOn"), ("locked", "lock"), ("armed", "green"), ("own", "steel"), ("black", "red"), ("offLook", "orange"), ("pattern", "green")),
+        ["screen"] = Row(("enabled", "screenOn"), ("locked", "lock"), ("armed", "green"), ("own", "steel"), ("black", "red"), ("offLook", "orange"), ("pattern", "green"), ("fault", "red")),
         ["stinger"] = Row(("playing", "stingerBrown"), ("hold", "amber")),
         ["vog"] = Row(("playing", "blue")),
         ["lowerThird"] = Row(("on", "red"), ("preview", "amber"), ("edited", "amber"), ("person", "red")),

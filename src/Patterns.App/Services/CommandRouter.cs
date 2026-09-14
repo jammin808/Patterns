@@ -561,13 +561,21 @@ public sealed class CommandRouter : IRouter
             .ToArray();
     }
 
-    /// <summary>Machine health for remotes: rounded numbers plus how many advisor lines want attention.</summary>
+    /// <summary>
+    /// Machine health for remotes: rounded numbers plus how many advisor lines want attention —
+    /// and the render faults: frames whose draw threw in the last minute across the sinks, and
+    /// whether a sink is faulting right now (its last frames threw in a row), so a deck can show
+    /// a red key while the room is looking at the last good picture.
+    /// </summary>
     private object MachineRow()
     {
         var m = _services.Metrics.Current;
         var advice = _services.Metrics.Suggestions.Count(x => x.Severity >= HealthSeverity.Advice);
+        var sinks = FrameBudgets.Readings(ShowClock.Seconds);
+        var renderFaults = sinks.Sum(r => r.Faults);
+        var faulting = sinks.Any(r => r.ConsecutiveFaults > 0);
         return m is null
-            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice }
+            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting }
             : new
             {
                 cpu = Math.Round(m.CpuSystemPct, 0),
@@ -575,6 +583,8 @@ public sealed class CommandRouter : IRouter
                 fps = Math.Round(m.OutputWindows > 0 ? m.OutputFps : m.PreviewFps, 0),
                 battery = m.OnBattery,
                 advice,
+                renderFaults,
+                faulting,
             };
     }
 

@@ -186,6 +186,8 @@ export function variableValues(s) {
 		machine_fps: String(s.machine?.fps ?? 0),
 		machine_power: s.machine?.battery ? 'BATTERY' : 'mains',
 		machine_advice: String(s.machine?.advice ?? 0),
+		machine_render_faults: String(s.machine?.renderFaults ?? 0),
+		machine_faulting: s.machine?.faulting ? 'FAULT' : 'ok',
 		air_look: s.airLook ?? '',
 		preview_look: s.previewLook ?? '',
 		pattern: s.pattern ?? '',

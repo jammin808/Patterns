@@ -11,7 +11,7 @@ public class GoLatencyTests
     public void AGoIsThePressThePublishAndTheSlowestSinksFirstFrame()
     {
         var g = new GoLatency();
-        Assert.Equal("GO to frame: no GO yet.", g.Describe());
+        Assert.Equal("GO to first drawn frame: no GO yet.", g.Describe());
         Assert.Equal("", g.GlanceWords);
         g.Pressed("07", 10, 11, 100.000, 6);
         Assert.True(g.IsOpen);
@@ -32,7 +32,7 @@ public class GoLatencyTests
         Assert.Equal("GO→frame 34 ms", g.GlanceWords);
         Assert.Equal(1, g.Gos);
         Assert.Equal(0, g.SlowGos);
-        Assert.Equal("GO to frame 34.0 ms · worst GO 07 34 ms (6 ms to the publish, 28 ms to OUT 2's frame) in the last sixty · 0 past 50 ms this session", g.Describe());
+        Assert.Equal("GO to first drawn frame 34.0 ms · worst GO 07 34 ms (6 ms to the publish, 28 ms to OUT 2's frame) in the last sixty · 0 past 50 ms this session", g.Describe());
         g.Resolve(Array.Empty<(SinkKind, int, double?)>(), 101);            // nothing open: nothing happens
         Assert.Equal(1, g.Gos);
     }
@@ -90,6 +90,6 @@ public class GoLatencyTests
         g.Reset();
         Assert.Equal(0, g.Gos);
         Assert.Null(g.WorstEver);
-        Assert.Equal("GO to frame: no GO yet.", g.Describe());
+        Assert.Equal("GO to first drawn frame: no GO yet.", g.Describe());
     }
 }

@@ -118,6 +118,10 @@ public class DeckStateAppTests
             {
                 Assert.True(full.TryGetProperty(key, out _), key);
             }
+            // The machine row carries the sinks' render faults, so a deck key can go red while the room is on the last good picture.
+            var machine = full.GetProperty("machine");
+            Assert.Equal(0, machine.GetProperty("renderFaults").GetInt32());
+            Assert.False(machine.GetProperty("faulting").GetBoolean());
         }
         finally
         {

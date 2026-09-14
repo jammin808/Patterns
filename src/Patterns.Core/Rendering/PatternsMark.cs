@@ -66,7 +66,7 @@ public static class PatternsMark
         var radius = s * 0.2f;
         c.DrawRoundRect(r, radius, radius, pc.FillAA(Tile.WithAlpha(alpha)));
         var save = c.Save();
-        c.ClipRoundRect(new SKRoundRect(r, radius, radius), antialias: true);
+        c.ClipRoundRect(pc.RoundRect(r, radius), antialias: true);
         var grid = pc.StrokeAA(Mist.WithAlpha((byte)(alpha * 0.7f)), Math.Max(1f, s * 0.05f));
         for (var i = 1; i < 4; i++)
         {

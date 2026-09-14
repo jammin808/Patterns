@@ -322,7 +322,7 @@ public class FrameStageEngineTests
         var r = b.Read(10.5);
         Assert.Equal(40, r.LagMs, 3);
         Assert.Equal(30, r.LagAverageMs, 3);
-        Assert.EndsWith("· publish to frame worst 40 ms", r.Words);
+        Assert.EndsWith("· publish to first drawn frame worst 40 ms", r.Words);
         Assert.Equal(10.0, b.FirstShown(5));
         Assert.Equal(10.0, b.FirstShown(3));                             // the nearest version past it
         Assert.Equal(10.050, b.FirstShown(6));

@@ -709,13 +709,13 @@ public class AssistantTests
                 "Health: OK · OUT 1 60 fps · p95 8.1 ms · lag 21 ms · GO→frame 34 ms",
                 "Desk tick 1.2 ms · worst 4.1 ms (tallies) in the last minute · 0 past 16 ms this session",
                 "Page switch 5.0 ms · worst Machine 60 ms (30 ms building the page, 12 ms handler, 18 ms to the frame) in the last sixty · 1 past 16 ms this session",
-                "GO to frame 34.0 ms · worst GO 07 61 ms (8 ms to the publish, 53 ms to OUT 2's frame) in the last sixty · 1 past 50 ms this session",
+                "GO to first drawn frame 34.0 ms · worst GO 07 61 ms (8 ms to the publish, 53 ms to OUT 2's frame) in the last sixty · 1 past 50 ms this session",
             },
             Attention = new[] { "GO to frame: 34.0 ms · worst GO 07 61 ms (8 ms to the publish, 53 ms to OUT 2's frame) · 1 past 50 ms — a GO took past fifty milliseconds to reach the screens in the last sixty — one frame at 60 fps is sixteen" },
         };
         var brief = ShowBrief.Summarise(s, facts);
         Assert.Contains("How the desk is doing (its own measurements — answer questions about slowness, lateness or the clocks from these words):", brief);
-        Assert.Contains("  GO to frame 34.0 ms · worst GO 07 61 ms", brief);
+        Assert.Contains("  GO to first drawn frame 34.0 ms · worst GO 07 61 ms", brief);
         Assert.Contains("  Needs attention: GO to frame: 34.0 ms", brief);
         var green = ShowBrief.Summarise(s, new ShowFacts { Health = new[] { "Health: OK" } });
         Assert.Contains("  Needs attention: nothing — every row of the super-check is green.", green);

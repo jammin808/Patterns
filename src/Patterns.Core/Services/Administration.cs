@@ -167,7 +167,9 @@ public sealed record MetricSample
     /// <summary>The worst output's 95th-percentile frame time over the last minute, ms; -1 unmeasured.</summary>
     public double P95FrameMs { get; init; } = -1;
     /// <summary>Presentation slots the outputs missed in the last minute — frames the room did not get.</summary>
-    public int DroppedFrames { get; init; }
+    public int MissedSlots { get; init; }
+    /// <summary>Frames of the last minute whose draw threw on an output; the last good picture was drawn in each one's place.</summary>
+    public int RenderFaults { get; init; }
     /// <summary>The worst page switch of the last sixty, press to frame (ms; -1 unknown), and the switches past a desk frame this session.</summary>
     public double SwitchWorstMs { get; init; } = -1;
     public int SlowSwitches { get; init; }
@@ -232,7 +234,8 @@ public sealed class MetricsHistory
             WorstFrameMs = window.Max(s => s.WorstFrameMs),
             SlowFrames = window.Sum(s => s.SlowFrames),
             P95FrameMs = window.Max(s => s.P95FrameMs),
-            DroppedFrames = window.Max(s => s.DroppedFrames),   // each sample already reads the last minute: the window's worst minute, not a sum
+            MissedSlots = window.Max(s => s.MissedSlots),       // each sample already reads the last minute: the window's worst minute, not a sum
+            RenderFaults = window.Max(s => s.RenderFaults),
             SwitchWorstMs = window.Max(s => s.SwitchWorstMs),
             SlowSwitches = window.Max(s => s.SlowSwitches),
             GoWorstMs = window.Max(s => s.GoWorstMs),
@@ -541,7 +544,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,droppedFrames,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,missedSlots,switchWorstMs,slowSwitches,goWorstMs,lagWorstMs,renderFaults";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -553,11 +556,12 @@ public static class MetricsCsv
         s.OnBattery ? "1" : "0",
         s.Faults.ToString(System.Globalization.CultureInfo.InvariantCulture),
         R(s.P95FrameMs),
-        s.DroppedFrames.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        s.MissedSlots.ToString(System.Globalization.CultureInfo.InvariantCulture),
         R(s.SwitchWorstMs),
         s.SlowSwitches.ToString(System.Globalization.CultureInfo.InvariantCulture),
         R(s.GoWorstMs),
-        R(s.LagWorstMs));
+        R(s.LagWorstMs),
+        s.RenderFaults.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);

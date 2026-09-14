@@ -10,9 +10,12 @@ namespace Patterns.Core.Services;
 /// </summary>
 /// <param name="P95Ms">The frame time 95% of the last minute's frames came in under, from the buckets' histograms; -1 with no frame.</param>
 /// <param name="Missed">The presentation slots the last minute missed — frames the room did not get — as the pacer counted them.</param>
+/// <param name="Faults">Frames of the last minute whose draw threw; the last good picture was drawn in each one's place.</param>
+/// <param name="ConsecutiveFaults">Faults in a row up to now on this sink — 0 once a frame draws whole again.</param>
 public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Label, long Frames, long SlowFrames,
                                         int FramesInWindow, double AverageMs, double WorstMs, string WorstStage, double Fps,
-                                        double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0, double LagMs = -1, double LagAverageMs = -1)
+                                        double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0, double LagMs = -1, double LagAverageMs = -1,
+                                        int Faults = 0, int ConsecutiveFaults = 0, string LastFault = "")
 {
     /// <summary>"Preview", "Output 1 (Main)", "Monitor PGM".</summary>
     public string Name => Kind switch
@@ -31,9 +34,10 @@ public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Lab
             var stage = WorstStage.Length > 0 ? $" ({FrameStage.Words(WorstStage)})" : "";
             var fps = Fps >= 0 ? $" at {Fps:0} fps" : "";
             var p95 = P95Ms >= 0 ? $" · p95 {P95Ms:0.0} ms" : "";
-            var missed = Missed > 0 ? $" · {Missed} dropped" : "";
-            var lag = LagMs >= 0 ? $" · publish to frame worst {LagMs:0} ms" : "";
-            return $"{Name} {AverageMs:0.0} ms avg{fps}{p95} · worst {WorstMs:0.0} ms{stage}{missed}{lag}";
+            var missed = Missed > 0 ? $" · {Missed} slots missed" : "";
+            var lag = LagMs >= 0 ? $" · publish to first drawn frame worst {LagMs:0} ms" : "";
+            var faults = Faults > 0 ? $" · {Faults} fault{(Faults == 1 ? "" : "s")}" : "";
+            return $"{Name} {AverageMs:0.0} ms avg{fps}{p95} · worst {WorstMs:0.0} ms{stage}{missed}{lag}{faults}";
         }
     }
 }
@@ -53,6 +57,9 @@ public sealed class FrameBudget
 
     /// <summary>A frame past this is a stutter: the red line.</summary>
     public const double StutterMs = 50;
+
+    /// <summary>Faults in a row that make a sink one drawing nothing whole: the red line of the Render faults row.</summary>
+    public const int FaultRun = 3;
 
     /// <summary>The window the worst and the average are read over, in seconds.</summary>
     public const int Window = 60;
@@ -74,6 +81,7 @@ public sealed class FrameBudget
         public double LagWorstMs;
         public double LagSum;
         public int LagCount;
+        public int Faults;
     }
 
     /// <summary>Publishes remembered with the clock of the first frame that showed each: what the GO's clock reads.</summary>
@@ -123,6 +131,20 @@ public sealed class FrameBudget
 
     /// <summary>The worst lag from a publish to the frame that first showed it this session, ms; -1 before one reached this sink.</summary>
     public double WorstLagMs { get; private set; } = -1;
+
+    /// <summary>Render faults this session: frames whose draw threw. Each is counted as a frame, noted here, and the last good world is drawn in its place.</summary>
+    public long Faults { get; private set; }
+
+    /// <summary>Faults in a row up to now — 0 once a frame draws whole again. <see cref="FaultRun"/> in a row is a sink drawing nothing whole.</summary>
+    public int ConsecutiveFaults { get; private set; }
+
+    /// <summary>The last fault's words — the exception's kind and message — "" before one.</summary>
+    public string LastFault { get; private set; } = "";
+
+    public DateTime? LastFaultUtc { get; private set; }
+
+    /// <summary>The version of the last frame drawn whole; -1 before one. What the room is looking at while frames fault.</summary>
+    public long LastGoodVersion { get; private set; } = -1;
 
     /// <summary>
     /// The frame drawn carried a snapshot: when its version is new to this sink a publish has
@@ -198,6 +220,39 @@ public sealed class FrameBudget
         }
     }
 
+    /// <summary>A frame's draw threw: counted on the session and on the second, the run of faults grown, the words kept.</summary>
+    public void RecordFault(string words, DateTime utcNow, double clockSeconds)
+    {
+        var second = (long)Math.Floor(clockSeconds);
+        lock (_gate)
+        {
+            Faults++;
+            ConsecutiveFaults++;
+            LastFault = words;
+            LastFaultUtc = utcNow;
+            ref var b = ref _buckets[(int)(((second % Window) + Window) % Window)];
+            if (b.Second != second)
+            {
+                var hist = b.Hist;
+                b = default;
+                b.Second = second;
+                b.Hist = hist;
+                if (hist is not null) Array.Clear(hist);
+            }
+            b.Faults++;
+        }
+    }
+
+    /// <summary>A frame drew whole: the run of faults is over, and this is the version the room has.</summary>
+    public void RecordGood(long version)
+    {
+        lock (_gate)
+        {
+            ConsecutiveFaults = 0;
+            if (version >= 0) LastGoodVersion = version;
+        }
+    }
+
     /// <summary>The sink's viewport can be re-described (a screen renamed, a window moved): the budget follows.</summary>
     public void Relabel(SinkKind kind, int sinkIndex, string label)
     {
@@ -262,6 +317,7 @@ public sealed class FrameBudget
             var completeFrames = 0;
             var lastSecondWorst = -1.0;
             var missed = 0;
+            var faults = 0;
             var lagWorst = -1.0;
             var lagSum = 0.0;
             var lagCount = 0;
@@ -271,6 +327,7 @@ public sealed class FrameBudget
                 ref var b = ref _buckets[i];
                 if (b.Second < oldest || b.Second > now) continue;
                 missed += b.Missed;
+                faults += b.Faults;
                 if (b.LagCount > 0)
                 {
                     if (b.LagWorstMs > lagWorst) lagWorst = b.LagWorstMs;
@@ -312,7 +369,8 @@ public sealed class FrameBudget
             }
             return new FrameBudgetReading(Kind, SinkIndex, Label, Frames, SlowFrames, frames,
                 frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst, p95, missed,
-                lagCount > 0 ? lagWorst : -1, lagCount > 0 ? lagSum / lagCount : -1);
+                lagCount > 0 ? lagWorst : -1, lagCount > 0 ? lagSum / lagCount : -1,
+                faults, ConsecutiveFaults, LastFault);
         }
     }
 
@@ -329,6 +387,11 @@ public sealed class FrameBudget
             WorstEverMs = -1;
             WorstEverStage = "";
             WorstLagMs = -1;
+            Faults = 0;
+            ConsecutiveFaults = 0;
+            LastFault = "";
+            LastFaultUtc = null;
+            LastGoodVersion = -1;
             _lastShownVersion = -1;
             _shownNext = 0;
             _shownCount = 0;
@@ -429,11 +492,13 @@ public static class FrameBudgets
         var parts = new List<string> { $"Render frame worst {worst.WorstMs:0.0} ms{stage} on {worst.Name} in the last minute" };
         foreach (var r in readings)
         {
-            parts.Add($"{r.Name} {r.AverageMs:0.0} ms avg{(r.Fps >= 0 ? $" at {r.Fps:0} fps" : "")}{(r.P95Ms >= 0 ? $", p95 {r.P95Ms:0.0} ms" : "")}{(r.Missed > 0 ? $", {r.Missed} dropped" : "")}");
+            parts.Add($"{r.Name} {r.AverageMs:0.0} ms avg{(r.Fps >= 0 ? $" at {r.Fps:0} fps" : "")}{(r.P95Ms >= 0 ? $", p95 {r.P95Ms:0.0} ms" : "")}{(r.Missed > 0 ? $", {r.Missed} slots missed" : "")}{(r.Faults > 0 ? $", {r.Faults} fault{(r.Faults == 1 ? "" : "s")}" : "")}");
         }
         parts.Add($"{SlowFrames(readings)} past {FrameBudget.SlowMs:0} ms this session");
-        var dropped = readings.Sum(r => (long)r.Missed);
-        if (dropped > 0) parts.Add($"{dropped} frame{(dropped == 1 ? "" : "s")} dropped in the last minute");
+        var missed = readings.Sum(r => (long)r.Missed);
+        if (missed > 0) parts.Add($"{missed} presentation slot{(missed == 1 ? "" : "s")} missed in the last minute");
+        var faults = readings.Sum(r => (long)r.Faults);
+        if (faults > 0) parts.Add($"{faults} render fault{(faults == 1 ? "" : "s")} in the last minute — the last good frame drawn again each time; the log has the stack");
         return string.Join(" · ", parts);
     }
 

@@ -67,7 +67,7 @@ export const STATES = {
 	look: { air: 'green', preview: 'amber', edited: 'amber', screensOff: 'orange' },
 	cue: { armed: 'green', hold: 'amber', confirm: 'amber', failed: 'red', standby: 'brightGreen', late: 'orange' },
 	transport: { blackout: 'blackout', outputsOn: 'outputsOn', off: 'off', frozen: 'cyan', review: 'brightGreen', editSafe: 'steel', black: 'red' },
-	screen: { enabled: 'screenOn', locked: 'lock', armed: 'green', own: 'steel', black: 'red', offLook: 'orange', pattern: 'green' },
+	screen: { enabled: 'screenOn', locked: 'lock', armed: 'green', own: 'steel', black: 'red', offLook: 'orange', pattern: 'green', fault: 'red' },
 	stinger: { playing: 'stingerBrown', hold: 'amber' },
 	vog: { playing: 'blue' },
 	lowerThird: { on: 'red', preview: 'amber', edited: 'amber', person: 'red' },

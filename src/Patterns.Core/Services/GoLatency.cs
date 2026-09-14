@@ -142,9 +142,9 @@ public sealed class GoLatency
     /// <summary>The glance line's word: "GO→frame 34 ms" for the last GO a sink showed; "" otherwise.</summary>
     public string GlanceWords => Last is { FrameMs: >= 0 } g ? $"GO→frame {g.TotalMs:0} ms" : "";
 
-    /// <summary>The STABILITY line: "GO to frame 34.0 ms · worst GO 07 61 ms (8 ms to the publish, 53 ms to OUT 2's frame) in the last sixty · 0 past 50 ms this session".</summary>
+    /// <summary>The STABILITY line: "GO to first drawn frame 34.0 ms · worst GO 07 61 ms (8 ms to the publish, 53 ms to OUT 2's frame) in the last sixty · 0 past 50 ms this session" — the frame the sink drew, never the glass.</summary>
     public string Describe()
-        => Gos == 0 ? "GO to frame: no GO yet." : $"GO to frame {AverageMs:0.0} ms · worst {Worst!.Value.Words} in the last sixty · {SlowGos} past {SlowMs:0} ms this session";
+        => Gos == 0 ? "GO to first drawn frame: no GO yet." : $"GO to first drawn frame {AverageMs:0.0} ms · worst {Worst!.Value.Words} in the last sixty · {SlowGos} past {SlowMs:0} ms this session";
 
     public void Reset()
     {

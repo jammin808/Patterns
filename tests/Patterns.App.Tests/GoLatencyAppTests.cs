@@ -28,7 +28,7 @@ public class GoLatencyAppTests
             Dispatcher.UIThread.RunJobs();
             services.CueStack.SetArmed(true, ActionOrigin.Desk);
             Assert.Equal("Black", services.CueStack.StandbyCue?.Name);
-            Assert.Equal("GO to frame: no GO yet.", services.CueStack.GoClock.Describe());
+            Assert.Equal("GO to first drawn frame: no GO yet.", services.CueStack.GoClock.Describe());
 
             var versionBefore = services.Bus.Current.Version;
             var go = services.CueStack.Go(ActionOrigin.Desk);
@@ -64,14 +64,14 @@ public class GoLatencyAppTests
             Assert.Contains("to PVW's frame", last.Words);
 
             vm.PollNow();
-            Assert.StartsWith("GO to frame ", vm.GoText);
+            Assert.StartsWith("GO to first drawn frame ", vm.GoText);
             Assert.Contains("in the last sixty", vm.GoText);
             var facts = services.Metrics.GatherFacts();
             Assert.True(facts.GoWorstMs >= 0, facts.GoWorstMs.ToString());
             Assert.NotEmpty(facts.GoWorstWords);
             var row = Assert.Single(SuperCheck.Run(facts).Rows, r => r.Item == "GO to frame");
             Assert.Contains("worst GO 01", row.Value);
-            Assert.EndsWith(",goWorstMs,lagWorstMs", MetricsCsv.Header);
+            Assert.EndsWith(",goWorstMs,lagWorstMs,renderFaults", MetricsCsv.Header);
         }
         finally
         {

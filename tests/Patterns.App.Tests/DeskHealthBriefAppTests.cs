@@ -19,7 +19,7 @@ public class DeskHealthBriefAppTests
             Assert.Contains(facts.Health, l => l.StartsWith("Health: ", StringComparison.Ordinal));
             Assert.Contains(facts.Health, l => l.StartsWith("Desk tick", StringComparison.Ordinal));
             Assert.Contains(facts.Health, l => l.StartsWith("Page switch", StringComparison.Ordinal));
-            Assert.Contains(facts.Health, l => l.StartsWith("GO to frame", StringComparison.Ordinal));
+            Assert.Contains(facts.Health, l => l.StartsWith("GO to first drawn frame", StringComparison.Ordinal));
             Assert.All(facts.Health, l => Assert.DoesNotContain(services.Store.BaseDirectory, l));
             Assert.All(facts.Health, l => Assert.DoesNotContain(Environment.MachineName, l));
             var brief = ShowBrief.Summarise(vm.State, facts);

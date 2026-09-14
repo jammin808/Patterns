@@ -104,6 +104,11 @@ public sealed class CheckFacts
     public long RenderSlowFrames { get; init; } = -1;
     public int RenderSinks { get; init; }
 
+    /// <summary>Render faults in the last minute across the sinks, the longest run of faults in a row on any sink right now, and the last fault's words with its sink.</summary>
+    public int RenderFaults { get; init; }
+    public int RenderConsecutiveFaults { get; init; }
+    public string RenderLastFault { get; init; } = "";
+
     /// <summary>Start-up: seconds from the process start to the last phase marked (-1 unknown), the phases in words, and whether the first frame has landed.</summary>
     public double StartupSeconds { get; init; } = -1;
     public string StartupPhases { get; init; } = "";
@@ -457,6 +462,7 @@ public static class SuperCheck
         DeskTick(f, rows, s);
         PageSwitch(f, rows, s);
         RenderFrame(f, rows, s);
+        RenderFaults(f, rows, s);
         GoToFrame(f, rows, s);
         Quality(f, rows, s);
         MemoryCeiling(f, rows, s);
@@ -567,6 +573,24 @@ public static class SuperCheck
         rows.Add(new CheckRow(section, "Render frame", light, value, note));
     }
 
+    /// <summary>
+    /// Render faults: a frame whose draw threw is a frame the room got as the last good picture
+    /// instead. Amber for any in the last minute; red for three in a row — a sink drawing
+    /// nothing whole, the picture standing still on the last frame that drew. No row with none.
+    /// </summary>
+    private static void RenderFaults(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.RenderFaults <= 0 && f.RenderConsecutiveFaults <= 0) return;
+        var light = f.RenderConsecutiveFaults >= FrameBudget.FaultRun ? CheckLight.Red : CheckLight.Amber;
+        var value = $"{f.RenderFaults} in the last minute"
+                    + (f.RenderConsecutiveFaults > 0 ? $" · {f.RenderConsecutiveFaults} in a row" : "")
+                    + (f.RenderLastFault.Length > 0 ? $" ({f.RenderLastFault})" : "");
+        var note = light == CheckLight.Red
+            ? "a sink is drawing nothing whole: every frame throws and the last good picture is all the room gets — the log has the stack; a blend mask, a warp or a source on that output is the usual cause"
+            : "a frame's draw threw and the last good picture was drawn in its place — the log has the stack";
+        rows.Add(new CheckRow(section, "Render faults", light, value, note));
+    }
+
     /// <summary>The GO to the frame: green under fifty milliseconds, amber past it (a caller feels it), red past a tenth of a second (the room saw the cue land late).</summary>
     private static void GoToFrame(CheckFacts f, List<CheckRow> rows, string section)
     {
@@ -581,7 +605,7 @@ public static class SuperCheck
             CheckLight.Amber => "a GO took past fifty milliseconds to reach the screens in the last sixty — one frame at 60 fps is sixteen",
             _ => "",
         };
-        rows.Add(new CheckRow(section, "GO to frame", light, value, note));
+        rows.Add(new CheckRow(section, "GO to frame", light, value, note));      // the first frame a sink drew with the cue — never the glass
     }
 
     /// <summary>What to lower, by the stage that took the frame.</summary>

@@ -101,7 +101,8 @@ public static class OverlayRenderer
         var word = pc.FontFor(null, bold: true);
         word.Size = h * (line.Length > 0 ? 0.40f : 0.46f);
         var spacing = word.Size * 0.14f;
-        var wordW = MeasureSpaced(BadgeLetters, word, spacing);
+        // The name shaped once at this size and drawn as one blob every frame after: the letter-by-letter draw was the steady frame's one allocation.
+        var (wordBlob, wordW) = pc.SpacedWord(BadgeLetters, word, spacing);
         var small = pc.FontFor(null, bold: false);
         small.Size = h * 0.19f;
         var lineW = line.Length > 0 ? small.MeasureText(line) : 0;
@@ -126,17 +127,17 @@ public static class OverlayRenderer
         if (line.Length > 0)
         {
             var wordBaseline = rect.Top + pad + word.Size * 0.92f;
-            DrawSpaced(c, BadgeLetters, x, wordBaseline, word, white, spacing);
+            c.DrawText(wordBlob, x, wordBaseline, white);
             // The magenta rule between the name and the line, the length of the name.
             var ruleY = wordBaseline + h * 0.07f;
             var ruleH = Math.Max(1f, h * 0.03f);
             c.DrawRoundRect(SKRect.Create(x, ruleY, wordW, ruleH), ruleH / 2, ruleH / 2, pc.FillAA(BadgeMagenta.WithAlpha(Alpha(0.95f, alpha))));
-            DrawUtil.TextLeft(c, line, x, rect.Bottom - pad - small.Size * 0.22f, small, pc.Text(BadgeMist.WithAlpha(Alpha(0.92f, alpha))));
+            c.DrawText(pc.TextBlob(line, small), x, rect.Bottom - pad - small.Size * 0.22f, pc.Text(BadgeMist.WithAlpha(Alpha(0.92f, alpha))));
         }
         else
         {
             var m = word.Metrics;
-            DrawSpaced(c, BadgeLetters, x, rect.MidY - (m.Ascent + m.Descent) / 2, word, white, spacing);
+            c.DrawText(wordBlob, x, rect.MidY - (m.Ascent + m.Descent) / 2, white);
         }
     }
 
@@ -145,21 +146,7 @@ public static class OverlayRenderer
 
     private static byte Alpha(float k, float opacity) => (byte)Math.Clamp(k * opacity * 255f, 0, 255);
 
-    private static float MeasureSpaced(string[] letters, SKFont font, float spacing)
-    {
-        float w = 0;
-        foreach (var letter in letters) w += font.MeasureText(letter) + spacing;
-        return w - spacing;
-    }
 
-    private static void DrawSpaced(SKCanvas c, string[] letters, float x, float baseline, SKFont font, SKPaint paint, float spacing)
-    {
-        foreach (var letter in letters)
-        {
-            c.DrawText(letter, x, baseline, SKTextAlign.Left, font, paint);
-            x += font.MeasureText(letter) + spacing;
-        }
-    }
 
     /// <summary>Records a box the desk can drag — on the top-level draw only, never from a fade source, a tile or a layer.</summary>
     private static void Hit(in PatternFrame f, HitKind kind, SKRect rect) => Hit(f.Ctx, f.Sink, kind, rect, false);

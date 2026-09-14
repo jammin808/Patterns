@@ -101,16 +101,18 @@ public class SkiaCanvasControl : Control
     private void RequestFrame()
     {
         if (_frameRequested) return;
+        var top = TopLevel.GetTopLevel(this);
+        if (top is null) return;                              // not in a window: nothing to ask, and nothing left marked as asked
         _frameRequested = true;
-        TopLevel.GetTopLevel(this)?.RequestAnimationFrame(_ =>
+        top.RequestAnimationFrame(_ =>
         {
             _frameRequested = false;
             var target = _pipeline?.Viewport.TargetFps ?? 0;
             if (target > 0 && _pipeline?.Cadence == RedrawCadence.Continuous)
             {
                 // The slots that went by unpresented are the frames the room did not get: counted on
-                // this sink's budget, so the glance line and the metrics say "dropped" from the pacer's
-                // own arithmetic, not from a guess at the frame time.
+                // this sink's budget, so the glance line and the metrics say "slots missed" from the
+                // pacer's own arithmetic, not from a guess at the frame time.
                 var present = FramePacer.ShouldPresent(ShowClock.Seconds, target, ref _pacerSlot, out var missed);
                 if (missed > 0) _pipeline.Budget.RecordMissed(missed, ShowClock.Seconds);
                 if (!present)
@@ -123,10 +125,31 @@ public class SkiaCanvasControl : Control
         });
     }
 
+    /// <summary>Whether a vsync callback is outstanding (tests read it).</summary>
+    public bool FrameRequested => _frameRequested;
+
+    /// <summary>The pacer's last presented slot, -1 when none (tests read it).</summary>
+    public long PacerSlot => _pacerSlot;
+
+    /// <summary>
+    /// Leaving the tree: the clock timer stops, an outstanding request is forgotten (its callback
+    /// finds no control to draw and asks for nothing more) and the pacer starts afresh — so a
+    /// canvas put back later asks for its frames again rather than waiting on a callback that
+    /// was never coming.
+    /// </summary>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _secondTimer.Stop();
+        _frameRequested = false;
+        _pacerSlot = -1;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>Back in the tree (a pop-out closed, a pane re-docked): one frame now, and the cadence carries on from it.</summary>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        InvalidateVisual();
     }
 
     private sealed class PipelineDrawOp : ICustomDrawOperation
