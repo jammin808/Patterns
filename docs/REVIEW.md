@@ -1246,9 +1246,12 @@ desk by itself, the desk drives it back, and both sides speak one colour.*
 - **The honest limit:** the lanes, the tap, the NDI send and the page's picker need Windows, a
   decoder and a runtime — none here. The App tests use fakes; the field decides the rest. The
   clip taps have no sample-rate lock yet (a counted snap, not a growing delay).
-- **Seen, not this round's:** `TwinAppTests.TheWireCarriesNoMachineSectionsAndTheShowsCredentialsOnlyWhenTold`
-  looks for the digits `9876` in the wire's payload to prove a port never travels, and a generated
-  id can carry them by chance — one run here did. A more distinctive secret would make it honest.
+- **Seen, and fixed after the round:** `TwinAppTests.TheWireCarriesNoMachineSectionsAndTheShowsCredentialsOnlyWhenTold`
+  looked for the digits `9876` in the wire's payload to prove the admin passcode never travels, and
+  a generated id can carry them by chance — one run here did (`…f9a99ff2987695…`). The secret is
+  now a word no hex id can spell (`zq9876`), and the machine's own sections are checked as JSON
+  properties over `TwinSync.LocalSections` — all eight, not three named in text. The Core twin
+  auth test had the same shape (`1234`) and got the same treatment.
 
 Counts at the end of the round: Core 1,233, App 616 — both suites green here, the module's
 thirteen beside them.

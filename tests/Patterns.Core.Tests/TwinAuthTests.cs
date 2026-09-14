@@ -58,7 +58,7 @@ public class TwinAuthTests
     {
         var state = new ShowState { Name = "Gala" };
         state.Twin.Key = "hunter2";
-        state.Install.AdminPasscode = "1234";
+        state.Install.AdminPasscode = "zq1234";                                    // letters outside a-f: no generated (hex) id can spell it
         state.Install.ManagementToken = "tok";
         state.Weather.ApiKey = "wx-key";
         state.Interactive.Devices.Add(new DeviceConfig { Id = "proj", Name = "Proj", Profile = DeviceProfile.PjLink, Secret = "pjpass" });
@@ -68,12 +68,11 @@ public class TwinAuthTests
         Assert.Contains("\"Secret\":\"pjpass\"", withSecrets);
         Assert.Contains("\"ApiKey\":\"wx-key\"", withSecrets);
         Assert.DoesNotContain("hunter2", withSecrets);                              // the twin's key never travels
-        Assert.DoesNotContain("1234", withSecrets);
+        Assert.DoesNotContain("zq1234", withSecrets);                               // nor the admin passcode
         Assert.DoesNotContain("\"tok\"", withSecrets);
-        Assert.DoesNotContain("\"Twin\":", withSecrets);
-        Assert.DoesNotContain("\"Admin\":", withSecrets);
-        Assert.DoesNotContain("\"Control\":", withSecrets);
-        Assert.DoesNotContain("\"Watchdog\":", withSecrets);
+        using (var doc = System.Text.Json.JsonDocument.Parse(withSecrets))         // nor any machine-local section, as a property rather than as text
+            foreach (var local in TwinSync.LocalSections)
+                Assert.False(doc.RootElement.TryGetProperty(local, out _), $"the wire carried the machine's own {local} section");
         Assert.Equal(withSecrets, TwinSync.ShowJson(state));
 
         var without = TwinSync.WireJson(state, sendSecrets: false);

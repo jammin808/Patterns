@@ -914,7 +914,7 @@ public class TwinAppTests
             vm.State.Twin.Port = FreePort();
             vm.State.Twin.Key = "hunter2";
             vm.State.Twin.SendSecrets = false;
-            vm.State.Install.AdminPasscode = "9876";
+            vm.State.Install.AdminPasscode = "zq9876";                            // letters outside a-f: no hex id can carry it by chance
             vm.State.Weather.ApiKey = "wx-key";
             vm.State.Interactive.Devices.Add(new DeviceConfig { Id = "proj", Name = "Proj", Profile = DeviceProfile.PjLink, Link = DeviceLink.Tcp, Port = "10.0.0.7", Secret = "pjpass", Enabled = false });
             vm.State.Twin.Role = TwinRole.Main;
@@ -927,11 +927,14 @@ public class TwinAppTests
             Assert.True(Join(stream, reader, new TwinJoin("Backup desk", "BACKUP-PC", "abcd1234", "hunter2"), "hunter2"), "the main proved the key first");
             Assert.NotNull(TwinWelcome.Parse(ReadWord(reader, TwinWord.Welcome).Payload));
             var show = ReadWord(reader, TwinWord.Show).Payload;
+            // The secrets never travel. Each is a word a generated id cannot spell (cue and stack ids are hex),
+            // so a bare substring check is safe; and the machine's own sections are absent as JSON properties,
+            // not merely as text.
             Assert.DoesNotContain("hunter2", show);                                 // the key
-            Assert.DoesNotContain("9876", show);                                    // the admin passcode
-            Assert.DoesNotContain("\"Twin\":", show);                               // nor the sections they live in
-            Assert.DoesNotContain("\"Admin\":", show);
-            Assert.DoesNotContain("\"Control\":", show);
+            Assert.DoesNotContain("zq9876", show);                                  // the admin passcode
+            using (var doc = System.Text.Json.JsonDocument.Parse(show))
+                foreach (var local in TwinSync.LocalSections)                       // nor the sections they live in
+                    Assert.False(doc.RootElement.TryGetProperty(local, out _), $"the wire carried the machine's own {local} section");
             Assert.DoesNotContain("pjpass", show);                                  // the credentials, not sent
             Assert.DoesNotContain("wx-key", show);
             Assert.Contains("\"Name\":\"Proj\"", show);                               // the box itself, yes
