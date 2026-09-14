@@ -350,6 +350,8 @@
                ToolTip.Tip="The note the watchdog left when it brought this run up: the exit code in words, when, after how long, and the mini-dump if one was written — also in patterns.log and the support bundle" />
     <TextBlock Classes="label" Text="{Binding DeskTickText}" TextWrapping="Wrap"
                ToolTip.Tip="The desk's once-a-second poll runs on the same thread as every click: what it costs, its worst minute and the area that took the time. Past 16 ms the desk skipped a frame; past 50 ms it stutters — the super-check's Desk tick row says the same" />
+    <TextBlock Classes="label" Text="{Binding SwitchText}" TextWrapping="Wrap"
+               ToolTip.Tip="Every page switch is timed from the press to the first frame drawn: the worst of the last sixty says where its time went — building the page (only in the first seconds after a start, before the idle warm-up reached it), the handler, or the frame. Past 16 ms the desk skipped a frame; past 100 ms the operator felt it — the super-check's Page switch row says the same" />
     <TextBlock Classes="label" Text="{Binding RenderBudgetText}" TextWrapping="Wrap"
                ToolTip.Tip="The engine's frame budget: every frame the preview, the monitors and the outputs draw is timed with the slowest stage inside it (the pattern, the layers, the overlays, the lower third, a crossfade). The worst frame of the last minute names the stage and the sink, so a slow frame says what to lower. Past 25 ms is a hitch the room can see; past 50 ms a stutter — the super-check's Render frame row and the RENDER tile say the same" />
     <TextBlock Classes="label" Text="{Binding StartupText}" TextWrapping="Wrap"

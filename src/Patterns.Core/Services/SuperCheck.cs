@@ -80,6 +80,12 @@ public sealed class CheckFacts
     public int DeskSlowTicks { get; init; } = -1;
     public int DeskTickFaults { get; init; }
 
+    /// <summary>The page switch over the last sixty (ms; -1 unknown): the worst with its words, the average, and the switches past a desk frame this session (-1 unknown).</summary>
+    public double SwitchWorstMs { get; init; } = -1;
+    public string SwitchWorstWords { get; init; } = "";
+    public double SwitchAverageMs { get; init; } = -1;
+    public int SlowSwitches { get; init; } = -1;
+
     /// <summary>
     /// The engine's frame budget over the last minute (ms; -1 unknown): the worst frame, the stage
     /// that took it and the sink it was on, the average across the sinks, the frames past the slow
@@ -443,6 +449,7 @@ public static class SuperCheck
         if (f.Faults > 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Amber, $"{f.Faults} this session", "contained per frame; the log says which pattern"));
         else if (f.Faults == 0) rows.Add(new CheckRow(s, "Render faults", CheckLight.Green, "none"));
         DeskTick(f, rows, s);
+        PageSwitch(f, rows, s);
         RenderFrame(f, rows, s);
         Quality(f, rows, s);
         MemoryCeiling(f, rows, s);
@@ -514,6 +521,23 @@ public static class SuperCheck
             note = note.Length > 0 ? $"{note}; {failed}" : failed;
         }
         rows.Add(new CheckRow(section, "Desk tick", light, value, note));
+    }
+
+    /// <summary>The page switch: green under a desk frame, amber past it, red past a tenth of a second — with the switch that took it and where its time went.</summary>
+    private static void PageSwitch(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.SwitchWorstMs < 0) return;
+        var worst = f.SwitchWorstMs;
+        var light = worst > SwitchBudget.StutterMs ? CheckLight.Red : worst > SwitchBudget.SlowMs ? CheckLight.Amber : CheckLight.Green;
+        var value = $"{(f.SwitchAverageMs >= 0 ? $"{f.SwitchAverageMs:0.0} ms" : "—")} · worst {(f.SwitchWorstWords.Length > 0 ? f.SwitchWorstWords : $"{worst:0.0} ms")}"
+                    + (f.SlowSwitches > 0 ? $" · {f.SlowSwitches} past {SwitchBudget.SlowMs:0} ms" : "");
+        var note = light switch
+        {
+            CheckLight.Red => "a page took a tenth of a second or more to come in — the words say whether it was built on entry, the handler or the frame; the log names it",
+            CheckLight.Amber => "a page switch skipped a desk frame in the last sixty — a page built on entry in the first seconds after a start is the usual reason",
+            _ => "",
+        };
+        rows.Add(new CheckRow(section, "Page switch", light, value, note));
     }
 
     /// <summary>

@@ -6624,3 +6624,57 @@ where following is safe. Drift correction between exchanges: a beat a second is 
 and the deadband absorbs what drift a show's length brings.
 
 Counts at the end of the round: Core 1,158, App 602 — both suites green here.
+
+## 68. Round 50 — the switch on the clock
+
+*A press on the rail is the one thing an operator does a hundred times a night, and the brief is
+plain: every menu, every view, instant. The desk's tick had a budget; the switch had none. Now
+every switch is timed from the press to the first frame the window draws, and the work a page
+wanted on arrival runs below that frame.*
+
+### 68.1 The budget
+
+`SwitchBudget` (Core, pure) beside `TickBudget`: a switch begins at the press (`Begin`, a
+Stopwatch stamp), the view model's handler reports its span (`Handler`), a page built on entry
+reports its build (`Built`, counted only into the switch it was built on — the idle warm-up's
+builds are nobody's), and the first frame drawn after the tab moved closes it (`Framed`, from the
+window's `RequestAnimationFrame`). A switch whose frame never came — a hidden window, a test — is
+closed as it stands by the next press and says "no frame seen". The last sixty are kept with the
+worst and the average over them, the switches past a desk frame (16 ms) are counted for the
+session, the worst ever is remembered, and a switch past a tenth of a second is logged with its
+page and whether the time was the build. The words say where the time went: "Machine 60 ms (30 ms
+building the page, 12 ms handler, 18 ms to the frame)".
+
+### 68.2 Where it reads
+
+The Machine page's STABILITY block has a line under the desk tick's; the super-check has a Page
+switch row (green under a desk frame, amber past it, red past a tenth of a second, with the worst
+switch's words and the advice); the metrics CSV carries `switchWorstMs` and `slowSwitches` in each
+sample and starts again under the new header; `CheckFacts` carries the four numbers for the
+report.
+
+### 68.3 Below the frame
+
+Two things a page did on arrival, on the UI thread, before its frame: the Multiview page read the
+rig and what every output is doing, and the Pattern, Panel and Run pages listed the folder the
+presets live in — a stick beside the exe, a share — so a preset saved a minute ago is simply
+there. Both run below input and rendering now (`AfterTheFrame`, guarded like the switch itself),
+so the switch is the frame and nothing else, and the chips or the destinations are there a frame
+later; the tests that read them pump the dispatcher first, as they already did.
+
+### 68.4 Tests and docs
+
+Core: a switch as the press, the handler, the build and the frame with its words; one closed by
+the next with no frame seen; the window of sixty and the worst the session remembers; the CSV's
+two columns. App: two switches timed with the line, the page's arrival work run below the frame
+and run, the super-check's row and the facts. Docs: this section, REVIEW round 50, the help
+(Machine topic and body), README.
+
+### 68.5 Considered and left
+
+Timing the tab's own layout apart from the frame: the frame is what the operator sees, and the
+words already split the build from the rest. A budget per page: the worst names its page, and
+sixty is a night's worth on one line. Warming the pages before the first frame: the first frame
+is the start-up's budget, and a page built in idle time a second later costs the operator nothing.
+
+Counts at the end of the round: Core 1,161, App 603 — both suites green here.

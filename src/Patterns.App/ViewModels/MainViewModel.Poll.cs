@@ -56,6 +56,11 @@ public sealed partial class MainViewModel
     /// <summary>The STABILITY block's line: what the tick costs, its worst minute and the area that took it, what failed.</summary>
     public string DeskTickText { get => _deskTickText; private set => Set(ref _deskTickText, value); }
 
+    private string _switchText = "";
+
+    /// <summary>The line under the tick's: what a page switch costs from the press to the frame, the worst of the last sixty and where its time went.</summary>
+    public string SwitchText { get => _switchText; private set => Set(ref _switchText, value); }
+
     /// <summary>The status-timer body, callable directly (tests drive it without waiting on the clock).</summary>
     public void PollNow() => PollStatus();
 
@@ -96,6 +101,7 @@ public sealed partial class MainViewModel
         Guard("places", PollPlaces);
         _services.DeskTick.Record(_tickWatch.Elapsed.TotalMilliseconds, _tickSlowestArea, _tickSlowestMs);
         DeskTickText = _services.DeskTick.Describe();
+        SwitchText = _services.Switches.Describe();
         RenderBudgetText = FrameBudgets.Describe(ShowClock.Seconds);
         StartupText = _services.Startup.Describe();
         RuntimeText = $"Runtime {RuntimeName} · garbage collector {ShowGc.Describe()}.";

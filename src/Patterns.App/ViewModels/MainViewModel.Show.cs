@@ -120,6 +120,8 @@ public sealed partial class MainViewModel
             return;
         }
         var page = Shell.Pages[index];
+        var stamp = System.Diagnostics.Stopwatch.GetTimestamp();
+        _services.Switches.Begin(page.Header, stamp);                   // the press: timed to the first frame the window draws after
         _page = index;
         _lastPage[page.Group] = index;
         if (!run) _lastBuildPage = index;
@@ -134,13 +136,25 @@ public sealed partial class MainViewModel
             RaiseShell();
             Raise(nameof(PageWantsRoom));
             RefreshPopOut();   // the settings column follows the page: open for a selection here, closed elsewhere
-            // The Multiview page reads the rig and what every output is doing: level on arrival.
-            if (page.Header == "Multiview") RefreshWallDestinations();
-            // The presets are files beside the show, so the two pages that offer them read the
-            // folder as they come in: one saved a minute ago, or copied in by hand, is simply there.
-            if (page.Header is "Pattern" or "Panel" or "Run") RefreshPresetChips();
+            // The work a page wants on arrival runs below the frame, so the switch is the frame and
+            // nothing else: the Multiview page's read of the rig and what every output is doing, and
+            // the folder the presets live in — a stick, a share — read by the pages that offer them,
+            // so one saved a minute ago, or copied in by hand, is simply there a frame later.
+            if (page.Header == "Multiview") AfterTheFrame(RefreshWallDestinations, "the wall's destinations");
+            if (page.Header is "Pattern" or "Panel" or "Run") AfterTheFrame(RefreshPresetChips, "the preset chips");
         }, $"the switch to {page.Header}");
+        var handlerMs = System.Diagnostics.Stopwatch.GetElapsedTime(stamp).TotalMilliseconds;
+        _services.Switches.Handler(handlerMs);
+        if (handlerMs > SwitchBudget.StutterMs)
+        {
+            var build = _services.Switches.OpenBuildMs;
+            Log.Warn($"Page switch: {page.Header} took {handlerMs:0} ms on the UI thread before its frame{(build > 0 ? $" ({build:0} ms of it building the page)" : "")}.");
+        }
     }
+
+    /// <summary>Work a page wants on arrival, run below input and rendering so the switch itself is the frame and nothing else; guarded like the switch.</summary>
+    private static void AfterTheFrame(Action work, string what)
+        => Dispatcher.UIThread.Post(() => Patterns.App.Services.UiFaults.Guard(work, what), DispatcherPriority.Background);
 
     /// <summary>A group button: the group's last page, or its first; SHOW pressed while in Run goes to the panel.</summary>
     public void SelectGroup(ShellGroup group)

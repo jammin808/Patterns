@@ -168,6 +168,9 @@ public sealed record MetricSample
     public double P95FrameMs { get; init; } = -1;
     /// <summary>Presentation slots the outputs missed in the last minute — frames the room did not get.</summary>
     public int DroppedFrames { get; init; }
+    /// <summary>The worst page switch of the last sixty, press to frame (ms; -1 unknown), and the switches past a desk frame this session.</summary>
+    public double SwitchWorstMs { get; init; } = -1;
+    public int SlowSwitches { get; init; }
     public int Threads { get; init; }
     public int Handles { get; init; }
     public double GcPausePct { get; init; } = -1;
@@ -227,6 +230,8 @@ public sealed class MetricsHistory
             SlowFrames = window.Sum(s => s.SlowFrames),
             P95FrameMs = window.Max(s => s.P95FrameMs),
             DroppedFrames = window.Max(s => s.DroppedFrames),   // each sample already reads the last minute: the window's worst minute, not a sum
+            SwitchWorstMs = window.Max(s => s.SwitchWorstMs),
+            SlowSwitches = window.Max(s => s.SlowSwitches),
         };
     }
 
@@ -531,7 +536,7 @@ public static class SparklinePath
 public static class MetricsCsv
 {
     public const string Header =
-        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,droppedFrames";
+        "utc,cpuAppPct,cpuSysPct,ramAppMB,ramSysPct,vramUsedMB,gpuBusyPct,outputFps,worstFrameMs,slowFrames,threads,handles,onBattery,faults,p95FrameMs,droppedFrames,switchWorstMs,slowSwitches";
 
     public static string Line(MetricSample s) => string.Join(',',
         s.Utc.ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture),
@@ -543,7 +548,9 @@ public static class MetricsCsv
         s.OnBattery ? "1" : "0",
         s.Faults.ToString(System.Globalization.CultureInfo.InvariantCulture),
         R(s.P95FrameMs),
-        s.DroppedFrames.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        s.DroppedFrames.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        R(s.SwitchWorstMs),
+        s.SlowSwitches.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     private static string R(double v)
         => v < 0 ? "" : Math.Round(v, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);

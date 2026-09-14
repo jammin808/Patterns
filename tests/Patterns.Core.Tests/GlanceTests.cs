@@ -108,10 +108,12 @@ public class GlanceTests
         Assert.Equal(new ShowAction(ShowActionKind.CountdownFollow, "", "off"), ControlProtocol.Parse("COUNTDOWN FOLLOW OFF").Action);
         Assert.Contains("p95FrameMs", MetricsCsv.Header);
         Assert.Contains("droppedFrames", MetricsCsv.Header);
+        Assert.EndsWith(",switchWorstMs,slowSwitches", MetricsCsv.Header);
+        Assert.EndsWith(",42.4,3", MetricsCsv.Line(new MetricSample { Utc = DateTime.UnixEpoch, SwitchWorstMs = 42.4, SlowSwitches = 3 }));
         Assert.Equal(MetricsCsv.Header.Split(',').Length, MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, DroppedFrames = 2 }).Split(',').Length);
         Assert.Equal("+2:00", CueTiming.FormatDeltaExact(TimeSpan.FromMinutes(2)));
         Assert.Equal("-0:30", CueTiming.FormatDeltaExact(TimeSpan.FromSeconds(-30)));
         Assert.Equal("+1:02:03", CueTiming.FormatDeltaExact(TimeSpan.FromSeconds(3723)));
-        Assert.EndsWith(",8.1,2", MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, DroppedFrames = 2 }));
+        Assert.EndsWith(",8.1,2,,0", MetricsCsv.Line(new MetricSample { P95FrameMs = 8.1, DroppedFrames = 2 }));
     }
 }

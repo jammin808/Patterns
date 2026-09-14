@@ -78,7 +78,9 @@ public sealed class LazyPage : ContentControl
             Content = new TextBlock { Text = $"No such page: {Page}" };
             return;
         }
+        var watch = System.Diagnostics.Stopwatch.StartNew();
         UiFaults.Guard(() => Content = factory(), $"building the {Page} page");
+        AppServices.Instance?.Switches.Built(Page, watch.Elapsed.TotalMilliseconds);   // counted into the switch it was built on, if one is open; the warm-up's builds are nobody's
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

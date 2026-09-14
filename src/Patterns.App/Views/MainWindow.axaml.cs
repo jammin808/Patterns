@@ -54,6 +54,8 @@ public partial class MainWindow : Window
                 // come in is logged and contained rather than ending the desk.
                 UiFaults.Guard(() => Pages.SelectedIndex = vm.SelectedPageIndex, "the page tab");
             }
+            // The switch's frame: the first one drawn after the tab moved closes the switch on the budget.
+            RequestAnimationFrame(_ => vm.Services.Switches.Framed(System.Diagnostics.Stopwatch.GetTimestamp()));
         };
     }
 

@@ -144,6 +144,9 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>The desk's tick budget: what the once-a-second poll costs on the UI thread, its worst minute, the areas that failed.</summary>
     public TickBudget DeskTick { get; } = new();
 
+    /// <summary>The page switch's budget: every press on the rail timed to the first frame drawn, the worst of the last sixty and where its time went.</summary>
+    public SwitchBudget Switches { get; } = new();
+
     /// <summary>The one worker that draws the Library's thumbnails.</summary>
     public ThumbnailQueue Thumbnails { get; } = new();
 

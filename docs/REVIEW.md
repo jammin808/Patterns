@@ -1100,3 +1100,22 @@ verb every clock follows.*
 - **Done.** Each peer's clock on the main's line, the desk's on the follower's, the warning on
   the health line on both sides past two seconds, with the fix named. `docs/PLAN.md` §67.3.
 - **What it is not:** a time server. The venue's is the venue's; the link measures and says.
+
+## Round 50 review — the switch on the clock
+
+*The press timed to the frame; the arrival work below it.*
+
+### 50.1 — the measurement
+
+- **Done.** Press, handler, build, frame, on a budget beside the tick's; the words say where the
+  time went; the Machine page, the super-check and the CSV read it. `docs/PLAN.md` §68.1–68.2.
+- **The honest limit:** the frame is the window's first frame after the tab moved, not the
+  compositor's presentation; on a desk it is the same to a millisecond, and a headless test sees
+  none and says so.
+
+### 50.2 — below the frame
+
+- **Done.** The rig's read and the presets folder run below input and rendering. `docs/PLAN.md`
+  §68.3.
+- **What it is not:** a rewrite of the pages. Two things were on the switch's path; the budget
+  will name the next.
