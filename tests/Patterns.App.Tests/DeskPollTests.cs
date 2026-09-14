@@ -104,6 +104,56 @@ public class DeskPollTests
     }
 
     [AvaloniaFact]
+    public void TheHousekeepingRunsInTurnUnderItsBudgetAndWhatDidNotFitRunsFirstNextTick()
+    {
+        var b = TestApp.Boot();
+        try
+        {
+            var vm = b.Vm;
+            var lanes = vm.PollLanes;
+            lanes.BudgetMs = TickScheduler.HousekeepingBudgetMs;                                        // the desk's real budget, not the harness's
+            Assert.Equal(TickScheduler.HousekeepingBudgetMs, new TickScheduler().BudgetMs);
+            Assert.Equal(new[] { "tallies", "health", "screens", "run", "install", "sweep", "cues", "clock" }, lanes.Critical.Select(a => a.Name));
+            Assert.Contains("devices", lanes.Steady.Select(a => a.Name));
+            var housekeeping = lanes.Housekeeping.Select(a => a.Name).ToList();
+            Assert.Equal(new[] { "machine", "remote", "install page", "pickers", "web", "pages" }, housekeeping);
+
+            // Every housekeeping area costs more than the whole lane's budget: one fits a tick, the
+            // rest are carried and run first next tick — over a round each ran once, none starved,
+            // and the critical and steady lanes ran every tick regardless.
+            var carriedBefore = b.Services.DeskTick.Carried;
+            var seen = new List<string>();
+            vm.PollAreaProbe = area =>
+            {
+                seen.Add(area);
+                if (housekeeping.Contains(area)) Thread.Sleep((int)TickScheduler.HousekeepingBudgetMs + 1);
+            };
+            for (var i = 0; i < housekeeping.Count; i++) vm.PollNow();
+            foreach (var name in housekeeping) Assert.Equal(1, seen.Count(a => a == name));
+            Assert.Equal(housekeeping.Count, seen.Count(a => a == "cues"));
+            Assert.Equal(housekeeping.Count, seen.Count(a => a == "devices"));
+            Assert.Equal((housekeeping.Count - 1) * housekeeping.Count, b.Services.DeskTick.Carried - carriedBefore);
+            Assert.True(b.Services.DeskTick.HousekeepingP95Ms >= TickScheduler.HousekeepingBudgetMs);
+            Assert.Contains("housekeeping p95", vm.DeskTickText);
+            Assert.Contains("carried to the next tick", vm.DeskTickText);
+
+            // Headroom again: the carried areas run first and the whole lane fits one tick.
+            seen.Clear();
+            vm.PollAreaProbe = seen.Add;
+            var carried = b.Services.DeskTick.Carried;
+            vm.PollNow();
+            foreach (var name in housekeeping) Assert.Equal(1, seen.Count(a => a == name));
+            Assert.Equal(carried, b.Services.DeskTick.Carried);
+            Assert.StartsWith("Pages:", vm.PagesText);                                              // the pages line, made when a page was built
+            Assert.Contains(" built", vm.PagesText);
+        }
+        finally
+        {
+            b.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public void TheRemoteAddressesAreKeptForHalfAMinuteAndFollowThePort()
     {
         var b = TestApp.Boot();

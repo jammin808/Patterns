@@ -330,9 +330,12 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>The 1 s poll: the clock ticks, the folders and the check-in follow, the page's words refresh.</summary>
+    /// <summary>The install schedule's clock: a programme or an advert going up on time is the install's GO, so it ticks in the critical lane.</summary>
+    private void PollInstallSchedule() => _services.Install.Tick();
+
+    /// <summary>The Install page's own second — the update folder scanned, the update window, the management check-in, the lines and the day's rows — in the housekeeping lane.</summary>
     private void PollInstall()
     {
-        _services.Install.Tick();
         if (_statusTicks % 5 == 0) _services.Updates.Scan();
         _services.Updates.TickWindow(DateTime.Now);
         _services.Management.Tick(DateTime.UtcNow);

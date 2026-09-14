@@ -356,6 +356,8 @@
                ToolTip.Tip="What the side effects after an edit cost: how many passes, the worst and the sections it followed, what the change mask let skip, and the systems that took the time" />
     <TextBlock Classes="label" Text="{Binding FilesText}" TextWrapping="Wrap"
                ToolTip.Tip="What the show's files cost: the autosave serialised and written on a worker from the frozen show (saves a newer one overtook are coalesced), the recovery record the same way, a show loaded and a cue sheet imported parsed on a worker — and whether any phase held the desk past a frame" />
+    <TextBlock Classes="label" Text="{Binding PagesText}" TextWrapping="Wrap"
+               ToolTip.Tip="The rail's pages are built one at a time in idle time after the start, the pages a show reaches for first — and only while the desk has the headroom: never while the stack is armed with the outputs live, never with a page switch in flight, not on a stressed tick. A small machine builds the likely pages alone and leaves the rest to the click that wants them" />
     <TextBlock Classes="label" Text="{Binding RenderBudgetText}" TextWrapping="Wrap"
                ToolTip.Tip="The engine's frame budget: every frame the preview, the monitors and the outputs draw is timed with the slowest stage inside it (the pattern, the layers, the overlays, the lower third, a crossfade). The worst frame of the last minute names the stage and the sink, so a slow frame says what to lower. Past 25 ms is a hitch the room can see; past 50 ms a stutter — the super-check's Render frame row and the RENDER tile say the same" />
     <TextBlock Classes="label" Text="{Binding GoText}" TextWrapping="Wrap"

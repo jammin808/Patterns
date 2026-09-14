@@ -79,6 +79,33 @@ public class TickBudgetTests
     }
 
     [Fact]
+    public void TheHousekeepingLaneHasItsOwnP95AndCarriedCountAndTheLineNamesThem()
+    {
+        var b = new TickBudget();
+        Assert.Equal(-1, b.HousekeepingP95Ms);
+        Assert.Equal(-1, b.P95Ms);
+        for (var i = 0; i < 18; i++)
+        {
+            b.Record(2 + i * 0.1, "clock", 0.3);
+            b.RecordHousekeeping(1 + i * 0.1, 0);
+        }
+        b.Record(30, "pickers", 25);
+        b.RecordHousekeeping(9, 2);                                    // the budget ran out: two areas wait for the next tick
+        b.Record(28, "remote", 22);
+        b.RecordHousekeeping(12, 1);                                   // and one more the tick after
+        Assert.Equal(20, b.Ticks);
+        Assert.Equal(3, b.Carried);
+        Assert.Equal(12, b.LastHousekeepingMs);
+        Assert.Equal(9, b.HousekeepingP95Ms);                          // the 19th of 20 sorted: the first of the two slow ones
+        Assert.Equal(28, b.P95Ms);
+        Assert.Contains("housekeeping p95 9.0 ms under a 4 ms budget, 3 areas carried to the next tick this session", b.Describe());
+        b.Reset();
+        Assert.Equal(-1, b.HousekeepingP95Ms);
+        Assert.Equal(0, b.Carried);
+        Assert.DoesNotContain("housekeeping", b.Describe());
+    }
+
+    [Fact]
     public void ResetStartsTheSessionOver()
     {
         var b = new TickBudget();

@@ -13,6 +13,11 @@ public sealed partial class MainViewModel
     private readonly Dictionary<string, object?> _pollSeen = new();
     private readonly Stopwatch _tickWatch = new();
     private readonly Stopwatch _areaWatch = new();
+    private readonly TickScheduler _lanes = Lanes();
+    private readonly List<TickScheduler.Area> _notRun = new();
+    private Dictionary<string, Action>? _pollAreas;
+    private (int Built, int Pauses, int LeftToDemand, int Pending) _pagesSeen = (-1, -1, -1, -1);
+    private string _pagesText = "";
     private string _tickSlowestArea = "";
     private double _tickSlowestMs = -1;
     private string _deskTickText = "";
@@ -72,6 +77,12 @@ public sealed partial class MainViewModel
     /// <summary>The line under the side effects': what the show's files cost — the autosave's phases on their worker, the recovery record, a show loaded, a sheet imported — and whether anything held the desk.</summary>
     public string FilesText { get => _filesText; private set => Set(ref _filesText, value); }
 
+    /// <summary>The line under the files': the pages built of the rail's, the slowest build, the warm-up's waits for headroom, and what a small machine left to the click.</summary>
+    public string PagesText { get => _pagesText; private set => Set(ref _pagesText, value); }
+
+    /// <summary>The tick's lanes: which areas run every tick first, which after them, and which take turns under the housekeeping budget.</summary>
+    public TickScheduler PollLanes => _lanes;
+
     /// <summary>The line under the switch's: what the side effects after an edit cost — the passes, what the change mask let skip, the systems that took the time.</summary>
     public string SideEffectsText { get => _sideEffectsText; private set => Set(ref _sideEffectsText, value); }
 
@@ -79,40 +90,99 @@ public sealed partial class MainViewModel
     public void PollNow() => PollStatus();
 
     /// <summary>
-    /// One tick a second on the UI thread. Every area is guarded: a status read that throws is
-    /// logged once a minute, counted as a fault, and the areas after it still run — the cue
-    /// schedule, the tallies and the clock never wait on a broken probe. The whole tick is timed,
-    /// with the slowest area inside it, and kept in the budget the Machine page and the
-    /// super-check read.
+    /// The desk's second in lanes. The critical lane runs every tick, first, whatever the budget:
+    /// the tallies, the health line with the twin and the stage, the screens' ownership beat, the
+    /// run's timing, the install schedule's clock, the resources released, the cue schedule, the
+    /// clock. The steady lane runs every tick after it: the desk's own surfaces that read once a
+    /// second. The housekeeping lane — the metrics and the sparklines, the remote's words, the
+    /// Install page, the pickers' enumeration, the web page's controls, the pages line — runs
+    /// under a budget of a few milliseconds, in turn: what does not fit waits for the next tick
+    /// and runs first then, so a slow enumeration never sits in the same second as a GO.
+    /// </summary>
+    private static TickScheduler Lanes() => new TickScheduler()
+        .Add("tallies", TickLane.Critical)
+        .Add("health", TickLane.Critical)
+        .Add("screens", TickLane.Critical)
+        .Add("run", TickLane.Critical)
+        .Add("install", TickLane.Critical)
+        .Add("sweep", TickLane.Critical)
+        .Add("cues", TickLane.Critical)
+        .Add("clock", TickLane.Critical)
+        .Add("controls", TickLane.Steady)
+        .Add("media", TickLane.Steady)
+        .Add("audio", TickLane.Steady)
+        .Add("quality", TickLane.Steady)
+        .Add("inputs", TickLane.Steady)
+        .Add("switcher", TickLane.Steady)
+        .Add("devices", TickLane.Steady)
+        .Add("desk", TickLane.Steady)
+        .Add("playlist", TickLane.Steady)
+        .Add("places", TickLane.Steady)
+        .Add("machine", TickLane.Housekeeping)
+        .Add("remote", TickLane.Housekeeping)
+        .Add("install page", TickLane.Housekeeping)
+        .Add("pickers", TickLane.Housekeeping)
+        .Add("web", TickLane.Housekeeping)
+        .Add("pages", TickLane.Housekeeping);
+
+    /// <summary>Each area's work by the name the lanes and the budget know it by.</summary>
+    private Dictionary<string, Action> PollAreasByName() => new(StringComparer.Ordinal)
+    {
+        ["tallies"] = RefreshTallies,
+        ["health"] = PollHealth,
+        ["screens"] = PollOwnership,
+        ["run"] = PollRun,
+        ["install"] = PollInstallSchedule,
+        ["sweep"] = SweepRetired,
+        ["cues"] = CheckCues,
+        ["clock"] = PollClock,
+        ["controls"] = PollControls,
+        ["media"] = PollMedia,
+        ["audio"] = PollAudio,
+        ["quality"] = PollQuality,
+        ["inputs"] = Media.RefreshActiveInputs,
+        ["switcher"] = RefreshSwitcherTiles,
+        ["devices"] = PollDevices,
+        ["desk"] = PollDesk,
+        ["playlist"] = PollPlaylist,
+        ["places"] = PollPlaces,
+        ["machine"] = PollAdmin,
+        ["remote"] = PollRemote,
+        ["install page"] = PollInstall,
+        ["pickers"] = PollPickers,
+        ["web"] = Media.RefreshWebControls,
+        ["pages"] = PollPages,
+    };
+
+    /// <summary>
+    /// One tick a second on the UI thread, lane by lane. Every area is guarded: a status read
+    /// that throws is logged once a minute, counted as a fault, and the areas after it still run
+    /// — the cue schedule, the tallies and the clock never wait on a broken probe. The whole tick
+    /// is timed, with the slowest area inside it, and the housekeeping lane's cost and carry-over
+    /// with it, all kept in the budget the Machine page and the super-check read.
     /// </summary>
     private void PollStatus()
     {
+        _pollAreas ??= PollAreasByName();
         _tickWatch.Restart();
         _tickSlowestArea = "";
         _tickSlowestMs = -1;
         _statusTicks++;
-        Guard("controls", PollControls);
-        Guard("media", PollMedia);
-        Guard("audio", PollAudio);
-        Guard("tallies", RefreshTallies);
-        Guard("health", PollHealth);
-        Guard("screens", PollOwnership);
-        Guard("quality", PollQuality);
-        Guard("machine", PollAdmin);
-        Guard("inputs", Media.RefreshActiveInputs);
-        Guard("switcher", RefreshSwitcherTiles);
-        Guard("run", PollRun);
-        Guard("remote", PollRemote);
-        Guard("devices", PollDevices);
-        Guard("install", PollInstall);
-        Guard("desk", PollDesk);
-        Guard("sweep", SweepRetired);
-        Guard("cues", CheckCues);
-        Guard("playlist", PollPlaylist);
-        Guard("pickers", PollPickers);
-        Guard("web", Media.RefreshWebControls);
-        Guard("clock", PollClock);
-        Guard("places", PollPlaces);
+        foreach (var area in _lanes.Critical) Guard(area.Name, _pollAreas[area.Name]);
+        foreach (var area in _lanes.Steady) Guard(area.Name, _pollAreas[area.Name]);
+        var spent = 0.0;
+        _notRun.Clear();
+        foreach (var area in _lanes.HousekeepingOrder())
+        {
+            if (!TickScheduler.Fits(spent, _lanes.BudgetMs))
+            {
+                _notRun.Add(area);                                                   // next tick, first
+                continue;
+            }
+            spent += Guard(area.Name, _pollAreas[area.Name]);
+        }
+        var carried = _lanes.Settle(_notRun);
+        _services.DeskTick.RecordHousekeeping(spent, carried);
         _services.DeskTick.Record(_tickWatch.Elapsed.TotalMilliseconds, _tickSlowestArea, _tickSlowestMs);
         DeskTickText = _services.DeskTick.Describe();
         SwitchText = _services.Switches.Describe();
@@ -125,11 +195,12 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>
-    /// Runs one area of the tick and times it. An area that throws is carried past: the fault is
-    /// counted, and logged (with the health line told) once a minute per area so a probe that
-    /// fails every second reads as one story, not three thousand lines an hour.
+    /// Runs one area of the tick and times it; returns what it cost, ms. An area that throws is
+    /// carried past: the fault is counted, and logged (with the health line told) once a minute
+    /// per area so a probe that fails every second reads as one story, not three thousand lines
+    /// an hour.
     /// </summary>
-    private void Guard(string area, Action work)
+    private double Guard(string area, Action work)
     {
         _areaWatch.Restart();
         try
@@ -154,6 +225,20 @@ public sealed partial class MainViewModel
             _tickSlowestMs = ms;
             _tickSlowestArea = area;
         }
+        return ms;
+    }
+
+    /// <summary>
+    /// The pages line, remade only when a page was built or the warm-up moved: counting the
+    /// window's pages walks its logical tree, which is not a thing to do every second.
+    /// </summary>
+    private void PollPages()
+    {
+        if (_services.MainWindow is not { } window) return;
+        var key = (Views.Controls.LazyPage.BuildTimes.Count, Views.Controls.LazyPage.WarmUpPauses, Views.Controls.LazyPage.WarmUpLeftToDemand, Views.Controls.LazyPage.WarmUpPending);
+        if (key == _pagesSeen) return;
+        _pagesSeen = key;
+        PagesText = Views.Controls.LazyPage.Words(window);
     }
 
     /// <summary>Raises a computed property only when its value moved since the last tick — a bound TextBlock re-reads nothing otherwise.</summary>

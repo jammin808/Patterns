@@ -21,8 +21,11 @@ public sealed class TickBudget
 
     private readonly double[] _ms = new double[Window];
     private readonly string[] _area = new string[Window];
+    private readonly double[] _housekeepingMs = new double[Window];
     private int _next;
     private int _count;
+    private int _housekeepingNext;
+    private int _housekeepingCount;
 
     /// <summary>Ticks recorded this session.</summary>
     public long Ticks { get; private set; }
@@ -62,6 +65,39 @@ public sealed class TickBudget
 
     /// <summary>An area threw inside a tick and the tick carried on.</summary>
     public void RecordFault() => Faults++;
+
+    /// <summary>Housekeeping areas the budget did not fit this session, carried to the next tick.</summary>
+    public long Carried { get; private set; }
+
+    /// <summary>The last tick's housekeeping, ms; -1 before one.</summary>
+    public double LastHousekeepingMs { get; private set; } = -1;
+
+    /// <summary>One tick's housekeeping lane done: what it cost under its budget, and how many areas were carried to the next tick.</summary>
+    public void RecordHousekeeping(double ms, int carried)
+    {
+        if (ms < 0) ms = 0;
+        LastHousekeepingMs = ms;
+        Carried += Math.Max(0, carried);
+        _housekeepingMs[_housekeepingNext] = ms;
+        _housekeepingNext = (_housekeepingNext + 1) % Window;
+        if (_housekeepingCount < Window) _housekeepingCount++;
+    }
+
+    /// <summary>The housekeeping lane's p95 over the window, ms; -1 with none — the maintenance the design keeps under a few milliseconds.</summary>
+    public double HousekeepingP95Ms => Percentile(_housekeepingMs, _housekeepingCount, 0.95);
+
+    /// <summary>The whole tick's p95 over the window, ms; -1 with none.</summary>
+    public double P95Ms => Percentile(_ms, _count, 0.95);
+
+    private static double Percentile(double[] ring, int count, double q)
+    {
+        if (count == 0) return -1;
+        var sorted = new double[count];
+        Array.Copy(ring, sorted, count);
+        Array.Sort(sorted);
+        var index = Math.Clamp((int)Math.Ceiling(count * q) - 1, 0, count - 1);
+        return sorted[index];
+    }
 
     /// <summary>The worst tick in the window, ms; -1 with none.</summary>
     public double WorstMs
@@ -127,6 +163,7 @@ public sealed class TickBudget
             $"{SlowTicks} past {SlowMs:0} ms this session",
         };
         if (Faults > 0) parts.Add($"{Faults} area{(Faults == 1 ? "" : "s")} failed and the tick carried on — see the log");
+        if (_housekeepingCount > 0) parts.Add($"housekeeping p95 {HousekeepingP95Ms:0.0} ms under a {TickScheduler.HousekeepingBudgetMs:0} ms budget{(Carried > 0 ? $", {Carried} area{(Carried == 1 ? "" : "s")} carried to the next tick this session" : "")}");
         return string.Join(" · ", parts);
     }
 
@@ -134,8 +171,13 @@ public sealed class TickBudget
     {
         Array.Clear(_ms);
         Array.Clear(_area);
+        Array.Clear(_housekeepingMs);
         _next = 0;
         _count = 0;
+        _housekeepingNext = 0;
+        _housekeepingCount = 0;
+        Carried = 0;
+        LastHousekeepingMs = -1;
         Ticks = 0;
         SlowTicks = 0;
         Faults = 0;

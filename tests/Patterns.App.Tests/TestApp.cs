@@ -33,12 +33,21 @@ public static class TestApp
     /// <param name="prepare">Runs on the empty folder before the services read it — a marker the watchdog would have left, a settings file.</param>
     public static Booted Boot(string prefix = "patterns-tests-", Action<string>? prepare = null, Patterns.Core.Model.NodeKind profile = Patterns.Core.Model.NodeKind.Desk)
     {
+        // The tests assume a desk-class machine with the headroom to warm every page: a small
+        // container or a slow headless tick must not change what a test sees built.
+        Views.Controls.LazyPage.MachineGB = 32;
+        Views.Controls.LazyPage.PauseOverride ??= static () => false;
+
         var dir = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         prepare?.Invoke(dir);
         var services = new AppServices(new SettingsStore(dir), profile: profile);
         AppServices.Instance = services;
         var vm = new MainViewModel(services);
+        // The housekeeping lane whole every tick: a test reads the Install page or the machine's
+        // lines after one poll, whatever the machine running the tests is doing. The lanes' own
+        // test sets the desk's real budget back.
+        vm.PollLanes.BudgetMs = 10_000;
         var window = new MainWindow { DataContext = vm };
         services.AttachMainWindow(window);
         window.Show();
