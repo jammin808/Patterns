@@ -266,6 +266,8 @@ public sealed class CommandRouter : IRouter
         {
             show = s.Name,
             rev = Rev?.Invoke() ?? 0,
+            version = AppVersion.Current,                                  // this build, so a deck can say which desk it is on
+            decks = _services.Control.Decks.Select(d => new { name = d.Name, module = d.Module, address = d.Address }).ToArray(),   // every deck that said HELLO
             airLabel = _services.AirLabel,
             cuestack = CueStackJson(),
             blackout = s.Blackout,

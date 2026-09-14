@@ -2010,6 +2010,10 @@ public sealed class ControlConfig : Observable
     /// <summary>A remote may ARM / disarm the caller's cue stack (CUE ARM ON / OFF). Off by default: arming is a deliberate act at the desk.</summary>
     public bool RemotesMayArm { get => _remotesMayArm; set => Set(ref _remotesMayArm, value); }
 
+    private bool _announce = true;
+    /// <summary>Announce this process on the network (mDNS, _patterns._tcp) so a Companion lists it under "Desk on the network" instead of asking for an address. On by default; a deliberate switch for a network that must stay quiet.</summary>
+    public bool Announce { get => _announce; set => Set(ref _announce, value); }
+
     private bool _audienceEnabled;
     private int _audiencePort = 9701;
     private string _audienceBind = "";

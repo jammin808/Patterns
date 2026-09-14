@@ -352,6 +352,8 @@ public sealed class NodeRouter : IRouter
             machine = _host.Kernel.Beacon.MachineName,
             show = s.Name,
             rev = Rev?.Invoke() ?? 0,
+            version = AppVersion.Current,
+            decks = _host.Control.Decks.Select(d => new { name = d.Name, module = d.Module, address = d.Address }).ToArray(),
             arcade = _host.Arcade.Words,
             play = _host.Play.Code,
             audience = s.Control.AudienceEnabled ? s.Control.AudiencePort : 0,
@@ -500,6 +502,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     {
         Control.Reconcile();
         Kernel.Beacon.Reconcile();
+        Kernel.Mdns.Reconcile();
         Twin?.Reconcile();
         if (Kind == NodeKind.Arcade) Arcade.Start();
         _tick.Start();
@@ -531,6 +534,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         _screens.Refresh();
         Control.Reconcile();
         Kernel.Beacon.Reconcile();
+        Kernel.Mdns.Reconcile();
         Twin?.Reconcile();
         SnapshotPublished?.Invoke();
         _save.Stop();

@@ -27,6 +27,12 @@
       <TextBlock Classes="hint tip"
                  Text="The web remote drives presenter next/back, looks, transport, blackout, screens, the audio track, lower thirds and the web page on air — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens, canvas groups and page actions map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
 
+      <TextBlock Classes="h2" Text="COMPANION" />
+      <CheckBox Content="Announce this desk on the network (mDNS) — Companion lists it under 'Desk on the network', no address to type" IsChecked="{Binding State.Control.Announce}"
+                ToolTip.Tip="On by default. Off, a Companion connection needs this machine's IP typed in; nothing else changes" />
+      <TextBox Text="{Binding CompanionText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas,monospace"
+               ToolTip.Tip="This desk as the network sees it, every deck connected with the module it runs, and the Companions heard announcing themselves — a Companion the desk can drive through a Companion device on the Interactive page" />
+
       <TextBlock Classes="h2" Text="AUDIENCE (A PORT OF ITS OWN)" />
     <TextBlock Classes="hint tip"
                Text="The room of phones reaches one socket, and that socket answers the play pages and nothing else — never a command, the state or a picture. Off by default. Put this port on the audience Wi-Fi (a VLAN apart from the show LAN, the venue's captive portal off) and never the control port; on a hub with two networks, bind it to the audience network's address." />

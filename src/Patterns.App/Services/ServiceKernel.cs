@@ -52,6 +52,9 @@ public sealed class ServiceKernel : IDisposable
 
     public BeaconService Beacon { get; }
 
+    /// <summary>This process announced on the network by name (mDNS), and the Companions heard announcing themselves.</summary>
+    public MdnsService Mdns { get; }
+
     public NodesService Nodes { get; }
 
     /// <summary>Where every list is right now — never in the show, reset when one loads. Every role that shows a stack reads it: the desk's Run surface, a caller's, a timer's segment.</summary>
@@ -107,11 +110,13 @@ public sealed class ServiceKernel : IDisposable
         AssistantKeys = new AssistantKeyStore(Store.BaseDirectory);
         Assistant = new AssistantService(this, AssistantKeys);
         Beacon = new BeaconService(this);
+        Mdns = new MdnsService(this);
         Nodes = new NodesService(this);
     }
 
     public void Dispose()
     {
+        Mdns.Dispose();
         Beacon.Dispose();
     }
 }

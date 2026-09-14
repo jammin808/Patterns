@@ -249,6 +249,22 @@ public sealed partial class MainViewModel
             ? $"Remote: {_services.Control.RemoteUrls().Skip(1).FirstOrDefault() ?? _services.Control.RemoteUrls()[0]}"
             : "Remote control off.";
         OscStatus = _services.Osc.StatusLine;
+        CompanionText = CompanionStrip();
+    }
+
+    private string _companionText = "";
+
+    /// <summary>The Remote page's COMPANION strip: this desk on the network, the decks connected, the Companions heard.</summary>
+    public string CompanionText { get => _companionText; private set => Set(ref _companionText, value); }
+
+    private string CompanionStrip()
+    {
+        var mdns = _services.Kernel.Mdns;
+        var instance = mdns.Advert?.InstanceLabel ?? mdns.Build().InstanceLabel;
+        return string.Join("\n",
+            CompanionWords.AnnounceLine(State.Control.Enabled, State.Control.Announce, mdns.Status, instance),
+            CompanionWords.DecksLine(_services.Control.Decks),
+            CompanionWords.HeardLine(mdns.Companions));
     }
 
     private void PollDesk()

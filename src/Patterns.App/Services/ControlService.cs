@@ -301,8 +301,14 @@ public sealed partial class ControlService : IDisposable
                 var cmd = ControlProtocol.Parse(line);
                 if (cmd.Kind == RemoteCommandKind.Hello)
                 {
-                    // "HELLO FOH deck": history reads "GO from tcp FOH deck", not an address.
-                    origin = new ActionOrigin(OriginKind.Tcp, cmd.Text, endpoint);
+                    // "HELLO FOH deck module=3.0.0": history reads "GO from tcp FOH deck", not an address,
+                    // and the Remote page lists the deck with the module it runs.
+                    var (name, module) = CompanionWords.ParseHello(cmd.Text);
+                    origin = new ActionOrigin(OriginKind.Tcp, name, endpoint);
+                    lock (_gate)
+                    {
+                        _decks[client] = new WireDeck(name, module, address, DateTime.UtcNow);
+                    }
                 }
                 var response = await _router.ExecuteAsync(cmd, origin);
                 await WriteLine(stream, response, ct);
@@ -317,6 +323,7 @@ public sealed partial class ControlService : IDisposable
             lock (_gate)
             {
                 _tcpClients.Remove(client);
+                _decks.Remove(client);
             }
             client.Dispose();
             _wireLedger.Release(address);
@@ -328,6 +335,20 @@ public sealed partial class ControlService : IDisposable
 
     /// <summary>How many Companion connections are open right now.</summary>
     public int WireConnections => _wireLedger.Open;
+
+    private readonly Dictionary<TcpClient, WireDeck> _decks = new();
+
+    /// <summary>The decks that said HELLO and are still connected — name, module version, address — for the Remote page and STATE.</summary>
+    public IReadOnlyList<WireDeck> Decks
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _decks.Values.OrderBy(d => d.SinceUtc).ToList();
+            }
+        }
+    }
 
     /// <summary>How many web remote connections are open right now.</summary>
     public int HttpConnections => _httpLedger.Open;

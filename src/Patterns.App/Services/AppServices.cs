@@ -1520,6 +1520,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // clips are the desk's to open, not a caller's.
         Control.Reconcile();
         Beacon.Reconcile();
+        Kernel.Mdns.Reconcile();
         Twin.Reconcile();
     }
 
