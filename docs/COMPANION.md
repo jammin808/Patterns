@@ -95,6 +95,20 @@ leave) actions, an `audio_routing_on` feedback, `audio_routing` / `audio_routing
 and a ROUTING key in the Audio category. Every line they send is in `test/lines.txt` and parsed by
 the desk's own test. The module's version stays 3.0.0: the ids added are new, none changed.
 
+## 6. Round 56 additions
+
+The single-machine round reached the deck in three places. Trouble on the outputs:
+`machine_render_faults` (frames of the last minute whose draw threw — the room saw the last good
+picture instead) and `machine_faulting` (FAULT / ok), with a `render_faulting` feedback in the
+screen colour `fault` (red). A cue settled by its boxes: `cue_last_pending` — the device receipts
+the last cue still waits for, 0 once settled (its outcome reads *Requested* until then). The
+boxes themselves: `devices_failing` (how many Interactive devices' last word was a failure),
+`device_last_reply` (*Projector: POWR: OK — accepted*) and `device_last_failure` (*Projector:
+INPUT HDMI 2 — no answer in 2 s*), with a `device_failing` feedback (any device, or a named one)
+in the device colour `fault` (red) beside `device_open` (green). The palette rows are held equal
+on both sides by the desk's test as before. The module's version stays 3.0.0: the ids added are
+new, none changed.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

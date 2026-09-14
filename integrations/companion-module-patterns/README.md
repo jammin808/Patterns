@@ -59,7 +59,10 @@ things; a colour per node kind; dim for a bank key with nothing behind it.
 Patterns pushes `STATE {json}` on every change (throttled to 200 ms) and every second while a
 countdown, a clip or the stage timer runs; the module turns it into the variables the keys read
 and rechecks every feedback. `$(patterns:desk_version)` and `$(patterns:show)` say which desk and
-show a deck is on; `$(patterns:last_error)` carries the last refusal. The connection says `HELLO
+show a deck is on; `$(patterns:last_error)` carries the last refusal. `$(patterns:machine_faulting)`,
+`$(patterns:devices_failing)` and `$(patterns:device_last_failure)` say when an output or a box is in
+trouble, and the `render_faulting` and `device_failing` feedbacks light a key red for it;
+`$(patterns:cue_last_pending)` counts the device receipts the last cue still waits for. The connection says `HELLO
 <label> module=3.0.0` on connect, so the desk's Remote page can list every deck and its module.
 
 ## From 2.x

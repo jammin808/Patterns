@@ -1256,3 +1256,100 @@ desk by itself, the desk drives it back, and both sides speak one colour.*
 Counts at the end of the round: Core 1,233, App 616 — both suites green here, the module's
 thirteen beside them.
 
+## Round 56 review — a single machine rock solid
+
+*The triage document's P0 and P1 (the twin's items left for later at the brief's direction), one
+unit a commit, each proven by both suites before the next.*
+
+### 56.1 — one captured snapshot per frame
+
+- **Done.** `FrameInput` captured once at the top of the frame with its kind; everything below
+  draws from it. §74.1.
+- **The honest limit:** proven headless on the raster backend; a GPU device-lost mid-frame is not
+  simulated here.
+
+### 56.2 — cue execution ids; device receipts settle the cue
+
+- **Done.** The id through the actions, the device lines and the receipts; the row `Requested`
+  until settled; STATE and Companion carry the pending count. §74.2.
+- **Kept deliberate:** a datagram is `Done` at once — a UDP line has no receipt to wait for; the
+  GO lockout stands, so the settlement test sleeps between two GOs.
+- **The honest limit:** the boxes here are fakes; a real projector's timing is the field's.
+
+### 56.3 — the warp geometry cache
+
+- **Done, with numbers.** A plain frame 1,616 B → 32 B, a 17 × 17 mesh frame ~100 KB → 331 B
+  (235 B are two Skia wrappers); the allocation test holds both under a bound. §74.3.
+- **Found on the way:** the overlay's badge shaped its letters one `DrawText(string)` at a time
+  (SkiaSharp 3 shapes a blob per call) and the transition key's `GetOrAdd` closure — both gone.
+
+### 56.4 — render faults, the last good frame, the canvas, the words
+
+- **Done.** Faults per sink with the run and the last good frame drawn in their place; the
+  canvas quiet while detached; *slots missed* and *first drawn frame* in every line; the CSV's
+  columns renamed. §74.4.
+- **Kept deliberate:** a fault is logged once every ten seconds, not every frame — the log is
+  for the stack, the line for the count.
+
+### 56.5 — side effects by dirty domain
+
+- **Done.** The domains, the dispatch on the mask, the reconcile budget on the page, the
+  super-check and the brief. §74.5.
+- **The honest limit:** the domains' reads are hand-kept lists — a system that starts reading a
+  new section must be added to its list or an edit there will not reach it. The test
+  `EverySectionASystemReadsIsARealSectionOfTheShow` catches a misspelt section, not a missing one;
+  the boot and `RepublishNow` still run everything.
+
+### 56.6 — the show's files off the desk's thread
+
+- **Done.** The autosave and the recovery record serialised and written on one ordered lane from
+  the frozen show, coalesced; a show, a save and a sheet on workers; the files budget. §74.6.
+- **Found on the way:** three tests read the recovery sidecar right after an action and now flush
+  the lane first — the sidecar is written a moment later, on purpose.
+- **Kept deliberate:** a show saved by hand is still serialised on the desk (the operator asked,
+  and the file must be the show as they see it); only its write moved.
+
+### 56.7 — the desk's second in lanes; the pages warmed with headroom
+
+- **Done.** Three lanes, the housekeeping budget with carry-over, the pages in a show's order with
+  the headroom rule and the small-machine rule, the pages line. §74.7.
+- **Kept deliberate:** the test harness pins the housekeeping budget wide — a test that reads the
+  Install page or the machine's lines after one poll wants the lane whole whatever the test
+  machine is doing; the lanes' own test sets the desk's real budget back. The machine class
+  (8 GB) is a chosen line, to be tuned from the field.
+- **Found on the way:** the first pages line walked the window's logical tree, and a cold walk
+  under load tripped the dashboard's desk-tick caution in a test — the pages now register by
+  their root as they attach, and nothing walks. `StartupTests` also assumed a desk-class machine:
+  the harness pins one.
+
+### 56.8 — the quality ladder from the sink's rate, its p95 and a profile
+
+- **Done.** The budget from the rate, the second's verdict on p95, slots and stutter, the sink
+  pressing hardest judged, the profile read at the start and written at the end, the untouchables
+  proven pixel for pixel. §74.8.
+- **Kept deliberate:** the safety margin (85 %) and the three-slot line are chosen numbers with a
+  reason each, not measurements; the profile's start is not a step (nothing counted, no time).
+- **The honest limit:** on Linux the machine key has no CPU name; the render loop that would feed
+  real p95s ran nowhere here — the App tests record frames by hand.
+
+### 56.9 — what a box did lately; the venue NAT through the socket
+
+- **Done.** `DeviceRuntime` on the card with the ages, in STATE and on the deck; two hundred
+  phones through the real socket under the profile, refused on flat, seated again. §74.9.
+- **The honest limit:** the loopback is one address by nature; the connection ledger's per-address
+  cap is not asserted (two hundred parallel connections may or may not overlap on a test machine),
+  the join budget is.
+
+### Seen, and noted
+
+- `DeckStateAppTests.StateCarriesTheNodes…` failed once in a full run with two nodes where three
+  were expected and passed alone and in every run since — a beacon's arrival order, not a fault
+  found; watched.
+- `AdminTests.TheDashboardReadsTheMachineAtAGlance…` tripped once on the desk tick's 50 ms
+  caution while another suite ran beside it: the cause was 56.7's first pages line (fixed above),
+  but a loaded test machine can still make a cold tick slow — the test reads a caution, not a
+  crash.
+- CI's Windows job and the portable exe were not run here; the branch is pushed for it.
+
+Counts at the end of the round: Core 1,257, App 647 — both suites green here, the module's
+thirteen beside them.

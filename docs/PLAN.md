@@ -7056,3 +7056,157 @@ lane like a clip — a later round. Multi-channel envelopes (vMix's MA / MAB cha
 matrix is stereo. A separate Audio page (the brief's "separate area or an expandable column"): an
 expandable area on the Audio page, so the outputs, the monitor and the matrix stay one story.
 
+## 74. Round 56 — a single machine rock solid: the triage's P0 and P1, the twin left for later
+
+*The brief: the developer notes `Patterns_R54_5_Deep_Code_Triage_and_Developer_Priority.md` — a
+deep read of the code with a P0 / P1 / P2 / P3 order — and the direction "leave any work on the
+twin machine until later; we need to concentrate on getting a single machine rock solid", with
+the standing reminder: stability, resilience, efficiency, instant selection changes, game-play
+architecture for AV, maths and physics where they are more reliable, AI at each step, Companion
+always considered. So the twin's items (P0.1–P0.3, P1.8, P1.10) wait, and the rest of P0 and P1
+plus three P2s that fell out of the same work are built here, one unit a commit, each proven by
+both suites before the next.*
+
+### 74.1 One captured snapshot per frame (56.1 — P0.5)
+
+A frame used to read the bus more than once on its way down — the program for the pattern, the
+sandbox for the preview, the clock — and a publish landing between two reads gave one frame two
+worlds. `FrameInput` (Core) captures the program, the preview and the clock once at the top of
+`RenderLocked`, with a `FrameKind` (Show or Calibration) so a calibration frame never counts as
+a show frame shown; everything below draws `in input`. `PipelineViewport` and the sinks are
+unchanged; the test draws through a bus that publishes mid-frame and finds one version in the
+picture.
+
+### 74.2 Cue execution ids; device receipts settle the cue that caused them (56.2 — P0.4)
+
+Every GO makes a `CueExecution` (an eight-hex id, the device lines pending, whether another cue
+is still settling); the actions carry it (`ActionResult.Execution`), the device service stamps
+each tracked line with it, and a receipt names it back (`DeviceReceipt.Execution`). The cue's
+row is `Requested` with *Awaiting N receipt(s)* until the receipts land, then `Done`, *Done, with
+warnings* or *Failed late*; the poll skips a row with receipts pending; the tail steps carry the
+id too. A line a box does not answer (a datagram) is `Done` at once, as before. STATE's cue rows
+gain `execution` and `pending`; Companion gains `cue_last_pending`. `GoGate.Lockout` (300 ms)
+stands: two GOs back to back are two presses.
+
+### 74.3 The warp geometry cache (56.3 — P1.1)
+
+A mesh-warped output parsed its mesh and built its patches every frame. `WarpGeometrySpec`
+(Core) is the value the geometry depends on — columns, rows, the mesh text, the bows, the corners,
+the rotation, the sizes, the blend widths, the pedestal — and `WarpGeometryCache.For(in spec)`
+gives the built `WarpGeometry` (patch cubics and textures, the bend, the keystone, the lattice's
+lines and nodes, the pedestal rects, the transforms both ways) again while the spec is equal.
+With it the last per-frame allocations in a steady frame went: the overlay's badge letters are
+shaped once (`PaintCache.TextBlob` / `SpacedWord`), the rounded rect is reused, and the transition
+key lookup does `TryGetValue` before `GetOrAdd` (the lambda closure was 96 B a frame). Measured
+headless: a plain frame 1,616 B → 32 B; a 17 × 17 mesh frame ~100 KB → 331 B (235 of which are
+two Skia wrappers).
+
+### 74.4 Render faults per sink, the last good frame, the canvas detached (56.4 — P1.7, P2.5, P2.11)
+
+A draw that throws is a fault on that sink: `FrameBudget.RecordFault` / `RecordGood` keep the
+count, the run (`ConsecutiveFaults`), the last fault's words and the last good version; the
+pipeline draws the last good frame in its place and logs the stack once every ten seconds; the
+glance line reads *FAULT* while a run is on, the Machine page's line the count, the super-check
+a *Render faults* row (amber on one, red at a run of three), STATE's machine row `renderFaults`
+and `faulting`, Companion `machine_render_faults`, `machine_faulting` and a `render_faulting`
+feedback (red). `SkiaCanvasControl` asks for no frame while detached and asks for one on
+re-attach, so a window re-parented mid-show never wedges its pacer. The telemetry says what it
+measures: *slots missed* (the pacer's presentation slots), *GO to first drawn frame*, *publish
+to first drawn frame*; the CSV's `droppedFrames` became `missedSlots` and gained `renderFaults`.
+
+### 74.5 Side effects by dirty domain (56.5 — P1.2)
+
+Every publish used to re-run every side effect — the rig, the NDI senders, the inputs, OSC, the
+devices, the wire, the beacon, mDNS, the twin — whatever had changed. `SideEffectDomains` (Core)
+names the sections each system reads; `AppServices.ApplySideEffects(dirty)` runs a system only
+when the change mask touches its sections (a null mask, the boot and `RepublishNow`, runs them
+all); `ReconcileBudget` counts the passes, the runs, the skips, the worst pass and the sections
+it followed, for the Machine page's *Side effects* line, the super-check's row and the brief.
+The mask comes from the bus's `SectionsPublished`; the test edits one section and finds the other
+systems untouched, and holds every section a system names to be a real one.
+
+### 74.6 The show's files off the desk's thread (56.6 — P1.3, P2.6)
+
+The autosave takes the show the last publish froze — immutable by construction — and serialises
+and writes it on one ordered file lane; a save a newer one overtakes before it runs is coalesced.
+The recovery record the same way: the desk's thread takes the frozen program, the pinned look
+and the flags, the worker clones the air, applies the pin, serialises and writes; the GO's record
+too, which used to clone and serialise the whole show three times on the desk's thread. A clear
+queues behind the writes; a restart's own write waits for the lane; the twin is told the record
+moved once it is on the disk. A show loaded is read, parsed and migrated on a worker and applied
+once; a show saved by hand is serialised on the desk and written by a worker; a cue sheet is read
+and parsed on a worker. `FileBudget` keeps every phase's count, last and worst, the saves
+coalesced, and whether any phase held the desk past a frame — the Machine page's *Files* line.
+
+### 74.7 The desk's second in lanes; the pages warmed with headroom (56.7 — P1.4, P1.5)
+
+`TickScheduler` (Core): the once-a-second poll runs in lanes. Critical every tick, first,
+whatever the budget — the tallies, the health line with the twin and the stage, the screens'
+ownership beat, the run's timing, the install schedule's clock (apart from its page now), the
+resources released, the cue schedule, the clock. Steady every tick after it — the controls, the
+media, the audio, the quality ladder, the inputs, the switcher, the devices, the desk, the
+playlist, the places. Housekeeping under a 4 ms budget, in turn — the metrics and the sparklines,
+the remote's words, the Install page, the pickers' enumeration, the web page's controls, the
+pages line: what does not fit waits for the next tick and runs first then, so none starves and a
+slow enumeration never sits in the same second as a GO. The tick budget keeps the lane's p95 and
+the areas carried; the desk-tick line and the brief read them. `WarmUpPlan` (Core): the pages are
+built in idle time in the order a show reaches for them (Cues, Screens, Media, Interactive,
+Machine, Looks, Panel, then the rest), only while the desk has headroom — never with the stack
+armed and the outputs live, never with a page switch in flight, not on a stressed tick; a wait
+of a second otherwise — and a machine under 8 GB builds the likely pages alone. Every build's
+time is remembered; a *Pages* line on the Machine page reads the count, the slowest, the waits
+and what was left to demand. The lazy pages register by their logical root as they attach, so
+counting them walks no tree.
+
+### 74.8 The quality ladder from the sink's rate, its p95 and a profile (56.8 — P1.6)
+
+The ladder judges a second against the sink's own rate rather than a fixed 25 ms: the budget is
+85 % of the frame slot (14 ms at 60 fps, 28 at 30), and a second counts against the level when
+its p95 is past the budget, when it missed three presentation slots, or when a frame passed the
+stutter line — three such seconds step down, thirty clean ones step back. `FrameBudget` records
+each sink's target rate and reads the last complete second's own p95 and missed slots from its
+histogram; the output pressing hardest against its own budget is judged, so a 30 fps cinema
+output and a 60 fps wall each answer for their own slot; the cause names the measure. A quality
+profile beside the settings (`patterns.quality.json`: the machine — CPU, threads, memory, best
+card — the level, the steps) is written when the level moves and when the desk ends, and read at
+the start: Auto begins where the last session on this machine settled; another machine's profile
+is ignored; a machine under 8 GB with no profile starts a level down until thirty clean seconds
+prove it. A start is not a step. A test card and a plain pattern render pixel for pixel the same
+at every level, and the test says so.
+
+### 74.9 What a box did lately; the venue NAT through the socket (56.9 — P1.9, P1.11)
+
+`DeviceRuntime` (Core): the last line sent and when, the last reply and when, the highest
+confirmation last given, the last observed state, the last failure and when, and whether that
+failure is the box's last word — runtime alone, `[JsonIgnore]`, never in the show file. The
+device service writes it at each event (a tracked line, a reply, a receipt, a port that would not
+open); the Interactive card reads it as one line with the ages, moved on by the desk's tick;
+STATE's device rows carry every field with its time and `failing`; Companion gains
+`devices_failing`, `device_last_reply`, `device_last_failure` and a `device_failing` feedback
+(red). The venue NAT profile is proven through the real audience socket: two hundred phones
+behind one address seated under the profile with the budgets as shipped, the same room on a flat
+network turning the next away with the profile named on the line, the next phone seated again
+once the profile is back.
+
+### 74.10 Tests, docs (56.10)
+
+Core: the frame input captured once; the execution record and its words; the warp spec and
+geometry, the cache; the frame budget's faults, the readings' words; the side-effect domains and
+the budget; the file budget; the tick scheduler, the warm-up plan and the tick budget's
+housekeeping; the ladder's budget, verdicts, words, profile and untouchables; the device runtime
+and its ages. App: one snapshot through a mid-frame publish; a cue settled by its receipts and
+skipped by the poll while pending; the geometry cache's bytes per frame; a fault drawn over by
+the last good frame, the canvas re-attached; a change reaching its systems alone; the autosave
+coalesced, the recovery record on the lane, a show and a sheet parsed on a worker; the lanes and
+the carry-over, the pages warmed in order and paused; each output judged at its own rate, Auto
+started from the profile and the profile written; the card's history, STATE's fields, the NAT
+profile through the socket. Docs: this section, REVIEW round 56, README, REMOTE.md,
+COMPANION.md, the module's README, the help.
+
+### 74.11 Considered and left
+
+The twin's items — the triage's P0.1 to P0.3, P1.8 and P1.10 — at the brief's direction: a
+single machine first; they are next. The P2 queue beyond the three built here (2.5, 2.6, 2.11),
+and P3. A pipes-and-filters render graph (the frame input and the geometry cache are its first
+two nodes). Per-lane budgets for the steady lane (it runs whole; only the housekeeping lane is
+budgeted). A ladder step for the lower third's text or the test card: never — they are the show.
