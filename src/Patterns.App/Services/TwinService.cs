@@ -1734,7 +1734,7 @@ public sealed class TwinService : IDisposable, ILinkReport
             cfg.MainHost = card.Address.ToString();
             cfg.Port = card.LinkPort;
         });
-        return $"Linking to {card.Name} at {card.Address}:{card.LinkPort} — the desk's twin key must be entered here (Machine page, TWIN) if it refuses.";
+        return $"Linking to {card.Name} at {card.Address}:{card.LinkPort} — if the desk refuses, its key goes on this node's Machine tab (the desk shows it on its Machine page, TWIN).";
     }
 
     /// <summary>UNLINK on a caller node: leave the desk and plan on with the show as it stands here.</summary>
@@ -1864,7 +1864,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 {
                     // Nothing to prove with: said here, in this desk's own words, not as a "wrong key" from the main.
                     _phase = TwinPhase.Refused;
-                    _note = "this desk has no key — the main's key goes on the Machine page, TWIN";
+                    _note = IsFollowerNode ? "this node has no key — the desk's key goes on this node's Machine tab" : "this desk has no key — the main's key goes on the Machine page, TWIN";
                     Log.Warn("Twin: this desk has no key to prove to the main; the link is closed.");
                     CloseLink();
                     break;
@@ -1872,7 +1872,7 @@ public sealed class TwinService : IDisposable, ILinkReport
                 if (challenge is null || !TwinAuth.Verify(key, _dialNonce, challenge.Nonce, challenge.Proof))
                 {
                     _phase = TwinPhase.Refused;
-                    _note = "the main did not prove the key — is its key the same as this desk's?";
+                    _note = IsFollowerNode ? "the desk did not prove the key — is the key on this node's Machine tab the one the desk's Machine page shows?" : "the main did not prove the key — is its key the same as this desk's?";
                     Log.Warn($"Twin: the main at {_mainName} could not prove the key; the link is closed.");
                     CloseLink();
                     break;

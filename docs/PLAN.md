@@ -6454,3 +6454,100 @@ for the plan verbs: the module maps any line, and the verbs are documented; a pr
 touch.
 
 Counts at the end of the round: Core 1,146, App 595 — both suites green here.
+
+## 66. Round 48 — the node's own Machine tab, the room behind one address, and the wire's ceilings
+
+*Three things the reviews' P1 list and the drill left standing: a node's operator sent to a page a
+node never had; a venue whose Wi-Fi puts every phone behind one address meeting the per-address
+budgets by the twentieth join; and a wire with a ceiling on a line's bytes and none on its seconds
+or its connections. And the soak that runs the whole rig for four hours before a drill is worth
+filming.*
+
+### 66.1 The node's Machine tab
+
+Every node's window has a Machine tab now — `NodeViewModel.MachineTab`, `NodeMachineSection` —
+the few lines its operator needs, in the desk's words: what the node is with its build and folder
+(`NodeMachine.Identity`); the watchdog's word (`WatchdogWords`: under it RESTART and an update
+land in place, without it they are refused and the words say what to do instead); RESTART and OPEN
+FOLDER; for a caller or a timer the desk's key in a box (`State.Twin.Key`) with the words that say
+where it comes from (`KeyWords`: the desk shows its key on its Machine page under TWIN; copied
+here, LINK on the Nodes tab dials with it); the ports — remote control on, HTTP, Companion, the
+audience listener and its seats — with `PortsWords` saying what each carries on this kind, and the
+wire's own status line; the front door; the update staged, APPLY UPDATE, the last note, the
+management server's status and CHECK IN NOW; and a paragraph per kind (`Help`). `NodeMachine` is
+pure in Core: every kind's strip is a test.
+
+The words that sent a node's operator to "the Machine page" now send them to this tab:
+`TwinService.LinkTo`'s line, and the follower's notes when it has no key or the desk did not prove
+it. RESTART from the tab goes through `NodeHost.RestartInPlace`, the same door the wire's RESTART
+takes past the admin gate — the show saved, the watchdog's exit code, refused in words without the
+watchdog — so the window and the wire cannot disagree. `NodeKinds.Pages` lists the tab for every
+kind.
+
+### 66.2 The room behind one address
+
+`AudienceNetwork` (`ControlConfig.AudienceNetwork`; the Remote page's Network picker under
+AUDIENCE): Flat, each phone on its own address, or Venue NAT, every phone behind one — a NAT
+gateway, a captive portal's proxy, a hotel's guest network. `AudienceBudget.OnNetwork(network,
+seats)` is the budget as the profile reads it: behind a venue NAT the per-address ceilings open to
+the room (joins to twice the seats and twenty over, connections to the port's own ceiling) and the
+per-phone ones stand, because the address never told the phones apart there; flat, the budget is
+as it is; a budget already wider is never narrowed. `PlayService.Effective` is what the join and
+the audience door read; `Budget` stays the base the tests set.
+
+The sign, before anyone out front asks: `PlayService.JoinsRefused` counts the joins refused in the
+last minute and the address most of them came from, and the room's line — the Play block on the
+desk and the hub, `AUDIENCE STATUS` (`network`, `networkWords`, `joinsRefused`, `refusedFrom`) —
+says "7 joins refused this minute (all from 10.0.0.1) — phones behind one address? Remote page,
+AUDIENCE: Network → venue NAT" (`AudienceBudget.RefusedWords`), or, on the venue NAT profile, that
+the room's own ceiling was reached. The phone's own answer is unchanged: a minute, then again.
+
+### 66.3 The wire's ceilings
+
+`WireLimits` (Core): 64 Companion connections open in all and 16 from one address, ten seconds for
+a line that has started to end, and 256 and 64 for the web remote's port. `ConnectionLedger` is
+the count under two ceilings, written once and kept by three doors — the audience's (which had a
+copy of the rule of its own), the wire's and the web remote's. A Companion past the ceiling reads
+`ERR busy — 16 connections already open from this address; close one first` and the door closes;
+a tablet past the web remote's reads `503 busy` with a Retry-After, as a phone does at the
+audience port; each is logged once a minute per address and door, so a flood is one line.
+
+`BoundedLineReader.LineSeconds`: a line that has started is on the clock from its first byte, not
+its last read, so a peer feeding a byte at a time is cut when the line's time is up and not a byte
+later — `ERR a line that did not end within 10 s — the wire's lines are commands, and this one was
+not; closed`. A peer that has sent nothing is never cut: a Companion between presses is idle for an
+hour and is not a fault. The twin link's readers keep no seconds; a show travels on them.
+
+### 66.4 The soak
+
+`docs/SOAK.md`, beside the drill: seven steps that run the whole rig for four hours — the desk, the
+standby, a caller, a timer, the hub with its phones, Companion — with the faults the reviews named
+injected at the hours (the twin link cut, APPLY while armed, a flood on the wire and on the
+audience port), the numbers read from the glance line and the metrics CSV, and what decides a
+pass. The drill is a night's failures filmed; the soak is a day's ordinary load measured, and it
+comes first.
+
+### 66.5 Tests and docs
+
+Core: the ledger under both ceilings and released, never below zero; the wire's words and its
+defaults; the budget behind a venue NAT, never narrowed, its words on the wire and on the line;
+every kind's strip words, key words and help, and the Machine tab in every kind's pages. App: the
+wire keeping two and saying busy to the third in its own words, one closed and the next in; a half
+line cut when its seconds are up and an idle client never; the web remote's 503 and the slot back
+when the holder goes; a caller node's tab — what it is, the key's words before and after, RESTART
+and APPLY refused in words without the watchdog, the link's words naming the tab, the window
+showing it, remote control off closing the door; the arcade's tab with no key; a room behind one
+address turned away on a flat network, named on the line with the fix, and seated under the
+profile with the per-phone budgets standing. Docs: this section, REVIEW round 48, REMOTE.md, the
+help, README, SOAK.md.
+
+### 66.6 Considered and left
+
+A ceiling on lines per second on the wire (a Companion that sends a thousand lines a second): the
+lines are commands and each is answered; a later touch if a drill finds a client that needs it. A
+Help tab on a node: the Machine tab's paragraph is the help a node needs, and the catalogue is the
+desk's. Switching the network profile by itself when refusals pile up from one address: a budget
+that widens itself is a budget an attacker widens; the sign is on the line and the switch is the
+operator's.
+
+Counts at the end of the round: Core 1,152, App 601 — both suites green here.

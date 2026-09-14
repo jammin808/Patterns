@@ -29,8 +29,8 @@ public class NodesTests
         Assert.Contains("never opens outputs", NodeKinds.HoldWords(NodeKind.Caller));
         Assert.Equal("", NodeKinds.HoldWords(NodeKind.Desk));
         Assert.Null(NodeKinds.Pages(NodeKind.Desk));
-        Assert.Equal(new[] { "Run", "Cues", "Stage", "Nodes" }, NodeKinds.Pages(NodeKind.Caller));
-        Assert.Equal(new[] { "Stage", "Nodes" }, NodeKinds.Pages(NodeKind.Timer));
+        Assert.Equal(new[] { "Run", "Cues", "Stage", "Nodes", "Machine" }, NodeKinds.Pages(NodeKind.Caller));
+        Assert.Equal(new[] { "Stage", "Nodes", "Machine" }, NodeKinds.Pages(NodeKind.Timer));
     }
 
     [Fact]

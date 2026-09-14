@@ -1045,6 +1045,12 @@ public static class Lists
         new(TwinRole.Standby, "Standby — follow a main with the outputs held, ready to take over"),
     };
 
+    public static readonly EnumItem[] AudienceNetworks =
+    {
+        new(AudienceNetwork.Flat, "Flat — each phone on its own address"),
+        new(AudienceNetwork.VenueNat, "Venue NAT — the phones share one address"),
+    };
+
     public static readonly EnumItem[] ToneModes =
     {
         new(ToneMode.ChannelIdent, "Channel ident (L pip · R pip-pip)"),

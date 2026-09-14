@@ -1,3 +1,5 @@
+using Patterns.Core.Model;
+
 namespace Patterns.Core.Play;
 
 /// <summary>
@@ -46,7 +48,47 @@ public sealed record AudienceBudget(
     int MaxLongPolls = 1000,
     int MaxConnectionsPerAddress = 64,
     int MaxConnections = 2000,
-    int IdleForgetMinutes = 180);
+    int IdleForgetMinutes = 180)
+{
+    /// <summary>
+    /// The budgets on a network. Behind a venue NAT every phone arrives from one address, so the
+    /// per-address ceilings — which on a flat network tell one runaway phone from the room —
+    /// would turn a whole section away by the twentieth join: they open to the room (joins to
+    /// twice the seats and twenty over, connections to the port's own ceiling) and the per-phone
+    /// ceilings, which the address never touched, do the work. Flat, the budget is as it is; a
+    /// budget already wider is never narrowed.
+    /// </summary>
+    public AudienceBudget OnNetwork(AudienceNetwork network, int seats) => network == AudienceNetwork.VenueNat
+        ? this with
+        {
+            JoinsPerAddressPerMinute = Math.Max(JoinsPerAddressPerMinute, 2 * Math.Max(1, seats) + 20),
+            MaxConnectionsPerAddress = Math.Max(MaxConnectionsPerAddress, MaxConnections),
+        }
+        : this;
+
+    /// <summary>The profile's word on the wire.</summary>
+    public static string Wire(AudienceNetwork network) => network == AudienceNetwork.VenueNat ? "venue-nat" : "flat";
+
+    /// <summary>The profile in words, for the page and AUDIENCE STATUS.</summary>
+    public static string NetworkWords(AudienceNetwork network) => network == AudienceNetwork.VenueNat
+        ? "venue NAT — the phones share one address: the per-address budgets open to the room, the per-phone ones stand"
+        : "flat — each phone on its own address";
+
+    /// <summary>
+    /// The desk's line when joins were refused this minute. On a flat network most of them from
+    /// one address is the sign of a room behind one, and the profile is the fix; on a venue NAT
+    /// the room's own ceiling was reached.
+    /// </summary>
+    public static string RefusedWords(int refused, int fromOne, string address, AudienceNetwork network)
+    {
+        if (refused <= 0) return "";
+        var from = fromOne >= refused ? $"all from {address}" : $"{fromOne} of them from {address}";
+        var head = $"{refused} join{(refused == 1 ? "" : "s")} refused this minute ({from})";
+        return network == AudienceNetwork.VenueNat
+            ? head + " — the room's own joins-per-minute reached"
+            : head + " — phones behind one address? Remote page, AUDIENCE: Network → venue NAT";
+    }
+}
 
 /// <summary>A sliding-window rate limit keyed by a string — an address, a token — with its own clock for the tests.</summary>
 public sealed class RateLimiter

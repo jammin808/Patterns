@@ -11,7 +11,8 @@
         Background="{StaticResource AppBgBrush}">
   <!-- A node's window: the pages its kind shows and a status line, over a NodeHost — the desk's pages, bound to
        the same interfaces the desk binds them to, with nothing of the desk behind them. A caller: Run, Cues,
-       Stage, Nodes. A stage timer: Stage (the display first), Nodes. The arcade: Arcade, Nodes. -->
+       Stage, Nodes, Machine. A stage timer: Stage (the display first), Nodes, Machine. The arcade: Arcade,
+       Nodes, Machine — the Machine tab is the node's own: its key, its ports, the watchdog, an update, a restart. -->
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Background="{StaticResource PanelBgBrush}" Padding="12,6">
       <TextBlock Classes="label" Text="{Binding StatusMessage}" TextWrapping="Wrap" />
@@ -48,6 +49,11 @@
       <TabItem Header="Nodes">
         <ScrollViewer>
           <sec:NodesSection />
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Machine">
+        <ScrollViewer>
+          <sec:NodeMachineSection />
         </ScrollViewer>
       </TabItem>
     </TabControl>

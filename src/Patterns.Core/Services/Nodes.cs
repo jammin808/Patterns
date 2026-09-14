@@ -53,9 +53,9 @@ public static class NodeKinds
     /// <summary>The pages a kind's window shows — a node's few, in its window's order; null = every page, the desk's.</summary>
     public static IReadOnlyCollection<string>? Pages(NodeKind kind) => kind switch
     {
-        NodeKind.Caller => new[] { "Run", "Cues", "Stage", "Nodes" },
-        NodeKind.Timer => new[] { "Stage", "Nodes" },
-        NodeKind.Arcade => new[] { "Arcade", "Nodes" },
+        NodeKind.Caller => new[] { "Run", "Cues", "Stage", "Nodes", "Machine" },
+        NodeKind.Timer => new[] { "Stage", "Nodes", "Machine" },
+        NodeKind.Arcade => new[] { "Arcade", "Nodes", "Machine" },
         _ => null,
     };
 }

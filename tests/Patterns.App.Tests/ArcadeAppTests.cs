@@ -82,7 +82,7 @@ public class ArcadeAppTests
             var (services, vm, _) = b;
             Assert.True(vm.IsArcadeNode);
             Assert.Equal("arcade", services.Beacon.Build().Kind);
-            Assert.Equal(new[] { "Arcade", "Nodes" }, Shell.PagesFor(NodeKind.Arcade).Select(p => p.Header));
+            Assert.Equal(new[] { "Arcade", "Nodes", "Machine" }, Shell.PagesFor(NodeKind.Arcade).Select(p => p.Header));
             Assert.Equal(Shell.IndexOf("Arcade"), Shell.HomePage(NodeKind.Arcade));    // the node opens on the game
             Assert.Contains("arcade node", services.OutputsHeldBy);
             Assert.True(services.Arcade.IsRunning);                                   // the loop from the first frame

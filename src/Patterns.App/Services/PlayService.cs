@@ -26,6 +26,7 @@ public sealed class PlayService : IDisposable
     private DateTime _lastAskUtc = DateTime.MinValue;
     private bool _asking;
     private readonly RateLimiter _limits = new();
+    private readonly Queue<(long Ticks, string Address)> _joinRefusals = new();
     private TaskCompletionSource<bool> _changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _longPolls;
     private int _longPollsPeak;
@@ -59,6 +60,8 @@ public sealed class PlayService : IDisposable
                 parts.Add(q is null ? "no question yet" : $"{q.State.ToString().ToLowerInvariant()}: {q.KindWord} '{q.Text}' — {q.AnswerCount} answer{(q.AnswerCount == 1 ? "" : "s")}");
                 if (waiting > 0) parts.Add($"{waiting} waiting for you");
                 parts.Add($"wall: {Wall.ToString().ToLowerInvariant()}");
+                var refused = JoinsRefused(DateTime.UtcNow);
+                if (refused.Count > 0) parts.Add(AudienceBudget.RefusedWords(refused.Count, refused.FromOne, refused.Address, _k.State.Control.AudienceNetwork));
                 return string.Join(" · ", parts);
             }
         }
@@ -66,6 +69,25 @@ public sealed class PlayService : IDisposable
     public long Rev { get { lock (_gate) return Room.Rev + _wallRev; } }
     /// <summary>The budgets the room and its socket keep — hard numbers; the player cap follows the Remote page's setting.</summary>
     public AudienceBudget Budget { get; set; } = new();
+
+    /// <summary>The budgets as the network profile reads them: behind a venue NAT the per-address ceilings open to the room; flat, the budget as it is.</summary>
+    public AudienceBudget Effective => Budget.OnNetwork(_k.State.Control.AudienceNetwork, _k.State.Control.AudienceMaxPlayers);
+
+    /// <summary>
+    /// The joins refused in the last minute and the address most of them came from: the room's
+    /// line reads it, so a section of phones behind one address turned away shows on the desk as
+    /// that, with the fix named, before anyone out front asks.
+    /// </summary>
+    public (int Count, int FromOne, string Address) JoinsRefused(DateTime utcNow)
+    {
+        lock (_joinRefusals)
+        {
+            while (_joinRefusals.Count > 0 && utcNow.Ticks - _joinRefusals.Peek().Ticks > TimeSpan.TicksPerMinute) _joinRefusals.Dequeue();
+            if (_joinRefusals.Count == 0) return (0, 0, "");
+            var top = _joinRefusals.GroupBy(r => r.Address).OrderByDescending(g => g.Count()).First();
+            return (_joinRefusals.Count, top.Count(), top.Key);
+        }
+    }
     public int LongPolls => Volatile.Read(ref _longPolls);
     public int LongPollsPeak => Volatile.Read(ref _longPollsPeak);
 
@@ -486,8 +508,15 @@ public sealed class PlayService : IDisposable
     public string JoinJson(string body, string address = "?")
     {
         var e = Body(body);
-        if (!_limits.Allow("join:" + address, Budget.JoinsPerAddressPerMinute, TimeSpan.FromMinutes(1), DateTime.UtcNow))
+        var now = DateTime.UtcNow;
+        if (!_limits.Allow("join:" + address, Effective.JoinsPerAddressPerMinute, TimeSpan.FromMinutes(1), now))
         {
+            // Counted, so the desk's line can say a room behind one address is being turned away, and name the fix.
+            lock (_joinRefusals)
+            {
+                _joinRefusals.Enqueue((now.Ticks, address));
+                while (_joinRefusals.Count > 5000) _joinRefusals.Dequeue();
+            }
             return JsonUtil.SerializeCompact(new { ok = false, msg = "Too many joins from this address — a minute, then again." });
         }
         lock (_gate)
@@ -651,6 +680,8 @@ public sealed class PlayService : IDisposable
             if (w.StartsWith("audience", StringComparison.OrdinalIgnoreCase))
             {
                 var cfg = _k.State.Control;
+                var effective = Effective;
+                var refused = JoinsRefused(DateTime.UtcNow);
                 return JsonUtil.SerializeCompact(new
                 {
                     enabled = cfg.Enabled && cfg.AudienceEnabled,
@@ -664,7 +695,11 @@ public sealed class PlayService : IDisposable
                     connections = _s.AudienceConnections,
                     longPolls = LongPolls,
                     longPollsPeak = LongPollsPeak,
-                    budget = new { Budget.JoinsPerAddressPerMinute, Budget.AnswersPerTokenPerMinute, Budget.SaysPerTokenPerMinute, Budget.MovesPerTokenPerMinute, Budget.MaxLongPolls, Budget.MaxConnectionsPerAddress, Budget.MaxConnections, Budget.IdleForgetMinutes },
+                    network = AudienceBudget.Wire(cfg.AudienceNetwork),
+                    networkWords = AudienceBudget.NetworkWords(cfg.AudienceNetwork),
+                    joinsRefused = refused.Count,
+                    refusedFrom = refused.Address,
+                    budget = new { effective.JoinsPerAddressPerMinute, effective.AnswersPerTokenPerMinute, effective.SaysPerTokenPerMinute, effective.MovesPerTokenPerMinute, effective.MaxLongPolls, effective.MaxConnectionsPerAddress, effective.MaxConnections, effective.IdleForgetMinutes },
                     assistantOnWire = cfg.AssistantOnWire,
                 });
             }

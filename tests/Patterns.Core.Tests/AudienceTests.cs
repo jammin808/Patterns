@@ -1,3 +1,4 @@
+using Patterns.Core.Model;
 using Patterns.Core.Play;
 using Xunit;
 
@@ -80,5 +81,28 @@ public class AudienceTests
         Assert.Null(room.Find(a.Player.Token));
         Assert.NotNull(room.Find(b.Player.Token));
         Assert.Equal(0, room.Prune(now));
+    }
+
+    [Fact]
+    public void BehindAVenueNatThePerAddressBudgetsOpenToTheRoomAndThePerPhoneOnesStand()
+    {
+        var flat = new AudienceBudget();
+        Assert.Equal(flat, flat.OnNetwork(AudienceNetwork.Flat, 500));
+        var nat = flat.OnNetwork(AudienceNetwork.VenueNat, 500);
+        Assert.Equal(1020, nat.JoinsPerAddressPerMinute);
+        Assert.Equal(nat.MaxConnections, nat.MaxConnectionsPerAddress);
+        Assert.Equal(flat.AnswersPerTokenPerMinute, nat.AnswersPerTokenPerMinute);
+        Assert.Equal(flat.SaysPerTokenPerMinute, nat.SaysPerTokenPerMinute);
+        Assert.Equal(flat.MaxConnections, nat.MaxConnections);
+        Assert.Equal(flat.MaxPlayers, nat.MaxPlayers);
+        Assert.Equal(5000, (flat with { JoinsPerAddressPerMinute = 5000 }).OnNetwork(AudienceNetwork.VenueNat, 10).JoinsPerAddressPerMinute);   // a wider budget is never narrowed
+        Assert.Equal("venue-nat", AudienceBudget.Wire(AudienceNetwork.VenueNat));
+        Assert.Equal("flat", AudienceBudget.Wire(AudienceNetwork.Flat));
+        Assert.StartsWith("venue NAT", AudienceBudget.NetworkWords(AudienceNetwork.VenueNat));
+        Assert.StartsWith("flat", AudienceBudget.NetworkWords(AudienceNetwork.Flat));
+        Assert.Equal("", AudienceBudget.RefusedWords(0, 0, "", AudienceNetwork.Flat));
+        Assert.Equal("7 joins refused this minute (all from 10.0.0.1) — phones behind one address? Remote page, AUDIENCE: Network → venue NAT", AudienceBudget.RefusedWords(7, 7, "10.0.0.1", AudienceNetwork.Flat));
+        Assert.Equal("1 join refused this minute (all from 10.0.0.1) — the room's own joins-per-minute reached", AudienceBudget.RefusedWords(1, 1, "10.0.0.1", AudienceNetwork.VenueNat));
+        Assert.Contains("(3 of them from 10.0.0.2)", AudienceBudget.RefusedWords(5, 3, "10.0.0.2", AudienceNetwork.Flat));
     }
 }

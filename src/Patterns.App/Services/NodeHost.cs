@@ -72,11 +72,7 @@ public sealed class NodeActions : IActionLayer
     private ActionResult Restart(ShowAction a, ActionOrigin origin)
     {
         if (!Kernel.Gate.Check(Kernel.State.Install.AdminPasscode, a.Target, DateTime.UtcNow)) return ActionResult.Refused($"Restart refused — {Kernel.Gate.Reason}.");
-        if (!_host.Updates.Supervised) return ActionResult.Refused("A restart in place needs the watchdog — start Patterns normally, with the watchdog on.");
-        if (_host.ExitRequest is null) return ActionResult.Refused("No way to restart in this session.");
-        var code = _host.PrepareRestart();
-        Log.Info($"Restart requested from {origin.Label} on the {NodeKinds.Wire(_host.Kind)} node.");
-        return _host.ExitRequest(code) ? ActionResult.Requested("Restarting — the watchdog brings this node back in a moment.") : ActionResult.Failed("The app did not accept the exit request.");
+        return _host.RestartInPlace(origin);
     }
 
     /// <summary>The stack's own verbs — the ones a caller runs alone, on paper — the plan's slip among them.</summary>
@@ -750,6 +746,16 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         SaveNow();
         if (!Updates.Supervised) return 0;
         return forUpdate ? SupervisorPolicy.UpdateRequestExitCode : SupervisorPolicy.RestartRequestExitCode;
+    }
+
+    /// <summary>A restart in place — from this node's own window, or from the wire past the gate: the show saved, the watchdog brings the node back; refused in words without one.</summary>
+    public ActionResult RestartInPlace(ActionOrigin origin)
+    {
+        if (!Updates.Supervised) return ActionResult.Refused("A restart in place needs the watchdog — start Patterns normally, with the watchdog on.");
+        if (ExitRequest is null) return ActionResult.Refused("No way to restart in this session.");
+        var code = PrepareRestart();
+        Log.Info($"Restart requested from {origin.Label} on the {NodeKinds.Wire(Kind)} node.");
+        return ExitRequest(code) ? ActionResult.Requested("Restarting — the watchdog brings this node back in a moment.") : ActionResult.Failed("The app did not accept the exit request.");
     }
 
     /// <summary>A line for the operator's strip on the node's window, through the kernel's notifier.</summary>

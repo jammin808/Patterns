@@ -1983,6 +1983,18 @@ public sealed class AdminConfig : Observable
     public string LibreOfficePath { get => _libreOfficePath; set => Set(ref _libreOfficePath, value ?? ""); }
 }
 
+/// <summary>
+/// How the room's phones reach the audience port. Flat: each phone on its own address, the venue's
+/// Wi-Fi handing them out, so the per-address budgets tell one runaway phone from the room. Venue
+/// NAT: every phone arrives from one address — a NAT gateway, a captive portal's proxy, a hotel's
+/// guest network — so the per-address budgets open to the room and the per-phone ones do the work.
+/// </summary>
+public enum AudienceNetwork
+{
+    Flat,
+    VenueNat,
+}
+
 /// <summary>Remote control server: web remote + TCP line protocol (Companion).</summary>
 public sealed class ControlConfig : Observable
 {
@@ -2015,6 +2027,10 @@ public sealed class ControlConfig : Observable
     public int AudienceMaxPlayers { get => _audienceMaxPlayers; set => Set(ref _audienceMaxPlayers, Math.Clamp(value, 1, 5000)); }
     /// <summary>Whether a node on the wire may put a question to this desk's assistant (a hub's queue) — off, the key is the desk's alone.</summary>
     public bool AssistantOnWire { get => _assistantOnWire; set => Set(ref _assistantOnWire, value); }
+
+    private AudienceNetwork _audienceNetwork;
+    /// <summary>How the phones reach the audience port: each on its own address, or all behind one (a venue NAT), where the per-address budgets open to the room.</summary>
+    public AudienceNetwork AudienceNetwork { get => _audienceNetwork; set => Set(ref _audienceNetwork, value); }
 
     private bool _oscEnabled;
     private int _oscPort = 9698;

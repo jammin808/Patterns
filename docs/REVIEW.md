@@ -1041,3 +1041,35 @@ verb every clock follows.*
 - **Found on the way:** a calibration run outlived its desk and blackened every output sink in the
   process behind it; shutdown ends the run now. In the suite it read as rendering tests failing at
   random under load — a flake with a cause, found by asking what paints black.
+
+## Round 48 review — the node's own Machine tab, the room behind one address, and the wire's ceilings
+
+*The P1 list's last three, and the soak before the drill.*
+
+### 48.1 — the Machine tab
+
+- **Done.** Every node has the tab; the words that sent its operator to a page it never had now
+  send them there; RESTART from the tab and from the wire go through one door. `docs/PLAN.md` §66.1.
+- **The honest limit:** the tab is the node's own settings, not the desk's page — no super-check,
+  no tiles. A node has nothing to render, and its health is its link's words.
+
+### 48.2 — the room behind one address
+
+- **Done.** A profile, not a wider default: a flat room keeps the per-address budgets that tell a
+  runaway phone from the room; a venue NAT opens them to the room and keeps the per-phone ones.
+  The sign is on the room's line with the fix named. `docs/PLAN.md` §66.2.
+- **Kept deliberate:** the profile is never switched by itself. A budget that widens itself is
+  one an attacker widens.
+
+### 48.3 — the wire's ceilings
+
+- **Done.** Connections in all and from one address on the wire and on the web remote, a started
+  line's seconds, one ledger for three doors, one log line a minute. `docs/PLAN.md` §66.3.
+- **What it is not:** a rate limit on lines. A Companion that hammers is answered line by line;
+  the ceilings are on what holds a slot.
+
+### 48.4 — the soak
+
+- **Done.** Seven steps, four hours, the faults at the hours, what decides. `docs/SOAK.md`.
+- **The honest limit:** it is a script to run, not a result. Nothing is claimed until a row is
+  filled in on the real rig.

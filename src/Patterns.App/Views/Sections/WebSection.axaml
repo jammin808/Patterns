@@ -41,6 +41,12 @@
       <NumericUpDown Grid.Column="9" Minimum="1" Maximum="5000" Increment="50" FormatString="0"
                      Value="{Binding State.Control.AudienceMaxPlayers, Mode=TwoWay, Converter={StaticResource Num}}" />
     </Grid>
+    <Grid ColumnDefinitions="130,*" IsEnabled="{Binding State.Control.AudienceEnabled}">
+      <TextBlock Classes="label" Text="Network" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding AudienceNetworks}"
+                SelectedValue="{Binding State.Control.AudienceNetwork, Mode=TwoWay}" SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}"
+                ToolTip.Tip="Flat: each phone arrives on its own address, so the per-address budgets (twenty joins a minute, sixty-four connections) tell one runaway phone from the room. Venue NAT: the venue's Wi-Fi puts every phone behind one address — a NAT gateway, a captive portal's proxy — so those budgets would turn a whole section away by the twentieth join; this profile opens them to the room and leaves the per-phone budgets standing. The room's line says when joins were refused from one address, which is the sign" />
+    </Grid>
     <TextBox Text="{Binding AudienceUrlsText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas,monospace" IsVisible="{Binding State.Control.AudienceEnabled}" />
     <CheckBox Content="Nodes may ask the assistant over the wire (a hub's moderation queue; the key stays here)" IsChecked="{Binding State.Control.AssistantOnWire}"
               ToolTip.Tip="Off, ASSISTANT ASK on the wire is refused and a hub's queue waits for the host; on, a node on the show LAN may spend this desk's key one question at a time" />

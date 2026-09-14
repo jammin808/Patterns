@@ -20,7 +20,7 @@ namespace Patterns.App.ViewModels;
 public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPage, ICuesPage, IStagePage, IStageDisplay, IRunPageOwner
 {
     /// <summary>The tabs of the node window, in its order; a kind hides the ones it does not show.</summary>
-    public const int RunTab = 0, CuesTab = 1, StageTab = 2, ArcadeTab = 3, NodesTab = 4;
+    public const int RunTab = 0, CuesTab = 1, StageTab = 2, ArcadeTab = 3, NodesTab = 4, MachineTab = 5;
 
     private readonly NodeHost _host;
     private readonly Views.ArcadeWindowHost _arcadeWindows;
@@ -30,6 +30,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     private string _seen = "";
     private string _stageSeen = "";
     private string _displaySeen = "";
+    private string _machineSeen = "";
     private int _selectedTab;
     private bool _stageControlsOpen;
 
@@ -109,6 +110,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             PollStage();
             PollDisplay();
         }
+        PollMachine();
     }
 
     private ActionResult Run_(ShowAction action) => _host.Actions.Execute(action, ActionOrigin.Desk);
@@ -304,6 +306,115 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             StatusMessage = $"The browser could not be opened: {ex.Message}";
         }
     });
+
+    // ---- the Machine tab: what this node is, its ports, the desk's key, the watchdog, an update, a restart ----
+
+    /// <summary>"Caller node · CALLER-PC · build 1.4.0 · folder …".</summary>
+    public string MachineIdentity => NodeMachine.Identity(_host.Kind, _host.Kernel.Beacon.MachineName, UpdateService.RunningVersion, _host.Kernel.Store.BaseDirectory);
+
+    public string MachinePorts => NodeMachine.PortsWords(_host.Kind, State.Control);
+
+    /// <summary>The wire's own line: up on which ports, or why it failed to start.</summary>
+    public string MachineWireStatus => _host.Control.Status;
+
+    public string MachineWatchdog => NodeMachine.WatchdogWords(_host.Updates.Supervised);
+
+    /// <summary>A caller or a timer links with the desk's key; the arcade holds none.</summary>
+    public bool HasLink => _host.IsFollower;
+
+    public string MachineKeyWords => NodeMachine.KeyWords(State.Twin.Key.Length > 0, _host.Twin is { IsLinkedToDesk: true });
+
+    public string UpdateStatus => _host.Updates.Status;
+
+    public string UpdateLastNote => _host.Updates.LastNote;
+
+    public string ManagementStatus => _host.Management.Status;
+
+    public string MachineHelp => NodeMachine.Help(_host.Kind);
+
+    /// <summary>This node's front door — its pages, where the desk's OPEN PAGES lands; "" while remote control is off.</summary>
+    public string MachineFrontDoor
+    {
+        get
+        {
+            if (!State.Control.Enabled) return "";
+            var urls = _host.Control.RemoteUrls();
+            return urls.Count > 0 ? urls[0] : $"http://{Environment.MachineName}:{State.Control.HttpPort}/";
+        }
+    }
+
+    private RelayCommand? _applyUpdate;
+
+    /// <summary>APPLY UPDATE from the node's own window: no passcode — whoever sits at the machine owns it, as on a desk.</summary>
+    public RelayCommand ApplyUpdateCommand => _applyUpdate ??= new RelayCommand(() => StatusMessage = _host.Updates.Apply("", ActionOrigin.Desk, byPolicy: true).Message);
+
+    private RelayCommand? _restart;
+
+    /// <summary>RESTART from the node's own window: through the watchdog, which brings the node back linked; refused in words without one.</summary>
+    public RelayCommand RestartCommand => _restart ??= new RelayCommand(() => StatusMessage = _host.RestartInPlace(ActionOrigin.Desk).Message);
+
+    private RelayCommand? _checkIn;
+
+    public RelayCommand CheckInCommand => _checkIn ??= new RelayCommand(() =>
+    {
+        _host.Management.CheckInNow();
+        StatusMessage = _host.Management.Status;
+        PollMachine();
+    });
+
+    private RelayCommand? _openFrontDoor;
+
+    public RelayCommand OpenFrontDoorCommand => _openFrontDoor ??= new RelayCommand(() =>
+    {
+        var url = MachineFrontDoor;
+        if (url.Length == 0)
+        {
+            StatusMessage = "Remote control is off — this node's pages are closed.";
+            return;
+        }
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"The browser could not be opened: {ex.Message}";
+        }
+    });
+
+    private RelayCommand? _openFolder;
+
+    /// <summary>The node's own folder: its settings, its show, its log, the updates folder an update is dropped into.</summary>
+    public RelayCommand OpenFolderCommand => _openFolder ??= new RelayCommand(() =>
+    {
+        var dir = _host.Kernel.Store.BaseDirectory;
+        StatusMessage = $"This node's folder: {dir}";
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", dir) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"The folder could not be opened: {ex.Message}";
+        }
+    });
+
+    private void PollMachine()
+    {
+        var now = $"{MachineIdentity}|{MachinePorts}|{MachineWireStatus}|{MachineWatchdog}|{MachineKeyWords}|{UpdateStatus}|{UpdateLastNote}|{ManagementStatus}|{MachineFrontDoor}";
+        if (now == _machineSeen) return;
+        _machineSeen = now;
+        Raise(nameof(MachineIdentity));
+        Raise(nameof(MachinePorts));
+        Raise(nameof(MachineWireStatus));
+        Raise(nameof(MachineWatchdog));
+        Raise(nameof(MachineKeyWords));
+        Raise(nameof(UpdateStatus));
+        Raise(nameof(UpdateLastNote));
+        Raise(nameof(ManagementStatus));
+        Raise(nameof(MachineFrontDoor));
+    }
 
     // ---- the Run surface: the caller's, over the stack as it stands here ----
 

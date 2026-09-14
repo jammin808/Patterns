@@ -26,8 +26,10 @@ public sealed partial class ControlService : IDisposable
     private TcpListener? _tcp;
     private TcpListener? _http;
     private TcpListener? _audience;
-    private int _audienceConnections;
-    private readonly Dictionary<string, int> _audienceByAddress = new();
+    private readonly ConnectionLedger _audienceLedger = new();
+    private readonly ConnectionLedger _wireLedger = new();
+    private readonly ConnectionLedger _httpLedger = new();
+    private readonly RateLimiter _busySaid = new();
     private CancellationTokenSource? _cts;
     private string _activeKey = "";
     private volatile string _status = "Remote control off.";
@@ -244,6 +246,27 @@ public sealed partial class ControlService : IDisposable
 
     private async Task HandleTcpClient(TcpClient client, CancellationToken ct)
     {
+        var limits = WireLimits;
+        var address = Address(client);
+        if (!_wireLedger.TryAdmit(address, limits.MaxClients, limits.MaxClientsPerAddress))
+        {
+            // The ceiling: said in the wire's own words and the door closed, so a Companion reconnecting in a loop reads why.
+            SaidBusy("Wire", address, _wireLedger.Open);
+            try
+            {
+                using var stream = client.GetStream();
+                await WriteLine(stream, ControlProtocol.Err(limits.BusyWords(_wireLedger.From(address))), ct);
+            }
+            catch (Exception)
+            {
+                // Gone already.
+            }
+            finally
+            {
+                client.Dispose();
+            }
+            return;
+        }
         client.NoDelay = true;
         lock (_gate)
         {
@@ -252,7 +275,7 @@ public sealed partial class ControlService : IDisposable
         try
         {
             using var stream = client.GetStream();
-            var reader = new BoundedLineReader(stream, WireLineBytes);
+            var reader = new BoundedLineReader(stream, WireLineBytes) { LineSeconds = limits.LineSeconds };
 
             // Greet with current state so feedback initialises immediately.
             var hello = await _router.StateJsonAsync();
@@ -295,6 +318,48 @@ public sealed partial class ControlService : IDisposable
             {
                 _tcpClients.Remove(client);
             }
+            client.Dispose();
+            _wireLedger.Release(address);
+        }
+    }
+
+    /// <summary>The wire's ceilings — connections in all and from one address, the seconds a started line has to end — and the web remote's. Settable for the tests.</summary>
+    public WireLimits WireLimits { get; set; } = WireLimits.Default;
+
+    /// <summary>How many Companion connections are open right now.</summary>
+    public int WireConnections => _wireLedger.Open;
+
+    /// <summary>How many web remote connections are open right now.</summary>
+    public int HttpConnections => _httpLedger.Open;
+
+    private static string Address(TcpClient client) => client.Client.RemoteEndPoint is IPEndPoint ep ? ep.Address.ToString() : "?";
+
+    /// <summary>A refusal logged once a minute per address and door: a flood is one line, not a thousand.</summary>
+    private void SaidBusy(string door, string address, int open)
+    {
+        if (_busySaid.Allow(door + ":" + address, 1, TimeSpan.FromMinutes(1), DateTime.UtcNow))
+        {
+            Log.Warn($"{door}: a connection from {address} refused — {open} open, the ceiling reached (said once a minute).");
+        }
+    }
+
+    /// <summary>503 and the door closed: a port's ceiling, said in one word so a phone or a tablet tries again in a moment.</summary>
+    private static async Task WriteBusyAsync(TcpClient client, CancellationToken ct)
+    {
+        try
+        {
+            using var stream = client.GetStream();
+            var words = Encoding.UTF8.GetBytes("busy");
+            var head = $"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nContent-Length: {words.Length}\r\nRetry-After: 2\r\nConnection: close\r\n\r\n";
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
+            await stream.WriteAsync(words, ct);
+        }
+        catch (Exception)
+        {
+            // A client that left; nothing to say.
+        }
+        finally
+        {
             client.Dispose();
         }
     }
@@ -358,13 +423,32 @@ public sealed partial class ControlService : IDisposable
 
     // ---- minimal HTTP (web remote) ------------------------------------------
 
-    private Task HandleHttpClient(TcpClient client, CancellationToken ct) => HandleHttp(client, ct, audience: false);
+    /// <summary>The web remote's door: under the same two ceilings as the wire, then the handler with the control port's routes.</summary>
+    private async Task HandleHttpClient(TcpClient client, CancellationToken ct)
+    {
+        var limits = WireLimits;
+        var address = Address(client);
+        if (!_httpLedger.TryAdmit(address, limits.MaxHttpClients, limits.MaxHttpClientsPerAddress))
+        {
+            SaidBusy("Web remote", address, _httpLedger.Open);
+            await WriteBusyAsync(client, ct);
+            return;
+        }
+        try
+        {
+            await HandleHttp(client, ct, audience: false);
+        }
+        finally
+        {
+            _httpLedger.Release(address);
+        }
+    }
 
     /// <summary>Whether the audience listener is up — the room's door is open.</summary>
     public bool AudienceListening => _audience is not null;
 
     /// <summary>How many audience connections are open right now.</summary>
-    public int AudienceConnections => Volatile.Read(ref _audienceConnections);
+    public int AudienceConnections => _audienceLedger.Open;
 
     /// <summary>
     /// The audience's socket: counted against the budgets (so many at once, so many from one
@@ -372,37 +456,12 @@ public sealed partial class ControlService : IDisposable
     /// </summary>
     private async Task HandleAudienceClient(TcpClient client, CancellationToken ct)
     {
-        var budget = _services.Play.Budget;
-        var address = client.Client.RemoteEndPoint is IPEndPoint ep ? ep.Address.ToString() : "?";
-        var admitted = false;
-        lock (_audienceByAddress)
+        var budget = _services.Play.Effective;                      // the network profile's reading of the budgets: behind a venue NAT the per-address ceiling is the port's own
+        var address = Address(client);
+        if (!_audienceLedger.TryAdmit(address, budget.MaxConnections, budget.MaxConnectionsPerAddress))
         {
-            _audienceByAddress.TryGetValue(address, out var mine);
-            if (_audienceConnections < budget.MaxConnections && mine < budget.MaxConnectionsPerAddress)
-            {
-                _audienceByAddress[address] = mine + 1;
-                _audienceConnections++;
-                admitted = true;
-            }
-        }
-        if (!admitted)
-        {
-            try
-            {
-                using var stream = client.GetStream();
-                var words = Encoding.UTF8.GetBytes("busy");
-                var head = $"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nContent-Length: {words.Length}\r\nRetry-After: 2\r\nConnection: close\r\n\r\n";
-                await stream.WriteAsync(Encoding.ASCII.GetBytes(head), ct);
-                await stream.WriteAsync(words, ct);
-            }
-            catch (Exception)
-            {
-                // A phone that left; nothing to say.
-            }
-            finally
-            {
-                client.Dispose();
-            }
+            SaidBusy("Audience", address, _audienceLedger.Open);
+            await WriteBusyAsync(client, ct);
             return;
         }
         try
@@ -411,14 +470,7 @@ public sealed partial class ControlService : IDisposable
         }
         finally
         {
-            lock (_audienceByAddress)
-            {
-                _audienceConnections--;
-                if (_audienceByAddress.TryGetValue(address, out var mine))
-                {
-                    if (mine <= 1) _audienceByAddress.Remove(address); else _audienceByAddress[address] = mine - 1;
-                }
-            }
+            _audienceLedger.Release(address);
         }
     }
 

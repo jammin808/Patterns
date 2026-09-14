@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Sections.NodeMachineSection"
+             Classes="hue-machine"
+             x:DataType="vm:NodeViewModel">
+  <!-- A node's Machine tab: the few lines its operator needs, in the desk's words — what it is, the desk's key,
+       its ports, the watchdog, an update, a restart. The desk's Machine page is the long one; this is the node's own. -->
+  <StackPanel Classes="form" Margin="4,8,12,16">
+    <TextBlock Classes="h1 neon-admin" Text="Machine" />
+    <TextBlock Classes="hint tip" Text="{Binding MachineHelp}" />
+
+    <TextBlock Classes="h2" Text="THIS NODE" />
+    <TextBlock Classes="label" Text="{Binding MachineIdentity}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding MachineWatchdog}" TextWrapping="Wrap" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Classes="stop" Content="RESTART (COMES BACK)" Padding="14,8" Command="{Binding RestartCommand}"
+              ToolTip.Tip="Exits and relaunches through the watchdog — the show as it stands is saved first, and the node comes back linked. Refused without the watchdog, in words" />
+      <Button Content="OPEN FOLDER" Padding="14,8" Command="{Binding OpenFolderCommand}"
+              ToolTip.Tip="This node's own folder: its settings, its show, its log, the updates folder an update is dropped into" />
+    </StackPanel>
+
+    <TextBlock Classes="h2" Text="THE DESK'S KEY" IsVisible="{Binding HasLink}" />
+    <Grid ColumnDefinitions="110,*" IsVisible="{Binding HasLink}">
+      <TextBlock Classes="label" Text="Key" VerticalAlignment="Center" />
+      <TextBox Grid.Column="1" Text="{Binding State.Twin.Key, Mode=TwoWay}" Watermark="the desk's key — it shows it on its Machine page, TWIN"
+               ToolTip.Tip="The same key the desk holds, or the desk refuses this node's link. The desk makes one for itself if it had none and shows it on its Machine page under TWIN; copy it here, then LINK on the Nodes tab" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding MachineKeyWords}" TextWrapping="Wrap" IsVisible="{Binding HasLink}" />
+
+    <TextBlock Classes="h2" Text="PORTS" />
+    <CheckBox Content="Remote control on (the desk's calls, this node's pages, Companion)" IsChecked="{Binding State.Control.Enabled}"
+              ToolTip.Tip="Off, the desk cannot reach this node on its wire and its pages are closed; the beacon still says it is here" />
+    <Grid ColumnDefinitions="110,90,16,Auto,8,90" IsEnabled="{Binding State.Control.Enabled}">
+      <TextBlock Classes="label" Text="HTTP port" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Control.HttpPort, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="This node's pages, and the desk's calls over HTTP" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Companion (TCP)" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="5" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Control.TcpPort, Mode=TwoWay, Converter={StaticResource Num}}" ToolTip.Tip="The line wire: the desk's calls and this node's own verbs" />
+    </Grid>
+    <CheckBox Content="Audience listener on (the play pages for phones, on the port below)" IsChecked="{Binding State.Control.AudienceEnabled}" IsEnabled="{Binding State.Control.Enabled}"
+              ToolTip.Tip="The room's own socket: the play pages and nothing else. Put it on the audience Wi-Fi and never the show LAN's control port" />
+    <Grid ColumnDefinitions="110,90,16,Auto,8,90" IsEnabled="{Binding State.Control.AudienceEnabled}">
+      <TextBlock Classes="label" Text="Audience port" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="1" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Control.AudiencePort, Mode=TwoWay, Converter={StaticResource Num}}" />
+      <TextBlock Grid.Column="3" Classes="label" Text="Seats" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Column="5" Minimum="1" Maximum="5000" Increment="50" FormatString="0" ShowButtonSpinner="False"
+                     Value="{Binding State.Control.AudienceMaxPlayers, Mode=TwoWay, Converter={StaticResource Num}}" />
+    </Grid>
+    <TextBlock Classes="label" Text="{Binding MachinePorts}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding MachineWireStatus}" TextWrapping="Wrap" />
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Content="OPEN THIS NODE'S PAGES" Padding="14,8" Command="{Binding OpenFrontDoorCommand}"
+              ToolTip.Tip="The front door in a browser: what this node is and the pages it serves — the same door the desk's OPEN PAGES opens" />
+      <TextBlock Classes="label" Text="{Binding MachineFrontDoor}" VerticalAlignment="Center" />
+    </StackPanel>
+
+    <TextBlock Classes="h2" Text="UPDATE" />
+    <TextBlock Classes="label" Text="{Binding UpdateStatus}" TextWrapping="Wrap" />
+    <TextBlock Classes="label" Text="{Binding UpdateLastNote}" TextWrapping="Wrap" />
+    <Button Content="APPLY UPDATE (COMES BACK)" Padding="14,8" Command="{Binding ApplyUpdateCommand}"
+            ToolTip.Tip="Swaps the files through the watchdog and brings the node back on the new build, linked as it was. Needs a usable package staged and the watchdog; refused in words otherwise" />
+    <TextBlock Classes="label" Text="{Binding ManagementStatus}" TextWrapping="Wrap" />
+    <Button Content="CHECK IN NOW" Padding="14,8" Command="{Binding CheckInCommand}"
+            ToolTip.Tip="A check-in with the management server this moment, if one is set: it may deliver a package or a verb" />
+    <TextBlock Classes="hint tip"
+               Text="An update is a patterns-update-&lt;version&gt;.zip dropped into the updates folder (OPEN FOLDER), or one the management server delivers at its check-in; the watchdog swaps the files and the node comes back as it was. A node keeps its own folder, its own log and its own crash domain — a caller that falls over never takes the desk with it." />
+  </StackPanel>
+</UserControl>
