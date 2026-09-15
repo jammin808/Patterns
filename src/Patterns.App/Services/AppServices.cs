@@ -610,6 +610,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         if (Profile == NodeKind.Arcade) Arcade.Start();          // the game is the node's window from its first frame
         Screens.Refresh(); // planned screens exist before any display is attached
         Startup.Mark(StartupBudget.Services);
+        Log.Info(Modules.Words());                                                              // what the desk loaded, on record at every start
         // The desk's first frame is the budget's last mark; a pipeline tells it once.
         Rendering.RenderPipeline.FirstPreviewFrame = () => Startup.Mark(StartupBudget.FirstFrame);
         // The NDI runtime's first touch loads and initialises a native library: off the UI thread

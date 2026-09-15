@@ -603,6 +603,7 @@ public sealed class SystemMetricsService : IDisposable
             var version = typeof(SystemMetricsService).Assembly.GetName().Version?.ToString() ?? "dev";
             sb.AppendLine($"App: Patterns {version} · .NET {Environment.Version} · {RuntimeInformation.ProcessArchitecture}");
             sb.AppendLine($"OS: {RuntimeInformation.OSDescription}");
+            sb.AppendLine(Modules.Words());
             sb.AppendLine($"Machine: {Environment.MachineName}");
             var cpuName = WinRegistry.ReadCpuName();
             sb.AppendLine($"CPU: {(cpuName.Length > 0 ? cpuName : "unknown")} · {Environment.ProcessorCount} threads");

@@ -627,6 +627,7 @@ public static class ShowBrief
             sb.AppendLine(" (the operator picks files by hand).");
             sb.Append("Outputs: NDI sends ").Append(s.Ndi.Senders.Count).Append(" (").Append(facts.NdiSendsRunning).Append(" running)")
               .Append("; stream ").Append(facts.StreamStatus.Length > 0 ? facts.StreamStatus : "off").AppendLine(".");
+            sb.AppendLine(Modules.Words() + " (the build's assemblies: what this process is actually running).");
             if (facts.Health.Count > 0 || facts.Attention.Count > 0)
             {
                 // The desk's own measurements: what the Machine page and the glance line read, so a

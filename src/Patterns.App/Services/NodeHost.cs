@@ -513,6 +513,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         if (Kind == NodeKind.Arcade) Arcade.Start();
         _tick.Start();
         Kernel.Startup.Mark(StartupBudget.Services);
+        Log.Info(Modules.Words());                                                              // what this node actually loaded: the lightness claim, on record at every start
     }
 
     /// <summary>Once a second, on the UI thread: the room's clock, the stack's settling, the nodes heard — and the wire's revision when anything a page shows moved.</summary>
