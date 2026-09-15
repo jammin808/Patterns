@@ -74,7 +74,8 @@
             <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding WebZoomPct, StringFormat={}{0:0}%}" />
           </Grid>
           <StackPanel Orientation="Horizontal" Spacing="12">
-            <CheckBox Content="Show the pointer" IsChecked="{Binding WebShowPointer, Mode=TwoWay}" ToolTip.Tip="Draw the desk's pointer and its clicks on the page wherever this layer is shown" />
+            <CheckBox Content="Show the pointer" IsChecked="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).State.Web.ShowPointer, Mode=TwoWay}"
+                      ToolTip.Tip="The desk's own switch, the same as the Media page's: the pointer and its clicks on every web page, off by default, kept with the show" />
             <CheckBox Content="Mute" IsChecked="{Binding Mute, Mode=TwoWay}" />
           </StackPanel>
           <Grid ColumnDefinitions="Auto,8,90,8,Auto">

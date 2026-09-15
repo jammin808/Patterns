@@ -200,7 +200,9 @@ public class WebSourceTests
             Assert.Equal(new SKRect(0, 0, 1280, 720), hit.Rect);
             Assert.False(hit.ViewportSpace);
 
-            // The pointer: the arrow's body a little below and right of its tip, white; a fresh click rings it.
+            // The pointer, asked for on the desk's own switch (off by default since round 62): the arrow's
+            // body a little below and right of its tip, white; a fresh click rings it.
+            s.Web.ShowPointer = true;
             page.PointerNorm = new SKPoint(0.5f, 0.5f);
             page.LastClickUtc = RenderTestHarness.FixedUtcNow.AddMilliseconds(-10);
             var sink2 = new SinkState();
@@ -211,7 +213,7 @@ public class WebSourceTests
             Assert.Empty(sink2.Hits.Where(h => h.Kind == HitKind.WebPage).Skip(1));
 
             // Not asked for: the page alone. A fade source records nothing.
-            s.Pattern.Media.WebShowPointer = false;
+            s.Web.ShowPointer = false;
             var sink3 = new SinkState();
             using var hidden = RenderWithSink(s, 1280, 720, SinkKind.Output, sink3, fadeSource: true);
             Assert.Equal(SKColors.Blue, hidden.GetPixel(641, 364));
@@ -275,7 +277,8 @@ public class WebSourceTests
             var dragged = WebPointerMap.ToPageUnbounded(in web, new SKPoint(-1000, 360));
             Assert.Equal(0, dragged.X);
 
-            // The pointer is drawn in the box; one in the cropped-away margin is not drawn at all.
+            // The pointer is drawn in the box on the desk's switch; one in the cropped-away margin is not drawn at all.
+            s.Web.ShowPointer = true;
             page.PointerNorm = new SKPoint(0.5f, 0.5f);
             var sink2 = new SinkState();
             using var pointed = RenderWithSink(s, 1280, 720, SinkKind.Output, sink2);
@@ -286,8 +289,8 @@ public class WebSourceTests
             page.PointerNorm = null;
             Assert.False(WebPointer.Draw(surface.Canvas, box, FrameCrop.None, page, RenderTestHarness.FixedUtcNow, sink2.Paints));
 
-            // Turned off, the layer records neither box; a rename of nothing web-related leaves the page alone.
-            s.Pattern.Layer1.WebShowPointer = false;
+            // Turned off, the layer draws no pointer; a rename of nothing web-related leaves the page alone.
+            s.Web.ShowPointer = false;
             page.PointerNorm = new SKPoint(0.5f, 0.5f);
             var sink3 = new SinkState();
             using var plain = RenderWithSink(s, 1280, 720, SinkKind.Output, sink3);
@@ -334,14 +337,16 @@ public class WebSourceTests
             m.WebWidth = 1600;
             m.WebHeight = 900;
             m.WebZoomPct = 125;
-            m.WebShowPointer = false;
         });
+        s.Web.ShowPointer = true;                       // the desk's switch, not the picture's: it travels with the show
         var copy = JsonUtil.Clone(s);
+        Assert.False(new ShowState().Web.ShowPointer);  // off by default
+        Assert.True(copy.Web.ShowPointer);
         Assert.Equal(MediaSource.Web, copy.Pattern.Media.Source);
         Assert.Equal("example.com", copy.Pattern.Media.WebUrl);
-        Assert.Equal((1600, 900, 125.0, false), (copy.Pattern.Media.WebWidth, copy.Pattern.Media.WebHeight, copy.Pattern.Media.WebZoomPct, copy.Pattern.Media.WebShowPointer));
+        Assert.Equal((1600, 900, 125.0), (copy.Pattern.Media.WebWidth, copy.Pattern.Media.WebHeight, copy.Pattern.Media.WebZoomPct));
         var before = JsonUtil.SerializeIdentity(s.Pattern);
-        s.Pattern.Media.WebShowPointer = true;
+        s.Web.ShowPointer = false;
         s.Pattern.Media.WebZoomPct = 150;
         Assert.Equal(before, JsonUtil.SerializeIdentity(s.Pattern));
         s.Pattern.Media.WebUrl = "other.org";

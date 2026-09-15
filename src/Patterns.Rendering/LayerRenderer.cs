@@ -159,7 +159,7 @@ public static class LayerRenderer
                 if (!drawn.Drew) return false;
                 f.Sink.Stages.NoteLive(in drawn);
                 picture = dest;
-                if (l.Source == LayerSource.Web && l.WebShowPointer && source is IWebSource web)
+                if (l.Source == LayerSource.Web && f.Snapshot.State.Web.ShowPointer && source is IWebSource web)
                 {
                     WebPointer.Draw(c, dest, in crop, web, f.Ctx.UtcNow, f.Paints);
                 }

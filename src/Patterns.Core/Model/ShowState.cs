@@ -2522,6 +2522,15 @@ public sealed class WebConfig : Observable
     private string _targetScreenId = "";
     private Services.PageServicePick _service;
     private bool _clean;
+    private bool _showPointer;
+
+    /// <summary>
+    /// Draw the desk's pointer and its clicks on every web page the show puts up — a pattern's page
+    /// and a layer's alike. Off by default: the room sees the page, not the operator's hand. The
+    /// desk's own choice (round 62), kept with the show and never re-armed by a look, a preset, a
+    /// target switch or a TAKE, which is why it lives here and not on the picture.
+    /// </summary>
+    public bool ShowPointer { get => _showPointer; set => Set(ref _showPointer, value); }
 
     /// <summary>The page the Remote &amp; web page puts on the pattern (https://… or a local file path).</summary>
     public string Url { get => _url; set => Set(ref _url, value); }

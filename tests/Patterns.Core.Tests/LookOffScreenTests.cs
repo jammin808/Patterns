@@ -119,7 +119,7 @@ public class LookOffScreenTests
         state.Pattern.Kind = PatternKind.Media;
         state.Pattern.Media.Source = MediaSource.Web;
         var look = LookService.Capture(state);
-        state.Pattern.Media.WebShowPointer = !state.Pattern.Media.WebShowPointer;
+        state.Web.ShowPointer = !state.Web.ShowPointer;   // the desk's own switch since round 62 — never part of the picture
         state.Pattern.Media.WebZoomPct = 150;
         Assert.Empty(LookService.TargetsOffLook(state, look, Targets));
 

@@ -173,8 +173,8 @@
         <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right"
                    Text="{Binding ActivePattern.Media.WebZoomPct, StringFormat={}{0:0}%}" />
       </Grid>
-      <CheckBox Content="Show the pointer and clicks on the page (every output)" IsChecked="{Binding ActivePattern.Media.WebShowPointer, Mode=TwoWay}"
-                ToolTip.Tip="Off for a page nobody drives — a kiosk schedule, a dashboard" />
+      <CheckBox Content="Show the pointer and clicks on the page (every output, every page)" IsChecked="{Binding State.Web.ShowPointer, Mode=TwoWay}"
+                ToolTip.Tip="The desk's own switch, off by default: the room sees the page, not your hand. Kept with the show; no look, preset, target or TAKE re-arms it — a pattern's page and a layer's page follow it alike" />
       <!-- The armed web VT carried by the look: the video plays from the point when the page goes to air, and a cue
            ahead that carries it has the page opened early, prepared at the mark. -->
       <Grid ColumnDefinitions="Auto,8,72,8,*" Margin="0,4,0,0">

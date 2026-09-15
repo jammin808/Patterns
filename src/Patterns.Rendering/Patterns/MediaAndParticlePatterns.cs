@@ -163,7 +163,7 @@ public sealed class MediaPattern : IPatternRenderer
                 {
                     f.Sink.Hits.Add(new HitRect(HitKind.WebPage, placed.Dest, false, key, crop, bounds));
                 }
-                if (o.WebShowPointer && page is IWebSource web) WebPointer.Draw(c, placed.Dest, in crop, web, f.Ctx.UtcNow, pc);
+                if (f.Snapshot.State.Web.ShowPointer && page is IWebSource web) WebPointer.Draw(c, placed.Dest, in crop, web, f.Ctx.UtcNow, pc);
             }
             return;
         }

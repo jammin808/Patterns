@@ -416,7 +416,6 @@ public sealed class MediaOptions : Observable
     private int _webWidth = 1920;
     private int _webHeight = 1080;
     private double _webZoomPct = 100;
-    private bool _webShowPointer = true;
     private Services.PageServicePick _webService;
     private bool _webClean;
     private bool _webAutoPlay;
@@ -461,8 +460,6 @@ public sealed class MediaOptions : Observable
     public int WebHeight { get => _webHeight; set => Set(ref _webHeight, Math.Clamp(value, 240, 4320)); }
     /// <summary>The browser's zoom (25–400 %): larger type for a schedule on a big screen without touching the page. Applied live.</summary>
     [TransitionNeutral] public double WebZoomPct { get => _webZoomPct; set => Set(ref _webZoomPct, Math.Clamp(value, 25, 400)); }
-    /// <summary>Draw the desk's pointer and its clicks on the page wherever it is shown — off for a page nobody drives.</summary>
-    [TransitionNeutral] public bool WebShowPointer { get => _webShowPointer; set => Set(ref _webShowPointer, value); }
     /// <summary>
     /// What this page is treated as: Auto reads the address, which is right almost always. Naming
     /// the service outright is for an address that does not say — a short link, a corporate proxy,
@@ -671,7 +668,6 @@ public sealed class LayerConfig : Observable
     private int _webWidth = 1280;
     private int _webHeight = 720;
     private double _webZoomPct = 100;
-    private bool _webShowPointer = true;
     private Services.PageServicePick _webService;
     private bool _webClean;
     private bool _webAutoPlay;
@@ -705,8 +701,6 @@ public sealed class LayerConfig : Observable
     public int WebWidth { get => _webWidth; set => Set(ref _webWidth, Math.Clamp(value, 320, 7680)); }
     public int WebHeight { get => _webHeight; set => Set(ref _webHeight, Math.Clamp(value, 240, 4320)); }
     [TransitionNeutral] public double WebZoomPct { get => _webZoomPct; set => Set(ref _webZoomPct, Math.Clamp(value, 25, 400)); }
-    /// <summary>Draw the desk's pointer and its clicks on the page wherever the layer is shown.</summary>
-    [TransitionNeutral] public bool WebShowPointer { get => _webShowPointer; set => Set(ref _webShowPointer, value); }
     /// <summary>What this page is treated as; Auto reads the address. See <see cref="MediaConfig.WebService"/>.</summary>
     [TransitionNeutral] public Services.PageServicePick WebService { get => _webService; set => Set(ref _webService, value); }
     /// <summary>Take the service's furniture off the picture. See <see cref="MediaConfig.WebClean"/>.</summary>
