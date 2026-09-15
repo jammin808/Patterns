@@ -493,6 +493,16 @@ public static class FrameBudgets
         }
     }
 
+    /// <summary>
+    /// Every budget attached now, in the order they attached. A budget attached is a pipeline
+    /// alive, and a pipeline alive keeps its bus and everything behind it: the tests read this
+    /// after a desk has closed to see the sink that outlived its window.
+    /// </summary>
+    public static IReadOnlyList<FrameBudget> Attached
+    {
+        get { lock (Gate) return All.ToArray(); }
+    }
+
     /// <summary>The sinks that drew a frame in the last minute, in the order they attached (the preview first, then the outputs).</summary>
     public static IReadOnlyList<FrameBudgetReading> Readings(double clockSeconds)
     {

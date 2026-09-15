@@ -1717,6 +1717,40 @@ them.
   `IsInPreview` are the desk's tallies on the desk's objects — so on a node the chips read the
   names and the press answers with the desk's words; the LIVE strip says what is on.
 
+### 62.7 — the test host that died, and the tile it named
+
+- **What happened.** Three local runs of the App suite alone ended with "Test host process
+  crashed" — at 559, 475 and 504 of 683 tests — with the host near 13.5 GB and no dump left (a
+  kill by the OS for memory leaves none). CI ran all 683 green on the same commits.
+- **How it was read.** A memory line per closed boot, after a forced full collection: the managed
+  figure climbed ~40 MB a boot, so every closed desk was rooted. A heap dump of the host at 49
+  boots held 75 desks and 229 pipelines; `gcroot` from the oldest desk ran through one static —
+  the frame budget registry the glance line and the GO's clock read — to a budget, its bus, and
+  the desk behind it. The budget's label: "the main screen — …", the RUN monitor's tile of 62.5.
+- **The cause.** The tile made its pipeline on every viewport change whatever its attachment. Its
+  surface is the Run layout, whose content is laid out — and so joins the visual tree — only when
+  the layout is first shown; the tests' desks never showed it, the viewport's binding arrived at
+  boot, and the tile, off the tree with no detach in its future, made a pipeline nothing would
+  ever dispose. Its budget kept the desk: one a boot, 683 boots.
+- **The fix.** A tile off the surface has no pipeline: made on attach, disposed on detach, and a
+  viewport that changes in between makes nothing; opening the Run layout lays its surface out and
+  the tile makes its pipeline then. `MonitorTileLifetimeTests`: a tile through attach, retitle,
+  detach, a change while detached and a return; and a desk whose monitor has no pipeline while
+  the Run layout is closed, one once it opens, and nothing of its own left in the registry once
+  closed. `FrameBudgets.Attached` shows the registry. The test harness measures on request
+  (`PATTERNS_TEST_MEMLOG`) — the managed bytes after a full collection, the working set and
+  every budget still attached, per boot — and collects when the host has grown heavy.
+- **Found on the way.** `DeckConversionAppTests` counted the stand-in LibreOffice's starts the
+  moment after a reload; the converter runs on its own lane, and a Settle pumps the desk without
+  waiting for a lane. It read one where two were coming, twice in a day here; the test waits for
+  the start now.
+- **Honest notes.** The round-60 note that blamed load beside the suite was wrong: the suite
+  alone died. CI passed all 683 with the leak because its runner had the room — a green CI is not
+  a clean host, and the measure is now a column, not a guess. On the desk itself this was one
+  idle pipeline made at start for a Run layout not yet opened, nothing an operator would see; the
+  rule closes the class, since any tile given a viewport off the tree — a wall rebuilt while its
+  page is being replaced — was the same leak waiting.
+
 ### Seen, and noted
 
 - Every unit of this round is on the desk's own paths: a menu opens through the input pipeline,
@@ -1724,11 +1758,10 @@ them.
   view.
 - The right-click fix was the first item because a desk that shows nothing on a right-click is
   a broken desk; the regression test is the one that would have caught round 60.
-- One local App run's test host crashed after 559 tests while the Core and Rendering suites and
-  a build ran beside it; CI ran all 683 on the same commit with only the two chip tests red, and
-  the re-run alone here was the record. Load beside the App suite is the one thing it does not
-  tolerate — the round-60 note, again.
+- The App suite's host crashes were first put down to load beside the suite, as in round 60. They
+  were the desk's own leak (62.7), found the moment it was measured rather than explained.
 
 Counts at the end of the round: Core 672, Rendering 602, Devices 7, Audio 9, Assistant 36,
-Audience 2, App 683 — 2,011 in seven suites, every one green here, the module's seventeen beside
-them.
+Audience 2, App 685 — 2,013 in seven suites, the module's seventeen beside them. The App suite
+alone, measured boot by boot, holds at ~45 MB managed after every boot where it climbed 40 MB a
+boot; its run to the end is recorded in 62.7.

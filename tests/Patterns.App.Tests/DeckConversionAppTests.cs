@@ -92,6 +92,21 @@ public class DeckConversionAppTests
             return (true, "");
         };
 
+    /// <summary>
+    /// Pumps until the stand-in has been started <paramref name="count"/> times. The converter runs
+    /// on its own lane, and a Settle pumps the desk without waiting for a lane: read the moment
+    /// after a reload, the count was still the old one now and then (round 62, twice in one day).
+    /// </summary>
+    private static void WaitStarted(List<string> sources, int count)
+    {
+        var deadline = Environment.TickCount64 + 10000;
+        while (sources.Count < count && Environment.TickCount64 < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(5);
+        }
+    }
+
     private static void WaitForConversions(AppServices services, Window window)
     {
         TestApp.Pump(services.DeckIn.WhenConversionsSettled().ContinueWith(_ => true));
@@ -134,6 +149,7 @@ public class DeckConversionAppTests
             var pendingState = System.Text.Json.JsonDocument.Parse(router.StateJson()).RootElement.GetProperty("deck");
             Assert.True(pendingState.GetProperty("converting").GetBoolean());
             Assert.True(services.DeckIn.Converting);
+            WaitStarted(sources, 1);
             Assert.Single(sources);                      // LibreOffice was started once, and is at work
 
             // The conversion lands: the PDF takes the pending deck's place — the same key, the pages on the PREVIEW pane.
@@ -179,6 +195,7 @@ public class DeckConversionAppTests
             Assert.Null(services.DeckIn.Converter.Cached(pptx));
             Settle(window);
             Assert.IsType<PendingDeckSource>(services.DeckIn.For(key));
+            WaitStarted(sources, 2);
             Assert.Equal(2, sources.Count);
             gate.SetResult();
             WaitForConversions(services, window);

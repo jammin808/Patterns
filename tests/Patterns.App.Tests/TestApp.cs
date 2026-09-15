@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
@@ -21,12 +22,52 @@ public static class TestApp
             window = Window;
         }
 
-        /// <summary>Closes the window and shuts the services down; safe to call twice.</summary>
+        private bool _disposed;
+
+        /// <summary>Closes the window, shuts the services down and reclaims the boot's memory; safe to call twice.</summary>
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             try { Window.Close(); } catch { /* already closed */ }
             Services.Shutdown();
+            ReclaimBoot();
         }
+    }
+
+    private static int _boots;
+    private static readonly Stopwatch Clock = Stopwatch.StartNew();
+
+    /// <summary>
+    /// After a boot is closed: a full collection with its finalizers when the host has grown heavy
+    /// or when a run is measuring, and one line of the measure per boot with
+    /// PATTERNS_TEST_MEMLOG=&lt;file&gt; — the managed bytes left after the collection, the working set,
+    /// and every frame budget still attached to the process-wide registry with its sink's name.
+    /// The line is how round 62's host crash was read: the managed figure climbed ~40 MB a boot
+    /// after a full collection, so something rooted every closed desk, and the budgets column
+    /// named it — the RUN monitor's tile, whose viewport arrived while its surface, the Run
+    /// layout, had never been laid out, so the pipeline it made was off the tree with no detach in
+    /// its future (<see cref="Views.Controls.MonitorTileControl"/>). A rooted desk shows here as a managed
+    /// figure that climbs and a budget that stays; <c>MonitorTileLifetimeTests</c> keeps that at
+    /// zero. The collection itself is not the fix: the runtime's collector is tuned to the
+    /// machine's memory rather than to what one test just dropped, so on a big box the host is
+    /// let grow for minutes before it collects, and the forced one keeps a heavy host in bounds
+    /// and makes the figure a true reading.
+    /// </summary>
+    public static void ReclaimBoot()
+    {
+        var log = Environment.GetEnvironmentVariable("PATTERNS_TEST_MEMLOG");
+        var heavy = Environment.WorkingSet > 3L * 1024 * 1024 * 1024;
+        if (string.IsNullOrEmpty(log) && !heavy) return;
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        if (string.IsNullOrEmpty(log)) return;
+        var n = Interlocked.Increment(ref _boots);
+        var budgets = Patterns.Core.Services.FrameBudgets.Attached;
+        var sinks = string.Join(", ", budgets.Select(b => $"{b.Kind}:{b.SinkIndex}:{b.Label}"));
+        var line = $"{Clock.Elapsed.TotalSeconds:F0}s boot={n} managed_mb={GC.GetTotalMemory(false) / 1_048_576} ws_mb={Environment.WorkingSet / 1_048_576} budgets={budgets.Count} [{(sinks.Length > 240 ? sinks[..240] + "…" : sinks)}]";
+        try { File.AppendAllText(log, line + Environment.NewLine); } catch { /* a diagnostic never fails a test */ }
     }
 
     /// <param name="prefix">The temp folder's name prefix.</param>

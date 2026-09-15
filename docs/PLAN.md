@@ -8006,7 +8006,7 @@ App: `DeskMenuPointerTests` (the right button and the menu key through the input
 `OpenPageButtonsTests` (the XAML rule; the command), `LibraryWebTests`, `RunMonitorAppTests`
 (the default, the wire, the menu, MENU, the air untouched, a joined main screen, no rig),
 `CallerLowerThirdsTests` (the desk's chip to air, PVW FIRST and TAKE; a caller node's chips and
-presses). Core: `WebPointerSettingTests`, `RunMonitorTests` (the wire and OSC rows, a cue, the
+presses), `MonitorTileLifetimeTests` (§80.10). Core: `WebPointerSettingTests`, `RunMonitorTests` (the wire and OSC rows, a cue, the
 checks, the summary, the menu), the menu invariants over the monitor's menu. Rendering: the web
 source tests on the desk's switch. Docs: this section, REVIEW round 62, CHANGELOG, README,
 REMOTE.md, COMPANION.md §10, the help topic.
@@ -8024,3 +8024,26 @@ opposite, and a switch that stays set is the point). A Companion action for the 
 round (no version bump for a verb the line action already sends). Avalonia's own `ContextFlyout`
 with the content built in `Opening` (that event cannot cancel, so a thing with no menu would open
 an empty one — the very symptom).
+
+### 80.10 The test host that died, and the tile it named (62.7)
+
+The App suite alone killed its host three times at ~500 of 683 tests, near 13.5 GB, while CI ran
+every test green. Measured — a line per closed boot after a forced full collection — the managed
+heap climbed ~40 MB a boot: every closed desk was rooted. A heap dump and `gcroot` named the one
+root: `FrameBudgets`, the process-wide registry of the sinks' frame budgets, holding a budget
+whose bus was the desk's. The budget was the RUN monitor tile's. `MonitorTileControl.Rebuild`
+made a pipeline on every viewport change whatever the tile's attachment. The tile's surface is
+the Run layout, whose content is laid out — and so joins the visual tree — only when the layout
+is first shown; the tests' desks never showed it, the viewport's binding arrived at boot, and the
+tile — off the tree, never to be detached from one — made a pipeline nothing would dispose.
+
+The rule: a tile off the surface has no pipeline. Made on attach (from the viewport it holds),
+disposed on detach, and a viewport change in between makes nothing; the Run layout opening lays
+its surface out and the monitor's pipeline is made then. `FrameBudgets.Attached` is
+the registry's contents for a reader. The test harness (`TestApp.ReclaimBoot`) collects after a
+boot when the host has grown heavy or when `PATTERNS_TEST_MEMLOG=<file>` asks for the measure,
+and writes the managed bytes after the collection, the working set and every budget still
+attached with its sink's name — the column that named this leak, kept for the next.
+
+What CI's green did not say: a runner with the room ran 683 rooted desks to the end. The count
+is not the measure; the measure is.

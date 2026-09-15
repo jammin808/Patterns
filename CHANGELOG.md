@@ -10,7 +10,7 @@ is the Bitfocus Companion module, where its version moved.
 
 ## Round 62 — 2026-09-15 — the menus that opened nothing, OPEN on every hint, the pointer as the desk's, the Library whole, the RUN monitor, the caller's lower thirds
 
-`round-62` · PLAN §80 · REVIEW round 62 · 2,011 tests
+`round-62` · PLAN §80 · REVIEW round 62 · 2,013 tests
 
 - The right-click menus opened nothing on the desk since round 60: with a `ContextFlyout` set,
   Avalonia's own handler showed the flyout before the desk built the menu. The desk opens its own
@@ -27,6 +27,10 @@ is the Bitfocus Companion module, where its version moved.
   on the wire and OSC, `MENU MONITOR`, `runMonitor` in STATE; a cue may carry it.
 - The show caller calls up lower thirds from the Run surface — on the desk and on a caller node,
   where the press goes to the desk.
+- The App suite's host, killed three times at ~500 tests: a heap dump named the RUN monitor
+  tile's pipeline, made off the tree for a Run layout not yet shown and keeping every closed desk
+  alive through the frame budget registry. A tile off the surface has no pipeline now, two tests
+  keep it, and the test harness measures memory per boot on request.
 
 ## Round 61 — 2026-09-15 — the changelog, a roll-back on GitHub, ASIO and DirectX answered
 
