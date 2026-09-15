@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Patterns.App.ViewModels;
 
@@ -32,33 +33,48 @@ public static class Menus
     public static object? GetSubject(Control c) => c.GetValue(SubjectProperty);
     public static void SetSubject(Control c, object? value) => c.SetValue(SubjectProperty, value);
 
+    /// <summary>The control's flyout — the desk's, never <see cref="Control.ContextFlyout"/> (see <see cref="Attach"/>).</summary>
+    private static readonly AttachedProperty<Flyout?> FlyoutProperty =
+        AvaloniaProperty.RegisterAttached<Control, Flyout?>("Flyout", typeof(Menus));
+
     private static void Attach(Control control)
     {
         if (GetKind(control) is not { Length: > 0 })
         {
-            control.ContextFlyout = null;
+            control.SetValue(FlyoutProperty, null);
             return;
         }
-        if (control.ContextFlyout is Flyout { Content: DeskMenuControl }) return;
+        if (control.GetValue(FlyoutProperty) is not null) return;
         var flyout = new Flyout { Placement = PlacementMode.Pointer, ShowMode = FlyoutShowMode.Standard };
         flyout.FlyoutPresenterClasses.Add("deskMenu");
-        control.ContextFlyout = flyout;
-        // The right-click: the menu is built here, before the flyout opens at the pointer; a control
-        // the host has no menu for swallows the request and nothing opens.
-        control.ContextRequested += (_, e) =>
-        {
-            if (!Prepare(control)) e.Handled = true;
-        };
+        control.SetValue(FlyoutProperty, flyout);
+        // The desk opens the flyout itself on the context request — the right button's release, or
+        // the menu key — after building the menu, and never through Control.ContextFlyout: the
+        // platform's handler for that property is subscribed before any other, shows the flyout with
+        // whatever content it has and marks the request handled, so a menu built on the request never
+        // ran and the desk saw an empty flyout (round 62). A thing with no menu swallows the request.
+        control.AddHandler(Control.ContextRequestedEvent, OnContextRequested, RoutingStrategies.Bubble);
+    }
+
+    private static void OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (e.Handled || sender is not Control control) return;
+        e.Handled = true;
+        if (!Prepare(control)) return;
+        var flyout = FlyoutOf(control)!;
+        var atPointer = e.TryGetPosition(null, out _);
+        flyout.Placement = atPointer ? PlacementMode.Pointer : PlacementMode.BottomEdgeAlignedLeft;
+        flyout.ShowAt(control, atPointer);
     }
 
     /// <summary>
     /// Builds the menu for a control's kind and subject into its flyout: true when there is one
-    /// (the flyout may open), false when the host has none. The right-click calls this; a test or
-    /// a key can call it and then show the flyout itself.
+    /// (the flyout may open), false when the host has none. The context request calls this; a test
+    /// or a key can call it and then show the flyout itself.
     /// </summary>
     public static bool Prepare(Control control)
     {
-        if (control.ContextFlyout is not Flyout flyout) return false;
+        if (FlyoutOf(control) is not { } flyout) return false;
         var kind = GetKind(control);
         var host = HostOf(control);
         var vm = kind is null || host is null ? null : host.MenuFor(kind, GetSubject(control) ?? control.DataContext);
@@ -72,6 +88,9 @@ public static class Menus
         vm.Chosen += () => flyout.Hide();
         return true;
     }
+
+    /// <summary>The control's menu flyout, or null when it has no kind.</summary>
+    public static Flyout? FlyoutOf(Control control) => control.GetValue(FlyoutProperty);
 
     /// <summary>The nearest view model up the tree that builds menus — the window's, whatever the row or the pop-out binds.</summary>
     public static IDeskMenuHost? HostOf(Control control)

@@ -278,7 +278,8 @@ public class DeskMenuAppTests
             var tile = vm.SwitcherTiles.First(t => t.TargetId == "b");
             var border = new Border { DataContext = tile };
             Menus.SetKind(border, "tile");
-            var flyout = Assert.IsType<Flyout>(border.ContextFlyout);
+            var flyout = Menus.FlyoutOf(border)!;
+            Assert.Null(border.ContextFlyout);
             var other = new Border { DataContext = "nothing the desk has a menu for" };
             Menus.SetKind(other, "tile");
             window = new Window { DataContext = vm, Content = new StackPanel { Children = { border, other } } };
@@ -307,7 +308,7 @@ public class DeskMenuAppTests
 
             // A thing the host has no menu for opens nothing.
             Assert.False(Menus.Prepare(other));
-            Assert.Null(((Flyout)other.ContextFlyout!).Content);
+            Assert.Null(Menus.FlyoutOf(other)!.Content);
         }
         finally
         {
