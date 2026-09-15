@@ -526,6 +526,8 @@ public sealed class SystemMetricsService : IDisposable
             RenderFaults = frames.Sum(r => r.Faults),
             RenderConsecutiveFaults = frames.Count > 0 ? frames.Max(r => r.ConsecutiveFaults) : 0,
             RenderLastFault = frames.Where(r => r.ConsecutiveFaults > 0 || r.Faults > 0).Select(r => $"{r.Name}: {r.LastFault}").FirstOrDefault() ?? "",
+            RenderClockHz = FrameBudgets.ClockHz(frames),
+            ClockLimited = FrameBudgets.ClockLimited(frames),
             LiveAgeWorstMs = frames.Count > 0 ? frames.Max(r => r.LiveAgeMs) : -1,
             SideEffectPasses = _services.Reconciles.Passes,
             SideEffectWorstMs = _services.Reconciles.WorstPassMs,

@@ -109,6 +109,10 @@ public sealed class CheckFacts
     public int RenderConsecutiveFaults { get; init; }
     public string RenderLastFault { get; init; } = "";
 
+    /// <summary>The render clock's measured beat as the outputs hear it (-1 not measured) and the outputs it limits, in words (round 64).</summary>
+    public double RenderClockHz { get; init; } = -1;
+    public IReadOnlyList<string> ClockLimited { get; init; } = Array.Empty<string>();
+
     /// <summary>The oldest live picture (a camera, a feed) any sink drew in the last minute, from its arrival in the decoder to the end of the frame that drew it (ms; -1 none drawn): the IMAG number.</summary>
     public double LiveAgeWorstMs { get; init; } = -1;
 
@@ -501,6 +505,7 @@ public static class SuperCheck
         DeskTick(f, rows, s);
         PageSwitch(f, rows, s);
         RenderFrame(f, rows, s);
+        RenderClock(f, rows, s);
         RenderFaults(f, rows, s);
         SideEffects(f, rows, s);
         GoToFrame(f, rows, s);
@@ -612,6 +617,25 @@ public static class SuperCheck
             ? (f.RenderSinks > 1 ? $"{f.RenderSinks} sinks in the last minute" : "")
             : FrameAdvice(f.RenderWorstStage, light);
         rows.Add(new CheckRow(section, "Render frame", light, value, note));
+    }
+
+    /// <summary>
+    /// The render clock (round 64): the platform beats at one display's refresh for every window.
+    /// Green when every live output's display is within the clock's rate; amber when an output
+    /// needs more beats than the clock supplies — the words name it, and nothing on the chip or
+    /// the wire claims the display's rate is served. No row before the clock is measured: unknown
+    /// is said as unknown, never as a number.
+    /// </summary>
+    private static void RenderClock(CheckFacts f, List<CheckRow> rows, string section)
+    {
+        if (f.RenderClockHz <= 0) return;
+        if (f.ClockLimited.Count == 0)
+        {
+            rows.Add(new CheckRow(section, "Render clock", CheckLight.Green, $"beats {f.RenderClockHz:0.0} Hz", "every output's display is within the clock's rate: the frames the room gets are the frames the display shows"));
+            return;
+        }
+        rows.Add(new CheckRow(section, "Render clock", CheckLight.Amber, string.Join(" · ", f.ClockLimited),
+            "the platform's render clock beats at one display's refresh for every window, and this output's display needs more — no pacing can make frames the compositor never asks for; make that display the one the clock follows (the desk's primary, the first output opened), or match the rates"));
     }
 
     /// <summary>

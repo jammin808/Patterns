@@ -20,10 +20,69 @@ public class RateAndAspectTests
     [InlineData(0, 60, 60.0, 0)]       // the display's own rate at the clock's own beat: unpaced — pacing here would drop frames
     [InlineData(0, 50, 0.0, 0)]        // the clock not yet measured: unpaced until it is
     [InlineData(0, 120, 60.0, 0)]      // a display faster than the clock: every beat is all it can get
-    [InlineData(0, 50, 54.0, 0)]       // within a tenth of the display: the same clock, jittering
+    [InlineData(0, 50, 51.0, 0)]       // within the family: the same clock, read a hair high
+    [InlineData(0, 50, 54.0, 50)]      // a clock beating 54 is not a 50 Hz clock: paced to the display (round 64 — the family rule, not a tenth)
+    [InlineData(0, 60, 59.94, 0)]      // 59.94 and 60 are one family: unpaced
     [InlineData(0, 24, 60.0, 24)]      // a cinema display under a 60 Hz clock: 24
     public void TheOutputPresentsAtTheRateItsDisplayCanShow(int wanted, int displayHz, double clockHz, int expected)
         => Assert.Equal(expected, OutputRate.Present(wanted, displayHz, clockHz));
+
+    [Theory]
+    [InlineData(59.94, 60, true)]
+    [InlineData(29.97, 30, true)]
+    [InlineData(23.976, 24, true)]
+    [InlineData(60.4, 60, true)]       // a measured clock, read a hair high
+    [InlineData(50, 60, false)]
+    [InlineData(60, 75, false)]
+    [InlineData(60, 120, false)]
+    [InlineData(48, 50, false)]
+    [InlineData(24, 25, false)]
+    [InlineData(0, 60, false)]         // unknown is never the same as anything
+    public void RatesAreOneFamilyWithinTheToleranceAndDifferentCadencesOutsideIt(double a, double b, bool same)
+    {
+        Assert.Equal(same, OutputRate.SameFamily(a, b));
+        Assert.Equal(same, OutputRate.SameFamily(b, a));
+    }
+
+    [Theory]
+    [InlineData(0, 60, 50.0, true, 60)]      // the display's own 60 under a 50 Hz clock: limited — the review's case
+    [InlineData(0, 60, 60.2, false, 60)]     // the clock is the display's own
+    [InlineData(0, 60, 59.94, false, 60)]    // one family
+    [InlineData(0, 50, 60.0, false, 50)]     // a slower display under a faster clock: paced, never limited
+    [InlineData(60, 60, 50.0, true, 60)]     // asked for 60 on a 60 Hz display under a 50 Hz clock: limited
+    [InlineData(30, 60, 50.0, false, 30)]    // asked for 30: the clock has beats enough
+    [InlineData(0, 120, 60.0, true, 120)]    // a 120 Hz display under a 60 Hz clock: limited, and said so
+    [InlineData(0, 60, 0.0, false, 60)]      // the clock not measured: unknown, never a claim either way
+    [InlineData(0, 0, 50.0, false, 0)]       // no display known: nothing to need
+    public void AnOutputIsLimitedWhenItsDisplayNeedsMoreBeatsThanTheMeasuredClockSupplies(int present, int displayHz, double clockHz, bool limited, int needed)
+    {
+        var limit = OutputRate.ClockLimit(present, displayHz, clockHz);
+        Assert.Equal(limited, limit.Limited);
+        Assert.Equal(needed, limit.NeededHz);
+        if (limited) Assert.Contains("LIMITED BY RENDER CLOCK", limit.Words("Output 2"));
+        else Assert.Equal("", limit.Words("Output 2"));
+    }
+
+    [Fact]
+    public void TheBudgetsReadingsNameTheLimitedOutputsAndTheHealthRowSaysSo()
+    {
+        var limited = new FrameBudgetReading(Patterns.Core.Model.SinkKind.Output, 2, "Output 2", 100, 0, 100, 5, 8, "", 50, TargetFps: 0, DisplayHz: 60, ClockHz: 50.0);
+        var served = new FrameBudgetReading(Patterns.Core.Model.SinkKind.Output, 1, "Output 1", 100, 0, 100, 5, 8, "", 50, TargetFps: 50, DisplayHz: 50, ClockHz: 50.0);
+        var pane = new FrameBudgetReading(Patterns.Core.Model.SinkKind.Preview, 0, "Preview", 100, 0, 100, 5, 8, "", 50, ClockHz: 50.0);
+        var readings = new[] { limited, served, pane };
+        var words = Assert.Single(FrameBudgets.ClockLimited(readings));
+        Assert.Equal("Output 2: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK", words);
+        Assert.Equal(50.0, FrameBudgets.ClockHz(readings));
+
+        var amber = SuperCheck.Run(new CheckFacts { RenderClockHz = 50.0, ClockLimited = FrameBudgets.ClockLimited(readings) }).Rows.Single(r => r.Item == "Render clock");
+        Assert.Equal(CheckLight.Amber, amber.Light);
+        Assert.Contains("LIMITED BY RENDER CLOCK", amber.Value);
+        Assert.Contains("one display's refresh for every window", amber.Note);
+        var green = SuperCheck.Run(new CheckFacts { RenderClockHz = 60.0 }).Rows.Single(r => r.Item == "Render clock");
+        Assert.Equal(CheckLight.Green, green.Light);
+        Assert.Contains("60.0 Hz", green.Value);
+        Assert.DoesNotContain(SuperCheck.Run(new CheckFacts()).Rows, r => r.Item == "Render clock");   // not measured: no number, no row
+    }
 
     [Theory]
     [InlineData(1920, 1080, "16:9")]

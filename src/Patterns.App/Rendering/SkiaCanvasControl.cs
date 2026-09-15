@@ -48,6 +48,7 @@ public class SkiaCanvasControl : Control
         get => _pipeline;
         set
         {
+            if (!ReferenceEquals(_pipeline, value)) _pacer.Leave();   // another pipeline: another epoch
             _pipeline = value;
             InvalidateVisual();
         }
@@ -67,7 +68,8 @@ public class SkiaCanvasControl : Control
         ScheduleNext(pipeline);
     }
 
-    private long _pacerSlot = -1;
+    /// <summary>This canvas's pacing epoch: a continuous run at one rate; left when the cadence leaves Continuous, the canvas leaves the tree or the pipeline changes (round 64).</summary>
+    private readonly FramePacerState _pacer = new();
 
     private void ScheduleNext(RenderPipeline pipeline)
     {
@@ -79,6 +81,7 @@ public class SkiaCanvasControl : Control
                 break;
 
             case RedrawCadence.PerSecond:
+                _pacer.Leave();
                 if (!_secondTimer.IsEnabled)
                 {
                     _secondTimer.Interval = UntilNextSecond(DateTime.Now);
@@ -87,6 +90,7 @@ public class SkiaCanvasControl : Control
                 break;
 
             default:
+                _pacer.Leave();
                 _secondTimer.Stop();
                 break;
         }
@@ -114,13 +118,17 @@ public class SkiaCanvasControl : Control
                 // The slots that went by unpresented are the frames the room did not get: counted on
                 // this sink's budget, so the glance line and the metrics say "slots missed" from the
                 // pacer's own arithmetic, not from a guess at the frame time.
-                var present = FramePacer.ShouldPresent(ShowClock.Seconds, target, ref _pacerSlot, out var missed);
+                var present = FramePacer.ShouldPresent(ShowClock.Seconds, target, _pacer, out var missed);
                 if (missed > 0) _pipeline.Budget.RecordMissed(missed, ShowClock.Seconds);
                 if (!present)
                 {
                     RequestFrame();
                     return;
                 }
+            }
+            else
+            {
+                _pacer.Leave();                                       // unpaced, or not continuous: no run to count against
             }
             InvalidateVisual();
         });
@@ -130,7 +138,10 @@ public class SkiaCanvasControl : Control
     public bool FrameRequested => _frameRequested;
 
     /// <summary>The pacer's last presented slot, -1 when none (tests read it).</summary>
-    public long PacerSlot => _pacerSlot;
+    public long PacerSlot => _pacer.LastSlot;
+
+    /// <summary>The pacing epoch this canvas is in (tests read it).</summary>
+    public FramePacerState Pacer => _pacer;
 
     /// <summary>
     /// Leaving the tree: the clock timer stops, an outstanding request is forgotten (its callback
@@ -142,7 +153,7 @@ public class SkiaCanvasControl : Control
     {
         _secondTimer.Stop();
         _frameRequested = false;
-        _pacerSlot = -1;
+        _pacer.Leave();
         base.OnDetachedFromVisualTree(e);
     }
 

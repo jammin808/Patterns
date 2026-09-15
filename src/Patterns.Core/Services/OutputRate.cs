@@ -21,9 +21,44 @@ public static class OutputRate
     {
         if (displayHz <= 0) return Math.Max(0, wanted);
         if (wanted > 0) return Math.Min(wanted, displayHz);
-        // Asked for the display's own rate: pace to it only when the clock clearly beats faster.
-        return clockHz > displayHz * 1.1 ? displayHz : 0;
+        // Asked for the display's own rate: pace to it only when the clock beats at a faster rate
+        // — a different family, not the same rate read a hair high.
+        return clockHz > displayHz && !SameFamily(clockHz, displayHz) ? displayHz : 0;
     }
+
+    /// <summary>
+    /// Two rates within this share of each other are one family: 59.94 and 60, 29.97 and 30,
+    /// 23.976 and 24, a measured 60.4 and a display's 60. Outside it they are different cadences —
+    /// 50 and 60, 60 and 75, 60 and 120 — whatever the percentage.
+    /// </summary>
+    public const double FamilyTolerance = 0.025;
+
+    /// <summary>Whether two rates are effectively the same cadence (round 64); false when either is unknown.</summary>
+    public static bool SameFamily(double a, double b)
+        => a > 0 && b > 0 && Math.Abs(a - b) <= Math.Max(a, b) * FamilyTolerance;
+
+    /// <summary>
+    /// Whether an output needs more beats than the platform's render clock supplies (round 64).
+    /// The clock beats at one display's refresh for every window: an output on a faster display
+    /// gets the clock's beats and no more, and no pacing can make frames the compositor never
+    /// asks for — the honest word is LIMITED, on the chip, the Machine page, STATE and the brief.
+    /// <paramref name="presentFps"/> is the rate the sink presents at (0: its display's own), the
+    /// display's refresh as reported (0 unknown), the clock's measured beat (≤ 0 not measured).
+    /// </summary>
+    public static RateLimit ClockLimit(int presentFps, int displayHz, double clockHz)
+    {
+        var needed = presentFps > 0 ? (displayHz > 0 ? Math.Min(presentFps, displayHz) : presentFps) : displayHz;
+        var limited = clockHz > 0 && needed > 0 && clockHz < needed && !SameFamily(clockHz, needed);
+        return new RateLimit(limited, needed, clockHz);
+    }
+}
+
+/// <summary>An output against the render clock: whether the clock limits it, the rate it needs and the clock's measured beat (≤ 0: not measured — unknown, never assumed).</summary>
+public readonly record struct RateLimit(bool Limited, int NeededHz, double ClockHz)
+{
+    /// <summary>The words for a sink: "Output 2: 60 Hz needed, render clock 50.0 Hz — LIMITED BY RENDER CLOCK".</summary>
+    public string Words(string sink)
+        => Limited ? $"{sink}: {NeededHz} Hz needed, render clock {ClockHz:0.0} Hz — LIMITED BY RENDER CLOCK" : "";
 }
 
 /// <summary>A pixel size's shape in the words a video engineer uses: 16:9, 16:10, 4:3, 21:9, 1:1, 9:16 — or the reduced pair, or "1.78:1" when neither reads.</summary>

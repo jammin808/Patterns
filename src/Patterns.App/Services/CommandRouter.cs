@@ -609,8 +609,10 @@ public sealed class CommandRouter : IRouter
         var renderFaults = sinks.Sum(r => r.Faults);
         var faulting = sinks.Any(r => r.ConsecutiveFaults > 0);
         var liveAgeMs = Math.Round(sinks.Where(r => r.Kind == SinkKind.Output).Select(r => r.LiveAgeMs).DefaultIfEmpty(-1).Max(), 0);   // the oldest camera or feed picture an output drew in the last minute, decoder to frame; -1 none
+        var renderClockHz = Math.Round(FrameBudgets.ClockHz(sinks), 1);                                  // the platform's render clock as measured; -1 not measured (round 64)
+        var clockLimited = FrameBudgets.ClockLimited(sinks);                                             // the outputs it limits, in words — empty when none
         return m is null
-            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting, liveAgeMs }
+            ? new { cpu = -1.0, ram = -1.0, fps = 0.0, battery = false, advice, renderFaults, faulting, liveAgeMs, renderClockHz, clockLimited }
             : new
             {
                 cpu = Math.Round(m.CpuSystemPct, 0),
@@ -621,6 +623,8 @@ public sealed class CommandRouter : IRouter
                 renderFaults,
                 faulting,
                 liveAgeMs,
+                renderClockHz,
+                clockLimited,
             };
     }
 

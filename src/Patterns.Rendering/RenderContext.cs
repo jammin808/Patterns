@@ -51,6 +51,9 @@ public readonly record struct RenderContext
     /// <summary>The display's refresh as Windows reports it; 0 unknown (a pane, a feed, a planned screen).</summary>
     public int DisplayHz { get; init; }
 
+    /// <summary>The measured beat of the render clock this sink is offered; 0 or less is not measured (round 64: the chip says LIMITED when the display needs more).</summary>
+    public double ClockHz { get; init; }
+
     /// <summary>True while re-rendering the previous snapshot as the fading-out half of a crossfade.</summary>
     public bool IsFadeSource { get; init; }
 

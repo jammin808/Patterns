@@ -227,6 +227,8 @@ public sealed class RenderPipeline : IDisposable
         if (_budget.Kind != vp.Kind || _budget.SinkIndex != vp.SinkIndex || _budget.Label != vp.Label) _budget.Relabel(vp.Kind, vp.SinkIndex, vp.Label);
         var present = PresentFps;
         if (_budget.TargetFps != present) _budget.TargetFps = present;   // the slots the pacer counts are the ones the display can show
+        if (_budget.DisplayHz != vp.DisplayHz) _budget.DisplayHz = vp.DisplayHz;
+        _budget.ClockHz = _vsync.Fps > 0 ? _vsync.Fps : -1;              // the clock as measured, or not measured — never assumed (round 64)
         var clock = ShowClock.Seconds;
         _budget.Record(ms, _sink.Stages.SlowestStage, clock);
         if (!faulted && input.IsShow)
@@ -460,6 +462,7 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
+            ClockHz = _vsync.Fps > 0 ? _vsync.Fps : -1,
             PresentFps = PresentFps,
             WantedFps = vp.TargetFps,
             DisplayHz = vp.DisplayHz,
@@ -651,6 +654,7 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
+            ClockHz = _vsync.Fps > 0 ? _vsync.Fps : -1,
             PresentFps = PresentFps,
             WantedFps = vp.TargetFps,
             DisplayHz = vp.DisplayHz,

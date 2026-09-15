@@ -596,7 +596,7 @@ public static class OverlayRenderer
         if (info.Enabled && cfg is not null && ctx.Sink != SinkKind.Thumbnail)
         {
             var pc = sink.Paints;
-            var text = InfoChipText(ctx.SinkLabel, ctx.ViewportSize, cfg.Kind, info.ShowFps, ctx.MeasuredFps, ctx.PresentFps, ctx.WantedFps, ctx.DisplayHz);
+            var text = InfoChipText(ctx.SinkLabel, ctx.ViewportSize, cfg.Kind, info.ShowFps, ctx.MeasuredFps, ctx.PresentFps, ctx.WantedFps, ctx.DisplayHz, ctx.ClockHz);
             var size = Math.Clamp(ctx.ViewportSize.Height * 0.02f, 10, 22);
             DrawUtil.Chip(c, text, ctx.ViewportSize, info.Anchor, size, pc, palette.Text, palette.ChipBg);
         }
@@ -608,7 +608,7 @@ public static class OverlayRenderer
     /// and its display's refresh. "50.0 fps of 50 · 50 Hz display (60 asked)" is a 60 fps show on
     /// a 50 Hz display saying exactly what the room gets, where it used to read 60.
     /// </summary>
-    public static string InfoChipText(string sinkLabel, SKSizeI px, PatternKind kind, bool showFps, double measuredFps, int presentFps, int wantedFps, int displayHz)
+    public static string InfoChipText(string sinkLabel, SKSizeI px, PatternKind kind, bool showFps, double measuredFps, int presentFps, int wantedFps, int displayHz, double clockHz = -1)
     {
         var text = $"{sinkLabel} · {px.Width}×{px.Height} · {AspectWords.Of(px.Width, px.Height)} · {kind}";
         if (!showFps) return text;
@@ -623,6 +623,11 @@ public static class OverlayRenderer
         {
             text += $" ({wantedFps} asked)";
         }
+        // The platform's render clock beats at one display's refresh for every window: an output
+        // whose display needs more beats than the clock supplies is limited by it, and says so —
+        // never a nominal 60 over a clock that beats 50 (round 64).
+        var limit = OutputRate.ClockLimit(presentFps, displayHz, clockHz);
+        if (limit.Limited) text += $" · render clock {clockHz:0.0} Hz — LIMITED BY RENDER CLOCK";
         return text;
     }
 

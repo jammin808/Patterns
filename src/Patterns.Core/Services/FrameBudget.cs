@@ -14,13 +14,18 @@ namespace Patterns.Core.Services;
 /// <param name="TargetFps">The rate this sink presents at; 0 for an unpaced sink (the preview, a monitor), which the ladder judges at 60.</param>
 /// <param name="LastSecondP95Ms">The frame time 95% of the last complete second's frames came in under — what the quality ladder judges against the sink's own budget; -1 with no frame.</param>
 /// <param name="LastSecondMissed">The presentation slots the last complete second missed.</param>
+/// <param name="DisplayHz">The sink's display refresh as reported; 0 unknown (round 64).</param>
+/// <param name="ClockHz">The measured beat of the render clock this sink is offered; ≤ 0 not measured (round 64).</param>
 public sealed record FrameBudgetReading(SinkKind Kind, int SinkIndex, string Label, long Frames, long SlowFrames,
                                         int FramesInWindow, double AverageMs, double WorstMs, string WorstStage, double Fps,
                                         double LastSecondWorstMs = -1, double P95Ms = -1, int Missed = 0, double LagMs = -1, double LagAverageMs = -1,
                                         int Faults = 0, int ConsecutiveFaults = 0, string LastFault = "",
                                         int TargetFps = 0, double LastSecondP95Ms = -1, int LastSecondMissed = 0,
-                                        double LiveAgeMs = -1, string LiveLast = "")
+                                        double LiveAgeMs = -1, string LiveLast = "", int DisplayHz = 0, double ClockHz = -1)
 {
+    /// <summary>Whether the render clock limits this sink: it needs more beats than the clock supplies (round 64).</summary>
+    public RateLimit ClockLimit => OutputRate.ClockLimit(TargetFps, DisplayHz, ClockHz);
+
     /// <summary>"Preview", "Output 1 (Main)", "Monitor PGM".</summary>
     public string Name => Kind switch
     {
@@ -138,6 +143,12 @@ public sealed class FrameBudget
 
     /// <summary>The rate this sink presents at, for the quality ladder's budget; 0 for an unpaced sink, judged at 60.</summary>
     public int TargetFps { get; set; }
+
+    /// <summary>The sink's display refresh as reported; 0 unknown (round 64: the render-clock limit reads it).</summary>
+    public int DisplayHz { get; set; }
+
+    /// <summary>The measured beat of the render clock this sink is offered; ≤ 0 not measured (round 64).</summary>
+    public double ClockHz { get; set; } = -1;
 
     /// <summary>The slowest frame this session, ms, and the stage that took it.</summary>
     public double WorstEverMs { get; private set; } = -1;
@@ -424,7 +435,7 @@ public sealed class FrameBudget
                 frames > 0 ? sum / frames : -1, frames > 0 ? worst : -1, stage, fps, lastSecondWorst, p95, missed,
                 lagCount > 0 ? lagWorst : -1, lagCount > 0 ? lagSum / lagCount : -1,
                 faults, ConsecutiveFaults, LastFault, TargetFps, lastSecondP95, lastSecondMissed, liveWorst,
-                liveWorst >= 0 && LastLive is { } last ? last.Words : "");
+                liveWorst >= 0 && LastLive is { } last ? last.Words : "", DisplayHz, ClockHz);
         }
     }
 
@@ -582,6 +593,14 @@ public static class FrameBudgets
     }
 
     public static string Describe(double clockSeconds) => Describe(Readings(clockSeconds));
+
+    /// <summary>The outputs the render clock limits, in words — one line per sink; empty when none or nothing measured (round 64).</summary>
+    public static IReadOnlyList<string> ClockLimited(IReadOnlyList<FrameBudgetReading> readings)
+        => readings.Where(r => r.Kind == SinkKind.Output && r.ClockLimit.Limited).Select(r => r.ClockLimit.Words(r.Name)).ToList();
+
+    /// <summary>The render clock's measured beat as the outputs hear it — the fastest any sink measured; -1 before one has (round 64).</summary>
+    public static double ClockHz(IReadOnlyList<FrameBudgetReading> readings)
+        => readings.Where(r => r.ClockHz > 0).Select(r => r.ClockHz).DefaultIfEmpty(-1).Max();
 
     /// <summary>Tests: forget every sink.</summary>
     public static void Clear()

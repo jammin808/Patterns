@@ -45,6 +45,21 @@ public class OutputRateAppTests
         for (var i = 0; i <= 100; i++) matched.NoteVsync(i / 50.0);
         Assert.Equal(0, matched.PresentFps);
 
+        // A 60 Hz display under a 50 Hz clock (round 64): the budget's reading says the clock limits
+        // it once the sink has drawn a frame — the words the Machine page, STATE and the brief carry.
+        var sixty = new PipelineViewport(SinkKind.Output, new SKSizeI(1920, 1080), default, "c", 3, "Output 3") { DisplayHz = 60 };
+        using var starved = new RenderPipeline(bus, sixty);
+        for (var i = 0; i <= 100; i++) starved.NoteVsync(i / 50.0);
+        using (var surface = SKSurface.Create(new SKImageInfo(64, 36, SKColorType.Bgra8888, SKAlphaType.Premul)))
+        {
+            starved.Render(surface.Canvas, 64, 36, 1);
+        }
+        var reading = FrameBudgets.Readings(ShowClock.Seconds).Single(r => r.Kind == SinkKind.Output && r.SinkIndex == 3);
+        Assert.Equal(60, reading.DisplayHz);
+        Assert.InRange(reading.ClockHz, 49, 51);
+        Assert.True(reading.ClockLimit.Limited);
+        Assert.StartsWith("Output 3: 60 Hz needed, render clock 50.0 Hz", Assert.Single(FrameBudgets.ClockLimited(FrameBudgets.Readings(ShowClock.Seconds))));
+
         // Asked for 60 on a 50 Hz display: 50 at once, before any beat is heard.
         using var asked = new RenderPipeline(bus, fifty with { TargetFps = 60 });
         Assert.Equal(50, asked.PresentFps);

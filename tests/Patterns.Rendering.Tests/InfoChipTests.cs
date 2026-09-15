@@ -19,6 +19,12 @@ public class InfoChipTests
         // A pane: no display, unpaced — the frames alone.
         Assert.Equal("Preview · 1280×720 · 16:9 · ColorBars · 59.9 fps",
             OverlayRenderer.InfoChipText("Preview", new SKSizeI(1280, 720), PatternKind.ColorBars, true, 59.94, 0, 0, 0));
+        // A 60 Hz display under a 50 Hz render clock (round 64): the chip says the clock limits it — never a nominal 60.
+        Assert.Equal("Output 2 · 1920×1080 · 16:9 · Grid · 49.9 fps · 60 Hz display · render clock 50.0 Hz — LIMITED BY RENDER CLOCK",
+            OverlayRenderer.InfoChipText("Output 2", new SKSizeI(1920, 1080), PatternKind.Grid, true, 49.9, 0, 0, 60, clockHz: 50.0));
+        // The same display under its own clock: no such words.
+        Assert.Equal("Output 2 · 1920×1080 · 16:9 · Grid · 59.9 fps · 60 Hz display",
+            OverlayRenderer.InfoChipText("Output 2", new SKSizeI(1920, 1080), PatternKind.Grid, true, 59.9, 0, 0, 60, clockHz: 60.1));
         // FPS off: the size and the shape still say what the sink is.
         Assert.Equal("Output 3 · 1080×1920 · 9:16 · LedWall",
             OverlayRenderer.InfoChipText("Output 3", new SKSizeI(1080, 1920), PatternKind.LedWall, false, 60, 60, 60, 60));
