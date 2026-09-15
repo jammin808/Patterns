@@ -169,12 +169,12 @@ public static class AssistantAttachments
         if (table.Headers.Count == 0 && table.Rows.Count == 0) return new AssistantAttachmentResult(null, $"'{name}' has no rows in it.");
         var columns = Math.Min(MaxTableColumns, Math.Max(table.Headers.Count, table.Rows.Count > 0 ? table.Rows.Max(r => r.Count) : 0));
         var sb = new StringBuilder();
-        sb.AppendLine(string.Join(" | ", Enumerable.Range(0, columns).Select(i => i < table.Headers.Count ? Clean(table.Headers[i]) : $"column {i + 1}")));
+        sb.Append(string.Join(" | ", Enumerable.Range(0, columns).Select(i => i < table.Headers.Count ? Clean(table.Headers[i]) : $"column {i + 1}"))).Append('\n');   // "\n" on every platform: the model's text, not the machine's
         var rows = 0;
         foreach (var row in table.Rows)
         {
             if (rows == MaxTableRows) break;
-            sb.AppendLine(string.Join(" | ", Enumerable.Range(0, columns).Select(i => i < row.Count ? Clean(row[i]) : "")));
+            sb.Append(string.Join(" | ", Enumerable.Range(0, columns).Select(i => i < row.Count ? Clean(row[i]) : ""))).Append('\n');
             rows++;
         }
         var note = table.Rows.Count > MaxTableRows ? $"the first {MaxTableRows} of {table.Rows.Count} rows" : $"{table.Rows.Count} row{(table.Rows.Count == 1 ? "" : "s")}";
@@ -204,8 +204,8 @@ public static class AssistantAttachments
                 n++;
                 var words = XmlWords(ReadEntry(slide), "a:p").Trim();
                 if (words.Length == 0) continue;
-                sb.Append("--- slide ").Append(n).AppendLine(" ---");
-                sb.AppendLine(words);
+                sb.Append("--- slide ").Append(n).Append(" ---\n");
+                sb.Append(words).Append('\n');
             }
         }
         var (kept, cutNote) = Cut(sb.ToString().Trim());

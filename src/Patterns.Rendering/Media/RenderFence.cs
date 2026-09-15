@@ -187,7 +187,14 @@ public static class RenderFence
         return g;
     }
 
-    /// <summary>The older name of <see cref="BeginFrame"/>: a sink starts a frame, and whatever its last frame drew has flushed.</summary>
+    /// <summary>
+    /// The older name of <see cref="BeginFrame"/>: a sink starts a frame, and whatever its last
+    /// frame drew has flushed. The frame it opens stays open until the seat's next frame or its
+    /// end — and so does this thread's current seat: a test that advances and moves on must
+    /// <see cref="ResetForTests"/> before the next test on the thread fetches a picture, or that
+    /// fetch is recorded as a draw of a frame nobody will close (CI on round 64 found a trim test
+    /// holding two pictures that way).
+    /// </summary>
     public static void Advance(int ticket) => BeginFrame(ticket);
 
     /// <summary>

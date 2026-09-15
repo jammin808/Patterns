@@ -1922,6 +1922,21 @@ Audience 2, App 691 — 2,053 in seven suites, the module's seventeen beside the
   extended. §82.8.
 - **The honest limit:** nothing in it is a claim until the rig fills it in (P0.2).
 
+### Found by CI (run 230)
+
+- The footprint step had been inserted into the companion-module job rather than the lifecycle
+  job (a step anchor that matched the wrong neighbour); it is in the lifecycle job now.
+- The assistant's attachment text joined rows and slides with the platform's newline, so the
+  Windows lane read `\r\n` where the tests expected `\n`; the text is the model's, not the
+  machine's, and joins with `\n` on every platform.
+- `MediaMemoryTests`' trim test held two pictures on both runners: a test earlier on the same
+  thread had advanced a seat and moved on, leaving the thread's current seat set, so the trim
+  test's picture fetches were recorded as draws of a frame nobody would close. The test now
+  resets the fence as its premise, and `Advance` says so.
+- The lifecycle job passed strictly at a hundred cycles on its first run; rollback-script passed;
+  the Windows lane's desk classes, runtime check and footprint were skipped behind the newline
+  failures and run for the first time on the next push.
+
 ### The review's items, answered
 
 P0.1 done (64.1). P0.2 prepared, not run — the record is written. P1.1 done (64.2). P1.2 done

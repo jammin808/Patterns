@@ -117,6 +117,7 @@ public class MediaMemoryTests
         Directory.CreateDirectory(dir);
         var wasBudget = ImageCache.BudgetBytes;
         ImageCache.ClearForTests();
+        RenderFence.ResetForTests();                                                                    // the premise: no frame open anywhere, none current on this thread
         try
         {
             var paths = new List<string>();

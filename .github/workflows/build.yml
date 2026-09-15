@@ -54,6 +54,10 @@ jobs:
           PATTERNS_LIFECYCLE_STRICT: "1"
           PATTERNS_TEST_MEMLOG: ${{ github.workspace }}/lifecycle-memlog.txt
         run: dotnet test tests/Patterns.App.Tests/Patterns.App.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~LifecycleTests" --logger "trx;LogFileName=lifecycle.trx"
+      - name: Footprint per role (its own process — a timer loads neither the room nor the arcade)
+        env:
+          PATTERNS_FOOTPRINT_STRICT: "1"
+        run: dotnet test tests/Patterns.App.Tests/Patterns.App.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~NodeLightnessTests" --logger "trx;LogFileName=footprint.trx"
       - name: Upload the census log
         if: always()
         uses: actions/upload-artifact@v5
@@ -68,10 +72,6 @@ jobs:
       run:
         working-directory: integrations/companion-module-patterns
     steps:
-      - name: Footprint per role (its own process — a timer loads neither the room nor the arcade)
-        env:
-          PATTERNS_FOOTPRINT_STRICT: "1"
-        run: dotnet test tests/Patterns.App.Tests/Patterns.App.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~NodeLightnessTests" --logger "trx;LogFileName=footprint.trx"
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
