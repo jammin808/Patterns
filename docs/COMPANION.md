@@ -154,6 +154,30 @@ removes it first or keeps it beside the new one.
 what the desk sent; STATE's `web.arm` and `webArmed` rows carry `phase` for a page that wants the
 word alone.
 
+## 9. Round 60 additions
+
+**The staged verbs on a key, version 3.3.0.** The desk's right-click menus (round 60) speak five
+new lines, and a deck can speak them too: `screen_stage` — a look, a preset, a kind of picture,
+the programme, or the look on air back (RESET) on one screen's PVW — and `pvw` — the same for
+the programme's picture — put the next picture in the desk's preview and nowhere else. EDIT SAFE
+opens by itself; the audience sees nothing until the desk's CUT or TAKE. A key at front of house
+can therefore build the next look on the operator's preview without ever going live, which is
+the one thing a bank of "put this on screen 2" keys could never promise before. `screen_pattern`
+is the live twin: `SCREEN n PATTERN kind`, one screen's kind of picture, like `SCREEN n LOOK`.
+
+**The menus on the wire.** `MENU SCREEN 2`, `MENU CUE 03.020`, `MENU LOOK Walk-in`, `MENU LT
+Neon`, `MENU LAYER 1`, `MENU CLOCK`, `MENU PGM`, `MENU PREVIEW` answer the very menu the desk
+would show, as JSON, each entry with its wire line and — when it cannot be chosen — why. Companion
+cannot render a menu, so this is not a module feature; it is the road for a tablet page or a
+script that offers the desk's own choices and sends the desk's own words back (docs/REMOTE.md).
+
+**Considered and left.** A `menu` action that types a MENU query and shows the answer on a key:
+a Stream Deck key has no room for a menu, and a variable holding the JSON would be a variable
+nobody reads. Feedbacks for "a picture is staged on screen n's PVW": STATE does not carry the
+staged flag yet; when it does, the feedback is one line in the module and one in the palette.
+The module's version moves to 3.3.0 in every file that carries it; a deck with 3.2.0 keeps
+working, its keys unchanged, and the three new actions appear when it updates.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

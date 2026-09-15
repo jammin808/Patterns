@@ -12,6 +12,19 @@ const onOrOff = (def = 'ON') => ({ type: 'dropdown', id: 'mode', label: 'Mode', 
 const screenN = { type: 'number', id: 'n', label: 'Screen number (overview order)', default: 1, min: 1, max: 32 }
 const text = (id, label, def = '') => ({ type: 'textinput', id, label, default: def })
 const clean = (v) => String(v ?? '').trim()
+const stagedWhat = {
+	type: 'dropdown', id: 'what', label: 'What', default: 'LOOK',
+	choices: [
+		{ id: 'LOOK', label: 'A look' }, { id: 'PRESET', label: 'A preset' }, { id: 'PATTERN', label: 'A kind of picture' },
+		{ id: 'PROGRAM', label: 'The programme' }, { id: 'RESET', label: 'The look on air, as it was (RESET)' },
+	],
+}
+/** "PREFIX LOOK x" and the other staged words; null when a name is needed and none was typed. */
+const stagedLine = (prefix, what, name) => {
+	if (what === 'PROGRAM' || what === 'RESET') return `${prefix} ${what}`
+	const x = clean(name)
+	return x ? `${prefix} ${what} ${x}` : null
+}
 
 export function buildActions(ctx) {
 	const send = (cmd) => ctx.send(cmd)
@@ -428,6 +441,23 @@ export function buildActions(ctx) {
 		pip: { name: 'PiP — the picture-in-picture inset (toggle / on / off)', options: [onOff()], callback: (a) => send(`PIP ${a.options.mode}`) },
 		overlays_off: { name: 'Overlays — every overlay off (the clock, the message, the countdown, the logo, the PiP, the weather chip)', options: [], callback: () => send('OVERLAYS OFF') },
 		pattern: { name: 'Pattern — the kind of picture on air (Grid, ColorBars, LedWall, Particles, Fractal…)', options: [text('kind', 'Kind', 'Grid')], callback: (a) => { const k = clean(a.options.kind); if (k) send(`PATTERN ${k}`) } },
+		screen_pattern: {
+			name: 'Screen — a kind of picture on this screen alone, live (every other screen stays)',
+			options: [screenN, text('kind', 'Kind', 'Grid')],
+			callback: (a) => { const k = clean(a.options.kind); if (k) send(`SCREEN ${a.options.n} PATTERN ${k}`) },
+		},
+		// Round 60 — the staged verbs: a picture on a screen's PVW in the desk's preview and nowhere else. EDIT SAFE opens by itself,
+		// the audience sees nothing until the desk's CUT or TAKE, so a key here can build the next picture without ever going live.
+		screen_stage: {
+			name: 'Screen PVW — stage a look, a preset, a kind of picture, the programme, or the look on air back (RESET) on this screen\'s preview; nothing changes on air until CUT or TAKE',
+			options: [screenN, stagedWhat, text('name', 'Look / preset / kind (not for PROGRAM or RESET)')],
+			callback: (a) => { const line = stagedLine(`SCREEN ${a.options.n} PVW`, a.options.what, a.options.name); if (line) send(line) },
+		},
+		pvw: {
+			name: 'Preview — the programme\'s picture in the desk\'s preview: a look (whole), a preset, a kind of picture, the look on air back (RESET), or what is on air to edit (PROGRAM); nothing changes on air until CUT or TAKE',
+			options: [stagedWhat, text('name', 'Look / preset / kind (not for PROGRAM or RESET)')],
+			callback: (a) => { const line = stagedLine('PVW', a.options.what, a.options.name); if (line) send(line) },
+		},
 		section: { name: 'Playlist — show part on air', options: [{ type: 'number', id: 'n', label: 'Part number (Media tab order)', default: 1, min: 1, max: 32 }], callback: (a) => send(`SECTION ${a.options.n}`) },
 		// ---- the stage: the speaker's timer and the messages to the stage ------------------------------------
 		stage_message: {

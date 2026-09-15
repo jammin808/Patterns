@@ -1,6 +1,6 @@
 {
   "name": "companion-module-jammin808-patterns",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "main": "src/main.js",
   "type": "module",
   "scripts": {

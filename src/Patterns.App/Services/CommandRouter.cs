@@ -90,6 +90,8 @@ public sealed class CommandRouter : IRouter
                 return ControlProtocol.Ok(_services.Play.StatusJson(cmd.Text));
             case RemoteCommandKind.RigDayStatus:
                 return ControlProtocol.Ok(_services.RigDay.StatusJson(cmd.Text));
+            case RemoteCommandKind.Menu:
+                return MenuQuery.Answer(_services, cmd.Text);
         }
 
         var action = cmd.Action;

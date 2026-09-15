@@ -39,6 +39,8 @@ public enum RemoteCommandKind
     AssistantAsk,
     /// <summary>RIGDAY STATUS / ALIGN STATUS: the show-ready bar, the alignment game, Blend Quest, the streak — as JSON.</summary>
     RigDayStatus,
+    /// <summary>MENU SCREEN 2 · MENU CUE 03.020 · MENU LOOK Walk-in · MENU LT Neon · MENU LAYER 1 · MENU CLOCK · MENU PGM · MENU PREVIEW: the right-click menu the desk would show, as JSON with each entry's wire line.</summary>
+    Menu,
 }
 
 /// <summary>
@@ -994,6 +996,11 @@ public static class ControlProtocol
                 var tail = sp < 0 ? "" : arg[(sp + 1)..].Trim();
                 return sub is "ASK" or "MODERATE" && tail.Length > 0 ? Query(RemoteCommandKind.AssistantAsk, (sub == "MODERATE" ? "moderate " : "") + tail) : Unknown(s);
             }
+
+            // The right-click menus on the wire (round 60): the same menu the desk shows for a thing, as JSON,
+            // each entry with the line that does it — a tablet or a script offers the desk's own choices.
+            case "MENU":
+                return Query(RemoteCommandKind.Menu, arg.Trim());
 
             case "NODES":
             case "NODE":

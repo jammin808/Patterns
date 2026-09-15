@@ -202,12 +202,29 @@ public static class HelpTopics
             new[]
             {
                 "▸ PAD above the stack opens the pad; the show remembers it open.",
-                "Right-click a cue row: STANDBY HERE · GO THIS CUE NOW · NOTE… · SKIP / UNSKIP · OPEN IN THE CUE EDITOR. The ✎ on the row is NOTE… for a touch screen.",
+                "Right-click a cue row: the cue's menu — standby here, GO this cue now, a note, skip or back in the run, open in the cue editor; then the cue's own look, how it comes in, the overlays and the lower third it brings, the auto-follow, a mark. The ✎ on the row is NOTE… for a touch screen.",
                 "The note shows under the cue and on the standby card; the assistant's brief carries the pad and every note.",
             },
             "",
             new[] { "Run", "Cues" },
             new[] { "pad", "scratchpad", "scratch pad", "notes", "note", "live notes", "in-show notes", "last minute", "right-click", "right click", "context menu", "menu", "cue row", "skip", "unskip", "go now", "fire now", "jump", "caller", "show caller", "touch" }),
+
+        new HelpTopic("right-click-menus", HelpGroup.RunningTheShow,
+            "Right-click menus: the preview first, the operator has the final say",
+            "Anywhere on the desk: a tile of the wall, a screen row and a look on the Show panel, a cue row on Run or Cues, a lower third or a person, a layer, an overlay, the countdown, the PROGRAM and PREVIEW strips — right-click for the thing's own menu.",
+            "Every menu is built the same way, and reads the same way. The header names the thing and its state (on air, its own picture, off the look it was part of, staged, locked). The groups wear the desk's colours: IN THE PREVIEW is amber — everything there lands in the preview and nowhere else, EDIT SAFE opens by itself, and the audience sees nothing until CUT or TAKE, so a wrong choice costs nothing; a LIVE or TO AIR group is red and says so, and exists only where the same surface already had a one-click live verb (a look's button, a lower-third chip, a tile's own LOCK, ARM and OUT); THE CUE is the plan's blue and edits the running order, never the picture; GO TO opens the page with the thing selected; ASK sends the assistant the facts with the question. A line that cannot be chosen is not hidden: it says why, in orange, in its own words. Every line the wire can say shows its line dimmed at the right — SCREEN 2 PVW LOOK Walk-in — so whoever builds a Companion page reads the verb off the desk; the same menus answer MENU on the wire as JSON for a tablet.",
+            new[]
+            {
+                "A tile of the wall (or a screen row on the Show panel): reset to the look on air as the look had it, a look, a preset, a kind of picture, follow the programme, its air picture into the preview — all on that tile's PVW; then LOCK, ARM, OUT, MON, collapse; the Screens, Pattern, Looks and Multiview pages; a question.",
+                "The PGM tile, the PROGRAM and PREVIEW strips: the whole look back, a look, a preset, a kind, what is on air into the preview; TAKE and CUT (refused, with the reason, while EDIT SAFE is off); open or discard the preview.",
+                "A cue row: standby, GO now, a note, skip; its look, how it comes in (cut, dissolve, dip, wipe, push, the brand stinger), the overlays it brings in or takes out, a lower third in after N seconds and out M seconds later (or a design), the auto-follow, a mark, confirm twice, built.",
+                "A look: into the preview, on air (with the transition or cut), update it from the preview, its F-key. A lower third: into the preview, with a person, on air, take, update, off, the default. A person: into the preview or on air with the default design, or with a design.",
+                "A layer: on or off, its source, a picture from the library, a file, the fit — in the preview. An overlay or the countdown: on or off in the preview, its position, a countdown's length, label and follow-the-plan; on air now in red, as SHOW CONTROLS' SEND would.",
+                "Escape or a click elsewhere closes a menu; a choice closes it and the status line says what happened. A drawer (Look ▸, Pattern ▸, a timing ▸) opens beside the menu, never over it.",
+            },
+            "SCREEN <n> PVW LOOK <name> · SCREEN <n> PVW PRESET <name> · SCREEN <n> PVW PATTERN <kind> · SCREEN <n> PVW PROGRAM · SCREEN <n> PVW RESET · PVW LOOK <name> · PVW PATTERN <kind> · PVW RESET · SCREEN <n> PATTERN <kind> · MENU SCREEN <n> · MENU CUE <number> · MENU LOOK <name>",
+            new[] { "Panel", "Run", "Cues", "Looks", "Lower thirds", "Layers", "Overlays", "Countdown" },
+            new[] { "right-click", "right click", "context menu", "menu", "menus", "flyout", "stage", "staged", "pvw", "reset to look", "reset", "preview only", "final say", "drawer", "tile menu", "cue menu", "look menu", "lower third menu", "layer menu", "overlay menu", "wire line", "companion line", "ask the assistant" }),
 
         new HelpTopic("video-clock", HelpGroup.RunningTheShow,
             "The VT clock: what is left of the clip on air, the ten-second out, the rehearsal's skip",

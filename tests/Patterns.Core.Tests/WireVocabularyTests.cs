@@ -217,7 +217,7 @@ public class WireVocabularyTests
     {
         // Six things a wire says are not actions; everything else the parser produces is one.
         Assert.Equal(
-            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus },
+            new[] { RemoteCommandKind.Unknown, RemoteCommandKind.Action, RemoteCommandKind.Ping, RemoteCommandKind.Status, RemoteCommandKind.Hello, RemoteCommandKind.CueList, RemoteCommandKind.TwinStatus, RemoteCommandKind.ShowLockStatus, RemoteCommandKind.CalibrationStatus, RemoteCommandKind.NodesStatus, RemoteCommandKind.StageStatus, RemoteCommandKind.ArcadeStatus, RemoteCommandKind.PlayStatus, RemoteCommandKind.AssistantAsk, RemoteCommandKind.RigDayStatus, RemoteCommandKind.Menu },
             Enum.GetValues<RemoteCommandKind>());
 
         foreach (var (line, action) in Verbs)
@@ -250,6 +250,10 @@ public class WireVocabularyTests
         Assert.False(ControlProtocol.Parse("ARCADE START").IsAction);
         Assert.False(ControlProtocol.Parse("ARCADE tetris").IsAction);
         Assert.Equal(RemoteCommandKind.PlayStatus, ControlProtocol.Parse("PLAY").Kind);
+        Assert.Equal(RemoteCommandKind.Menu, ControlProtocol.Parse("MENU SCREEN 2").Kind);
+        Assert.Equal("SCREEN 2", ControlProtocol.Parse("MENU SCREEN 2").Text);
+        Assert.Equal("", ControlProtocol.Parse("MENU").Text);
+        Assert.False(ControlProtocol.Parse("MENU CUE 03.020").IsAction);
         Assert.Equal("results abc", ControlProtocol.Parse("PLAY RESULTS abc").Text);
         Assert.Equal("queue", ControlProtocol.Parse("PLAY QUEUE").Text);
         Assert.Equal(RemoteCommandKind.AssistantAsk, ControlProtocol.Parse("ASSISTANT ASK ten questions about today").Kind);
