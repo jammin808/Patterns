@@ -178,6 +178,17 @@ staged flag yet; when it does, the feedback is one line in the module and one in
 The module's version moves to 3.3.0 in every file that carries it; a deck with 3.2.0 keeps
 working, its keys unchanged, and the three new actions appear when it updates.
 
+## 10. Round 62 additions
+
+- `RUN MONITOR <n|PGM|MAIN|OFF>` — the RUN surface's monitor, one screen drawn large for the
+  caller's eye. The module's generic line action sends it as any line; a `run_monitor` action
+  with the screens as a dropdown (from STATE's `screens`) is the next module round's line, with
+  a feedback on STATE's `runMonitor` (`MAIN`, `PGM`, `OFF`, a screen's number or a canvas key).
+  No version bump this round: nothing in the module changed.
+- `MENU MONITOR` answers the monitor's menu as JSON like the other menus (round 60).
+- The lower thirds a caller presses on the Run surface are the same `LOWERTHIRD` verbs the
+  module already has; nothing new on the wire.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

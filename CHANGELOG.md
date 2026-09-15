@@ -8,6 +8,26 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 62 — 2026-09-15 — the menus that opened nothing, OPEN on every hint, the pointer as the desk's, the Library whole, the RUN monitor, the caller's lower thirds
+
+`round-62` · PLAN §80 · REVIEW round 62 · 2,011 tests
+
+- The right-click menus opened nothing on the desk since round 60: with a `ContextFlyout` set,
+  Avalonia's own handler showed the flyout before the desk built the menu. The desk opens its own
+  flyout on the context request now, and a test presses the right button through the real input
+  pipeline.
+- OPEN <PAGE> beside every Build hint that names another page (Media, Reactive, Screens, Library,
+  Overlays, Particles, Pattern, Audio, Arcade), kept by a test over the XAML.
+- The web page's pointer is the desk's own switch, off by default, kept with the show — no look,
+  preset, target switch or TAKE re-arms it.
+- The Library holds the saved web pages (YouTube, Vimeo, slides, a page) as tiles with the
+  service's colours, and the decks have their chip.
+- The RUN surface's monitor: one screen drawn large between the wall and the history, the main
+  screen by default; right-click for any screen, a canvas, the programme, or hide; `RUN MONITOR`
+  on the wire and OSC, `MENU MONITOR`, `runMonitor` in STATE; a cue may carry it.
+- The show caller calls up lower thirds from the Run surface — on the desk and on a caller node,
+  where the press goes to the desk.
+
 ## Round 61 — 2026-09-15 — the changelog, a roll-back on GitHub, ASIO and DirectX answered
 
 `round-61` · PLAN §79 · REVIEW round 61 · 1,996 tests

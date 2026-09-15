@@ -1663,3 +1663,67 @@ them.
 Counts at the end of the round: Core 667, Rendering 602, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 673 — 1,996 in seven suites, every one green here, the module's seventeen beside
 them.
+
+## Round 62 review — the menus that opened nothing, and the caller's eye and hands
+
+### 62.1 — the right-click menus
+
+- **Done.** The desk opens its own flyout on the context request; `DeskMenuPointerTests` drive
+  the right button and the menu key through the headless input pipeline. §80.1.
+- **Found on the way:** the cause was the platform's handler order — `ContextFlyout` subscribes
+  `PopupFlyoutBase`'s handler first, which showed the flyout empty and marked the request handled
+  before the desk's builder ran; the round-60 test never drove the pointer. Confirmed by
+  decompiling the exact Avalonia the desk runs (11.3.20) rather than by memory. The headless
+  `KeyPress` sends only the key's press; the context key acts on `KeyRelease`, which the test
+  sends too.
+- **The honest limit:** proved in the headless window, not on a Windows desk; the mechanism now
+  matches what Avalonia's own `ContextMenu` does, which worked on Cues before round 60.
+
+### 62.2 — OPEN on every hint
+
+- **Done.** Fourteen buttons across seven sections, one command; the XAML rule as a test. §80.2.
+- **Found on the way:** the test found a hint the ask had not — Fractals' effect stings name the
+  Audio page — and it has its OPEN AUDIO.
+
+### 62.3 — the pointer
+
+- **Done.** One desk switch, off by default, in the show's Web section; the per-picture flags
+  gone; the renderers read the snapshot's state. §80.3.
+- **Found on the way:** two Rendering tests and one Core test had set the picture's flag; they
+  set the desk's now, and the media-pattern test turns the switch on before it expects the arrow.
+
+### 62.4 — the Library
+
+- **Done.** The Web section with the service's colours, APPLY and ✕, the Decks chip, the rebuild
+  on the Web section. §80.4.
+- **Kept deliberate:** a swatch rather than a live thumbnail per saved page.
+
+### 62.5 — the RUN monitor
+
+- **Done.** The verb in the one vocabulary (wire, OSC, cue, checks, summary), the desk layout's
+  setting, the view between the wall and the history, the menu, MENU MONITOR, STATE. §80.5.
+- **Found on the way:** Main is every screen's default role, so "the first screen whose role is
+  Main" is the first screen on an untouched rig and the main screen the moment a confidence or
+  info screen is named — which is the right rule and the test now says so with a confidence
+  screen in its rig. A main screen joined into a canvas is shown as the canvas.
+- **The honest limit:** the monitor is the desk's; a caller node has none (§80.9).
+
+### 62.6 — the caller's lower thirds
+
+- **Done.** The strip on the Run surface through `IRunPage`, on the desk and on a caller node;
+  `CallerLowerThirdsTests` on both. §80.6.
+- **The honest limit:** a node's chips carry no air state of their own — `IsOnAir` and
+  `IsInPreview` are the desk's tallies on the desk's objects — so on a node the chips read the
+  names and the press answers with the desk's words; the LIVE strip says what is on.
+
+### Seen, and noted
+
+- Every unit of this round is on the desk's own paths: a menu opens through the input pipeline,
+  a verb runs through the action layer, a setting lives in the show. Nothing was patched in a
+  view.
+- The right-click fix was the first item because a desk that shows nothing on a right-click is
+  a broken desk; the regression test is the one that would have caught round 60.
+
+Counts at the end of the round: Core 672, Rendering 602, Devices 7, Audio 9, Assistant 36,
+Audience 2, App 683 — 2,011 in seven suites, every one green here, the module's seventeen beside
+them.

@@ -7901,3 +7901,126 @@ have; the workflow's whole point is that it never does). A Release for every his
 built and released by rolling it back onto a branch and tagging that `show-…`). Version numbers
 of the semantic kind (the rounds are the versions; the module keeps its own three numbers
 because Companion needs them). ASIO and the GPU-resident frame path (§79.3, §79.4).
+
+## 80. Round 62 — the menus that opened nothing, OPEN on every hint, the pointer as the desk's, the Library whole, the RUN monitor, the caller's lower thirds
+
+The ask, five things: the right-click menus "aren't appearing or working anywhere — they used
+to work on Cues"; every Build section with a section of its own needs an OPEN button like the
+Pattern page's OPEN PARTICLES; the web page's "show the pointer and clicks" should default to
+off and, once set, never re-arm; the Library should hold the saved web pages and YouTube links
+beside the media, the PDFs and the presets; and on the Run surface, a larger view of the main
+screen between the wall and the history, chosen by right-click, and the show caller able to call
+up lower thirds. The standing brief as always: instant, stable, modular, the wire and Companion
+considered at each step, the assistant told.
+
+### 80.1 The right-click menus, fixed (62.1)
+
+They opened nothing since round 60, and the cause was one line of the platform's. A control
+with `ContextFlyout` set gets Avalonia's own handler (`PopupFlyoutBase.OnControlContextRequested`,
+subscribed the moment the property is set, before any handler of the desk's) — on the right
+button's release it shows the flyout with whatever content it has and marks the request handled.
+Round 60 set `ContextFlyout` and then added the desk's handler, which built the menu into the
+flyout — after the platform's had shown it empty and, being handled, never ran at all. An empty,
+transparent flyout is what the desk showed: nothing. The round-60 test called `Prepare` and
+showed the flyout by hand, so the one path an operator uses — the pointer — was never driven.
+
+The fix: the flyout is the desk's own (an attached property), `ContextFlyout` is never set, and
+one handler on `ContextRequested` builds the menu and shows the flyout at the pointer — or at the
+control for the menu key, which fires on the key's release as Avalonia's own context menu does. A
+thing the host has no menu for swallows the request. `DeskMenuPointerTests` press the right
+button and the context key through the headless window's input pipeline (`MouseDown`, `MouseUp`,
+`KeyPress`, `KeyRelease`) and read what opened; the first fails on the old code with exactly the
+desk's symptom (the flyout open, its content null). The lesson is recorded here: a test that
+calls the builder proves the builder; only a test that drives the input proves the desk.
+
+### 80.2 OPEN on every hint (62.2)
+
+The rule: a hint that names a page of the rail sits beside the button that opens it. The Media
+kind's hint had none; the Reactive kind had no section at all; the LED wall's and video wall's
+Screens-page hints, the presets' Library, Branding's Overlays and Particles, Particles' and
+Fractals' Pattern, Fractals' Audio (the effect stings), the arcade sources on Media, Overlays and
+Layers, and the web page's saved list — each has its OPEN now, through the one
+`OpenPageCommand`. `OpenPageButtonsTests` reads the Build sections' XAML, finds every `Text` that
+names a page of the rail and fails when the file offers no button with that page as its
+parameter; it found the Audio page on the way, which is the test doing its job.
+
+### 80.3 The pointer is the desk's (62.3)
+
+"Show the pointer and clicks on the page" was a setting of each picture — `MediaOptions` and
+`LayerConfig` each had one, on by default — so it came back with every fresh target, every
+preset, every look and every TAKE, all of which copy pictures: the "auto re-arm". It is one switch
+on the show's Web section now (`WebConfig.ShowPointer`), off by default, read by the media
+pattern and the web layer through the snapshot's state, bound by the Media page's checkbox and
+the layer's; the per-picture flags are gone. No look, preset or picture copy can reach it, and
+`WebPointerSettingTests` holds that: a look captured with the pointer on, applied to a desk that
+turned it off, leaves it off, and the other way round.
+
+### 80.4 The Library whole (62.4)
+
+`LibraryCatalogue` gains a Web section: every address of `State.Web.SavedUrls` as a tile,
+grouped by what `WebPresets.Detect` says it is (YouTube, Vimeo, Google Slides, PowerPoint, a
+saved page), its name the host and the path's tail, its face the service's colour bands (a swatch
+rather than a rendered thumbnail — a live capture of every saved page would cost a browser each),
+APPLY the page on the picture being edited, ✕ forgetting the address; the catalogue rebuilds when
+the Web section changes. Decks (PDFs) had tiles under All and no chip of their own; they have one.
+
+### 80.5 The RUN monitor (62.5)
+
+One screen drawn large between the wall and the history, for the caller's eye — the main screen
+by default, which is the first screen whose role is Main (every screen's role until the operator
+says otherwise), as the canvas it belongs to when it is joined into one. A verb of the one
+vocabulary, `RunMonitor` / `RunMonitorOff`: `RUN MONITOR <n|id|key|PGM|MAIN|OFF>` on the wire,
+`/patterns/run/monitor` on OSC, a step a cue may carry ("watch the IMAG screen from here"), a
+`TargetKind.Monitor` for the checks, the summary's words. The show remembers it in the desk
+layout (`DeskLayoutConfig.RunMonitor`, a local section — the standby has its own eye). The view
+is a `MonitorTileControl` over `PipelineViewport.Monitor` of the target's PGM side at its true
+size in an `AspectBox` capped in height, so the history keeps its room; it follows the setting
+from any origin and the rig on every wall rebuild. Its right-click menu (`DeskMenus.Monitor`,
+kind "monitor") lists the main screen, every screen and canvas, the programme and HIDE — live
+entries in the rig's violet, because they change the desk and never the air — with GO TO the
+Screens and Multiview pages and an ASK; `MENU MONITOR` answers it on the wire and STATE carries
+`runMonitor`. A caller node has no monitor: it has no frames of the desk's outputs (80.9).
+
+### 80.6 The caller's lower thirds (62.6)
+
+The Run surface gains a LOWER THIRDS strip above the cue stack: the show's designs as chips (★
+the default, the air and preview state on the chip), PVW FIRST on the desk, TAKE when one waits
+in the preview, HIDE. `IRunPage` carries it, so the desk's window and a caller node bind the same
+XAML: the desk implements it from its existing commands; a node from the mirrored designs, its
+presses through `Run_` — forwarded to the desk when linked, as every verb of a node is, and
+refused with words alone. The lower-third right-click menu is attached to the chips and answers
+on the desk; on a node it is swallowed, as the node's other menus are (80.9).
+
+### 80.7 The wire, Companion, the assistant
+
+The wire has `RUN MONITOR` and `MENU MONITOR`; STATE has `runMonitor`; OSC has
+`/patterns/run/monitor`. The Companion module needs no new action for it — its generic line
+action sends the verb and a variable can carry `runMonitor` — so the module's version stays at
+3.3.0; a `run_monitor` action with the screens as a dropdown is the next module round's line
+(COMPANION.md §10). The assistant reads the new verb through the vocabulary's label and the
+right-click-menus help topic, which names the monitor and its words.
+
+### 80.8 Tests, docs (62.7)
+
+App: `DeskMenuPointerTests` (the right button and the menu key through the input pipeline),
+`OpenPageButtonsTests` (the XAML rule; the command), `LibraryWebTests`, `RunMonitorAppTests`
+(the default, the wire, the menu, MENU, the air untouched, a joined main screen, no rig),
+`CallerLowerThirdsTests` (the desk's chip to air, PVW FIRST and TAKE; a caller node's chips and
+presses). Core: `WebPointerSettingTests`, `RunMonitorTests` (the wire and OSC rows, a cue, the
+checks, the summary, the menu), the menu invariants over the monitor's menu. Rendering: the web
+source tests on the desk's switch. Docs: this section, REVIEW round 62, CHANGELOG, README,
+REMOTE.md, COMPANION.md §10, the help topic.
+
+### 80.9 Considered and left
+
+A monitor on a caller node (the node renders the mirrored show's patterns but has no frames of
+the desk's live sources — a clip, a camera, a page — so a picture there would lie; the honest
+path is the desk's NDI send of a screen as the node's monitor source, a later round). A PVW side
+on the monitor (the wall's tiles have it; the monitor is the caller's eye on what the room sees).
+The lower-third menu on a node (the node's runner would have to answer preview entries with
+words; the chips and HIDE are what a caller presses). Live thumbnails of the saved pages (a
+browser per tile). The pointer on by default for a page the operator drives (the ask was the
+opposite, and a switch that stays set is the point). A Companion action for the monitor this
+round (no version bump for a verb the line action already sends). Avalonia's own `ContextFlyout`
+with the content built in `Opening` (that event cannot cancel, so a thing with no menu would open
+an empty one — the very symptom).
