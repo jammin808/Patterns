@@ -12,8 +12,7 @@ namespace Patterns.Rendering.Media;
 /// wrapped once as a raster image over its own memory (no copy: the image reads the buffer);
 /// a decoder takes a free buffer, writes the frame into it (libVLC decodes straight into it,
 /// an NDI frame is copied once), and publishes it; the buffer it replaced is retired with a
-/// <see cref="RenderFence"/> mark and is free again once every sink that drew from the pool
-/// has drawn past it. A sink draws through a lease (<see cref="TryLease"/>): under the pool's own
+/// <see cref="RenderFence"/> mark and is free again once every frame that drew it has closed. A sink draws through a lease (<see cref="TryLease"/>): under the pool's own
 /// lock it takes the newest frame's image, the show clock the frame arrived at and the slot's
 /// generation, and records itself as drawing from the pool — one step, so a publish landing
 /// between the fetch and the note cannot retire the leased buffer unnoticed: the frame's pixels,
@@ -280,22 +279,18 @@ public sealed class FramePool : IDisposable
         }
     }
 
-    /// <summary>Frees the memory once no buffer is under a fence — or once every buffer's mark is abandoned, counted as forced; true when it did.</summary>
+    /// <summary>Frees the memory once no buffer is under a fence — on the frames' evidence alone, never on time (a buffer a hung frame holds keeps the pool in quarantine until that frame closes); true when it did.</summary>
     internal bool TryFree()
     {
         lock (_gate)
         {
             if (_freed) return true;
             if (!_disposed) return false;
-            var forced = false;
             for (var i = 0; i < Count; i++)
             {
                 if (_slot[i] is Slot.Locked or Slot.Decoded or Slot.Latest) return false;
-                if (_slot[i] != Slot.Retired || RenderFence.Cleared(in _marks[i], _drewAt)) continue;
-                if (!RenderFence.Abandoned(in _marks[i])) return false;
-                forced = true;
+                if (_slot[i] == Slot.Retired && !RenderFence.Cleared(in _marks[i], _drewAt)) return false;
             }
-            if (forced) RenderFence.NoteForced();
             _freed = true;
             for (var i = 0; i < Count; i++)
             {
@@ -304,6 +299,26 @@ public sealed class FramePool : IDisposable
                 _memory[i] = IntPtr.Zero;
             }
             return true;
+        }
+    }
+
+    /// <summary>What holds the pool's retired buffers: nothing, a frame still running, or only hung frames — the quarantine.</summary>
+    public RenderFence.Hold Hold
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var hold = RenderFence.Hold.Clear;
+                for (var i = 0; i < Count; i++)
+                {
+                    if (_slot[i] != Slot.Retired) continue;
+                    var h = RenderFence.Check(in _marks[i], _drewAt);
+                    if (h == RenderFence.Hold.Open) return h;
+                    if (h == RenderFence.Hold.Hung) hold = h;
+                }
+                return hold;
+            }
         }
     }
 
@@ -415,6 +430,20 @@ public static class FramePools
             lock (Gate)
             {
                 return Retiring.Count;
+            }
+        }
+    }
+
+    /// <summary>Bytes of disposed pools only hung frames still hold — the quarantine.</summary>
+    public static long QuarantinedBytes
+    {
+        get
+        {
+            lock (Gate)
+            {
+                long b = 0;
+                foreach (var p in Retiring) if (p.Hold == RenderFence.Hold.Hung) b += p.Bytes;
+                return b;
             }
         }
     }

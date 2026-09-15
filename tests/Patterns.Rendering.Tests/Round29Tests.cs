@@ -112,11 +112,16 @@ public class Round29Tests
     {
         RenderFence.ResetForTests();
         RetiredFrames.ClearForTests();
-        for (var i = 0; i < 40; i++) RetiredFrames.Retire(SKImage.Create(new SKImageInfo(4, 4)));   // off any frame: freed as they come
+        for (var i = 0; i < 40; i++) RetiredFrames.Retire(SKImage.Create(new SKImageInfo(4, 4)), new long[RenderFence.MaxSinks]);   // no frame drew them: freed as they come
         Assert.Equal(0, RetiredFrames.Count);
         var sink = RenderFence.Register();
         RenderFence.Advance(sink);
-        for (var i = 0; i < 40; i++) RetiredFrames.Retire(SKImage.Create(new SKImageInfo(4, 4)));   // under a frame: every one waits — none is disposed for being many
+        for (var i = 0; i < 40; i++)
+        {
+            var table = new long[RenderFence.MaxSinks];
+            RenderFence.Touch(table);                                                                    // the running frame drew each
+            RetiredFrames.Retire(SKImage.Create(new SKImageInfo(4, 4)), table);                          // under a frame: every one waits — none is disposed for being many
+        }
         Assert.Equal(40, RetiredFrames.Count);
         Assert.Equal(40 * 4 * 4 * 4, RetiredFrames.Bytes);
         RetiredFrames.Sweep();
@@ -124,7 +129,7 @@ public class Round29Tests
         RenderFence.Advance(sink);                                                                       // the frame that could have drawn them is over
         RetiredFrames.Sweep();
         Assert.Equal(0, RetiredFrames.Count);
-        Assert.Equal(0, RenderFence.ForcedFrees);
+        Assert.Equal(0, RenderFence.HungFrames);
         RenderFence.Unregister(sink);
     }
 

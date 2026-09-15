@@ -494,7 +494,11 @@ public sealed class CommandRouter : IRouter
                 pendingFree = Patterns.Rendering.Media.FramePools.PendingFree,
                 fenceOldestMs = Math.Round(Math.Max(Patterns.Rendering.Media.FramePools.OldestRetiredMs, Patterns.Rendering.Media.RetiredFrames.OldestMs)),
                 liveSinks = Patterns.Rendering.Media.RenderFence.LiveSinks,
-                forcedFrees = Patterns.Rendering.Media.RenderFence.ForcedFrees,
+                openFrames = Patterns.Rendering.Media.RenderFence.OpenFrames,
+                hungNow = Patterns.Rendering.Media.RenderFence.HungSinks,                                 // frames open past two seconds right now: in quarantine, never freed under them
+                hungFrames = Patterns.Rendering.Media.RenderFence.HungFrames,                             // this session — the gate a soak reads: nought
+                quarantinedMB = Math.Round((Patterns.Rendering.Media.RetiredFrames.QuarantinedBytes + Patterns.Rendering.Media.FramePools.QuarantinedBytes) / (1024.0 * 1024.0)),
+                fenceFaults = Patterns.Rendering.Media.RenderFence.Faults.Select(x => x.ToString()).ToArray(),
                 mediaMB = Math.Round((_services.Metrics.Pressure.Reading?.Total ?? MediaMemory.Read(MemoryBudget.MachineMB).Total) / (1024.0 * 1024.0)),
                 mediaBudgetMB = Math.Round(MediaMemory.BudgetBytes(MemoryBudget.MachineMB) / (1024.0 * 1024.0)),
                 pressure = MediaMemory.Word(_services.Metrics.Pressure.Level),                            // none / elevated / high / critical: the ladder's rung

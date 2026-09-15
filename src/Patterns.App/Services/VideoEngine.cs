@@ -637,7 +637,15 @@ public sealed class VlcFrameSource : IMountedSource
     /// <summary>The pool's bytes: what this decoder holds for its frames.</summary>
     public long MemoryBytes => _pool?.Bytes ?? 0;
 
-    private static void RetireImage(SKImage? image) => RetiredFrames.Retire(image);
+    /// <summary>The frames that drew the scratch frame on show: its own table, retired with it (a pooled frame on show has the pool's).</summary>
+    private long[]? _latestDrewAt;
+
+    private void RetireLatest()
+    {
+        if (_latest is null || (_pool?.Owns(_latest) ?? false)) return;
+        RetiredFrames.Retire(_latest, _latestDrewAt ?? new long[RenderFence.MaxSinks]);
+        _latestDrewAt = null;
+    }
 
     /// <summary>
     /// Media options for a DirectShow capture device. A chosen mode ("1920x1080@60") asks the
@@ -1141,6 +1149,7 @@ public sealed class VlcFrameSource : IMountedSource
         {
             image = _latest;
             clock = _latestClock;
+            if (image is not null && _latestDrewAt is { } table) RenderFence.Touch(table);   // this frame draws the scratch frame: noted with the fetch, under the lock
         }
         if (image is null || (_pool is { } p && p.Owns(image))) return DrawnFrame.Nothing;   // a pooled image with no lease: the pool has gone under it
         DrawImage(canvas, image, dest, paint, in crop);
@@ -1239,7 +1248,7 @@ public sealed class VlcFrameSource : IMountedSource
                 // replaced waits on the render fence and is decoded into again.
                 var published = pool.Publish(slot, arrival);
                 if (published is null) return;
-                if (_latest is not null && !pool.Owns(_latest)) RetireImage(_latest);
+                RetireLatest();
                 _latest = published;
                 _latestClock = arrival;
                 return;
@@ -1261,8 +1270,9 @@ public sealed class VlcFrameSource : IMountedSource
             var image = SKImage.FromBitmap(bmp);
             bmp.Dispose(); // the image keeps the (immutable) pixel ref alive
 
-            if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
+            RetireLatest();
             _latest = image;
+            _latestDrewAt = new long[RenderFence.MaxSinks];
             _latestClock = arrival;
         }
     }
@@ -1274,10 +1284,10 @@ public sealed class VlcFrameSource : IMountedSource
             Marshal.FreeHGlobal(_native);
             _native = IntPtr.Zero;
         }
-        if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
+        RetireLatest();
         _latest = null;
         _latestClock = -1;
-        _pool?.Dispose();   // its buffers go once every sink has drawn past them
+        _pool?.Dispose();   // its buffers go once every frame that drew them has closed
         _pool = null;
     }
 

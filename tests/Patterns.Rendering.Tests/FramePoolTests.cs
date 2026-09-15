@@ -36,66 +36,56 @@ public class FramePoolTests : IDisposable
     }
 
     [Fact]
-    public void TheFenceClearsOnEvidenceOrADeadSinkAndNeverOnTimeAlone()
+    public void TheFenceClearsWhenTheFramesThatDrewCloseAndNeverOnTimeAlone()
     {
-        var a = RenderFence.Register();
-        var b = RenderFence.Register();
+        var a = RenderFence.Register("a");
+        var b = RenderFence.Register("b");
         Assert.True(a >= 0 && b >= 0 && a != b);
         Assert.Equal(0, RenderFence.LiveSinks);                                                         // registered, no frame yet: holding nothing
+        var table = new long[RenderFence.MaxSinks];
         var fresh = RenderFence.Take();
-        Assert.True(RenderFence.Cleared(in fresh));                                                     // so nothing waits for them
-        RenderFence.Advance(a);
-        RenderFence.Advance(b);                                                                         // both in a frame now
+        Assert.True(RenderFence.Cleared(in fresh, table));                                              // so nothing waits for them
+        RenderFence.BeginFrame(a);
+        RenderFence.Touch(table);                                                                       // a's frame draws the resource
+        RenderFence.BeginFrame(b);
+        RenderFence.Touch(table);                                                                       // b's frame draws it too
         Assert.Equal(2, RenderFence.LiveSinks);
+        Assert.Equal(2, RenderFence.OpenFrames);
         var mark = RenderFence.Take();
-        Assert.False(RenderFence.Cleared(in mark));
-        RenderFence.Advance(a);
-        Assert.False(RenderFence.Cleared(in mark));                                                     // b may still be mid-frame with the old picture
-        RenderFence.Advance(b);
-        Assert.True(RenderFence.Cleared(in mark));
+        Assert.Equal(RenderFence.Hold.Open, RenderFence.Check(in mark, table));
+        RenderFence.EndFrame(a);                                                                        // a's frame closed, flushed: done with it
+        Assert.False(RenderFence.Cleared(in mark, table));                                              // b's frame is still open with it
+        RenderFence.EndFrame(b);
+        Assert.True(RenderFence.Cleared(in mark, table));                                               // both closed: free, at once, no time needed
+        Assert.Equal(2, RenderFence.LiveSinks);                                                         // both drew within two seconds: drawing
+        Assert.Equal(0, RenderFence.OpenFrames);
 
-        // A sink that has not started a frame in two seconds is dead: not waited for.
+        // A frame that never fetched the resource holds nothing of it, open or not.
+        RenderFence.BeginFrame(a);
         var mark2 = RenderFence.Take();
-        _now = T0 + Sec(2.5);
-        Assert.True(RenderFence.Cleared(in mark2));                                                     // both dead: nothing mid-frame
-        Assert.Equal(0, RenderFence.LiveSinks);
+        Assert.True(RenderFence.Cleared(in mark2, table));                                              // a's new frame drew nothing of it
+        RenderFence.EndFrame(a);
 
-        // No time clears a mark for a live sink that drew and has not started another frame: half a
-        // second, a second and a half — the old fallback would have handed the buffer out; now the
-        // pool starves rather than reuses, and only the sink's next frame or its death releases it.
+        // The older contract still reads: a frame begun without an end closes at the next begin.
         RenderFence.Advance(a);
+        RenderFence.Touch(table);
         var mark3 = RenderFence.Take();
-        Assert.False(RenderFence.Cleared(in mark3));
-        _now += Sec(0.5);
-        Assert.False(RenderFence.Cleared(in mark3));
-        _now += Sec(1.4);                                                                               // 1.9 s without a frame: still held
-        Assert.False(RenderFence.Cleared(in mark3));
-        Assert.False(RenderFence.Abandoned(in mark3));
-        _now += Sec(0.2);                                                                               // 2.1 s: dead, and that alone releases it
-        Assert.True(RenderFence.Cleared(in mark3));
-        Assert.Equal(0, RenderFence.ForcedFrees);
+        Assert.False(RenderFence.Cleared(in mark3, table));
+        _now += Sec(1.9);
+        Assert.False(RenderFence.Cleared(in mark3, table));                                             // time is nothing
+        RenderFence.Advance(a);                                                                         // the next frame: the last one flushed
+        Assert.True(RenderFence.Cleared(in mark3, table));
+        RenderFence.EndFrame(a);
 
-        // Abandonment is time alone, ten seconds, for the disposal paths' backstop — a mark a dead sink
-        // already released, so the count it feeds should stay at nought; a soak reads it to prove so.
-        RenderFence.Advance(a);
-        var mark4 = RenderFence.Take();
-        _now += Sec(9.9);
-        Assert.False(RenderFence.Abandoned(in mark4));
-        _now += Sec(0.2);
-        Assert.True(RenderFence.Abandoned(in mark4));
-        Assert.True(RenderFence.AgeMs(in mark4) >= 10_000);
-        RenderFence.NoteForced();
-        Assert.Equal(1, RenderFence.ForcedFrees);
-        RenderFence.ResetForTests();
-        Assert.Equal(0, RenderFence.ForcedFrees);
-        a = RenderFence.Register();
-        b = RenderFence.Register();
+        // Idle: two seconds without a frame and a seat is not drawing — a count, never a rule for memory.
+        _now += Sec(2.5);
+        Assert.Equal(0, RenderFence.LiveSinks);
 
         RenderFence.Unregister(a);
         RenderFence.Unregister(b);
-        Assert.Equal(0, RenderFence.LiveSinks);
+        Assert.False(RenderFence.IsSeated(a));
         var none = RenderFence.Take();
-        Assert.True(RenderFence.Cleared(in none));                                                        // no sink at all: nothing to wait for
+        Assert.True(RenderFence.Cleared(in none, table));                                               // no seat at all: nothing to wait for
     }
 
     [Fact]
@@ -276,7 +266,7 @@ public class FramePoolTests : IDisposable
         Assert.True(pool.IsFreed);
         Assert.Equal(0, FramePools.PendingFree);
         Assert.Equal(0, FramePools.RetiringBytes);
-        Assert.Equal(0, RenderFence.ForcedFrees);
+        Assert.Equal(0, RenderFence.HungFrames);
         RenderFence.Unregister(sink);
     }
 

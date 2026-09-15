@@ -82,7 +82,15 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
     private long _frameClockBits = BitConverter.DoubleToInt64Bits(-1);
     private volatile bool _createFailed;
 
-    private static void RetireImage(SKImage? image) => Patterns.Rendering.Media.RetiredFrames.Retire(image);
+    /// <summary>The frames that drew the scratch frame on show: its own table, retired with it (a pooled frame on show has the pool's).</summary>
+    private long[]? _latestDrewAt;
+
+    private void RetireLatest()
+    {
+        if (_latest is null || (_pool?.Owns(_latest) ?? false)) return;   // a pooled frame is the pool's to reuse
+        Patterns.Rendering.Media.RetiredFrames.Retire(_latest, _latestDrewAt ?? new long[Patterns.Rendering.Media.RenderFence.MaxSinks]);
+        _latestDrewAt = null;
+    }
 
     public NdiReceiver(string sourceName)
     {
@@ -160,8 +168,9 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         if (image is null) return;
         lock (_gate)
         {
-            if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);   // a pooled frame is the pool's to reuse
+            RetireLatest();
             _latest = image;
+            _latestDrewAt = pooled ? null : new long[Patterns.Rendering.Media.RenderFence.MaxSinks];
             _latestClock = arrival;
         }
         _framesReceived++;
@@ -245,6 +254,7 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         {
             image = _latest;
             clock = _latestClock;
+            if (image is not null && _latestDrewAt is { } table) Patterns.Rendering.Media.RenderFence.Touch(table);   // this frame draws the scratch frame: noted with the fetch
         }
         if (image is null || (_pool is { } p && p.Owns(image))) return DrawnFrame.Nothing;   // a pooled image with no lease: the pool is gone under it
         DrawImage(canvas, image, dest, paint, in crop);
@@ -304,11 +314,11 @@ public sealed class NdiReceiver : IVideoFrameSource, IDisposable
         }
         lock (_gate)
         {
-            if (_latest is not null && !(_pool?.Owns(_latest) ?? false)) RetireImage(_latest);
+            RetireLatest();
             _latest = null;
             _latestClock = -1;
         }
-        _pool?.Dispose();   // its buffers go once every sink has drawn past them
+        _pool?.Dispose();   // its buffers go once every frame that drew them has closed
         _pool = null;
     }
 }

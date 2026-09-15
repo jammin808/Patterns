@@ -46,13 +46,15 @@ public class MemoryAppTests
             Assert.Contains("managed heap", state.GetProperty("placed").GetString());
             Assert.Equal(0, state.GetProperty("framePoolMB").GetDouble());
             Assert.Equal(0, state.GetProperty("starved").GetInt32());                                   // the fence's health, in STATE
-            Assert.Equal(0, state.GetProperty("forcedFrees").GetInt64());
+            Assert.Equal(0, state.GetProperty("hungFrames").GetInt64());                                 // frames hung past two seconds this session: the gate
+            Assert.Equal(0, state.GetProperty("hungNow").GetInt32());
+            Assert.Equal(0, state.GetProperty("quarantinedMB").GetDouble());
             Assert.True(state.GetProperty("liveSinks").GetInt32() >= 0);
             Assert.True(state.GetProperty("retiringMB").GetDouble() >= 0);
             Assert.True(state.GetProperty("fenceOldestMs").GetDouble() >= -1);
             var fence = SuperCheck.Run(facts).Rows.Single(r => r.Item == "Frame fence");
             Assert.Equal(CheckLight.Green, fence.Light);
-            Assert.Contains("on the sinks' evidence alone", fence.Note);
+            Assert.Contains("on the frames' evidence alone", fence.Note);
 
             var (health, _) = services.DeskHealthWords();
             Assert.Contains(health, line => line.StartsWith("Memory: This app", StringComparison.Ordinal));
@@ -86,12 +88,17 @@ public class MemoryAppTests
             Assert.True(cam.Drawn >= 1, "the preview drew the capture");
             pool.Publish(pool.Acquire());                                                               // frame 1: 0 retires behind that frame
             Assert.Equal(1, pool.Retired);
-            Assert.Equal(2, pool.Acquire());                                                            // the free ones first
-            Assert.Equal(3, pool.Acquire());
-            Assert.Equal(-1, pool.Acquire());                                                           // 0 waits: the frame that drew it has not been followed by another
-            pipeline.Render(surface.Canvas, 64, 36, 1);                                                 // a new frame: the fence moves — the boot's own sinks drew nothing of this pool and are not waited for
+            // The frame that drew 0 closed when the render returned, its canvas flushed (round 64):
+            // 0 is the decoder's again at once — no second frame, no time, and the boot's own
+            // sinks drew nothing of this pool and are not waited for.
             Assert.Equal(0, pool.Acquire());
+            Assert.Equal(2, pool.Acquire());
+            Assert.Equal(3, pool.Acquire());
+            Assert.Equal(-1, pool.Acquire());                                                           // 1 on show, the rest locked: starved, never a wrong picture
+            Assert.Equal(0, RenderFence.OpenFrames);                                                    // no frame open between renders
+            pipeline.Render(surface.Canvas, 64, 36, 1);
             Assert.True(RenderFence.LiveSinks >= 1, "the sink that just drew is live on the fence");
+            Assert.Equal(0, RenderFence.HungFrames);
         }
         finally
         {

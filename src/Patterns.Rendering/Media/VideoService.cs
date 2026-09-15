@@ -198,6 +198,7 @@ public sealed class FrameSlot : IDisposable
 {
     private readonly object _gate = new();
     private SKImage? _latest;
+    private long[] _latestDrewAt = new long[RenderFence.MaxSinks];
     private double _latestClock = -1;
     private long _publishedUtcTicks;
     private long _publishedClockBits = BitConverter.DoubleToInt64Bits(-1);
@@ -208,8 +209,9 @@ public sealed class FrameSlot : IDisposable
         var clock = Patterns.Core.Services.ShowClock.Seconds;
         lock (_gate)
         {
-            Retire(_latest);
+            RetiredFrames.Retire(_latest, _latestDrewAt);
             _latest = image;
+            _latestDrewAt = new long[RenderFence.MaxSinks];   // the frames that draw this one: its own table, retired with it
             _latestClock = clock;
         }
         Interlocked.Exchange(ref _publishedUtcTicks, DateTime.UtcNow.Ticks);
@@ -255,6 +257,7 @@ public sealed class FrameSlot : IDisposable
         {
             image = _latest;
             clock = _latestClock;
+            if (image is not null) RenderFence.Touch(_latestDrewAt);   // this frame draws it: noted with the fetch, under the lock
         }
         if (image is null) return DrawnFrame.Nothing;
         if (crop.Any)
@@ -273,15 +276,14 @@ public sealed class FrameSlot : IDisposable
     {
         lock (_gate)
         {
-            Retire(_latest);
+            RetiredFrames.Retire(_latest, _latestDrewAt);
             _latest = null;
+            _latestDrewAt = new long[RenderFence.MaxSinks];
             _latestClock = -1;
         }
     }
 
     public void Dispose() => Clear();
-
-    private static void Retire(SKImage? image) => RetiredFrames.Retire(image);
 }
 
 

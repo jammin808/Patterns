@@ -80,7 +80,7 @@ public class RetirementTests : IDisposable
             RetiredFrames.Sweep();
             Assert.Equal(0, RetiredFrames.Count);
             Assert.Equal(IntPtr.Zero, first.Handle);                                                     // and only now is the picture gone
-            Assert.Equal(0, RenderFence.ForcedFrees);
+            Assert.Equal(0, RenderFence.HungFrames);
             Assert.Equal(-1, RetiredFrames.OldestMs);
             RenderFence.Unregister(drawer);
             RenderFence.Unregister(other);
@@ -94,30 +94,44 @@ public class RetirementTests : IDisposable
     }
 
     [Fact]
-    public void AFrameOffAnyFrameGoesAtOnceAndOneUnderAFrameWaitsForThatSinksNext()
+    public void AFrameNobodyDrewGoesAtOnceAndOneAFrameDrewWaitsForThatFrameToClose()
     {
         RetiredFrames.ClearForTests();
         var loose = SKImage.Create(new SKImageInfo(4, 4));
-        RetiredFrames.Retire(loose);                                                                     // no sink's frame is running: nothing could be drawing it
+        RetiredFrames.Retire(loose, new long[RenderFence.MaxSinks]);                                     // no frame ever fetched it: nothing could be drawing it
         Assert.Equal(0, RetiredFrames.Count);
         Assert.Equal(IntPtr.Zero, loose.Handle);
 
-        var sink = RenderFence.Register();
-        RenderFence.Advance(sink);
+        var sink = RenderFence.Register("preview");
+        RenderFence.BeginFrame(sink);
         var held = SKImage.Create(new SKImageInfo(4, 4));
-        RetiredFrames.Retire(held);                                                                      // no table: any sink may have drawn it, and this one is mid-frame
+        var table = new long[RenderFence.MaxSinks];
+        RenderFence.Touch(table);                                                                        // the running frame fetched it
+        RetiredFrames.Retire(held, table);                                                               // replaced while that frame is open
         Assert.Equal(1, RetiredFrames.CountOf(RetiredFrames.Kind.Frame));
         Assert.Equal(4 * 4 * 4, RetiredFrames.Bytes);
         Assert.NotEqual(IntPtr.Zero, held.Handle);
         RetiredFrames.Sweep();
         Assert.Equal(1, RetiredFrames.Count);
 
-        // The dead-sink rule: two seconds without a frame and the sink holds nothing.
+        // Time is nothing: two seconds on, the frame is open still — hung, and what it drew is in quarantine.
         _now += Sec(2.1);
+        RetiredFrames.Sweep();
+        Assert.Equal(1, RetiredFrames.Count);
+        Assert.NotEqual(IntPtr.Zero, held.Handle);
+        Assert.Equal(1, RenderFence.HungSinks);
+        Assert.Equal(4 * 4 * 4, RetiredFrames.QuarantinedBytes);
+
+        // The frame closes: released, and the record says the sink hung and recovered.
+        RenderFence.EndFrame(sink);
         RetiredFrames.Sweep();
         Assert.Equal(0, RetiredFrames.Count);
         Assert.Equal(IntPtr.Zero, held.Handle);
-        Assert.Equal(0, RenderFence.ForcedFrees);                                                        // released by the rule, never forced
+        Assert.Equal(0, RetiredFrames.QuarantinedBytes);
+        Assert.Equal(1, RenderFence.HungFrames);
+        Assert.Collection(RenderFence.Faults,
+            f => { Assert.Equal(FenceFaultKind.Hung, f.Kind); Assert.Equal("preview", f.Label); Assert.True(f.OpenMs >= 2000); },
+            f => Assert.Equal(FenceFaultKind.Recovered, f.Kind));
         RenderFence.Unregister(sink);
     }
 }

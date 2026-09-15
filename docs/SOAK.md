@@ -106,9 +106,11 @@ above; the numbers named here are read from the Machine page, `patterns.metrics.
    room. The super-check's *Live input* row stays green (to 40 ms) or amber (to 80).
 3. **The thirty-minute and sixty-minute soaks** with a capture card on air and a clip in the
    preview, looks recalled every minute: the CSV's `retiringMB` returns to its floor between
-   edits; `poolStarved` stays 0; STATE's `forcedFrees` reads 0 throughout (a number there is a
-   finding — a sink the fence never saw advance); `fenceOldestMs` stays under a second; the
-   pressure rung never leaves *none* on a Standard machine with one source.
+   edits; `poolStarved` stays 0; STATE's `hungFrames` reads 0 throughout (a number there is a
+   finding — a render thread that stalled past two seconds, named in `fenceFaults`; round 64
+   retired the forced free: nothing is freed on time any more, a hung frame's pictures wait in
+   `quarantinedMB` until it closes); `fenceOldestMs` stays under a second; the pressure rung
+   never leaves *none* on a Standard machine with one source.
 4. **The four-hour soak** (the seven steps above, unchanged) with the new columns read at the
-   end: `retiringMB` flat, `poolStarved` 0, `forcedFrees` 0, the memory line's *media* figure
+   end: `retiringMB` flat, `poolStarved` 0, `hungFrames` 0, `quarantinedMB` 0, the memory line's *media* figure
    flat, and every ladder transition, if any, in `patterns.log` with the reading that caused it.

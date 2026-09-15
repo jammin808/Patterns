@@ -186,11 +186,14 @@ public sealed class RenderPipeline : IDisposable
         _viewport = viewport;
         _budget = new FrameBudget(viewport.Kind, viewport.SinkIndex, viewport.Label) { Scope = bus, TargetFps = viewport.TargetFps };
         FrameBudgets.Attach(_budget);
-        _fence = RenderFence.Register();
+        _fence = RenderFence.Register(viewport.Label);
     }
 
-    /// <summary>This sink on the render fence: advanced at every frame's start, so a pooled frame it drew last frame can be written again.</summary>
+    /// <summary>This sink's seat on the render fence: a frame opens at every render's start and closes, after the canvas flushed, in its finally — so a pooled frame it drew is written again the moment the frame is done, and never while it is open.</summary>
     private readonly int _fence;
+
+    /// <summary>Tests: run inside every frame, after its draws and before its flush and close — a hook to hold a frame open.</summary>
+    public static Action? FrameEnding { get; set; }
 
     /// <summary>This sink's frame budget: the last minute's frames, the worst and the stage that took it.</summary>
     public FrameBudget Budget => _budget;
@@ -327,8 +330,31 @@ public sealed class RenderPipeline : IDisposable
 
     private void RenderLocked(SKCanvas canvas, double widthDips, double heightDips, double renderScaling)
     {
+        RenderFence.BeginFrame(_fence);   // the frame opens: what it fetches from now on is held until it closes
+        try
+        {
+            RenderFrame(canvas, widthDips, heightDips, renderScaling);
+        }
+        finally
+        {
+            // The frame's draws are flushed before its seat closes: the flush completes the upload
+            // of every raster picture the frame read — a pooled buffer, a scratch frame, a cached
+            // picture — so the fence's release on the close is release in fact (RenderFence).
+            try
+            {
+                FrameEnding?.Invoke();
+                canvas.Flush();
+            }
+            finally
+            {
+                RenderFence.EndFrame(_fence);
+            }
+        }
+    }
+
+    private void RenderFrame(SKCanvas canvas, double widthDips, double heightDips, double renderScaling)
+    {
         var frameStart = System.Diagnostics.Stopwatch.GetTimestamp();
-        RenderFence.Advance(_fence);   // a new frame: the last one flushed, and the pooled frames it drew are free to overwrite
         var vp = _viewport;
         var physicalPx = new SKSizeI(
             Math.Max(1, (int)Math.Round(widthDips * renderScaling)),

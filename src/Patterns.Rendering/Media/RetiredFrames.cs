@@ -8,11 +8,10 @@ namespace Patterns.Rendering.Media;
 /// (every pooled buffer under a draw), a web page's or a deck's frame, a decoded picture the cache
 /// evicted or replaced. A renderer that fetched one a moment ago may still be inside a draw — the
 /// canvas flushes at the end of the frame — so nothing here is disposed on time: each image is
-/// retired at a <see cref="RenderFence"/> mark with the table of the sinks that drew it (a cached
-/// picture's) or none (a frame any sink may have drawn), and freed once those sinks have started a
-/// frame after the mark or are dead. One list for every kind, so the ledger and the health row
-/// read one number. A mark nobody clears in <see cref="RenderFence.AbandonAfter"/> is freed anyway
-/// and counted as forced: a hung sink, never a draw.
+/// retired at a <see cref="RenderFence"/> mark with the table of the frames that drew it (every
+/// retireable image has one, round 64), and freed once those frames have closed. One list for
+/// every kind, so the ledger and the health row read one number. An image only hung frames still
+/// hold is in quarantine: counted, never freed under a stalled draw.
 /// </summary>
 public static class RetiredFrames
 {
@@ -24,7 +23,7 @@ public static class RetiredFrames
         Picture,
     }
 
-    private readonly record struct Entry(SKImage Image, long[]? DrewAt, RenderFence.Mark Mark, Kind Kind, long Bytes);
+    private readonly record struct Entry(SKImage Image, long[] DrewAt, RenderFence.Mark Mark, Kind Kind, long Bytes);
 
     private static readonly object Gate = new();
     private static readonly List<Entry> Held = new();
@@ -96,15 +95,31 @@ public static class RetiredFrames
     }
 
     /// <summary>
-    /// Takes a replaced image (null is nothing) with the table of the sinks that drew it — null for
-    /// a frame any sink may have drawn — and frees whatever has cleared its fence.
+    /// Takes a replaced image (null is nothing) with the table of the frames that drew it — the
+    /// holder's own, written by <see cref="RenderFence.Touch"/> with every fetch — and frees
+    /// whatever has cleared its fence.
     /// </summary>
-    public static void Retire(SKImage? image, long[]? drewAt = null, Kind kind = Kind.Frame)
+    public static void Retire(SKImage? image, long[] drewAt, Kind kind = Kind.Frame)
     {
+        ArgumentNullException.ThrowIfNull(drewAt);
         lock (Gate)
         {
             if (image is not null) Held.Add(new Entry(image, drewAt, RenderFence.Take(), kind, image.Info.BytesSize));
             SweepLocked();
+        }
+    }
+
+    /// <summary>Bytes held only by hung frames right now — the quarantine: released when those frames close, never before.</summary>
+    public static long QuarantinedBytes
+    {
+        get
+        {
+            lock (Gate)
+            {
+                long b = 0;
+                foreach (var h in Held) if (RenderFence.Check(h.Mark, h.DrewAt) == RenderFence.Hold.Hung) b += h.Bytes;
+                return b;
+            }
         }
     }
 
@@ -123,17 +138,9 @@ public static class RetiredFrames
         for (var i = Held.Count - 1; i >= 0; i--)
         {
             var h = Held[i];
-            if (RenderFence.Cleared(h.Mark, h.DrewAt))
-            {
-                h.Image.Dispose();
-                Held.RemoveAt(i);
-            }
-            else if (RenderFence.Abandoned(h.Mark))
-            {
-                RenderFence.NoteForced();
-                h.Image.Dispose();
-                Held.RemoveAt(i);
-            }
+            if (!RenderFence.Cleared(h.Mark, h.DrewAt)) continue;                                   // held by an open frame, hung or not: never freed on time
+            h.Image.Dispose();
+            Held.RemoveAt(i);
         }
     }
 
