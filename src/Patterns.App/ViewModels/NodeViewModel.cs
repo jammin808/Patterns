@@ -99,6 +99,18 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public bool HasArcade => _host.HasArcade;
 
+    /// <summary>Whether the host built the audience room: the Play words read it first, so a role without one never compiles the room's type.</summary>
+    public bool HasRoom => _host.HasRoom;
+
+    // The typed readers: each a method of its own, compiled only when called on a role that has the
+    // module (round 65) — the getters above are read every tick by Poll on every role.
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeWordsOf() => _host.Arcade!.Words;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeStatusOf() => _host.Arcade!.Status;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeBoardOf() => _host.Arcade!.BoardWords;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private bool ArcadeNdiOf() => _host.Arcade!.NdiOn;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string ArcadeSizeOf() => $"{_host.Arcade!.Width}x{_host.Arcade!.Height}";
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string RoomWordsOf() => _host.Play!.Words;
+
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     private void HookArcadeWindow(NodeHost host) => host.Arcade!.WindowHost = (mode, display) => _arcadeWindows.Handle(mode, display);
 
@@ -160,18 +172,18 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public ArcadeService? Arcade => _host.Arcade;
 
-    public string ArcadeWords => Arcade?.Words ?? "";
+    public string ArcadeWords => HasArcade ? ArcadeWordsOf() : "";
 
-    public string ArcadeStatus => Arcade?.Status ?? "";
+    public string ArcadeStatus => HasArcade ? ArcadeStatusOf() : "";
 
-    public string ArcadeBoard => Arcade?.BoardWords ?? "";
+    public string ArcadeBoard => HasArcade ? ArcadeBoardOf() : "";
 
     public bool ArcadeNdi
     {
-        get => Arcade?.NdiOn ?? false;
+        get => HasArcade && ArcadeNdiOf();
         set
         {
-            if (Arcade is null || value == Arcade.NdiOn) return;
+            if (!HasArcade || value == ArcadeNdiOf()) return;
             StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeNdi, "", value ? "on" : "off")).Message;
             Raise(nameof(ArcadeNdi));
         }
@@ -181,7 +193,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public string ArcadeSize
     {
-        get => Arcade is null ? "" : $"{Arcade.Width}x{Arcade.Height}";
+        get => HasArcade ? ArcadeSizeOf() : "";
         set
         {
             if (string.IsNullOrEmpty(value) || value == ArcadeSize) return;
@@ -227,11 +239,11 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     // ---- the audience block ----
 
-    public string PlayCode => _host.Play?.Code ?? "";
+    public string PlayCode => _host.HasRoom ? _host.RoomCode() : "";
 
-    public string PlayJoinUrl => _host.Play?.JoinUrl ?? "";
+    public string PlayJoinUrl => _host.RoomJoinUrl;
 
-    public string PlayWords => _host.Play?.Words ?? "No audience room on this node.";
+    public string PlayWords => _host.HasRoom ? RoomWordsOf() : "No audience room on this node.";
 
     public string PlayQuestionLine { get => _playQuestionLine; set => Set(ref _playQuestionLine, value ?? ""); }
 

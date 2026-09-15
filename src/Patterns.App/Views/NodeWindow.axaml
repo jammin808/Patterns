@@ -43,9 +43,9 @@
           </Expander>
         </Grid>
       </TabItem>
-      <TabItem Header="Arcade" IsVisible="{Binding HasArcade}">
-        <sec:ArcadeSection />
-      </TabItem>
+      <!-- The arcade's section is built in code, and only on an arcade node (round 65): a section on
+           a timer would bind the arcade's words and load its assembly into a process that has none. -->
+      <TabItem Name="ArcadeTab" Header="Arcade" IsVisible="{Binding HasArcade}" />
       <TabItem Header="Nodes">
         <ScrollViewer>
           <sec:NodesSection />

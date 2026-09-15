@@ -18,10 +18,23 @@ public partial class NodeWindow : Window
         InitializeComponent();
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, OnPreviewKeyUp, RoutingStrategies.Tunnel);
-        DataContextChanged += (_, _) => { if (DataContext is NodeViewModel vm) vm.Window = this; };
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is not NodeViewModel vm) return;
+            vm.Window = this;
+            if (vm.HasArcade) FillArcadeTab();
+        };
         Opened += (_, _) => _tick.Start();
         Closed += (_, _) => _tick.Stop();
         _tick.Tick += (_, _) => (DataContext as NodeViewModel)?.Poll();
+    }
+
+    /// <summary>The arcade's section, built only on an arcade node (round 65): its bindings name the arcade's and the room's words, which a timer's process must never compile.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void FillArcadeTab()
+    {
+        var tab = this.FindControl<TabItem>("ArcadeTab");
+        if (tab is { Content: null }) tab.Content = new Sections.ArcadeSection();
     }
 
     /// <summary>The arcade's keys — compiled only when a node has an arcade (round 64), so a timer's process never loads it on a key press.</summary>

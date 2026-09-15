@@ -1,3 +1,7 @@
+using Patterns.App.Views;
+using Patterns.App.ViewModels;
+using Avalonia.Threading;
+using Avalonia.Controls;
 using System.Net;
 using System.Net.Sockets;
 using Avalonia.Headless.XUnit;
@@ -119,6 +123,16 @@ public class NodeLightnessTests
                 Assert.Equal(arcade, host.HasArcade);
                 Assert.Equal(NodeKinds.RunsRoom(kind), room);
                 if (room) AssertTypedReadersAnswer(host);
+                // The window and its view model, as the real process has them (round 65): the tabs the role shows, a
+                // poll of the words, the arcade's section built only on an arcade node.
+                var vm = new NodeViewModel(host);
+                var window = new NodeWindow { DataContext = vm };
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                vm.Poll();
+                Assert.Equal(arcade, window.FindControl<TabItem>("ArcadeTab")?.Content is not null);
+                window.Close();
+                Dispatcher.UIThread.RunJobs();
                 var loaded = Modules.LoadedAssemblies();
                 _out.WriteLine($"{kind} node loaded: " + string.Join(", ", loaded.OrderBy(n => n, StringComparer.Ordinal)));
                 if (!room)
