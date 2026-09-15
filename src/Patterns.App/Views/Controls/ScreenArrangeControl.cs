@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -146,7 +147,7 @@ public sealed class ScreenArrangeControl : Control
 
         // Grouping over ENABLED screens at their committed (or previewed) positions.
         var enabledArr = entries.Where(x => x.P.Enabled)
-            .Select(x => new ArrangedScreen(x.P.ScreenId, x.Rect, x.P.BlendsOverlaps))
+            .Select(x => new ArrangedScreen(x.P.ScreenId, x.Rect.ToRaster(), x.P.BlendsOverlaps))
             .ToList();
         var groups = ScreenLayout.Groups(enabledArr);
         var groupIndexOf = new Dictionary<string, (int Index, int Size)>();
@@ -449,12 +450,12 @@ public sealed class ScreenArrangeControl : Control
         {
             if (t.Placement == _dragPlacement) continue;
             others.Add(t.Arranged);
-            if (t.Placement.Enabled) enabledOthers.Add(new ArrangedScreen(t.Placement.ScreenId, t.Arranged, t.Placement.BlendsOverlaps));
+            if (t.Placement.Enabled) enabledOthers.Add(new ArrangedScreen(t.Placement.ScreenId, t.Arranged.ToRaster(), t.Placement.BlendsOverlaps));
         }
 
         var threshold = Math.Max(12, (int)(18 / view.Scale));
-        _dragPreview = ScreenLayout.Snap(moving, others, threshold);
-        var preview = new ArrangedScreen(_dragPlacement.ScreenId, _dragPreview, _dragPlacement.BlendsOverlaps);
+        _dragPreview = ScreenLayout.Snap(moving.ToRaster(), others.Select(r => r.ToRaster()).ToList(), threshold).ToSk();
+        var preview = new ArrangedScreen(_dragPlacement.ScreenId, _dragPreview.ToRaster(), _dragPlacement.BlendsOverlaps);
         _snapConnected = _dragPlacement.Enabled &&
                          enabledOthers.Any(o => ScreenLayout.Connected(preview, o));
         InvalidateVisual();
@@ -472,7 +473,7 @@ public sealed class ScreenArrangeControl : Control
             var tiles = view?.Tiles.Where(t => t.Placement != _dragPlacement).ToList() ?? new List<Tile>();
             // An overlap is a mistake — unless a blending projector is involved on both sides of
             // it: then the overlap is the blend zone, and the drop is exactly what was meant.
-            var overlapped = tiles.Where(t => ScreenLayout.OverlapsAny(_dragPreview, new[] { t.Arranged })).ToList();
+            var overlapped = tiles.Where(t => ScreenLayout.OverlapsAny(_dragPreview.ToRaster(), new[] { t.Arranged.ToRaster() })).ToList();
             var allowed = overlapped.Count == 0 ||
                           _dragPlacement.BlendsOverlaps ||
                           overlapped.All(t => t.Placement.BlendsOverlaps);

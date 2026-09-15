@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Rendering;
 using SkiaSharp;
 
@@ -25,7 +26,7 @@ public static class BlendQuest
                 var a = arranged[i];
                 var b = arranged[j];
                 if (!a.Rect.IntersectsWith(b.Rect)) continue;
-                var overlap = SKRectI.Intersect(a.Rect, b.Rect);
+                var overlap = RasterRect.Intersect(a.Rect, b.Rect);
                 if (overlap.Width <= 0 || overlap.Height <= 0) continue;
                 // A join shares an edge; two that touch only at a corner (a 2×2's diagonal) are the boss's, not a level.
                 if (overlap.Width < 0.5 * Math.Min(a.Rect.Width, b.Rect.Width) && overlap.Height < 0.5 * Math.Min(a.Rect.Height, b.Rect.Height)) continue;
@@ -41,7 +42,7 @@ public static class BlendQuest
                 for (var k = j + 1; k < arranged.Count; k++)
                     for (var l = k + 1; l < arranged.Count; l++)
                     {
-                        var common = SKRectI.Intersect(SKRectI.Intersect(arranged[i].Rect, arranged[j].Rect), SKRectI.Intersect(arranged[k].Rect, arranged[l].Rect));
+                        var common = RasterRect.Intersect(RasterRect.Intersect(arranged[i].Rect, arranged[j].Rect), RasterRect.Intersect(arranged[k].Rect, arranged[l].Rect));
                         if (common.Width <= 0 || common.Height <= 0) continue;
                         var members = new[] { arranged[i].Id, arranged[j].Id, arranged[k].Id, arranged[l].Id };
                         var bad = members.SelectMany(m => warnings[m]).ToList();

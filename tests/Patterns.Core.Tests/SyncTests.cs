@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Audio;
 using Patterns.Core.Effects;
 using Patterns.Core.Model;
@@ -230,12 +231,12 @@ public class SyncTests
         Assert.Equal(-1000, back.VideoAudioDelayMs);
 
         var stream = new StreamConfig { AudioDevice = "Line In", AudioDelayMs = 120 };
-        var plan = StreamMrl.Build(stream, SKRectI.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" })!;
+        var plan = StreamMrl.Build(stream, RasterRect.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" })!;
         Assert.Contains(":audio-desync=120", plan.Options);
         Assert.Contains(":audio-desync=120", StreamMrl.BuildRendered(stream, new[] { "rtmp://x/y" })!.Options);
         stream.AudioDelayMs = 0;
-        Assert.DoesNotContain(StreamMrl.Build(stream, SKRectI.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" })!.Options, o => o.StartsWith(":audio-desync"));
-        Assert.DoesNotContain(StreamMrl.Build(new StreamConfig { AudioDelayMs = 50 }, SKRectI.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" })!.Options, o => o.StartsWith(":audio-desync"));
+        Assert.DoesNotContain(StreamMrl.Build(stream, RasterRect.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" })!.Options, o => o.StartsWith(":audio-desync"));
+        Assert.DoesNotContain(StreamMrl.Build(new StreamConfig { AudioDelayMs = 50 }, RasterRect.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" })!.Options, o => o.StartsWith(":audio-desync"));
 
         // The super-check's master-clock row.
         Assert.Equal(CheckLight.Amber, SuperCheck.Run(new CheckFacts { SyncLock = false }).Rows.Single(r => r.Item == "Master clock").Light);

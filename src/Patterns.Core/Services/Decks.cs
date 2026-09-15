@@ -1,5 +1,5 @@
 using System.Globalization;
-using SkiaSharp;
+using Patterns.Core.Geometry;
 
 namespace Patterns.Core.Services;
 
@@ -10,10 +10,10 @@ namespace Patterns.Core.Services;
 public static class Decks
 {
     /// <summary>The smallest raster a page is rendered at, whatever the rig: a page never looks soft on a 1080p screen.</summary>
-    public static readonly SKSizeI MinimumRaster = new(1920, 1080);
+    public static readonly RasterSize MinimumRaster = new(1920, 1080);
 
     /// <summary>The largest raster a page is rendered at: a 4K wall gets a 4K page, a bigger canvas a fitted 4K one.</summary>
-    public static readonly SKSizeI MaximumRaster = new(4096, 4096);
+    public static readonly RasterSize MaximumRaster = new(4096, 4096);
 
     /// <summary>
     /// A page reference as a cue, the wire or a phone writes it: a number (1-based), or a word —
@@ -75,7 +75,7 @@ public static class Decks
     /// under <see cref="MinimumRaster"/>, never over <see cref="MaximumRaster"/>. A page is then
     /// fitted into it at its own shape, so the sharpest screen gets a sharp page.
     /// </summary>
-    public static SKSizeI RasterCeiling(RigGeometry? rig)
+    public static RasterSize RasterCeiling(RigGeometry? rig)
     {
         var w = MinimumRaster.Width;
         var h = MinimumRaster.Height;
@@ -88,15 +88,15 @@ public static class Decks
                 h = Math.Max(h, size.Height);
             }
         }
-        return new SKSizeI(Math.Min(w, MaximumRaster.Width), Math.Min(h, MaximumRaster.Height));
+        return new RasterSize(Math.Min(w, MaximumRaster.Width), Math.Min(h, MaximumRaster.Height));
     }
 
-    /// <summary>The raster a page of <paramref name="shape"/> is rendered at inside <paramref name="ceiling"/>: as large as fits, its shape kept, at least 1×1.</summary>
-    public static SKSizeI FitInto(SKSize shape, SKSizeI ceiling)
+    /// <summary>The raster a page of the given shape is rendered at inside <paramref name="ceiling"/>: as large as fits, its shape kept, at least 1×1.</summary>
+    public static RasterSize FitInto(float shapeWidth, float shapeHeight, RasterSize ceiling)
     {
-        var sw = shape.Width > 0 ? shape.Width : 1;
-        var sh = shape.Height > 0 ? shape.Height : 1;
+        var sw = shapeWidth > 0 ? shapeWidth : 1;
+        var sh = shapeHeight > 0 ? shapeHeight : 1;
         var scale = Math.Min(ceiling.Width / sw, ceiling.Height / sh);
-        return new SKSizeI(Math.Max(1, (int)Math.Round(sw * scale)), Math.Max(1, (int)Math.Round(sh * scale)));
+        return new RasterSize(Math.Max(1, (int)Math.Round(sw * scale)), Math.Max(1, (int)Math.Round(sh * scale)));
     }
 }

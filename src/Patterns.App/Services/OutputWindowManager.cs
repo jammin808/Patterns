@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.App.Rendering;
 using Patterns.App.Views;
 using Patterns.Core.Model;
@@ -128,7 +129,7 @@ public sealed class OutputWindowManager
                 var size = EffectiveSize(x.Placement, x.Info);
                 return new ArrangedScreen(
                     x.Placement.ScreenId,
-                    SKRectI.Create(x.Placement.X, x.Placement.Y, size.Width, size.Height),
+                    RasterRect.Create(x.Placement.X, x.Placement.Y, size.Width, size.Height),
                     x.Placement.BlendsOverlaps);
             })
             .ToList();
@@ -150,12 +151,12 @@ public sealed class OutputWindowManager
             var canvasCfg = canvasKey is null ? null : canvases?.FirstOrDefault(c => c.MemberKey == canvasKey);
             var gaps = group.Count > 1
                 ? GapMap.ForCanvas(
-                    new SKSizeI(union.Width, union.Height),
+                    new RasterSize(union.Width, union.Height),
                     group.Select(m => (
-                        SKRectI.Create(m.Rect.Left - union.Left, m.Rect.Top - union.Top, m.Rect.Width, m.Rect.Height),
+                        RasterRect.Create(m.Rect.Left - union.Left, m.Rect.Top - union.Top, m.Rect.Width, m.Rect.Height),
                         (IEnumerable<WallGap>)byPlacement[m.Id].Gaps)),
                     canvasCfg?.SeamGapX ?? 0, canvasCfg?.SeamGapY ?? 0)
-                : GapMap.ForScreen(new SKSizeI(group[0].Rect.Width, group[0].Rect.Height), byPlacement[group[0].Id].Gaps);
+                : GapMap.ForScreen(new RasterSize(group[0].Rect.Width, group[0].Rect.Height), byPlacement[group[0].Id].Gaps);
             foreach (var member in group)
             {
                 var info = byId[member.Id];
@@ -166,13 +167,13 @@ public sealed class OutputWindowManager
                 var viewport = group.Count > 1
                     ? new PipelineViewport(
                         SinkKind.Output,
-                        gaps.IsEmpty ? new SKSizeI(union.Width, union.Height) : gaps.Virtual,
-                        gaps.VirtualOrigin(new SKPointI(region.Left, region.Top)),
+                        gaps.IsEmpty ? new SKSizeI(union.Width, union.Height) : gaps.Virtual.ToSk(),
+                        gaps.VirtualOrigin(new RasterPoint(region.Left, region.Top)).ToSk(),
                         canvasKey,
                         indexOf[member.Id],
                         info.Label)
                     : new PipelineViewport(
-                        SinkKind.Output, gaps.IsEmpty ? SKSizeI.Empty : gaps.Virtual, default, member.Id, indexOf[member.Id], info.Label);
+                        SinkKind.Output, gaps.IsEmpty ? SKSizeI.Empty : gaps.Virtual.ToSk(), default, member.Id, indexOf[member.Id], info.Label);
                 viewport = viewport with { Gaps = gaps, RasterRegion = region };
                 // The blend zones: the overlaps this screen has with every other live screen
                 // (automatic), or the widths the operator typed. Only an output draws them.
@@ -215,7 +216,7 @@ public sealed class OutputWindowManager
 
     /// <summary>The size a screen occupies in arrangement space (swapped for portrait rotations).</summary>
     public static SKSizeI EffectiveSize(ScreenPlacement placement, ScreenInfo info)
-        => RigGeometry.EffectiveSize(placement, new SKSizeI(info.Bounds.Width, info.Bounds.Height));
+        => RigGeometry.EffectiveSize(placement, new RasterSize(info.Bounds.Width, info.Bounds.Height)).ToSk();
 
     public void CloseAll()
     {

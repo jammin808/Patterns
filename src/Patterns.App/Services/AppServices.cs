@@ -1,3 +1,4 @@
+using Patterns.Core.Rendering;
 using Avalonia.Threading;
 using Patterns.App.Views;
 using Patterns.Core.Media;
@@ -339,6 +340,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     public AppServices(SettingsStore? store = null, ShowState? preloaded = null, NodeKind? profile = null)
     {
+        RenderingModule.Register();                                                         // the desk draws: the render side reports its bytes and reads pictures for the assistant
         Profile = profile ?? LaunchProfile;
         if (store is null && Preloaded is { } pre)
         {

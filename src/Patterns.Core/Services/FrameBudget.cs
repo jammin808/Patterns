@@ -233,7 +233,7 @@ public sealed class FrameBudget
 
     /// <summary>
     /// The frame drew a live picture: how old it was at the end of the frame — from its arrival in
-    /// the decoder (the source's <see cref="Media.IVideoFrameSource.FrameClock"/>) to now — on the
+    /// the decoder (the source's frame clock) to now — on the
     /// second, the worst kept. The number IMAG is judged by, measured where the engine can see it.
     /// </summary>
     public void RecordLiveAge(double ageMs, double clockSeconds, long generation = 0, double arrivalClock = -1)

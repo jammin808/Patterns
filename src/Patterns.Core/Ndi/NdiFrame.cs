@@ -38,7 +38,7 @@ public static class NdiFrame
                               string sourceId, SinkKind kind, string label, long frameNumber, double time, ShowSnapshot? preview = null)
     {
         var target = string.IsNullOrEmpty(sourceId) ? null : sourceId;
-        var fit = target is null ? new FrameFit(1, 0, 0, frame) : FrameFit.Compute(frame, snap.Rig.SizeOf(target));
+        var fit = target is null ? new FrameFit(1, 0, 0, frame) : FrameFit.Compute(frame, snap.Rig.SizeOf(target).ToSk());
         var ctx = new RenderContext
         {
             ViewportSize = fit.Viewport,

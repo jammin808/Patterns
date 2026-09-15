@@ -22,6 +22,9 @@ public sealed record MemoryCeilings(double TotalMB, double AppCeilingMB, int Ima
 /// </summary>
 public static class MemoryBudget
 {
+    /// <summary>How many pictures the picture cache holds at most, whatever their bytes: the render side's cache reads it, the budget counts with it.</summary>
+    public const int PictureCapacity = 32;
+
     public const double AppShareOfRam = 0.25;
     public const double AppFloorMB = 512;
     public const double AppCapMB = 3072;

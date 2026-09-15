@@ -1,3 +1,4 @@
+using Patterns.Core.Rendering;
 using Avalonia.Threading;
 using LibVLCSharp.Shared;
 using Patterns.Core.Model;
@@ -202,7 +203,7 @@ public sealed class StreamService : IDisposable
                 }
                 else
                 {
-                    if (StreamMrl.Build(cfg, rect, urls, _services.State.Output.MasterFps) is not { } capturePlan) return;
+                    if (StreamMrl.Build(cfg, rect.ToRaster(), urls, _services.State.Output.MasterFps) is not { } capturePlan) return;
                     plan = new EncoderPlan(EncoderPlan.Capture, capturePlan.Mrl, capturePlan.Options, "", cfg.Width, cfg.Height, fps);
                 }
                 _encoder = new ChildProcess(EncoderHost.Role, Launcher, line => Log.Info(line));

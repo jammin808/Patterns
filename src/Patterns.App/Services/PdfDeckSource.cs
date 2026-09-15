@@ -1,3 +1,4 @@
+using Patterns.Core.Rendering;
 using Patterns.Core.Media;
 using Patterns.Core.Services;
 using PDFtoImage;
@@ -79,7 +80,7 @@ public sealed class PdfDeckSource : IDeckSource, IDisposable
             {
                 return new PdfDeckSource(path, 0, shape, ceiling, null, $"{name} has no pages.");
             }
-            var source = new PdfDeckSource(path, count, shape, Decks.FitInto(shape, ceiling), bytes, "");
+            var source = new PdfDeckSource(path, count, shape, Decks.FitInto(shape.Width, shape.Height, ceiling.ToRaster()).ToSk(), bytes, "");
             source.GoTo(Math.Clamp(startPage, 1, count));
             return source;
         }

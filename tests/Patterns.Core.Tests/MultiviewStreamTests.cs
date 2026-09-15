@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
 using Patterns.Core.Services;
@@ -13,7 +14,7 @@ public class StreamMrlTests
         Width = 1280, Height = 720, Fps = 30, VideoKbps = 4500,
     };
 
-    private static readonly SKRectI Screen = SKRectI.Create(1920, 0, 1920, 1080);
+    private static readonly RasterRect Screen = RasterRect.Create(1920, 0, 1920, 1080);
 
     [Fact]
     public void SingleRtmpDestinationBuildsTranscodeAndFlv()

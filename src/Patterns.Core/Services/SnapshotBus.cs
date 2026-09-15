@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using Patterns.Core.Model;
-using SkiaSharp;
+using Patterns.Core.Geometry;
 
 namespace Patterns.Core.Services;
 
@@ -10,7 +10,7 @@ namespace Patterns.Core.Services;
 /// </summary>
 public sealed class ShowSnapshot
 {
-    private readonly ConcurrentDictionary<string, SKColor> _colorCache = new();
+    private readonly ConcurrentDictionary<string, Rgba> _colorCache = new();
 
     public required ShowState State { get; init; }
     public required long Version { get; init; }
@@ -173,10 +173,11 @@ public sealed class ShowSnapshot
         || (FadeOverrideMs > 0 && FadeOverrideVersion == Version)
         || (TransitionOverride is not null && TransitionOverrideVersion == Version);
 
-    public SKColor Color(string? hex, SKColor fallback)
+    /// <summary>A colour of the show by its hex word, parsed once per snapshot and cached; the fallback for a word that is not one.</summary>
+    public Rgba Colour(string? hex, Rgba fallback)
     {
         if (string.IsNullOrWhiteSpace(hex)) return fallback;
-        return _colorCache.GetOrAdd(hex, static (h, fb) => ColorUtil.TryParse(h, out var c) ? c : fb, fallback);
+        return _colorCache.GetOrAdd(hex, static (h, fb) => Rgba.TryParse(h, out var c) ? c : fb, fallback);
     }
 
     private ConcurrentDictionary<string, int> _transitionKeys = new();
@@ -223,51 +224,6 @@ public sealed class ShowSnapshot
     /// first time one of them was changed.
     /// </summary>
     public PatternConfig PatternFor(string? targetId) => LookService.Shown(State, targetId);
-}
-
-public static class ColorUtil
-{
-    public static bool TryParse(string? hex, out SKColor color)
-    {
-        color = SKColors.Black;
-        if (string.IsNullOrWhiteSpace(hex)) return false;
-        var s = hex.Trim();
-        if (s.StartsWith('#')) s = s[1..];
-        // Accept RGB, RRGGBB, AARRGGBB.
-        if (s.Length == 3)
-        {
-            s = new string(new[] { s[0], s[0], s[1], s[1], s[2], s[2] });
-        }
-        if (s.Length == 6)
-        {
-            if (!uint.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out var rgb)) return false;
-            color = new SKColor((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
-            return true;
-        }
-        if (s.Length == 8)
-        {
-            if (!uint.TryParse(s, System.Globalization.NumberStyles.HexNumber, null, out var argb)) return false;
-            color = new SKColor((byte)(argb >> 16), (byte)(argb >> 8), (byte)argb, (byte)(argb >> 24));
-            return true;
-        }
-        return false;
-    }
-
-    public static SKColor Parse(string? hex, SKColor fallback) => TryParse(hex, out var c) ? c : fallback;
-
-    /// <summary>Splits a comma/space separated hex list; guarantees at least one colour.</summary>
-    public static SKColor[] ParseList(string? csv, SKColor fallback)
-    {
-        if (string.IsNullOrWhiteSpace(csv)) return new[] { fallback };
-        var parts = csv.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var list = new List<SKColor>(parts.Length);
-        foreach (var p in parts)
-        {
-            if (TryParse(p, out var c)) list.Add(c);
-        }
-        if (list.Count == 0) list.Add(fallback);
-        return list.ToArray();
-    }
 }
 
 /// <summary>

@@ -1,3 +1,4 @@
+using Patterns.Core.Rendering;
 using Patterns.Core.Media;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -101,7 +102,7 @@ public sealed class DeckEngine : IDisposable
         }
         if (wanted.Count == 0) return;
 
-        var ceiling = Decks.RasterCeiling(snap.Rig);
+        var ceiling = Decks.RasterCeiling(snap.Rig).ToSk();
         foreach (var w in wanted)
         {
             if (_decks.TryGetValue(w.Key, out var have))

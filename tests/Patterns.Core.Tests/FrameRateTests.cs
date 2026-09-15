@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Ndi;
@@ -73,7 +74,7 @@ public class FrameRateTests
         Assert.Equal(30, StreamMrl.EffectiveFps(cfg, 0));      // unlimited master: its own number
         Assert.Equal(60, StreamMrl.EffectiveFps(cfg, 120));    // the encoder's ceiling
 
-        var plan = StreamMrl.Build(cfg, SKRectI.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" }, masterFps: 25);
+        var plan = StreamMrl.Build(cfg, RasterRect.Create(0, 0, 1920, 1080), new[] { "rtmp://x/y" }, masterFps: 25);
         Assert.NotNull(plan);
         Assert.Contains(":screen-fps=25", plan!.Options);
         Assert.Contains(plan.Options, o => o.Contains("keyint=50"));

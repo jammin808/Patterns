@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Patterns;
 using Patterns.Core.Rendering;
@@ -9,7 +10,7 @@ namespace Patterns.Core.Tests;
 /// <summary>Edge-blend geometry and the weight the mask uses — pure maths.</summary>
 public class EdgeBlendTests
 {
-    private static SKRectI R(int x, int y, int w, int h) => SKRectI.Create(x, y, w, h);
+    private static RasterRect R(int x, int y, int w, int h) => RasterRect.Create(x, y, w, h);
 
     [Fact]
     public void ASideBySidePairSharesOneZone()
@@ -49,7 +50,7 @@ public class EdgeBlendTests
         var a = R(0, 0, 1920, 1080);
         Assert.Equal(BlendWidths.None, EdgeBlend.Derive(a, new[] { R(1920, 0, 1920, 1080) }));
         Assert.Equal(BlendWidths.None, EdgeBlend.Derive(a, new[] { R(2200, 0, 1920, 1080) }));
-        Assert.Equal(BlendWidths.None, EdgeBlend.Derive(a, Array.Empty<SKRectI>()));
+        Assert.Equal(BlendWidths.None, EdgeBlend.Derive(a, Array.Empty<RasterRect>()));
         Assert.False(BlendWidths.None.Any);
     }
 
@@ -107,7 +108,7 @@ public class EdgeBlendTests
         Assert.True(ScreenLayout.Connected(a, bBlend));
         var groups = ScreenLayout.Groups(new[] { a, bBlend });
         Assert.Single(groups);
-        Assert.Equal(new SKRectI(0, 0, 3640, 1080), ScreenLayout.Union(groups[0]));
+        Assert.Equal(new RasterRect(0, 0, 3640, 1080), ScreenLayout.Union(groups[0]));
 
         // A blending projector still needs real shared area: a gap is a gap.
         var far = new ArrangedScreen("c", R(4000, 0, 1920, 1080), Blend: true);
@@ -160,7 +161,7 @@ public class EdgeBlendTests
         var bm = R(1720, 960, 1920, 1080);
         var br = R(3440, 960, 1920, 1080);
         var all = new[] { tl, tm, tr, bl, bm, br };
-        BlendWidths Of(SKRectI me) => EdgeBlend.Derive(me, all.Where(r => r != me));
+        BlendWidths Of(RasterRect me) => EdgeBlend.Derive(me, all.Where(r => r != me));
         Assert.Equal(new BlendWidths(0, 0, 200, 120), Of(tl));
         Assert.Equal(new BlendWidths(200, 0, 200, 120), Of(tm));   // both sides and the bottom
         Assert.Equal(new BlendWidths(200, 0, 0, 120), Of(tr));
@@ -178,7 +179,7 @@ public class EdgeBlendTests
         var arranged = all.Select((r, i) => new ArrangedScreen("p" + i, r, Blend: true)).ToList();
         var groups = ScreenLayout.Groups(arranged);
         Assert.Single(groups);
-        Assert.Equal(new SKRectI(0, 0, 5360, 2040), ScreenLayout.Union(groups[0]));
+        Assert.Equal(new RasterRect(0, 0, 5360, 2040), ScreenLayout.Union(groups[0]));
 
         // One blending projector in the middle joins the neighbours on both sides.
         var row = new[] { new ArrangedScreen("a", tl), new ArrangedScreen("b", tm, Blend: true), new ArrangedScreen("c", tr) };

@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Patterns.App.Services;

@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using SkiaSharp;
 
@@ -41,7 +42,7 @@ public static class EdgeBlend
     /// pure corner — the two edges' own zones already cover it as their product — and is skipped.
     /// Two neighbours on one edge: the wider zone wins. A flush edge (no shared area) is 0.
     /// </summary>
-    public static BlendWidths Derive(SKRectI me, IEnumerable<SKRectI> others)
+    public static BlendWidths Derive(RasterRect me, IEnumerable<RasterRect> others)
     {
         int left = 0, top = 0, right = 0, bottom = 0;
         foreach (var o in others)
@@ -64,7 +65,7 @@ public static class EdgeBlend
     /// overlap, the same place twice, or a pure corner (a square overlap, which the two edges'
     /// own zones already cover).
     /// </summary>
-    public static string EdgeOf(SKRectI me, SKRectI o, out int zone)
+    public static string EdgeOf(RasterRect me, RasterRect o, out int zone)
     {
         zone = 0;
         var w = Math.Min(me.Right, o.Right) - Math.Max(me.Left, o.Left);

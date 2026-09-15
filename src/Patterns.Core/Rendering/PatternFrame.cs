@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;

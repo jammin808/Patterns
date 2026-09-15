@@ -1,5 +1,5 @@
 using Patterns.Core.Model;
-using SkiaSharp;
+using Patterns.Core.Geometry;
 
 namespace Patterns.Core.Services;
 
@@ -18,7 +18,7 @@ public static class StreamMrl
         => cfg.FpsFollowsMaster && masterFps > 0 ? Math.Clamp(masterFps, 10, 60) : cfg.Fps;
 
     /// <summary>Null when there is nothing to stream to.</summary>
-    public static Plan? Build(StreamConfig cfg, SKRectI screenRect, IReadOnlyList<string> destinations, int masterFps = 0)
+    public static Plan? Build(StreamConfig cfg, RasterRect screenRect, IReadOnlyList<string> destinations, int masterFps = 0)
     {
         var dests = destinations.Where(d => !string.IsNullOrWhiteSpace(d)).Take(2).ToList();
         if (dests.Count == 0) return null;

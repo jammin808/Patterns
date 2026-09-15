@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
 using SkiaSharp;
@@ -215,7 +216,7 @@ public sealed class LedWallPattern : IPatternRenderer
         var y1 = Math.Min(y0 + l.TileHeight, h);
         if (x1 <= x0 || y1 <= y0) return SKRect.Empty;
         if (g.IsEmpty) return new SKRect(x0, y0, x1, y1);
-        var v = g.VirtualRect(new SKRectI(x0, y0, x1, y1));
+        var v = g.VirtualRect(new RasterRect(x0, y0, x1, y1));
         return new SKRect(v.Left, v.Top, v.Right, v.Bottom);
     }
 
@@ -329,7 +330,7 @@ public sealed class VideoWallPattern : IPatternRenderer
     public static SKRectI ElementRect(int col, int row, int ew, int eh, GapMap g)
     {
         var rect = new SKRectI(col * ew, row * eh, (col + 1) * ew, (row + 1) * eh);
-        return g.IsEmpty ? rect : g.VirtualRect(rect);
+        return g.IsEmpty ? rect : g.VirtualRect(rect.ToRaster()).ToSk();
     }
 }
 
@@ -347,8 +348,9 @@ internal static class WallStrips
         var fill = pc.Fill(StripFill);
         var hatch = pc.StrokeAA(StripHatch, 1);
         var font = pc.FontBold;
-        foreach (var strip in g.StripsIn(SKRectI.Create(0, 0, f.W, f.H)))
+        foreach (var pixelStrip in g.StripsIn(RasterRect.Create(0, 0, f.W, f.H)))
         {
+            var strip = pixelStrip.ToSk();
             c.DrawRect(strip, fill);
             DrawUtil.Hatch(c, strip, 12, hatch);
             var vertical = strip.Width < strip.Height;

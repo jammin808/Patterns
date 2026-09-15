@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
@@ -113,7 +114,7 @@ public sealed partial class MainViewModel
             if (info is not null && p.Enabled)
             {
                 var size = OutputWindowManager.EffectiveSize(p, info);
-                result.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, size.Width, size.Height), p.BlendsOverlaps));
+                result.Add(new ArrangedScreen(p.ScreenId, RasterRect.Create(p.X, p.Y, size.Width, size.Height), p.BlendsOverlaps));
             }
         }
         return result;

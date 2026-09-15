@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Patterns;
 using Patterns.Core.Media;
@@ -125,7 +126,7 @@ public sealed record PipelineViewport(
     public SKRectI RasterRegion { get; init; }
 
     /// <summary>How many runs of real pixels this output is cut into — 1 when no strip runs through it.</summary>
-    public int WallSlices => Gaps.IsEmpty ? 1 : Gaps.Slices(RasterRegion).Count;
+    public int WallSlices => Gaps.IsEmpty ? 1 : Gaps.Slices(RasterRegion.ToRaster()).Count;
 
     /// <summary>Only a real output fades its edges — never a monitor, a preview, NDI or a thumbnail.</summary>
     public bool HasBlend => Kind == SinkKind.Output &&

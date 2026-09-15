@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Avalonia;
 using Patterns.App.Rendering;
 using Patterns.App.Services;
@@ -242,7 +243,7 @@ public class EdgeBlendPipelineTests
             ["a"] = new(1920, 1080, "A"),
             ["b"] = new(1920, 1080, "B"),
         });
-        Assert.Equal(new SKSizeI(3640, 1080), rig.SizeOf("a+b"));
+        Assert.Equal(new RasterSize(3640, 1080), rig.SizeOf("a+b"));
         Assert.Equal("a+b", rig.TargetOf("a"));
     }
 
@@ -312,7 +313,7 @@ public class EdgeBlendPipelineTests
             ["b"] = new(400, 200, "B"),
             ["c"] = new(400, 200, "C"),
         });
-        Assert.Equal(new SKSizeI(1000, 200), rig.SizeOf(b.ScreenId!));
+        Assert.Equal(new RasterSize(1000, 200), rig.SizeOf(b.ScreenId!));
         Assert.Equal(b.ScreenId, rig.TargetOf("c"));
     }
 

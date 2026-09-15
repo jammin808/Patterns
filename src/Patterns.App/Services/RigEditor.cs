@@ -185,7 +185,7 @@ public sealed class RigEditor
         var right = 0;
         foreach (var (placement, info) in Rig.OrderedLivePlacements(State, _s.Screens.All))
         {
-            right = Math.Max(right, placement.X + OutputWindowManager.EffectiveSize(placement, info).Width + Patterns.Core.Rendering.ScreenLayout.ApartGap);
+            right = Math.Max(right, placement.X + OutputWindowManager.EffectiveSize(placement, info).Width + Patterns.Core.Geometry.ScreenLayout.ApartGap);
         }
         return right;
     }

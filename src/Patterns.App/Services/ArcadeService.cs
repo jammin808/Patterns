@@ -74,6 +74,7 @@ public sealed class ArcadeService : IDisposable
 
     public ArcadeService(ServiceKernel s)
     {
+        RenderingModule.Register();                                                         // the arcade draws
         _s = s;
         _source = new PictureSource(this);
         _boardPath = Path.Combine(s.Store.BaseDirectory, "arcade-scores.json");

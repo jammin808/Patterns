@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -51,10 +52,10 @@ public class RigGeometryTests
     {
         var geo = RigGeometry.Build(Rig(), Displays());
 
-        Assert.Equal(new SKSizeI(3840, 1080), geo.SizeOf(null));   // the program = the first target
-        Assert.Equal(new SKSizeI(3840, 1080), geo.SizeOf(Key));
-        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf("c"));
-        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf("a"));    // a member still has its own size
+        Assert.Equal(new RasterSize(3840, 1080), geo.SizeOf(null));   // the program = the first target
+        Assert.Equal(new RasterSize(3840, 1080), geo.SizeOf(Key));
+        Assert.Equal(new RasterSize(1920, 1080), geo.SizeOf("c"));
+        Assert.Equal(new RasterSize(1920, 1080), geo.SizeOf("a"));    // a member still has its own size
     }
 
     [Fact]
@@ -62,10 +63,10 @@ public class RigGeometryTests
     {
         var geo = RigGeometry.Empty;
 
-        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf(null));
-        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf(""));
-        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf("ghost"));
-        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf("x+y"));
+        Assert.Equal(new RasterSize(1920, 1080), geo.SizeOf(null));
+        Assert.Equal(new RasterSize(1920, 1080), geo.SizeOf(""));
+        Assert.Equal(new RasterSize(1920, 1080), geo.SizeOf("ghost"));
+        Assert.Equal(new RasterSize(1920, 1080), geo.SizeOf("x+y"));
         Assert.Empty(geo.Targets);
         Assert.Empty(geo.Screens);
         Assert.Equal("", geo.LetterOf("x+y"));
@@ -93,9 +94,9 @@ public class RigGeometryTests
         var key = CanvasNameConfig.KeyFor(new[] { "planned:1", "planned:2" });
 
         Assert.Equal(new[] { key }, geo.Targets);
-        Assert.Equal(new SKSizeI(5120, 1440), geo.SizeOf(key));
-        Assert.Equal(new SKSizeI(2560, 1440), geo.SizeOf("planned:1"));
-        Assert.Equal(new SKSizeI(5120, 1440), geo.SizeOf(null));
+        Assert.Equal(new RasterSize(5120, 1440), geo.SizeOf(key));
+        Assert.Equal(new RasterSize(2560, 1440), geo.SizeOf("planned:1"));
+        Assert.Equal(new RasterSize(5120, 1440), geo.SizeOf(null));
     }
 
     [Fact]
@@ -105,24 +106,24 @@ public class RigGeometryTests
 
         var b = geo.ViewportForTile("b");
         Assert.Equal(Key, b.TargetId);
-        Assert.Equal(new SKSizeI(3840, 1080), b.ReferenceSize);
-        Assert.Equal(new SKPointI(1920, 0), b.Origin);
-        Assert.Equal(new SKSizeI(1920, 1080), b.ViewportSize);
+        Assert.Equal(new RasterSize(3840, 1080), b.ReferenceSize);
+        Assert.Equal(new RasterPoint(1920, 0), b.Origin);
+        Assert.Equal(new RasterSize(1920, 1080), b.ViewportSize);
 
         var a = geo.ViewportForTile("a");
         Assert.Equal(Key, a.TargetId);
-        Assert.Equal(new SKPointI(0, 0), a.Origin);
+        Assert.Equal(new RasterPoint(0, 0), a.Origin);
 
         var canvas = geo.ViewportForTile(Key);
         Assert.Equal(Key, canvas.TargetId);
         Assert.Equal(default, canvas.Origin);
-        Assert.Equal(new SKSizeI(3840, 1080), canvas.ViewportSize);
+        Assert.Equal(new RasterSize(3840, 1080), canvas.ViewportSize);
         Assert.Equal(3840f / 1080f, canvas.Aspect, 4);
 
         // An empty id is the program, drawn whole.
         var program = geo.ViewportForTile("");
         Assert.Null(program.TargetId);
-        Assert.Equal(new SKSizeI(3840, 1080), program.ViewportSize);
+        Assert.Equal(new RasterSize(3840, 1080), program.ViewportSize);
     }
 
     [Fact]
@@ -131,18 +132,18 @@ public class RigGeometryTests
         var state = Rig();
         state.Output.Placements.First(p => p.ScreenId == "c").Rotation = OutputRotation.Rot90;
         var geo = RigGeometry.Build(state, Displays());
-        Assert.Equal(new SKSizeI(1080, 1920), geo.SizeOf("c"));
+        Assert.Equal(new RasterSize(1080, 1920), geo.SizeOf("c"));
 
         state.Output.Placements.First(p => p.ScreenId == "b").Rotation = OutputRotation.Rot270;
         geo = RigGeometry.Build(state, Displays());
-        Assert.Equal(new SKSizeI(1080, 1920), geo.SizeOf("b"));
-        Assert.Equal(new SKSizeI(3000, 1920), geo.SizeOf(Key)); // 0..1920 plus 1920..3000, tallest wins
+        Assert.Equal(new RasterSize(1080, 1920), geo.SizeOf("b"));
+        Assert.Equal(new RasterSize(3000, 1920), geo.SizeOf(Key)); // 0..1920 plus 1920..3000, tallest wins
 
         // One rotation rule, shared with the output windows.
         var portrait = new ScreenPlacement { Rotation = OutputRotation.Rot90 };
-        Assert.Equal(new SKSizeI(1080, 1920), RigGeometry.EffectiveSize(portrait, new SKSizeI(1920, 1080)));
+        Assert.Equal(new RasterSize(1080, 1920), RigGeometry.EffectiveSize(portrait, new RasterSize(1920, 1080)));
         var upright = new ScreenPlacement { Rotation = OutputRotation.Rot180 };
-        Assert.Equal(new SKSizeI(1920, 1080), RigGeometry.EffectiveSize(upright, new SKSizeI(1920, 1080)));
+        Assert.Equal(new RasterSize(1920, 1080), RigGeometry.EffectiveSize(upright, new RasterSize(1920, 1080)));
     }
 
     [Fact]
@@ -154,7 +155,7 @@ public class RigGeometryTests
 
         // The wall draws switched-off targets too, so they keep their place and their shape.
         Assert.Equal(new[] { Key, "c" }, geo.Targets);
-        Assert.Equal(new SKSizeI(3840, 1080), geo.SizeOf(Key));
+        Assert.Equal(new RasterSize(3840, 1080), geo.SizeOf(Key));
 
         Assert.Equal(RigGeometry.FallbackTargetSize, geo.SizeOf("ghost"));
         Assert.Equal("ghost", geo.ViewportForTile("ghost").TargetId);
@@ -187,7 +188,7 @@ public class RigGeometryTests
             Assert.True(vp.ViewportSize.Width >= 1 && vp.ViewportSize.Height >= 1, $"{id} viewport {vp.ViewportSize}");
         }
         Assert.True(geo.SizeOf(null).Width >= 1 && geo.SizeOf(null).Height >= 1);
-        Assert.Equal(new SKSizeI(160, 160), geo.SizeOf("floor")); // PlannedWidth/Height clamp at 160
+        Assert.Equal(new RasterSize(160, 160), geo.SizeOf("floor")); // PlannedWidth/Height clamp at 160
 
         foreach (var id in ids)
         {
@@ -230,32 +231,32 @@ public class RigGeometryTests
         var geo = RigGeometry.Build(state, Displays());
 
         // The canvas: 40 px of bezel between a and b — the surface is wider, the raster is not.
-        Assert.Equal(new SKSizeI(3880, 1080), geo.SizeOf(Key));
-        Assert.Equal(new SKSizeI(3840, 1080), geo.RasterSizeOf(Key));
-        Assert.Equal(new SKSizeI(3880, 1080), geo.SizeOf(null));      // the program's shape follows the surface
-        Assert.Equal(new SKSizeI(3840, 1080), geo.RasterSizeOf(null));
+        Assert.Equal(new RasterSize(3880, 1080), geo.SizeOf(Key));
+        Assert.Equal(new RasterSize(3840, 1080), geo.RasterSizeOf(Key));
+        Assert.Equal(new RasterSize(3880, 1080), geo.SizeOf(null));      // the program's shape follows the surface
+        Assert.Equal(new RasterSize(3840, 1080), geo.RasterSizeOf(null));
         Assert.Same(geo.GapsOf(Key), geo.GapsOf(null));
         Assert.Single(geo.GapsOf(Key).Vertical);
 
         var b = geo.ViewportForTile("b");
-        Assert.Equal(new SKPointI(1960, 0), b.Origin);                // moved past the bezel
-        Assert.Equal(new SKSizeI(1920, 1080), b.ViewportSize);
-        Assert.Equal(new SKSizeI(3880, 1080), b.ReferenceSize);
-        Assert.Equal(new SKPointI(0, 0), geo.ViewportForTile("a").Origin);
-        Assert.Equal(SKRectI.Create(1920, 0, 1920, 1080), geo.RasterRectOf("b"));
-        Assert.Equal(new SKSizeI(1920, 1080), geo.SizeOf("a"));         // a member's own size is its raster
+        Assert.Equal(new RasterPoint(1960, 0), b.Origin);                // moved past the bezel
+        Assert.Equal(new RasterSize(1920, 1080), b.ViewportSize);
+        Assert.Equal(new RasterSize(3880, 1080), b.ReferenceSize);
+        Assert.Equal(new RasterPoint(0, 0), geo.ViewportForTile("a").Origin);
+        Assert.Equal(RasterRect.Create(1920, 0, 1920, 1080), geo.RasterRectOf("b"));
+        Assert.Equal(new RasterSize(1920, 1080), geo.SizeOf("a"));         // a member's own size is its raster
 
         // The stand-alone screen: a strip through it — its surface is taller, its raster rect the whole of it.
-        Assert.Equal(new SKSizeI(1920, 1140), geo.SizeOf("c"));
-        Assert.Equal(new SKSizeI(1920, 1080), geo.RasterSizeOf("c"));
-        Assert.Equal(SKRectI.Create(0, 0, 1920, 1080), geo.RasterRectOf("c"));
-        Assert.Equal(new SKSizeI(1920, 1140), geo.ViewportForTarget("c").ViewportSize);
+        Assert.Equal(new RasterSize(1920, 1140), geo.SizeOf("c"));
+        Assert.Equal(new RasterSize(1920, 1080), geo.RasterSizeOf("c"));
+        Assert.Equal(RasterRect.Create(0, 0, 1920, 1080), geo.RasterRectOf("c"));
+        Assert.Equal(new RasterSize(1920, 1140), geo.ViewportForTarget("c").ViewportSize);
         Assert.Equal(2, geo.GapsOf("c").Slices(geo.RasterRectOf("c")).Count);
 
         // Nothing for what has no strips, or is not here.
         Assert.True(geo.GapsOf("a").IsEmpty);
         Assert.True(geo.GapsOf("ghost").IsEmpty);
-        Assert.Equal(SKRectI.Empty, geo.RasterRectOf("ghost"));
+        Assert.Equal(RasterRect.Empty, geo.RasterRectOf("ghost"));
         Assert.True(RigGeometry.Empty.GapsOf(null).IsEmpty);
         Assert.Equal(RigGeometry.FallbackTargetSize, RigGeometry.Empty.RasterSizeOf(null));
     }
@@ -270,7 +271,7 @@ public class RigGeometryTests
         Assert.Equal(new[] { "a", "b", "c" }, geo.Targets);
         Assert.Equal("", geo.LetterOf(Key));
         Assert.Empty(geo.MembersOf(Key));
-        Assert.Equal(new SKSizeI(5920, 1080), geo.SizeOf(Key)); // 0 .. 4000+1920
+        Assert.Equal(new RasterSize(5920, 1080), geo.SizeOf(Key)); // 0 .. 4000+1920
         Assert.Equal("a", geo.TargetOf("a"));
     }
 }

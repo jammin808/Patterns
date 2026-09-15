@@ -1,3 +1,5 @@
+using Patterns.Core.Rendering;
+using Patterns.Core.Geometry;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.App.Rendering;
@@ -147,10 +149,10 @@ public class WallTests
 
             // One list of targets, one set of shapes, one set of words — the feature's contract.
             Assert.Equal(Patterns.App.Services.Rig.Targets(b.Vm.State, b.Services.Screens.All), snap.Rig.Targets);
-            Assert.Equal(new SKSizeI(3840, 1080), snap.Rig.SizeOf(null));
+            Assert.Equal(new RasterSize(3840, 1080), snap.Rig.SizeOf(null));
             foreach (var tile in b.Vm.SwitcherTiles)
             {
-                Assert.Equal(tile.Size, snap.Rig.SizeOf(tile.TargetId));
+                Assert.Equal(tile.Size, snap.Rig.SizeOf(tile.TargetId).ToSk());
                 if (tile.TargetId is null) continue;
                 Assert.Equal(tile.Title, snap.Rig.LabelFor(b.Vm.State, tile.TargetId));
             }
@@ -181,7 +183,7 @@ public class WallTests
             Dispatcher.UIThread.RunJobs();
 
             var snap = b.Services.Bus.Current;
-            Assert.Equal(new SKSizeI(3840, 2160), snap.Rig.SizeOf("c"));
+            Assert.Equal(new RasterSize(3840, 2160), snap.Rig.SizeOf("c"));
             Assert.Equal("3 · Foyer", snap.Rig.LabelFor(b.Vm.State, "c"));
         }
         finally

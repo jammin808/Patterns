@@ -1,4 +1,3 @@
-using Patterns.Core.Media;
 
 namespace Patterns.Core.Services;
 
@@ -37,8 +36,18 @@ public static class MediaMemory
     /// <summary>What the app registers besides the pictures, the pools and the frames: the decks' pages, thumbnails — bytes.</summary>
     public static Func<long>? Extra { get; set; }
 
+    /// <summary>
+    /// What the render side holds, in bytes — the picture cache, the frame pools and the frames
+    /// retiring behind the render fence. The render module registers the reader when it is
+    /// built; a process that never renders (a caller, a timer) reads zero, which is the truth.
+    /// </summary>
+    public static Func<MediaBytes>? Source { get; set; }
+
+    /// <summary>The render side's bytes at one moment.</summary>
+    public readonly record struct MediaBytes(long Pictures, long PicturesRetiring, long Pools, long PoolsRetiring, long FramesRetiring);
+
     /// <summary>The media budget for a machine of this size, in bytes.</summary>
-    public static long BudgetBytes(double totalMB) => (long)(MemoryBudget.For(totalMB, ImageCache.Capacity, 4).AppCeilingMB * ShareOfAppCeiling * MB);
+    public static long BudgetBytes(double totalMB) => (long)(MemoryBudget.For(totalMB, MemoryBudget.PictureCapacity, 4).AppCeilingMB * ShareOfAppCeiling * MB);
 
     /// <summary>The rung for these bytes against this budget: none under 70 %, elevated from there, high from 85 %, critical at the budget and past it.</summary>
     public static MemoryPressure LevelOf(long bytes, long budget)
@@ -91,8 +100,8 @@ public static class MediaMemory
         {
             extra = 0;
         }
-        return new Reading(ImageCache.Bytes, RetiredFrames.BytesOf(RetiredFrames.Kind.Picture), FramePools.Bytes, FramePools.RetiringBytes,
-            RetiredFrames.BytesOf(RetiredFrames.Kind.Frame), extra, BudgetBytes(totalMB));
+        var held = Source?.Invoke() ?? default;
+        return new Reading(held.Pictures, held.PicturesRetiring, held.Pools, held.PoolsRetiring, held.FramesRetiring, extra, BudgetBytes(totalMB));
     }
 
     /// <summary>"no pressure" / "elevated pressure: …" — the rung and the steps it takes.</summary>

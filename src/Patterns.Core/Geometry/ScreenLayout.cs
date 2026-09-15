@@ -1,13 +1,12 @@
-using SkiaSharp;
 
-namespace Patterns.Core.Rendering;
+namespace Patterns.Core.Geometry;
 
 /// <summary>
 /// A screen in arrangement space: stable id + arranged rect in device pixels. <paramref name="Blend"/>
 /// marks a projector whose edges blend automatically: it may overlap its neighbours, and the
 /// overlap joins them into one canvas instead of being a mistake.
 /// </summary>
-public readonly record struct ArrangedScreen(string Id, SKRectI Rect, bool Blend = false, bool Solo = false);
+public readonly record struct ArrangedScreen(string Id, RasterRect Rect, bool Blend = false, bool Solo = false);
 
 /// <summary>
 /// Pure math for the graphical screen arrangement: edge snapping while dragging,
@@ -30,7 +29,7 @@ public static class ScreenLayout
     public const int ApartGap = 240;
 
     /// <summary>True when the rects sit flush along an edge with enough shared span to connect.</summary>
-    public static bool Touching(SKRectI a, SKRectI b)
+    public static bool Touching(RasterRect a, RasterRect b)
     {
         var vOverlap = Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Top, b.Top);
         var hOverlap = Math.Min(a.Right, b.Right) - Math.Max(a.Left, b.Left);
@@ -53,7 +52,7 @@ public static class ScreenLayout
     }
 
     /// <summary>The rects share real area — at least <see cref="MinSharedEdge"/> on both axes, not a flush edge.</summary>
-    public static bool Overlapping(SKRectI a, SKRectI b)
+    public static bool Overlapping(RasterRect a, RasterRect b)
     {
         var w = Math.Min(a.Right, b.Right) - Math.Max(a.Left, b.Left);
         var h = Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Top, b.Top);
@@ -104,12 +103,12 @@ public static class ScreenLayout
         return groups;
     }
 
-    public static SKRectI Union(IReadOnlyList<ArrangedScreen> group)
+    public static RasterRect Union(IReadOnlyList<ArrangedScreen> group)
     {
         var u = group[0].Rect;
         for (var i = 1; i < group.Count; i++)
         {
-            u = new SKRectI(
+            u = new RasterRect(
                 Math.Min(u.Left, group[i].Rect.Left),
                 Math.Min(u.Top, group[i].Rect.Top),
                 Math.Max(u.Right, group[i].Rect.Right),
@@ -124,7 +123,7 @@ public static class ScreenLayout
     /// top/left, bottom/right, or centre alignment when close. Returns the original position
     /// when nothing is in range.
     /// </summary>
-    public static SKRectI Snap(SKRectI moving, IReadOnlyList<SKRectI> others, int threshold)
+    public static RasterRect Snap(RasterRect moving, IReadOnlyList<RasterRect> others, int threshold)
     {
         var bestDx = int.MaxValue;
         var bestDy = int.MaxValue;
@@ -152,11 +151,11 @@ public static class ScreenLayout
         var snapped = moving;
         if (bestDx != int.MaxValue)
         {
-            snapped = new SKRectI(snapped.Left + bestDx, snapped.Top, snapped.Right + bestDx, snapped.Bottom);
+            snapped = new RasterRect(snapped.Left + bestDx, snapped.Top, snapped.Right + bestDx, snapped.Bottom);
         }
         if (bestDy != int.MaxValue)
         {
-            snapped = new SKRectI(snapped.Left, snapped.Top + bestDy, snapped.Right, snapped.Bottom + bestDy);
+            snapped = new RasterRect(snapped.Left, snapped.Top + bestDy, snapped.Right, snapped.Bottom + bestDy);
         }
 
         // Alignment pass on the perpendicular axis: line up tops/bottoms/centres with the
@@ -171,7 +170,7 @@ public static class ScreenLayout
                 var d = SmallestWithin(threshold, dTop, dCenter, dBottom);
                 if (d is { } dy2)
                 {
-                    snapped = new SKRectI(snapped.Left, snapped.Top + dy2, snapped.Right, snapped.Bottom + dy2);
+                    snapped = new RasterRect(snapped.Left, snapped.Top + dy2, snapped.Right, snapped.Bottom + dy2);
                 }
             }
             else if (Math.Abs(snapped.Bottom - o.Top) <= TouchTolerance || Math.Abs(o.Bottom - snapped.Top) <= TouchTolerance)
@@ -182,7 +181,7 @@ public static class ScreenLayout
                 var d = SmallestWithin(threshold, dLeft, dCenter, dRight);
                 if (d is { } dx2)
                 {
-                    snapped = new SKRectI(snapped.Left + dx2, snapped.Top, snapped.Right + dx2, snapped.Bottom);
+                    snapped = new RasterRect(snapped.Left + dx2, snapped.Top, snapped.Right + dx2, snapped.Bottom);
                 }
             }
         }
@@ -211,7 +210,7 @@ public static class ScreenLayout
         return best;
     }
 
-    public static bool OverlapsAny(SKRectI rect, IEnumerable<SKRectI> others)
+    public static bool OverlapsAny(RasterRect rect, IEnumerable<RasterRect> others)
     {
         foreach (var o in others)
         {
@@ -226,13 +225,13 @@ public static class ScreenLayout
     /// Default arrangement: screens in a row, top-aligned, with a clear gap so nothing is
     /// connected until the operator drags screens together deliberately.
     /// </summary>
-    public static IReadOnlyList<SKPointI> DefaultLayout(IReadOnlyList<SKSizeI> sizes, int gap = 120)
+    public static IReadOnlyList<RasterPoint> DefaultLayout(IReadOnlyList<RasterSize> sizes, int gap = 120)
     {
-        var points = new List<SKPointI>(sizes.Count);
+        var points = new List<RasterPoint>(sizes.Count);
         var x = 0;
         foreach (var s in sizes)
         {
-            points.Add(new SKPointI(x, 0));
+            points.Add(new RasterPoint(x, 0));
             x += s.Width + gap;
         }
         return points;

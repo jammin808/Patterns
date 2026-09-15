@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Ndi;
 using Patterns.Core.Rendering;
@@ -97,12 +98,12 @@ public class VirtualScreenTests
         Assert.Equal(2, rig.Targets.Count);
         Assert.Contains("a+b", rig.Targets);
         Assert.Contains(sender.OwnScreenId, rig.Targets);
-        Assert.Equal(new SKSizeI(1920, 1080), rig.SizeOf(sender.OwnScreenId));
+        Assert.Equal(new RasterSize(1920, 1080), rig.SizeOf(sender.OwnScreenId));
 
-        var solo = new ArrangedScreen("x", SKRectI.Create(0, 0, 100, 100), Solo: true);
-        var next = new ArrangedScreen("y", SKRectI.Create(100, 0, 100, 100));
+        var solo = new ArrangedScreen("x", RasterRect.Create(0, 0, 100, 100), Solo: true);
+        var next = new ArrangedScreen("y", RasterRect.Create(100, 0, 100, 100));
         Assert.False(ScreenLayout.Connected(solo, next));
-        Assert.True(ScreenLayout.Connected(next with { Id = "z", Rect = SKRectI.Create(200, 0, 100, 100) }, next));
+        Assert.True(ScreenLayout.Connected(next with { Id = "z", Rect = RasterRect.Create(200, 0, 100, 100) }, next));
     }
 
     [Fact]
@@ -182,7 +183,7 @@ public class VirtualScreenTests
         Assert.Null(StreamMrl.BuildRendered(cfg, Array.Empty<string>()));
 
         // The desktop capture plan reads as it always did.
-        var capture = StreamMrl.Build(cfg, SKRectI.Create(0, 0, 1920, 1080), new[] { "rtmp://live.example/app/key" })!;
+        var capture = StreamMrl.Build(cfg, RasterRect.Create(0, 0, 1920, 1080), new[] { "rtmp://live.example/app/key" })!;
         Assert.Equal("screen://", capture.Mrl);
         Assert.Contains(":screen-width=1920", capture.Options);
         Assert.DoesNotContain(capture.Options, o => o.StartsWith(":rawvid-", StringComparison.Ordinal));

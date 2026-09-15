@@ -1,3 +1,4 @@
+using Patterns.Core.Rendering;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -70,12 +71,12 @@ public static class Rig
         => Geometry(state, known).Targets.ToList();
 
     /// <summary>A sensible shape when the rig has no screens at all.</summary>
-    public static readonly SKSizeI DefaultTargetSize = RigGeometry.FallbackTargetSize;
+    public static readonly SKSizeI DefaultTargetSize = RigGeometry.FallbackTargetSize.ToSk();
 
     /// <summary>
     /// The pixel size of a content target: a canvas's union, a screen's effective (rotation-aware)
     /// size. The program (null) takes the first target's shape so the panes show something true.
     /// </summary>
     public static SKSizeI TargetSize(ShowState state, IReadOnlyList<ScreenInfo> known, string? targetId)
-        => Geometry(state, known).SizeOf(targetId);
+        => Geometry(state, known).SizeOf(targetId).ToSk();
 }

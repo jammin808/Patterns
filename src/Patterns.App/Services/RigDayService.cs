@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using System.Text.Json;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
@@ -79,7 +80,7 @@ public sealed class RigDayService
             var info = _s.Screens.All.FirstOrDefault(x => x.Id == p.ScreenId);
             if (info is null) continue;
             var size = OutputWindowManager.EffectiveSize(p, info);
-            result.Add(new ArrangedScreen(p.ScreenId, SKRectI.Create(p.X, p.Y, size.Width, size.Height), p.BlendsOverlaps));
+            result.Add(new ArrangedScreen(p.ScreenId, RasterRect.Create(p.X, p.Y, size.Width, size.Height), p.BlendsOverlaps));
         }
         return result;
     }

@@ -105,7 +105,7 @@ public class WarpAndBlackLevelTests
 
         // …and the derived zones of the top-left projector: a right side and a bottom, no corner of its own.
         var rects = grid.Select(p => SKRectI.Create(p.X, p.Y, hd.Width, hd.Height)).ToList();
-        var topLeft = EdgeBlend.Derive(rects[0], rects.Skip(1));
+        var topLeft = EdgeBlend.Derive(rects[0].ToRaster(), rects.Skip(1).Select(r => r.ToRaster()));
         Assert.Equal(new BlendWidths(0, 0, 200, 200), topLeft);
         Assert.Equal(4, BlackLevel.MaxCoverage(topLeft));
 

@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using System.Text.Json;
 using Patterns.Core.LowerThirds;
 using Patterns.Core.Model;

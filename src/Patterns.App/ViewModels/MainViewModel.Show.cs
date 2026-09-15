@@ -452,7 +452,7 @@ public sealed partial class MainViewModel
                 id,
                 new[] { id },
                 // The surface the content lays out on: the raster grown by the wall's dead strips, when it has any.
-                geo.GapsOf(id).IsEmpty ? OutputWindowManager.EffectiveSize(placement, info) : geo.SizeOf(id),
+                geo.GapsOf(id).IsEmpty ? OutputWindowManager.EffectiveSize(placement, info) : geo.SizeOf(id).ToSk(),
                 placement.Enabled,
                 isSelected: _selectedTargetId == id,
                 isOwn: placement.UseCustomPattern,

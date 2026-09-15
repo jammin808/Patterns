@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Rendering;
@@ -89,11 +90,11 @@ public class DeckTests
         Assert.Equal(0, Decks.Resolve("dance", 7, 12));
         Assert.Equal(0, Decks.Resolve("next", 1, 0));
 
-        Assert.Equal(new SKSizeI(1920, 1080), Decks.RasterCeiling(null));
-        Assert.Equal(new SKSizeI(1440, 1080), Decks.FitInto(new SKSize(1024, 768), new SKSizeI(1920, 1080)));
-        Assert.Equal(new SKSizeI(3840, 2160), Decks.FitInto(new SKSize(800, 450), new SKSizeI(3840, 2160)));
-        Assert.Equal(new SKSizeI(607, 1080), Decks.FitInto(new SKSize(595, 1058), new SKSizeI(1920, 1080)));   // a portrait page
-        Assert.Equal(new SKSizeI(1080, 1080), Decks.FitInto(new SKSize(0, 0), new SKSizeI(1920, 1080)));   // a broken page: a square at the ceiling
+        Assert.Equal(new RasterSize(1920, 1080), Decks.RasterCeiling(null));
+        Assert.Equal(new RasterSize(1440, 1080), Decks.FitInto(1024, 768, new RasterSize(1920, 1080)));
+        Assert.Equal(new RasterSize(3840, 2160), Decks.FitInto(800, 450, new RasterSize(3840, 2160)));
+        Assert.Equal(new RasterSize(607, 1080), Decks.FitInto(595, 1058, new RasterSize(1920, 1080)));   // a portrait page
+        Assert.Equal(new RasterSize(1080, 1080), Decks.FitInto(0, 0, new RasterSize(1920, 1080)));   // a broken page: a square at the ceiling
 
         Assert.Equal("deck:C:\\show\\deck.pdf", InputKeys.Deck("C:\\show\\deck.pdf"));
         Assert.Equal("", InputKeys.Deck(" "));

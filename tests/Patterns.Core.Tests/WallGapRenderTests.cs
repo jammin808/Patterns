@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Patterns;
 using Patterns.Core.Rendering;
@@ -49,8 +50,8 @@ public class WallGapRenderTests
         using var sink = new SinkState();
         var info = new SKImageInfo(600, 200, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var surface = SKSurface.Create(info);
-        var ctx = Ctx(600, 200, snap.Rig.SizeOf(Wall), SinkKind.Output);
-        engine.RenderWall(surface.Canvas, snap, in ctx, sink, snap.Rig.GapsOf(Wall), snap.Rig.RasterRectOf(Wall));
+        var ctx = Ctx(600, 200, snap.Rig.SizeOf(Wall).ToSk(), SinkKind.Output);
+        engine.RenderWall(surface.Canvas, snap, in ctx, sink, snap.Rig.GapsOf(Wall), snap.Rig.RasterRectOf(Wall).ToSk());
         surface.Canvas.Flush();
         var bmp = new SKBitmap(info);
         surface.ReadPixels(info, bmp.GetPixels(), info.RowBytes, 0, 0);
@@ -85,13 +86,13 @@ public class WallGapRenderTests
     public void TheRigCarriesTheStripsAndTheSurfaceGrowsByThem()
     {
         var snap = Snap(Pillars());
-        Assert.Equal(new SKSizeI(800, 200), snap.Rig.SizeOf(Wall));
-        Assert.Equal(new SKSizeI(600, 200), snap.Rig.RasterSizeOf(Wall));
-        Assert.Equal(new SKSizeI(800, 200), snap.Rig.SizeOf(null));           // the program takes the surface's shape
+        Assert.Equal(new RasterSize(800, 200), snap.Rig.SizeOf(Wall));
+        Assert.Equal(new RasterSize(600, 200), snap.Rig.RasterSizeOf(Wall));
+        Assert.Equal(new RasterSize(800, 200), snap.Rig.SizeOf(null));           // the program takes the surface's shape
         Assert.Equal(2, snap.Rig.GapsOf(Wall).Count);
         Assert.Same(snap.Rig.GapsOf(Wall), snap.Rig.GapsOf(null));
-        Assert.Equal(new SKRectI(0, 0, 600, 200), snap.Rig.RasterRectOf(Wall));
-        Assert.Equal(new SKSizeI(800, 200), snap.Rig.ViewportForTarget(Wall).ViewportSize);
+        Assert.Equal(new RasterRect(0, 0, 600, 200), snap.Rig.RasterRectOf(Wall));
+        Assert.Equal(new RasterSize(800, 200), snap.Rig.ViewportForTarget(Wall).ViewportSize);
     }
 
     [Fact]
@@ -202,7 +203,7 @@ public class WallGapRenderTests
         });
         var snap = Snap(state);
         var gaps = snap.Rig.GapsOf(Wall);
-        Assert.Equal(new SKSizeI(840, 200), snap.Rig.SizeOf(Wall));
+        Assert.Equal(new RasterSize(840, 200), snap.Rig.SizeOf(Wall));
         Assert.Equal(new SKRectI(440, 0, 840, 200), VideoWallPattern.ElementRect(1, 0, 400, 200, gaps));
         Assert.Equal(new SKRectI(400, 0, 800, 200), VideoWallPattern.ElementRect(1, 0, 400, 200, GapMap.Empty));
 
@@ -260,13 +261,13 @@ public class WallGapRenderTests
         });
         var geo = RigGeometry.Build(state, RigGeometry.NoDisplays);
         var key = CanvasNameConfig.KeyFor(new[] { "planned:l", "planned:r" });
-        Assert.Equal(new SKSizeI(840, 200), geo.SizeOf(key));
-        Assert.Equal(new SKSizeI(800, 200), geo.RasterSizeOf(key));
+        Assert.Equal(new RasterSize(840, 200), geo.SizeOf(key));
+        Assert.Equal(new RasterSize(800, 200), geo.RasterSizeOf(key));
         var right = geo.ViewportForTile("planned:r");
-        Assert.Equal(new SKPointI(440, 0), right.Origin);
-        Assert.Equal(new SKSizeI(400, 200), right.ViewportSize);
-        Assert.Equal(new SKSizeI(840, 200), right.ReferenceSize);
-        Assert.Equal(new SKPointI(0, 0), geo.ViewportForTile("planned:l").Origin);
+        Assert.Equal(new RasterPoint(440, 0), right.Origin);
+        Assert.Equal(new RasterSize(400, 200), right.ViewportSize);
+        Assert.Equal(new RasterSize(840, 200), right.ReferenceSize);
+        Assert.Equal(new RasterPoint(0, 0), geo.ViewportForTile("planned:l").Origin);
         Assert.Single(geo.GapsOf(key).Slices(geo.RasterRectOf("planned:r")));   // no strip runs through a member: one run, moved
     }
 }

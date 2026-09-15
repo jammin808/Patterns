@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Rendering;
 using SkiaSharp;
 using Xunit;
@@ -6,7 +7,7 @@ namespace Patterns.Core.Tests;
 
 public class ScreenLayoutTests
 {
-    private static SKRectI R(int x, int y, int w, int h) => SKRectI.Create(x, y, w, h);
+    private static RasterRect R(int x, int y, int w, int h) => RasterRect.Create(x, y, w, h);
 
     [Fact]
     public void FlushEdgesTouch_GapsDoNot()
@@ -37,7 +38,7 @@ public class ScreenLayoutTests
         Assert.Equal(2, groups.Count);
         Assert.Equal(3, groups[0].Count);
         Assert.Single(groups[1]);
-        Assert.Equal(new SKRectI(0, 0, 5760, 1080), ScreenLayout.Union(groups[0]));
+        Assert.Equal(new RasterRect(0, 0, 5760, 1080), ScreenLayout.Union(groups[0]));
     }
 
     [Fact]
@@ -50,13 +51,13 @@ public class ScreenLayoutTests
         };
         var groups = ScreenLayout.Groups(screens);
         var g = Assert.Single(groups);
-        Assert.Equal(new SKRectI(0, 0, 1920, 2160), ScreenLayout.Union(g));
+        Assert.Equal(new RasterRect(0, 0, 1920, 2160), ScreenLayout.Union(g));
     }
 
     [Fact]
     public void SnapPullsEdgesFlushAndAlignsTops()
     {
-        var others = new List<SKRectI> { R(0, 0, 1920, 1080) };
+        var others = new List<RasterRect> { R(0, 0, 1920, 1080) };
         // 14px short of flush, 9px vertical misalignment — inside the threshold.
         var snapped = ScreenLayout.Snap(R(1934, 9, 1920, 1080), others, threshold: 24);
         Assert.Equal(1920, snapped.Left);
@@ -67,7 +68,7 @@ public class ScreenLayoutTests
     [Fact]
     public void SnapLeavesFarRectsAlone()
     {
-        var others = new List<SKRectI> { R(0, 0, 1920, 1080) };
+        var others = new List<RasterRect> { R(0, 0, 1920, 1080) };
         var moving = R(2400, 300, 1920, 1080);
         Assert.Equal(moving, ScreenLayout.Snap(moving, others, threshold: 24));
     }
@@ -75,7 +76,7 @@ public class ScreenLayoutTests
     [Fact]
     public void SnapBelowAlignsLefts()
     {
-        var others = new List<SKRectI> { R(100, 0, 1920, 1080) };
+        var others = new List<RasterRect> { R(100, 0, 1920, 1080) };
         var snapped = ScreenLayout.Snap(R(112, 1094, 1920, 1080), others, threshold: 24);
         Assert.Equal(1080, snapped.Top);   // flush under
         Assert.Equal(100, snapped.Left);   // left-aligned
@@ -92,9 +93,9 @@ public class ScreenLayoutTests
     [Fact]
     public void DefaultLayoutKeepsScreensDisconnected()
     {
-        var sizes = new List<SKSizeI> { new(1920, 1080), new(2560, 1440), new(1080, 1920) };
+        var sizes = new List<RasterSize> { new(1920, 1080), new(2560, 1440), new(1080, 1920) };
         var points = ScreenLayout.DefaultLayout(sizes);
-        var arranged = sizes.Select((s, i) => new ArrangedScreen($"s{i}", SKRectI.Create(points[i].X, points[i].Y, s.Width, s.Height))).ToList();
+        var arranged = sizes.Select((s, i) => new ArrangedScreen($"s{i}", RasterRect.Create(points[i].X, points[i].Y, s.Width, s.Height))).ToList();
         Assert.Equal(3, ScreenLayout.Groups(arranged).Count); // nothing connected by default
     }
 }

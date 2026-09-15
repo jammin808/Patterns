@@ -17,7 +17,7 @@ namespace Patterns.Core.Media;
 public static class ImageCache
 {
     /// <summary>The most decoded pictures resident whatever their size: the memory ceilings' count.</summary>
-    public const int Capacity = 32;
+    public const int Capacity = MemoryBudget.PictureCapacity;
     private static readonly object Gate = new();
     private static long _budgetBytes = -1;
     private static long _bytes;

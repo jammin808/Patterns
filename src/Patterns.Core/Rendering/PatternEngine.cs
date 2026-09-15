@@ -1,4 +1,5 @@
 using Patterns.Core.Media;
+using Patterns.Core.Geometry;
 using Patterns.Core.Model;
 using Patterns.Core.Patterns;
 using Patterns.Core.Services;
@@ -431,8 +432,9 @@ public sealed class PatternEngine
     {
         var fill = sink.Paints.Fill(GapShade);
         var edge = sink.Paints.Fill(GapEdge);
-        foreach (var strip in gaps.StripsIn(virtualRegion))
+        foreach (var pixelStrip in gaps.StripsIn(virtualRegion.ToRaster()))
         {
+            var strip = pixelStrip.ToSk();
             canvas.DrawRect(strip, fill);
             if (strip.Width < strip.Height)
             {
@@ -463,11 +465,11 @@ public sealed class PatternEngine
             return;
         }
 
-        var span = gaps.VirtualRect(rasterRegion);
-        var slices = gaps.Slices(rasterRegion);
+        var span = gaps.VirtualRect(rasterRegion.ToRaster());
+        var slices = gaps.Slices(rasterRegion.ToRaster());
         if (slices.Count <= 1)
         {
-            var moved = ctx with { ReferenceSize = gaps.Virtual, ViewportOrigin = new SKPointI(span.Left, span.Top) };
+            var moved = ctx with { ReferenceSize = gaps.Virtual.ToSk(), ViewportOrigin = new SKPointI(span.Left, span.Top) };
             Render(canvas, snap, in moved, sink);
             return;
         }
@@ -475,7 +477,7 @@ public sealed class PatternEngine
         var surface = sink.WallSurface(new SKSizeI(span.Width, span.Height));
         var wide = ctx with
         {
-            ReferenceSize = gaps.Virtual,
+            ReferenceSize = gaps.Virtual.ToSk(),
             ViewportSize = new SKSizeI(span.Width, span.Height),
             ViewportOrigin = new SKPointI(span.Left, span.Top),
         };
@@ -513,9 +515,9 @@ public sealed class PatternEngine
         if (scale <= 0) return false;
         var sub = f.Ctx with
         {
-            ViewportSize = v.ViewportSize,
-            ReferenceSize = v.ReferenceSize,
-            ViewportOrigin = v.Origin,
+            ViewportSize = v.ViewportSize.ToSk(),
+            ReferenceSize = v.ReferenceSize.ToSk(),
+            ViewportOrigin = v.Origin.ToSk(),
             ScreenId = v.TargetId,
             InMultiview = true,
             InLayer = true,
@@ -730,9 +732,9 @@ public sealed class PatternEngine
                 var scale = Math.Min(rect.Width / v.ViewportSize.Width, rect.Height / v.ViewportSize.Height);
                 var sub = f.Ctx with
                 {
-                    ViewportSize = v.ViewportSize,     // this screen's own pixels
-                    ReferenceSize = v.ReferenceSize,   // the canvas the pattern resolves against
-                    ViewportOrigin = v.Origin,         // this member's slice of a joined canvas
+                    ViewportSize = v.ViewportSize.ToSk(),     // this screen's own pixels
+                    ReferenceSize = v.ReferenceSize.ToSk(),   // the canvas the pattern resolves against
+                    ViewportOrigin = v.Origin.ToSk(),         // this member's slice of a joined canvas
                     ScreenId = v.TargetId,             // a screen id, a canvas key, or null = program
                     InMultiview = true,
                     // A tile is a monitor of one target, never an output: no identify badge inside
@@ -861,9 +863,9 @@ public sealed class PatternEngine
         var scale = Math.Min(video.Width / v.ViewportSize.Width, video.Height / v.ViewportSize.Height);
         var sub = f.Ctx with
         {
-            ViewportSize = v.ViewportSize,
-            ReferenceSize = v.ReferenceSize,
-            ViewportOrigin = v.Origin,
+            ViewportSize = v.ViewportSize.ToSk(),
+            ReferenceSize = v.ReferenceSize.ToSk(),
+            ViewportOrigin = v.Origin.ToSk(),
             ScreenId = null,
             InMultiview = true,
             Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,

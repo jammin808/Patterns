@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
-using SkiaSharp;
 
 namespace Patterns.Core.Services;
 
@@ -121,58 +120,20 @@ public static class AssistantAttachments
 
     /// <summary>
     /// A picture: decoded, brought down to <see cref="MaxImageSide"/> on its long side when it is
-    /// larger, and re-encoded — PNG for a picture that was PNG (a screenshot's text stays crisp)
-    /// unless that is too big, JPEG otherwise. A picture that cannot be decoded is refused.
+    /// larger, and re-encoded within <see cref="MaxImageBytes"/> — PNG for a picture that was PNG
+    /// (a screenshot's text stays crisp) unless that is too big, JPEG otherwise. The codec is the
+    /// render side's (<see cref="Media.Pictures.Shrinker"/>); the rules and the words are here. A
+    /// picture that cannot be decoded is refused, and a build with no codec says so.
     /// </summary>
     private static AssistantAttachmentResult ReadImage(string name, byte[] bytes)
     {
-        SKBitmap? decoded;
-        try
-        {
-            decoded = SKBitmap.Decode(bytes);   // null for bytes no codec knows; some builds throw instead
-        }
-        catch (ArgumentException)
-        {
-            decoded = null;
-        }
-        using var _ = decoded;
-        if (decoded is null || decoded.Width <= 0 || decoded.Height <= 0) return new AssistantAttachmentResult(null, $"'{name}' is not a picture the assistant can read.");
-        var side = Math.Max(decoded.Width, decoded.Height);
-        var scale = side > MaxImageSide ? MaxImageSide / (double)side : 1.0;
-        var w = Math.Max(1, (int)Math.Round(decoded.Width * scale));
-        var h = Math.Max(1, (int)Math.Round(decoded.Height * scale));
-        using var sized = scale < 1.0 ? decoded.Resize(new SKImageInfo(w, h, decoded.ColorType, decoded.AlphaType), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)) : null;
-        var bitmap = sized ?? decoded;
+        if (Media.Pictures.Shrinker is not { } shrink) return new AssistantAttachmentResult(null, $"'{name}' is a picture, and this build has no picture codec.");
         var wasPng = Path.GetExtension(name).Equals(".png", StringComparison.OrdinalIgnoreCase);
-        using var image = SKImage.FromBitmap(bitmap);
-        if (image is null) return new AssistantAttachmentResult(null, $"'{name}' is not a picture the assistant can read.");
-        byte[]? outBytes = null;
-        var mediaType = "image/jpeg";
-        if (wasPng)
-        {
-            using var png = image.Encode(SKEncodedImageFormat.Png, 100);
-            if (png is not null && png.Size <= MaxImageBytes)
-            {
-                outBytes = png.ToArray();
-                mediaType = "image/png";
-            }
-        }
-        if (outBytes is null)
-        {
-            foreach (var quality in new[] { 85, 70, 55 })
-            {
-                using var jpeg = image.Encode(SKEncodedImageFormat.Jpeg, quality);
-                if (jpeg is null) break;
-                if (jpeg.Size <= MaxImageBytes || quality == 55)
-                {
-                    outBytes = jpeg.ToArray();
-                    break;
-                }
-            }
-        }
-        if (outBytes is null || outBytes.Length > MaxImageBytes) return new AssistantAttachmentResult(null, $"'{name}' is too large a picture even reduced.");
-        var note = scale < 1.0 ? $"{decoded.Width}×{decoded.Height}, sent at {w}×{h}" : $"{decoded.Width}×{decoded.Height}";
-        return new AssistantAttachmentResult(new AssistantAttachment(name, AssistantAttachmentKind.Image, mediaType, outBytes, "", note), "");
+        var picture = shrink(bytes, MaxImageSide, MaxImageBytes, wasPng);
+        if (picture is null) return new AssistantAttachmentResult(null, $"'{name}' is not a picture the assistant can read.");
+        if (picture.Bytes.Length > MaxImageBytes) return new AssistantAttachmentResult(null, $"'{name}' is too large a picture even reduced.");
+        var note = picture.Scaled ? $"{picture.Width}×{picture.Height}, sent at {picture.SentWidth}×{picture.SentHeight}" : $"{picture.Width}×{picture.Height}";
+        return new AssistantAttachmentResult(new AssistantAttachment(name, AssistantAttachmentKind.Image, picture.MediaType, picture.Bytes, "", note), "");
     }
 
     private static AssistantAttachmentResult ReadPdf(string name, byte[] bytes)

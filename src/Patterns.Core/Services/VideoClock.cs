@@ -71,7 +71,7 @@ public static class VideoClock
     /// <paramref name="resolve"/> — the input bus, or a fake in tests. Null when nothing on air
     /// is a file, or its decoder is not open yet.
     /// </summary>
-    public static VideoReading? Read(ShowSnapshot snap, Func<string, IVideoFrameSource?> resolve, bool stingerClip = false)
+    public static VideoReading? Read(ShowSnapshot snap, Func<string, IPlayheadSource?> resolve, bool stingerClip = false)
     {
         var wanted = MediaLocator.FindWantedInputs(snap).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.VideoFile);
         if (wanted is null) return null;

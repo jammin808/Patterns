@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -282,7 +283,7 @@ public sealed class LedMapEditorControl : Control
 
         var others = view.Tiles.Where(t => t.Tile != _dragTile).Select(t => t.Arranged).ToList();
         var threshold = Math.Max(6, (int)(14 / view.Scale));
-        _dragPreview = ScreenLayout.Snap(moving, others, threshold);
+        _dragPreview = ScreenLayout.Snap(moving.ToRaster(), others.Select(r => r.ToRaster()).ToList(), threshold).ToSk();
         InvalidateVisual();
     }
 
@@ -296,7 +297,7 @@ public sealed class LedMapEditorControl : Control
         {
             var view = BuildView();
             var others = view?.Tiles.Where(t => t.Tile != _dragTile).Select(t => t.Arranged).ToList() ?? new List<SKRectI>();
-            if (!ScreenLayout.OverlapsAny(_dragPreview, others))
+            if (!ScreenLayout.OverlapsAny(_dragPreview.ToRaster(), others.Select(r => r.ToRaster()).ToList()))
             {
                 // Re-anchor the whole map at the origin: the wall canvas is the bounding box
                 // of the panels, so panels keep their relative gaps but never drift (or go

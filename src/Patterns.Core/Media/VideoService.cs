@@ -18,7 +18,7 @@ public readonly record struct DrawnFrame(bool Drew, double FrameClock = -1, bool
     public static readonly DrawnFrame Nothing = new(false);
 }
 
-public interface IVideoFrameSource
+public interface IVideoFrameSource : IPlayheadSource
 {
     /// <summary>Draws the newest decoded frame into dest. Returns false when no frame is available yet.</summary>
     bool DrawFrame(SKCanvas canvas, SKRect dest, SKPaint? paint);
@@ -41,23 +41,13 @@ public interface IVideoFrameSource
 
     SKSizeI? FrameSize { get; }
 
-    bool IsPlaying { get; }
-
     /// <summary>True when the media reached its natural end (drives playlist advance).</summary>
-    bool IsEnded { get; }
-
     /// <summary>Decoder-reported length in seconds; 0 when unknown.</summary>
-    double DurationSeconds { get; }
-
     /// <summary>Human-readable state for the placeholder card ("opening…", "libVLC not found", …).</summary>
     string StatusText { get; }
 
     /// <summary>Where the media is, in seconds from its start; 0 when unknown, or for a source with no timeline (a camera, a feed, a page).</summary>
-    double PositionSeconds => 0;
-
     /// <summary>The media has a timeline that can be moved along — a file, never a camera, a feed or a page.</summary>
-    bool CanSeek => false;
-
     /// <summary>
     /// Moves the media to a time from its start (the decoder clamps it to the file); a media that
     /// has ended plays again from there. False when this source cannot be moved.

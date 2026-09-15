@@ -285,7 +285,7 @@ public sealed class CycleColorCache
     public SKColor[] Get(string csv)
     {
         if (_key == csv) return _colors;
-        _colors = Services.ColorUtil.ParseList(csv, SKColors.White);
+        _colors = ColorUtil.ParseList(csv, SKColors.White);
         _key = csv;
         return _colors;
     }

@@ -1,3 +1,4 @@
+using Patterns.Core.Rendering;
 using System.Runtime.InteropServices;
 using Patterns.Core.Model;
 using Patterns.Core.Services;

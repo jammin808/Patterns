@@ -1,3 +1,4 @@
+using Patterns.Core.Geometry;
 using Patterns.Core.Rendering;
 using Patterns.Core.RigDay;
 using Patterns.Core.Services;
@@ -92,9 +93,9 @@ public class RigDayTests
         static BlendNote Fine(string t) => new(false, t);
         var row = new[]
         {
-            new ArrangedScreen("a", SKRectI.Create(0, 0, 1920, 1080), true),
-            new ArrangedScreen("b", SKRectI.Create(1720, 0, 1920, 1080), true),
-            new ArrangedScreen("c", SKRectI.Create(5000, 0, 1920, 1080), true),   // apart: no join
+            new ArrangedScreen("a", RasterRect.Create(0, 0, 1920, 1080), true),
+            new ArrangedScreen("b", RasterRect.Create(1720, 0, 1920, 1080), true),
+            new ArrangedScreen("c", RasterRect.Create(5000, 0, 1920, 1080), true),   // apart: no join
         };
         var levels = BlendQuest.Levels(row, id => new[] { Fine("✓ join") }, id => id.ToUpperInvariant());
         var level = Assert.Single(levels);
@@ -110,10 +111,10 @@ public class RigDayTests
 
         var grid = new[]
         {
-            new ArrangedScreen("tl", SKRectI.Create(0, 0, 1920, 1080), true),
-            new ArrangedScreen("tr", SKRectI.Create(1720, 0, 1920, 1080), true),
-            new ArrangedScreen("bl", SKRectI.Create(0, 880, 1920, 1080), true),
-            new ArrangedScreen("br", SKRectI.Create(1720, 880, 1920, 1080), true),
+            new ArrangedScreen("tl", RasterRect.Create(0, 0, 1920, 1080), true),
+            new ArrangedScreen("tr", RasterRect.Create(1720, 0, 1920, 1080), true),
+            new ArrangedScreen("bl", RasterRect.Create(0, 880, 1920, 1080), true),
+            new ArrangedScreen("br", RasterRect.Create(1720, 880, 1920, 1080), true),
         };
         var quest = BlendQuest.Levels(grid, _ => new[] { Fine("✓") }, id => id);
         Assert.Equal(4, quest.Count(l => !l.Boss));                                    // the four edges, not the diagonals

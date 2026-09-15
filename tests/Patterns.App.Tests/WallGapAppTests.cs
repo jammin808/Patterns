@@ -1,3 +1,5 @@
+using Patterns.Core.Rendering;
+using Patterns.Core.Geometry;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -100,7 +102,7 @@ public class WallGapAppTests
             Assert.Equal(new SKSizeI(3840, 1080), plain.Single(x => x.Screen.Id == right.ScreenId).Viewport.ReferenceSize);
 
             // The program pane follows the surface of the first target.
-            Assert.Equal(services.Bus.Current.Rig.SizeOf(null), Rig.TargetSize(vm.State, services.Screens.All, null));
+            Assert.Equal(services.Bus.Current.Rig.SizeOf(null).ToSk(), Rig.TargetSize(vm.State, services.Screens.All, null));
 
             // The show file carries the gaps and the seams, and a reopened show has them.
             var json = JsonUtil.Serialize(vm.State);

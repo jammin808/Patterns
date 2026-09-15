@@ -1,7 +1,7 @@
 using Patterns.Core.Model;
-using SkiaSharp;
 
-namespace Patterns.Core.Rendering;
+
+namespace Patterns.Core.Geometry;
 
 /// <summary>
 /// One dead strip of a wall, resolved: the raster pixel it stands before, its width, and how
@@ -18,7 +18,7 @@ public readonly record struct WallStrip(int At, int Size, int Before)
 }
 
 /// <summary>A run of real pixels: where it sits in the raster, and where the same pixels sit on the virtual surface.</summary>
-public readonly record struct WallSlice(SKRectI Raster, SKRectI Virtual);
+public readonly record struct WallSlice(RasterRect Raster, RasterRect Virtual);
 
 /// <summary>
 /// The dead strips of one content target — the bezels between the displays of a video wall,
@@ -31,12 +31,12 @@ public readonly record struct WallSlice(SKRectI Raster, SKRectI Virtual);
 /// </summary>
 public sealed class GapMap
 {
-    public static readonly GapMap Empty = new(SKSizeI.Empty, Array.Empty<WallStrip>(), Array.Empty<WallStrip>());
+    public static readonly GapMap Empty = new(RasterSize.Empty, Array.Empty<WallStrip>(), Array.Empty<WallStrip>());
 
     private readonly WallStrip[] _vertical;   // each at an x, sorted
     private readonly WallStrip[] _horizontal; // each at a y, sorted
 
-    private GapMap(SKSizeI raster, WallStrip[] vertical, WallStrip[] horizontal)
+    private GapMap(RasterSize raster, WallStrip[] vertical, WallStrip[] horizontal)
     {
         Raster = raster;
         _vertical = vertical;
@@ -45,14 +45,14 @@ public sealed class GapMap
         foreach (var s in vertical) dx += s.Size;
         var dy = 0;
         foreach (var s in horizontal) dy += s.Size;
-        Virtual = new SKSizeI(raster.Width + dx, raster.Height + dy);
+        Virtual = new RasterSize(raster.Width + dx, raster.Height + dy);
     }
 
     /// <summary>The pixels the outputs are fed.</summary>
-    public SKSizeI Raster { get; }
+    public RasterSize Raster { get; }
 
     /// <summary>The raster with the strips put back: the surface content is laid out on.</summary>
-    public SKSizeI Virtual { get; }
+    public RasterSize Virtual { get; }
 
     /// <summary>The strips between columns, each at an x, left to right.</summary>
     public IReadOnlyList<WallStrip> Vertical => _vertical;
@@ -69,7 +69,7 @@ public sealed class GapMap
     /// wins), and those with no width or standing outside the raster dropped — a gap at the
     /// raster's edge is no gap.
     /// </summary>
-    public static GapMap Build(SKSizeI raster, IEnumerable<(GapAxis Axis, int At, int Size)> gaps)
+    public static GapMap Build(RasterSize raster, IEnumerable<(GapAxis Axis, int At, int Size)> gaps)
     {
         var v = new SortedDictionary<int, int>();
         var h = new SortedDictionary<int, int>();
@@ -98,7 +98,7 @@ public sealed class GapMap
     }
 
     /// <summary>A stand-alone screen's map: its own strips in its own raster.</summary>
-    public static GapMap ForScreen(SKSizeI raster, IEnumerable<WallGap> gaps)
+    public static GapMap ForScreen(RasterSize raster, IEnumerable<WallGap> gaps)
         => Build(raster, gaps.Select(g => (g.Axis, g.At, g.Size)));
 
     /// <summary>
@@ -107,7 +107,7 @@ public sealed class GapMap
     /// horizontal one of <paramref name="seamY"/> — plus each member's own strips, moved to
     /// where the member sits. Member rects are in the union's own space (its top-left at 0,0).
     /// </summary>
-    public static GapMap ForCanvas(SKSizeI union, IEnumerable<(SKRectI Rect, IEnumerable<WallGap> Gaps)> members, int seamX, int seamY)
+    public static GapMap ForCanvas(RasterSize union, IEnumerable<(RasterRect Rect, IEnumerable<WallGap> Gaps)> members, int seamX, int seamY)
     {
         var list = new List<(GapAxis, int, int)>();
         foreach (var (rect, gaps) in members)
@@ -140,24 +140,24 @@ public sealed class GapMap
         return sum;
     }
 
-    public SKPointI VirtualOrigin(SKPointI raster) => new(VirtualX(raster.X), VirtualY(raster.Y));
+    public RasterPoint VirtualOrigin(RasterPoint raster) => new(VirtualX(raster.X), VirtualY(raster.Y));
 
     /// <summary>The span a raster region takes on the virtual surface — the strips inside it included.</summary>
-    public SKRectI VirtualRect(SKRectI raster)
+    public RasterRect VirtualRect(RasterRect raster)
     {
         var l = VirtualX(raster.Left);
         var t = VirtualY(raster.Top);
-        if (raster.Width <= 0 || raster.Height <= 0) return SKRectI.Create(l, t, Math.Max(0, raster.Width), Math.Max(0, raster.Height));
+        if (raster.Width <= 0 || raster.Height <= 0) return RasterRect.Create(l, t, Math.Max(0, raster.Width), Math.Max(0, raster.Height));
         var r = VirtualX(raster.Right - 1) + 1;
         var b = VirtualY(raster.Bottom - 1) + 1;
-        return new SKRectI(l, t, r, b);
+        return new RasterRect(l, t, r, b);
     }
 
     /// <summary>
     /// The runs of real pixels inside a raster region, each with its place on the virtual
     /// surface, rows then columns: one slice when no strip cuts through the region.
     /// </summary>
-    public IReadOnlyList<WallSlice> Slices(SKRectI raster)
+    public IReadOnlyList<WallSlice> Slices(RasterRect raster)
     {
         var xs = Cuts(_vertical, raster.Left, raster.Right);
         var ys = Cuts(_horizontal, raster.Top, raster.Bottom);
@@ -170,7 +170,7 @@ public sealed class GapMap
             for (var xi = 0; xi <= xs.Count; xi++)
             {
                 var x1 = xi < xs.Count ? xs[xi] : raster.Right;
-                var run = new SKRectI(x0, y0, x1, y1);
+                var run = new RasterRect(x0, y0, x1, y1);
                 if (run.Width > 0 && run.Height > 0) result.Add(new WallSlice(run, VirtualRect(run)));
                 x0 = x1;
             }
@@ -194,19 +194,19 @@ public sealed class GapMap
     /// coordinates (its top-left at 0,0): what a monitor shades so the desk sees where the wall
     /// has no pixels.
     /// </summary>
-    public IEnumerable<SKRectI> StripsIn(SKRectI virtualRegion)
+    public IEnumerable<RasterRect> StripsIn(RasterRect virtualRegion)
     {
         foreach (var s in _vertical)
         {
             var l = Math.Max(s.VirtualStart, virtualRegion.Left);
             var r = Math.Min(s.VirtualEnd, virtualRegion.Right);
-            if (r > l) yield return new SKRectI(l - virtualRegion.Left, 0, r - virtualRegion.Left, virtualRegion.Height);
+            if (r > l) yield return new RasterRect(l - virtualRegion.Left, 0, r - virtualRegion.Left, virtualRegion.Height);
         }
         foreach (var s in _horizontal)
         {
             var t = Math.Max(s.VirtualStart, virtualRegion.Top);
             var b = Math.Min(s.VirtualEnd, virtualRegion.Bottom);
-            if (b > t) yield return new SKRectI(0, t - virtualRegion.Top, virtualRegion.Width, b - virtualRegion.Top);
+            if (b > t) yield return new RasterRect(0, t - virtualRegion.Top, virtualRegion.Width, b - virtualRegion.Top);
         }
     }
 
