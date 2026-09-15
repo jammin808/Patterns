@@ -68,6 +68,7 @@ public partial class MainWindow : Window
         var services = vm.Services;
         HookDeskLayout(vm);
         HookPreviewDrag();
+        Controls.Menus.SetSubjectAt(PreviewCanvas, PreviewSubjectAt);
         Services.DirectOutputService.MarkStarted(); // the desk is up: a start with the swap chain worked
         // The pages the rail is not showing are built in idle time from here, below the first frame.
         if (Controls.LazyPage.AutoWarmUp) Controls.LazyPage.WarmUp(this);
@@ -310,6 +311,17 @@ public partial class MainWindow : Window
 
     /// <summary>How far the box has travelled, in the space it was recorded in — the drop's own pixels, for the re-anchoring.</summary>
     private SKPoint _dragTravel;
+
+    /// <summary>
+    /// What a right-click on the PREVIEW pane is on (round 63): the box the last frame drew under the
+    /// pointer — an overlay, the countdown, a layer, the PiP inset, a web page — as the hit itself,
+    /// so the desk opens that thing's menu; null on the bare picture, which is the preview's own.
+    /// </summary>
+    public object? PreviewSubjectAt(Point dip)
+    {
+        if (_previewPipeline is not { LastMap: { } map } pipeline) return null;
+        return HitTester.Find(pipeline.LastHits, in map, ToDevice(dip), includeWeb: true) is { } hit ? hit : null;
+    }
 
     private void HookPreviewDrag()
     {

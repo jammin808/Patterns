@@ -10,7 +10,8 @@ namespace Patterns.Core.Menus;
 /// back are the status line's. The keys:
 /// layer.on:&lt;1|2&gt; · layer.source:&lt;i&gt;:&lt;Source&gt; · layer.fit:&lt;i&gt;:&lt;Fit&gt; · layer.media:&lt;i&gt;:&lt;entryId&gt; ·
 /// overlay.on:&lt;kind&gt; · overlay.anchor:&lt;kind&gt;:&lt;Anchor9&gt; ·
-/// countdown.start:&lt;minutes&gt; · countdown.stop · countdown.follow · countdown.label:&lt;words&gt; · countdown.anchor:&lt;Anchor9&gt;.
+/// countdown.start:&lt;minutes&gt; · countdown.stop · countdown.follow · countdown.label:&lt;words&gt; · countdown.anchor:&lt;Anchor9&gt; ·
+/// media.source:&lt;MediaSource&gt; · media.pick:&lt;entryId&gt; (round 63: the preview's picture becomes a media picture with that source, or that still or clip of the library).
 /// </summary>
 public static class PreviewEdits
 {
@@ -144,10 +145,51 @@ public static class PreviewEdits
                 state.Countdown.OffsetYPct = 0;
                 return $"Countdown at {AnchorWords(anchor).ToLowerInvariant()} — in the preview.";
             }
+            case "media.source":
+            {
+                // The preview's picture becomes a media picture of that source; its settings (the
+                // file, the feed, the page) stay as the Media page last had them.
+                if (parts.Length < 2 || !Enum.TryParse<MediaSource>(parts[1], true, out var source)) return null;
+                picture.Kind = PatternKind.Media;
+                picture.Media.Source = source;
+                return $"The preview shows {MediaSourceWords(source)} — in the preview.";
+            }
+            case "media.pick":
+            {
+                if (parts.Length < 2) return null;
+                var entry = state.MediaLibrary.FirstOrDefault(m => m.Id == parts[1]);
+                if (entry is null) return "That picture is no longer in the library.";
+                picture.Kind = PatternKind.Media;
+                if (entry.IsVideo)
+                {
+                    picture.Media.Source = MediaSource.Video;
+                    picture.Media.VideoPath = entry.Path;
+                }
+                else
+                {
+                    picture.Media.Source = MediaSource.Image;
+                    picture.Media.ImagePath = entry.Path;
+                }
+                return $"The preview shows '{(entry.Name.Length > 0 ? entry.Name : Path.GetFileName(entry.Path))}' — in the preview.";
+            }
             default:
                 return null;
         }
     }
+
+    /// <summary>A media source in words: "a web page", "the playlist".</summary>
+    public static string MediaSourceWords(MediaSource source) => source switch
+    {
+        MediaSource.Image => "a still",
+        MediaSource.Video => "a clip",
+        MediaSource.Playlist => "the playlist",
+        MediaSource.NdiFeed => "an NDI feed",
+        MediaSource.Capture => "a capture device",
+        MediaSource.Web => "a web page",
+        MediaSource.Deck => "a deck",
+        MediaSource.Arcade => "the arcade",
+        _ => source.ToString().ToLowerInvariant(),
+    };
 
     public static string SourceWords(LayerSource source) => source switch
     {

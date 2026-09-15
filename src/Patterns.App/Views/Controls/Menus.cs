@@ -33,6 +33,18 @@ public static class Menus
     public static object? GetSubject(Control c) => c.GetValue(SubjectProperty);
     public static void SetSubject(Control c, object? value) => c.SetValue(SubjectProperty, value);
 
+    /// <summary>
+    /// A subject read from where the pointer is (round 63): the PREVIEW pane sets one that answers
+    /// with the box its last frame drew under the point — an overlay, a layer, the countdown — so
+    /// the right-click opens that thing's menu; null means the control's own subject. The menu key
+    /// has no point and asks the control's subject as before.
+    /// </summary>
+    public static readonly AttachedProperty<Func<Point, object?>?> SubjectAtProperty =
+        AvaloniaProperty.RegisterAttached<Control, Func<Point, object?>?>("SubjectAt", typeof(Menus));
+
+    public static Func<Point, object?>? GetSubjectAt(Control c) => c.GetValue(SubjectAtProperty);
+    public static void SetSubjectAt(Control c, Func<Point, object?>? value) => c.SetValue(SubjectAtProperty, value);
+
     /// <summary>The control's flyout — the desk's, never <see cref="Control.ContextFlyout"/> (see <see cref="Attach"/>).</summary>
     private static readonly AttachedProperty<Flyout?> FlyoutProperty =
         AvaloniaProperty.RegisterAttached<Control, Flyout?>("Flyout", typeof(Menus));
@@ -60,9 +72,9 @@ public static class Menus
     {
         if (e.Handled || sender is not Control control) return;
         e.Handled = true;
-        if (!Prepare(control)) return;
+        var atPointer = e.TryGetPosition(control, out var at);
+        if (!Prepare(control, atPointer ? at : null)) return;
         var flyout = FlyoutOf(control)!;
-        var atPointer = e.TryGetPosition(null, out _);
         flyout.Placement = atPointer ? PlacementMode.Pointer : PlacementMode.BottomEdgeAlignedLeft;
         flyout.ShowAt(control, atPointer);
     }
@@ -72,12 +84,13 @@ public static class Menus
     /// (the flyout may open), false when the host has none. The context request calls this; a test
     /// or a key can call it and then show the flyout itself.
     /// </summary>
-    public static bool Prepare(Control control)
+    public static bool Prepare(Control control, Point? at = null)
     {
         if (FlyoutOf(control) is not { } flyout) return false;
         var kind = GetKind(control);
         var host = HostOf(control);
-        var vm = kind is null || host is null ? null : host.MenuFor(kind, GetSubject(control) ?? control.DataContext);
+        var subject = (at is { } point ? GetSubjectAt(control)?.Invoke(point) : null) ?? GetSubject(control) ?? control.DataContext;
+        var vm = kind is null || host is null ? null : host.MenuFor(kind, subject);
         if (vm is null) return false;
         if (flyout.Content is not DeskMenuControl view)
         {

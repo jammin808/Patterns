@@ -47,7 +47,12 @@ public sealed record DeskFacts
     /// <summary>The show's transition in words — "dissolve · 800 ms" — for the cue menu's "show default" line.</summary>
     public string TransitionDefault { get; init; } = "";
 
+    /// <summary>The preview picture's media source by its enum word ("Web") when the picture is a media picture; "" otherwise (round 63).</summary>
+    public string PreviewSource { get; init; } = "";
+
     public bool HasLookOnAir => LookOnAirId.Length > 0;
+
+    public bool PreviewIsMedia => PreviewSource.Length > 0;
 
     /// <summary>Every kind of picture, its enum word and a readable label (the desk hands its own labels in when it has them).</summary>
     public static readonly IReadOnlyList<MenuKind> DefaultKinds = Enum.GetNames<PatternKind>()

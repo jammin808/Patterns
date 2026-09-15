@@ -403,7 +403,8 @@
                     BorderThickness="{Binding IsSandboxActive, Converter={StaticResource SandboxBorder}}">
               <ctl:AspectBox Ratio="{Binding SelectedTargetRatio}">
                 <Panel>
-                  <r:SkiaCanvasControl x:Name="PreviewCanvas" />
+                  <!-- Right-click (round 63): the thing under the pointer — an overlay, the countdown, a layer, the PiP — gets its menu; the picture gets the preview's, SOURCE first -->
+                  <r:SkiaCanvasControl x:Name="PreviewCanvas" ctl:Menus.Kind="preview" />
                   <!-- The area-of-interest pick: the box being drawn over the picture -->
                   <Canvas IsHitTestVisible="False">
                     <Rectangle x:Name="CropBand" IsVisible="False" Stroke="#FFC24D" StrokeThickness="2" StrokeDashArray="4,3" Fill="#22FFC24D" />

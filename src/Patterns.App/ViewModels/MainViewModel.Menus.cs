@@ -3,6 +3,7 @@ using Patterns.Core.LowerThirds;
 using Patterns.Core.Menus;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
+using Patterns.Rendering;
 
 namespace Patterns.App.ViewModels;
 
@@ -28,7 +29,7 @@ public sealed partial class MainViewModel : IDeskMenuHost
             case "program":
                 return new DeskMenuVm(DeskMenus.Program(facts), e => RunMenuEntry(e, null));
             case "preview":
-                return new DeskMenuVm(DeskMenus.Preview(facts), e => RunMenuEntry(e, null));
+                return subject is HitRect hit ? MenuForHit(hit, facts) : new DeskMenuVm(DeskMenus.Preview(facts), e => RunMenuEntry(e, null));
             case "cue":
             {
                 var cue = subject switch { RunRow r => r.Cue, CueRow c => c.Cue, RunCueConfig q => q, _ => null };
@@ -73,6 +74,26 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 return null;
         }
     }
+
+    /// <summary>
+    /// The menu for the thing a right-click on the PREVIEW pane landed on (round 63): the box the
+    /// frame drew under the pointer names it — a layer, an overlay, the countdown — and that
+    /// thing's own menu opens, its settings, inputs and position in it. The bare picture, a media
+    /// frame or a web page open the preview's menu, whose SOURCE group changes what the picture is.
+    /// </summary>
+    private DeskMenuVm? MenuForHit(HitRect hit, DeskFacts facts) => hit.Kind switch
+    {
+        HitKind.Layer1 => MenuFor("layer", "layer1"),
+        HitKind.Layer2 => MenuFor("layer", "layer2"),
+        HitKind.Clock => MenuFor("overlay", "clock"),
+        HitKind.Logo => MenuFor("overlay", "logo"),
+        HitKind.Message => MenuFor("overlay", "message"),
+        HitKind.Weather => MenuFor("overlay", "weather"),
+        HitKind.Pip => MenuFor("overlay", "pip"),
+        HitKind.Badge => MenuFor("overlay", "badge"),
+        HitKind.Countdown => MenuFor("countdown", null),
+        _ => new DeskMenuVm(DeskMenus.Preview(facts), e => RunMenuEntry(e, null)),
+    };
 
     private DeskMenuVm TileMenu(SwitcherTile tile, DeskFacts facts)
     {

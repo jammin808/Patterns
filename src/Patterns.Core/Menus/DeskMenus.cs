@@ -167,6 +167,7 @@ public static class DeskMenus
             : "EDIT SAFE is off, so every edit goes straight to the screens. When should I open it, and what does a safe workflow look like from here?";
         return new DeskMenu("preview", "", "PREVIEW", d.SandboxOpen ? "EDIT SAFE — edits stay here until CUT or TAKE" : "LIVE — every edit goes straight to the screens", MenuTone.Preview, new[]
         {
+            SourceGroup(d),
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, entries) { Note = PreviewNote },
             new MenuGroup("TO AIR", MenuTone.Live, TakeEntries(d)) { Note = "The operator's own press — the same as the TAKE and CUT keys." },
             new MenuGroup("GO TO", MenuTone.Go, new[]
@@ -179,6 +180,41 @@ public static class DeskMenus
             }),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.preview", "Ask the assistant about the preview", question, d) }),
         });
+    }
+
+    /// <summary>
+    /// SOURCE (round 63): what the preview's picture is — a still, a clip, the playlist, a feed, a
+    /// capture device, a web page, a deck, the arcade — and a still or clip of the library straight
+    /// in. A right-click on the picture itself asked for it; the Pattern drawer beside it changes the
+    /// kind of picture, this one changes what a media picture shows.
+    /// </summary>
+    private static MenuGroup SourceGroup(DeskFacts d)
+    {
+        var current = Enum.TryParse<MediaSource>(d.PreviewSource, true, out var now) ? now : (MediaSource?)null;
+        var sources = Enum.GetValues<MediaSource>().Select(s => new MenuEntry($"media.source:{s}", Capital(PreviewEdits.MediaSourceWords(s)), MenuScope.Preview, MenuTone.Preview)
+        {
+            Edit = $"media.source:{s}",
+            IsOn = current == s,
+        }).ToList();
+        var media = d.Media.Select(m => new MenuEntry($"media.pick:{m.Id}", m.Name, MenuScope.Preview, MenuTone.Preview)
+        {
+            Detail = m.IsVideo ? "a clip" : "a still",
+            Edit = $"media.pick:{m.Id}",
+        }).ToList();
+        return new MenuGroup("SOURCE", MenuTone.Preview, new[]
+        {
+            new MenuEntry("media.source", current is { } c ? $"Media source — {PreviewEdits.MediaSourceWords(c)}" : "Media source", MenuScope.Preview, MenuTone.Preview)
+            {
+                Detail = "What the picture shows: a still, a clip, the playlist, an NDI feed, a capture device, a web page, a deck, the arcade",
+                Children = sources,
+            },
+            new MenuEntry("media.pick", "Pick from the library", MenuScope.Preview, MenuTone.Preview)
+            {
+                Detail = "A still or a clip of the media library, full frame",
+                Children = media,
+                Because = d.Media.Count == 0 ? "The library is empty — add pictures on the Media page." : "",
+            },
+        }) { Note = "The picture becomes a media picture with that source; its settings are on the Media page." };
     }
 
     private static List<MenuEntry> ProgramPreview(DeskFacts d)

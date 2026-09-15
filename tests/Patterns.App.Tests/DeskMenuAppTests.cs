@@ -85,7 +85,8 @@ public class DeskMenuAppTests
             var menu = vm.MenuFor("tile", tile)!;
             Assert.Equal("screen", menu.Menu.Kind);
             Assert.StartsWith("2 · ", menu.Title);
-            Assert.Equal(4, menu.Groups.Count);
+            Assert.Equal(5, menu.Groups.Count);                 // IN THE PREVIEW · TO AIR (round 63) · THIS TILE · GO TO · ASK
+            Assert.Equal("TO AIR", menu.Groups[1].Heading);
             Assert.False(menu.Find("stage.reset")!.IsEnabled); // it shows the look exactly as asked
             Assert.Contains("exactly as the look asked", menu.Find("stage.reset")!.Because);
             var closed = false;

@@ -36,6 +36,7 @@ public static class DeskMenuFacts
             People = People(state),
             Media = Media(state),
             TransitionDefault = TransitionWords(state.Transition),
+            PreviewSource = state.Pattern.Kind == PatternKind.Media ? state.Pattern.Media.Source.ToString() : "",
         };
     }
 
