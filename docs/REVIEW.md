@@ -1536,3 +1536,66 @@ next.*
 Counts at the end of the round: Core 655, Rendering 602, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 664 — 1,975 in all, every suite green here; the Companion module's seventeen
 beside them.
+
+## Round 60 review — right-click menus
+
+*One ask, in the user's words: right-click on a screen in the preview to recall any pattern or
+reset it to its look; on a cue for its look, its transition, its overlays, a lower third in and
+out on a clock; on a layer, the countdown, a lower third for source, pattern, preset, library and
+a way to the page; contextual assistant features; the preview only, unless it is the cue stack;
+clear, instinctive, instructive, in the desk's colours. Five units, each a commit, each proven by
+every suite before the next.*
+
+### 60.1 — the staged verbs
+
+- **Done.** Five kinds that land on a screen's PVW in the preview and nowhere else, the live
+  twin `SCREEN n PATTERN`, the words on the wire, OSC and in a cue. §78.3.
+- **Found on the way:** `SCREEN n LOOK` and `SCREEN n PRESET` write the frozen program too — the
+  right thing for a cue and a remote, the wrong thing for a menu that promised the preview; the
+  staged kinds are a family beside them rather than a flag on them, so the promise is in the
+  kind's name. `ParsePatternKind` did not read the desk's own label ("Colour bars"); it does now.
+- **Kept deliberate:** RESET refuses with no look on air rather than resetting to the programme —
+  "the picture the room is watching was never a look" is a fact the operator should hear.
+
+### 60.2 — the menu as a model
+
+- **Done.** `Patterns.Core.Menus`: the menu as data, one builder per thing, the cue and preview
+  edits by key, the JSON. §78.4.
+- **Found on the way:** the follow words read "0:05 later" through the caller's duration
+  formatter; under a minute the menu says "5 s".
+- **The honest limit:** a drawer is one level deep by design (§78.9); the lower third's design and
+  its timing are two drawers, and the person for a cue's lower third stays with the editor.
+
+### 60.3 — the menus on the desk
+
+- **Done.** The flyout, the attachments on every surface the ask named and the strips beside
+  them, one runner on the desk, the cue menu shared with a caller node. §78.5.
+- **Found on the way:** `FlyoutBase.Opening` carries no cancel in this Avalonia; the right-click
+  is caught on `ContextRequested` instead, where a thing with no menu marks the request handled
+  and nothing opens. A test that held a tile across a TAKE read a stale object once the wall
+  rebuilt; the facts are the state's, and the test re-reads the tile as an operator's eye would.
+- **Kept deliberate:** the PREVIEW pane's canvas has no menu — its pointer belongs to the crop
+  band and the web page; the PREVIEW strip above it carries the menu.
+
+### 60.4 — the wire and the deck
+
+- **Done.** `MENU …` answers the desk's own menu as JSON; the module at 3.3.0 with the staged
+  verbs on a key. §78.6.
+- **Found on the way:** the module's packaging test reads the desk's `CompanionWords.Version`
+  too, so a version bump is four files or none; it caught the fourth.
+
+### Seen, and noted
+
+- The menus are built on the right-click, from the services, in well under a millisecond on the
+  facts a desk has; nothing is cached and nothing needs to be. A cue menu with two hundred
+  looks would be the first to feel it, and the drawer scrolls.
+- The cue menu on a caller node edits the mirrored stack as the row's own verbs do; whether the
+  desk sees the edit is the link's business (the diff offer), unchanged by this round.
+- One flake seen once in the round's four full App runs: the twin's "standby taking over by
+  itself waits for the switcher" test failed while the module's node tests and a core build ran
+  beside the suite, and passed alone and in the runs after; a timing test under load, not this
+  round's.
+
+Counts at the end of the round: Core 665, Rendering 602, Devices 7, Audio 9, Assistant 36,
+Audience 2, App 673 — 1,994 in seven suites, every one green here, the module's seventeen beside
+them.

@@ -7565,3 +7565,141 @@ that run them (measured, not cut). A Companion variable for the modules (no use 
 carries it). Child hosts per edge (the assemblies are the precondition; `docs/MODULES.md` §6 is
 the road). Splitting the App's audio services (they compose over the desk's decoders and NDI
 sends).
+
+## 78. Round 60 — right-click menus: the preview first, the operator has the final say
+
+### 78.1 The ask
+
+Right-click, everywhere it helps, in the switcher area first: a screen in the preview that can
+recall any pattern or reset to the look it was part of when it has been changed; a cue whose look,
+transition, overlays and lower third (in after how long, out how long later) can be set from the
+row; a layer, the main pattern, the countdown, a lower third with contextual choices — a source, a
+pattern, a preset, a library item — and a way to the rail's page for it; contextual assistant
+features. Anything that changes should apply to the preview only, unless it is part of the cue
+stack's editing, so the operator has the final say. Clear, instinctive, instructive, in the
+desk's own colours, and not bound to any older version's saved files.
+
+### 78.2 The rule, and what it costs
+
+One rule runs every menu, and it is the rule of EDIT SAFE: a menu changes the preview, the cue
+stack, or where the desk is looking. It never changes what the audience sees. The few entries
+that do change the air are worn in red, say "now", and exist only where the same surface already
+had a one-click live verb — a look's own button, a lower-third chip, a tile's own LOCK, ARM and
+OUT switches — so a menu never adds a way to go live that the desk did not have. TAKE and CUT sit
+on the PGM tile's and the PREVIEW strip's menus because they *are* the operator's final say.
+
+The cost of the rule was a gap in the vocabulary. `SCREEN n LOOK` and `SCREEN n PRESET` are live
+verbs — they land on the frozen program as well as the edited state, which is what a cue and a
+remote want of them — and there was no way to put a picture on one screen's PVW without going
+live. Round 60.1 closes it (§78.3). Everything else the menus do was already a verb of the show
+(a look into the preview, a lower third into the preview, the tile's switches) or an edit of the
+show file (a cue's steps, a layer's source, an overlay's flag), which the menus make on the edited
+state after opening EDIT SAFE themselves.
+
+### 78.3 The staged verbs (60.1)
+
+Five kinds — `ScreenStageLook`, `ScreenStagePreset`, `ScreenStagePattern`, `ScreenStageProgram`,
+`ScreenStageReset` — with a target that is a screen, a canvas, or blank / PGM for the programme
+(`TargetKind.Stage`, PGM first in the cue editor's picker). The executor resolves everything
+first (a refusal leaves the desk exactly as it was), opens EDIT SAFE when it was off, and lands
+the picture in the edited state only: the tile's PVW shows it, `SandboxService.IsStaged` reads
+it, the frozen program is never written, and CUT or TAKE puts it up — FOCUSED for that tile alone,
+which the menu arranges by focusing the tile as it stages. RESET is the look on air's own picture
+for that screen (`LookService.PictureFor`), so a screen that a cue, a SEND or a remote sent its
+own way comes back to what the look asked, on the PVW, and the operator takes it; on the programme
+RESET is the whole look back into the preview. On the wire: `SCREEN n PVW LOOK | PRESET | PATTERN
+| PROGRAM | RESET`, `PVW …` for the programme, bare `SCREEN n PVW` and `PVW` as → PVW; over OSC
+`/patterns/screen/<n>/pvw/…` and `/patterns/pvw/…`; in a cue as steps a rehearsal can build the
+preview with. `SCREEN n PATTERN kind` joins as the live twin of `PATTERN kind` for one screen.
+
+### 78.4 The menu as a model (60.2)
+
+`Patterns.Core.Menus`: a menu is data. `DeskMenu` (a kind, a subject, a title, a state line, its
+groups), `MenuGroup` (a heading in a tone with its one-line rule), `MenuEntry` (text, a detail
+line, the wire line that does the same, why it cannot be chosen now — which disables it — a tick,
+and one of five things it does: a show action in the preview, a live action or a tile's own
+switch, a cue-stack edit by key, a page of the rail with its item, a question to the assistant
+with the facts in it; a drawer of children for looks, presets, kinds, timings). `MenuTones` are
+the desk's own: amber the preview, red the air, the rig's violet a tile's switches, the plan's
+blue the cue stack, mint the assistant, orange the reason a line cannot be chosen.
+
+`DeskMenus` builds one menu per thing from facts alone (`DeskFacts`, `ScreenFacts`, `CueFacts`,
+`LayerFacts`, `OverlayFacts`, the looks, presets, kinds, designs, people and media as small
+records), so the same menu is built for the wire and read back by a test with no desk at all.
+`CueMenuEdits` applies a cue entry's key to the cue's own steps — the look recall's target and
+value, an overlay's ON step in or out (its OFF step gone with it), a lower third as one SHOW step
+with its wait and one HIDE step with its own, the follow, the mark — with no vocabulary of the
+menu's own: what the menu did is what the editor shows and the sheet exports. `PreviewEdits`
+applies a layer's, an overlay's or the countdown's key to the picture being built. `MenuJson`
+writes a menu for the wire.
+
+### 78.5 The menus on the desk (60.3)
+
+A flyout of the desk's own, not the platform's context menu: `DeskMenuControl` in a `Flyout` at
+the pointer, attached in XAML by `ctl:Menus.Kind="tile"` (and `Menus.Subject` when the thing is a
+word — "clock", "layer2"), built on the right-click by the nearest view model up the tree that
+is an `IDeskMenuHost` (the desk's, or a caller node's for its cue rows), closed when a choice
+runs, Escape and a click elsewhere as any flyout. A header strip in the thing's tone with its
+name and its state; the groups with their headings in colour and their rule in one italic line;
+each entry a dot (filled while it is on), the words, the detail or — in orange — the reason it
+cannot be chosen, the wire line dimmed at the right, and ▸ when it opens a drawer; the drawer
+opens beside the menu in a second column, never over it, so the looks, the presets, the kinds and
+the timings read as a list with the menu still in view. Nothing is built until the first
+right-click, and a thing the host has no menu for opens nothing.
+
+Attached on: the wall's tiles (PGM included), the Show panel's screen rows, its look tiles and
+lower-third chips, the Run surface's cue rows (the round-22 context menu is replaced, its five
+verbs kept in the RUN group), the Cues page's rows, the Looks page's rows, the Lower thirds page's
+designs and people, the Layers page's two editors, every section of the Overlays page, the
+Countdown page, and the PROGRAM and PREVIEW strips and the PROGRAM pane. The desk runs an entry
+in one place (`MainViewModel.Menus.cs`): a preview entry opens EDIT SAFE and runs its action or
+its edit on the edited state, a live entry runs its action or flips the tile's switch, a stack
+entry runs `CueMenuEdits`, a go-to selects the page and its item (the screen on Screens, the
+cue in the editor, the design or the person, the edit target on Pattern and Layers), an ask
+sends the assistant the question when a key is saved and types it in when none is.
+
+### 78.6 The wire and the deck (60.4)
+
+`MENU SCREEN 2` · `MENU PGM` · `MENU PREVIEW` · `MENU CUE 03.020` · `MENU LOOK Walk-in` ·
+`MENU LT Neon` · `MENU PERSON Jane` · `MENU LAYER 1` · `MENU CLOCK` (and the other overlays,
+`MENU COUNTDOWN`) answer the very menu the desk would show, as JSON with each entry's wire line
+and its reason when it cannot be chosen, built from the same facts (`MenuQuery` over
+`DeskMenuFacts`). Companion cannot draw a menu; the JSON is the road for a tablet page or a script
+that offers the desk's own choices and sends the desk's own words back. The Companion module
+(3.3.0) gains `screen_stage`, `pvw` and `screen_pattern`, so a key at front of house can build the
+next picture on the operator's preview without ever going live; its wire lines are in
+`test/lines.txt` and the desk parses every one.
+
+### 78.7 The assistant
+
+Every menu ends with ASK: the question carries the facts — which screen, what it shows, whether
+it has gone its own way since the look was recalled, what the cue does and what it is missing —
+and goes to the Assistant page, asked at once when a key is saved and typed in waiting when not.
+The help topic "Right-click menus" is in the manual the assistant reads, so it can explain the
+rule of the round in its own words.
+
+### 78.8 Tests, docs (60.5)
+
+Core: the wire rows, `StagedVerbsTests` (classification, words, the validator, OSC and the wire),
+`DeskMenuTests` (every entry has words and does one thing, ids unique, a disabled entry says why,
+every wire line parses back to the entry's action, a preview entry can only ever be a staged verb
+or a look into the preview, the edits land on a real cue and a real show, the JSON carries the
+wire). App: `StagedVerbsAppTests` (EDIT SAFE opened, the tile staged, the air's fingerprint
+unchanged, TAKE puts it up, RESET off the look and refused with none), `DeskMenuAppTests` (the
+tile menu stages, takes, locks, goes to its page; the cue menu edits the stack from the Run
+surface and the Cues page; the look, lower-third, layer and overlay menus edit the show and the
+preview only; the flyout attaches, builds at the right-click and closes on a choice),
+`MenuQueryTests` (MENU answers the desk's own menu and every line it offers parses). The module's
+seventeen. Docs: this section, REVIEW round 60, README, REMOTE.md, COMPANION.md §9, the help topic.
+
+### 78.9 Considered and left
+
+Avalonia's `ContextMenu` with styled `MenuItem`s (the drawer would be a nested popup that vanishes
+under the pointer, and the disabled reason has no place in it). A radial menu (novel, but a wheel
+of eight verbs is not how a caller reads a running order). A third level of drawers — the lower
+third's design and its timing are two drawers side by side instead. Keyboard chords on the menu's
+entries (a menu is the pointer's; the keys have the F-keys and the panel). A "staged" flag in
+STATE and a Companion feedback for it (recorded in COMPANION.md §9 as the next line). Live
+entries for overlays and the countdown on the tile menus (the tile is a picture; the overlays'
+own sections carry their red line). Menus on the Media, Library and NDI pages (the layer menu's
+GO TO reaches them; their rows have no verb of their own yet that a menu would add).
