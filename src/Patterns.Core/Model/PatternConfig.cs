@@ -687,6 +687,9 @@ public sealed class LayerConfig : Observable
     private double _volumePct = 100;
 
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+    /// <summary>How this layer arrives and leaves — switched on or off, or showing a new picture (round 63); not identity: choosing it never starts a crossfade.</summary>
+    [TransitionNeutral] public AppearanceConfig Appear { get; init; } = new();
     public LayerSource Source { get => _source; set => Set(ref _source, value); }
     public string ImagePath { get => _imagePath; set => Set(ref _imagePath, value ?? ""); }
     public string VideoPath { get => _videoPath; set => Set(ref _videoPath, value ?? ""); }

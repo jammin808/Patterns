@@ -10,6 +10,23 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-time" Text="Overlays" />
 
+    <!-- Round 63: how every overlay arrives and leaves — a fade by default, a cut, or a slide from its edge -->
+    <StackPanel Classes="form">
+      <TextBlock Classes="h2" Text="APPEARANCE" />
+      <Grid ColumnDefinitions="130,*,8,Auto,96">
+        <TextBlock Classes="label" Text="Arrive and leave" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding AppearKinds}"
+                  SelectedValue="{Binding State.Overlays.Appear.Kind, Mode=TwoWay}"
+                  SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+        <TextBlock Grid.Column="3" Classes="label" Text="ms" VerticalAlignment="Center" Margin="8,0,4,0" />
+        <NumericUpDown Grid.Column="4" Minimum="0" Maximum="3000" Increment="50" FormatString="0"
+                       Value="{Binding State.Overlays.Appear.DurationMs, Mode=TwoWay, Converter={StaticResource Num}}"
+                       ToolTip.Tip="0 = the show's transition time" />
+      </Grid>
+      <TextBlock Classes="hint tip"
+                 Text="Every overlay — the clock, the logo, the message, the weather, the countdown, the PiP, the badge — arrives and leaves this way when it is switched on or off, live or by a TAKE that changes it alone. A TAKE that changes the whole picture carries them in its own transition; a CUT, or the show's transitions off, switches them. 0 ms is the show's transition time." />
+    </StackPanel>
+
     <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="clock">
     <TextBlock Classes="h2" Text="TIME &amp; DATE" />
     <CheckBox Content="Show clock" IsChecked="{Binding State.Overlays.Clock.Enabled}" />

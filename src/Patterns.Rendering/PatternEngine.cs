@@ -381,18 +381,20 @@ public sealed class PatternEngine
         sink.Stages.Note(FrameStage.PatternOf(cfg.Kind), patternAt);
 
         // The two layers: over the pattern, under the overlays; a bad layer never takes the sink down.
-        if (!ctx.InLayer && (cfg.Layer1.Enabled || cfg.Layer2.Enabled))
+        // Every frame, off or on — a layer just switched off is still leaving (round 63).
+        if (!ctx.InLayer)
         {
             var layersAt = FrameStages.Now();
+            var drewLayers = false;
             try
             {
-                LayerRenderer.Render(canvas, in frame, DrawLayerScreen);
+                drewLayers = LayerRenderer.Render(canvas, in frame, DrawLayerScreen);
             }
             catch (Exception ex)
             {
                 Log.Error("Layer rendering threw.", ex);
             }
-            sink.Stages.Note(FrameStage.Layers, layersAt);
+            if (drewLayers) sink.Stages.Note(FrameStage.Layers, layersAt);   // a frame with no layer on it notes no layer stage
         }
 
         try

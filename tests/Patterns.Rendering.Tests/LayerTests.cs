@@ -260,6 +260,7 @@ public class LayerTests
             x.Overlays.Clock.Enabled = true;
             x.Overlays.Clock.Anchor = Anchor9.TopLeft;
             x.Overlays.Clock.OffsetXPct = 25;
+            x.Transition.Enabled = false;   // one sink, three snapshots: the boxes are the question here, not the arrivals (round 63)
         });
         using var sink = new SinkState();
         using (RenderWithSink(s, 400, 200, SinkKind.Preview, sink))

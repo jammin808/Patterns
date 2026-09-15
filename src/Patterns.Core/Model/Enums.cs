@@ -469,6 +469,14 @@ public enum AudioMonitor
     Silent,
 }
 
+/// <summary>How an overlay or a layer arrives and leaves (round 63): a fade by default, a cut, or a slide in from the edge it sits at.</summary>
+public enum AppearKind
+{
+    Fade,
+    Cut,
+    Slide,
+}
+
 /// <summary>How one picture becomes the next.</summary>
 public enum TransitionKind
 {

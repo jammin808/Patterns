@@ -856,6 +856,9 @@ public static class Lists
 
     public static readonly EnumItem[] Anchors = Of<Anchor9>();
 
+    /// <summary>How overlays and layers arrive and leave (round 63).</summary>
+    public static readonly EnumItem[] AppearKinds = Of<AppearKind>();
+
     public static readonly EnumItem[] WeatherViews =
     {
         new(WeatherView.Now, "Now — this hour"),

@@ -115,6 +115,17 @@
           <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding Opacity, Mode=TwoWay}" />
           <TextBlock Grid.Column="2" Classes="label" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding Opacity, StringFormat={}{0:0.00}}" />
         </Grid>
+        <!-- Round 63: how the layer arrives and leaves — switched on or off, or showing a new picture -->
+        <Grid ColumnDefinitions="86,*,8,Auto,96">
+          <TextBlock Classes="label" Text="Appears" VerticalAlignment="Center"
+                     ToolTip.Tip="How this layer arrives and leaves when it is switched on or off, or shows a new picture: a fade, a cut, or a slide in from the nearest edge. 0 ms is the show's transition time" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).AppearKinds}"
+                    SelectedValue="{Binding Appear.Kind, Mode=TwoWay}"
+                    SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
+          <TextBlock Grid.Column="3" Classes="label" Text="ms" VerticalAlignment="Center" Margin="8,0,4,0" />
+          <NumericUpDown Grid.Column="4" Minimum="0" Maximum="3000" Increment="50" FormatString="0"
+                         Value="{Binding Appear.DurationMs, Mode=TwoWay, Converter={StaticResource Num}}" />
+        </Grid>
         <Grid ColumnDefinitions="86,*,8,86,*">
           <TextBlock Classes="label" Text="Corners (px)" VerticalAlignment="Center" />
           <NumericUpDown Grid.Column="1" Minimum="0" Maximum="500" Increment="2" FormatString="0" Value="{Binding CornerPx, Mode=TwoWay, Converter={StaticResource Num}}" />

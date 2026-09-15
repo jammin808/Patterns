@@ -634,6 +634,7 @@ public sealed partial class MainViewModel
     public EnumItem[] PatternKinds => Lists.PatternKinds;
     public EnumItem[] MultiviewSourceKinds => Lists.MultiviewSources;
     public EnumItem[] Anchors => Lists.Anchors;
+    public EnumItem[] AppearKinds => Lists.AppearKinds;
     public EnumItem[] FitModes => Lists.FitModes;
     public EnumItem[] BarsVariants => Lists.BarsVariants;
     public EnumItem[] TestCardVariants => Lists.TestCardVariants;

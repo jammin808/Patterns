@@ -260,8 +260,10 @@ public sealed class RenderPipeline : IDisposable
     {
         get
         {
-            // A running crossfade needs vsync redraw whatever the content would need.
-            if (_sink.TransitionEndClock > ShowClock.Seconds) return RedrawCadence.Continuous;
+            // A running crossfade needs vsync redraw whatever the content would need — and so does an
+            // overlay or a layer arriving or leaving (round 63).
+            var now = ShowClock.Seconds;
+            if (_sink.TransitionEndClock > now || _sink.Appearances.Running(now)) return RedrawCadence.Continuous;
             var vp = _viewport;
             var screenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId;
             var snap = SnapshotFor(vp);

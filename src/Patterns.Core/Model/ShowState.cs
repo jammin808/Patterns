@@ -648,8 +648,27 @@ public sealed class WeatherSettings : Observable
     public double RefreshMinutes { get => _refreshMinutes; set => Set(ref _refreshMinutes, Math.Clamp(value, 10, 24 * 60)); }
 }
 
+/// <summary>
+/// How overlays, or a layer, arrive and leave (round 63): a fade by default, a cut, or a slide in
+/// from the edge they sit at — over the show's transition time unless a time of their own is set.
+/// Switched on live or by a TAKE that changes them alone, they used to pop; a TAKE that changes
+/// the whole picture carries them in its own transition and this does not run again on top.
+/// </summary>
+public sealed class AppearanceConfig : Observable
+{
+    private AppearKind _kind = AppearKind.Fade;
+    private double _durationMs;
+
+    public AppearKind Kind { get => _kind; set => Set(ref _kind, value); }
+
+    /// <summary>Milliseconds; 0 = the show's transition time.</summary>
+    public double DurationMs { get => _durationMs; set => Set(ref _durationMs, Math.Clamp(double.IsFinite(value) ? value : 0, 0, 3000)); }
+}
+
 public sealed class OverlaySet : Observable
 {
+    /// <summary>How every overlay and the countdown arrive and leave.</summary>
+    public AppearanceConfig Appear { get; init; } = new();
     public ClockOverlay Clock { get; init; } = new();
     public LogoOverlay Logo { get; init; } = new();
     /// <summary>The Patterns badge — the app's own mark on a test pattern; on by default, in every look like the rest.</summary>

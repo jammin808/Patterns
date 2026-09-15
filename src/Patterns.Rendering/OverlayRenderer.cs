@@ -12,44 +12,32 @@ namespace Patterns.Rendering;
 /// </summary>
 public static class OverlayRenderer
 {
+    /// <summary>One overlay's draw from a frame — the frame is the current one, or the outgoing snapshot's while it leaves.</summary>
+    private delegate void DrawOverlay(SKCanvas c, in PatternFrame f);
+
     public static void RenderCanvasOverlays(SKCanvas c, in PatternFrame f)
     {
         var overlays = f.Snapshot.State.Overlays;
         var overlaysAt = FrameStages.Now();
 
-        // The Patterns badge goes down first: every other overlay sits over it.
-        if (overlays.Badge.ShowsOn(f.Config.Kind))
-        {
-            DrawBadge(c, in f, overlays.Badge);
-        }
-
-        if (overlays.Logo.Enabled)
-        {
-            DrawLogo(c, in f, overlays.Logo);
-        }
-
-        if (overlays.Clock.Enabled)
-        {
-            DrawClock(c, in f, overlays.Clock);
-        }
-
-        if (overlays.Weather.Enabled)
-        {
-            DrawWeather(c, in f, overlays.Weather);
-        }
-
-        var cd = f.Snapshot.State.Countdown;
-        if (cd.Enabled)
-        {
-            DrawCountdown(c, in f, cd);
-        }
-
+        // Every overlay arrives and leaves through the sink's tracker (round 63): switched on it
+        // fades (or slides) in over the show's transition time, switched off it leaves the same
+        // way, drawn from the snapshot that had it. The Patterns badge goes down first: every
+        // other overlay sits over it.
+        Appear(c, in f, AppearKey.Badge, overlays.Badge.ShowsOn(f.Config.Kind), 0,
+            static (SKCanvas cv, in PatternFrame fr) => DrawBadge(cv, in fr, fr.Snapshot.State.Overlays.Badge));
+        Appear(c, in f, AppearKey.Logo, overlays.Logo.Enabled, 0,
+            static (SKCanvas cv, in PatternFrame fr) => DrawLogo(cv, in fr, fr.Snapshot.State.Overlays.Logo));
+        Appear(c, in f, AppearKey.Clock, overlays.Clock.Enabled, 0,
+            static (SKCanvas cv, in PatternFrame fr) => DrawClock(cv, in fr, fr.Snapshot.State.Overlays.Clock));
+        Appear(c, in f, AppearKey.Weather, overlays.Weather.Enabled, 0,
+            static (SKCanvas cv, in PatternFrame fr) => DrawWeather(cv, in fr, fr.Snapshot.State.Overlays.Weather));
+        Appear(c, in f, AppearKey.Countdown, f.Snapshot.State.Countdown.Enabled, 0,
+            static (SKCanvas cv, in PatternFrame fr) => DrawCountdown(cv, in fr, fr.Snapshot.State.Countdown));
         var msg = overlays.Message;
-        if (msg.Enabled &&
-            (!string.IsNullOrWhiteSpace(msg.Text) || (msg.UseFeed && f.Snapshot.FeedText.Length > 0)))
-        {
-            DrawMessage(c, in f, msg);
-        }
+        var message = msg.Enabled && (!string.IsNullOrWhiteSpace(msg.Text) || (msg.UseFeed && f.Snapshot.FeedText.Length > 0));
+        Appear(c, in f, AppearKey.Message, message, 0,
+            static (SKCanvas cv, in PatternFrame fr) => DrawMessage(cv, in fr, fr.Snapshot.State.Overlays.Message));
 
         f.Sink.Stages.Note(FrameStage.Overlays, overlaysAt);
 
@@ -148,6 +136,55 @@ public static class OverlayRenderer
     private static byte Alpha(float k, float opacity) => (byte)Math.Clamp(k * opacity * 255f, 0, 255);
 
 
+
+    /// <summary>
+    /// Draws one overlay through the sink's arrival tracker (round 63). Shown and settled, it is
+    /// drawn as it always was; arriving, it is drawn into a layer at its presence (and slid in from
+    /// its edge when the show says so); leaving, the snapshot that had it draws it the same way at
+    /// a falling presence. A frame that is not the sink's own picture — a fade source, a tile, a
+    /// layer's inner draw, a thumbnail — bypasses the tracker and draws what its snapshot says.
+    /// </summary>
+    private static void Appear(SKCanvas c, in PatternFrame f, AppearKey key, bool shown, int identity, DrawOverlay draw)
+    {
+        if (Appearances.Bypasses(f.Ctx))
+        {
+            if (shown) draw(c, in f);
+            return;
+        }
+        var cfg = f.Snapshot.State.Overlays.Appear;
+        var animate = cfg.Kind != AppearKind.Cut && Appearances.Animates(in f);
+        var p = f.Sink.Appearances.Read(key, shown, identity, f.Ctx.Time, Appearances.Seconds(cfg, f.Snapshot), animate, f.Snapshot);
+        if (p.DrawsOutgoing)
+        {
+            var was = Appearances.OutgoingFrame(in f, p.Outgoing!);
+            WithPresence(c, in was, key, p.Out, cfg.Kind, draw);
+        }
+        if (!p.DrawsCurrent) return;
+        if (p.In >= 1f) draw(c, in f);
+        else WithPresence(c, in f, key, p.In, cfg.Kind, draw);
+    }
+
+    /// <summary>The draw into a layer at a presence, slid from its anchor's edge when the kind is a slide; the frame's canvas or viewport is the space.</summary>
+    private static void WithPresence(SKCanvas c, in PatternFrame f, AppearKey key, float presence, AppearKind kind, DrawOverlay draw)
+    {
+        var save = c.Save();
+        try
+        {
+            if (kind == AppearKind.Slide)
+            {
+                var space = key == AppearKey.Pip ? f.Ctx.ViewportSize : f.Canvas;
+                var offset = Appearances.SlideOffset(Appearances.AnchorOf(f.Snapshot.State, key), space, presence);
+                c.Translate(offset.X, offset.Y);
+            }
+            using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Clamp(presence * 255f, 0, 255)) };
+            c.SaveLayer(paint);
+            draw(c, in f);
+        }
+        finally
+        {
+            c.RestoreToCount(save);
+        }
+    }
 
     /// <summary>Records a box the desk can drag — on the top-level draw only, never from a fade source, a tile or a layer.</summary>
     private static void Hit(in PatternFrame f, HitKind kind, SKRect rect) => Hit(f.Ctx, f.Sink, kind, rect, false);
@@ -535,7 +572,25 @@ public static class OverlayRenderer
 
         if (blackout) return;
 
-        DrawPip(c, snap, in ctx, sink, palette);
+        // The PiP inset arrives and leaves like the canvas overlays (round 63), in viewport space.
+        var pip = snap.State.Overlays.Pip;
+        if (Appearances.Bypasses(ctx))
+        {
+            DrawPip(c, snap, in ctx, sink, palette);
+        }
+        else
+        {
+            var appear = snap.State.Overlays.Appear;
+            var animate = appear.Kind != AppearKind.Cut && !snap.TransitionsOff && sink.TransitionFrom is null && snap.CutAtVersion != snap.Version;
+            var identity = pip.Enabled ? PipKey(pip).GetHashCode() : 0;
+            var p = sink.Appearances.Read(AppearKey.Pip, pip.Enabled, identity, ctx.Time, Appearances.Seconds(appear, snap), animate, snap);
+            if (p.DrawsOutgoing) DrawPipAt(c, p.Outgoing!, in ctx, sink, palette, p.Out, appear.Kind);
+            if (p.DrawsCurrent)
+            {
+                if (p.In >= 1f) DrawPip(c, snap, in ctx, sink, palette);
+                else DrawPipAt(c, snap, in ctx, sink, palette, p.In, appear.Kind);
+            }
+        }
 
         var info = snap.State.Overlays.Info;
         if (info.Enabled && cfg is not null && ctx.Sink != SinkKind.Thumbnail)
@@ -578,6 +633,28 @@ public static class OverlayRenderer
         PipSource.Arcade => Patterns.Core.Media.InputKeys.Arcade(),
         _ => Patterns.Core.Media.InputKeys.Capture(pip.CaptureDevice),
     };
+
+    /// <summary>The PiP inset at a presence: into a layer, slid from its anchor's edge when the kind is a slide; an outgoing snapshot draws as a fade source.</summary>
+    private static void DrawPipAt(SKCanvas c, ShowSnapshot snap, in RenderContext ctx, SinkState sink, Palette palette, float presence, AppearKind kind)
+    {
+        var save = c.Save();
+        try
+        {
+            if (kind == AppearKind.Slide)
+            {
+                var offset = Appearances.SlideOffset(snap.State.Overlays.Pip.Anchor, ctx.ViewportSize, presence);
+                c.Translate(offset.X, offset.Y);
+            }
+            using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Clamp(presence * 255f, 0, 255)) };
+            c.SaveLayer(paint);
+            var was = ctx with { IsFadeSource = true };
+            DrawPip(c, snap, in was, sink, palette);
+        }
+        finally
+        {
+            c.RestoreToCount(save);
+        }
+    }
 
     /// <summary>Picture-in-picture live inset — drawn per viewport so every screen carries it.</summary>
     private static void DrawPip(SKCanvas c, ShowSnapshot snap, in RenderContext ctx, SinkState sink, Palette palette)

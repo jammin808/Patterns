@@ -26,21 +26,61 @@ public static class LayerRenderer
         (float)(canvas.Width * l.WPct / 100),
         (float)(canvas.Height * l.HPct / 100));
 
-    public static void Render(SKCanvas c, in PatternFrame f, LayerScreenDrawer? drawScreen)
+    /// <summary>Draws both layers; true when either drew anything — a picture, an empty box, or one still leaving.</summary>
+    public static bool Render(SKCanvas c, in PatternFrame f, LayerScreenDrawer? drawScreen)
     {
-        Draw(c, in f, f.Config.Layer1, HitKind.Layer1, "Layer 1", drawScreen);
-        Draw(c, in f, f.Config.Layer2, HitKind.Layer2, "Layer 2", drawScreen);
+        var one = Appear(c, in f, f.Config.Layer1, AppearKey.Layer1, HitKind.Layer1, "Layer 1", drawScreen);
+        var two = Appear(c, in f, f.Config.Layer2, AppearKey.Layer2, HitKind.Layer2, "Layer 2", drawScreen);
+        return one || two;
     }
 
-    private static void Draw(SKCanvas c, in PatternFrame f, LayerConfig l, HitKind kind, string name, LayerScreenDrawer? drawScreen)
+    /// <summary>
+    /// One layer through the sink's arrival tracker (round 63): switched on it arrives over its
+    /// time — a fade, or a slide in from the nearest edge — switched off it leaves the same way
+    /// from the snapshot that had it, and a new picture in it leaves the old and arrives the new
+    /// together. A frame that is not the sink's own picture draws what its snapshot says.
+    /// </summary>
+    private static bool Appear(SKCanvas c, in PatternFrame f, LayerConfig l, AppearKey key, HitKind kind, string name, LayerScreenDrawer? drawScreen)
+    {
+        if (Appearances.Bypasses(f.Ctx))
+        {
+            if (!l.Enabled) return false;
+            Draw(c, in f, l, kind, name, drawScreen, 1f, default);
+            return true;
+        }
+        var animate = l.Appear.Kind != AppearKind.Cut && Appearances.Animates(in f);
+        var identity = l.Enabled ? Appearances.LayerIdentity(l) : 0;
+        var p = f.Sink.Appearances.Read(key, l.Enabled, identity, f.Ctx.Time, Appearances.Seconds(l.Appear, f.Snapshot), animate, f.Snapshot);
+        var drew = false;
+        if (p.DrawsOutgoing)
+        {
+            var was = Appearances.OutgoingFrame(in f, p.Outgoing!);
+            var old = key == AppearKey.Layer1 ? was.Config.Layer1 : was.Config.Layer2;
+            if (old.Enabled)
+            {
+                Draw(c, in was, old, kind, name, drawScreen, p.Out, Slide(old, in f, p.Out));
+                drew = true;
+            }
+        }
+        if (!p.DrawsCurrent || !l.Enabled) return drew;
+        Draw(c, in f, l, kind, name, drawScreen, p.In, p.In >= 1f ? default : Slide(l, in f, p.In));
+        return true;
+    }
+
+    private static SKPoint Slide(LayerConfig l, in PatternFrame f, float presence)
+        => l.Appear.Kind == AppearKind.Slide ? Appearances.SlideOffset(RectOf(l, f.Canvas), f.Canvas, presence) : default;
+
+    private static void Draw(SKCanvas c, in PatternFrame f, LayerConfig l, HitKind kind, string name, LayerScreenDrawer? drawScreen, float presence, SKPoint slide)
     {
         if (!l.Enabled) return;
         var rect = RectOf(l, f.Canvas);
         if (rect.Width < 1 || rect.Height < 1) return;
         var pc = f.Paints;
-        var alpha = (byte)Math.Clamp(l.Opacity * 255, 0, 255);
+        var alpha = (byte)Math.Clamp(l.Opacity * presence * 255, 0, 255);
         var corner = (float)Math.Min(l.CornerPx, Math.Min(rect.Width, rect.Height) / 2);
 
+        var outer = c.Save();
+        if (slide != default) c.Translate(slide.X, slide.Y);   // an arrival sliding in from the edge; the hit box stays where the layer lives
         var save = c.Save();
         bool drew;
         var picture = rect;
@@ -62,7 +102,7 @@ public static class LayerRenderer
             using var frame = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = FrameColor,
+                Color = FrameColor.WithAlpha((byte)Math.Clamp(FrameColor.Alpha * presence, 0, 255)),
                 StrokeWidth = Math.Max(1.5f, f.H * 0.003f),
                 IsAntialias = true,
                 PathEffect = dash,
@@ -80,6 +120,7 @@ public static class LayerRenderer
             var r = Math.Max(0, corner - bw / 2);
             c.DrawRoundRect(inner, r, r, pc.StrokeAA(f.Color(l.BorderColor, SKColors.White).WithAlpha(alpha), bw));
         }
+        c.RestoreToCount(outer);
 
         if (!f.Ctx.IsFadeSource && !f.Ctx.InMultiview && !f.Ctx.InLayer)
         {

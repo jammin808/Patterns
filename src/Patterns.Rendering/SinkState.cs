@@ -190,6 +190,9 @@ public sealed class SinkState : IDisposable
     /// </summary>
     public List<HitRect> Hits { get; } = new();
 
+    /// <summary>What this sink's overlays and layers were doing, so a thing switched on arrives and one switched off leaves (round 63).</summary>
+    public AppearanceTracker Appearances { get; } = new();
+
     /// <summary>Where the last top-level frame put its canvas inside the reference space (the pane's inverse mapping needs it).</summary>
     public SKPoint LastCanvasOffset { get; set; }
 
