@@ -1470,3 +1470,69 @@ both suites before the next; the hardware qualification recorded as the next fie
 
 Counts at the end of the round: Core 1,288, App 660 — both suites green here, the module's
 seventeen beside them.
+
+## Round 59 review — the modules
+
+*One ask, widened in the round at the user's direction: the assistant, NDI, the arcade and the
+audience as assemblies too; eight units, each a commit, each proven by every suite before the
+next.*
+
+### 59.1 — a pure show core
+
+- **Done.** Geometry and colour of the core's own, the playhead contract, the render side's
+  hooks. §77.1.
+- **Found on the way:** the names first chosen (`PixelSize`, `PixelRect`) collided with
+  Avalonia's in every App file that names both; renamed to the raster words the code already
+  used.
+- **Kept deliberate:** the canvas rectangle's semantics kept to the letter (the all-zero
+  empty, the plain union), so no plan changed when the type did.
+
+### 59.2 / 59.3 — the render side out, the tests split
+
+- **Done.** Three assemblies above the core; the core's project file names no package; the
+  tests split along the seam. §77.2, §77.3.
+- **Found on the way:** a rewrite of relative namespace qualifiers damaged the moved files'
+  namespace lines once and the tests' using lines once (a lookahead that excluded `Rendering.`
+  but not `Rendering;`); both repaired in the same unit, the second by a whole-tree check of
+  every namespace declaration. Recorded because it is the kind of mistake a mass move invites.
+- **The honest limit:** the fonts moved with the renderer under their old resource names;
+  proven by the manifest and the text tests, not by eye.
+
+### 59.4 — the devices
+
+- **Done.** The dispatch seam, the contracts, the transports as an assembly, a Companion driven
+  with no desk. §77.4.
+- **Found on the way:** the kernel test asserted every kernel service takes the kernel itself;
+  it now accepts a contract the kernel provides, which is the stronger rule.
+
+### 59.5 — the audio
+
+- **Done.** The DSP and the providers as an assembly; the desk's services compositions. §77.5.
+- **Found on the way:** the stinger voice took the whole graph for a yes-or-no; a rule wrote
+  a missing device into a static of the desk's from inside itself. Both undone by the move.
+
+### 59.6 / 59.7 — the assistant, the audience
+
+- **Done.** The assistant's brain over the core's vocabulary with the SDK out of the App; the
+  room on two contracts with the port on the wire. §77.6, §77.7.
+- **Kept deliberate:** the assistant's tests reference the render side for real pictures
+  through the codec; the assembly does not.
+
+### 59.8 — the rules as a test, the modules on the desk
+
+- **Done.** The module rules from the compiled references and the source; the modules map in
+  STATE, the ticket, the brief and the log; a node's footprint measured. §77.8.
+- **The honest limit:** the suite's process is shared, so the footprint test asserts the one
+  claim that holds in any order (a timer node never pulls NDI in) and records the rest; the
+  measurement alone says the arcade and the room load on every node — the next cut, named.
+
+### Seen, and noted
+
+- The temp filesystem filled with the round's test-run copies mid-round; cleared. Nothing of
+  the tree was touched.
+- No Windows, WebView2, libVLC, NDI runtime, GPU, capture card or Companion here; the branch is
+  pushed for CI's Windows job.
+
+Counts at the end of the round: Core 655, Rendering 602, Devices 7, Audio 9, Assistant 36,
+Audience 2, App 664 — 1,975 in all, every suite green here; the Companion module's seventeen
+beside them.

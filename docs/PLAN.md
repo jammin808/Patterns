@@ -7464,3 +7464,104 @@ thread-sanitiser for the lease (none for .NET here; the race is closed by constr
 test). The hardware qualification — a real Companion 5 import, a capture card's IMAG with the
 profile off and on, the thirty-minute, sixty-minute and four-hour soaks — needs the rig and is the
 next field work.
+
+## 77. Round 59 — the modules: a pure show core, the edges as assemblies, the rules as a test
+
+*The ask: consider splitting the App (Avalonia), the core (the logic) and the rendering
+(SkiaSharp), and further — the audio, the devices (PJLink, Pixera, OSC, JSON-RPC…) — with
+abstraction and modularisation where possible and worthwhile; then, asked in the round, the
+assistant as a module of its own because the AI integration will grow, and NDI, the arcade and
+the audience as containers of their own (streaming later, with a libVLC edge). The verdict and
+the map are `docs/MODULES.md`; this is the round's record.*
+
+### 77.1 A pure show core (59.1)
+
+Inside the one assembly first: `Patterns.Core.Geometry` — `RasterPoint`, `RasterSize`,
+`RasterRect`, `Rgba` — replacing the canvas types in the rig geometry, the screen layout, the
+gap map, the edge-blend derivation, the decks' raster ceiling, the stream plan and the
+snapshot's colour cache (the render side converts at the edge and keeps `ColorUtil` as the
+canvas-typed face of the same parse); `IPlayheadSource` for the video clock; the media memory
+view reading a registered source; the assistant's picture codec as a registered shrinker the
+core's attachment rules use and say when a build has none. The existing render-core boundary
+test kept the codec out of the render namespaces, which is why it is a plain hook.
+
+### 77.2 Patterns.Rendering, Patterns.Ndi, Patterns.Arcade (59.2)
+
+The render side as an assembly (SkiaSharp), NDI and the arcade above it; the core's project
+file names no package. What the move found and sent the right way: the frame-stage words and
+the ticker's maths to the core (the budget and the bus read them); the quest level, the input
+keys, the crop's fractions and the playhead stayed as rules; the crop's canvas rectangle, the
+codec and the colour helpers as the render side's faces of those rules; the snapshot's particle
+sim replaced by a typed attachment bag the render side keys itself. The generators sit in the
+root `Patterns.Rendering` namespace so that no namespace named `Patterns` sits under another.
+The render-core boundary test walks the three assemblies and asserts it read them.
+
+### 77.3 The tests split (59.3)
+
+`Patterns.Rendering.Tests` takes the seventy-one files that draw; `Patterns.Core.Tests` runs
+with the core alone — no native library beside it, four seconds — the proof on every build that
+the core links nothing.
+
+### 77.4 Patterns.Devices (59.4)
+
+`Dispatch` in the core (a post, a check, a timer with the UI timer's three lines; the app
+installs Avalonia's dispatcher where the kernel captures the UI thread; a process with no UI
+and every test of an edge keeps the inline runner). The capabilities every edge may ask of a
+process move to the core beside new host contracts (`IShowHost`, `IDeviceHost`, `IOscHost`,
+`IBeaconHost`, `IMdnsHost`); the desk and the kernel implement them. The device service with
+its links and the profiles' drivers, the OSC port, the DNS-SD responder, the beacon, the bounded
+reader and the MIDI surface link move to `Patterns.Devices` (System.IO.Ports, NAudio's MIDI);
+the packages leave the App. `Patterns.Devices.Tests` drives a Companion through a fake host, a
+fake wire and the inline dispatch — no desk, no UI thread, no headless platform.
+
+### 77.5 Patterns.Audio (59.5)
+
+The ring and its epochs, the sync maths, the gain, delay and asynchronous-rate providers, the
+tap and tee providers, the tone, the WASAPI stinger voice, the one mix format and the outputs'
+rules (the delay-table key; the devices a list of names resolves to, with the missing ones
+returned — never a silent fallback) as `Patterns.Audio` (NAudio); the desk's audio services
+stay compositions over it. `Patterns.Audio.Tests` proves the providers over the mix format on
+any host.
+
+### 77.6 Patterns.Assistant (59.6)
+
+The whole of the assistant but its page: the key store, the scope, the facts, the brief, the
+proposal and its parser, the apply step, the attachment rules and the model client with its
+transport seam, referencing the core alone — so the assistant reaches the show only through the
+core's vocabulary, the same actions the wire, a cue and Companion use — with `IAssistantHost`
+(the show and the facts) provided by the kernel for every role. The Anthropic SDK and every
+model dependency to come live here. The render side may not reach it (the boundary test
+forbids the namespace to anything that draws).
+
+### 77.7 Patterns.Audience (59.7)
+
+The room's service on two contracts of the core's — `IAudienceHost` (the show, the store, a
+notice, a moderation: the queue's words put to an assistant, the desk's own or the first desk a
+node can reach) and `IPlayHost` (the edit scope, the wall's start, the door's addresses) — with
+the room's rules in the core and the port on the wire. `Dispatch` gains an awaitable invoke.
+`Patterns.Audience.Tests` runs a room for the phones and the host with no desk at all.
+
+### 77.8 The rules as a test; the modules on the desk (59.8)
+
+`ModuleRulesTests` reads the compiled references and the source: the core references the
+runtime and nothing else; each edge its own native library and the core and nothing across;
+only the App names the UI. `Modules` (core) is the map — name, native edge, purpose — and what
+this process loaded: STATE's `modules[]`, the support ticket, the assistant's brief, and a log
+line when the desk's or a node's services are up. `NodeLightnessTests` boots a timer node host
+and records its footprint: measured alone, the kernel's modules, the arcade and the room, and
+never the NDI runtime.
+
+### 77.9 Tests, docs (59.9)
+
+Seven test projects, one per module and the App's. Docs: `docs/MODULES.md`, this section,
+REVIEW round 59, README (the architecture, the round's bullet, the test line), REMOTE.md's
+`modules[]`.
+
+### 77.10 Considered and left
+
+A libVLC edge (the decoder, the capture, the encoder, the stream: the audio graph rides the
+decoder's taps; the tap contract comes first). The arcade and the room built only on the roles
+that run them (measured, not cut). A Companion variable for the modules (no use on a deck; STATE
+carries it). Child hosts per edge (the assemblies are the precondition; `docs/MODULES.md` §6 is
+the road). Splitting the App's audio services (they compose over the desk's decoders and NDI
+sends).
