@@ -1,7 +1,5 @@
 using Patterns.Core.Geometry;
 using Patterns.Core.Model;
-using Patterns.Rendering;
-using SkiaSharp;
 using Xunit;
 
 namespace Patterns.Core.Tests;

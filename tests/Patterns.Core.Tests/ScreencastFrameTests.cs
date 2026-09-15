@@ -1,6 +1,5 @@
 using System.Text;
 using Patterns.Core.Media;
-using Patterns.Rendering.Media;
 using Xunit;
 
 namespace Patterns.Core.Tests;

@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Patterns.Core.LowerThirds;
-using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
