@@ -146,3 +146,33 @@ public sealed record OverlayFacts
 
     public bool IsCountdown => Kind == "countdown";
 }
+
+/// <summary>A thing the RUN monitor can show: a screen (with its wire number) or a canvas.</summary>
+public sealed record MonitorChoice(string TargetId, string Number, string Title)
+{
+    /// <summary>The wire's word for it: the number for a screen, the key for a canvas.</summary>
+    public string Wire => Number.Length > 0 ? Number : TargetId;
+}
+
+/// <summary>The RUN surface's monitor as its menu reads it (round 62): what it shows now and what it could.</summary>
+public sealed record MonitorFacts
+{
+    /// <summary>"" the main screen, "PGM" the programme, "OFF" hidden, else a target id.</summary>
+    public string Current { get; init; } = "";
+    /// <summary>The main screen's target id (the first Main-role screen, else the first screen); "" with no rig.</summary>
+    public string MainTargetId { get; init; } = "";
+    public string MainTitle { get; init; } = "";
+    public IReadOnlyList<MonitorChoice> Choices { get; init; } = Array.Empty<MonitorChoice>();
+
+    public bool IsOff => Current.Equals("OFF", StringComparison.OrdinalIgnoreCase);
+    public bool IsProgram => Current.Equals("PGM", StringComparison.OrdinalIgnoreCase);
+    public bool IsMain => Current.Length == 0;
+
+    /// <summary>The target the monitor draws now: the main screen for "", null for the programme or hidden.</summary>
+    public string? ShownTargetId => IsOff || IsProgram ? null : IsMain ? MainTargetId : Current;
+
+    /// <summary>What it shows, in words.</summary>
+    public string ShowingWords => IsOff ? "hidden" : IsProgram ? "the programme (PGM)"
+        : IsMain ? (MainTitle.Length > 0 ? $"the main screen — {MainTitle}" : "the main screen")
+        : Choices.FirstOrDefault(c => c.TargetId == Current)?.Title ?? Current;
+}

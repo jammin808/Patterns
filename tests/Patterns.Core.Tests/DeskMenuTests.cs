@@ -71,6 +71,14 @@ public class DeskMenuTests
         LowerThirdOutAfter = 8,
     };
 
+    private static MonitorFacts Monitor(string current = "") => new()
+    {
+        Current = current,
+        MainTargetId = "a",
+        MainTitle = "1 · Main wall",
+        Choices = new[] { new MonitorChoice("a", "1", "1 · Main wall"), new MonitorChoice("b", "2", "2 · Stage left"), new MonitorChoice("a+b", "", "A · Main wall") },
+    };
+
     private static IEnumerable<DeskMenu> Every(DeskFacts d)
     {
         yield return DeskMenus.Screen(d, Screen());
@@ -82,6 +90,8 @@ public class DeskMenuTests
         yield return DeskMenus.LowerThird(d, d.Designs[0]);
         yield return DeskMenus.Person(d, d.People[0]);
         yield return DeskMenus.Layer(d, new LayerFacts { Index = 1, Enabled = true, Source = LayerSource.Image, Words = "foyer.png" });
+        yield return DeskMenus.Monitor(d, Monitor());
+        yield return DeskMenus.Monitor(d, Monitor("OFF"));
         foreach (var (kind, _) in PreviewEdits.OverlayKinds)
         {
             yield return DeskMenus.Overlay(d, new OverlayFacts { Kind = kind, AirOn = kind == "clock", PreviewOn = kind is "clock" or "logo", Anchor = kind == "info" ? null : Anchor9.TopRight, Words = kind == "message" ? "Welcome" : "" });

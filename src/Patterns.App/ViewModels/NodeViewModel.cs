@@ -61,6 +61,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
         {
             Cues.Refresh();
             Run.Refresh();
+            Raise(nameof(HasLowerThirds));
             Poll();
         };
         _selectedTab = host.Kind switch { NodeKind.Timer => StageTab, NodeKind.Arcade => ArcadeTab, _ => RunTab };
@@ -444,6 +445,44 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
     public bool IsPrepMode => false;
 
     public bool HasRunWall => false;
+
+    public bool HasRunMonitor => false;
+    public Patterns.App.Rendering.PipelineViewport? RunMonitorViewport => null;
+    public string RunMonitorTitle => "";
+    public double RunMonitorRatio => 16.0 / 9.0;
+
+    // ---- the caller's lower thirds (round 62): the mirrored designs as chips; the verbs go to the desk ----
+
+    private string _lowerThirdStatus = "";
+    private RelayCommand<Patterns.Core.LowerThirds.LowerThirdDesign>? _chipLowerThird;
+    private RelayCommand? _hideLowerThird;
+    private RelayCommand? _takeLowerThird;
+
+    public Patterns.Core.LowerThirds.LowerThirdsConfig LowerThirds => State.LowerThirds;
+
+    public bool HasLowerThirds => State.LowerThirds.Designs.Count > 0;
+
+    /// <summary>A chip: the design on air, through the desk when linked (LT on the wire); alone, the node says so.</summary>
+    public RelayCommand<Patterns.Core.LowerThirds.LowerThirdDesign> ChipLowerThirdCommand => _chipLowerThird ??= new(d =>
+    {
+        if (d is null) return;
+        LowerThirdStatus = Run_(new ShowAction(ShowActionKind.LowerThirdShow, d.Id)).Message;
+    });
+
+    public RelayCommand HideLowerThirdCommand => _hideLowerThird ??= new(() => LowerThirdStatus = Run_(new ShowAction(ShowActionKind.LowerThirdHide)).Message);
+
+    public RelayCommand TakeLowerThirdCommand => _takeLowerThird ??= new(() => LowerThirdStatus = Run_(new ShowAction(ShowActionKind.LowerThirdTake)).Message);
+
+    public string LowerThirdStatus
+    {
+        get => _lowerThirdStatus;
+        private set { if (Set(ref _lowerThirdStatus, value) && value.Length > 0) StatusMessage = value; }
+    }
+
+    /// <summary>A node has no preview of its own: its chips go to the desk's air, as its keys do.</summary>
+    public bool LowerThirdChipsToPreview { get => false; set { } }
+
+    public bool HasLowerThirdInPreview => false;
 
     public bool IsRunWallCollapsed
     {

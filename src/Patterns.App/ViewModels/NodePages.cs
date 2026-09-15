@@ -82,6 +82,24 @@ public interface IRunPage
     string StreakWords { get; }
     bool HasStreak { get; }
     bool IsBlackout { get; set; }
+    /// <summary>The RUN monitor (round 62): one screen drawn large between the wall and the history — the desk's; a node has none.</summary>
+    bool HasRunMonitor { get; }
+    Patterns.App.Rendering.PipelineViewport? RunMonitorViewport { get; }
+    string RunMonitorTitle { get; }
+    double RunMonitorRatio { get; }
+    /// <summary>
+    /// The caller's lower thirds (round 62): the show's designs as chips on the Run surface — on the
+    /// desk a press puts one on air (or in the preview with PVW FIRST); on a caller node the press
+    /// goes to the desk as the node's other verbs do.
+    /// </summary>
+    Patterns.Core.LowerThirds.LowerThirdsConfig LowerThirds { get; }
+    bool HasLowerThirds { get; }
+    RelayCommand<Patterns.Core.LowerThirds.LowerThirdDesign> ChipLowerThirdCommand { get; }
+    RelayCommand HideLowerThirdCommand { get; }
+    RelayCommand TakeLowerThirdCommand { get; }
+    string LowerThirdStatus { get; }
+    bool LowerThirdChipsToPreview { get; set; }
+    bool HasLowerThirdInPreview { get; }
 }
 
 /// <summary>The Cues page: the editor, the clicker's arming, a cue sheet in and out, the settings column beside the list.</summary>

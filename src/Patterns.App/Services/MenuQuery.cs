@@ -11,8 +11,8 @@ namespace Patterns.App.Services;
 /// choices and send the desk's own words back. The words after MENU name the thing: SCREEN 2 (or
 /// a screen id, or a canvas key), PGM, PREVIEW, CUE 03.020 (a number, a name, an id, or STANDBY),
 /// LOOK Walk-in, LT Neon (a number or a name), PERSON Jane, LAYER 1, CLOCK / LOGO / MESSAGE /
-/// PIP / WEATHER / BADGE / INFO, COUNTDOWN; bare MENU is the programme. Built from the same
-/// facts the desk's menus read.
+/// PIP / WEATHER / BADGE / INFO, COUNTDOWN, MONITOR (the RUN surface's monitor); bare MENU is
+/// the programme. Built from the same facts the desk's menus read.
 /// </summary>
 public static class MenuQuery
 {
@@ -51,6 +51,8 @@ public static class MenuQuery
                 }
                 return target.Length == 0 ? DeskMenus.Program(facts, DeskMenuFacts.Screen(s, "")) : DeskMenus.Screen(facts, DeskMenuFacts.Screen(s, target));
             }
+            case "MONITOR":
+                return DeskMenus.Monitor(facts, DeskMenuFacts.Monitor(s));
             case "CUE":
             {
                 var cue = FindCue(s, rest);

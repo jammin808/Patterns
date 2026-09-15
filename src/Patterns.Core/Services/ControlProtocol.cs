@@ -826,6 +826,23 @@ public static class ControlProtocol
                 };
             }
 
+            // "RUN MONITOR 2" / "RUN MONITOR PGM" / "RUN MONITOR MAIN" (bare RUN MONITOR is the same) / "RUN MONITOR OFF":
+            // the RUN surface's monitor — one screen drawn large between the wall and the history. The
+            // desk's own eye, never the air.
+            case "RUN":
+            {
+                var sub = arg.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+                if (sub.Length == 0 || !sub[0].Equals("MONITOR", StringComparison.OrdinalIgnoreCase)) return Unknown(s);
+                var what = sub.Length > 1 ? sub[1].Trim() : "";
+                return what.ToUpperInvariant() switch
+                {
+                    "OFF" or "HIDE" or "NONE" => Act(ShowActionKind.RunMonitorOff),
+                    "" or "MAIN" => Act(ShowActionKind.RunMonitor, "MAIN"),
+                    "PGM" or "PROGRAM" or "PROGRAMME" => Act(ShowActionKind.RunMonitor, "PGM"),
+                    _ => Act(ShowActionKind.RunMonitor, what),
+                };
+            }
+
             // The review latch: the preview full-frame on every multiview. ON / OFF explicit, anything else toggles.
             case "REVIEW":
                 return arg.ToUpperInvariant() switch

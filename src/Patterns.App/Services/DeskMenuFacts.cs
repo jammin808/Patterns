@@ -105,6 +105,67 @@ public static class DeskMenuFacts
         };
     }
 
+    /// <summary>The RUN monitor's facts (round 62): what it shows, the main screen, every canvas and screen of the rig in the wall's order.</summary>
+    public static MonitorFacts Monitor(AppServices s)
+    {
+        var state = s.State;
+        var screens = s.Screens.All;
+        var ordered = Rig.OrderedLivePlacements(state, screens);
+        var geo = Rig.Geometry(state, screens);
+        var groups = Rig.CanvasGroups(state, screens);
+        var grouped = groups.SelectMany(g => g).Select(p => p.ScreenId).ToHashSet(StringComparer.Ordinal);
+        var choices = new List<MonitorChoice>();
+        foreach (var members in groups)
+        {
+            var key = CanvasNameConfig.KeyFor(members.Select(m => m.ScreenId));
+            choices.Add(new MonitorChoice(key, "", CanvasTitle(s, key)));
+        }
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var id = ordered[i].Placement.ScreenId;
+            if (grouped.Contains(id)) continue;
+            var n = (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            choices.Add(new MonitorChoice(id, n, $"{n} · {geo.LabelFor(state, id)}"));
+        }
+        var main = MainTarget(s);
+        return new MonitorFacts
+        {
+            Current = state.Desk.RunMonitor,
+            MainTargetId = main ?? "",
+            MainTitle = main is null ? "" : choices.FirstOrDefault(c => c.TargetId == main)?.Title ?? geo.LabelFor(state, main),
+            Choices = choices,
+        };
+    }
+
+    /// <summary>
+    /// The main screen: the first screen of the rig whose role is Main, else the first screen —
+    /// as the canvas it belongs to when it is joined into one, since the audience's picture is the
+    /// whole wall. Null with no rig.
+    /// </summary>
+    public static string? MainTarget(AppServices s)
+    {
+        var state = s.State;
+        var ordered = Rig.OrderedLivePlacements(state, s.Screens.All);
+        if (ordered.Count == 0) return null;
+        var main = ordered.FirstOrDefault(x => x.Placement.Role == ScreenRole.Main).Placement ?? ordered[0].Placement;
+        foreach (var members in Rig.CanvasGroups(state, s.Screens.All))
+        {
+            if (members.Any(m => m.ScreenId == main.ScreenId)) return CanvasNameConfig.KeyFor(members.Select(m => m.ScreenId));
+        }
+        return main.ScreenId;
+    }
+
+    /// <summary>The monitor's word for STATE and the wire: OFF, PGM, MAIN, a screen's number, or a canvas key.</summary>
+    public static string MonitorWord(AppServices s)
+    {
+        var current = s.State.Desk.RunMonitor;
+        if (current.Equals("OFF", StringComparison.OrdinalIgnoreCase)) return "OFF";
+        if (current.Equals("PGM", StringComparison.OrdinalIgnoreCase)) return "PGM";
+        if (current.Length == 0) return "MAIN";
+        var number = Number(s, current);
+        return number.Length > 0 ? number : current;
+    }
+
     /// <summary>The wire's number for a screen (overview order, 1-based); "" for a canvas or a screen not in the rig.</summary>
     public static string Number(AppServices s, string targetId)
     {

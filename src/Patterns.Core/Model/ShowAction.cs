@@ -164,6 +164,15 @@ public enum ShowActionKind
     /// <summary>The design on air is replaced by the design as it is now — every edit, the words too — without leaving and arriving again.</summary>
     LowerThirdUpdate,
     /// <summary>
+    /// The RUN surface's monitor (round 62): one screen drawn large between the wall and the
+    /// history, for the caller's eye. Target = a screen (its number on the wire, or its id), a
+    /// canvas key, PGM for the programme, or MAIN / blank for the main screen. Changes where the
+    /// desk looks, never the air; a cue may carry it ("watch the IMAG screen from here").
+    /// </summary>
+    RunMonitor,
+    /// <summary>The RUN surface's monitor hidden; the history takes the room.</summary>
+    RunMonitorOff,
+    /// <summary>
     /// Target = a web page in the show ("" = the page the program shows; else its nickname, its
     /// address or a word of it); Value = a key chord ("ArrowRight", "Ctrl+Shift+F5") or a page
     /// action ("next", "play", "present"…) the page's service maps to its key or its script.

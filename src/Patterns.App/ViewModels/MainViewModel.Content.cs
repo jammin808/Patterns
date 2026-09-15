@@ -429,6 +429,64 @@ public sealed partial class MainViewModel
     /// <summary>The desk has the wall beside the caller's list.</summary>
     public bool HasRunWall => true;
 
+    // ---- the RUN monitor (round 62): one screen large between the wall and the history ----
+
+    private DeskLayoutConfig? _monitorDesk;
+    private Patterns.App.Rendering.PipelineViewport? _runMonitorViewport;
+    private string _runMonitorTitle = "";
+    private double _runMonitorRatio = 16.0 / 9.0;
+
+    /// <summary>The monitor is drawn: not hidden, and there is a screen (or the programme) to draw.</summary>
+    public bool HasRunMonitor => _runMonitorViewport is not null;
+
+    /// <summary>The picture the monitor draws — a target's PGM side at its true size, or the programme.</summary>
+    public Patterns.App.Rendering.PipelineViewport? RunMonitorViewport
+    {
+        get => _runMonitorViewport;
+        private set { if (Set(ref _runMonitorViewport, value)) Raise(nameof(HasRunMonitor)); }
+    }
+
+    public string RunMonitorTitle { get => _runMonitorTitle; private set => Set(ref _runMonitorTitle, value); }
+
+    public double RunMonitorRatio { get => _runMonitorRatio; private set => Set(ref _runMonitorRatio, value); }
+
+    /// <summary>
+    /// The monitor follows the desk layout's choice (RUN MONITOR, the right-click) and the rig: called
+    /// when the wall is rebuilt, and by itself when the choice changes from any origin.
+    /// </summary>
+    internal void RefreshRunMonitor()
+    {
+        var desk = State.Desk;
+        if (!ReferenceEquals(_monitorDesk, desk))
+        {
+            _monitorDesk = desk;
+            desk.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(DeskLayoutConfig.RunMonitor)) RefreshRunMonitor();
+            };
+        }
+        var facts = DeskMenuFacts.Monitor(_services);
+        var target = facts.IsProgram ? null : facts.ShownTargetId;
+        if (facts.IsOff || (!facts.IsProgram && string.IsNullOrEmpty(target)))
+        {
+            RunMonitorTitle = facts.IsOff ? "hidden" : "no screen in the rig";
+            RunMonitorViewport = null;
+            return;
+        }
+        var size = Rig.TargetSize(State, _services.Screens.All, target);
+        var title = facts.IsProgram ? "PGM — the programme" : facts.ShowingWords;
+        RunMonitorRatio = size.Height > 0 ? (double)size.Width / size.Height : 16.0 / 9.0;
+        RunMonitorTitle = title;
+        RunMonitorViewport = Patterns.App.Rendering.PipelineViewport.Monitor(target, size, title, previewSide: false);
+    }
+
+    // ---- the caller's lower thirds on the Run surface (round 62) ----
+
+    public Patterns.Core.LowerThirds.LowerThirdsConfig LowerThirds => State.LowerThirds;
+
+    /// <summary>The show has a design to call up; the strip shows.</summary>
+    public bool HasLowerThirds => State.LowerThirds.Designs.Count > 0;
+
     /// <summary>A row's OPEN IN EDITOR: the cue selected on the Cues page, and the page shown.</summary>
     public void OpenCueInEditor(RunCueConfig cue)
     {

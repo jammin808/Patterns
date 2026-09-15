@@ -725,6 +725,67 @@ public static class DeskMenus
         _ => null,
     };
 
+    // ---- the RUN surface's monitor: one screen large, for the caller's eye ----
+
+    /// <summary>
+    /// The monitor's menu (round 62): which screen it shows — the main screen, any screen or canvas
+    /// of the rig, the programme — or hidden. The desk's own eye, so its entries are live and wear
+    /// the rig's violet: nothing here reaches the air.
+    /// </summary>
+    public static DeskMenu Monitor(DeskFacts d, MonitorFacts m)
+    {
+        var show = new List<MenuEntry>
+        {
+            new("monitor.main", m.MainTitle.Length > 0 ? $"The main screen — {m.MainTitle}" : "The main screen", MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = "The first screen whose role is Main; the monitor follows it when the rig changes",
+                Wire = "RUN MONITOR MAIN",
+                Action = new ShowAction(ShowActionKind.RunMonitor, "MAIN"),
+                IsOn = m.IsMain,
+                Because = m.MainTargetId.Length == 0 ? "No screen is in the rig yet." : "",
+            },
+        };
+        foreach (var c in m.Choices)
+        {
+            show.Add(new($"monitor.{c.TargetId}", c.Title, MenuScope.Live, MenuTone.Tile)
+            {
+                Detail = c.Number.Length > 0 ? $"Screen {c.Number}, as its output shows it" : "The canvas, as its outputs show it",
+                Wire = $"RUN MONITOR {c.Wire}",
+                Action = new ShowAction(ShowActionKind.RunMonitor, c.TargetId),
+                IsOn = !m.IsMain && !m.IsOff && !m.IsProgram && string.Equals(m.Current, c.TargetId, StringComparison.Ordinal),
+            });
+        }
+        show.Add(new("monitor.pgm", "The programme (PGM)", MenuScope.Live, MenuTone.Tile)
+        {
+            Detail = "What every screen that follows the programme shows",
+            Wire = "RUN MONITOR PGM",
+            Action = new ShowAction(ShowActionKind.RunMonitor, "PGM"),
+            IsOn = m.IsProgram,
+        });
+        show.Add(new("monitor.off", "Hide the monitor", MenuScope.Live, MenuTone.Tile)
+        {
+            Detail = "The history takes the room; RUN MONITOR MAIN or a choice here brings it back",
+            Wire = "RUN MONITOR OFF",
+            Action = new ShowAction(ShowActionKind.RunMonitorOff),
+            IsOn = m.IsOff,
+        });
+
+        var shown = m.ShownTargetId ?? "";
+        var go = new List<MenuEntry>
+        {
+            Go("go.screens", "Screens page — the screen it shows", "Screens", shown),
+            Go("go.multiview", "Multiview page — every screen at once", "Multiview"),
+        };
+        var question = $"The RUN surface's monitor shows {m.ShowingWords}. What should the caller be watching during this show, and why?";
+
+        return new DeskMenu("monitor", m.Current, "MONITOR", $"showing {m.ShowingWords}", m.IsOff ? MenuTone.Plain : MenuTone.Tile, new[]
+        {
+            new MenuGroup("SHOW ON THE MONITOR", MenuTone.Tile, show) { Note = "The desk's own eye — nothing here changes the air. The show remembers the choice." },
+            new MenuGroup("GO TO", MenuTone.Go, go),
+            new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.monitor", "Ask the assistant what to watch", question, d) }),
+        });
+    }
+
     private static MenuEntry Go(string id, string text, string page, string item = "")
         => new(id, text, MenuScope.Go, MenuTone.Go) { Route = new MenuRoute(page, item) };
 

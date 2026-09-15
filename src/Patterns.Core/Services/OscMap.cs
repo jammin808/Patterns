@@ -79,6 +79,7 @@ public static class OscMap
         ("/patterns/plan/resume, /patterns/plan/catchup", "PLAN RESUME — the standby cue's planned start is the clock now; PLAN CATCHUP — the lateness squeezed out before the next mark"),
         ("/patterns/countdown/follow [1|0]", "COUNTDOWN FOLLOW ON / OFF — the countdown targets the standby cue's planned start and moves with the plan"),
         ("/patterns/review [1|0]", "REVIEW ON / OFF — the preview full-frame on every multiview; no argument toggles"),
+        ("/patterns/run/monitor <n|pgm|main|off>", "RUN MONITOR n / PGM / MAIN / OFF — the RUN surface's monitor: one screen drawn large between the wall and the history, the desk's own eye (also /patterns/run/monitor/<n>)"),
         ("/patterns/weather [1|0|now|day|tomorrow]", "WEATHER ON / OFF — the weather chip on air; no argument toggles; a view word (also /patterns/weather/tomorrow) picks what it shows"),
         ("/patterns/clock [1|0|12|24]", "CLOCK ON / OFF — the clock overlay; no argument toggles; 12 or 24 sets the hours (also /patterns/clock/24); /patterns/clock/seconds [1|0] and /patterns/clock/date [1|0] the seconds and the date line"),
         ("/patterns/message [1|0|\"text\"]", "MESSAGE ON / OFF — the message overlay; no argument toggles; a text puts the words on (also /patterns/message/text \"…\"); /patterns/message/scroll [1|0] makes it a ticker"),
@@ -468,6 +469,14 @@ public static class OscMap
             case "pvw": case "preview": return Staged("PVW", parts.Skip(1).ToArray(), m);
             case "overlays": return seg.Length == 0 || seg.ToLowerInvariant() is "off" or "clear" or "none" ? "OVERLAYS OFF" : null;
             case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
+            // /patterns/run/monitor 2 · /patterns/run/monitor/pgm · /patterns/run/monitor "off" — the RUN surface's monitor.
+            case "run":
+            {
+                if (!seg.Equals("monitor", StringComparison.OrdinalIgnoreCase)) return null;
+                var what = seg2.Length > 0 ? string.Join(" ", parts.Skip(2)) : m.Text() ?? "";
+                if (what.Length == 0 && m.Number() is { } n) what = n.ToString(CultureInfo.InvariantCulture);
+                return "RUN MONITOR " + (what.Length == 0 ? "MAIN" : what.ToUpperInvariant());
+            }
             // /patterns/weather 1|0 · /patterns/weather/on · /patterns/weather/tomorrow · /patterns/weather "day": the switch, or the view.
             case "weather": case "forecast":
             {

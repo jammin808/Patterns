@@ -103,6 +103,8 @@ public static class CueSummary
             case ShowActionKind.ScreenStagePattern: return $"PVW of {StageLabel(state, a.Target)} ← {(a.Value.Length > 0 ? a.Value : "?")}";
             case ShowActionKind.ScreenStageProgram: return $"PVW of {StageLabel(state, a.Target)} ← the programme";
             case ShowActionKind.ScreenStageReset: return $"PVW of {StageLabel(state, a.Target)} ← the look on air";
+            case ShowActionKind.RunMonitor: return $"RUN monitor: {MonitorLabel(state, a.Target)}";
+            case ShowActionKind.RunMonitorOff: return "RUN monitor off";
             case ShowActionKind.ScreenLock: return $"Screen '{ScreenLabel(state, a.Target)}' locked — keeps its picture";
             case ShowActionKind.ScreenUnlock: return $"Screen '{ScreenLabel(state, a.Target)}' follows cues again";
             case ShowActionKind.ScreenLockToggle: return $"Screen '{ScreenLabel(state, a.Target)}' lock toggle";
@@ -260,6 +262,12 @@ public static class CueSummary
         => a.Target.Length == 0 ? "" : $" → {(a.Target.Contains("://") ? WebAddress.ShortName(a.Target) : a.Target)}";
 
     /// <summary>Where a staged picture lands, in words: "the programme", or "screen 'Stage left'".</summary>
+    /// <summary>What the RUN monitor shows, in words: the main screen, the programme, a canvas or a screen.</summary>
+    private static string MonitorLabel(ShowState state, string target)
+        => ContentTargets.IsMonitorMain(target) ? "the main screen"
+            : ContentTargets.IsProgramTarget(target) ? "the programme"
+            : StageLabel(state, target);
+
     private static string StageLabel(ShowState state, string target)
         => ContentTargets.IsProgramTarget(target) ? "the programme"
             : ContentTargets.IsCanvasKey(target) ? $"canvas '{CanvasLabel(state, target)}'"

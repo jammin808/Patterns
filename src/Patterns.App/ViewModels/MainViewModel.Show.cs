@@ -478,6 +478,7 @@ public sealed partial class MainViewModel
         SelectTarget(_selectedTargetId is { } selected && targets.Contains(selected) ? selected : null);
         Raise(nameof(EditTargetBanner));
         RefreshTakeScope();
+        RefreshRunMonitor();
         // A join creates and destroys canvases, so the tile picker's targets move with the wall.
         RebuildMultiviewTargets();
         Screens.RebuildMirrorSources();

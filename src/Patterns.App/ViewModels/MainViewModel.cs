@@ -851,6 +851,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     /// <summary>The model under the desk is another show now — loaded from a file, restored from a version, mirrored from a twin: every list starts over and every hook is re-tied.</summary>
     private void RefreshAfterShowReplaced()
     {
+        Raise(nameof(HasLowerThirds));
         // A different show: nothing the last one left waiting may run against it.
         _services.Tail.DropAll();
         HookTransition();

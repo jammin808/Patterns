@@ -1824,6 +1824,7 @@ public sealed class DeskLayoutConfig : Observable
     private double _runCueShare = DefaultRunCueShare;
     private bool _runWallCollapsed;
     private bool _runPadOpen;
+    private string _runMonitor = "";
 
     /// <summary>The page column's width in pixels (the divider between the page and the screens).</summary>
     public double EditorWidth
@@ -1878,6 +1879,13 @@ public sealed class DeskLayoutConfig : Observable
     /// bar opens it again): their target ids — a screen id, a canvas key, "" for PGM. Absent in an
     /// older file, so every tile opens full.
     /// </summary>
+    /// <summary>
+    /// What the RUN surface's monitor shows (round 62): "" the main screen, "PGM" the programme,
+    /// "OFF" hidden, else a screen id or a canvas key. RUN MONITOR on the wire, the right-click
+    /// on the monitor on the desk; the show remembers.
+    /// </summary>
+    public string RunMonitor { get => _runMonitor; set => Set(ref _runMonitor, value ?? ""); }
+
     public ShowCollection<string> CollapsedTiles { get; init; } = new();
 }
 

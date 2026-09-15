@@ -14,6 +14,10 @@ public static class ContentTargets
     public static bool IsCanvasKey(string targetId) => targetId.Contains('+');
 
     /// <summary>Blank, PGM or PROGRAM names the programme itself where a target could go — the staged verbs' way of saying "the preview's own picture".</summary>
+    /// <summary>The RUN monitor's "main screen" word: blank or MAIN (round 62).</summary>
+    public static bool IsMonitorMain(string? target)
+        => string.IsNullOrWhiteSpace(target) || target.Equals("main", StringComparison.OrdinalIgnoreCase);
+
     public static bool IsProgramTarget(string? targetId)
         => string.IsNullOrWhiteSpace(targetId)
            || targetId.Equals("pgm", StringComparison.OrdinalIgnoreCase)

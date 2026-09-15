@@ -517,6 +517,7 @@ public sealed partial class MainViewModel
     /// </summary>
     private bool RefreshLowerThirdTallies()
     {
+        Raise(nameof(HasLowerThirds));
         var now = ShowClock.UtcNow;
         var air = _services.AirState.LowerThirds;
         var (onAir, airPhase) = LowerThirdDesigner.Phase(air, now);

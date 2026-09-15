@@ -3,6 +3,7 @@
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:svc="using:Patterns.Core.Services"
              xmlns:ctl="using:Patterns.App.Views.Controls"
+             xmlns:lt="using:Patterns.Core.LowerThirds"
              x:Class="Patterns.App.Views.Controls.RunView"
              x:DataType="vm:IRunPage">
 
@@ -57,7 +58,7 @@
          drags and the show remembers it (the stack starts at about a third); the tiles collapse to
          vertical title bars when the stack wants the room. -->
     <Grid Grid.Row="2" Name="RunSplit" ColumnDefinitions="65*,12,35*" Margin="0,10,0,0">
-      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,*">
+      <Grid Grid.Column="0" RowDefinitions="Auto,Auto,Auto,Auto,*">
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,0,6" IsVisible="{Binding HasRunWall}">
           <TextBlock Classes="runTag" Text="THE WALL" VerticalAlignment="Center" />
           <ToggleButton Grid.Column="1" Name="RunWallToggle" Classes="mini" Content="{Binding RunWallToggleText}" IsChecked="{Binding IsRunWallCollapsed, Mode=TwoWay}" Focusable="False"
@@ -65,8 +66,22 @@
         </Grid>
         <!-- The wall's tiles, on a desk: built by the code-behind, which knows whether there is a wall behind this surface. -->
         <ContentControl Grid.Row="1" Name="WallHost" IsVisible="{Binding HasRunWall}" />
-        <TextBlock Grid.Row="2" Classes="runTag" Text="HISTORY" Margin="2,12,0,6" />
-        <ItemsControl Grid.Row="3" ItemsSource="{Binding Run.History}">
+        <!-- The monitor (round 62): one screen drawn large for the caller's eye — the main screen by default;
+             right-click for any screen, a canvas, the programme, or to hide it. The show remembers. -->
+        <StackPanel Grid.Row="2" Name="RunMonitor" IsVisible="{Binding HasRunMonitor}" Margin="2,10,2,0" Background="Transparent" ctl:Menus.Kind="monitor">
+          <Grid ColumnDefinitions="Auto,10,*">
+            <TextBlock Classes="runTag" Text="MONITOR" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Classes="runNotes" Text="{Binding RunMonitorTitle}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" ToolTip.Tip="Right-click: which screen this shows, the programme, or hide it (RUN MONITOR on the wire)" />
+          </Grid>
+          <ctl:AspectBox Ratio="{Binding RunMonitorRatio}" MaxHeight="440" Margin="0,4,0,0">
+            <Border BorderBrush="#80E0342E" BorderThickness="1" ClipToBounds="True" Background="#0A0A0F">
+              <ctl:MonitorTileControl Viewport="{Binding RunMonitorViewport}" />
+            </Border>
+          </ctl:AspectBox>
+        </StackPanel>
+        <TextBlock Grid.Row="3" Classes="runTag" Text="HISTORY" Margin="2,12,0,6" />
+        <ItemsControl Grid.Row="4" ItemsSource="{Binding Run.History}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="svc:CueExecutionRecord">
               <Grid ColumnDefinitions="Auto,10,*,10,Auto,10,Auto" Margin="2,1">
@@ -83,7 +98,7 @@
       <GridSplitter Grid.Column="1" Name="RunSplitter" Width="12" Background="Transparent" ResizeDirection="Columns" DragCompleted="OnSplitterDragCompleted"
                     ToolTip.Tip="Drag: how much of the Run area the cue stack takes — the show remembers it" />
 
-      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*">
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,*">
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,8,Auto" Margin="2,0,2,6">
           <TextBlock Classes="runTag" Text="CUE STACK" />
           <TextBlock Grid.Column="1" Classes="runNotes" Text="{Binding Run.ValidationSummary}" Foreground="{StaticResource TextDimBrush}" VerticalAlignment="Center" />
@@ -111,7 +126,44 @@
             </StackPanel>
           </Grid>
         </Border>
-        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+        <!-- The caller's lower thirds (round 62): the show's designs as chips — a press puts one on air (or in the
+             preview with PVW FIRST, on the desk); on a caller node the press goes to the desk as its other verbs do. -->
+        <Border Grid.Row="3" Classes="runBanner" Margin="0,0,0,6" IsVisible="{Binding HasLowerThirds}">
+          <StackPanel Spacing="4">
+            <Grid ColumnDefinitions="*,8,Auto,6,Auto,6,Auto">
+              <TextBlock Classes="runTag" Text="LOWER THIRDS" VerticalAlignment="Center" />
+              <ToggleButton Grid.Column="2" Classes="mini" Content="PVW FIRST" IsChecked="{Binding LowerThirdChipsToPreview, Mode=TwoWay}" IsVisible="{Binding HasRunWall}" Focusable="False"
+                            ToolTip.Tip="The chips go to the preview for a sign-off instead of straight to air; TAKE then puts the signed-off one on" />
+              <Button Grid.Column="4" Classes="go" Content="TAKE" Command="{Binding TakeLowerThirdCommand}" IsVisible="{Binding HasLowerThirdInPreview}" Focusable="False"
+                      ToolTip.Tip="The signed-off lower third to air; the preview clears" />
+              <Button Grid.Column="6" Classes="mini" Content="■ HIDE" Command="{Binding HideLowerThirdCommand}" Focusable="False"
+                      ToolTip.Tip="The lower third on air leaves, the way it was designed to (LT OFF on the wire)" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding LowerThirds.Designs}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="lt:LowerThirdDesign">
+                  <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" ctl:Menus.Kind="lowerthird" Margin="0,0,6,6" Padding="8,4" Focusable="False"
+                          Command="{Binding $parent[UserControl].((vm:IRunPage)DataContext).ChipLowerThirdCommand}" CommandParameter="{Binding}" ToolTip.Tip="{Binding OnAirText}">
+                    <StackPanel Spacing="1">
+                      <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Text="★ " IsVisible="{Binding IsDefault}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                      <TextBlock Classes="chipLine" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Text="{Binding ChipText}" TextTrimming="CharacterEllipsis"
+                                 IsVisible="{Binding ChipText, Converter={StaticResource NotEmpty}}" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="runNotes" Text="{Binding LowerThirdStatus}" Foreground="{StaticResource TextDimBrush}" TextWrapping="Wrap"
+                       IsVisible="{Binding LowerThirdStatus, Converter={StaticResource NotEmpty}}" />
+          </StackPanel>
+        </Border>
+        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
           <ItemsControl ItemsSource="{Binding Run.Rows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:RunRow">

@@ -251,6 +251,11 @@ public static class CueValidator
                     if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
                     if (ActionSpec.ParsePatternKind(a.Value) is null) Hard($"{where}: '{a.Value}' is not a kind of picture — Grid, ColorBars, LedWall, Media, Particles, Fractal…");
                     break;
+                case ShowActionKind.RunMonitor:
+                    // The desk's own eye, never the air: the main screen, the programme, or a target in the rig.
+                    if (!ContentTargets.IsMonitorMain(a.Target) && !ContentTargets.IsProgramTarget(a.Target) && !ContentTargets.IsInRig(state, a.Target))
+                        Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    break;
                 case ShowActionKind.ScreenStageLook:
                 case ShowActionKind.ScreenStagePreset:
                 case ShowActionKind.ScreenStagePattern:

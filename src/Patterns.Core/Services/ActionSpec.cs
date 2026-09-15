@@ -32,6 +32,8 @@ public enum TargetKind
     AudioDestination,
     /// <summary>Where a picture is staged on the preview: a screen, a canvas, or blank / PGM for the programme.</summary>
     Stage,
+    /// <summary>What the RUN surface's monitor shows: a screen, a canvas, PGM for the programme, or MAIN / blank for the main screen.</summary>
+    Monitor,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -152,6 +154,8 @@ public static class ActionSpec
         ShowActionKind.ScreenStagePreset => (TargetKind.Stage, ValueKind.Preset),
         ShowActionKind.ScreenStagePattern => (TargetKind.Stage, ValueKind.PatternKind),
         ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset => (TargetKind.Stage, ValueKind.None),
+        ShowActionKind.RunMonitor => (TargetKind.Monitor, ValueKind.None),
+        ShowActionKind.RunMonitorOff => (TargetKind.None, ValueKind.None),
         ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
         ShowActionKind.FadeToBlack or ShowActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
         ShowActionKind.WeatherView => (TargetKind.None, ValueKind.WeatherView),
@@ -315,6 +319,8 @@ public static class ActionSpec
         ShowActionKind.ScreenStagePattern => "Preview — a kind of picture staged on a screen's PVW",
         ShowActionKind.ScreenStageProgram => "Preview — the programme staged on a screen's PVW",
         ShowActionKind.ScreenStageReset => "Preview — the look's own picture back on a screen's PVW",
+        ShowActionKind.RunMonitor => "Run monitor — a screen large on the RUN surface",
+        ShowActionKind.RunMonitorOff => "Run monitor off",
         ShowActionKind.VideoToEnd => "Video — jump to its last seconds",
         ShowActionKind.VideoRestart => "Video — restart from the top",
         // The desk's own: named for the journal and a refusal, never offered to a cue.
@@ -375,6 +381,7 @@ public static class ActionSpec
         ShowActionKind.ScreenLook, ShowActionKind.ScreenProgram,
         ShowActionKind.PatternPreset, ShowActionKind.ScreenPreset, ShowActionKind.ScreenPattern,
         ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern, ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset,
+        ShowActionKind.RunMonitor, ShowActionKind.RunMonitorOff,
         ShowActionKind.CanvasOn, ShowActionKind.CanvasOff,
         ShowActionKind.PatternKind,
         ShowActionKind.CountdownStart, ShowActionKind.CountdownTo, ShowActionKind.CountdownStop, ShowActionKind.CountdownToggle, ShowActionKind.CountdownLabel, ShowActionKind.CountdownFollow,

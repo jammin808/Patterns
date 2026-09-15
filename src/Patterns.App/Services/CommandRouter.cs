@@ -383,6 +383,7 @@ public sealed class CommandRouter : IRouter
             black = BlackRow(),                                            // the screens faded to black on their own: how many, their names, whether the sound went with the picture
             live = _services.Outputs.IsLive,
             review = _services.Bus.ReviewOnMultiview,                      // the preview fills every multiview
+            runMonitor = DeskMenuFacts.MonitorWord(_services),             // the RUN surface's monitor: MAIN, PGM, OFF, a screen's number or a canvas key
             frozen = _services.Bus.Frozen,                                 // every output holds its frame
             editSafe = _services.Sandbox.Active,                           // EDIT SAFE open: there is a preview, and a TAKE to come
             previousLook = LookService.Find(s, _services.PreviousAirLookId)?.Name ?? "",   // what LOOKBACK returns to

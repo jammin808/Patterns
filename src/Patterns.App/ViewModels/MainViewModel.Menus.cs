@@ -67,6 +67,8 @@ public sealed partial class MainViewModel : IDeskMenuHost
                 var word = kind == "countdown" ? "countdown" : subject as string ?? "clock";
                 return new DeskMenuVm(DeskMenus.Overlay(facts, DeskMenuFacts.Overlay(_services, word)), e => RunMenuEntry(e, word));
             }
+            case "monitor":
+                return new DeskMenuVm(DeskMenus.Monitor(facts, DeskMenuFacts.Monitor(_services)), e => RunMenuEntry(e, null));
             default:
                 return null;
         }

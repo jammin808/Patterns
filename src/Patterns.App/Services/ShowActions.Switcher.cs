@@ -103,6 +103,33 @@ public sealed partial class ShowActions
                 return ActionResult.Done(down ? $"Fading {words} to black over {secs} s." : $"Fading {words} up over {secs} s.");
             }
 
+            case ShowActionKind.RunMonitor:
+            case ShowActionKind.RunMonitorOff:
+            {
+                // The RUN surface's monitor (round 62): the desk's own eye, kept with the show's desk
+                // layout — never the air, never the frozen program. The view follows the setting.
+                string word;
+                if (a.Kind == ShowActionKind.RunMonitorOff) word = "OFF";
+                else if (ContentTargets.IsMonitorMain(a.Target)) word = "";
+                else if (ContentTargets.IsProgramTarget(a.Target)) word = "PGM";
+                else
+                {
+                    var target = ResolveScreenTarget(a.Target);
+                    if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                    word = target;
+                }
+                var words = word switch
+                {
+                    "OFF" => "RUN monitor hidden — the history has the room.",
+                    "" => "RUN monitor: the main screen.",
+                    "PGM" => "RUN monitor: the programme.",
+                    _ => $"RUN monitor: {Rig.Geometry(State, _s.Screens.All).LabelFor(State, word)}.",
+                };
+                if (string.Equals(State.Desk.RunMonitor, word, StringComparison.Ordinal)) return ActionResult.Done(words);
+                State.Desk.RunMonitor = word;
+                return ActionResult.Done(words);
+            }
+
             case ShowActionKind.ReviewOn:
             case ShowActionKind.ReviewOff:
             case ShowActionKind.ReviewToggle:
