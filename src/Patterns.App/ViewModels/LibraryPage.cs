@@ -60,7 +60,7 @@ public static class LibraryCatalogue
     public sealed record Desk(Func<PatternConfig> ActivePattern, Action<Action> Edit, Action<string> Say);
 
     /// <summary>The section chips, in the order they are shown; "All" first.</summary>
-    public static readonly string[] SectionNames = { "All", "Patterns", "Images", "Videos", "Audio", "Particles", "Fractals", "Presets", "Brand kits" };
+    public static readonly string[] SectionNames = { "All", "Patterns", "Images", "Videos", "Audio", "Decks", "Web", "Particles", "Fractals", "Presets", "Brand kits" };
 
     /// <summary>Every tile as the show and the store have them now: the factory table, the show's media, the saved presets, the brand kits.</summary>
     public static List<PresetItem> Build(ShowState state, SettingsStore store, Desk desk)
@@ -114,6 +114,25 @@ public static class LibraryCatalogue
             });
         }
 
+        // The show's saved web pages (round 62): a YouTube link, a Vimeo film, a deck of slides, a
+        // schedule — every address the Media page remembered, as a tile with the service's colours,
+        // grouped by what the address is. Apply puts the page on the picture being edited.
+        foreach (var url in state.Web.SavedUrls.ToList())
+        {
+            var address = url;
+            var service = WebPresets.Detect(address);
+            tiles.Add(new PresetItem
+            {
+                Id = "web:" + address,
+                Section = "Web",
+                Category = WebCategory(service),
+                Name = WebTitle(address),
+                Apply = () => desk.Edit(() => ApplyWeb(desk.ActivePattern(), address)),
+                Swatch = WebSwatch(service),
+                Remove = () => state.Web.SavedUrls.Remove(address),
+            });
+        }
+
         foreach (var (name, path) in store.ListPresets())
         {
             var p = path;
@@ -155,6 +174,51 @@ public static class LibraryCatalogue
             });
         }
         return tiles;
+    }
+
+    /// <summary>A web tile on a pattern: the page, treated as its address says (Auto), on the picture being edited.</summary>
+    public static void ApplyWeb(PatternConfig target, string url)
+    {
+        target.Kind = PatternKind.Media;
+        target.Media.Source = MediaSource.Web;
+        target.Media.WebUrl = WebAddress.Normalize(url);
+        target.Media.WebService = PageServicePick.Auto;
+    }
+
+    /// <summary>The Library's group for a saved address: the service it is, or a plain saved page.</summary>
+    public static string WebCategory(PageService service) => service switch
+    {
+        PageService.YouTube => "YouTube",
+        PageService.Vimeo => "Vimeo",
+        PageService.GoogleSlides => "Google Slides",
+        PageService.PowerPoint => "PowerPoint",
+        _ => "Saved pages",
+    };
+
+    /// <summary>The tile's bands: the service's own colours, so a YouTube link reads as one at a glance.</summary>
+    public static IReadOnlyList<string> WebSwatch(PageService service) => service switch
+    {
+        PageService.YouTube => new[] { "#FF0000", "#282828", "#FFFFFF" },
+        PageService.Vimeo => new[] { "#1AB7EA", "#0F1419", "#FFFFFF" },
+        PageService.GoogleSlides => new[] { "#F4B400", "#FFFFFF", "#3C4043" },
+        PageService.PowerPoint => new[] { "#D24726", "#FFFFFF", "#3C3C3C" },
+        _ => new[] { "#3EC1F3", "#101319", "#E6EAF2" },
+    };
+
+    /// <summary>The tile's name: the host and the path's tail — "youtube.com · watch?v=…" — never the scheme, never the whole address.</summary>
+    public static string WebTitle(string url)
+    {
+        var host = WebAddress.ShortName(url);
+        if (Uri.TryCreate(WebAddress.Normalize(url), UriKind.Absolute, out var uri) && !uri.IsFile)
+        {
+            var tail = Uri.UnescapeDataString(uri.PathAndQuery.Trim('/'));
+            if (tail.Length > 0)
+            {
+                if (tail.Length > 28) tail = tail[..27] + "…";
+                return $"{host.Replace("www.", "", StringComparison.OrdinalIgnoreCase)} · {tail}";
+            }
+        }
+        return host;
     }
 
     /// <summary>A media tile on a pattern: an image shows; a deck opens at its first page; a video or an audio file plays through the decoder.</summary>

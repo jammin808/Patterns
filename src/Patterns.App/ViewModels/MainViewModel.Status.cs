@@ -123,7 +123,7 @@ public sealed partial class MainViewModel
             if (SelectedLowerThird is { } selected && !State.LowerThirds.Designs.Contains(selected)) SelectedLowerThird = State.LowerThirds.Designs.FirstOrDefault();
             RefreshLowerThirdTallies();
         }
-        if (set.Contains(nameof(ShowState.MediaLibrary))) BuildLibrary();
+        if (set.Contains(nameof(ShowState.MediaLibrary)) || set.Contains(nameof(ShowState.Web))) BuildLibrary();   // the media, and the saved pages (round 62)
         if (set.Contains(nameof(ShowState.Transition))) HookTransition();
         if (set.Contains(nameof(ShowState.Pattern))) Raise(nameof(ActivePattern));
     }
