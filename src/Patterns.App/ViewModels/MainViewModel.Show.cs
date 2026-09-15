@@ -564,6 +564,25 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>
+    /// CUT / TAKE on a tile (round 63): the preview to this one screen alone as its own picture,
+    /// through the action layer — the same verb the wire's SCREEN n TAKE and a Companion key run.
+    /// OWN lights up on the tile, the programme and every other screen stay, the preview keeps the
+    /// picture, and the look tally says the screen has gone its own way: the Looks page reads
+    /// PROGRAM · EDITED, the tile's menu says so, and a Companion key lit for the look dims.
+    /// </summary>
+    internal void TakeToTile(SwitcherTile tile, bool cut)
+    {
+        if (tile.TargetId is not { } target) return;
+        var result = Report(_services.Actions.Execute(cut ? ShowActionKind.ScreenCut : ShowActionKind.ScreenTake, ActionOrigin.Desk, target));
+        if (!result.Ok) return;
+        Raise(nameof(IsSandboxActive));
+        RebuildEditTargets();   // OWN lights up on the tile and the editors see the new assignment
+        RefreshSwitcherTiles();
+        RefreshTallies();       // the look words: PROGRAM · EDITED, and the tile's amber
+        SelectTarget(target);   // the hand chose this tile: FOCUSED now means this one
+    }
+
+    /// <summary>
     /// → PVW on a tile: the picture this target shows on air — its own, its source's when it repeats
     /// one, else the program — into the sandboxed preview, through the action layer (journaled). The
     /// editors work on the program (the preview) and the big panes show PGM and the preview; the

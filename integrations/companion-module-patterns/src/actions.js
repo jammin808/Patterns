@@ -147,6 +147,12 @@ export function buildActions(ctx) {
 			callback: (a) => { const look = clean(a.options.look); if (look) send(`SCREEN ${a.options.n} LOOK ${look}`) },
 		},
 		screen_program: { name: 'Screen — back to the program (drops its own picture)', options: [screenN], callback: (a) => send(`SCREEN ${a.options.n} PROGRAM`) },
+		// Round 63 — the tile's own CUT / TAKE: the desk's preview to this one screen, as its own picture (OWN lights up); the programme and every other screen stay. EDIT SAFE must be open on the desk.
+		screen_take: {
+			name: 'Screen — CUT / TAKE the desk\'s preview to this screen alone (it becomes the screen\'s own picture; every other screen stays)',
+			options: [screenN, { type: 'dropdown', id: 'mode', label: 'How', default: 'TAKE', choices: [{ id: 'TAKE', label: 'TAKE — with the transition' }, { id: 'CUT', label: 'CUT — instantly' }] }],
+			callback: (a) => send(`SCREEN ${a.options.n} ${a.options.mode === 'CUT' ? 'CUT' : 'TAKE'}`),
+		},
 		review: { name: 'Review — the preview on every multiview (toggle / on / off)', options: [onOff()], callback: (a) => send(`REVIEW ${a.options.mode}`) },
 		weather: {
 			name: 'Weather — the chip on air, off, or its view',

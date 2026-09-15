@@ -118,6 +118,7 @@ public static class DeskMenus
         return new DeskMenu("screen", target, s.Title, subtitle, s.OffLook ? MenuTone.Warn : s.OnAir ? MenuTone.Live : MenuTone.Plain, new[]
         {
             new MenuGroup("IN THE PREVIEW", MenuTone.Preview, preview) { Note = PreviewNote },
+            new MenuGroup("TO AIR", MenuTone.Live, ScreenTakeEntries(d, s, target, W)) { Note = "This screen alone: it becomes its own picture (OWN lights up) and every other screen stays." },
             new MenuGroup("THIS TILE", MenuTone.Tile, tile) { Note = "The tile's own switches — live, as its buttons are." },
             new MenuGroup("GO TO", MenuTone.Go, go),
             new MenuGroup("ASK", MenuTone.Ask, new[] { Ask("ask.screen", "Ask the assistant about this screen", question, d) }),
@@ -200,6 +201,33 @@ public static class DeskMenus
                 Detail = "The programme the room is watching, into the preview to change and take again",
                 Wire = "PVW",
                 Action = new ShowAction(ShowActionKind.ScreenToPreview, ""),
+            },
+        };
+    }
+
+    /// <summary>
+    /// The tile's own CUT and TAKE (round 63): the preview to this one screen, as its own picture —
+    /// OWN lights up on it, the programme and every other screen stay. Live, because they are the
+    /// operator's press on the tile, exactly as the wall's keys are.
+    /// </summary>
+    private static List<MenuEntry> ScreenTakeEntries(DeskFacts d, ScreenFacts s, string target, Func<string, string> w)
+    {
+        var because = s.IsMirror ? "A repeater draws its source's picture and has none of its own."
+            : !d.SandboxOpen ? "EDIT SAFE is off — the preview is the air; there is nothing to take." : "";
+        return new List<MenuEntry>
+        {
+            new("screen.take", "TAKE — the preview to this screen alone, with the transition", MenuScope.Live, MenuTone.Live)
+            {
+                Detail = "It becomes the screen's own picture (OWN lights up); every other screen stays",
+                Wire = w("TAKE"),
+                Action = new ShowAction(ShowActionKind.ScreenTake, target),
+                Because = because,
+            },
+            new("screen.cut", "CUT — the same, instantly", MenuScope.Live, MenuTone.Live)
+            {
+                Wire = w("CUT"),
+                Action = new ShowAction(ShowActionKind.ScreenCut, target),
+                Because = because,
             },
         };
     }

@@ -187,6 +187,32 @@ public sealed partial class ShowActions
                     ? $"CUT — sandbox is now the program {where}{kept}."
                     : $"TAKE — sandbox faded up {where}{kept}.") + rearmed);
             }
+            case ShowActionKind.ScreenTake:
+            case ShowActionKind.ScreenCut:
+            {
+                // The tile's own CUT / TAKE (round 63): the preview to this one screen, as its own
+                // picture — OWN lights up on it, the programme and every other screen stay exactly as
+                // they were, and the preview keeps the picture for the next one. A take, so the
+                // transition runs on that sink alone; a cut switches it. The look tally reads the
+                // result by itself: the screen has gone its own way inside the look on air.
+                if (!_s.Sandbox.Active)
+                {
+                    return ActionResult.Refused("Open EDIT SAFE (the sandbox) first — build the picture, then CUT or TAKE it to this screen.");
+                }
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                if (!ContentTargets.IsCanvasKey(target) && State.Output.Placements.FirstOrDefault(p => p.ScreenId == target) is { MirrorOf.Length: > 0 } mirror
+                    && ContentTargets.IsInRig(State, mirror.MirrorOf))
+                {
+                    return ActionResult.Refused("A repeater draws its source's picture and has none of its own — take to its source instead.");
+                }
+                var cutOne = a.Kind == ShowActionKind.ScreenCut;
+                _s.Sandbox.SendToTargets(new[] { target }, toAir: true, cut: cutOne);
+                var where = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                return ActionResult.Done(cutOne
+                    ? $"CUT — the preview is on {where} alone, as its own picture; every other screen stays."
+                    : $"TAKE — the preview fades up on {where} alone, as its own picture; every other screen stays.");
+            }
             default:
                 return null;
         }

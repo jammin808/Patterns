@@ -367,6 +367,9 @@ public static class ControlProtocol
                     "ON" => Act(ShowActionKind.ScreenOn, n),
                     "OFF" => Act(ShowActionKind.ScreenOff, n),
                     "PROGRAM" or "PGM" or "FOLLOW" => Act(ShowActionKind.ScreenProgram, n),
+                    // "SCREEN 2 TAKE" / "SCREEN 2 CUT" (round 63): the desk's preview to that screen alone, as its own picture — the tile's own keys.
+                    "TAKE" => Act(ShowActionKind.ScreenTake, n),
+                    "CUT" => Act(ShowActionKind.ScreenCut, n),
                     "LOOK" or "PRESET" or "ROLE" or "PATTERN" => Unknown(s),
                     _ => Act(ShowActionKind.ScreenToggle, n),
                 };

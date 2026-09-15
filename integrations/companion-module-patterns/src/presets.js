@@ -194,6 +194,8 @@ export function buildPresets() {
 		add(`screen_${n}_picture`, key('Screens', `Screen ${n} — the picture it is showing`, `$(patterns:screen_${n})\n$(patterns:screen_${n}_pattern)`, 'auto', press('screen_program', { n }), [
 			litAs('screen_own', { n }, 'screen', 'own'), litAs('screen_off_look', { n }, 'screen', 'offLook'), empty('screen', n),
 		]))
+		// TAKE the desk's preview to this screen alone (round 63): green when the screen shows its own picture — the key says what it did.
+		add(`screen_${n}_take`, key('Screens', `Screen ${n} — TAKE the preview to it alone`, `TAKE\n$(patterns:screen_${n})`, 'auto', press('screen_take', { n, mode: 'TAKE' }), [litAs('screen_own', { n }, 'screen', 'own'), empty('screen', n)]))
 		add(`screen_${n}_fade_down`, key('Screens', `Screen ${n} fade to black — 2 s`, `FADE ▼\n$(patterns:screen_${n})`, 'auto', fade('DOWN', 2, `SCREEN ${n}`), [litAs('screen_black', { n }, 'screen', 'black'), empty('screen', n)]))
 		add(`screen_${n}_fade_up`, key('Screens', `Screen ${n} fade up — 2 s`, `FADE ▲\n$(patterns:screen_${n})`, 'auto', fade('UP', 2, `SCREEN ${n}`), [empty('screen', n)]))
 	}

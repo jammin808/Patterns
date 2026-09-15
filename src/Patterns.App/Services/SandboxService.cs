@@ -143,10 +143,13 @@ public sealed class SandboxService
     ///   toAir: true  — LIVE. It lands in the frozen program too, so it is on the screens now. SEND
     ///                  TO TICKED and a look sent to one screen both go this way.
     /// </summary>
-    public void SendToTargets(IReadOnlyList<string> targetIds, bool toAir = true)
+    public void SendToTargets(IReadOnlyList<string> targetIds, bool toAir = true, bool cut = false)
     {
         if (!Active || _program is null || targetIds.Count == 0) return;
         using var take = toAir ? _services.Bus.Take() : default;
+        // A tile's CUT (round 63): the target switches instead of fading — a property of the publish,
+        // exactly as SendAll marks it, so the sink that draws this target sees a cut and no other does.
+        if (toAir && cut) _services.Bus.CutOnNextPublish();
         var state = _services.State;
         var program = _program;
         var pattern = JsonUtil.ClonePattern(state.Pattern);
@@ -168,7 +171,7 @@ public sealed class SandboxService
         });
         if (toAir) _services.AirLabel = Modified(_services.AirLabel);
         Log.Info(toAir
-            ? $"Sandbox sent live to {targetIds.Count} target(s); the preview keeps the picture."
+            ? $"Sandbox {(cut ? "cut" : "sent")} live to {targetIds.Count} target(s); the preview keeps the picture."
             : $"Sandbox staged on {targetIds.Count} target(s); the air is untouched until a CUT or TAKE.");
     }
 

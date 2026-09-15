@@ -179,6 +179,8 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
         CollapseCommand = new RelayCommand(() => IsCollapsed = true);
         ExpandCommand = new RelayCommand(() => IsCollapsed = false);
         ToPreviewCommand = new RelayCommand(() => _vm.LoadTileIntoPreview(this));
+        TakeHereCommand = new RelayCommand(() => _vm.TakeToTile(this, cut: false));
+        CutHereCommand = new RelayCommand(() => _vm.TakeToTile(this, cut: true));
         PgmViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: false);
         PvwViewport = Patterns.App.Rendering.PipelineViewport.Monitor(targetId, size, title, previewSide: true);
     }
@@ -274,6 +276,16 @@ public sealed class SwitcherTile : Patterns.Core.Model.Observable
 
     /// <summary>SEND: the preview lands on this tile alone (the sandbox must be open).</summary>
     public RelayCommand SendHereCommand { get; }
+
+    /// <summary>
+    /// TAKE on the tile (round 63): the preview to this screen alone, with the transition — it becomes
+    /// the screen's own picture (OWN lights up), the programme and every other screen stay, and the
+    /// preview keeps the picture. The same verb as SCREEN n TAKE on the wire and a Companion key.
+    /// </summary>
+    public RelayCommand TakeHereCommand { get; }
+
+    /// <summary>CUT on the tile: the same, instantly.</summary>
+    public RelayCommand CutHereCommand { get; }
 
     /// <summary>
     /// → PVW: the picture this target shows on air — its own, its source's when it repeats one,

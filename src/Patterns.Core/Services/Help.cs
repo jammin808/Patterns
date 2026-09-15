@@ -191,7 +191,7 @@ public static class HelpTopics
                 "PROGRESSION: the VT clock while a clip plays (what is left, red for the last ten seconds, ⏭ LAST 10 s for a rehearsal, ⟲ RESTART); NEXT / BACK step the clicker list or a deck; the line also reads a counting auto-follow and the playlist's part.",
                 "Then the VOG and STINGER chips with ■ Stop and the STING HOLD banner right under them, LOWER THIRDS and PEOPLE — three to a row, each lit red while it is on air or green while it is in the preview, with a line under the name that reads the tally — the audio track, break music, FREEZE / FADE / LOOK BACK and REVIEW.",
             },
-            "CUE GO · CUE STANDBY NEXT / PREV · CUE HOLD ON / OFF · CUE ARM ON / OFF · LOOK <name> · SCREEN <n> LOOK <name> · SCREEN <n> PROGRAM · LOCK <n> ON · NEXT / PREV · VIDEO END · VIDEO RESTART · STINGER <name> · LOWERTHIRD <name> · STOPALL",
+            "CUE GO · CUE STANDBY NEXT / PREV · CUE HOLD ON / OFF · CUE ARM ON / OFF · LOOK <name> · SCREEN <n> LOOK <name> · SCREEN <n> PROGRAM · SCREEN <n> TAKE / CUT · LOCK <n> ON · NEXT / PREV · VIDEO END · VIDEO RESTART · STINGER <name> · LOWERTHIRD <name> · STOPALL",
             new[] { "Panel" },
             new[] { "panel", "show panel", "cues", "go", "hold", "arm", "standby", "next", "looks", "pvw", "screens", "own", "program", "progression", "clicker", "control surface", "operator", "chips", "lit", "tally", "three to a row" }),
 
@@ -258,7 +258,7 @@ public static class HelpTopics
                 "OWN gives a tile its own editable picture.",
                 "The tick on a tile is there with or without EDIT SAFE: it joins SEND TO TICKED, and the Show panel's FADE TO BLACK on THE TICKED SCREENS or THE TICKED GROUPS.",
             },
-            "LOOK <name> · SCREEN <n> LOOK <name> · SCREEN <n> PROGRAM · LOCK <n> ON / OFF · BLACKOUT ON / OFF. TAKE and CUT are desk keys; the phone remote has them too.",
+            "LOOK <name> · SCREEN <n> LOOK <name> · SCREEN <n> PROGRAM · SCREEN <n> TAKE / CUT (the desk's preview to that screen alone, as its own picture) · LOCK <n> ON / OFF · BLACKOUT ON / OFF. TAKE and CUT are desk keys; the phone remote has them too.",
             new[] { "Panel", "Pattern", "Screens" },
             new[] { "switcher", "program", "preview", "pgm", "pvw", "edit safe", "sandbox", "take", "cut", "arm", "lock", "send", "own", "tile", "wall", "transition", "tally", "screen" }),
 

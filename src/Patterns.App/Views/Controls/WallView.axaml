@@ -144,19 +144,25 @@
               </Grid>
               <!-- The two ways between this tile and the preview, then the tile's foot (its size, or what it repeats).
                    SEND shows while the sandbox is open — a fact on the tile (CanSend), not a binding up the tree -->
-              <Grid Name="TileSends" ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Top">
+              <Grid Name="TileSends" ColumnDefinitions="Auto,Auto,Auto,Auto,*" VerticalAlignment="Top">
                 <Button Name="TileSend" Classes="wall" Content="SEND" Command="{Binding SendHereCommand}" Focusable="False" IsVisible="{Binding CanSend}"
                         ToolTip.Tip="SEND: the preview's picture is staged on this tile — its PVW miniature shows it and the audience does not, the way a mixer holds a source on preview. The tile is focused as you press, so CUT / TAKE with FOCUSED puts it up on this tile alone. SEND TO TICKED is the live one" />
-                <Button Grid.Column="1" Name="TileToPreview" Classes="wall" Content="→ PVW" Command="{Binding ToPreviewCommand}" Focusable="False"
+                <!-- CUT / TAKE on the tile (round 63): the preview to this screen alone, as its own picture — OWN lights up;
+                     the programme and every other screen stay. Shown with SEND, while the sandbox is open -->
+                <Button Grid.Column="1" Name="TileCut" Classes="wall cut" Content="CUT" Command="{Binding CutHereCommand}" Focusable="False" IsVisible="{Binding CanSend}"
+                        ToolTip.Tip="CUT: the preview to this screen alone, instantly — it becomes the screen's own picture (OWN lights up); the programme and every other screen stay. SCREEN n CUT on the wire" />
+                <Button Grid.Column="2" Name="TileTake" Classes="wall take" Content="TAKE" Command="{Binding TakeHereCommand}" Focusable="False" IsVisible="{Binding CanSend}"
+                        ToolTip.Tip="TAKE: the preview to this screen alone, with the transition — it becomes the screen's own picture (OWN lights up); the programme and every other screen stay. SCREEN n TAKE on the wire" />
+                <Button Grid.Column="3" Name="TileToPreview" Classes="wall" Content="→ PVW" Command="{Binding ToPreviewCommand}" Focusable="False"
                         ToolTip.Tip="→ PVW: the picture this tile shows on air — its own, its source's, or the program's on the PGM tile — into the preview, to edit; the air is untouched (EDIT SAFE opens if it was off). The tile stays focused, so SEND stages it back here and CUT / TAKE with FOCUSED puts it up" />
                 <!-- The foot line: the screen's group (MAIN, CONF, INFO, REP, NDI, STREAM), then what it repeats or its size;
                      a click opens SETUP → Screens on this screen, where the group is set. PGM's foot is its size alone -->
-                <Button Grid.Column="2" Name="TileGroup" Background="Transparent" BorderThickness="0" Padding="0" Margin="6,0,0,0" Cursor="Hand" Focusable="False"
+                <Button Grid.Column="4" Name="TileGroup" Background="Transparent" BorderThickness="0" Padding="0" Margin="6,0,0,0" Cursor="Hand" Focusable="False"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding !IsProgramTile}"
                         Command="{Binding OpenSetupCommand}" ToolTip.Tip="{Binding GroupTip}">
                   <TextBlock Classes="hint" Text="{Binding FootText}" FontSize="10" TextTrimming="CharacterEllipsis" />
                 </Button>
-                <TextBlock Grid.Column="2" Classes="hint" Text="{Binding FootText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
+                <TextBlock Grid.Column="4" Classes="hint" Text="{Binding FootText}" FontSize="10" VerticalAlignment="Center" Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
                            IsVisible="{Binding IsProgramTile}" ToolTip.Tip="{Binding FootText}" />
               </Grid>
             </StackPanel>

@@ -26,6 +26,8 @@ public static class OscMap
         ("/patterns/screen/<n>/look <name>", "SCREEN n LOOK name — the look's picture on that screen alone, as its own pattern (also /patterns/screen/<n>/look/<name>)"),
         ("/patterns/screen/<n>/program", "SCREEN n PROGRAM — the screen shows the program again (also /pgm, /follow)"),
         ("/patterns/screen/<n>/pattern <kind>", "SCREEN n PATTERN kind — that kind of picture on the screen alone, live (also /patterns/screen/<n>/pattern/<kind>)"),
+        ("/patterns/screen/<n>/take", "SCREEN n TAKE — the desk's preview to that screen alone, with the transition, as its own picture (OWN lights up); every other screen stays. EDIT SAFE must be open"),
+        ("/patterns/screen/<n>/cut", "SCREEN n CUT — the same, instantly"),
         ("/patterns/screen/<n>/pvw/look <name>", "SCREEN n PVW LOOK name — the look's picture staged on that screen's PVW in the preview; the audience sees nothing until CUT or TAKE (also /pvw/preset <name>, /pvw/pattern <kind>, /pvw/program, /pvw/reset — the look on air's picture back; bare /pvw is → PVW, its picture into the preview to edit)"),
         ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
         ("/patterns/group/<letter> 1|0", "GROUP A ON / OFF — a joined canvas"),
@@ -133,6 +135,11 @@ public static class OscMap
                 if (seg2.ToLowerInvariant() is "program" or "pgm" or "follow" && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var back))
                 {
                     return $"SCREEN {back} PROGRAM";
+                }
+                // /patterns/screen/2/take · /patterns/screen/2/cut — the preview to that screen alone, as its own picture (round 63).
+                if (seg2.ToLowerInvariant() is "take" or "cut" && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var taken))
+                {
+                    return $"SCREEN {taken} {seg2.ToUpperInvariant()}";
                 }
                 // /patterns/screen/2/pattern "Grid" · /patterns/screen/2/pattern/Grid — a kind of picture on that screen alone, live.
                 if (seg2.Equals("pattern", StringComparison.OrdinalIgnoreCase) && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var kindScreen))

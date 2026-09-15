@@ -150,6 +150,7 @@ public static class ActionSpec
         ShowActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.ScreenToPreview => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.ScreenPattern => (TargetKind.Screen, ValueKind.PatternKind),
+        ShowActionKind.ScreenTake or ShowActionKind.ScreenCut => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.ScreenStageLook => (TargetKind.Stage, ValueKind.Look),
         ShowActionKind.ScreenStagePreset => (TargetKind.Stage, ValueKind.Preset),
         ShowActionKind.ScreenStagePattern => (TargetKind.Stage, ValueKind.PatternKind),
@@ -314,6 +315,8 @@ public static class ActionSpec
         ShowActionKind.ScreenPreset => "Screen — a saved preset on it alone",
         ShowActionKind.ScreenProgram => "Screen — back to the program",
         ShowActionKind.ScreenPattern => "Screen — a kind of picture on it alone",
+        ShowActionKind.ScreenTake => "Screen — TAKE the preview to it alone",
+        ShowActionKind.ScreenCut => "Screen — CUT the preview to it alone",
         ShowActionKind.ScreenStageLook => "Preview — a look staged on a screen's PVW",
         ShowActionKind.ScreenStagePreset => "Preview — a preset staged on a screen's PVW",
         ShowActionKind.ScreenStagePattern => "Preview — a kind of picture staged on a screen's PVW",
@@ -417,7 +420,7 @@ public static class ActionSpec
     /// </summary>
     public static string? DeskOnly(ShowActionKind kind) => kind switch
     {
-        ShowActionKind.Take or ShowActionKind.Cut => "a desk key: it sends the preview to air, and a running order never takes a half-built preview by itself",
+        ShowActionKind.Take or ShowActionKind.Cut or ShowActionKind.ScreenTake or ShowActionKind.ScreenCut => "a desk key: it sends the preview to air, and a running order never takes a half-built preview by itself",
         ShowActionKind.CueFire or ShowActionKind.CueGo or ShowActionKind.CueStandby or ShowActionKind.CueHoldOn or ShowActionKind.CueHoldOff
             => "the stack's own transport — a cue firing, holding or re-aiming the stack it runs on is a loop waiting to happen (GO on a list names another list)",
         ShowActionKind.PresenterNext or ShowActionKind.PresenterPrev => "the clicker's own keys — Back / GO on a list name the list",

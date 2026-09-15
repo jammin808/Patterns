@@ -255,6 +255,10 @@ public enum ShowActionKind
     /// screen stays.
     /// </summary>
     ScreenPattern,
+    /// <summary>The tile's own TAKE (round 63): the preview to this one screen alone, with the transition, as its own picture — OWN lights up; every other screen and the programme stay.</summary>
+    ScreenTake,
+    /// <summary>The tile's own CUT (round 63): the same, instantly.</summary>
+    ScreenCut,
     /// <summary>
     /// The staged verbs (round 60): Target = a screen, a canvas, or empty / PGM for the programme;
     /// the picture lands on that target's PVW in the sandboxed preview and nowhere else — EDIT
