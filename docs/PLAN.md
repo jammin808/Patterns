@@ -8047,3 +8047,99 @@ attached with its sink's name — the column that named this leak, kept for the 
 
 What CI's green did not say: a runner with the room ran 683 rooted desks to the end. The count
 is not the measure; the measure is.
+
+
+## 81. Round 63 — CUT and TAKE on a tile, the output on its display's clock, the Preview's own menus, overlays and layers that arrive
+
+The ask, verbatim in five parts: right-click menus on the Preview picture too, offering the source
+and the settings of whatever is clicked on it; a screen set to 50 Hz still read as Patterns
+pushing 60 on the tech info chip; overlays and layers wanting a transition when they appear,
+fade by default; the chip to show resolution and aspect ratio; and a small CUT / TAKE on each
+screen tile that works on that screen alone, setting OWN by itself and updating the "look has
+changed" reading.
+
+### 81.1 CUT and TAKE on each screen tile (63.1)
+
+Two verbs of the one vocabulary, `ScreenTake` and `ScreenCut`: `SCREEN n TAKE` / `SCREEN n CUT`
+on the wire, `/patterns/screen/<n>/take` and `/cut` on OSC, the desk's alone like TAKE and CUT
+(a running order never takes a half-built preview). The executor sends the sandbox to that one
+target live — as its own picture, so OWN lights up by itself — with the transition on that sink
+alone, or a cut marked on the publish (`SandboxService.SendToTargets` takes the cut); the
+programme and every other screen stay, the preview keeps the picture for the next one, and a
+repeater is refused. The wall's tiles carry CUT and TAKE beside SEND while EDIT SAFE is open, in
+the big keys' colours; the tile's menu has a TO AIR group with the same two and the reason when
+they cannot. After the press the desk refreshes OWN, the tallies and the look words: the look
+tally reads the screen as gone its own way inside the look on air, so the Looks page says
+PROGRAM · EDITED, the tile's header says "off the look", STATE says so, and a Companion key lit
+for the look dims. The module (3.4.0) gains `screen_take` (TAKE / CUT) and a TAKE preset per
+screen.
+
+### 81.2 The output on its display's clock, and the chip's truth (63.2)
+
+The platform's render clock beats at one display's refresh for every window (Avalonia's DXGI
+connection waits for one output's vblank). A screen whose display was set to 50 Hz was still
+drawn at the clock's 60 and showed fifty of them; the chip read the frames drawn — "60 fps" —
+which the operator read, rightly, as Patterns pushing 60. `OutputRate.Present` (Core): an output
+presents at its display's rate when the display is known and slower than the clock it is
+offered, or than what was asked; a display as fast as the clock, or faster, stays unpaced,
+because pacing at the clock's own beat drops a frame on every beat that lands a hair early. The
+display's refresh travels with the viewport (`PipelineViewport.DisplayHz`, from the screen's mode
+as Windows reports it), the pipeline counts the beats the canvas offers it (`NoteVsync`,
+`ClockHz`) and presents at `PresentFps`; the frame budget's target follows, so the slots the
+pacer counts are the ones the display can show. The chip (63.2 + the fourth ask): the sink, its
+pixels and their shape (`AspectWords`: 16:9, 16:10, 4:3, 21:9, 1:1, 9:16 …, the reduced pair, or
+1.78:1), the kind of picture, and the frames drawn a second against the rate it presents at and
+the display's refresh — "50.0 fps of 50 · 50 Hz display (60 asked)".
+
+### 81.3 The Preview picture's own menus (63.3)
+
+`Menus.SubjectAt`: a subject read from where the pointer is. The context request asks it with
+its point; the menu key has no point and asks the control's own subject as before. The PREVIEW
+pane wears the preview kind and answers with the box its last frame drew under the pointer — the
+hit map the drag already used — so a right-click on the clock, the logo, the message, the
+weather, the badge, the countdown, the PiP or a layer opens that thing's own menu (its switches,
+inputs, position, its page); the bare picture, a media frame or a web page open the preview's
+menu, which now leads with SOURCE: what a media picture shows — a still, a clip, the playlist, an
+NDI feed, a capture device, a web page, a deck, the arcade — and a still or clip of the library
+straight in (`media.source:<MediaSource>`, `media.pick:<id>` in `PreviewEdits`; the desk's facts
+carry the preview's source so the drawer marks the one it shows). Every choice lands in the
+preview under EDIT SAFE, as every menu edit does.
+
+### 81.4 Overlays and layers arrive and leave (63.4)
+
+`AppearanceConfig` (Kind: Fade by default, Cut, Slide; DurationMs, 0 = the show's transition
+time) on the overlay set — for every overlay and the countdown — and on each layer
+(transition-neutral: choosing it never crossfades the whole picture). In Rendering, each sink
+keeps an `AppearanceTracker`: a thing switched on arrives over the time, eased, drawn into a
+layer at its presence (slid in from its anchor's edge, or a layer from the nearest canvas edge,
+when the kind is a slide); a thing switched off leaves the same way, drawn from the snapshot that
+had it; a layer showing a new picture leaves the old and arrives the new together. The tracker
+settles at once for a CUT publish, the show's transitions off, a first frame, and while a
+whole-picture crossfade runs (that one carries the overlays with it — nothing runs twice); frames
+that are not the sink's own picture (a fade source, a multiview tile, a layer's inner draw, a
+thumbnail) bypass it. A running arrival keeps the frames coming (`RenderPipeline.Cadence`), the
+engine gives the layers every frame so a layer switched off can leave, and a frame with no layer
+notes no layer stage. The Overlays page has APPEARANCE; each layer on the Layers page has
+"Appears".
+
+### 81.5 Tests, docs (63.5)
+
+Core: `ScreenTakeTests`, `RateAndAspectTests`, `PreviewSourceTests`, `AppearanceConfigTests`;
+the vocabulary tests cover the two kinds. Rendering: `InfoChipTests`, `AppearanceTests` (the
+tracker's arrivals, departures and swaps; the slide's edges; the clock fading in when switched
+on live and out when switched off, with the hit appearing as it arrives; a cut, transitions off,
+a cut kind and a time of its own landing at once; a layer arriving on the desk's pane, and its
+setting not identity). App: `TileTakeTests`, `OutputRateAppTests`, `PreviewMenuAppTests`. The
+module's tests carry `screen_take`. Docs: this section, REVIEW round 63, CHANGELOG, README,
+REMOTE.md, COMPANION.md §11.
+
+### 81.6 Considered and left
+
+Pacing an output at exactly the clock's rate (a dropped frame on every early beat). A render
+clock of Patterns' own following the outputs' displays (Avalonia's compositor owns one clock for
+every window; a slower display is served by the pacer, a faster one cannot be served without
+the platform's clock following it — noted for the field). A per-overlay appearance choice (one
+setting for the overlays, one per layer; the finer grain waits for an ask). A wire verb for the
+appearance settings (design-time settings kept with the show). "Choose a file…" on the preview's
+SOURCE (the library drawer and the Media page cover it). The lower third's own in and out (it has
+had them since its designer). A CUT / TAKE on the PGM tile (the wall's keys are that).

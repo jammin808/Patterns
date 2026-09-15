@@ -1768,3 +1768,61 @@ Counts at the end of the round: Core 672, Rendering 602, Devices 7, Audio 9, Ass
 Audience 2, App 685 — 2,013 in seven suites, the module's seventeen beside them. The App suite
 alone, measured boot by boot, holds at ~45 MB managed after every boot where it climbed 40 MB a
 boot, and ran to its end green (62.7).
+
+
+## Round 63 review — CUT and TAKE on a tile, the output on its display's clock, the Preview's menus, overlays that arrive
+
+### 63.1 — CUT and TAKE on each screen tile
+
+- **Done.** `ScreenTake` / `ScreenCut` across the vocabulary; the executor through the sandbox's
+  send with a cut; the tile's keys and its menu's TO AIR group; the desk's refresh; the module's
+  `screen_take` and presets, version 3.4.0. §81.1.
+- **Found on the way:** the tile's menu had no TO AIR group at all — the programme's had TAKE and
+  CUT, a screen's had only the staged verbs. It has one now, with the same reasons.
+- **The honest limit:** the look tally reads the result by fingerprint, so the words follow the
+  next tally refresh — the desk refreshes it on the press, the wire's STATE reads it on the poll.
+
+### 63.2 — the output on its display's clock, the chip's truth
+
+- **Done.** `OutputRate.Present`, the display's refresh on the viewport, the pipeline counting the
+  beats it is offered, the budget's target following; the chip with the pixels, the shape, the
+  rate presented at and the display's refresh. §81.2.
+- **Found on the way:** Avalonia's render clock is one output's vblank for every window — read in
+  the decompiled Win32 platform, not guessed — which is why a 50 Hz screen beside a 60 Hz desk
+  monitor was drawn at 60. The pacer serves a slower display; a faster one is the platform's to
+  serve, and is said so in §81.6.
+- **The honest limit:** the measured beat takes a second of continuous frames to know; a static
+  picture never paces, and needs none.
+
+### 63.3 — the Preview picture's own menus
+
+- **Done.** `Menus.SubjectAt`, the pane's hit under the pointer, the routing to the overlay, layer
+  and countdown menus, the preview menu's SOURCE group and its edits. §81.3.
+- **Found on the way:** the frame's hit map, built for the drag in round 30, was exactly the
+  answer to "what is under the pointer" — no second layout, no guess.
+- **The honest limit:** a hit is where the last frame drew the thing; a right-click before the
+  first frame of a pane opens the preview's own menu.
+
+### 63.4 — overlays and layers that arrive and leave
+
+- **Done.** `AppearanceConfig`, the tracker per sink, the arriving and leaving draws, the slide,
+  the cadence, the pages' settings. §81.4.
+- **Found on the way:** `FrameStageEngineTests` counted a layer stage on every frame once the
+  layers were given every frame; a frame with no layer notes none now. `LayerTests`' nudge test
+  rendered three snapshots into one sink and expected boxes, not arrivals — it switches the
+  show's transitions off, as its question is the boxes.
+- **The honest limit:** the departure draws from the snapshot that last had the thing — a message
+  whose words changed in the same publish that switched it off leaves with its old words, which
+  is what a room saw.
+
+### Seen, and noted
+
+- Every unit of this round is on the desk's own paths: two verbs through the action layer, a
+  rate rule in Core with the platform's clock measured rather than assumed, a menu built from
+  the frame's own hit map, arrivals kept per sink where the frames are drawn.
+- The chip's "60 fps on a 50 Hz display" was true and misleading at once: it counted frames
+  drawn. The truth an operator needs is the frames the room gets, and the rate is now paced to
+  give them.
+
+Counts at the end of the round: Core 700, Rendering 608, Devices 7, Audio 9, Assistant 36,
+Audience 2, App 691 — 2,053 in seven suites, the module's seventeen beside them.

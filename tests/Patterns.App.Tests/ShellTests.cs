@@ -228,7 +228,7 @@ public class ShellTests
             AssertInside(window, window.GetVisualDescendants().OfType<ToggleButton>().First(t => t.Classes.Contains("blackout")), "BLACKOUT");
             AssertInside(window, window.GetVisualDescendants().OfType<Button>().Last(x => x.Classes.Contains("navGroup")), "ADMIN group");
             AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Classes.Contains("pageChip")), "first page chip");
-            AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Content as string == "TAKE"), "TAKE");
+            AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Content as string == "TAKE" && x.Classes.Contains("go")), "TAKE");   // the wall's big key, not a tile's own (round 63)
             AssertInside(window, window.GetVisualDescendants().OfType<Button>().First(x => x.Content as string == "Load show…"), "Load show");
 
             // Run layout: GO, STOP ALL and the standby arrows sit in the transport row at the bottom.

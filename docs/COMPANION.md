@@ -189,6 +189,20 @@ working, its keys unchanged, and the three new actions appear when it updates.
 - The lower thirds a caller presses on the Run surface are the same `LOWERTHIRD` verbs the
   module already has; nothing new on the wire.
 
+## 11. Round 63 additions
+
+**CUT and TAKE on one screen, version 3.4.0.** The wall's tiles carry CUT and TAKE that put the
+desk's preview on that screen alone, as its own picture — OWN lights up, the programme and every
+other screen stay — and a deck can press them too: `screen_take` (screen number, TAKE with the
+transition or CUT at once) sends `SCREEN n TAKE` / `SCREEN n CUT`. A TAKE preset per screen
+(`screen_<n>_take`) sits in the Screens category, green while the screen shows its own picture.
+EDIT SAFE must be open on the desk; the desk answers `ERR` otherwise, as it does for TAKE and
+CUT. The look tally reads the screen as gone its own way, so a key lit for the look on air dims
+the way it does after any per-screen send.
+
+The module's version moves to 3.4.0 in every file that carries it; a deck with 3.3.0 keeps
+working and lacks the one action.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the

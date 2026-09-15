@@ -8,6 +8,26 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 63 — 2026-09-15 — CUT and TAKE on a tile, the output on its display's clock, the Preview's own menus, overlays and layers that arrive
+
+`round-63` · PLAN §81 · REVIEW round 63 · 2,053 tests · module 3.4.0
+
+- CUT and TAKE on each screen tile: the preview to that screen alone, as its own picture (OWN
+  lights up), the programme and every other screen untouched, the preview kept; `SCREEN n TAKE`
+  / `CUT` on the wire and OSC, in the tile's menu, on a Companion key; the look tally reads the
+  screen as gone its own way.
+- An output paces to its own display when the display is slower than the render clock or than
+  what was asked — a 50 Hz screen no longer drawn at 60 — and the tech info chip says the sink,
+  its pixels and shape, the kind, and the frames drawn against the rate presented at and the
+  display's refresh.
+- Right-click on the PREVIEW picture: the thing under the pointer — an overlay, the countdown, a
+  layer, the PiP — gets its own menu; the picture gets the preview's, leading with SOURCE (a
+  still, a clip, the playlist, a feed, a capture device, a web page, a deck, the arcade, or the
+  library).
+- Overlays and layers arrive and leave with a transition — a fade by default, a cut or a slide
+  by choice, over the show's transition time or their own — when switched on or off live or by
+  a TAKE that changes them alone; a whole-picture TAKE carries them in its own.
+
 ## Round 62 — 2026-09-15 — the menus that opened nothing, OPEN on every hint, the pointer as the desk's, the Library whole, the RUN monitor, the caller's lower thirds
 
 `round-62` · PLAN §80 · REVIEW round 62 · 2,013 tests
