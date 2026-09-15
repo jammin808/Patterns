@@ -92,6 +92,22 @@ public sealed partial class ShowActions
                 var label = Rig.Geometry(State, _s.Screens.All).LabelFor(State, id);
                 return ActionResult.Done($"{label} is a {ScreenRoles.Word(role)} screen.{held}");
             }
+            case ShowActionKind.ScreenSignal:
+            {
+                // Round 65: the link's contract in words — each word sets its property, the rest stay; CLEAR empties it.
+                var target = ResolveScreenTarget(a.Target);
+                var placement = target is null ? null : State.Output.Placements.FirstOrDefault(p => p.ScreenId == target);
+                if (placement is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                var draft = new SignalContract();
+                draft.CopyFrom(placement.Signal);
+                var error = SignalWords.Apply(a.Value, draft);
+                if (error.Length > 0) return ActionResult.Refused(error);
+                var id = placement.ScreenId;
+                _s.BulkEdit(() => placement.Signal.CopyFrom(draft));
+                if (_s.Sandbox.Active) _s.EditAir(program => { if (program.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { } air) air.Signal.CopyFrom(draft); });
+                var report = SignalReportFor(placement, _s.Screens.All.FirstOrDefault(s => s.Id == id));
+                return ActionResult.Done($"{report.Label} signal contract: {report.Design}. {report.Result}.");
+            }
             case ShowActionKind.ScreenLabel:
             {
                 var target = ResolveScreenTarget(a.Target);
@@ -198,6 +214,7 @@ public sealed partial class ShowActions
         var known = screens ?? _s.Screens.All;
         var groups = Rig.CanvasGroups(State, known);
         var geometry = _s.Bus.Current.Rig;
+        var clockHz = FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
         return Rig.OrderedLivePlacements(State, known)
             .Select((x, i) =>
             {
@@ -220,10 +237,92 @@ public sealed partial class ShowActions
                     // key lit from "own" cannot tell an instruction from a divergence.
                     pattern = LookService.Shown(State, target).Kind.ToString(),
                     off = _s.LookTally.IsOffLook(target),
+                    signal = SignalSummary(x.Placement, x.Info, clockHz),                   // round 65: the contract against what Windows sends — design, observed, result
                 };
             })
             .ToArray();
     }
+
+    /// <summary>The STATE row's signal words for one screen.</summary>
+    private object SignalSummary(ScreenPlacement placement, ScreenInfo? info, double clockHz)
+    {
+        var report = SignalReportFor(placement, info, clockHz);
+        return new { design = report.Design, observed = report.Observed, result = report.Result };
+    }
+
+    /// <summary>
+    /// Round 65: one screen's signal truth — the contract (DESIGN), what Patterns asks Windows for
+    /// (REQUESTED), what Windows is observed to send (OBSERVED, unknowns left unknown) and the
+    /// verdict, with the lines Super Check shows. The render clock is read once per call unless
+    /// the caller hands it in.
+    /// </summary>
+    public SignalReport SignalReportFor(ScreenPlacement placement, ScreenInfo? info, double? clockHz = null)
+    {
+        var label = Rig.LabelFor(placement, info);
+        var width = info?.Bounds.Width ?? placement.PlannedWidth;
+        var height = info?.Bounds.Height ?? placement.PlannedHeight;
+        var present = placement.FpsOverride > 0 ? placement.FpsOverride : State.Output.MasterFps;
+        var observed = info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? DisplayObservation.For(info.Bounds) : null;
+        var clock = clockHz ?? FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
+        return SignalTruth.Compare(label, placement.Signal, width, height, present, info?.Hz ?? 0, observed, clock);
+    }
+
+    /// <summary>Every live screen's signal report, in wall order — the facts for Super Check; a verdict that moved since the last reading goes into the journal.</summary>
+    public IReadOnlyList<SignalReport> SignalReports()
+    {
+        var clock = FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
+        var reports = new List<SignalReport>();
+        foreach (var (placement, info) in Rig.OrderedLivePlacements(State, _s.Screens.All))
+        {
+            var report = SignalReportFor(placement, info, clock);
+            reports.Add(report);
+            JournalSignal(placement.ScreenId, report);
+        }
+        return reports;
+    }
+
+    private readonly Dictionary<string, SignalVerdict> _signalVerdicts = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Round 65: a signal verdict that changed is a show event — "the rate moved at 14:02" is the
+    /// line a support engineer wants — so the journal gets one entry per change, never one per
+    /// reading. A screen whose contract is empty has no verdict to move.
+    /// </summary>
+    private void JournalSignal(string screenId, SignalReport report)
+    {
+        var had = _signalVerdicts.TryGetValue(screenId, out var previous);
+        if (had && previous == report.Verdict) return;
+        _signalVerdicts[screenId] = report.Verdict;
+        if (!placementHasContract(screenId)) return;
+        var moved = report.Lines.Where(l => l.Light is CheckLight.Red or CheckLight.Amber).Select(l => $"{l.Item.ToLowerInvariant()}: {l.Value}").ToList();
+        var words = report.Verdict == SignalVerdict.Match ? $"{report.Design} — as observed" : moved.Count > 0 ? string.Join("; ", moved) : report.Observed;
+        _s.Journal.Record("signal", "SignalVerdict", report.Label, report.Result, (had ? $"{SignalReport.Words(previous)} → {report.Result}: " : "") + words);
+
+        bool placementHasContract(string id) => State.Output.Placements.FirstOrDefault(p => p.ScreenId == id) is { Signal.IsSet: true };
+    }
+
+    /// <summary>SCREEN n SIGNAL as JSON: the one screen's report, or every screen's when <paramref name="word"/> is empty.</summary>
+    public string SignalJson(string word)
+    {
+        var clock = FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
+        var live = Rig.OrderedLivePlacements(State, _s.Screens.All);
+        if (word.Trim().Length == 0) return JsonUtil.SerializeCompact(live.Select((x, i) => SignalRow(i + 1, SignalReportFor(x.Placement, x.Info, clock))).ToArray());
+        var target = ResolveScreenTarget(word.Trim());
+        var index = live.FindIndex(x => x.Placement.ScreenId == target);
+        if (index < 0) return JsonUtil.SerializeCompact(new { ok = false, msg = $"No screen '{word.Trim()}'." });
+        return JsonUtil.SerializeCompact(SignalRow(index + 1, SignalReportFor(live[index].Placement, live[index].Info, clock)));
+    }
+
+    private static object SignalRow(int n, SignalReport r) => new
+    {
+        n,
+        label = r.Label,
+        design = r.Design,
+        requested = r.Requested,
+        observed = r.Observed,
+        result = r.Result,
+        lines = r.Lines.Select(l => new { item = l.Item, light = l.Light.ToString().ToLowerInvariant(), value = l.Value, note = l.Note }).ToArray(),
+    };
 
     private bool DeskSharesADisplayWithAnOutput()
     {

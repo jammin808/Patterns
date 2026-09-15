@@ -247,6 +247,13 @@ public sealed class ScreenPlacement : Observable
 
     /// <summary>This output's own frame rate; 0 = the show's master rate (or the display's refresh when that is 0 too).</summary>
     public int FpsOverride { get => _fpsOverride; set => Set(ref _fpsOverride, Math.Clamp(value, 0, 240)); }
+
+    /// <summary>
+    /// The signal this screen's link is meant to carry (round 65): the transport raster, the exact
+    /// rate, the encoding, the depth, the range, HDR, the audio — the engineer's intent, which the
+    /// desk holds what Windows sends against. Empty: the display's own, nothing verified.
+    /// </summary>
+    public SignalContract Signal { get; init; } = new();
     public double BrightnessPct { get => _brightnessPct; set => Set(ref _brightnessPct, Math.Clamp(value, 10, 200)); }
     /// <summary>Midtone gamma trim; 1.0 = neutral, above darkens mids, below lifts them.</summary>
     public double Gamma { get => _gamma; set => Set(ref _gamma, Math.Clamp(value, 0.4, 2.5)); }

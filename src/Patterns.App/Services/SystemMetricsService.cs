@@ -434,6 +434,16 @@ public sealed class SystemMetricsService : IDisposable
             Log.Warn("Super-check: display probe failed.", ex);
         }
 
+        IReadOnlyList<SignalReport> signals = Array.Empty<SignalReport>();
+        try
+        {
+            signals = _services.Actions.SignalReports();      // round 65: each screen's contract against what Windows sends
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("Super-check: signal probe failed.", ex);
+        }
+
         var senders = state.Ndi.Senders.Where(x => x.Enabled).ToList();
         var senderLines = new List<string>();
         foreach (var cfg in senders)
@@ -503,6 +513,7 @@ public sealed class SystemMetricsService : IDisposable
             DirectOutputInForce = DirectOutputService.ModeInForce == DirectOutputMode.LowLatencySwapChain,
             DirectOutputSummary = DirectOutputService.Summary(state),
             Displays = displays,
+            Signals = signals,
             OutputsLive = _services.Outputs.IsLive,
             OutputWindows = s?.OutputWindows ?? -1,
             OutputFps = History.Recent.Count > 0 ? History.AvgRecent(60, x => x.OutputFps) : -1,

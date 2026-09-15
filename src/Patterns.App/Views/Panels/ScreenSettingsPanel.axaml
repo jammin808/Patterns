@@ -72,6 +72,19 @@
                   SelectedValue="{Binding Screens.SelectedFpsOverride, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:FpsOption}" />
 
+        <TextBlock Classes="label" Text="Signal contract" Margin="0,8,0,0" />
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+          <TextBox Grid.Column="0" Text="{Binding Screens.SelectedSignalWords, Mode=TwoWay}" FontFamily="Consolas,monospace"
+                   Watermark="3840x2160 50 RGB 8 SDR — empty: the display's own, nothing verified" />
+          <Button Grid.Column="2" Classes="chip" Content="APPLY" Command="{Binding Screens.ApplySignalCommand}"
+                  ToolTip.Tip="Set the contract from the words — each word sets its property, the rest stay" />
+          <Button Grid.Column="4" Classes="chip" Content="CLEAR" Command="{Binding Screens.ClearSignalCommand}" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding Screens.SignalStatus}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Screens.SelectedSignalText}" FontFamily="Consolas,monospace" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+        <TextBlock Classes="hint tip"
+                   Text="What this screen's link is meant to carry — the raster, the exact rate (50, 59.94, 60000/1001), RGB or 444 / 422 / 420, 8 / 10 / 12 bit, FULL or LIMITED range, SDR / HDR10 / HLG, STEREO / 8CH / NOAUDIO — kept apart from what the display advertises and from what Windows sends. DESIGN is the contract; REQUESTED what Patterns asks Windows for; OBSERVED what Windows reports it sends, each property unknown until the path states it; RESULT compares them, and Super Check carries the lines under SIGNAL. The same words on the wire: SCREEN n SIGNAL 3840x2160 50 RGB 8 SDR; SCREEN n SIGNAL alone reads the view." />
+
         <TextBlock Classes="label" Text="Display mode (Windows)" Margin="0,8,0,0" />
         <Grid ColumnDefinitions="*,8,Auto,8,Auto,8,Auto">
           <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding Screens.DisplayModeOptions}"

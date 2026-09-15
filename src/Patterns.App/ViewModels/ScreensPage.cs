@@ -49,6 +49,8 @@ public sealed class ScreensPage : Observable
             RaiseSelection();
         });
         ArrangeBlendGridCommand = new RelayCommand(ArrangeBlendGrid);
+        ApplySignalCommand = new RelayCommand(() => ApplySignal(SelectedSignalWords));
+        ClearSignalCommand = new RelayCommand(() => ApplySignal("CLEAR"));
         _calibrationFolder = Path.Combine(services.Store.MediaDirectory, "calibration", "photos");
         RefreshCalibrationCamerasCommand = new RelayCommand(RefreshCalibrationCameras);
         RunCalibrationCommand = new RelayCommand(RunCalibration);
@@ -103,6 +105,8 @@ public sealed class ScreensPage : Observable
         {
             if (Set(ref _selectedPlacement, value))
             {
+                _signalWords = SignalWords.Of(value?.Signal);
+                _signalStatus = "";
                 RaiseSelection();
                 _desk.RefreshPopOut();
             }
@@ -282,6 +286,33 @@ public sealed class ScreensPage : Observable
             Raise();
             if (_services.Outputs.IsLive) _services.Outputs.Apply();
         }
+    }
+
+    // ---- the signal contract (round 65) -------------------------------------
+
+    private string _signalWords = "";
+    private string _signalStatus = "";
+
+    /// <summary>The selected screen's contract as words, editable — "3840x2160 50 RGB 8 SDR"; APPLY runs SCREEN n SIGNAL with them.</summary>
+    public string SelectedSignalWords { get => _signalWords; set => Set(ref _signalWords, value ?? ""); }
+
+    /// <summary>What the last APPLY answered.</summary>
+    public string SignalStatus { get => _signalStatus; private set => Set(ref _signalStatus, value); }
+
+    /// <summary>The technical view for the selected screen: DESIGN, REQUESTED, OBSERVED, RESULT and the lines.</summary>
+    public string SelectedSignalText => _selectedPlacement is { } p ? _services.Actions.SignalReportFor(p, _desk.LiveInfo(p)).Text : "";
+
+    public RelayCommand ApplySignalCommand { get; }
+    public RelayCommand ClearSignalCommand { get; }
+
+    private void ApplySignal(string words)
+    {
+        if (_selectedPlacement is not { } placement) return;
+        var result = _services.Actions.Execute(new ShowAction(ShowActionKind.ScreenSignal, placement.ScreenId, words), ActionOrigin.Desk);
+        SignalStatus = result.Message;
+        _signalWords = SignalWords.Of(placement.Signal);
+        Raise(nameof(SelectedSignalWords));
+        Raise(nameof(SelectedSignalText));
     }
 
     // ---- display modes ------------------------------------------------------

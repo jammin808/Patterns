@@ -43,6 +43,8 @@ public enum RemoteCommandKind
     RigDayStatus,
     /// <summary>MENU SCREEN 2 · MENU CUE 03.020 · MENU LOOK Walk-in · MENU LT Neon · MENU LAYER 1 · MENU CLOCK · MENU PGM · MENU PREVIEW: the right-click menu the desk would show, as JSON with each entry's wire line.</summary>
     Menu,
+    /// <summary>SCREEN 2 SIGNAL (round 65): the screen's signal truth — design, requested, observed, result and the lines — as JSON; Text carries the screen's number.</summary>
+    ScreenSignal,
 }
 
 /// <summary>
@@ -353,6 +355,16 @@ public static class ControlProtocol
                 if (rest.StartsWith("LABEL ", StringComparison.OrdinalIgnoreCase) || rest.Equals("LABEL", StringComparison.OrdinalIgnoreCase))
                 {
                     return Act(ShowActionKind.ScreenLabel, n, rest.Length > 6 ? rest[6..].Trim() : "");
+                }
+                // "SCREEN 2 SIGNAL 3840x2160 50 RGB 8 SDR" (round 65): the link's contract in words; bare "SCREEN 2 SIGNAL" reads the signal truth as JSON.
+                if (rest.Equals("SIGNAL", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Query(RemoteCommandKind.ScreenSignal, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
+                if (rest.StartsWith("SIGNAL ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var words = rest[7..].Trim();
+                    return words.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenSignal, n, words);
                 }
                 // "SCREEN 2 PATTERN Grid": a kind of picture on that screen alone, live.
                 if (rest.StartsWith("PATTERN ", StringComparison.OrdinalIgnoreCase))

@@ -60,6 +60,8 @@ public sealed class CheckFacts
     public string DirectOutputSummary { get; init; } = "";
 
     public IReadOnlyList<CheckDisplay> Displays { get; init; } = Array.Empty<CheckDisplay>();
+    /// <summary>Round 65: each screen's signal truth — the contract against what Windows is observed to send.</summary>
+    public IReadOnlyList<SignalReport> Signals { get; init; } = Array.Empty<SignalReport>();
 
     public bool OutputsLive { get; init; }
     public int OutputWindows { get; init; } = -1;
@@ -236,6 +238,7 @@ public static class SuperCheck
         Machine(f, rows);
         Graphics(f, rows);
         Displays(f, rows);
+        Signals(f, rows);
         Show(f, rows);
         Ndi(f, rows);
         Stream(f, rows);
@@ -480,6 +483,22 @@ public static class SuperCheck
                 note = $"the display refreshes at {d.RefreshHz} Hz but the show asks for {f.TargetFps:0} — pick a mode on the Screens page or lower the master rate";
             }
             rows.Add(new CheckRow(s, d.Label, light, value, note));
+        }
+    }
+
+    /// <summary>
+    /// Round 65: rows only where evidence exists — a contract stated, a raster or a rate observed —
+    /// and never a capability read as a signal: an EDID that offers RGB is not a signal that is RGB.
+    /// A screen with no contract and no observation adds nothing.
+    /// </summary>
+    private static void Signals(CheckFacts f, List<CheckRow> rows)
+    {
+        foreach (var report in f.Signals)
+        {
+            foreach (var line in report.Lines)
+            {
+                rows.Add(new CheckRow("SIGNAL", $"{report.Label} {line.Item.ToLowerInvariant()}", line.Light, line.Value, line.Note));
+            }
         }
     }
 

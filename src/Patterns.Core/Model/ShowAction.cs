@@ -260,6 +260,11 @@ public enum ShowActionKind
     /// <summary>The tile's own CUT (round 63): the same, instantly.</summary>
     ScreenCut,
     /// <summary>
+    /// Target = a screen; Value = the contract in words ("3840x2160 50 RGB 8 SDR", "CLEAR"): what
+    /// the screen's link is meant to carry (round 65) — each word sets its property, the rest stay.
+    /// </summary>
+    ScreenSignal,
+    /// <summary>
     /// The staged verbs (round 60): Target = a screen, a canvas, or empty / PGM for the programme;
     /// the picture lands on that target's PVW in the sandboxed preview and nowhere else — EDIT
     /// SAFE opens first when it was off, the air is never touched, and the next CUT or TAKE puts

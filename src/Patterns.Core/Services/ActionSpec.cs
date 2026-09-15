@@ -106,6 +106,7 @@ public static class ActionSpec
         ShowActionKind.ScreenLock or ShowActionKind.ScreenUnlock or ShowActionKind.ScreenLockToggle => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.ScreenRole => (TargetKind.Screen, ValueKind.Role),
         ShowActionKind.ScreenLabel => (TargetKind.Screen, ValueKind.Text),
+        ShowActionKind.ScreenSignal => (TargetKind.Screen, ValueKind.Text),
         ShowActionKind.CanvasOn or ShowActionKind.CanvasOff => (TargetKind.Canvas, ValueKind.None),
         ShowActionKind.CountdownStart => (TargetKind.None, ValueKind.Minutes),
         ShowActionKind.TimerAdd => (TargetKind.None, ValueKind.Text),
@@ -207,6 +208,7 @@ public static class ActionSpec
         ShowActionKind.ScreenLockToggle => "Screen lock toggle",
         ShowActionKind.ScreenRole => "Screen role (main, confidence, info, repeater)",
         ShowActionKind.ScreenLabel => "Screen label (its name on the desk)",
+        ShowActionKind.ScreenSignal => "Screen signal contract (raster, rate, encoding, depth, range, HDR, audio)",
         ShowActionKind.CanvasOn => "Canvas on",
         ShowActionKind.CanvasOff => "Canvas off",
         ShowActionKind.PatternKind => "Pattern — change its kind",
@@ -431,6 +433,7 @@ public static class ActionSpec
         ShowActionKind.ScreenToPreview => "the desk loading its preview from a screen to edit — an edit, not a step of the show",
         ShowActionKind.UpdateApply or ShowActionKind.Restart => "an admin verb behind the passcode",
         ShowActionKind.ScreenLabel => "the rig's own naming, at set-up on the Screens page or from a remote — a running order never renames a screen",
+        ShowActionKind.ScreenSignal => "the rig's own signal contract, decided at commissioning on the Screens page or from a remote — a running order never redefines what a link carries",
         ShowActionKind.TwinTakeOver or ShowActionKind.TwinStandBy or ShowActionKind.TwinTakeBack => "the standby twin's own decision to run the show, or to follow again, or the main's to take it back — a cue never decides which machine is the main",
         ShowActionKind.ShowLockOn or ShowActionKind.ShowLockOff => "this machine's own hold on Windows — it goes on with the outputs and off with them, or from the Machine page and the wire; a cue never changes the machine's settings",
         ShowActionKind.CalibrateRun or ShowActionKind.CalibrateCancel or ShowActionKind.CalibrateDemo or ShowActionKind.CalibrateApply or ShowActionKind.CalibrateUndo
