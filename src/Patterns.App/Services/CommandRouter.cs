@@ -499,6 +499,7 @@ public sealed class CommandRouter : IRouter
                 hungNow = Patterns.Rendering.Media.RenderFence.HungSinks,                                 // frames open past two seconds right now: in quarantine, never freed under them
                 hungFrames = Patterns.Rendering.Media.RenderFence.HungFrames,                             // this session — the gate a soak reads: nought
                 quarantinedMB = Math.Round((Patterns.Rendering.Media.RetiredFrames.QuarantinedBytes + Patterns.Rendering.Media.FramePools.QuarantinedBytes) / (1024.0 * 1024.0)),
+                fenceRefused = Patterns.Rendering.Media.RenderFence.Refused,
                 fenceFaults = Patterns.Rendering.Media.RenderFence.Faults.Select(x => x.ToString()).ToArray(),
                 mediaMB = Math.Round((_services.Metrics.Pressure.Reading?.Total ?? MediaMemory.Read(MemoryBudget.MachineMB).Total) / (1024.0 * 1024.0)),
                 mediaBudgetMB = Math.Round(MediaMemory.BudgetBytes(MemoryBudget.MachineMB) / (1024.0 * 1024.0)),

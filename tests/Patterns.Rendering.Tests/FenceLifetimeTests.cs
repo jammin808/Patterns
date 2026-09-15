@@ -198,4 +198,46 @@ public sealed class FenceLifetimeTests : IDisposable
         slot.Dispose();
         RenderFence.Unregister(hung);
     }
+
+    /// <summary>
+    /// Round 65: a full table refuses the next sink rather than seating it over an open frame, the
+    /// refusal is on the list and in the fault record, and the sink is seated — and taken off the
+    /// list — the moment a frame ends and its seat is given back.
+    /// </summary>
+    [Fact]
+    public void AFullTableRefusesTheNextSinkAndSeatsItWhenAFrameEnds()
+    {
+        RenderFence.ResetForTests();
+        try
+        {
+            var seats = new int[RenderFence.MaxSinks];
+            for (var i = 0; i < seats.Length; i++)
+            {
+                seats[i] = RenderFence.Register($"S{i}");
+                RenderFence.BeginFrame(seats[i]);
+            }
+            Assert.Equal(-1, RenderFence.Register("Late"));
+            Assert.Equal(new[] { "Late" }, RenderFence.Refused);
+            Assert.Equal(FenceFaultKind.Refused, RenderFence.Faults.Last().Kind);
+            Assert.Equal(-1, RenderFence.Register("Late"));                                             // asked again: still refused, listed once
+            Assert.Equal(new[] { "Late" }, RenderFence.Refused);
+
+            RenderFence.EndFrame(seats[3]);
+            RenderFence.Unregister(seats[3]);
+            var late = RenderFence.Register("Late");
+            Assert.True(late >= 0);
+            Assert.Empty(RenderFence.Refused);
+            Assert.Equal(FenceFaultKind.Seated, RenderFence.Faults.Last().Kind);
+            Assert.Contains("seated (Late)", RenderFence.Faults.Last().ToString());
+
+            RenderFence.BeginFrame(late);                                                               // its frame open: the table is full again
+            Assert.Equal(-1, RenderFence.Register("Gone"));
+            RenderFence.Withdraw("Gone");                                                               // a refused sink disposed leaves the list
+            Assert.Empty(RenderFence.Refused);
+        }
+        finally
+        {
+            RenderFence.ResetForTests();
+        }
+    }
 }

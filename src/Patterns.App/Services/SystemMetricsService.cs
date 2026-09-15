@@ -561,6 +561,7 @@ public sealed class SystemMetricsService : IDisposable
             PoolStarved = Patterns.Rendering.Media.FramePools.Starved,
             HungSinks = Patterns.Rendering.Media.RenderFence.HungSinks,
             HungFrames = Patterns.Rendering.Media.RenderFence.HungFrames,
+            FenceRefused = Patterns.Rendering.Media.RenderFence.Refused,
             QuarantinedBytes = Patterns.Rendering.Media.RetiredFrames.QuarantinedBytes + Patterns.Rendering.Media.FramePools.QuarantinedBytes,
             MediaBytes = (Pressure.Reading ?? MediaMemory.Read(MemoryBudget.MachineMB)).Total,
             MediaBudgetBytes = MediaMemory.BudgetBytes(MemoryBudget.MachineMB),

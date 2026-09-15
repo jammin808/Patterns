@@ -161,6 +161,8 @@ public sealed class CheckFacts
     public int HungSinks { get; init; }
     public long HungFrames { get; init; }
     public long QuarantinedBytes { get; init; }
+    /// <summary>Sinks refused a seat on the render fence — every seat held by an open frame — and drawing nothing until one frees (round 65).</summary>
+    public IReadOnlyList<string> FenceRefused { get; init; } = Array.Empty<string>();
 
     /// <summary>The media memory against its budget (bytes; -1 unknown), the rung it stands at, live pools past their per-source target and decoders retiring.</summary>
     public long MediaBytes { get; init; } = -1;
@@ -635,7 +637,7 @@ public static class SuperCheck
             return;
         }
         rows.Add(new CheckRow(section, "Render clock", CheckLight.Amber, string.Join(" · ", f.ClockLimited),
-            "the platform's render clock beats at one display's refresh for every window, and this output's display needs more — no pacing can make frames the compositor never asks for; make that display the one the clock follows (the desk's primary, the first output opened), or match the rates"));
+            "FIX: make the display that needs the higher rate the one the render clock follows — the desk's primary display, the first output opened — or match the displays' rates. Why: the platform's render clock beats at one display's refresh for every window, and this output's display needs more; no pacing can make frames the compositor never asks for"));
     }
 
     /// <summary>
@@ -789,6 +791,11 @@ public static class SuperCheck
     /// </summary>
     private static void FrameFence(CheckFacts f, List<CheckRow> rows, string section)
     {
+        if (f.FenceRefused.Count > 0)
+        {
+            rows.Add(new CheckRow(section, "Fence seats", CheckLight.Red, $"capacity exhausted · not drawing: {string.Join(", ", f.FenceRefused)}",
+                "every seat on the render fence is held by an open frame, so this sink draws black rather than a frame outside the fence; it seats itself and draws the moment a seat frees — a frame hung past two seconds holds its seat until it ends, so find the hung sink in the fault record, or close a window the room does not need"));
+        }
         if (f.FenceLiveSinks < 0) return;
         var light = f.HungSinks > 0 || f.HungFrames > 0 || f.FenceOldestMs > 2000 ? CheckLight.Red
             : f.FenceOldestMs > 100 || f.PoolStarved > 0 ? CheckLight.Amber

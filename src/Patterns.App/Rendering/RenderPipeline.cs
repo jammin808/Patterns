@@ -190,7 +190,7 @@ public sealed class RenderPipeline : IDisposable
     }
 
     /// <summary>This sink's seat on the render fence: a frame opens at every render's start and closes, after the canvas flushed, in its finally — so a pooled frame it drew is written again the moment the frame is done, and never while it is open.</summary>
-    private readonly int _fence;
+    private int _fence;
 
     /// <summary>Tests: run inside every frame, after its draws and before its flush and close — a hook to hold a frame open.</summary>
     public static Action? FrameEnding { get; set; }
@@ -332,7 +332,21 @@ public sealed class RenderPipeline : IDisposable
 
     private void RenderLocked(SKCanvas canvas, double widthDips, double heightDips, double renderScaling)
     {
-        RenderFence.BeginFrame(_fence);   // the frame opens: what it fetches from now on is held until it closes
+        // The seat first (round 65). A sink whose seat was reseated while it sat idle, or that never
+        // got one because every seat was held by an open frame, takes a seat now or draws nothing —
+        // black, never a pooled frame outside the fence. The fence lists it while it waits, the
+        // health row names it, and the next frame after a seat frees draws whole.
+        if (RenderFence.BeginFrame(_fence) == 0)   // the frame opens: what it fetches from now on is held until it closes
+        {
+            _fence = RenderFence.Register(_viewport.Label);
+            if (_fence < 0 || RenderFence.BeginFrame(_fence) == 0)
+            {
+                _fence = -1;
+                canvas.Clear(SKColors.Black);
+                canvas.Flush();
+                return;
+            }
+        }
         try
         {
             RenderFrame(canvas, widthDips, heightDips, renderScaling);
@@ -899,6 +913,7 @@ public sealed class RenderPipeline : IDisposable
             _disposed = true;
             FrameBudgets.Detach(_budget);
             RenderFence.Unregister(_fence);
+            RenderFence.Withdraw(_viewport.Label);   // a refused sink that is gone leaves the list
             _trimFilter?.Dispose();
             _trimPaint.Dispose();
             _warpPaint.Dispose();

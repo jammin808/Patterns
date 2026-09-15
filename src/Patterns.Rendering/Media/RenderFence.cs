@@ -120,12 +120,32 @@ public static class RenderFence
                     oldest = i;
                 }
             }
-            return oldest >= 0 ? SeatLocked(oldest, label) : -1;
+            if (oldest >= 0) return SeatLocked(oldest, label);
+            // Every seat is held by an open frame: no seat. The caller draws nothing until it has
+            // one (round 65) — the fence fails closed, never open — and the label is on the list
+            // the health rows read.
+            if (label.Length > 0 && RefusedLabels.Add(label)) NoteFaultLocked(new FenceFault(DateTime.UtcNow, FenceFaultKind.Refused, -1, label, Interlocked.Read(ref _generation), 0));
+            return -1;
         }
+    }
+
+    /// <summary>Sinks that asked for a seat and were refused, drawing nothing until one frees (round 65).</summary>
+    public static IReadOnlyList<string> Refused
+    {
+        get { lock (Gate) return RefusedLabels.OrderBy(l => l, StringComparer.Ordinal).ToArray(); }
+    }
+
+    private static readonly HashSet<string> RefusedLabels = new(StringComparer.Ordinal);
+
+    /// <summary>A refused sink that is gone (disposed) leaves the list without a seat.</summary>
+    public static void Withdraw(string label)
+    {
+        lock (Gate) RefusedLabels.Remove(label);
     }
 
     private static int SeatLocked(int i, string label)
     {
+        if (label.Length > 0 && RefusedLabels.Remove(label)) NoteFaultLocked(new FenceFault(DateTime.UtcNow, FenceFaultKind.Seated, i, label, Interlocked.Read(ref _generation), 0));
         Registered[i] = true;
         Open[i] = false;
         Leaving[i] = false;
@@ -439,6 +459,7 @@ public static class RenderFence
     /// <summary>Tests: every seat gone, the generation, the count and the record back to nought.</summary>
     public static void ResetForTests()
     {
+        lock (Gate) RefusedLabels.Clear();
         lock (Gate)
         {
             Array.Clear(Registered);
@@ -462,11 +483,20 @@ public enum FenceFaultKind
     Hung,
     /// <summary>The hung frame closed: what it held is released.</summary>
     Recovered,
+    /// <summary>A sink asked for a seat and every seat was held by an open frame (round 65): it draws nothing until one frees — black, never a frame outside the fence.</summary>
+    Refused,
+    /// <summary>A sink that had been refused got its seat.</summary>
+    Seated,
 }
 
 /// <summary>One line of the fence's fault record: when, what, which seat and its label, the frame's generation, and how long the frame had been open.</summary>
 public readonly record struct FenceFault(DateTime AtUtc, FenceFaultKind Kind, int Sink, string Label, long Generation, double OpenMs)
 {
     public override string ToString()
-        => $"{AtUtc:HH:mm:ss} {(Kind == FenceFaultKind.Hung ? "HUNG" : "recovered")} seat {Sink}{(Label.Length > 0 ? $" ({Label})" : "")} frame {Generation} open {OpenMs:0} ms";
+        => Kind switch
+        {
+            FenceFaultKind.Refused => $"{AtUtc:HH:mm:ss} REFUSED a seat{(Label.Length > 0 ? $" ({Label})" : "")} — every seat held by an open frame; drawing nothing",
+            FenceFaultKind.Seated => $"{AtUtc:HH:mm:ss} seated{(Label.Length > 0 ? $" ({Label})" : "")} on seat {Sink} after a refusal",
+            _ => $"{AtUtc:HH:mm:ss} {(Kind == FenceFaultKind.Hung ? "HUNG" : "recovered")} seat {Sink}{(Label.Length > 0 ? $" ({Label})" : "")} frame {Generation} open {OpenMs:0} ms",
+        };
 }

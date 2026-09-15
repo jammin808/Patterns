@@ -73,4 +73,67 @@ public class FrameLifetimeAppTests
             b.Dispose();
         }
     }
+
+    /// <summary>
+    /// Round 65: the fence fails closed. A pipeline whose seat was reseated while it sat idle, with
+    /// every seat then held by an open frame, draws black — never a pooled frame outside the fence —
+    /// is listed as refused, lights the Fence seats row red with its name, and seats itself and
+    /// draws on the first frame after a seat is given back.
+    /// </summary>
+    [AvaloniaFact]
+    public void APipelineWithoutASeatDrawsBlackAndSeatsItselfWhenAFrameEnds()
+    {
+        var b = TestApp.Boot();
+        var fill = new List<int>();
+        try
+        {
+            var bus = b.Services.Bus;
+            using var pipeline = new RenderPipeline(bus, PipelineViewport.Preview);
+            using var surface = SKSurface.Create(new SKImageInfo(64, 36, SKColorType.Bgra8888, SKAlphaType.Premul));
+            pipeline.Render(surface.Canvas, 64, 36, 1);                                                  // seated: an ordinary frame
+            Assert.Empty(RenderFence.Refused);
+
+            // Five seconds later on the fence's clock the pipeline's seat is idle; every seat is taken
+            // and held by an open frame, the idle one reseated among them.
+            RenderFence.Clock = () => System.Diagnostics.Stopwatch.GetTimestamp() + System.Diagnostics.Stopwatch.Frequency * 5;
+            for (var i = 0; i < RenderFence.MaxSinks; i++)
+            {
+                var s = RenderFence.Register($"fill {i}");
+                if (s < 0) break;
+                RenderFence.BeginFrame(s);
+                fill.Add(s);
+            }
+            Assert.Equal(-1, RenderFence.Register("probe"));
+            RenderFence.Withdraw("probe");                                                              // the probe was never a sink
+
+            surface.Canvas.Clear(SKColors.White);
+            pipeline.Render(surface.Canvas, 64, 36, 1);                                                  // no seat: black, never a frame outside the fence
+            using (var snap = surface.Snapshot())
+            using (var bmp = SKBitmap.FromImage(snap))
+            {
+                Assert.Equal(SKColors.Black, bmp.GetPixel(32, 18));
+            }
+            Assert.Contains(PipelineViewport.Preview.Label, RenderFence.Refused);
+            var row = SuperCheck.Run(b.Services.Metrics.GatherFacts()).Rows.Single(r => r.Item == "Fence seats");
+            Assert.Equal(CheckLight.Red, row.Light);
+            Assert.Contains(PipelineViewport.Preview.Label, row.Value);
+
+            RenderFence.EndFrame(fill[0]);                                                              // a frame ends, its seat is given back
+            RenderFence.Unregister(fill[0]);
+            pipeline.Render(surface.Canvas, 64, 36, 1);
+            Assert.DoesNotContain(PipelineViewport.Preview.Label, RenderFence.Refused);
+            Assert.DoesNotContain(SuperCheck.Run(b.Services.Metrics.GatherFacts()).Rows, r => r.Item == "Fence seats");
+        }
+        finally
+        {
+            RenderFence.Clock = null;
+            foreach (var s in fill)
+            {
+                RenderFence.EndFrame(s);
+                RenderFence.Unregister(s);
+            }
+            RenderFence.Withdraw("probe");
+            b.Dispose();
+        }
+    }
 }
