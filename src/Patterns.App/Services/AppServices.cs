@@ -1829,7 +1829,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// newer one and a clear never races a write. A step that throws is logged and the lane
     /// carries on.
     /// </summary>
-    internal void QueueFileWork(string what, Action work)
+    public void QueueFileWork(string what, Action work)
     {
         lock (_saveGate)
         {
@@ -1958,67 +1958,162 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         _reapplyTimer.Start();
     }
 
+    /// <summary>
+    /// The shutdown's phases, in this order (round 65): what the room sees and hears ends first;
+    /// the desk's authority over outputs, wires and peers next; the machine's own state is put
+    /// back; the workers stop; the show is persisted; the recovery record is resolved; the
+    /// ownership record is resolved; the process's own handles go last. Every step runs on its own
+    /// guard and is written to <see cref="ShutdownReport"/>: a step that throws is logged and the
+    /// phases go on, so the critical steps at the end — the show lock, the final save, recovery,
+    /// ownership, the mutex — run whatever failed before them.
+    /// </summary>
+    public static readonly IReadOnlyList<string> ShutdownPhases = new[] { "audience", "authority", "machine", "workers", "persist", "recovery", "ownership", "process" };
+
+    /// <summary>Every step of the last shutdown and how it ended — ran, failed (with the reason), skipped (with the reason) — in the order taken. The fault-injection test reads it; so can the support ticket of a desk that came down badly.</summary>
+    public IReadOnlyList<ShutdownStep> ShutdownReport
+    {
+        get { lock (_shutdownReport) return _shutdownReport.ToArray(); }
+    }
+
+    private readonly List<ShutdownStep> _shutdownReport = new();
+
+    /// <summary>Tests: the step named here throws instead of running — the proof that every step after it still runs.</summary>
+    public static string? FailShutdownStep { get; set; }
+
+    /// <summary>How long the exit waits for the final save to reach the disk before it goes on without it (round 65).</summary>
+    public static TimeSpan ExitSaveWait { get; set; } = TimeSpan.FromSeconds(10);
+
     public void Shutdown()
     {
         if (_shutDown) return;
         _shutDown = true;
+        lock (_shutdownReport) _shutdownReport.Clear();
         // The statics that pointed at this desk let go of it: a closed desk is reclaimed whole (the census counts it).
         if (ReferenceEquals(Rendering.RenderPipeline.FirstPreviewFrame, _firstPreviewFrame)) Rendering.RenderPipeline.FirstPreviewFrame = null;
         if (ReferenceEquals(Instance, this)) Instance = null!;
         foreach (var vm in ViewModelsAlive()) vm.OnWindowClosed();   // the desk's own timers and hooks, whether or not a window was attached or closed first
-        // Every step on its own guard: one that fails (a record whose delete throws, a device
-        // that will not close) is logged and the rest still run. A desk half shut keeps its
-        // timers, and a running timer roots the whole desk (round 64's census).
-        Step("outputs", Outputs.CloseAll);
-        Step("calibration", Calibration.Shutdown);   // a run in flight ends with the desk: the structured light is process-wide
-        Step("stream", Stream.Dispose);
-        Step("stingers", Stingers.Dispose);
-        Step("spotify", Spotify.Dispose);
-        Step("control", Control.Dispose);
-        Step("osc", Osc.Dispose);
-        Step("devices", Devices.Dispose);
-        Step("management", Management.Dispose);
-        Step("beacon", Beacon.Dispose);
-        Step("mdns", Kernel.Mdns.Dispose);   // its goodbye and its timer: a running timer roots the kernel, and the kernel this desk (round 64's census)
-        Step("show lock", ShowLock.Dispose);   // everything the lock changed goes back before the desk is gone
+
+        // 1. What the room sees and hears ends first: the outputs' pictures, a calibration pattern
+        //    on a projector, the stream, NDI, a sting, the music, the room, the games.
+        Step("audience", "outputs", Outputs.CloseAll);
+        Step("audience", "calibration", Calibration.Shutdown);   // a run in flight ends with the desk: the structured light is process-wide
+        Step("audience", "stream", Stream.Dispose);
+        Step("audience", "ndi", Ndi.StopAll);
+        Step("audience", "stingers", Stingers.Dispose);
+        Step("audience", "spotify", Spotify.Dispose);
+        Step("audience", "play", Play.Dispose);
+        Step("audience", "arcade in", ArcadeIn.Dispose);
+        Step("audience", "arcade", Arcade.Dispose);
+        // 2. The desk's authority: the standby told, the wire and OSC closed, the devices let go,
+        //    the management server down, the beacon's and mDNS's goodbyes said.
         Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
-        Step("twin", Twin.Dispose);
-        Step("play", Play.Dispose);
-        Step("arcade in", ArcadeIn.Dispose);
-        Step("arcade", Arcade.Dispose);
-        Step("ndi", Ndi.StopAll);
-        Step("ndi in", NdiIn.Dispose);
-        Step("web in", WebIn.Dispose);
-        Step("audio graph", () => AudioGraph?.Dispose());
-        Step("deck in", DeckIn.Dispose);
-        Step("audio", Audio.Dispose);
-        Step("audio player", AudioPlayer.Dispose);
-        Step("playlist", Playlist.Dispose);
-        Step("feeds", Feeds.Dispose);
-        Step("weather", Weather.Dispose);
-        Step("video", Video.Dispose);
-        Step("thumbnails", Thumbnails.Dispose);
-        Step("metrics", Metrics.Dispose);
-        Step("analyser", Analyser.Dispose);
-        Step("tail", Tail.Dispose);
-        Step("quality profile", Quality.SaveProfileNow);   // where the ladder settled on this machine: next start begins there
-        Step("save", SaveNow);
+        Step("authority", "twin", Twin.Dispose);
+        Step("authority", "control", Control.Dispose);
+        Step("authority", "osc", Osc.Dispose);
+        Step("authority", "devices", Devices.Dispose);
+        Step("authority", "management", Management.Dispose);
+        Step("authority", "beacon", Beacon.Dispose);
+        Step("authority", "mdns", Kernel.Mdns.Dispose);   // its goodbye and its timer: a running timer roots the kernel, and the kernel this desk (round 64's census)
+        // 3. The machine as it was: everything the show lock changed goes back before anything else can fail.
+        Step("machine", "show lock", ShowLock.Dispose);
+        // 4. The workers: the inputs, the decoders, the audio, the files, the metrics.
+        Step("workers", "ndi in", NdiIn.Dispose);
+        Step("workers", "web in", WebIn.Dispose);
+        Step("workers", "audio graph", () => AudioGraph?.Dispose());
+        Step("workers", "deck in", DeckIn.Dispose);
+        Step("workers", "audio", Audio.Dispose);
+        Step("workers", "audio player", AudioPlayer.Dispose);
+        Step("workers", "playlist", Playlist.Dispose);
+        Step("workers", "feeds", Feeds.Dispose);
+        Step("workers", "weather", Weather.Dispose);
+        Step("workers", "video", Video.Dispose);
+        Step("workers", "thumbnails", Thumbnails.Dispose);
+        Step("workers", "metrics", Metrics.Dispose);
+        Step("workers", "analyser", Analyser.Dispose);
+        Step("workers", "tail", Tail.Dispose);
+        // 5. Persist: the ladder's profile, then the show — on the file lane, bounded — and the
+        //    timers that could arm a save after this stopped.
+        Step("persist", "quality profile", Quality.SaveProfileNow);   // where the ladder settled on this machine: next start begins there
+        var saved = false;
+        Step("persist", "final save", () => saved = SaveAtExit(ExitSaveWait));
         _saveTimer.Stop();      // a save armed by the last publish would fire after the desk is gone — and a running timer roots it (round 64's census)
         _reapplyTimer.Stop();
-        if (!_restartRequested)
-        {
-            Step("recovery", Recovery.Clear); // a clean exit must never auto-restore
-        }
-        // The windows went with CloseAll above: the record must go too, or the next start
-        // would hunt for screens that are not playing.
-        Step("ownership", Ownership.Shutdown);
-        Step("instance mutex", () => _instanceMutex?.Dispose());
+        // 6. Recovery: a clean exit must never auto-restore — unless the show could not be written,
+        //    when the record is the only copy of the last state and stays for the next start.
+        if (_restartRequested) Skip("recovery", "recovery cleared", "a restart: the record puts the show back");
+        else if (saved) Step("recovery", "recovery cleared", Recovery.Clear);
+        else Step("recovery", "recovery kept", () => WatchdogMarker.Write(Store.BaseDirectory, $"The show file could not be written at exit at {DateTime.Now:HH:mm} — the recovery record was kept; the last state of the show is in it (patterns.log has the reason)."));
+        // 7. Ownership: the windows went with the outputs above, so the record must go too, or the
+        //    next start would hunt for screens that are not playing.
+        Step("ownership", "ownership", Ownership.Shutdown);
+        // 8. The process's own handles.
+        Step("process", "instance mutex", () => _instanceMutex?.Dispose());
     }
 
-    /// <summary>One shutdown step, its failure logged and the next still taken.</summary>
-    private static void Step(string what, Action step)
+    /// <summary>
+    /// The final save, at exit, on the file lane and nowhere else (round 65). The show is
+    /// serialised here, on the desk's thread, and the write is queued behind whatever autosave
+    /// is still on its way; the exit waits a bounded time for it. A save stuck on a dead share used
+    /// to be followed by a second, synchronous save on the same lock — an exit that could never
+    /// end. Now the exit ends either way: true when the show reached the disk, false when it did
+    /// not — and then the recovery record stays, so the next start puts the show back from it.
+    /// </summary>
+    public bool SaveAtExit(TimeSpan wait)
     {
-        try { step(); }
-        catch (Exception ex) { Log.Error($"Shutdown: {what} failed.", ex); }
+        if (!_autosave) return true;
+        string json;
+        try
+        {
+            json = JsonUtil.Serialize(State);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("The show could not be serialised at exit.", ex);
+            return false;
+        }
+        var done = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = Store;
+        QueueFileWork("Final save", () =>
+        {
+            try
+            {
+                store.SaveJsonTo(store.SettingsPath, json);
+                done.TrySetResult(true);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("The final save failed.", ex);
+                done.TrySetResult(false);
+            }
+        });
+        if (done.Task.Wait(wait)) return done.Task.Result;
+        Log.Warn($"The final save did not reach the disk in {wait.TotalSeconds:0} s — an autosave ahead of it is still writing; the exit goes on and the recovery record is kept.");
+        return false;
+    }
+
+    /// <summary>One shutdown step on its own guard: its failure logged, written to the report, and the next step still taken. A test can name a step to fail.</summary>
+    private void Step(string phase, string what, Action step)
+    {
+        try
+        {
+            if (string.Equals(FailShutdownStep, what, StringComparison.Ordinal)) throw new InvalidOperationException("injected by a test");
+            step();
+            Record(phase, what, "ran");
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Shutdown: {what} failed.", ex);
+            Record(phase, what, "failed: " + ex.Message);
+        }
+    }
+
+    private void Skip(string phase, string what, string why) => Record(phase, what, "skipped: " + why);
+
+    private void Record(string phase, string what, string outcome)
+    {
+        lock (_shutdownReport) _shutdownReport.Add(new ShutdownStep(phase, what, outcome));
     }
 }
+
+/// <summary>One step of a shutdown as the report tells it (round 65): its phase, its name, and how it ended — "ran", "failed: …" or "skipped: …".</summary>
+public readonly record struct ShutdownStep(string Phase, string Step, string Outcome);

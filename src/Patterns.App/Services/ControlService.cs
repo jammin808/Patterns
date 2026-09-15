@@ -134,8 +134,9 @@ public sealed partial class ControlService : IDisposable
     /// <summary>
     /// LAN URLs the web remote answers on (for the settings panel / QR-by-eye). The desk reads
     /// these every second for its status line and the Install page; the machine's own addresses
-    /// come from the resolver, which can block the UI thread for as long as a venue's DNS wants —
-    /// so the list is kept for half a minute and asked again only then, or when the port changes.
+    /// come from its interfaces (round 65: never the resolver, which could hold the desk's thread
+    /// for as long as a venue's DNS wanted), and the list is kept for half a minute and read again
+    /// only then, or when the port changes.
     /// </summary>
     public IReadOnlyList<string> RemoteUrls()
     {
@@ -143,21 +144,7 @@ public sealed partial class ControlService : IDisposable
         var now = DateTime.UtcNow;
         if (_urls is not null && _urlsPort == port && now - _urlsAtUtc < RemoteUrlsKeptFor) return _urls;
         var urls = new List<string> { $"http://localhost:{port}/" };
-        try
-        {
-            foreach (var address in Dns.GetHostAddresses(Dns.GetHostName()))
-            {
-                if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
-                    !IPAddress.IsLoopback(address))
-                {
-                    urls.Add($"http://{address}:{port}/");
-                }
-            }
-        }
-        catch
-        {
-            // Name resolution trouble just means fewer suggestions.
-        }
+        foreach (var address in LocalAddresses.Enumerate()) urls.Add($"http://{address}:{port}/");
         _urls = urls;
         _urlsPort = port;
         _urlsAtUtc = now;
