@@ -2,9 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>$(PatternsTfm)</TargetFramework>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
-    <RootNamespace>Patterns.Core.Tests</RootNamespace>
+    <RootNamespace>Patterns.Audio.Tests</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,11 +14,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
     <ProjectReference Include="..\..\src\Patterns.Core\Patterns.Core.csproj" />
-    <ProjectReference Include="..\..\src\Patterns.Rendering\Patterns.Rendering.csproj" />
-    <ProjectReference Include="..\..\src\Patterns.Ndi\Patterns.Ndi.csproj" />
-    <ProjectReference Include="..\..\src\Patterns.Arcade\Patterns.Arcade.csproj" />
     <ProjectReference Include="..\..\src\Patterns.Audio\Patterns.Audio.csproj" />
   </ItemGroup>
 

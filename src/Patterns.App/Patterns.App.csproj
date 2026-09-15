@@ -58,6 +58,7 @@
     <ProjectReference Include="..\Patterns.Ndi\Patterns.Ndi.csproj" />
     <ProjectReference Include="..\Patterns.Arcade\Patterns.Arcade.csproj" />
     <ProjectReference Include="..\Patterns.Devices\Patterns.Devices.csproj" />
+    <ProjectReference Include="..\Patterns.Audio\Patterns.Audio.csproj" />
   </ItemGroup>
 
 </Project>

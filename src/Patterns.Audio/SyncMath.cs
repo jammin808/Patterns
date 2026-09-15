@@ -1,4 +1,4 @@
-namespace Patterns.Core.Audio;
+namespace Patterns.Audio;
 
 // ---------------------------------------------------------------------------------------------
 // The audio side of the master clock. Every audio device runs on a clock of its own — a sound

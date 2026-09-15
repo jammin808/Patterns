@@ -1,7 +1,6 @@
 using NAudio.Wave;
-using Patterns.Core.Audio;
 
-namespace Patterns.App.Services;
+namespace Patterns.Audio;
 
 /// <summary>
 /// The sample-rate converter as a stage in a NAudio chain: the source's frames come out at the

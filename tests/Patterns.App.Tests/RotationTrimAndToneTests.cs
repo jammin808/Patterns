@@ -1,3 +1,4 @@
+using Patterns.Audio;
 using Avalonia;
 using Patterns.App.Rendering;
 using Patterns.App.Services;

@@ -1,3 +1,4 @@
+using Patterns.Audio;
 using Avalonia.Threading;
 using Patterns.Rendering.Effects;
 using Patterns.Core.Media;

@@ -1,3 +1,4 @@
+using Patterns.Audio;
 using System.Runtime.Versioning;
 using Avalonia.Threading;
 using NAudio.CoreAudioApi;

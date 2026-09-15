@@ -1,4 +1,4 @@
-namespace Patterns.Core.Audio;
+namespace Patterns.Audio;
 
 /// <summary>
 /// A ring of interleaved float samples with one writer and any number of readers, each keeping

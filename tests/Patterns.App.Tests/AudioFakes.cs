@@ -1,3 +1,4 @@
+using Patterns.Audio;
 using Patterns.App.Services;
 using Patterns.Core.Services;
 using SkiaSharp;

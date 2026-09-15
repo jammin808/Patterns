@@ -1,6 +1,6 @@
 using NAudio.Wave;
 
-namespace Patterns.App.Services;
+namespace Patterns.Audio;
 
 /// <summary>
 /// A gain stage in front of a WASAPI output: a live target the samples slew towards over 20 ms

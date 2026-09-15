@@ -1,5 +1,5 @@
 using Patterns.Core.Geometry;
-using Patterns.Core.Audio;
+using Patterns.Audio;
 using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
 using Patterns.Rendering;

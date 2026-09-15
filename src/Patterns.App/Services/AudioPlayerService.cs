@@ -2,7 +2,7 @@ using Avalonia.Threading;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
-using Patterns.Core.Audio;
+using Patterns.Audio;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -68,7 +68,7 @@ public sealed class AudioPlayerService : IDisposable
         // The voice opens on the destinations routed for its kind (the programme's outputs while
         // the matrix is off), at the crosspoint's gain and the destination's delay.
         VoiceFactory = (path, volumePct) => OperatingSystem.IsWindows()
-            ? WasapiStingerVoice.Open(path, volumePct, AudioRouting.OutputsFor(_services.State, _openingKind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting), _services.AudioGraph)
+            ? WasapiStingerVoice.Open(path, volumePct, AudioRouting.OutputsFor(_services.State, _openingKind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting), _services.AudioGraph is not null)
             : null;
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _timer.Tick += (_, _) => Tick();
@@ -82,7 +82,8 @@ public sealed class AudioPlayerService : IDisposable
     /// the jack/interface feeding the venue sound system). A key, not a display name, so it
     /// survives the default device changing.
     /// </summary>
-    public const string DefaultDeviceKey = "(computer output)";
+    /// <summary>The computer output's key in the delay table: the audio module's constant.</summary>
+    public const string DefaultDeviceKey = AudioOutputs.DefaultDeviceKey;
 
     /// <summary>Reads a folder's files; the app's file system by default, a list in tests.</summary>
     public Func<string, IEnumerable<string>> EnumerateFiles { get; set; } = folder =>
@@ -484,20 +485,8 @@ public sealed class AudioPlayerService : IDisposable
         Log.Info($"Audio track started on {_players.Count} output(s): {Path.GetFileName(path)}");
     }
 
-    /// <summary>The delay-table key of a resolved device: its name when it was chosen by name, else the computer-output key.</summary>
-    public static string DelayKeyFor(MMDevice device, IReadOnlyList<string> chosenNames)
-    {
-        try
-        {
-            var name = device.FriendlyName;
-            if (chosenNames.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase))) return name;
-        }
-        catch
-        {
-            // A device that will not say its name is the default one.
-        }
-        return DefaultDeviceKey;
-    }
+    /// <summary>The delay-table key of a resolved device: the audio module's rule.</summary>
+    public static string DelayKeyFor(MMDevice device, IReadOnlyList<string> chosenNames) => AudioOutputs.DelayKeyFor(device, chosenNames);
 
     // ---- the lock to the master clock ---------------------------------------------------------
 
@@ -581,55 +570,12 @@ public sealed class AudioPlayerService : IDisposable
     /// <summary>The worst lag of any playing output, ms; -1 with nothing playing.</summary>
     public double SyncWorstLagMs => _players.Count == 0 ? -1 : _players.Max(p => Math.Abs(p.LagMs));
 
-    /// <summary>
-    /// Stored names → devices. The <see cref="DefaultDeviceKey"/> entry adds the computer's
-    /// default output (the venue-PA feed) and can combine with named HDMI screens; the same
-    /// physical endpoint never plays twice. Empty selection (or nothing matching) = default.
-    /// </summary>
+    /// <summary>Stored names → devices: the audio module's rule.</summary>
     internal static List<MMDevice> ResolveDevices(MMDeviceEnumerator enumerator, IReadOnlyList<string> names)
     {
-        var result = new List<MMDevice>();
-        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        void AddDefault()
-        {
-            var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-            if (taken.Add(device.ID)) result.Add(device);
-            else device.Dispose();
-        }
-
-        if (names.Contains(DefaultDeviceKey)) AddDefault();
-        if (names.Count > 0)
-        {
-            foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
-            {
-                if (names.Any(n => string.Equals(n, device.FriendlyName, StringComparison.OrdinalIgnoreCase)) &&
-                    taken.Add(device.ID))
-                {
-                    result.Add(device);
-                }
-                else
-                {
-                    device.Dispose();
-                }
-            }
-        }
-        if (result.Count == 0)
-        {
-            // Named an interface that is not plugged in. Falling back to the default endpoint is
-            // right — a show must not go silent because a USB cable moved — but it must never be
-            // silent about it: the programme is now coming out of the machine's own output, and
-            // an operator who is not told will find out from the room.
-            MissingDevices = names.Where(n => n != DefaultDeviceKey).ToList();
-            AddDefault();
-        }
-        else
-        {
-            MissingDevices = names
-                .Where(n => n != DefaultDeviceKey && !result.Any(d => string.Equals(d.FriendlyName, n, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-        }
-        return result;
+        var devices = AudioOutputs.ResolveDevices(enumerator, names, out var missing);
+        MissingDevices = missing;
+        return devices;
     }
 
     /// <summary>

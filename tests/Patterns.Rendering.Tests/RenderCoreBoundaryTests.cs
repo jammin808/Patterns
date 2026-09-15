@@ -17,14 +17,14 @@ public class RenderCoreBoundaryTests
 {
     private static readonly string[] RenderNamespaces =
     {
-        "Patterns.Rendering", "Patterns.Ndi", "Patterns.Arcade", "Patterns.Core.Audio",
+        "Patterns.Rendering", "Patterns.Ndi", "Patterns.Arcade", "Patterns.Audio",
     };
 
     /// <summary>The render side's assemblies — the engine, NDI and the arcade — and the core, whose audio maths the seam also covers.</summary>
     private static readonly System.Reflection.Assembly[] RenderAssemblies =
     {
         typeof(Patterns.Rendering.PatternEngine).Assembly, typeof(Patterns.Ndi.NdiInterop).Assembly, typeof(Patterns.Arcade.ArcadeEngine).Assembly,
-        typeof(Patterns.Core.Audio.AudioRing).Assembly,
+        typeof(Patterns.Audio.AudioRing).Assembly,
     };
 
     private static bool Forbidden(Type t)

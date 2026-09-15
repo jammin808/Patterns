@@ -1,3 +1,4 @@
+using Patterns.Audio;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using NAudio.Wave;

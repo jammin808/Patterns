@@ -1,3 +1,4 @@
+using Patterns.Audio;
 using System.Runtime.InteropServices;
 using Avalonia.Threading;
 using LibVLCSharp.Shared;
@@ -327,7 +328,7 @@ public sealed class VideoEngine : IDisposable
     }
 
     /// <summary>The mounted clips whose soundtracks are tapped for the mixer, with the pictures each plays on; a held pre-roll is silent already.</summary>
-    public IEnumerable<(string Key, IReadOnlyList<MediaBus> Buses, Patterns.Core.Audio.AudioRing Tap, bool PreRoll)> Taps()
+    public IEnumerable<(string Key, IReadOnlyList<MediaBus> Buses, Patterns.Audio.AudioRing Tap, bool PreRoll)> Taps()
     {
         foreach (var (key, mount) in _mounts)
         {
@@ -572,7 +573,7 @@ public interface IMountedSource : IVideoFrameSource, IDisposable
     /// The decoded soundtrack as the mixer reads it (48 kHz, stereo, float, interleaved) when the
     /// source was opened with its audio tapped; null when the decoder plays its own sound.
     /// </summary>
-    Patterns.Core.Audio.AudioRing? AudioTap => null;
+    Patterns.Audio.AudioRing? AudioTap => null;
 }
 
 /// <summary>One playing video: libVLC decodes into our BGRA buffer; renderers draw the newest frame.</summary>
@@ -597,7 +598,7 @@ public sealed class VlcFrameSource : IMountedSource
     // instead of an output of its own, and the mixer's lanes carry it wherever the matrix says.
     private readonly MediaPlayer.LibVLCAudioPlayCb? _audioPlayCb;
     private readonly MediaPlayer.LibVLCAudioFlushCb? _audioFlushCb;
-    private readonly Patterns.Core.Audio.AudioRing? _tap;
+    private readonly Patterns.Audio.AudioRing? _tap;
     private volatile float _tapGain = 1f;
     private float[] _tapScratch = Array.Empty<float>();
 
@@ -718,7 +719,7 @@ public sealed class VlcFrameSource : IMountedSource
             // The decoded sound comes to the desk in the mixer's own format; the mute, the volume,
             // the hold and the fade are applied here, in the tap, so nothing depends on a write
             // libVLC might drop before its output exists — there is no output of its own now.
-            _tap = new Patterns.Core.Audio.AudioRing(TapChannels, TapRate);
+            _tap = new Patterns.Audio.AudioRing(TapChannels, TapRate);
             _audioPlayCb = OnAudioPlay;
             _audioFlushCb = OnAudioFlush;
             _player.SetAudioFormat("FL32", TapRate, TapChannels);
@@ -732,7 +733,7 @@ public sealed class VlcFrameSource : IMountedSource
         ApplyAudio();
     }
 
-    public Patterns.Core.Audio.AudioRing? AudioTap => _tap;
+    public Patterns.Audio.AudioRing? AudioTap => _tap;
 
     /// <summary>libVLC's decoded samples (its audio thread): scaled by the tap's gain and written to the ring; the decoder never waits.</summary>
     private void OnAudioPlay(IntPtr data, IntPtr samples, uint count, long pts)

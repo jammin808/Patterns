@@ -3,7 +3,7 @@ using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Audio;
 
 /// <summary>
 /// One sound on air: a file playing on the audio-track outputs with a gain of its own. A voice is
@@ -28,7 +28,7 @@ public interface IStingerVoice : IDisposable
     void Release(int ms);
 
     /// <summary>The voice's sound as the NDI lanes read it (its first output's), or null.</summary>
-    Patterns.Core.Audio.AudioRing? Tap => null;
+    Patterns.Audio.AudioRing? Tap => null;
 }
 
 /// <summary>The WASAPI voice: one output per selected device, each behind a <see cref="GainSampleProvider"/>.</summary>
@@ -36,7 +36,7 @@ public sealed class WasapiStingerVoice : IStingerVoice
 {
     private readonly List<(IWavePlayer Output, AudioFileReader Reader, GainSampleProvider Gain, MMDevice Device, string Key, double Pick)> _outputs = new();
     private bool _releasing;
-    private Patterns.Core.Audio.AudioRing? _tap;
+    private Patterns.Audio.AudioRing? _tap;
 
     private WasapiStingerVoice()
     {
@@ -48,8 +48,8 @@ public sealed class WasapiStingerVoice : IStingerVoice
     /// </summary>
     public static WasapiStingerVoice? Open(string path, double volumePct, IReadOnlyList<string> deviceNames, Func<string, int>? delayFor = null)
     {
-        var names = deviceNames.Count == 0 ? new[] { AudioPlayerService.DefaultDeviceKey } : deviceNames;
-        return Open(path, volumePct, names.Select(n => new AudioOutputPick(n, 1.0, delayFor?.Invoke(n) ?? 0)).ToList(), null);
+        var names = deviceNames.Count == 0 ? new[] { AudioOutputs.DefaultDeviceKey } : deviceNames;
+        return Open(path, volumePct, names.Select(n => new AudioOutputPick(n, 1.0, delayFor?.Invoke(n) ?? 0)).ToList(), tapForGraph: false);
     }
 
     /// <summary>
@@ -57,7 +57,7 @@ public sealed class WasapiStingerVoice : IStingerVoice
     /// routing matrix hands them over; the first output is tapped for the NDI lanes when a graph
     /// is given. Null when nothing opened (no device, unreadable file).
     /// </summary>
-    public static WasapiStingerVoice? Open(string path, double volumePct, IReadOnlyList<AudioOutputPick> picks, AudioGraphService? graph)
+    public static WasapiStingerVoice? Open(string path, double volumePct, IReadOnlyList<AudioOutputPick> picks, bool tapForGraph)
     {
         var voice = new WasapiStingerVoice();
         if (picks.Count == 0) return null;   // routed nowhere: nothing to open, and that is the matrix's word
@@ -66,7 +66,7 @@ public sealed class WasapiStingerVoice : IStingerVoice
         List<MMDevice> devices;
         try
         {
-            devices = AudioPlayerService.ResolveDevices(enumerator, deviceNames);
+            devices = AudioOutputs.ResolveDevices(enumerator, deviceNames);
         }
         catch (Exception ex)
         {
@@ -83,15 +83,15 @@ public sealed class WasapiStingerVoice : IStingerVoice
             try
             {
                 reader = new AudioFileReader(path) { Volume = (float)Math.Clamp(volumePct / 100.0, 0, 1.25) };
-                var key = AudioPlayerService.DelayKeyFor(device, deviceNames);
+                var key = AudioOutputs.DelayKeyFor(device, deviceNames);
                 var pick = picks.FirstOrDefault(p => string.Equals(p.Device, key, StringComparison.OrdinalIgnoreCase));
                 var pickGain = pick.Device is null ? 1.0 : pick.Gain;
                 var gain = new GainSampleProvider(reader, (float)Math.Clamp(pickGain, 0, 1));
                 ISampleProvider tail = gain;
-                if (first && graph is not null)
+                if (first && tapForGraph)
                 {
                     // The voice owns its tap; the graph reads it while the voice plays and forgets it after.
-                    voice._tap = new Patterns.Core.Audio.AudioRing(AudioGraphService.Channels, AudioGraphService.Rate);
+                    voice._tap = new AudioRing(AudioMix.Channels, AudioMix.Rate);
                     tail = new TeeSampleProvider(gain, voice._tap);
                 }
                 first = false;
@@ -119,7 +119,7 @@ public sealed class WasapiStingerVoice : IStingerVoice
 
     public bool Releasing => _releasing;
 
-    public Patterns.Core.Audio.AudioRing? Tap => _tap;
+    public Patterns.Audio.AudioRing? Tap => _tap;
 
     public void SetGain(double gain)
     {
