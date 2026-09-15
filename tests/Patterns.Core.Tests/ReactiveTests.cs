@@ -1,7 +1,6 @@
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
-using Patterns.Core.Patterns;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;

@@ -8,7 +8,7 @@ using Avalonia.VisualTree;
 using Patterns.App.Rendering;
 using Patterns.App.Views.Sections;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using SkiaSharp;
 using Xunit;
 

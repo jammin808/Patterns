@@ -1,5 +1,6 @@
 using Patterns.Core.Play;
-using Patterns.Core.Rendering;
+using Patterns.Arcade;
+using Patterns.Rendering;
 using SkiaSharp;
 using Xunit;
 

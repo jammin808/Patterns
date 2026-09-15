@@ -125,7 +125,7 @@ public static class HealthDashboard
         // the per-second sample below is the reading when no sink has reported yet.
         if (f.RenderWorstMs >= 0)
         {
-            var stage = f.RenderWorstStage.Length > 0 ? Rendering.FrameStage.Words(f.RenderWorstStage) : "";
+            var stage = f.RenderWorstStage.Length > 0 ? FrameStage.Words(f.RenderWorstStage) : "";
             var where = string.Join(", ", new[] { stage, f.RenderWorstSink }.Where(x => x.Length > 0));
             var budgetLight = f.RenderWorstMs > FrameBudget.StutterMs ? CheckLight.Red
                 : f.RenderWorstMs > FrameBudget.SlowMs || faults > 0 || deskStutters ? CheckLight.Amber

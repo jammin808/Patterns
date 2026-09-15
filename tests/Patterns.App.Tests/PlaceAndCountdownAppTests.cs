@@ -9,7 +9,7 @@ using Patterns.App.ViewModels;
 using Patterns.App.Views.Controls;
 using Patterns.App.Views.Sections;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;

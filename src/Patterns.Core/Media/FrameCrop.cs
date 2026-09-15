@@ -1,14 +1,13 @@
 using System.Globalization;
 using Patterns.Core.Model;
-using SkiaSharp;
 
 namespace Patterns.Core.Media;
 
 /// <summary>
 /// How much of a frame to cut away on each side, as a share of the frame: the area of interest
 /// of an input. Each side may take up to 90 %, and at least a twentieth of every axis always
-/// survives (the left and the top win when two sides overlap). Pure: the rect maths a source
-/// draws with, the shape the picture takes, and the composition of a box picked on the picture
+/// survives (the left and the top win when two sides overlap). Pure: the fractions a source
+/// draws with (the render side turns them into its rectangle), the shape the picture takes, and the composition of a box picked on the picture
 /// as it shows are all here, and all unit tested.
 /// </summary>
 public readonly record struct FrameCrop(double LeftPct, double TopPct, double RightPct, double BottomPct)
@@ -37,24 +36,6 @@ public readonly record struct FrameCrop(double LeftPct, double TopPct, double Ri
         if (l + r > 1 - keep) r = Math.Max(0, 1 - keep - l);
         if (t + b > 1 - keep) b = Math.Max(0, 1 - keep - t);
         return (l, t, r, b);
-    }
-
-    /// <summary>The part of a frame of this size that survives the crop, in the frame's own pixels.</summary>
-    public SKRect SourceRect(SKSizeI frame)
-    {
-        var (l, t, r, b) = Fractions();
-        return new SKRect(
-            (float)(frame.Width * l),
-            (float)(frame.Height * t),
-            (float)(frame.Width * (1 - r)),
-            (float)(frame.Height * (1 - b)));
-    }
-
-    /// <summary>The shape the cropped picture has — what the inset should be sized to.</summary>
-    public float AspectOf(SKSizeI frame)
-    {
-        var rect = SourceRect(frame);
-        return rect.Height > 0 && rect.Width > 0 ? rect.Width / rect.Height : 16f / 9f;
     }
 
     /// <summary>

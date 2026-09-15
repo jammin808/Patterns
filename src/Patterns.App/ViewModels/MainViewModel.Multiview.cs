@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using Patterns.App.Services;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 
 namespace Patterns.App.ViewModels;

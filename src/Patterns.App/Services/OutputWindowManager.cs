@@ -2,7 +2,7 @@ using Patterns.Core.Geometry;
 using Patterns.App.Rendering;
 using Patterns.App.Views;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 

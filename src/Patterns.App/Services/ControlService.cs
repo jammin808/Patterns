@@ -1,10 +1,11 @@
 using Patterns.Core.Model;
 using Patterns.Core.Play;
+using Patterns.Arcade;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Avalonia.Threading;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 

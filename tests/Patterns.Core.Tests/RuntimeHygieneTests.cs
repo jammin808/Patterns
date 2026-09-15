@@ -1,6 +1,6 @@
 using System.Runtime;
 using System.Text.Json;
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;

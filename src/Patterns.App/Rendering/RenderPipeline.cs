@@ -1,8 +1,8 @@
 using Patterns.Core.Geometry;
 using Patterns.Core.Model;
-using Patterns.Core.Patterns;
+using Patterns.Rendering;
 using Patterns.Core.Media;
-using Patterns.Core.Rendering;
+using Patterns.Rendering.Media;
 using Patterns.Core.Services;
 using SkiaSharp;
 
@@ -519,7 +519,7 @@ public sealed class RenderPipeline : IDisposable
             var warped = canvas.Save();
             canvas.Concat(in warp);
             canvas.Concat(geo.Rotation);
-            canvas.DrawImage(image, 0, 0, Patterns.Core.Rendering.DrawUtil.Smooth, _warpPaint);
+            canvas.DrawImage(image, 0, 0, Patterns.Rendering.DrawUtil.Smooth, _warpPaint);
             canvas.RestoreToCount(warped); // the blend mask below applies the same transform itself
         }
         else
@@ -686,7 +686,7 @@ public sealed class RenderPipeline : IDisposable
                 _maskImage = LoadMask(vp.BlendMaskPath);
                 _maskImageFor = vp.BlendMaskPath;
             }
-            if (_maskImage is not null) canvas.DrawImage(_maskImage, SKRect.Create(0, 0, w, h), Patterns.Core.Rendering.DrawUtil.Smooth, _maskPaint);
+            if (_maskImage is not null) canvas.DrawImage(_maskImage, SKRect.Create(0, 0, w, h), Patterns.Rendering.DrawUtil.Smooth, _maskPaint);
         }
         if (vp.BlendLeftPx > 0)
         {

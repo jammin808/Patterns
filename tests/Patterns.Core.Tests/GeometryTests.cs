@@ -1,6 +1,7 @@
 using Patterns.Core.Geometry;
 using Patterns.Core.Media;
-using Patterns.Core.Rendering;
+using Patterns.Rendering.Media;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;

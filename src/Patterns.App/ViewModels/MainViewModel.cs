@@ -3,16 +3,18 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Patterns.App.Services;
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
-using Patterns.Core.Ndi;
-using Patterns.Core.Particles;
+using Patterns.Ndi;
+using Patterns.Rendering.Particles;
 using Patterns.Core.Media;
-using Patterns.Core.Rendering;
+using Patterns.Rendering.Media;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 
 namespace Patterns.App.ViewModels;
 

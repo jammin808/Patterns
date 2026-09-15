@@ -1,6 +1,6 @@
 using Patterns.Core.Model;
-using Patterns.Core.Ndi;
-using Patterns.Core.Particles;
+using Patterns.Ndi;
+using Patterns.Rendering.Particles;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;

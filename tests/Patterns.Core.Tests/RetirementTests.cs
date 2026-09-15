@@ -1,4 +1,5 @@
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using SkiaSharp;
 using Xunit;
 

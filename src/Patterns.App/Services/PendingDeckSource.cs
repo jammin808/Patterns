@@ -1,4 +1,5 @@
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using SkiaSharp;
 
 namespace Patterns.App.Services;

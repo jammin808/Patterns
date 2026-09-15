@@ -1,6 +1,6 @@
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
-using Patterns.Core.Patterns;
+using Patterns.Rendering;
 using SkiaSharp;
 using Xunit;
 
@@ -139,7 +139,7 @@ public class FractalMathTests
             var view = FractalView.Of(o, 2.0, AudioLevelFrame.Zero, iterationCap: 64);
 
             using var raster = FractalRaster.Render(null, new SKSizeI(w, h), kind, palette, view);
-            using var sink = new Rendering.SinkState();
+            using var sink = new Patterns.Rendering.SinkState();
             using var surface = SKSurface.Create(new SKImageInfo(w, h, SKColorType.Bgra8888, SKAlphaType.Premul));
             Assert.True(FractalPattern.TryDrawShader(surface.Canvas, sink, kind, palette, in view, w, h, SKRect.Create(0, 0, w, h), sink.Paints), $"{kind}: no shader");
             surface.Canvas.Flush();

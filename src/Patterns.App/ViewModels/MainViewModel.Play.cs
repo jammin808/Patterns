@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Patterns.App.Services;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
+using Patterns.Arcade;
 
 namespace Patterns.App.ViewModels;
 

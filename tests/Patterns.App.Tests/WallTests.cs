@@ -1,4 +1,4 @@
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Geometry;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;

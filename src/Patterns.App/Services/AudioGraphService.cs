@@ -5,7 +5,7 @@ using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using Patterns.Core.Audio;
 using Patterns.Core.Model;
-using Patterns.Core.Ndi;
+using Patterns.Ndi;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;

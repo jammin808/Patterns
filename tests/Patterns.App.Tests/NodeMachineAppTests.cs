@@ -9,6 +9,7 @@ using Patterns.App.Views;
 using Patterns.App.Views.Sections;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
+using Patterns.Arcade;
 using Patterns.Core.Services;
 using Xunit;
 

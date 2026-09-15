@@ -1,4 +1,4 @@
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using SkiaSharp;
 
 namespace Patterns.App.Rendering;

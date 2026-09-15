@@ -1,7 +1,7 @@
 using Avalonia.Threading;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 

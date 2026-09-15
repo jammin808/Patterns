@@ -1,4 +1,4 @@
-using Patterns.Core.Ndi;
+using Patterns.Ndi;
 using SkiaSharp;
 using Xunit;
 

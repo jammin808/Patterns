@@ -1,5 +1,7 @@
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -230,7 +232,7 @@ public sealed partial class ShowActions
         {
             return ActionResult.Refused("No video is on air — put a clip on the pattern of the look on air, or fire a video stinger, first.");
         }
-        var source = Patterns.Core.Media.InputBus.For(reading.Key);
+        var source = Patterns.Rendering.Media.InputBus.For(reading.Key);
         if (source is null || !source.CanSeek)
         {
             return ActionResult.Failed($"'{reading.Name}' cannot be moved — a live source, or its decoder is not open yet.");

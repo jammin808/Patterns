@@ -4,7 +4,8 @@ using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.Core.Model;
 using Patterns.Core.RigDay;
-using Patterns.Core.Rendering;
+using Patterns.Rendering.RigDay;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using Xunit;
 

@@ -1,9 +1,10 @@
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Avalonia.Threading;
 using Patterns.App.Views;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
-using Patterns.Core.Ndi;
+using Patterns.Ndi;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;

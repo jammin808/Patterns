@@ -3,6 +3,7 @@ using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 

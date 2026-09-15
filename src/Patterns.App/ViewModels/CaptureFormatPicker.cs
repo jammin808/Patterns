@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Patterns.App.Services;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 
 namespace Patterns.App.ViewModels;

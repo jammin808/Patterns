@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 

@@ -5,7 +5,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Patterns.App.Views.Sections;
 using Patterns.Core.Model;
-using Patterns.Core.Particles;
+using Patterns.Rendering.Particles;
 using Xunit;
 
 namespace Patterns.App.Tests;

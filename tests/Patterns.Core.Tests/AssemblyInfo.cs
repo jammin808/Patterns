@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Xunit;
 
 // The engine keeps a little process-wide state on purpose — the sync marks' flash, the input

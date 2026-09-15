@@ -8,9 +8,11 @@ using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Patterns.App.Rendering;
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 

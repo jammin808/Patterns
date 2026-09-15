@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 using Patterns.Core.Audio;
-using Patterns.Core.Ndi;
+using Patterns.Ndi;
 using Xunit;
 
 namespace Patterns.Core.Tests;

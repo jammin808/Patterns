@@ -8,6 +8,7 @@ using Patterns.App.ViewModels;
 using Patterns.App.Views.Controls;
 using Patterns.App.Views.Sections;
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Xunit;
 
 namespace Patterns.App.Tests;

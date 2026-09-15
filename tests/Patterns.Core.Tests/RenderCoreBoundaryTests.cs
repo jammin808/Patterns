@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Xunit;
 
 namespace Patterns.Core.Tests;
@@ -17,8 +17,14 @@ public class RenderCoreBoundaryTests
 {
     private static readonly string[] RenderNamespaces =
     {
-        "Patterns.Core.Rendering", "Patterns.Core.Patterns", "Patterns.Core.Effects", "Patterns.Core.Particles",
-        "Patterns.Core.LowerThirds", "Patterns.Core.Media", "Patterns.Core.Ndi", "Patterns.Core.Audio",
+        "Patterns.Rendering", "Patterns.Ndi", "Patterns.Arcade", "Patterns.Core.Audio",
+    };
+
+    /// <summary>The render side's assemblies — the engine, NDI and the arcade — and the core, whose audio maths the seam also covers.</summary>
+    private static readonly System.Reflection.Assembly[] RenderAssemblies =
+    {
+        typeof(Patterns.Rendering.PatternEngine).Assembly, typeof(Patterns.Ndi.NdiInterop).Assembly, typeof(Patterns.Arcade.ArcadeEngine).Assembly,
+        typeof(Patterns.Core.Audio.AudioRing).Assembly,
     };
 
     private static bool Forbidden(Type t)
@@ -36,17 +42,19 @@ public class RenderCoreBoundaryTests
     [Fact]
     public void TheRenderCoreNeverReachesTheIntegrationsOrTheNetwork()
     {
-        var core = typeof(PatternEngine).Assembly;
         var offences = new List<string>();
-        foreach (var type in core.GetTypes())
+        var checkedTypes = 0;
+        foreach (var type in RenderAssemblies.Distinct().SelectMany(a => a.GetTypes()))
         {
             var ns = type.Namespace ?? "";
             if (!RenderNamespaces.Any(n => ns == n || ns.StartsWith(n + ".", StringComparison.Ordinal))) continue;
+            checkedTypes++;
             foreach (var referenced in ReferencedTypes(type))
             {
                 if (Forbidden(referenced)) offences.Add($"{type.FullName} → {referenced.FullName}");
             }
         }
+        Assert.True(checkedTypes > 100, $"the seam read {checkedTypes} types: the render assemblies moved and this test did not follow");
         Assert.True(offences.Count == 0, "The render core reaches outside its seam:\n" + string.Join("\n", offences.Distinct()));
     }
 

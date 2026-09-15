@@ -6,6 +6,7 @@ using System.Text.Json;
 using Avalonia.Threading;
 using Microsoft.Web.WebView2.Core;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Services;
 using SkiaSharp;
 

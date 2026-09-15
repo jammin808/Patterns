@@ -4,6 +4,7 @@ using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.App.Views;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;
@@ -122,7 +123,7 @@ public class InputsWebViewModelTests
             vm.ActivePattern.Media.NdiSourceName = "TX1 (Programme)";
             Dispatcher.UIThread.RunJobs();
 
-            if (!Patterns.Core.Ndi.NdiInterop.Available)
+            if (!Patterns.Ndi.NdiInterop.Available)
             {
                 Assert.Null(InputBus.For(InputKeys.Ndi("TX1 (Programme)")));
                 Assert.Contains("runtime", NdiInput.AvailabilityNote, StringComparison.OrdinalIgnoreCase);

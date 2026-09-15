@@ -1,5 +1,6 @@
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Services;
 using PDFtoImage;
 using SkiaSharp;

@@ -121,7 +121,7 @@ public sealed class CommandRouter : IRouter
     {
         var wanted = MediaLocator.FindWantedInputs(_services.Bus.Current).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.Deck);
         if (wanted is null) return null;
-        var deck = Patterns.Core.Media.InputBus.For(wanted.Key) as Patterns.Core.Media.IDeckSource;
+        var deck = Patterns.Rendering.Media.InputBus.For(wanted.Key) as Patterns.Rendering.Media.IDeckSource;
         var ends = MediaLocator.FindActiveMedia(_services.AirState, MediaSource.Deck)?.DeckEndsWithGo ?? true;
         return new
         {
@@ -194,7 +194,7 @@ public sealed class CommandRouter : IRouter
     {
         var wanted = MediaLocator.FindWantedInputs(_services.Bus.Current).FirstOrDefault(w => w.Kind == MediaLocator.WantedKind.Web);
         if (wanted is null) return null;
-        var page = Patterns.Core.Media.InputBus.For(wanted.Key) as Patterns.Core.Media.IWebSource;
+        var page = Patterns.Rendering.Media.InputBus.For(wanted.Key) as Patterns.Rendering.Media.IWebSource;
         var url = page?.CurrentUrl is { Length: > 0 } current ? current : wanted.Target;
         var preset = WebPresets.For(url);
         return new
@@ -480,17 +480,17 @@ public sealed class CommandRouter : IRouter
             memory = new                                                     // the memory ceilings: the app's working set against its ceiling, and the line
             {
                 appMB = Math.Round(_services.Metrics.Current?.RamAppMB ?? -1),
-                ceilingMB = Math.Round(MemoryBudget.For(_services.Metrics.Current?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts).AppCeilingMB),
+                ceilingMB = Math.Round(MemoryBudget.For(_services.Metrics.Current?.RamTotalMB ?? -1, Patterns.Rendering.Media.ImageCache.Capacity, VideoEngine.MaxMounts).AppCeilingMB),
                 privateMB = Math.Round(_services.Metrics.Current?.PrivateMB ?? -1),
                 managedMB = Math.Round(_services.Metrics.Current?.ManagedMB ?? -1),
-                pictureMB = Math.Round(Patterns.Core.Media.ImageCache.Bytes / (1024.0 * 1024.0)),
-                framePoolMB = Math.Round(Patterns.Core.Media.FramePools.Bytes / (1024.0 * 1024.0)),
-                retiringMB = Math.Round((Patterns.Core.Media.RetiredFrames.Bytes + Patterns.Core.Media.FramePools.RetiringBytes) / (1024.0 * 1024.0)),   // behind the render fence: frames, pictures and pools let go, waiting for the sinks that drew them
-                starved = Patterns.Core.Media.FramePools.Starved,
-                pendingFree = Patterns.Core.Media.FramePools.PendingFree,
-                fenceOldestMs = Math.Round(Math.Max(Patterns.Core.Media.FramePools.OldestRetiredMs, Patterns.Core.Media.RetiredFrames.OldestMs)),
-                liveSinks = Patterns.Core.Media.RenderFence.LiveSinks,
-                forcedFrees = Patterns.Core.Media.RenderFence.ForcedFrees,
+                pictureMB = Math.Round(Patterns.Rendering.Media.ImageCache.Bytes / (1024.0 * 1024.0)),
+                framePoolMB = Math.Round(Patterns.Rendering.Media.FramePools.Bytes / (1024.0 * 1024.0)),
+                retiringMB = Math.Round((Patterns.Rendering.Media.RetiredFrames.Bytes + Patterns.Rendering.Media.FramePools.RetiringBytes) / (1024.0 * 1024.0)),   // behind the render fence: frames, pictures and pools let go, waiting for the sinks that drew them
+                starved = Patterns.Rendering.Media.FramePools.Starved,
+                pendingFree = Patterns.Rendering.Media.FramePools.PendingFree,
+                fenceOldestMs = Math.Round(Math.Max(Patterns.Rendering.Media.FramePools.OldestRetiredMs, Patterns.Rendering.Media.RetiredFrames.OldestMs)),
+                liveSinks = Patterns.Rendering.Media.RenderFence.LiveSinks,
+                forcedFrees = Patterns.Rendering.Media.RenderFence.ForcedFrees,
                 mediaMB = Math.Round((_services.Metrics.Pressure.Reading?.Total ?? MediaMemory.Read(MemoryBudget.MachineMB).Total) / (1024.0 * 1024.0)),
                 mediaBudgetMB = Math.Round(MediaMemory.BudgetBytes(MemoryBudget.MachineMB) / (1024.0 * 1024.0)),
                 pressure = MediaMemory.Word(_services.Metrics.Pressure.Level),                            // none / elevated / high / critical: the ladder's rung

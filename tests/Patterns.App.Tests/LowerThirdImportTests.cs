@@ -2,6 +2,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.App.ViewModels;
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Services;
 using Xunit;
 

@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Patterns.Core\Patterns.Core.csproj" />
+    <ProjectReference Include="..\..\src\Patterns.Rendering\Patterns.Rendering.csproj" />
+    <ProjectReference Include="..\..\src\Patterns.Ndi\Patterns.Ndi.csproj" />
+    <ProjectReference Include="..\..\src\Patterns.Arcade\Patterns.Arcade.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,6 @@
 using Patterns.Core.Model;
-using Patterns.Core.Effects;
-using Patterns.Core.Particles;
+using Patterns.Rendering.Effects;
+using Patterns.Rendering.Particles;
 
 namespace Patterns.App.Services;
 

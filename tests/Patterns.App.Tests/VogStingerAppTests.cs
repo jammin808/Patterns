@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.App.ViewModels;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;

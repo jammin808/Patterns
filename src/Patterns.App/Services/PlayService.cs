@@ -3,7 +3,8 @@ using System.Text.Json;
 using Avalonia.Threading;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
-using Patterns.Core.Rendering;
+using Patterns.Arcade;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 

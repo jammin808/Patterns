@@ -1,8 +1,9 @@
 using Patterns.Core.Geometry;
 using System.Text.Json;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.RigDay;
+using Patterns.Rendering.RigDay;
 using Patterns.Core.Services;
 using SkiaSharp;
 

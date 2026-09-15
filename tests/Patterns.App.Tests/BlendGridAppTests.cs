@@ -1,7 +1,7 @@
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Xunit;
 
 namespace Patterns.App.Tests;

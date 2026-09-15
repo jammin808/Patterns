@@ -1,5 +1,6 @@
 using Patterns.Core.Media;
-using Patterns.Core.Ndi;
+using Patterns.Rendering.Media;
+using Patterns.Ndi;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(PatternsTfm)</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <ProjectReference Include="..\Patterns.Core\Patterns.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Inter (SIL OFL 1.1) embedded so overlay text renders identically on any machine. -->
+    <EmbeddedResource Include="Assets\Inter-Regular.ttf" LogicalName="Patterns.Core.Assets.Inter-Regular.ttf" />
+    <EmbeddedResource Include="Assets\Inter-SemiBold.ttf" LogicalName="Patterns.Core.Assets.Inter-SemiBold.ttf" />
+    <None Include="Assets\Inter-LICENSE-OFL.txt" />
+  </ItemGroup>
+
+</Project>

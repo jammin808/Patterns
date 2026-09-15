@@ -1,6 +1,7 @@
 using Patterns.Core.Model;
 using Avalonia.Threading;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;

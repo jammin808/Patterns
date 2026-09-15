@@ -1,0 +1,127 @@
+using Patterns.Core.Geometry;
+using Patterns.Core.Model;
+using SkiaSharp;
+
+namespace Patterns.Rendering;
+
+public readonly record struct LedLayout(int Columns, int Rows, int TileWidth, int TileHeight, SKSizeI Canvas)
+{
+    public int TileCount => Columns * Rows;
+}
+
+public readonly record struct BlendLayout(int Projectors, int NativeW, int NativeH, int Overlap, BlendOrientation Orientation, SKSizeI Canvas, int Rows = 1, int OverlapAcross = 0)
+{
+    /// <summary>Origin of projector i along the blend axis.</summary>
+    public int OriginOf(int i) => i * (AxisNative - Overlap);
+    public int AxisNative => Orientation == BlendOrientation.Horizontal ? NativeW : NativeH;
+
+    /// <summary>Origin of row j across the blend axis (0 for a single row).</summary>
+    public int OriginAcrossOf(int j) => j * (AcrossNative - OverlapAcross);
+    public int AcrossNative => Orientation == BlendOrientation.Horizontal ? NativeH : NativeW;
+
+    /// <summary>Every projector in the rig: the row's count times the rows.</summary>
+    public int Count => Projectors * Math.Max(1, Rows);
+
+    /// <summary>The number a projector shows — 1-based, along the first row first.</summary>
+    public int NumberOf(int i, int j) => j * Projectors + i + 1;
+}
+
+/// <summary>Pure layout math shared by renderers, the UI (readouts) and tests.</summary>
+public static class CanvasResolver
+{
+    /// <summary>Canvas of an irregular map: the extents of its tiles.</summary>
+    public static SKSizeI LedCustomCanvas(LedWallOptions o)
+    {
+        var w = 0;
+        var h = 0;
+        foreach (var t in o.CustomTiles)
+        {
+            w = Math.Max(w, t.X + t.Width);
+            h = Math.Max(h, t.Y + t.Height);
+        }
+        return w > 0 && h > 0 ? new SKSizeI(w, h) : new SKSizeI(256, 256);
+    }
+
+    public static LedLayout Led(LedWallOptions o)
+    {
+        if (o.DefineByCanvas)
+        {
+            var cols = (o.CanvasWidth + o.TileWidth - 1) / o.TileWidth;
+            var rows = (o.CanvasHeight + o.TileHeight - 1) / o.TileHeight;
+            return new LedLayout(cols, rows, o.TileWidth, o.TileHeight, new SKSizeI(o.CanvasWidth, o.CanvasHeight));
+        }
+        return new LedLayout(
+            o.Columns, o.Rows, o.TileWidth, o.TileHeight,
+            new SKSizeI(o.Columns * o.TileWidth, o.Rows * o.TileHeight));
+    }
+
+    public static SKSizeI VideoWall(VideoWallOptions o)
+    {
+        var (w, h) = o.Portrait ? (o.ElementHeight, o.ElementWidth) : (o.ElementWidth, o.ElementHeight);
+        return new SKSizeI(o.Columns * w, o.Rows * h);
+    }
+
+    /// <summary>A row of projectors along the orientation — and, with rows across it, a grid blended both ways.</summary>
+    public static BlendLayout Blend(BlendOptions o)
+    {
+        var horizontal = o.Orientation == BlendOrientation.Horizontal;
+        var axisNative = horizontal ? o.NativeWidth : o.NativeHeight;
+        var acrossNative = horizontal ? o.NativeHeight : o.NativeWidth;
+        var overlap = Math.Min(o.OverlapPx, axisNative - 8);
+        var rows = Math.Max(1, o.Rows);
+        var overlapAcross = rows > 1 ? Math.Min(o.OverlapAcrossPx, acrossNative - 8) : 0;
+        var total = o.Projectors * axisNative - (o.Projectors - 1) * overlap;
+        var totalAcross = rows * acrossNative - (rows - 1) * overlapAcross;
+        var canvas = horizontal
+            ? new SKSizeI(total, totalAcross)
+            : new SKSizeI(totalAcross, total);
+        return new BlendLayout(o.Projectors, o.NativeWidth, o.NativeHeight, overlap, o.Orientation, canvas, rows, overlapAcross);
+    }
+
+    /// <summary>
+    /// The pattern canvas size for a config rendered against a reference (screen/union/NDI)
+    /// size. A wall pattern built for the very raster whose dead strips <paramref name="gaps"/>
+    /// describes takes the surface with the strips put back, so its tiles land on the panels.
+    /// </summary>
+    public static SKSizeI Resolve(PatternConfig p, SKSizeI reference, GapMap? gaps = null)
+    {
+        var own = p.Kind switch
+        {
+            PatternKind.LedWall => p.LedWall.UseCustomMap && p.LedWall.CustomTiles.Count > 0
+                ? LedCustomCanvas(p.LedWall)
+                : Led(p.LedWall).Canvas,
+            PatternKind.VideoWall => VideoWall(p.VideoWall),
+            PatternKind.ProjectionBlend => Blend(p.Blend).Canvas,
+            _ => p.Canvas.FollowOutput || p.Canvas.Width <= 0 || p.Canvas.Height <= 0
+                ? reference
+                : new SKSizeI(p.Canvas.Width, p.Canvas.Height),
+        };
+        return WallSpansGaps(p, gaps, own) ? gaps!.Virtual.ToSk() : own;
+    }
+
+    /// <summary>True when a wall pattern's raster is the target's raster, so its tiles lay out across the target's strips.</summary>
+    public static bool WallSpansGaps(PatternConfig p, GapMap? gaps, SKSizeI ownRaster)
+        => gaps is { IsEmpty: false }
+           && p.Kind is PatternKind.LedWall or PatternKind.VideoWall
+           && !(p.Kind == PatternKind.LedWall && p.LedWall.UseCustomMap && p.LedWall.CustomTiles.Count > 0)
+           && ownRaster.ToRaster() == gaps.Raster;
+
+    /// <summary>
+    /// Maps the canvas into reference space: uniform fit (letterboxed) or centred 1:1.
+    /// Returns offset and scale such that ref = canvasPoint * scale + offset.
+    /// </summary>
+    public static (SKPoint Offset, float Scale) MapToReference(SKSizeI canvas, SKSizeI reference, CanvasScaleMode mode)
+    {
+        if (canvas == reference) return (new SKPoint(0, 0), 1f);
+        if (mode == CanvasScaleMode.OneToOne)
+        {
+            var ox = MathF.Round((reference.Width - canvas.Width) / 2f);
+            var oy = MathF.Round((reference.Height - canvas.Height) / 2f);
+            return (new SKPoint(ox, oy), 1f);
+        }
+        var s = Math.Min((float)reference.Width / canvas.Width, (float)reference.Height / canvas.Height);
+        var w = canvas.Width * s;
+        var h = canvas.Height * s;
+        return (new SKPoint((reference.Width - w) / 2f, (reference.Height - h) / 2f), s);
+    }
+}

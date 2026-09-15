@@ -1,0 +1,983 @@
+using Patterns.Core.Media;
+using Patterns.Rendering.Media;
+using Patterns.Core.Geometry;
+using Patterns.Core.Model;
+using Patterns.Rendering;
+using Patterns.Core.Services;
+using SkiaSharp;
+
+namespace Patterns.Rendering;
+
+/// <summary>
+/// Renders a show snapshot to any Skia canvas. The same engine draws the preview, every
+/// fullscreen output, preset thumbnails and NDI frames — one implementation, one visual truth.
+/// </summary>
+public sealed class PatternEngine
+{
+    private static readonly SKColor LetterboxColor = new(0x0A, 0x0A, 0x0F);
+
+    private readonly IReadOnlyDictionary<PatternKind, IPatternRenderer> _renderers = PatternRegistry.CreateAll();
+
+    public void Render(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
+    {
+        // The frame's stage clock: a top-level draw starts it; a layer's screen, a tile or a fade
+        // source drawn inside notes into the same frame.
+        if (!ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer) sink.Stages.Begin();
+
+        // FREEZE: what leaves the machine — an output window, an NDI send, the stream — holds the
+        // frame it showed when the freeze was pressed: drawn once onto the sink's own surface,
+        // held as an image, put up unchanged until the release. The desk's views (the preview,
+        // the monitors, the thumbnails) keep moving, a blackout still takes a frozen output, and
+        // the fade that runs when the freeze lifts starts from the frame the room was seeing.
+        if (snap.Frozen && !snap.State.Blackout && !snap.IsBlack(ctx.ScreenId) && !ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer
+            && ctx.Sink is SinkKind.Output or SinkKind.Ndi or SinkKind.Stream)
+        {
+            if (sink.FrozenFrame is null || sink.FrozenSize != ctx.ViewportSize)
+            {
+                var surface = sink.FreezeSurface(ctx.ViewportSize);
+                RenderLive(surface.Canvas, snap, in ctx, sink);
+                surface.Canvas.Flush();
+                sink.HoldFrozen(surface.Snapshot(), ctx.ViewportSize);
+            }
+            var frozenAt = FrameStages.Now();
+            canvas.DrawImage(sink.FrozenFrame!, 0, 0);
+            sink.Stages.Note(FrameStage.Freeze, frozenAt);
+            return;
+        }
+        sink.DropFrozen();
+        RenderLive(canvas, snap, in ctx, sink);
+    }
+
+    /// <summary>
+    /// True when this sink's next frame would START a crossfade — the content identity it last
+    /// drew is not the one this snapshot carries. It is the same condition
+    /// <see cref="RenderLive"/> arms the fade on, kept here beside it so the two cannot drift.
+    ///
+    /// A sink has to be asked for frames BEFORE that frame is drawn, never after it: a control
+    /// decides its redraw cadence on the UI thread and the frame itself is drawn later on the
+    /// compositor's, so a sink that only asked for frames once a fade was already in flight
+    /// would arm the fade and then never draw another frame — and the first frame of a fade is
+    /// the OUTGOING picture at full opacity. That is a picture frozen on the old content: on the
+    /// desk's own miniatures after every Pattern Type change, and on the wall after any content
+    /// change between two still pictures.
+    /// </summary>
+    public static bool WillStartFade(ShowSnapshot snap, string? screenId, SinkState sink, SinkKind kind)
+    {
+        if (!snap.FadesEnabled || kind == SinkKind.Thumbnail) return false;
+        if (snap.CutAtVersion > sink.TransitionSeenVersion) return false; // a CUT switches instead of fading
+        if (sink.WouldMoveTo(screenId)) return false;                     // so does a pane pointed elsewhere
+        var shown = sink.TransitionKey;
+        return shown != SinkState.NoKey && shown != snap.TransitionKeyFor(screenId);
+    }
+
+    private void RenderLive(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
+    {
+        // How one picture becomes the next. Two questions, deliberately separate:
+        //
+        //   Should a transition START?  Only when the show's transitions are on AND this publish
+        //                               is a take — somebody did something to the show. An edit
+        //                               arrives at once, because a crossfade is how a picture
+        //                               changes in front of a room, not how a desk answers a
+        //                               slider.
+        //   Should a transition RUN?    Always, until it is finished. An edit landing 50 ms into
+        //                               a 400 ms dissolve must not cut it short — under EDIT SAFE
+        //                               that would be the operator's very next keystroke.
+        //
+        // Thumbnails and fade-source re-renders take part in neither.
+        if (!ctx.IsFadeSource && ctx.Sink != SinkKind.Thumbnail)
+        {
+            var key = snap.TransitionKeyFor(ctx.ScreenId);
+            // A CUT this sink has not shown yet, a pane pointed at a different target, or a show
+            // with transitions switched off: nothing crosses, and anything in flight is abandoned.
+            var moved = sink.MoveToScreen(ctx.ScreenId);
+            if (moved || snap.CutAtVersion > sink.TransitionSeenVersion || snap.TransitionsOff)
+            {
+                sink.EndTransition();
+            }
+            else if (snap.FadesEnabled && sink.TransitionKey is var shown && shown != SinkState.NoKey && shown != key && sink.LastSnapshot is { } prev)
+            {
+                sink.TransitionFrom = prev;
+                sink.TransitionStartClock = ctx.Time;
+                sink.TransitionEndClock = ctx.Time + snap.FadeSecondsFor(snap.Version);
+                ArmTransition(snap, in ctx, sink);
+            }
+            // The identity is tracked whether or not anything crossed, so the next take never
+            // fades from long-stale content and a cut seen with transitions off stays seen.
+            sink.TransitionKey = key;
+            sink.LastSnapshot = snap;
+            sink.TransitionSeenVersion = snap.Version;
+
+            if (sink.TransitionFrom is { } from)
+            {
+                var duration = Math.Max(0.05, sink.TransitionEndClock - sink.TransitionStartClock);
+                var t = (ctx.Time - sink.TransitionStartClock) / duration;
+                if (t >= 1)
+                {
+                    sink.EndTransition();
+                }
+                else
+                {
+                    var fadeCtx = ctx with { IsFadeSource = true };
+                    var fadeAt = FrameStages.Now();
+                    try
+                    {
+                        DrawTransition(canvas, snap, from, in ctx, in fadeCtx, sink, t);
+                        sink.Stages.Note(FrameStage.Fade, fadeAt);
+                    }
+                    catch (Exception ex)
+                    {
+                        // A transition must never take the show down — drop it and carry on with
+                        // the picture the show is meant to be showing.
+                        Log.Warn("Transition render failed.", ex);
+                        sink.EndTransition();
+                        RenderContent(canvas, snap, in ctx, sink);
+                    }
+                    return;
+                }
+            }
+        }
+
+        RenderContent(canvas, snap, in ctx, sink);
+    }
+
+    // ---- the transitions ---------------------------------------------------------------------
+
+    /// <summary>
+    /// Settles what kind of change this sink is about to draw, once, when the transition arms —
+    /// so a setting changed mid-fade cannot swap a wipe for a push halfway across the screen.
+    ///
+    /// A dip through a bright colour is a whole-screen light change, so it goes past the same
+    /// flash limit every sting goes past: too soon after the last one and this change is drawn as
+    /// a dissolve instead. The picture still changes; it just does not flash to do it.
+    /// </summary>
+    private static void ArmTransition(ShowSnapshot snap, in RenderContext ctx, SinkState sink)
+    {
+        var cfg = snap.State.Transition;
+        var kind = snap.TransitionKindFor(snap.Version);
+        var scene = snap.TransitionSceneFor(snap.Version);
+        var background = snap.Color(snap.State.Brand.BackgroundColor, SKColors.Black);
+        var dip = Transitions.DipColorFor(cfg, background);
+        if (kind == TransitionKind.Dip)
+        {
+            var luma = Transitions.Luma(dip);
+            if (luma > Transitions.BrightDip && !sink.Flash.AllowPulse(luma, ctx.Time)) kind = TransitionKind.Dissolve;
+        }
+        sink.TransitionLook = new TransitionView(
+            kind, snap.TransitionDirectionFor(snap.Version), scene, cfg.Softness, dip,
+            snap.Color(snap.State.Brand.PrimaryColor, SKColors.White),
+            snap.Color(snap.State.Brand.SecondaryColor, SKColors.Gray),
+            background, 0, ctx.ViewportSize);
+
+        if (kind == TransitionKind.Reactive)
+        {
+            var size = Transitions.MatteSize(ctx.ViewportSize);
+            var key = $"{scene}|{size.Width}x{size.Height}";
+            if (sink.MatteKey != key || sink.MatteField is null || sink.MatteBitmap is null)
+            {
+                sink.DropMatte();
+                // Seeded from the moment it arms, so two sinks starting the same change a frame
+                // apart wipe with the same picture rather than two phases of it.
+                sink.MatteField = Transitions.Matte(scene, size, Math.Floor(ctx.Time * 4) * 0.25);
+                sink.MatteBitmap = new SKBitmap(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                sink.MattePixels = new int[size.Width * size.Height];
+                sink.MatteKey = key;
+            }
+        }
+        else
+        {
+            sink.DropMatte();
+        }
+    }
+
+    /// <summary>
+    /// One frame of a transition. The shape is the one the engine always had — the incoming
+    /// picture, then the outgoing one over it inside a layer — and the kind decides what that
+    /// layer is masked or moved by. A kind that covers the cut turns it round: the cover is what
+    /// goes on top, and the picture underneath switches beneath it.
+    /// </summary>
+    private void DrawTransition(SKCanvas canvas, ShowSnapshot snap, ShowSnapshot from,
+        in RenderContext ctx, in RenderContext fadeCtx, SinkState sink, double t)
+    {
+        var size = ctx.ViewportSize;
+        var bounds = SKRect.Create(0, 0, size.Width, size.Height);
+        // Everything but where we are in the change was settled when the transition armed.
+        var view = sink.TransitionLook with { Progress = t, Size = size };
+
+        if (Transitions.CoversTheCut(view.Kind))
+        {
+            // The picture underneath is the outgoing one until the cover is complete, then the
+            // incoming one — so the change itself is never seen.
+            if (Transitions.ShowsOutgoing(t)) RenderContent(canvas, from, in fadeCtx, sink);
+            else RenderContent(canvas, snap, in ctx, sink);
+            if (view.Kind == TransitionKind.Dip)
+            {
+                using var dip = new SKPaint { Color = view.DipColor.WithAlpha((byte)Math.Clamp(Transitions.Cover(t) * 255, 0, 255)) };
+                canvas.DrawRect(bounds, dip);
+            }
+            else
+            {
+                Transitions.DrawBrandCover(canvas, in view, ImageCache.Get(snap.State.Brand.LogoPath));
+            }
+            return;
+        }
+
+        if (view.Kind == TransitionKind.Push)
+        {
+            // Both pictures move: the incoming one comes in from the far side as the outgoing one
+            // leaves. No layer and no mask — two translates, each clipped to where its own picture
+            // has got to, because a picture clears its ground before it draws and an unclipped one
+            // would wipe the other off the screen on its way past.
+            // The direction is the way the pictures travel: a push right brings the new one in from
+            // the left and carries the old one off to the right.
+            var eased = Transitions.Ease(t);
+            var (dx, dy) = Transitions.PushBy(view.Direction, size, eased - 1);
+            canvas.Save();
+            canvas.Translate(dx, dy);
+            canvas.ClipRect(bounds);
+            RenderContent(canvas, snap, in ctx, sink);
+            canvas.Restore();
+            var (ox, oy) = Transitions.PushBy(view.Direction, size, eased);
+            canvas.Save();
+            canvas.Translate(ox, oy);
+            canvas.ClipRect(bounds);
+            RenderContent(canvas, from, in fadeCtx, sink);
+            canvas.Restore();
+            return;
+        }
+
+        RenderContent(canvas, snap, in ctx, sink);
+
+        if (view.Kind == TransitionKind.Dissolve)
+        {
+            // Smoothstep fade-out of the old content on top of the new.
+            var alpha = (byte)Math.Clamp((1 - Transitions.Ease(t)) * 255, 0, 255);
+            using var fade = new SKPaint { Color = new SKColor(255, 255, 255, alpha) };
+            canvas.SaveLayer(bounds, fade);
+            RenderContent(canvas, from, in fadeCtx, sink);
+            canvas.Restore();
+            return;
+        }
+
+        // A wipe and a reactive matte are the same frame with a different mask: the outgoing
+        // picture in a layer, then the mask drawn over it so only what the mask keeps survives.
+        canvas.SaveLayer(bounds, null);
+        RenderContent(canvas, from, in fadeCtx, sink);
+        using var mask = new SKPaint { BlendMode = SKBlendMode.DstIn };
+        if (view.Kind == TransitionKind.Wipe)
+        {
+            mask.Shader = Transitions.WipeShader(in view);
+            canvas.DrawRect(bounds, mask);
+            mask.Shader?.Dispose();
+        }
+        else if (sink.MatteField is { } field && sink.MatteBitmap is { } bitmap && sink.MattePixels is { } pixels)
+        {
+            Transitions.MatteAt(field, pixels, t, view.Softness);
+            System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bitmap.GetPixels(), pixels.Length);
+            bitmap.NotifyPixelsChanged();
+            mask.IsAntialias = true;
+            canvas.DrawBitmap(bitmap, bounds, mask);
+        }
+        else
+        {
+            // No matte (a transition that armed before its buffers): a dissolve rather than a jump.
+            mask.Color = SKColors.White.WithAlpha((byte)Math.Clamp((1 - Transitions.Ease(t)) * 255, 0, 255));
+            canvas.DrawRect(bounds, mask);
+        }
+        canvas.Restore();
+    }
+
+    private void RenderContent(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink)
+    {
+        if (sink.LastSnapshotVersion != snap.Version)
+        {
+            // A config change may well have fixed whatever made a renderer throw.
+            sink.Failed.Clear();
+            sink.LastSnapshotVersion = snap.Version;
+        }
+
+        var palette = Palette.Resolve(snap);
+
+        // The frame the desk can take hold of: only the top-level draw records what it drew where.
+        var topLevel = !ctx.IsFadeSource && !ctx.InMultiview && !ctx.InLayer;
+        if (topLevel) sink.Hits.Clear();
+
+        if (snap.State.Blackout || snap.IsBlack(ctx.ScreenId))
+        {
+            // Checked before any pattern code runs: blackout cannot be broken by a pattern bug.
+            // A target faded to black on its own (FADE with a scope) draws the same black; the
+            // crossfade above is what makes it a fade rather than a cut.
+            canvas.Clear(SKColors.Black);
+            OverlayRenderer.RenderViewportOverlays(canvas, snap, ctx, sink, palette, blackout: true);
+            return;
+        }
+
+        canvas.Clear(LetterboxColor);
+
+        var cfg = snap.PatternFor(ctx.ScreenId);
+        // The target's dead strips: content lays out across them (the reference is the surface
+        // with them put back), a wall pattern built for this raster puts its tiles past them.
+        var gaps = snap.Rig.GapsOf(ctx.ScreenId);
+        var canvasSize = CanvasResolver.Resolve(cfg, ctx.ReferenceSize, gaps);
+        var (offset, scale) = CanvasResolver.MapToReference(canvasSize, ctx.ReferenceSize, cfg.Canvas.ScaleMode);
+        if (topLevel)
+        {
+            sink.LastCanvasOffset = offset;
+            sink.LastCanvasScale = scale;
+            sink.LastCanvasSize = canvasSize;
+        }
+
+        var frame = new PatternFrame
+        {
+            Snapshot = snap,
+            Config = cfg,
+            Ctx = ctx,
+            Sink = sink,
+            Canvas = canvasSize,
+            Palette = palette,
+            Gaps = gaps,
+            // Device pixels per canvas pixel: the sink's scale (a tile's fit) times the canvas's map.
+            DeviceScale = (ctx.DeviceScale > 0 ? ctx.DeviceScale : 1f) * scale,
+        };
+
+        var save = canvas.Save();
+        canvas.Translate(-ctx.ViewportOrigin.X, -ctx.ViewportOrigin.Y);
+        canvas.Translate(offset.X, offset.Y);
+        canvas.Scale(scale);
+        canvas.ClipRect(SKRect.Create(0, 0, canvasSize.Width, canvasSize.Height));
+
+        var patternAt = FrameStages.Now();
+        if (sink.Failed.Contains(cfg.Kind))
+        {
+            DrawErrorCard(canvas, frame, null);
+        }
+        else if (cfg.Kind == PatternKind.Multiview)
+        {
+            try
+            {
+                RenderMultiview(canvas, in frame, sink, Multiviews.For(snap.State, cfg));
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Multiview renderer threw — disabled until settings change.", ex);
+                sink.Failed.Add(cfg.Kind);
+                DrawErrorCard(canvas, frame, ex.Message);
+            }
+        }
+        else if (_renderers.TryGetValue(cfg.Kind, out var renderer))
+        {
+            try
+            {
+                renderer.Render(canvas, in frame);
+            }
+            catch (Exception ex)
+            {
+                // Contain the failure: log once, keep the show running with an unmissable card.
+                Log.Error($"Pattern renderer '{cfg.Kind}' threw — disabled until settings change.", ex);
+                sink.Failed.Add(cfg.Kind);
+                DrawErrorCard(canvas, frame, ex.Message);
+            }
+        }
+
+        sink.Stages.Note(FrameStage.PatternOf(cfg.Kind), patternAt);
+
+        // The two layers: over the pattern, under the overlays; a bad layer never takes the sink down.
+        if (!ctx.InLayer && (cfg.Layer1.Enabled || cfg.Layer2.Enabled))
+        {
+            var layersAt = FrameStages.Now();
+            try
+            {
+                LayerRenderer.Render(canvas, in frame, DrawLayerScreen);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Layer rendering threw.", ex);
+            }
+            sink.Stages.Note(FrameStage.Layers, layersAt);
+        }
+
+        try
+        {
+            OverlayRenderer.RenderCanvasOverlays(canvas, in frame);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Overlay rendering threw.", ex);
+        }
+
+        canvas.RestoreToCount(save);
+
+        var viewportAt = FrameStages.Now();
+        OverlayRenderer.RenderViewportOverlays(canvas, snap, ctx, sink, palette, blackout: false, cfg);
+        sink.Stages.Note(FrameStage.Viewport, viewportAt);
+
+        // The sync check: a white frame on the master clock's grid, on every sink that shows the show.
+        if (ctx.Sink != SinkKind.Thumbnail && Effects.SyncMarks.IsFlash(ctx.Time))
+        {
+            canvas.DrawRect(SKRect.Create(0, 0, ctx.ViewportSize.Width, ctx.ViewportSize.Height), sink.Paints.Fill(SKColors.White));
+        }
+
+        // A desk view of a wall with dead strips shades them, so the operator sees where the
+        // wall has no pixels; an output cuts them out instead (RenderWall), a feed carries the
+        // whole surface, a layer is content.
+        if (!gaps.IsEmpty && !ctx.InLayer && ctx.Sink is SinkKind.Preview or SinkKind.Monitor or SinkKind.Thumbnail)
+        {
+            DrawGapShade(canvas, gaps, SKRectI.Create(ctx.ViewportOrigin.X, ctx.ViewportOrigin.Y, ctx.ViewportSize.Width, ctx.ViewportSize.Height), sink);
+        }
+    }
+
+    private static readonly SKColor GapShade = new(0x05, 0x06, 0x08, 0xC8);
+    private static readonly SKColor GapEdge = new(0xFF, 0xB0, 0x20, 0x90);
+
+    /// <summary>The wall's dead strips over a desk view of a target: dark, with an amber hairline on each side.</summary>
+    private static void DrawGapShade(SKCanvas canvas, GapMap gaps, SKRectI virtualRegion, SinkState sink)
+    {
+        var fill = sink.Paints.Fill(GapShade);
+        var edge = sink.Paints.Fill(GapEdge);
+        foreach (var pixelStrip in gaps.StripsIn(virtualRegion.ToRaster()))
+        {
+            var strip = pixelStrip.ToSk();
+            canvas.DrawRect(strip, fill);
+            if (strip.Width < strip.Height)
+            {
+                DrawUtil.LineV(canvas, strip.Left, strip.Top, strip.Bottom, 1, edge);
+                DrawUtil.LineV(canvas, strip.Right - 1, strip.Top, strip.Bottom, 1, edge);
+            }
+            else
+            {
+                DrawUtil.LineH(canvas, strip.Top, strip.Left, strip.Right, 1, edge);
+                DrawUtil.LineH(canvas, strip.Bottom - 1, strip.Left, strip.Right, 1, edge);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An output of a wall with dead strips: the content is drawn once across this output's span
+    /// of the surface, then every run of real pixels is put where the raster has it, so a
+    /// picture that crosses a gap goes behind it. An output no strip runs through — strips only
+    /// at its edges, or none inside it — draws straight, moved past the strips before it, with
+    /// no surface in between. <paramref name="rasterRegion"/> is this output's place in its
+    /// target's raster; the viewport is its pixels.
+    /// </summary>
+    public void RenderWall(SKCanvas canvas, ShowSnapshot snap, in RenderContext ctx, SinkState sink, GapMap gaps, SKRectI rasterRegion)
+    {
+        if (gaps.IsEmpty || rasterRegion.Width <= 0 || rasterRegion.Height <= 0)
+        {
+            Render(canvas, snap, in ctx, sink);
+            return;
+        }
+
+        var span = gaps.VirtualRect(rasterRegion.ToRaster());
+        var slices = gaps.Slices(rasterRegion.ToRaster());
+        if (slices.Count <= 1)
+        {
+            var moved = ctx with { ReferenceSize = gaps.Virtual.ToSk(), ViewportOrigin = new SKPointI(span.Left, span.Top) };
+            Render(canvas, snap, in moved, sink);
+            return;
+        }
+
+        var surface = sink.WallSurface(new SKSizeI(span.Width, span.Height));
+        var wide = ctx with
+        {
+            ReferenceSize = gaps.Virtual.ToSk(),
+            ViewportSize = new SKSizeI(span.Width, span.Height),
+            ViewportOrigin = new SKPointI(span.Left, span.Top),
+        };
+        Render(surface.Canvas, snap, in wide, sink);
+        surface.Canvas.Flush();
+        using var image = surface.Snapshot();
+
+        // The window's pixels per raster pixel: 1 unless the display's mode drifted from the arrangement.
+        var sx = ctx.ViewportSize.Width / (float)rasterRegion.Width;
+        var sy = ctx.ViewportSize.Height / (float)rasterRegion.Height;
+        var exact = Math.Abs(sx - 1f) < 0.0001f && Math.Abs(sy - 1f) < 0.0001f;
+        canvas.Clear(SKColors.Black);
+        foreach (var s in slices)
+        {
+            var src = SKRect.Create(s.Virtual.Left - span.Left, s.Virtual.Top - span.Top, s.Virtual.Width, s.Virtual.Height);
+            var dst = SKRect.Create((s.Raster.Left - rasterRegion.Left) * sx, (s.Raster.Top - rasterRegion.Top) * sy,
+                s.Raster.Width * sx, s.Raster.Height * sy);
+            canvas.DrawImage(image, src, dst, exact ? DrawUtil.Nearest : DrawUtil.Smooth, sink.Paints.Fill(SKColors.White));
+        }
+    }
+
+    // ---- layers -------------------------------------------------------------
+
+    /// <summary>
+    /// Another target's picture inside a layer's box: the target drawn at its own pixel size
+    /// into a canvas scaled to fit the box (the multiview tile's maths), as a monitor of that
+    /// target — never an output, never a layer host, so two screens showing each other stop.
+    /// </summary>
+    private bool DrawLayerScreen(SKCanvas canvas, SKRect dest, string targetId, in PatternFrame f)
+    {
+        if (!ContentTargets.IsInRig(f.Snapshot.State, targetId)) return false;
+        var v = f.Snapshot.Rig.ViewportForTile(targetId);
+        if (v.ViewportSize.Width <= 0 || v.ViewportSize.Height <= 0) return false;
+        var scale = Math.Min(dest.Width / v.ViewportSize.Width, dest.Height / v.ViewportSize.Height);
+        if (scale <= 0) return false;
+        var sub = f.Ctx with
+        {
+            ViewportSize = v.ViewportSize.ToSk(),
+            ReferenceSize = v.ReferenceSize.ToSk(),
+            ViewportOrigin = v.Origin.ToSk(),
+            ScreenId = v.TargetId,
+            InMultiview = true,
+            InLayer = true,
+            Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
+            SinkIndex = 0,
+            SinkLabel = f.Snapshot.Rig.LabelFor(f.Snapshot.State, targetId),
+            // A miniature, like a tile: its hairlines widen to this box's own pixels, and the test
+            // card knows it is scaled. Without it the layer read the host's scale — a 1 px line
+            // drawn at a third of a pixel, and a card claiming a 1:1 read on a picture that is not.
+            DeviceScale = f.DeviceScale * scale,
+        };
+        var save = canvas.Save();
+        try
+        {
+            canvas.Translate(dest.Left + (dest.Width - v.ViewportSize.Width * scale) / 2f,
+                             dest.Top + (dest.Height - v.ViewportSize.Height * scale) / 2f);
+            canvas.Scale(scale);
+            canvas.ClipRect(SKRect.Create(0, 0, v.ViewportSize.Width, v.ViewportSize.Height));
+            RenderContent(canvas, f.Snapshot, in sub, f.Sink);
+        }
+        finally
+        {
+            canvas.RestoreToCount(save);
+        }
+        return true;
+    }
+
+    // ---- multiview ----------------------------------------------------------
+
+    private static readonly SKColor MultiviewBg = new(0x06, 0x07, 0x0A);
+    private static readonly SKColor TallyRed = new(0xE0, 0x34, 0x2E);
+    private static readonly SKColor TallyIdle = new(0x2A, 0x31, 0x3E);
+
+    /// <summary>
+    /// The monitor wall: each tile re-renders program/per-screen content through this same
+    /// engine (live inputs and a clock draw directly), with tally borders and labels.
+    /// Public so the remote /multiview endpoint can render the same picture standalone.
+    /// </summary>
+    public void RenderMultiview(SKCanvas canvas, in PatternFrame f, SinkState sink, MultiviewOptions opts)
+    {
+        if (f.Ctx.InMultiview)
+        {
+            DrawTileSlate(canvas, f, SKRect.Create(0, 0, f.W, f.H), "MULTIVIEW");
+            return;
+        }
+
+        if (f.Snapshot.ReviewOnMultiview)
+        {
+            // A review: the preview fills the whole multiview, with a chip that says so — the
+            // caller checks the next look on the monitor wall before the TAKE.
+            canvas.Clear(MultiviewBg);
+            var full = SKRect.Create(0, 0, f.W, f.H);
+            DrawPreview(canvas, in f, sink, full);
+            var chipH = Math.Clamp(f.H * 0.06f, 14f, 34f);
+            var chip = SKRect.Create(chipH * 0.5f, chipH * 0.5f, chipH * 7.2f, chipH);
+            canvas.DrawRoundRect(chip, chipH * 0.25f, chipH * 0.25f, f.Paints.FillAA(new SKColor(0x10, 0x12, 0x18, 0xD8)));
+            canvas.DrawRoundRect(chip, chipH * 0.25f, chipH * 0.25f, f.Paints.StrokeAA(TallyIdle, 1.5f));
+            var chipFont = f.Paints.FontBold;
+            chipFont.Size = chipH * 0.55f;
+            DrawUtil.TextCentered(canvas, "REVIEW · PREVIEW", chip.MidX, chip.MidY + chipFont.Size * 0.35f,
+                chipFont, f.Paints.Text(new SKColor(0x2E, 0xE6, 0x8A)));
+            return;
+        }
+
+        // The tiles and their words, once per snapshot: badges, captions and the air state were
+        // built afresh for every tile on every frame of the wall.
+        var words = sink.MultiviewWords.For(f.Snapshot, f.Ctx.Preview, opts);
+        canvas.Clear(MultiviewBg);
+        if (words.Count == 0)
+        {
+            DrawTileSlate(canvas, f, SKRect.Create(0, 0, f.W, f.H), "Add multiview tiles on the Multiview page");
+            return;
+        }
+
+        // Where the tiles go is worked out away from here, in numbers a test can read: the large
+        // ones are the first in the list, the rest go in the strip beside or under them.
+        var gap = Math.Max(2f, f.W * 0.004f);
+        var area = SKRect.Create(gap, gap, f.W - gap * 2, f.H - gap * 2);
+        var plan = MultiviewLayoutPlan.Plan(opts.Layout, words.Count, area, opts.Columns, gap);
+
+        foreach (var placed in plan)
+        {
+            var said = words[placed.Index];
+            var tile = said.Tile;
+            var cell = placed.Box;
+            // A small tile's caption is a smaller caption: the strip is half the height of the
+            // large row and a label sized off the big cells would eat the picture under it.
+            var labelH = opts.ShowLabels ? Math.Clamp(cell.Height * 0.14f, 11f, 30f) : 0f;
+            var content = SKRect.Create(cell.Left, cell.Top, cell.Width, cell.Height - labelH);
+            if (content.Width < 1f || content.Height < 1f) continue;   // a wall too dense to draw
+
+            // Each tile takes its target's real shape inside a uniform cell — the same two-step
+            // the wall does with AspectBox + RenderFitted, so a 3840×1080 canvas is a wide strip
+            // and a portrait screen a tall box, never a re-layout at 16:9. Live inputs and the
+            // clock have no target of their own and stay 16:9.
+            var vp = TileViewport(f.Snapshot, f.Ctx.Preview, tile);
+            var video = FitRect(content, vp?.Aspect ?? 16f / 9f);
+            DrawTileContent(canvas, in f, sink, tile, video, vp, said.Name);
+
+            if (opts.ShowTally)
+            {
+                // The border: red live to the audience, green for the preview; then the badges —
+                // PGM / OFF / BLACK / FROZEN, NEXT or HELD for the next TAKE, LOCKED, OWN, REP.
+                var on = said.OnAir;
+                var pvw = said.Preview;
+                canvas.DrawRect(video, f.Paints.StrokeAA(on ? TallyRed : pvw ? TallyGreen : TallyIdle, on || pvw ? 3 : 1.5f));
+                DrawTileBadges(canvas, in f, video, said.Badges);
+            }
+
+            if (opts.ShowLabels)
+            {
+                var bar = SKRect.Create(video.Left, cell.Bottom - labelH, video.Width, labelH);
+                DrawTileCaption(canvas, in f, bar, said.Name, said.Kind);
+            }
+        }
+    }
+
+    private static readonly SKColor TallyGreen = new(0x2E, 0xE6, 0x8A);
+
+    /// <summary>The badges along a tile's top edge: filled chips for the states that matter most, outlines for the rest; stops at the tile's right edge.</summary>
+    private static void DrawTileBadges(SKCanvas canvas, in PatternFrame f, SKRect video, List<TileBadge> badges)
+    {
+        if (badges.Count == 0) return;
+        var h = Math.Clamp(video.Height * 0.11f, 11f, 26f);
+        var font = f.Paints.FontBold;
+        font.Size = h * 0.62f;
+        var x = video.Left + h * 0.35f;
+        var y = video.Top + h * 0.35f;
+        foreach (var b in badges)
+        {
+            var w = font.MeasureText(b.Text) + h * 0.9f;
+            if (x + w > video.Right - h * 0.2f) break;
+            var chip = SKRect.Create(x, y, w, h);
+            if (b.Filled)
+            {
+                canvas.DrawRoundRect(chip, h * 0.22f, h * 0.22f, f.Paints.FillAA(b.Color));
+                DrawUtil.TextCentered(canvas, b.Text, chip.MidX, chip.MidY, font, f.Paints.Text(new SKColor(0x0E, 0x0F, 0x13)));
+            }
+            else
+            {
+                canvas.DrawRoundRect(chip, h * 0.22f, h * 0.22f, f.Paints.FillAA(new SKColor(0x10, 0x12, 0x18, 0xD0)));
+                canvas.DrawRoundRect(chip, h * 0.22f, h * 0.22f, f.Paints.StrokeAA(b.Color, 1.2f));
+                DrawUtil.TextCentered(canvas, b.Text, chip.MidX, chip.MidY, font, f.Paints.Text(b.Color));
+            }
+            x += w + h * 0.3f;
+        }
+    }
+
+    /// <summary>The bar under a tile: the name on the left and what it is on the right when both fit, else the name centred.</summary>
+    private static void DrawTileCaption(SKCanvas canvas, in PatternFrame f, SKRect bar, string name, string kind)
+    {
+        canvas.DrawRect(bar, f.Paints.Fill(new SKColor(0x10, 0x12, 0x18)));
+        var font = f.Paints.FontBold;
+        font.Size = bar.Height * 0.62f;
+        var pad = bar.Height * 0.4f;
+        var bright = f.Paints.Text(new SKColor(0xD8, 0xDE, 0xE8));
+        if (kind.Length > 0)
+        {
+            var small = f.Paints.FontRegular;
+            small.Size = bar.Height * 0.48f;
+            var nameW = font.MeasureText(name);
+            var kindW = small.MeasureText(kind);
+            if (nameW + kindW + pad * 3 <= bar.Width)
+            {
+                DrawUtil.TextLeft(canvas, name, bar.Left + pad, Baseline(bar, font), font, bright);
+                canvas.DrawText(kind, bar.Right - pad, Baseline(bar, small), SKTextAlign.Right, small, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
+                return;
+            }
+        }
+        DrawUtil.TextCentered(canvas, name, bar.MidX, bar.MidY, font, bright);
+    }
+
+    private static float Baseline(SKRect bar, SKFont font)
+    {
+        var m = font.Metrics;
+        return bar.MidY - (m.Ascent + m.Descent) / 2;
+    }
+
+    private static SKRect FitRect(SKRect outer, float aspect)
+    {
+        var w = outer.Width;
+        var h = w / aspect;
+        if (h > outer.Height)
+        {
+            h = outer.Height;
+            w = h * aspect;
+        }
+        return SKRect.Create(outer.Left + (outer.Width - w) / 2, outer.Top + (outer.Height - h) / 2, w, h);
+    }
+
+    private void DrawTileContent(SKCanvas canvas, in PatternFrame f, SinkState sink, MultiviewTileConfig tile,
+        SKRect rect, TargetViewport? vp, string caption)
+    {
+        switch (tile.Source)
+        {
+            case MultiviewSource.Program:
+            case MultiviewSource.Screen:
+            {
+                if (vp is not { } v)
+                {
+                    // A Screen tile with nothing picked, or naming a screen or canvas this show
+                    // no longer has. Say so: a confidence monitor that quietly shows the program
+                    // instead is worse than no monitor.
+                    DrawTileSlate(canvas, f, rect,
+                        tile.ScreenId.Length == 0 ? "Pick a screen or canvas" : "Not in this rig");
+                    break;
+                }
+
+                // RenderFitted's maths: draw the target at its own pixel size into a canvas
+                // scaled to fit the tile. A FollowOutput grid gets the cell count it has on the
+                // wall; a fixed canvas letterboxes against the target's shape, not 16:9.
+                var scale = Math.Min(rect.Width / v.ViewportSize.Width, rect.Height / v.ViewportSize.Height);
+                var sub = f.Ctx with
+                {
+                    ViewportSize = v.ViewportSize.ToSk(),     // this screen's own pixels
+                    ReferenceSize = v.ReferenceSize.ToSk(),   // the canvas the pattern resolves against
+                    ViewportOrigin = v.Origin.ToSk(),         // this member's slice of a joined canvas
+                    ScreenId = v.TargetId,             // a screen id, a canvas key, or null = program
+                    InMultiview = true,
+                    // A tile is a monitor of one target, never an output: no identify badge inside
+                    // a tile. Never more overlay than the sink the multiview itself draws on, so
+                    // /mv.jpg's thumbnail tiles stay free of PiP, tone and info chips.
+                    Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
+                    SinkIndex = 0,
+                    SinkLabel = caption,
+                    // A tile is a miniature: its hairlines widen to the multiview's own pixels.
+                    DeviceScale = f.DeviceScale * scale,
+                };
+                var save = canvas.Save();
+                canvas.Translate(rect.Left + (rect.Width - v.ViewportSize.Width * scale) / 2f,
+                                 rect.Top + (rect.Height - v.ViewportSize.Height * scale) / 2f);
+                canvas.Scale(scale);
+                canvas.ClipRect(SKRect.Create(0, 0, v.ViewportSize.Width, v.ViewportSize.Height));
+                RenderContent(canvas, f.Snapshot, in sub, sink);
+                canvas.RestoreToCount(save);
+                break;
+            }
+
+            case MultiviewSource.NdiFeed:
+            {
+                var name = tile.Input.Length > 0 ? tile.Input : Patterns.Core.Services.MediaLocator.FindActiveNdiSource(f.Snapshot.State);
+                if (InputBus.For(InputKeys.Ndi(name)) is { } ndi)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    var drawn = ndi.Draw(canvas, rect, null, FrameCrop.None);
+                    if (drawn.Drew) sink.Stages.NoteLive(in drawn);
+                    else DrawTileSlate(canvas, f, rect, "NDI — waiting for frames");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, name.Length > 0 ? $"NDI — {name} not received" : "NDI — no feed chosen");
+                }
+                break;
+            }
+
+            case MultiviewSource.Capture:
+                if (InputBus.For(InputKeys.Capture(tile.Input)) is { } cap)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    var drawn = cap.Draw(canvas, rect, null, FrameCrop.None);
+                    if (drawn.Drew) sink.Stages.NoteLive(in drawn);
+                    else DrawTileSlate(canvas, f, rect, "Capture — waiting for frames");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, tile.Input.Length > 0 ? $"Capture — {tile.Input} not open" : "Capture — no device chosen");
+                }
+                break;
+
+            case MultiviewSource.Preview:
+                DrawPreview(canvas, in f, sink, rect);
+                break;
+
+            case MultiviewSource.Arcade:
+                if (InputBus.For(InputKeys.Arcade()) is { } game)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    if (!game.DrawFrame(canvas, rect, null)) DrawTileSlate(canvas, f, rect, "Arcade — first frame…");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, "Arcade — the game's picture is on its way");
+                }
+                break;
+
+            case MultiviewSource.Pip:
+            {
+                var pipCfg = f.Snapshot.State.Overlays.Pip;
+                var key = OverlayRenderer.PipKey(pipCfg);
+                if (pipCfg.Enabled && InputBus.For(key) is { } pip)
+                {
+                    canvas.DrawRect(rect, f.Paints.Fill(SKColors.Black));
+                    var crop = FrameCrop.From(pipCfg); // the tile shows the inset as the room sees it
+                    var drawn = pip.Draw(canvas, rect, null, in crop);
+                    if (drawn.Drew) sink.Stages.NoteLive(in drawn);
+                    else DrawTileSlate(canvas, f, rect, "PiP — waiting for frames");
+                }
+                else
+                {
+                    DrawTileSlate(canvas, f, rect, "PiP input off");
+                }
+                break;
+            }
+
+            default:
+            {
+                canvas.DrawRect(rect, f.Paints.Fill(new SKColor(0x0C, 0x0E, 0x14)));
+                var font = f.Paints.FontBold;
+                font.Size = rect.Height * 0.3f;
+                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("HH:mm:ss"), rect.MidX, rect.MidY + font.Size * 0.1f,
+                    font, f.Paints.Text(new SKColor(0xE8, 0xEC, 0xF2)));
+                var small = f.Paints.FontRegular;
+                small.Size = rect.Height * 0.1f;
+                DrawUtil.TextCentered(canvas, f.Ctx.Now.ToString("ddd d MMM"), rect.MidX, rect.MidY + rect.Height * 0.28f,
+                    small, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The sandboxed preview — the program target as the desk is building it — fitted into a
+    /// rect, rendered from the preview's own snapshot (the sink hands it in with the frame)
+    /// through the sink's preview sub-sink so the program's fault gate and caches never see
+    /// another snapshot's versions. A slate while EDIT SAFE is off (there is no preview then),
+    /// and while the preview has no program target.
+    /// </summary>
+    private void DrawPreview(SKCanvas canvas, in PatternFrame f, SinkState sink, SKRect rect)
+    {
+        var preview = f.Ctx.Preview;
+        if (preview is null)
+        {
+            DrawTileSlate(canvas, f, rect, "Preview — EDIT SAFE is off");
+            return;
+        }
+        var v = preview.Rig.ViewportForTarget(null);
+        if (v.ViewportSize.Width <= 0 || v.ViewportSize.Height <= 0)
+        {
+            DrawTileSlate(canvas, f, rect, "Preview — no program target");
+            return;
+        }
+        var video = FitRect(rect, v.Aspect);
+        var scale = Math.Min(video.Width / v.ViewportSize.Width, video.Height / v.ViewportSize.Height);
+        var sub = f.Ctx with
+        {
+            ViewportSize = v.ViewportSize.ToSk(),
+            ReferenceSize = v.ReferenceSize.ToSk(),
+            ViewportOrigin = v.Origin.ToSk(),
+            ScreenId = null,
+            InMultiview = true,
+            Sink = f.Ctx.Sink == SinkKind.Thumbnail ? SinkKind.Thumbnail : SinkKind.Monitor,
+            SinkIndex = 0,
+            SinkLabel = "PREVIEW",
+            DeviceScale = f.DeviceScale * scale,   // a miniature: see DrawLayerScreen
+        };
+        var save = canvas.Save();
+        try
+        {
+            canvas.Translate(video.Left + (video.Width - v.ViewportSize.Width * scale) / 2f,
+                             video.Top + (video.Height - v.ViewportSize.Height * scale) / 2f);
+            canvas.Scale(scale);
+            canvas.ClipRect(SKRect.Create(0, 0, v.ViewportSize.Width, v.ViewportSize.Height));
+            RenderContent(canvas, preview, in sub, sink.Preview);
+        }
+        finally
+        {
+            canvas.RestoreToCount(save);
+        }
+    }
+
+    private static void DrawTileSlate(SKCanvas canvas, in PatternFrame f, SKRect rect, string text)
+    {
+        canvas.DrawRect(rect, f.Paints.Fill(new SKColor(0x11, 0x13, 0x1A)));
+        var font = f.Paints.FontRegular;
+        font.Size = Math.Max(10, rect.Height * 0.09f);
+        DrawUtil.TextCentered(canvas, text, rect.MidX, rect.MidY + font.Size * 0.35f,
+            font, f.Paints.Text(new SKColor(0x8A, 0x93, 0xA3)));
+    }
+
+    private static List<MultiviewTileConfig> DefaultTiles(ShowSnapshot snap) => Multiviews.DefaultTiles(snap.State);
+
+    /// <summary>
+    /// The target maths for a tile that re-renders show content. Null for a tile that draws a
+    /// live input or the clock straight into its rect, and null for a Screen tile whose id
+    /// names nothing in this show — that one draws a slate.
+    /// </summary>
+    private static TargetViewport? TileViewport(ShowSnapshot snap, ShowSnapshot? preview, MultiviewTileConfig tile)
+        => tile.Source switch
+        {
+            MultiviewSource.Program => snap.Rig.ViewportForTarget(null),
+            MultiviewSource.Screen when ContentTargets.IsInRig(snap.State, tile.ScreenId)
+                => snap.Rig.ViewportForTile(tile.ScreenId),
+            MultiviewSource.Preview => preview?.Rig.ViewportForTarget(null),
+            _ => null,
+        };
+
+    private static void DrawErrorCard(SKCanvas c, in PatternFrame f, string? message)
+    {
+        c.Clear(new SKColor(0x14, 0x06, 0x06));
+        var pc = f.Paints;
+        float w = Math.Min(f.W * 0.8f, 900);
+        float h = Math.Min(f.H * 0.4f, 260);
+        var rect = SKRect.Create((f.W - w) / 2, (f.H - h) / 2, w, h);
+        c.DrawRoundRect(rect, 14, 14, pc.FillAA(new SKColor(0x3A, 0x10, 0x10)));
+        c.DrawRoundRect(rect, 14, 14, pc.StrokeAA(new SKColor(0xE0, 0x50, 0x50), 2));
+
+        var title = pc.FontBold;
+        title.Size = Math.Max(16, h * 0.16f);
+        DrawUtil.TextCentered(c, $"{f.Config.Kind} pattern error", rect.MidX, rect.Top + h * 0.3f, title, pc.Text(new SKColor(0xFF, 0xB0, 0xB0)));
+
+        var body = pc.FontRegular;
+        body.Size = Math.Max(12, h * 0.1f);
+        var detail = string.IsNullOrEmpty(message) ? "Adjust the pattern settings to retry." : Truncate(message, 90);
+        DrawUtil.TextCentered(c, detail, rect.MidX, rect.Top + h * 0.55f, body, pc.Text(new SKColor(0xE8, 0xC0, 0xC0)));
+        DrawUtil.TextCentered(c, "The rest of the show keeps running.", rect.MidX, rect.Top + h * 0.78f, body, pc.Text(new SKColor(0xC0, 0x90, 0x90)));
+    }
+
+    private static string Truncate(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
+
+    /// <summary>How often a sink must redraw for this snapshot (drives the idle-efficiency logic).</summary>
+    public static RedrawCadence CadenceOf(ShowSnapshot snap, string? screenId, DateTime utcNow) => CadenceOf(snap, screenId, utcNow, 0);
+
+    private static RedrawCadence CadenceOf(ShowSnapshot snap, string? screenId, DateTime utcNow, int depth)
+    {
+        var s = snap.State;
+        if (snap.IdentifyUntilUtc is { } until && until > utcNow) return RedrawCadence.Continuous;
+        if (Effects.SyncMarks.Enabled) return RedrawCadence.Continuous; // the flash lands on the frame it is due
+        if (s.Blackout || snap.IsBlack(screenId))
+        {
+            return RedrawCadence.Static;
+        }
+
+        var p = snap.PatternFor(screenId);
+        var continuous = p.Kind is PatternKind.Motion or PatternKind.ColorCycle or PatternKind.Particles or PatternKind.Multiview or PatternKind.Fractal or PatternKind.Reactive
+            || (p.Kind == PatternKind.Checkerboard && p.Checker.Animate)
+            || (p.Kind == PatternKind.Media && p.Media.Source is MediaSource.Video or MediaSource.NdiFeed or MediaSource.Capture or MediaSource.Web or MediaSource.Deck or MediaSource.Arcade)
+            || (p.Kind == PatternKind.Media && p.Media.Source == MediaSource.Playlist && snap.PlaylistNow?.IsVideo == true)
+            || (s.Overlays.Message.Enabled && s.Overlays.Message.Scroll)
+            || Patterns.Core.LowerThirds.LowerThirdClock.IsLive(s.LowerThirds, utcNow)
+            || LayerIsLive(snap, p.Layer1, screenId, utcNow, depth)
+            || LayerIsLive(snap, p.Layer2, screenId, utcNow, depth);
+
+        if (!continuous && s.Countdown.Enabled && s.Countdown.EndBehavior == CountdownEndBehavior.Flash)
+        {
+            var status = CountdownService.Evaluate(s.Countdown, DateTime.Now, utcNow);
+            if (status.Phase == CountdownPhase.Over) continuous = true;
+        }
+
+        if (continuous) return RedrawCadence.Continuous;
+        if (s.Overlays.Clock.Enabled || s.Countdown.Enabled) return RedrawCadence.PerSecond;
+        return RedrawCadence.Static;
+    }
+
+    /// <summary>A layer that moves: a clip or a live feed, or another target whose own picture moves (two hops at most, so a pair of screens showing each other settle).</summary>
+    private static bool LayerIsLive(ShowSnapshot snap, LayerConfig l, string? screenId, DateTime utcNow, int depth)
+    {
+        if (!l.Enabled) return false;
+        if (l.Source is LayerSource.Video or LayerSource.NdiFeed or LayerSource.Capture or LayerSource.Web or LayerSource.Arcade) return true;
+        if (l.Source != LayerSource.Screen || l.TargetId.Length == 0 || l.TargetId == screenId || depth >= 2) return false;
+        return CadenceOf(snap, l.TargetId, utcNow, depth + 1) == RedrawCadence.Continuous;
+    }
+}

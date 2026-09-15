@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 using Patterns.Core.Model;
-using Patterns.Core.Ndi;
+using Patterns.Ndi;
 using Patterns.Core.Services;
 using Xunit;
 

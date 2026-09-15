@@ -1,8 +1,9 @@
 using System.IO.Compression;
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;
@@ -442,9 +443,9 @@ public class LowerThirdFractalThrottleTests
     [Fact]
     public void ALowerThirdFractalReadsTheSameFiveColoursOnEveryPath()
     {
-        Assert.Equal(5, Patterns.FractalPattern.PaletteColors);
-        Assert.Equal(5, Patterns.FractalPattern.PaletteOf("#111111,#222222,#333333,#444444,#555555,#666666,#777777").Length);
-        Assert.Equal(new[] { SKColors.White }, Patterns.FractalPattern.PaletteOf(""));
-        Assert.Equal(2, Patterns.FractalPattern.PaletteOf("#FF0000,#00FF00").Length);
+        Assert.Equal(5, Patterns.Rendering.FractalPattern.PaletteColors);
+        Assert.Equal(5, Patterns.Rendering.FractalPattern.PaletteOf("#111111,#222222,#333333,#444444,#555555,#666666,#777777").Length);
+        Assert.Equal(new[] { SKColors.White }, Patterns.Rendering.FractalPattern.PaletteOf(""));
+        Assert.Equal(2, Patterns.Rendering.FractalPattern.PaletteOf("#FF0000,#00FF00").Length);
     }
 }

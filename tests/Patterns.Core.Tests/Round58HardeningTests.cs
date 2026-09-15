@@ -1,5 +1,6 @@
 using Patterns.Core.Audio;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;

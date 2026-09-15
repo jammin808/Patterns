@@ -4,6 +4,7 @@ using Patterns.Core.Model;
 using Patterns.Core.Services;
 
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 
 namespace Patterns.App.ViewModels;
 

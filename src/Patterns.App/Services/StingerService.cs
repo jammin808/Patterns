@@ -1,6 +1,7 @@
 using Avalonia.Threading;
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 

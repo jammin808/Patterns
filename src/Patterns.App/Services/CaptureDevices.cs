@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Runtime.Versioning;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Services;
 
 namespace Patterns.App.Services;

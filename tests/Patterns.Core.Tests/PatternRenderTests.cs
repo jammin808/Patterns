@@ -1,5 +1,5 @@
 using Patterns.Core.Model;
-using Patterns.Core.Patterns;
+using Patterns.Rendering;
 using SkiaSharp;
 using Xunit;
 

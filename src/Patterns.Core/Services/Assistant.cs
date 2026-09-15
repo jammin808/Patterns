@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Patterns.Core.LowerThirds;
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
 
 namespace Patterns.Core.Services;
 

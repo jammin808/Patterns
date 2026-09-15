@@ -1,6 +1,7 @@
 using Patterns.Core.Geometry;
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Patterns.Core.RigDay;
+using Patterns.Rendering.RigDay;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;

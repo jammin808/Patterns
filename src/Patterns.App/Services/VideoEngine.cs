@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Threading;
 using LibVLCSharp.Shared;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using SkiaSharp;
@@ -1149,11 +1150,11 @@ public sealed class VlcFrameSource : IMountedSource
     {
         if (crop.Any)
         {
-            canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
+            canvas.DrawImage(image, crop.SourceRect(new SKSizeI(image.Width, image.Height)), dest, Patterns.Rendering.DrawUtil.Smooth, paint);
         }
         else
         {
-            canvas.DrawImage(image, dest, Patterns.Core.Rendering.DrawUtil.Smooth, paint);
+            canvas.DrawImage(image, dest, Patterns.Rendering.DrawUtil.Smooth, paint);
         }
     }
 

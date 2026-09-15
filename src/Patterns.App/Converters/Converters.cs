@@ -1,4 +1,4 @@
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;

@@ -55,6 +55,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Patterns.Core\Patterns.Core.csproj" />
+    <ProjectReference Include="..\Patterns.Rendering\Patterns.Rendering.csproj" />
+    <ProjectReference Include="..\Patterns.Ndi\Patterns.Ndi.csproj" />
+    <ProjectReference Include="..\Patterns.Arcade\Patterns.Arcade.csproj" />
   </ItemGroup>
 
 </Project>

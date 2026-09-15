@@ -6,7 +6,7 @@ using Avalonia.VisualTree;
 using NAudio.Wave;
 using Patterns.App.Services;
 using Patterns.App.Views.Sections;
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
 using Xunit;
 

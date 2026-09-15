@@ -1,5 +1,6 @@
 using Patterns.App.Services;
 using Patterns.Core.Arcade;
+using Patterns.Arcade;
 using Patterns.Core.Model;
 
 namespace Patterns.App.ViewModels;

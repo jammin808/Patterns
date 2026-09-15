@@ -1,7 +1,7 @@
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
-using Patterns.Core.Particles;
-using Patterns.Core.Rendering;
+using Patterns.Rendering.Particles;
+using Patterns.Rendering;
 using SkiaSharp;
 using Xunit;
 
@@ -430,7 +430,7 @@ public class EffectStingTests : IDisposable
         // Every family's shader still compiles with the turn and the warp in it.
         foreach (var kind in Enum.GetValues<FractalKind>())
         {
-            using var effect = SKRuntimeEffect.CreateShader(Patterns.FractalPattern.SourceFor(kind), out var errors);
+            using var effect = SKRuntimeEffect.CreateShader(Patterns.Rendering.FractalPattern.SourceFor(kind), out var errors);
             Assert.True(effect is not null, $"{kind}: {errors}");
         }
 

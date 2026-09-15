@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Xunit;
 
 namespace Patterns.App.Tests;

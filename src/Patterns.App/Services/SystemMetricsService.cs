@@ -48,10 +48,10 @@ public sealed class SystemMetricsService : IDisposable
     /// <summary>The owners the memory ledger reads: the pictures, the frame pools, the frames held, the decks' pages, the managed heap and what the runtime committed for it.</summary>
     private void RegisterLedger()
     {
-        MemoryLedger.Register("pictures", () => (Patterns.Core.Media.ImageCache.Bytes, $"{Patterns.Core.Media.ImageCache.Count} cached"));
-        MemoryLedger.Register("frame pools", () => (Patterns.Core.Media.FramePools.Bytes, $"{Patterns.Core.Media.FramePools.Count} source{(Patterns.Core.Media.FramePools.Count == 1 ? "" : "s")}"));
-        MemoryLedger.Register("retiring", () => (Patterns.Core.Media.RetiredFrames.Bytes + Patterns.Core.Media.FramePools.RetiringBytes,
-            $"{Patterns.Core.Media.RetiredFrames.CountOf(Patterns.Core.Media.RetiredFrames.Kind.Frame)} frames, {Patterns.Core.Media.RetiredFrames.CountOf(Patterns.Core.Media.RetiredFrames.Kind.Picture)} pictures, {Patterns.Core.Media.FramePools.PendingFree} pools behind the fence"));
+        MemoryLedger.Register("pictures", () => (Patterns.Rendering.Media.ImageCache.Bytes, $"{Patterns.Rendering.Media.ImageCache.Count} cached"));
+        MemoryLedger.Register("frame pools", () => (Patterns.Rendering.Media.FramePools.Bytes, $"{Patterns.Rendering.Media.FramePools.Count} source{(Patterns.Rendering.Media.FramePools.Count == 1 ? "" : "s")}"));
+        MemoryLedger.Register("retiring", () => (Patterns.Rendering.Media.RetiredFrames.Bytes + Patterns.Rendering.Media.FramePools.RetiringBytes,
+            $"{Patterns.Rendering.Media.RetiredFrames.CountOf(Patterns.Rendering.Media.RetiredFrames.Kind.Frame)} frames, {Patterns.Rendering.Media.RetiredFrames.CountOf(Patterns.Rendering.Media.RetiredFrames.Kind.Picture)} pictures, {Patterns.Rendering.Media.FramePools.PendingFree} pools behind the fence"));
         MemoryLedger.Register("deck pages", () => (_services.DeckIn.PageBytes, $"{_services.DeckIn.DeckCount} deck{(_services.DeckIn.DeckCount == 1 ? "" : "s")}"));
         MemoryLedger.Register("managed heap", () => (GC.GetTotalMemory(false), $"{GC.GetGCMemoryInfo().TotalCommittedBytes / (1024 * 1024)} MB committed"));
     }
@@ -130,7 +130,7 @@ public sealed class SystemMetricsService : IDisposable
     {
         try
         {
-            return Patterns.Core.Rendering.PatternEngine.CadenceOf(_services.Bus.Current, null, DateTime.UtcNow) == Patterns.Core.Rendering.RedrawCadence.Continuous;
+            return Patterns.Rendering.PatternEngine.CadenceOf(_services.Bus.Current, null, DateTime.UtcNow) == Patterns.Rendering.RedrawCadence.Continuous;
         }
         catch
         {
@@ -243,8 +243,8 @@ public sealed class SystemMetricsService : IDisposable
             GoWorstMs = _services.CueStack.GoClock.Worst?.TotalMs ?? -1,
             LagWorstMs = outputs.Count > 0 ? outputs.Max(r => r.LagMs) : -1,
             LiveAgeWorstMs = outputs.Count > 0 ? outputs.Max(r => r.LiveAgeMs) : -1,
-            RetiringMB = (Patterns.Core.Media.RetiredFrames.Bytes + Patterns.Core.Media.FramePools.RetiringBytes) / (1024.0 * 1024.0),
-            PoolStarved = Patterns.Core.Media.FramePools.Starved,
+            RetiringMB = (Patterns.Rendering.Media.RetiredFrames.Bytes + Patterns.Rendering.Media.FramePools.RetiringBytes) / (1024.0 * 1024.0),
+            PoolStarved = Patterns.Rendering.Media.FramePools.Starved,
             Threads = threads,
             Handles = handles,
             GcPausePct = gcPause,
@@ -344,11 +344,11 @@ public sealed class SystemMetricsService : IDisposable
     public string MemoryCeilingLine()
     {
         var sample = Current;
-        var ceilings = MemoryBudget.For(sample?.RamTotalMB ?? -1, Patterns.Core.Media.ImageCache.Capacity, VideoEngine.MaxMounts);
-        var line = MemoryBudget.Describe(sample?.RamAppMB ?? -1, ceilings, Patterns.Core.Media.ImageCache.Count, _services.Video.MountCount, VlcFrameSource.RetiredImageCount,
-            Patterns.Core.Media.ImageCache.Bytes, Patterns.Core.Media.FramePools.Bytes, Patterns.Core.Media.FramePools.Count,
-            Patterns.Core.Media.FramePools.RetiringBytes, Patterns.Core.Media.RetiredFrames.Bytes,
-            Patterns.Core.Media.FramePools.OverTarget(ceilings.FramePoolBytesPerSource), _services.Video.RetiredCount);
+        var ceilings = MemoryBudget.For(sample?.RamTotalMB ?? -1, Patterns.Rendering.Media.ImageCache.Capacity, VideoEngine.MaxMounts);
+        var line = MemoryBudget.Describe(sample?.RamAppMB ?? -1, ceilings, Patterns.Rendering.Media.ImageCache.Count, _services.Video.MountCount, VlcFrameSource.RetiredImageCount,
+            Patterns.Rendering.Media.ImageCache.Bytes, Patterns.Rendering.Media.FramePools.Bytes, Patterns.Rendering.Media.FramePools.Count,
+            Patterns.Rendering.Media.FramePools.RetiringBytes, Patterns.Rendering.Media.RetiredFrames.Bytes,
+            Patterns.Rendering.Media.FramePools.OverTarget(ceilings.FramePoolBytesPerSource), _services.Video.RetiredCount);
         var media = Pressure.Reading ?? MediaMemory.Read(MemoryBudget.MachineMB);
         return line + " · " + media.Words + " · placed: " + MemoryLedger.Describe();
     }
@@ -538,24 +538,24 @@ public sealed class SystemMetricsService : IDisposable
             QualityLevel = _services.Quality.Ladder.Level,
             QualityWords = _services.Quality.Describe(),
             RamAppMB = s?.RamAppMB ?? -1,
-            ImagesCached = Patterns.Core.Media.ImageCache.Count,
+            ImagesCached = Patterns.Rendering.Media.ImageCache.Count,
             Decoders = _services.Video.MountCount,
             DecoderCap = VideoEngine.MaxMounts,
             HeldFrames = VlcFrameSource.RetiredImageCount,
-            PictureBytes = Patterns.Core.Media.ImageCache.Bytes,
-            FramePoolBytes = Patterns.Core.Media.FramePools.Bytes,
-            FramePools = Patterns.Core.Media.FramePools.Count,
-            PoolsPendingFree = Patterns.Core.Media.FramePools.PendingFree,
-            RetiringPoolBytes = Patterns.Core.Media.FramePools.RetiringBytes,
-            RetiringFrameBytes = Patterns.Core.Media.RetiredFrames.Bytes,
-            FenceOldestMs = Math.Max(Patterns.Core.Media.FramePools.OldestRetiredMs, Patterns.Core.Media.RetiredFrames.OldestMs),
-            FenceLiveSinks = Patterns.Core.Media.RenderFence.LiveSinks,
-            PoolStarved = Patterns.Core.Media.FramePools.Starved,
-            ForcedFrees = Patterns.Core.Media.RenderFence.ForcedFrees,
+            PictureBytes = Patterns.Rendering.Media.ImageCache.Bytes,
+            FramePoolBytes = Patterns.Rendering.Media.FramePools.Bytes,
+            FramePools = Patterns.Rendering.Media.FramePools.Count,
+            PoolsPendingFree = Patterns.Rendering.Media.FramePools.PendingFree,
+            RetiringPoolBytes = Patterns.Rendering.Media.FramePools.RetiringBytes,
+            RetiringFrameBytes = Patterns.Rendering.Media.RetiredFrames.Bytes,
+            FenceOldestMs = Math.Max(Patterns.Rendering.Media.FramePools.OldestRetiredMs, Patterns.Rendering.Media.RetiredFrames.OldestMs),
+            FenceLiveSinks = Patterns.Rendering.Media.RenderFence.LiveSinks,
+            PoolStarved = Patterns.Rendering.Media.FramePools.Starved,
+            ForcedFrees = Patterns.Rendering.Media.RenderFence.ForcedFrees,
             MediaBytes = (Pressure.Reading ?? MediaMemory.Read(MemoryBudget.MachineMB)).Total,
             MediaBudgetBytes = MediaMemory.BudgetBytes(MemoryBudget.MachineMB),
             Pressure = Pressure.Level,
-            PoolsOverTarget = Patterns.Core.Media.FramePools.OverTarget(MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB)),
+            PoolsOverTarget = Patterns.Rendering.Media.FramePools.OverTarget(MemoryBudget.FramePoolBytesPerSource(MemoryBudget.MachineMB)),
             RetiringDecoders = _services.Video.RetiredCount,
             PrivateMB = s?.PrivateMB ?? -1,
             ManagedMB = s?.ManagedMB ?? -1,
@@ -568,7 +568,7 @@ public sealed class SystemMetricsService : IDisposable
             TwinPhase = _services.Twin.Phase,
             TwinWords = _services.Twin.Status,
             ShowLock = _services.ShowLock.Report,
-            NdiRuntime = Patterns.Core.Ndi.NdiSender.RuntimeAvailable,
+            NdiRuntime = Patterns.Ndi.NdiSender.RuntimeAvailable,
             NdiSendersConfigured = senders.Count,
             NdiSendersActive = _services.Ndi.ActiveCount,
             NdiSenderLines = senderLines,
@@ -584,7 +584,7 @@ public sealed class SystemMetricsService : IDisposable
             RemoteEnabled = state.Control.Enabled,
             RemoteUrl = remoteUrl,
             VideoPlayback = video,
-            VideoNote = Patterns.Core.Media.VideoService.AvailabilityNote,
+            VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
             Advice = Suggestions,
         };
     }

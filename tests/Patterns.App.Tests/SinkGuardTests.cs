@@ -7,7 +7,8 @@ using Patterns.App.Rendering;
 using Patterns.App.ViewModels;
 using Patterns.App.Views.Controls;
 using Patterns.Core.LowerThirds;
-using Patterns.Core.Rendering;
+using Patterns.Rendering.LowerThirds;
+using Patterns.Rendering;
 using SkiaSharp;
 using Xunit;
 

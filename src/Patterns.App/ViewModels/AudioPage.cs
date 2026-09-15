@@ -1,8 +1,9 @@
 using System.Collections.ObjectModel;
 using Avalonia.Platform.Storage;
 using Patterns.App.Services;
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 

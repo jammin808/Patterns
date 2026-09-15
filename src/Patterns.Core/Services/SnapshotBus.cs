@@ -40,8 +40,12 @@ public sealed class ShowSnapshot
     /// <summary>Runtime-only: the show clock (seconds) at which this snapshot was published.</summary>
     public double PublishedClock { get; init; }
 
-    /// <summary>Runtime-only: the sims leading each particle field drawn under this snapshot, so a sink that starts a field late shows the same particles (see <see cref="Particles.ParticleLeaders"/>).</summary>
-    public Particles.ParticleLeaders ParticleLeaders { get; } = new();
+    /// <summary>
+    /// Runtime-only state a drawing side hangs on this snapshot and no other — the sims leading
+    /// each particle field drawn under it, so a sink that starts a field late shows the same
+    /// particles. The core holds the bag and never the types: the render side asks for its own.
+    /// </summary>
+    public SnapshotAttachments Attachments { get; } = new();
 
     /// <summary>Runtime-only: every multiview draws the preview full-frame instead of its tiles — a review before the TAKE.</summary>
     public bool ReviewOnMultiview { get; init; }
@@ -84,7 +88,7 @@ public sealed class ShowSnapshot
     /// sender and a late-opened output all draw the same train. Null for a snapshot built
     /// outside the bus (thumbnails, tests): the renderer then runs the plain line from clock 0.
     /// </summary>
-    public Rendering.TickerLine? Ticker { get; init; }
+    public TickerLine? Ticker { get; init; }
 
     /// <summary>
     /// Runtime-only: the rig's pixel geometry for the placements in <see cref="State"/> — every
@@ -239,14 +243,14 @@ public sealed class SnapshotBus
     private volatile ShowSnapshot _current;
     private long _version;
     private readonly Func<double> _clock;
-    private Rendering.TickerLine _ticker;
-    private Rendering.TickerLine _sandboxTicker;
+    private TickerLine _ticker;
+    private TickerLine _sandboxTicker;
 
     /// <param name="clock">The show clock the bus stamps on every publish; tests inject a fixed one.</param>
     public SnapshotBus(ShowState initial, Func<double>? clock = null)
     {
         _clock = clock ?? (static () => ShowClock.Seconds);
-        _ticker = Rendering.TickerLine.From(initial.Overlays.Message.ScrollPxPerSec);
+        _ticker = TickerLine.From(initial.Overlays.Message.ScrollPxPerSec);
         _sandboxTicker = _ticker;
         var now = _clock();
         _current = new ShowSnapshot
@@ -422,7 +426,7 @@ public sealed class SnapshotBus
     /// <summary>The sections <see cref="ShowSnapshot.TransitionKeyFor"/> reads; a change to any of them starts the memo afresh.</summary>
     private static readonly string[] TransitionKeySections = { nameof(ShowState.Pattern), nameof(ShowState.Independent), nameof(ShowState.Output) };
 
-    private ShowSnapshot Build(ShowState state, ref Rendering.TickerLine ticker, ChangeTracker? changes)
+    private ShowSnapshot Build(ShowState state, ref TickerLine ticker, ChangeTracker? changes)
     {
         var version = ++_version;
         var now = _clock();
@@ -510,3 +514,19 @@ public sealed class SnapshotBus
 
 /// <summary>The playlist item currently on screen (immutable; carried on snapshots).</summary>
 public sealed record PlaylistNow(string Path, bool IsVideo, int Index, int Count, DateTime StartedUtc, double DurationSeconds);
+
+/// <summary>
+/// A bag of runtime-only objects that belong to one snapshot — created on first ask, one per
+/// type, shared by every sink that draws the snapshot, gone with it. The core offers the bag so
+/// that a drawing side can keep per-snapshot state (which sim leads a particle field) without
+/// the core naming a drawing type; a type is its own key.
+/// </summary>
+public sealed class SnapshotAttachments
+{
+    private readonly ConcurrentDictionary<Type, object> _items = new();
+
+    /// <summary>The snapshot's one instance of the type, made on the first ask.</summary>
+    public T Get<T>() where T : class, new() => (T)_items.GetOrAdd(typeof(T), static _ => new T());
+
+    public int Count => _items.Count;
+}

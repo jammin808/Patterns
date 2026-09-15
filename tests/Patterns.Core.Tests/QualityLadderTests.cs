@@ -1,6 +1,6 @@
-using Patterns.Core.Effects;
+using Patterns.Rendering.Effects;
 using Patterns.Core.Model;
-using Patterns.Core.Particles;
+using Patterns.Rendering.Particles;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;
@@ -257,7 +257,7 @@ public class QualityLadderTests
         // Both draw paths run: the whole field, then the active share through its own arrays.
         var info = new SKImageInfo(320, 180, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var surface = SKSurface.Create(info);
-        var paints = new Rendering.PaintCache();
+        var paints = new Patterns.Rendering.PaintCache();
         sim.Advance(1.0);
         sim.Render(surface.Canvas, paints);
         sim.Quality = 0.5;

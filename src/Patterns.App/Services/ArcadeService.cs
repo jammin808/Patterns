@@ -3,10 +3,12 @@ using System.Text;
 using System.Text.Json;
 using Avalonia.Threading;
 using Patterns.Core.Arcade;
+using Patterns.Arcade;
 using Patterns.Core.Media;
+using Patterns.Rendering.Media;
 using Patterns.Core.Model;
-using Patterns.Core.Ndi;
-using Patterns.Core.Rendering;
+using Patterns.Ndi;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 

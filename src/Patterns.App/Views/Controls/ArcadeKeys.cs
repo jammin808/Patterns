@@ -1,6 +1,7 @@
 using Avalonia.Input;
 using Patterns.App.Services;
 using Patterns.Core.Arcade;
+using Patterns.Arcade;
 
 namespace Patterns.App.Views.Controls;
 

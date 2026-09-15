@@ -1,4 +1,5 @@
 using Patterns.Core.RigDay;
+using Patterns.Rendering.RigDay;
 using Xunit;
 
 namespace Patterns.Core.Tests;

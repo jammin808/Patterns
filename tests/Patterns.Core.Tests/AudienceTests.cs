@@ -1,5 +1,6 @@
 using Patterns.Core.Model;
 using Patterns.Core.Play;
+using Patterns.Arcade;
 using Xunit;
 
 namespace Patterns.Core.Tests;

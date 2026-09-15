@@ -1,5 +1,4 @@
 using Patterns.Core.Model;
-using Patterns.Core.Rendering;
 
 namespace Patterns.Core.Services;
 

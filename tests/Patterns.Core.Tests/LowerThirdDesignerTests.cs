@@ -1,4 +1,5 @@
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Model;
 using Xunit;
 

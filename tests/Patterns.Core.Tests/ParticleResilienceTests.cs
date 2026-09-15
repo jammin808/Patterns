@@ -1,6 +1,6 @@
 using Patterns.Core.Model;
-using Patterns.Core.Particles;
-using Patterns.Core.Rendering;
+using Patterns.Rendering.Particles;
+using Patterns.Rendering;
 using Patterns.Core.Services;
 using SkiaSharp;
 using Xunit;
@@ -90,7 +90,7 @@ public class ParticleResilienceTests
         leader.Advance(0.5);
         leader.Advance(12.0);
         Assert.Equal(Target(12.0), leader.StepsDone);
-        Assert.Same(leader, snap.ParticleLeaders.Leader(leader.ConfigKey));
+        Assert.Same(leader, snap.Attachments.Get<ParticleLeaders>().Leader(leader.ConfigKey));
 
         var joiner = late.Get(o, snap, canvas);      // an output opened twelve seconds after the PGM pane started the field
         Assert.NotSame(leader, joiner);
@@ -109,14 +109,14 @@ public class ParticleResilienceTests
         using var alone = new ParticleSimCache();
         var solo = alone.Get(o, fresh, canvas);
         solo.Advance(20.0);
-        Assert.Same(solo, fresh.ParticleLeaders.Leader(solo.ConfigKey));
+        Assert.Same(solo, fresh.Attachments.Get<ParticleLeaders>().Leader(solo.ConfigKey));
         Assert.NotEqual(leader.PositionOf(3), solo.PositionOf(3));
 
         // A disposed leader leads no one: the next sim to start the field takes the lead.
         leader.Dispose();
         using var another = new ParticleSimCache();
         var third = another.Get(o, snap, canvas);
-        Assert.Same(third, snap.ParticleLeaders.Leader(third.ConfigKey));
+        Assert.Same(third, snap.Attachments.Get<ParticleLeaders>().Leader(third.ConfigKey));
     }
 
     [Fact]

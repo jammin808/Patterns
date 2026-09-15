@@ -6,16 +6,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Pinned to the same SkiaSharp version Avalonia 11.3 resolves, to avoid duplicate natives. -->
-    <PackageReference Include="SkiaSharp" Version="3.116.1" />
-  </ItemGroup>
 
-  <ItemGroup>
-    <!-- Inter (SIL OFL 1.1) embedded so overlay text renders identically on any machine. -->
-    <EmbeddedResource Include="Assets\Inter-Regular.ttf" />
-    <EmbeddedResource Include="Assets\Inter-SemiBold.ttf" />
-    <None Include="Assets\Inter-LICENSE-OFL.txt" />
-  </ItemGroup>
 
 </Project>

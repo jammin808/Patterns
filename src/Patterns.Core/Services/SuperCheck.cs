@@ -600,7 +600,7 @@ public static class SuperCheck
     {
         if (f.RenderWorstMs < 0) return;
         var worst = f.RenderWorstMs;
-        var stage = f.RenderWorstStage.Length > 0 ? Rendering.FrameStage.Words(f.RenderWorstStage) : "";
+        var stage = f.RenderWorstStage.Length > 0 ? FrameStage.Words(f.RenderWorstStage) : "";
         var where = string.Join(", ", new[] { stage, f.RenderWorstSink }.Where(x => x.Length > 0));
         var light = worst > FrameBudget.StutterMs ? CheckLight.Red : worst > FrameBudget.SlowMs ? CheckLight.Amber : CheckLight.Green;
         var value = $"{(f.RenderAverageMs >= 0 ? $"{f.RenderAverageMs:0.0} ms" : "—")} · worst {worst:0.0} ms{(where.Length > 0 ? $" ({where})" : "")}"
@@ -697,11 +697,11 @@ public static class SuperCheck
         if (stage.StartsWith("pattern:Multiview", StringComparison.Ordinal)) return $"{felt} — the multiview: fewer tiles, or a lower frame rate for its output";
         return stage switch
         {
-            Rendering.FrameStage.LowerThird => $"{felt} — the lower third: a fractal or particle element inside it is the usual cause; fewer particles, or Fast fractal quality",
-            Rendering.FrameStage.Layers => $"{felt} — a layer's source: a 4K clip or a web page; a smaller source",
-            Rendering.FrameStage.Fade => $"{felt} — a crossfade draws the old picture and the new: a shorter fade, or lighter content on either side",
-            Rendering.FrameStage.Overlays => $"{felt} — the overlays: a ticker over a feed, a large logo, the weather chip",
-            _ when stage == Rendering.FrameStage.PatternOf(Model.PatternKind.Reactive) => $"{felt} — a reactive scene: a lower Quality on the Reactive page, a simpler scene, or fewer sinks drawing it at once",
+            FrameStage.LowerThird => $"{felt} — the lower third: a fractal or particle element inside it is the usual cause; fewer particles, or Fast fractal quality",
+            FrameStage.Layers => $"{felt} — a layer's source: a 4K clip or a web page; a smaller source",
+            FrameStage.Fade => $"{felt} — a crossfade draws the old picture and the new: a shorter fade, or lighter content on either side",
+            FrameStage.Overlays => $"{felt} — the overlays: a ticker over a feed, a large logo, the weather chip",
+            _ when stage == FrameStage.PatternOf(Model.PatternKind.Reactive) => $"{felt} — a reactive scene: a lower Quality on the Reactive page, a simpler scene, or fewer sinks drawing it at once",
             _ => $"{felt} — close the desk's extra monitors, or lower the output frame rate on the Output page",
         };
     }
@@ -729,7 +729,7 @@ public static class SuperCheck
     private static void MemoryCeiling(CheckFacts f, List<CheckRow> rows, string section)
     {
         if (f.RamAppMB < 0 && f.ImagesCached < 0 && f.Decoders < 0) return;
-        var ceilings = MemoryBudget.For(f.RamTotalMB, Media.ImageCache.Capacity, f.DecoderCap);
+        var ceilings = MemoryBudget.For(f.RamTotalMB, MemoryBudget.PictureCapacity, f.DecoderCap);
         rows.Add(new CheckRow(section, "Memory ceiling", MemoryBudget.Light(f.RamAppMB, ceilings),
             MemoryBudget.Describe(f.RamAppMB, ceilings, f.ImagesCached, f.Decoders, f.HeldFrames, f.PictureBytes, f.FramePoolBytes, f.FramePools,
                 Math.Max(0, f.RetiringPoolBytes), f.RetiringFrameBytes, f.PoolsOverTarget, f.RetiringDecoders), MemoryBudget.Advice(f.RamAppMB, ceilings)));

@@ -5,6 +5,7 @@ using Avalonia.VisualTree;
 using Patterns.App.Services;
 using Patterns.App.Views.Sections;
 using Patterns.Core.LowerThirds;
+using Patterns.Rendering.LowerThirds;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 using Xunit;

@@ -1,4 +1,4 @@
-using Patterns.Core.Rendering;
+using Patterns.Rendering;
 using Avalonia.Threading;
 using LibVLCSharp.Shared;
 using Patterns.Core.Model;

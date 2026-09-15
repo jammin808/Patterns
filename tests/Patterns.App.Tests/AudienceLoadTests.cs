@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
+using Patterns.Arcade;
 using Patterns.Core.Services;
 using Xunit;
 
