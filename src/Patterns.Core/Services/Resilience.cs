@@ -54,6 +54,40 @@ public sealed class SupervisorPolicy
     public static bool IsHung(DateTime? lastBeatUtc, DateTime utcNow)
         => lastBeatUtc is { } beat && utcNow - beat > HangTimeout;
 
+    /// <summary>
+    /// How long a child may run before its first heartbeat (round 65). The runtime, the
+    /// framework, the graphics device, the outputs' takeover, the desk and its window all come
+    /// up inside it on the slowest show machine with a cold disk; a child still silent past it
+    /// wedged before it ever became a desk — a driver, a takeover, a construction — and is a
+    /// startup hang, not a process to wait for forever.
+    /// </summary>
+    public static readonly TimeSpan StartupDeadline = TimeSpan.FromSeconds(120);
+
+    /// <summary>The child as the watchdog reads it (round 65).</summary>
+    public enum ChildPhase
+    {
+        /// <summary>Started, no heartbeat yet, inside the startup deadline.</summary>
+        Starting,
+        /// <summary>Beating within the hang timeout.</summary>
+        Beating,
+        /// <summary>Never beat, and the startup deadline has passed.</summary>
+        StartupHang,
+        /// <summary>Beat once, then silent past the hang timeout.</summary>
+        Hung,
+    }
+
+    /// <summary>
+    /// Where the child stands: before the first beat the startup deadline judges it, after the
+    /// first beat the hang timeout does. Both ends kill the child and go through <see cref="OnExit"/>
+    /// as a hang, so the backoff and the crash-loop cap apply to a start that never finishes
+    /// exactly as to a desk that froze.
+    /// </summary>
+    public static ChildPhase Phase(DateTime startedUtc, DateTime? lastBeatUtc, DateTime utcNow)
+    {
+        if (lastBeatUtc is { } beat) return utcNow - beat > HangTimeout ? ChildPhase.Hung : ChildPhase.Beating;
+        return utcNow - startedUtc > StartupDeadline ? ChildPhase.StartupHang : ChildPhase.Starting;
+    }
+
     public SupervisorVerdict OnExit(int exitCode, bool killedForHang, TimeSpan ranFor, DateTime utcNow)
     {
         if (exitCode == 0 && !killedForHang)

@@ -208,12 +208,20 @@ internal static class Supervisor
 
             var startedUtc = DateTime.UtcNow;
             var killedForHang = false;
+            var startupHang = false;
             while (!exited.Wait(1000) && !child.WaitForExit(0))
             {
                 var ticks = Interlocked.Read(ref lastBeatTicks);
-                if (ticks != 0 && SupervisorPolicy.IsHung(new DateTime(ticks, DateTimeKind.Utc), DateTime.UtcNow))
+                // Before the first beat the startup deadline judges the child, after it the hang
+                // timeout (round 65): a child that wedges in the graphics device, a takeover or the
+                // desk's construction never beats at all, and used to be waited for forever.
+                var phase = SupervisorPolicy.Phase(startedUtc, ticks == 0 ? null : new DateTime(ticks, DateTimeKind.Utc), DateTime.UtcNow);
+                if (phase is SupervisorPolicy.ChildPhase.Starting or SupervisorPolicy.ChildPhase.Beating) continue;
                 {
-                    WLog($"UI heartbeat silent for {SupervisorPolicy.HangTimeout.TotalSeconds:0}s — ending the hung app.");
+                    startupHang = phase == SupervisorPolicy.ChildPhase.StartupHang;
+                    WLog(startupHang
+                        ? $"No first heartbeat in {SupervisorPolicy.StartupDeadline.TotalSeconds:0}s — the app never became a desk; ending it."
+                        : $"UI heartbeat silent for {SupervisorPolicy.HangTimeout.TotalSeconds:0}s — ending the hung app.");
                     killedForHang = true;
                     try
                     {
@@ -284,7 +292,7 @@ internal static class Supervisor
                     restarts++;
                     var native = !killedForHang && ExitCodes.IsNativeFault(exitCode);
                     nativeFaultsInARow = native ? nativeFaultsInARow + 1 : 0;
-                    var why = killedForHang ? "hung"
+                    var why = killedForHang ? (startupHang ? "hung before its first heartbeat" : "hung")
                         : exitCode == SupervisorPolicy.RestartRequestExitCode ? "asked to restart (Machine page)"
                         : exitCode == SupervisorPolicy.UpdateRequestExitCode ? "asked to be updated"
                         : $"crashed (exit {exitCode} = {ExitCodes.Hex(exitCode)}, {ExitCodes.Describe(exitCode)})";
@@ -299,6 +307,7 @@ internal static class Supervisor
                         // words — those are kept under the exit code this process saw.
                         var own = CrashMarker.Peek(baseDirectory);
                         var detail = own is { } o && o.AtUtc >= startedUtc.AddSeconds(-5) ? o.Detail : "";
+                        if (startupHang && detail.Length == 0) detail = $"startup hang: no first heartbeat within {SupervisorPolicy.StartupDeadline.TotalSeconds:0} s";
                         CrashMarker.Write(baseDirectory, new CrashNote(exitCode, ExitCodes.Describe(exitCode), native, killedForHang,
                             DateTime.UtcNow, ranFor.TotalSeconds, dump, nativeFaultsInARow, detail));
                         if (detail.Length > 0) WLog($"The app's own note: {detail}");
