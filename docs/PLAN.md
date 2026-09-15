@@ -7738,9 +7738,16 @@ carrying the changelog's line. A tag is a name for a commit: `git checkout round
 exactly as round 57 left it, `git diff round-57 round-58 --stat` is what a round changed,
 `git log round-57..round-58` its commits. The rounds before the history have no commit to tag.
 A show's version is a tag too — `show-2026-09-19` — and the release job treats it the same.
-The forty-six historical tags were pushed at the round's end; a tag push runs the workflow file
-as it is at the tagged commit, and every earlier build.yml triggers on branches only, so they
-started no build.
+The tags are made and pushed by `.github/scripts/tag-rounds.sh`: a table of each round's last
+commit for 15 to 60 (the history read into rounds, §79.1), the newest round in the changelog at
+HEAD, the message the changelog's line; idempotent, so a maintainer runs it once when a round
+closes and only the new tag is made and pushed, and a tag that exists at another commit is said
+and left. The push is a maintainer's: this session's credential pushes the working branch and
+nothing else — the tag push answered 403 while the branch's went through — so the tags were
+made here, the script proved against a bare scratch remote, and the one command left for
+whoever holds the repository. A tag push runs the workflow file as it is at the tagged commit,
+and every earlier build.yml triggers on branches only, so the forty-six old rounds start no
+build; `round-61` starts the first release.
 
 **Releases.** build.yml runs on `round-*` and `show-*` tags as it does on branches, and a fourth
 job, `release`, runs on a tag only, after the Windows publish and the module's package: it
@@ -7878,9 +7885,10 @@ of DirectX is worth its own code yet.
 
 Core: `ChangelogTests` (every round from the plan's newest down to 15 has its entry in order;
 every entry names its date, its tag, one of its own sections of the plan and the suite's count).
-The scripts by hand in a scratch clone (§79.2). Docs: CHANGELOG.md, this section, REVIEW round
-61, README (the bullet, *Versions and rolling back*, the Releases page in the quick start, the
-count), the tags, the two workflows and the two scripts.
+The scripts by hand in a scratch clone and against a bare scratch remote (§79.2). Docs:
+CHANGELOG.md, this section, REVIEW round 61, README (the bullet, *Versions and rolling back*,
+the Releases page in the quick start, the count), the two workflows and the three scripts
+(`release-notes.sh`, `rollback.sh`, `tag-rounds.sh`).
 
 ### 79.6 Considered and left
 

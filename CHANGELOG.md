@@ -13,7 +13,8 @@ is the Bitfocus Companion module, where its version moved.
 `round-61` · PLAN §79 · REVIEW round 61 · 1,996 tests
 
 - This file, kept by a test: every round has its entry, in order, with no gap.
-- Rolling back on GitHub: a tag per round; a Release per tag with the portable exe, the full
+- Rolling back on GitHub: a tag per round (`tag-rounds.sh` makes and pushes them, once per
+  closed round); a Release per tag with the portable exe, the full
   bundle with libVLC and the Companion module package, the changelog's entry as its notes; the
   **rollback** workflow (Actions → rollback → Run workflow) puts any tag, commit or branch back
   on a branch as a new commit and starts the build on it — nothing rewritten, ever.

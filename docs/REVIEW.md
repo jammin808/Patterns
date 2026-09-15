@@ -1614,8 +1614,15 @@ them.
 
 ### 61.2 — the roll-back
 
-- **Done.** Forty-six annotated tags, the tag trigger and the release job in build.yml, the
+- **Done.** The tags as a script (`tag-rounds.sh`: the table of each round's last commit,
+  the newest at HEAD, idempotent), the tag trigger and the release job in build.yml, the
   rollback workflow and its script, the release-notes script, the README's section. §79.2.
+- **Found on the way:** this session's push reaches the working branch and nothing else — the
+  push of the tags answered 403 five times while the branch's push went through — so the tags
+  are one command for a maintainer rather than a push from here, and the script that makes them
+  is in the tree, proved against a bare scratch remote: a first run makes forty-seven and pushes
+  them, a second finds them all on the remote, a tag at another commit is said and left, a round
+  missing from the table stops it before anything is made.
 - **Found on the way:** a push made with the workflow's token starts no build, so a roll-back
   that only pushed would leave the branch unbuilt; the workflow starts the build itself, and
   build.yml gained `workflow_dispatch` for it. A roll-back that took the workflows with it would
@@ -1629,9 +1636,9 @@ them.
   started from. The notes script on a round tag, a missing round and a show tag.
 - **The honest limit:** `main` is at round 28 and the working branch at 61; a
   `workflow_dispatch` workflow is a button on the Actions page only once its file is on the
-  default branch, so the roll-back button waits for the merge. The tags and the Releases do not:
-  a tag push runs the workflow at the tag, and `round-61`'s run is the first to reach the release
-  job.
+  default branch, so the roll-back button waits for the merge. The tags and the Releases do not
+  wait for the merge, only for the one command: a tag push runs the workflow at the tag, and
+  `round-61`'s is the first to reach the release job — it has not run from here.
 - **Kept deliberate:** no Release for the historical tags (forty-six builds of old trees); the
   first Release is `round-61`'s, and every tag after it gets one the same way.
 
@@ -1649,9 +1656,9 @@ them.
 - The changelog's counts before round 32 are the README's own line at each round's last commit,
   which the rounds updated at their close; where a round did not move it (28 to 31 read 1,447)
   the line is repeated rather than guessed.
-- `round-61`'s tag run is the first through the release job; its outcome is this round's
-  check-in, and a failure there is fixed forward with a new commit and a new tag, never a moved
-  one.
+- `round-61`'s tag run will be the first through the release job, and it runs when the tag is
+  pushed; this session's check-in reads the branch's run. A failure in the release job is fixed
+  forward with a new commit and the next tag, never a moved one.
 
 Counts at the end of the round: Core 667, Rendering 602, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 673 — 1,996 in seven suites, every one green here, the module's seventeen beside

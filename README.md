@@ -25,8 +25,8 @@ fault containment, and settings that can never brick startup.
 
 - **Every version kept, and any of them back** — [`CHANGELOG.md`](CHANGELOG.md) is the history
   in rounds, newest first, one entry each with its tag, its section of the plan and its count;
-  every round from 15 is a tag on its last commit, every tag from `round-61` a Release with the
-  built desk, and the *rollback* workflow puts any version back on a branch as a new commit and
+  every round from 15 has a tag on its last commit (one script makes them), every tag from
+  `round-61` a Release with the built desk, and the *rollback* workflow puts any version back on a branch as a new commit and
   builds it — nothing rewritten, ever. *Versions and rolling back*, below.
 - **Right-click, and the preview first** — every tile of the wall, screen row, look, lower third,
   cue row, layer, overlay and the PROGRAM and PREVIEW strips have a menu of the desk's own: a
@@ -1638,8 +1638,10 @@ history in rounds, newest first — each entry with the round's tag, its dates, 
 `docs/PLAN.md`, its test count and the Companion module's version where it moved; the rounds
 before the repository's history are listed from the plan. A test keeps it current.
 
-- **Tags.** Every round from 15 on is an annotated tag on its last commit, `round-15` …
-  `round-61`. `git checkout round-57` is the desk exactly as round 57 left it;
+- **Tags.** Every round from 15 on has an annotated tag on its last commit, `round-15` …
+  `round-61`, made and pushed by `.github/scripts/tag-rounds.sh` — run it once from the
+  repository root when a round closes; it makes the tags that are missing and pushes them, and a
+  second run finds nothing to do. `git checkout round-57` is the desk exactly as round 57 left it;
   `git diff round-57 round-58 --stat` is what a round changed. Tag a version you trust before a
   show — `git tag -a show-2026-09-19 -m "Autumn conference" && git push origin show-2026-09-19` —
   and it gets a Release like a round.
