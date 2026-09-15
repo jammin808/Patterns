@@ -264,8 +264,16 @@ public sealed partial class ShowActions
         var present = placement.FpsOverride > 0 ? placement.FpsOverride : State.Output.MasterFps;
         var observed = info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? DisplayObservation.For(info.Bounds) : null;
         var clock = clockHz ?? FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
-        return SignalTruth.Compare(label, placement.Signal, width, height, present, info?.Hz ?? 0, observed, clock);
+        return SignalTruth.Compare(label, placement.Signal, width, height, present, info?.Hz ?? 0, observed, clock, EdidReader.For(observed));
     }
+
+    /// <summary>The EDID behind a screen's display as Windows keeps it, parsed; null when there is none to read.</summary>
+    public EdidInfo? EdidFor(ScreenInfo? info)
+        => info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? EdidReader.For(DisplayObservation.For(info.Bounds)) : null;
+
+    /// <summary>The signal lines for the assistant's brief: one per screen with a contract or an observation, capability apart from signal.</summary>
+    public IReadOnlyList<string> SignalBriefLines()
+        => SignalReports().Where(r => r.Lines.Count > 0).Select(r => r.BriefLine).ToList();
 
     /// <summary>Every live screen's signal report, in wall order — the facts for Super Check; a verdict that moved since the last reading goes into the journal.</summary>
     public IReadOnlyList<SignalReport> SignalReports()
@@ -313,16 +321,38 @@ public sealed partial class ShowActions
         return JsonUtil.SerializeCompact(SignalRow(index + 1, SignalReportFor(live[index].Placement, live[index].Info, clock)));
     }
 
-    private static object SignalRow(int n, SignalReport r) => new
+    private object SignalRow(int n, SignalReport r)
     {
-        n,
-        label = r.Label,
-        design = r.Design,
-        requested = r.Requested,
-        observed = r.Observed,
-        result = r.Result,
-        lines = r.Lines.Select(l => new { item = l.Item, light = l.Light.ToString().ToLowerInvariant(), value = l.Value, note = l.Note }).ToArray(),
-    };
+        var info = _s.Screens.All.FirstOrDefault(s => Rig.LabelFor(State.Output.Placements.FirstOrDefault(p => p.ScreenId == s.Id) ?? new ScreenPlacement { ScreenId = s.Id }, s) == r.Label);
+        var edid = EdidFor(info);
+        return new
+        {
+            n,
+            label = r.Label,
+            design = r.Design,
+            advertised = r.Advertised,
+            requested = r.Requested,
+            observed = r.Observed,
+            result = r.Result,
+            edid = edid is null ? null : new
+            {
+                identity = edid.Identity,
+                manufacturer = edid.Manufacturer,
+                product = edid.ProductCode,
+                serial = edid.SerialText.Length > 0 ? edid.SerialText : edid.SerialNumber.ToString(),
+                name = edid.Name,
+                version = edid.Version,
+                preferred = edid.Preferred?.Words ?? "",
+                extensions = edid.ExtensionCount,
+                blocks = edid.Blocks,
+                checksums = edid.ChecksumsValid,
+                problems = edid.Problems,
+                hash = edid.Hash,
+                length = edid.Length,
+            },
+            lines = r.Lines.Select(l => new { item = l.Item, light = l.Light.ToString().ToLowerInvariant(), value = l.Value, note = l.Note }).ToArray(),
+        };
+    }
 
     private bool DeskSharesADisplayWithAnOutput()
     {

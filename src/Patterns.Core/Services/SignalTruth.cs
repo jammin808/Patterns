@@ -56,7 +56,7 @@ public sealed record SignalLine(string Item, CheckLight Light, string Value, str
 /// OBSERVED (what Windows reports it sends, unknowns left unknown), RESULT — and the lines Super
 /// Check shows under SIGNAL. ADVERTISED (the EDID) joins in round 65.7.
 /// </summary>
-public sealed record SignalReport(string Label, SignalVerdict Verdict, string Design, string Requested, string Observed, IReadOnlyList<SignalLine> Lines)
+public sealed record SignalReport(string Label, SignalVerdict Verdict, string Design, string Requested, string Observed, IReadOnlyList<SignalLine> Lines, string Advertised = "")
 {
     public string Result => Words(Verdict);
 
@@ -68,9 +68,14 @@ public sealed record SignalReport(string Label, SignalVerdict Verdict, string De
         _ => "UNVERIFIED",
     };
 
-    /// <summary>The technical view as text, for the Screens page and the wire.</summary>
-    public string Text => $"DESIGN\n{Design}\n\nREQUESTED\n{Requested}\n\nOBSERVED\n{Observed}\n\nRESULT\n{Result}"
+    /// <summary>The technical view as text, for the Screens page and the wire: DESIGN, ADVERTISED (the EDID, when read), REQUESTED, OBSERVED, RESULT, the lines.</summary>
+    public string Text => $"DESIGN\n{Design}\n\n"
+        + (Advertised.Length > 0 ? $"ADVERTISED\n{Advertised}\n\n" : "")
+        + $"REQUESTED\n{Requested}\n\nOBSERVED\n{Observed}\n\nRESULT\n{Result}"
         + (Lines.Count == 0 ? "" : "\n\n" + string.Join("\n", Lines.Select(l => $"{l.Item}: {l.Value}{(l.Note.Length > 0 ? " — " + l.Note : "")}")));
+
+    /// <summary>One line for the assistant's brief: the label, the design, the advertised summary, the observed words and the result — capability apart from signal, unknowns as unknown.</summary>
+    public string BriefLine => $"{Label}: DESIGN {Design} · ADVERTISED {(Advertised.Length > 0 ? Advertised.Replace("\n", "; ") : "no EDID read")} · REQUESTED {Requested} · OBSERVED {Observed} · RESULT {Result}";
 }
 
 /// <summary>
@@ -183,26 +188,34 @@ public static class SignalTruth
     /// display's refresh as Windows' mode says it (0 unknown); <paramref name="clockHz"/> the render
     /// clock as measured (≤ 0 not measured).
     /// </summary>
-    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz)
+    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz, EdidInfo? advertised = null)
     {
         var lines = new List<SignalLine>();
         var design = DesignWords(contract);
         var requested = RequestedWords(screenWidth, screenHeight, presentFps, displayHz);
         var observedWords = ObservedWords(observed);
+        var advertisedWords = advertised?.AdvertisedWords ?? "";
         var set = contract is { IsSet: true };
 
         if (!set)
         {
             // No contract: evidence alone, no verdict — and a line only when there is evidence to show.
+            if (advertised is not null) lines.Add(EdidLine(advertised));
             if (observed is not null) lines.Add(new SignalLine("Signal", CheckLight.Grey, observedWords, "no contract to hold it against — Screens page, SIGNAL CONTRACT"));
-            return new SignalReport(label, SignalVerdict.Unverified, design, requested, observedWords, lines);
+            return new SignalReport(label, SignalVerdict.Unverified, design, requested, observedWords, lines, advertisedWords);
         }
 
         lines.Add(new SignalLine("Contract", CheckLight.Green, design));
+        if (advertised is not null)
+        {
+            // The EDID: what the display says it can take — capability, never the signal. Amber where the contract asks for what is not advertised: the source may fall back or convert.
+            lines.Add(EdidLine(advertised));
+            AdvertisedLines(contract!, screenWidth, screenHeight, advertised, lines);
+        }
         if (observed is null)
         {
             lines.Add(new SignalLine("Observed", CheckLight.Grey, "not observed", "the display is not attached, or Windows did not answer for it — nothing is verified"));
-            return new SignalReport(label, SignalVerdict.Unverified, design, requested, observedWords, lines);
+            return new SignalReport(label, SignalVerdict.Unverified, design, requested, observedWords, lines, advertisedWords);
         }
 
         var mismatch = false;
@@ -331,7 +344,79 @@ public static class SignalTruth
         }
 
         var verdict = mismatch ? SignalVerdict.Mismatch : rasterKnown && rateKnown ? SignalVerdict.Match : SignalVerdict.Unverified;
-        return new SignalReport(label, verdict, design, requested, observedWords, lines);
+        return new SignalReport(label, verdict, design, requested, observedWords, lines, advertisedWords);
+    }
+
+    /// <summary>The EDID's line: its identity and hash, green; amber when a block's checksum is wrong or the parse had problems.</summary>
+    public static SignalLine EdidLine(EdidInfo edid)
+    {
+        var value = $"{edid.Identity} · {edid.ShortHash}";
+        if (!edid.ChecksumsValid || edid.Problems.Count > 0)
+        {
+            return new SignalLine("EDID", CheckLight.Amber, value + (edid.ChecksumsValid ? "" : " · CHECKSUM BAD"), string.Join("; ", edid.Problems.DefaultIfEmpty("the EDID did not read cleanly — a source may reject it or fall back")));
+        }
+        return new SignalLine("EDID", CheckLight.Green, value, $"{edid.ExtensionCount} extension{(edid.ExtensionCount == 1 ? "" : "s")}{(edid.Preferred is { } p ? " · preferred " + p.Words.Replace(" (preferred)", "") : "")}");
+    }
+
+    /// <summary>The contract against the EDID, property by property: green where the display advertises what the contract asks, amber where it does not.</summary>
+    private static void AdvertisedLines(SignalContract contract, int screenWidth, int screenHeight, EdidInfo edid, List<SignalLine> lines)
+    {
+        var wantW = contract.Width > 0 ? contract.Width : screenWidth;
+        var wantH = contract.Height > 0 ? contract.Height : screenHeight;
+        if (wantW > 0 && wantH > 0 && edid.RastersOffered.Count > 0)
+        {
+            var offered = edid.OffersRaster(wantW, wantH);
+            lines.Add(new SignalLine("Advertised raster", offered ? CheckLight.Green : CheckLight.Amber,
+                offered ? $"{wantW}×{wantH} offered" : $"{wantW}×{wantH} not advertised — the display offers {string.Join(" / ", edid.RastersOffered.Take(4).Select(r => $"{r.Width}×{r.Height}"))}",
+                offered ? "" : "the source may scale or fall back to a mode the display advertises — an LED processor input often offers its canvas size only"));
+        }
+        if (contract.Rate.IsSet && edid.RatesOffered.Count > 0)
+        {
+            var offered = edid.OffersRate(contract.Rate);
+            lines.Add(new SignalLine("Advertised rate", offered ? CheckLight.Green : CheckLight.Amber,
+                offered ? $"{contract.Rate.Words} Hz offered" : $"{contract.Rate.Words} Hz not advertised — the display offers {string.Join(" / ", edid.RatesOffered.Select(r => r.Words))}",
+                offered ? "" : "the source may pick another rate or convert — a processor input set to the contract's rate would advertise it"));
+        }
+        if (contract.Encoding != PixelEncoding.Any)
+        {
+            var offered = edid.OffersEncoding(contract.Encoding);
+            lines.Add(new SignalLine("Advertised encoding", offered ? CheckLight.Green : CheckLight.Amber,
+                offered ? $"{EncodingWords(contract.Encoding)} offered" : $"{EncodingWords(contract.Encoding)} not advertised — {string.Join(" / ", edid.EncodingsOffered)}",
+                offered ? "" : "capability, not the signal: the GPU picks from what is advertised"));
+        }
+        if (contract.BitDepth > 0 && edid.BitDepthsOffered.Count > 0)
+        {
+            var offered = edid.OffersBitDepth(contract.BitDepth);
+            lines.Add(new SignalLine("Advertised depth", offered ? CheckLight.Green : CheckLight.Amber,
+                offered ? $"{contract.BitDepth}-bit offered" : $"{contract.BitDepth}-bit not advertised — {string.Join(" / ", edid.BitDepthsOffered.Select(d => $"{d}-bit"))}",
+                offered ? "" : "the HDMI block names the deep-colour depths a display takes; without one the link runs 8-bit"));
+        }
+        if (contract.Dynamic is DynamicRange.HDR10 or DynamicRange.HLG)
+        {
+            var offered = edid.OffersDynamic(contract.Dynamic);
+            lines.Add(new SignalLine("Advertised HDR", offered ? CheckLight.Green : CheckLight.Amber,
+                offered ? $"{contract.Dynamic} offered" : $"{contract.Dynamic} not advertised — {(edid.Cta?.Hdr?.Words ?? "no HDR block")}",
+                offered ? "" : "Windows will not offer HDR to a display whose EDID does not advertise the transfer"));
+        }
+        else if (contract.Dynamic == DynamicRange.SDR && edid.OffersHdr)
+        {
+            lines.Add(new SignalLine("Advertised HDR", CheckLight.Grey, $"the display advertises {edid.Cta!.Hdr!.Words}; the contract is SDR", "capability, not the signal — Windows' HDR switch decides, and the Dynamic range line reads it"));
+        }
+        if (contract.Colour is ColourSpace.Rec2020 or ColourSpace.DciP3)
+        {
+            var offered = edid.OffersColour(contract.Colour);
+            lines.Add(new SignalLine("Advertised colour", offered ? CheckLight.Green : CheckLight.Amber,
+                offered ? $"{ColourWords(contract.Colour)} offered" : $"{ColourWords(contract.Colour)} not advertised — {(edid.Cta?.Colorimetry.Count > 0 ? string.Join(", ", edid.Cta.Colorimetry) : "no colorimetry block")}",
+                offered ? "" : "the colorimetry block names the wide gamuts a display takes; a source may stay in Rec. 709"));
+        }
+        if (contract.Audio is AudioPolicy.Stereo or AudioPolicy.Multichannel)
+        {
+            var need = contract.Audio == AudioPolicy.Stereo ? 2 : 6;
+            var offered = edid.AudioChannels >= need;
+            lines.Add(new SignalLine("Advertised audio", offered ? CheckLight.Green : CheckLight.Amber,
+                offered ? $"up to {edid.AudioChannels} channels offered" : edid.AudioChannels == 0 ? "no audio advertised" : $"{edid.AudioChannels} channels advertised, {need} asked",
+                offered ? "" : "a display that advertises no audio takes none over the link — the sound needs another route"));
+        }
     }
 
     /// <summary>The note under a rate that is not the contract's: the families, or the slip a near miss costs.</summary>

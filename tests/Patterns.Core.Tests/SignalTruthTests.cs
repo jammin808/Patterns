@@ -225,6 +225,56 @@ public class SignalTruthTests
     }
 
     [Fact]
+    public void TheEdidIsAdvertisedCapabilityHeldBesideTheContractNeverAsTheSignal()
+    {
+        var edid = Edid.Parse(EdidSamples.PatternsLed());
+        var contract = Contract("1920x1080 50 RGB 8 SDR STEREO");
+        var report = SignalTruth.Compare("Main", contract, 1920, 1080, 0, 50, Observed(SignalRate.Of(50, 1), w: 1920, h: 1080), 50.0, edid);
+        Assert.Equal(SignalVerdict.Match, report.Verdict);
+        Assert.Contains("7680×2160 / 3840×2160 / 1920×1080", report.Advertised);
+        Assert.Contains("DESIGN\n", report.Text);
+        Assert.Contains("\nADVERTISED\n", report.Text);
+        Assert.Contains("\nREQUESTED\n", report.Text);
+        Assert.Contains("ADVERTISED 7680×2160", report.BriefLine);
+        var edidLine = report.Lines.Single(l => l.Item == "EDID");
+        Assert.Equal(CheckLight.Green, edidLine.Light);
+        Assert.StartsWith("PTN 0001 · PATTERNS LED · ", edidLine.Value);
+        Assert.Contains("2 extensions · preferred 1920×1080p50", edidLine.Note);
+        foreach (var item in new[] { "Advertised raster", "Advertised rate", "Advertised encoding", "Advertised depth", "Advertised audio" })
+        {
+            Assert.Equal(CheckLight.Green, report.Lines.Single(l => l.Item == item).Light);
+        }
+        Assert.Contains(report.Lines, l => l.Item == "Advertised HDR" && l.Light == CheckLight.Grey && l.Value.Contains("advertises PQ (HDR10), HLG") && l.Value.EndsWith("the contract is SDR"));
+
+        // What the display does not advertise reads amber — a risk, never a verdict: the observation still decides MATCH.
+        var asking = Contract("2560x1440 25 420 10 HDR10 P3 8CH");
+        var risky = SignalTruth.Compare("Main", asking, 2560, 1440, 0, 25, Observed(SignalRate.Of(25, 1), encoding: PixelEncoding.YCbCr420, bits: 10, hdr: true, w: 2560, h: 1440), 50.0, edid);
+        Assert.Equal(SignalVerdict.Match, risky.Verdict);
+        Assert.Contains(risky.Lines, l => l.Item == "Advertised raster" && l.Light == CheckLight.Amber && l.Value.StartsWith("2560×1440 not advertised"));
+        Assert.Contains(risky.Lines, l => l.Item == "Advertised rate" && l.Light == CheckLight.Amber && l.Value.StartsWith("25 Hz not advertised — the display offers 29.97 / 30 / 50 / 59.94 / 60"));
+        Assert.Contains(risky.Lines, l => l.Item == "Advertised encoding" && l.Light == CheckLight.Green);                // 4:2:0 is offered (VIC 97)
+        Assert.Contains(risky.Lines, l => l.Item == "Advertised depth" && l.Light == CheckLight.Amber && l.Value.StartsWith("10-bit not advertised — 8-bit / 12-bit"));
+        Assert.Contains(risky.Lines, l => l.Item == "Advertised HDR" && l.Light == CheckLight.Green && l.Value == "HDR10 offered");
+        Assert.Contains(risky.Lines, l => l.Item == "Advertised colour" && l.Light == CheckLight.Amber && l.Value.StartsWith("DCI-P3 not advertised"));
+        Assert.Contains(risky.Lines, l => l.Item == "Advertised audio" && l.Light == CheckLight.Amber && l.Value == "2 channels advertised, 6 asked");
+
+        // A bad checksum reads amber on the EDID line; no contract and an EDID: the EDID line alone.
+        var bytes = EdidSamples.PatternsLed();
+        bytes[60] ^= 0x01;
+        var damaged = SignalTruth.Compare("Main", contract, 1920, 1080, 0, 50, null, -1, Edid.Parse(bytes));
+        Assert.Contains(damaged.Lines, l => l.Item == "EDID" && l.Light == CheckLight.Amber && l.Value.Contains("CHECKSUM BAD"));
+        var open = SignalTruth.Compare("Main", null, 1920, 1080, 0, 50, null, -1, edid);
+        Assert.Single(open.Lines);
+        Assert.Equal("EDID", open.Lines[0].Item);
+        Assert.Equal(SignalVerdict.Unverified, open.Verdict);
+
+        // Super Check names the rows "Main edid", "Main advertised rate".
+        var rows = SuperCheck.Run(new CheckFacts { Signals = new[] { risky } }).Rows.Where(r => r.Section == "SIGNAL").ToList();
+        Assert.Contains(rows, r => r.Item == "Main edid" && r.Light == CheckLight.Green);
+        Assert.Contains(rows, r => r.Item == "Main advertised rate" && r.Light == CheckLight.Amber);
+    }
+
+    [Fact]
     public void SuperCheckCarriesTheSignalLinesAndOnlyWhereThereAreAny()
     {
         var report = SignalTruth.Compare("Main", Contract("3840x2160 50 RGB 8 SDR"), 3840, 2160, 0, 50, Observed(SignalRate.Of(60000, 1001)), 50.0);

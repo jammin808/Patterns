@@ -18,8 +18,10 @@ public class SignalTruthAppTests
 {
     private static readonly PixelRect Wall = new(0, 9000, 1920, 1080);
 
+    private const string DevicePath = @"\\?\DISPLAY#PTN0001#5&2a3c8f1&0&UID4353#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}";
+
     private static SignalObservation Observation(SignalRate rate, PixelEncoding? encoding = PixelEncoding.RGB, int bits = 8, bool? hdr = false)
-        => new(Wall.X, Wall.Y, Wall.Width, Wall.Height, Wall.Width, Wall.Height, rate, encoding, bits, hdr, false, Monitor: "Test LED", Connector: "HDMI");
+        => new(Wall.X, Wall.Y, Wall.Width, Wall.Height, Wall.Width, Wall.Height, rate, encoding, bits, hdr, false, Monitor: "Test LED", Connector: "HDMI", DevicePath: DevicePath);
 
     [AvaloniaFact]
     public void TheContractIsSetFromTheWireHeldAgainstTheObservationAndReadEverywhere()
@@ -29,6 +31,7 @@ public class SignalTruthAppTests
         var vm = b.Vm;
         var observation = Observation(SignalRate.Of(50, 1));
         DisplayObservation.Source = () => new[] { observation };
+        EdidReader.Source = path => path == DevicePath ? Patterns.Core.Tests.EdidSamples.PatternsLed() : null;
         try
         {
             // One display, handed in the way a hot-plug would: the desk makes its placement.
@@ -57,6 +60,15 @@ public class SignalTruthAppTests
                 Assert.Equal("MATCH", root.GetProperty("result").GetString());
                 Assert.Equal("1920×1080 · 50 Hz · RGB 4:4:4 · 8-bit · SDR", root.GetProperty("design").GetString());
                 Assert.Contains(root.GetProperty("lines").EnumerateArray(), l => l.GetProperty("item").GetString() == "Rate" && l.GetProperty("light").GetString() == "green");
+                // The EDID behind the display (round 65.7): read through the reader, parsed, its offer beside the contract.
+                Assert.Contains("7680×2160 / 3840×2160 / 1920×1080", root.GetProperty("advertised").GetString());
+                var edid = root.GetProperty("edid");
+                Assert.Equal("PTN 0001 · PATTERNS LED", edid.GetProperty("identity").GetString());
+                Assert.Equal(64, edid.GetProperty("hash").GetString()!.Length);
+                Assert.True(edid.GetProperty("checksums").GetBoolean());
+                Assert.Equal(2, edid.GetProperty("extensions").GetInt32());
+                Assert.Contains(root.GetProperty("lines").EnumerateArray(), l => l.GetProperty("item").GetString() == "EDID" && l.GetProperty("light").GetString() == "green");
+                Assert.Contains(root.GetProperty("lines").EnumerateArray(), l => l.GetProperty("item").GetString() == "Advertised rate" && l.GetProperty("light").GetString() == "green");
             }
             using (var all = JsonDocument.Parse(services.Actions.SignalJson("")))                       // every screen
             {
@@ -73,6 +85,12 @@ public class SignalTruthAppTests
             services.Metrics.GatherFacts();
             Assert.Single(services.Journal.Tail(50), e => e.Kind == "SignalVerdict" && e.Target == "Test LED");
             Assert.Contains(SuperCheck.Run(facts).Rows, r => r.Section == "SIGNAL" && r.Item.EndsWith(" rate") && r.Light == CheckLight.Green);
+            Assert.Contains(SuperCheck.Run(facts).Rows, r => r.Section == "SIGNAL" && r.Item == "Test LED edid" && r.Light == CheckLight.Green && r.Value.StartsWith("PTN 0001 · PATTERNS LED"));
+            // The assistant's facts carry the same truth as one line per screen, capability apart from signal.
+            var brief = services.GatherFacts().Signals.Single(l => l.StartsWith("Test LED:"));
+            Assert.Contains("DESIGN 1920×1080 · 50 Hz", brief);
+            Assert.Contains("ADVERTISED 7680×2160", brief);
+            Assert.Contains("RESULT MATCH", brief);
             using (var state = JsonDocument.Parse(JsonUtil.SerializeCompact(services.Actions.RemoteScreens())))
             {
                 var row = state.RootElement.EnumerateArray().Single(r => r.GetProperty("label").GetString() == "Test LED");
@@ -103,6 +121,7 @@ public class SignalTruthAppTests
             vm.Screens.SelectedPlacement = placement;
             Assert.Equal("1920x1080 50 RGB 8 SDR", vm.Screens.SelectedSignalWords);
             Assert.Contains("DESIGN\n1920×1080 · 50 Hz", vm.Screens.SelectedSignalText);
+            Assert.Contains("ADVERTISED\n7680×2160", vm.Screens.SelectedSignalText);
             Assert.Contains("RESULT\nMISMATCH", vm.Screens.SelectedSignalText);
             vm.Screens.SelectedSignalWords = "422 10";
             vm.Screens.ApplySignalCommand.Execute(null);
@@ -118,9 +137,37 @@ public class SignalTruthAppTests
         finally
         {
             DisplayObservation.Source = null;
+            EdidReader.Source = null;
             services.Screens.Source = null;
             services.Screens.Refresh();
             Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [Fact]
+    public void TheEdidReaderKnowsTheRegistryKeyAMonitorPathNamesAndReadsNothingOffWindows()
+    {
+        Assert.Equal(@"PTN0001\5&2a3c8f1&0&UID4353", EdidReader.InstanceKey(DevicePath));
+        Assert.Equal("", EdidReader.InstanceKey(@"\\?\HID#VID_046D&PID_C52B#7&1&0#{guid}"));
+        Assert.Equal("", EdidReader.InstanceKey(""));
+        EdidReader.Source = null;
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Null(EdidReader.Read(DevicePath));
+            Assert.Null(EdidReader.For(Observation(SignalRate.Of(50, 1))));
+        }
+        Assert.Null(EdidReader.For(null));
+        EdidReader.Source = path => Patterns.Core.Tests.EdidSamples.PatternsLed();
+        try
+        {
+            var info = EdidReader.For(Observation(SignalRate.Of(50, 1)));
+            Assert.NotNull(info);
+            Assert.Equal("PATTERNS LED", info!.Name);
+            Assert.Contains("observation: not on Windows", OperatingSystem.IsWindows() ? "observation: not on Windows" : SignalReportCheck.Report());
+        }
+        finally
+        {
+            EdidReader.Source = null;
         }
     }
 

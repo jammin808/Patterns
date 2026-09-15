@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Patterns.App\Patterns.App.csproj" />
+    <Compile Include="..\Patterns.Core.Tests\EdidSamples.cs" Link="EdidSamples.cs" />
   </ItemGroup>
 
 </Project>

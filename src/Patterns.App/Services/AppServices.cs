@@ -1436,7 +1436,22 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
             StreamStatus = s.Stream.Status,
             Health = health,
             Attention = attention,
+            Signals = SignalLinesForBrief(),
         };
+    }
+
+    /// <summary>The screens' signal lines for the brief; nothing when the desk cannot read them.</summary>
+    private IReadOnlyList<string> SignalLinesForBrief()
+    {
+        try
+        {
+            return Actions.SignalBriefLines();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("The assistant's brief could not read the signal truth.", ex);
+            return Array.Empty<string>();
+        }
     }
 
     /// <summary>

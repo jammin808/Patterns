@@ -243,6 +243,16 @@ jobs:
           $words = Get-Content $out -Raw
           Write-Host $words
           if ($words -notmatch 'not loaded: [^\r\n]*Arcade' -or $words -notmatch 'not loaded: [^\r\n]*Audience') { throw "the timer node loaded the room or the arcade" }
+      - name: What Windows says it sends (QueryDisplayConfig, advanced colour, the EDID)
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path src/Patterns.App/bin/Release/net10.0/Patterns.exe
+          $out = Join-Path $PWD 'signal-report.txt'
+          $p = Start-Process -FilePath $exe -ArgumentList '--signal-report',$out,'--no-watchdog' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the signal report failed: exit $($p.ExitCode)" }
+          $words = Get-Content $out -Raw
+          Write-Host $words
+          if ($words -notmatch 'observation: \d+ active display path') { throw "the observation layer did not answer on Windows" }
       - name: Upload Windows results
         if: always()
         uses: actions/upload-artifact@v5
@@ -250,6 +260,7 @@ jobs:
           name: windows-smoke
           path: |
             footprint-timer.txt
+            signal-report.txt
             **/TestResults/windows*.trx
             runtime-windows.txt
           if-no-files-found: ignore

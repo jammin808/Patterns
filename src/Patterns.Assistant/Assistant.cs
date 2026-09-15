@@ -441,6 +441,14 @@ public sealed class ShowFacts
 
     /// <summary>The super-check's rows that are not green — "item: value — note" — with the advice the note carries.</summary>
     public IReadOnlyList<string> Attention { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Round 65: each screen's signal truth in one line — DESIGN (the contract), ADVERTISED (the
+    /// EDID), REQUESTED, OBSERVED (what Windows reports, unknowns as unknown) and RESULT — so a
+    /// question about a soft picture is answered from the evidence and its gaps, never from a
+    /// capability read as a signal.
+    /// </summary>
+    public IReadOnlyList<string> Signals { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -636,6 +644,14 @@ public static class ShowBrief
                 sb.AppendLine("How the desk is doing (its own measurements — answer questions about slowness, lateness or the clocks from these words):");
                 foreach (var line in facts.Health) sb.Append("  ").AppendLine(line);
                 sb.Append("  Needs attention: ").AppendLine(facts.Attention.Count == 0 ? "nothing — every row of the super-check is green." : string.Join(" | ", facts.Attention));
+            }
+            if (facts.Signals.Count > 0)
+            {
+                // Signal truth (round 65): the contract, the EDID's offer, the request and what Windows
+                // reports it sends, per screen — and the rule that keeps them apart: an EDID that
+                // offers RGB is not a signal that is RGB, and "unknown" is never a guess.
+                sb.AppendLine("Signal truth per screen (DESIGN is the engineer's contract; ADVERTISED is what the display's EDID offers — capability only, never the signal; OBSERVED is what Windows reports it sends, and a property marked unknown was not observed — say so, never infer it from the EDID or the request; RESULT compares contract and observation):");
+                foreach (var line in facts.Signals) sb.Append("  ").AppendLine(line);
             }
         }
         else

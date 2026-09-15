@@ -16,6 +16,9 @@ internal static class Program
         // The runtime check (round 64): the built exe proves Skia, libVLC, the audio endpoints and
         // its modules without a window, for the release's CI and a rig's first look.
         if (Array.IndexOf(args, "--verify-runtime") >= 0) return Services.RuntimeCheck.Run(args);
+        // The signal report (round 65): what Windows says it sends every display, and the EDID each
+        // presented — proof of the observation layer on a real Windows, for CI and a rig's first look.
+        if (Array.IndexOf(args, "--signal-report") >= 0) return Services.SignalReportCheck.Run(args);
 
         StartupBudget.MarkProcessStart();
         LaunchOptions.Parse(args);
