@@ -22,17 +22,21 @@ public enum AppearKey
 /// Where one thing is between gone and shown on one frame: <see cref="In"/> is the presence of
 /// what the snapshot shows now, <see cref="Out"/> that of what is leaving, drawn from
 /// <see cref="Outgoing"/> — the snapshot that had it. Settled things read as 1 or 0 and nothing out.
+/// <see cref="Shown"/> is whether the snapshot shows the thing at all: an arriving thing is drawn
+/// from its first frame, at a presence of nothing, so its box is on the hit map the frame the show
+/// says it is there — the desk's menus and drags find it at once, the eye a frame later.
 /// </summary>
-public readonly record struct Presence(float In, float Out, ShowSnapshot? Outgoing)
+public readonly record struct Presence(float In, float Out, ShowSnapshot? Outgoing, bool Shown)
 {
-    public static Presence Settled(bool shown) => new(shown ? 1f : 0f, 0f, null);
+    public static Presence Settled(bool shown) => new(shown ? 1f : 0f, 0f, null, shown);
 
-    public bool DrawsCurrent => In > 0f;
+    /// <summary>The snapshot shows it: drawn at <see cref="In"/>, from the first frame of an arrival on.</summary>
+    public bool DrawsCurrent => Shown;
 
     public bool DrawsOutgoing => Out > 0f && Outgoing is not null;
 
     /// <summary>Nothing is moving: shown in full, or gone.</summary>
-    public bool IsSettled => Outgoing is null && (In >= 1f || In <= 0f);
+    public bool IsSettled => Outgoing is null && (Shown ? In >= 1f : In <= 0f);
 }
 
 /// <summary>
@@ -106,8 +110,8 @@ public sealed class AppearanceTracker
             return Presence.Settled(slot.Shown);
         }
         var t = (float)Transitions.Ease(Math.Clamp((clock - slot.StartClock) / (slot.EndClock - slot.StartClock), 0, 1));
-        if (slot.Swap) return new Presence(t, 1f - t, slot.Outgoing);
-        return slot.Arriving ? new Presence(t, 0f, null) : new Presence(0f, 1f - t, slot.Outgoing);
+        if (slot.Swap) return new Presence(t, 1f - t, slot.Outgoing, true);
+        return slot.Arriving ? new Presence(t, 0f, null, true) : new Presence(0f, 1f - t, slot.Outgoing, false);
     }
 
     /// <summary>True while any move runs: the sink needs the next frame.</summary>

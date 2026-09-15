@@ -85,11 +85,11 @@ public class AppearanceTests
         using var sink = new SinkState();
         var engine = new PatternEngine();
 
-        // Settled with the clock off; then on, published: the first frame draws it barely, later frames whole.
+        // Settled with the clock off; then on, published: the first frame draws it at nothing, later frames whole.
         Render(engine, sink, state, 0.0, version: 1);
         state.Overlays.Clock.Enabled = true;
         var (start, startHits) = Render(engine, sink, state, 5.0, version: 2);
-        Assert.DoesNotContain(startHits, h => h.Kind == HitKind.Clock);   // not there yet: nothing to take hold of
+        Assert.Contains(startHits, h => h.Kind == HitKind.Clock);         // a handle from its first frame, before the eye has it
         var (middle, middleHits) = Render(engine, sink, state, 5.2, version: 2);
         Assert.Contains(middleHits, h => h.Kind == HitKind.Clock);        // arriving: already a handle
         Assert.True(sink.Appearances.Running(5.3));                        // and the sink asks for the next frame

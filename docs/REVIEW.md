@@ -1814,6 +1814,12 @@ boot, and ran to its end green (62.7).
   layers were given every frame; a frame with no layer notes none now. `LayerTests`' nudge test
   rendered three snapshots into one sink and expected boxes, not arrivals — it switches the
   show's transitions off, as its question is the boxes.
+- **Found by CI:** the two Preview menu tests of 63.3 drew one frame after switching the clock or a
+  layer on and asked the hit map — empty: the first frame of an arrival drew nothing, at a
+  presence of nothing, and the box went on the map a frame later. An arriving thing is drawn from
+  its first frame now, through a veil at its presence (a layer's placeholder and border included,
+  which had shown whole), so its box is on the map the frame the show says it is there; the
+  Rendering test that asked for "nothing to take hold of" on that frame asks for the handle.
 - **The honest limit:** the departure draws from the snapshot that last had the thing — a message
   whose words changed in the same publish that switched it off leaves with its old words, which
   is what a room saw.

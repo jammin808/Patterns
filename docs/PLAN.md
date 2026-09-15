@@ -8127,7 +8127,7 @@ notes no layer stage. The Overlays page has APPEARANCE; each layer on the Layers
 Core: `ScreenTakeTests`, `RateAndAspectTests`, `PreviewSourceTests`, `AppearanceConfigTests`;
 the vocabulary tests cover the two kinds. Rendering: `InfoChipTests`, `AppearanceTests` (the
 tracker's arrivals, departures and swaps; the slide's edges; the clock fading in when switched
-on live and out when switched off, with the hit appearing as it arrives; a cut, transitions off,
+on live and out when switched off, with its box on the hit map from its first frame; a cut, transitions off,
 a cut kind and a time of its own landing at once; a layer arriving on the desk's pane, and its
 setting not identity). App: `TileTakeTests`, `OutputRateAppTests`, `PreviewMenuAppTests`. The
 module's tests carry `screen_take`. Docs: this section, REVIEW round 63, CHANGELOG, README,

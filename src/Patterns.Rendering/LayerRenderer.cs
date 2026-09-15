@@ -76,11 +76,15 @@ public static class LayerRenderer
         var rect = RectOf(l, f.Canvas);
         if (rect.Width < 1 || rect.Height < 1) return;
         var pc = f.Paints;
-        var alpha = (byte)Math.Clamp(l.Opacity * presence * 255, 0, 255);
+        var alpha = (byte)Math.Clamp(l.Opacity * 255, 0, 255);
         var corner = (float)Math.Min(l.CornerPx, Math.Min(rect.Width, rect.Height) / 2);
 
         var outer = c.Save();
         if (slide != default) c.Translate(slide.X, slide.Y);   // an arrival sliding in from the edge; the hit box stays where the layer lives
+        // Arriving or leaving, the whole layer — its picture, the placeholder, the border — goes through one
+        // veil at its presence, so nothing of it shows before its time; its box is on the map from the first frame.
+        using var veil = presence < 1f ? new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Clamp(presence * 255f, 0, 255)) } : null;
+        if (veil is not null) c.SaveLayer(SKRect.Inflate(rect, 4, 4), veil);
         var save = c.Save();
         bool drew;
         var picture = rect;
@@ -102,7 +106,7 @@ public static class LayerRenderer
             using var frame = new SKPaint
             {
                 Style = SKPaintStyle.Stroke,
-                Color = FrameColor.WithAlpha((byte)Math.Clamp(FrameColor.Alpha * presence, 0, 255)),
+                Color = FrameColor,
                 StrokeWidth = Math.Max(1.5f, f.H * 0.003f),
                 IsAntialias = true,
                 PathEffect = dash,
