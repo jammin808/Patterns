@@ -1,10 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
-using Avalonia.Threading;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Devices;
 
 /// <summary>
 /// The heartbeat beacon: this machine's <see cref="Beacon"/> once a second as a UDP datagram
@@ -13,10 +12,10 @@ namespace Patterns.App.Services;
 /// main machine is alive, silent, or stood down. The supervisor sends one last beacon when it
 /// gives up, so a backup hears about a crash loop as well as a dead machine.
 /// </summary>
-public sealed class BeaconService : IDisposable
+public sealed class BeaconService : IDisposable, IBeaconIdentity
 {
-    private readonly ServiceKernel _services;
-    private readonly DispatcherTimer _timer;
+    private readonly IBeaconHost _services;
+    private readonly IDispatchTimer _timer;
     private UdpClient? _sender;
     private UdpClient? _listener;
     private CancellationTokenSource? _cts;
@@ -30,11 +29,11 @@ public sealed class BeaconService : IDisposable
     private DateTime? _lastSeenUtc;
     private volatile IPEndPoint? _lastFrom;
 
-    public BeaconService(ServiceKernel kernel)
+    public BeaconService(IBeaconHost kernel)
     {
         _services = kernel;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += (_, _) => Tick();
+        _timer = Dispatch.Timer(TimeSpan.FromSeconds(1));
+        _timer.Tick += () => Tick();
     }
 
     /// <summary>A random id per process, so a machine hearing its own broadcast ignores it.</summary>
@@ -137,7 +136,7 @@ public sealed class BeaconService : IDisposable
             {
                 // Not found: the status below says so.
             }
-            UiThread.Post(() =>
+            Dispatch.Post(() =>
             {
                 if (_sender is null || !ReferenceEquals(_sender, sender)) return;
                 if (pick is null)

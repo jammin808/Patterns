@@ -1,10 +1,10 @@
+using Patterns.Core.Model;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using Avalonia.Threading;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Devices;
 
 /// <summary>
 /// This process on the network by name: an mDNS responder that announces "Patterns desk FOH-PC"
@@ -16,8 +16,8 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class MdnsService : IDisposable
 {
-    private readonly ServiceKernel _kernel;
-    private readonly DispatcherTimer _timer;
+    private readonly IMdnsHost _kernel;
+    private readonly IDispatchTimer _timer;
     private readonly MdnsBrowser _companions = new(CompanionModule.SatelliteServiceType);
     private readonly object _gate = new();
     private Socket? _socket;
@@ -31,11 +31,11 @@ public sealed class MdnsService : IDisposable
     private long _answers;
     private IReadOnlyList<MdnsPeer> _heard = Array.Empty<MdnsPeer>();
 
-    public MdnsService(ServiceKernel kernel)
+    public MdnsService(IMdnsHost kernel)
     {
         _kernel = kernel;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += (_, _) => Tick();
+        _timer = Dispatch.Timer(TimeSpan.FromSeconds(1));
+        _timer.Tick += () => Tick();
     }
 
     /// <summary>What the responder is doing, for the Remote page: announced as what, or why not.</summary>
@@ -89,8 +89,8 @@ public sealed class MdnsService : IDisposable
     {
         var s = _kernel.State;
         return new MdnsAdvert(
-            NodeKinds.Wire(_kernel.Profile), _kernel.Beacon.MachineName, s.Name, s.Control.TcpPort, s.Control.HttpPort, _kernel.Link.LinkPort,
-            _kernel.Beacon.Instance, AppVersion.Current, LocalAddresses());
+            NodeKinds.Wire(_kernel.Profile), _kernel.BeaconIdentity.MachineName, s.Name, s.Control.TcpPort, s.Control.HttpPort, _kernel.Link.LinkPort,
+            _kernel.BeaconIdentity.Instance, _kernel.AppVersion, LocalAddresses());
     }
 
     /// <summary>Every IPv4 address this machine has on a live interface — a Companion on any of its networks resolves the desk.</summary>

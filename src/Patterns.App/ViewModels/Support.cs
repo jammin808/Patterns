@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Patterns.Core.Model;

@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;

@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using Patterns.Rendering;
 using Avalonia.Threading;
 using Patterns.App.Views;
@@ -17,7 +18,7 @@ namespace Patterns.App.Services;
 /// services see of the desk, through the capabilities it implements (<see cref="IAirReport"/>,
 /// <see cref="ITwinHost"/>, <see cref="IWireHost"/>, <see cref="IStageHost"/>, <see cref="IPlayHost"/>).
 /// </summary>
-public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, IPlayHost, IRunHost, IMachineHost
+public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, IPlayHost, IRunHost, IMachineHost, IDeviceHost, IOscHost
 {
     public static AppServices Instance { get; set; } = null!;
 
@@ -188,6 +189,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     /// <summary>The caller's stack at show time: standby, GO, HOLD, history, the sidecar's place.</summary>
     public CueStackService CueStack { get; }
+
+    private CommandRouter? _edgeRouter;
+
+    /// <summary>The wire's router as the device transports and the OSC port see it: one, made on first ask.</summary>
+    public IRouter Router => _edgeRouter ??= new CommandRouter(this);
+
+    string IDeviceHost.ExecutionInHand => Actions.ExecutionInHand;
+
+    ICueStackEvents? IOscHost.CueStackEvents => CueStack;
 
     private string _airLabel = "—";
 

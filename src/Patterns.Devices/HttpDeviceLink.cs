@@ -1,8 +1,9 @@
+using Patterns.Core.Model;
 using System.Net.Http;
 using System.Text;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Devices;
 
 /// <summary>
 /// A box with an HTTP API — Companion's own API, a Q-SYS core, a Crestron or Extron processor's

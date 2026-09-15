@@ -1,6 +1,8 @@
+using Patterns.Core.Model;
+using Patterns.Core.Services;
 using System.Text;
 
-namespace Patterns.App.Services;
+namespace Patterns.Devices;
 
 /// <summary>
 /// Lines off a stream with a ceiling. <c>StreamReader.ReadLineAsync</c> buffers a line until it

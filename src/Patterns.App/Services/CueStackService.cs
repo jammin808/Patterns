@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using System.Collections.ObjectModel;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
@@ -12,7 +13,7 @@ namespace Patterns.App.Services;
 /// on the kernel and a host (<see cref="ICueHost"/>): the desk's, which runs a cue's steps for
 /// real; a node's, which rehearses them on paper.
 /// </summary>
-public sealed class CueStackService
+public sealed class CueStackService : ICueStackEvents
 {
     public const int HistoryRows = 50;
     private static readonly TimeSpan SettleWindow = TimeSpan.FromSeconds(12);

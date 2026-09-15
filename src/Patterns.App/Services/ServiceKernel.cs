@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
@@ -15,7 +16,7 @@ namespace Patterns.App.Services;
 /// <see cref="IWireHost"/>, <see cref="ICueHost"/>…) or a slot the desk fills (<see cref="Air"/>,
 /// <see cref="Link"/>, <see cref="Notifier"/>).
 /// </summary>
-public sealed class ServiceKernel : IDisposable
+public sealed class ServiceKernel : IDisposable, IBeaconHost, IMdnsHost
 {
     /// <summary>What this process is: the desk, or a node that boots a fraction of it and never opens an output.</summary>
     public NodeKind Profile { get; }
@@ -51,6 +52,10 @@ public sealed class ServiceKernel : IDisposable
     public AssistantService Assistant { get; }
 
     public BeaconService Beacon { get; }
+
+    IBeaconIdentity IMdnsHost.BeaconIdentity => Beacon;
+
+    string IMdnsHost.AppVersion => AppVersion.Current;
 
     /// <summary>This process announced on the network by name (mDNS), and the Companions heard announcing themselves.</summary>
     public MdnsService Mdns { get; }

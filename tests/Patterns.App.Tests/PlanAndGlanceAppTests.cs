@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Patterns.App.Services;

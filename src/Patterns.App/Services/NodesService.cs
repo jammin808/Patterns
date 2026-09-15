@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using Avalonia.Threading;
 using System.Text.Json;
 using System.Text;

@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using System.Diagnostics;
 using System.IO.Pipes;
 using Patterns.Core.Services;
@@ -360,7 +361,7 @@ internal static class Supervisor
             var store = new SettingsStore();
             WatchdogMarker.Write(store.BaseDirectory, note);
             var cfg = store.Load().Watchdog;
-            if (cfg.BeaconEnabled) Services.BeaconService.SendEvent(cfg, eventName);
+            if (cfg.BeaconEnabled) BeaconService.SendEvent(cfg, eventName);
         }
         catch (Exception ex)
         {

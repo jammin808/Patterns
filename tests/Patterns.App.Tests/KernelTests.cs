@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using System.Reflection;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -108,13 +109,18 @@ public class KernelTests
         {
             foreach (var ctor in kernelService.GetConstructors())
             {
-                Assert.Contains(ctor.GetParameters(), q => q.ParameterType == typeof(ServiceKernel));
+                // the kernel itself, or a contract of the core's the kernel provides (the beacon takes IBeaconHost)
+                Assert.Contains(ctor.GetParameters(), q => q.ParameterType == typeof(ServiceKernel) || (q.ParameterType.IsInterface && q.ParameterType.IsAssignableFrom(typeof(ServiceKernel))));
                 Assert.DoesNotContain(ctor.GetParameters(), q => q.ParameterType == typeof(AppServices));
             }
         }
+        // The edges the kernel builds ask for contracts the kernel provides, and the kernel provides them.
+        Assert.True(typeof(IBeaconHost).IsAssignableFrom(typeof(ServiceKernel)));
+        Assert.True(typeof(IMdnsHost).IsAssignableFrom(typeof(ServiceKernel)));
+        Assert.Contains(typeof(MdnsService).GetConstructors().Single().GetParameters(), q => q.ParameterType == typeof(IMdnsHost));
 
         // The desk-facing services say what they need of the desk, as a contract — never the desk itself.
-        foreach (var (service, contract) in new[] { (typeof(TwinService), typeof(ITwinHost)), (typeof(ControlService), typeof(IWireHost)), (typeof(StageService), typeof(IStageHost)), (typeof(PlayService), typeof(IPlayHost)), (typeof(CueStackService), typeof(ICueHost)), (typeof(UpdateService), typeof(IMachineHost)), (typeof(ManagementService), typeof(IMachineHost)) })
+        foreach (var (service, contract) in new[] { (typeof(DeviceService), typeof(IDeviceHost)), (typeof(OscService), typeof(IOscHost)), (typeof(TwinService), typeof(ITwinHost)), (typeof(ControlService), typeof(IWireHost)), (typeof(StageService), typeof(IStageHost)), (typeof(PlayService), typeof(IPlayHost)), (typeof(CueStackService), typeof(ICueHost)), (typeof(UpdateService), typeof(IMachineHost)), (typeof(ManagementService), typeof(IMachineHost)) })
         {
             foreach (var ctor in service.GetConstructors())
             {
@@ -131,6 +137,8 @@ public class KernelTests
         Assert.True(typeof(ICueHost).IsAssignableFrom(typeof(AppServices)));
         Assert.True(typeof(IRunHost).IsAssignableFrom(typeof(AppServices)));
         Assert.True(typeof(IMachineHost).IsAssignableFrom(typeof(AppServices)));
+        Assert.True(typeof(IDeviceHost).IsAssignableFrom(typeof(AppServices)));
+        Assert.True(typeof(IOscHost).IsAssignableFrom(typeof(AppServices)));
         // The arcade is nobody's kernel: the roles that want a game build it.
         Assert.DoesNotContain(typeof(ServiceKernel).GetProperties(BindingFlags.Public | BindingFlags.Instance), p => p.PropertyType == typeof(ArcadeService));
         Assert.True(typeof(ILinkReport).IsAssignableFrom(typeof(TwinService)));

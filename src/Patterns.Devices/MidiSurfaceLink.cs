@@ -3,7 +3,7 @@ using System.Runtime.Versioning;
 using NAudio.Midi;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Devices;
 
 /// <summary>
 /// A MIDI control surface as a device link.

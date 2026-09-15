@@ -3,11 +3,10 @@ using System.IO.Ports;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using Avalonia.Threading;
 using Patterns.Core.Model;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Devices;
 
 /// <summary>
 /// One device's wire: lines out, lines in (on any thread), a status word. Serial, TCP and UDP
@@ -113,23 +112,23 @@ public sealed class DeviceService : IDisposable
         public readonly TaskCompletionSource<DeviceReceipt> Done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    private readonly AppServices _services;
-    private readonly CommandRouter _router;
+    private readonly IDeviceHost _services;
+    private readonly IRouter _router;
     private readonly Dictionary<string, Open> _open = new(StringComparer.Ordinal);
     private readonly List<Pending> _pendings = new();
     private readonly List<(long Seq, DeviceReceipt Receipt)> _settled = new();   // the last receipts landed, by their line's sequence: a waiter that marked before a line went sees its receipt even when it landed at once
     private const int SettledKept = 64;
-    private readonly DispatcherTimer _pushTimer;
+    private readonly IDispatchTimer _pushTimer;
     private long _seq;
     private bool _pushPending;
     private bool _disposed;
 
-    public DeviceService(AppServices services)
+    public DeviceService(IDeviceHost services)
     {
         _services = services;
-        _router = new CommandRouter(services);
-        _pushTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-        _pushTimer.Tick += (_, _) =>
+        _router = services.Router;
+        _pushTimer = Dispatch.Timer(TimeSpan.FromMilliseconds(200));
+        _pushTimer.Tick += () =>
         {
             _pushTimer.Stop();
             if (!_pushPending) return;
@@ -312,7 +311,7 @@ public sealed class DeviceService : IDisposable
             if (!_open.TryGetValue(device.Id, out open)) return ActionResult.Failed($"Device '{device.Name}' is not open: {device.Status}");
         }
         // The line belongs to the cue whose steps are running, if one is: its receipt settles that cue's row.
-        var execution = _services.Actions.ExecutionInHand;
+        var execution = _services.ExecutionInHand;
         if (!WriteTo(open, line, out var problem, track: true, execution: execution)) return ActionResult.Refused(problem);
         // Dispatched, not done: a datagram is all a datagram can be, so it is Done; a line a box
         // answers is Requested until the receipt says what the box made of it — the cue that sent
@@ -567,7 +566,7 @@ public sealed class DeviceService : IDisposable
             if (_settled.Count > SettledKept) _settled.RemoveAt(0);
         }
         pending.Done.TrySetResult(receipt);
-        UiThread.Post(() =>
+        Dispatch.Post(() =>
         {
             if (_disposed) return;
             if (!ok) Log.Warn($"Device '{receipt.Device}': {receipt.Line}");
@@ -616,7 +615,7 @@ public sealed class DeviceService : IDisposable
     {
         _inbound.Enqueue((id, line));
         if (Interlocked.Exchange(ref _draining, 1) != 0) return;
-        UiThread.Post(Drain);
+        Dispatch.Post(Drain);
     }
 
     private void Drain()
@@ -630,7 +629,7 @@ public sealed class DeviceService : IDisposable
             Interlocked.Exchange(ref _draining, 0);
             // A line that arrived while the flag was still set would otherwise wait for the next
             // one to wake the drain, so the queue is looked at once more after it is cleared.
-            if (!_inbound.IsEmpty && Interlocked.Exchange(ref _draining, 1) == 0) UiThread.Post(Drain);
+            if (!_inbound.IsEmpty && Interlocked.Exchange(ref _draining, 1) == 0) Dispatch.Post(Drain);
         }
     }
 

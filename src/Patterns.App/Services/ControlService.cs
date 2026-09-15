@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
 using Patterns.Arcade;

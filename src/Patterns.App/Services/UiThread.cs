@@ -1,3 +1,4 @@
+using Patterns.Core.Services;
 using Avalonia.Threading;
 
 namespace Patterns.App.Services;
@@ -18,7 +19,11 @@ public static class UiThread
     private static Dispatcher? _captured;
 
     /// <summary>Called on the UI thread, once per desk: the kernel's build is the first thing every role does there.</summary>
-    public static void Capture() => _captured = Dispatcher.UIThread;
+    public static void Capture()
+    {
+        _captured = Dispatcher.UIThread;
+        Dispatch.Provider = AvaloniaDispatch.Instance;                                        // the edges reach this thread through the core's seam
+    }
 
     /// <summary>The captured dispatcher; the static one only until something captured it.</summary>
     public static Dispatcher Current => _captured ?? Dispatcher.UIThread;
@@ -34,4 +39,39 @@ public static class UiThread
     public static Task InvokeAsync(Func<Task> function, DispatcherPriority priority = default) => Current.InvokeAsync(function, priority);
 
     public static Task<TResult> InvokeAsync<TResult>(Func<Task<TResult>> function, DispatcherPriority priority = default) => Current.InvokeAsync(function, priority);
+}
+
+/// <summary>The core's dispatch seam on Avalonia's dispatcher: the one the desk captured.</summary>
+public sealed class AvaloniaDispatch : IDispatchProvider
+{
+    public static readonly AvaloniaDispatch Instance = new();
+
+    public bool CheckAccess() => UiThread.CheckAccess();
+
+    public void Post(Action action) => UiThread.Post(action);
+
+    public IDispatchTimer Timer(TimeSpan interval) => new AvaloniaTimer(interval);
+
+    private sealed class AvaloniaTimer : IDispatchTimer
+    {
+        private readonly DispatcherTimer _timer;
+
+        public AvaloniaTimer(TimeSpan interval)
+        {
+            _timer = new DispatcherTimer { Interval = interval };
+            _timer.Tick += (_, _) => Tick?.Invoke();
+        }
+
+        public TimeSpan Interval { get => _timer.Interval; set => _timer.Interval = value; }
+
+        public bool IsEnabled => _timer.IsEnabled;
+
+        public event Action? Tick;
+
+        public void Start() => _timer.Start();
+
+        public void Stop() => _timer.Stop();
+
+        public void Dispose() => _timer.Stop();
+    }
 }

@@ -1,10 +1,9 @@
 using Patterns.Core.Model;
 using System.Net;
 using System.Net.Sockets;
-using Avalonia.Threading;
 using Patterns.Core.Services;
 
-namespace Patterns.App.Services;
+namespace Patterns.Devices;
 
 /// <summary>
 /// OSC over UDP: messages in on one port, mapped through <see cref="OscMap"/> onto the same
@@ -15,9 +14,9 @@ namespace Patterns.App.Services;
 /// </summary>
 public sealed class OscService : IDisposable
 {
-    private readonly AppServices _services;
-    private readonly CommandRouter _router;
-    private readonly DispatcherTimer _pushTimer;
+    private readonly IOscHost _services;
+    private readonly IRouter _router;
+    private readonly IDispatchTimer _pushTimer;
     private UdpClient? _udp;
     private CancellationTokenSource? _cts;
     private volatile IPEndPoint? _feedback;
@@ -29,14 +28,14 @@ public sealed class OscService : IDisposable
     private bool _pushPending;
     private bool _stackHooked;
 
-    public OscService(AppServices services)
+    public OscService(IOscHost services)
     {
         _services = services;
-        _router = new CommandRouter(services);
+        _router = services.Router;
 
         // Feedback is throttled to a trailing 200 ms, like the TCP STATE pushes.
-        _pushTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-        _pushTimer.Tick += (_, _) =>
+        _pushTimer = Dispatch.Timer(TimeSpan.FromMilliseconds(200));
+        _pushTimer.Tick += () =>
         {
             _pushTimer.Stop();
             if (!_pushPending) return;
@@ -83,9 +82,9 @@ public sealed class OscService : IDisposable
     /// <summary>The stack's runtime is not in the snapshot: STANDBY, ARM and HOLD push on their own event. Hooked lazily — the stack is built after this service.</summary>
     private void HookStack()
     {
-        if (_stackHooked || _services.CueStack is null) return;
+        if (_stackHooked || _services.CueStackEvents is null) return;
         _stackHooked = true;
-        _services.CueStack.Changed += MarkChanged;
+        _services.CueStackEvents.Changed += MarkChanged;
     }
 
     /// <summary>Opens / closes / rebinds the port to match the config (UI thread).</summary>
@@ -142,7 +141,7 @@ public sealed class OscService : IDisposable
             {
                 var addresses = Dns.GetHostAddresses(host);
                 var pick = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork) ?? addresses.FirstOrDefault();
-                UiThread.Post(() =>
+                Dispatch.Post(() =>
                 {
                     if (_udp is null || !ReferenceEquals(_udp, socket)) return; // stopped, or reconfigured, meanwhile
                     if (pick is null)
@@ -157,7 +156,7 @@ public sealed class OscService : IDisposable
             }
             catch (Exception ex)
             {
-                UiThread.Post(() => { if (_udp is not null && ReferenceEquals(_udp, socket)) _status = $"OSC in on port {inPort} · feedback host '{host}' not found ({ex.Message})."; });
+                Dispatch.Post(() => { if (_udp is not null && ReferenceEquals(_udp, socket)) _status = $"OSC in on port {inPort} · feedback host '{host}' not found ({ex.Message})."; });
             }
         });
         return $"looking up feedback host '{host}'";

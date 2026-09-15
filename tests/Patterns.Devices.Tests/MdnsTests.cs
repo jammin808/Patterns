@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using System.Net;
 using Patterns.Core.Services;
 using Xunit;

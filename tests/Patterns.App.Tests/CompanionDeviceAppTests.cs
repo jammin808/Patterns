@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using System.Net;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;

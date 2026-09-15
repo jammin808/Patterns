@@ -1,3 +1,4 @@
+using Patterns.Devices;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
