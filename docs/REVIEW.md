@@ -1721,7 +1721,10 @@ them.
 
 - **What happened.** Three local runs of the App suite alone ended with "Test host process
   crashed" — at 559, 475 and 504 of 683 tests — with the host near 13.5 GB and no dump left (a
-  kill by the OS for memory leaves none). CI ran all 683 green on the same commits.
+  kill by the OS for memory leaves none). CI ran all 683 green on the same commits. With the fix,
+  the suite alone ran all 685 green in 8 m 54 s: the managed heap after every closed boot between
+  41 and 299 MB and 92 MB at the last, the host's working set never past 1.3 GB where it had
+  reached 13.5, and no budget left attached after any boot.
 - **How it was read.** A memory line per closed boot, after a forced full collection: the managed
   figure climbed ~40 MB a boot, so every closed desk was rooted. A heap dump of the host at 49
   boots held 75 desks and 229 pipelines; `gcroot` from the oldest desk ran through one static —
@@ -1764,4 +1767,4 @@ them.
 Counts at the end of the round: Core 672, Rendering 602, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 685 — 2,013 in seven suites, the module's seventeen beside them. The App suite
 alone, measured boot by boot, holds at ~45 MB managed after every boot where it climbed 40 MB a
-boot; its run to the end is recorded in 62.7.
+boot, and ran to its end green (62.7).
