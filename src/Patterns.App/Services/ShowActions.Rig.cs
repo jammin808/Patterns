@@ -264,7 +264,57 @@ public sealed partial class ShowActions
         var present = placement.FpsOverride > 0 ? placement.FpsOverride : State.Output.MasterFps;
         var observed = info is { IsPlanned: false, IsVirtual: false, IsMissing: false } ? DisplayObservation.For(info.Bounds) : null;
         var clock = clockHz ?? FrameBudgets.ClockHz(FrameBudgets.Readings(ShowClock.Seconds));
-        return SignalTruth.Compare(label, placement.Signal, width, height, present, info?.Hz ?? 0, observed, clock, EdidReader.For(observed));
+        // Round 65.8: the EDID Patterns wrote for this screen, so the view can say whether the display presents it.
+        var plannedHash = placement.Signal.IsSet && width > 0 && height > 0 ? Edid.Hash(EdidWriter.Build(EdidPlanFor(placement, info))) : "";
+        return SignalTruth.Compare(label, placement.Signal, width, height, present, info?.Hz ?? 0, observed, clock, EdidReader.For(observed), plannedHash);
+    }
+
+    /// <summary>The EDID plan a screen makes (round 65.8): its contract's words, its own size where the contract is silent, its identity in the product code.</summary>
+    public EdidPlan EdidPlanFor(ScreenPlacement placement, ScreenInfo? info)
+    {
+        var width = info?.Bounds.Width ?? placement.PlannedWidth;
+        var height = info?.Bounds.Height ?? placement.PlannedHeight;
+        return EdidPlan.ForContract(placement.Signal, Rig.LabelFor(placement, info), width, height, EdidPlan.ProductCodeFor(placement.ScreenId));
+    }
+
+    /// <summary>The EDID a screen is planned to present, built; null when the screen has no size yet.</summary>
+    public PlannedEdid? PlannedEdidFor(ScreenPlacement placement, ScreenInfo? info, int number)
+    {
+        var plan = EdidPlanFor(placement, info);
+        if (plan.Width <= 0 || plan.Height <= 0) return null;
+        var bytes = EdidWriter.Build(plan);
+        return new PlannedEdid(number, Rig.LabelFor(placement, info), plan, bytes, Edid.Hash(bytes), EdidFor(info));
+    }
+
+    /// <summary>The planned EDID for a screen named by its number or id; null for no such screen.</summary>
+    public PlannedEdid? PlannedEdid(string word)
+    {
+        var live = Rig.OrderedLivePlacements(State, _s.Screens.All);
+        var target = ResolveScreenTarget(word.Trim());
+        var index = live.FindIndex(x => x.Placement.ScreenId == target);
+        return index < 0 ? null : PlannedEdidFor(live[index].Placement, live[index].Info, index + 1);
+    }
+
+    /// <summary>SCREEN n EDID as JSON: the plan, the timing, the bytes (base64 and hex), the hash, the URL, and whether the display presents it.</summary>
+    public string EdidJson(string word)
+    {
+        var planned = PlannedEdid(word);
+        if (planned is null) return JsonUtil.SerializeCompact(new { ok = false, msg = $"No screen '{word.Trim()}'." });
+        return JsonUtil.SerializeCompact(new
+        {
+            n = planned.Number,
+            label = planned.Label,
+            plan = planned.Plan.Words,
+            timing = EdidWriter.Timing(planned.Plan.Width, planned.Plan.Height, planned.Plan.Rate).Words,
+            length = planned.Bytes.Length,
+            hash = planned.Hash,
+            bytes = Convert.ToBase64String(planned.Bytes),
+            hex = planned.Hex,
+            file = planned.FileBase,
+            url = $"/api/screens/{planned.Number}/edid.bin",
+            presented = planned.Presented is null ? null : new { identity = planned.Presented.Identity, hash = planned.Presented.Hash, matches = string.Equals(planned.Presented.Hash, planned.Hash, StringComparison.OrdinalIgnoreCase) },
+            summary = planned.Summary,
+        });
     }
 
     /// <summary>The EDID behind a screen's display as Windows keeps it, parsed; null when there is none to read.</summary>

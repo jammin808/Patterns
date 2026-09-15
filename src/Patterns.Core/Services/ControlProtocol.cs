@@ -45,6 +45,8 @@ public enum RemoteCommandKind
     Menu,
     /// <summary>SCREEN 2 SIGNAL (round 65): the screen's signal truth — design, requested, observed, result and the lines — as JSON; Text carries the screen's number.</summary>
     ScreenSignal,
+    /// <summary>SCREEN 2 EDID (round 65.8): the EDID the planned screen presents — the plan, the timing, the bytes as base64 and hex, the hash, whether the display presents it — as JSON; Text carries the screen's number.</summary>
+    ScreenEdid,
 }
 
 /// <summary>
@@ -360,6 +362,11 @@ public static class ControlProtocol
                 if (rest.Equals("SIGNAL", StringComparison.OrdinalIgnoreCase))
                 {
                     return Query(RemoteCommandKind.ScreenSignal, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                }
+                // "SCREEN 2 EDID" (round 65.8): the EDID the planned screen presents, as JSON with the bytes.
+                if (rest.Equals("EDID", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Query(RemoteCommandKind.ScreenEdid, n.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 }
                 if (rest.StartsWith("SIGNAL ", StringComparison.OrdinalIgnoreCase))
                 {

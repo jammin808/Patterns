@@ -49,6 +49,9 @@ public sealed class NoLink : ILinkReport
 /// <summary>The action layer as a capability: every verb of the show's vocabulary, run and answered. The desk's is <see cref="ShowActions"/>; a node's is <see cref="NodeActions"/>, which runs its own kinds and refuses the desk's.</summary>
 public interface IActionLayer
 {
+    /// <summary>Round 65.8: the EDID a screen is planned to present, by its number or id; null on a node, which has no rig of its own, and for no such screen.</summary>
+    PlannedEdid? PlannedEdid(string word) => null;
+
     ActionResult Execute(ShowAction action, ActionOrigin origin);
 }
 

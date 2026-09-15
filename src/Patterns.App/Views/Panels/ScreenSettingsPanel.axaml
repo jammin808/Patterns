@@ -83,7 +83,18 @@
         <TextBlock Classes="hint" Text="{Binding Screens.SignalStatus}" TextWrapping="Wrap" />
         <TextBlock Text="{Binding Screens.SelectedSignalText}" FontFamily="Consolas,monospace" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
         <TextBlock Classes="hint tip"
-                   Text="What this screen's link is meant to carry — the raster, the exact rate (50, 59.94, 60000/1001), RGB or 444 / 422 / 420, 8 / 10 / 12 bit, FULL or LIMITED range, SDR / HDR10 / HLG, STEREO / 8CH / NOAUDIO — kept apart from what the display advertises and from what Windows sends. DESIGN is the contract; REQUESTED what Patterns asks Windows for; OBSERVED what Windows reports it sends, each property unknown until the path states it; RESULT compares them, and Super Check carries the lines under SIGNAL. The same words on the wire: SCREEN n SIGNAL 3840x2160 50 RGB 8 SDR; SCREEN n SIGNAL alone reads the view." />
+                   Text="What this screen's link is meant to carry — the raster, the exact rate (50, 59.94, 60000/1001), RGB or 444 / 422 / 420, 8 / 10 / 12 bit, FULL or LIMITED range, SDR / HDR10 / HLG, 709 / P3 / 2020, STEREO / 8CH / NOAUDIO, HDMI / DP / SDI — kept apart from what the display advertises (ADVERTISED, its EDID) and from what Windows sends. DESIGN is the contract; REQUESTED what Patterns asks Windows for; OBSERVED what Windows reports it sends, each property unknown until the path states it; RESULT compares them, and Super Check carries the lines under SIGNAL. The same words on the wire: SCREEN n SIGNAL 3840x2160 50 RGB 8 SDR; SCREEN n SIGNAL alone reads the view." />
+
+        <TextBlock Classes="label" Text="Planned EDID" Margin="0,8,0,0" />
+        <TextBlock Text="{Binding Screens.SelectedEdidSummary}" FontFamily="Consolas,monospace" FontSize="11" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="Auto,8,*" Margin="0,4,0,0">
+          <Button Grid.Column="0" Classes="chip" Content="EXPORT EDID" Command="{Binding Screens.ExportEdidCommand}"
+                  ToolTip.Tip="Write the .bin, .hex and .txt a processor input, an EDID emulator or a PC's port loads as its custom EDID" />
+          <TextBlock Grid.Column="2" Classes="hint" Text="{Binding Screens.SelectedEdidLink}" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </Grid>
+        <TextBlock Classes="hint" Text="{Binding Screens.EdidStatus}" TextWrapping="Wrap" />
+        <TextBlock Classes="hint tip"
+                   Text="The EDID this screen's link should present so a PC or any source sends exactly the contract: an E-EDID 1.4 base block with the raster and the exact rate as its one preferred timing (the CTA-861 totals for a standard format, reduced blanking with an exact clock for any other), a CTA-861 extension with the one video format, the audio, HDMI deep colour, colorimetry and HDR as the contract says, and a DisplayID 2.0 extension when the raster is past 4095 pixels. Load the .bin (or the .hex) on the processor input, an EDID emulator or the PC's port; Patterns reads the EDID Windows then sees, and the signal view's Planned EDID line says whether it is this one." />
 
         <TextBlock Classes="label" Text="Display mode (Windows)" Margin="0,8,0,0" />
         <Grid ColumnDefinitions="*,8,Auto,8,Auto,8,Auto">

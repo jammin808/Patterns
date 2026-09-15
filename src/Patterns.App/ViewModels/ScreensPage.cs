@@ -1,5 +1,6 @@
 using Patterns.Core.Geometry;
 using System.Collections.ObjectModel;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Patterns.App.Services;
 using Patterns.Core.Model;
@@ -51,6 +52,7 @@ public sealed class ScreensPage : Observable
         ArrangeBlendGridCommand = new RelayCommand(ArrangeBlendGrid);
         ApplySignalCommand = new RelayCommand(() => ApplySignal(SelectedSignalWords));
         ClearSignalCommand = new RelayCommand(() => ApplySignal("CLEAR"));
+        ExportEdidCommand = new RelayCommand(() => _ = ExportEdidAsync());
         _calibrationFolder = Path.Combine(services.Store.MediaDirectory, "calibration", "photos");
         RefreshCalibrationCamerasCommand = new RelayCommand(RefreshCalibrationCameras);
         RunCalibrationCommand = new RelayCommand(RunCalibration);
@@ -313,6 +315,82 @@ public sealed class ScreensPage : Observable
         _signalWords = SignalWords.Of(placement.Signal);
         Raise(nameof(SelectedSignalWords));
         Raise(nameof(SelectedSignalText));
+        Raise(nameof(SelectedEdidSummary));
+    }
+
+    // ---- the planned EDID (round 65.8) ----------------------------------------------------
+
+    private string _edidStatus = "";
+
+    /// <summary>What the last export said.</summary>
+    public string EdidStatus { get => _edidStatus; private set => Set(ref _edidStatus, value); }
+
+    private int SelectedNumber => _selectedPlacement is { } p ? Rig.OrderedLivePlacements(State, _services.Screens.All).FindIndex(x => x.Placement.ScreenId == p.ScreenId) + 1 : 0;
+
+    /// <summary>The EDID this screen is planned to present, summarised: the plan, the timing, the hash — and whether the display presents it.</summary>
+    public string SelectedEdidSummary
+    {
+        get
+        {
+            if (_selectedPlacement is not { } p) return "";
+            var planned = _services.Actions.PlannedEdidFor(p, _desk.LiveInfo(p), SelectedNumber);
+            if (planned is null) return "no size yet — the plan needs a raster";
+            var presented = planned.PresentedMatches switch
+            {
+                true => "presented: this EDID — the display presents Patterns' plan",
+                false => $"presented: another EDID ({planned.Presented!.Identity}) — load this one on the processor input or the PC's port",
+                _ => "presented: no EDID read from a display",
+            };
+            return $"{planned.Plan.Words}\n{EdidWriter.Timing(planned.Plan.Width, planned.Plan.Height, planned.Plan.Rate).Words}\nsha-256 {planned.Hash[..16]}… · {planned.Bytes.Length} bytes · {planned.FileBase}.bin\n{presented}";
+        }
+    }
+
+    /// <summary>Where a device on the network fetches it, and the wire's word.</summary>
+    public string SelectedEdidLink
+    {
+        get
+        {
+            var n = SelectedNumber;
+            if (n <= 0) return "";
+            var urls = _services.Control.RemoteUrls();
+            var url = urls.Skip(1).FirstOrDefault() ?? urls.FirstOrDefault() ?? "";
+            return url.Length == 0 ? $"SCREEN {n} EDID on the wire" : $"{url}api/screens/{n}/edid.bin (also .hex, .txt) · SCREEN {n} EDID on the wire";
+        }
+    }
+
+    public RelayCommand ExportEdidCommand { get; }
+
+    private async Task ExportEdidAsync()
+    {
+        if (_selectedPlacement is not { } p) return;
+        var planned = _services.Actions.PlannedEdidFor(p, _desk.LiveInfo(p), SelectedNumber);
+        if (planned is null)
+        {
+            EdidStatus = "The plan needs a raster first — a size, or a contract with one.";
+            return;
+        }
+        if (_services.MainWindow is not { } window)
+        {
+            EdidStatus = "The desk window is needed to pick where the files go.";
+            return;
+        }
+        try
+        {
+            var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export the planned EDID",
+                SuggestedFileName = planned.FileBase + ".bin",
+                FileTypeChoices = new[] { new FilePickerFileType("EDID binary") { Patterns = new[] { "*.bin" } } },
+            });
+            var path = file?.TryGetLocalPath();
+            if (path is null) return;
+            var written = EdidWriter.Export(Path.GetDirectoryName(path) ?? ".", Path.GetFileNameWithoutExtension(path), planned.Plan, planned.Bytes);
+            EdidStatus = $"Written: {string.Join(", ", written.Select(Path.GetFileName))} — load the .bin (or the .hex) as the custom EDID on the processor input or the PC's port.";
+        }
+        catch (Exception ex)
+        {
+            EdidStatus = $"The EDID could not be saved: {ex.Message}";
+        }
     }
 
     // ---- display modes ------------------------------------------------------

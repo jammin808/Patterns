@@ -188,7 +188,7 @@ public static class SignalTruth
     /// display's refresh as Windows' mode says it (0 unknown); <paramref name="clockHz"/> the render
     /// clock as measured (≤ 0 not measured).
     /// </summary>
-    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz, EdidInfo? advertised = null)
+    public static SignalReport Compare(string label, SignalContract? contract, int screenWidth, int screenHeight, int presentFps, int displayHz, SignalObservation? observed, double clockHz, EdidInfo? advertised = null, string plannedEdidHash = "")
     {
         var lines = new List<SignalLine>();
         var design = DesignWords(contract);
@@ -210,6 +210,14 @@ public static class SignalTruth
         {
             // The EDID: what the display says it can take — capability, never the signal. Amber where the contract asks for what is not advertised: the source may fall back or convert.
             lines.Add(EdidLine(advertised));
+            if (plannedEdidHash.Length > 0)
+            {
+                // Round 65.8: the EDID Patterns wrote for this screen against the one the display presents — the processor loaded the plan, or runs its own.
+                var same = string.Equals(advertised.Hash, plannedEdidHash, StringComparison.OrdinalIgnoreCase);
+                lines.Add(same
+                    ? new SignalLine("Planned EDID", CheckLight.Green, $"the display presents Patterns' EDID · {advertised.ShortHash}", "the source reads the plan and nothing else")
+                    : new SignalLine("Planned EDID", CheckLight.Grey, $"the display presents its own EDID ({advertised.Identity}) · Patterns' is {plannedEdidHash[..Math.Min(8, plannedEdidHash.Length)]}", "export Patterns' EDID from the Screens page and load it on the processor input or the PC's port, so the source reads the plan"));
+            }
             AdvertisedLines(contract!, screenWidth, screenHeight, advertised, lines);
         }
         if (observed is null)

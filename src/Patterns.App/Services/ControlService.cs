@@ -945,6 +945,29 @@ public sealed partial class ControlService : IDisposable
                     binary = await Task.Run(() => BuildSupportBundle(info));
                 }
             }
+            else if (method == "GET" && path.StartsWith("/api/screens/") && (path.EndsWith("/edid.bin") || path.EndsWith("/edid.hex") || path.EndsWith("/edid.txt")))
+            {
+                // Round 65.8: the planned screen's EDID as a processor input or a PC loads it — the bytes, the hex, the summary. Reading: no token.
+                var word = Uri.UnescapeDataString(path["/api/screens/".Length..].Split('/')[0]);
+                var planned = await UiThread.InvokeAsync(() => _services.Actions.PlannedEdid(word));
+                if (planned is null)
+                {
+                    status = "404 Not Found";
+                    contentType = "text/plain";
+                    payload = $"No screen '{word}'.";
+                }
+                else if (path.EndsWith(".bin"))
+                {
+                    contentType = "application/octet-stream";
+                    payload = "";
+                    binary = planned.Bytes;
+                }
+                else
+                {
+                    contentType = "text/plain; charset=utf-8";
+                    payload = path.EndsWith(".hex") ? planned.Hex : planned.Summary;
+                }
+            }
             else if (method == "GET" && path.StartsWith("/pgm.jpg"))
             {
                 contentType = "image/jpeg";
