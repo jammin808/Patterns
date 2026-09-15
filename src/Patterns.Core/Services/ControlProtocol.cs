@@ -19,6 +19,8 @@ public enum RemoteCommandKind
     Status,
     /// <summary>"HELLO FOH deck" — the connection names itself (Text); history reads "GO from FOH deck". Nothing runs.</summary>
     Hello,
+    /// <summary>"AUTH &lt;token&gt;" — the connection presents the show's pairing token (Text). Answered by the port that holds the connection, never the router; nothing runs.</summary>
+    Auth,
     /// <summary>CUE LIST — the caller's stack as JSON rows.</summary>
     CueList,
     /// <summary>TWIN STATUS — the twin link's role, phase and words as JSON.</summary>
@@ -229,6 +231,7 @@ public static class ControlProtocol
             // "STOPALL" as one token: an older build parses "STOP ALL" as STOP and closes the outputs.
             case "STOPALL": return Act(ShowActionKind.StopAll);
             case "HELLO": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.Hello, arg);
+            case "AUTH": return arg.Length == 0 ? Unknown(s) : Query(RemoteCommandKind.Auth, arg);
 
             // The caller's stack: GO through the gate (the standby id the sender saw fences a stale
             // press), the standby moved or set, HOLD, ARM (a remote arms only when the Remote page
@@ -1146,6 +1149,20 @@ public static class ControlProtocol
     }
 
     public static string Ok(string? payload = null) => payload is null ? "OK" : "OK " + payload;
+
+    /// <summary>
+    /// True for a line that reads and never writes — STATUS, PING, HELLO, AUTH, CUE LIST, the
+    /// MENU and the other queries — which a connection that has not paired may send. Every action
+    /// is a mutating verb and waits for the token (round 65); an unknown line is let through to
+    /// its "unknown command" answer, which gives nothing away.
+    /// </summary>
+    public static bool IsQuery(RemoteCommand cmd) => cmd.Kind != RemoteCommandKind.Action;
+
+    /// <summary>The answer to a mutating verb from a connection that has not presented the token.</summary>
+    public const string NotPaired = "not paired — this desk asks for its pairing token first: AUTH <token> on the wire, X-Patterns-Token on the web (Remote page, TRUST)";
+
+    /// <summary>The answer to an AUTH whose token is not the show's.</summary>
+    public const string WrongToken = "wrong token — the pairing token is on the desk's Remote page, TRUST";
 
     public static string Err(string reason) => "ERR " + reason;
 }

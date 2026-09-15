@@ -10,7 +10,7 @@ import { configFields, connectionTarget, groupEnabled, groupOf } from './config.
 import { emptyState, showSignature, upcoming, variableValues } from './state.js'
 
 /** The module's own version, said on HELLO so the desk's Remote page can show which module a deck runs. */
-export const MODULE_VERSION = '3.4.0'
+export const MODULE_VERSION = '3.5.0'
 
 /** What the state carries that a feedback reads: every boolean feedback is rechecked on every STATE. */
 class PatternsInstance extends InstanceBase {
@@ -103,6 +103,10 @@ class PatternsInstance extends InstanceBase {
 				// The connection names itself and its module, so the caller's history reads "GO from FOH deck"
 				// and the desk's Remote page can say which module version each deck runs.
 				this.socket.send(`HELLO ${this.label ?? 'Companion'} module=${MODULE_VERSION}\n`)
+				// A desk with a pairing token (Remote page, TRUST) runs a verb only from a connection that
+				// presented it: AUTH follows HELLO with the token from the config, and nothing is sent without one.
+				const token = pairingToken(this.config)
+				if (token) this.socket.send(`AUTH ${token}\n`)
 			} else {
 				// Feedbacks reset on disconnect: a dead key must not stay green.
 				this.state = emptyState()
@@ -132,6 +136,8 @@ class PatternsInstance extends InstanceBase {
 		else if (line.startsWith('ERR')) {
 			this.log('warn', line)
 			this.setVariableValues({ last_error: line.slice(4).trim() })
+			const trust = trustProblem(line)
+			if (trust) this.updateStatus(InstanceStatus.BadConfig, trust) // the connection is up, the desk will not run a verb from it: the config is what needs a hand
 		}
 	}
 
@@ -157,6 +163,22 @@ class PatternsInstance extends InstanceBase {
 }
 
 export default PatternsInstance
+
+/** The pairing token as the wire carries it: trimmed, or '' when the config has none. */
+export function pairingToken(config) {
+	return String(config?.token ?? '').trim()
+}
+
+/**
+ * The words for Companion's status when the desk refuses the connection's verbs over trust: the
+ * token is wrong, or the desk asks for one and the config has none. Null for every other ERR.
+ */
+export function trustProblem(errLine) {
+	const text = String(errLine ?? '')
+	if (/^ERR\s+wrong token/i.test(text)) return "The pairing token is not this desk's — Remote page, TRUST, on the desk"
+	if (/^ERR\s+not paired/i.test(text)) return 'This desk asks for its pairing token — type it into this connection (Remote page, TRUST, on the desk)'
+	return null
+}
 
 /** Upgrade scripts, oldest first; none yet — every id of 1.x and 2.x is kept as it was. */
 export const UpgradeScripts = []

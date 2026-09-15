@@ -594,6 +594,8 @@ public sealed class SystemMetricsService : IDisposable
             SyncWorstLagMs = _services.AudioPlayer.SyncWorstLagMs,
             RemoteEnabled = state.Control.Enabled,
             RemoteUrl = remoteUrl,
+            RemoteBind = state.Control.Bind,
+            RemoteToken = PairingToken.Needed(state.Control.Token),
             VideoPlayback = video,
             VideoNote = Patterns.Rendering.Media.VideoService.AvailabilityNote,
             Advice = Suggestions,

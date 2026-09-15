@@ -92,9 +92,17 @@ public sealed partial class ControlService
     } catch (e) { el('err').textContent = 'reconnecting…'; await new Promise(r => setTimeout(r, 1500)); }
     poll();
   }
+  function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
   async function ack() {
     if (!pendingId) return;
-    try { await fetch('/api/stage/ack', { method: 'POST', body: pendingId }); } catch (e) {}
+    try {
+      const r = await fetch('/api/stage/ack', { method: 'POST', body: pendingId, headers: { 'X-Patterns-Token': tok() } });
+      if (r.status === 403) {
+        // The desk asks for its pairing token (Remote page, TRUST): once, kept in this browser.
+        const t = prompt('This desk asks for its pairing token (Remote page, TRUST):');
+        if (t) { try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} await ack(); }
+      }
+    } catch (e) {}
   }
   setInterval(render, 250);
   poll();

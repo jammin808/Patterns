@@ -13,16 +13,33 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
   changes the moment the show does. Works in any browser on the same network.
 - **TCP line protocol** — port 9697 (configurable). One command per line (UTF-8, `\n`);
   every command answers `OK`, `OK <json>` or `ERR <reason>`. On connect — and on every
-  change — the server pushes `STATE <json>` so controllers can show live feedback.
+  change — the server pushes `STATE <json>` so controllers can show live feedback. Each
+  connection has one writer on the desk's side (round 65): replies come back in the order the
+  lines were sent, `STATE` pushes are latest-wins behind them — a slow deck gets the newest
+  state, never a backlog — and a connection that stops reading its answers is closed rather
+  than kept.
 - **OSC** — UDP port 9698 (configurable; off by default — tick **OSC in** on the Remote page).
   Every address starts `/patterns/` and means exactly the TCP line it maps to; a refused command
   answers `/patterns/error` to the sender, and with a feedback host set every change sends one
   bundle of `/patterns/state/…` messages. See **OSC** below.
 
-> There is no password on the show's commands. Anyone on the network can control the show while
-> remote control is enabled — that's the same trust model as most stage-control protocols. Turn it
-> off on the Remote page (SETUP) when it isn't needed. Administration — `RESTART`, `UPDATE APPLY`
-> and the `/admin` page — sits behind the Install page's passcode (`docs/INSTALLS.md`).
+> **Trust.** The Remote page's TRUST block decides who may run the show (round 65). With no
+> pairing token set, anyone on the network can control the show while remote control is enabled —
+> the trust model of most stage-control protocols — and Super Check's Remote row reads amber for
+> it. With a token set, a connection presents it before the desk runs a mutating verb:
+> `AUTH <token>` on the wire (the Companion module sends it after `HELLO` from its **Pairing
+> token** field), the `X-Patterns-Token` header on the web (the phone, run, stage and pad pages
+> ask for it once and keep it in the browser). Reading — `STATE`, `STATUS`, `PING`, `HELLO`,
+> `CUE LIST`, the `MENU` queries, the pages themselves — never needs it, and connections from the
+> desk's own machine never do. A mutating verb without it answers `ERR not paired …` and runs
+> nothing; NEW TOKEN cuts every paired remote off until the new token is typed into it. The token
+> is the show's: saved with it and mirrored to the twin, so a standby that takes over answers the
+> same remotes. **Bind to** puts the web remote and the wire on one address — the control
+> network's, on a desk with two — so the audience network never sees the control ports. OSC has
+> no session to pair: leave it off, or keep it behind the control network. Turn remote control off
+> on the Remote page (SETUP) when it isn't needed. Administration — `RESTART`, `UPDATE APPLY` and
+> the `/admin` page — sits behind the Install page's passcode (`docs/INSTALLS.md`), which rides in
+> the `X-Patterns-Pass` header and never in a URL.
 
 ## Commands
 
@@ -132,6 +149,7 @@ Patterns runs two remote interfaces while **Remote → Remote control** is on:
 | `MENU SCREEN <n>` / `MENU PGM` / `MENU PREVIEW` / `MENU CUE <number\|name\|standby>` / `MENU LOOK <name>` / `MENU LT <n\|name>` / `MENU PERSON <name>` / `MENU LAYER 1\|2` / `MENU CLOCK` (`LOGO`, `MESSAGE`, `PIP`, `WEATHER`, `BADGE`, `INFO`, `COUNTDOWN`) / `MENU MONITOR` | `OK <json>` — the right-click menu the desk would show for that thing, as the desk builds it now: `kind`, `subject`, `title`, `subtitle`, `tone`, `hue`, then `groups[]` (`heading`, `tone`, `note`) of `entries[]` — each with `id`, `text`, `detail`, `scope` (preview, live, stack, go, ask), `tone`, `wire` (the line that does it, "" when the wire has no word), `because` (why it cannot be chosen now; `enabled` false), `on` (the tick), `page` and `item` for a go-to, `question` for an ask, and `children[]` for a drawer. A tablet or a script offers the desk's own choices and sends the entry's `wire` back; the desk's own edits (a cue's look, a layer's source, a tile's ARM) have no wire line yet and are the desk's to press. Bare `MENU` is the programme's; a stranger answers `ERR` with what MENU takes |
 | `STOPALL` | Stops the audio track, break music, any VOG or stinger (a clip or a held frame reverts, no ending runs) and the tone — never outputs, blackout or the stream (one token: an older build reads `STOP ALL` as `STOP`) |
 | `HELLO <name>` | Names this connection: history and the journal read "GO from tcp FOH deck" |
+| `AUTH <token>` | Presents the show's pairing token (Remote page, TRUST): `OK paired`, `ERR wrong token …`, or `OK open …` on a desk that asks for none. Five wrong tokens close the connection; a mutating verb before it answers `ERR not paired …` |
 | `STATUS` | `OK <json>` — same payload as the STATE pushes |
 | `PING` | `OK PONG` |
 | `TWIN STATUS` | `OK <json>` — the twin link: `role` (off, main, standby), `phase` (listening, connecting, inStep, mainSilent, tookOver, refused), `words` (the Machine page's line), `main` (the main's name as a standby knows it), `standbys` (the names a main has in step), `holder` (the standby that has the show, or empty), `launcher` (what the standby process the main runs is doing, or empty), `takeOverCue` and `takeBackCue` (the wall switch cues, or empty), `clock` (the peer's clock against this desk's as the beats measured it — `offsetMs`, `roundTripMs`, `samples`, `apart` past two seconds, `followed` on a caller or a timer whose room clock reads the desk's frame, and its `roomOffsetMs` — or null before an exchange closed), `clocks` (on a main: each peer's `name`, `offsetMs` and `apart`), `handover` (the last handover run here — `id`, `kind` takeOver or takeBack, `shape` sameMachine or acrossMachines, `stage`, `complete`, `stopped` with the reason, `awaiting` — the standby's answer to the hand-back, overdue or not, or the operator's switch, or empty — and the `trail` of stages with its stops, resumptions and notes — or null). The hand-back is answered: HANDBACK carries the handover's id, the standby answers RELEASED by it after closing its outputs, and the main counts the standby released on that answer (or, on one machine, its marker gone or its process gone), never on the line having been written; a claim made under a takeover the main already took back is answered with the hand-back again, not a hold. A takeover by itself needs a fence that answers: the wall-switch cue must send to a box that confirms at Accepted or better; a take-back whose route nobody's box vouches for is two presses, the room switched by hand between them. A main needs a key: one with none is given one before its port opens, and a join that cannot prove it is refused whatever it claims. Every BEAT carries its sender's wall clock and the echo of the last beat heard — its stamp and the arrival — so each side measures the other's clock as NTP does, believes the exchange with the shortest round trip, and says on its line when the clocks are two seconds apart; a caller or a stage timer node reads the desk's absolute times on the desk's clock. The key is never on the wire (link version 2): a joiner's JOIN carries a nonce, the main answers CHALLENGE with a nonce of its own and its proof of the key over the joiner's, and the joiner answers PROOF over the main's — a main that cannot prove the key gets no proof and no standby. The SHOW and SECTION lines carry the mirrored sections only — the twin's key, the admin passcode, the management token, the remote's ports and the machine's other own sections never travel — and the show's credentials (a projector's password, the weather key) travel unless the main's TWIN block says not to send them, in which case the standby keeps the ones typed on it |
@@ -431,10 +449,16 @@ key or two; the Patterns module (TCP) for the full feedback.
 - `GET /pgm.jpg` → the program as a JPEG thumbnail.
 - `POST /api/cmd` with a command line as the body → `{"ok":true|false,"msg":"…"}`. Cue commands
   (`CUE …`, `STOPALL`) need an `X-Patterns-Client: <anything>` header, so a page from another
-  origin cannot fire cues; everything else works without it.
+  origin cannot fire cues; everything else works without it. With a pairing token set (Remote
+  page, TRUST) every mutating command needs `X-Patterns-Token: <token>` as well — without it the
+  answer is `403` with `{"ok":false,"msg":"ERR not paired …"}` and nothing runs; the queries
+  (`STATUS`, `CUE LIST`, `MENU …`) never need it, and neither does a browser on the desk's own
+  machine. `POST /api/stage/ack` and `POST /api/arcade/key` want the same header. A token in the
+  URL is not read.
 
 `curl -d "LOOK Walk-in" http://<ip>:9696/api/cmd`
 `curl -H "X-Patterns-Client: curl" -d "CUE STANDBY NEXT" http://<ip>:9696/api/cmd`
+`curl -H "X-Patterns-Token: K7QM-3XWD-P9RA" -d "LOOK Walk-in" http://<ip>:9696/api/cmd` — on a paired desk
 
 Behind the Install page's admin passcode (`docs/INSTALLS.md`):
 
@@ -442,7 +466,9 @@ Behind the Install page's admin passcode (`docs/INSTALLS.md`):
 - `POST /api/admin` with `<passcode>\n<command line>` as the body → `{"ok":…,"msg":"…"}`; a body with the
   passcode alone checks it (the page unlocking). A wrong passcode answers 403 and, after five wrong
   tries, a minute's lock.
-- `GET /api/admin/log?pass=<passcode>` → the last eighty lines of `patterns.log`.
-- `GET /support-bundle.zip?pass=<passcode>` → the support bundle, written beside the settings and sent.
+- `GET /api/admin/log` with the passcode in an `X-Patterns-Pass: <passcode>` header → the last eighty lines of `patterns.log`.
+- `GET /support-bundle.zip` with the same header → the support bundle, written beside the settings and sent.
+  A `?pass=` in the URL is not read (round 65): a browser's history, a proxy's log and a screenshot keep URLs, and never headers.
 
 `curl -d $'open-sesame\nANNOUNCE Closing time' http://<ip>:9696/api/admin`
+`curl -H "X-Patterns-Pass: open-sesame" http://<ip>:9696/api/admin/log`

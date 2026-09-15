@@ -25,7 +25,23 @@
       <TextBox Text="{Binding RemoteUrlsText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                FontFamily="Consolas,monospace" />
       <TextBlock Classes="hint tip"
-                 Text="The web remote drives presenter next/back, looks, transport, blackout, screens, the audio track, lower thirds and the web page on air — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens, canvas groups and page actions map straight onto Stream Deck keys with live feedback. No password: anyone on this network can control the show while enabled." />
+                 Text="The web remote drives presenter next/back, looks, transport, blackout, screens, the audio track, lower thirds and the web page on air — big buttons, made for a phone at the tech table or in a pocket. Bitfocus Companion: add a 'Patterns' connection with the companion module (integrations folder in the repo), or use Generic TCP with the commands in docs/REMOTE.md — looks, screens, canvas groups and page actions map straight onto Stream Deck keys with live feedback. Without a pairing token (TRUST, below) anyone on this network can control the show while enabled." />
+
+      <TextBlock Classes="h2" Text="TRUST" />
+      <Grid ColumnDefinitions="130,*" Margin="0,2,0,0">
+        <TextBlock Classes="label" Text="Bind to" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding State.Control.Bind}" Watermark="every interface, or the control network's address on a desk with two"
+                 ToolTip.Tip="The address the web remote and the Companion wire listen on. Empty: every interface. An address: that network alone — the audience network never sees the control ports" />
+      </Grid>
+      <Grid ColumnDefinitions="130,*,8,Auto" Margin="0,4,0,0">
+        <TextBlock Classes="label" Text="Pairing token" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" Text="{Binding State.Control.Token}" Watermark="empty: open — any device on the network runs the show" FontFamily="Consolas,monospace"
+                 ToolTip.Tip="A remote presents this before the desk runs a verb: AUTH on the wire, X-Patterns-Token on the web. Saved with the show" />
+        <Button Grid.Column="3" Content="NEW TOKEN" Command="{Binding NewPairingTokenCommand}"
+                ToolTip.Tip="A fresh token: every paired remote is cut off until the new one is typed into it" />
+      </Grid>
+      <TextBlock Classes="hint tip"
+                 Text="With a token set, a remote presents it before the desk runs its verbs: Companion's connection has a Pairing token field (the module sends AUTH after HELLO); the phone, run, stage and pad pages ask for it once and keep it. Reading — STATE, STATUS, the pages themselves — never needs it, and this machine's own browsers never do. NEW TOKEN cuts every paired remote off until it is typed again. Bind to the control network's address on a desk with two networks, and the audience network never sees these ports. Super Check's Remote row reads amber while the desk is open on every interface." />
 
       <TextBlock Classes="h2" Text="COMPANION" />
       <CheckBox Content="Announce this desk on the network (mDNS) — Companion lists it under 'Desk on the network', no address to type" IsChecked="{Binding State.Control.Announce}"

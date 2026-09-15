@@ -1,6 +1,6 @@
 # Patterns — Bitfocus Companion module
 
-Stream Deck / Companion control for the Patterns show display suite, version **3.4.0** — a
+Stream Deck / Companion control for the Patterns show display suite, version **3.5.0** — a
 Companion 5 module (module base 2.x): the desk found on the network by itself, one colour
 language across every key, keys that label themselves from the show, and — new in 3.0 — the
 speaker's stage timer in its own colour with a progress ring, messages to the stage, every other
@@ -63,7 +63,10 @@ show a deck is on; `$(patterns:last_error)` carries the last refusal. `$(pattern
 `$(patterns:devices_failing)` and `$(patterns:device_last_failure)` say when an output or a box is in
 trouble, and the `render_faulting` and `device_failing` feedbacks light a key red for it;
 `$(patterns:cue_last_pending)` counts the device receipts the last cue still waits for. The connection says `HELLO
-<label> module=3.4.0` on connect, so the desk's Remote page can list every deck and its module.
+<label> module=3.5.0` on connect, so the desk's Remote page can list every deck and its module — and, when the
+connection's **Pairing token** field is filled, `AUTH <token>` straight after it: a desk with a token set (Remote
+page, TRUST) runs a verb only from a connection that presented it, and answers `ERR not paired` otherwise. The
+module shows the wrong or missing token as a bad-config status with the words.
 
 ## Installing a build into Companion 5
 

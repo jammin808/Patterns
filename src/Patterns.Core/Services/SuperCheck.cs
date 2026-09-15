@@ -214,6 +214,10 @@ public sealed class CheckFacts
 
     public bool RemoteEnabled { get; init; }
     public string RemoteUrl { get; init; } = "";
+    /// <summary>The address the control ports are bound to; "" is every interface.</summary>
+    public string RemoteBind { get; init; } = "";
+    /// <summary>Whether a pairing token is set, so a remote must present it before a mutating verb runs.</summary>
+    public bool RemoteToken { get; init; }
 
     public bool VideoPlayback { get; init; }
     public string VideoNote { get; init; } = "";
@@ -898,9 +902,27 @@ public static class SuperCheck
 
     private static void Remote(CheckFacts f, List<CheckRow> rows)
     {
-        rows.Add(f.RemoteEnabled
-            ? new CheckRow("REMOTE", "Remote control", CheckLight.Green, f.RemoteUrl.Length > 0 ? f.RemoteUrl : "on")
-            : new CheckRow("REMOTE", "Remote control", CheckLight.Grey, "off", "the phone page, Companion and the tablet need it on"));
+        if (!f.RemoteEnabled)
+        {
+            rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Grey, "off", "the phone page, Companion and the tablet need it on"));
+            return;
+        }
+        var where = f.RemoteUrl.Length > 0 ? f.RemoteUrl : "on";
+        if (f.RemoteToken)
+        {
+            // Paired: a remote presents the show's token before a verb runs, whatever network it is on.
+            rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Green, $"{where} · paired"));
+        }
+        else if (f.RemoteBind.Length > 0)
+        {
+            // Open, but on one address: the control network's, by a deliberate choice.
+            rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Green, $"{where} · open on {f.RemoteBind} only", "no pairing token: every device on that network can run the show — TRUST on the Remote page sets one"));
+        }
+        else
+        {
+            rows.Add(new CheckRow("REMOTE", "Remote control", CheckLight.Amber, $"{where} · open on every interface",
+                "FIX: anyone on any network this machine is on can run the show — Remote page, TRUST: NEW TOKEN and pair the decks and phones, or bind the control ports to the control network's address"));
+        }
     }
 
     private static void Video(CheckFacts f, List<CheckRow> rows)

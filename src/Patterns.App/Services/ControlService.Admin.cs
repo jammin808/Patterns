@@ -117,9 +117,14 @@ function showMain(on){ document.getElementById('main').classList.toggle('on', on
 function announce(){ var w = document.getElementById('words').value.trim(); if (w) cmd('ANNOUNCE ' + w); }
 function apply(){ if (confirm('Apply the staged update? The screens go black for a few seconds while the watchdog swaps the files.')) cmd('UPDATE APPLY ' + pass); }
 function restart(){ if (confirm('Restart the app? The show comes straight back.')) cmd('RESTART ' + pass); }
-function bundle(){ window.location = '/support-bundle.zip?pass=' + encodeURIComponent(pass); }
+function bundle(){
+  fetch('/support-bundle.zip', { headers:{'X-Patterns-Pass': pass} })
+    .then(function(r){ if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(function(b){ var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'patterns-support-bundle.zip'; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000); })
+    .catch(function(){ err('The support bundle could not be fetched — the passcode, or the desk'); });
+}
 function consoleSend(){ var l = document.getElementById('console').value.trim(); if (l) cmd(l); }
-function loadLog(){ fetch('/api/admin/log?pass=' + encodeURIComponent(pass)).then(function(r){ return r.text(); }).then(function(t){ document.getElementById('log').textContent = t; }).catch(function(){}); }
+function loadLog(){ fetch('/api/admin/log', { headers:{'X-Patterns-Pass': pass} }).then(function(r){ return r.text(); }).then(function(t){ document.getElementById('log').textContent = t; }).catch(function(){}); }
 function btn(html, cls, on){ var b = document.createElement('button'); b.innerHTML = html; if (cls) b.className = cls; b.onclick = on; return b; }
 function render(s) {
   st = s; rev = s.rev || 0;

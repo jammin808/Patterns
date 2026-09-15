@@ -10,7 +10,7 @@ import { variableDefinitions } from '../src/variables.js'
 import { variableValues, emptyState } from '../src/state.js'
 import { connectionTarget, configFields, GROUPS } from '../src/config.js'
 import { COLOURS, STATES, style } from '../src/palette.js'
-import { MODULE_VERSION } from '../src/main.js'
+import { MODULE_VERSION, pairingToken, trustProblem } from '../src/main.js'
 
 const manifest = JSON.parse(readFileSync(new URL('../companion/manifest.json', import.meta.url), 'utf8'))
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -34,6 +34,25 @@ test('the module boots on the real base, says HELLO with its label and version, 
 	assert.ok(b.ctx.structure.length > 20, 'sections')
 	assert.ok(b.ctx.statuses.some((s) => s.status === InstanceStatus.Ok))
 	assert.ok(!Array.isArray(b.ctx.variableDefs), 'variable definitions are an object, as base 2 wants')
+})
+
+test('a pairing token in the config is presented with AUTH straight after HELLO; without one nothing more is said; a refusal over trust is a bad-config status with the words', async () => {
+	const paired = await boot({ config: { host: '10.0.0.5', port: 9697, token: ' k7qm-3xwd-p9ra ' } })
+	assert.equal(paired.lines()[0], `HELLO FOH deck module=${MODULE_VERSION}`)
+	assert.equal(paired.lines()[1], 'AUTH k7qm-3xwd-p9ra')
+	const open = await boot()
+	assert.ok(!open.lines().some((l) => l.startsWith('AUTH')), 'no token, no AUTH')
+	assert.equal(pairingToken({}), '')
+	assert.equal(pairingToken({ token: null }), '')
+	assert.ok(configFields().find((f) => f.id === 'token' && f.type === 'textinput'), 'the token field')
+	assert.equal(trustProblem('ERR unknown command'), null)
+	assert.match(trustProblem('ERR wrong token — the pairing token is on the desk'), /not this desk's/)
+	assert.match(trustProblem('ERR not paired — this desk asks for its pairing token first'), /asks for its pairing token/)
+	open.socket.receive('ERR not paired — this desk asks for its pairing token first: AUTH <token> on the wire\n')
+	const last = open.ctx.statuses[open.ctx.statuses.length - 1]
+	assert.equal(last.status, InstanceStatus.BadConfig)
+	assert.match(last.message, /pairing token/)
+	assert.equal(open.ctx.variables.last_error.startsWith('not paired'), true)
 })
 
 test('every preset is one the host keeps: its actions, feedbacks and option keys exist, and its layered elements pass the schema', async () => {

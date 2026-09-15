@@ -23,11 +23,19 @@ public sealed record HttpLimits(
 
 /// <summary>
 /// A request's head, parsed from the bytes before the blank line: the method, the path, the
-/// content length, whether the desk's own client header was there — or the fault, with the
-/// status that answers it. Pure, so every shape a port can be sent is a unit test.
+/// content length, whether the desk's own client header was there, the pairing token and the
+/// admin passcode when their headers carry them (round 65: credentials ride in headers, never
+/// in a query string that a browser's history, a proxy's log or a screenshot keeps) — or the
+/// fault, with the status that answers it. Pure, so every shape a port can be sent is a unit test.
 /// </summary>
-public sealed record HttpHead(string Method, string Path, int ContentLength, bool ClientHeader, int HeaderCount, string Fault = "", string Status = "")
+public sealed record HttpHead(string Method, string Path, int ContentLength, bool ClientHeader, int HeaderCount, string Fault = "", string Status = "", string Token = "", string Pass = "")
 {
+    /// <summary>The header that carries the show's pairing token.</summary>
+    public const string TokenHeader = "X-Patterns-Token";
+
+    /// <summary>The header that carries the Install page's admin passcode.</summary>
+    public const string PassHeader = "X-Patterns-Pass";
+
     public bool Ok => Fault.Length == 0;
 
     /// <summary>Where the blank line that ends a head is in <paramref name="bytes"/>: its index and its length (4 for CRLF CRLF, 2 for LF LF), or -1.</summary>
@@ -57,6 +65,8 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
         var path = parts[1];
         var contentLength = 0;
         var clientHeader = false;
+        var token = "";
+        var pass = "";
         var headers = 0;
         for (var i = 1; i < lines.Length; i++)
         {
@@ -77,8 +87,16 @@ public sealed record HttpHead(string Method, string Path, int ContentLength, boo
             {
                 clientHeader = true;
             }
+            else if (name.Equals(TokenHeader, StringComparison.OrdinalIgnoreCase))
+            {
+                token = value;
+            }
+            else if (name.Equals(PassHeader, StringComparison.OrdinalIgnoreCase))
+            {
+                pass = value;
+            }
         }
-        return new HttpHead(method, path, contentLength, clientHeader, headers);
+        return new HttpHead(method, path, contentLength, clientHeader, headers, Token: token, Pass: pass);
 
         static HttpHead Bad(string fault, string status) => new("", "", 0, false, 0, fault, status);
     }

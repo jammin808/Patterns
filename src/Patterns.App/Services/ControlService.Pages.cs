@@ -326,7 +326,7 @@ public sealed partial class ControlService
   <div class="card">
     <div class="sec" style="margin-top:0">THIS DEVICE</div>
     <div class="line" id="where"></div>
-    <div class="line">Everything here goes straight to what the audience sees. A Stream Deck uses the Companion module; QLab and TouchOSC use OSC — both on the Remote page of the desk. No password: anyone on this network can drive the show while remote control is on.</div>
+    <div class="line">Everything here goes straight to what the audience sees. A Stream Deck uses the Companion module; QLab and TouchOSC use OSC — both on the Remote page of the desk. With a pairing token set (Remote page, TRUST) this page asks for it once; without one, anyone on this network can drive the show while remote control is on.</div>
   </div>
 </section>
 
@@ -337,10 +337,11 @@ var st = null, rev = 0, standbyId = '', stopArmedUntil = 0;
 var TABS = ['show', 'cues', 'looks', 'screens', 'audio', 'lower', 'overlays', 'setup'];
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
 function err(t){ document.getElementById('err').textContent = t || ''; }
-function cmd(c) {
-  return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'phone'} })
-    .then(function(r){ return r.json(); })
-    .then(function(j){ err(j.ok ? '' : j.msg); })
+function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
+function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} return true; }
+function cmd(c, again) {
+  return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'phone', 'X-Patterns-Token':tok()} })
+    .then(function(r){ if (r.status === 403 && !again && pair()) return cmd(c, true); return r.json().then(function(j){ err(j.ok ? '' : j.msg); }); })
     .catch(function(){ err('Connection lost'); });
 }
 function go(){ if (standbyId) cmd('CUE GO ' + standbyId); }

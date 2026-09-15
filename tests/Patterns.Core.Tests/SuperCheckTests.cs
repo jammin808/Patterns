@@ -50,6 +50,7 @@ public class SuperCheckTests
         AudioOutputDevices = 2,
         RemoteEnabled = true,
         RemoteUrl = "http://10.0.0.5:9696/",
+        RemoteToken = true,        // a strong rig is paired: its remotes present the show's token (round 65)
         VideoPlayback = true,
         Advice = new[] { new HealthSuggestion("all-clear", HealthSeverity.Info, "All clear", "Nothing needs attention.") },
     };

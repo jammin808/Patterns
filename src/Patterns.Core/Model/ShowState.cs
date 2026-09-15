@@ -2126,6 +2126,24 @@ public sealed class ControlConfig : Observable
     /// <summary>A remote may ARM / disarm the caller's cue stack (CUE ARM ON / OFF). Off by default: arming is a deliberate act at the desk.</summary>
     public bool RemotesMayArm { get => _remotesMayArm; set => Set(ref _remotesMayArm, value); }
 
+    private string _bind = "";
+    private string _token = "";
+
+    /// <summary>
+    /// The address the control listeners bind — the web remote and the Companion wire; "" is every
+    /// interface. On a desk with two networks, the control network's own address, so the audience
+    /// network never sees the control ports at all (round 65).
+    /// </summary>
+    public string Bind { get => _bind; set => Set(ref _bind, (value ?? "").Trim()); }
+
+    /// <summary>
+    /// The show's pairing token: what a remote presents before the desk runs its mutating verbs —
+    /// AUTH on the wire, X-Patterns-Token on the web. Reading (STATE, STATUS, the pages) never needs
+    /// it; this machine's own browsers never do. Empty is open — any device on the network, as
+    /// before — and Super Check says so. Saved with the show, mirrored to the twin, never in a URL.
+    /// </summary>
+    public string Token { get => _token; set => Set(ref _token, (value ?? "").Trim()); }
+
     private bool _announce = true;
     /// <summary>Announce this process on the network (mDNS, _patterns._tcp) so a Companion lists it under "Desk on the network" instead of asking for an address. On by default; a deliberate switch for a network that must stay quiet.</summary>
     public bool Announce { get => _announce; set => Set(ref _announce, value); }

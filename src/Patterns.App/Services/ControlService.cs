@@ -25,7 +25,7 @@ public sealed partial class ControlService : IDisposable
     private readonly IWireHost _services;
     private readonly IRouter _router;
     private readonly object _gate = new();
-    private readonly List<TcpClient> _tcpClients = new();
+    private readonly List<WirePeer> _peers = new();
     private TcpListener? _tcp;
     private TcpListener? _http;
     private TcpListener? _audience;
@@ -53,7 +53,7 @@ public sealed partial class ControlService : IDisposable
             if (!_pushPending) return;
             _pushPending = false;
             var json = _router.StateJson();
-            _ = Task.Run(() => Broadcast("STATE " + json));
+            Broadcast("STATE " + json);       // each peer's one writer takes it, latest-wins: nothing blocks here
         };
         void Moved()
         {
@@ -92,7 +92,7 @@ public sealed partial class ControlService : IDisposable
             bool listening;
             lock (_gate)
             {
-                listening = _tcpClients.Count > 0;
+                listening = _peers.Count > 0;
             }
             listening |= Volatile.Read(ref _longPollers) > 0 || _services.Osc is { FeedbackEndpoint: not null };
             if (!listening) return;
@@ -122,13 +122,23 @@ public sealed partial class ControlService : IDisposable
         };
     }
 
-    public string Status => _status;
+    /// <summary>The listeners' words; "· paired" added while a pairing token is set, read live so the words follow the token without a rebind.</summary>
+    public string Status
+    {
+        get
+        {
+            var status = _status;
+            if (_tcp is not null && PairingToken.Needed(_kernel.State.Control.Token)) status = status.TrimEnd('.') + " · paired.";
+            return status;
+        }
+    }
 
     /// <summary>How long the remote's addresses are kept before the machine is asked again.</summary>
     public static readonly TimeSpan RemoteUrlsKeptFor = TimeSpan.FromSeconds(30);
 
     private IReadOnlyList<string>? _urls;
     private int _urlsPort;
+    private string _urlsBind = "";
     private DateTime _urlsAtUtc;
 
     /// <summary>
@@ -141,12 +151,22 @@ public sealed partial class ControlService : IDisposable
     public IReadOnlyList<string> RemoteUrls()
     {
         var port = _kernel.State.Control.HttpPort;
+        var bind = _kernel.State.Control.Bind;
         var now = DateTime.UtcNow;
-        if (_urls is not null && _urlsPort == port && now - _urlsAtUtc < RemoteUrlsKeptFor) return _urls;
-        var urls = new List<string> { $"http://localhost:{port}/" };
-        foreach (var address in LocalAddresses.Enumerate()) urls.Add($"http://{address}:{port}/");
+        if (_urls is not null && _urlsPort == port && _urlsBind == bind && now - _urlsAtUtc < RemoteUrlsKeptFor) return _urls;
+        var urls = new List<string>();
+        if (IPAddress.TryParse(bind, out var bound))
+        {
+            urls.Add($"http://{bound}:{port}/");      // bound to one address: the one door there is
+        }
+        else
+        {
+            urls.Add($"http://localhost:{port}/");
+            foreach (var address in LocalAddresses.Enumerate()) urls.Add($"http://{address}:{port}/");
+        }
         _urls = urls;
         _urlsPort = port;
+        _urlsBind = bind;
         _urlsAtUtc = now;
         return urls;
     }
@@ -168,7 +188,7 @@ public sealed partial class ControlService : IDisposable
     {
         HookStack();
         var cfg = _kernel.State.Control;
-        var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}|{(cfg.AudienceEnabled ? $"{cfg.AudiencePort}@{cfg.AudienceBind}" : "")}" : "";
+        var key = cfg.Enabled ? $"{cfg.HttpPort}|{cfg.TcpPort}@{cfg.Bind}|{(cfg.AudienceEnabled ? $"{cfg.AudiencePort}@{cfg.AudienceBind}" : "")}" : "";
         if (key == _activeKey) return;
         _activeKey = key;
         ForgetRemoteUrls();
@@ -183,15 +203,18 @@ public sealed partial class ControlService : IDisposable
         _cts = new CancellationTokenSource();
         try
         {
-            _tcp = new TcpListener(IPAddress.Any, cfg.TcpPort);
+            // Round 65: the control ports bind where the Remote page says — every interface, or the
+            // control network's own address on a desk with two, so the audience network never sees them.
+            var controlBind = IPAddress.TryParse(cfg.Bind, out var boundTo) ? boundTo : IPAddress.Any;
+            _tcp = new TcpListener(controlBind, cfg.TcpPort);
             _tcp.Start();
             _ = AcceptLoop(_tcp, _cts.Token, HandleTcpClient);
 
-            _http = new TcpListener(IPAddress.Any, cfg.HttpPort);
+            _http = new TcpListener(controlBind, cfg.HttpPort);
             _http.Start();
             _ = AcceptLoop(_http, _cts.Token, HandleHttpClient);
 
-            _status = $"Web remote on port {cfg.HttpPort} · Companion (TCP) on port {cfg.TcpPort}.";
+            _status = $"Web remote on port {cfg.HttpPort} · Companion (TCP) on port {cfg.TcpPort}{(controlBind.Equals(IPAddress.Any) ? "" : $" at {controlBind} only")}.";
             if (cfg.AudienceEnabled)
             {
                 // The room's own socket: the play pages and nothing else, on the audience network's address when the hub has one.
@@ -261,22 +284,28 @@ public sealed partial class ControlService : IDisposable
             return;
         }
         client.NoDelay = true;
+        // Round 65: one writer per peer. Replies and STATE pushes go through the peer's queue and
+        // its one writer task, so nothing this handler says is ever interleaved with a push.
+        var wire = client.GetStream();
+        var peer = new WirePeer(wire, client);
         lock (_gate)
         {
-            _tcpClients.Add(client);
+            _peers.Add(peer);
         }
         try
         {
-            using var stream = client.GetStream();
-            var reader = new BoundedLineReader(stream, WireLineBytes) { LineSeconds = limits.LineSeconds };
+            var reader = new BoundedLineReader(wire, WireLineBytes) { LineSeconds = limits.LineSeconds };
 
-            // Greet with current state so feedback initialises immediately.
+            // Greet with current state so feedback initialises immediately — the first line the peer hears.
             var hello = await _router.StateJsonAsync();
-            await WriteLine(stream, "STATE " + hello, ct);
+            peer.Say("STATE " + hello);
 
             var endpoint = client.Client.RemoteEndPoint?.ToString() ?? "";
             var origin = new ActionOrigin(OriginKind.Tcp, "", endpoint);
-            while (!ct.IsCancellationRequested)
+            var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
+            var presented = "";     // the token this connection presented — matched again on every verb, so NEW TOKEN cuts it off
+            var wrongTokens = 0;
+            while (!ct.IsCancellationRequested && !peer.Closed)
             {
                 string? line;
                 try
@@ -286,12 +315,39 @@ public sealed partial class ControlService : IDisposable
                 catch (InvalidDataException ex)
                 {
                     // A line that never ends is not a command: said once, and the door closed.
-                    await WriteLine(stream, ControlProtocol.Err($"{ex.Message} — the wire's lines are commands, and this one was not; closed"), ct);
+                    peer.Say(ControlProtocol.Err($"{ex.Message} — the wire's lines are commands, and this one was not; closed"));
+                    await peer.FlushAsync(LastWordWait);
                     break;
                 }
                 if (line is null) break;
                 if (line.Trim().Length == 0) continue;
                 var cmd = ControlProtocol.Parse(line);
+                var token = _kernel.State.Control.Token;
+                if (cmd.Kind == RemoteCommandKind.Auth)
+                {
+                    // The connection presents the show's pairing token: the port answers, the router never sees it.
+                    if (PairingToken.Matches(token, cmd.Text))
+                    {
+                        presented = cmd.Text;
+                        wrongTokens = 0;
+                        peer.Say(ControlProtocol.Ok("paired"));
+                    }
+                    else if (!PairingToken.Needed(token))
+                    {
+                        peer.Say(ControlProtocol.Ok("open — this desk asks for no token"));
+                    }
+                    else if (++wrongTokens >= WrongTokensBeforeClose)
+                    {
+                        peer.Say(ControlProtocol.Err(ControlProtocol.WrongToken + " — closed"));
+                        await peer.FlushAsync(LastWordWait);
+                        break;
+                    }
+                    else
+                    {
+                        peer.Say(ControlProtocol.Err(ControlProtocol.WrongToken));
+                    }
+                    continue;
+                }
                 if (cmd.Kind == RemoteCommandKind.Hello)
                 {
                     // "HELLO FOH deck module=3.0.0": history reads "GO from tcp FOH deck", not an address,
@@ -303,8 +359,14 @@ public sealed partial class ControlService : IDisposable
                         _decks[client] = new WireDeck(name, module, address, DateTime.UtcNow);
                     }
                 }
+                if (!ControlProtocol.IsQuery(cmd) && !Paired(token, presented, loopback))
+                {
+                    // A mutating verb from a connection that has not paired: refused in the wire's words, nothing run.
+                    peer.Say(ControlProtocol.Err(ControlProtocol.NotPaired));
+                    continue;
+                }
                 var response = await _router.ExecuteAsync(cmd, origin);
-                await WriteLine(stream, response, ct);
+                peer.Say(response);
             }
         }
         catch (Exception)
@@ -315,13 +377,30 @@ public sealed partial class ControlService : IDisposable
         {
             lock (_gate)
             {
-                _tcpClients.Remove(client);
+                _peers.Remove(peer);
                 _decks.Remove(client);
             }
-            client.Dispose();
+            peer.Dispose();
             _wireLedger.Release(address);
         }
     }
+
+    /// <summary>How long a last word (an ERR before a close) is given to reach the peer.</summary>
+    private static readonly TimeSpan LastWordWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>Wrong AUTH lines a connection may send before it is closed.</summary>
+    public const int WrongTokensBeforeClose = 5;
+
+    /// <summary>
+    /// This machine's own browsers and processes never need the token — the desk's pages opened
+    /// on the desk, a Companion on the same machine. Off in the tests, which connect from loopback
+    /// and want the gate.
+    /// </summary>
+    public static bool TrustLoopback { get; set; } = true;
+
+    /// <summary>Whether a connection may run a mutating verb: no token is set, or it is this machine's own, or it presented the token that is set now.</summary>
+    internal static bool Paired(string token, string presented, bool loopback)
+        => !PairingToken.Needed(token) || (loopback && TrustLoopback) || PairingToken.Matches(token, presented);
 
     /// <summary>The wire's ceilings — connections in all and from one address, the seconds a started line has to end — and the web remote's. Settable for the tests.</summary>
     public WireLimits WireLimits { get; set; } = WireLimits.Default;
@@ -413,28 +492,17 @@ public sealed partial class ControlService : IDisposable
         await stream.WriteAsync(bytes, ct);
     }
 
+    /// <summary>A STATE line to every peer, latest-wins on each one's writer: never blocks, never writes a socket from this thread; a peer that cannot take it closes itself and its handler lets go.</summary>
     private void Broadcast(string line)
     {
-        List<TcpClient> clients;
+        List<WirePeer> peers;
         lock (_gate)
         {
-            clients = _tcpClients.ToList();
+            peers = _peers.ToList();
         }
-        var bytes = Encoding.UTF8.GetBytes(line + "\n");
-        foreach (var client in clients)
+        foreach (var peer in peers)
         {
-            try
-            {
-                client.GetStream().Write(bytes);
-            }
-            catch
-            {
-                lock (_gate)
-                {
-                    _tcpClients.Remove(client);
-                }
-                client.Dispose();
-            }
+            peer.Push(line);
         }
     }
 
@@ -597,6 +665,11 @@ public sealed partial class ControlService : IDisposable
             var method = request.Method;
             var path = request.Path;
             var clientHeader = request.ClientHeader;
+            // Round 65: the control port's mutating routes want the show's pairing token when one is
+            // set — in a header, never the URL; this machine's own browsers are exempt; the audience
+            // port has no verbs to gate.
+            var loopback = client.Client.RemoteEndPoint is IPEndPoint remote && IPAddress.IsLoopback(remote.Address);
+            var paired = audience || Paired(_kernel.State.Control.Token, request.Token, loopback);
             var body = await ReadBodyAsync(stream, rest, request.ContentLength, limits, ct);
 
             string status = "200 OK", contentType = "text/html; charset=utf-8";
@@ -699,6 +772,12 @@ public sealed partial class ControlService : IDisposable
                     }
                     payload = await UiThread.InvokeAsync(() => stage.StatusJson());
                 }
+            }
+            else if (!paired && method == "POST" && (path == "/api/stage/ack" || path == "/api/arcade/key"))
+            {
+                status = "403 Forbidden";
+                contentType = "application/json";
+                payload = NotPairedJson;
             }
             else if (method == "POST" && path == "/api/stage/ack")
             {
@@ -838,7 +917,8 @@ public sealed partial class ControlService : IDisposable
             else if (method == "GET" && path.StartsWith("/api/admin/log"))
             {
                 contentType = "text/plain; charset=utf-8";
-                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                // The passcode rides in its header (round 65) — never in the URL, which a browser's history and a proxy's log keep.
+                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, request.Pass, DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     payload = _kernel.Gate.Reason;
@@ -850,7 +930,7 @@ public sealed partial class ControlService : IDisposable
             }
             else if (method == "GET" && path.StartsWith("/support-bundle.zip"))
             {
-                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, QueryValue(path, "pass") ?? "", DateTime.UtcNow)))
+                if (!await UiThread.InvokeAsync(() => _kernel.Gate.Check(_kernel.State.Install.AdminPasscode, request.Pass, DateTime.UtcNow)))
                 {
                     status = "403 Forbidden";
                     contentType = "text/plain";
@@ -877,7 +957,13 @@ public sealed partial class ControlService : IDisposable
                 var cmd = ControlProtocol.Parse(body);
                 var httpOrigin = new ActionOrigin(OriginKind.Http, "", client.Client.RemoteEndPoint?.ToString() ?? "");
                 string response;
-                if (IsCueVerb(cmd) && !clientHeader)
+                if (!paired && !ControlProtocol.IsQuery(cmd))
+                {
+                    // A mutating verb without the show's token: 403 with the wire's words, and the pages ask for the token on it.
+                    status = "403 Forbidden";
+                    response = ControlProtocol.Err(ControlProtocol.NotPaired);
+                }
+                else if (IsCueVerb(cmd) && !clientHeader)
                 {
                     // A cross-origin page cannot fire cues: the embedded pages and any deliberate
                     // client send this header; plain commands (LOOK, BLACKOUT…) keep working without it.
@@ -955,6 +1041,9 @@ public sealed partial class ControlService : IDisposable
         return File.ReadAllBytes(path);
     }
 
+    /// <summary>The 403 body for a mutating route without the token: the wire's words, as the pages' JSON.</summary>
+    private static readonly string NotPairedJson = $"{{\"ok\":false,\"msg\":{System.Text.Json.JsonSerializer.Serialize(ControlProtocol.Err(ControlProtocol.NotPaired))}}}";
+
     private static string? QueryValue(string path, string key)
     {
         var q = path.IndexOf('?');
@@ -1010,11 +1099,11 @@ public sealed partial class ControlService : IDisposable
         _audience = null;
         lock (_gate)
         {
-            foreach (var client in _tcpClients)
+            foreach (var peer in _peers)
             {
-                client.Dispose();
+                peer.Dispose();
             }
-            _tcpClients.Clear();
+            _peers.Clear();
         }
     }
 
@@ -1200,10 +1289,11 @@ public sealed partial class ControlService : IDisposable
 <script>
 var st = null, rev = 0, standbyId = '';
 function esc(s){ var d=document.createElement('div'); d.textContent=s==null?'':s; return d.innerHTML; }
-function cmd(c) {
-  return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'run-page'} })
-    .then(function(r){ return r.json(); })
-    .then(function(j){ document.getElementById('err').textContent = j.ok ? '' : j.msg; })
+function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
+function pair(){ var t = prompt('This desk asks for its pairing token (Remote page, TRUST):'); if (!t) return false; try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} return true; }
+function cmd(c, again) {
+  return fetch('/api/cmd', { method:'POST', body:c, headers:{'X-Patterns-Client':'run-page', 'X-Patterns-Token':tok()} })
+    .then(function(r){ if (r.status === 403 && !again && pair()) return cmd(c, true); return r.json().then(function(j){ document.getElementById('err').textContent = j.ok ? '' : j.msg; }); })
     .catch(function(){ document.getElementById('err').textContent = 'Connection lost'; });
 }
 function go(){ if (standbyId) cmd('CUE GO ' + standbyId); }

@@ -147,7 +147,7 @@ public static class Walkthroughs
             "Every control surface drives the same show through the same verbs.",
             new[]
             {
-                new WalkStep("Remote", "Switch it on", "Remote control on: the TCP port for Companion and the web remote's address for phones and tablets. There is no password.", "remote-on"),
+                new WalkStep("Remote", "Switch it on", "Remote control on: the TCP port for Companion and the web remote's address for phones and tablets. Under TRUST, NEW TOKEN pairs the remotes; without one there is no password.", "remote-on"),
                 new WalkStep("Remote", "Companion", "Load the module from integrations/companion-module-patterns: presets for transport, looks, screens, cues, stingers, people and review, with live feedback."),
                 new WalkStep("Remote", "OSC", "Tick OSC in, set the feedback host: /patterns/look 3, /patterns/blackout 1, /patterns/cue/go and the rest map onto the same verbs; the state comes back as a bundle.", "osc-on"),
                 new WalkStep("Remote", "The phone", "Open the address on a phone: SHOW · CUES · LOOKS · SCREENS · AUDIO · LOWER THIRDS · SETUP, live within a blink."),

@@ -40,8 +40,17 @@ public sealed partial class ControlService
     player = +b.dataset.p;
     document.querySelectorAll('.top button').forEach(o => o.classList.toggle('on', o === b));
   }));
+  let asked = false;
+  function tok(){ try { return localStorage.getItem('patterns.token') || ''; } catch (e) { return ''; } }
   function send(button, how) {
-    fetch('/api/arcade/key', { method: 'POST', body: player + ' ' + button + ' ' + how, keepalive: true }).catch(() => {});
+    fetch('/api/arcade/key', { method: 'POST', body: player + ' ' + button + ' ' + how, keepalive: true, headers: { 'X-Patterns-Token': tok() } })
+      .then(r => {
+        if (r.status !== 403 || asked) return;
+        asked = true; // the desk asks for its pairing token (Remote page, TRUST): once per page, kept in this browser
+        const t = prompt('This desk asks for its pairing token (Remote page, TRUST):');
+        if (t) { try { localStorage.setItem('patterns.token', t.trim()); } catch (e) {} asked = false; }
+      })
+      .catch(() => {});
   }
   document.querySelectorAll('button[data-b]').forEach(b => {
     const down = e => { e.preventDefault(); if (!b.classList.contains('down')) { b.classList.add('down'); send(b.dataset.b, 'DOWN'); } };

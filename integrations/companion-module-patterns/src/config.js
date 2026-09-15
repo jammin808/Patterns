@@ -86,6 +86,10 @@ export function configFields() {
 		{ type: 'textinput', id: 'host', label: 'Patterns machine IP', width: 8, regex: Regex.IP, default: '127.0.0.1', isVisibleExpression: '!$(options:desk)' },
 		{ type: 'number', id: 'port', label: 'Companion (TCP) port — Remote page in Patterns', width: 4, min: 1024, max: 65535, default: DEFAULT_PORT, isVisibleExpression: '!$(options:desk)' },
 		{
+			type: 'textinput', id: 'token', label: 'Pairing token — Remote page, TRUST (leave empty for a desk that asks for none)', width: 12, default: '',
+			tooltip: 'A desk with a pairing token set runs a verb only from a connection that presented it; the module sends AUTH with this after HELLO. Dashes and case do not matter.',
+		},
+		{
 			type: 'static-text', id: 'groups_info', width: 12, label: 'Preset groups',
 			value: 'Tick the groups of keys you want under Presets. Every group labels its keys from the show that is loaded and lights them from the air; untick what this desk never uses and the list stays short. The actions, feedbacks and variables are always all there.',
 		},

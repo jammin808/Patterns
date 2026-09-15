@@ -4,7 +4,7 @@ namespace Patterns.Core.Services;
 public static class CompanionModule
 {
     /// <summary>Kept equal to integrations/companion-module-patterns/package.json by a test.</summary>
-    public const string Version = "3.4.0";
+    public const string Version = "3.5.0";
 
     /// <summary>The port Companion's own TCP remote-control API listens on, as Companion 4 and 5 ship it.</summary>
     public const int ApiPort = 16759;

@@ -493,6 +493,11 @@ public sealed partial class MainViewModel
 
     public RelayCommand RunSuperCheckCommand => _runSuperCheck ??= new RelayCommand(RunSuperCheck);
 
+    private RelayCommand? _newPairingToken;
+
+    /// <summary>Round 65: a fresh pairing token — the show's, saved with it; every remote paired with the old one is cut off until the new one is typed into it.</summary>
+    public RelayCommand NewPairingTokenCommand => _newPairingToken ??= new RelayCommand(() => _services.BulkEdit(() => State.Control.Token = PairingToken.New()));
+
     public ObservableCollection<CheckRowView> SuperCheckRows { get; } = new();
 
     public string SuperCheckHeadline { get => _superCheckHeadline; private set => Set(ref _superCheckHeadline, value); }

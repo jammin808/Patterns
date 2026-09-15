@@ -203,6 +203,27 @@ the way it does after any per-screen send.
 The module's version moves to 3.4.0 in every file that carries it; a deck with 3.3.0 keeps
 working and lacks the one action.
 
+## 12. Round 65 additions
+
+**The pairing token, version 3.5.0.** A desk with a pairing token set (Remote page, TRUST) runs a
+verb only from a connection that presented it. The connection's config gains a **Pairing token**
+field; when it is filled the module sends `AUTH <token>` straight after `HELLO`, and the desk
+answers `OK paired`. Without one nothing more is said, and an open desk needs nothing. A refusal
+over trust — `ERR not paired` when the desk asks for a token the config lacks, `ERR wrong token`
+when it is not this desk's — sets the connection's status to bad config with the words, so the
+Companion UI says what to type rather than a key going quietly dead; `$(patterns:last_error)`
+carries the line as it does for every ERR. Dashes, spaces and case in the token do not matter:
+the desk normalises before a constant-time compare. NEW TOKEN on the desk cuts every paired deck
+off until the new token is typed into its connection.
+
+**One writer per connection on the desk.** The desk's replies come back in the order the lines
+were sent, and `STATE` pushes are latest-wins behind them — a deck that reads slowly gets the
+newest state, never a backlog — and a connection that stops reading is closed rather than kept;
+the module reconnects as it always has. Nothing changes in what the module parses.
+
+The module's version moves to 3.5.0 in every file that carries it; a deck with 3.4.0 keeps
+working on an open desk and lacks the token field.
+
 ## Sources
 
 - github.com/bitfocus/companion-module-base — the monorepo's CHANGELOG (1.10 → 2.1.3), the
