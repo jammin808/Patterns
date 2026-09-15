@@ -207,6 +207,7 @@ public sealed class OutputWindowManager
                     BlendMaskPath = placement.BlendMaskPath,
                     // The screen's own rate wins; else the master; 0 leaves the display's refresh.
                     TargetFps = placement.FpsOverride > 0 ? placement.FpsOverride : masterFps,
+                    DisplayHz = info.Hz,   // the display's own refresh: the rate the output paces to when it is the slower (OutputRate)
                 };
                 result.Add((info, viewport));
             }

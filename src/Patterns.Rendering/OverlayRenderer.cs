@@ -541,11 +541,34 @@ public static class OverlayRenderer
         if (info.Enabled && cfg is not null && ctx.Sink != SinkKind.Thumbnail)
         {
             var pc = sink.Paints;
-            var fps = info.ShowFps ? $" · {ctx.MeasuredFps:0.0} fps" : "";
-            var text = $"{ctx.SinkLabel} · {cfg.Kind}{fps}";
+            var text = InfoChipText(ctx.SinkLabel, ctx.ViewportSize, cfg.Kind, info.ShowFps, ctx.MeasuredFps, ctx.PresentFps, ctx.WantedFps, ctx.DisplayHz);
             var size = Math.Clamp(ctx.ViewportSize.Height * 0.02f, 10, 22);
             DrawUtil.Chip(c, text, ctx.ViewportSize, info.Anchor, size, pc, palette.Text, palette.ChipBg);
         }
+    }
+
+    /// <summary>
+    /// The tech info chip's line (round 63): the sink, its pixels and their shape, the kind of
+    /// picture, and — when asked — the frames it draws a second against the rate it presents at
+    /// and its display's refresh. "50.0 fps of 50 · 50 Hz display (60 asked)" is a 60 fps show on
+    /// a 50 Hz display saying exactly what the room gets, where it used to read 60.
+    /// </summary>
+    public static string InfoChipText(string sinkLabel, SKSizeI px, PatternKind kind, bool showFps, double measuredFps, int presentFps, int wantedFps, int displayHz)
+    {
+        var text = $"{sinkLabel} · {px.Width}×{px.Height} · {AspectWords.Of(px.Width, px.Height)} · {kind}";
+        if (!showFps) return text;
+        text += $" · {measuredFps:0.0} fps";
+        if (presentFps > 0) text += $" of {presentFps}";
+        if (displayHz > 0)
+        {
+            text += $" · {displayHz} Hz display";
+            if (wantedFps > displayHz) text += $" ({wantedFps} asked)";
+        }
+        else if (wantedFps > 0 && presentFps != wantedFps)
+        {
+            text += $" ({wantedFps} asked)";
+        }
+        return text;
     }
 
     /// <summary>The inset's mount key: the feed, the device or this machine's arcade.</summary>

@@ -29,6 +29,9 @@ public sealed record PipelineViewport(
     /// <summary>Read the sandbox snapshot while one is open (the PVW side of a monitor).</summary>
     public bool UsePreviewSnapshot { get; init; }
 
+    /// <summary>The output's display refresh as Windows reports it (round 63); 0 unknown — a pane, a feed, a planned screen.</summary>
+    public int DisplayHz { get; init; }
+
     /// <summary>A monitor of one content target: PGM or PVW side, at its true size, scaled to fit.</summary>
     public static PipelineViewport Monitor(string? targetId, SKSizeI targetSize, string label, bool previewSide)
         => new(SinkKind.Monitor, targetSize, default, targetId, 0, label)
@@ -192,6 +195,21 @@ public sealed class RenderPipeline : IDisposable
     /// <summary>This sink's frame budget: the last minute's frames, the worst and the stage that took it.</summary>
     public FrameBudget Budget => _budget;
 
+    // The platform's render clock beats at one display's refresh for every window. This sink
+    // counts the beats it is offered, so an output on a slower display can pace to its own
+    // display instead of drawing frames the glass never shows (round 63 — the chip read 60 fps
+    // on a 50 Hz display).
+    private readonly FpsMeter _vsync = new();
+
+    /// <summary>A beat of the render clock offered to this sink (the canvas's animation-frame callback).</summary>
+    public void NoteVsync(double clock) => _vsync.Tick(clock);
+
+    /// <summary>The measured beat of the render clock, frames a second; 0 until it has been offered a second of beats.</summary>
+    public double ClockHz => _vsync.Fps;
+
+    /// <summary>The rate this sink presents at — see <see cref="OutputRate.Present"/>; 0 is every beat.</summary>
+    public int PresentFps => OutputRate.Present(_viewport.TargetFps, _viewport.DisplayHz, _vsync.Fps);
+
     /// <summary>
     /// One frame done: into the per-second smoothness counters and this sink's budget, with the
     /// slowest stage the engine noted — and the version this frame drew, from the frame's own
@@ -204,6 +222,8 @@ public sealed class RenderPipeline : IDisposable
         var ms = System.Diagnostics.Stopwatch.GetElapsedTime(frameStart).TotalMilliseconds;
         RenderStats.Record(vp.Kind, vp.SinkIndex, ms);
         if (_budget.Kind != vp.Kind || _budget.SinkIndex != vp.SinkIndex || _budget.Label != vp.Label) _budget.Relabel(vp.Kind, vp.SinkIndex, vp.Label);
+        var present = PresentFps;
+        if (_budget.TargetFps != present) _budget.TargetFps = present;   // the slots the pacer counts are the ones the display can show
         var clock = ShowClock.Seconds;
         _budget.Record(ms, _sink.Stages.SlowestStage, clock);
         if (!faulted && input.IsShow)
@@ -412,6 +432,9 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
+            PresentFps = PresentFps,
+            WantedFps = vp.TargetFps,
+            DisplayHz = vp.DisplayHz,
             Preview = input.Preview,         // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws — both from the frame's capture
         };
         _sink.Fps.Tick(ctx.Time);
@@ -600,6 +623,9 @@ public sealed class RenderPipeline : IDisposable
             SinkLabel = vp.Label,
             ScreenId = ScreenIdOverride?.Invoke() ?? vp.ScreenId,
             MeasuredFps = _sink.Fps.Fps,
+            PresentFps = PresentFps,
+            WantedFps = vp.TargetFps,
+            DisplayHz = vp.DisplayHz,
             Preview = input.Preview,         // the sink composes two snapshots: the program it draws, the preview its PREVIEW tile draws — both from the frame's capture
             // A miniature: the patterns widen their hairlines to this pane's own pixels.
             DeviceScale = scale,

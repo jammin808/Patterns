@@ -42,6 +42,15 @@ public readonly record struct RenderContext
 
     public double MeasuredFps { get; init; }
 
+    /// <summary>The rate this sink presents at — its display's, its own, or the master's; 0 = every beat of the render clock (see Core's OutputRate).</summary>
+    public int PresentFps { get; init; }
+
+    /// <summary>The rate asked of this sink — the screen's own or the master's; 0 = the display's.</summary>
+    public int WantedFps { get; init; }
+
+    /// <summary>The display's refresh as Windows reports it; 0 unknown (a pane, a feed, a planned screen).</summary>
+    public int DisplayHz { get; init; }
+
     /// <summary>True while re-rendering the previous snapshot as the fading-out half of a crossfade.</summary>
     public bool IsFadeSource { get; init; }
 

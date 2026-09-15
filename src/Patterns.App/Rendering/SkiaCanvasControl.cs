@@ -107,7 +107,8 @@ public class SkiaCanvasControl : Control
         top.RequestAnimationFrame(_ =>
         {
             _frameRequested = false;
-            var target = _pipeline?.Viewport.TargetFps ?? 0;
+            _pipeline?.NoteVsync(ShowClock.Seconds);          // a beat of the render clock: measured, so a slower display gets paced (round 63)
+            var target = _pipeline?.PresentFps ?? 0;
             if (target > 0 && _pipeline?.Cadence == RedrawCadence.Continuous)
             {
                 // The slots that went by unpresented are the frames the room did not get: counted on
