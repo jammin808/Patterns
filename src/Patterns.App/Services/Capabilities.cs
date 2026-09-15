@@ -55,9 +55,15 @@ public interface IWireHost
     ManagementService? Management { get; }
     UpdateService? Updates { get; }
     OscService? Osc { get; }
-    PlayService Play { get; }
-    /// <summary>The games — built by the desk for a rig day and by every node, running only on the arcade node.</summary>
-    ArcadeService Arcade { get; }
+    /// <summary>The audience room — the desk's and the arcade node's; null on a role that does not build it (round 64: a timer's process never loads it).</summary>
+    PlayService? Play { get; }
+    /// <summary>The games — built by the desk for a rig day and by the arcade node, running only there; null on the other roles.</summary>
+    ArcadeService? Arcade { get; }
+    /// <summary>Whether this host built the room and the arcade (round 64): asked before either is touched, so a role without them never compiles a reference to their types.</summary>
+    bool HasRoom { get; }
+    bool HasArcade { get; }
+    /// <summary>The room's join URL, or "" on a role without a room.</summary>
+    string RoomJoinUrl { get; }
     /// <summary>The stage timer — null on a node that has none.</summary>
     StageService? Stage { get; }
     VideoReading? VideoOnAir();

@@ -24,12 +24,16 @@ public partial class NodeWindow : Window
         _tick.Tick += (_, _) => (DataContext as NodeViewModel)?.Poll();
     }
 
+    /// <summary>The arcade's keys — compiled only when a node has an arcade (round 64), so a timer's process never loads it on a key press.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static bool PressArcade(NodeViewModel vm, KeyEventArgs e, bool down) => ArcadeKeys.Press(vm.Arcade!, e.Key, e.KeyModifiers, down);
+
     private bool Typing => FocusManager?.GetFocusedElement() is TextBox or NumericUpDown or ComboBox or AutoCompleteBox;
 
     private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not NodeViewModel vm || Typing) return;
-        if (vm.HasArcade && ArcadeKeys.Press(vm.Arcade, e.Key, e.KeyModifiers, down: true))
+        if (vm.HasArcade && PressArcade(vm, e, down: true))
         {
             e.Handled = true;
             return;
@@ -50,6 +54,6 @@ public partial class NodeWindow : Window
 
     private void OnPreviewKeyUp(object? sender, KeyEventArgs e)
     {
-        if (DataContext is NodeViewModel { HasArcade: true } vm && !Typing) ArcadeKeys.Press(vm.Arcade, e.Key, e.KeyModifiers, down: false);
+        if (DataContext is NodeViewModel { HasArcade: true } vm && !Typing) PressArcade(vm, e, down: false);
     }
 }

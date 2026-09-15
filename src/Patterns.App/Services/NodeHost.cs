@@ -59,9 +59,9 @@ public sealed class NodeActions : IActionLayer
     private ActionResult Run(ShowAction a, ActionOrigin origin)
     {
         var kind = _host.Kind;
-        if (ArcadeService.IsArcadeKind(a.Kind)) return kind == NodeKind.Arcade ? _host.Arcade.Run(a) : ActionResult.Refused(NotHere(a.Kind, "the arcade node's"));
-        if (a.Kind is ShowActionKind.AudienceOn or ShowActionKind.AudienceOff) return _host.Play.RunAudience(a);
-        if (PlayService.IsPlayKind(a.Kind)) return _host.Play.Run(a);
+        if (RoleVerbs.IsArcade(a.Kind)) return _host.HasArcade ? _host.RunArcade(a) : ActionResult.Refused(NotHere(a.Kind, "the arcade node's"));
+        if (a.Kind is ShowActionKind.AudienceOn or ShowActionKind.AudienceOff) return _host.HasRoom ? _host.RunAudience(a) : ActionResult.Refused(NotHere(a.Kind, "the arcade node's"));
+        if (RoleVerbs.IsPlay(a.Kind)) return _host.HasRoom ? _host.RunPlay(a) : ActionResult.Refused(NotHere(a.Kind, "the arcade node's"));
         if (a.Kind == ShowActionKind.Note) return ActionResult.Done("Noted.");
         if (IsCueKind(a.Kind)) return kind == NodeKind.Caller ? RunCue(a, origin) : ActionResult.Refused(NotHere(a.Kind, "the caller's"));
         if (IsStageKind(a.Kind)) return _host.IsFollower ? RunStage(a, origin) : ActionResult.Refused(NotHere(a.Kind));
@@ -321,9 +321,9 @@ public sealed class NodeRouter : IRouter
             case RemoteCommandKind.Unknown:
                 return ControlProtocol.Err($"unknown command '{cmd.Text}'");
             case RemoteCommandKind.ArcadeStatus:
-                return ControlProtocol.Ok(_host.Arcade.StatusJson(cmd.Text));
+                return _host.HasArcade ? ControlProtocol.Ok(_host.ArcadeStatusJson(cmd.Text)) : ControlProtocol.Err("the arcade is not on this node");
             case RemoteCommandKind.PlayStatus:
-                return ControlProtocol.Ok(_host.Play.StatusJson(cmd.Text));
+                return _host.HasRoom ? ControlProtocol.Ok(_host.RoomStatusJson(cmd.Text)) : ControlProtocol.Err("the audience room is not on this node");
             case RemoteCommandKind.NodesStatus:
                 return ControlProtocol.Ok(_host.Kernel.Nodes.StatusJson());
             case RemoteCommandKind.StageStatus when _host.IsFollower:
@@ -360,8 +360,8 @@ public sealed class NodeRouter : IRouter
             nodes = _host.Kernel.Nodes.Rows(),
             twin = _host.Twin?.DeckBlock(),
             stage = _host.Stage?.Block(),
-            arcade = _host.Arcade.Words,
-            play = _host.Play.Code,
+            arcade = _host.HasArcade ? _host.ArcadeWords() : "",
+            play = _host.HasRoom ? _host.RoomCode() : "",
             audience = s.Control.AudienceEnabled ? s.Control.AudiencePort : 0,
             wire = s.Control.Enabled ? s.Control.TcpPort : 0,
             http = s.Control.Enabled ? s.Control.HttpPort : 0,
@@ -440,10 +440,39 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>A caller or a stage timer: a node that follows a desk's show and never holds an output.</summary>
     public bool IsFollower => Kind is NodeKind.Caller or NodeKind.Timer;
 
-    public PlayService Play { get; }
+    // The room and the arcade are held untyped (round 64): a method that names their types is
+    // compiled only on a role that has them, so a timer's or a caller's process never loads
+    // Patterns.Audience or Patterns.Arcade. The typed readers below are compiled only when called.
+    private readonly object? _room;
+    private readonly object? _arcade;
 
-    /// <summary>The games: every node builds the engine (a page may ask it for a picture), only the arcade node runs it from its first frame.</summary>
-    public ArcadeService Arcade { get; }
+    /// <summary>Whether this role built the audience room (<see cref="NodeKinds.RunsRoom"/>): the arcade node; a timer or a caller has none.</summary>
+    public bool HasRoom => _room is not null;
+
+    /// <summary>Whether this role built the arcade (<see cref="NodeKinds.RunsArcade"/>).</summary>
+    public bool HasArcade => _arcade is not null;
+
+    /// <summary>The audience room — null on a role without one. Naming it compiles a reference to its assembly: on a path every role runs, ask <see cref="HasRoom"/> and call a reader below.</summary>
+    public PlayService? Play => (PlayService?)_room;
+
+    /// <summary>The games — null on a role without them (see <see cref="Play"/>).</summary>
+    public ArcadeService? Arcade => (ArcadeService?)_arcade;
+
+    public string RoomJoinUrl => HasRoom ? RoomJoinUrlOf() : "";
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private string RoomJoinUrlOf() => Play!.JoinUrl;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] public string RoomCode() => Play!.Code;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] public string RoomStatusJson(string what) => Play!.StatusJson(what);
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] public ActionResult RunAudience(ShowAction a) => Play!.RunAudience(a);
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] public ActionResult RunPlay(ShowAction a) => Play!.Run(a);
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private void TickRoom() => Play!.Tick();
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private long RoomRev() => Play!.Rev;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private void DisposeRoom() => Play!.Dispose();
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] public string ArcadeWords() => Arcade!.Words;
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] public string ArcadeStatusJson(string what) => Arcade!.StatusJson(what);
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] public ActionResult RunArcade(ShowAction a) => Arcade!.Run(a);
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private void StartArcade() => Arcade!.Start();
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)] private void DisposeArcade() => Arcade!.Dispose();
 
     /// <summary>The follower's link to a desk — a caller's, a stage timer's; null on the arcade, which the desk finds.</summary>
     public TwinService? Twin { get; }
@@ -472,15 +501,34 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>The node from the launch and its settings folder — the store Main read, or one of its own.</summary>
     public static NodeHost Build(NodeKind kind, SettingsStore? store = null, ShowState? preloaded = null) => new(kind, store, preloaded);
 
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private object BuildRoom() => new PlayService(Kernel, this);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private object BuildArcade()
+    {
+        var arcade = new ArcadeService(Kernel);
+        if (Play is { } room) arcade.Board = room.DrawWall;                 // the room's wall rides the arcade's picture lane
+        return arcade;
+    }
+
+    private static int _live;
+
+    /// <summary>Nodes built and not yet shut down (the lifetime census reads it).</summary>
+    public static int Live => Volatile.Read(ref _live);
+
     private NodeHost(NodeKind kind, SettingsStore? store, ShowState? preloaded)
     {
+        Interlocked.Increment(ref _live);
         Kernel = ServiceKernel.Build(kind, store, preloaded);
         OutputsHeldBy = NodeKinds.HoldWords(kind);
         _screens = new ScreenService { PlannedProvider = PlannedScreens };
         _screens.Refresh();
-        Play = new PlayService(Kernel, this);
-        Arcade = new ArcadeService(Kernel);
-        Arcade.Board = Play.DrawWall;                                     // the room's wall rides the arcade's picture lane
+        // The role's composition (round 64): the room and the arcade are the arcade node's; a
+        // timer or a caller builds neither, so its process never loads their assemblies. Each is
+        // built in a method of its own, so compiling this constructor touches neither type.
+        if (NodeKinds.RunsRoom(kind)) _room = BuildRoom();
+        if (NodeKinds.RunsArcade(kind)) _arcade = BuildArcade();
         CueStack = new CueStackService(Kernel, this);
         Stage = new StageService(this);
         if (IsFollower)
@@ -493,13 +541,13 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         Updates = new UpdateService(Kernel, this);
         Management = new ManagementService(Kernel, this, Updates);
         StateWatch = new ChangeTracker(State, OnStateChanged, trackSections: true, onRuntimeOnlyChanged: () => RuntimeChanged?.Invoke());   // a runtime flag moves the wire's STATE, never a publish
-        _save = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
+        _save = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(900));
         _save.Tick += (_, _) =>
         {
             _save.Stop();
             SaveNow();
         };
-        _tick = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _tick = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
         _tick.Tick += (_, _) => Tick();
     }
 
@@ -510,7 +558,7 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
         Kernel.Beacon.Reconcile();
         Kernel.Mdns.Reconcile();
         Twin?.Reconcile();
-        if (Kind == NodeKind.Arcade) Arcade.Start();
+        if (HasArcade) StartArcade();
         _tick.Start();
         Kernel.Startup.Mark(StartupBudget.Services);
         Log.Info(Modules.Words());                                                              // what this node actually loaded: the lightness claim, on record at every start
@@ -519,13 +567,13 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>Once a second, on the UI thread: the room's clock, the stack's settling, the nodes heard — and the wire's revision when anything a page shows moved.</summary>
     public void Tick()
     {
-        Play.Tick();
+        if (HasRoom) TickRoom();
         Kernel.Nodes.Poll();
         CueStack.Poll();
         if (++_ticks % 5 == 0) Updates.Scan();
         Updates.TickWindow(DateTime.Now);
         Management.Tick(DateTime.UtcNow);
-        var rev = Play.Rev * 31 + CueStack.Runtime.Seq * 7 + Stage.Rev;
+        var rev = (HasRoom ? RoomRev() : 0) * 31 + CueStack.Runtime.Seq * 7 + Stage.Rev;
         if (rev != _lastRev)
         {
             _lastRev = rev;
@@ -609,7 +657,10 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
 
     // ---- IPlayHost ----
 
-    public void StartWall() => Arcade.Start();
+    public void StartWall()
+    {
+        if (HasArcade) StartArcade();
+    }
 
     public IReadOnlyList<string> AudienceUrls() => Control.AudienceUrls();
 
@@ -777,18 +828,23 @@ public sealed class NodeHost : IWireHost, IPlayHost, ITwinHost, IStageHost, IRun
     /// <summary>A line for the operator's strip on the node's window, through the kernel's notifier.</summary>
     public void Notify(string message) => Kernel.Notify(message);
 
+    /// <summary>Raised once as the node shuts down: a view model on this host stops its timers, so nothing roots the host after it (round 64's census).</summary>
+    public event Action? ShutDown;
+
     public void Shutdown()
     {
         if (_shutDown) return;
         _shutDown = true;
+        Interlocked.Decrement(ref _live);
+        ShutDown?.Invoke();
         _tick.Stop();
         _save.Stop();
         SaveNow();
         Twin?.Dispose();
         Management.Dispose();
         Control.Dispose();
-        Play.Dispose();
-        Arcade.Dispose();
+        if (HasRoom) DisposeRoom();
+        if (HasArcade) DisposeArcade();
         Kernel.Dispose();
     }
 

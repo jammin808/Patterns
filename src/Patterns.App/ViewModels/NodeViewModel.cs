@@ -57,6 +57,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
         host.Kernel.Notifier = m => StatusMessage = m;
         Cues = new CueEditor(host, m => StatusMessage = m);
         Run = new RunViewModel(host, this);
+        host.ShutDown += StopTimers;                                        // the pages' timers end with the host: a running timer would root them both
         host.ShowMirrored += _ =>
         {
             Cues.Refresh();
@@ -66,10 +67,17 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
         };
         _selectedTab = host.Kind switch { NodeKind.Timer => StageTab, NodeKind.Arcade => ArcadeTab, _ => RunTab };
         _arcadeWindows = new Views.ArcadeWindowHost(this, n => host.Screens.FirstOrDefault(s => s.Index == n && !s.IsVirtual && !s.IsPlanned && !s.IsMissing));
-        host.Arcade.WindowHost = (mode, display) => _arcadeWindows.Handle(mode, display);
+        if (host.HasArcade) HookArcadeWindow(host);
         _stageControlsOpen = host.Kind != NodeKind.Timer;                 // a timer's window is the display; its controls fold away
         StatusMessage = $"{NodeKinds.Label(host.Kind)} node — {host.Kernel.Beacon.MachineName}. "
                         + (host.IsFollower ? "LINK on the Nodes page follows a desk; alone, " + (host.Kind == NodeKind.Caller ? "the stack is rehearsed on paper." : "the clock is this node's own.") : "The desk finds this node on the beacon.");
+    }
+
+    /// <summary>The host is shutting down: the Run and Cues pages' timers stop, so nothing roots this view model or the host.</summary>
+    public void StopTimers()
+    {
+        Run.StopTimers();
+        Cues.StopTimers();
     }
 
     public NodeHost Host => _host;
@@ -89,7 +97,22 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public bool HasStage => _host.IsFollower;
 
-    public bool HasArcade => _host.Kind == NodeKind.Arcade;
+    public bool HasArcade => _host.HasArcade;
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void HookArcadeWindow(NodeHost host) => host.Arcade!.WindowHost = (mode, display) => _arcadeWindows.Handle(mode, display);
+
+    /// <summary>The room's waiting messages onto the queue — compiled only on a role with a room (round 64).</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private void PollRoom()
+    {
+        var waiting = _host.Play!.Room.Waiting();
+        if (waiting.Count != PlayQueue.Count || !waiting.Select(m => m.Id).SequenceEqual(PlayQueue.Select(m => m.Id)))
+        {
+            PlayQueue.Clear();
+            foreach (var item in waiting) PlayQueue.Add(item);
+        }
+    }
 
     /// <summary>The timer's controls under the display, open or folded; a timer's window starts folded, a caller's open.</summary>
     public bool StageControlsOpen { get => _stageControlsOpen; set => Set(ref _stageControlsOpen, value); }
@@ -112,12 +135,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
             Raise(nameof(NodesLinkWords));
             Raise(nameof(PlanWords));
         }
-        var waiting = _host.Play.Room.Waiting();
-        if (waiting.Count != PlayQueue.Count || !waiting.Select(m => m.Id).SequenceEqual(PlayQueue.Select(m => m.Id)))
-        {
-            PlayQueue.Clear();
-            foreach (var item in waiting) PlayQueue.Add(item);
-        }
+        if (_host.HasRoom) PollRoom();
         if (HasRun)
         {
             Run.Tick();
@@ -140,20 +158,20 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     // ---- the Arcade page ----
 
-    public ArcadeService Arcade => _host.Arcade;
+    public ArcadeService? Arcade => _host.Arcade;
 
-    public string ArcadeWords => Arcade.Words;
+    public string ArcadeWords => Arcade?.Words ?? "";
 
-    public string ArcadeStatus => Arcade.Status;
+    public string ArcadeStatus => Arcade?.Status ?? "";
 
-    public string ArcadeBoard => Arcade.BoardWords;
+    public string ArcadeBoard => Arcade?.BoardWords ?? "";
 
     public bool ArcadeNdi
     {
-        get => Arcade.NdiOn;
+        get => Arcade?.NdiOn ?? false;
         set
         {
-            if (value == Arcade.NdiOn) return;
+            if (Arcade is null || value == Arcade.NdiOn) return;
             StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeNdi, "", value ? "on" : "off")).Message;
             Raise(nameof(ArcadeNdi));
         }
@@ -163,7 +181,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public string ArcadeSize
     {
-        get => $"{Arcade.Width}x{Arcade.Height}";
+        get => Arcade is null ? "" : $"{Arcade.Width}x{Arcade.Height}";
         set
         {
             if (string.IsNullOrEmpty(value) || value == ArcadeSize) return;
@@ -181,7 +199,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public RelayCommand<string> ArcadeStartCommand => _arcadeStart ??= new RelayCommand<string>(players =>
     {
-        var game = Arcade.Snapshot().GameId;
+        var game = Arcade?.Snapshot().GameId ?? "";
         if (game.Length == 0) game = ArcadeEngine.Catalogue[0].Id;
         StatusMessage = Run_(new ShowAction(ShowActionKind.ArcadeStart, "", $"{game} {players ?? "1"}")).Message;
     });
@@ -190,7 +208,7 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     public RelayCommand ArcadePauseCommand => _arcadePause ??= new RelayCommand(() =>
     {
-        var kind = Arcade.Phase == ArcadePhase.Paused ? ShowActionKind.ArcadeResume : ShowActionKind.ArcadePause;
+        var kind = Arcade?.Phase == ArcadePhase.Paused ? ShowActionKind.ArcadeResume : ShowActionKind.ArcadePause;
         StatusMessage = Run_(new ShowAction(kind)).Message;
     });
 
@@ -202,18 +220,18 @@ public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPag
 
     /// <summary>POP OUT / FULLSCREEN / CLOSE: the node's own window for the game.</summary>
     public RelayCommand<string> ArcadeWindowCommand => _arcadeWindow ??= new RelayCommand<string>(mode =>
-        StatusMessage = Arcade.Run(new ShowAction(ShowActionKind.ArcadeWindow, "", mode ?? "on")).Message);
+        StatusMessage = Arcade is { } arcade ? arcade.Run(new ShowAction(ShowActionKind.ArcadeWindow, "", mode ?? "on")).Message : "The arcade is not on this node.");
 
     /// <summary>The game's own window while it is open.</summary>
     public Views.ArcadeWindowHost ArcadeWindows => _arcadeWindows;
 
     // ---- the audience block ----
 
-    public string PlayCode => _host.Play.Code;
+    public string PlayCode => _host.Play?.Code ?? "";
 
-    public string PlayJoinUrl => _host.Play.JoinUrl;
+    public string PlayJoinUrl => _host.Play?.JoinUrl ?? "";
 
-    public string PlayWords => _host.Play.Words;
+    public string PlayWords => _host.Play?.Words ?? "No audience room on this node.";
 
     public string PlayQuestionLine { get => _playQuestionLine; set => Set(ref _playQuestionLine, value ?? ""); }
 

@@ -1835,3 +1835,98 @@ boot, and ran to its end green (62.7).
 
 Counts at the end of the round: Core 700, Rendering 608, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 691 — 2,053 in seven suites, the module's seventeen beside them.
+
+## Round 64 review — the frame's lifetime, the pacer's epochs, the census, the appearance matrix, a release that can be rebuilt, the rig's record
+
+### 64.1 — explicit frame lifetime
+
+- **Done.** Seats as tickets (id with an epoch), `BeginFrame` / `EndFrame` on the pipeline with
+  the canvas flushed before the close, `Touch` / `Mark` / `Check` reading Clear, Open or Hung,
+  retirement that requires an owner, quarantine over any forced free, `FenceFault` records,
+  `hungFrames` / `quarantinedMB` / `fenceFaults` on STATE, the Machine page and the super-check.
+  §82.1.
+- **Found on the way:** the old tests asserted the forced free and the ownerless retire; both
+  were behaviours the review called defects, so the tests were rewritten to the new rules rather
+  than kept.
+- **The honest limit:** a hung sink's pictures wait in quarantine for as long as the frame is
+  open — a render thread that never returns holds its memory until the pipeline is disposed,
+  which is the truth the old code hid by freeing under it.
+
+### 64.2 — pacing epochs and the render-clock warning
+
+- **Done.** `FramePacerState` with epochs; `OutputRate.SameFamily` and `ClockLimit`; the chip's
+  *LIMITED BY RENDER CLOCK*; the Machine reading, the *Render clock* super-check row, STATE's
+  `renderClockHz` / `clockLimited`, the assistant's facts. §82.2.
+- **Found on the way:** `RenderContext` is a struct, so its clock field could carry no
+  initialiser — `-1` is set by the pipeline, and a zero reads as not measured, which is the
+  evidence rule (P1.8) in the type.
+
+### 64.3 — the lifetime census and the lifecycle test
+
+- **Done.** `LifetimeCensus`, `DeskCensus`, `DeskTimers` (every dispatcher timer named by its
+  maker), the static hooks cleared, `OnWindowClosed`, the view models registered with their desk,
+  Shutdown on per-step guards, *a closed desk does nothing* (the publish path, the debounces, the
+  wire's push, the pages, the twin), `LifecycleTests` (a dozen cycles in the suite, a hundred
+  strict in CI), `AChangeAfterTheDeskClosedArmsNoTimer`. §82.3.
+- **Found on the way — eight roots, one at a time, each by a heap dump:** two statics
+  (`DragReorder.Moved`, `UiFaults.Listener`); the beacon's last continuation on the dispatcher;
+  the view model's status timer; the kernel's mDNS timer; the save timer re-armed by the last
+  publish; the pages' debounces re-armed after the close; and the twin's beat restarted on a
+  closed desk by a queued key edit that republished — the one that would have held a port open
+  in the product after an exit. Each is a rule now, not a patch.
+- **Found in the suite:** the census only tells the truth when every test closes its desk, and
+  forty-odd test files did not. The host closes a forgotten boot at the next boot and names the
+  test in the memlog (`late_close`) rather than the product carrying the blame; the leaks that
+  remained after that were the product's, and are fixed.
+- **The honest limit:** the strict baseline (every count zero) holds in a process of its own;
+  in the shared suite the test asserts the census returns to what the first cycle read, because
+  earlier tests leave what they leave.
+
+### 64.4 — the appearance matrix
+
+- **Done.** `AppearanceMatrixTests` over every key by Fade, Cut and Slide at five moments;
+  `LayerPicture` and `PipKey` as exact identities. §82.4.
+- **Found by the matrix:** the PiP's arrival never showed — both copies were marked as the fade
+  source. `DrawPipAt` marks the outgoing copy only.
+- **The honest limit:** the layer swap rides the whole-picture crossfade (§82.9).
+
+### 64.5 — release reproducibility and the Windows lane
+
+- **Done.** The libVLC payload from the restored package's exact version, `manifest.json` and
+  its copy on the Release, `--verify-runtime` on the built bundle, `windows-smoke`,
+  `rollback-script`. §82.5.
+- **The honest limit:** the Windows lane's first run is this push's; the desk's classes chosen
+  for it are the ones expected to hold headless on Windows, and the list may need trimming or
+  growing after CI reads.
+
+### 64.6 — hardening
+
+- **Done.** Hysteresis with dwell on the pressure ladder (a clock a test can hold), the
+  roll-back script validated and tested in CI, the forced free retired as a gate in favour of
+  the fence's own numbers, the evidence rule realised. §82.6.
+- **Found on the way:** the ladder's App test assumed an instant step-down and was wrong under
+  the new rule; it now walks the rungs one dwell at a time.
+
+### 64.7 — role-specific node compositions
+
+- **Done.** `NodeKinds.RunsRoom` / `RunsArcade` / `Composition`; the room and the arcade built
+  only on the arcade node and the desk; nullable capabilities with a closed door on the wire, the
+  audience port and the routes; `ARoleBuildsOnlyItsModules`; CI's own-process run; the Windows
+  lane's `--footprint` process; MODULES.md §5 rewritten. §82.7.
+- **The branch model:** recorded in §82.7 as a recommendation; the merge to `main` and the
+  protection are the maintainer's to do.
+
+### 64.8 — the qualification record
+
+- **Done.** `docs/QUALIFICATION.md` with six matrices and a blank record; SOAK.md's gates
+  extended. §82.8.
+- **The honest limit:** nothing in it is a claim until the rig fills it in (P0.2).
+
+### The review's items, answered
+
+P0.1 done (64.1). P0.2 prepared, not run — the record is written. P1.1 done (64.2). P1.2 done
+(64.2). P1.3 done (64.3). P1.4 done (64.5). P1.5 done, first run pending (64.5). P1.6 done
+(64.4). P1.7 answered by removal: there is no forced free to record; `hungFrames` and
+`quarantinedMB` are the gates. P1.8 realised in the types (64.2). P2.1 done (64.6). P2.2 done
+(64.7). P2.3 done (64.6). P2.4 recorded for the maintainer (64.7). P2.5 done (64.4). P2.6 kept:
+`ModuleRulesTests` still passes, and the node's footprint shrank rather than grew.

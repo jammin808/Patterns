@@ -38,6 +38,15 @@ public sealed class App : Application
                     return true;
                 };
                 host.Start();
+                if (LaunchOptions.Footprint is { } footprint)
+                {
+                    // --footprint <file>: the role's composition and the modules its process loaded,
+                    // written and the process ended — MODULES.md §5's separate-process claim, read
+                    // by the Windows lane for a timer node.
+                    try { System.IO.File.WriteAllText(footprint, Patterns.Core.Services.Modules.Words() + Environment.NewLine + "Composition: " + Patterns.Core.Services.NodeKinds.Composition(host.Kind) + Environment.NewLine); }
+                    catch (Exception ex) { Log.Error("The footprint could not be written.", ex); }
+                    Dispatcher.UIThread.Post(() => desktop.Shutdown(0));
+                }
                 desktop.ShutdownRequested += (_, _) => host.Shutdown();
                 desktop.Exit += (_, _) =>
                 {
@@ -95,7 +104,7 @@ public sealed class App : Application
         try
         {
             var pipe = new AnonymousPipeClientStream(PipeDirection.Out, pipeHandle);
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            var timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
             timer.Tick += (_, _) =>
             {
                 try

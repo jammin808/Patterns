@@ -130,12 +130,20 @@ a desk over the wire).
 
 `NodeLightnessTests` boots a timer node host and records what it loaded. Alone in a process, the
 timer loads the core, the devices (the beacon and DNS-SD are the kernel's), the assistant (the
-kernel's), the render side, the arcade and the room — and never the NDI runtime. The arcade and
-the room load because every node builds them (the wire answers ARCADE and PLAY verbs with "not on
-this node"); the charter's next cut is to build them only on the roles that run them. The suite's
-process is shared, so the test asserts the one claim that holds in any order (a timer node's boot
-never pulls NDI in) and writes the whole set to its output; every start of the app logs the same
-words, which is the record a support ticket reads.
+kernel's) and the render side — and never the NDI runtime, and since round 64 never the room
+(`Patterns.Audience`) nor the arcade (`Patterns.Arcade`): a role builds only its modules.
+`NodeKinds.RunsRoom` and `RunsArcade` say which (the desk and the arcade node; a timer and a
+caller neither), `NodeHost` builds each in a method of its own so compiling its constructor
+touches neither type, its `Play` and `Arcade` are null on the roles that lack them, and the wire
+answers their verbs with a closed door — `ARCADE STATUS` and `PLAY STATUS` with *not on this
+node*, `/api/play/*` and `/api/arcade` with `{"ok":false,"msg":"no audience room on this node"}`,
+the audience port with the door shut before a byte is read. `ARoleBuildsOnlyItsModules` boots a
+timer, a caller and an arcade node in that order and asserts each one's composition; the suite's
+process is shared, so the assembly claim is measured against what was loaded before the boot,
+and CI's lifecycle job runs the class in a process of its own with `PATTERNS_FOOTPRINT_STRICT=1`,
+where the claim is absolute. Every start of the app logs the same words (`Modules loaded: …`),
+which is the record a support ticket reads, and `NodeKinds.Composition` says the role's
+composition in words.
 
 ## 6. The process-boundary road
 

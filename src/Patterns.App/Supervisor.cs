@@ -34,6 +34,9 @@ internal static class LaunchOptions
     /// <summary>This process is a node — "caller", "arcade", "timer": a separate process of this build that boots a fraction of the desk (<see cref="Patterns.Core.Model.NodeKind"/>); null is the desk.</summary>
     public static string? Node { get; private set; }
 
+    /// <summary>--footprint &lt;file&gt;: a node writes its composition and the modules it loaded to the file and exits — the separate-process footprint claim, read by the Windows lane (round 64).</summary>
+    public static string? Footprint { get; private set; }
+
     /// <summary>Anything not ours — forwarded to Avalonia (and to restarted children).</summary>
     public static string[] Passthrough { get; private set; } = Array.Empty<string>();
 
@@ -61,6 +64,7 @@ internal static class LaunchOptions
                 case "--standby-of" when i + 1 < args.Length: StandbyOf = args[++i]; break;
                 case "--key" when i + 1 < args.Length: Key = args[++i]; break;
                 case "--node" when i + 1 < args.Length: Node = args[++i]; break;
+                case "--footprint" when i + 1 < args.Length: Footprint = args[++i]; break;
                 case "--restarts" when i + 1 < args.Length && int.TryParse(args[i + 1], out var n):
                     Restarts = n; i++; break;
                 default: rest.Add(args[i]); break;

@@ -114,3 +114,14 @@ above; the numbers named here are read from the Machine page, `patterns.metrics.
 4. **The four-hour soak** (the seven steps above, unchanged) with the new columns read at the
    end: `retiringMB` flat, `poolStarved` 0, `hungFrames` 0, `quarantinedMB` 0, the memory line's *media* figure
    flat, and every ladder transition, if any, in `patterns.log` with the reading that caused it.
+
+Round 64's gates, on every soak above and on the seven steps: `hungFrames` 0 and `quarantinedMB`
+0 throughout (a stall is a fault named in `fenceFaults`, never a free), `poolStarved` 0,
+`retiringMB` with no slope between edits, `fenceOldestMs` under a second, `census` back at the
+baseline read after the first output opened once the outputs close (desks 1, nodes 0, openFrames
+0, pipelines the sinks that are open, retiredFrames 0), the pressure rung's transitions — if
+any — each with a reading in `patterns.log` and never more than one a dwell, and the *Render
+clock* row green on every output whose display the render clock can serve (an output that reads
+*LIMITED BY RENDER CLOCK* is a finding about the machine, recorded, not a pass). The forced free
+of earlier rounds is not a gate because it no longer exists. The record to fill on the rig, with
+each matrix's setup, keys, rows, columns and pass marks, is `docs/QUALIFICATION.md`.

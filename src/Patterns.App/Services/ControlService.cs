@@ -2,6 +2,7 @@ using Patterns.Devices;
 using Patterns.Core.Model;
 using Patterns.Core.Play;
 using Patterns.Arcade;
+using Patterns.Audience;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -45,7 +46,7 @@ public sealed partial class ControlService : IDisposable
         _router = host.NewRouter();
 
         // State pushes to Companion are throttled to a trailing 200 ms.
-        _pushTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        _pushTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(200));
         _pushTimer.Tick += (_, _) =>
         {
             _pushTimer.Stop();
@@ -57,8 +58,7 @@ public sealed partial class ControlService : IDisposable
         void Moved()
         {
             Interlocked.Increment(ref _rev);
-            _pushPending = true;
-            if (!_pushTimer.IsEnabled) _pushTimer.Start();
+            ArmPush();
         }
         _services.SnapshotPublished += Moved;
         _services.RuntimeChanged += Moved;   // "audio playing", "stream live": in STATE, never in a snapshot
@@ -68,7 +68,7 @@ public sealed partial class ControlService : IDisposable
         // countdown: the remotes get a push each second then — only then, and only while someone
         // listens — so a phone, a Stream Deck and an OSC desk count down with the desk. Nothing
         // else is rebuilt for it.
-        _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _clockTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
         _clockTimer.Tick += (_, _) => ClockTick();
         _clockTimer.Start();
     }
@@ -97,8 +97,7 @@ public sealed partial class ControlService : IDisposable
             listening |= Volatile.Read(ref _longPollers) > 0 || _services.Osc is { FeedbackEndpoint: not null };
             if (!listening) return;
             Interlocked.Increment(ref _rev);
-            _pushPending = true;
-            if (!_pushTimer.IsEnabled) _pushTimer.Start();
+            ArmPush();
             _services.Osc?.MarkChanged();
         }
         catch (Exception ex)
@@ -119,8 +118,7 @@ public sealed partial class ControlService : IDisposable
         _services.CueStack.Changed += () =>
         {
             Interlocked.Increment(ref _rev);
-            _pushPending = true;
-            if (!_pushTimer.IsEnabled) _pushTimer.Start();
+            ArmPush();
         };
     }
 
@@ -411,8 +409,8 @@ public sealed partial class ControlService : IDisposable
             links.Add("<a href='/stage?view=crew'>the crew's view</a>");
             links.Add("<a href='/timer'>the timer controller</a>");
         }
-        links.Add("<a href='/host'>the audience host page</a>");
-        var join = _services.Play.JoinUrl;
+        if (_services.HasRoom) links.Add("<a href='/host'>the audience host page</a>");
+        var join = _services.RoomJoinUrl;
         if (join.Length > 0) links.Add($"the audience joins at <a href='{join}'>{join}</a>");
         return "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
              + $"<title>Patterns — {kind} node</title>"
@@ -488,7 +486,12 @@ public sealed partial class ControlService : IDisposable
     /// </summary>
     private async Task HandleAudienceClient(TcpClient client, CancellationToken ct)
     {
-        var budget = _services.Play.Effective;                      // the network profile's reading of the budgets: behind a venue NAT the per-address ceiling is the port's own
+        if (!_services.HasRoom)
+        {
+            client.Dispose();                                           // no room on this role: the door is closed, nothing is read
+            return;
+        }
+        var budget = RoomBudget();                                // the network profile's reading of the budgets: behind a venue NAT the per-address ceiling is the port's own
         var address = Address(client);
         if (!_audienceLedger.TryAdmit(address, budget.MaxConnections, budget.MaxConnectionsPerAddress))
         {
@@ -731,7 +734,7 @@ public sealed partial class ControlService : IDisposable
                 var forward = _kernel.Profile != NodeKind.Arcade && await UiThread.InvokeAsync(() => _kernel.Nodes.Arcades().Count) > 0;
                 payload = forward
                     ? await _kernel.Nodes.AskArcadesAsync("ARCADE STATUS")
-                    : await UiThread.InvokeAsync(() => _services.Arcade.StatusJson(QueryValue(path, "what")));
+                    : await ArcadeAnswer(a => ((ArcadeService)a).StatusJson(QueryValue(path, "what")));
             }
             else if (method == "POST" && path == "/api/arcade/key")
             {
@@ -754,7 +757,7 @@ public sealed partial class ControlService : IDisposable
             {
                 contentType = "application/json";
                 var from = client.Client.RemoteEndPoint is IPEndPoint joinEp ? joinEp.Address.ToString() : "?";
-                payload = await UiThread.InvokeAsync(() => _services.Play.JoinJson(body, from));
+                payload = await RoomAnswer(r => ((PlayService)r).JoinJson(body, from));
             }
             else if (method == "GET" && (path == "/api/play/state" || path.StartsWith("/api/play/state?")))
             {
@@ -763,29 +766,33 @@ public sealed partial class ControlService : IDisposable
                 var token = QueryValue(path, "token");
                 long.TryParse(QueryValue(path, "since"), out var sinceSeq);
                 // The wait is a signal, not a poll: the room wakes every waiting phone at once when it moves; past the budget a phone is answered now.
-                if (long.TryParse(QueryValue(path, "rev"), out var seenRev)) await _services.Play.WaitForChangeAsync(seenRev, TimeSpan.FromSeconds(20), ct);
-                ct.ThrowIfCancellationRequested();     // the port closed while the phone waited: nothing of the desk is asked for a phone that is gone
-                payload = await UiThread.InvokeAsync(() => _services.Play.StateJson(token, sinceSeq));
+                payload = await RoomAnswerAsync(async (r, waitCt) =>
+                {
+                    var room = (PlayService)r;
+                    if (long.TryParse(QueryValue(path, "rev"), out var seenRev)) await room.WaitForChangeAsync(seenRev, TimeSpan.FromSeconds(20), waitCt);
+                    waitCt.ThrowIfCancellationRequested();     // the port closed while the phone waited: nothing of the desk is asked for a phone that is gone
+                    return await UiThread.InvokeAsync(() => room.StateJson(token, sinceSeq));
+                }, ct);
             }
             else if (method == "POST" && path == "/api/play/answer")
             {
                 contentType = "application/json";
-                payload = await UiThread.InvokeAsync(() => _services.Play.AnswerJson(body));
+                payload = await RoomAnswer(r => ((PlayService)r).AnswerJson(body));
             }
             else if (method == "POST" && path == "/api/play/say")
             {
                 contentType = "application/json";
-                payload = await UiThread.InvokeAsync(() => _services.Play.SayJson(body));
+                payload = await RoomAnswer(r => ((PlayService)r).SayJson(body));
             }
             else if (method == "POST" && path == "/api/play/vote")
             {
                 contentType = "application/json";
-                payload = await UiThread.InvokeAsync(() => _services.Play.VoteJson(body));
+                payload = await RoomAnswer(r => ((PlayService)r).VoteJson(body));
             }
             else if (method == "POST" && path == "/api/play/draughts")
             {
                 contentType = "application/json";
-                payload = await UiThread.InvokeAsync(() => _services.Play.DraughtsJson(body));
+                payload = await RoomAnswer(r => ((PlayService)r).DraughtsJson(body));
             }
             else if (method == "POST" && path == "/api/play/host")
             {
@@ -799,18 +806,18 @@ public sealed partial class ControlService : IDisposable
                 }
                 else
                 {
-                    payload = await UiThread.InvokeAsync(() => _services.Play.HostJson());
+                    payload = await RoomAnswer(r => ((PlayService)r).HostJson());
                 }
             }
             else if (method == "GET" && (path == "/api/play" || path.StartsWith("/api/play?")))
             {
                 contentType = "application/json";
-                payload = await UiThread.InvokeAsync(() => _services.Play.StatusJson(QueryValue(path, "what")));
+                payload = await RoomAnswer(r => ((PlayService)r).StatusJson(QueryValue(path, "what")));
             }
             else if (method == "GET" && path == "/api/play/feed.csv")
             {
                 contentType = "text/csv; charset=utf-8";
-                payload = await UiThread.InvokeAsync(() => _services.Play.FeedCsv());
+                payload = _services.HasRoom ? await RoomAnswer(r => ((PlayService)r).FeedCsv()) : "";
             }
             else if (method == "GET" && path == "/admin")
             {
@@ -1024,8 +1031,59 @@ public sealed partial class ControlService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Arms the trailing push — never after Dispose. A change that lands on a closed desk (its
+    /// last publish, a stack that settles as it goes) must not leave the timer running: a
+    /// running timer roots the desk, and its tick would read STATE from services that are gone
+    /// (round 64's census).
+    /// </summary>
+    private void ArmPush()
+    {
+        if (_disposed) return;
+        _pushPending = true;
+        if (!_pushTimer.IsEnabled) _pushTimer.Start();
+    }
+
+    /// <summary>
+    /// The room's answer to a phone, or the closed door (round 64). The room's type is named only
+    /// inside the caller's lambda and the inner method here, both compiled only when a room is
+    /// there — so a role without one never loads the room's assembly on the wire's account.
+    /// </summary>
+    private Task<string> RoomAnswer(Func<object, string> answer) => _services.HasRoom ? RoomAnswerOf(answer) : Task.FromResult(NoRoomJson);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private async Task<string> RoomAnswerOf(Func<object, string> answer)
+    {
+        var room = _services.Play!;
+        return await UiThread.InvokeAsync(() => answer(room));
+    }
+
+    private Task<string> RoomAnswerAsync(Func<object, CancellationToken, Task<string>> answer, CancellationToken ct) => _services.HasRoom ? RoomAnswerAsyncOf(answer, ct) : Task.FromResult(NoRoomJson);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private Task<string> RoomAnswerAsyncOf(Func<object, CancellationToken, Task<string>> answer, CancellationToken ct) => answer(_services.Play!, ct);
+
+    private Task<string> ArcadeAnswer(Func<object, string> answer) => _services.HasArcade ? ArcadeAnswerOf(answer) : Task.FromResult(NoArcadeJson);
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private async Task<string> ArcadeAnswerOf(Func<object, string> answer)
+    {
+        var arcade = _services.Arcade!;
+        return await UiThread.InvokeAsync(() => answer(arcade));
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private AudienceBudget RoomBudget() => _services.Play!.Effective;
+
+    /// <summary>What a phone or a wire hears from a role that has no room or no arcade (round 64): a closed door with the reason, never a crash.</summary>
+    private const string NoRoomJson = "{\"ok\":false,\"msg\":\"no audience room on this node\"}";
+    private const string NoArcadeJson = "{\"ok\":false,\"msg\":\"no arcade on this node\"}";
+
+    private volatile bool _disposed;
+
     public void Dispose()
     {
+        _disposed = true;
         _pushTimer.Stop();
         _clockTimer.Stop();
         StopListeners();

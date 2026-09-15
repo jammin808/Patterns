@@ -86,9 +86,7 @@ public sealed class ArcadeService : IDisposable
         _engine.Changed += () => Interlocked.Increment(ref _rev);
     }
 
-    public static bool IsArcadeKind(ShowActionKind kind) => kind is ShowActionKind.ArcadeStart or ShowActionKind.ArcadeStop or ShowActionKind.ArcadePause
-        or ShowActionKind.ArcadeResume or ShowActionKind.ArcadeAttract or ShowActionKind.ArcadeKey or ShowActionKind.ArcadeSize or ShowActionKind.ArcadeNdi
-        or ShowActionKind.ArcadeName or ShowActionKind.ArcadeWindow;
+    public static bool IsArcadeKind(ShowActionKind kind) => RoleVerbs.IsArcade(kind);
 
     /// <summary>The wire's line for an arcade action — what the desk sends its arcade nodes.</summary>
     public static string Line(ShowAction a) => a.Kind switch

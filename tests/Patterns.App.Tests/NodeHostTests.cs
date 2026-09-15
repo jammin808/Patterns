@@ -106,7 +106,7 @@ public class NodeHostTests
             Assert.Contains("\"show\":\"Foyer games\"", greeting);
             Assert.Equal("OK PONG", pong);
             Assert.StartsWith("OK", Wire(wire, "ARCADE START pong 1").Reply);
-            PumpUntil(() => host.Arcade.Snapshot().GameId == "pong");
+            PumpUntil(() => host.Arcade!.Snapshot().GameId == "pong");                         // an arcade node builds it (round 64)
             Assert.StartsWith("OK {", Wire(wire, "ARCADE STATUS").Reply);
             Assert.StartsWith("OK", Wire(wire, "PLAY ADD choice Which hall? | A | B").Reply);
             Assert.StartsWith("OK {", Wire(wire, "PLAY STATUS").Reply);
@@ -122,9 +122,9 @@ public class NodeHostTests
 
             // The room is on the audience port: a phone joins; the node's front door is its own, not the desk's remote.
             using var phone = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{audience}/"), Timeout = TimeSpan.FromSeconds(8) };
-            var joined = Post(phone, "api/play/join", $"{{\"nick\":\"Ada\",\"room\":\"{host.Play.Code}\"}}");
+            var joined = Post(phone, "api/play/join", $"{{\"nick\":\"Ada\",\"room\":\"{host.Play!.Code}\"}}");
             Assert.Contains("\"ok\":true", joined);
-            Assert.Equal(1, host.Play.Room.PlayerCount);
+            Assert.Equal(1, host.Play!.Room.PlayerCount);
             using var browser = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{http}/"), Timeout = TimeSpan.FromSeconds(8) };
             var front = TestApp.Pump(browser.GetStringAsync("/"));
             Assert.Contains("Arcade node", front);

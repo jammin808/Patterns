@@ -8143,3 +8143,170 @@ setting for the overlays, one per layer; the finer grain waits for an ask). A wi
 appearance settings (design-time settings kept with the show). "Choose a file…" on the preview's
 SOURCE (the library drawer and the Media page cover it). The lower third's own in and out (it has
 had them since its designer). A CUT / TAKE on the PGM tile (the wall's keys are that).
+
+## 82. Round 64 — the frame's lifetime said outright, the pacer's epochs, the census, the appearance matrix, a release that can be rebuilt, and the rig's record
+
+The round-63.5 review's list, in its own priority: the frame's memory freed on a clock rather
+than on a fact (P0.1), the rig qualification still unrun (P0.2), the pacer inventing drops when
+a rate or a display changed (P1.1), a 50 Hz screen still read as the app's failing (P1.2), no
+proof that a closed surface releases its lifetime (P1.3), a release whose libVLC could not be
+rebuilt from the tree (P1.4), no Windows lane (P1.5), the appearance code proved by a handful of
+cases (P1.6), the forced free counted but never a fault (P1.7), telemetry that could say a number
+where the truth was "not measured" (P1.8), a pressure ladder that flapped on a line (P2.1), every
+node building every module (P2.2), a rollback script that trusted its input (P2.3), the default
+branch outside the release model (P2.4), layers told apart by a hash (P2.5), the module contract
+to keep (P2.6). Each is answered below; what could not be done here is said in 82.9.
+
+### 82.1 The frame's lifetime explicit (64.1)
+
+The render fence used to guess: a seat that had not drawn for two seconds was treated as gone,
+and a retired frame with no owner was freed on time. Round 64 makes the frame's life a fact the
+code holds. A seat is a ticket — the sink's id with an epoch in the high bits — so a seat given
+back and taken again by another sink can never be mistaken for the first. A frame is opened with
+`BeginFrame` and closed with `EndFrame` (the pipeline flushes its canvas before it closes, so the
+raster's uploads are done); between them the frame is *open*, and nothing open is ever reused or
+freed. Retirement asks for the owner: `RetiredFrames.Retire` takes the table of who drew the
+picture last and refuses a null — every retired frame has an owner or the call is a bug. A sink
+that has an open frame past two seconds is *hung*, not gone: its pictures go to quarantine
+(`QuarantinedBytes`) and wait until the frame closes; the fault is recorded (`FenceFault`: when,
+Hung or Recovered, the sink, its label, the generation, how long open; the last 32 kept) and
+`HungSinks`, `HungFrames`, `OldestOpenMs` read on STATE's `memory` row (`openFrames`, `hungNow`,
+`hungFrames`, `quarantinedMB`, `fenceFaults`), the Machine page and the super-check's *Frame
+fence* row. The pool's forced free is gone with it: `FramePool.TryFree` frees nothing that is
+held, and `Hold` says why. The adversarial tests (`FenceLifetimeTests`, `FrameLifetimeAppTests`)
+stall a frame, unregister a sink mid-frame, dispose a pipeline during a render, take all 256
+seats, and retire scratch frames — nothing is freed under an open frame in any of them.
+
+### 82.2 The pacer's epochs and the render-clock warning (64.2)
+
+`FramePacerState` carries an epoch: a change of cadence, of the asked rate or of the display's
+refresh starts a new one, and the first frame of an epoch is never a drop — a drop is only a
+missed slot inside one epoch. `OutputRate.SameFamily` reads two rates as one family within
+2.5 % (59.94 and 60, 50 and 50.0), and `ClockLimit` says when the display wanted more than the
+render clock gives: `RateLimit(Limited, NeededHz, ClockHz)`. The chip says *render clock 50.0 Hz
+— LIMITED BY RENDER CLOCK* on such an output; the Machine page's output reading and the
+super-check's *Render clock* row say it in the same words; STATE's `machine` row carries
+`renderClockHz` and `clockLimited`; the assistant's facts have them. The evidence rule (P1.8)
+is realised rather than declared: a clock not yet measured is `-1`, a row not yet read is absent,
+and nothing derives a number from either — the chip prints *unknown* where the reading is not
+in.
+
+### 82.3 The lifetime census and the lifecycle (64.3)
+
+`LifetimeCensus` (Core) is a record of named counts; `DeskCensus.Take` fills it on a desk:
+desks alive (a weak list of every desk built), nodes, dispatcher timers running, render seats,
+open and hung frames, frame budgets, pools, retiring pools, retired frames, pictures, ledger
+owners, input mounts, video sources and their retiring set. It is on STATE (`census`) and in the
+support ticket (*Lifetime census: …*). `DeskTimers` is the registry every dispatcher timer on
+the desk is made through (28 sites), each with the file and member that made it, so a timer
+still running after a close is named, not counted. The static hooks a closed desk used to hang
+from are cleared at shutdown: the pipeline's first-preview-frame hook, `AppServices.Instance`,
+`MediaMemory.Extra`, the ledger's owners, `UiFaults.Listener`, `DragReorder.Moved`; the view
+model's `OnWindowClosed` stops its status, preview and tally timers and the Run, Cues and
+Screens pages' own, and the desk registers every view model built on it so Shutdown stops them
+whether or not a window was ever attached.
+
+`LifecycleTests` boots the desk, opens the Run layout (the monitor's pipeline), walks two pages,
+builds and shuts a timer node, closes, and reads the census after a full collection — a dozen
+times in the suite, a hundred in CI's lifecycle job with `PATTERNS_LIFECYCLE_STRICT=1`, where
+the baseline must be zero and the managed heap must have no slope. Getting it to zero was the
+round's dig, each root found with a heap dump: `DragReorder.Moved` and `UiFaults.Listener`
+(statics), the beacon's last continuation queued on the dispatcher (the test host now drains
+it), the view model's status timer, the kernel's mDNS timer, the save timer re-armed by the last
+publish, the Run and Cues pages' debounces re-armed by a change after the close, and the twin's
+beat — a key made for a desk without one was queued as an edit, ran after Shutdown, republished,
+and the twin reopened its listener on a closed desk, for good. The rule that came out of it:
+**a closed desk does nothing.** `OnStateChanged` publishes nothing after Shutdown; the save and
+re-apply debounces, the wire's push and the pages' refreshes refuse to arm; the twin neither
+reconciles nor beats; Shutdown itself runs every step on its own guard, so a step that throws (a
+record whose delete fails) leaves nothing after it undone. `AChangeAfterTheDeskClosedArmsNoTimer`
+holds the rule. The test host learned the same lesson: a boot a test forgot to close is closed
+by the next test's boot and named in the memlog (`late_close`), so a leaked desk in the census is
+the product's, never a test's.
+
+### 82.4 The appearance matrix (64.4)
+
+`AppearanceMatrixTests` is table-driven: every appearance key (each overlay, each layer, the PiP,
+the countdown) by Fade, Cut and Slide, at the arrival frame, mid-arrival, settled, the first
+departure frame and complete departure, on the sink where the element draws; a whole-picture
+crossfade runs no arrival of its own inside it. The matrix found the PiP's arrival was invisible
+— the fade source was marked on both copies — so `DrawPipAt` marks only the outgoing one. The
+layer's identity for the tracker is exact: a `LayerPicture` record of what the layer shows
+replaces the hash (P2.5), the PiP's is its own key. The one cell the engine cannot reach is said
+in 82.9.
+
+### 82.5 A release that can be rebuilt, and a Windows lane (64.5)
+
+The portable exe's libVLC payload is taken from the exact package the build restored —
+`project.assets.json` names the version, nothing is guessed — and a `manifest.json` beside the
+exe records the tag, the commit, the .NET runtime, Avalonia, SkiaSharp, LibVLCSharp and the
+libVLC payload's version and hash; the Release carries it as `Patterns-<tag>-manifest.json`.
+`Patterns --verify-runtime [--require-vlc] [--report <file>]` is the bundle's self-test:
+libVLC loads and makes an instance, the audio device enumerator answers, Skia draws, the modules
+map reads — a line per check, a non-zero exit on a failure; the portable-exe job runs it on
+what it just built. `windows-smoke` builds the tree on Windows, runs every suite that is not the
+desk's and the desk's classes that hold headless there, and launches the built exe with the
+check; `rollback-script` runs the roll-back script's cases against a scratch remote.
+
+### 82.6 Hardening (64.6)
+
+The pressure ladder has hysteresis and dwell: up at once, down only when the share has sat
+below the rung's leaving line (65, 80, 92 %) for five seconds, one rung a reading — a reading on
+a line no longer takes the pre-roll away and gives it back every poll; the ladder measures the
+dwell on a clock a test can hold. The roll-back script validates its ref with
+`git check-ref-format --branch`, reads paths from newlines, commas or spaces and passes them
+after `--`, and previews what it would do; `test-rollback.sh` runs nine cases (a tag, a commit,
+a bad ref, paths with spaces, a no-op, a dry run…) against a scratch bare remote, in CI. The
+forced free is not a gate any more because it does not exist: `hungFrames` and `quarantinedMB`
+are the gates now (SOAK.md).
+
+### 82.7 Role-specific node compositions (64.7)
+
+`NodeKinds.RunsRoom` and `RunsArcade` say which roles build the audience room and the arcade:
+the desk and the arcade node; a timer and a caller neither. The runtime loads an assembly when
+it compiles a method that names one of its types, so not building them is not enough: the host
+holds them untyped (`_room`, `_arcade`), every path all roles run asks `HasRoom` / `HasArcade`
+first, the typed readers (`RunArcade`, `RoomStatusJson`, `TickRoom`…) are methods of their own
+compiled only when called, the wire's routes answer through `RoomAnswer` / `ArcadeAnswer` whose
+lambdas alone name the type, and `RoleVerbs` (Core) names the verbs of each module so a refusal
+needs neither. A heap-load trace proved it: a timer's boot loads the core, the devices, the
+assistant, the render side and the app — never `Patterns.Audience` or `Patterns.Arcade`. Its
+`Play` and `Arcade` are null on those roles, the capability contract says so, and every reader
+copes: the wire answers `ARCADE STATUS` and `PLAY
+STATUS` with *not on this node*, the audience routes with `{"ok":false,"msg":"no audience room on
+this node"}`, the audience port shuts its door before a byte is read, the node's window shows
+empty words. `ARoleBuildsOnlyItsModules` boots a timer, a caller and an arcade node and asserts
+each composition; CI runs the class in a process of its own with the claim absolute, and the
+Windows lane runs `Patterns --node timer --footprint <file>` — a real process — and reads that
+the room and the arcade are in its *not loaded* list. `NodeKinds.Composition` says a role's
+composition in words for the papers and the ticket.
+
+The branch model (P2.4) is the maintainer's decision, recorded here as the recommendation:
+`main` becomes the release branch — the working branch is merged into it at each round's tag,
+`main` is protected (no force-push, CI required), the Release and the rollback workflow then
+appear where GitHub looks for them, and the round tags keep pointing at the merged commits.
+Until that merge happens the tags and the Releases are on the working branch and the rollback
+workflow's button waits for `rollback.yml` to exist on `main`.
+
+### 82.8 The qualification record (64.8)
+
+`docs/QUALIFICATION.md` is the record to fill on the rig: the Companion 5 import, IMAG with the
+profile off and on, the thirty- and sixty-minute soaks, the mixed-refresh desk (a 50 Hz and a
+60 Hz display side by side — the chip's words, the pacer's epochs, `clockLimited`), and the
+four-hour soak — each with what to set up, what to read (the STATE keys, the Machine rows, the
+CSV columns), the pass marks, and a blank table. SOAK.md's gates now include `hungFrames 0`,
+`quarantinedMB 0`, `poolStarved 0`, `fenceFaults` empty, no `retiringMB` slope, the census back
+at baseline once the outputs close, and the *Render clock* row green.
+
+### 82.9 What was left, and why
+
+The rig qualification (P0.2) needs a rig; the record is written, nothing in it is a claim. The
+Windows lane runs for the first time with this push and may need a round of its own. The
+appearance matrix's *layer swap* cell — a layer that changes what it shows while on air — is not
+an arrival: the engine crossfades the whole picture on a source change, so the swap rides that
+crossfade and never runs its own animation; the test asserts the crossfade, not an arrival. The
+separate-process footprint claim is the Windows lane's; on Linux CI the class runs in its own
+process, which is the same claim short of the exe.
+
+Counts at the end of the round: Core 725, Rendering 647, Devices 7, Audio 9, Assistant 36,
+Audience 2, App 696 — 2,122 in seven suites, the module's seventeen beside them.

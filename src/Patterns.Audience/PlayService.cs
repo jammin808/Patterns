@@ -132,9 +132,7 @@ public sealed class PlayService : IDisposable
         }
     }
 
-    public static bool IsPlayKind(ShowActionKind kind) => kind is ShowActionKind.PlayAdd or ShowActionKind.PlayOpen or ShowActionKind.PlayClose or ShowActionKind.PlayReveal
-        or ShowActionKind.PlayShow or ShowActionKind.PlayMessage or ShowActionKind.PlayApprove or ShowActionKind.PlayReject or ShowActionKind.PlayAuto
-        or ShowActionKind.PlayPath or ShowActionKind.PlayDraughts or ShowActionKind.PlayRoom or ShowActionKind.PlayExport;
+    public static bool IsPlayKind(ShowActionKind kind) => RoleVerbs.IsPlay(kind);
 
     /// <summary>The wire's line for a play action — what the desk sends the hub.</summary>
     public static string Line(ShowAction a) => a.Kind switch

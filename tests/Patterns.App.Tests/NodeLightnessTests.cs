@@ -55,9 +55,11 @@ public class NodeLightnessTests
             Assert.Contains("Patterns.Assistant", loaded);                                       // the assistant client is the kernel's
             Assert.Contains("Patterns", loaded);
             Assert.StartsWith("Modules loaded: Core", Modules.Words());
-            // The invariant that holds in any order: a timer node's boot never pulls the NDI runtime in. Measured alone, the
-            // node also loads the arcade and the room (every node builds them, the charter's next cut) and never NDI.
+            // The invariants that hold in any order: a timer node's boot never pulls the NDI runtime in, and since round 64
+            // neither the room's assembly nor the arcade's — a timer builds neither (NodeKinds.RunsRoom / RunsArcade).
             if (!before.Contains("Patterns.Ndi")) Assert.DoesNotContain("Patterns.Ndi", loaded);
+            if (!before.Contains("Patterns.Audience")) Assert.DoesNotContain("Patterns.Audience", loaded);
+            if (!before.Contains("Patterns.Arcade")) Assert.DoesNotContain("Patterns.Arcade", loaded);
             var rows = Modules.Rows();
             Assert.All(rows.Where(r => r.Loaded), r => Assert.NotEqual("", r.Version));
             Assert.All(rows.Where(r => !r.Loaded), r => Assert.Equal("", r.Version));
@@ -66,6 +68,74 @@ public class NodeLightnessTests
         {
             host.Dispose();
             try { Directory.Delete(dir, true); } catch { /* a log still open */ }
+        }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void AssertTypedReadersAnswer(NodeHost host)
+    {
+        Assert.NotNull(host.Play);
+        Assert.NotNull(host.Arcade);
+        Assert.NotEqual("", host.Play!.Code);
+    }
+
+    private static string FreshDir()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "patterns-tests-role-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        var s = SettingsStore.Fresh();
+        s.Control.Enabled = false;
+        s.Control.HttpPort = FreePort();
+        s.Control.TcpPort = FreePort();
+        s.Watchdog.BeaconListenPort = FreePort();
+        s.Watchdog.BeaconPort = s.Watchdog.BeaconListenPort;
+        File.WriteAllText(Path.Combine(dir, "patterns.settings.json"), JsonUtil.Serialize(s));
+        return dir;
+    }
+
+    /// <summary>
+    /// Round 64: a role builds only its modules. A timer and a caller have no room and no arcade —
+    /// their verbs are refused with "not on this node", their status words are empty — and the
+    /// arcade node has both. The timer and the caller boot first, so their claim about the
+    /// assemblies is measured before the arcade node loads them; with PATTERNS_FOOTPRINT_STRICT=1
+    /// (CI's own process for this class) the claim is absolute.
+    /// </summary>
+    [AvaloniaFact]
+    public void ARoleBuildsOnlyItsModules()
+    {
+        var strict = Environment.GetEnvironmentVariable("PATTERNS_FOOTPRINT_STRICT") == "1";
+        var before = Modules.LoadedAssemblies();
+        _out.WriteLine("before the roles: " + string.Join(", ", before.OrderBy(n => n, StringComparer.Ordinal)));
+        foreach (var (kind, room, arcade) in new[] { (NodeKind.Timer, false, false), (NodeKind.Caller, false, false), (NodeKind.Arcade, true, true) })
+        {
+            var dir = FreshDir();
+            var host = NodeHost.Build(kind, new SettingsStore(dir));
+            try
+            {
+                host.Start();
+                // Naming the room's or the arcade's type here would load its assembly when this method is compiled —
+                // before the timer's claim is measured — so the roles are asked, and the typed readers only for the arcade.
+                Assert.Equal(room, host.HasRoom);
+                Assert.Equal(arcade, host.HasArcade);
+                Assert.Equal(NodeKinds.RunsRoom(kind), room);
+                if (room) AssertTypedReadersAnswer(host);
+                var loaded = Modules.LoadedAssemblies();
+                _out.WriteLine($"{kind} node loaded: " + string.Join(", ", loaded.OrderBy(n => n, StringComparer.Ordinal)));
+                if (!room)
+                {
+                    if (strict || !before.Contains("Patterns.Audience")) Assert.DoesNotContain("Patterns.Audience", loaded);
+                    if (strict || !before.Contains("Patterns.Arcade")) Assert.DoesNotContain("Patterns.Arcade", loaded);
+                    var refused = host.Actions.Execute(new ShowAction(ShowActionKind.ArcadeStart, "", "pong"), ActionOrigin.Desk);
+                    Assert.False(refused.Ok);
+                    var play = host.Actions.Execute(new ShowAction(ShowActionKind.AudienceOn), ActionOrigin.Desk);
+                    Assert.False(play.Ok);
+                }
+            }
+            finally
+            {
+                host.Dispose();
+                try { Directory.Delete(dir, true); } catch { /* a log still open */ }
+            }
         }
     }
 }

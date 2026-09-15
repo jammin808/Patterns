@@ -32,12 +32,46 @@ jobs:
           path: "**/TestResults/*.trx"
           if-no-files-found: ignore
 
+  # Round 64: lifetime, proved by counting. The desk boots and closes a hundred times with the
+  # Run layout opened, two pages walked and a node built and shut in each; after every close a
+  # full collection and the lifetime census (desks alive, seats, budgets, pools, frames, owners,
+  # mounts) must read what the first close read, and the managed heap must have no slope. A
+  # green functional suite proves nothing about this; round 62's 13.5 GB test host did not.
+  lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore
+        run: dotnet restore tests/Patterns.App.Tests/Patterns.App.Tests.csproj
+      - name: Build
+        run: dotnet build tests/Patterns.App.Tests/Patterns.App.Tests.csproj -c Release --no-restore
+      - name: Boot and close the desk a hundred times, the census read after each
+        env:
+          PATTERNS_LIFECYCLE_CYCLES: "100"
+          PATTERNS_LIFECYCLE_STRICT: "1"
+          PATTERNS_TEST_MEMLOG: ${{ github.workspace }}/lifecycle-memlog.txt
+        run: dotnet test tests/Patterns.App.Tests/Patterns.App.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~LifecycleTests" --logger "trx;LogFileName=lifecycle.trx"
+      - name: Upload the census log
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: lifecycle-memlog
+          path: lifecycle-memlog.txt
+          if-no-files-found: ignore
+
   companion-module:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: integrations/companion-module-patterns
     steps:
+      - name: Footprint per role (its own process — a timer loads neither the room nor the arcade)
+        env:
+          PATTERNS_FOOTPRINT_STRICT: "1"
+        run: dotnet test tests/Patterns.App.Tests/Patterns.App.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~NodeLightnessTests" --logger "trx;LogFileName=footprint.trx"
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
@@ -77,31 +111,60 @@ jobs:
           -p:EnableCompressionInSingleFile=false
           -p:DebugType=embedded
           -o dist/win-x64
-      - name: Upload portable app
-        uses: actions/upload-artifact@v5
-        with:
-          name: Patterns-portable-win-x64
-          path: dist/win-x64/Patterns.exe
 
-      # The full bundle is the same exe plus a loose libvlc folder beside it (the app
-      # loads libVLC from exeDir/libvlc/win-x64). The libvlc payload is taken straight
-      # from the restored VideoLAN package — its build-time copy items don't survive a
-      # single-file publish, so the package tree is the one dependable source.
+      # The full bundle is the same exe plus a loose libvlc folder beside it (the app loads
+      # libVLC from exeDir/libvlc/win-x64). Round 64: the payload is the exact package the
+      # restore chose — read from the restore's own assets file, never "the newest in the cache"
+      # — and the bundle carries a manifest of what it was built from; then the exe runs its
+      # runtime check with libVLC required, so a bundle whose native runtime does not load fails
+      # here and not on a rig.
+      - name: Resolve the exact libVLC package the restore chose
+        id: vlc
+        shell: pwsh
+        run: |
+          dotnet restore src/Patterns.App/Patterns.App.csproj -p:BundleVlc=true
+          $assets = Get-Content src/Patterns.App/obj/project.assets.json -Raw | ConvertFrom-Json
+          $libs = $assets.libraries.PSObject.Properties.Name
+          $vlc = $libs | Where-Object { $_ -like 'VideoLAN.LibVLC.Windows/*' } | Select-Object -First 1
+          $sharp = $libs | Where-Object { $_ -like 'LibVLCSharp/*' } | Select-Object -First 1
+          if (-not $vlc) { throw "VideoLAN.LibVLC.Windows is not in the restore's assets: the bundle would have nothing to carry" }
+          $vlcVersion = $vlc.Split('/')[1]
+          $sharpVersion = if ($sharp) { $sharp.Split('/')[1] } else { 'unknown' }
+          "vlc=$vlcVersion" >> $env:GITHUB_OUTPUT
+          "sharp=$sharpVersion" >> $env:GITHUB_OUTPUT
+          Write-Host "VideoLAN.LibVLC.Windows $vlcVersion · LibVLCSharp $sharpVersion"
       - name: Assemble full bundle with libVLC
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist/win-x64-full | Out-Null
           Copy-Item dist/win-x64/Patterns.exe dist/win-x64-full/
-          dotnet restore src/Patterns.App/Patterns.App.csproj -p:BundleVlc=true
           $root = ((dotnet nuget locals global-packages --list) -join ' ') -replace '^\s*global-packages:\s*', ''
-          $cache = Join-Path $root.Trim() "videolan.libvlc.windows"
-          $pkg = Get-ChildItem $cache -Directory | Sort-Object Name -Descending | Select-Object -First 1
-          Write-Host "Copying libvlc from package $($pkg.FullName)"
+          $pkg = Join-Path $root.Trim() "videolan.libvlc.windows/${{ steps.vlc.outputs.vlc }}"
+          if (-not (Test-Path "$pkg/build/x64/libvlc.dll")) { throw "the restored package at $pkg has no build/x64/libvlc.dll" }
+          Write-Host "Copying libvlc from the restored package $pkg"
           $dest = "dist/win-x64-full/libvlc/win-x64"
           New-Item -ItemType Directory -Force $dest | Out-Null
-          Copy-Item "$($pkg.FullName)/build/x64/*" $dest -Recurse -Force
+          Copy-Item "$pkg/build/x64/*" $dest -Recurse -Force
           Remove-Item "$dest/include" -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item "$dest/*.lib" -Force -ErrorAction SilentlyContinue
+      - name: Write the release manifest
+        shell: pwsh
+        run: |
+          $round = (Select-String -Path CHANGELOG.md -Pattern '`(round-\d+)`' | Select-Object -First 1).Matches[0].Groups[1].Value
+          $module = (Get-Content integrations/companion-module-patterns/package.json -Raw | ConvertFrom-Json).version
+          $manifest = [ordered]@{
+            commit = $env:GITHUB_SHA
+            ref = $env:GITHUB_REF_NAME
+            round = $round
+            built = (Get-Date).ToUniversalTime().ToString('o')
+            dotnet = (dotnet --version).Trim()
+            libvlcsharp = '${{ steps.vlc.outputs.sharp }}'
+            videolanLibVlcWindows = '${{ steps.vlc.outputs.vlc }}'
+            companionModule = $module
+          }
+          $manifest | ConvertTo-Json | Set-Content dist/win-x64-full/manifest.json
+          Copy-Item dist/win-x64-full/manifest.json dist/win-x64/manifest.json
+          Get-Content dist/win-x64-full/manifest.json
       - name: Verify libVLC bundle
         shell: pwsh
         run: |
@@ -113,11 +176,92 @@ jobs:
           Write-Host "--- dist/win-x64-full ---"
           Get-ChildItem -Recurse -Depth 2 dist/win-x64-full | Select-Object -ExpandProperty FullName
           throw "libvlc.dll or plugins missing from full bundle"
+      - name: Run the full bundle's runtime check (libVLC required)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath (Resolve-Path dist/win-x64-full/Patterns.exe) -ArgumentList '--verify-runtime','--require-vlc','--no-watchdog','--report',(Join-Path $PWD 'runtime-full.txt') -Wait -PassThru
+          if (Test-Path runtime-full.txt) { Get-Content runtime-full.txt }
+          if ($p.ExitCode -ne 0) { throw "the full bundle's runtime check failed with $($p.ExitCode)" }
+      - name: Run the portable exe's runtime check
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath (Resolve-Path dist/win-x64/Patterns.exe) -ArgumentList '--verify-runtime','--no-watchdog','--report',(Join-Path $PWD 'runtime-portable.txt') -Wait -PassThru
+          if (Test-Path runtime-portable.txt) { Get-Content runtime-portable.txt }
+          if ($p.ExitCode -ne 0) { throw "the portable exe's runtime check failed with $($p.ExitCode)" }
+      - name: Upload the runtime reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: runtime-checks
+          path: runtime-*.txt
+          if-no-files-found: ignore
+      - name: Upload portable app
+        uses: actions/upload-artifact@v5
+        with:
+          name: Patterns-portable-win-x64
+          path: dist/win-x64/
       - name: Upload portable app with video
         uses: actions/upload-artifact@v5
         with:
           name: Patterns-portable-win-x64-full
           path: dist/win-x64-full/
+
+  # Round 64: a Windows lane. The desk is a Windows application; the suites above run on Ubuntu.
+  # This job builds on Windows, runs every suite but the App's whole, runs the App suite's desk,
+  # menu, preview, pipeline, lifecycle and memory classes headless on Windows, and runs the
+  # built exe's runtime check — Skia, libVLC where the runner has it, the audio endpoints, the
+  # modules — so a Windows-only regression fails a build before a tag.
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore
+        run: dotnet restore
+      - name: Build
+        run: dotnet build -c Release --no-restore
+      - name: The suites that are not the desk's
+        run: dotnet test -c Release --no-build --logger "trx;LogFileName=windows.trx" --filter "FullyQualifiedName!~Patterns.App.Tests"
+      - name: The desk's classes on Windows headless
+        run: dotnet test tests/Patterns.App.Tests/Patterns.App.Tests.csproj -c Release --no-build --logger "trx;LogFileName=windows-app.trx" --filter "FullyQualifiedName~ShellTests|FullyQualifiedName~DeskMenuAppTests|FullyQualifiedName~PreviewMenuAppTests|FullyQualifiedName~MonitorTileLifetimeTests|FullyQualifiedName~OutputRateAppTests|FullyQualifiedName~LifecycleTests|FullyQualifiedName~MemoryAppTests|FullyQualifiedName~FrameLifetimeAppTests|FullyQualifiedName~DeskLayoutTests"
+      - name: The built exe's runtime check
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path src/Patterns.App/bin/Release/net10.0/Patterns.exe
+          $p = Start-Process -FilePath $exe -ArgumentList '--verify-runtime','--no-watchdog','--report',(Join-Path $PWD 'runtime-windows.txt') -Wait -PassThru
+          if (Test-Path runtime-windows.txt) { Get-Content runtime-windows.txt }
+          if ($p.ExitCode -ne 0) { throw "the runtime check failed with $($p.ExitCode)" }
+      - name: A timer node's footprint (its own process — no room, no arcade)
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path src/Patterns.App/bin/Release/net10.0/Patterns.exe
+          $out = Join-Path $PWD 'footprint-timer.txt'
+          $p = Start-Process -FilePath $exe -ArgumentList '--node','timer','--footprint',$out,'--no-watchdog' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the timer node did not start cleanly: exit $($p.ExitCode)" }
+          $words = Get-Content $out -Raw
+          Write-Host $words
+          if ($words -notmatch 'not loaded: [^\r\n]*Arcade' -or $words -notmatch 'not loaded: [^\r\n]*Audience') { throw "the timer node loaded the room or the arcade" }
+      - name: Upload Windows results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: windows-smoke
+          path: |
+            footprint-timer.txt
+            **/TestResults/windows*.trx
+            runtime-windows.txt
+          if-no-files-found: ignore
+
+  # Round 64: the rollback script under test — a scratch remote, three versions, every case the
+  # workflow can be asked for, nothing pushed (.github/scripts/test-rollback.sh).
+  rollback-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Every roll-back case against a scratch remote
+        run: bash .github/scripts/test-rollback.sh
 
   # A tag named round-NN or show-<name> is a version worth keeping: its Release carries the
   # portable exe, the full bundle with libVLC and the Companion module package, all built from
@@ -146,6 +290,7 @@ jobs:
           tag="$GITHUB_REF_NAME"
           mkdir -p release/out
           cp release/exe/Patterns.exe "release/out/Patterns-$tag.exe"
+          cp release/exe/manifest.json "release/out/Patterns-$tag-manifest.json"
           (cd release/full && zip -qr "../out/Patterns-$tag-full-win-x64.zip" .)
           cp release/module/*.tgz release/out/
           (cd release/out && sha256sum -- * > ../SHA256SUMS.txt && mv ../SHA256SUMS.txt .)

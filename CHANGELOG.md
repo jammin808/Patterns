@@ -8,6 +8,34 @@ fixed). Every round from 15 on is a tag on its last commit — `round-15` … �
 how to get any of them back. The count at each round is the test suite at its end; the module
 is the Bitfocus Companion module, where its version moved.
 
+## Round 64 — 2026-09-15 — the frame's lifetime said outright, the census, a release that can be rebuilt, the rig's record
+
+`round-64` · PLAN §82 · REVIEW round 64 · 2,122 tests · module 3.4.0
+
+- The render fence holds the frame's life as a fact: a frame is opened and closed, nothing open
+  is reused or freed on time, every retired frame has an owner, a stalled sink's pictures wait in
+  quarantine and the stall is a recorded fault (`hungFrames`, `quarantinedMB`, `fenceFaults` on
+  STATE, the Machine page and the super-check). The forced free is gone.
+- The pacer counts drops inside an epoch — a change of rate, cadence or display starts a new one
+  — and an output whose display wants more than the render clock gives says so: *LIMITED BY
+  RENDER CLOCK* on the chip, the Machine page, STATE and the super-check.
+- A lifetime census (desks, nodes, timers, seats, frames, pools, pictures, owners, mounts) on
+  STATE and in the support ticket; a lifecycle test boots and closes the desk a hundred times in
+  CI with the census back at zero; every dispatcher timer is named by its maker; a closed desk
+  does nothing — no publish, no timer armed, no twin beat.
+- Every appearance (overlays, layers, PiP, countdown) proved by a matrix over Fade, Cut and
+  Slide at five moments; the PiP's arrival, which never showed, does; layers are told apart by
+  what they show, not a hash.
+- A release that can be rebuilt: the libVLC payload from the exact restored package, a manifest
+  of component versions beside the exe and on the Release, `--verify-runtime` on the built
+  bundle; a Windows lane that builds, tests and launches the exe; the roll-back script validated
+  and tested against a scratch remote in CI.
+- The pressure ladder steps down with hysteresis and a five-second dwell, a rung at a time.
+- A node builds only its modules: a timer and a caller have no audience room and no arcade, and
+  their process never loads them; the wire answers with *not on this node*.
+- `docs/QUALIFICATION.md`: the rig's record to fill — Companion 5, IMAG, the soaks, a
+  mixed-refresh desk, four hours — with the STATE keys, the rows, the columns and the pass marks.
+
 ## Round 63 — 2026-09-15 — CUT and TAKE on a tile, the output on its display's clock, the Preview's own menus, overlays and layers that arrive
 
 `round-63` · PLAN §81 · REVIEW round 63 · 2,053 tests · module 3.4.0

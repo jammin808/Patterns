@@ -143,7 +143,7 @@ public class NodeMachineAppTests
         });
         try
         {
-            var play = host.Play;
+            var play = host.Play!;                                                              // an arcade node builds the room (round 64)
             Assert.Equal(20, play.Effective.JoinsPerAddressPerMinute);
             for (var i = 0; i < 20; i++) Assert.Contains("\"ok\":true", play.JoinJson($"{{\"nick\":\"Phone {i}\"}}", "10.0.0.1"));
             Assert.Contains("Too many joins", play.JoinJson("{\"nick\":\"Phone 21\"}", "10.0.0.1"));

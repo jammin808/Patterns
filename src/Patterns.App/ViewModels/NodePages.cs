@@ -13,7 +13,7 @@ namespace Patterns.App.ViewModels;
 /// </summary>
 public interface IArcadePage
 {
-    ArcadeService Arcade { get; }
+    ArcadeService? Arcade { get; }
     string ArcadeWords { get; }
     string ArcadeStatus { get; }
     string ArcadeBoard { get; }

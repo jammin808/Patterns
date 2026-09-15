@@ -6,6 +6,25 @@ namespace Patterns.Core.Services;
 /// <summary>The kinds as the beacon says them, and as the rail shows them.</summary>
 public static class NodeKinds
 {
+    /// <summary>
+    /// The modules a role builds (round 64): the room (audience play) and the arcade are the
+    /// desk's and the arcade node's alone. A timer and a caller build neither, so their process
+    /// never loads the room's or the arcade's assembly, and the wire answers their verbs with
+    /// "not on this node".
+    /// </summary>
+    public static bool RunsRoom(NodeKind kind) => kind is NodeKind.Desk or NodeKind.Arcade;
+
+    /// <summary>Whether a role builds the arcade (see <see cref="RunsRoom"/>).</summary>
+    public static bool RunsArcade(NodeKind kind) => kind is NodeKind.Desk or NodeKind.Arcade;
+
+    /// <summary>A role's composition in words, for the papers and the support ticket.</summary>
+    public static string Composition(NodeKind kind) => kind switch
+    {
+        NodeKind.Desk => "the whole desk",
+        NodeKind.Arcade => "the kernel, the wire, the stage, the cue stack, the room and the arcade",
+        _ => "the kernel, the wire, the stage and the cue stack — no room, no arcade",
+    };
+
     public static string Wire(NodeKind kind) => kind switch
     {
         NodeKind.Caller => "caller",
