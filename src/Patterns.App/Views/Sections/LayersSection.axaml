@@ -156,11 +156,11 @@
     <TextBlock Classes="label" Text="{Binding EditTargetBanner}" TextWrapping="Wrap" />
 
     <TextBlock Classes="h2" Text="LAYER 1" />
-    <Border Classes="panel" Padding="10">
+    <Border Classes="panel" Padding="10" c:Menus.Kind="layer" c:Menus.Subject="layer1">
       <ContentControl Content="{Binding ActivePattern.Layer1}" ContentTemplate="{StaticResource LayerEditor}" />
     </Border>
     <TextBlock Classes="h2" Text="LAYER 2" />
-    <Border Classes="panel" Padding="10">
+    <Border Classes="panel" Padding="10" c:Menus.Kind="layer" c:Menus.Subject="layer2">
       <ContentControl Content="{Binding ActivePattern.Layer2}" ContentTemplate="{StaticResource LayerEditor}" />
     </Border>
 

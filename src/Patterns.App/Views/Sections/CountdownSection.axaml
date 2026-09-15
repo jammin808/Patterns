@@ -8,7 +8,7 @@
              Classes="hue-countdown"
              x:DataType="vm:MainViewModel">
 
-  <StackPanel Classes="form" Margin="4,8,12,16">
+  <StackPanel Classes="form" Margin="4,8,12,16" c:Menus.Kind="countdown">
     <TextBlock Classes="h1 neon-time" Text="Countdown" />
 
     <CheckBox Content="Countdown on" IsChecked="{Binding State.Countdown.Enabled}" />

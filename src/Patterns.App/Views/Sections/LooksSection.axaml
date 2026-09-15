@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="using:Patterns.App.Views.Controls"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.LooksSection"
@@ -32,7 +33,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:LookConfig">
           <!-- The tally: a red edge and chip for the look on air, green for the one in the preview; "EDITED" once the picture moved on. -->
-          <Border Classes="lookRow" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" CornerRadius="8" Padding="10,7" Margin="0,3">
+          <Border Classes="lookRow" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" CornerRadius="8" Padding="10,7" Margin="0,3" ctl:Menus.Kind="look">
             <Grid ColumnDefinitions="Auto,10,*,8,Auto,8,Auto,6,Auto,8,Auto,Auto,Auto,Auto">
               <Border Grid.Column="0" Background="#20242E" CornerRadius="7" Padding="8,3" MinWidth="38"
                       IsVisible="{Binding Hotkey, Converter={StaticResource Positive}}">

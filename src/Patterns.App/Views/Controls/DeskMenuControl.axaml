@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Patterns.App.ViewModels"
+             x:Class="Patterns.App.Views.Controls.DeskMenuControl"
+             x:DataType="vm:DeskMenuVm">
+  <UserControl.Resources>
+    <!-- One line of the menu: the dot (filled while it is on), the words, the second line (what it does, or why not),
+         the wire line dimmed at the right for whoever is building a Companion page, and ▸ when it opens a drawer -->
+    <DataTemplate x:Key="Entry" x:DataType="vm:MenuEntryVm">
+      <Button Classes="deskMenuEntry" Classes.open="{Binding IsOpen}" Command="{Binding ChooseCommand}" IsEnabled="{Binding IsEnabled}" Focusable="True">
+        <Grid ColumnDefinitions="16,*,Auto,14">
+          <Ellipse Width="8" Height="8" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,1,0,0"
+                   Fill="{Binding DotBrush}" Stroke="{Binding HueBrush}" StrokeThickness="1.2" />
+          <StackPanel Grid.Column="1" Spacing="1">
+            <TextBlock Classes="deskMenuText" Text="{Binding Text}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="deskMenuLine2" Classes.because="{Binding !IsEnabled}" Text="{Binding Line2}" IsVisible="{Binding HasLine2}" TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock Grid.Column="2" Classes="deskMenuWire" Text="{Binding Wire}" IsVisible="{Binding HasWire}" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="3" Classes="deskMenuChevron" Text="▸" IsVisible="{Binding HasChildren}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+        </Grid>
+      </Button>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <Border Classes="deskMenu">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,Auto">
+      <!-- The header: the thing and its state, with a strip in its tone -->
+      <Border Grid.Row="0" Grid.ColumnSpan="2" Classes="deskMenuHead">
+        <Grid ColumnDefinitions="4,10,*">
+          <Border Background="{Binding HueBrush}" CornerRadius="2" VerticalAlignment="Stretch" />
+          <StackPanel Grid.Column="2" Spacing="2">
+            <TextBlock Classes="deskMenuTitle" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="deskMenuSub" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+      <!-- The groups: PREVIEW · LIVE · CUE STACK · GO TO · ASK, each with its rule in one line -->
+      <ScrollViewer Grid.Row="1" Grid.Column="0" Width="380" MaxHeight="560" VerticalScrollBarVisibility="Auto" Margin="0,2,0,0">
+        <ItemsControl ItemsSource="{Binding Groups}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:MenuGroupVm">
+              <StackPanel Margin="0,2,0,4">
+                <TextBlock Classes="deskMenuHeading" Text="{Binding Heading}" Foreground="{Binding HueBrush}" />
+                <TextBlock Classes="deskMenuNote" Text="{Binding Note}" IsVisible="{Binding HasNote}" />
+                <ItemsControl ItemsSource="{Binding Entries}" ItemTemplate="{StaticResource Entry}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+      <!-- The drawer: the choices of the entry that is open, beside the menu rather than over it -->
+      <Border Grid.Row="1" Grid.Column="1" Classes="deskMenuDrawer" IsVisible="{Binding HasOpen}" Width="290">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Classes="deskMenuHeading drawer" Text="{Binding OpenHeading}" Margin="12,10,12,4" />
+          <ScrollViewer Grid.Row="1" MaxHeight="520" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding OpenChildren}" ItemTemplate="{StaticResource Entry}" Margin="0,0,0,6" />
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

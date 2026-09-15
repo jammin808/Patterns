@@ -265,7 +265,7 @@
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,8,*,Auto" Margin="2,0,2,4">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,8,*,Auto" Margin="2,0,2,4" ctl:Menus.Kind="program">
               <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                 <Ellipse Classes="dot" Fill="#FF5C7A" />
                 <TextBlock Text="PROGRAM" FontWeight="Bold" FontSize="13" LetterSpacing="1.5" Foreground="#FF9EB0" />
@@ -277,7 +277,7 @@
               <TextBlock Grid.Column="3" Classes="label" Text="{Binding OutputsStatus}" VerticalAlignment="Center" TextWrapping="NoWrap" />
             </Grid>
             <Border Grid.Row="1" Classes="panel" Padding="4" ClipToBounds="True"
-                    BorderBrush="#59FF5C7A" BorderThickness="1">
+                    BorderBrush="#59FF5C7A" BorderThickness="1" ctl:Menus.Kind="program">
               <!-- The pane takes the selected target's shape: a true miniature, letterboxed. -->
               <ctl:AspectBox Ratio="{Binding SelectedTargetRatio}">
                 <r:SkiaCanvasControl x:Name="PgmCanvas" />
@@ -379,7 +379,7 @@
               </Grid>
             </Expander>
 
-            <Grid Grid.Row="5" ColumnDefinitions="Auto,8,Auto,8,*,Auto,Auto,Auto" Margin="2,0,2,4">
+            <Grid Grid.Row="5" ColumnDefinitions="Auto,8,Auto,8,*,Auto,Auto,Auto" Margin="2,0,2,4" ctl:Menus.Kind="preview">
               <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                 <Ellipse Classes="dot" Fill="#2EE68A" />
                 <TextBlock Text="PREVIEW" FontWeight="Bold" FontSize="13" LetterSpacing="1.5" Foreground="#8FE8B8" />

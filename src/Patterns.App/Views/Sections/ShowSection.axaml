@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="using:Patterns.App.Views.Controls"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:m="using:Patterns.Core.Model"
              xmlns:lt="using:Patterns.Core.LowerThirds"
@@ -58,8 +59,8 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="m:LookConfig">
-          <!-- Lit red while it is the picture on air, green while it is loaded in the preview; PVW loads it into the preview for a sign-off. -->
-          <Grid ColumnDefinitions="*,Auto" Margin="0,0,6,6">
+          <!-- Lit red while it is the picture on air, green while it is loaded in the preview; PVW loads it into the preview for a sign-off. Right-click: its menu. -->
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,6,6" ctl:Menus.Kind="look">
             <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}"
                     Height="56" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Center"
@@ -89,7 +90,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:SwitcherTile">
           <!-- One row per screen and canvas (the program tile has the LOOKS grid above): a look on this screen alone, or the program back. -->
-          <Border Classes="runRow" IsVisible="{Binding !IsProgramTile}">
+          <Border Classes="runRow" IsVisible="{Binding !IsProgramTile}" ctl:Menus.Kind="tile">
             <StackPanel Spacing="6">
               <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                 <TextBlock Classes="label" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
@@ -247,7 +248,7 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="lt:LowerThirdDesign">
-            <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
+            <Button Classes="chip" Classes.pvw="{Binding IsInPreview}" Classes.air="{Binding IsOnAir}" ctl:Menus.Kind="lowerthird" Margin="0,0,6,6" Height="48" Padding="8,4" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding OnAirText}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ChipLowerThirdCommand}"
                     CommandParameter="{Binding}">

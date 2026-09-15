@@ -116,21 +116,13 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:RunRow">
                 <Border Classes="runRow" Classes.standby="{Binding IsStandby}" Classes.last="{Binding IsLast}" Classes.next="{Binding IsNext}"
-                        Classes.broken="{Binding IsBroken}" Classes.off="{Binding !Enabled}">
-                  <!-- Right-click: the row's own verbs. A popup climbs no parent, so the commands come through the row's Owner. -->
-                  <Border.ContextMenu>
-                    <ContextMenu>
-                      <MenuItem Header="STANDBY HERE" Command="{Binding Owner.SelectRowCommand}" CommandParameter="{Binding}" />
-                      <MenuItem Header="GO THIS CUE NOW" Command="{Binding Owner.FireRowCommand}" CommandParameter="{Binding}" />
-                      <MenuItem Header="NOTE…" Command="{Binding Owner.EditNotesCommand}" CommandParameter="{Binding}" />
-                      <MenuItem Header="{Binding SkipLabel}" Command="{Binding Owner.ToggleSkipCommand}" CommandParameter="{Binding}" />
-                      <MenuItem Header="OPEN IN THE CUE EDITOR" Command="{Binding Owner.OpenInEditorCommand}" CommandParameter="{Binding}" />
-                    </ContextMenu>
-                  </Border.ContextMenu>
+                        Classes.broken="{Binding IsBroken}" Classes.off="{Binding !Enabled}"
+                        ctl:Menus.Kind="cue">
+                  <!-- Right-click: the cue's menu (round 60) — the row's own verbs, then the cue's look, its transition, its overlays, a lower third on a clock, the auto-follow; the window's view model builds it -->
                   <Button Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" Focusable="False"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           Command="{Binding $parent[UserControl].((vm:IRunPage)DataContext).Run.SelectRowCommand}" CommandParameter="{Binding}"
-                          ToolTip.Tip="Click: put this cue on standby (changes nothing on air). Right-click, or ✎: the row's own verbs — go now, a note, skip, the editor">
+                          ToolTip.Tip="Click: put this cue on standby (changes nothing on air). Right-click: the cue's menu — go now, a note, skip, its look and how it comes in, the overlays and the lower third it brings, the auto-follow, the editor. ✎: a note, for a touch screen">
                     <Grid ColumnDefinitions="88,Auto,*,Auto">
                       <StackPanel Grid.Column="0" VerticalAlignment="Top">
                         <TextBlock Classes="runNumber" Text="{Binding Number}" />

@@ -916,4 +916,107 @@
     <Setter Property="Background" Value="#1AC0CBDB" />
   </Style>
   <Style Selector=":is(UserControl).hue-help Border.panel"><Setter Property="BorderBrush" Value="#40C0CBDB" /></Style>
+
+  <!-- Round 60: the right-click menus — a flyout of the desk's own. Amber is the preview, red the air,
+       violet a tile's own switches, blue the cue stack, mint the assistant; a line that cannot be chosen
+       says why in orange in place of what it would do; the wire line sits dimmed at the right. -->
+  <Style Selector="FlyoutPresenter.deskMenu">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="MaxWidth" Value="900" />
+    <Setter Property="MaxHeight" Value="700" />
+  </Style>
+  <Style Selector="Border.deskMenu">
+    <Setter Property="Background" Value="#F6101319" />
+    <Setter Property="BorderBrush" Value="#2E3442" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="0,0,0,4" />
+    <Setter Property="BoxShadow" Value="0 10 28 0 #B0000000" />
+  </Style>
+  <Style Selector="Border.deskMenuHead">
+    <Setter Property="Padding" Value="12,10,14,9" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuTitle">
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="LetterSpacing" Value="0.5" />
+    <Setter Property="Foreground" Value="#E6EAF2" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuSub">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="MaxWidth" Value="360" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuHeading">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="1.6" />
+    <Setter Property="Margin" Value="12,6,12,1" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuHeading.drawer">
+    <Setter Property="Foreground" Value="#C0CBDB" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuNote">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontStyle" Value="Italic" />
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+    <Setter Property="Margin" Value="12,0,12,3" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="Button.deskMenuEntry">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="Margin" Value="4,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.deskMenuEntry:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="#1A1F2B" />
+  </Style>
+  <Style Selector="Button.deskMenuEntry.open /template/ ContentPresenter">
+    <Setter Property="Background" Value="#1F2634" />
+  </Style>
+  <Style Selector="Button.deskMenuEntry:disabled">
+    <Setter Property="Opacity" Value="0.62" />
+  </Style>
+  <Style Selector="Button.deskMenuEntry:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuText">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="#E6EAF2" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuLine2">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuLine2.because">
+    <Setter Property="Foreground" Value="#FF8A00" />
+    <Setter Property="FontStyle" Value="Italic" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuWire">
+    <Setter Property="FontFamily" Value="Consolas,Menlo,monospace" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="Foreground" Value="#566072" />
+    <Setter Property="Margin" Value="10,0,0,0" />
+  </Style>
+  <Style Selector="TextBlock.deskMenuChevron">
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}" />
+    <Setter Property="Margin" Value="4,0,0,0" />
+  </Style>
+  <Style Selector="Border.deskMenuDrawer">
+    <Setter Property="Background" Value="#0C0E14" />
+    <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+    <Setter Property="CornerRadius" Value="0,10,10,0" />
+  </Style>
+
 </Styles>

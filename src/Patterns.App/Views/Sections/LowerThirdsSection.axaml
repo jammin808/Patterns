@@ -48,7 +48,7 @@
     <ListBox ItemsSource="{Binding State.LowerThirds.Designs}" SelectedItem="{Binding SelectedLowerThird, Mode=TwoWay}" MaxHeight="230">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="lt:LowerThirdDesign">
-          <Grid ColumnDefinitions="Auto,6,*,8,Auto,6,Auto,8,Auto,4,Auto,6,Auto,Auto">
+          <Grid ColumnDefinitions="Auto,6,*,8,Auto,6,Auto,8,Auto,4,Auto,6,Auto,Auto" c:Menus.Kind="lowerthird">
             <ToggleButton Classes="mini" Content="★" IsChecked="{Binding IsDefault, Mode=OneWay}" VerticalAlignment="Center"
                           ToolTip.Tip="The show's default design: once a style is chosen it usually serves the whole show, so PERSON n, the PEOPLE chips, the phone and a cue that names a person but no design put the next name into this one when none is on air"
                           Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).SetDefaultLowerThirdCommand}" CommandParameter="{Binding}" />
@@ -103,7 +103,7 @@
     <ListBox ItemsSource="{Binding State.LowerThirds.Entries}" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}" MaxHeight="230">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="lt:LowerThirdEntry">
-          <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto">
+          <Grid ColumnDefinitions="*,8,Auto,Auto,Auto,Auto" c:Menus.Kind="person">
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
               <TextBlock Classes="label" Text="{Binding Role}" TextTrimming="CharacterEllipsis" IsVisible="{Binding Role, Converter={StaticResource NotEmpty}}" />

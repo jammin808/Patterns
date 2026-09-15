@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="using:Patterns.App.Views.Controls"
              xmlns:vm="using:Patterns.App.ViewModels"
              xmlns:m="using:Patterns.Core.Model"
              x:Class="Patterns.App.Views.Sections.CuesSection"
@@ -41,7 +42,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:CueRow">
           <Border Classes="cueRow" Classes.cueSelected="{Binding IsSelected}" Classes.cueBroken="{Binding IsBroken}"
-                  Classes.cueOff="{Binding !Enabled}">
+                  Classes.cueOff="{Binding !Enabled}" ctl:Menus.Kind="cue">
             <Grid ColumnDefinitions="Auto,*,Auto">
               <Ellipse Grid.Column="0" Width="7" Height="7" Margin="0,0,8,0" VerticalAlignment="Center"
                        Classes="cueDot" Classes.current="{Binding IsCurrent}" Classes.broken="{Binding IsBroken}" Classes.ready="{Binding Ready}"

@@ -35,7 +35,8 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:SwitcherTile">
           <!-- A pause over the tile pops it up large: PGM and PVW side by side, the same miniatures at a size a caller can read -->
-          <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Classes.tileCollapsed="{Binding IsCollapsed}" Padding="6,4" ToolTip.ShowDelay="700" ToolTip.Placement="Bottom">
+          <Border Classes="tile" Classes.tileActive="{Binding IsSelected}" Classes.tileCollapsed="{Binding IsCollapsed}" Padding="6,4" ToolTip.ShowDelay="700" ToolTip.Placement="Bottom"
+                  ctl:Menus.Kind="tile">
             <ToolTip.Tip>
               <StackPanel Spacing="6" Width="680">
                 <TextBlock Classes="tileTitle" Classes.air="{Binding IsOnAir}" Classes.hold="{Binding IsHeld}" Text="{Binding Title}" FontWeight="Bold" FontSize="14" />

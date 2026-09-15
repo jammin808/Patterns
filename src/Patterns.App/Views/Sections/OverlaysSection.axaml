@@ -10,6 +10,7 @@
   <StackPanel Classes="form" Margin="4,8,12,16">
     <TextBlock Classes="h1 neon-time" Text="Overlays" />
 
+    <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="clock">
     <TextBlock Classes="h2" Text="TIME &amp; DATE" />
     <CheckBox Content="Show clock" IsChecked="{Binding State.Overlays.Clock.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Clock.Enabled}">
@@ -43,6 +44,8 @@
       </Grid>
     </StackPanel>
 
+    </StackPanel>
+    <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="logo">
     <TextBlock Classes="h2" Text="LOGO WATERMARK" />
     <CheckBox Content="Show logo (set the file in Branding)" IsChecked="{Binding State.Overlays.Logo.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Logo.Enabled}">
@@ -68,6 +71,8 @@
       </Grid>
     </StackPanel>
 
+    </StackPanel>
+    <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="message">
     <TextBlock Classes="h2" Text="MESSAGE" />
     <CheckBox Content="Show message" IsChecked="{Binding State.Overlays.Message.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Message.Enabled}">
@@ -145,6 +150,8 @@
       </StackPanel>
     </StackPanel>
 
+    </StackPanel>
+    <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="weather">
     <TextBlock Classes="h2" Text="WEATHER" />
     <CheckBox Content="Show the weather" IsChecked="{Binding State.Overlays.Weather.Enabled}" />
     <Grid ColumnDefinitions="130,*,8,Auto">
@@ -242,6 +249,8 @@
     <TextBlock Classes="hint tip"
                Text="MET Norway's forecast is free the world over, needs no key, and asks only to be credited (the chip's small line) and told who is calling (the contact). Open-Meteo is free for non-commercial use and sells a key for commercial shows. The place search is OpenStreetMap's: a town and a country finds it; a venue it does not know takes its coordinates typed in. A look carries the chip and its view; the place and the source are the show's. The Show panel's drawer, a cue (Weather on / off / the view), WEATHER on the wire and Companion switch it live." />
 
+    </StackPanel>
+    <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="pip">
     <TextBlock Classes="h2" Text="PICTURE-IN-PICTURE (LIVE INSET)" />
     <CheckBox Content="Show a live inset over the content" IsChecked="{Binding State.Overlays.Pip.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Pip.Enabled}">
@@ -323,6 +332,8 @@
                  Text="A second live input (camera, remote feed) in the corner of whatever is showing — its own receiver/decoder, independent of the Media source, on every screen and NDI output. Crop away a slate, a border or a black bar from any side; the inset takes the cropped shape, never squashes. Inset audio is not played." />
     </StackPanel>
 
+    </StackPanel>
+    <StackPanel Classes="form" c:Menus.Kind="overlay" c:Menus.Subject="info">
     <TextBlock Classes="h2" Text="TECH INFO CHIP" />
     <CheckBox Content="Show sink name, pattern and FPS" IsChecked="{Binding State.Overlays.Info.Enabled}" />
     <StackPanel IsEnabled="{Binding State.Overlays.Info.Enabled}">
@@ -333,6 +344,7 @@
                   SelectedValue="{Binding State.Overlays.Info.Anchor, Mode=TwoWay}"
                   SelectedValueBinding="{Binding Value, x:DataType=vm:EnumItem}" />
       </Grid>
+    </StackPanel>
     </StackPanel>
   </StackPanel>
 </UserControl>

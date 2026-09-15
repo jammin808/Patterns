@@ -18,8 +18,24 @@ namespace Patterns.App.ViewModels;
 /// Cues page of a caller, the stage's display and controls of a caller and a stage timer, the
 /// Arcade page of the arcade, the Nodes page of every node.
 /// </summary>
-public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPage, ICuesPage, IStagePage, IStageDisplay, IRunPageOwner
+public sealed class NodeViewModel : Observable, IArcadePage, INodesPage, IRunPage, ICuesPage, IStagePage, IStageDisplay, IRunPageOwner, IDeskMenuHost
 {
+    /// <summary>A cue row's right-click menu on a node: the stack's own verbs and edits over the mirrored show; the preview and the assistant live on the desk.</summary>
+    public DeskMenuVm? MenuFor(string kind, object? subject)
+    {
+        if (kind != "cue") return null;
+        var cue = subject switch { RunRow r => r.Cue, CueRow c => c.Cue, Patterns.Core.Model.RunCueConfig q => q, _ => null };
+        if (cue is null) return null;
+        return CueMenus.Build(_host, Run, Cues, cue, subject as RunRow, subject as CueRow, Services.DeskMenuFacts.Node(_host.State),
+            route =>
+            {
+                if (route.Page == "Cues") OpenCueInEditor(cue);
+                return route.Page == "Cues" ? $"Cue {cue.Number} in the editor." : "That page is the desk's — open it there.";
+            },
+            _ => "The assistant lives on the desk — ask there.",
+            m => StatusMessage = m);
+    }
+
     /// <summary>The tabs of the node window, in its order; a kind hides the ones it does not show.</summary>
     public const int RunTab = 0, CuesTab = 1, StageTab = 2, ArcadeTab = 3, NodesTab = 4, MachineTab = 5;
 
