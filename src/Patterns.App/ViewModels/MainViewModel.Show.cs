@@ -944,7 +944,7 @@ public sealed partial class MainViewModel
         });
         if (live && _tallyTimer is null)
         {
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            var timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(200));
             timer.Tick += (_, _) =>
             {
                 if (RefreshStingerTallies() | RefreshLowerThirdTallies()) return;

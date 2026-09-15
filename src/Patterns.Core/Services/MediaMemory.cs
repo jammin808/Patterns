@@ -49,6 +49,51 @@ public static class MediaMemory
     /// <summary>The media budget for a machine of this size, in bytes.</summary>
     public static long BudgetBytes(double totalMB) => (long)(MemoryBudget.For(totalMB, MemoryBudget.PictureCapacity, 4).AppCeilingMB * ShareOfAppCeiling * MB);
 
+    /// <summary>The shares a rung is left at, below its entry (round 64): elevated leaves under 65 %, high under 80 %, critical under 92 % — so a reading that sits on a line does not flap the steps on and off.</summary>
+    public const double ElevatedLeavesAt = 0.65;
+    public const double HighLeavesAt = 0.80;
+    public const double CriticalLeavesAt = 0.92;
+
+    /// <summary>How long a reading has to sit below a rung's leaving share before the ladder steps down; stepping up is never delayed.</summary>
+    public static readonly TimeSpan Dwell = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// The next rung from the current one and a reading (round 64): up at once when the share
+    /// passes a rung's entry; down only once the share has sat below the current rung's leaving
+    /// share for <see cref="Dwell"/> — <paramref name="belowSince"/> is when it first did (-1
+    /// while it has not), kept by the caller between readings.
+    /// </summary>
+    public static MemoryPressure Step(MemoryPressure current, long bytes, long budget, double nowSeconds, ref double belowSince)
+    {
+        var target = LevelOf(bytes, budget);
+        if (target > current)
+        {
+            belowSince = -1;
+            return target;
+        }
+        if (budget <= 0 || current == MemoryPressure.None)
+        {
+            belowSince = -1;
+            return current;
+        }
+        var share = (double)bytes / budget;
+        var leaves = current switch
+        {
+            MemoryPressure.Critical => CriticalLeavesAt,
+            MemoryPressure.High => HighLeavesAt,
+            _ => ElevatedLeavesAt,
+        };
+        if (share >= leaves)
+        {
+            belowSince = -1;
+            return current;
+        }
+        if (belowSince < 0) belowSince = nowSeconds;
+        if (nowSeconds - belowSince < Dwell.TotalSeconds) return current;
+        belowSince = -1;
+        return current - 1;                                                  // one rung at a time: the next reading judges the next
+    }
+
     /// <summary>The rung for these bytes against this budget: none under 70 %, elevated from there, high from 85 %, critical at the budget and past it.</summary>
     public static MemoryPressure LevelOf(long bytes, long budget)
     {

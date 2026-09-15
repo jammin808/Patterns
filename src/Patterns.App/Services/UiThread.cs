@@ -60,7 +60,7 @@ public sealed class AvaloniaDispatch : IDispatchProvider
 
         public AvaloniaTimer(TimeSpan interval)
         {
-            _timer = new DispatcherTimer { Interval = interval };
+            _timer = global::Patterns.App.Services.DeskTimers.Make(interval);
             _timer.Tick += (_, _) => Tick?.Invoke();
         }
 

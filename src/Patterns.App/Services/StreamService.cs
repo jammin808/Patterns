@@ -42,7 +42,7 @@ public sealed class StreamService : IDisposable
     public StreamService(AppServices services)
     {
         _services = services;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(1000));
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
     }

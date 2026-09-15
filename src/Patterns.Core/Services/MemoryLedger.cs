@@ -38,6 +38,18 @@ public static class MemoryLedger
         }
     }
 
+    /// <summary>Owners registered right now (the lifetime census reads it: a desk's owners leave with it).</summary>
+    public static int Count
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return Owners.Count;
+            }
+        }
+    }
+
     /// <summary>Every owner's line, in the order they registered; a reader that throws reads as nought.</summary>
     public static IReadOnlyList<Line> Read()
     {

@@ -50,7 +50,7 @@ public sealed class ScreenArrangeControl : Control
     public ScreenArrangeControl()
     {
         ClipToBounds = true;
-        _animTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
+        _animTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render);
         _animTimer.Tick += (_, _) =>
         {
             if (AnyTileAnimated()) InvalidateVisual();

@@ -111,6 +111,11 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     /// <summary>Audience play: the room on the hub — polls, quizzes, the cloud, messages back, the queue, draughts and the path; the wall on the arcade's lane.</summary>
     public PlayService Play { get; }
 
+    /// <summary>The desk builds the room and the arcade always (a rig day, the wall's board); a node asks its role (round 64).</summary>
+    public bool HasRoom => true;
+    public bool HasArcade => true;
+    public string RoomJoinUrl => Play.JoinUrl;
+
     /// <summary>Rig day, gamified and opt-in: the show-ready bar, the alignment game, Blend Quest, the streak.</summary>
     public RigDayService RigDay { get; }
 
@@ -351,8 +356,28 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     public bool IsDesk => Profile == NodeKind.Desk;
 
+    /// <summary>Every desk made, held weakly: <see cref="Alive"/> counts the ones a collection could not reclaim — a closed desk still counted is a rooted desk (round 64's census).</summary>
+    private static readonly List<WeakReference<AppServices>> Desks = new();
+
+    /// <summary>Desks alive right now — read after a full collection to prove a closed desk is gone.</summary>
+    public static int Alive
+    {
+        get
+        {
+            lock (Desks)
+            {
+                Desks.RemoveAll(w => !w.TryGetTarget(out _));
+                return Desks.Count;
+            }
+        }
+    }
+
+    /// <summary>The pipeline hook this desk set for its start-up budget, cleared on shutdown so the static holds nothing of a closed desk.</summary>
+    private Action? _firstPreviewFrame;
+
     public AppServices(SettingsStore? store = null, ShowState? preloaded = null, NodeKind? profile = null)
     {
+        lock (Desks) Desks.Add(new WeakReference<AppServices>(this));
         RenderingModule.Register();                                                         // the desk draws: the render side reports its bytes and reads pictures for the assistant
         Profile = profile ?? LaunchProfile;
         if (store is null && Preloaded is { } pre)
@@ -537,14 +562,15 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Kernel.Air = this;                                       // the beacon packet and the nodes page read the desk's air from here on
         GpuService.RecordAppliedPath(State);
 
-        _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
+        _saveTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(900));
         _saveTimer.Tick += (_, _) =>
         {
             _saveTimer.Stop();
+            if (_shutDown) return;
             SaveInBackground();
         };
 
-        _reapplyTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _reapplyTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(250));
         _reapplyTimer.Tick += (_, _) =>
         {
             _reapplyTimer.Stop();
@@ -612,7 +638,8 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         Startup.Mark(StartupBudget.Services);
         Log.Info(Modules.Words());                                                              // what the desk loaded, on record at every start
         // The desk's first frame is the budget's last mark; a pipeline tells it once.
-        Rendering.RenderPipeline.FirstPreviewFrame = () => Startup.Mark(StartupBudget.FirstFrame);
+        _firstPreviewFrame = () => Startup.Mark(StartupBudget.FirstFrame);
+        Rendering.RenderPipeline.FirstPreviewFrame = _firstPreviewFrame;
         // The NDI runtime's first touch loads and initialises a native library: off the UI thread
         // now, so the desk's first poll (a second after the start) finds the answer cached instead
         // of loading it on the UI thread.
@@ -818,6 +845,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
     private void OnStateChanged()
     {
+        // A closed desk publishes nothing: a queued edit that lands after Shutdown (a key made
+        // for the twin, a device's last line) would otherwise re-open what Shutdown closed —
+        // the twin's listener, its beat — and root the desk for good (round 64's census).
+        if (_shutDown) return;
         if (_bulkDepth > 0 || _deskDepth > 0) return;
 
         SyncDisplays();
@@ -841,12 +872,10 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
 
         if (Outputs.IsLive)
         {
-            _reapplyTimer.Stop();
-            _reapplyTimer.Start();
+            ArmReapply();
         }
 
-        _saveTimer.Stop();
-        _saveTimer.Start();
+        ArmSave();
 
         UpdateRecovery();
     }
@@ -1772,8 +1801,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         // Null-safe on purpose: SaveNow also runs at startup, before Stingers exists.
         if (Stingers is { OwnsScreens: true })
         {
-            _saveTimer.Stop();
-            _saveTimer.Start();
+            ArmSave();
             return;
         }
         AwaitPendingSaves();
@@ -1834,8 +1862,7 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
         if (!_autosave) return;
         if (Stingers is { OwnsScreens: true })
         {
-            _saveTimer.Stop();
-            _saveTimer.Start();
+            ArmSave();
             return;
         }
         var at = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -1888,57 +1915,110 @@ public sealed class AppServices : IAirReport, ITwinHost, IWireHost, IStageHost, 
     private bool _shutDown;
 
     /// <summary>The way out, once: Avalonia raises ShutdownRequested and then Exit, and the exit used to do all of this twice.</summary>
+    /// <summary>
+    /// The view models built on this desk, weakly: Shutdown stops their timers whether or not a
+    /// window was ever attached — a view model without a window (a headless test's) would
+    /// otherwise keep its timers running, and they it (round 64's census).
+    /// </summary>
+    private readonly List<WeakReference<ViewModels.MainViewModel>> _viewModels = new();
+
+    internal void RegisterViewModel(ViewModels.MainViewModel vm)
+    {
+        lock (_viewModels) _viewModels.Add(new WeakReference<ViewModels.MainViewModel>(vm));
+    }
+
+    private ViewModels.MainViewModel[] ViewModelsAlive()
+    {
+        lock (_viewModels)
+        {
+            var alive = new List<ViewModels.MainViewModel>();
+            foreach (var w in _viewModels) if (w.TryGetTarget(out var vm)) alive.Add(vm);
+            return alive.ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Arms the autosave debounce — never on a closed desk. A change that lands after Shutdown
+    /// (a listener's last line, a page's last edit, a device's receipt) must not leave a timer
+    /// running: a running timer roots the whole desk, and its tick would save a desk that is
+    /// gone (round 64's census).
+    /// </summary>
+    private void ArmSave()
+    {
+        if (_shutDown) return;
+        _saveTimer.Stop();
+        _saveTimer.Start();
+    }
+
+    /// <summary>Arms the live re-apply debounce — never on a closed desk (see <see cref="ArmSave"/>).</summary>
+    private void ArmReapply()
+    {
+        if (_shutDown) return;
+        _reapplyTimer.Stop();
+        _reapplyTimer.Start();
+    }
+
     public void Shutdown()
     {
         if (_shutDown) return;
         _shutDown = true;
-        try
+        // The statics that pointed at this desk let go of it: a closed desk is reclaimed whole (the census counts it).
+        if (ReferenceEquals(Rendering.RenderPipeline.FirstPreviewFrame, _firstPreviewFrame)) Rendering.RenderPipeline.FirstPreviewFrame = null;
+        if (ReferenceEquals(Instance, this)) Instance = null!;
+        foreach (var vm in ViewModelsAlive()) vm.OnWindowClosed();   // the desk's own timers and hooks, whether or not a window was attached or closed first
+        // Every step on its own guard: one that fails (a record whose delete throws, a device
+        // that will not close) is logged and the rest still run. A desk half shut keeps its
+        // timers, and a running timer roots the whole desk (round 64's census).
+        Step("outputs", Outputs.CloseAll);
+        Step("calibration", Calibration.Shutdown);   // a run in flight ends with the desk: the structured light is process-wide
+        Step("stream", Stream.Dispose);
+        Step("stingers", Stingers.Dispose);
+        Step("spotify", Spotify.Dispose);
+        Step("control", Control.Dispose);
+        Step("osc", Osc.Dispose);
+        Step("devices", Devices.Dispose);
+        Step("management", Management.Dispose);
+        Step("beacon", Beacon.Dispose);
+        Step("mdns", Kernel.Mdns.Dispose);   // its goodbye and its timer: a running timer roots the kernel, and the kernel this desk (round 64's census)
+        Step("show lock", ShowLock.Dispose);   // everything the lock changed goes back before the desk is gone
+        Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
+        Step("twin", Twin.Dispose);
+        Step("play", Play.Dispose);
+        Step("arcade in", ArcadeIn.Dispose);
+        Step("arcade", Arcade.Dispose);
+        Step("ndi", Ndi.StopAll);
+        Step("ndi in", NdiIn.Dispose);
+        Step("web in", WebIn.Dispose);
+        Step("audio graph", () => AudioGraph?.Dispose());
+        Step("deck in", DeckIn.Dispose);
+        Step("audio", Audio.Dispose);
+        Step("audio player", AudioPlayer.Dispose);
+        Step("playlist", Playlist.Dispose);
+        Step("feeds", Feeds.Dispose);
+        Step("weather", Weather.Dispose);
+        Step("video", Video.Dispose);
+        Step("thumbnails", Thumbnails.Dispose);
+        Step("metrics", Metrics.Dispose);
+        Step("analyser", Analyser.Dispose);
+        Step("tail", Tail.Dispose);
+        Step("quality profile", Quality.SaveProfileNow);   // where the ladder settled on this machine: next start begins there
+        Step("save", SaveNow);
+        _saveTimer.Stop();      // a save armed by the last publish would fire after the desk is gone — and a running timer roots it (round 64's census)
+        _reapplyTimer.Stop();
+        if (!_restartRequested)
         {
-            Outputs.CloseAll();
-            Calibration.Shutdown();   // a run in flight ends with the desk: the structured light is process-wide
-            Stream.Dispose();
-            Stingers.Dispose();
-            Spotify.Dispose();
-            Control.Dispose();
-            Osc.Dispose();
-            Devices.Dispose();
-            Management.Dispose();
-            Beacon.Dispose();
-            ShowLock.Dispose();   // everything the lock changed goes back before the desk is gone
-            Twin.KeepStandbyOnExit = _restartRequested; // RESTART and UPDATE APPLY bring this desk back in seconds: the standby waits for it
-            Twin.Dispose();
-            Play.Dispose();
-            ArcadeIn.Dispose();
-            Arcade.Dispose();
-            Ndi.StopAll();
-            NdiIn.Dispose();
-            WebIn.Dispose();
-            AudioGraph?.Dispose();
-            DeckIn.Dispose();
-            Audio.Dispose();
-            AudioPlayer.Dispose();
-            Playlist.Dispose();
-            Feeds.Dispose();
-            Weather.Dispose();
-            Video.Dispose();
-            Thumbnails.Dispose();
-            Metrics.Dispose();
-            Analyser.Dispose();
-            Tail.Dispose();
-            Quality.SaveProfileNow();   // where the ladder settled on this machine: next start begins there
-            SaveNow();
-            if (!_restartRequested)
-            {
-                Recovery.Clear(); // a clean exit must never auto-restore
-            }
-            // The windows went with CloseAll above: the record must go too, or the next start
-            // would hunt for screens that are not playing.
-            Ownership.Shutdown();
-            _instanceMutex?.Dispose();
+            Step("recovery", Recovery.Clear); // a clean exit must never auto-restore
         }
-        catch (Exception ex)
-        {
-            Log.Error("Shutdown cleanup failed.", ex);
-        }
+        // The windows went with CloseAll above: the record must go too, or the next start
+        // would hunt for screens that are not playing.
+        Step("ownership", Ownership.Shutdown);
+        Step("instance mutex", () => _instanceMutex?.Dispose());
+    }
+
+    /// <summary>One shutdown step, its failure logged and the next still taken.</summary>
+    private static void Step(string what, Action step)
+    {
+        try { step(); }
+        catch (Exception ex) { Log.Error($"Shutdown: {what} failed.", ex); }
     }
 }

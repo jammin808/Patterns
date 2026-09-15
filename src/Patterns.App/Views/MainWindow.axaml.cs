@@ -110,6 +110,7 @@ public partial class MainWindow : Window
         {
             _previewPipeline?.Dispose();
             _programPipeline?.Dispose();
+            (DataContext as MainViewModel)?.OnWindowClosed();   // the statics and the timers let go of this desk (round 64's census counts it)
         };
     }
 

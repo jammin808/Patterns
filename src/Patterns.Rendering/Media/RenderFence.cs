@@ -300,6 +300,20 @@ public static class RenderFence
         }
     }
 
+    /// <summary>Seats taken right now — one per pipeline alive (the lifetime census reads it).</summary>
+    public static int Seats
+    {
+        get
+        {
+            lock (Gate)
+            {
+                var n = 0;
+                for (var i = 0; i < MaxSinks; i++) if (Registered[i]) n++;
+                return n;
+            }
+        }
+    }
+
     /// <summary>Seats with a frame open right now.</summary>
     public static int OpenFrames
     {

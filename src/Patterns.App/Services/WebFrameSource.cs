@@ -248,7 +248,7 @@ public sealed class WebFrameSource : IWebSource, IDisposable
 
             NavigateCore(_currentUrl);
 
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000.0 / CaptureFps) };
+            _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(1000.0 / CaptureFps));
             _timer.Tick += (_, _) =>
             {
                 _ = GrabAsync();

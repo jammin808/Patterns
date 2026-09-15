@@ -569,7 +569,7 @@ public sealed class WebEngine : IDisposable
         var wanted = Pending();
         if (wanted && _fast is null && Dispatcher.UIThread.CheckAccess())
         {
-            _fast = new DispatcherTimer { Interval = FastPoll };
+            _fast = global::Patterns.App.Services.DeskTimers.Make(FastPoll);
             _fast.Tick += (_, _) =>
             {
                 if (!Pending())

@@ -57,7 +57,7 @@ public sealed class SpotifyService : IDisposable
         _store = store;
         _creds = store.Read();
         Transport = DefaultTransport;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(400));
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
     }

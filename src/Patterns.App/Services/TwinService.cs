@@ -423,6 +423,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     /// <summary>Opens or closes the listener or the link to match the settings (UI thread, on every publish).</summary>
     public void Reconcile()
     {
+        if (_disposed) return;                                              // a closed desk opens no port and starts no beat
         var cfg = _kernel.State.Twin;
         var hostsCallers = _kernel.IsDesk && cfg.Role != TwinRole.Standby && cfg.AcceptCallers;
         if ((cfg.Role == TwinRole.Main || hostsCallers) && cfg.Key.Length == 0)
@@ -585,6 +586,7 @@ public sealed partial class TwinService : IDisposable, ILinkReport
     /// <summary>Once a second (UI thread): the beats out, the silence counted, the redial, the takeover a standby was told it may make. Public so a test can move the clock and tick.</summary>
     public void Tick()
     {
+        if (_disposed) return;                                              // a beat that lands after the close does nothing
         try
         {
             var now = Clock();
@@ -668,8 +670,12 @@ public sealed partial class TwinService : IDisposable, ILinkReport
         await stream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"), ct);
     }
 
+    /// <summary>Set by Dispose: nothing reconciles, beats or posts for this desk again.</summary>
+    private bool _disposed;
+
     public void Dispose()
     {
+        _disposed = true;
         Stop(sayGoodbye: true);
         // A clean exit ends the standby process it started — unless that process has the show, or this is a restart and the next desk adopts it.
         _launcher.End(standbyHoldsShow: _holder.Length > 0 || _holderMarked || KeepStandbyOnExit);

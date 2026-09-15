@@ -22,7 +22,7 @@ public sealed class FeedService : IDisposable
     public FeedService(AppServices services)
     {
         _services = services;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(5));
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
     }

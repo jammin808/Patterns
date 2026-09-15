@@ -10,7 +10,8 @@ namespace Patterns.App.Tests;
 
 /// <summary>
 /// The memory pressure ladder on a desk: the rung from the bytes, its steps taken on the poll and
-/// restored when it eases, the words on the Machine page, in STATE and on the super-check's row;
+/// restored a rung at a time once it has eased for the dwell (round 64), the words on the Machine
+/// page, in STATE and on the super-check's row;
 /// and the engine's bounds — retired sources capped, pre-roll held back, preview-only sources
 /// refused at critical.
 /// </summary>
@@ -28,6 +29,8 @@ public class MemoryPressureAppTests
             var (services, _, _) = b;
             var budget = MediaMemory.BudgetBytes(MemoryBudget.MachineMB);
             Assert.True(budget > 0);
+            var now = 1000.0;
+            services.Metrics.Pressure.Clock = () => now;                                                // the dwell is measured on this clock
 
             MediaMemory.Extra = () => budget + 1;                                                        // decks and the rest weigh the whole budget: critical
             services.Metrics.Poll();
@@ -46,22 +49,40 @@ public class MemoryPressureAppTests
             Assert.Equal(CheckLight.Red, row.Light);
             Assert.Contains("at the budget", row.Note);
 
-            MediaMemory.Extra = () => (long)(budget * 0.72);                                             // eases to elevated: the high and critical steps come off
+            MediaMemory.Extra = () => (long)(budget * 0.72);                                             // eases below critical's leaving line (92 %)
             services.Metrics.Poll();
-            Assert.Equal(MemoryPressure.Elevated, services.Metrics.Pressure.Level);
-            Assert.False(services.Video.PreRollSuppressed);
+            Assert.Equal(MemoryPressure.Critical, services.Metrics.Pressure.Level);                       // not yet: the reading has to sit there for the dwell
+            Assert.True(services.Video.RefuseNonCriticalOpens);
+            Assert.Equal(1, services.Metrics.Pressure.Transitions);
+            now += MediaMemory.Dwell.TotalSeconds + 1;
+            services.Metrics.Poll();
+            Assert.Equal(MemoryPressure.High, services.Metrics.Pressure.Level);                           // one rung at a time: the critical step comes off
             Assert.False(services.Video.RefuseNonCriticalOpens);
+            Assert.True(services.Video.PreRollSuppressed);                                               // high's steps stay
+            Assert.Equal(PdfDeckSource.NarrowWindow, PdfDeckSource.Window);
+            Assert.Equal(2, services.Metrics.Pressure.Transitions);
+            Assert.Contains("high pressure at 72 %", services.Metrics.Pressure.LastChange);
+            services.Metrics.Poll();                                                                      // the reading stands below high's leaving line: its dwell starts
+            Assert.Equal(MemoryPressure.High, services.Metrics.Pressure.Level);
+            now += MediaMemory.Dwell.TotalSeconds + 1;
+            services.Metrics.Poll();
+            Assert.Equal(MemoryPressure.Elevated, services.Metrics.Pressure.Level);                       // the high steps come off
+            Assert.False(services.Video.PreRollSuppressed);
             Assert.Equal(PdfDeckSource.DefaultWindow, PdfDeckSource.Window);
+            Assert.Equal(3, services.Metrics.Pressure.Transitions);
             Assert.Equal(CheckLight.Amber, SuperCheck.Run(services.Metrics.GatherFacts()).Rows.Single(r => r.Item == "Media memory").Light);
 
             MediaMemory.Extra = () => 0;
             services.Metrics.Poll();
+            Assert.Equal(MemoryPressure.Elevated, services.Metrics.Pressure.Level);                       // the dwell again
+            now += MediaMemory.Dwell.TotalSeconds + 1;
+            services.Metrics.Poll();
             Assert.Equal(MemoryPressure.None, services.Metrics.Pressure.Level);
-            Assert.Equal(3, services.Metrics.Pressure.Transitions);
+            Assert.Equal(4, services.Metrics.Pressure.Transitions);
             Assert.Contains("eased from elevated", services.Metrics.Pressure.LastChange);
             Assert.Equal(CheckLight.Green, SuperCheck.Run(services.Metrics.GatherFacts()).Rows.Single(r => r.Item == "Media memory").Light);
             services.Metrics.Poll();                                                                      // the same rung again: no transition
-            Assert.Equal(3, services.Metrics.Pressure.Transitions);
+            Assert.Equal(4, services.Metrics.Pressure.Transitions);
         }
         finally
         {

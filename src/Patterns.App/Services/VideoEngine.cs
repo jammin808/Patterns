@@ -464,7 +464,7 @@ public sealed class VideoEngine : IDisposable
         {
             try
             {
-                _pump = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+                _pump = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(50));
                 _pump.Tick += (_, _) => Pump();
             }
             catch (Exception ex)

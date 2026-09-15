@@ -23,10 +23,7 @@ public class SkiaCanvasControl : Control
 
     public SkiaCanvasControl()
     {
-        _secondTimer = new DispatcherTimer(DispatcherPriority.Render)
-        {
-            Interval = UntilNextSecond(DateTime.Now),
-        };
+        _secondTimer = global::Patterns.App.Services.DeskTimers.Make(UntilNextSecond(DateTime.Now), DispatcherPriority.Render);
         _secondTimer.Tick += (_, _) =>
         {
             // Wake just after each wall-clock second turns, so a clock or a countdown changes its

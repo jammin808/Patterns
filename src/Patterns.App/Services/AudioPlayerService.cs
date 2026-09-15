@@ -70,7 +70,7 @@ public sealed class AudioPlayerService : IDisposable
         VoiceFactory = (path, volumePct) => OperatingSystem.IsWindows()
             ? WasapiStingerVoice.Open(path, volumePct, AudioRouting.OutputsFor(_services.State, _openingKind == StingerKind.Vog ? AudioRouting.Vog : AudioRouting.Sting), _services.AudioGraph is not null)
             : null;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(400));
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
     }

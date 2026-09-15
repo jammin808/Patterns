@@ -31,13 +31,19 @@ public sealed class SystemMetricsService : IDisposable
     public MetricSample? Current { get; private set; }
     public IReadOnlyList<HealthSuggestion> Suggestions { get; private set; } = Array.Empty<HealthSuggestion>();
 
+    /// <summary>The owners this desk registers on the ledger, unregistered with it (round 64: a static reader that captured the desk kept it alive).</summary>
+    private static readonly string[] LedgerOwners = { "pictures", "frame pools", "retiring", "deck pages", "managed heap" };
+
+    private readonly Func<long> _extra;
+
     public SystemMetricsService(AppServices services)
     {
         _services = services;
         RegisterLedger();
         Pressure = new MemoryPressureLadder(services);
-        MediaMemory.Extra = () => _services.DeckIn.PageBytes;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _extra = () => _services.DeckIn.PageBytes;
+        MediaMemory.Extra = _extra;
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
     }
@@ -630,6 +636,7 @@ public sealed class SystemMetricsService : IDisposable
             {
                 sb.AppendLine($"  {sc.Label}: {sc.Bounds.Width}×{sc.Bounds.Height} @ {sc.Scaling:0.##}x{(sc.IsPrimary ? " · primary" : "")}");
             }
+            sb.AppendLine($"Lifetime census: {DeskCensus.Take(_services).Describe()}");
             sb.AppendLine($"Folder: {_services.Store.BaseDirectory}");
             sb.AppendLine($"Watchdog: {(_services.State.Watchdog.Enabled ? "on" : "off")} · {HealthMonitor.Summary(DateTime.UtcNow)}");
             var (onBattery, pct) = (s?.OnBattery ?? false, s?.BatteryPct ?? -1);
@@ -658,6 +665,8 @@ public sealed class SystemMetricsService : IDisposable
     public void Dispose()
     {
         _timer.Stop();
+        if (ReferenceEquals(MediaMemory.Extra, _extra)) MediaMemory.Extra = null;         // the static hook let go of this desk
+        foreach (var owner in LedgerOwners) MemoryLedger.Unregister(owner);                // and the ledger's readers, which read through it
         if (OperatingSystem.IsWindows())
         {
             _gpuCounter?.Dispose();

@@ -582,13 +582,13 @@ public static class OverlayRenderer
         {
             var appear = snap.State.Overlays.Appear;
             var animate = appear.Kind != AppearKind.Cut && !snap.TransitionsOff && sink.TransitionFrom is null && snap.CutAtVersion != snap.Version;
-            var identity = pip.Enabled ? PipKey(pip).GetHashCode() : 0;
+            var identity = pip.Enabled ? PipKey(pip) : null;                                        // the mount key itself, compared exactly (round 64)
             var p = sink.Appearances.Read(AppearKey.Pip, pip.Enabled, identity, ctx.Time, Appearances.Seconds(appear, snap), animate, snap);
-            if (p.DrawsOutgoing) DrawPipAt(c, p.Outgoing!, in ctx, sink, palette, p.Out, appear.Kind);
+            if (p.DrawsOutgoing) DrawPipAt(c, p.Outgoing!, in ctx, sink, palette, p.Out, appear.Kind, outgoing: true);
             if (p.DrawsCurrent)
             {
                 if (p.In >= 1f) DrawPip(c, snap, in ctx, sink, palette);
-                else DrawPipAt(c, snap, in ctx, sink, palette, p.In, appear.Kind);
+                else DrawPipAt(c, snap, in ctx, sink, palette, p.In, appear.Kind, outgoing: false);
             }
         }
 
@@ -639,8 +639,13 @@ public static class OverlayRenderer
         _ => Patterns.Core.Media.InputKeys.Capture(pip.CaptureDevice),
     };
 
-    /// <summary>The PiP inset at a presence: into a layer, slid from its anchor's edge when the kind is a slide; an outgoing snapshot draws as a fade source.</summary>
-    private static void DrawPipAt(SKCanvas c, ShowSnapshot snap, in RenderContext ctx, SinkState sink, Palette palette, float presence, AppearKind kind)
+    /// <summary>
+    /// The PiP inset at a presence: into a layer, slid from its anchor's edge when the kind is a
+    /// slide. The outgoing snapshot's draws as a fade source — no hit, no live-age claim; the
+    /// arriving one draws as itself, so its box is on the map from its first frame (round 64's
+    /// matrix found it drawn as a fade source and missing from the map until it settled).
+    /// </summary>
+    private static void DrawPipAt(SKCanvas c, ShowSnapshot snap, in RenderContext ctx, SinkState sink, Palette palette, float presence, AppearKind kind, bool outgoing)
     {
         var save = c.Save();
         try
@@ -652,8 +657,15 @@ public static class OverlayRenderer
             }
             using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)Math.Clamp(presence * 255f, 0, 255)) };
             c.SaveLayer(paint);
-            var was = ctx with { IsFadeSource = true };
-            DrawPip(c, snap, in was, sink, palette);
+            if (outgoing)
+            {
+                var was = ctx with { IsFadeSource = true };
+                DrawPip(c, snap, in was, sink, palette);
+            }
+            else
+            {
+                DrawPip(c, snap, in ctx, sink, palette);
+            }
         }
         finally
         {

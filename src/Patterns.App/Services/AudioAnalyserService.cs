@@ -41,7 +41,7 @@ public sealed class AudioAnalyserService : IDisposable
     public AudioAnalyserService(AppServices services)
     {
         _services = services;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
         _timer.Tick += (_, _) => Poll();
         _timer.Start();
     }

@@ -669,7 +669,9 @@ public class OutputTakeoverAppTests
                 Assert.True(services.Takeover.TookOver);
                 Assert.Contains("Main wall", HealthMonitor.WatchdogNote);
                 // Consumed: a second desk in this process starts with a clean story.
-                Assert.False(new AppServices(new SettingsStore(dir)).Takeover.TookOver);
+                var second = new AppServices(new SettingsStore(dir));
+                try { Assert.False(second.Takeover.TookOver); }
+                finally { second.Shutdown(); }
             }
             finally
             {

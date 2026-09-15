@@ -393,7 +393,7 @@ public sealed class CueEditor : Observable
     {
         _s = services;
         _status = status;
-        _revalidate = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _revalidate = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(300));
         _revalidate.Tick += (_, _) =>
         {
             _revalidate.Stop();
@@ -1015,8 +1015,18 @@ public sealed class CueEditor : Observable
 
     private void ScheduleRevalidate()
     {
+        if (_closed) return;                                                // a change after the close arms nothing: a running timer would root the desk
         _revalidate.Stop();
         _revalidate.Start();
+    }
+
+    private bool _closed;
+
+    /// <summary>The window closed: a revalidation still pending is dropped, and none is scheduled again (round 64).</summary>
+    public void StopTimers()
+    {
+        _closed = true;
+        _revalidate.Stop();
     }
 
     /// <summary>Brings the rows level with the list and runs the validator now.</summary>

@@ -33,7 +33,7 @@ public sealed class CueTail : IDisposable
     public CueTail(Func<double>? clock = null)
     {
         _clock = clock ?? (() => ShowClock.Seconds);
-        _timer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = Beat };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(Beat, DispatcherPriority.Normal);
         _timer.Tick += (_, _) => Poll();
     }
 

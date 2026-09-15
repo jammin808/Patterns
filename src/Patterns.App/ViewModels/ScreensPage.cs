@@ -293,6 +293,9 @@ public sealed class ScreensPage : Observable
     private (string Device, DisplayMode Previous, string ScreenId, int Index)? _modeChange;
     private DispatcherTimer? _modeRevertTimer;
 
+    /// <summary>The window closed: a mode revert still pending is dropped (round 64).</summary>
+    public void StopTimers() => _modeRevertTimer?.Stop();
+
     /// <summary>The modes the selected display offers ("1920×1080 @ 60 Hz"); its current mode first.</summary>
     public ObservableCollection<string> DisplayModeOptions { get; } = new();
 
@@ -376,7 +379,7 @@ public sealed class ScreensPage : Observable
         DisplayModePending = true;
         DisplayModeStatus = $"Changed to {pick.Label} — KEEP it, or it reverts to {previous.Label} in 15 s.";
         _modeRevertTimer?.Stop();
-        _modeRevertTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _modeRevertTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(15));
         _modeRevertTimer.Tick += (_, _) => RevertDisplayMode();
         _modeRevertTimer.Start();
         Log.Info($"Display mode change on {device}: {previous.Label} → {pick.Label}.");

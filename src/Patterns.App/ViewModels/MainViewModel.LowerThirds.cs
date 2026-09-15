@@ -196,7 +196,7 @@ public sealed partial class MainViewModel
             if (!Set(ref _previewPlaying, value)) return;
             if (value)
             {
-                _previewTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+                _previewTimer ??= global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(33));
                 _previewTimer.Tick -= PreviewTick;
                 _previewTimer.Tick += PreviewTick;
                 _previewTimer.Start();

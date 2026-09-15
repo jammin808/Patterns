@@ -36,17 +36,43 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
     private int _selectedTileSize;
     private string _statusMessage = "";
 
+    /// <summary>The two statics this desk's view model points at itself through — the UI fault listener and the drag-reorder drop — kept so <see cref="ReleaseStaticHooks"/> can let go of exactly its own (round 64: a closed desk stayed alive through them).</summary>
+    private readonly Action<string> _faultListener;
+    private readonly Action<Avalonia.Controls.ItemsControl, int, int> _moved;
+
+    /// <summary>The desk's one-second status poll: stopped with the window — a running dispatcher timer roots its owner, and this one kept every closed desk alive (round 64's census).</summary>
+    private readonly Avalonia.Threading.DispatcherTimer _statusTimer;
+
+    /// <summary>
+    /// The window closed: the statics that pointed at this view model let go of it, and every
+    /// timer the desk's editors run stops, so the closed desk is reclaimed whole. Another desk's
+    /// hooks are left alone.
+    /// </summary>
+    public void OnWindowClosed()
+    {
+        if (ReferenceEquals(Patterns.App.Services.UiFaults.Listener, _faultListener)) Patterns.App.Services.UiFaults.Listener = null;
+        if (ReferenceEquals(Views.Controls.DragReorder.Moved, _moved)) Views.Controls.DragReorder.Moved = null;
+        _statusTimer.Stop();
+        _previewTimer?.Stop();
+        _tallyTimer?.Stop();
+        Run.StopTimers();
+        Cues.StopTimers();
+        Screens.StopTimers();
+    }
+
     public MainViewModel(AppServices services)
     {
         _services = services;
+        _services.RegisterViewModel(this);                                      // the desk stops this view model's timers when it shuts down, window or no window
         Screens = new ScreensPage(this, _services);
         Media = new MediaPage(this, _services);
         Show = new ShowPage(this, _services);
 
         // A contained UI fault reaches the operator at once on the status line; the health line
         // and the Machine page keep the count and the log has the stack.
-        Patterns.App.Services.UiFaults.Listener = words =>
+        _faultListener = words =>
             StatusMessage = $"A fault was contained and the desk carried on — {words}. patterns.log has the stack; the Machine page counts it.";
+        Patterns.App.Services.UiFaults.Listener = _faultListener;
 
         // Every verb goes through the action layer: one code path for the desk, the keyboard,
         // the remotes and the schedule, one journal, one place to resync the editors from.
@@ -379,7 +405,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         // A row dragged in a reorderable list, named by the list it came from: a cue's step, which
         // moves without taking its wait with it; a multiview tile, whose place in the list is what
         // makes it one of the wall's large ones.
-        Views.Controls.DragReorder.Moved = (host, from, to) =>
+        _moved = (host, from, to) =>
         {
             if (from < 0) return;
             switch (host.Name)
@@ -392,6 +418,7 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
                     break;
             }
         };
+        Views.Controls.DragReorder.Moved = _moved;
         // The rail's foot and anything else that knows where it wants to go by name rather than
         // by the page's number, which moves whenever a page is added.
         SelectPageByNameCommand = new RelayCommand<string>(name =>
@@ -429,9 +456,9 @@ public sealed partial class MainViewModel : Observable, IArcadePage, INodesPage,
         _services.Screens.Changed += OnScreensChanged;
         _services.HotPlug.Offers.CollectionChanged += (_, _) => Raise(nameof(HasHotPlug));
 
-        var statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        statusTimer.Tick += (_, _) => PollStatus();
-        statusTimer.Start();
+        _statusTimer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromSeconds(1));
+        _statusTimer.Tick += (_, _) => PollStatus();
+        _statusTimer.Start();
 
         ReconcilePlacements();
         BuildLibrary();

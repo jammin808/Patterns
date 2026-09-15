@@ -49,7 +49,7 @@ public static class LayerRenderer
             return true;
         }
         var animate = l.Appear.Kind != AppearKind.Cut && Appearances.Animates(in f);
-        var identity = l.Enabled ? Appearances.LayerIdentity(l) : 0;
+        var identity = l.Enabled ? (object)Appearances.LayerIdentity(l) : null;
         var p = f.Sink.Appearances.Read(key, l.Enabled, identity, f.Ctx.Time, Appearances.Seconds(l.Appear, f.Snapshot), animate, f.Snapshot);
         var drew = false;
         if (p.DrawsOutgoing)

@@ -235,7 +235,7 @@ public sealed class AudioGraphService : IDisposable
         }
         if (_timer is null)
         {
-            _timer = new DispatcherTimer { Interval = Tick };
+            _timer = global::Patterns.App.Services.DeskTimers.Make(Tick);
             _timer.Tick += (_, _) => Reconcile();
             _timer.Start();
             _lastTickUtc = nowUtc;

@@ -45,7 +45,7 @@ public sealed class AudioService : IDisposable
     public AudioService(AppServices services)
     {
         _services = services;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(60));
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
     }

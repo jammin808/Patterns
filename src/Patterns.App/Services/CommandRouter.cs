@@ -481,6 +481,7 @@ public sealed class CommandRouter : IRouter
                 factor = Math.Round(_services.Quality.Ladder.Factor, 2),
                 text = _services.Quality.Describe(),
             },
+            census = DeskCensus.Take(_services).ToDictionary(),           // round 64: what the process holds that closing releases — desks, nodes, pipelines, budgets, pools, frames, pictures, owners, mounts
             memory = new                                                     // the memory ceilings: the app's working set against its ceiling, and the line
             {
                 appMB = Math.Round(_services.Metrics.Current?.RamAppMB ?? -1),

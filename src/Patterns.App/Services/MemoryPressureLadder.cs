@@ -38,11 +38,20 @@ public sealed class MemoryPressureLadder
     /// <summary>Pictures the trim let go this session.</summary>
     public int PicturesTrimmed { get; private set; }
 
+    /// <summary>When the share first sat below the current rung's leaving line (-1 while it has not): the ladder's dwell (round 64).</summary>
+    private double _belowSince = -1;
+
+    /// <summary>The clock the dwell is measured on: the show clock, or a test's.</summary>
+    public Func<double> Clock { get; set; } = static () => ShowClock.Seconds;
+
     /// <summary>One reading applied: the rung and its steps, every poll, idempotent at the same rung.</summary>
     public void Apply(MediaMemory.Reading reading)
     {
         Reading = reading;
-        var level = reading.Level;
+        // Up at once; down only after the share has sat below the rung's leaving line for the
+        // dwell, and one rung at a time — a reading on a line no longer suppresses and restores
+        // the pre-roll every poll.
+        var level = MediaMemory.Step(Level, reading.Total, reading.Budget, Clock(), ref _belowSince);
         var trimmed = 0;
         if (level >= MemoryPressure.Elevated)
         {

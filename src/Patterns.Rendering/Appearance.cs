@@ -51,7 +51,7 @@ public sealed class AppearanceTracker
     private sealed class Slot
     {
         public bool Shown;
-        public int Identity;
+        public object? Identity;
         public double StartClock;
         public double EndClock;
         public bool Arriving;
@@ -70,7 +70,7 @@ public sealed class AppearanceTracker
     /// on, and settles at once when it is off — a cut, the show's transitions off, a first frame,
     /// or a whole-picture crossfade already carrying everything.
     /// </summary>
-    public Presence Read(AppearKey key, bool shown, int identity, double clock, double seconds, bool animate, ShowSnapshot snap)
+    public Presence Read(AppearKey key, bool shown, object? identity, double clock, double seconds, bool animate, ShowSnapshot snap)
     {
         var slot = _slots[(int)key];
         if (slot is null)
@@ -78,7 +78,7 @@ public sealed class AppearanceTracker
             _slots[(int)key] = new Slot { Shown = shown, Identity = identity, Last = snap };
             return Presence.Settled(shown);
         }
-        var changed = shown != slot.Shown || (shown && slot.Shown && identity != slot.Identity);
+        var changed = shown != slot.Shown || (shown && slot.Shown && !Equals(identity, slot.Identity));   // exact equality: a value, never a hash (round 64)
         if (changed)
         {
             if (animate && seconds > 0.01)
@@ -205,6 +205,9 @@ public static class Appearances
         DeviceScale = f.DeviceScale,
     };
 
-    /// <summary>A layer's identity: what it shows — a change of source or of picture is a leave and an arrival.</summary>
-    public static int LayerIdentity(LayerConfig l) => HashCode.Combine(l.Source, l.ImagePath, l.VideoPath, l.NdiSourceName, l.CaptureDevice, l.WebUrl, l.TargetId);
+    /// <summary>A layer's identity: what it shows — a change of source or of picture is a leave and an arrival. A value compared exactly (round 64 retired the hash: two pictures whose hashes met would have read as one).</summary>
+    public static LayerPicture LayerIdentity(LayerConfig l) => new(l.Source, l.ImagePath, l.VideoPath, l.NdiSourceName, l.CaptureDevice, l.WebUrl, l.TargetId);
 }
+
+/// <summary>What a layer shows, exactly: its source and the picture that source names. Two layers with the same values are the same picture; nothing else is.</summary>
+public readonly record struct LayerPicture(LayerSource Source, string ImagePath, string VideoPath, string NdiSourceName, string CaptureDevice, string WebUrl, string TargetId);

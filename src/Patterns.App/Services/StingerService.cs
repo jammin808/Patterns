@@ -87,7 +87,7 @@ public sealed class StingerService : IDisposable
     public StingerService(AppServices services)
     {
         _services = services;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _timer = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(250));
         _timer.Tick += (_, _) => Tick(NowUtc());
         _timer.Start();
     }

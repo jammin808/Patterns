@@ -113,7 +113,7 @@ public sealed class RunViewModel : Observable
     {
         _s = services;
         _vm = vm;
-        _refresh = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _refresh = global::Patterns.App.Services.DeskTimers.Make(TimeSpan.FromMilliseconds(300));
         _refresh.Tick += (_, _) =>
         {
             _refresh.Stop();
@@ -583,8 +583,18 @@ public sealed class RunViewModel : Observable
 
     private void ScheduleRefresh()
     {
+        if (_closed) return;                                                // a publish after the close arms nothing: a running timer would root the desk
         _refresh.Stop();
         _refresh.Start();
+    }
+
+    private bool _closed;
+
+    /// <summary>The window closed: a refresh still pending is dropped, and none is scheduled again (round 64).</summary>
+    public void StopTimers()
+    {
+        _closed = true;
+        _refresh.Stop();
     }
 
     /// <summary>
