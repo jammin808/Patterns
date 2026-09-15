@@ -30,6 +30,8 @@ public enum TargetKind
     AudioSource,
     /// <summary>A destination of the routing matrix: a Windows output by name or an NDI send.</summary>
     AudioDestination,
+    /// <summary>Where a picture is staged on the preview: a screen, a canvas, or blank / PGM for the programme.</summary>
+    Stage,
 }
 
 /// <summary>What an action's Value holds (nothing else takes free text).</summary>
@@ -145,6 +147,11 @@ public static class ActionSpec
         ShowActionKind.ScreenPreset => (TargetKind.Screen, ValueKind.Preset),
         ShowActionKind.ScreenProgram => (TargetKind.Screen, ValueKind.None),
         ShowActionKind.ScreenToPreview => (TargetKind.Screen, ValueKind.None),
+        ShowActionKind.ScreenPattern => (TargetKind.Screen, ValueKind.PatternKind),
+        ShowActionKind.ScreenStageLook => (TargetKind.Stage, ValueKind.Look),
+        ShowActionKind.ScreenStagePreset => (TargetKind.Stage, ValueKind.Preset),
+        ShowActionKind.ScreenStagePattern => (TargetKind.Stage, ValueKind.PatternKind),
+        ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset => (TargetKind.Stage, ValueKind.None),
         ShowActionKind.VideoToEnd => (TargetKind.None, ValueKind.Seconds),
         ShowActionKind.FadeToBlack or ShowActionKind.FadeUp => (TargetKind.Place, ValueKind.Seconds),
         ShowActionKind.WeatherView => (TargetKind.None, ValueKind.WeatherView),
@@ -302,6 +309,12 @@ public static class ActionSpec
         ShowActionKind.PatternPreset => "Preset — recall a saved pattern",
         ShowActionKind.ScreenPreset => "Screen — a saved preset on it alone",
         ShowActionKind.ScreenProgram => "Screen — back to the program",
+        ShowActionKind.ScreenPattern => "Screen — a kind of picture on it alone",
+        ShowActionKind.ScreenStageLook => "Preview — a look staged on a screen's PVW",
+        ShowActionKind.ScreenStagePreset => "Preview — a preset staged on a screen's PVW",
+        ShowActionKind.ScreenStagePattern => "Preview — a kind of picture staged on a screen's PVW",
+        ShowActionKind.ScreenStageProgram => "Preview — the programme staged on a screen's PVW",
+        ShowActionKind.ScreenStageReset => "Preview — the look's own picture back on a screen's PVW",
         ShowActionKind.VideoToEnd => "Video — jump to its last seconds",
         ShowActionKind.VideoRestart => "Video — restart from the top",
         // The desk's own: named for the journal and a refusal, never offered to a cue.
@@ -360,7 +373,8 @@ public static class ActionSpec
         ShowActionKind.ScreenOn, ShowActionKind.ScreenOff, ShowActionKind.ScreenToggle,
         ShowActionKind.ScreenLock, ShowActionKind.ScreenUnlock, ShowActionKind.ScreenLockToggle, ShowActionKind.ScreenRole,
         ShowActionKind.ScreenLook, ShowActionKind.ScreenProgram,
-        ShowActionKind.PatternPreset, ShowActionKind.ScreenPreset,
+        ShowActionKind.PatternPreset, ShowActionKind.ScreenPreset, ShowActionKind.ScreenPattern,
+        ShowActionKind.ScreenStageLook, ShowActionKind.ScreenStagePreset, ShowActionKind.ScreenStagePattern, ShowActionKind.ScreenStageProgram, ShowActionKind.ScreenStageReset,
         ShowActionKind.CanvasOn, ShowActionKind.CanvasOff,
         ShowActionKind.PatternKind,
         ShowActionKind.CountdownStart, ShowActionKind.CountdownTo, ShowActionKind.CountdownStop, ShowActionKind.CountdownToggle, ShowActionKind.CountdownLabel, ShowActionKind.CountdownFollow,
@@ -427,7 +441,12 @@ public static class ActionSpec
         ShowActionKind.ApplyLook or ShowActionKind.PlaylistPart or ShowActionKind.PatternKind or
         ShowActionKind.ScreenOn or ShowActionKind.ScreenOff or ShowActionKind.ScreenToggle or ShowActionKind.CanvasOn or ShowActionKind.CanvasOff or
         ShowActionKind.ScreenLook or ShowActionKind.ScreenProgram
-        or ShowActionKind.PatternPreset or ShowActionKind.ScreenPreset;
+        or ShowActionKind.PatternPreset or ShowActionKind.ScreenPreset or ShowActionKind.ScreenPattern;
+
+    /// <summary>The staged verbs: a picture on a target's PVW in the preview, never on air (see <see cref="ShowActionKind.ScreenStageLook"/>).</summary>
+    public static bool IsStaged(ShowActionKind kind) => kind is
+        ShowActionKind.ScreenStageLook or ShowActionKind.ScreenStagePreset or ShowActionKind.ScreenStagePattern
+        or ShowActionKind.ScreenStageProgram or ShowActionKind.ScreenStageReset;
 
     /// <summary>A percent value: a number from 0 to 125 (the player's own ceiling, ≈ +2 dB).</summary>
     public static bool TryParsePercent(string? value, out double percent)
@@ -554,7 +573,10 @@ public static class ActionSpec
     /// <summary>A kind of picture by name, as the executor reads it: case, spaces, dashes and underscores ignored ("color bars", "LED wall", "grid").</summary>
     public static PatternKind? ParsePatternKind(string? value)
     {
-        var word = (value ?? "").Replace(" ", "").Replace("-", "").Replace("_", "").Trim();
+        // Spaces, dashes and underscores are ignored, and the desk's own spelling on its labels
+        // ("Colour bars") reads as the kind it names — a menu passes the enum's word, a person may not.
+        var word = (value ?? "").Replace(" ", "").Replace("-", "").Replace("_", "").Trim()
+            .Replace("olour", "olor", StringComparison.OrdinalIgnoreCase);
         return word.Length > 0 && Enum.TryParse<PatternKind>(word, true, out var kind) ? kind : null;
     }
 }

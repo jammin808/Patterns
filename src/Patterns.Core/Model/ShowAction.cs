@@ -241,6 +241,28 @@ public enum ShowActionKind
     /// </summary>
     ScreenToPreview,
     /// <summary>
+    /// Target = a screen or canvas; Value = a kind of picture (Grid, ColorBars, LedWall…): that kind
+    /// on the target alone, live, as its own pattern — PATTERN kind for one screen; every other
+    /// screen stays.
+    /// </summary>
+    ScreenPattern,
+    /// <summary>
+    /// The staged verbs (round 60): Target = a screen, a canvas, or empty / PGM for the programme;
+    /// the picture lands on that target's PVW in the sandboxed preview and nowhere else — EDIT
+    /// SAFE opens first when it was off, the air is never touched, and the next CUT or TAKE puts
+    /// it up (FOCUSED for that tile alone). The right-click menus speak these, so a menu can never
+    /// change what the audience sees. Value = the look's name or id.
+    /// </summary>
+    ScreenStageLook,
+    /// <summary>Staged (see <see cref="ScreenStageLook"/>): Value = a preset's name.</summary>
+    ScreenStagePreset,
+    /// <summary>Staged: Value = a kind of picture.</summary>
+    ScreenStagePattern,
+    /// <summary>Staged: the target follows the programme again in the preview; on the programme target, what is on air comes into the preview to edit.</summary>
+    ScreenStageProgram,
+    /// <summary>Staged: the look on air's own picture for that target back on its PVW; the programme target loads the whole look into the preview. Refused when no look is on air.</summary>
+    ScreenStageReset,
+    /// <summary>
     /// The clip on air jumps to its last seconds (Value = how many; empty = ten) — a rehearsal
     /// skips the body of a video and still sees its end, hears the out and lets whatever follows
     /// it (a playlist's next item, a stinger's ending) happen for real.

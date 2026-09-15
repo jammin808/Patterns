@@ -97,6 +97,12 @@ public static class CueSummary
             case ShowActionKind.ScreenPreset: return $"Screen '{ScreenLabel(state, a.Target)}' → preset '{(a.Value.Length > 0 ? a.Value : "?")}'";
             case ShowActionKind.ScreenLook: return $"Screen '{ScreenLabel(state, a.Target)}' → look '{LookService.Find(state, a.Value)?.Name ?? (a.Value.Length > 0 ? a.Value + " (not found)" : "?")}'";
             case ShowActionKind.ScreenProgram: return $"Screen '{ScreenLabel(state, a.Target)}' → the program";
+            case ShowActionKind.ScreenPattern: return $"Screen '{ScreenLabel(state, a.Target)}' → {(a.Value.Length > 0 ? a.Value : "?")}";
+            case ShowActionKind.ScreenStageLook: return $"PVW of {StageLabel(state, a.Target)} ← look '{LookService.Find(state, a.Value)?.Name ?? (a.Value.Length > 0 ? a.Value + " (not found)" : "?")}'";
+            case ShowActionKind.ScreenStagePreset: return $"PVW of {StageLabel(state, a.Target)} ← preset '{(a.Value.Length > 0 ? a.Value : "?")}'";
+            case ShowActionKind.ScreenStagePattern: return $"PVW of {StageLabel(state, a.Target)} ← {(a.Value.Length > 0 ? a.Value : "?")}";
+            case ShowActionKind.ScreenStageProgram: return $"PVW of {StageLabel(state, a.Target)} ← the programme";
+            case ShowActionKind.ScreenStageReset: return $"PVW of {StageLabel(state, a.Target)} ← the look on air";
             case ShowActionKind.ScreenLock: return $"Screen '{ScreenLabel(state, a.Target)}' locked — keeps its picture";
             case ShowActionKind.ScreenUnlock: return $"Screen '{ScreenLabel(state, a.Target)}' follows cues again";
             case ShowActionKind.ScreenLockToggle: return $"Screen '{ScreenLabel(state, a.Target)}' lock toggle";
@@ -252,6 +258,12 @@ public static class CueSummary
     /// <summary>" → the page" when a web action names one; "" for the page on air.</summary>
     private static string PageSuffix(CueActionConfig a)
         => a.Target.Length == 0 ? "" : $" → {(a.Target.Contains("://") ? WebAddress.ShortName(a.Target) : a.Target)}";
+
+    /// <summary>Where a staged picture lands, in words: "the programme", or "screen 'Stage left'".</summary>
+    private static string StageLabel(ShowState state, string target)
+        => ContentTargets.IsProgramTarget(target) ? "the programme"
+            : ContentTargets.IsCanvasKey(target) ? $"canvas '{CanvasLabel(state, target)}'"
+            : $"screen '{ScreenLabel(state, target)}'";
 
     private static string ScreenLabel(ShowState state, string id)
     {

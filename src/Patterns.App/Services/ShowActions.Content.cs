@@ -159,6 +159,33 @@ public sealed partial class ShowActions
                     : $"{label}'s picture is in the preview — edit it, then SEND it to a screen or TAKE.");
             }
 
+            case ShowActionKind.ScreenPattern:
+            {
+                // PATTERN kind for one screen: the twin of ScreenLook — live, on the air and the edited state both.
+                var target = ResolveScreenTarget(a.Target);
+                if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+                if (ActionSpec.ParsePatternKind(a.Value) is not { } kind)
+                {
+                    return ActionResult.Refused($"'{a.Value}' is not a kind of picture — one of {string.Join(", ", Enum.GetNames<PatternKind>())}.");
+                }
+                void LandKind(ShowState state)
+                {
+                    var assignment = ContentTargets.EnsureAssignment(state, target);
+                    assignment.Pattern.Kind = kind;
+                    assignment.PinnedByTake = false;
+                    ContentTargets.SetOwnPattern(state, target, true);
+                }
+                _s.BulkEdit(() => LandKind(State));
+                if (_s.Sandbox.Active) _s.EditAir(LandKind);
+                var kindLabel = Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+                return ActionResult.Done($"{kind} on {kindLabel} alone — every other screen stays.");
+            }
+            case ShowActionKind.ScreenStageLook:
+            case ShowActionKind.ScreenStagePreset:
+            case ShowActionKind.ScreenStagePattern:
+            case ShowActionKind.ScreenStageProgram:
+            case ShowActionKind.ScreenStageReset:
+                return Stage(a);
             case ShowActionKind.PlaylistPart:
             {
                 // Parts drive what the audience sees, sandbox open or not.
@@ -177,6 +204,138 @@ public sealed partial class ShowActions
                 return null;
         }
     }
+
+    /// <summary>
+    /// The staged verbs (round 60): a picture on a target's PVW in the sandboxed preview and nowhere
+    /// else. EDIT SAFE opens first when it was off — so a staged verb can never go live by itself,
+    /// which is the promise the right-click menus are built on — and the frozen program is never
+    /// written: the next CUT or TAKE is what puts the picture up, FOCUSED for that tile alone.
+    ///
+    /// Target: a screen or canvas (its own picture in the preview: the tile's PVW shows it and
+    /// <see cref="SandboxService.IsStaged"/> reads it), or blank / PGM for the programme (the
+    /// preview's own picture). What lands: a look's picture for that target, a preset, a kind of
+    /// picture, the programme again, or the look on air's own picture back (RESET) — on the
+    /// programme target RESET is the whole look back into the preview, and PROGRAM is what is on
+    /// air into the preview to edit (the same as → PVW on the PGM tile).
+    /// </summary>
+    private ActionResult Stage(ShowAction a)
+    {
+        var program = ContentTargets.IsProgramTarget(a.Target);
+        var target = program ? "" : ResolveScreenTarget(a.Target);
+        if (target is null) return ActionResult.Refused($"No screen '{a.Target}'.");
+        var label = program ? "the programme" : Rig.Geometry(State, _s.Screens.All).LabelFor(State, target);
+
+        // Resolve everything before the sandbox opens: a refusal must leave the desk exactly as it was.
+        PatternConfig? picture = null;
+        string? wholeLookJson = null;
+        string lookId = "";
+        string what;
+        switch (a.Kind)
+        {
+            case ShowActionKind.ScreenStageLook:
+            {
+                var look = LookService.Find(State, a.Value);
+                if (look is null) return ActionResult.Refused($"No look named '{a.Value}'.");
+                if (program)
+                {
+                    wholeLookJson = look.Json;
+                    lookId = look.Id;
+                }
+                else
+                {
+                    picture = LookService.PictureFor(look.Json, target);
+                    if (picture is null) return ActionResult.Failed($"Look '{look.Name}' could not be read.");
+                }
+                what = $"look '{look.Name}'";
+                break;
+            }
+            case ShowActionKind.ScreenStagePreset:
+            {
+                var preset = _s.Store.FindPreset(a.Value);
+                if (preset is null) return ActionResult.Refused(PresetMissing(a.Value));
+                picture = JsonUtil.ClonePattern(preset);
+                what = $"preset '{a.Value.Trim()}'";
+                break;
+            }
+            case ShowActionKind.ScreenStagePattern:
+            {
+                if (ActionSpec.ParsePatternKind(a.Value) is not { } kind)
+                {
+                    return ActionResult.Refused($"'{a.Value}' is not a kind of picture — one of {string.Join(", ", Enum.GetNames<PatternKind>())}.");
+                }
+                // The kind alone: the target's picture as it is in the preview keeps its settings, so a
+                // look's grid comes back a grid — the same rule PATTERN kind follows on air.
+                var basis = program ? State.Pattern : LookService.Shown(State, target);
+                picture = JsonUtil.ClonePattern(basis);
+                picture.Kind = kind;
+                what = kind.ToString();
+                break;
+            }
+            case ShowActionKind.ScreenStageProgram:
+            {
+                if (program)
+                {
+                    // What the room is watching, into the preview to edit: → PVW on the PGM tile.
+                    return Execute(new ShowAction(ShowActionKind.ScreenToPreview, ""), ActionOrigin.Desk);
+                }
+                what = "the programme";
+                break;
+            }
+            default: // ScreenStageReset
+            {
+                var onAir = _s.LookTally.OnAir();
+                if (onAir is null) return ActionResult.Refused("No look is on air to reset to — the picture the room is watching was never a look. Load one, or SEND the preview.");
+                if (program)
+                {
+                    wholeLookJson = onAir.Json;
+                    lookId = onAir.Id;
+                }
+                else
+                {
+                    picture = LookService.PictureFor(onAir.Json, target);
+                    if (picture is null) return ActionResult.Failed($"Look '{onAir.Name}' could not be read.");
+                }
+                what = $"look '{onAir.Name}' as it was";
+                break;
+            }
+        }
+
+        var opened = !_s.Sandbox.Active;
+        if (opened) _s.Sandbox.Enter();
+        var ok = true;
+        _s.BulkEdit(() =>
+        {
+            if (wholeLookJson is not null)
+            {
+                ok = LookService.Apply(wholeLookJson, State);
+                return;
+            }
+            if (program)
+            {
+                ModelCopier.Copy(picture!, State.Pattern);
+                return;
+            }
+            if (a.Kind == ShowActionKind.ScreenStageProgram)
+            {
+                ContentTargets.SetOwnPattern(State, target, false);
+                var own = State.Independent.FirstOrDefault(x => x.ScreenId == target);
+                if (own is not null) State.Independent.Remove(own);
+                return;
+            }
+            var assignment = ContentTargets.EnsureAssignment(State, target);
+            ModelCopier.Copy(JsonUtil.ClonePattern(picture!), assignment.Pattern);
+            assignment.PinnedByTake = false;
+            ContentTargets.SetOwnPattern(State, target, true);
+        });
+        if (!ok) return ActionResult.Failed("The look could not be loaded into the preview.");
+        if (program) _s.PreviewLookId = lookId; // a whole look names itself; a picture is an edit
+        var opening = opened ? " EDIT SAFE opened; the air is untouched." : "";
+        return ActionResult.Done(program
+            ? $"{Capitalise(what)} in the preview — the audience sees nothing until CUT or TAKE.{opening}"
+            : $"{Capitalise(what)} staged on {label}'s PVW — the audience sees nothing until CUT or TAKE (FOCUSED puts it up there alone).{opening}");
+    }
+
+    private static string Capitalise(string words) => words.Length == 0 ? words : char.ToUpperInvariant(words[0]) + words[1..];
 
     /// <summary>The journal names looks and break music, not their ids — a caller reading it back should not need the show file.</summary>
     /// <summary>

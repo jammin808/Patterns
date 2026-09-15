@@ -275,6 +275,12 @@ public static class CueSheet
             "preset" or "patternpreset" or "recallpreset" or "presetrecall" => ShowActionKind.PatternPreset,
             "screenpreset" or "presetonscreen" or "preseton" or "sendpreset" => ShowActionKind.ScreenPreset,
             "screenprogram" or "screenpgm" or "backtoprogram" or "toprogram" or "program" or "pgm" or "follow" => ShowActionKind.ScreenProgram,
+            "screenpattern" or "patternonscreen" or "kindonscreen" or "screenkind" => ShowActionKind.ScreenPattern,
+            "stagelook" or "pvwlook" or "lookonpvw" or "looktopvw" or "screenpvwlook" or "screenpreviewlook" => ShowActionKind.ScreenStageLook,
+            "stagepreset" or "pvwpreset" or "previewpreset" or "presetonpvw" or "presettopvw" => ShowActionKind.ScreenStagePreset,
+            "stagepattern" or "pvwpattern" or "previewpattern" or "patternonpvw" or "patterntopvw" => ShowActionKind.ScreenStagePattern,
+            "stageprogram" or "pvwprogram" or "previewprogram" or "pvwpgm" or "programonpvw" => ShowActionKind.ScreenStageProgram,
+            "stagereset" or "pvwreset" or "previewreset" or "resettolook" or "backtolook" or "resetlook" or "reset" => ShowActionKind.ScreenStageReset,
             "videoend" or "videotoend" or "vtend" or "clipend" or "lastseconds" or "skiptoend" or "videolast" or "vtlast" => ShowActionKind.VideoToEnd,
             "videorestart" or "vtrestart" or "cliprestart" or "restartvideo" or "restartclip" or "videostart" or "vtstart" or "rewind" => ShowActionKind.VideoRestart,
             "logo" or "logoon" or "brand" or "brandlogo" => ShowActionKind.LogoOn,
@@ -339,6 +345,15 @@ public static class CueSheet
                                 ?? state.Output.Placements.FirstOrDefault(p => string.Equals(p.CustomLabel, target, StringComparison.OrdinalIgnoreCase));
                 return placement is not null ? (placement.ScreenId, null) : (target, $"screen '{target}' is not in the rig.");
             }
+            case TargetKind.Stage:
+            {
+                // Blank or PGM is the programme; a canvas key is used as written; a screen by id or label.
+                if (ContentTargets.IsProgramTarget(target)) return ("", null);
+                if (ContentTargets.IsCanvasKey(target)) return (target, null);
+                var placement = state.Output.Placements.FirstOrDefault(p => p.ScreenId == target)
+                                ?? state.Output.Placements.FirstOrDefault(p => string.Equals(p.CustomLabel, target, StringComparison.OrdinalIgnoreCase));
+                return placement is not null ? (placement.ScreenId, null) : (target, $"screen '{target}' is not in the rig.");
+            }
             case TargetKind.Stack:
                 return CueStacks.Find(state, target) is { } stack ? (stack.Id, null) : (target, $"list '{target}' not found.");
             case TargetKind.Music:
@@ -361,6 +376,8 @@ public static class CueSheet
             TargetKind.Look => LookService.Find(state, a.Target)?.Name ?? a.Target,
             TargetKind.Stinger => StingerLibrary.Find(state, a.Target)?.DisplayName ?? a.Target,
             TargetKind.Screen => state.Output.Placements.FirstOrDefault(p => p.ScreenId == a.Target) is { CustomLabel.Length: > 0 } p ? p.CustomLabel : a.Target,
+            TargetKind.Stage => ContentTargets.IsProgramTarget(a.Target) ? "PGM"
+                : state.Output.Placements.FirstOrDefault(p => p.ScreenId == a.Target) is { CustomLabel.Length: > 0 } sp ? sp.CustomLabel : a.Target,
             TargetKind.Stack => CueStacks.Find(state, a.Target)?.Name ?? a.Target,
             TargetKind.Music => SpotifyLibrary.Find(state, a.Target)?.DisplayName ?? a.Target,
             TargetKind.LowerThird => state.LowerThirds.Find(a.Target)?.Name ?? a.Target,

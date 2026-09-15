@@ -159,6 +159,35 @@ public static class ControlProtocol
 
     private static RemoteCommand Query(RemoteCommandKind kind, string text = "") => new(kind, ShowAction.None, text);
 
+    /// <summary>
+    /// The staged words after a screen number or on their own: "PVW LOOK x", "PVW PRESET x",
+    /// "PVW PATTERN k", "PVW PROGRAM", "PVW RESET", bare "PVW" (PREVIEW is the same). Null when the
+    /// words do not start with PVW; a PVW with words the desk does not know is Unknown, never a
+    /// toggle. On the programme target ("") a look is the whole look into the preview
+    /// (ApplyLookToPreview) and PROGRAM or bare is what is on air into the preview (ScreenToPreview).
+    /// </summary>
+    private static RemoteCommand? StagedWords(string rest, string target)
+    {
+        var words = rest.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return null;
+        if (!words[0].Equals("PVW", StringComparison.OrdinalIgnoreCase) && !words[0].Equals("PREVIEW", StringComparison.OrdinalIgnoreCase)) return null;
+        var after = words.Length > 1 ? words[1].Trim() : "";
+        if (after.Length == 0) return Act(ShowActionKind.ScreenToPreview, target);
+        var parts = after.Split(' ', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var what = parts[0].ToUpperInvariant();
+        var value = parts.Length > 1 ? parts[1].Trim() : "";
+        var program = target.Length == 0;
+        return what switch
+        {
+            "LOOK" when value.Length > 0 => program ? Act(ShowActionKind.ApplyLookToPreview, value) : Act(ShowActionKind.ScreenStageLook, target, value),
+            "PRESET" when value.Length > 0 => Act(ShowActionKind.ScreenStagePreset, target, value),
+            "PATTERN" when value.Length > 0 => Act(ShowActionKind.ScreenStagePattern, target, value),
+            "PROGRAM" or "PGM" or "FOLLOW" or "AIR" when value.Length == 0 => program ? Act(ShowActionKind.ScreenToPreview, target) : Act(ShowActionKind.ScreenStageProgram, target),
+            "RESET" or "BACK" when value.Length == 0 => Act(ShowActionKind.ScreenStageReset, target),
+            _ => Unknown(rest),
+        };
+    }
+
     private static bool ArcadeGameWord(string word) => word is "PONG" or "SNAKE" or "BREAKOUT" or "1" or "2" or "3";
 
     private static RemoteCommand Unknown(string line) => Query(RemoteCommandKind.Unknown, line);
@@ -320,13 +349,23 @@ public static class ControlProtocol
                 {
                     return Act(ShowActionKind.ScreenLabel, n, rest.Length > 6 ? rest[6..].Trim() : "");
                 }
+                // "SCREEN 2 PATTERN Grid": a kind of picture on that screen alone, live.
+                if (rest.StartsWith("PATTERN ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var kind = rest[8..].Trim();
+                    return kind.Length == 0 ? Unknown(s) : Act(ShowActionKind.ScreenPattern, n, kind);
+                }
+                // "SCREEN 2 PVW LOOK Walk-in" (PREVIEW is the same word): staged on that screen's PVW in the
+                // preview — the audience sees nothing until CUT or TAKE. Bare "SCREEN 2 PVW" is → PVW: its
+                // picture into the preview to edit.
+                if (StagedWords(rest, n.ToString(System.Globalization.CultureInfo.InvariantCulture)) is { } staged) return staged;
                 var action = rest.ToUpperInvariant();
                 return action switch
                 {
                     "ON" => Act(ShowActionKind.ScreenOn, n),
                     "OFF" => Act(ShowActionKind.ScreenOff, n),
                     "PROGRAM" or "PGM" or "FOLLOW" => Act(ShowActionKind.ScreenProgram, n),
-                    "LOOK" or "PRESET" or "ROLE" => Unknown(s),
+                    "LOOK" or "PRESET" or "ROLE" or "PATTERN" => Unknown(s),
                     _ => Act(ShowActionKind.ScreenToggle, n),
                 };
             }
@@ -758,6 +797,12 @@ public static class ControlProtocol
                 };
             case "OVERLAYS":
                 return arg.ToUpperInvariant() is "OFF" or "CLEAR" or "NONE" ? Act(ShowActionKind.OverlaysOff) : Unknown(s);
+            // "PVW PATTERN Grid" / "PVW PRESET Walk-in" / "PVW RESET" / "PVW LOOK Walk-in" / "PVW PROGRAM" / bare "PVW":
+            // the programme's picture in the preview — a kind, a preset, the look on air back, the whole look, or
+            // what is on air to edit. Nothing here changes what the audience sees; CUT or TAKE does.
+            case "PVW":
+            case "PREVIEW":
+                return StagedWords("PVW " + arg, "") ?? Unknown(s);
             // "PATTERN Grid" / "PATTERN LED wall": the kind of picture on air, by its name (spaces ignored).
             // "PRESET Walk-in": a pattern saved on the Pattern page, back into the picture being edited.
             case "PRESET":

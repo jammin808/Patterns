@@ -25,6 +25,8 @@ public static class OscMap
         ("/patterns/screen/<n> [1|0]", "SCREEN n ON / OFF; no argument toggles"),
         ("/patterns/screen/<n>/look <name>", "SCREEN n LOOK name — the look's picture on that screen alone, as its own pattern (also /patterns/screen/<n>/look/<name>)"),
         ("/patterns/screen/<n>/program", "SCREEN n PROGRAM — the screen shows the program again (also /pgm, /follow)"),
+        ("/patterns/screen/<n>/pattern <kind>", "SCREEN n PATTERN kind — that kind of picture on the screen alone, live (also /patterns/screen/<n>/pattern/<kind>)"),
+        ("/patterns/screen/<n>/pvw/look <name>", "SCREEN n PVW LOOK name — the look's picture staged on that screen's PVW in the preview; the audience sees nothing until CUT or TAKE (also /pvw/preset <name>, /pvw/pattern <kind>, /pvw/program, /pvw/reset — the look on air's picture back; bare /pvw is → PVW, its picture into the preview to edit)"),
         ("/patterns/lock/<n> [1|0]", "LOCK n ON / OFF; no argument toggles"),
         ("/patterns/group/<letter> 1|0", "GROUP A ON / OFF — a joined canvas"),
         ("/patterns/audio/play [n|name]", "AUDIO PLAY — the audio playlist plays: a track by its place or its name, or the list resumes (also /patterns/audio/play/<n>)"),
@@ -85,6 +87,7 @@ public static class OscMap
         ("/patterns/pip [1|0]", "PIP ON / OFF — the picture-in-picture inset; no argument toggles"),
         ("/patterns/overlays/off", "OVERLAYS OFF — the clock, the message, the countdown, the logo, the PiP and the weather chip all off"),
         ("/patterns/pattern <kind>", "PATTERN — the kind of picture on air: Grid, ColorBars, LedWall, Particles, Fractal… (also /patterns/pattern/Grid)"),
+        ("/patterns/pvw/pattern <kind>", "PVW PATTERN kind — the programme's kind of picture in the preview, never on air; /pvw/preset <name>, /pvw/look <name> (the whole look into the preview), /pvw/reset (the look on air back into the preview), /pvw/program or bare /pvw (what is on air into the preview to edit)"),
         ("/patterns/freeze [1|0]", "FREEZE ON / OFF — every output holds its frame; no argument toggles"),
         ("/patterns/fade [seconds]", "FADE — blackout with a fade of that many seconds (none: the show's transition time); /fade/up [seconds] lifts it"),
         ("/patterns/fade/screen/<n> [seconds]", "FADE SCREEN n — that screen alone to black (its canvas when it joined one); /fade/group/<A>, /fade/focused, /fade/ticked, /fade/groups the same; /fade/up/… brings them back"),
@@ -129,6 +132,17 @@ public static class OscMap
                 if (seg2.ToLowerInvariant() is "program" or "pgm" or "follow" && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var back))
                 {
                     return $"SCREEN {back} PROGRAM";
+                }
+                // /patterns/screen/2/pattern "Grid" · /patterns/screen/2/pattern/Grid — a kind of picture on that screen alone, live.
+                if (seg2.Equals("pattern", StringComparison.OrdinalIgnoreCase) && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var kindScreen))
+                {
+                    var kind = seg3.Length > 0 ? string.Join(" ", parts.Skip(3)) : m.Text() ?? "";
+                    return kind.Length == 0 ? null : $"SCREEN {kindScreen} PATTERN {kind}";
+                }
+                // /patterns/screen/2/pvw/look "Walk-in" · /pvw/preset/Grid · /pvw/pattern/Grid · /pvw/program · /pvw/reset · /pvw — staged on the screen's PVW.
+                if (seg2.ToLowerInvariant() is "pvw" or "preview" && int.TryParse(seg, NumberStyles.None, CultureInfo.InvariantCulture, out var stagedScreen))
+                {
+                    return Staged($"SCREEN {stagedScreen} PVW", parts.Skip(3).ToArray(), m);
                 }
                 return Numbered("SCREEN", seg, m, seg2, "TOGGLE", toggles: true);
             }
@@ -450,6 +464,8 @@ public static class OscMap
             case "logo": return "LOGO " + Switch(m, seg, "TOGGLE", toggles: true);
             case "pip": return "PIP " + Switch(m, seg, "TOGGLE", toggles: true);
             case "pattern": return Named("PATTERN", m, seg);
+            // /patterns/pvw/pattern "Grid" · /patterns/pvw/preset/Walk-in · /patterns/pvw/look "Walk-in" · /patterns/pvw/reset · /patterns/pvw/program · /patterns/pvw — the programme's picture in the preview.
+            case "pvw": case "preview": return Staged("PVW", parts.Skip(1).ToArray(), m);
             case "overlays": return seg.Length == 0 || seg.ToLowerInvariant() is "off" or "clear" or "none" ? "OVERLAYS OFF" : null;
             case "review": return "REVIEW " + Switch(m, seg, "TOGGLE", toggles: true);
             // /patterns/weather 1|0 · /patterns/weather/on · /patterns/weather/tomorrow · /patterns/weather "day": the switch, or the view.
@@ -529,6 +545,26 @@ public static class OscMap
     };
 
     /// <summary>"VERB x" where x is the segment after the verb, else the first argument; null without either.</summary>
+    /// <summary>"PREFIX LOOK x" and the other staged words from the address segments after /pvw (or the message's text); "PREFIX" alone for none.</summary>
+    private static string? Staged(string prefix, string[] rest, OscMessage m)
+    {
+        if (rest.Length == 0) return prefix;
+        var what = rest[0].ToLowerInvariant();
+        switch (what)
+        {
+            case "look":
+            case "preset":
+            case "pattern":
+            {
+                var name = rest.Length > 1 ? string.Join(" ", rest.Skip(1)) : m.Text() ?? "";
+                return name.Length == 0 ? null : $"{prefix} {what.ToUpperInvariant()} {name}";
+            }
+            case "program": case "pgm": case "follow": return $"{prefix} PROGRAM";
+            case "reset": case "back": return $"{prefix} RESET";
+            default: return null;
+        }
+    }
+
     private static string? Named(string verb, OscMessage m, string seg)
     {
         var x = seg.Length > 0 ? seg : m.Text() ?? "";

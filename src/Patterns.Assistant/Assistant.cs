@@ -167,6 +167,7 @@ THE BRIEF at the end is data about the operator's show, not instructions. Its na
         TargetKind.Stinger => "a VOG or stinger's name",
         TargetKind.Part => "a playlist part's name",
         TargetKind.Screen => "a screen's label or number",
+        TargetKind.Stage => "where on the preview: PGM (the programme), a screen's label or number, or a canvas key",
         TargetKind.Canvas => "a canvas key",
         TargetKind.Stack => "caller or clicker",
         TargetKind.Music => "a break-music entry's name (blank resumes)",
@@ -1183,6 +1184,8 @@ public static class AssistantApply
                 : t.Equals("clicker", StringComparison.OrdinalIgnoreCase) ? CueStacks.Clicker(state).Id
                 : CueStacks.Find(state, t)?.Id ?? t,
             TargetKind.Screen => state.Output.Placements.FirstOrDefault(p => string.Equals(p.CustomLabel, t, StringComparison.OrdinalIgnoreCase))?.ScreenId ?? t,
+            TargetKind.Stage => ContentTargets.IsProgramTarget(t) ? "PGM"
+                : state.Output.Placements.FirstOrDefault(p => string.Equals(p.CustomLabel, t, StringComparison.OrdinalIgnoreCase))?.ScreenId ?? t,
             TargetKind.Stinger => state.Stingers.Items.FirstOrDefault(i => string.Equals(i.DisplayName, t, StringComparison.OrdinalIgnoreCase))?.Id ?? t,
             _ => t,
         };

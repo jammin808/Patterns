@@ -253,6 +253,7 @@ public sealed class ActionRow : Observable
         TargetKind.Stinger => "Which VOG or stinger…",
         TargetKind.Part => "Which playlist part…",
         TargetKind.Screen => "Which screen…",
+        TargetKind.Stage => "Where on the preview… (PGM, a screen or a canvas)",
         TargetKind.Canvas => "Which canvas…",
         TargetKind.Stack => "Which list…",
         TargetKind.Music => "Which break music… (blank = resume)",
@@ -835,6 +836,14 @@ public sealed class CueEditor : Observable
                 var known = _s.Screens;
                 return Rig.OrderedLivePlacements(state, known)
                     .Select((x, i) => new PickItem(x.Placement.ScreenId, $"{i + 1} · {Rig.LabelFor(x.Placement, x.Info)}"));
+            }
+            case TargetKind.Stage:
+            {
+                // The programme first — the tile most often staged on — then every screen and canvas.
+                var items = new List<PickItem> { new("PGM", "PGM · the programme") };
+                items.AddRange(ChoicesFor(TargetKind.Screen));
+                items.AddRange(ChoicesFor(TargetKind.Canvas));
+                return items;
             }
             case TargetKind.Canvas:
             {

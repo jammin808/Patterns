@@ -13,6 +13,13 @@ public static class ContentTargets
     /// <summary>Screen ids never contain '+'; canvas keys always do.</summary>
     public static bool IsCanvasKey(string targetId) => targetId.Contains('+');
 
+    /// <summary>Blank, PGM or PROGRAM names the programme itself where a target could go — the staged verbs' way of saying "the preview's own picture".</summary>
+    public static bool IsProgramTarget(string? targetId)
+        => string.IsNullOrWhiteSpace(targetId)
+           || targetId.Equals("pgm", StringComparison.OrdinalIgnoreCase)
+           || targetId.Equals("program", StringComparison.OrdinalIgnoreCase)
+           || targetId.Equals("programme", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Moves every reference to a screen id onto a new one: the placement itself, per-screen
     /// patterns, joined-canvas keys and names, multiview tiles in any pattern, NDI senders, the

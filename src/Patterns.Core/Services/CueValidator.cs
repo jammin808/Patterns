@@ -246,6 +246,37 @@ public static class CueValidator
                     if (a.Kind == ShowActionKind.ScreenPreset && a.Target.Length == 0) Hard($"{where}: which screen?");
                     break;
                 }
+                case ShowActionKind.ScreenPattern:
+                    hasContent = true;
+                    if (!ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    if (ActionSpec.ParsePatternKind(a.Value) is null) Hard($"{where}: '{a.Value}' is not a kind of picture — Grid, ColorBars, LedWall, Media, Particles, Fractal…");
+                    break;
+                case ShowActionKind.ScreenStageLook:
+                case ShowActionKind.ScreenStagePreset:
+                case ShowActionKind.ScreenStagePattern:
+                case ShowActionKind.ScreenStageProgram:
+                case ShowActionKind.ScreenStageReset:
+                {
+                    // Staged on the preview, never on air: not content for the stinger rule. The
+                    // target is a screen, a canvas, or blank / PGM for the programme.
+                    if (!ContentTargets.IsProgramTarget(a.Target) && !ContentTargets.IsInRig(state, a.Target)) Hard($"{where}: screen '{a.Target}' is not in the rig.");
+                    switch (a.Kind)
+                    {
+                        case ShowActionKind.ScreenStageLook:
+                            if (a.Value.Length == 0) Hard($"{where}: which look? Choose the look to stage on the preview.");
+                            else if (LookService.Find(state, a.Value) is null) Hard($"{where}: look '{a.Value}' not found — the cue reads as broken until it exists.");
+                            break;
+                        case ShowActionKind.ScreenStagePreset:
+                            if (a.Value.Length == 0) Hard($"{where}: which preset? Choose one saved on the Pattern page.");
+                            else if (ctx.Presets is { } stagePresets && !stagePresets.Any(p => string.Equals(p, a.Value, StringComparison.OrdinalIgnoreCase)))
+                                Soft($"{where}: preset '{a.Value}' is not in the presets folder on this machine — the preview stays as it is.");
+                            break;
+                        case ShowActionKind.ScreenStagePattern:
+                            if (ActionSpec.ParsePatternKind(a.Value) is null) Hard($"{where}: '{a.Value}' is not a kind of picture — Grid, ColorBars, LedWall, Media, Particles, Fractal…");
+                            break;
+                    }
+                    break;
+                }
                 case ShowActionKind.ScreenLook:
                 case ShowActionKind.ScreenProgram:
                     hasContent = true;
