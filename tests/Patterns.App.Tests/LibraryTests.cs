@@ -47,7 +47,8 @@ public class LibraryTests
             b.Services.Store.SaveBrandKit("Acme", new BrandKit { CompanyName = "Acme", PrimaryColor = "#112233", SecondaryColor = "#445566" });
             vm.RefreshLibrary();
 
-            Assert.Equal(new[] { "All", "Patterns", "Images", "Videos", "Audio", "Particles", "Fractals", "Presets", "Brand kits" }, vm.LibrarySections);
+            // Decks and Web joined the chips in round 62: the PDFs had tiles under All alone, the saved pages had no tiles at all.
+            Assert.Equal(new[] { "All", "Patterns", "Images", "Videos", "Audio", "Decks", "Web", "Particles", "Fractals", "Presets", "Brand kits" }, vm.LibrarySections);
             Assert.Equal("All", vm.SelectedLibrarySection);
             Assert.Equal(vm.LibraryAll.Count, vm.Library.Count);
             Assert.Equal(vm.LibraryAll.Count, vm.LibraryAll.Select(i => i.Id).Distinct().Count()); // every tile its own id
@@ -137,7 +138,7 @@ public class LibraryTests
             Assert.NotNull(frame);
 
             var chips = host.GetVisualDescendants().OfType<ListBox>().Single(l => l.Name == "LibrarySections");
-            Assert.Equal(9, chips.ItemCount);
+            Assert.Equal(11, chips.ItemCount);   // the nine of round 30, Decks and Web since round 62
             chips.SelectedItem = "Fractals";
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("Fractals", vm.SelectedLibrarySection);

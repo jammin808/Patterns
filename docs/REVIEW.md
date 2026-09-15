@@ -1697,6 +1697,7 @@ them.
 - **Done.** The Web section with the service's colours, APPLY and ✕, the Decks chip, the rebuild
   on the Web section. §80.4.
 - **Kept deliberate:** a swatch rather than a live thumbnail per saved page.
+- **Found by CI:** two round-30 tests pin the chip list to its nine names; they name eleven now.
 
 ### 62.5 — the RUN monitor
 
@@ -1723,6 +1724,10 @@ them.
   view.
 - The right-click fix was the first item because a desk that shows nothing on a right-click is
   a broken desk; the regression test is the one that would have caught round 60.
+- One local App run's test host crashed after 559 tests while the Core and Rendering suites and
+  a build ran beside it; CI ran all 683 on the same commit with only the two chip tests red, and
+  the re-run alone here was the record. Load beside the App suite is the one thing it does not
+  tolerate — the round-60 note, again.
 
 Counts at the end of the round: Core 672, Rendering 602, Devices 7, Audio 9, Assistant 36,
 Audience 2, App 683 — 2,011 in seven suites, every one green here, the module's seventeen beside
