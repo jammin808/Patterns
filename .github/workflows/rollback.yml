@@ -1,0 +1,55 @@
+name: rollback
+
+# Puts an earlier version of the tree back on a branch as a new commit: nothing is rewritten,
+# the history keeps every version, and the roll-back is itself a version that can be rolled
+# back. Actions → rollback → Run workflow. "to" is the version — a tag (round-57,
+# show-2026-09-19), a commit or a branch; "branch" is where it lands (blank: the branch the run
+# was started from; a name that does not exist yet is made from that branch, to look at first);
+# "what" narrows it to paths (docs, integrations/companion-module-patterns) — everything when
+# blank, except the workflows, which stay current unless named. The push is made by the
+# workflow's own token, which starts no build by itself, so the workflow starts the build on the
+# branch it pushed: the Actions page shows the roll-back's run and its artifacts like any
+# other commit's. CHANGELOG.md says what each round was; the README's "Versions and rolling
+# back" says the rest.
+
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: "The version to put back: a tag (round-57, show-2026-09-19), a commit or a branch"
+        required: true
+        type: string
+      branch:
+        description: "The branch it lands on (blank: the branch this run was started from; a new name is made from it)"
+        required: false
+        type: string
+        default: ""
+      what:
+        description: "Only these paths, space-separated (docs, src/Patterns.Core); blank: everything"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency: rollback
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Put the version back, push it, build it
+        env:
+          TO: ${{ inputs.to }}
+          BRANCH: ${{ inputs.branch }}
+          WHAT: ${{ inputs.what }}
+          FROM_REF: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash .github/scripts/rollback.sh
